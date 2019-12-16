@@ -31,4 +31,23 @@ class DesugarRuleTestTarget {
       return x + y;
     }
   }
+
+  static class Alpha {
+
+    private final long multiplier;
+    private final long offset;
+
+    Alpha(int multiplier, int offset) {
+      this.multiplier = multiplier;
+      this.offset = offset;
+    }
+
+    static int twoIntSum(int x, int y) {
+      return x + y;
+    }
+
+    long linearLongTransform(long x) {
+      return multiplier * x + offset;
+    }
+  }
 }

@@ -20,8 +20,8 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth8.assertThat;
 import static org.junit.Assert.assertThrows;
 
+import com.google.devtools.build.android.desugar.DesugarRule.LoadAsmNode;
 import com.google.devtools.build.android.desugar.DesugarRule.LoadClass;
-import com.google.devtools.build.android.desugar.DesugarRule.LoadClassNode;
 import com.google.devtools.build.android.desugar.DesugarRule.LoadZipEntry;
 import java.lang.invoke.MethodHandles;
 import java.lang.reflect.Method;
@@ -32,6 +32,8 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 import org.objectweb.asm.tree.ClassNode;
+import org.objectweb.asm.tree.FieldNode;
+import org.objectweb.asm.tree.MethodNode;
 
 /** The test for {@link DesugarRule}. */
 @RunWith(JUnit4.class)
@@ -77,8 +79,19 @@ public class DesugarRuleTest {
       round = 2)
   private ZipEntry interfaceSubjectToDesugarZipEntryRound2;
 
-  @LoadClassNode("com.google.devtools.build.android.desugar.DesugarRuleTestTarget")
+  @LoadAsmNode(className = "com.google.devtools.build.android.desugar.DesugarRuleTestTarget")
   private ClassNode desugarRuleTestTargetClassNode;
+
+  @LoadAsmNode(
+      className = "com.google.devtools.build.android.desugar.DesugarRuleTestTarget$Alpha",
+      memberName = "twoIntSum")
+  private MethodNode twoIntSum;
+
+  @LoadAsmNode(
+      className = "com.google.devtools.build.android.desugar.DesugarRuleTestTarget$Alpha",
+      memberName = "multiplier",
+      memberDescriptor = "J")
+  private FieldNode multiplier;
 
   @Test
   public void staticMethodsAreMovedFromOriginatingClass() {
@@ -105,7 +118,7 @@ public class DesugarRuleTest {
   @Test
   public void nestMembers() {
     assertThat(desugarRuleTestTargetClassNode.nestMembers)
-        .containsExactly(
+        .contains(
             "com/google/devtools/build/android/desugar/DesugarRuleTestTarget$InterfaceSubjectToDesugar");
   }
 
@@ -121,5 +134,15 @@ public class DesugarRuleTest {
         .isSameInstanceAs(interfaceSubjectToDesugarCompanionClassRound1.getClassLoader());
     assertThat(interfaceSubjectToDesugarClassRound2.getClassLoader())
         .isSameInstanceAs(interfaceSubjectToDesugarCompanionClassRound2.getClassLoader());
+  }
+
+  @Test
+  public void injectFieldNodes() {
+    assertThat(twoIntSum.desc).isEqualTo("(II)I");
+  }
+
+  @Test
+  public void injectMethodNodes() {
+    assertThat(multiplier.desc).isEqualTo("J");
   }
 }

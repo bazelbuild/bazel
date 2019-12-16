@@ -16,11 +16,14 @@
 
 package com.google.devtools.build.android.desugar;
 
+import static com.google.common.base.Preconditions.checkState;
+
 import com.google.auto.value.AutoValue;
 import com.google.auto.value.extension.memoized.Memoized;
 import com.google.common.annotations.UsedReflectively;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.LinkedHashMultimap;
 import com.google.common.collect.Multimap;
@@ -53,6 +56,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 import org.junit.rules.TemporaryFolder;
@@ -63,6 +67,8 @@ import org.junit.runners.model.Statement;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.tree.ClassNode;
+import org.objectweb.asm.tree.FieldNode;
+import org.objectweb.asm.tree.MethodNode;
 
 /** A JUnit4 Rule that desugars an input jar file and load the transformed jar to JVM. */
 public class DesugarRule implements TestRule {
@@ -142,10 +148,11 @@ public class DesugarRule implements TestRule {
   }
 
   /**
-   * Identifies injectable {@link ClassNode} fields with a qualified class name. The desugar rule
-   * resolves the requested class at runtime, parse it into a {@link ClassNode} and assign parsed
-   * class node to the annotated field. An injectable {@link ClassNode} field may have any access
-   * modifier (private, package-private, protected, public). Sample usage:
+   * Identifies injectable ASM node fields (e.g. {@link org.objectweb.asm.tree.ClassNode}, {@link
+   * org.objectweb.asm.tree.MethodNode}, {@link org.objectweb.asm.tree.FieldNode}) with a qualified
+   * class name. The desugar rule resolves the requested class at runtime, parse it into a {@link
+   * ClassNode} and assign parsed class node to the annotated field. An injectable ASM node field
+   * may have any access modifier (private, package-private, protected, public). Sample usage:
    *
    * <pre><code>
    * &#064;RunWith(JUnit4.class)
@@ -157,7 +164,7 @@ public class DesugarRule implements TestRule {
    *           .addRuntimeInputs("path/to/my_jar.jar")
    *           .build();
    *
-   *   &#064;LoadClassNode("my.package.ClassToDesugar")
+   *   &#064;LoadAsmNode("my.package.ClassToDesugar")
    *   private ClassNode classToDesugarClassFile;
    *
    *   // ... Test methods ...
@@ -168,13 +175,19 @@ public class DesugarRule implements TestRule {
   @Documented
   @Target(ElementType.FIELD)
   @Retention(RetentionPolicy.RUNTIME)
-  public @interface LoadClassNode {
+  public @interface LoadAsmNode {
 
     /**
      * The fully-qualified class name of the class to load. The format agrees with {@link
      * Class#getName}.
      */
-    String value();
+    String className();
+
+    /** If non-empty, load the specified class member (field or method) from the enclosing class. */
+    String memberName() default "";
+
+    /** If non-empty, use the specified member descriptor to disambiguate overloaded methods. */
+    String memberDescriptor() default "";
 
     /** The round during which its associated jar is being used. */
     int round() default 1;
@@ -267,7 +280,7 @@ public class DesugarRule implements TestRule {
   private final ImmutableListMultimap<String, String> extraCustomCommandOptions;
 
   private final ImmutableList<Field> injectableClassLiterals;
-  private final ImmutableList<Field> injectableAstClassNodes;
+  private final ImmutableList<Field> injectableAsmNodes;
   private final ImmutableList<Field> injectableZipEntries;
 
   /** The state of the already-created directories to avoid directory re-creation. */
@@ -294,7 +307,7 @@ public class DesugarRule implements TestRule {
       ImmutableList<Path> inputJars,
       ImmutableList<Path> classPathEntries,
       ImmutableList<Field> injectableClassLiterals,
-      ImmutableList<Field> injectableAstClassNodes,
+      ImmutableList<Field> injectableAsmNodes,
       ImmutableList<Field> injectableZipEntries) {
     this.testInstance = testInstance;
     this.testInstanceLookup = testInstanceLookup;
@@ -308,7 +321,7 @@ public class DesugarRule implements TestRule {
     this.extraCustomCommandOptions = customCommandOptions;
 
     this.injectableClassLiterals = injectableClassLiterals;
-    this.injectableAstClassNodes = injectableAstClassNodes;
+    this.injectableAsmNodes = injectableAsmNodes;
     this.injectableZipEntries = injectableZipEntries;
   }
 
@@ -349,14 +362,16 @@ public class DesugarRule implements TestRule {
               fieldSetter.invoke(testInstance, classLiteral);
             }
 
-            for (Field field : injectableAstClassNodes) {
-              ClassNode classNode =
-                  getAstClassNode(
-                      field.getDeclaredAnnotation(LoadClassNode.class),
-                      inputs,
-                      jarTransformationRecords);
+            for (Field field : injectableAsmNodes) {
+              Class<?> requestedFieldType = field.getType();
+              Object asmNode =
+                  getAsmNode(
+                      field.getDeclaredAnnotation(LoadAsmNode.class),
+                      requestedFieldType,
+                      jarTransformationRecords,
+                      inputs);
               MethodHandle fieldSetter = testInstanceLookup.unreflectSetter(field);
-              fieldSetter.invoke(testInstance, classNode);
+              fieldSetter.invoke(testInstance, asmNode);
             }
 
             for (Field field : injectableZipEntries) {
@@ -371,12 +386,12 @@ public class DesugarRule implements TestRule {
   }
 
   private static Class<?> getClassLiteral(
-      LoadClass classLiteralRequestInfo,
+      LoadClass classLiteralRequest,
       ClassLoader initialInputClassLoader,
       List<JarTransformationRecord> jarTransformationRecords)
       throws Throwable {
-    String qualifiedClassName = classLiteralRequestInfo.value();
-    int round = classLiteralRequestInfo.round();
+    String qualifiedClassName = classLiteralRequest.value();
+    int round = classLiteralRequest.round();
     ClassLoader outputJarClassLoader =
         round == 0
             ? initialInputClassLoader
@@ -384,26 +399,87 @@ public class DesugarRule implements TestRule {
     return outputJarClassLoader.loadClass(qualifiedClassName);
   }
 
-  private static ClassNode getAstClassNode(
-      LoadClassNode astNodeRequestInfo,
-      ImmutableList<Path> initialInputs,
-      List<JarTransformationRecord> jarTransformationRecords)
+  private static Object getAsmNode(
+      LoadAsmNode asmNodeRequest,
+      Class<?> requestedNodeType,
+      List<JarTransformationRecord> jarTransformationRecords,
+      ImmutableList<Path> initialInputs)
       throws IOException, ClassNotFoundException {
-    String qualifiedClassName = astNodeRequestInfo.value();
+    String qualifiedClassName = asmNodeRequest.className();
     String classFileName = qualifiedClassName.replace('.', '/') + ".class";
-    int round = astNodeRequestInfo.round();
+    int round = asmNodeRequest.round();
     ImmutableList<Path> jars =
         round == 0 ? initialInputs : jarTransformationRecords.get(round - 1).outputJars();
     ClassNode classNode = findClassNode(classFileName, jars);
-    if (classNode == null) {
-      throw new ClassNotFoundException(qualifiedClassName);
+    if (requestedNodeType == ClassNode.class) {
+      return classNode;
     }
-    return classNode;
+
+    String memberName = asmNodeRequest.memberName();
+    String memberDescriptor = asmNodeRequest.memberDescriptor();
+    if (requestedNodeType == FieldNode.class) {
+      return getFieldNode(classNode, memberName, memberDescriptor);
+    }
+    if (requestedNodeType == MethodNode.class) {
+      return getMethodNode(classNode, memberName, memberDescriptor);
+    }
+
+    throw new UnsupportedOperationException(
+        String.format("Injecting a node type (%s) is not supported", requestedNodeType));
   }
 
-  private ZipEntry getZipEntry(LoadZipEntry zipEntryRequestInfo) throws IOException {
-    String zipEntryPathName = zipEntryRequestInfo.value();
-    int round = zipEntryRequestInfo.round();
+  private static FieldNode getFieldNode(
+      ClassNode classNode, String fieldName, String fieldDescriptor) {
+    for (FieldNode field : classNode.fields) {
+      if (fieldName.equals(field.name)) {
+        checkState(
+            fieldDescriptor.isEmpty() || fieldDescriptor.equals(field.desc),
+            "Found name-matched field but with a different descriptor. Expected requested field"
+                + " descriptor, if specified, agrees with the actual field type. Field name <%s>"
+                + " in class <%s>; Requested Type <%s>; Actual Type: <%s>.",
+            fieldName,
+            classNode.name,
+            fieldDescriptor,
+            field.desc);
+        return field;
+      }
+    }
+    throw new IllegalStateException(
+        String.format("Field <%s> not found in class <%s>", fieldName, classNode.name));
+  }
+
+  private static MethodNode getMethodNode(
+      ClassNode classNode, String methodName, String methodDescriptor) {
+    boolean hasMethodDescriptor = !methodDescriptor.isEmpty();
+    List<MethodNode> matchedMethods =
+        classNode.methods.stream()
+            .filter(methodNode -> methodName.equals(methodNode.name))
+            .filter(methodNode -> !hasMethodDescriptor || methodDescriptor.equals(methodNode.desc))
+            .collect(Collectors.toList());
+    if (matchedMethods.isEmpty()) {
+      throw new IllegalStateException(
+          String.format(
+              "Method <name:%s%s> is not found in class <%s>",
+              methodName,
+              hasMethodDescriptor ? ", descriptor:" + methodDescriptor : "",
+              classNode.name));
+    }
+    if (matchedMethods.size() > 1) {
+      List<String> matchedMethodDescriptors =
+          matchedMethods.stream().map(method -> method.desc).collect(Collectors.toList());
+      throw new IllegalStateException(
+          String.format(
+              "Multiple matches for requested method (name: %s in class %s). Please specify the"
+                  + " method descriptor to disambiguate overloaded method request. All descriptors"
+                  + " of name-matched methods: %s.",
+              methodName, classNode.name, matchedMethodDescriptors));
+    }
+    return Iterables.getOnlyElement(matchedMethods);
+  }
+
+  private ZipEntry getZipEntry(LoadZipEntry zipEntryRequest) throws IOException {
+    String zipEntryPathName = zipEntryRequest.value();
+    int round = zipEntryRequest.round();
     ImmutableList<Path> jars =
         round == 0 ? inputs : jarTransformationRecords.get(round - 1).outputJars();
     for (Path jar : jars) {
@@ -418,7 +494,7 @@ public class DesugarRule implements TestRule {
   }
 
   private static ClassNode findClassNode(String zipEntryPathName, ImmutableList<Path> jars)
-      throws IOException {
+      throws IOException, ClassNotFoundException {
     for (Path jar : jars) {
       ZipFile zipFile = new ZipFile(jar.toFile());
       ZipEntry zipEntry = zipFile.getEntry(zipEntryPathName);
@@ -431,7 +507,7 @@ public class DesugarRule implements TestRule {
         }
       }
     }
-    return null;
+    throw new ClassNotFoundException(zipEntryPathName);
   }
 
   private ClassLoader getInputClassLoader() throws MalformedURLException {
@@ -481,10 +557,13 @@ public class DesugarRule implements TestRule {
   /** The builder class for {@link DesugarRule}. */
   public static class DesugarRuleBuilder {
 
+    private static final ImmutableSet<Class<?>> SUPPORTED_ASM_NODE_TYPES =
+        ImmutableSet.of(ClassNode.class, FieldNode.class, MethodNode.class);
+
     private final Object testInstance;
     private final MethodHandles.Lookup testInstanceLookup;
     private final ImmutableList<Field> injectableClassLiterals;
-    private final ImmutableList<Field> injectableAstClassNodes;
+    private final ImmutableList<Field> injectableAsmNodes;
     private final ImmutableList<Field> injectableJarFileEntries;
     private int maxNumOfTransformations = 1;
     private final List<Path> inputs = new ArrayList<>();
@@ -509,7 +588,7 @@ public class DesugarRule implements TestRule {
       }
 
       injectableClassLiterals = findAllFieldsWithAnnotation(testClass, LoadClass.class);
-      injectableAstClassNodes = findAllFieldsWithAnnotation(testClass, LoadClassNode.class);
+      injectableAsmNodes = findAllFieldsWithAnnotation(testClass, LoadAsmNode.class);
       injectableJarFileEntries = findAllFieldsWithAnnotation(testClass, LoadZipEntry.class);
     }
 
@@ -565,7 +644,7 @@ public class DesugarRule implements TestRule {
     public DesugarRule build() {
       checkJVMOptions();
       checkInjectableClassLiterals();
-      checkInjectableClassNodes();
+      checkInjectableAsmNodes();
       checkInjectableZipEntries();
 
       if (bootClassPathEntries.isEmpty()
@@ -592,7 +671,7 @@ public class DesugarRule implements TestRule {
           ImmutableList.copyOf(inputs),
           ImmutableList.copyOf(classPathEntries),
           injectableClassLiterals,
-          injectableAstClassNodes,
+          injectableAsmNodes,
           injectableJarFileEntries);
     }
 
@@ -617,19 +696,20 @@ public class DesugarRule implements TestRule {
       }
     }
 
-    private void checkInjectableClassNodes() {
-      for (Field field : injectableAstClassNodes) {
+    private void checkInjectableAsmNodes() {
+      for (Field field : injectableAsmNodes) {
         if (Modifier.isStatic(field.getModifiers())) {
           errorMessenger.addError("Expected to be non-static for field (%s)", field);
         }
 
-        if (field.getType() != ClassNode.class) {
+        if (!SUPPORTED_ASM_NODE_TYPES.contains(field.getType())) {
           errorMessenger.addError(
-              "Expected a field with Type: (%s) but gets (%s)", ClassNode.class.getName(), field);
+              "Expected @LoadAsmNode on a field in one of: (%s) but gets (%s)",
+              SUPPORTED_ASM_NODE_TYPES, field);
         }
 
-        LoadClassNode astClassNodeInfo = field.getDeclaredAnnotation(LoadClassNode.class);
-        int round = astClassNodeInfo.round();
+        LoadAsmNode astAsmNodeInfo = field.getDeclaredAnnotation(LoadAsmNode.class);
+        int round = astAsmNodeInfo.round();
         if (round < 0 || round > maxNumOfTransformations) {
           errorMessenger.addError(
               "Expected the round (actual:%d) of desugar transformation within [0, %d], where 0"
