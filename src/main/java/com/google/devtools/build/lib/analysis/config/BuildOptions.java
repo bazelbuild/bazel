@@ -1263,7 +1263,6 @@ public final class BuildOptions implements Cloneable, Serializable {
     private static final ConcurrentHashMap<ByteString, OptionsDiffForReconstruction>
         byteStringToDiffMap = new ConcurrentHashMap<>();
 
-    @VisibleForTesting
     public DiffToByteCache() {}
 
     @Override
