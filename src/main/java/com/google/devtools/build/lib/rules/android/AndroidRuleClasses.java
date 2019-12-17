@@ -27,6 +27,7 @@ import static com.google.devtools.build.lib.packages.Type.STRING_LIST;
 import static com.google.devtools.build.lib.util.FileTypeSet.NO_FILE;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
@@ -66,6 +67,7 @@ import com.google.devtools.build.lib.syntax.Printer;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import java.util.List;
+import java.util.Map;
 
 /** Rule definitions for Android rules. */
 public final class AndroidRuleClasses {
@@ -235,7 +237,7 @@ public final class AndroidRuleClasses {
     }
 
     @Override
-    public List<BuildOptions> split(BuildOptions buildOptions) {
+    public Map<String, BuildOptions> split(BuildOptions buildOptions) {
 
       AndroidConfiguration.Options androidOptions =
           buildOptions.get(AndroidConfiguration.Options.class);
@@ -247,19 +249,19 @@ public final class AndroidRuleClasses {
         if (androidOptions.cpu.isEmpty()
             || androidCrosstoolTop == null
             || androidCrosstoolTop.equals(cppOptions.crosstoolTop)) {
-          return ImmutableList.of(buildOptions);
+          return ImmutableMap.of(buildOptions.get(CoreOptions.class).cpu, buildOptions);
 
         } else {
 
           BuildOptions splitOptions = buildOptions.clone();
           splitOptions.get(CoreOptions.class).cpu = androidOptions.cpu;
           setCommonAndroidOptions(androidOptions, splitOptions);
-          return ImmutableList.of(splitOptions);
+          return ImmutableMap.of(androidOptions.cpu, splitOptions);
         }
 
       } else {
 
-        ImmutableList.Builder<BuildOptions> result = ImmutableList.builder();
+        ImmutableMap.Builder<String, BuildOptions> result = ImmutableMap.builder();
         for (String cpu : ImmutableSortedSet.copyOf(androidOptions.fatApkCpus)) {
           BuildOptions splitOptions = buildOptions.clone();
           // Disable fat APKs for the child configurations.
@@ -270,7 +272,7 @@ public final class AndroidRuleClasses {
           splitOptions.get(AndroidConfiguration.Options.class).cpu = cpu;
           splitOptions.get(CoreOptions.class).cpu = cpu;
           setCommonAndroidOptions(androidOptions, splitOptions);
-          result.add(splitOptions);
+          result.put(cpu, splitOptions);
         }
         return result.build();
       }

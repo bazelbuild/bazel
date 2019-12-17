@@ -35,9 +35,9 @@ import com.google.devtools.common.options.OptionDefinition;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
 import java.lang.reflect.Field;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.LinkedHashSet;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
@@ -62,7 +62,7 @@ public class FunctionTransitionUtil {
    * @param attrObject the attributes of the rule to which this transition is attached
    * @return the post-transition build options.
    */
-  static List<BuildOptions> applyAndValidate(
+  static Map<String, BuildOptions> applyAndValidate(
       BuildOptions buildOptions,
       StarlarkDefinedConfigTransition starlarkTransition,
       StructImpl attrObject)
@@ -72,16 +72,16 @@ public class FunctionTransitionUtil {
     Map<String, OptionInfo> optionInfoMap = buildOptionInfo(buildOptions);
     Dict<String, Object> settings = buildSettings(buildOptions, optionInfoMap, starlarkTransition);
 
-    ImmutableList.Builder<BuildOptions> splitBuildOptions = ImmutableList.builder();
+    ImmutableMap.Builder<String, BuildOptions> splitBuildOptions = ImmutableMap.builder();
 
-    ImmutableList<Map<String, Object>> transitions =
+    ImmutableMap<String, Map<String, Object>> transitions =
         starlarkTransition.evaluate(settings, attrObject);
-    validateFunctionOutputsMatchesDeclaredOutputs(transitions, starlarkTransition);
+    validateFunctionOutputsMatchesDeclaredOutputs(transitions.values(), starlarkTransition);
 
-    for (Map<String, Object> transition : transitions) {
+    for (Map.Entry<String, Map<String, Object>> entry : transitions.entrySet()) {
       BuildOptions transitionedOptions =
-          applyTransition(buildOptions, transition, optionInfoMap, starlarkTransition);
-      splitBuildOptions.add(transitionedOptions);
+          applyTransition(buildOptions, entry.getValue(), optionInfoMap, starlarkTransition);
+      splitBuildOptions.put(entry.getKey(), transitionedOptions);
     }
     return splitBuildOptions.build();
   }
@@ -92,7 +92,7 @@ public class FunctionTransitionUtil {
    * StarlarkTransition#validate}
    */
   private static void validateFunctionOutputsMatchesDeclaredOutputs(
-      ImmutableList<Map<String, Object>> transitions,
+      Collection<Map<String, Object>> transitions,
       StarlarkDefinedConfigTransition starlarkTransition)
       throws EvalException {
     for (Map<String, Object> transition : transitions) {

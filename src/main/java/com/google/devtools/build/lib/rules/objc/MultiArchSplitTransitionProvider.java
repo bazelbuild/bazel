@@ -20,6 +20,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Optional;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
@@ -40,6 +41,7 @@ import com.google.devtools.build.lib.skylarkbuildapi.SplitTransitionProviderApi;
 import com.google.devtools.build.lib.syntax.Printer;
 import com.google.devtools.build.lib.syntax.StarlarkValue;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 /**
@@ -193,7 +195,7 @@ public class MultiArchSplitTransitionProvider
     }
 
     @Override
-    public final List<BuildOptions> split(BuildOptions buildOptions) {
+    public final Map<String, BuildOptions> split(BuildOptions buildOptions) {
       List<String> cpus;
       DottedVersion actualMinimumOsVersion;
       ConfigurationDistinguisher configurationDistinguisher;
@@ -259,7 +261,7 @@ public class MultiArchSplitTransitionProvider
           throw new IllegalArgumentException("Unsupported platform type " + platformType);
       }
 
-      ImmutableList.Builder<BuildOptions> splitBuildOptions = ImmutableList.builder();
+      ImmutableMap.Builder<String, BuildOptions> splitBuildOptions = ImmutableMap.builder();
       for (String cpu : cpus) {
         BuildOptions splitOptions = buildOptions.clone();
 
@@ -298,7 +300,7 @@ public class MultiArchSplitTransitionProvider
         }
 
         appleCommandLineOptions.configurationDistinguisher = configurationDistinguisher;
-        splitBuildOptions.add(splitOptions);
+        splitBuildOptions.put(cpu, splitOptions);
       }
       return splitBuildOptions.build();
     }

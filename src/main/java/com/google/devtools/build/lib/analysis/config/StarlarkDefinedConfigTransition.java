@@ -101,7 +101,7 @@ public abstract class StarlarkDefinedConfigTransition implements ConfigurationTr
    * @throws EvalException if there is an error evaluating the transition
    * @throws InterruptedException if evaluating the transition is interrupted
    */
-  public abstract ImmutableList<Map<String, Object>> evaluate(
+  public abstract ImmutableMap<String, Map<String, Object>> evaluate(
       Map<String, Object> previousSettings, StructImpl attributeMap)
       throws EvalException, InterruptedException;
 
@@ -134,9 +134,9 @@ public abstract class StarlarkDefinedConfigTransition implements ConfigurationTr
     }
 
     @Override
-    public ImmutableList<Map<String, Object>> evaluate(
+    public ImmutableMap<String, Map<String, Object>> evaluate(
         Map<String, Object> previousSettings, StructImpl attributeMapper) {
-      return ImmutableList.of(changedSettings);
+      return ImmutableMap.of("analysis_test", changedSettings);
     }
 
     @Override
@@ -206,7 +206,7 @@ public abstract class StarlarkDefinedConfigTransition implements ConfigurationTr
     // TODO(bazel-team): integrate dict-of-dicts return type with ctx.split_attr
     @Override
     @SuppressWarnings("rawtypes")
-    public ImmutableList<Map<String, Object>> evaluate(
+    public ImmutableMap<String, Map<String, Object>> evaluate(
         Map<String, Object> previousSettings, StructImpl attributeMapper)
         throws EvalException, InterruptedException {
       Object result;
@@ -222,7 +222,7 @@ public abstract class StarlarkDefinedConfigTransition implements ConfigurationTr
         // settings. Return early for now since better error reporting will happen in
         // {@link FunctionTransitionUtil#validateFunctionOutputsMatchesDeclaredOutputs}
         if (((Dict) result).isEmpty()) {
-          return ImmutableList.of(ImmutableMap.of());
+          return ImmutableMap.of("error", ImmutableMap.of());
         }
         // TODO(bazel-team): integrate keys with ctx.split_attr. Currently ctx.split_attr always
         // keys on cpu value - we should be able to key on the keys returned here.
@@ -231,31 +231,38 @@ public abstract class StarlarkDefinedConfigTransition implements ConfigurationTr
           Map<String, Dict> dictOfDict =
               ((Dict<?, ?>) result)
                   .getContents(String.class, Dict.class, "dictionary of options dictionaries");
-          ImmutableList.Builder<Map<String, Object>> builder = ImmutableList.builder();
+          ImmutableMap.Builder<String, Map<String, Object>> builder = ImmutableMap.builder();
           for (Map.Entry<String, Dict> entry : dictOfDict.entrySet()) { // rawtypes error
             Map<String, Object> dict =
                 ((Dict<?, ?>) entry.getValue())
                     .getContents(String.class, Object.class, "an option dictionary");
-            builder.add(dict);
+            builder.put(entry.getKey(), dict);
           }
           return builder.build();
         } catch (EvalException e) {
           // fall through
         }
         try {
-          return ImmutableList.of(
+          // This is a non-split, i.e. 1:1, transition. Use the impl function name as the transition
+          // key though it would not be used anywhere.
+          return ImmutableMap.of(
+              impl.getName(),
               ((Dict<?, ?>) result)
                   .getContents(String.class, Object.class, "dictionary of options"));
         } catch (EvalException e) {
           throw new EvalException(impl.getLocation(), e.getMessage());
         }
       } else if (result instanceof Sequence) {
-        ImmutableList.Builder<Map<String, Object>> builder = ImmutableList.builder();
+        ImmutableMap.Builder<String, Map<String, Object>> builder = ImmutableMap.builder();
         try {
+          int i = 0;
           for (Dict<?, ?> toOptions :
               ((Sequence<?>) result)
                   .getContents(Dict.class, "dictionary of options dictionaries")) {
-            builder.add(toOptions.getContents(String.class, Object.class, "dictionary of options"));
+            // TODO(b/146347033): Document this behavior.
+            builder.put(
+                Integer.toString(i++),
+                toOptions.getContents(String.class, Object.class, "dictionary of options"));
           }
         } catch (EvalException e) {
           throw new EvalException(impl.getLocation(), e.getMessage());
