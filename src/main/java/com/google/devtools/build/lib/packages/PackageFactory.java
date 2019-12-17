@@ -71,7 +71,7 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.lib.vfs.UnixGlob;
 import java.io.IOException;
-import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
@@ -968,212 +968,233 @@ public final class PackageFactory {
       Iterable<Event> pastEvents,
       Iterable<Postable> pastPosts,
       RuleVisibility defaultVisibility,
-      StarlarkSemantics starlarkSemantics,
+      StarlarkSemantics semantics,
       Map<String, Extension> imports,
       ImmutableList<Label> skylarkFileDependencies,
       ImmutableMap<RepositoryName, RepositoryName> repositoryMapping)
       throws InterruptedException {
+    Package pkg =
+        packageBuilderHelper.createFreshPackage(packageId, ruleClassProvider.getRunfilesPrefix());
     Package.Builder pkgBuilder =
-        new Package.Builder(
-            packageBuilderHelper.createFreshPackage(
-                packageId, ruleClassProvider.getRunfilesPrefix()),
-            starlarkSemantics);
+        new Package.Builder(pkg, semantics)
+            .setFilename(buildFilePath)
+            .setDefaultVisibility(defaultVisibility)
+            // "defaultVisibility" comes from the command line.
+            // Let's give the BUILD file a chance to set default_visibility once,
+            // by resetting the PackageBuilder.defaultVisibilitySet flag.
+            .setDefaultVisibilitySet(false)
+            .setSkylarkFileDependencies(skylarkFileDependencies)
+            .setWorkspaceName(workspaceName)
+            .setRepositoryMapping(repositoryMapping)
+            .setThirdPartyLicenceExistencePolicy(
+                ruleClassProvider.getThirdPartyLicenseExistencePolicy());
+
+    // Report previous events + posts.
+    // TODO(adonovan): there are no posts,  and the events are scan/parse
+    // errors recorded in file.errors(). Simplify!
     StoredEventHandler eventHandler = new StoredEventHandler();
-
-    pkgBuilder
-        .setFilename(buildFilePath)
-        .setDefaultVisibility(defaultVisibility)
-        // "defaultVisibility" comes from the command line. Let's give the BUILD file a chance to
-        // set default_visibility once, be reseting the PackageBuilder.defaultVisibilitySet flag.
-        .setDefaultVisibilitySet(false)
-        .setSkylarkFileDependencies(skylarkFileDependencies)
-        .setWorkspaceName(workspaceName)
-        .setRepositoryMapping(repositoryMapping);
-
-    // environment
-    ImmutableMap.Builder<String, Object> env = ImmutableMap.builder();
-    populateEnvironment(env);
-
-    try (Mutability mutability = Mutability.create("package", packageId)) {
-      StarlarkThread thread =
-          StarlarkThread.builder(mutability)
-              .setGlobals(Module.createForBuiltins(env.build()))
-              .setSemantics(starlarkSemantics)
-              .setEventHandler(eventHandler)
-              .setImportedExtensions(imports)
-              .build();
-
-      // TODO(adonovan): save this as a field in BazelSkylarkContext.
-      // It needn't be a second thread-local.
-      thread.setThreadLocal(
-          PackageContext.class, new PackageContext(pkgBuilder, globber, eventHandler));
-
-      new BazelStarlarkContext(
-              BazelStarlarkContext.Phase.LOADING,
-              ruleClassProvider.getToolsRepository(),
-              /*fragmentNameToClass=*/ null,
-              repositoryMapping,
-              new SymbolGenerator<>(packageId),
-              /*analysisRuleLabel=*/ null)
-          .storeInThread(thread);
-
-      Event.replayEventsOn(eventHandler, pastEvents);
-      for (Postable post : pastPosts) {
-        eventHandler.post(post);
-      }
-
-      if (!validatePackageIdentifier(packageId, file.getLocation(), eventHandler)) {
-        pkgBuilder.setContainsErrors();
-      }
-
-      pkgBuilder.setThirdPartyLicenceExistencePolicy(
-          ruleClassProvider.getThirdPartyLicenseExistencePolicy());
-
-      if (maxDirectoriesToEagerlyVisitInGlobbing == -2) {
-        GlobPatternExtractor extractor = new GlobPatternExtractor();
-        extractor.visit(file);
-        try {
-          globber.runAsync(
-              extractor.getIncludeDirectoriesPatterns(),
-              ImmutableList.of(),
-              /*excludeDirs=*/ false,
-              /*allowEmpty=*/ true);
-          globber.runAsync(
-              extractor.getExcludeDirectoriesPatterns(),
-              ImmutableList.of(),
-              /*excludeDirs=*/ true,
-              /*allowEmpty=*/ true);
-        } catch (BadGlobException | InterruptedException e) {
-          // Ignore exceptions. Errors will be properly reported when the actual globbing is done.
-        }
-      }
-
-      boolean ok = true;
-
-      // Reject forbidden BUILD syntax.
-      if (!checkBuildSyntax(file, eventHandler)) {
-        ok = false;
-      }
-
-      // Attempt validation only if the file parsed clean.
-      if (file.ok()) {
-        ValidationEnvironment.validateFile(
-            file, thread.getGlobals(), starlarkSemantics, /*isBuildFile=*/ true);
-        if (!file.ok()) {
-          Event.replayEventsOn(eventHandler, file.errors());
-          ok = false;
-        }
-
-        // Attempt execution only if the file parsed, validated, and checked clean.
-        if (ok) {
-          try {
-            EvalUtils.exec(file, thread);
-          } catch (EvalException ex) {
-            eventHandler.handle(Event.error(ex.getLocation(), ex.getMessage()));
-            ok = false;
-          }
-        }
-      } else {
-        ok = false;
-      }
-
-      if (!ok) {
-        pkgBuilder.setContainsErrors();
-      }
+    Event.replayEventsOn(eventHandler, pastEvents);
+    for (Postable post : pastPosts) {
+      eventHandler.post(post);
     }
 
+    if (!buildPackage(
+        pkgBuilder,
+        packageId,
+        file,
+        semantics,
+        imports,
+        new PackageContext(pkgBuilder, globber, eventHandler))) {
+      pkgBuilder.setContainsErrors();
+    }
     pkgBuilder.addPosts(eventHandler.getPosts());
     pkgBuilder.addEvents(eventHandler.getEvents());
     return pkgBuilder;
   }
 
-  /**
-   * A GlobPatternExtractor visits a syntax tree, tries to extract glob() patterns from it, and
-   * eagerly instructs a {@link Globber} to fetch them asynchronously. That way, the glob results
-   * are readily available when required in the actual execution of the syntax tree. The starlark
-   * code itself is later executed sequentially and having costly globs, especially slow on
-   * networked file systems, executed sequentially in them can be very time consuming.
-   */
-  @VisibleForTesting
-  static class GlobPatternExtractor extends NodeVisitor {
-    private final Set<String> includeDirectoriesPatterns = new HashSet<>();
-    private final Set<String> excludeDirectoriesPatterns = new HashSet<>();
+  // Validates and executes a BUILD file, returning true on success, or reporting
+  // errors to pkgContext.eventHandler on failure. The file may contain scan/parse
+  // errors, but these are assumed (inconsistently) to have been reported already.
+  private boolean buildPackage(
+      Package.Builder pkgBuilder,
+      PackageIdentifier packageId,
+      StarlarkFile file,
+      StarlarkSemantics semantics,
+      Map<String, Extension> imports,
+      PackageContext pkgContext)
+      throws InterruptedException {
 
-    @Override
-    public void visit(FuncallExpression node) {
-      super.visit(node);
-      Expression function = node.getFunction();
-      if (!(function instanceof Identifier)) {
-        return;
-      }
-      if (!((Identifier) function).getName().equals("glob")) {
-        return;
-      }
-
-      boolean excludeDirectories = true; // excluded by default.
-      List<String> globStrings = new ArrayList<>();
-      for (Argument arg : node.getArguments()) {
-        String name = arg.getName();
-        if (name != null && name.equals("exclude_directories")) {
-          if (arg.getValue() instanceof IntegerLiteral) {
-            excludeDirectories = ((IntegerLiteral) arg.getValue()).getValue() != 0;
-          }
-          continue;
-        }
-        if (name == null || name.equals("include")) {
-          if (arg.getValue() instanceof ListExpression) {
-            ListExpression list = (ListExpression) arg.getValue();
-            for (Expression elem : list.getElements()) {
-              if (elem instanceof StringLiteral) {
-                globStrings.add(((StringLiteral) elem).getValue());
-              }
-            }
-          }
-        }
-      }
-      if (excludeDirectories) {
-        excludeDirectoriesPatterns.addAll(globStrings);
-      } else {
-        includeDirectoriesPatterns.addAll(globStrings);
-      }
+    // Pre-existing parse error.
+    // Events are assumed to have been reported already.
+    // TODO(adonovan): this is inconsistent. Report them here.
+    if (!file.ok()) {
+      return false;
     }
 
-    List<String> getIncludeDirectoriesPatterns() {
-      return ImmutableList.copyOf(includeDirectoriesPatterns);
-    }
-
-    List<String> getExcludeDirectoriesPatterns() {
-      return ImmutableList.copyOf(excludeDirectoriesPatterns);
-    }
-  }
-
-  // Reports an error and returns false iff package identifier was illegal.
-  private static boolean validatePackageIdentifier(
-      PackageIdentifier packageId, Location location, ExtendedEventHandler eventHandler) {
+    // Validate the package identifier.
+    // TODO(adonovan): it's kinda late to be doing this check.
+    // after we've parsed the BUILD file and created the Package.
     String error = LabelValidator.validatePackageName(packageId.getPackageFragment().toString());
     if (error != null) {
-      eventHandler.handle(Event.error(location, error));
-      return false; // Invalid package name 'foo'
+      pkgContext.eventHandler.handle(Event.error(file.getLocation(), error));
+      return false;
     }
-    return true;
+
+    // Construct environment.
+    ImmutableMap.Builder<String, Object> env = ImmutableMap.builder();
+    populateEnvironment(env);
+
+    // TODO(adonovan): defer creation of Mutability + Thread till after validation,
+    // once the validate API is rationalized.
+    try (Mutability mutability = Mutability.create("package", packageId)) {
+      StarlarkThread thread =
+          StarlarkThread.builder(mutability)
+              .setGlobals(Module.createForBuiltins(env.build()))
+              .setSemantics(semantics)
+              .setEventHandler(pkgContext.eventHandler) // for print statements
+              .setImportedExtensions(imports)
+              .build();
+
+      // Validate.
+      ValidationEnvironment.validateFile(
+          file, thread.getGlobals(), semantics, /*isBuildFile=*/ true);
+      if (!file.ok()) {
+        Event.replayEventsOn(pkgContext.eventHandler, file.errors());
+        return false;
+      }
+
+      // Check syntax. Make a pass over the syntax tree to:
+      // - reject forbidden BUILD syntax
+      // - extract literal glob patterns for prefetching
+      // - record the generator_name of each top-level macro call (coming soon)
+      Set<String> globs = new HashSet<>();
+      Set<String> globsWithDirs = new HashSet<>();
+      if (!checkBuildSyntax(file, globs, globsWithDirs, pkgContext.eventHandler)) {
+        return false;
+      }
+
+      // Prefetch glob patterns asynchronously.
+      if (maxDirectoriesToEagerlyVisitInGlobbing == -2) {
+        try {
+          pkgContext.globber.runAsync(
+              ImmutableList.copyOf(globs),
+              ImmutableList.of(),
+              /*excludeDirs=*/ true,
+              /*allowEmpty=*/ true);
+          pkgContext.globber.runAsync(
+              ImmutableList.copyOf(globsWithDirs),
+              ImmutableList.of(),
+              /*excludeDirs=*/ false,
+              /*allowEmpty=*/ true);
+        } catch (BadGlobException ex) {
+          // Ignore exceptions.
+          // Errors will be properly reported when the actual globbing is done.
+        }
+      }
+
+      new BazelStarlarkContext(
+              BazelStarlarkContext.Phase.LOADING,
+              ruleClassProvider.getToolsRepository(),
+              /*fragmentNameToClass=*/ null,
+              pkgBuilder.getRepositoryMapping(),
+              new SymbolGenerator<>(packageId),
+              /*analysisRuleLabel=*/ null)
+          .storeInThread(thread);
+
+      // TODO(adonovan): save this as a field in BazelSkylarkContext.
+      // It needn't be a second thread-local.
+      thread.setThreadLocal(PackageContext.class, pkgContext);
+
+      // Execute.
+      try {
+        EvalUtils.exec(file, thread);
+      } catch (EvalException ex) {
+        pkgContext.eventHandler.handle(Event.error(ex.getLocation(), ex.getMessage()));
+        return false;
+      }
+    }
+
+    return true; // success
   }
 
   /**
-   * checkBuildSyntax checks the syntax tree of a BUILD (not .bzl) file. If it discovers a 'def',
-   * 'if', or 'for' statement, or a f(*args) or f(**kwargs) call, it reports an event to handler and
-   * returns false.
+   * checkBuildSyntax visits the syntax tree of a BUILD (not .bzl) file. If it discovers a {@code
+   * def}, {@code if}, or {@code for} statement, or a {@code f(*args)} or {@code f(**kwargs)} call,
+   * it reports an event to handler and returns false.
+   *
+   * <p>It also extracts literal {@code glob(include="pattern")} patterns and adds them to {@code
+   * globs}, or to {@code globsWithDirs} if the call had a {@code exclude_directories=0} argument.
    */
   // TODO(adonovan): restructure so that this is called from the sole place that executes BUILD
-  // files.
-  // TODO(adonovan): this is the ideal place to extract string literals from glob calls for
-  // prefetching. Combine.
-  public static boolean checkBuildSyntax(StarlarkFile file, final EventHandler eventHandler) {
+  // files. Also, make private; there's reason for tests to call this directly.
+  public static boolean checkBuildSyntax(
+      StarlarkFile file,
+      Collection<String> globs,
+      Collection<String> globsWithDirs,
+      EventHandler eventHandler) {
     final boolean[] success = {true};
     NodeVisitor checker =
         new NodeVisitor() {
-          private void error(Node node, String message) {
+          void error(Node node, String message) {
             eventHandler.handle(Event.error(node.getLocation(), message));
             success[0] = false;
+          }
+
+          // Extract literal glob patterns from calls of the form:
+          //   glob(include = ["pattern"])
+          //   glob(["pattern"])
+          // This may spuriously match user-defined functions named glob;
+          // that's ok, it's only a heuristic.
+          void extractGlobPatterns(FuncallExpression call) {
+            if (call.getFunction() instanceof Identifier
+                && ((Identifier) call.getFunction()).getName().equals("glob")) {
+              Expression excludeDirectories = null, include = null;
+              List<Argument> arguments = call.getArguments();
+              for (int i = 0; i < arguments.size(); i++) {
+                Argument arg = arguments.get(i);
+                String name = arg.getName();
+                if (name == null) {
+                  if (i == 0) { // first positional argument
+                    include = arg.getValue();
+                  }
+                } else if (name.equals("include")) {
+                  include = arg.getValue();
+                } else if (name.equals("exclude_directories")) {
+                  excludeDirectories = arg.getValue();
+                }
+              }
+              if (include instanceof ListExpression) {
+                for (Expression elem : ((ListExpression) include).getElements()) {
+                  if (elem instanceof StringLiteral) {
+                    String pattern = ((StringLiteral) elem).getValue();
+                    // exclude_directories is (oddly) an int with default 1.
+                    boolean exclude = true;
+                    if (excludeDirectories instanceof IntegerLiteral
+                        && ((IntegerLiteral) excludeDirectories).getValue() == 0) {
+                      exclude = false;
+                    }
+                    (exclude ? globs : globsWithDirs).add(pattern);
+                  }
+                }
+              }
+            }
+          }
+
+          // Reject f(*args) and f(**kwargs) calls in BUILD files.
+          void rejectStarArgs(FuncallExpression call) {
+            for (Argument arg : call.getArguments()) {
+              if (arg instanceof Argument.StarStar) {
+                error(
+                    call,
+                    "**kwargs arguments are not allowed in BUILD files. Pass the arguments in "
+                        + "explicitly.");
+              } else if (arg instanceof Argument.Star) {
+                error(
+                    call,
+                    "*args arguments are not allowed in BUILD files. Pass the arguments in "
+                        + "explicitly.");
+              }
+            }
           }
 
           // We prune the traversal if we encounter def/if/for,
@@ -1208,22 +1229,10 @@ public final class PackageFactory {
 
           @Override
           public void visit(FuncallExpression node) {
-            for (Argument arg : node.getArguments()) {
-              if (arg instanceof Argument.StarStar) {
-                error(
-                    node,
-                    "**kwargs arguments are not allowed in BUILD files. Pass the arguments in "
-                        + "explicitly.");
-              } else if (arg instanceof Argument.Star) {
-                error(
-                    node,
-                    "*args arguments are not allowed in BUILD files. Pass the arguments in "
-                        + "explicitly.");
-              }
-            }
-
+            extractGlobPatterns(node);
+            rejectStarArgs(node);
             // Continue traversal so as not to miss nested calls
-            // like cc_binary(..., f(**kwargs), ...).
+            // like cc_binary(..., f(**kwargs), srcs=glob(...), ...).
             super.visit(node);
           }
         };

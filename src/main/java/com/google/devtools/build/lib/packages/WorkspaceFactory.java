@@ -46,6 +46,7 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -186,9 +187,10 @@ public class WorkspaceFactory {
     // Validate the file, apply BUILD dialect checks, then execute.
     ValidationEnvironment.validateFile(
         file, thread.getGlobals(), starlarkSemantics, /*isBuildFile=*/ true);
+    List<String> globs = new ArrayList<>(); // unused
     if (!file.ok()) {
       Event.replayEventsOn(localReporter, file.errors());
-    } else if (PackageFactory.checkBuildSyntax(file, localReporter)) {
+    } else if (PackageFactory.checkBuildSyntax(file, globs, globs, localReporter)) {
       try {
         EvalUtils.exec(file, thread);
       } catch (EvalException ex) {

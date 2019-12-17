@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.lib.syntax.SyntaxError;
 import com.google.devtools.build.lib.syntax.ValidationEnvironment;
 import com.google.devtools.build.lib.testutil.TestMode;
+import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
@@ -161,7 +162,8 @@ public class EvaluationTestCase {
       // For BUILD mode, validation events are reported but don't (yet)
       // prevent execution. We also apply BUILD dialect syntax checks.
       Event.replayEventsOn(getEventHandler(), file.errors());
-      PackageFactory.checkBuildSyntax(file, getEventHandler());
+      List<String> globs = new ArrayList<>(); // unused
+      PackageFactory.checkBuildSyntax(file, globs, globs, getEventHandler());
     }
     EvalUtils.exec(file, thread);
   }
