@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.google.devtools.build.android.desugar;
+package com.google.devtools.build.android.desugar.testing.junit;
 
 /**
  * The source class used as data in {@link DesugarRuleTest}.

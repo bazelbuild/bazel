@@ -14,29 +14,22 @@
  * limitations under the License.
  */
 
-package com.google.devtools.build.android.desugar;
+package com.google.devtools.build.android.desugar.testing.junit;
 
 import static com.google.common.base.Preconditions.checkState;
 
-import com.google.auto.value.AutoValue;
-import com.google.auto.value.extension.memoized.Memoized;
-import com.google.common.annotations.UsedReflectively;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.LinkedHashMultimap;
 import com.google.common.collect.Multimap;
+import com.google.devtools.build.android.desugar.Desugar;
 import com.google.devtools.build.runtime.RunfilesPaths;
 import com.google.errorprone.annotations.FormatMethod;
 import java.io.IOException;
 import java.io.InputStream;
 import java.lang.annotation.Annotation;
-import java.lang.annotation.Documented;
-import java.lang.annotation.ElementType;
-import java.lang.annotation.Retention;
-import java.lang.annotation.RetentionPolicy;
-import java.lang.annotation.Target;
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodHandles.Lookup;
@@ -73,125 +66,7 @@ import org.objectweb.asm.tree.MethodNode;
 /** A JUnit4 Rule that desugars an input jar file and load the transformed jar to JVM. */
 public class DesugarRule implements TestRule {
 
-  /**
-   * Identifies injectable class-literal fields with the specified class to load at runtime and
-   * assign to the field. An injectable class-literal field may have any access modifier (private,
-   * package-private, protected, public). Sample usage:
-   *
-   * <pre><code>
-   * &#064;RunWith(JUnit4.class)
-   * public class DesugarRuleTest {
-   *
-   *   &#064;Rule
-   *   public final DesugarRule desugarRule =
-   *       DesugarRule.builder(this, MethodHandles.lookup())
-   *           .addRuntimeInputs("path/to/my_jar.jar")
-   *           .build();
-   *
-   *   &#064;LoadClass("my.package.ClassToDesugar")
-   *   private Class<?> classToDesugarClass;
-   *
-   *   // ... Test methods ...
-   * }
-   * </code></pre>
-   */
-  @UsedReflectively
-  @Documented
-  @Target(ElementType.FIELD)
-  @Retention(RetentionPolicy.RUNTIME)
-  public @interface LoadClass {
-
-    /**
-     * The fully-qualified class name of the class to load. The format agrees with {@link
-     * Class#getName}.
-     */
-    String value();
-
-    /** The round during which its associated jar is being used. */
-    int round() default 1;
-  }
-
-  /**
-   * Identifies injectable {@link ZipEntry} fields with a zip entry path. The desugar rule resolves
-   * the requested zip entry at runtime and assign it to the annotated field. An injectable {@link
-   * ZipEntry} field may have any access modifier (private, package-private, protected, public).
-   * Sample usage:
-   *
-   * <pre><code>
-   * &#064;RunWith(JUnit4.class)
-   * public class DesugarRuleTest {
-   *
-   *   &#064;Rule
-   *   public final DesugarRule desugarRule =
-   *       DesugarRule.builder(this, MethodHandles.lookup())
-   *           .addRuntimeInputs("path/to/my_jar.jar")
-   *           .build();
-   *
-   *   &#064;LoadZipEntry("my/package/ClassToDesugar.class")
-   *   private ZipEntry classToDesugarClassFile;
-   *
-   *   // ... Test methods ...
-   * }
-   * </code></pre>
-   */
-  @UsedReflectively
-  @Documented
-  @Target(ElementType.FIELD)
-  @Retention(RetentionPolicy.RUNTIME)
-  public @interface LoadZipEntry {
-
-    /** The requested zip entry path name within a zip file. */
-    String value();
-
-    /** The round during which its associated jar is being used. */
-    int round() default 1;
-  }
-
-  /**
-   * Identifies injectable ASM node fields (e.g. {@link org.objectweb.asm.tree.ClassNode}, {@link
-   * org.objectweb.asm.tree.MethodNode}, {@link org.objectweb.asm.tree.FieldNode}) with a qualified
-   * class name. The desugar rule resolves the requested class at runtime, parse it into a {@link
-   * ClassNode} and assign parsed class node to the annotated field. An injectable ASM node field
-   * may have any access modifier (private, package-private, protected, public). Sample usage:
-   *
-   * <pre><code>
-   * &#064;RunWith(JUnit4.class)
-   * public class DesugarRuleTest {
-   *
-   *   &#064;Rule
-   *   public final DesugarRule desugarRule =
-   *       DesugarRule.builder(this, MethodHandles.lookup())
-   *           .addRuntimeInputs("path/to/my_jar.jar")
-   *           .build();
-   *
-   *   &#064;LoadAsmNode("my.package.ClassToDesugar")
-   *   private ClassNode classToDesugarClassFile;
-   *
-   *   // ... Test methods ...
-   * }
-   * </code></pre>
-   */
-  @UsedReflectively
-  @Documented
-  @Target(ElementType.FIELD)
-  @Retention(RetentionPolicy.RUNTIME)
-  public @interface LoadAsmNode {
-
-    /**
-     * The fully-qualified class name of the class to load. The format agrees with {@link
-     * Class#getName}.
-     */
-    String className();
-
-    /** If non-empty, load the specified class member (field or method) from the enclosing class. */
-    String memberName() default "";
-
-    /** If non-empty, use the specified member descriptor to disambiguate overloaded methods. */
-    String memberDescriptor() default "";
-
-    /** The round during which its associated jar is being used. */
-    int round() default 1;
-  }
+  static final ClassLoader BASE_CLASS_LOADER = ClassLoader.getSystemClassLoader().getParent();
 
   private static final Path ANDROID_RUNTIME_JAR_PATH =
       RunfilesPaths.resolve(
@@ -201,67 +76,6 @@ public class DesugarRule implements TestRule {
       RunfilesPaths.resolve("third_party/java/jacoco/jacoco_agent.jar");
 
   private static final String DEFAULT_OUTPUT_ROOT_PREFIX = "desugared_dump";
-
-  private static final ClassLoader BASE_CLASS_LOADER =
-      ClassLoader.getSystemClassLoader().getParent();
-
-  /** The transformation record that describes the desugaring of a jar. */
-  @AutoValue
-  abstract static class JarTransformationRecord {
-
-    /**
-     * The full runtime path of a pre-transformationRecord jar.
-     *
-     * @see Desugar.DesugarOptions#inputJars for details.
-     */
-    abstract ImmutableList<Path> inputJars();
-
-    /**
-     * The full runtime path of a post-transformationRecord jar (deguared jar).
-     *
-     * @see Desugar.DesugarOptions#inputJars for details.
-     */
-    abstract ImmutableList<Path> outputJars();
-
-    /** @see Desugar.DesugarOptions#classpath for details. */
-    abstract ImmutableList<Path> classPathEntries();
-
-    /** @see Desugar.DesugarOptions#bootclasspath for details. */
-    abstract ImmutableList<Path> bootClassPathEntries();
-
-    /** The remaining command options used for desugaring. */
-    abstract ImmutableListMultimap<String, String> extraCustomCommandOptions();
-
-    /** The factory method of this jar transformation record. */
-    static JarTransformationRecord create(
-        ImmutableList<Path> inputJars,
-        ImmutableList<Path> outputJars,
-        ImmutableList<Path> classPathEntries,
-        ImmutableList<Path> bootClassPathEntries,
-        ImmutableListMultimap<String, String> extraCustomCommandOptions) {
-      return new AutoValue_DesugarRule_JarTransformationRecord(
-          inputJars, outputJars, classPathEntries, bootClassPathEntries, extraCustomCommandOptions);
-    }
-
-    final ImmutableList<String> getDesugarFlags() {
-      ImmutableList.Builder<String> args = ImmutableList.builder();
-      inputJars().forEach(path -> args.add("--input=" + path));
-      outputJars().forEach(path -> args.add("--output=" + path));
-      classPathEntries().forEach(path -> args.add("--classpath_entry=" + path));
-      bootClassPathEntries().forEach(path -> args.add("--bootclasspath_entry=" + path));
-      extraCustomCommandOptions().forEach((k, v) -> args.add("--" + k + "=" + v));
-      return args.build();
-    }
-
-    @Memoized
-    ClassLoader getOutputClassLoader() throws MalformedURLException {
-      List<URL> urls = new ArrayList<>();
-      for (Path path : Iterables.concat(outputJars(), classPathEntries(), bootClassPathEntries())) {
-        urls.add(path.toUri().toURL());
-      }
-      return URLClassLoader.newInstance(urls.toArray(new URL[0]), BASE_CLASS_LOADER);
-    }
-  }
 
   /** For hosting desugared jar temporarily. */
   private final TemporaryFolder temporaryFolder = new TemporaryFolder();

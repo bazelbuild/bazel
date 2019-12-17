@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.google.devtools.build.android.desugar;
+package com.google.devtools.build.android.desugar.testing.junit;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth8.assertThat;
@@ -23,9 +23,6 @@ import static org.junit.Assert.assertThrows;
 import com.google.common.flags.Flag;
 import com.google.common.flags.FlagSpec;
 import com.google.common.flags.Flags;
-import com.google.devtools.build.android.desugar.DesugarRule.LoadAsmNode;
-import com.google.devtools.build.android.desugar.DesugarRule.LoadClass;
-import com.google.devtools.build.android.desugar.DesugarRule.LoadZipEntry;
 import com.google.testing.junit.junit4.api.TestArgs;
 import java.lang.invoke.MethodHandles;
 import java.lang.reflect.Method;
@@ -56,47 +53,50 @@ public class DesugarRuleTest {
           .build();
 
   @LoadClass(
-      "com.google.devtools.build.android.desugar.DesugarRuleTestTarget$InterfaceSubjectToDesugar")
+      "com.google.devtools.build.android.desugar.testing.junit.DesugarRuleTestTarget$InterfaceSubjectToDesugar")
   private Class<?> interfaceSubjectToDesugarClassRound1;
 
   @LoadClass(
       value =
-          "com.google.devtools.build.android.desugar.DesugarRuleTestTarget$InterfaceSubjectToDesugar",
+          "com.google.devtools.build.android.desugar.testing.junit.DesugarRuleTestTarget$InterfaceSubjectToDesugar",
       round = 2)
   private Class<?> interfaceSubjectToDesugarClassRound2;
 
   @LoadClass(
-      "com.google.devtools.build.android.desugar.DesugarRuleTestTarget$InterfaceSubjectToDesugar$$CC")
+      "com.google.devtools.build.android.desugar.testing.junit.DesugarRuleTestTarget$InterfaceSubjectToDesugar$$CC")
   private Class<?> interfaceSubjectToDesugarCompanionClassRound1;
 
   @LoadClass(
       value =
-          "com.google.devtools.build.android.desugar.DesugarRuleTestTarget$InterfaceSubjectToDesugar$$CC",
+          "com.google.devtools.build.android.desugar.testing.junit.DesugarRuleTestTarget$InterfaceSubjectToDesugar$$CC",
       round = 2)
   private Class<?> interfaceSubjectToDesugarCompanionClassRound2;
 
   @LoadZipEntry(
       value =
-          "com/google/devtools/build/android/desugar/DesugarRuleTestTarget$InterfaceSubjectToDesugar$$CC.class",
+          "com/google/devtools/build/android/desugar/testing/junit/DesugarRuleTestTarget$InterfaceSubjectToDesugar$$CC.class",
       round = 1)
   private ZipEntry interfaceSubjectToDesugarZipEntryRound1;
 
   @LoadZipEntry(
       value =
-          "com/google/devtools/build/android/desugar/DesugarRuleTestTarget$InterfaceSubjectToDesugar$$CC.class",
+          "com/google/devtools/build/android/desugar/testing/junit/DesugarRuleTestTarget$InterfaceSubjectToDesugar$$CC.class",
       round = 2)
   private ZipEntry interfaceSubjectToDesugarZipEntryRound2;
 
-  @LoadAsmNode(className = "com.google.devtools.build.android.desugar.DesugarRuleTestTarget")
+  @LoadAsmNode(
+      className = "com.google.devtools.build.android.desugar.testing.junit.DesugarRuleTestTarget")
   private ClassNode desugarRuleTestTargetClassNode;
 
   @LoadAsmNode(
-      className = "com.google.devtools.build.android.desugar.DesugarRuleTestTarget$Alpha",
+      className =
+          "com.google.devtools.build.android.desugar.testing.junit.DesugarRuleTestTarget$Alpha",
       memberName = "twoIntSum")
   private MethodNode twoIntSum;
 
   @LoadAsmNode(
-      className = "com.google.devtools.build.android.desugar.DesugarRuleTestTarget$Alpha",
+      className =
+          "com.google.devtools.build.android.desugar.testing.junit.DesugarRuleTestTarget$Alpha",
       memberName = "multiplier",
       memberDescriptor = "J")
   private FieldNode multiplier;
@@ -132,7 +132,7 @@ public class DesugarRuleTest {
   public void nestMembers() {
     assertThat(desugarRuleTestTargetClassNode.nestMembers)
         .contains(
-            "com/google/devtools/build/android/desugar/DesugarRuleTestTarget$InterfaceSubjectToDesugar");
+            "com/google/devtools/build/android/desugar/testing/junit/DesugarRuleTestTarget$InterfaceSubjectToDesugar");
   }
 
   @Test

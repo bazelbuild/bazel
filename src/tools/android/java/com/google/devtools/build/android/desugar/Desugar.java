@@ -77,7 +77,7 @@ import org.objectweb.asm.tree.ClassNode;
  * Command-line tool to desugar Java 8 constructs that dx doesn't know what to do with, in
  * particular lambdas and method references.
  */
-class Desugar {
+public class Desugar {
 
   /** Commandline options for {@link Desugar}. */
   public static class DesugarOptions extends OptionsBase {
