@@ -55,6 +55,7 @@ import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.StarlarkSemanticsOptions;
 import com.google.devtools.build.lib.packages.WorkspaceFileValue;
 import com.google.devtools.build.lib.packages.WorkspaceFileValue.WorkspaceFileKey;
+import com.google.devtools.build.lib.pkgcache.DeletedPackage;
 import com.google.devtools.build.lib.pkgcache.PackageCacheOptions;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.profiler.Profiler;
@@ -291,29 +292,19 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
     recordingDiffer.invalidate(Iterables.filter(memoizingEvaluator.getValues().keySet(), pred));
   }
 
-  private void invalidateDeletedPackages(Iterable<PackageIdentifier> deletedPackages) {
-    ArrayList<SkyKey> packagesToInvalidate = Lists.newArrayList();
-    for (PackageIdentifier deletedPackage : deletedPackages) {
-      packagesToInvalidate.add(PackageLookupValue.key(deletedPackage));
-    }
-    // Exit early if there are no packages to be deleted to avoid iterating over a large map.
-    if (packagesToInvalidate.isEmpty()) {
-      return;
-    }
-    memoizingEvaluator.delete(Predicates.in(packagesToInvalidate));
-  }
-
   /**
    * Sets the packages that should be treated as deleted and ignored.
    */
   @Override
   @VisibleForTesting  // productionVisibility = Visibility.PRIVATE
-  public void setDeletedPackages(Iterable<PackageIdentifier> pkgs) {
-    // Invalidate the old deletedPackages as they may exist now.
-    invalidateDeletedPackages(deletedPackages.get());
+  public void setDeletedPackages(Iterable<DeletedPackage> pkgs) {
+    // If old deletedPackages is the same as the new one, then there's nothing to do.
+    if (deletedPackages.equals(pkgs)) {
+      return;
+    }
     deletedPackages.set(ImmutableSet.copyOf(pkgs));
-    // Invalidate the new deletedPackages as we need to pretend that they don't exist now.
-    invalidateDeletedPackages(deletedPackages.get());
+    // Invalidate all package lookup functions.
+    memoizingEvaluator.delete(SkyFunctionName.functionIs(SkyFunctions.PACKAGE_LOOKUP));
   }
 
   /** Uses diff awareness on all the package paths to invalidate changed files. */

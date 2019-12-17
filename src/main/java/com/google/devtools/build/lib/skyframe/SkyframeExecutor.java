@@ -119,6 +119,7 @@ import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.RuleVisibility;
 import com.google.devtools.build.lib.packages.StarlarkSemanticsOptions;
 import com.google.devtools.build.lib.packages.WorkspaceFileValue;
+import com.google.devtools.build.lib.pkgcache.DeletedPackage;
 import com.google.devtools.build.lib.pkgcache.LoadingOptions;
 import com.google.devtools.build.lib.pkgcache.PackageCacheOptions;
 import com.google.devtools.build.lib.pkgcache.PackageManager;
@@ -277,8 +278,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   protected final AtomicReference<UnixGlob.FilesystemCalls> syscalls =
       new AtomicReference<>(UnixGlob.DEFAULT_SYSCALLS);
   protected final AtomicReference<PathPackageLocator> pkgLocator = new AtomicReference<>();
-  protected final AtomicReference<ImmutableSet<PackageIdentifier>> deletedPackages =
-      new AtomicReference<>(ImmutableSet.<PackageIdentifier>of());
+  protected final AtomicReference<ImmutableSet<DeletedPackage>> deletedPackages =
+      new AtomicReference<>(ImmutableSet.<DeletedPackage>of());
   private final AtomicReference<EventBus> eventBus = new AtomicReference<>();
   protected final AtomicReference<TimestampGranularityMonitor> tsgm = new AtomicReference<>();
   protected final AtomicReference<Map<String, String>> clientEnv = new AtomicReference<>();
@@ -1361,7 +1362,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
 
   /** Sets the packages that should be treated as deleted and ignored. */
   @VisibleForTesting // productionVisibility = Visibility.PRIVATE
-  public abstract void setDeletedPackages(Iterable<PackageIdentifier> pkgs);
+  public abstract void setDeletedPackages(Iterable<DeletedPackage> pkgs);
 
   /**
    * Prepares the evaluator for loading.
@@ -2608,7 +2609,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     public boolean isPackageDeleted(PackageIdentifier packageName) {
       Preconditions.checkState(
           !packageName.getRepository().isDefault(), "package must be absolute: %s", packageName);
-      return deletedPackages.get().contains(packageName);
+      return deletedPackages.get().stream().anyMatch(deletedPackage -> deletedPackage.match(packageName));
     }
   }
 

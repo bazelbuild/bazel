@@ -97,7 +97,7 @@ public class PackageCacheOptions extends OptionsBase {
             + "package_path entry.  Specifying --deleted_packages x/y avoids this "
             + "problem."
   )
-  public List<PackageIdentifier> deletedPackages;
+  public List<DeletedPackage> deletedPackages;
 
   @Option(
     name = "default_visibility",
@@ -155,19 +155,24 @@ public class PackageCacheOptions extends OptionsBase {
    * A converter from strings containing comma-separated names of packages to lists of strings.
    */
   public static class CommaSeparatedPackageNameListConverter
-      implements Converter<List<PackageIdentifier>> {
+      implements Converter<List<DeletedPackage>> {
 
     private static final Splitter COMMA_SPLITTER = Splitter.on(',');
 
     @Override
-    public List<PackageIdentifier> convert(String input) throws OptionsParsingException {
+    public List<DeletedPackage> convert(String input) throws OptionsParsingException {
       if (Strings.isNullOrEmpty(input)) {
         return ImmutableList.of();
       }
-      ImmutableList.Builder<PackageIdentifier> list = ImmutableList.builder();
+      ImmutableList.Builder<DeletedPackage> list = ImmutableList.builder();
       for (String s : COMMA_SPLITTER.split(input)) {
+        boolean matchSubpackages = false;
+        if (s.endsWith("/...")) {
+          s = s.substring(0, s.length() - 4);
+          matchSubpackages = true;
+        }
         try {
-          list.add(PackageIdentifier.parse(s));
+          list.add(new DeletedPackage(PackageIdentifier.parse(s).makeAbsolute(), matchSubpackages));
         } catch (LabelSyntaxException e) {
           throw new OptionsParsingException(e.getMessage());
         }
@@ -182,14 +187,10 @@ public class PackageCacheOptions extends OptionsBase {
 
   }
 
-  public ImmutableSet<PackageIdentifier> getDeletedPackages() {
+  public ImmutableSet<DeletedPackage> getDeletedPackages() {
     if (deletedPackages == null || deletedPackages.isEmpty()) {
       return ImmutableSet.of();
     }
-    ImmutableSet.Builder<PackageIdentifier> newDeletedPackages = ImmutableSet.builder();
-    for (PackageIdentifier pkg : deletedPackages) {
-      newDeletedPackages.add(pkg.makeAbsolute());
-    }
-    return newDeletedPackages.build();
+    return ImmutableSet.copyOf(deletedPackages);
   }
 }

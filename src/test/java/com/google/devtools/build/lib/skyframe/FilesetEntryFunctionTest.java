@@ -39,6 +39,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.events.NullEventHandler;
 import com.google.devtools.build.lib.packages.FilesetEntry.SymlinkBehavior;
+import com.google.devtools.build.lib.pkgcache.DeletedPackage;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.skyframe.ExternalFilesHelper.ExternalFileAction;
 import com.google.devtools.build.lib.skyframe.PackageLookupFunction.CrossRepositoryLabelViolationStrategy;
@@ -91,8 +92,8 @@ public final class FilesetEntryFunctionTest extends FoundationTestCase {
                 outputBase,
                 ImmutableList.of(Root.fromPath(rootDirectory)),
                 BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY));
-    AtomicReference<ImmutableSet<PackageIdentifier>> deletedPackages =
-        new AtomicReference<>(ImmutableSet.<PackageIdentifier>of());
+    AtomicReference<ImmutableSet<DeletedPackage>> deletedPackages =
+        new AtomicReference<>(ImmutableSet.<DeletedPackage>of());
     ExternalFilesHelper externalFilesHelper =
         ExternalFilesHelper.createForTesting(
             pkgLocator,
