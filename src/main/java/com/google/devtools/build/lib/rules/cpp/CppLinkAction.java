@@ -54,6 +54,7 @@ import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.skylark.Args;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.CollectionUtils;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkingMode;
 import com.google.devtools.build.lib.rules.cpp.LinkerInputs.LibraryToLink;
@@ -136,8 +137,6 @@ public final class CppLinkAction extends AbstractAction
   private final String hostSystemName;
   private final String targetCpu;
 
-  private final Iterable<Artifact> mandatoryInputs;
-
   // Linking uses a lot of memory; estimate 1 MB per input file, min 1.5 Gib. It is vital to not
   // underestimate too much here, because running too many concurrent links can thrash the machine
   // to the point where it stops responding to keystrokes or mouse clicks. This is primarily a
@@ -163,7 +162,7 @@ public final class CppLinkAction extends AbstractAction
   CppLinkAction(
       ActionOwner owner,
       String mnemonic,
-      Iterable<Artifact> inputs,
+      NestedSet<Artifact> inputs,
       ImmutableSet<Artifact> outputs,
       LibraryToLink outputLibrary,
       Artifact linkOutput,
@@ -181,7 +180,6 @@ public final class CppLinkAction extends AbstractAction
       String targetCpu) {
     super(owner, inputs, outputs, env);
     this.mnemonic = getMnemonic(mnemonic, isLtoIndexing);
-    this.mandatoryInputs = inputs;
     this.outputLibrary = outputLibrary;
     this.linkOutput = linkOutput;
     this.interfaceOutputLibrary = interfaceOutputLibrary;
@@ -333,7 +331,7 @@ public final class CppLinkAction extends AbstractAction
           ImmutableList.copyOf(getCommandLine(actionExecutionContext.getArtifactExpander())),
           getEnvironment(actionExecutionContext.getClientEnv()),
           getExecutionInfo(),
-          ImmutableList.copyOf(getMandatoryInputs()),
+          ImmutableList.copyOf(getInputs()),
           getOutputs().asList(),
           estimateResourceConsumptionLocal());
     } catch (CommandLineExpansionException e) {
@@ -545,11 +543,6 @@ public final class CppLinkAction extends AbstractAction
             inputSize * LINK_RESOURCES_PER_INPUT.getMemoryMb(), minLinkResources.getMemoryMb()),
         Math.max(inputSize * LINK_RESOURCES_PER_INPUT.getCpuUsage(), minLinkResources.getCpuUsage())
     );
-  }
-
-  @Override
-  public Iterable<Artifact> getMandatoryInputs() {
-    return mandatoryInputs;
   }
 
   private final class CppLinkActionContinuation extends ActionContinuationOrResult {

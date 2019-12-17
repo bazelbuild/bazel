@@ -25,7 +25,6 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.collect.CollectionUtils;
 import com.google.devtools.build.lib.collect.IterablesChain;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -580,9 +579,8 @@ public class CppCompileActionBuilder {
   }
 
   public CppCompileActionBuilder setInputsForInvalidation(
-      Iterable<Artifact> inputsForInvalidation) {
-    this.inputsForInvalidation =
-        Preconditions.checkNotNull(CollectionUtils.makeImmutable(inputsForInvalidation));
+      NestedSet<Artifact> inputsForInvalidation) {
+    this.inputsForInvalidation = inputsForInvalidation;
     return this;
   }
 

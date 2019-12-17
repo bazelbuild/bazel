@@ -34,7 +34,6 @@ import com.google.devtools.build.lib.analysis.config.PerLabelOptions;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.CollectionUtils;
-import com.google.devtools.build.lib.collect.DedupingIterable;
 import com.google.devtools.build.lib.collect.IterablesChain;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -718,9 +717,9 @@ public class CppLinkActionBuilder {
         ltoMapping.put(a.getBitcodeFile(), a.getObjectFile());
       }
     }
-    ImmutableSet<Artifact> objectArtifacts =
+    NestedSet<Artifact> objectArtifacts =
         getArtifactsPossiblyLtoMapped(objectFileInputs, ltoMapping);
-    ImmutableSet<Artifact> linkstampObjectArtifacts =
+    NestedSet<Artifact> linkstampObjectArtifacts =
         getArtifactsPossiblyLtoMapped(linkstampObjectFileInputs, ltoMapping);
 
     ImmutableSet<Artifact> combinedObjectArtifacts =
@@ -863,14 +862,9 @@ public class CppLinkActionBuilder {
     CollectedLibrariesToLink collectedLibrariesToLink =
         librariesToLinkCollector.collectLibrariesToLink();
 
-    ImmutableSet<Artifact> expandedLinkerArtifacts =
+    NestedSet<Artifact> expandedLinkerArtifacts =
         getArtifactsPossiblyLtoMapped(
             collectedLibrariesToLink.getExpandedLinkerInputs(), ltoMapping);
-
-    // Remove the linkstamp objects from inputs so that createLinkstampCompileAction doesn't cause a
-    // circular dependency.
-    ImmutableSet<Artifact> expandedLinkerArtifactsNoLinkstamps =
-        Sets.difference(expandedLinkerArtifacts, linkstampObjectArtifacts).immutableCopy();
 
     CcToolchainVariables variables;
     try {
@@ -985,20 +979,31 @@ public class CppLinkActionBuilder {
       dependencyInputsBuilder.add(defFile);
     }
 
+    NestedSet<Artifact> nonCodeInputsAsNestedSet =
+        NestedSetBuilder.wrap(Order.STABLE_ORDER, nonCodeInputs);
+
+    // Remove the linkstamp objects from inputs so that createLinkstampCompileAction doesn't cause a
+    // circular dependency.
+    NestedSet<Artifact> expandedLinkerArtifactsNoLinkstamps =
+        NestedSetBuilder.<Artifact>stableOrder()
+            .addAll(
+                Sets.difference(expandedLinkerArtifacts.toSet(), linkstampObjectArtifacts.toSet()))
+            .build();
+
     // getPrimaryInput returns the first element, and that is a public interface - therefore the
     // order here is important.
-    IterablesChain.Builder<Artifact> inputsBuilder =
-        IterablesChain.<Artifact>builder()
-            .add(objectArtifacts)
-            .add(ImmutableList.copyOf(nonCodeInputs))
-            .add(dependencyInputsBuilder.build())
-            .add(expandedLinkerArtifactsNoLinkstamps);
+    NestedSetBuilder<Artifact> inputsBuilder =
+        NestedSetBuilder.<Artifact>stableOrder()
+            .addTransitive(objectArtifacts)
+            .addTransitive(nonCodeInputsAsNestedSet)
+            .addTransitive(dependencyInputsBuilder.build())
+            .addTransitive(expandedLinkerArtifactsNoLinkstamps);
 
     if (thinltoParamFile != null && !isLtoIndexing) {
-      inputsBuilder.add(ImmutableList.of(thinltoParamFile));
+      inputsBuilder.add(thinltoParamFile);
     }
     if (linkCommandLine.getParamFile() != null) {
-      inputsBuilder.add(ImmutableList.of(linkCommandLine.getParamFile()));
+      inputsBuilder.add(linkCommandLine.getParamFile());
       // Pass along tree artifacts, so they can be properly expanded.
       NestedSet<Artifact> paramFileActionInputs =
           NestedSetBuilder.<Artifact>stableOrder()
@@ -1043,8 +1048,8 @@ public class CppLinkActionBuilder {
                 linkstampEntry.getKey().getArtifact(),
                 linkstampEntry.getValue(),
                 linkstampEntry.getKey().getDeclaredIncludeSrcs(),
-                ImmutableSet.copyOf(nonCodeInputs),
-                DedupingIterable.of(inputsBuilder.build()),
+                nonCodeInputsAsNestedSet,
+                inputsBuilder.build(),
                 buildInfoHeaderArtifacts,
                 additionalLinkstampDefines,
                 toolchain,
@@ -1064,10 +1069,10 @@ public class CppLinkActionBuilder {
                 cppSemantics));
       }
 
-      inputsBuilder.add(linkstampMap.values());
+      inputsBuilder.addAll(linkstampMap.values());
     }
 
-    inputsBuilder.add(linkstampObjectArtifacts);
+    inputsBuilder.addTransitive(linkstampObjectArtifacts);
 
     ImmutableSet<Artifact> fakeLinkerInputArtifacts =
         collectedLibrariesToLink.getExpandedLinkerInputs().stream()
@@ -1078,7 +1083,7 @@ public class CppLinkActionBuilder {
     return new CppLinkAction(
         getOwner(),
         mnemonic,
-        DedupingIterable.of(inputsBuilder.build()),
+        inputsBuilder.build(),
         actionOutputs,
         outputLibrary,
         output,
@@ -1103,10 +1108,10 @@ public class CppLinkActionBuilder {
     return !isLtoIndexing && allLtoArtifacts != null;
   }
 
-  private ImmutableSet<Artifact> getArtifactsPossiblyLtoMapped(
+  private static NestedSet<Artifact> getArtifactsPossiblyLtoMapped(
       Iterable<LinkerInput> inputs, Map<Artifact, Artifact> ltoMapping) {
     Preconditions.checkNotNull(ltoMapping);
-    ImmutableSet.Builder<Artifact> result = ImmutableSet.builder();
+    NestedSetBuilder<Artifact> result = NestedSetBuilder.stableOrder();
     Iterable<Artifact> artifacts = LinkerInputs.toLibraryArtifacts(inputs);
     for (Artifact a : artifacts) {
       Artifact renamed = ltoMapping.get(a);

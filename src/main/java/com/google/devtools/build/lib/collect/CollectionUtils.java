@@ -130,7 +130,6 @@ public final class CollectionUtils {
     return iterable instanceof ImmutableList<?>
         || iterable instanceof ImmutableSet<?>
         || iterable instanceof IterablesChain<?>
-        || iterable instanceof DedupingIterable<?>
         || iterable instanceof NestedSet<?>
         || iterable instanceof ImmutableIterable<?>;
   }
