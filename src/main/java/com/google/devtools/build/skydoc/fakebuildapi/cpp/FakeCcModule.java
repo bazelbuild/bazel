@@ -164,6 +164,8 @@ public class FakeCcModule
       Object dynamicLibrary,
       Object interfaceLibrary,
       boolean alwayslink,
+      String dynamicLibraryPath,
+      String interfaceLibraryPath,
       Location location,
       StarlarkThread thread) {
     return null;

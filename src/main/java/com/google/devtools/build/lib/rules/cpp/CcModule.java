@@ -369,6 +369,8 @@ public abstract class CcModule
    * @param dynamicLibraryObject Artifact
    * @param interfaceLibraryObject Artifact
    * @param alwayslink boolean
+   * @param dynamicLibraryPath String
+   * @param interfaceLibraryPath String
    * @return
    * @throws EvalException
    * @throws InterruptedException
@@ -383,6 +385,8 @@ public abstract class CcModule
       Object dynamicLibraryObject,
       Object interfaceLibraryObject,
       boolean alwayslink,
+      String dynamicLibraryPath,
+      String interfaceLibraryPath,
       Location location,
       StarlarkThread thread)
       throws EvalException, InterruptedException {
@@ -397,9 +401,32 @@ public abstract class CcModule
     Artifact dynamicLibrary = nullIfNone(dynamicLibraryObject, Artifact.class);
     Artifact interfaceLibrary = nullIfNone(interfaceLibraryObject, Artifact.class);
 
-    Artifact notNullArtifactForIdentifier = null;
     StringBuilder extensionErrorsBuilder = new StringBuilder();
     String extensionErrorMessage = "does not have any of the allowed extensions";
+
+    PathFragment dynamicLibraryPathFragment = null;
+    if (!Strings.isNullOrEmpty(dynamicLibraryPath)) {
+      dynamicLibraryPathFragment = PathFragment.create(dynamicLibraryPath);
+      validateSymlinkPath(
+          location,
+          "dynamic_library_symlink_path",
+          dynamicLibraryPathFragment,
+          Link.ONLY_SHARED_LIBRARY_FILETYPES,
+          extensionErrorsBuilder);
+    }
+
+    PathFragment interfaceLibraryPathFragment = null;
+    if (!Strings.isNullOrEmpty(interfaceLibraryPath)) {
+      interfaceLibraryPathFragment = PathFragment.create(interfaceLibraryPath);
+      validateSymlinkPath(
+          location,
+          "interface_library_symlink_path",
+          interfaceLibraryPathFragment,
+          Link.ONLY_INTERFACE_LIBRARY_FILETYPES,
+          extensionErrorsBuilder);
+    }
+
+    Artifact notNullArtifactForIdentifier = null;
     if (staticLibrary != null) {
       String filename = staticLibrary.getFilename();
       if (!Link.ARCHIVE_FILETYPES.matches(filename)
@@ -462,29 +489,64 @@ public abstract class CcModule
     if (!featureConfiguration.getFeatureConfiguration().isEnabled(CppRuleClasses.TARGETS_WINDOWS)) {
       if (dynamicLibrary != null) {
         resolvedSymlinkDynamicLibrary = dynamicLibrary;
-        dynamicLibrary =
-            SolibSymlinkAction.getDynamicLibrarySymlink(
-                /* actionRegistry= */ skylarkActionFactory.asActionRegistry(
-                    location, skylarkActionFactory),
-                /* actionConstructionContext= */ skylarkActionFactory
-                    .getActionConstructionContext(),
-                ccToolchainProvider.getSolibDirectory(),
-                dynamicLibrary,
-                /* preserveName= */ true,
-                /* prefixConsumer= */ true);
+        if (dynamicLibraryPathFragment != null) {
+          if (dynamicLibrary.getRootRelativePath().getSegment(0).startsWith("_solib_")) {
+            throw new EvalException(
+                location,
+                String.format(
+                    "dynamic_library must not be a symbolic link in the solib directory. Got '%s'",
+                    dynamicLibrary.getRootRelativePath()));
+          }
+          dynamicLibrary =
+              SolibSymlinkAction.getDynamicLibrarySymlink(
+                  skylarkActionFactory.asActionRegistry(location, skylarkActionFactory),
+                  skylarkActionFactory.getActionConstructionContext(),
+                  ccToolchainProvider.getSolibDirectory(),
+                  dynamicLibrary,
+                  dynamicLibraryPathFragment);
+        } else {
+          dynamicLibrary =
+              SolibSymlinkAction.getDynamicLibrarySymlink(
+                  skylarkActionFactory.asActionRegistry(location, skylarkActionFactory),
+                  skylarkActionFactory.getActionConstructionContext(),
+                  ccToolchainProvider.getSolibDirectory(),
+                  dynamicLibrary,
+                  /* preserveName= */ true,
+                  /* prefixConsumer= */ true);
+        }
       }
       if (interfaceLibrary != null) {
         resolvedSymlinkInterfaceLibrary = interfaceLibrary;
-        interfaceLibrary =
-            SolibSymlinkAction.getDynamicLibrarySymlink(
-                /* actionRegistry= */ skylarkActionFactory.asActionRegistry(
-                    location, skylarkActionFactory),
-                /* actionConstructionContext= */ skylarkActionFactory
-                    .getActionConstructionContext(),
-                ccToolchainProvider.getSolibDirectory(),
-                interfaceLibrary,
-                /* preserveName= */ true,
-                /* prefixConsumer= */ true);
+        if (interfaceLibraryPathFragment != null) {
+          if (interfaceLibrary.getRootRelativePath().getSegment(0).startsWith("_solib_")) {
+            throw new EvalException(
+                location,
+                String.format(
+                    "interface_library must not be a symbolic link in the solib directory. Got"
+                        + " '%s'",
+                    interfaceLibrary.getRootRelativePath()));
+          }
+          interfaceLibrary =
+              SolibSymlinkAction.getDynamicLibrarySymlink(
+                  /* actionRegistry= */ skylarkActionFactory.asActionRegistry(
+                      location, skylarkActionFactory),
+                  /* actionConstructionContext= */ skylarkActionFactory
+                      .getActionConstructionContext(),
+                  ccToolchainProvider.getSolibDirectory(),
+                  interfaceLibrary,
+                  interfaceLibraryPathFragment);
+        } else {
+          interfaceLibrary =
+              SolibSymlinkAction.getDynamicLibrarySymlink(
+                  /* actionRegistry= */ skylarkActionFactory.asActionRegistry(
+                      location, skylarkActionFactory),
+                  /* actionConstructionContext= */ skylarkActionFactory
+                      .getActionConstructionContext(),
+                  ccToolchainProvider.getSolibDirectory(),
+                  interfaceLibrary,
+                  /* preserveName= */ true,
+                  /* prefixConsumer= */ true);
+        }
       }
     }
     if (staticLibrary == null
@@ -506,6 +568,28 @@ public abstract class CcModule
         .setResolvedSymlinkInterfaceLibrary(resolvedSymlinkInterfaceLibrary)
         .setAlwayslink(alwayslink)
         .build();
+  }
+
+  private static void validateSymlinkPath(
+      Location location,
+      String attrName,
+      PathFragment symlinkPath,
+      FileTypeSet filetypes,
+      StringBuilder errorsBuilder)
+      throws EvalException {
+    if (symlinkPath.isEmpty()
+        || symlinkPath.isAbsolute()
+        || symlinkPath.containsUplevelReferences()) {
+      throw new EvalException(
+          location,
+          String.format("%s must be a relative file path. Got '%s'", attrName, symlinkPath));
+    }
+    if (!filetypes.matches(symlinkPath.getBaseName())) {
+      errorsBuilder.append(
+          String.format(
+              "'%s' %s %s", symlinkPath, "does not have any of the allowed extensions", filetypes));
+      errorsBuilder.append(LINE_SEPARATOR.value());
+    }
   }
 
   @Override
