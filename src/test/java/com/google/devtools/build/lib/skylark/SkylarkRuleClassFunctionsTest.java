@@ -671,12 +671,55 @@ public final class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
 
   @Test
   public void testLateBoundAttrWorksWithOnlyLabel() throws Exception {
+    // Late-bound attributes, which are computed during analysis as a function
+    // of the configuration, are only available for attributes involving labels:
+    //   attr.label
+    //   attr.label_list
+    //   attr.label_keyed_string_dict
+    //   attr.output,
+    //   attr.output_list
     checkEvalErrorContains(
         "expected value of type 'string' for parameter 'default', for call to method "
             + "string(default = '', doc = '', mandatory = False, values = []) "
             + "of 'attr (a language module)'",
         "def attr_value(cfg): return 'a'",
         "attr.string(default=attr_value)");
+  }
+
+  @Test
+  public void testNoComputedAttrDefaults() throws Exception {
+    // This is a regression test for github.com/bazelbuild/bazel/issues/9463.
+    // The loading-phase feature, computed attribute defaults, is not exposed
+    // to Starlark.
+    // (Not to be confused with "late-bound defaults", an analysis-phase
+    // mechanism only for attributes involving labels; see test above.)
+    //
+    // Most attributes like attr.string should not accept a function as
+    // their default value. (The bug was that the @SkylarkCallable
+    // annotation was more permissive than the method declaration.)
+    exec("def f(): pass");
+    checkEvalErrorContains(
+        "expected value of type 'string' for parameter 'default'", "attr.string(default=f)");
+    checkEvalErrorContains(
+        "expected value of type 'sequence of strings' for parameter 'default'",
+        "attr.string_list(default=f)");
+    checkEvalErrorContains(
+        "expected value of type 'int' for parameter 'default'", "attr.int(default=f)");
+    checkEvalErrorContains(
+        "expected value of type 'sequence of ints' for parameter 'default'",
+        "attr.int_list(default=f)");
+    checkEvalErrorContains(
+        "expected value of type 'bool' for parameter 'default'", "attr.bool(default=f)");
+    checkEvalErrorContains(
+        "expected value of type 'dict' for parameter 'default'", "attr.string_dict(default=f)");
+    checkEvalErrorContains(
+        "expected value of type 'dict' for parameter 'default'",
+        "attr.string_list_dict(default=f)");
+    // Also:
+    // - The attr.output(default=...) parameter is deprecated
+    //   (see --incompatible_no_output_attr_default)
+    // - attr.license appears to be disabled already.
+    //   (see --incompatible_no_attr_license)
   }
 
   private static final Label FAKE_LABEL = Label.parseAbsoluteUnchecked("//fake/label.bzl");

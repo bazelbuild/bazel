@@ -60,7 +60,6 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkGlobalLibrary;
 import com.google.devtools.build.lib.syntax.Depset;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.Printer;
 import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.Starlark;
@@ -112,16 +111,12 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
       Object mandatoryKey,
       Object optionalKey,
       StarlarkThread thread) {
-    return EvalUtils.optionMap(
-        thread,
-        "mandatory",
-        mandatory,
-        "optional",
-        optional,
-        "mandatory_key",
-        mandatoryKey,
-        "optional_key",
-        optionalKey);
+    Map<String, Object> m = new HashMap<>();
+    m.put("mandatory", mandatory);
+    m.put("optional", optional);
+    m.put("mandatory_key", mandatoryKey);
+    m.put("optional_key", optionalKey);
+    return m;
   }
 
   @Before
@@ -2792,8 +2787,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
     assertThat(expected)
         .hasMessageThat()
         .contains(
-            "expected value of type 'int or function' for parameter 'default', "
-                + "for call to method int(");
+            "expected value of type 'int' for parameter 'default', " + "for call to method int(");
   }
 
   @Test
