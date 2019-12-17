@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# This becomes the BUILD file for @local_config_cc// under non-FreeBSD unixes.
+# This becomes the BUILD file for @local_config_cc// under non-BSD unixes.
 
 package(default_visibility = ["//visibility:public"])
 
