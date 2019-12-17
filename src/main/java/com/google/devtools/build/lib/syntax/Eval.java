@@ -50,6 +50,7 @@ final class Eval {
 
   static void execFile(StarlarkThread thread, StarlarkFile file)
       throws EvalException, InterruptedException {
+    checkInterrupt();
     for (Statement stmt : file.getStatements()) {
       execToplevelStatement(thread, stmt);
     }
@@ -57,6 +58,7 @@ final class Eval {
 
   static Object execStatements(StarlarkThread thread, List<Statement> statements)
       throws EvalException, InterruptedException {
+    checkInterrupt();
     Eval eval = new Eval(thread);
     eval.execStatementsInternal(statements);
     return eval.result;
@@ -107,6 +109,7 @@ final class Eval {
           case PASS:
           case CONTINUE:
             // Stay in loop.
+            checkInterrupt();
             continue;
           case BREAK:
             // Finish loop, execute next statement after loop.
@@ -171,7 +174,7 @@ final class Eval {
     return TokenKind.PASS;
   }
 
-  private void execLoad(LoadStatement node) throws EvalException, InterruptedException {
+  private void execLoad(LoadStatement node) throws EvalException {
     for (LoadStatement.Binding binding : node.getBindings()) {
       Identifier orig = binding.getOriginalName();
 
@@ -507,6 +510,8 @@ final class Eval {
 
       case FUNCALL:
         {
+          checkInterrupt();
+
           FuncallExpression call = (FuncallExpression) expr;
           Object fn = eval(thread, call.getFunction());
           ArrayList<Object> posargs = new ArrayList<>();
@@ -670,6 +675,8 @@ final class Eval {
       // execClauses(index) recursively executes the clauses starting at index,
       // and finally evaluates the body and adds its value to the result.
       void execClauses(int index) throws EvalException, InterruptedException {
+        checkInterrupt();
+
         // recursive case: one or more clauses
         if (index < comp.getClauses().size()) {
           Comprehension.Clause clause = comp.getClauses().get(index);
@@ -850,6 +857,12 @@ final class Eval {
               + Joiner.on("', '").join(dups)
               + "' in call to "
               + call.getFunction());
+    }
+  }
+
+  private static void checkInterrupt() throws InterruptedException {
+    if (Thread.interrupted()) {
+      throw new InterruptedException();
     }
   }
 }
