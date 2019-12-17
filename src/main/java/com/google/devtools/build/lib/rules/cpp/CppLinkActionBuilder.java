@@ -22,7 +22,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -702,11 +701,7 @@ public class CppLinkActionBuilder {
     } else {
       objectFileInputs = ImmutableSet.copyOf(objectFiles);
       linkstampObjectFileInputs =
-          ImmutableSet.copyOf(
-              LinkerInputs.simpleLinkerInputs(
-                  linkstampMap.values(),
-                  ArtifactCategory.OBJECT_FILE,
-                  /* disableWholeArchive= */ false));
+          ImmutableSet.copyOf(LinkerInputs.linkstampLinkerInputs(linkstampMap.values()));
       uniqueLibraries = originalUniqueLibraries;
     }
 
@@ -935,7 +930,11 @@ public class CppLinkActionBuilder {
     LinkCommandLine.Builder linkCommandLineBuilder =
         new LinkCommandLine.Builder()
             .setActionName(getActionName())
-            .setLinkerInputArtifacts(expandedLinkerArtifacts)
+            .setLinkerInputArtifacts(
+                NestedSetBuilder.<Artifact>stableOrder()
+                    .addTransitive(expandedLinkerArtifacts)
+                    .addTransitive(linkstampObjectArtifacts)
+                    .build())
             .setLinkTargetType(linkType)
             .setLinkingMode(linkingMode)
             .setToolchainLibrariesSolibDir(
@@ -982,22 +981,13 @@ public class CppLinkActionBuilder {
     NestedSet<Artifact> nonCodeInputsAsNestedSet =
         NestedSetBuilder.wrap(Order.STABLE_ORDER, nonCodeInputs);
 
-    // Remove the linkstamp objects from inputs so that createLinkstampCompileAction doesn't cause a
-    // circular dependency.
-    NestedSet<Artifact> expandedLinkerArtifactsNoLinkstamps =
-        NestedSetBuilder.<Artifact>stableOrder()
-            .addAll(
-                Sets.difference(expandedLinkerArtifacts.toSet(), linkstampObjectArtifacts.toSet()))
-            .build();
-
     // getPrimaryInput returns the first element, and that is a public interface - therefore the
     // order here is important.
     NestedSetBuilder<Artifact> inputsBuilder =
         NestedSetBuilder.<Artifact>stableOrder()
-            .addTransitive(objectArtifacts)
+            .addTransitive(expandedLinkerArtifacts)
             .addTransitive(nonCodeInputsAsNestedSet)
-            .addTransitive(dependencyInputsBuilder.build())
-            .addTransitive(expandedLinkerArtifactsNoLinkstamps);
+            .addTransitive(dependencyInputsBuilder.build());
 
     if (thinltoParamFile != null && !isLtoIndexing) {
       inputsBuilder.add(thinltoParamFile);
