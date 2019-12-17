@@ -69,7 +69,7 @@ public interface SkylarkNativeModuleApi extends StarlarkValue {
         @Param(
             name = "exclude_directories",
             type = Integer.class,
-            defaultValue = "1",
+            defaultValue = "1", // keep consistent with glob prefetching logic in PackageFactory
             named = true,
             doc = "A flag whether to exclude directories or not."),
         @Param(
