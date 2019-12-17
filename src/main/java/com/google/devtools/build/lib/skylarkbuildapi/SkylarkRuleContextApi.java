@@ -318,6 +318,19 @@ public interface SkylarkRuleContextApi<ConstraintValueT extends ConstraintValueI
   ToolchainContextApi toolchains() throws EvalException;
 
   @SkylarkCallable(
+      name = "target_platform_has_constraint",
+      doc = "Returns true if the given constraint value is part of the current target platform.",
+      parameters = {
+        @Param(
+            name = "constraintValue",
+            positional = true,
+            named = false,
+            type = ConstraintValueInfoApi.class,
+            doc = "The constraint value to check the target platform against.")
+      })
+  boolean targetPlatformHasConstraint(ConstraintValueT constraintValue);
+
+  @SkylarkCallable(
       name = "tokenize",
       doc = "Splits a shell command into a list of tokens.",
       // TODO(cparsons): Look into flipping this to true.

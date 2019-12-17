@@ -2627,4 +2627,57 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
     value = getToolchainResult("//demo");
     assertThat(value).isEqualTo("bar");
   }
+
+  @Test
+  public void testTargetPlatformHasConstraint() throws Exception {
+    createPlatforms();
+
+    scratch.file(
+        "demo/test_rule.bzl",
+        "result = provider()",
+        "def _impl(ctx):",
+        "    constraint = ctx.attr._constraint[platform_common.ConstraintValueInfo]",
+        "    has_constraint = ctx.target_platform_has_constraint(constraint)",
+        "    return [result(",
+        "        has_constraint = has_constraint,",
+        "    )]",
+        "test_rule = rule(",
+        "    implementation = _impl,",
+        "    attrs = {",
+        "        '_constraint': attr.label(default = '//platform:constraint_1'),",
+        "    },",
+        ")");
+    scratch.file(
+        "demo/BUILD",
+        "load(':test_rule.bzl', 'test_rule')",
+        "test_rule(",
+        "    name = 'demo',",
+        ")");
+
+    useConfiguration("--platforms=//platform:platform_1");
+
+    ConfiguredTarget myRuleTarget = getConfiguredTarget("//demo");
+    StructImpl info =
+        (StructImpl)
+            myRuleTarget.get(
+                new SkylarkKey(
+                    Label.parseAbsolute("//demo:test_rule.bzl", ImmutableMap.of()), "result"));
+
+    assertThat(info).isNotNull();
+    boolean hasConstraint = (boolean) info.getValue("has_constraint");
+    assertThat(hasConstraint).isTrue();
+
+    // Re-test with the other platform.
+    useConfiguration("--platforms=//platform:platform_2");
+    myRuleTarget = getConfiguredTarget("//demo");
+    info =
+        (StructImpl)
+            myRuleTarget.get(
+                new SkylarkKey(
+                    Label.parseAbsolute("//demo:test_rule.bzl", ImmutableMap.of()), "result"));
+
+    assertThat(info).isNotNull();
+    hasConstraint = (boolean) info.getValue("has_constraint");
+    assertThat(hasConstraint).isFalse();
+  }
 }

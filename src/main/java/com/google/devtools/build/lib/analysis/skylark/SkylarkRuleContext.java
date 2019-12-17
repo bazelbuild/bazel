@@ -693,6 +693,11 @@ public final class SkylarkRuleContext implements SkylarkRuleContextApi<Constrain
   }
 
   @Override
+  public boolean targetPlatformHasConstraint(ConstraintValueInfo constraintValue) {
+    return ruleContext.targetPlatformHasConstraint(constraintValue);
+  }
+
+  @Override
   public String toString() {
     return ruleLabelCanonicalName;
   }

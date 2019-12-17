@@ -30,11 +30,9 @@ import org.junit.runners.JUnit4;
 public class RuleContextTest extends ToolchainTestCase {
 
   @Test
-  public void testMockRuleContextHasToolchains() throws Exception {
+  public void testToolchains() throws Exception {
     mockToolsConfig.create("x/BUILD", "mock_toolchain_rule(name='x')");
-    useConfiguration(
-        "--host_platform=//platforms:linux",
-        "--platforms=//platforms:mac");
+    useConfiguration("--host_platform=//platforms:linux", "--platforms=//platforms:mac");
     RuleContext ruleContext = getRuleContext(getConfiguredTarget("//x"));
     assertThat(ruleContext.getToolchainContext().resolvedToolchainLabels())
         .contains(Label.parseAbsolute("//toolchain:toolchain_1_impl", ImmutableMap.of()));
@@ -44,5 +42,23 @@ public class RuleContextTest extends ToolchainTestCase {
             .getToolchainContext()
             .forToolchainType(Label.parseAbsolute("//toolchain:test_toolchain", ImmutableMap.of()));
     assertThat(toolchain.getValue("data")).isEqualTo("foo");
+  }
+
+  @Test
+  public void testTargetPlatformHasConstraint_mac() throws Exception {
+    scratch.file("a/BUILD", "filegroup(name = 'a')");
+    useConfiguration("--platforms=//platforms:mac");
+    RuleContext ruleContext = getRuleContext(getConfiguredTarget("//a"));
+    assertThat(ruleContext.targetPlatformHasConstraint(macConstraint)).isTrue();
+    assertThat(ruleContext.targetPlatformHasConstraint(linuxConstraint)).isFalse();
+  }
+
+  @Test
+  public void testTargetPlatformHasConstraint_linux() throws Exception {
+    scratch.file("a/BUILD", "filegroup(name = 'a')");
+    useConfiguration("--platforms=//platforms:linux");
+    RuleContext ruleContext = getRuleContext(getConfiguredTarget("//a"));
+    assertThat(ruleContext.targetPlatformHasConstraint(macConstraint)).isFalse();
+    assertThat(ruleContext.targetPlatformHasConstraint(linuxConstraint)).isTrue();
   }
 }

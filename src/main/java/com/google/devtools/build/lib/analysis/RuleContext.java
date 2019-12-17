@@ -57,6 +57,7 @@ import com.google.devtools.build.lib.analysis.config.transitions.SplitTransition
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.constraints.ConstraintSemantics;
+import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.analysis.stringtemplate.TemplateContext;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -1223,6 +1224,13 @@ public final class RuleContext extends TargetContext
   @Nullable
   public ResolvedToolchainContext getToolchainContext() {
     return toolchainContext;
+  }
+
+  public boolean targetPlatformHasConstraint(ConstraintValueInfo constraintValue) {
+    if (toolchainContext == null || toolchainContext.targetPlatform() == null) {
+      return false;
+    }
+    return toolchainContext.targetPlatform().constraints().hasConstraintValue(constraintValue);
   }
 
   public ConstraintSemantics getConstraintSemantics() {
