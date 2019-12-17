@@ -244,7 +244,7 @@ public class CppCompileAction extends AbstractAction
       boolean usePic,
       boolean useHeaderModules,
       NestedSet<Artifact> mandatoryInputs,
-      Iterable<Artifact> inputsForInvalidation,
+      NestedSet<Artifact> inputsForInvalidation,
       ImmutableList<Artifact> builtinIncludeFiles,
       NestedSet<Artifact> additionalPrunableHeaders,
       Artifact outputFile,
@@ -264,7 +264,9 @@ public class CppCompileAction extends AbstractAction
       @Nullable Artifact grepIncludes) {
     super(
         owner,
-        IterablesChain.concat(mandatoryInputs, inputsForInvalidation),
+        NestedSetBuilder.fromNestedSet(mandatoryInputs)
+            .addTransitive(inputsForInvalidation)
+            .build(),
         CollectionUtils.asSetWithoutNulls(outputFile, dotdFile, gcnoFile, dwoFile, ltoIndexingFile),
         env);
     Preconditions.checkArgument(!shouldPruneModules || shouldScanIncludes);

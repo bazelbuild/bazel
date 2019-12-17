@@ -84,7 +84,7 @@ public final class CppCompileActionTemplate extends ActionKeyCacher
     this.mandatoryInputs = cppCompileActionBuilder.buildMandatoryInputs();
     this.allInputs =
         NestedSetBuilder.fromNestedSet(mandatoryInputs)
-            .addAll(cppCompileActionBuilder.buildInputsForInvalidation())
+            .addTransitive(cppCompileActionBuilder.buildInputsForInvalidation())
             .build();
   }
 

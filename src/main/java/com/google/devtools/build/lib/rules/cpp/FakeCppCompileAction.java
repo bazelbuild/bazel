@@ -72,7 +72,7 @@ public class FakeCppCompileAction extends CppCompileAction {
       boolean usePic,
       boolean useHeaderModules,
       NestedSet<Artifact> mandatoryInputs,
-      Iterable<Artifact> inputsForInvalidation,
+      NestedSet<Artifact> inputsForInvalidation,
       ImmutableList<Artifact> builtinIncludeFiles,
       NestedSet<Artifact> prunableHeaders,
       Artifact outputFile,

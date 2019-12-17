@@ -89,7 +89,7 @@ public final class CcCompilationContext implements CcCompilationContextApi {
   private final boolean propagateModuleMapAsActionInput;
 
   // Derived from depsContexts.
-  private final ImmutableSet<Artifact> compilationPrerequisites;
+  private final NestedSet<Artifact> compilationPrerequisites;
 
   private final CppConfiguration.HeadersCheckingMode headersCheckingMode;
 
@@ -106,7 +106,7 @@ public final class CcCompilationContext implements CcCompilationContextApi {
   @VisibleForSerialization
   CcCompilationContext(
       CommandLineCcCompilationContext commandLineCcCompilationContext,
-      ImmutableSet<Artifact> compilationPrerequisites,
+      NestedSet<Artifact> compilationPrerequisites,
       NestedSet<PathFragment> declaredIncludeDirs,
       NestedSet<Artifact> declaredIncludeSrcs,
       NestedSet<Artifact> nonCodeInputs,
@@ -216,7 +216,7 @@ public final class CcCompilationContext implements CcCompilationContextApi {
    * <p>The returned set can be empty if there are no prerequisites. Usually, it contains a single
    * middleman.
    */
-  public ImmutableSet<Artifact> getTransitiveCompilationPrerequisites() {
+  public NestedSet<Artifact> getTransitiveCompilationPrerequisites() {
     return compilationPrerequisites;
   }
 
@@ -586,7 +586,8 @@ public final class CcCompilationContext implements CcCompilationContextApi {
   /** Builder class for {@link CcCompilationContext}. */
   public static class Builder {
     private String purpose;
-    private final Set<Artifact> compilationPrerequisites = new LinkedHashSet<>();
+    private final NestedSetBuilder<Artifact> compilationPrerequisites =
+        NestedSetBuilder.stableOrder();
     private final Set<PathFragment> includeDirs = new LinkedHashSet<>();
     private final Set<PathFragment> quoteIncludeDirs = new LinkedHashSet<>();
     private final Set<PathFragment> systemIncludeDirs = new LinkedHashSet<>();
@@ -653,7 +654,7 @@ public final class CcCompilationContext implements CcCompilationContextApi {
     public Builder mergeDependentCcCompilationContext(
         CcCompilationContext otherCcCompilationContext) {
       Preconditions.checkNotNull(otherCcCompilationContext);
-      compilationPrerequisites.addAll(
+      compilationPrerequisites.addTransitive(
           otherCcCompilationContext.getTransitiveCompilationPrerequisites());
       includeDirs.addAll(otherCcCompilationContext.getIncludeDirs());
       quoteIncludeDirs.addAll(otherCcCompilationContext.getQuoteIncludeDirs());
@@ -898,8 +899,8 @@ public final class CcCompilationContext implements CcCompilationContextApi {
           // use the compilation prerequisites as they were passed to the builder, i.e. we use every
           // header instead of a middle man.
           prerequisiteStampFile == null
-              ? ImmutableSet.copyOf(compilationPrerequisites)
-              : ImmutableSet.of(prerequisiteStampFile),
+              ? compilationPrerequisites.build()
+              : NestedSetBuilder.create(Order.STABLE_ORDER, prerequisiteStampFile),
           declaredIncludeDirs.build(),
           declaredIncludeSrcs.build(),
           nonCodeInputs.build(),
@@ -948,7 +949,7 @@ public final class CcCompilationContext implements CcCompilationContextApi {
           owner,
           name,
           purpose,
-          NestedSetBuilder.wrap(Order.STABLE_ORDER, compilationPrerequisites),
+          compilationPrerequisites.build(),
           configuration.getMiddlemanDirectory(label.getPackageIdentifier().getRepository()));
     }
   }
