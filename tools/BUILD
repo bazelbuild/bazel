@@ -61,6 +61,7 @@ filegroup(
         "//tools/python:embedded_tools",
         "//tools/runfiles:embedded_tools",
         "//tools/test:embedded_tools",
+        "//tools/test/CoverageOutputGenerator/java/com/google/devtools/coverageoutputgenerator:embedded_tools",
         "//tools/osx/crosstool:srcs",
         "//tools/osx:srcs",
         "//tools/sh:embedded_tools",
