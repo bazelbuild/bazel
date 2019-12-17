@@ -139,8 +139,21 @@ if [[ -z $bazel_version ]]; then
 fi
 
 BAZEL_REAL="${wrapper_dir}/bazel-${bazel_version}-${os_arch_suffix}"
+
+# Try without the architecture suffix.
 if [[ ! -x ${BAZEL_REAL} ]]; then
   BAZEL_REAL="${wrapper_dir}/bazel-${bazel_version}"
+fi
+
+# Last try: Maybe `bazel-real` is actually the requested correct version?
+readonly bazel_real_path="${wrapper_dir}/bazel-real"
+if [[ ! -x ${BAZEL_REAL} && -x ${bazel_real_path} ]]; then
+  # Note that "bazel --version" is very fast and doesn't start the Bazel server,
+  # as opposed to "bazel version".
+  readonly bazel_real_version="$("${bazel_real_path}" --version | grep '^bazel ' | cut -d' ' -f2)"
+  if [[ $bazel_real_version == $bazel_version ]]; then
+    BAZEL_REAL="${bazel_real_path}"
+  fi
 fi
 
 if [[ ! -x $BAZEL_REAL ]]; then
