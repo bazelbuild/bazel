@@ -36,6 +36,7 @@ import java.util.Set;
 import java.util.SortedMap;
 import java.util.TreeMap;
 import java.util.TreeSet;
+import java.util.logging.Logger;
 
 /**
  * Generates {@link FieldInitializer}s placeholder unique ids. The real ids will be assigned when
@@ -109,6 +110,9 @@ class PlaceholderIdFieldInitializerBuilder {
   private static final int APP_PACKAGE_MASK = 0x7f000000;
   private static final int ATTR_TYPE_ID = 1;
   private static final String NORMALIZED_ANDROID_PREFIX = "android_";
+
+  private static final Logger logger =
+      Logger.getLogger(PlaceholderIdFieldInitializerBuilder.class.getName());
 
   private static int getInitialIdForTypeId(int typeId) {
     return APP_PACKAGE_MASK | (typeId << 16);
@@ -327,7 +331,12 @@ class PlaceholderIdFieldInitializerBuilder {
             // matter---this is the PlaceholderIdFieldInitializerBuilder, after all.
             attrId = 0x7FFFFFFF;
           } else {
-            throw new AttrLookupException("App attribute not found: " + attr);
+            logger.info(
+                String.format(
+                    "Attribute \"%s\" of styleable \"%s\" not defined among dependencies."
+                        + " Ignoring.",
+                    field, attr));
+            continue;
           }
         }
         arrayInitValues.put(attr, attrId);
