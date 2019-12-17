@@ -244,7 +244,7 @@ public abstract class PackageFactoryTestBase {
             resultAssertion);
 
     return packages.evalAndReturnGlobCache(
-        "globs", RootedPath.toRootedPath(root, file), packages.ast(file));
+        "globs", RootedPath.toRootedPath(root, file), packages.parse(file));
   }
 
   protected void assertGlobProducesError(String pattern, boolean errorExpected) throws Exception {

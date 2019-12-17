@@ -638,71 +638,25 @@ public final class PackageFactory {
     }
   }
 
-  /**
-   * Loads, scans parses and evaluates the build file at "buildFile", and creates and returns a
-   * Package builder instance capable of building a package identified by "packageId".
-   *
-   * <p>This method returns a builder to allow the caller to do additional work, if necessary.
-   *
-   * <p>This method assumes "packageId" is a valid package name according to the {@link
-   * LabelValidator#validatePackageName} heuristic.
-   *
-   * <p>See {@link #evaluateBuildFile} for information on AST retention.
-   *
-   * <p>Executes {@code globber.onCompletion()} on completion and executes {@code
-   * globber.onInterrupt()} on an {@link InterruptedException}.
-   */
-  private Package.Builder createPackage(
-      String workspaceName,
-      PackageIdentifier packageId,
-      RootedPath buildFile,
-      ParserInput input,
-      List<Statement> preludeStatements,
-      Map<String, Extension> imports,
-      ImmutableList<Label> skylarkFileDependencies,
-      RuleVisibility defaultVisibility,
-      StarlarkSemantics starlarkSemantics,
-      Globber globber)
-      throws InterruptedException {
-    StoredEventHandler localReporterForParsing = new StoredEventHandler();
-    // Run the lexer and parser with a local reporter, so that errors from other threads do not
-    // show up below.
-    StarlarkFile buildFileAST =
-        parseBuildFile(packageId, input, preludeStatements, localReporterForParsing);
-    AstParseResult astParseResult =
-        new AstParseResult(buildFileAST, localReporterForParsing);
-    return createPackageFromAst(
-        workspaceName,
-        /* repositoryMapping= */ ImmutableMap.of(),
-        packageId,
-        buildFile,
-        astParseResult,
-        imports,
-        skylarkFileDependencies,
-        defaultVisibility,
-        starlarkSemantics,
-        globber);
-  }
-
+  // Exposed to skyframe.PackageFunction.
   public static StarlarkFile parseBuildFile(
-      PackageIdentifier packageId,
-      ParserInput input,
-      List<Statement> preludeStatements,
-      ExtendedEventHandler eventHandler) {
-    // Logged messages are used as a testability hook tracing the parsing progress
+      PackageIdentifier packageId, ParserInput input, List<Statement> preludeStatements) {
+    // Log messages are expected as signs of progress by a single very old test:
+    // testCreatePackageIsolatedFromOuterErrors, see CL 6198296.
+    // Removing them will cause it to time out. TODO(adonovan): clean this up.
     logger.fine("Starting to parse " + packageId);
     StarlarkFile file = StarlarkFile.parseWithPrelude(input, preludeStatements);
-    Event.replayEventsOn(eventHandler, file.errors());
     logger.fine("Finished parsing of " + packageId);
     return file;
   }
 
+  // Exposed to skyframe.PackageFunction.
   public Package.Builder createPackageFromAst(
       String workspaceName,
       ImmutableMap<RepositoryName, RepositoryName> repositoryMapping,
       PackageIdentifier packageId,
       RootedPath buildFile,
-      AstParseResult astParseResult,
+      StarlarkFile file,
       Map<String, Extension> imports,
       ImmutableList<Label> skylarkFileDependencies,
       RuleVisibility defaultVisibility,
@@ -715,11 +669,9 @@ public final class PackageFactory {
       return evaluateBuildFile(
           workspaceName,
           packageId,
-          astParseResult.ast,
+          file,
           buildFile,
           globber,
-          astParseResult.allEvents,
-          astParseResult.allPosts,
           defaultVisibility,
           starlarkSemantics,
           imports,
@@ -802,17 +754,18 @@ public final class PackageFactory {
     ParserInput input =
         ParserInput.create(
             FileSystemUtils.convertFromLatin1(buildFileBytes), buildFile.asPath().asFragment());
-
+    StarlarkFile file =
+        parseBuildFile(packageId, input, /*preludeStatements=*/ ImmutableList.<Statement>of());
     Package result =
-        createPackage(
+        createPackageFromAst(
                 externalPkg.getWorkspaceName(),
+                /*repositoryMapping=*/ ImmutableMap.of(),
                 packageId,
                 buildFile,
-                input,
-                /* preludeStatements= */ ImmutableList.<Statement>of(),
-                /* imports= */ ImmutableMap.<String, Extension>of(),
-                /* skylarkFileDependencies= */ ImmutableList.<Label>of(),
-                /* defaultVisibility= */ ConstantRuleVisibility.PUBLIC,
+                file,
+                /*imports=*/ ImmutableMap.<String, Extension>of(),
+                /*skylarkFileDependencies=*/ ImmutableList.<Label>of(),
+                /*defaultVisibility=*/ ConstantRuleVisibility.PUBLIC,
                 semantics,
                 globber)
             .build();
@@ -965,8 +918,6 @@ public final class PackageFactory {
       StarlarkFile file,
       RootedPath buildFilePath,
       Globber globber,
-      Iterable<Event> pastEvents,
-      Iterable<Postable> pastPosts,
       RuleVisibility defaultVisibility,
       StarlarkSemantics semantics,
       Map<String, Extension> imports,
@@ -988,16 +939,7 @@ public final class PackageFactory {
             .setRepositoryMapping(repositoryMapping)
             .setThirdPartyLicenceExistencePolicy(
                 ruleClassProvider.getThirdPartyLicenseExistencePolicy());
-
-    // Report previous events + posts.
-    // TODO(adonovan): there are no posts,  and the events are scan/parse
-    // errors recorded in file.errors(). Simplify!
     StoredEventHandler eventHandler = new StoredEventHandler();
-    Event.replayEventsOn(eventHandler, pastEvents);
-    for (Postable post : pastPosts) {
-      eventHandler.post(post);
-    }
-
     if (!buildPackage(
         pkgBuilder,
         packageId,
@@ -1012,9 +954,8 @@ public final class PackageFactory {
     return pkgBuilder;
   }
 
-  // Validates and executes a BUILD file, returning true on success, or reporting
-  // errors to pkgContext.eventHandler on failure. The file may contain scan/parse
-  // errors, but these are assumed (inconsistently) to have been reported already.
+  // Validates and executes a parsed BUILD file, returning true on success,
+  // or reporting errors to pkgContext.eventHandler on failure.
   private boolean buildPackage(
       Package.Builder pkgBuilder,
       PackageIdentifier packageId,
@@ -1024,10 +965,9 @@ public final class PackageFactory {
       PackageContext pkgContext)
       throws InterruptedException {
 
-    // Pre-existing parse error.
-    // Events are assumed to have been reported already.
-    // TODO(adonovan): this is inconsistent. Report them here.
+    // Report scan/parse errors.
     if (!file.ok()) {
+      Event.replayEventsOn(pkgContext.eventHandler, file.errors());
       return false;
     }
 
