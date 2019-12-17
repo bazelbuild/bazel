@@ -28,6 +28,7 @@ class JniLoader {
       switch (OS.getCurrent()) {
         case LINUX:
         case FREEBSD:
+        case OPENBSD:
         case UNKNOWN:
         case DARWIN:
           UnixJniLoader.loadJni();
