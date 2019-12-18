@@ -25,6 +25,7 @@ import com.google.devtools.build.android.resources.FieldInitializer;
 import com.google.devtools.build.android.resources.FieldInitializers;
 import com.google.devtools.build.android.resources.IntArrayFieldInitializer;
 import com.google.devtools.build.android.resources.IntFieldInitializer;
+import com.google.devtools.build.android.resources.Visibility;
 import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.Collection;
@@ -148,7 +149,9 @@ class PlaceholderIdFieldInitializerBuilder {
     this.androidIdProvider = androidIdProvider;
   }
 
-  public void addSimpleResource(DependencyInfo dependencyInfo, ResourceType type, String name) {
+  public void addSimpleResource(
+      DependencyInfo dependencyInfo, Visibility visibility, ResourceType type, String name) {
+    Object unused = visibility; // TODO(b/26297204): use 'visibility'
     innerClasses
         .computeIfAbsent(type, t -> new TreeMap<>())
         // com.google.devtools.build.android.xml.AttrXmlResourceValue might directly call this
@@ -163,12 +166,14 @@ class PlaceholderIdFieldInitializerBuilder {
 
   public void addStyleableResource(
       DependencyInfo dependencyInfo,
+      Visibility visibility,
       FullyQualifiedName key,
       Map<FullyQualifiedName, Boolean> attrs) {
+    Object unused = visibility; // TODO(b/26297204): use 'visibility'
     ResourceType type = ResourceType.STYLEABLE;
     // The configuration can play a role in sorting, but that isn't modeled yet.
     String normalizedStyleableName = normalizeName(key.name());
-    addSimpleResource(dependencyInfo, type, normalizedStyleableName);
+    addSimpleResource(dependencyInfo, visibility, type, normalizedStyleableName);
     // We should have merged styleables, so there should only be one definition per configuration.
     // However, we don't combine across configurations, so there can be a pre-existing definition.
     Map<String, Boolean> normalizedAttrs = styleableAttrs.get(normalizedStyleableName);

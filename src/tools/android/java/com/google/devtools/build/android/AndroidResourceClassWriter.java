@@ -19,7 +19,7 @@ import com.google.devtools.build.android.AndroidFrameworkAttrIdProvider.AttrLook
 import com.google.devtools.build.android.resources.FieldInitializers;
 import com.google.devtools.build.android.resources.RClassGenerator;
 import com.google.devtools.build.android.resources.RSourceGenerator;
-import java.io.Flushable;
+import com.google.devtools.build.android.resources.Visibility;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.Map;
@@ -31,7 +31,7 @@ import java.util.Map;
  * <p>Collects the R class fields from the merged resource maps, and then writes out the resource
  * class files.
  */
-public class AndroidResourceClassWriter implements Flushable, AndroidResourceSymbolSink {
+public class AndroidResourceClassWriter extends AndroidResourceSymbolSink {
 
   /** Create a new class writer. */
   public static AndroidResourceClassWriter createWith(
@@ -94,16 +94,18 @@ public class AndroidResourceClassWriter implements Flushable, AndroidResourceSym
   }
 
   @Override
-  public void acceptSimpleResource(DependencyInfo dependencyInfo, ResourceType type, String name) {
-    generator.addSimpleResource(dependencyInfo, type, name);
+  protected void acceptSimpleResourceImpl(
+      DependencyInfo dependencyInfo, Visibility visibility, ResourceType type, String name) {
+    generator.addSimpleResource(dependencyInfo, visibility, type, name);
   }
 
   @Override
-  public void acceptStyleableResource(
+  protected void acceptStyleableResourceImpl(
       DependencyInfo dependencyInfo,
+      Visibility visibility,
       FullyQualifiedName key,
       Map<FullyQualifiedName, Boolean> attrs) {
-    generator.addStyleableResource(dependencyInfo, key, attrs);
+    generator.addStyleableResource(dependencyInfo, visibility, key, attrs);
   }
 
   @Override

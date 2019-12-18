@@ -31,6 +31,7 @@ import com.google.devtools.build.android.XmlResourceValue;
 import com.google.devtools.build.android.XmlResourceValues;
 import com.google.devtools.build.android.proto.SerializeFormat;
 import com.google.devtools.build.android.proto.SerializeFormat.DataValueXml.XmlType;
+import com.google.devtools.build.android.resources.Visibility;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.util.AbstractMap.SimpleEntry;
@@ -81,15 +82,18 @@ public class StyleableXmlResourceValue implements XmlResourceValue {
             }
           };
 
+  private final Visibility visibility;
   private final ImmutableMap<FullyQualifiedName, Boolean> attrs;
 
-  private StyleableXmlResourceValue(ImmutableMap<FullyQualifiedName, Boolean> attrs) {
+  private StyleableXmlResourceValue(
+      Visibility visibility, ImmutableMap<FullyQualifiedName, Boolean> attrs) {
+    this.visibility = visibility;
     this.attrs = attrs;
   }
 
   @VisibleForTesting
   public static XmlResourceValue createAllAttrAsReferences(FullyQualifiedName... attrNames) {
-    return of(createAttrDefinitionMap(attrNames, Boolean.FALSE));
+    return of(Visibility.UNKNOWN, createAttrDefinitionMap(attrNames, Boolean.FALSE));
   }
 
   private static Map<FullyQualifiedName, Boolean> createAttrDefinitionMap(
@@ -107,7 +111,11 @@ public class StyleableXmlResourceValue implements XmlResourceValue {
   }
 
   public static XmlResourceValue of(Map<FullyQualifiedName, Boolean> attrs) {
-    return new StyleableXmlResourceValue(ImmutableMap.copyOf(attrs));
+    return new StyleableXmlResourceValue(Visibility.UNKNOWN, ImmutableMap.copyOf(attrs));
+  }
+
+  public static XmlResourceValue of(Visibility visibility, Map<FullyQualifiedName, Boolean> attrs) {
+    return new StyleableXmlResourceValue(visibility, ImmutableMap.copyOf(attrs));
   }
 
   @Override
@@ -141,7 +149,7 @@ public class StyleableXmlResourceValue implements XmlResourceValue {
   @Override
   public void writeResourceToClass(
       DependencyInfo dependencyInfo, FullyQualifiedName key, AndroidResourceSymbolSink sink) {
-    sink.acceptStyleableResource(dependencyInfo, key, attrs);
+    sink.acceptStyleableResource(dependencyInfo, visibility, key, attrs);
   }
 
   @Override
@@ -164,7 +172,8 @@ public class StyleableXmlResourceValue implements XmlResourceValue {
             Iterables.transform(proto.getReferencesList(), DATA_KEY_TO_FULLY_QUALIFIED_NAME)));
   }
 
-  public static XmlResourceValue from(Value proto, ReferenceResolver packageResolver) {
+  public static XmlResourceValue from(
+      Value proto, Visibility visibility, ReferenceResolver packageResolver) {
     Map<FullyQualifiedName, Boolean> attributes = new LinkedHashMap<>();
 
     Styleable styleable = proto.getCompoundValue().getStyleable();
@@ -177,12 +186,12 @@ public class StyleableXmlResourceValue implements XmlResourceValue {
       }
     }
 
-    return of(ImmutableMap.copyOf(attributes));
+    return of(visibility, ImmutableMap.copyOf(attributes));
   }
 
   @Override
   public int hashCode() {
-    return attrs.hashCode();
+    return Objects.hash(visibility, attrs);
   }
 
   @Override
@@ -191,7 +200,7 @@ public class StyleableXmlResourceValue implements XmlResourceValue {
       return false;
     }
     StyleableXmlResourceValue other = (StyleableXmlResourceValue) obj;
-    return Objects.equals(attrs, other.attrs);
+    return Objects.equals(visibility, other.visibility) && Objects.equals(attrs, other.attrs);
   }
 
   @Override
@@ -232,7 +241,9 @@ public class StyleableXmlResourceValue implements XmlResourceValue {
         combined.put(attr.getKey(), attr.getValue());
       }
     }
-    return of(combined);
+    // TODO(b/26297204): test that this makes sense and works
+    return new StyleableXmlResourceValue(
+        Visibility.merge(visibility, styleable.visibility), ImmutableMap.copyOf(combined));
   }
 
   @Override

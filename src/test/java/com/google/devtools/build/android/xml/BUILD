@@ -15,6 +15,7 @@ java_test(
         "//src/test/java/com/google/devtools/build/lib:testutil",
         "//src/tools/android/java/com/google/devtools/build/android:android_builder_lib",
         "//src/tools/android/java/com/google/devtools/build/android/proto:resources_java_proto",
+        "//src/tools/android/java/com/google/devtools/build/android/resources",
         "//third_party:junit4",
         "//third_party:truth",
     ],

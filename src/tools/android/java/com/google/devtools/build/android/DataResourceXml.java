@@ -28,6 +28,7 @@ import com.google.devtools.build.android.FullyQualifiedName.VirtualType;
 import com.google.devtools.build.android.ParsedAndroidData.KeyValueConsumer;
 import com.google.devtools.build.android.proto.SerializeFormat;
 import com.google.devtools.build.android.proto.SerializeFormat.DataValueXml;
+import com.google.devtools.build.android.resources.Visibility;
 import com.google.devtools.build.android.xml.ArrayXmlResourceValue;
 import com.google.devtools.build.android.xml.AttrXmlResourceValue;
 import com.google.devtools.build.android.xml.IdXmlResourceValue;
@@ -173,13 +174,16 @@ public class DataResourceXml implements DataResource {
 
   public static DataResourceXml from(
       Value protoValue,
+      Visibility visibility,
       DataSource source,
       ResourceType resourceType,
       ReferenceResolver packageResolver)
       throws InvalidProtocolBufferException {
     DataResourceXml dataResourceXml =
         createWithNamespaces(
-            source, valueFromProto(protoValue, resourceType, packageResolver), Namespaces.empty());
+            source,
+            valueFromProto(protoValue, visibility, resourceType, packageResolver),
+            Namespaces.empty());
     return dataResourceXml;
   }
 
@@ -211,21 +215,24 @@ public class DataResourceXml implements DataResource {
   }
 
   private static XmlResourceValue valueFromProto(
-      Value proto, ResourceType resourceType, ReferenceResolver packageResolver)
+      Value proto,
+      Visibility visibility,
+      ResourceType resourceType,
+      ReferenceResolver packageResolver)
       throws InvalidProtocolBufferException {
     switch (resourceType) {
       case STYLE:
-        return StyleXmlResourceValue.from(proto);
+        return StyleXmlResourceValue.from(proto, visibility);
       case ARRAY:
-        return ArrayXmlResourceValue.from(proto);
+        return ArrayXmlResourceValue.from(proto, visibility);
       case PLURALS:
-        return PluralXmlResourceValue.from(proto);
+        return PluralXmlResourceValue.from(proto, visibility);
       case ATTR:
-        return AttrXmlResourceValue.from(proto);
+        return AttrXmlResourceValue.from(proto, visibility);
       case STYLEABLE:
-        return StyleableXmlResourceValue.from(proto, packageResolver);
+        return StyleableXmlResourceValue.from(proto, visibility, packageResolver);
       case ID:
-        return IdXmlResourceValue.from(proto);
+        return IdXmlResourceValue.from(proto, visibility);
       case DIMEN:
       case LAYOUT:
       case STRING:
@@ -245,7 +252,7 @@ public class DataResourceXml implements DataResource {
       case TRANSITION:
       case FONT:
       case XML:
-        return SimpleXmlResourceValue.from(proto, resourceType);
+        return SimpleXmlResourceValue.from(proto, visibility, resourceType);
       default:
         throw new IllegalArgumentException("Unhandled type " + resourceType + " from " + proto);
     }

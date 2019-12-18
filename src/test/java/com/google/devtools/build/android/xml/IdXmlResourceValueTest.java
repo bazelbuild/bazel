@@ -19,6 +19,7 @@ import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 import com.android.aapt.Resources.Item;
 import com.android.aapt.Resources.Reference;
 import com.android.aapt.Resources.Value;
+import com.google.devtools.build.android.resources.Visibility;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -35,12 +36,14 @@ public final class IdXmlResourceValueTest {
         IdXmlResourceValue.from(
             Value.newBuilder()
                 .setItem(Item.newBuilder().setRef(Reference.newBuilder().setName("@id/alias1")))
-                .build());
+                .build(),
+            Visibility.UNKNOWN);
     IdXmlResourceValue alias2 =
         IdXmlResourceValue.from(
             Value.newBuilder()
                 .setItem(Item.newBuilder().setRef(Reference.newBuilder().setName("@id/alias2")))
-                .build());
+                .build(),
+            Visibility.UNKNOWN);
 
     assertThat(alias1).isNotEqualTo(alias2);
     assertThrows(IllegalArgumentException.class, () -> alias1.combineWith(alias2));
@@ -53,10 +56,22 @@ public final class IdXmlResourceValueTest {
         IdXmlResourceValue.from(
             Value.newBuilder()
                 .setItem(Item.newBuilder().setRef(Reference.newBuilder().setName("@id/alias1")))
-                .build());
-    IdXmlResourceValue empty = IdXmlResourceValue.from(Value.getDefaultInstance());
+                .build(),
+            Visibility.UNKNOWN);
+    IdXmlResourceValue empty =
+        IdXmlResourceValue.from(Value.getDefaultInstance(), Visibility.UNKNOWN);
 
     assertThat(empty.combineWith(hasRef)).isEqualTo(hasRef);
     assertThat(hasRef.combineWith(empty)).isEqualTo(hasRef);
+  }
+
+  @Test
+  public void combineWith_mergeVisibility() {
+    IdXmlResourceValue pub = IdXmlResourceValue.from(Value.getDefaultInstance(), Visibility.PUBLIC);
+    IdXmlResourceValue priv =
+        IdXmlResourceValue.from(Value.getDefaultInstance(), Visibility.PRIVATE);
+
+    assertThat(pub.combineWith(priv)).isEqualTo(pub);
+    assertThat(priv.combineWith(pub)).isEqualTo(pub);
   }
 }

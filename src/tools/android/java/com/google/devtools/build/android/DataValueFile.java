@@ -16,6 +16,7 @@ package com.google.devtools.build.android;
 import com.google.common.base.MoreObjects;
 import com.google.devtools.build.android.AndroidResourceMerger.MergingException;
 import com.google.devtools.build.android.proto.SerializeFormat;
+import com.google.devtools.build.android.resources.Visibility;
 import com.google.protobuf.CodedOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
@@ -29,21 +30,25 @@ import java.util.Objects;
  */
 public class DataValueFile implements DataResource, DataAsset {
 
+  private final Visibility visibility;
   private final DataSource source;
 
-  private DataValueFile(DataSource source) {
+  private DataValueFile(Visibility visibility, DataSource source) {
+    this.visibility = visibility;
     this.source = source;
   }
 
+  @Deprecated
   public static DataValueFile of(Path source) {
-    return of(DataSource.of(DependencyInfo.UNKNOWN, source));
+    return of(Visibility.UNKNOWN, DataSource.of(DependencyInfo.UNKNOWN, source));
   }
 
-  public static DataValueFile of(DataSource source) {
-    return new DataValueFile(source);
+  public static DataValueFile of(Visibility visibility, DataSource source) {
+    return new DataValueFile(visibility, source);
   }
 
   /** Creates a {@link DataValueFile} from a {@link SerializeFormat#DataValue}. */
+  @Deprecated
   public static DataValueFile from(Path source) {
     return of(source);
   }
@@ -59,7 +64,8 @@ public class DataValueFile implements DataResource, DataAsset {
       return false;
     }
     DataValueFile resource = (DataValueFile) obj;
-    return Objects.equals(source, resource.source);
+    return Objects.equals(visibility, resource.visibility)
+        && Objects.equals(source, resource.source);
   }
 
   @Override
@@ -104,7 +110,7 @@ public class DataValueFile implements DataResource, DataAsset {
     if (equals(resource)) {
       return this;
     }
-    return of(source.overwrite(resource.source()));
+    return of(visibility, source.overwrite(resource.source()));
   }
 
   @Override
@@ -112,17 +118,17 @@ public class DataValueFile implements DataResource, DataAsset {
     if (equals(asset)) {
       return this;
     }
-    return of(source.overwrite(asset.source()));
+    return of(visibility, source.overwrite(asset.source()));
   }
 
   @Override
   public void writeResourceToClass(FullyQualifiedName key, AndroidResourceSymbolSink sink) {
-    sink.acceptSimpleResource(source().getDependencyInfo(), key.type(), key.name());
+    sink.acceptSimpleResource(source().getDependencyInfo(), visibility, key.type(), key.name());
   }
 
   @Override
   public DataValue update(DataSource source) {
-    return of(source);
+    return of(visibility, source);
   }
 
   @Override
