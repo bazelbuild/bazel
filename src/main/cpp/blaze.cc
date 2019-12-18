@@ -1220,11 +1220,11 @@ static ATTRIBUTE_NORETURN void RunClientServerMode(
     }
 
     // Check for the case when the workspace directory deleted and then gets
-    // recreated while the server is running
+    // recreated while the server is running.
 
-    blaze_util::Path server_cwd =
+    std::unique_ptr<blaze_util::Path> server_cwd =
         GetProcessCWD(server->ProcessInfo().server_pid_);
-    // If server_cwd is empty, GetProcessCWD failed. This notably occurs when
+    // If server_cwd is nullptr, GetProcessCWD failed. This notably occurs when
     // running under Docker because then readlink(/proc/[pid]/cwd) returns
     // EPERM.
     // Docker issue #6687 (https://github.com/docker/docker/issues/6687) fixed
@@ -1235,14 +1235,14 @@ static ATTRIBUTE_NORETURN void RunClientServerMode(
     // cases, it's better to assume that everything is alright if we can't get
     // the cwd.
 
-    if (!server_cwd.IsEmpty() &&
-        (server_cwd != blaze_util::Path(workspace) ||  // changed
-         server_cwd.Contains(" (deleted)"))) {         // deleted.
+    if (server_cwd != nullptr &&
+        (*server_cwd != blaze_util::Path(workspace) ||  // changed
+         server_cwd->Contains(" (deleted)"))) {         // deleted.
       // There's a distant possibility that the two paths look the same yet are
       // actually different because the two processes have different mount
       // tables.
       BAZEL_LOG(INFO) << "Server's cwd moved or deleted ("
-                      << server_cwd.AsPrintablePath() << ").";
+                      << server_cwd->AsPrintablePath() << ").";
       server->KillRunningServer();
     } else {
       break;
