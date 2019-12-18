@@ -94,7 +94,14 @@ public class SkylarkRepositoryModule implements RepositoryModuleApi {
         Descriptor attrDescriptor = attr.getValue();
         AttributeValueSource source = attrDescriptor.getValueSource();
         String attrName = source.convertToNativeName(attr.getKey(), ast.getLocation());
-        builder.addOrOverrideAttribute(attrDescriptor.build(attrName));
+        if (builder.contains(attrName)) {
+          throw new EvalException(
+              null,
+              String.format(
+                  "There is already a built-in attribute '%s' which cannot be overridden",
+                  attrName));
+        }
+        builder.addAttribute(attrDescriptor.build(attrName));
       }
     }
     builder.setConfiguredTargetFunction(implementation);
