@@ -23,11 +23,8 @@ import org.objectweb.asm.Type;
 @AutoValue
 public abstract class FieldKey extends ClassMemberKey {
 
-  /**
-   * The factory method for {@link com.google.devtools.build.android.desugar.langmodel.FieldKey}.
-   */
-  public static com.google.devtools.build.android.desugar.langmodel.FieldKey create(
-      String ownerClass, String name, String descriptor) {
+  /** The factory method for {@link FieldKey}. */
+  public static FieldKey create(String ownerClass, String name, String descriptor) {
     return new AutoValue_FieldKey(ownerClass, name, descriptor);
   }
 
@@ -36,10 +33,7 @@ public abstract class FieldKey extends ClassMemberKey {
    * codes.
    */
   public final <R, P> R accept(
-      MemberUseKind fieldUseKind,
-      FieldInstrVisitor<R, ? super com.google.devtools.build.android.desugar.langmodel.FieldKey, P>
-          visitor,
-      P param) {
+      MemberUseKind fieldUseKind, FieldInstrVisitor<R, ? super FieldKey, P> visitor, P param) {
     switch (fieldUseKind) {
       case GETSTATIC:
         return visitor.visitGetStatic(this, param);
