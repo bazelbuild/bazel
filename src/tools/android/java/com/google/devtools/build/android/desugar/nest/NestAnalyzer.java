@@ -19,6 +19,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.android.desugar.io.FileContentProvider;
+import com.google.devtools.build.android.desugar.langmodel.ClassMemberRecord;
 import java.io.IOException;
 import java.io.InputStream;
 import org.objectweb.asm.ClassReader;

@@ -1,23 +1,24 @@
-// Copyright 2019 The Bazel Authors. All rights reserved.
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//    http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+/*
+ * Copyright 2019 The Bazel Authors. All rights reserved.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
-package com.google.devtools.build.android.desugar.nest;
+package com.google.devtools.build.android.desugar.langmodel;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.android.desugar.nest.ClassMemberTrackReason.MemberUseKind;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.function.Predicate;
@@ -37,7 +38,7 @@ public final class ClassMemberRecord {
   }
 
   /** Gets class members with both tracked declarations and tracked usage. */
-  boolean filterUsedMemberWithTrackedDeclaration() {
+  public boolean filterUsedMemberWithTrackedDeclaration() {
     return reasons
         .values()
         .removeIf(
@@ -53,7 +54,7 @@ public final class ClassMemberRecord {
   }
 
   /** Find all member keys that represent a constructor. */
-  ImmutableList<ClassMemberKey> findAllConstructorMemberKeys() {
+  public ImmutableList<ClassMemberKey> findAllConstructorMemberKeys() {
     return findAllMatchedMemberKeys(ClassMemberKey::isConstructor);
   }
 
@@ -67,7 +68,7 @@ public final class ClassMemberRecord {
     return !reasons.isEmpty();
   }
 
-  boolean hasTrackingReason(ClassMemberKey classMemberKey) {
+  public boolean hasTrackingReason(ClassMemberKey classMemberKey) {
     return reasons.containsKey(classMemberKey);
   }
 
@@ -92,7 +93,7 @@ public final class ClassMemberRecord {
   }
 
   /** Find all invocation codes of a class member. */
-  ImmutableList<MemberUseKind> findAllMemberUseKind(ClassMemberKey memberKey) {
+  public ImmutableList<MemberUseKind> findAllMemberUseKind(ClassMemberKey memberKey) {
     if (reasons.containsKey(memberKey)) {
       return ImmutableList.copyOf(reasons.get(memberKey).getUseAccesses());
     }
@@ -100,7 +101,7 @@ public final class ClassMemberRecord {
   }
 
   /** Logs the declaration of a class member. */
-  ClassMemberTrackReason logMemberDecl(
+  public ClassMemberTrackReason logMemberDecl(
       ClassMemberKey memberKey, int ownerAccess, int memberDeclAccess) {
     return reasons
         .computeIfAbsent(memberKey, classMemberKey -> new ClassMemberTrackReason())
@@ -108,14 +109,14 @@ public final class ClassMemberRecord {
   }
 
   /** Logs the use of a class member, including field access and method invocations. */
-  ClassMemberTrackReason logMemberUse(ClassMemberKey memberKey, int invokeOpcode) {
+  public ClassMemberTrackReason logMemberUse(ClassMemberKey memberKey, int invokeOpcode) {
     return reasons
         .computeIfAbsent(memberKey, classMemberKey -> new ClassMemberTrackReason())
         .addUseAccess(invokeOpcode);
   }
 
   /** Merge an another member record into this record. */
-  void mergeFrom(ClassMemberRecord otherClassMemberRecord) {
+  public void mergeFrom(ClassMemberRecord otherClassMemberRecord) {
     otherClassMemberRecord.reasons.forEach(
         (classMemberKey, classMemberTrackReason) ->
             reasons.merge(

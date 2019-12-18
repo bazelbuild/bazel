@@ -14,14 +14,16 @@
 
 package com.google.devtools.build.android.desugar.nest;
 
-import static com.google.devtools.build.android.desugar.nest.NestDesugarConstants.NEST_COMPANION_CLASS_SIMPLE_NAME;
+import static com.google.devtools.build.android.desugar.langmodel.LangModelConstants.NEST_COMPANION_CLASS_SIMPLE_NAME;
 import static org.objectweb.asm.Opcodes.ACC_ABSTRACT;
 import static org.objectweb.asm.Opcodes.ACC_INTERFACE;
 import static org.objectweb.asm.Opcodes.ACC_SYNTHETIC;
 
-import com.google.devtools.build.android.desugar.nest.ClassMemberKey.FieldKey;
-import com.google.devtools.build.android.desugar.nest.ClassMemberKey.MethodDeclInfo;
-import com.google.devtools.build.android.desugar.nest.ClassMemberKey.MethodKey;
+import com.google.devtools.build.android.desugar.langmodel.ClassMemberRecord;
+import com.google.devtools.build.android.desugar.langmodel.FieldKey;
+import com.google.devtools.build.android.desugar.langmodel.LangModelHelper;
+import com.google.devtools.build.android.desugar.langmodel.MethodDeclInfo;
+import com.google.devtools.build.android.desugar.langmodel.MethodKey;
 import javax.annotation.Nullable;
 import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.FieldVisitor;
@@ -80,7 +82,7 @@ public final class NestDesugaring extends ClassVisitor {
     classAccess = access;
     nestCompanionVisitor = nestCompanions.getCompanionClassWriter(name);
     isNestHostWithNestCompanion =
-        (nestCompanionVisitor != null) && className.equals(NestDesugarHelper.nestHost(className));
+        (nestCompanionVisitor != null) && className.equals(LangModelHelper.nestHost(className));
     fieldAccessBridgeEmitter = new FieldAccessBridgeEmitter();
     methodAccessorEmitter = new MethodAccessorEmitter();
     super.visit(
@@ -94,7 +96,7 @@ public final class NestDesugaring extends ClassVisitor {
       nestCompanionVisitor.visit(
           Math.min(version, NestDesugarConstants.MIN_VERSION),
           ACC_SYNTHETIC | ACC_ABSTRACT,
-          NestDesugarHelper.nestCompanion(className),
+          LangModelHelper.nestCompanion(className),
           /* signature= */ null,
           /* superName= */ "java/lang/Object",
           /* interfaces= */ new String[0]);
@@ -163,7 +165,7 @@ public final class NestDesugaring extends ClassVisitor {
   @Override
   public void visitEnd() {
     if (isNestHostWithNestCompanion) {
-      String nestCompanionClassName = NestDesugarHelper.nestCompanion(className);
+      String nestCompanionClassName = LangModelHelper.nestCompanion(className);
       // In the nest companion class, marks its outer class as the nest host.
       nestCompanionVisitor.visitInnerClass(
           nestCompanionClassName,

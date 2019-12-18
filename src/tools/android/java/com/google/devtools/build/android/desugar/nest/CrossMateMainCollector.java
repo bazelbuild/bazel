@@ -14,8 +14,11 @@
 
 package com.google.devtools.build.android.desugar.nest;
 
-import com.google.devtools.build.android.desugar.nest.ClassMemberKey.FieldKey;
-import com.google.devtools.build.android.desugar.nest.ClassMemberKey.MethodKey;
+import com.google.devtools.build.android.desugar.langmodel.ClassMemberKey;
+import com.google.devtools.build.android.desugar.langmodel.ClassMemberRecord;
+import com.google.devtools.build.android.desugar.langmodel.FieldKey;
+import com.google.devtools.build.android.desugar.langmodel.LangModelHelper;
+import com.google.devtools.build.android.desugar.langmodel.MethodKey;
 import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.FieldVisitor;
 import org.objectweb.asm.MethodVisitor;
@@ -145,7 +148,7 @@ final class CrossMateMainCollector extends ClassVisitor {
     @Override
     public void visitFieldInsn(int opcode, String owner, String name, String descriptor) {
       ClassMemberKey memberKey = FieldKey.create(owner, name, descriptor);
-      if (NestDesugarHelper.isCrossMateRefInNest(memberKey, enclosingMethodKey)) {
+      if (LangModelHelper.isCrossMateRefInNest(memberKey, enclosingMethodKey)) {
         memberRecord.logMemberUse(memberKey, opcode);
       }
       super.visitFieldInsn(opcode, owner, name, descriptor);
@@ -155,7 +158,7 @@ final class CrossMateMainCollector extends ClassVisitor {
     public void visitMethodInsn(
         int opcode, String owner, String name, String descriptor, boolean isInterface) {
       ClassMemberKey memberKey = MethodKey.create(owner, name, descriptor);
-      if (isInterface || NestDesugarHelper.isCrossMateRefInNest(memberKey, enclosingMethodKey)) {
+      if (isInterface || LangModelHelper.isCrossMateRefInNest(memberKey, enclosingMethodKey)) {
         memberRecord.logMemberUse(memberKey, opcode);
       }
       super.visitMethodInsn(opcode, owner, name, descriptor, isInterface);

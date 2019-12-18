@@ -20,6 +20,9 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.android.desugar.io.FileContentProvider;
+import com.google.devtools.build.android.desugar.langmodel.ClassMemberKey;
+import com.google.devtools.build.android.desugar.langmodel.ClassMemberRecord;
+import com.google.devtools.build.android.desugar.langmodel.LangModelHelper;
 import java.io.ByteArrayInputStream;
 import javax.annotation.Nullable;
 import org.objectweb.asm.ClassWriter;
@@ -65,13 +68,13 @@ public class NestCompanions {
    */
   @Nullable
   public ClassWriter getCompanionClassWriter(String classInternalName) {
-    return companionWriters.get(NestDesugarHelper.nestHost(classInternalName));
+    return companionWriters.get(LangModelHelper.nestHost(classInternalName));
   }
 
   /** Gets all nest companion classes required to be generated. */
   public ImmutableList<String> getAllCompanionClasses() {
     return companionWriters.keySet().stream()
-        .map(NestDesugarHelper::nestCompanion)
+        .map(LangModelHelper::nestCompanion)
         .collect(toImmutableList());
   }
 

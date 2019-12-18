@@ -21,9 +21,9 @@ import static org.objectweb.asm.Opcodes.ACC_PUBLIC;
 import static org.objectweb.asm.Opcodes.ACC_STATIC;
 import static org.objectweb.asm.Opcodes.ACC_SYNTHETIC;
 
-import com.google.devtools.build.android.desugar.nest.ClassMemberKey.MethodDeclInfo;
-import com.google.devtools.build.android.desugar.nest.ClassMemberKey.MethodDeclVisitor;
-import com.google.devtools.build.android.desugar.nest.ClassMemberKey.MethodKey;
+import com.google.devtools.build.android.desugar.langmodel.MethodDeclInfo;
+import com.google.devtools.build.android.desugar.langmodel.MethodDeclVisitor;
+import com.google.devtools.build.android.desugar.langmodel.MethodKey;
 import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
@@ -200,7 +200,7 @@ final class MethodAccessorEmitter
    * </code></pre>
    *
    * Note: The desugared method will be subsequently moved to the interface's companion class by
-   * {@link InterfaceDesugaring}.
+   * {@link com.google.devtools.build.android.desugar.InterfaceDesugaring}.
    */
   @Override
   public MethodVisitor visitInterfaceStaticMethod(MethodDeclInfo methodDeclInfo, ClassVisitor cv) {
@@ -241,7 +241,7 @@ final class MethodAccessorEmitter
    * </code></pre>
    *
    * Note: The desugared method will be subsequently moved to the interface's companion class by
-   * {@link InterfaceDesugaring}.
+   * {@link com.google.devtools.build.android.desugar.InterfaceDesugaring}.
    */
   @Override
   public MethodVisitor visitInterfaceInstanceMethod(

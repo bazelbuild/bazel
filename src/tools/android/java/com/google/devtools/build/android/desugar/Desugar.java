@@ -35,7 +35,7 @@ import com.google.devtools.build.android.desugar.io.IndexedInputs;
 import com.google.devtools.build.android.desugar.io.InputFileProvider;
 import com.google.devtools.build.android.desugar.io.OutputFileProvider;
 import com.google.devtools.build.android.desugar.io.ThrowingClassLoader;
-import com.google.devtools.build.android.desugar.nest.ClassMemberRecord;
+import com.google.devtools.build.android.desugar.langmodel.ClassMemberRecord;
 import com.google.devtools.build.android.desugar.nest.NestAnalyzer;
 import com.google.devtools.build.android.desugar.nest.NestCompanions;
 import com.google.devtools.build.android.desugar.nest.NestDesugaring;

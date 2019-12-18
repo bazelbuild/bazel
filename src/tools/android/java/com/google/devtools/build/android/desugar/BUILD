@@ -40,7 +40,8 @@ java_library(
         "//src/main/protobuf:worker_protocol_java_proto",
         "//src/tools/android/java/com/google/devtools/build/android:android_builder_lib",
         "//src/tools/android/java/com/google/devtools/build/android/desugar/io",
-        "//src/tools/android/java/com/google/devtools/build/android/desugar/nest:nest_pipeline",
+        "//src/tools/android/java/com/google/devtools/build/android/desugar/langmodel",
+        "//src/tools/android/java/com/google/devtools/build/android/desugar/nest",
         "//third_party:asm",
         "//third_party:asm-commons",
         "//third_party:asm-tree",
@@ -64,6 +65,7 @@ filegroup(
     srcs = glob(["**"]) + [
         "//src/tools/android/java/com/google/devtools/build/android/desugar/dependencies:srcs",
         "//src/tools/android/java/com/google/devtools/build/android/desugar/io:srcs",
+        "//src/tools/android/java/com/google/devtools/build/android/desugar/langmodel:srcs",
         "//src/tools/android/java/com/google/devtools/build/android/desugar/nest:srcs",
         "//src/tools/android/java/com/google/devtools/build/android/desugar/runtime:srcs",
         "//src/tools/android/java/com/google/devtools/build/android/desugar/scan:srcs",

@@ -1,28 +1,29 @@
-// Copyright 2019 The Bazel Authors. All rights reserved.
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//    http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+/*
+ * Copyright 2019 The Bazel Authors. All rights reserved.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
-package com.google.devtools.build.android.desugar.nest;
+package com.google.devtools.build.android.desugar.langmodel;
 
-import static com.google.devtools.build.android.desugar.nest.NestDesugarConstants.NEST_COMPANION_CLASS_SIMPLE_NAME;
+import static com.google.devtools.build.android.desugar.langmodel.LangModelConstants.NEST_COMPANION_CLASS_SIMPLE_NAME;
 
-import com.google.devtools.build.android.desugar.nest.ClassMemberKey.MethodKey;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
 
 /** A utility class for the desguaring of nest-based access control classes. */
-public class NestDesugarHelper {
+public final class LangModelHelper {
 
   /**
    * Returns the internal name of the nest host class for a given class.
@@ -136,5 +137,5 @@ public class NestDesugarHelper {
     }
   }
 
-  private NestDesugarHelper() {}
+  private LangModelHelper() {}
 }

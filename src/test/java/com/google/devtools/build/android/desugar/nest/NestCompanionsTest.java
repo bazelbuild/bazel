@@ -16,7 +16,8 @@ package com.google.devtools.build.android.desugar.nest;
 
 import static com.google.common.truth.Truth.assertThat;
 
-import com.google.devtools.build.android.desugar.nest.ClassMemberKey.MethodKey;
+import com.google.devtools.build.android.desugar.langmodel.ClassMemberRecord;
+import com.google.devtools.build.android.desugar.langmodel.MethodKey;
 import com.google.testing.testsize.SmallTest;
 import org.junit.Test;
 import org.junit.runner.RunWith;

@@ -14,13 +14,15 @@
 
 package com.google.devtools.build.android.desugar.nest;
 
-import static com.google.devtools.build.android.desugar.nest.NestDesugarHelper.isCrossMateRefInNest;
+import static com.google.devtools.build.android.desugar.langmodel.LangModelHelper.isCrossMateRefInNest;
 
-import com.google.devtools.build.android.desugar.nest.ClassMemberKey.FieldInstrVisitor;
-import com.google.devtools.build.android.desugar.nest.ClassMemberKey.FieldKey;
-import com.google.devtools.build.android.desugar.nest.ClassMemberKey.MethodInstrVisitor;
-import com.google.devtools.build.android.desugar.nest.ClassMemberKey.MethodKey;
-import com.google.devtools.build.android.desugar.nest.ClassMemberTrackReason.MemberUseKind;
+import com.google.devtools.build.android.desugar.langmodel.ClassMemberRecord;
+import com.google.devtools.build.android.desugar.langmodel.FieldInstrVisitor;
+import com.google.devtools.build.android.desugar.langmodel.FieldKey;
+import com.google.devtools.build.android.desugar.langmodel.LangModelHelper;
+import com.google.devtools.build.android.desugar.langmodel.MemberUseKind;
+import com.google.devtools.build.android.desugar.langmodel.MethodInstrVisitor;
+import com.google.devtools.build.android.desugar.langmodel.MethodKey;
 import javax.annotation.Nullable;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
@@ -193,8 +195,7 @@ public final class NestBridgeRefConverter extends MethodVisitor {
       // The bridge method for an instance field writer pushes the new field value to its invoker
       // operand stack, we emit a pop instruction to be consistent with putfield instruction which
       // consumes the updated field value on the operand stack.
-      mv.visitInsn(
-          NestDesugarHelper.getTypeSizeAlignedOpcode(Opcodes.POP, fieldKey.getFieldType()));
+      mv.visitInsn(LangModelHelper.getTypeSizeAlignedOpcode(Opcodes.POP, fieldKey.getFieldType()));
       return bridgeMethodKey;
     }
 
@@ -222,8 +223,7 @@ public final class NestBridgeRefConverter extends MethodVisitor {
       // The bridge method for an instance field writer pushes the new field value to its invoker
       // operand stack, we emit a pop instruction to be consistent with putfield instruction which
       // consumes the updated field value on the operand stack.
-      mv.visitInsn(
-          NestDesugarHelper.getTypeSizeAlignedOpcode(Opcodes.POP, fieldKey.getFieldType()));
+      mv.visitInsn(LangModelHelper.getTypeSizeAlignedOpcode(Opcodes.POP, fieldKey.getFieldType()));
       return bridgeMethodKey;
     }
   }
