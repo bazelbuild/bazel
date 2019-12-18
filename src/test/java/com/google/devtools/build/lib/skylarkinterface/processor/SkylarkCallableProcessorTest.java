@@ -374,7 +374,7 @@ public final class SkylarkCallableProcessorTest {
         .failsToCompile()
         .withErrorContaining(
             "Parameter one has generic type "
-                + "com.google.devtools.build.lib.syntax.Dict<?,java.lang.String>");
+                + "com.google.devtools.build.lib.syntax.Sequence<java.lang.String>");
   }
 
   @Test
