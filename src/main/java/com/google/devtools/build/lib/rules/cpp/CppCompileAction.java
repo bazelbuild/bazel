@@ -475,7 +475,7 @@ public class CppCompileAction extends AbstractAction
     for (Artifact source : getIncludeScannerSources()) {
       undeclaredHeaders.remove(source);
     }
-    for (Artifact header : additionalPrunableHeaders) {
+    for (Artifact header : additionalPrunableHeaders.toList()) {
       undeclaredHeaders.remove(header);
     }
     if (undeclaredHeaders.isEmpty()) {
@@ -896,7 +896,7 @@ public class CppCompileAction extends AbstractAction
     } else {
       info.addSourcesAndHeaders(getSourceFile().getExecPathString());
       info.addAllSourcesAndHeaders(
-          Artifact.toExecPaths(ccCompilationContext.getDeclaredIncludeSrcs()));
+          Artifact.toExecPaths(ccCompilationContext.getDeclaredIncludeSrcs().toList()));
     }
     // TODO(ulfjack): Extra actions currently ignore the client environment.
     for (Map.Entry<String, String> envVariable :
@@ -988,7 +988,8 @@ public class CppCompileAction extends AbstractAction
         continue;
       }
       if (declaredIncludeDirs == null) {
-        declaredIncludeDirs = Sets.newHashSet(ccCompilationContext.getDeclaredIncludeDirs());
+        declaredIncludeDirs =
+            Sets.newHashSet(ccCompilationContext.getDeclaredIncludeDirs().toList());
       }
       if (!isDeclaredIn(cppConfiguration, actionExecutionContext, input, declaredIncludeDirs)) {
         errors.add(input.getExecPath().toString());
@@ -1003,11 +1004,12 @@ public class CppCompileAction extends AbstractAction
             System.err.println("INFO: Include(s) were OK for '" + getSourceFile()
                 + "', declared srcs:");
           }
-          for (Artifact a : ccCompilationContext.getDeclaredIncludeSrcs()) {
+          for (Artifact a : ccCompilationContext.getDeclaredIncludeSrcs().toList()) {
             System.err.println("  '" + a.toDetailString() + "'");
           }
           System.err.println(" or under declared dirs:");
-          for (PathFragment f : Sets.newTreeSet(ccCompilationContext.getDeclaredIncludeDirs())) {
+          for (PathFragment f :
+              Sets.newTreeSet(ccCompilationContext.getDeclaredIncludeDirs().toList())) {
             System.err.println("  '" + f + "'");
           }
           System.err.println(" with prefixes:");
@@ -1178,11 +1180,11 @@ public class CppCompileAction extends AbstractAction
   @Override
   public Iterable<Artifact> getAllowedDerivedInputs() {
     Set<Artifact> result = CompactHashSet.create();
-    addNonSources(result, mandatoryInputs);
-    addNonSources(result, additionalPrunableHeaders);
+    addNonSources(result, mandatoryInputs.toList());
+    addNonSources(result, additionalPrunableHeaders.toList());
     addNonSources(result, inputsForInvalidation);
-    addNonSources(result, getDeclaredIncludeSrcs());
-    addNonSources(result, ccCompilationContext.getTransitiveModules(usePic));
+    addNonSources(result, getDeclaredIncludeSrcs().toList());
+    addNonSources(result, ccCompilationContext.getTransitiveModules(usePic).toList());
     Artifact artifact = getSourceFile();
     if (!artifact.isSourceArtifact()) {
       result.add(artifact);
@@ -1656,13 +1658,13 @@ public class CppCompileAction extends AbstractAction
       message.append('\n');
     }
 
-    for (PathFragment path : ccCompilationContext.getDeclaredIncludeDirs()) {
+    for (PathFragment path : ccCompilationContext.getDeclaredIncludeDirs().toList()) {
       message.append("  Declared include directory: ");
       message.append(ShellEscaper.escapeString(path.getPathString()));
       message.append('\n');
     }
 
-    for (Artifact src : getDeclaredIncludeSrcs()) {
+    for (Artifact src : getDeclaredIncludeSrcs().toList()) {
       message.append("  Declared include source: ");
       message.append(ShellEscaper.escapeString(src.getExecPathString()));
       message.append('\n');

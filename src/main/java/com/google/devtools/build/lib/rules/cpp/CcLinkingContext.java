@@ -347,7 +347,7 @@ public class CcLinkingContext implements CcLinkingContextApi<Artifact> {
 
   public List<Artifact> getStaticModeParamsForExecutableLibraries() {
     ImmutableList.Builder<Artifact> libraryListBuilder = ImmutableList.builder();
-    for (LibraryToLink libraryToLink : getLibraries()) {
+    for (LibraryToLink libraryToLink : getLibraries().toList()) {
       if (libraryToLink.getStaticLibrary() != null) {
         libraryListBuilder.add(libraryToLink.getStaticLibrary());
       } else if (libraryToLink.getPicStaticLibrary() != null) {
@@ -363,7 +363,7 @@ public class CcLinkingContext implements CcLinkingContextApi<Artifact> {
 
   public List<Artifact> getStaticModeParamsForDynamicLibraryLibraries() {
     ImmutableList.Builder<Artifact> artifactListBuilder = ImmutableList.builder();
-    for (LibraryToLink library : getLibraries()) {
+    for (LibraryToLink library : getLibraries().toList()) {
       if (library.getPicStaticLibrary() != null) {
         artifactListBuilder.add(library.getPicStaticLibrary());
       } else if (library.getStaticLibrary() != null) {

@@ -176,7 +176,7 @@ public class CppHelper {
           ruleContext.getPrerequisites("additional_linker_inputs", Mode.TARGET)) {
         builder.put(
             AliasProvider.getDependencyLabel(current),
-            ImmutableList.copyOf(current.getProvider(FileProvider.class).getFilesToBuild()));
+            current.getProvider(FileProvider.class).getFilesToBuild().toList());
       }
     }
 
@@ -624,7 +624,7 @@ public class CppHelper {
     MiddlemanFactory factory = ruleContext.getAnalysisEnvironment().getMiddlemanFactory();
     if (useSolibSymlinks) {
       NestedSetBuilder<Artifact> symlinkedArtifacts = NestedSetBuilder.stableOrder();
-      for (Artifact artifact : artifacts) {
+      for (Artifact artifact : artifacts.toList()) {
         Preconditions.checkState(Link.SHARED_LIBRARY_FILETYPES.matches(artifact.getFilename()));
         symlinkedArtifacts.add(
             isCppRuntime

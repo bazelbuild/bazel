@@ -918,7 +918,7 @@ public class CompilationSupport {
     }
 
     if (ruleContext.attributes().has("srcs", BuildType.LABEL_LIST)) {
-      ImmutableSet<Artifact> hdrsSet = ImmutableSet.copyOf(attributes.hdrs());
+      ImmutableSet<Artifact> hdrsSet = attributes.hdrs().toSet();
       ImmutableSet<Artifact> srcsSet =
           ImmutableSet.copyOf(ruleContext.getPrerequisiteArtifacts("srcs", Mode.TARGET).list());
 
@@ -1355,16 +1355,16 @@ public class CompilationSupport {
    */
   private Set<String> frameworkNames(ObjcProvider provider) {
     Set<String> names = new LinkedHashSet<>();
-    Iterables.addAll(names, SdkFramework.names(provider.get(SDK_FRAMEWORK)));
-    Iterables.addAll(names, provider.staticFrameworkNames());
-    Iterables.addAll(names, provider.dynamicFrameworkNames());
+    names.addAll(SdkFramework.names(provider.get(SDK_FRAMEWORK).toList()));
+    names.addAll(provider.staticFrameworkNames().toList());
+    names.addAll(provider.dynamicFrameworkNames().toList());
     return names;
   }
 
   /** Returns libraries that should be passed to the linker. */
   private ImmutableList<String> libraryNames(ObjcProvider objcProvider) {
     ImmutableList.Builder<String> args = new ImmutableList.Builder<>();
-    for (String dylib : objcProvider.get(SDK_DYLIB)) {
+    for (String dylib : objcProvider.get(SDK_DYLIB).toList()) {
       if (dylib.startsWith("lib")) {
         // remove lib prefix if it exists which is standard
         // for libraries (libxml.dylib -> -lxml).
@@ -1382,7 +1382,7 @@ public class CompilationSupport {
         Iterables.filter(ccLibraries, ALWAYS_LINKED_CC_LIBRARY);
 
     return ImmutableSet.<Artifact>builder()
-        .addAll(objcProvider.get(FORCE_LOAD_LIBRARY))
+        .addAll(objcProvider.get(FORCE_LOAD_LIBRARY).toList())
         .addAll(ccLibrariesToForceLoad)
         .build();
   }
@@ -1390,7 +1390,7 @@ public class CompilationSupport {
   /** Returns pruned J2Objc archives for this target. */
   private ImmutableList<Artifact> j2objcPrunedLibraries(ObjcProvider objcProvider) {
     ImmutableList.Builder<Artifact> j2objcPrunedLibraryBuilder = ImmutableList.builder();
-    for (Artifact j2objcLibrary : objcProvider.get(ObjcProvider.J2OBJC_LIBRARY)) {
+    for (Artifact j2objcLibrary : objcProvider.get(ObjcProvider.J2OBJC_LIBRARY).toList()) {
       j2objcPrunedLibraryBuilder.add(intermediateArtifacts.j2objcPrunedArchive(j2objcLibrary));
     }
     return j2objcPrunedLibraryBuilder.build();
@@ -1420,13 +1420,13 @@ public class CompilationSupport {
     NestedSet<Artifact> j2ObjcArchiveSourceMappingFiles =
         j2ObjcMappingFileProvider.getArchiveSourceMappingFiles();
 
-    for (Artifact j2objcArchive : objcProvider.get(ObjcProvider.J2OBJC_LIBRARY)) {
+    for (Artifact j2objcArchive : objcProvider.get(ObjcProvider.J2OBJC_LIBRARY).toList()) {
       Artifact prunedJ2ObjcArchive = intermediateArtifacts.j2objcPrunedArchive(j2objcArchive);
       Artifact dummyArchive =
-          Iterables.getOnlyElement(
-              ruleContext
-                  .getPrerequisite("$dummy_lib", Mode.TARGET, ObjcProvider.SKYLARK_CONSTRUCTOR)
-                  .get(LIBRARY));
+          ruleContext
+              .getPrerequisite("$dummy_lib", Mode.TARGET, ObjcProvider.SKYLARK_CONSTRUCTOR)
+              .get(LIBRARY)
+              .getSingleton();
 
       CustomCommandLine commandLine =
           CustomCommandLine.builder()

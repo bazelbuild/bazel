@@ -125,7 +125,7 @@ public class ObjcProviderSkylarkConverters {
     @Override
     public Object valueForSkylark(Key<?> javaKey, NestedSet<?> javaValue) {
       NestedSetBuilder<String> result = NestedSetBuilder.stableOrder();
-      for (SdkFramework framework : (Iterable<SdkFramework>) javaValue) {
+      for (SdkFramework framework : ((NestedSet<SdkFramework>) javaValue).toList()) {
         result.add(framework.getName());
       }
       return Depset.of(SkylarkType.STRING, result.build());

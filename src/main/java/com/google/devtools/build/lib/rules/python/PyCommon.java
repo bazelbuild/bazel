@@ -918,7 +918,7 @@ public final class PyCommon {
                 ruleContext,
                 semantics.getCoverageInstrumentationSpec(),
                 METADATA_COLLECTOR,
-                filesToBuild,
+                filesToBuild.toList(),
                 /* reportedToActualSources= */ NestedSetBuilder.create(Order.STABLE_ORDER)))
         // Python targets are not really compilable. The best we can do is make sure that all
         // generated source files are ready.
@@ -983,13 +983,13 @@ public final class PyCommon {
   }
 
   /**
-   * Creates a {@link PseudoAction} that is only used for providing
-   * information to the blaze extra_action feature.
+   * Creates a {@link PseudoAction} that is only used for providing information to the blaze
+   * extra_action feature.
    */
   public static Action makePyExtraActionPseudoAction(
       ActionOwner owner,
-      Iterable<Artifact> sources,
-      Iterable<Artifact> dependencies,
+      List<Artifact> sources,
+      NestedSet<Artifact> dependencies,
       Artifact output) {
 
     PythonInfo info =

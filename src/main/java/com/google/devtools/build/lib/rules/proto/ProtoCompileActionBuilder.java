@@ -654,7 +654,7 @@ public class ProtoCompileActionBuilder {
      */
     @Override
     public void expandToCommandLine(Artifact proto, Consumer<String> args) {
-      for (String directProtoSourceRoot : directProtoSourceRoots) {
+      for (String directProtoSourceRoot : directProtoSourceRoots.toList()) {
         PathFragment sourceRootPath = PathFragment.create(directProtoSourceRoot);
         String arg = guessProtoPathUnderRoot(outputDirectory, sourceRootPath, proto);
         if (arg != null) {
@@ -682,7 +682,7 @@ public class ProtoCompileActionBuilder {
       if (proto.second != null) {
         args.accept(proto.second);
       } else {
-        for (String directProtoSourceRoot : directProtoSourceRoots) {
+        for (String directProtoSourceRoot : directProtoSourceRoots.toList()) {
           PathFragment sourceRootPath = PathFragment.create(directProtoSourceRoot);
           String arg = guessProtoPathUnderRoot(outputDirectory, sourceRootPath, proto.first);
           if (arg != null) {
