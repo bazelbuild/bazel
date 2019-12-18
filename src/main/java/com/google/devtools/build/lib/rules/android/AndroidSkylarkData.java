@@ -707,7 +707,7 @@ public abstract class AndroidSkylarkData
       List<ConfiguredTarget> targets) {
     ImmutableList.Builder<Artifact> builder = ImmutableList.builder();
     for (FileProvider provider : getFileProviders(targets)) {
-      builder.addAll(provider.getFilesToBuild());
+      builder.addAll(provider.getFilesToBuild().toList());
     }
 
     return builder.build();

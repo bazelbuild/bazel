@@ -342,7 +342,8 @@ public class ResourceFilterFactory {
     // resources at each non-binary target, and then filter both local and transitive resources in
     // the binary.
     for (Artifact artifact :
-        Iterables.concat(localResources.getResources(), resourceDeps.getTransitiveResources())) {
+        Iterables.concat(
+            localResources.getResources(), resourceDeps.getTransitiveResources().toList())) {
       FolderConfiguration config = getConfigForArtifact(ruleErrorConsumer, artifact);
 
       // aapt explicitly ignores the version qualifier; duplicate this behavior here.

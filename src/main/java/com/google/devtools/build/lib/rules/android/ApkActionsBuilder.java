@@ -288,7 +288,7 @@ public class ApkActionsBuilder {
     }
 
     for (String architecture : nativeLibs.getMap().keySet()) {
-      for (Artifact nativeLib : nativeLibs.getMap().get(architecture)) {
+      for (Artifact nativeLib : nativeLibs.getMap().get(architecture).toList()) {
         compressedApkActionBuilder.addInput(nativeLib);
         compressedApkCommandLine
             .add("--resources")

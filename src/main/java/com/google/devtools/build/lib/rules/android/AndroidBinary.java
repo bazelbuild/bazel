@@ -340,10 +340,11 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
       NestedSet<Artifact> transitiveDependencies =
           NestedSetBuilder.<Artifact>stableOrder()
               .addAll(
-                  Iterables.transform(resourceClasses.getRuntimeClassPath(), derivedJarFunction))
+                  Iterables.transform(
+                      resourceClasses.getRuntimeClassPath().toList(), derivedJarFunction))
               .addAll(
                   Iterables.transform(
-                      androidCommon.getJarsProducedForRuntime(), derivedJarFunction))
+                      androidCommon.getJarsProducedForRuntime().toList(), derivedJarFunction))
               .build();
 
       oneVersionOutputArtifact =
@@ -567,7 +568,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
         .setClassesDex(finalClassesDex)
         .addInputZip(resourceApk.getArtifact())
         .setJavaResourceZip(dexingOutput.javaResourceJar, resourceExtractor)
-        .addInputZips(nativeLibsAar)
+        .addInputZips(nativeLibsAar.toList())
         .setNativeLibs(nativeLibs)
         .setUnsignedApk(unsignedApk)
         .setSignedApk(zipAlignedApk)
@@ -835,7 +836,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
     ruleContext.registerAction(
         new FailAction(
             ruleContext.getActionOwner(),
-            failures.build(),
+            failures.build().toSet(),
             String.format("Can't run Proguard without proguard_specs")));
     return new ProguardOutput(deployJarArtifact, null, null, null, null, null, null);
   }
@@ -1520,7 +1521,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
     AndroidRuntimeJarProvider.Builder result =
         collectDesugaredJarsFromAttributes(
             ruleContext, semantics.getAttributesWithJavaRuntimeDeps(ruleContext));
-    for (Artifact jar : common.getJarsProducedForRuntime()) {
+    for (Artifact jar : common.getJarsProducedForRuntime().toList()) {
       // Create dex archives next to all Jars produced by AndroidCommon for this rule.  We need to
       // do this (instead of placing dex archives into the _dx subdirectory like DexArchiveAspect)
       // because for "legacy" ResourceApks, AndroidCommon produces Jars per resource dependency that
@@ -1569,7 +1570,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
     }
     ImmutableSet<String> incrementalDexopts =
         DexArchiveAspect.incrementalDexopts(ruleContext, dexopts);
-    for (Artifact jar : common.getJarsProducedForRuntime()) {
+    for (Artifact jar : common.getJarsProducedForRuntime().toList()) {
       // Create dex archives next to all Jars produced by AndroidCommon for this rule.  We need to
       // do this (instead of placing dex archives into the _dx subdirectory like DexArchiveAspect)
       // because for "legacy" ResourceApks, AndroidCommon produces Jars per resource dependency that

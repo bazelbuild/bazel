@@ -83,7 +83,7 @@ public class AndroidAssets {
     ImmutableList.Builder<PathFragment> assetRoots = ImmutableList.builder();
 
     for (TransitiveInfoCollection target : assetTargets) {
-      for (Artifact file : target.getProvider(FileProvider.class).getFilesToBuild()) {
+      for (Artifact file : target.getProvider(FileProvider.class).getFilesToBuild().toList()) {
         PathFragment packageFragment = file.getOwnerLabel().getPackageIdentifier().getSourceRoot();
         PathFragment packageRelativePath = file.getRootRelativePath().relativeTo(packageFragment);
         if (packageRelativePath.startsWith(assetsDir)) {

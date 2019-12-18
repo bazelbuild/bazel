@@ -145,7 +145,8 @@ public class AndroidResourceMergingActionBuilder {
           AndroidDataConverter.COMPILED_RESOURCE_CONVERTER);
 
       if (omitTransitiveDependenciesFromAndroidRClasses) {
-        for (ValidatedAndroidResources resources : dependencies.getDirectResourceContainers()) {
+        for (ValidatedAndroidResources resources :
+            dependencies.getDirectResourceContainers().toList()) {
           builder.addInputs(resources.getResources());
           builder.maybeAddInput(resources.getCompiledSymbols());
         }

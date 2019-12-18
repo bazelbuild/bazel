@@ -317,7 +317,7 @@ public class AndroidResources {
   private static ImmutableList<Artifact> getResources(Iterable<FileProvider> targets) {
     ImmutableList.Builder<Artifact> builder = ImmutableList.builder();
     for (FileProvider target : targets) {
-      builder.addAll(target.getFilesToBuild());
+      builder.addAll(target.getFilesToBuild().toList());
     }
 
     return builder.build();

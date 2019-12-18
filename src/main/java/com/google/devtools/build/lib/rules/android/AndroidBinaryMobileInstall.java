@@ -151,7 +151,7 @@ public final class AndroidBinaryMobileInstall {
             .setClassesDex(stubDex)
             .addInputZip(mobileInstallResourceApks.incrementalResourceApk.getArtifact())
             .setJavaResourceZip(javaResourceJar, resourceExtractor)
-            .addInputZips(nativeLibsAar)
+            .addInputZips(nativeLibsAar.toList())
             .setJavaResourceFile(stubData)
             .setSignedApk(incrementalApk)
             .setSigningKey(signingKey);
@@ -260,7 +260,7 @@ public final class AndroidBinaryMobileInstall {
     ApkActionsBuilder.create("split main apk")
         .setClassesDex(splitStubDex)
         .addInputZip(splitMainApkResources)
-        .addInputZips(nativeLibsAar)
+        .addInputZips(nativeLibsAar.toList())
         .setSignedApk(splitMainApk)
         .setSigningKey(signingKey)
         .registerActions(ruleContext);
@@ -411,7 +411,7 @@ public final class AndroidBinaryMobileInstall {
     }
 
     for (Map.Entry<String, NestedSet<Artifact>> arch : nativeLibs.getMap().entrySet()) {
-      for (Artifact lib : arch.getValue()) {
+      for (Artifact lib : arch.getValue().toList()) {
         builder.addInput(lib);
         commandLine.add("--native_lib").addFormatted("%s:%s", arch.getKey(), lib);
       }
@@ -442,19 +442,16 @@ public final class AndroidBinaryMobileInstall {
             .addOutput(marker)
             .addInput(stubDataFile)
             .addInput(argsArtifact)
-            .addInput(splitMainApk);
+            .addInput(splitMainApk)
+            .addTransitiveInputs(splitApks);
     CustomCommandLine.Builder commandLine =
         CustomCommandLine.builder()
             .addExecPath("--output_marker", marker)
             .addExecPath("--stub_datafile", stubDataFile)
             .addExecPath("--adb", adb.getExecutable())
             .addExecPath("--flagfile", argsArtifact)
-            .addExecPath("--split_main_apk", splitMainApk);
-
-    for (Artifact splitApk : splitApks) {
-      builder.addInput(splitApk);
-      commandLine.addExecPath("--split_apk", splitApk);
-    }
+            .addExecPath("--split_main_apk", splitMainApk)
+            .addExecPaths("--split_apk", splitApks);
 
     builder.addCommandLine(commandLine.build());
     ruleContext.registerAction(builder.build(ruleContext));

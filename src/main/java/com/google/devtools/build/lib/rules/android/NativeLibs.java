@@ -136,8 +136,8 @@ public final class NativeLibs {
   public ImmutableSet<Artifact> getAllNativeLibs() {
     ImmutableSet.Builder<Artifact> result = ImmutableSet.builder();
 
-    for (Iterable<Artifact> libs : nativeLibs.values()) {
-      result.addAll(libs);
+    for (NestedSet<Artifact> libs : nativeLibs.values()) {
+      result.addAll(libs.toList());
     }
 
     return result.build();
@@ -157,7 +157,7 @@ public final class NativeLibs {
     Map<PathFragment, Artifact> symlinks = new LinkedHashMap<>();
     for (Map.Entry<String, NestedSet<Artifact>> entry : nativeLibs.entrySet()) {
       String arch = entry.getKey();
-      for (Artifact lib : entry.getValue()) {
+      for (Artifact lib : entry.getValue().toList()) {
         symlinks.put(PathFragment.create(arch + "/" + lib.getExecPath().getBaseName()), lib);
       }
     }
@@ -252,7 +252,7 @@ public final class NativeLibs {
     if (linkedLibrary != null) {
       basenames.put(linkedLibrary.getExecPath().getBaseName(), linkedLibrary);
     }
-    for (LibraryToLink linkerInput : libraries) {
+    for (LibraryToLink linkerInput : libraries.toList()) {
       if (linkerInput.getPicStaticLibrary() != null || linkerInput.getStaticLibrary() != null) {
         // This is not a shared library and will not be loaded by Android, so skip it.
         continue;
