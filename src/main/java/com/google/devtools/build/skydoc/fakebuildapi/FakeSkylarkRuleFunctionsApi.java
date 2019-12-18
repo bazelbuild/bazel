@@ -250,8 +250,9 @@ public class FakeSkylarkRuleFunctionsApi implements SkylarkRuleFunctionsApi<File
     private static int idCounter = 0;
     private final String name = "RuleDefinitionIdentifier" + idCounter++;
 
-    public RuleDefinitionIdentifier() {
-      super(FunctionSignature.KWARGS);
+    @Override
+    public FunctionSignature getSignature() {
+      return FunctionSignature.KWARGS;
     }
 
     @Override

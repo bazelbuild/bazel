@@ -24,7 +24,6 @@ import com.google.devtools.build.lib.syntax.util.EvaluationTestCase;
 import com.google.devtools.build.lib.testutil.TestMode;
 import java.util.Collections;
 import java.util.List;
-import java.util.Map;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -142,13 +141,9 @@ public class EvaluationTest extends EvaluationTestCase {
     assertThat(interruptFunction.callCount).isEqualTo(2);
   }
 
-  private static class InterruptFunction extends BaseFunction {
+  private static class InterruptFunction implements StarlarkCallable {
 
     private int callCount = 0;
-
-    private InterruptFunction() {
-      super(FunctionSignature.ANY);
-    }
 
     @Override
     public String getName() {
@@ -156,13 +151,10 @@ public class EvaluationTest extends EvaluationTestCase {
     }
 
     @Override
-    public Object callImpl(
-        StarlarkThread thread,
-        FuncallExpression ast,
-        List<Object> args,
-        Map<String, Object> kwargs) {
+    public Object fastcall(
+        StarlarkThread thread, FuncallExpression ast, Object[] positional, Object[] named) {
       callCount++;
-      if (!args.isEmpty() && (Boolean) args.get(0)) {
+      if (positional.length > 0 && Starlark.truth(positional[0])) {
         Thread.currentThread().interrupt();
       }
       return Starlark.NONE;
@@ -239,21 +231,18 @@ public class EvaluationTest extends EvaluationTestCase {
 
   @Test
   public void testSumFunction() throws Exception {
-    BaseFunction sum =
-        new BaseFunction(FunctionSignature.ANY) {
+    StarlarkCallable sum =
+        new StarlarkCallable() {
           @Override
           public String getName() {
             return "sum";
           }
 
           @Override
-          public Object callImpl(
-              StarlarkThread thread,
-              FuncallExpression ast,
-              List<Object> args,
-              Map<String, Object> kwargs) {
+          public Object fastcall(
+              StarlarkThread thread, FuncallExpression call, Object[] positional, Object[] named) {
             int sum = 0;
-            for (Object arg : args) {
+            for (Object arg : positional) {
               sum += (Integer) arg;
             }
             return sum;
@@ -284,22 +273,21 @@ public class EvaluationTest extends EvaluationTestCase {
 
   @Test
   public void testKeywordArgs() throws Exception {
-
     // This function returns the map of keyword arguments passed to it.
-    BaseFunction kwargs =
-        new BaseFunction(FunctionSignature.KWARGS) {
+    StarlarkCallable kwargs =
+        new StarlarkCallable() {
           @Override
           public String getName() {
             return "kwargs";
           }
 
           @Override
-          public Object callImpl(
+          public Object call(
               StarlarkThread thread,
               FuncallExpression call,
-              List<Object> args,
-              Map<String, Object> kwargs) {
-            return Dict.copyOf(thread.mutability(), kwargs);
+              Tuple<Object> args,
+              Dict<String, Object> kwargs) {
+            return kwargs;
           }
         };
 
@@ -827,8 +815,11 @@ public class EvaluationTest extends EvaluationTestCase {
 
   @Test
   public void testDictKeysDuplicateKeyArgs() throws Exception {
-    newTest().testIfExactError("duplicate keywords 'arg', 'k' in call to {\"a\": 1}.keys",
-        "{'a': 1}.keys(arg='abc', arg='def', k=1, k=2)");
+    // TODO(adonovan): when the duplication is literal, this should be caught by a static check.
+    newTest()
+        .testIfExactError(
+            "duplicate argument 'arg' in call to 'keys'",
+            "{'a': 1}.keys(arg='abc', arg='def', k=1, k=2)");
   }
 
   @Test

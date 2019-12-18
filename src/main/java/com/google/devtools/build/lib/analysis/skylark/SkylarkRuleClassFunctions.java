@@ -92,10 +92,10 @@ import com.google.devtools.build.lib.syntax.SkylarkType;
 import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.syntax.StarlarkFunction;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
+import com.google.devtools.build.lib.syntax.Tuple;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.util.Pair;
 import java.util.Collection;
-import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
 import javax.annotation.Nullable;
@@ -613,7 +613,6 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
         RuleClassType type,
         ImmutableList<Pair<String, SkylarkAttr.Descriptor>> attributes,
         Location definitionLocation) {
-      super(FunctionSignature.KWARGS);
       this.builder = builder;
       this.type = type;
       this.attributes = attributes;
@@ -623,7 +622,6 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
     /** This is for post-export reconstruction for serialization. */
     private SkylarkRuleFunction(
         RuleClass ruleClass, RuleClassType type, Location definitionLocation, Label skylarkLabel) {
-      super(FunctionSignature.KWARGS);
       Preconditions.checkNotNull(
           ruleClass,
           "RuleClass must be non-null as this SkylarkRuleFunction should have been exported.");
@@ -642,11 +640,16 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
     }
 
     @Override
-    public Object callImpl(
+    public FunctionSignature getSignature() {
+      return FunctionSignature.KWARGS; // just for documentation
+    }
+
+    @Override
+    public Object call(
         StarlarkThread thread,
         @Nullable FuncallExpression call,
-        List<Object> args,
-        Map<String, Object> kwargs)
+        Tuple<Object> args,
+        Dict<String, Object> kwargs)
         throws EvalException, InterruptedException, ConversionException {
       Location loc = call != null ? call.getLocation() : Location.BUILTIN;
       if (!args.isEmpty()) {
@@ -686,10 +689,10 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
         }
         RuleFactory.createAndAddRule(
             pkgContext, ruleClass, attributeValues, loc, thread, new AttributeContainer(ruleClass));
-        return Starlark.NONE;
       } catch (InvalidRuleException | NameConflictException e) {
         throw new EvalException(loc, e.getMessage());
       }
+      return Starlark.NONE;
     }
 
     /**

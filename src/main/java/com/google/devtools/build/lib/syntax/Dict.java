@@ -79,13 +79,26 @@ import javax.annotation.Nullable;
 public final class Dict<K, V>
     implements Map<K, V>, StarlarkMutable, SkylarkIndexable, StarlarkIterable<K> {
 
-  private final LinkedHashMap<K, V> contents = new LinkedHashMap<>();
+  private final LinkedHashMap<K, V> contents;
 
   /** Final except for {@link #unsafeShallowFreeze}; must not be modified any other way. */
   private Mutability mutability;
 
-  private Dict(@Nullable Mutability mutability) {
+  private Dict(@Nullable Mutability mutability, LinkedHashMap<K, V> contents) {
     this.mutability = mutability == null ? Mutability.IMMUTABLE : mutability;
+    this.contents = contents;
+  }
+
+  private Dict(@Nullable Mutability mutability) {
+    this(mutability, new LinkedHashMap<>());
+  }
+
+  /**
+   * Takes ownership of the supplied LinkedHashMap and returns a new Dict that wraps it. The caller
+   * must not subsequently modify the map, but the Dict may do so.
+   */
+  static <K, V> Dict<K, V> wrap(@Nullable Mutability mutability, LinkedHashMap<K, V> contents) {
+    return new Dict<>(mutability, contents);
   }
 
   @Override
@@ -216,6 +229,7 @@ public final class Dict<K, V>
       useLocation = true)
   @SuppressWarnings("unchecked") // Cast of value to V
   public Object setdefault(K key, Object defaultValue, Location loc) throws EvalException {
+    // TODO(adonovan): opt: use putIfAbsent to avoid hashing twice.
     Object value = get(key);
     if (value != null) {
       return value;
@@ -347,6 +361,7 @@ public final class Dict<K, V>
   @SuppressWarnings("unchecked")
   private <KK extends K, VV extends V> Dict<K, V> putAllUnsafe(Map<KK, VV> m) {
     for (Map.Entry<KK, VV> e : m.entrySet()) {
+      // TODO(adonovan): the fromJava call here is suspicious and inconsistent.
       contents.put(e.getKey(), (VV) Starlark.fromJava(e.getValue(), mutability));
     }
     return this;

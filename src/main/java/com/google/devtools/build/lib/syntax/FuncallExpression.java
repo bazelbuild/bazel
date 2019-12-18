@@ -16,8 +16,6 @@ package com.google.devtools.build.lib.syntax;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
-import java.util.Collections;
-import java.util.List;
 
 /** Syntax node for a function call expression. */
 // TODO(adonovan): rename CallExpression.
@@ -29,8 +27,15 @@ public final class FuncallExpression extends Expression {
 
   FuncallExpression(Expression function, ImmutableList<Argument> arguments) {
     this.function = Preconditions.checkNotNull(function);
-    this.arguments = Preconditions.checkNotNull(arguments);
-    this.numPositionalArgs = countPositionalArguments();
+    this.arguments = arguments;
+
+    int n = 0;
+    for (Argument arg : arguments) {
+      if (arg instanceof Argument.Positional) {
+        n++;
+      }
+    }
+    this.numPositionalArgs = n;
   }
 
   /** Returns the function that is called. */
@@ -38,33 +43,14 @@ public final class FuncallExpression extends Expression {
     return this.function;
   }
 
-  /**
-   * Returns the number of positional arguments.
-   */
-  private int countPositionalArguments() {
-    int num = 0;
-    for (Argument arg : arguments) {
-      if (arg instanceof Argument.Positional) {
-        num++;
-      }
-    }
-    return num;
-  }
-
-  /**
-   * Returns an (immutable, ordered) list of function arguments. The first n are positional and the
-   * remaining ones are keyword args, where n = getNumPositionalArguments().
-   */
-  public List<Argument> getArguments() {
-    return Collections.unmodifiableList(arguments);
-  }
-
-  /**
-   * Returns the number of arguments which are positional; the remainder are
-   * keyword arguments.
-   */
+  /** Returns the number of arguments of type {@code Argument.Positional}. */
   public int getNumPositionalArguments() {
     return numPositionalArgs;
+  }
+
+  /** Returns the function arguments. */
+  public ImmutableList<Argument> getArguments() {
+    return arguments;
   }
 
   @Override

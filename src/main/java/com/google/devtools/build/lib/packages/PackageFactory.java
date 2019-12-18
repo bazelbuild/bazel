@@ -39,6 +39,7 @@ import com.google.devtools.build.lib.syntax.Argument;
 import com.google.devtools.build.lib.syntax.BaseFunction;
 import com.google.devtools.build.lib.syntax.ClassObject;
 import com.google.devtools.build.lib.syntax.DefStatement;
+import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.Expression;
@@ -63,6 +64,7 @@ import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.lib.syntax.StarlarkThread.Extension;
 import com.google.devtools.build.lib.syntax.Statement;
 import com.google.devtools.build.lib.syntax.StringLiteral;
+import com.google.devtools.build.lib.syntax.Tuple;
 import com.google.devtools.build.lib.syntax.ValidationEnvironment;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -494,56 +496,58 @@ public final class PackageFactory {
 
   /** Returns a function-value implementing "package" in the specified package context. */
   // TODO(cparsons): Migrate this function to be defined with @SkylarkCallable.
+  // TODO(adonovan): don't call this function twice (once for BUILD files and
+  // once for the native module) as it results in distinct objects. (Using
+  // @SkylarkCallable may accomplish that.)
   private static BaseFunction newPackageFunction(
       final ImmutableMap<String, PackageArgument<?>> packageArguments) {
-    // Flatten the map of argument name of PackageArgument specifier in two co-indexed arrays:
-    // one for the argument names, to create a FunctionSignature when we create the function,
-    // one of the PackageArgument specifiers, over which to iterate at every function invocation
-    // at the same time that we iterate over the function arguments.
-    final int numArgs = packageArguments.size();
-    final String[] argumentNames = new String[numArgs];
-    final PackageArgument<?>[] argumentSpecifiers = new PackageArgument<?>[numArgs];
-    int i = 0;
-    for (Map.Entry<String, PackageArgument<?>> entry : packageArguments.entrySet()) {
-      argumentNames[i] = entry.getKey();
-      argumentSpecifiers[i++] = entry.getValue();
-    }
+    FunctionSignature signature =
+        FunctionSignature.namedOnly(0, packageArguments.keySet().toArray(new String[0]));
 
-    return new BaseFunction(FunctionSignature.namedOnly(0, argumentNames)) {
+    return new BaseFunction() {
       @Override
       public String getName() {
         return "package";
       }
 
       @Override
-      public Object call(Object[] arguments, FuncallExpression ast, StarlarkThread thread)
+      public FunctionSignature getSignature() {
+        return signature; // (only for documentation)
+      }
+
+      @Override
+      public Object call(
+          StarlarkThread thread,
+          @Nullable FuncallExpression call,
+          Tuple<Object> args,
+          Dict<String, Object> kwargs)
           throws EvalException {
-        Location loc = ast.getLocation();
+        if (!args.isEmpty()) {
+          throw new EvalException(null, "unexpected positional arguments");
+        }
+        Location loc = call != null ? call.getLocation() : Location.BUILTIN;
 
         Package.Builder pkgBuilder = getContext(thread, loc).pkgBuilder;
 
         // Validate parameter list
         if (pkgBuilder.isPackageFunctionUsed()) {
-          throw new EvalException(loc, "'package' can only be used once per BUILD file");
+          throw new EvalException(null, "'package' can only be used once per BUILD file");
         }
         pkgBuilder.setPackageFunctionUsed();
 
-        // Parse params
-        boolean foundParameter = false;
-
-        for (int i = 0; i < numArgs; i++) {
-          Object value = arguments[i];
-          if (value != null) {
-            foundParameter = true;
-            argumentSpecifiers[i].convertAndProcess(pkgBuilder, loc, value);
-          }
-        }
-
-        if (!foundParameter) {
+        // Each supplied argument must name a PackageArgument.
+        if (kwargs.isEmpty()) {
           throw new EvalException(
-              loc, "at least one argument must be given to the 'package' function");
+              null, "at least one argument must be given to the 'package' function");
         }
-
+        for (Map.Entry<String, Object> kwarg : kwargs.entrySet()) {
+          String name = kwarg.getKey();
+          PackageArgument<?> pkgarg = packageArguments.get(name);
+          if (pkgarg == null) {
+            throw new EvalException(null, "unexpected keyword argument: " + name);
+          }
+          pkgarg.convertAndProcess(pkgBuilder, loc, kwarg.getValue());
+        }
         return Starlark.NONE;
       }
     };
@@ -585,19 +589,20 @@ public final class PackageFactory {
     private final RuleClass ruleClass;
 
     BuiltinRuleFunction(RuleClass ruleClass) {
-      // TODO(adonovan): the only thing BaseFunction is doing for us is holding
-      // an (uninteresting) FunctionSignature. Can we extend StarlarkCallable directly?
-      // Only docgen appears to depend on BaseFunction.
-      super(FunctionSignature.KWARGS);
       this.ruleClass = Preconditions.checkNotNull(ruleClass);
     }
 
     @Override
-    public NoneType callImpl(
+    public FunctionSignature getSignature() {
+      return FunctionSignature.KWARGS; // just for documentation
+    }
+
+    @Override
+    public NoneType call(
         StarlarkThread thread,
         @Nullable FuncallExpression call,
-        List<Object> args,
-        Map<String, Object> kwargs)
+        Tuple<Object> args,
+        Dict<String, Object> kwargs)
         throws EvalException, InterruptedException {
       if (!args.isEmpty()) {
         throw new EvalException(null, "unexpected positional arguments");

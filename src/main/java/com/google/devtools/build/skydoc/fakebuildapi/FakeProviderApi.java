@@ -16,12 +16,12 @@ package com.google.devtools.build.skydoc.fakebuildapi;
 
 import com.google.devtools.build.lib.skylarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.syntax.BaseFunction;
+import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.FuncallExpression;
 import com.google.devtools.build.lib.syntax.FunctionSignature;
 import com.google.devtools.build.lib.syntax.Printer;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
-import java.util.List;
-import java.util.Map;
+import com.google.devtools.build.lib.syntax.Tuple;
 import javax.annotation.Nullable;
 
 /** Fake callable implementation of {@link ProviderApi}. */
@@ -34,22 +34,23 @@ public class FakeProviderApi extends BaseFunction implements ProviderApi {
 
   private final String name = "ProviderIdentifier" + idCounter++;
 
-  public FakeProviderApi() {
-    super(FunctionSignature.KWARGS);
-  }
-
   @Override
-  public Object callImpl(
+  public Object call(
       StarlarkThread thread,
-      @Nullable FuncallExpression call,
-      List<Object> args,
-      Map<String, Object> kwargs) {
+      @Nullable FuncallExpression ast,
+      Tuple<Object> args,
+      Dict<String, Object> kwargs) {
     return new FakeStructApi();
   }
 
   @Override
   public String getName() {
     return name;
+  }
+
+  @Override
+  public FunctionSignature getSignature() {
+    return FunctionSignature.KWARGS;
   }
 
   @Override

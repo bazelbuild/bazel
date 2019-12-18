@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.packages.Package.NameConflictException;
 import com.google.devtools.build.lib.packages.PackageFactory.EnvironmentExtension;
 import com.google.devtools.build.lib.syntax.BaseFunction;
 import com.google.devtools.build.lib.syntax.ClassObject;
+import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.FuncallExpression;
@@ -41,6 +42,7 @@ import com.google.devtools.build.lib.syntax.StarlarkFile;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.lib.syntax.StarlarkThread.Extension;
+import com.google.devtools.build.lib.syntax.Tuple;
 import com.google.devtools.build.lib.syntax.ValidationEnvironment;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -261,21 +263,23 @@ public class WorkspaceFactory {
    */
   private static BaseFunction newRuleFunction(
       final RuleFactory ruleFactory, final String ruleClassName, final boolean allowOverride) {
-    // TODO(adonovan): the only thing BaseFunction is doing for us is holding
-    // an (uninteresting) FunctionSignature. Can we extend StarlarkCallable directly?
-    // Only docgen appears to depend on BaseFunction.
-    return new BaseFunction(FunctionSignature.KWARGS) {
+    return new BaseFunction() {
       @Override
       public String getName() {
         return ruleClassName;
       }
 
       @Override
-      public Object callImpl(
+      public FunctionSignature getSignature() {
+        return FunctionSignature.KWARGS; // just for documentation
+      }
+
+      @Override
+      public Object call(
           StarlarkThread thread,
           @Nullable FuncallExpression call,
-          List<Object> args,
-          Map<String, Object> kwargs)
+          Tuple<Object> args,
+          Dict<String, Object> kwargs)
           throws EvalException, InterruptedException {
         if (!args.isEmpty()) {
           throw new EvalException(null, "unexpected positional arguments");
@@ -283,6 +287,7 @@ public class WorkspaceFactory {
         Location loc = call != null ? call.getLocation() : Location.BUILTIN;
         try {
           Package.Builder builder = PackageFactory.getContext(thread, loc).pkgBuilder;
+          // TODO(adonovan): this doesn't look safe!
           String externalRepoName = (String) kwargs.get("name");
           if (!allowOverride
               && externalRepoName != null
