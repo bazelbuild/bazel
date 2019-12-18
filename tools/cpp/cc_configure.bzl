@@ -101,7 +101,7 @@ def cc_autoconf_impl(repository_ctx, overriden_tools = dict()):
             "@bazel_tools//tools/cpp:empty_cc_toolchain_config.bzl",
         ])
         repository_ctx.symlink(paths["@bazel_tools//tools/cpp:empty_cc_toolchain_config.bzl"], "cc_toolchain_config.bzl")
-        repository_ctx.symlink(paths("@bazel_tools//tools/cpp:BUILD.empty"), "BUILD")
+        repository_ctx.symlink(paths["@bazel_tools//tools/cpp:BUILD.empty"], "BUILD")
     elif cpu_value == "freebsd":
         paths = resolve_labels(repository_ctx, [
             "@bazel_tools//tools/cpp:BUILD.static.freebsd",
