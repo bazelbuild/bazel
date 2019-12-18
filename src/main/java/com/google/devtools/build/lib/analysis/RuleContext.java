@@ -1070,8 +1070,8 @@ public final class RuleContext extends TargetContext
    * Returns all the providers of the specified type that are listed under the specified attribute
    * of this target in the BUILD file.
    */
-  public <C extends TransitiveInfoProvider> Iterable<C> getPrerequisites(String attributeName,
-      Mode mode, final Class<C> classType) {
+  public <C extends TransitiveInfoProvider> List<C> getPrerequisites(
+      String attributeName, Mode mode, final Class<C> classType) {
     AnalysisUtils.checkProvider(classType);
     return AnalysisUtils.getProviders(getPrerequisites(attributeName, mode), classType);
   }
@@ -1080,7 +1080,7 @@ public final class RuleContext extends TargetContext
    * Returns all the declared providers (native and Skylark) for the specified constructor under the
    * specified attribute of this target in the BUILD file.
    */
-  public <T extends Info> Iterable<T> getPrerequisites(
+  public <T extends Info> List<T> getPrerequisites(
       String attributeName, Mode mode, final NativeProvider<T> skylarkKey) {
     return AnalysisUtils.getProviders(getPrerequisites(attributeName, mode), skylarkKey);
   }
@@ -1089,7 +1089,7 @@ public final class RuleContext extends TargetContext
    * Returns all the declared providers (native and Skylark) for the specified constructor under the
    * specified attribute of this target in the BUILD file.
    */
-  public <T extends Info> Iterable<T> getPrerequisites(
+  public <T extends Info> List<T> getPrerequisites(
       String attributeName, Mode mode, final BuiltinProvider<T> skylarkKey) {
     return AnalysisUtils.getProviders(getPrerequisites(attributeName, mode), skylarkKey);
   }

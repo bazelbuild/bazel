@@ -20,7 +20,6 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
 import com.google.common.util.concurrent.ListeningScheduledExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.devtools.build.lib.actions.ActionInput;
@@ -38,6 +37,7 @@ import com.google.devtools.build.lib.authandtls.GoogleAuthUtils;
 import com.google.devtools.build.lib.buildeventstream.BuildEventArtifactUploader;
 import com.google.devtools.build.lib.buildeventstream.LocalFilesArtifactUploader;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.exec.ExecutorBuilder;
@@ -325,11 +325,11 @@ public final class RemoteModule extends BlazeModule {
       return ImmutableList.of();
     }
     boolean noPruningManifestsInBazel =
-        Iterables.isEmpty(runfilesSupport.getRunfiles().getPruningManifests());
+        runfilesSupport.getRunfiles().getPruningManifests().isEmpty();
     Preconditions.checkState(
         noPruningManifestsInBazel, "Bazel should not have pruning manifests. This is a bug.");
     ImmutableList.Builder<Artifact> runfilesBuilder = ImmutableList.builder();
-    for (Artifact runfile : runfilesSupport.getRunfiles().getUnconditionalArtifacts()) {
+    for (Artifact runfile : runfilesSupport.getRunfiles().getUnconditionalArtifacts().toList()) {
       if (runfile.isSourceArtifact()) {
         continue;
       }
@@ -346,7 +346,7 @@ public final class RemoteModule extends BlazeModule {
     return testProvider.getTestParams().getOutputs();
   }
 
-  private static Iterable<? extends ActionInput> getArtifactsToBuild(
+  private static NestedSet<? extends ActionInput> getArtifactsToBuild(
       ConfiguredTarget buildTarget, TopLevelArtifactContext topLevelArtifactContext) {
     return TopLevelArtifactHelper.getAllArtifactsToBuild(buildTarget, topLevelArtifactContext)
         .getImportantArtifacts();
@@ -377,7 +377,7 @@ public final class RemoteModule extends BlazeModule {
           // When running a test download the test.log and test.xml.
           filesToDownload.addAll(getTestOutputs(configuredTarget));
         } else {
-          filesToDownload.addAll(getArtifactsToBuild(configuredTarget, artifactContext));
+          filesToDownload.addAll(getArtifactsToBuild(configuredTarget, artifactContext).toList());
           filesToDownload.addAll(getRunfiles(configuredTarget));
         }
       }

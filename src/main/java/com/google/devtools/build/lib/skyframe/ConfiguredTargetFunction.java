@@ -20,7 +20,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
-import com.google.common.collect.Streams;
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.actions.Actions;
 import com.google.devtools.build.lib.actions.Actions.GeneratingActions;
@@ -364,7 +363,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
         if (unloadedToolchainContext != null) {
           UnloadedToolchainContext finalUnloadedToolchainContext = unloadedToolchainContext;
           Set<Label> toolchainDependencyErrors =
-              Streams.stream(cvce.getRootCauses())
+              cvce.getRootCauses().toList().stream()
                   .map(Cause::getLabel)
                   .filter(l -> finalUnloadedToolchainContext.resolvedToolchainLabels().contains(l))
                   .collect(ImmutableSet.toImmutableSet());

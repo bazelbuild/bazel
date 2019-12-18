@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.rules.genrule;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.ActionEnvironment;
@@ -45,7 +46,7 @@ public class GenRuleAction extends SpawnAction {
       ActionOwner owner,
       NestedSet<Artifact> tools,
       NestedSet<Artifact> inputs,
-      Iterable<Artifact> outputs,
+      ImmutableSet<Artifact> outputs,
       CommandLines commandLines,
       ActionEnvironment env,
       ImmutableMap<String, String> executionInfo,
