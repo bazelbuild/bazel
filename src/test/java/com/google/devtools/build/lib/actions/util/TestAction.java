@@ -103,7 +103,11 @@ public class TestAction extends AbstractAction {
         optionalInputs.stream()
             .filter(i -> i.getPath().exists())
             .collect(ImmutableList.toImmutableList());
-    updateInputs(Iterables.concat(mandatoryInputs, discoveredInputs));
+    updateInputs(
+        NestedSetBuilder.<Artifact>stableOrder()
+            .addAll(mandatoryInputs)
+            .addAll(discoveredInputs)
+            .build());
     return discoveredInputs;
   }
 

@@ -242,7 +242,7 @@ public class ActionCacheChecker {
   // guarantee it will be available for other events.
   public Token getTokenIfNeedToExecute(
       Action action,
-      Iterable<Artifact> resolvedCacheArtifacts,
+      List<Artifact> resolvedCacheArtifacts,
       Map<String, String> clientEnv,
       EventHandler handler,
       MetadataHandler metadataHandler,
@@ -408,7 +408,7 @@ public class ActionCacheChecker {
   }
 
   @Nullable
-  public Iterable<Artifact> getCachedInputs(Action action, PackageRootResolver resolver)
+  public List<Artifact> getCachedInputs(Action action, PackageRootResolver resolver)
       throws InterruptedException {
     ActionCache.Entry entry = getCacheEntry(action);
     if (entry == null || entry.isCorrupted()) {

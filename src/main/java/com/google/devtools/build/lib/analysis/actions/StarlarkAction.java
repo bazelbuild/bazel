@@ -35,6 +35,8 @@ import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
 import java.io.BufferedReader;
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -50,7 +52,7 @@ import javax.annotation.Nullable;
 public final class StarlarkAction extends SpawnAction {
 
   private final Optional<Artifact> unusedInputsList;
-  private final Iterable<Artifact> allInputs;
+  private final NestedSet<Artifact> allInputs;
 
   /**
    * Constructs a StarlarkAction using direct initialization arguments.
@@ -194,7 +196,7 @@ public final class StarlarkAction extends SpawnAction {
         usedInputs.remove(line);
       }
     }
-    updateInputs(usedInputs.values());
+    updateInputs(NestedSetBuilder.wrap(Order.STABLE_ORDER, usedInputs.values()));
   }
 
   @Override
