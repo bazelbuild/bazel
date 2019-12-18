@@ -23,7 +23,6 @@ import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.Attribute.SkylarkComputedDefaultTemplate.CannotPrecomputeDefaultsException;
 import com.google.devtools.build.lib.packages.Package.NameConflictException;
 import com.google.devtools.build.lib.packages.PackageFactory.PackageContext;
-import com.google.devtools.build.lib.syntax.FuncallExpression;
 import com.google.devtools.build.lib.syntax.StarlarkCallable;
 import com.google.devtools.build.lib.syntax.StarlarkFunction;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
@@ -110,7 +109,7 @@ public class RuleFactory {
     }
 
     AttributesAndLocation generator =
-        generatorAttributesForMacros(attributeValues, thread, location, label);
+        generatorAttributesForMacros(pkgBuilder, attributeValues, thread, location, label);
     try {
       // Examines --incompatible_disable_third_party_license_checking to see if we should check
       // third party targets for license existence.
@@ -304,6 +303,7 @@ public class RuleFactory {
    * <p>Otherwise, it returns the given attributes without any changes.
    */
   private static AttributesAndLocation generatorAttributesForMacros(
+      Package.Builder pkgBuilder,
       BuildLangTypedAttributeValuesMap args,
       @Nullable StarlarkThread thread,
       Location location,
@@ -319,26 +319,27 @@ public class RuleFactory {
     if (hasName || hasFunc) {
       return new AttributesAndLocation(args, location);
     }
-    Pair<FuncallExpression, StarlarkCallable> topCall = thread.getOutermostCall();
+
+    // The "generator" of a rule is the function (sometimes called "macro")
+    // outermost in the call stack.
+    Pair<Location, StarlarkCallable> topCall = thread.getOutermostCall();
     if (topCall == null || !(topCall.second instanceof StarlarkFunction)) {
       return new AttributesAndLocation(args, location);
     }
-
-    FuncallExpression generator = topCall.first;
-    StarlarkCallable function = topCall.second;
-    String name = generator.getNameArg();
-
+    // TODO(adonovan): is it correct that we clobber the location used by
+    // BuildLangTypedAttributeValuesMap?
+    location = topCall.first;
     ImmutableMap.Builder<String, Object> builder = ImmutableMap.builder();
     for (Map.Entry<String, Object> attributeAccessor : args.getAttributeAccessors()) {
       String attributeName = args.getName(attributeAccessor);
       builder.put(attributeName, args.getValue(attributeAccessor));
     }
-    builder.put("generator_name", (name == null) ? args.getAttributeValue("name") : name);
-    builder.put("generator_function", function.getName());
-
-    if (generator.getLocation() != null) {
-      location = generator.getLocation();
+    String generatorName = pkgBuilder.getGeneratorNameByLocation().get(location);
+    if (generatorName == null) {
+      generatorName = (String) args.getAttributeValue("name");
     }
+    builder.put("generator_name", generatorName);
+    builder.put("generator_function", topCall.second.getName());
     String relativePath = maybeGetRelativeLocation(location, label);
     if (relativePath != null) {
       builder.put("generator_location", relativePath);

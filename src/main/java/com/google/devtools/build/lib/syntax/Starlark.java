@@ -241,7 +241,7 @@ public final class Starlark {
       callable = new BuiltinCallable(fn, desc.getName(), desc);
     }
 
-    thread.push(callable, loc, call);
+    thread.push(callable, loc);
     try {
       return callable.callImpl(thread, call, args, ImmutableMap.copyOf(kwargs));
     } catch (EvalException ex) {

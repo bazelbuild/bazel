@@ -75,7 +75,7 @@ public class StarlarkThreadDebuggingTest {
         Location.fromPathAndStartColumn(
             PathFragment.create("foo/bar"), 0, 0, new LineAndColumn(12, 0));
     StarlarkFunction f = defineFunc(thread);
-    thread.push(f, loc, null);
+    thread.push(f, loc);
     thread.update("a", 4); // shadow parent frame var
     thread.update("y", 5);
     thread.update("z", 6);
@@ -105,7 +105,7 @@ public class StarlarkThreadDebuggingTest {
     StarlarkThread thread = newStarlarkThread();
 
     ReadyToPause predicate = thread.stepControl(Stepping.INTO);
-    thread.push(defineFunc(thread), Location.BUILTIN, null);
+    thread.push(defineFunc(thread), Location.BUILTIN);
 
     assertThat(predicate.test(thread)).isTrue();
   }
@@ -125,7 +125,7 @@ public class StarlarkThreadDebuggingTest {
   public void testStepIntoFallsBackToStepOut() throws Exception {
     // test that when stepping into, we'll fall back to stopping when exiting the current frame
     StarlarkThread thread = newStarlarkThread();
-    thread.push(defineFunc(thread), Location.BUILTIN, null);
+    thread.push(defineFunc(thread), Location.BUILTIN);
 
     ReadyToPause predicate = thread.stepControl(Stepping.INTO);
     thread.pop();
@@ -138,7 +138,7 @@ public class StarlarkThreadDebuggingTest {
     StarlarkThread thread = newStarlarkThread();
 
     ReadyToPause predicate = thread.stepControl(Stepping.OVER);
-    thread.push(defineFunc(thread), Location.BUILTIN, null);
+    thread.push(defineFunc(thread), Location.BUILTIN);
 
     assertThat(predicate.test(thread)).isFalse();
     thread.pop();
@@ -149,7 +149,7 @@ public class StarlarkThreadDebuggingTest {
   public void testStepOverFallsBackToStepOut() throws Exception {
     // test that when stepping over, we'll fall back to stopping when exiting the current frame
     StarlarkThread thread = newStarlarkThread();
-    thread.push(defineFunc(thread), Location.BUILTIN, null);
+    thread.push(defineFunc(thread), Location.BUILTIN);
 
     ReadyToPause predicate = thread.stepControl(Stepping.OVER);
     thread.pop();
@@ -160,7 +160,7 @@ public class StarlarkThreadDebuggingTest {
   @Test
   public void testStepOutOfInnerFrame() throws Exception {
     StarlarkThread thread = newStarlarkThread();
-    thread.push(defineFunc(thread), Location.BUILTIN, null);
+    thread.push(defineFunc(thread), Location.BUILTIN);
 
     ReadyToPause predicate = thread.stepControl(Stepping.OUT);
 

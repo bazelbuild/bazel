@@ -817,6 +817,7 @@ public final class PackageFactory {
    * unreachable once the StarlarkThread is discarded at the end of evaluation. Please be aware of
    * your memory footprint when making changes here!
    */
+  // TODO(adonovan): is there any reason not to merge this with Package.Builder?
   public static class PackageContext {
     final Package.Builder pkgBuilder;
     final Globber globber;
@@ -1006,10 +1007,15 @@ public final class PackageFactory {
       // Check syntax. Make a pass over the syntax tree to:
       // - reject forbidden BUILD syntax
       // - extract literal glob patterns for prefetching
-      // - record the generator_name of each top-level macro call (coming soon)
+      // - record the generator_name of each top-level macro call
       Set<String> globs = new HashSet<>();
       Set<String> globsWithDirs = new HashSet<>();
-      if (!checkBuildSyntax(file, globs, globsWithDirs, pkgContext.eventHandler)) {
+      if (!checkBuildSyntax(
+          file,
+          globs,
+          globsWithDirs,
+          pkgBuilder.getGeneratorNameByLocation(),
+          pkgContext.eventHandler)) {
         return false;
       }
 
@@ -1058,12 +1064,19 @@ public final class PackageFactory {
   }
 
   /**
-   * checkBuildSyntax visits the syntax tree of a BUILD (not .bzl) file. If it discovers a {@code
-   * def}, {@code if}, or {@code for} statement, or a {@code f(*args)} or {@code f(**kwargs)} call,
-   * it reports an event to handler and returns false.
+   * checkBuildSyntax is a static pass over the syntax tree of a BUILD (not .bzl) file.
    *
-   * <p>It also extracts literal {@code glob(include="pattern")} patterns and adds them to {@code
-   * globs}, or to {@code globsWithDirs} if the call had a {@code exclude_directories=0} argument.
+   * <p>It reports an error to the event handler if it discovers a {@code def}, {@code if}, or
+   * {@code for} statement, or a {@code f(*args)} or {@code f(**kwargs)} call.
+   *
+   * <p>It extracts literal {@code glob(include="pattern")} patterns and adds them to {@code globs},
+   * or to {@code globsWithDirs} if the call had a {@code exclude_directories=0} argument.
+   *
+   * <p>It records in {@code generatorNameByLocation} all calls of the form {@code f(name="foo",
+   * ...)} so that any rules instantiated during the call to {@code f} can be ascribed a "generator
+   * name" of {@code "foo"}.
+   *
+   * <p>It returns true if it reported no errors.
    */
   // TODO(adonovan): restructure so that this is called from the sole place that executes BUILD
   // files. Also, make private; there's reason for tests to call this directly.
@@ -1071,6 +1084,7 @@ public final class PackageFactory {
       StarlarkFile file,
       Collection<String> globs,
       Collection<String> globsWithDirs,
+      Map<Location, String> generatorNameByLocation,
       EventHandler eventHandler) {
     final boolean[] success = {true};
     NodeVisitor checker =
@@ -1137,6 +1151,20 @@ public final class PackageFactory {
             }
           }
 
+          // Record calls of the form f(name="foo", ...)
+          // so that we can later ascribe "foo" as the "generator name"
+          // of any rules instantiated during the call of f.
+          void recordGeneratorName(FuncallExpression call) {
+            for (Argument arg : call.getArguments()) {
+              if (arg instanceof Argument.Keyword
+                  && arg.getName().equals("name")
+                  && arg.getValue() instanceof StringLiteral) {
+                generatorNameByLocation.put(
+                    call.getLocation(), ((StringLiteral) arg.getValue()).getValue());
+              }
+            }
+          }
+
           // We prune the traversal if we encounter def/if/for,
           // as we have already reported the root error and there's
           // no point reporting more.
@@ -1171,6 +1199,7 @@ public final class PackageFactory {
           public void visit(FuncallExpression node) {
             extractGlobPatterns(node);
             rejectStarArgs(node);
+            recordGeneratorName(node);
             // Continue traversal so as not to miss nested calls
             // like cc_binary(..., f(**kwargs), srcs=glob(...), ...).
             super.visit(node);

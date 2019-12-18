@@ -18,7 +18,6 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import java.util.Collections;
 import java.util.List;
-import javax.annotation.Nullable;
 
 /** Syntax node for a function call expression. */
 // TODO(adonovan): rename CallExpression.
@@ -76,23 +75,6 @@ public final class FuncallExpression extends Expression {
     ListExpression.appendNodes(buf, arguments);
     buf.append(')');
     return buf.toString();
-  }
-
-  /**
-   * Returns the value of the argument 'name' (or null if there is none). This function is used to
-   * associate debugging information to rules created by skylark "macros".
-   */
-  // TODO(adonovan): move this into sole caller.
-  @Nullable
-  public String getNameArg() {
-    for (Argument arg : arguments) {
-      String name = arg.getName();
-      if (name != null && name.equals("name")) {
-        Expression expr = arg.getValue();
-        return (expr instanceof StringLiteral) ? ((StringLiteral) expr).getValue() : null;
-      }
-    }
-    return null;
   }
 
   @Override

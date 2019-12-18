@@ -190,7 +190,8 @@ public class WorkspaceFactory {
     List<String> globs = new ArrayList<>(); // unused
     if (!file.ok()) {
       Event.replayEventsOn(localReporter, file.errors());
-    } else if (PackageFactory.checkBuildSyntax(file, globs, globs, localReporter)) {
+    } else if (PackageFactory.checkBuildSyntax(
+        file, globs, globs, new HashMap<>(), localReporter)) {
       try {
         EvalUtils.exec(file, thread);
       } catch (EvalException ex) {

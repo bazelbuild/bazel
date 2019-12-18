@@ -862,6 +862,12 @@ public class Package {
 
     private final Interner<ImmutableList<?>> listInterner = new ThreadCompatibleInterner<>();
 
+    private final Map<Location, String> generatorNameByLocation = new HashMap<>();
+
+    Map<Location, String> getGeneratorNameByLocation() {
+      return generatorNameByLocation;
+    }
+
     @ThreadCompatible
     private static class ThreadCompatibleInterner<T> implements Interner<T> {
       private final Map<T, T> interns = new HashMap<>();
