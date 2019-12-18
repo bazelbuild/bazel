@@ -91,6 +91,7 @@ public enum ProfilerTask {
   ACTION_FS_STAGING("Staging per-action file system", 0x000000),
   REMOTE_CACHE_CHECK("remote action cache check", 0x9999CC),
   REMOTE_DOWNLOAD("remote output download", 0x9999CC),
+  REMOTE_NETWORK("remote network", 0x9999CC),
   UNKNOWN("Unknown event",  0x339966);
 
   // Size of the ProfilerTask value space.
