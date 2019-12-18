@@ -147,6 +147,36 @@ public class SkylarkRepositoryIntegrationTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testInstantiationOfUnexportedRepositoryRule() throws Exception {
+    // It is possible to instantiate an unexported repository_rule,
+    // even though it should not be (b/283533234).
+    // This test exercises the heuristic for inferring the name of the rule class.
+    scratch.file("/repo/WORKSPACE");
+    scratch.file("/repo/BUILD");
+    scratch.file(
+        "def.bzl",
+        "def _impl(ctx): pass",
+        "rule1 = repository_rule(implementation=_impl)",
+        "def f():",
+        "  # exported",
+        "  a = rule1(name='a')",
+        "  # unexported",
+        "  rule2 = repository_rule(implementation=_impl)",
+        "  b = rule2(name='b')",
+        "  fail('a.kind=%s b.kind=%s' % (",
+        "    native.existing_rule('a')['kind'],",
+        "    native.existing_rule('b')['kind']))");
+    scratch.file(rootDirectory.getRelative("BUILD").getPathString());
+    scratch.overwriteFile(
+        rootDirectory.getRelative("WORKSPACE").getPathString(), "load('//:def.bzl', 'f')", "f()");
+    invalidatePackages();
+    // TODO(adonovan): make it easier to write loading-phase only WORKSPACE tests.
+    AssertionError ex =
+        assertThrows(AssertionError.class, () -> getConfiguredTargetAndData("@a//:BUILD"));
+    assertThat(ex).hasMessageThat().contains("a.kind=rule1 b.kind=unexported__impl");
+  }
+
+  @Test
   public void testfailWithIncompatibleUseCcConfigureFromRulesCcDoesNothing() throws Exception {
     // A simple test that recreates local_repository with Skylark.
     scratch.file("/repo2/WORKSPACE");

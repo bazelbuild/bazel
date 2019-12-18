@@ -40,12 +40,9 @@ import com.google.devtools.build.lib.packages.WorkspaceFactoryHelper;
 import com.google.devtools.build.lib.skylarkbuildapi.repository.RepositoryModuleApi;
 import com.google.devtools.build.lib.syntax.BaseFunction;
 import com.google.devtools.build.lib.syntax.DebugFrame;
-import com.google.devtools.build.lib.syntax.DotExpression;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.Expression;
 import com.google.devtools.build.lib.syntax.FuncallExpression;
 import com.google.devtools.build.lib.syntax.FunctionSignature;
-import com.google.devtools.build.lib.syntax.Identifier;
 import com.google.devtools.build.lib.syntax.Printer;
 import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.Starlark;
@@ -108,20 +105,27 @@ public class SkylarkRepositoryModule implements RepositoryModuleApi {
     builder.setRuleDefinitionEnvironmentLabelAndHashCode(
         (Label) thread.getGlobals().getLabel(), thread.getTransitiveContentHashCode());
     builder.setWorkspaceOnly();
-    return new RepositoryRuleFunction(builder, ast.getLocation());
+    return new RepositoryRuleFunction(builder, ast.getLocation(), implementation);
   }
 
+  // RepositoryRuleFunction is the result of repository_rule(...).
+  // It is a callable value; calling it yields a Rule instance.
   private static final class RepositoryRuleFunction extends BaseFunction
       implements SkylarkExportable {
     private final RuleClass.Builder builder;
     private Label extensionLabel;
     private String exportedName;
     private final Location ruleClassDefinitionLocation;
+    private final BaseFunction implementation;
 
-    public RepositoryRuleFunction(RuleClass.Builder builder, Location ruleClassDefinitionLocation) {
+    private RepositoryRuleFunction(
+        RuleClass.Builder builder,
+        Location ruleClassDefinitionLocation,
+        BaseFunction implementation) {
       super(FunctionSignature.KWARGS);
       this.builder = builder;
       this.ruleClassDefinitionLocation = ruleClassDefinitionLocation;
+      this.implementation = implementation;
     }
 
     @Override
@@ -159,8 +163,7 @@ public class SkylarkRepositoryModule implements RepositoryModuleApi {
       if (!args.isEmpty()) {
         throw new EvalException(null, "unexpected positional arguments");
       }
-      String ruleClassName = null;
-      Expression function = call.getFunction();
+      String ruleClassName;
       // If the function ever got exported (the common case), we take the name
       // it was exported to. Only in the not intended case of calling an unexported
       // repository function through an exported macro, we fall back, for lack of
@@ -169,13 +172,20 @@ public class SkylarkRepositoryModule implements RepositoryModuleApi {
       // repository rules anyway.
       if (isExported()) {
         ruleClassName = exportedName;
-      } else if (function instanceof Identifier) {
-        ruleClassName = ((Identifier) function).getName();
-      } else if (function instanceof DotExpression) {
-        ruleClassName = ((DotExpression) function).getField().getName();
       } else {
-        // TODO: Remove the wrong assumption that a  "function name" always exists and is relevant
-        throw new IllegalStateException("Function is not an identifier or method call");
+        // repository_rules should be subject to the same "exported" requirement
+        // as package rules, but sadly we forgot to add the necessary check and
+        // now many projects create and instantiate repository_rules without an
+        // intervening export; see b/111199163. An incompatible flag is required.
+        if (false) {
+          throw new EvalException(null, "attempt to instantiate a non-exported repository rule");
+        }
+
+        // The historical workaround was a fragile hack to introspect on the call
+        // expression syntax, f() or x.f(), to find the name f, but we no longer
+        // have access to the call expression, so now we just create an ugly
+        // name from the function. See github.com/bazelbuild/bazel/issues/10441
+        ruleClassName = "unexported_" + implementation.getName();
       }
       try {
         RuleClass ruleClass = builder.build(ruleClassName, ruleClassName);
