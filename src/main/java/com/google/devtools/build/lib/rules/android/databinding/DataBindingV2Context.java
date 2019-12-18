@@ -195,7 +195,7 @@ class DataBindingV2Context implements DataBindingContext {
           "deps", RuleConfiguredTarget.Mode.TARGET, DataBindingV2Provider.PROVIDER);
 
       for (DataBindingV2Provider provider : providers) {
-        brFiles.addAll(provider.getTransitiveBRFiles());
+        brFiles.addAll(provider.getTransitiveBRFiles().toList());
       }
     }
     return brFiles.build();
@@ -244,7 +244,7 @@ class DataBindingV2Context implements DataBindingContext {
 
       for (DataBindingV2Provider provider : providers) {
         for (LabelJavaPackagePair labelJavaPackagePair :
-            provider.getTransitiveLabelAndJavaPackages()) {
+            provider.getTransitiveLabelAndJavaPackages().toList()) {
           javaPackagesToLabel.put(
               labelJavaPackagePair.getJavaPackage(), labelJavaPackagePair.getLabel());
         }

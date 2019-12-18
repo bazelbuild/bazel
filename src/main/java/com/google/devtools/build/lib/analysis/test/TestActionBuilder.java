@@ -18,7 +18,6 @@ import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -286,8 +285,8 @@ public final class TestActionBuilder {
           NestedSet<Artifact> filesToBuild =
               lcovMerger.getProvider(FileProvider.class).getFilesToBuild();
 
-          if (Iterables.size(filesToBuild) == 1) {
-            Artifact lcovMergerArtifact = Iterables.getOnlyElement(filesToBuild);
+          if (filesToBuild.isSingleton()) {
+            Artifact lcovMergerArtifact = filesToBuild.getSingleton();
             extraTestEnv.put(LCOV_MERGER, lcovMergerArtifact.getExecPathString());
             inputsBuilder.add(lcovMergerArtifact);
           } else {
@@ -311,7 +310,8 @@ public final class TestActionBuilder {
               runsPerTest);
       inputsBuilder.add(instrumentedFileManifest);
       // TODO(ulfjack): Is this even ever set? If yes, does this cost us a lot of memory?
-      for (Pair<String, String> coverageEnvEntry : instrumentedFiles.getCoverageEnvironment()) {
+      for (Pair<String, String> coverageEnvEntry :
+          instrumentedFiles.getCoverageEnvironment().toList()) {
         extraTestEnv.put(coverageEnvEntry.getFirst(), coverageEnvEntry.getSecond());
       }
     } else {

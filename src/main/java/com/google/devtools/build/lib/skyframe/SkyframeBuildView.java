@@ -591,7 +591,7 @@ public final class SkyframeBuildView {
         // order to keep backwards compatibility, we de-duplicate root cause labels here.
         // TODO(ulfjack): Remove this code once we've migrated to the BEP.
         Set<Label> loadingRootCauses = new HashSet<>();
-        for (Cause rootCause : ctCause.getRootCauses()) {
+        for (Cause rootCause : ctCause.getRootCauses().toList()) {
           if (rootCause instanceof LoadingFailedCause) {
             hasLoadingError = true;
             loadingRootCauses.add(rootCause.getLabel());

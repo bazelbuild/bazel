@@ -162,7 +162,8 @@ public class ResourceShrinkerActionBuilder {
 
   private ImmutableList<Artifact> getManifests(ResourceDependencies resourceDependencies) {
     ImmutableList.Builder<Artifact> manifests = ImmutableList.builder();
-    for (ValidatedAndroidResources resources : resourceDependencies.getResourceContainers()) {
+    for (ValidatedAndroidResources resources :
+        resourceDependencies.getResourceContainers().toList()) {
       if (resources.getManifest() != null) {
         manifests.add(resources.getManifest());
       }
@@ -174,7 +175,8 @@ public class ResourceShrinkerActionBuilder {
       ValidatedAndroidResources primaryResources, ResourceDependencies resourceDependencies) {
     ImmutableList.Builder<String> resourcePackages = ImmutableList.builder();
     resourcePackages.add(primaryResources.getJavaPackage());
-    for (ValidatedAndroidResources resources : resourceDependencies.getResourceContainers()) {
+    for (ValidatedAndroidResources resources :
+        resourceDependencies.getResourceContainers().toList()) {
       resourcePackages.add(resources.getJavaPackage());
     }
     return resourcePackages.build();

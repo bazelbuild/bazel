@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.analysis;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CompletionContext;
 import com.google.devtools.build.lib.actions.EventReportingArtifacts;
@@ -57,7 +56,7 @@ public class AspectCompleteEvent
     this.rootCauses =
         (rootCauses == null) ? NestedSetBuilder.<Cause>emptySet(Order.STABLE_ORDER) : rootCauses;
     ImmutableList.Builder<BuildEventId> postedAfterBuilder = ImmutableList.builder();
-    for (Cause cause : getRootCauses()) {
+    for (Cause cause : getRootCauses().toList()) {
       postedAfterBuilder.add(BuildEventId.fromCause(cause));
     }
     this.postedAfter = postedAfterBuilder.build();
@@ -83,7 +82,7 @@ public class AspectCompleteEvent
       NestedSet<Cause> rootCauses,
       BuildEventId configurationEventId,
       NestedSet<ArtifactsInOutputGroup> outputs) {
-    Preconditions.checkArgument(!Iterables.isEmpty(rootCauses));
+    Preconditions.checkArgument(!rootCauses.isEmpty());
     return new AspectCompleteEvent(
         value, rootCauses, CompletionContext.FAILED_COMPLETION_CTX, outputs, configurationEventId);
   }
@@ -103,7 +102,7 @@ public class AspectCompleteEvent
   }
 
   /** Get the root causes of the target. May be empty. */
-  public Iterable<Cause> getRootCauses() {
+  public NestedSet<Cause> getRootCauses() {
     return rootCauses;
   }
 
@@ -129,7 +128,7 @@ public class AspectCompleteEvent
   public ReportedArtifacts reportedArtifacts() {
     ImmutableSet.Builder<NestedSet<Artifact>> builder = ImmutableSet.builder();
     if (artifactOutputGroups != null) {
-      for (ArtifactsInOutputGroup artifactsInGroup : artifactOutputGroups) {
+      for (ArtifactsInOutputGroup artifactsInGroup : artifactOutputGroups.toList()) {
         builder.add(artifactsInGroup.getArtifacts());
       }
     }
@@ -144,7 +143,7 @@ public class AspectCompleteEvent
         BuildEventStreamProtos.TargetComplete.newBuilder();
     builder.setSuccess(!failed());
     if (artifactOutputGroups != null) {
-      for (ArtifactsInOutputGroup artifactsInGroup : artifactOutputGroups) {
+      for (ArtifactsInOutputGroup artifactsInGroup : artifactOutputGroups.toList()) {
         OutputGroup.Builder groupBuilder = OutputGroup.newBuilder();
         groupBuilder.setName(artifactsInGroup.getOutputGroup());
         groupBuilder.addFileSets(

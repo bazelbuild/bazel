@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skylarkbuildapi.java.JavaAnnotationProcessingApi;
 import com.google.devtools.build.lib.syntax.Depset;
+import java.util.List;
 import javax.annotation.Nullable;
 
 /** The collection of gen jars from the transitive closure. */
@@ -46,7 +47,7 @@ public final class JavaGenJarsProvider
       @Nullable Artifact genClassJar,
       @Nullable Artifact genSourceJar,
       JavaPluginInfoProvider plugins,
-      Iterable<JavaGenJarsProvider> transitiveJavaGenJars) {
+      List<JavaGenJarsProvider> transitiveJavaGenJars) {
     NestedSetBuilder<Artifact> classJarsBuilder = NestedSetBuilder.stableOrder();
     NestedSetBuilder<Artifact> sourceJarsBuilder = NestedSetBuilder.stableOrder();
 
