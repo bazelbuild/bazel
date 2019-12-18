@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.rules.cpp.IncludeScanner.IncludeScannerSupplier;
 import com.google.devtools.build.lib.rules.cpp.IncludeScanner.IncludeScanningHeaderData;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import java.util.List;
 import javax.annotation.Nullable;
 
 /** Always performs no include processing and returns null. */
@@ -27,7 +28,7 @@ public class NoProcessing implements IncludeProcessing {
   @AutoCodec public static final NoProcessing INSTANCE = new NoProcessing();
 
   @Override
-  public ListenableFuture<Iterable<Artifact>> determineAdditionalInputs(
+  public ListenableFuture<List<Artifact>> determineAdditionalInputs(
       @Nullable IncludeScannerSupplier includeScannerSupplier,
       CppCompileAction action,
       ActionExecutionContext actionExecutionContext,
