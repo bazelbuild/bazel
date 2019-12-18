@@ -49,7 +49,6 @@ import com.google.devtools.build.lib.actions.CompositeRunfilesSupplier;
 import com.google.devtools.build.lib.actions.EmptyRunfilesSupplier;
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
-import com.google.devtools.build.lib.actions.ExecutionInfoSpecifier;
 import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
 import com.google.devtools.build.lib.actions.ParamFileInfo;
 import com.google.devtools.build.lib.actions.ResourceSet;
@@ -94,7 +93,7 @@ import javax.annotation.Nullable;
 
 /** An Action representing an arbitrary subprocess to be forked and exec'd. */
 @AutoCodec
-public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifier, CommandAction {
+public class SpawnAction extends AbstractAction implements CommandAction {
 
   /** Sets extensions on {@link ExtraActionInfo}. */
   public interface ExtraActionInfoSupplier {

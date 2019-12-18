@@ -45,7 +45,6 @@ import com.google.devtools.build.lib.actions.CommandLines.CommandLineAndParamFil
 import com.google.devtools.build.lib.actions.CommandLines.ParamFileActionInput;
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
-import com.google.devtools.build.lib.actions.ExecutionInfoSpecifier;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
 import com.google.devtools.build.lib.actions.ResourceSet;
@@ -109,8 +108,7 @@ import javax.annotation.Nullable;
 
 /** Action that represents some kind of C++ compilation step. */
 @ThreadCompatible
-public class CppCompileAction extends AbstractAction
-    implements IncludeScannable, ExecutionInfoSpecifier, CommandAction {
+public class CppCompileAction extends AbstractAction implements IncludeScannable, CommandAction {
 
   private static final PathFragment BUILD_PATH_FRAGMENT = PathFragment.create("BUILD");
 

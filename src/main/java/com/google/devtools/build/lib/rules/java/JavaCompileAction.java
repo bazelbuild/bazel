@@ -42,7 +42,6 @@ import com.google.devtools.build.lib.actions.CommandLines;
 import com.google.devtools.build.lib.actions.EmptyRunfilesSupplier;
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
-import com.google.devtools.build.lib.actions.ExecutionInfoSpecifier;
 import com.google.devtools.build.lib.actions.ParamFileInfo;
 import com.google.devtools.build.lib.actions.ParameterFile;
 import com.google.devtools.build.lib.actions.ResourceSet;
@@ -81,8 +80,7 @@ import javax.annotation.Nullable;
 /** Action that represents a Java compilation. */
 @ThreadCompatible
 @Immutable
-public class JavaCompileAction extends AbstractAction
-    implements ExecutionInfoSpecifier, CommandAction {
+public class JavaCompileAction extends AbstractAction implements CommandAction {
   private static final ResourceSet LOCAL_RESOURCES =
       ResourceSet.createWithRamCpu(/* memoryMb= */ 750, /* cpuUsage= */ 1);
   private static final UUID GUID = UUID.fromString("e423747c-2827-49e6-b961-f6c08c10bb51");

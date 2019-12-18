@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
 import com.google.devtools.build.lib.syntax.StarlarkValue;
 import java.io.IOException;
+import javax.annotation.Nullable;
 
 /** Interface for actions in Skylark. */
 @SkylarkModule(
@@ -113,4 +114,18 @@ public interface ActionApi extends StarlarkValue {
               + " settings which are explicitly set by the action definition, and thus omits"
               + " settings which are only pre-set in the execution environment.")
   Dict<String, String> getEnv();
+
+  @SkylarkCallable(
+      name = "execution_info",
+      structField = true,
+      doc =
+          "The execution requirements for this action, set for this action specifically. This is a"
+              + " dictionary that maps strings specifying execution info to arbitrary strings."
+              + " This is in order to match the structure of execution info in other parts of the"
+              + " code base; all relevant info is in the keyset. Returns None if this action does"
+              + " not expose execution requirements.",
+      allowReturnNones = true,
+      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_GOOGLE_LEGACY_API)
+  @Nullable
+  public Dict<String, String> getExecutionInfoDict();
 }

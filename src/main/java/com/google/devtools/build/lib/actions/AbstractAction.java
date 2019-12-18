@@ -551,6 +551,15 @@ public abstract class AbstractAction extends ActionKeyCacher implements Action, 
   }
 
   @Override
+  public Dict<String, String> getExecutionInfoDict() {
+    Map<String, String> executionInfo = getExecutionInfo();
+    if (executionInfo == null) {
+      return null;
+    }
+    return Dict.copyOf(null, executionInfo);
+  }
+
+  @Override
   public Dict<String, String> getEnv() {
     return Dict.copyOf(null, env.getFixedEnv().toMap());
   }

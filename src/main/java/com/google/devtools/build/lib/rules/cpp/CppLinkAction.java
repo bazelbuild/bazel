@@ -40,7 +40,6 @@ import com.google.devtools.build.lib.actions.CommandLine;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.CommandLines.CommandLineAndParamFileInfo;
 import com.google.devtools.build.lib.actions.ExecException;
-import com.google.devtools.build.lib.actions.ExecutionInfoSpecifier;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.SimpleSpawn;
@@ -77,8 +76,7 @@ import javax.annotation.Nullable;
 /** Action that represents a linking step. */
 @ThreadCompatible
 @AutoCodec
-public final class CppLinkAction extends AbstractAction
-    implements ExecutionInfoSpecifier, CommandAction {
+public final class CppLinkAction extends AbstractAction implements CommandAction {
 
   /**
    * An abstraction for creating intermediate and output artifacts for C++ linking.

@@ -34,7 +34,6 @@ import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CommandAction;
-import com.google.devtools.build.lib.actions.ExecutionInfoSpecifier;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
@@ -447,7 +446,7 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
    * Asserts that the given action can specify execution requirements, and requires execution on
    * darwin.
    */
-  protected void assertRequiresDarwin(ExecutionInfoSpecifier action) {
+  protected void assertRequiresDarwin(Action action) {
     assertThat(action.getExecutionInfo()).containsKey(ExecutionRequirements.REQUIRES_DARWIN);
   }
 
