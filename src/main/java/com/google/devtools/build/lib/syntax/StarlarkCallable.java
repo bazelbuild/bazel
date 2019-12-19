@@ -50,7 +50,7 @@ public interface StarlarkCallable extends StarlarkValue {
       Tuple<Object> args,
       Dict<String, Object> kwargs)
       throws EvalException, InterruptedException {
-    throw new EvalException(null, String.format("function %s not implemented", getName()));
+    throw Starlark.errorf("function %s not implemented", getName());
   }
 
   /**

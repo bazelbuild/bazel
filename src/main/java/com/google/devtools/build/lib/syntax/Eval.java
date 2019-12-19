@@ -338,7 +338,7 @@ final class Eval {
     // which is a tricky case in Python assignment semantics.
     int nrhs = Starlark.len(x);
     if (nrhs < 0) {
-      throw new EvalException(null, "type '" + EvalUtils.getDataTypeName(x) + "' is not iterable");
+      throw new EvalException(loc, "type '" + EvalUtils.getDataTypeName(x) + "' is not iterable");
     }
     Iterable<?> rhs = Starlark.toIterable(x); // fails if x is a string
     int len = lhs.size();

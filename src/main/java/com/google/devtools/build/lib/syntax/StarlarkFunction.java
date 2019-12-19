@@ -80,10 +80,10 @@ public final class StarlarkFunction extends BaseFunction {
       StarlarkThread thread, @Nullable FuncallExpression call, Object[] positional, Object[] named)
       throws EvalException, InterruptedException {
     if (thread.mutability().isFrozen()) {
-      throw new EvalException(null, "Trying to call in frozen environment");
+      throw Starlark.errorf("Trying to call in frozen environment");
     }
     if (thread.isRecursiveCall(this)) {
-      throw new EvalException(null, String.format("function '%s' called recursively", name));
+      throw Starlark.errorf("function '%s' called recursively", name);
     }
 
     // Compute the effective parameter values

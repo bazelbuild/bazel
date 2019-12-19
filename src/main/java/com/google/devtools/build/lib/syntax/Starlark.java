@@ -20,6 +20,8 @@ import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkInterfaceUtils;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.util.Pair;
+import com.google.errorprone.annotations.CheckReturnValue;
+import com.google.errorprone.annotations.FormatMethod;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -155,7 +157,7 @@ public final class Starlark {
     if (x instanceof StarlarkIterable) {
       return (Iterable<?>) x;
     }
-    throw new EvalException(null, "type '" + EvalUtils.getDataTypeName(x) + "' is not iterable");
+    throw errorf("type '%s' is not iterable", EvalUtils.getDataTypeName(x));
   }
 
   /**
@@ -269,6 +271,17 @@ public final class Starlark {
     } finally {
       thread.pop();
     }
+  }
+
+  /**
+   * Returns a new EvalException with no location and an error message produced by Java-style string
+   * formatting ({@code String.format(format, args)}). Use {@code errorf("%s", msg)} to produce an
+   * error message from a non-constant expression {@code msg}.
+   */
+  @FormatMethod
+  @CheckReturnValue // don't forget to throw it
+  public static EvalException errorf(String format, Object... args) {
+    return new EvalException(null, String.format(format, args));
   }
 
   /**

@@ -117,16 +117,13 @@ public abstract class BaseFunction implements StarlarkCallable {
       // Easy case (2a): there are no keyword arguments.
       // All arguments were positional, so check we had enough to fill all mandatory positionals.
       if (numPositionalArgs < numMandatoryPositionalParams) {
-        throw new EvalException(
-            null,
-            String.format(
-                "insufficient arguments received by %s (got %s, expected at least %s)",
-                func, numPositionalArgs, numMandatoryPositionalParams));
+        throw Starlark.errorf(
+            "insufficient arguments received by %s (got %s, expected at least %s)",
+            func, numPositionalArgs, numMandatoryPositionalParams);
       }
       // We had no named argument, so fail if there were mandatory named-only parameters
       if (numMandatoryNamedOnlyParams > 0) {
-        throw new EvalException(
-            null, String.format("missing mandatory keyword arguments in call to %s", func));
+        throw Starlark.errorf("missing mandatory keyword arguments in call to %s", func);
       }
       // Fill in defaults for missing optional parameters, that were conveniently grouped together,
       // thanks to the absence of mandatory named-only parameters as checked above.
@@ -151,8 +148,7 @@ public abstract class BaseFunction implements StarlarkCallable {
         int pos = names.indexOf(keyword); // the list should be short, so linear scan is OK.
         if (0 <= pos && pos < numNamedParams) {
           if (arguments[pos] != null) {
-            throw new EvalException(
-                null, String.format("%s got multiple values for parameter '%s'", func, keyword));
+            throw Starlark.errorf("%s got multiple values for parameter '%s'", func, keyword);
           }
           arguments[pos] = value;
         } else {
@@ -163,20 +159,17 @@ public abstract class BaseFunction implements StarlarkCallable {
             }
             unexpected.removeAll(names.subList(0, numNamedParams));
             // TODO(adonovan): do spelling check.
-            throw new EvalException(
-                null,
-                String.format(
-                    "unexpected keyword%s '%s' in call to %s",
-                    unexpected.size() > 1 ? "s" : "",
-                    Joiner.on("', '").join(Ordering.natural().sortedCopy(unexpected)),
-                    func));
+            throw Starlark.errorf(
+                "unexpected keyword%s '%s' in call to %s",
+                unexpected.size() > 1 ? "s" : "",
+                Joiner.on("', '").join(Ordering.natural().sortedCopy(unexpected)),
+                func);
           }
           int sz = kwargs.size();
           kwargs.put(keyword, value, null);
           if (kwargs.size() == sz) {
-            throw new EvalException(
-                null,
-                String.format("%s got multiple values for keyword argument '%s'", func, keyword));
+            throw Starlark.errorf(
+                "%s got multiple values for keyword argument '%s'", func, keyword);
           }
         }
       }
@@ -188,22 +181,16 @@ public abstract class BaseFunction implements StarlarkCallable {
       // Note: it's possible that numPositionalArgs > numMandatoryPositionalParams but that's OK.
       for (int i = numPositionalArgs; i < numMandatoryPositionalParams; i++) {
         if (arguments[i] == null) {
-          throw new EvalException(
-              null,
-              String.format(
-                  "missing mandatory positional argument '%s' while calling %s",
-                  names.get(i), func));
+          throw Starlark.errorf(
+              "missing mandatory positional argument '%s' while calling %s", names.get(i), func);
         }
       }
 
       int endMandatoryNamedOnlyParams = numPositionalParams + numMandatoryNamedOnlyParams;
       for (int i = numPositionalParams; i < endMandatoryNamedOnlyParams; i++) {
         if (arguments[i] == null) {
-          throw new EvalException(
-              null,
-              String.format(
-                  "missing mandatory named-only argument '%s' while calling %s",
-                  names.get(i), func));
+          throw Starlark.errorf(
+              "missing mandatory named-only argument '%s' while calling %s", names.get(i), func);
         }
       }
 
