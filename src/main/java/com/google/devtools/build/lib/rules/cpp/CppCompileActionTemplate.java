@@ -204,6 +204,9 @@ public final class CppCompileActionTemplate extends ActionKeyCacher
           CompileBuildVariables.DEPENDENCY_FILE.getVariableName(),
           dotdFileArtifact.getExecPathString());
     }
+    buildVariables.overrideStringVariable(
+        CompileBuildVariables.OUTPUT_DIRECTORY.getVariableName(),
+        outputTreeFileArtifact.getDirname());
 
     builder.setVariables(buildVariables.build());
 

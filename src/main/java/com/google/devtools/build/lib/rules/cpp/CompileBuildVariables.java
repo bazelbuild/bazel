@@ -43,6 +43,8 @@ public enum CompileBuildVariables {
   UNFILTERED_COMPILE_FLAGS("unfiltered_compile_flags"),
   /** Variable for the path to the compilation output file. */
   OUTPUT_FILE("output_file"),
+  /** Variable for the path to the compilation output file directory. */
+  OUTPUT_DIRECTORY("output_directory"),
   /** Variable for the dependency file path */
   DEPENDENCY_FILE("dependency_file"),
   /** Variable for the module file name. */
@@ -317,6 +319,10 @@ public enum CompileBuildVariables {
     if (outputFile != null) {
       buildVariables.addStringVariable(
           OUTPUT_FILE.getVariableName(), fakeOutputFileOrRealOutputFile);
+      PathFragment parent = PathFragment.create(fakeOutputFileOrRealOutputFile).getParentDirectory();
+      String outputDirectory = (parent == null) ? "/" : parent.getSafePathString();
+      buildVariables.addStringVariable(
+          OUTPUT_DIRECTORY.getVariableName(), outputDirectory);
     }
 
     // Set dependency_file to enable <object>.d file generation.
