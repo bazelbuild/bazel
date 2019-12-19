@@ -405,7 +405,7 @@ EOF
   bazel build $http_flags //a:test --incompatible_remote_results_ignore_disk=true --noremote_upload_local_results &> $TEST_log \
     || fail "Failed to build //a:test"
   expect_not_log "1 remote cache hit" "Should not get cache hit from http cache"
-  expect_log "1 linux-sandbox" "Rebuild target failed"
+  expect_log "1 .*-sandbox" "Rebuild target failed"
   diff bazel-genfiles/a/test.txt ${TEST_TMPDIR}/test_expected \
     || fail "Rebuilt target generated different result"
 
@@ -417,7 +417,7 @@ EOF
   bazel build $http_flags //a:test --incompatible_remote_results_ignore_disk=true --noremote_accept_cached &> $TEST_log \
     || fail "Failed to build //a:test"
   expect_not_log "1 remote cache hit" "Should not get cache hit from http cache"
-  expect_log "1 linux-sandbox" "Rebuild target failed"
+  expect_log "1 .*-sandbox" "Rebuild target failed"
   diff bazel-genfiles/a/test.txt ${TEST_TMPDIR}/test_expected \
     || fail "Rebuilt target generated different result"
 
@@ -426,7 +426,7 @@ EOF
   bazel build $disk_flags $http_flags //a:test --incompatible_remote_results_ignore_disk=true --noremote_accept_cached &> $TEST_log \
     || fail "Failed to build //a:test"
   expect_not_log "1 remote cache hit" "Should not get cache hit from http cache"
-  expect_log "1 linux-sandbox" "Rebuild target failed"
+  expect_log "1 .*-sandbox" "Rebuild target failed"
   diff bazel-genfiles/a/test.txt ${TEST_TMPDIR}/test_expected \
     || fail "Rebuilt target generated different result"
 
