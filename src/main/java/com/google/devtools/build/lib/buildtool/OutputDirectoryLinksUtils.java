@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ConvenienceSymlinks;
 import com.google.devtools.build.lib.analysis.config.ConvenienceSymlinks.OutputSymlink;
 import com.google.devtools.build.lib.analysis.config.ConvenienceSymlinks.SymlinkDefinition;
+import com.google.devtools.build.lib.buildtool.BuildRequestOptions.ConvenienceSymlinksMode;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
@@ -68,15 +69,30 @@ public final class OutputDirectoryLinksUtils {
   }
 
   /**
-   * Attempts to create convenience symlinks in the workspaceDirectory and in execRoot to the output
-   * area and to the configuration-specific output directories. Issues a warning if it fails, e.g.
-   * because workspaceDirectory is readonly.
+   * Attempts to create or delete convenience symlinks in the workspace to the various output
+   * directories, and generates associated log events.
    *
-   * <p>Configuration-specific output symlinks will be created or updated if and only if the set of
-   * {@code targetConfigs} contains only configurations whose output directories match. Otherwise -
-   * i.e., if there are multiple configurations with distinct output directories or there were no
-   * targets with non-null configurations in the build - any stale symlinks left over from previous
-   * invocations will be removed.
+   * <p>If {@code --symlink_prefix} is {@link NO_CREATE_SYMLINKS_PREFIX}, or {@code
+   * --experimental_convenience_symlinks} is {@link ConvenienceSymlinksMode.IGNORE}, this method is
+   * a no-op.
+   *
+   * <p>Otherwise, for each symlink type, we decide whether the symlink should exist or not. If it
+   * should exist, it is created with the appropriate destination path; if not, it is deleted if
+   * already present on the file system. In either case, the decision of whether to create or delete
+   * the symlink is logged. (Note that deleting pre-existing symlinks helps ensure the user's
+   * workspace is in a consistent state after the build. However, if the {@code --symlink_prefix}
+   * has changed, we have no way to cleanup old symlink names leftover from a previous invocation.)
+   *
+   * <p>If {@code --experimental_convenience_symlinks} is set to {@link
+   * ConvenienceSymlinksMode.CLEAN}, all symlinks are set to be deleted. If it's set to {@link
+   * ConvenienceSymlinksMode.NORMAL}, each symlink type decides whether it should be created or
+   * deleted. (A symlink may decide to be deleted if e.g. it is disabled by a flag, or would want to
+   * point to more than one destination.) If it's set to {@link ConvenienceSymlinksMode.LOG_ONLY},
+   * the same logic is run as in the {@code NORMAL} case, but the result is only emitting log
+   * messages, with no actual filesystem mutations.
+   *
+   * <p>A warning is emitted if a symlink would resolve to multiple destinations, or if a filesystem
+   * mutation operation fails.
    */
   static void createOutputDirectoryLinks(
       Iterable<SymlinkDefinition> symlinkDefinitions,
@@ -90,7 +106,8 @@ public final class OutputDirectoryLinksUtils {
       Function<BuildOptions, BuildConfiguration> configGetter,
       String productName) {
     String symlinkPrefix = buildRequestOptions.getSymlinkPrefix(productName);
-    if (NO_CREATE_SYMLINKS_PREFIX.equals(symlinkPrefix)) {
+    ConvenienceSymlinksMode mode = buildRequestOptions.experimentalConvenienceSymlinks;
+    if (mode == ConvenienceSymlinksMode.IGNORE || NO_CREATE_SYMLINKS_PREFIX.equals(symlinkPrefix)) {
       return;
     }
 
@@ -106,23 +123,27 @@ public final class OutputDirectoryLinksUtils {
         // already created a link by this name
         continue;
       }
-      Set<Path> candidatePaths =
-          symlink.getLinkPaths(
-              buildRequestOptions,
-              targetConfigs,
-              configGetter,
-              repositoryName,
-              outputPath,
-              execRoot);
-      if (candidatePaths.size() == 1) {
-        createLink(workspace, linkName, Iterables.getOnlyElement(candidatePaths), failures);
-      } else {
+      if (mode == ConvenienceSymlinksMode.CLEAN) {
         removeLink(workspace, linkName, failures);
-        // candidatePaths can be empty if the symlink decided not to be created. This can happen if,
-        // say, py2-bin is enabled but there's an error producing the py2 configuration. In that
-        // case, don't trigger a warning about an ambiguous link.
-        if (candidatePaths.size() > 1) {
-          ambiguousLinks.add(linkName);
+      } else {
+        Set<Path> candidatePaths =
+            symlink.getLinkPaths(
+                buildRequestOptions,
+                targetConfigs,
+                configGetter,
+                repositoryName,
+                outputPath,
+                execRoot);
+        if (candidatePaths.size() == 1) {
+          createLink(workspace, linkName, Iterables.getOnlyElement(candidatePaths), failures);
+        } else {
+          removeLink(workspace, linkName, failures);
+          // candidatePaths can be empty if the symlink decided not to be created. This can happen
+          // if, say, py2-bin is enabled but there's an error producing the py2 configuration. In
+          // that case, don't trigger a warning about an ambiguous link.
+          if (candidatePaths.size() > 1) {
+            ambiguousLinks.add(linkName);
+          }
         }
       }
     }
