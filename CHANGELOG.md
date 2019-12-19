@@ -1,3 +1,70 @@
+## Release 2.0.0 (2019-12-19)
+
+```
+Baseline: 807ed23e4f53a5e008ec823e9c23e2c9baa36d0d
+
+Cherry picks:
+
+   + db0e32ca6296e56e5314993fe9939bc7331768ec:
+     build.sh: Fix bug in build script for RC release
+   + 85e84f7812f04bc0dbc36376f31b6dd2d229b905:
+     Set --incompatible_prohibit_aapt1 default to true.
+   + 84eae2ff550c433a3d0409cf2b5525059939439d:
+     Let shellzelisk fallback to bazel-real if it's the requested
+     version.
+   + d5ae460f1581ddf27514b4be18255481b47b4075:
+     Fix a typo in bazel.sh
+```
+
+Incompatible changes:
+
+  - --incompatible_remap_main_repo is enabled by default. Therefore,
+    both ways of addressing the main repository, by its name and by
+    '@' are now considered referring to the same repository.
+    see https://github.com/bazelbuild/bazel/issues/7130
+  - --incompatible_disallow_dict_lookup_unhashable_keys is enabled by
+    default https://github.com/bazelbuild/bazel/issues/9184
+  - --incompatible_remove_native_maven_jar is now enabled by default
+    and the flag removed. See https://github.com/bazelbuild/bazel/issues/6799
+  - --incompatible_prohibit_aapt1 is enabled by default.
+    See https://github.com/bazelbuild/bazel/issues/10000
+
+Important changes:
+
+  - --incompatible_proto_output_v2: proto v2 for aquery proto output
+    formats, which reduces the output size compared to v1. Note that
+    the messages' ids in v2 are in uint64 instead of string like in
+    v1.
+  - Adds --incompatible_remove_enabled_toolchain_types.
+  - Package loading now consistently fails if package loading had a
+    glob evaluation that encountered a symlink cycle or symlink
+    infinite expansion. Previously, such package loading with such
+    glob evaluations would fail only in some cases.
+  - The --disk_cache flag can now also be used together
+    with the gRPC remote cache.
+  - An action's discover inputs runtime metrics is now categorized as
+    parse time on the CriticalPathComponent.
+  - Make the formatting example more like to the written text by
+    adding an initial description.
+  - An action's discover inputs runtime metrics is now categorized as
+    parse time on the CriticalPathComponent.
+  - Bazel's Debian package and the binary installer now include an
+    improved wrapper that understands `<WORKSPACE>/.bazelversion`
+    files and the `$USE_BAZEL_VERSION` environment variable. This is
+    similar to what Bazelisk offers
+    (https://github.com/bazelbuild/bazelisk#how-does-bazelisk-know-whi
+    ch-bazel-version-to-run-and-where-to-get-it-from), except that it
+    works offline and integrates with apt-get.
+  - We are planning to deprecate the runfiles manifest files, which
+    aren't safe in the presence of whitespace, and also unnecessarily
+    require local CPU when remote execution is used. This release
+    adds --experimental_skip_runfiles_manifests to disable the
+    generation of the input manifests (rule.manifest files) in most
+    cases. Note that this flag has no effect on Windows by default or
+    if --experimental_enable_runfiles is explicitly set to false.
+
+This release contains contributions from many people at Google, as well as aldersondrive, Benjamin Peterson, Bor Kae Hwang, David Ostrovsky, Jakob Buchgraber, Jin, John Millikin, Keith Smiley, Lauri Peltonen, nikola-sh, Peter Mounce, Tony Hsu.
+
 ## Release 1.2.1 (2019-11-26)
 
 ```
