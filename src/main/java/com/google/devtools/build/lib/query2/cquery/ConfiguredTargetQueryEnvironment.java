@@ -193,6 +193,14 @@ public class ConfiguredTargetQueryEnvironment
             accessor,
             aspectResolver,
             OutputType.TEXT),
+        new ProtoOutputFormatterCallback(
+            eventHandler,
+            cqueryOptions,
+            out,
+            skyframeExecutor,
+            accessor,
+            aspectResolver,
+            OutputType.JSON),
         new BuildOutputFormatterCallback(
             eventHandler, cqueryOptions, out, skyframeExecutor, accessor));
   }
