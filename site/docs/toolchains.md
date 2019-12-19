@@ -358,7 +358,8 @@ This will end up building `//bar_tools:barc_linux` but not
 
 ## Toolchain Resolution
 
-**Note:** Some Bazel rules do not yet support toolchain resolution.
+**Note:** [Some Bazel rules](platforms-intro.html#status) do not yet support
+toolchain resolution.
 
 For each target that uses toolchains, Bazel's toolchain resolution procedure
 determines the target's concrete toolchain dependencies. The procedure takes as input a
@@ -383,18 +384,25 @@ with preference given to earlier items in the list.
 
 The resolution steps are as follows.
 
-1. If the target specifies the
+1. A `target_compatible_with` or `exec_compatible_with` clause *matches* a
+   platform iff, for each `constraint_value` in its list, the platform also has
+   that `contraint_value` (either explicitly or as a default).
+
+   If the platform has `constraint_value`s from `constraint_setting`s not
+   referenced by the clause, these do not affect matching.
+
+1. If the target being built specifies the
    [`exec_compatible_with` attribute](be/common-definitions.html#common.exec_compatible_with)
-   (or the rule specifies the
+   (or its rule definition specifies the
    [`exec_compatible_with` argument](skylark/lib/globals.html#rule.exec_compatible_with)),
    the list of available execution platforms is filtered to remove
    any that do not match the execution constraints.
 
-2. For each available execution platform, we associate each toolchain type with
+1. For each available execution platform, we associate each toolchain type with
    the first available toolchain, if any, that is compatible with this execution
    platform and the target platform.
 
-3. Any execution platform that failed to find a compatible toolchain for one of
+1. Any execution platform that failed to find a compatible toolchain for one of
    its toolchain types is ruled out. Of the remaining platforms, the first one
    becomes the current target's execution platform, and its associated
    toolchains become dependencies of the target.
