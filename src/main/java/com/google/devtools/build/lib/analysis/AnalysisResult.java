@@ -44,29 +44,29 @@ public final class AnalysisResult {
 
   AnalysisResult(
       BuildConfigurationCollection configurations,
-      Collection<ConfiguredTarget> targetsToBuild,
+      ImmutableSet<ConfiguredTarget> targetsToBuild,
       ImmutableSet<AspectValue> aspects,
-      Collection<ConfiguredTarget> targetsToTest,
-      Collection<ConfiguredTarget> targetsToSkip,
+      @Nullable ImmutableList<ConfiguredTarget> targetsToTest,
+      ImmutableSet<ConfiguredTarget> targetsToSkip,
       @Nullable String error,
       ActionGraph actionGraph,
       ArtifactsToOwnerLabels topLevelArtifactsToOwnerLabels,
-      Collection<ConfiguredTarget> parallelTests,
-      Collection<ConfiguredTarget> exclusiveTests,
+      ImmutableSet<ConfiguredTarget> parallelTests,
+      ImmutableSet<ConfiguredTarget> exclusiveTests,
       TopLevelArtifactContext topLevelContext,
       PackageRoots packageRoots,
       String workspaceName,
       Collection<TargetAndConfiguration> topLevelTargetsWithConfigs) {
     this.configurations = configurations;
-    this.targetsToBuild = ImmutableSet.copyOf(targetsToBuild);
+    this.targetsToBuild = targetsToBuild;
     this.aspects = aspects;
-    this.targetsToTest = targetsToTest == null ? null : ImmutableList.copyOf(targetsToTest);
-    this.targetsToSkip = ImmutableSet.copyOf(targetsToSkip);
+    this.targetsToTest = targetsToTest;
+    this.targetsToSkip = targetsToSkip;
     this.error = error;
     this.actionGraph = actionGraph;
     this.topLevelArtifactsToOwnerLabels = topLevelArtifactsToOwnerLabels;
-    this.parallelTests = ImmutableSet.copyOf(parallelTests);
-    this.exclusiveTests = ImmutableSet.copyOf(exclusiveTests);
+    this.parallelTests = parallelTests;
+    this.exclusiveTests = exclusiveTests;
     this.topLevelContext = topLevelContext;
     this.packageRoots = packageRoots;
     this.workspaceName = workspaceName;
@@ -100,11 +100,11 @@ public final class AnalysisResult {
   }
 
   /**
-   * Returns the configured targets to run as tests, or {@code null} if testing was not
-   * requested (e.g. "build" command rather than "test" command).
+   * Returns the configured targets to run as tests, or {@code null} if testing was not requested
+   * (e.g. "build" command rather than "test" command).
    */
   @Nullable
-  public Collection<ConfiguredTarget> getTargetsToTest() {
+  public ImmutableList<ConfiguredTarget> getTargetsToTest() {
     return targetsToTest;
   }
 

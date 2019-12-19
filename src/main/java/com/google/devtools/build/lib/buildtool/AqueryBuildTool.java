@@ -47,7 +47,7 @@ import java.util.regex.PatternSyntaxException;
 import javax.annotation.Nullable;
 
 /** A version of {@link BuildTool} that handles all aquery work. */
-public class AqueryBuildTool extends PostAnalysisQueryBuildTool<ConfiguredTargetValue> {
+public final class AqueryBuildTool extends PostAnalysisQueryBuildTool<ConfiguredTargetValue> {
   private final AqueryActionFilter actionFilters;
 
   public AqueryBuildTool(CommandEnvironment env, @Nullable QueryExpression queryExpression)

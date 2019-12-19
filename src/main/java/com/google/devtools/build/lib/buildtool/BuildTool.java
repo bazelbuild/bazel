@@ -66,8 +66,8 @@ public class BuildTool {
 
   private static Logger logger = Logger.getLogger(BuildTool.class.getName());
 
-  protected CommandEnvironment env;
-  protected BlazeRuntime runtime;
+  protected final CommandEnvironment env;
+  protected final BlazeRuntime runtime;
 
   /**
    * Constructs a BuildTool.
@@ -80,8 +80,7 @@ public class BuildTool {
   }
 
   /**
-   * The crux of the build system. Builds the targets specified in the request using the specified
-   * Executor.
+   * The crux of the build system: builds the targets specified in the request.
    *
    * <p>Performs loading, analysis and execution for the specified set of targets, honoring the
    * configuration options in the BuildRequest. Returns normally iff successful, throws an exception
@@ -139,8 +138,8 @@ public class BuildTool {
 
       initializeOutputFilter(request);
 
-      AnalysisPhaseRunner analysisPhaseRunner = new AnalysisPhaseRunner(env);
-      AnalysisResult analysisResult = analysisPhaseRunner.execute(request, buildOptions, validator);
+      AnalysisResult analysisResult =
+          AnalysisPhaseRunner.execute(env, request, buildOptions, validator);
 
       // We cannot move the executionTool down to the execution phase part since it does set up the
       // symlinks for tools.

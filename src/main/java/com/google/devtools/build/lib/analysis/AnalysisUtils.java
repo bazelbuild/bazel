@@ -203,8 +203,7 @@ public final class AnalysisUtils {
     // We'll get the configs from SkyframeExecutor#getConfigurations, which gets configurations
     // for deps including transitions. So to satisfy its API we resolve transitions and repackage
     // each target as a Dependency (with a NONE transition if necessary).
-    Multimap<BuildConfiguration, Dependency> asDeps =
-        AnalysisUtils.targetsToDeps(nodes, ruleClassProvider);
+    Multimap<BuildConfiguration, Dependency> asDeps = targetsToDeps(nodes, ruleClassProvider);
 
     return ConfigurationResolver.getConfigurationsFromExecutor(
         nodes, asDeps, eventHandler, skyframeExecutor);

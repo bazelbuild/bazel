@@ -1495,7 +1495,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       configuredTargetProgress.reset();
     }
 
-    List<BuildConfiguration> topLevelTargetConfigs =
+    ImmutableList<BuildConfiguration> topLevelTargetConfigs =
         getConfigurations(
             eventHandler,
             PrepareAnalysisPhaseFunction.getTopLevelBuildOptions(buildOptions, multiCpu),
@@ -1907,7 +1907,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
    * @throws InvalidConfigurationException if any build options produces an invalid configuration
    */
   // TODO(ulfjack): Remove this legacy method after switching to the Skyframe-based implementation.
-  private List<BuildConfiguration> getConfigurations(
+  private ImmutableList<BuildConfiguration> getConfigurations(
       ExtendedEventHandler eventHandler,
       List<BuildOptions> optionsList,
       BuildOptions referenceBuildOptions,
