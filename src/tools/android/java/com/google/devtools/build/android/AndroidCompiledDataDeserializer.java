@@ -599,7 +599,7 @@ public class AndroidCompiledDataDeserializer implements AndroidDataDeserializer 
       for (ZipEntry entry = zipStream.getNextEntry();
           entry != null;
           entry = zipStream.getNextEntry()) {
-        if (entry.getName().endsWith(".attributes")) {
+        if (entry.getName().endsWith(CompiledResources.ATTRIBUTES_FILE_EXTENSION)) {
           readAttributesFile(
               // Don't care about origin of ".attributes" values, since they don't feed into field
               // initializers.
@@ -650,7 +650,7 @@ public class AndroidCompiledDataDeserializer implements AndroidDataDeserializer 
           FullyQualifiedName.Factory fqnFactory =
               FullyQualifiedName.Factory.fromDirectoryName(dirNameAndQualifiers);
 
-          if (fileZipPath.endsWith(".attributes")) {
+          if (fileZipPath.endsWith(CompiledResources.ATTRIBUTES_FILE_EXTENSION)) {
             readAttributesFile(
                 dependencyInfo,
                 resourceFileStream,
