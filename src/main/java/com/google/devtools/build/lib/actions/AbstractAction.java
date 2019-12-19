@@ -22,7 +22,7 @@ import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.extra.ExtraActionInfo;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.collect.CollectionUtils;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
@@ -97,22 +97,18 @@ public abstract class AbstractAction extends ActionKeyCacher implements Action, 
   // The variable inputs is non-final only so that actions that discover their inputs can modify it.
   @GuardedBy("this")
   @VisibleForSerialization
-  protected Iterable<Artifact> inputs;
+  protected NestedSet<Artifact> inputs;
 
   protected final ActionEnvironment env;
   private final RunfilesSupplier runfilesSupplier;
   @VisibleForSerialization protected final ImmutableSet<Artifact> outputs;
 
-  /**
-   * Construct an abstract action with the specified inputs and outputs;
-   */
+  /** Construct an abstract action with the specified inputs and outputs; */
   protected AbstractAction(
-      ActionOwner owner,
-      Iterable<Artifact> inputs,
-      Iterable<Artifact> outputs) {
+      ActionOwner owner, NestedSet<Artifact> inputs, Iterable<Artifact> outputs) {
     this(
         owner,
-        /*tools = */ImmutableList.of(),
+        /*tools = */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
         inputs,
         EmptyRunfilesSupplier.INSTANCE,
         outputs,
@@ -121,12 +117,12 @@ public abstract class AbstractAction extends ActionKeyCacher implements Action, 
 
   protected AbstractAction(
       ActionOwner owner,
-      Iterable<Artifact> inputs,
+      NestedSet<Artifact> inputs,
       Iterable<Artifact> outputs,
       ActionEnvironment env) {
     this(
         owner,
-        /*tools = */ImmutableList.of(),
+        /*tools = */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
         inputs,
         EmptyRunfilesSupplier.INSTANCE,
         outputs,
@@ -135,15 +131,15 @@ public abstract class AbstractAction extends ActionKeyCacher implements Action, 
 
   protected AbstractAction(
       ActionOwner owner,
-      Iterable<Artifact> tools,
-      Iterable<Artifact> inputs,
+      NestedSet<Artifact> tools,
+      NestedSet<Artifact> inputs,
       RunfilesSupplier runfilesSupplier,
       Iterable<? extends Artifact> outputs,
       ActionEnvironment env) {
     Preconditions.checkNotNull(owner);
     this.owner = owner;
-    this.tools = CollectionUtils.makeImmutable(tools);
-    this.inputs = CollectionUtils.makeImmutable(inputs);
+    this.tools = tools;
+    this.inputs = inputs;
     this.env = Preconditions.checkNotNull(env);
     this.outputs = ImmutableSet.copyOf(outputs);
     this.runfilesSupplier = Preconditions.checkNotNull(runfilesSupplier);
@@ -176,12 +172,12 @@ public abstract class AbstractAction extends ActionKeyCacher implements Action, 
   /**
    * Run input discovery on the action.
    *
-   * <p>Called by Blaze if {@link #discoversInputs()} returns true. It must return the set of
-   * input artifacts that were not known at analysis time. May also call
-   * {@link #updateInputs(Iterable<Artifact>)}; if it doesn't, the action itself must arrange for
-   * the newly discovered artifacts to be available during action execution, probably by keeping
-   * state in the action instance and using a custom action execution context and for
-   * {@code #updateInputs()} to be called during the execution of the action.
+   * <p>Called by Blaze if {@link #discoversInputs()} returns true. It must return the set of input
+   * artifacts that were not known at analysis time. May also call {@link
+   * #updateInputs(NestedSet<Artifact>)}; if it doesn't, the action itself must arrange for the
+   * newly discovered artifacts to be available during action execution, probably by keeping state
+   * in the action instance and using a custom action execution context and for {@code
+   * #updateInputs()} to be called during the execution of the action.
    *
    * <p>Since keeping state within an action bad, don't do that unless there is a very good reason
    * to do so.
@@ -210,10 +206,10 @@ public abstract class AbstractAction extends ActionKeyCacher implements Action, 
    * itself when an action is loaded from the on-disk action cache.
    */
   @Override
-  public synchronized void updateInputs(Iterable<Artifact> inputs) {
+  public synchronized void updateInputs(NestedSet<Artifact> inputs) {
     Preconditions.checkState(
         discoversInputs(), "Can't update inputs unless discovering: %s %s", this, inputs);
-    this.inputs = CollectionUtils.makeImmutable(inputs);
+    this.inputs = inputs;
     inputsDiscovered = true;
   }
 
@@ -222,11 +218,9 @@ public abstract class AbstractAction extends ActionKeyCacher implements Action, 
     return tools;
   }
 
-  /**
-   * Should not be overridden (it's non-final only for tests)
-   */
+  /** Should not be overridden (it's non-final only for tests) */
   @Override
-  public synchronized Iterable<Artifact> getInputs() {
+  public synchronized NestedSet<Artifact> getInputs() {
     return inputs;
   }
 
@@ -264,15 +258,21 @@ public abstract class AbstractAction extends ActionKeyCacher implements Action, 
   }
 
   @Override
-  public Iterable<Artifact> getMandatoryInputs() {
+  public NestedSet<Artifact> getMandatoryInputs() {
     return getInputs();
   }
 
   @Override
   public String toString() {
-    return prettyPrint() + " (" + getMnemonic() + "[" + ImmutableList.copyOf(getInputs())
+    return prettyPrint()
+        + " ("
+        + getMnemonic()
+        + "["
+        + getInputs().toList()
         + (inputsDiscovered() ? " -> " : ", unknown inputs -> ")
-        + getOutputs() + "]" + ")";
+        + getOutputs()
+        + "]"
+        + ")";
   }
 
   @Override

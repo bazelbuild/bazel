@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.actions;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import java.util.Map;
 import javax.annotation.Nullable;
 
@@ -121,7 +122,7 @@ public interface ActionAnalysisMetadata {
    * AbstractAction, since AbstractAction's implementation of getInputs() returns an immutable
    * iterable.
    */
-  Iterable<Artifact> getInputs();
+  NestedSet<Artifact> getInputs();
 
   /**
    * Returns the environment variables from the client environment that this action depends on. May
