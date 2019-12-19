@@ -8,6 +8,7 @@ title: Installing Bazel
 See the instructions for installing Bazel on:
 
 *   [Ubuntu Linux](install-ubuntu.md)
+*   [OpenSUSE](install-suse.md)
 *   [Fedora 25, 26, 27, 28, and CentOS 7](install-redhat.md)
 *   [macOS](install-os-x.md)
 *   [Windows](install-windows.md)
