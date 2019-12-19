@@ -171,6 +171,26 @@ public final class RemoteOptions extends OptionsBase {
   public boolean remoteUploadLocalResults;
 
   @Option(
+      name = "incompatible_remote_results_ignore_disk",
+      defaultValue = "false",
+      category = "remote",
+      documentationCategory = OptionDocumentationCategory.REMOTE,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      metadataTags = {
+        OptionMetadataTag.INCOMPATIBLE_CHANGE,
+        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+      },
+      help =
+          "If set to true, --noremote_upload_local_results and --noremote_accept_cached will not"
+              + " apply to the disk cache. If a combined cache is used:\n"
+              + "\t--noremote_upload_local_results will cause results to be written to the disk"
+              + " cache, but not uploaded to the remote cache.\n"
+              + "\t--noremote_accept_cached will result in Bazel checking for results in the disk"
+              + " cache, but not in the remote cache.\n"
+              + "See #8216 for details.")
+  public boolean incompatibleRemoteResultsIgnoreDisk;
+
+  @Option(
       name = "remote_instance_name",
       defaultValue = "",
       documentationCategory = OptionDocumentationCategory.REMOTE,

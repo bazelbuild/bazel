@@ -299,7 +299,8 @@ public final class RemoteModule extends BlazeModule {
                   remoteOptions.diskCache,
                   remoteOptions.remoteVerifyDownloads,
                   digestUtil,
-                  cacheClient);
+                  cacheClient,
+                  remoteOptions);
         }
 
         RemoteCache remoteCache = new RemoteCache(cacheClient, remoteOptions, digestUtil);
