@@ -252,9 +252,7 @@ public class AndroidCompiledDataDeserializer implements AndroidDataDeserializer 
         decodeSourcePool(resourceTable.getSourcePool().getData().toByteArray());
     ReferenceResolver resolver = ReferenceResolver.asRoot();
 
-    for (int i = resourceTable.getPackageCount() - 1; i >= 0; i--) {
-      Package resourceTablePackage = resourceTable.getPackage(i);
-
+    for (Package resourceTablePackage : resourceTable.getPackageList()) {
       ReferenceResolver packageResolver =
           resolver.resolveFor(resourceTablePackage.getPackageName());
       String packageName = resourceTablePackage.getPackageName();
