@@ -65,4 +65,34 @@ int WaitChildWithRusage(pid_t pid, struct rusage *rusage);
 // Write execution statistics to a file.
 void WriteStatsToFile(struct rusage *rusage, const std::string &stats_path);
 
+// Waits for a process to terminate but does *not* collect its exit status.
+//
+// Note that the process' zombie status may not be available immediately after
+// this call returns.
+//
+// May not be implemented on all platforms.
+int WaitForProcessToTerminate(pid_t pid);
+
+// Waits for a process group to terminate.  Assumes that the process leader
+// still exists in the process table (though it may be a zombie), and allows
+// it to remain.
+//
+// Assumes that the pgid has been sent a termination signal on entry to
+// terminate quickly (or else this will send its own termination signal to
+// the group).
+//
+// May not be implemented on all platforms.
+int WaitForProcessGroupToTerminate(pid_t pgid);
+
+// Terminates and waits for all descendents of the given process to exit.
+//
+// Assumes that the caller has enabled the child subreaper feature before
+// spawning any subprocesses.
+//
+// Assumes that the caller has already waited for the process to collect its
+// exit code as this discards the exit code of all processes it encounters.
+//
+// May not be implemented on all platforms.
+int TerminateAndWaitForAll(pid_t pid);
+
 #endif  // PROCESS_TOOLS_H__
