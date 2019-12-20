@@ -969,7 +969,7 @@ public class SkylarkRepositoryContext
       throw new RepositoryFunctionException(
           new IOException(
               "No URLs left after removing plain http URLs due to missing checksum."
-                  + " Please provde either a checksum or an https download location."),
+                  + " Please provide either a checksum or an https download location."),
           Transience.PERSISTENT);
     }
     return urls;
