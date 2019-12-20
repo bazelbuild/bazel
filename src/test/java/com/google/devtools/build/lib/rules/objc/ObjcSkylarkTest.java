@@ -49,6 +49,41 @@ public class ObjcSkylarkTest extends ObjcRuleTestCase {
     return new ObjcProvider.Builder(StarlarkSemantics.DEFAULT_SEMANTICS);
   }
 
+  private void writeObjcSplitTransitionTestFiles() throws Exception {
+    scratch.file(
+        "examples/rule/apple_rules.bzl",
+        "load('//myinfo:myinfo.bzl', 'MyInfo')",
+        "def my_rule_impl(ctx):",
+        "   return_kwargs = {}",
+        "   for cpu_value in ctx.split_attr.deps:",
+        "     for child_target in ctx.split_attr.deps[cpu_value]:",
+        "       return_kwargs[cpu_value] = struct(objc=child_target.objc)",
+        "   return MyInfo(**return_kwargs)",
+        "my_rule = rule(implementation = my_rule_impl,",
+        "   attrs = {",
+        "       'deps': attr.label_list(cfg=apple_common.multi_arch_split, providers=[['objc']]),",
+        "       'platform_type': attr.string(mandatory=True),",
+        "       'minimum_os_version': attr.string(mandatory=True)},",
+        "   fragments = ['apple'],",
+        ")");
+    scratch.file("examples/apple_skylark/a.cc");
+    scratch.file(
+        "examples/apple_skylark/BUILD",
+        "package(default_visibility = ['//visibility:public'])",
+        "load('//examples/rule:apple_rules.bzl', 'my_rule')",
+        "my_rule(",
+        "    name = 'my_target',",
+        "    deps = [':lib'],",
+        "    platform_type = 'ios',",
+        "    minimum_os_version='2.2'",
+        ")",
+        "objc_library(",
+        "    name = 'lib',",
+        "    srcs = ['a.m'],",
+        "    hdrs = ['a.h']",
+        ")");
+  }
+
   @Before
   public void setupMyInfo() throws Exception {
     scratch.file("myinfo/myinfo.bzl", "MyInfo = provider()");
@@ -1341,38 +1376,7 @@ public class ObjcSkylarkTest extends ObjcRuleTestCase {
   @Test
   public void testMultiArchSplitTransition() throws Exception {
     scratch.file("examples/rule/BUILD");
-    scratch.file(
-        "examples/rule/apple_rules.bzl",
-        "load('//myinfo:myinfo.bzl', 'MyInfo')",
-        "def my_rule_impl(ctx):",
-        "   return_kwargs = {}",
-        "   for cpu_value in ctx.split_attr.deps:",
-        "     for child_target in ctx.split_attr.deps[cpu_value]:",
-        "       return_kwargs[cpu_value] = struct(objc=child_target.objc)",
-        "   return MyInfo(**return_kwargs)",
-        "my_rule = rule(implementation = my_rule_impl,",
-        "   attrs = {",
-        "       'deps': attr.label_list(cfg=apple_common.multi_arch_split, providers=[['objc']]),",
-        "       'platform_type': attr.string(mandatory=True),",
-        "       'minimum_os_version': attr.string(mandatory=True)},",
-        "   fragments = ['apple'],",
-        ")");
-    scratch.file("examples/apple_skylark/a.cc");
-    scratch.file(
-        "examples/apple_skylark/BUILD",
-        "package(default_visibility = ['//visibility:public'])",
-        "load('//examples/rule:apple_rules.bzl', 'my_rule')",
-        "my_rule(",
-        "    name = 'my_target',",
-        "    deps = [':lib'],",
-        "    platform_type = 'ios',",
-        "    minimum_os_version='2.2'",
-        ")",
-        "objc_library(",
-        "    name = 'lib',",
-        "    srcs = ['a.m'],",
-        "    hdrs = ['a.h']",
-        ")");
+    writeObjcSplitTransitionTestFiles();
 
     useConfiguration("--ios_multi_cpus=armv7,arm64");
     ConfiguredTarget skylarkTarget = getConfiguredTarget("//examples/apple_skylark:my_target");
@@ -1385,6 +1389,21 @@ public class ObjcSkylarkTest extends ObjcRuleTestCase {
     assertThat(arm64Objc).isNotNull();
     assertThat(Iterables.getOnlyElement(armv7Objc.getObjcLibraries()).getExecPathString())
         .contains("ios_armv7");
+    assertThat(Iterables.getOnlyElement(arm64Objc.getObjcLibraries()).getExecPathString())
+        .contains("ios_arm64");
+  }
+
+  @Test
+  public void testNoSplitTransitionUsesCpuFlagValue() throws Exception {
+    scratch.file("examples/rule/BUILD");
+    writeObjcSplitTransitionTestFiles();
+
+    useConfiguration("--cpu=ios_arm64");
+    ConfiguredTarget skylarkTarget = getConfiguredTarget("//examples/apple_skylark:my_target");
+    StructImpl myInfo = getMyInfoFromTarget(skylarkTarget);
+    ObjcProvider arm64Objc =
+        ((SkylarkInfo) myInfo.getValue("ios_arm64")).getValue("objc", ObjcProvider.class);
+    assertThat(arm64Objc).isNotNull();
     assertThat(Iterables.getOnlyElement(arm64Objc.getObjcLibraries()).getExecPathString())
         .contains("ios_arm64");
   }
