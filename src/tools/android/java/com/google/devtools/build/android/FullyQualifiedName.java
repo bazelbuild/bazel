@@ -143,7 +143,7 @@ public class FullyQualifiedName implements DataKey {
   }
 
   static final Pattern QUALIFIED_REFERENCE =
-      Pattern.compile("((?<package>[^:]+):)?(?<type>\\w+)/(?<name>\\w+)");
+      Pattern.compile("^((?<package>[^:]+):)?(?<type>\\w+)/(?<name>[A-Za-z0-9_.]+)$");
 
   public static FullyQualifiedName fromReference(
       String qualifiedReference, Optional<String> packageName) {
