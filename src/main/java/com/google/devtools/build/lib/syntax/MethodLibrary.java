@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.syntax;
 
-
 import com.google.common.base.Ascii;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -190,7 +189,6 @@ class MethodLibrary {
       }
     } else if (key instanceof StarlarkCallable) {
       final StarlarkCallable keyfn = (StarlarkCallable) key;
-      final FuncallExpression call = new FuncallExpression(Identifier.of(""), ImmutableList.of());
 
       class KeyComparator implements Comparator<Object> {
         Exception e;
@@ -209,7 +207,7 @@ class MethodLibrary {
 
         Object callKeyFunc(Object x) throws EvalException, InterruptedException {
           return Starlark.call(
-              thread, keyfn, call, Collections.singletonList(x), ImmutableMap.of());
+              thread, keyfn, Location.BUILTIN, Collections.singletonList(x), ImmutableMap.of());
         }
       }
 

@@ -92,7 +92,7 @@ public class SkylarkAspectFactory implements ConfiguredAspectFactory {
             Starlark.call(
                 thread,
                 skylarkAspect.getImplementation(),
-                /*call=*/ null,
+                Location.BUILTIN,
                 /*args=*/ ImmutableList.of(ctadBase.getConfiguredTarget(), skylarkRuleContext),
                 /*kwargs=*/ ImmutableMap.of());
 

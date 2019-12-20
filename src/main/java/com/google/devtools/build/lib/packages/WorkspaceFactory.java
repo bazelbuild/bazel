@@ -32,7 +32,6 @@ import com.google.devtools.build.lib.syntax.ClassObject;
 import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
-import com.google.devtools.build.lib.syntax.FuncallExpression;
 import com.google.devtools.build.lib.syntax.FunctionSignature;
 import com.google.devtools.build.lib.syntax.Module;
 import com.google.devtools.build.lib.syntax.Mutability;
@@ -276,15 +275,11 @@ public class WorkspaceFactory {
 
       @Override
       public Object call(
-          StarlarkThread thread,
-          @Nullable FuncallExpression call,
-          Tuple<Object> args,
-          Dict<String, Object> kwargs)
+          StarlarkThread thread, Location loc, Tuple<Object> args, Dict<String, Object> kwargs)
           throws EvalException, InterruptedException {
         if (!args.isEmpty()) {
           throw new EvalException(null, "unexpected positional arguments");
         }
-        Location loc = call != null ? call.getLocation() : Location.BUILTIN;
         try {
           Package.Builder builder = PackageFactory.getContext(thread, loc).pkgBuilder;
           // TODO(adonovan): this doesn't look safe!
@@ -293,7 +288,7 @@ public class WorkspaceFactory {
               && externalRepoName != null
               && builder.getTarget(externalRepoName) != null) {
             throw new EvalException(
-                loc,
+                null,
                 "Cannot redefine repository after any load statement in the WORKSPACE file"
                     + " (for repository '"
                     + kwargs.get("name")
@@ -315,7 +310,7 @@ public class WorkspaceFactory {
                   loc);
           if (!WorkspaceGlobals.isLegalWorkspaceName(rule.getName())) {
             throw new EvalException(
-                loc,
+                null,
                 rule
                     + "'s name field must be a legal workspace name;"
                     + " workspace names may contain only A-Z, a-z, 0-9, '-', '_' and '.'");
@@ -323,7 +318,7 @@ public class WorkspaceFactory {
         } catch (RuleFactory.InvalidRuleException
             | Package.NameConflictException
             | LabelSyntaxException e) {
-          throw new EvalException(loc, e.getMessage());
+          throw new EvalException(null, e.getMessage());
         }
         return Starlark.NONE;
       }

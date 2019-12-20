@@ -517,16 +517,11 @@ public final class PackageFactory {
 
       @Override
       public Object call(
-          StarlarkThread thread,
-          @Nullable FuncallExpression call,
-          Tuple<Object> args,
-          Dict<String, Object> kwargs)
+          StarlarkThread thread, Location loc, Tuple<Object> args, Dict<String, Object> kwargs)
           throws EvalException {
         if (!args.isEmpty()) {
           throw new EvalException(null, "unexpected positional arguments");
         }
-        Location loc = call != null ? call.getLocation() : Location.BUILTIN;
-
         Package.Builder pkgBuilder = getContext(thread, loc).pkgBuilder;
 
         // Validate parameter list
@@ -599,15 +594,11 @@ public final class PackageFactory {
 
     @Override
     public NoneType call(
-        StarlarkThread thread,
-        @Nullable FuncallExpression call,
-        Tuple<Object> args,
-        Dict<String, Object> kwargs)
+        StarlarkThread thread, Location loc, Tuple<Object> args, Dict<String, Object> kwargs)
         throws EvalException, InterruptedException {
       if (!args.isEmpty()) {
         throw new EvalException(null, "unexpected positional arguments");
       }
-      Location loc = call != null ? call.getLocation() : Location.BUILTIN;
       BazelStarlarkContext.from(thread).checkLoadingOrWorkspacePhase(ruleClass.getName());
       try {
         addRule(getContext(thread, loc), kwargs, loc, thread);

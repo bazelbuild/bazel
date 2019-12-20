@@ -46,11 +46,11 @@ import java.lang.annotation.Target;
  *   <li>If structField=true, there must be zero user-supplied parameters.
  *   <li>The underlying java method's parameters must be supplied in the following order:
  *       <pre>method([positionals]*[named args]*(extra positionals list)(extra kwargs)
- *       (Location)(FuncallExpression)(StarlarkThread)(StarlarkSemantics))</pre>
+ *       (Location)(StarlarkThread)(StarlarkSemantics))</pre>
  *       where (extra positionals list) is a Sequence if extraPositionals is defined, (extra kwargs)
- *       is a Dict if extraKeywords is defined, and Location, FuncallExpression, StarlarkThread, and
- *       StarlarkSemantics are supplied by the interpreter if and only if useLocation, useAst,
- *       useStarlarkThread, and useStarlarkSemantics are specified, respectively.
+ *       is a Dict if extraKeywords is defined, and Location, StarlarkThread, and StarlarkSemantics
+ *       are supplied by the interpreter if and only if useLocation, useStarlarkThread, and
+ *       useStarlarkSemantics are specified, respectively.
  *   <li>The number of method parameters much match the number of annotation-declared parameters
  *       plus the number of interpreter-supplied parameters.
  *   <li>Method parameters with generic type must only have wildcard types. For example, {@code
@@ -147,15 +147,6 @@ public @interface SkylarkCallable {
    * <p>This is incompatible with structField=true. If structField is true, this must be false.
    */
   boolean useLocation() default false;
-
-  /**
-   * If true, the AST of the call site will be passed as an argument of the annotated function.
-   * (Thus, the annotated method signature must contain FuncallExpression as a parameter. See the
-   * interface-level javadoc for details.)
-   *
-   * <p>This is incompatible with structField=true. If structField is true, this must be false.
-   */
-  boolean useAst() default false;
 
   /**
    * If true, the StarlarkThread will be passed as an argument of the annotated function. (Thus, the

@@ -19,6 +19,7 @@ import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.events.EventCollector;
 import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.events.NullEventHandler;
 import com.google.devtools.build.lib.syntax.util.EvaluationTestCase;
 import com.google.devtools.build.lib.testutil.TestMode;
@@ -152,7 +153,7 @@ public class EvaluationTest extends EvaluationTestCase {
 
     @Override
     public Object fastcall(
-        StarlarkThread thread, FuncallExpression ast, Object[] positional, Object[] named) {
+        StarlarkThread thread, Location loc, Object[] positional, Object[] named) {
       callCount++;
       if (positional.length > 0 && Starlark.truth(positional[0])) {
         Thread.currentThread().interrupt();
@@ -240,7 +241,7 @@ public class EvaluationTest extends EvaluationTestCase {
 
           @Override
           public Object fastcall(
-              StarlarkThread thread, FuncallExpression call, Object[] positional, Object[] named) {
+              StarlarkThread thread, Location loc, Object[] positional, Object[] named) {
             int sum = 0;
             for (Object arg : positional) {
               sum += (Integer) arg;
@@ -284,7 +285,7 @@ public class EvaluationTest extends EvaluationTestCase {
           @Override
           public Object call(
               StarlarkThread thread,
-              FuncallExpression call,
+              Location loc,
               Tuple<Object> args,
               Dict<String, Object> kwargs) {
             return kwargs;

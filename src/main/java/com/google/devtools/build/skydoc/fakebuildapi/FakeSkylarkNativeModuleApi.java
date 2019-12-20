@@ -21,7 +21,6 @@ import com.google.devtools.build.lib.skylarkbuildapi.SkylarkNativeModuleApi;
 import com.google.devtools.build.lib.syntax.ClassObject;
 import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.FuncallExpression;
 import com.google.devtools.build.lib.syntax.NoneType;
 import com.google.devtools.build.lib.syntax.Printer;
 import com.google.devtools.build.lib.syntax.Sequence;
@@ -92,10 +91,7 @@ public class FakeSkylarkNativeModuleApi implements SkylarkNativeModuleApi, Class
     return new StarlarkCallable() {
       @Override
       public Object fastcall(
-          StarlarkThread thread,
-          @Nullable FuncallExpression call,
-          Object[] positional,
-          Object[] named) {
+          StarlarkThread thread, Location loc, Object[] positional, Object[] named) {
         return Starlark.NONE;
       }
 

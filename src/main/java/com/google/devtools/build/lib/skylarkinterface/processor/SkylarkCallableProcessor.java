@@ -56,10 +56,11 @@ import javax.tools.Diagnostic;
  *   <li>The method must be non-static.
  *   <li>If structField=true, there must be zero user-supplied parameters.
  *   <li>Method parameters must be supplied in the following order:
- *       <pre>method([positionals]*[other user-args](Location)(FuncallExpression)(StarlarkThread))
+ *       <pre>method([positionals]*[other user-args](Location)(StarlarkThread)(StarlarkSemantics))
  *       </pre>
- *       where Location, FuncallExpression, and StarlarkThread are supplied by the interpreter if
- *       and only if useLocation, useAst, and useStarlarkThread are specified, respectively.
+ *       where Location, StarlarkThread, and StarlarkSemantics are supplied by the interpreter if
+ *       and only if useLocation, useStarlarkThread, or useStarlarkSemantics options are specified,
+ *       respectively.
  *   <li>The number of method parameters must match the number of annotation-declared parameters
  *       plus the number of interpreter-supplied parameters.
  *   <li>Each parameter, if explicitly typed, may only use either 'type' or 'allowedTypes', not
@@ -105,7 +106,6 @@ public final class SkylarkCallableProcessor extends AbstractProcessor {
   private static final String SKYLARK_LIST = "com.google.devtools.build.lib.syntax.Sequence<?>";
   private static final String SKYLARK_DICT = "com.google.devtools.build.lib.syntax.Dict<?,?>";
   private static final String LOCATION = "com.google.devtools.build.lib.events.Location";
-  private static final String AST = "com.google.devtools.build.lib.syntax.FuncallExpression";
   private static final String STARLARK_THREAD =
       "com.google.devtools.build.lib.syntax.StarlarkThread";
   private static final String STARLARK_SEMANTICS =
@@ -288,8 +288,7 @@ public final class SkylarkCallableProcessor extends AbstractProcessor {
       ExecutableElement methodElement, SkylarkCallable annotation)
       throws SkylarkCallableProcessorException {
     if (annotation.structField()) {
-      if (annotation.useAst()
-          || annotation.useStarlarkThread()
+      if (annotation.useStarlarkThread()
           || !annotation.extraPositionals().name().isEmpty()
           || !annotation.extraKeywords().name().isEmpty()) {
         // TODO(adonovan): decide on the restrictions.
@@ -302,7 +301,7 @@ public final class SkylarkCallableProcessor extends AbstractProcessor {
         throw new SkylarkCallableProcessorException(
             methodElement,
             "@SkylarkCallable-annotated methods with structField=true may not also specify "
-                + "useAst, useStarlarkThread, extraPositionals, or extraKeywords");
+                + "useStarlarkThread, extraPositionals, or extraKeywords");
       }
     }
   }
@@ -568,16 +567,6 @@ public final class SkylarkCallableProcessor extends AbstractProcessor {
       }
       currentIndex++;
     }
-    if (annotation.useAst()) {
-      if (!AST.equals(methodSignatureParams.get(currentIndex).asType().toString())) {
-        throw new SkylarkCallableProcessorException(
-            methodElement,
-            String.format(
-                "Expected parameter index %d to be the %s type, matching useAst, but was %s",
-                currentIndex, AST, methodSignatureParams.get(currentIndex).asType().toString()));
-      }
-      currentIndex++;
-    }
     if (annotation.useStarlarkThread()) {
       if (!STARLARK_THREAD.equals(methodSignatureParams.get(currentIndex).asType().toString())) {
         throw new SkylarkCallableProcessorException(
@@ -611,7 +600,6 @@ public final class SkylarkCallableProcessor extends AbstractProcessor {
     numExtraInterpreterParams += annotation.extraPositionals().name().isEmpty() ? 0 : 1;
     numExtraInterpreterParams += annotation.extraKeywords().name().isEmpty() ? 0 : 1;
     numExtraInterpreterParams += annotation.useLocation() ? 1 : 0;
-    numExtraInterpreterParams += annotation.useAst() ? 1 : 0;
     numExtraInterpreterParams += annotation.useStarlarkThread() ? 1 : 0;
     numExtraInterpreterParams += annotation.useStarlarkSemantics() ? 1 : 0;
     return numExtraInterpreterParams;

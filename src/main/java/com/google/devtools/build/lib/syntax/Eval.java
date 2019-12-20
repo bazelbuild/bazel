@@ -587,7 +587,7 @@ final class Eval {
             }
           }
 
-          return Starlark.fastcall(thread, fn, call, positional, named);
+          return Starlark.fastcall(thread, fn, call.getLocation(), positional, named);
         }
 
       case IDENTIFIER:

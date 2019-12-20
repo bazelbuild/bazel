@@ -21,7 +21,6 @@ import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.syntax.BaseFunction;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.FuncallExpression;
 import com.google.devtools.build.lib.syntax.FunctionSignature;
 import com.google.devtools.build.lib.syntax.Printer;
 import com.google.devtools.build.lib.syntax.Starlark;
@@ -150,15 +149,13 @@ public final class SkylarkProvider extends BaseFunction implements SkylarkExport
   }
 
   @Override
-  public Object fastcall(
-      StarlarkThread thread, @Nullable FuncallExpression call, Object[] positional, Object[] named)
+  public Object fastcall(StarlarkThread thread, Location loc, Object[] positional, Object[] named)
       throws EvalException, InterruptedException {
     // TODO(adonovan): we can likely come up with a more efficient implementation
     // ...then make matchSignature private again?
     Object[] arguments =
         Starlark.matchSignature(
             signature, this, /*defaults=*/ null, thread.mutability(), positional, named);
-    Location loc = call != null ? call.getLocation() : Location.BUILTIN;
     if (fields == null) {
       // provider(**kwargs)
       @SuppressWarnings("unchecked")
