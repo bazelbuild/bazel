@@ -34,7 +34,6 @@ import com.google.devtools.build.lib.skyframe.BuildConfigurationValue.Key;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey.KeyAndHost;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.skyframe.SkyFunctionName;
-import java.math.BigInteger;
 import javax.annotation.Nullable;
 
 /** An aspect in the context of the Skyframe graph. */
@@ -440,9 +439,8 @@ public final class AspectValue extends BasicActionLookupValue {
       Label label,
       Location location,
       ConfiguredAspect configuredAspect,
-      NestedSet<Package> transitivePackagesForPackageRootResolution,
-      BigInteger nonceVersion) {
-    super(configuredAspect.getActions(), nonceVersion);
+      NestedSet<Package> transitivePackagesForPackageRootResolution) {
+    super(configuredAspect.getActions());
     this.label = Preconditions.checkNotNull(label, actions);
     this.aspect = Preconditions.checkNotNull(aspect, label);
     this.location = Preconditions.checkNotNull(location, label);

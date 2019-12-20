@@ -13,27 +13,17 @@
 // limitations under the License.
 package com.google.devtools.build.skyframe;
 
-import java.math.BigInteger;
-
 /**
- * A Version "less than" all other versions, other than itself. Only used as initializer in
- * node entry.
+ * A Version "less than" all other versions, other than itself. Only used as initializer in node
+ * entry.
  */
-class MinimalVersion implements Version {
+final class MinimalVersion implements Version {
   static final MinimalVersion INSTANCE = new MinimalVersion();
-  // Randomly generated.
-  private static final BigInteger FINGERPRINT = BigInteger.valueOf(1184854353641063846L);
 
-  private MinimalVersion() {
-  }
+  private MinimalVersion() {}
 
   @Override
   public boolean atMost(Version other) {
     return true;
-  }
-
-  @Override
-  public BigInteger getFingerprint() {
-    return FINGERPRINT;
   }
 }

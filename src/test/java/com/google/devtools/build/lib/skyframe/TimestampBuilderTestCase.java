@@ -289,8 +289,7 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
                           actionKeyContext,
                           ImmutableList.copyOf(actions),
                           ACTION_LOOKUP_KEY,
-                          /*outputFiles=*/ null),
-                      /*nonceVersion=*/ null)));
+                          /*outputFiles=*/ null))));
         }
       }
 

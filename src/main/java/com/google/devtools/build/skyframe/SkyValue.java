@@ -14,22 +14,11 @@
 package com.google.devtools.build.skyframe;
 
 import java.io.Serializable;
-import java.math.BigInteger;
-import javax.annotation.Nullable;
 
 /**
  * A return value of a {@code SkyFunction}.
  */
 public interface SkyValue extends Serializable {
-  /**
-   * If non-null, a fingerprint for this value such that two values are equal iff they have the same
-   * fingerprint. For use during dep-fingerprint-based change pruning: see {@link
-   * NodeEntry#canPruneDepsByFingerprint}.
-   */
-  @Nullable
-  default BigInteger getValueFingerprint() {
-    return null;
-  }
 
   /**
    * Returns true for values that may compare objects that must be compared using reference

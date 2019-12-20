@@ -213,8 +213,7 @@ public final class ActionTemplateExpansionFunctionTest extends FoundationTestCas
     return new NonRuleConfiguredTargetValue(
         Mockito.mock(ConfiguredTarget.class),
         Actions.GeneratingActions.fromSingleAction(actionTemplate, CTKEY),
-        NestedSetBuilder.<Package>stableOrder().build(),
-        /*nonceVersion=*/ null);
+        NestedSetBuilder.<Package>stableOrder().build());
   }
 
   private SpecialArtifact createTreeArtifact(String path) {

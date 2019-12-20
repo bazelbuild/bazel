@@ -287,15 +287,7 @@ public class ArtifactFunctionTest extends ArtifactFunctionTestCase {
             ImmutableList.of(filesetOutputSymlink),
             null,
             true);
-    ActionExecutionValue valueWithFingerprint =
-        ActionExecutionValue.create(
-            ImmutableMap.of(artifact1, metadata1, artifact3, FileArtifactValue.DEFAULT_MIDDLEMAN),
-            ImmutableMap.of(treeArtifact, treeArtifactValue),
-            ImmutableList.of(filesetOutputSymlink),
-            null,
-            true);
-    valueWithFingerprint.getValueFingerprint();
-    new SerializationTester(actionExecutionValue, valueWithFingerprint)
+    new SerializationTester(actionExecutionValue)
         .addDependency(FileSystem.class, root.getFileSystem())
         .runTests();
   }
@@ -395,8 +387,7 @@ public class ArtifactFunctionTest extends ArtifactFunctionTestCase {
                       actionKeyContext,
                       ImmutableList.copyOf(actions),
                       ALL_OWNER,
-                      /*outputFiles=*/ null),
-                  /*nonceVersion=*/ null)));
+                      /*outputFiles=*/ null))));
     }
   }
 
