@@ -83,6 +83,10 @@ GitHub](https://github.com/bazelbuild/emacs-bazel-mode)
 [Lavender](https://github.com/tmandry/lavender) is an experimental project for
 generating Visual Studio projects that use Bazel for building.
 
+### Eclipse
+
+[Bazel Eclipse Feature](https://github.com/salesforce/bazel-eclipse) is a set of plugins for importing Bazel packages into an Eclipse workspace as Eclipse projects.
+
 ## Automatically run build and test on file change
 
 [Bazel watcher](https://github.com/bazelbuild/bazel-watcher) is a tool for
@@ -93,9 +97,3 @@ building Bazel targets when source files change.
 Read the [**IDE support** blog
 post](https://bazel.build/blog/2016/06/10/ide-support.html) to learn more about
 the Bazel APIs to use when building an IDE plugin.
-
-## Archived projects
-
-These projects are no longer supported by the Bazel team.
-
-* [Eclipse](https://github.com/bazelbuild/eclipse)
