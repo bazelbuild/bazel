@@ -507,11 +507,11 @@ final class Eval {
           return result;
         }
 
-      case FUNCALL:
+      case CALL:
         {
           checkInterrupt();
 
-          FuncallExpression call = (FuncallExpression) expr;
+          CallExpression call = (CallExpression) expr;
           Object fn = eval(thread, call.getFunction());
 
           // StarStar and Star args are guaranteed to be last, if they occur.
@@ -797,10 +797,10 @@ final class Eval {
   /** Returns an exception which should be thrown instead of the original one. */
   private static EvalException maybeTransformException(Node node, EvalException original) {
     // If there is already a non-empty stack trace, we only add this node iff it describes a
-    // new scope (e.g. FuncallExpression).
+    // new scope (e.g. CallExpression).
     if (original instanceof EvalExceptionWithStackTrace) {
       EvalExceptionWithStackTrace real = (EvalExceptionWithStackTrace) original;
-      if (node instanceof FuncallExpression) {
+      if (node instanceof CallExpression) {
         real.registerNode(node);
       }
       return real;

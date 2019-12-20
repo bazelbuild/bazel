@@ -204,7 +204,7 @@ public class SkylarkAspectFactory implements ConfiguredAspectFactory {
   private void addAspectToStackTrace(Target base, EvalException e) {
     if (e instanceof EvalExceptionWithStackTrace) {
       ((EvalExceptionWithStackTrace) e)
-          .registerPhantomFuncall(
+          .registerPhantomCall(
               String.format("%s(...)", skylarkAspect.getName()),
               base.getAssociatedRule().getLocation(),
               skylarkAspect.getImplementation());

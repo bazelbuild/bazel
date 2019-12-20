@@ -625,7 +625,7 @@ public class StarlarkSemanticsOptions extends OptionsBase implements Serializabl
    * An interner to reduce the number of StarlarkSemantics instances. A single Blaze instance should
    * never accumulate a large number of these and being able to shortcut on object identity makes a
    * comparison later much faster. In particular, the semantics become part of the
-   * MethodDescriptorKey in FuncallExpression and are thus compared for every function call.
+   * MethodDescriptorKey in CallExpression and are thus compared for every function call.
    */
   private static final Interner<StarlarkSemantics> INTERNER = BlazeInterners.newWeakInterner();
 

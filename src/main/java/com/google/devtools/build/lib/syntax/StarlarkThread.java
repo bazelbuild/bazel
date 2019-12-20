@@ -97,7 +97,7 @@ import javax.annotation.Nullable;
 // As best I can tell, all the skyframe serialization
 // as it applies to LexicalFrames is redundant, as these are transient
 // and should not exist after loading.
-// We will remove the FuncallExpression parameter from StarlarkFunction.call.
+// We will remove the CallExpression parameter from StarlarkFunction.call.
 // Clients should use getCallerLocation instead.
 // The only place that still needs an AST is Bazel's generator_name.
 // Once the API is small and sound, we can start to represent all

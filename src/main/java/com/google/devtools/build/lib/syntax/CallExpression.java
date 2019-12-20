@@ -18,14 +18,13 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 
 /** Syntax node for a function call expression. */
-// TODO(adonovan): rename CallExpression.
-public final class FuncallExpression extends Expression {
+public final class CallExpression extends Expression {
 
   private final Expression function;
   private final ImmutableList<Argument> arguments;
   private final int numPositionalArgs;
 
-  FuncallExpression(Expression function, ImmutableList<Argument> arguments) {
+  CallExpression(Expression function, ImmutableList<Argument> arguments) {
     this.function = Preconditions.checkNotNull(function);
     this.arguments = arguments;
 
@@ -70,6 +69,6 @@ public final class FuncallExpression extends Expression {
 
   @Override
   public Kind kind() {
-    return Kind.FUNCALL;
+    return Kind.CALL;
   }
 }

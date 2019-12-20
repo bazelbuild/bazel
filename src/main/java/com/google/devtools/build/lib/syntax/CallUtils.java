@@ -342,7 +342,7 @@ public final class CallUtils {
       throw unexpectedKeywordArgumentException(loc, kwargs.keySet(), method, objClass, thread);
     }
 
-    // Add Location, FuncallExpression, and/or StarlarkThread.
+    // Add Location, StarlarkThread, and/or StarlarkSemantics.
     appendExtraInterpreterArgs(builder, method, loc, thread);
 
     return builder.toArray();

@@ -37,6 +37,7 @@ import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.packages.RuleFactory.BuildLangTypedAttributeValuesMap;
 import com.google.devtools.build.lib.syntax.Argument;
 import com.google.devtools.build.lib.syntax.BaseFunction;
+import com.google.devtools.build.lib.syntax.CallExpression;
 import com.google.devtools.build.lib.syntax.ClassObject;
 import com.google.devtools.build.lib.syntax.DefStatement;
 import com.google.devtools.build.lib.syntax.Dict;
@@ -44,7 +45,6 @@ import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.Expression;
 import com.google.devtools.build.lib.syntax.ForStatement;
-import com.google.devtools.build.lib.syntax.FuncallExpression;
 import com.google.devtools.build.lib.syntax.FunctionSignature;
 import com.google.devtools.build.lib.syntax.Identifier;
 import com.google.devtools.build.lib.syntax.IfStatement;
@@ -1095,7 +1095,7 @@ public final class PackageFactory {
           //   glob(["pattern"])
           // This may spuriously match user-defined functions named glob;
           // that's ok, it's only a heuristic.
-          void extractGlobPatterns(FuncallExpression call) {
+          void extractGlobPatterns(CallExpression call) {
             if (call.getFunction() instanceof Identifier
                 && ((Identifier) call.getFunction()).getName().equals("glob")) {
               Expression excludeDirectories = null, include = null;
@@ -1131,7 +1131,7 @@ public final class PackageFactory {
           }
 
           // Reject f(*args) and f(**kwargs) calls in BUILD files.
-          void rejectStarArgs(FuncallExpression call) {
+          void rejectStarArgs(CallExpression call) {
             for (Argument arg : call.getArguments()) {
               if (arg instanceof Argument.StarStar) {
                 error(
@@ -1150,7 +1150,7 @@ public final class PackageFactory {
           // Record calls of the form f(name="foo", ...)
           // so that we can later ascribe "foo" as the "generator name"
           // of any rules instantiated during the call of f.
-          void recordGeneratorName(FuncallExpression call) {
+          void recordGeneratorName(CallExpression call) {
             for (Argument arg : call.getArguments()) {
               if (arg instanceof Argument.Keyword
                   && arg.getName().equals("name")
@@ -1192,7 +1192,7 @@ public final class PackageFactory {
           }
 
           @Override
-          public void visit(FuncallExpression node) {
+          public void visit(CallExpression node) {
             extractGlobPatterns(node);
             rejectStarArgs(node);
             recordGeneratorName(node);

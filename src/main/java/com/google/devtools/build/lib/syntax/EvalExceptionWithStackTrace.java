@@ -70,13 +70,13 @@ public class EvalExceptionWithStackTrace extends EvalException {
   /**
    * Makes sure the stack trace is rooted in a function call.
    *
-   * In some cases (rule implementation application, aspect implementation application)
-   * bazel calls into the function directly (using BaseFunction.call). In that case, since
-   * there is no FuncallExpression to evaluate, stack trace mechanism cannot record this call.
-   * This method allows to augument the stack trace with information about the call.
+   * <p>In some cases (rule implementation application, aspect implementation application) bazel
+   * calls into the function directly (using BaseFunction.call). In that case, since there is no
+   * CallExpression to evaluate, stack trace mechanism cannot record this call. This method allows
+   * to augument the stack trace with information about the call.
    */
-  public void registerPhantomFuncall(
-      String funcallDescription, Location location, BaseFunction function) {
+  public void registerPhantomCall(
+      String callDescription, Location location, BaseFunction function) {
     /*
      *
      * We add two new frames to the stack:
@@ -105,7 +105,7 @@ public class EvalExceptionWithStackTrace extends EvalException {
      *
      * */
     addStackFrame(function.getName(), function.getLocation());
-    addStackFrame(funcallDescription, location, false);
+    addStackFrame(callDescription, location, false);
   }
 
   /** Adds a line for the given frame. */
