@@ -55,6 +55,10 @@ import javax.annotation.concurrent.Immutable;
  *
  * <p>Each resource name consists of the resource package, name, type, and qualifiers.
  */
+// TODO(b/146498565): remove and/or replace.  For normal resources this can just be a ResourceName
+// with Configuration, and the latter can come from aapt2 directly.  tools:* attributes should be a
+// separate DataKey; as FullyQualifiedName they all have the same package, same singleton
+// VirtualType, and same empty qualifiers.
 @Immutable
 public class FullyQualifiedName implements DataKey {
   public static final String DEFAULT_PACKAGE = "res-auto";
@@ -66,6 +70,7 @@ public class FullyQualifiedName implements DataKey {
 
   private static final AtomicInteger cacheHit = new AtomicInteger(0);
   private final String pkg;
+  // TODO(b/146498565): use com.android.aapt.ConfigurationOuterClass.Configuration.
   private final ImmutableList<String> qualifiers;
   private final Type type;
   private final String name;
