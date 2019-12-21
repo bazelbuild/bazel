@@ -139,8 +139,8 @@ public final class OutputDirectoryLinksUtils {
         } else {
           removeLink(workspace, linkName, failures);
           // candidatePaths can be empty if the symlink decided not to be created. This can happen
-          // if, say, py2-bin is enabled but there's an error producing the py2 configuration. In
-          // that case, don't trigger a warning about an ambiguous link.
+          // if the symlink is disabled by a flag, or it intercepts an error while computing its
+          // target path. In that case, don't trigger a warning about an ambiguous link.
           if (candidatePaths.size() > 1) {
             ambiguousLinks.add(linkName);
           }
