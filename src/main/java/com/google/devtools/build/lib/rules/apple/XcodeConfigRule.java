@@ -101,6 +101,6 @@ public class XcodeConfigRule implements RuleDefinition {
 
 <p>A single target of this rule can be referenced by the <code>--xcode_version_config</code> build
 flag to translate the <code>--xcode_version</code> flag into an accepted official xcode version.
-This allows selection of a an official xcode version from a number of registered aliases.</p>
+This allows selection of an official xcode version from a number of registered aliases.</p>
 
 <!-- #END_BLAZE_RULE -->*/

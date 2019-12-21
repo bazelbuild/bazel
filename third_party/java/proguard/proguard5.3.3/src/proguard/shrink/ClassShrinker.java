@@ -462,7 +462,7 @@ implements   ClassVisitor,
 
     /**
      * Removes all Clazz objects that are not marked as being used
-     * from the given array and returns the remaining objects in a an array
+     * from the given array and returns the remaining objects in an array
      * of the right size.
      * @return the new array.
      */
