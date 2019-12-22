@@ -191,7 +191,7 @@ if [[ ! -x $BAZEL_REAL ]]; then
 fi
 
 readonly wrapper="${workspace_dir}/tools/bazel"
-if [[ -x "$wrapper" ]]; then
+if [[ -x "$wrapper" && ! -d "$wrapper" ]]; then
   export BAZEL_REAL
   exec -a "$0" "${wrapper}" "$@"
 fi
