@@ -17,7 +17,9 @@ package com.google.devtools.build.lib.rules.apple;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -28,6 +30,8 @@ import com.google.devtools.build.lib.packages.SkylarkProvider.SkylarkKey;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
+import java.util.List;
+import java.util.Map;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -71,6 +75,9 @@ public class XcodeConfigTest extends BuildViewTestCase {
 
     assertXcodeVersion("5.1.2");
     assertAvailability(XcodeConfigInfo.Availability.UNKNOWN);
+    assertHasRequirements(
+        ImmutableList.of(
+            ExecutionRequirements.REQUIRES_DARWIN, ExecutionRequirements.REQUIREMENTS_SET));
   }
 
   @Test
@@ -200,6 +207,10 @@ public class XcodeConfigTest extends BuildViewTestCase {
     useConfiguration("--xcode_version=8.4", "--xcode_version_config=//xcode:foo");
     assertXcodeVersion("8.4");
     assertAvailability(XcodeConfigInfo.Availability.BOTH);
+    assertHasRequirements(
+        ImmutableList.of(
+            ExecutionRequirements.REQUIRES_DARWIN, ExecutionRequirements.REQUIREMENTS_SET));
+
     assertNoEvents();
   }
 
@@ -235,6 +246,12 @@ public class XcodeConfigTest extends BuildViewTestCase {
     useConfiguration("--xcode_version=5", "--xcode_version_config=//xcode:foo");
     assertXcodeVersion("5.1.2");
     assertAvailability(XcodeConfigInfo.Availability.REMOTE);
+    assertHasRequirements(
+        ImmutableList.of(
+            ExecutionRequirements.REQUIRES_DARWIN,
+            ExecutionRequirements.NO_LOCAL,
+            ExecutionRequirements.REQUIREMENTS_SET));
+
     assertContainsEvent(
         "--xcode_version=5 specified, but it is not available locally. Your build"
             + " will fail if any actions require a local Xcode.");
@@ -272,6 +289,12 @@ public class XcodeConfigTest extends BuildViewTestCase {
     useConfiguration("--xcode_version=8.4", "--xcode_version_config=//xcode:foo");
     assertXcodeVersion("8.4");
     assertAvailability(XcodeConfigInfo.Availability.LOCAL);
+    assertHasRequirements(
+        ImmutableList.of(
+            ExecutionRequirements.REQUIRES_DARWIN,
+            ExecutionRequirements.NO_REMOTE,
+            ExecutionRequirements.REQUIREMENTS_SET));
+
     assertContainsEvent(
         "--xcode_version=8.4 specified, but it is not available remotely. Actions"
             + " requiring Xcode will be run locally, which could make your build"
@@ -310,6 +333,12 @@ public class XcodeConfigTest extends BuildViewTestCase {
     useConfiguration("--xcode_version_config=//xcode:foo");
     assertXcodeVersion("8.4");
     assertAvailability(XcodeConfigInfo.Availability.LOCAL);
+    assertHasRequirements(
+        ImmutableList.of(
+            ExecutionRequirements.REQUIRES_DARWIN,
+            ExecutionRequirements.NO_REMOTE,
+            ExecutionRequirements.REQUIREMENTS_SET));
+
     assertContainsEvent(
         "Using a local Xcode version, '8.4', since there are no"
             + " remotely available Xcodes on this machine. Consider downloading one of the"
@@ -360,6 +389,10 @@ public class XcodeConfigTest extends BuildViewTestCase {
     useConfiguration("--xcode_version_config=//xcode:foo");
     assertXcodeVersion("10");
     assertAvailability(XcodeConfigInfo.Availability.BOTH);
+    assertHasRequirements(
+        ImmutableList.of(
+            ExecutionRequirements.REQUIRES_DARWIN, ExecutionRequirements.REQUIREMENTS_SET));
+
     assertNoEvents();
   }
 
@@ -657,6 +690,9 @@ public class XcodeConfigTest extends BuildViewTestCase {
 
     assertXcodeVersion("5.1.2");
     assertAvailability(XcodeConfigInfo.Availability.UNKNOWN);
+    assertHasRequirements(
+        ImmutableList.of(
+            ExecutionRequirements.REQUIRES_DARWIN, ExecutionRequirements.REQUIREMENTS_SET));
   }
 
   @Test
@@ -678,6 +714,9 @@ public class XcodeConfigTest extends BuildViewTestCase {
 
     assertXcodeVersion("5.1.2");
     assertAvailability(XcodeConfigInfo.Availability.UNKNOWN);
+    assertHasRequirements(
+        ImmutableList.of(
+            ExecutionRequirements.REQUIRES_DARWIN, ExecutionRequirements.REQUIREMENTS_SET));
   }
 
   @Test
@@ -699,6 +738,9 @@ public class XcodeConfigTest extends BuildViewTestCase {
 
     assertXcodeVersion("5.1.2");
     assertAvailability(XcodeConfigInfo.Availability.UNKNOWN);
+    assertHasRequirements(
+        ImmutableList.of(
+            ExecutionRequirements.REQUIRES_DARWIN, ExecutionRequirements.REQUIREMENTS_SET));
   }
 
   @Test
@@ -829,6 +871,9 @@ public class XcodeConfigTest extends BuildViewTestCase {
 
     assertXcodeVersion("5.1.2");
     assertAvailability(XcodeConfigInfo.Availability.UNKNOWN);
+    assertHasRequirements(
+        ImmutableList.of(
+            ExecutionRequirements.REQUIRES_DARWIN, ExecutionRequirements.REQUIREMENTS_SET));
   }
 
   @Test
@@ -912,6 +957,9 @@ public class XcodeConfigTest extends BuildViewTestCase {
     assertXcodeVersion("5.1.2");
     assertIosSdkVersion("7.1");
     assertAvailability(XcodeConfigInfo.Availability.UNKNOWN);
+    assertHasRequirements(
+        ImmutableList.of(
+            ExecutionRequirements.REQUIRES_DARWIN, ExecutionRequirements.REQUIREMENTS_SET));
   }
 
   @Test
@@ -943,6 +991,10 @@ public class XcodeConfigTest extends BuildViewTestCase {
 
     assertXcodeVersion("5.1.2");
     assertAvailability(XcodeConfigInfo.Availability.UNKNOWN);
+    assertHasRequirements(
+        ImmutableList.of(
+            ExecutionRequirements.REQUIRES_DARWIN, ExecutionRequirements.REQUIREMENTS_SET));
+
     ImmutableMap<ApplePlatform, String> platformToVersion =
         ImmutableMap.<ApplePlatform, String>builder()
             .put(ApplePlatform.IOS_SIMULATOR, "101")
@@ -986,6 +1038,10 @@ public class XcodeConfigTest extends BuildViewTestCase {
 
     assertXcodeVersion("6.4");
     assertAvailability(XcodeConfigInfo.Availability.UNKNOWN);
+    assertHasRequirements(
+        ImmutableList.of(
+            ExecutionRequirements.REQUIRES_DARWIN, ExecutionRequirements.REQUIREMENTS_SET));
+
     ImmutableMap<ApplePlatform, String> platformToVersion =
         ImmutableMap.<ApplePlatform, String>builder()
             .put(ApplePlatform.IOS_SIMULATOR, "43")
@@ -1074,6 +1130,7 @@ public class XcodeConfigTest extends BuildViewTestCase {
         "    macos_min = conf.minimum_os_for_platform_type(apple_common.platform_type.macos),",
         "    watchos_min = conf.minimum_os_for_platform_type(apple_common.platform_type.watchos),",
         "    availability = conf.availability(),",
+        "    execution_info = conf.execution_info(),",
         "  )",
         "r = rule(implementation = _impl,",
         "    attrs = { '_xcode': attr.label(default = Label('//x:a'))},",
@@ -1096,6 +1153,10 @@ public class XcodeConfigTest extends BuildViewTestCase {
     assertThat(info.getValue("macos_min").toString()).isEqualTo("3.0");
     assertThat(info.getValue("watchos_min").toString()).isEqualTo("4.5");
     assertThat(info.getValue("availability").toString()).isEqualTo("unknown");
+    assertThat((Map<?, ?>) info.getValue("execution_info"))
+        .containsKey(ExecutionRequirements.REQUIRES_DARWIN);
+    assertThat((Map<?, ?>) info.getValue("execution_info"))
+        .containsKey(ExecutionRequirements.REQUIREMENTS_SET);
   }
 
   @Test
@@ -1143,6 +1204,7 @@ public class XcodeConfigTest extends BuildViewTestCase {
         "    macos_min = conf.minimum_os_for_platform_type(apple_common.platform_type.macos),",
         "    watchos_min = conf.minimum_os_for_platform_type(apple_common.platform_type.watchos),",
         "    availability = conf.availability(),",
+        "    execution_info = conf.execution_info(),",
         "  )",
         "r = rule(implementation = _impl,",
         "    attrs = { '_xcode': attr.label(default = Label('//x:a'))},",
@@ -1155,9 +1217,10 @@ public class XcodeConfigTest extends BuildViewTestCase {
         new SkylarkProvider.SkylarkKey(
             Label.parseAbsolute("//x:r.bzl", ImmutableMap.of()), "MyInfo");
     StructImpl info = (StructImpl) r.get(key);
-
-    assertThat(info.getValue("xcode").toString()).isEqualTo("8.4");
-    assertThat(info.getValue("availability").toString()).isEqualTo("both");
+    assertThat((Map<?, ?>) info.getValue("execution_info"))
+        .containsKey(ExecutionRequirements.REQUIRES_DARWIN);
+    assertThat((Map<?, ?>) info.getValue("execution_info"))
+        .containsKey(ExecutionRequirements.REQUIREMENTS_SET);
   }
 
   @Test
@@ -1399,6 +1462,19 @@ public class XcodeConfigTest extends BuildViewTestCase {
     ConfiguredTarget xcodeConfig = getConfiguredTarget(providerTargetLabel);
     XcodeConfigInfo provider = xcodeConfig.get(XcodeConfigInfo.PROVIDER);
     assertThat(provider.getAvailability()).isEqualTo(availabilty);
+  }
+
+  private void assertHasRequirements(List<String> executionRequirements) throws Exception {
+    assertHasRequirements(executionRequirements, "//xcode:foo");
+  }
+
+  private void assertHasRequirements(List<String> executionRequirements, String providerTargetLabel)
+      throws Exception {
+    ConfiguredTarget xcodeConfig = getConfiguredTarget(providerTargetLabel);
+    XcodeConfigInfo provider = xcodeConfig.get(XcodeConfigInfo.PROVIDER);
+    for (String requirement : executionRequirements) {
+      assertThat(requirement).isIn(provider.getExecutionRequirements().keySet());
+    }
   }
 
   private void assertIosSdkVersion(String version) throws Exception {
