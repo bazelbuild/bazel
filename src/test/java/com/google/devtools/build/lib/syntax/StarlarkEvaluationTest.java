@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.packages.NativeProvider;
 import com.google.devtools.build.lib.packages.StructProvider;
+import com.google.devtools.build.lib.rules.apple.DottedVersion;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.ParamType;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
@@ -1438,6 +1439,14 @@ public final class StarlarkEvaluationTest extends EvaluationTestCase {
         .contains(
             "invalid Starlark value: class"
                 + " com.google.devtools.build.lib.collect.nestedset.NestedSet");
+  }
+
+  @Test
+  public void testDottedVersionSkylarkValue() throws Exception {
+    new Scenario()
+        .update("version", DottedVersion.option(DottedVersion.fromStringUnchecked("1.0")))
+        .setUp("x = 'ok' if str(version) == '1.0' else 'fail'")
+        .testLookup("x", "ok");
   }
 
   @Test

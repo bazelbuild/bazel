@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skylarkbuildapi.apple.DottedVersionApi;
 import com.google.devtools.build.lib.syntax.Printer;
+import com.google.devtools.build.lib.syntax.StarlarkValue;
 import java.util.ArrayList;
 import java.util.Objects;
 import java.util.regex.Matcher;
@@ -89,7 +90,7 @@ public final class DottedVersion implements DottedVersionApi<DottedVersion> {
    * directory names)</p>
    * */
   @Immutable
-  public static final class Option {
+  public static final class Option implements StarlarkValue {
     private final DottedVersion version;
 
     private Option(DottedVersion version) {
@@ -103,6 +104,11 @@ public final class DottedVersion implements DottedVersionApi<DottedVersion> {
     @Override
     public int hashCode() {
       return version.stringRepresentation.hashCode();
+    }
+
+    @Override
+    public void repr(Printer printer) {
+      printer.append(version.stringRepresentation);
     }
 
     @Override
