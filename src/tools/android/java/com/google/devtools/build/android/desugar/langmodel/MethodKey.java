@@ -28,6 +28,20 @@ public abstract class MethodKey extends ClassMemberKey {
 
   /** The factory method for {@link MethodKey}. */
   public static MethodKey create(String ownerClass, String name, String descriptor) {
+    checkState(
+        !ownerClass.contains("."),
+        "Expected a binary/internal class name ('/'-delimited) instead of a qualified name."
+            + " Actual: (%s#%s:%s)",
+        ownerClass,
+        name,
+        descriptor);
+    checkState(
+        descriptor.isEmpty() // Allows empty descriptor for non-overloaded methods.
+            || descriptor.startsWith("("),
+        "Expected a method descriptor. Actual: (%s#%s:%s)",
+        ownerClass,
+        name,
+        descriptor);
     return new AutoValue_MethodKey(ownerClass, name, descriptor);
   }
 

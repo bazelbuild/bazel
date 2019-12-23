@@ -34,7 +34,7 @@ public class ClassMemberRecordTest {
   @Test
   public void trackFieldUse() {
     ClassMemberKey classMemberKey =
-        FieldKey.create("package.path.OwnerClass", "fieldOfPrimitiveLong", "J");
+        FieldKey.create("package/path/OwnerClass", "fieldOfPrimitiveLong", "J");
     classMemberRecord.logMemberUse(classMemberKey, Opcodes.GETFIELD);
     classMemberRecord.logMemberUse(classMemberKey, Opcodes.PUTFIELD);
     classMemberRecord.logMemberUse(classMemberKey, Opcodes.H_GETFIELD);
@@ -50,7 +50,7 @@ public class ClassMemberRecordTest {
 
   @Test
   public void trackConstructorUse() {
-    ClassMemberKey classMemberKey = MethodKey.create("package.path.OwnerClass", "<init>", "()V");
+    ClassMemberKey classMemberKey = MethodKey.create("package/path/OwnerClass", "<init>", "()V");
     classMemberRecord.logMemberUse(classMemberKey, Opcodes.INVOKESPECIAL);
     classMemberRecord.logMemberUse(classMemberKey, Opcodes.H_NEWINVOKESPECIAL);
 
@@ -60,7 +60,7 @@ public class ClassMemberRecordTest {
 
   @Test
   public void trackMethodUse() {
-    ClassMemberKey classMemberKey = MethodKey.create("package.path.OwnerClass", "method", "(II)I");
+    ClassMemberKey classMemberKey = MethodKey.create("package/path/OwnerClass", "method", "(II)I");
     classMemberRecord.logMemberUse(classMemberKey, Opcodes.INVOKEVIRTUAL);
     classMemberRecord.logMemberUse(classMemberKey, Opcodes.INVOKESPECIAL);
     classMemberRecord.logMemberUse(classMemberKey, Opcodes.INVOKESTATIC);
@@ -88,7 +88,7 @@ public class ClassMemberRecordTest {
 
   @Test
   public void trackMemberDeclaration() {
-    ClassMemberKey classMemberKey = MethodKey.create("package.path.OwnerClass", "method", "(II)I");
+    ClassMemberKey classMemberKey = MethodKey.create("package/path/OwnerClass", "method", "(II)I");
     classMemberRecord.logMemberDecl(
         classMemberKey, Opcodes.ACC_PUBLIC | Opcodes.ACC_SUPER, Opcodes.ACC_PRIVATE);
 
@@ -100,7 +100,7 @@ public class ClassMemberRecordTest {
 
   @Test
   public void trackMemberDeclaration_withDeprecatedAnnotation() {
-    ClassMemberKey classMemberKey = MethodKey.create("package.path.OwnerClass", "method", "(II)I");
+    ClassMemberKey classMemberKey = MethodKey.create("package/path/OwnerClass", "method", "(II)I");
     classMemberRecord.logMemberDecl(
         classMemberKey,
         Opcodes.ACC_DEPRECATED | Opcodes.ACC_PUBLIC | Opcodes.ACC_SUPER,
@@ -115,9 +115,9 @@ public class ClassMemberRecordTest {
   public void mergeRecord_trackingReasons() {
     ClassMemberRecord otherClassMemberRecord = ClassMemberRecord.create();
 
-    ClassMemberKey method1 = MethodKey.create("package.path.OwnerClass", "method1", "(II)I");
-    ClassMemberKey method2 = MethodKey.create("package.path.OwnerClass", "method2", "(II)I");
-    ClassMemberKey method3 = MethodKey.create("package.path.OwnerClass", "method3", "(II)I");
+    ClassMemberKey method1 = MethodKey.create("package/path/OwnerClass", "method1", "(II)I");
+    ClassMemberKey method2 = MethodKey.create("package/path/OwnerClass", "method2", "(II)I");
+    ClassMemberKey method3 = MethodKey.create("package/path/OwnerClass", "method3", "(II)I");
 
     classMemberRecord.logMemberDecl(method1, Opcodes.ACC_SUPER, Opcodes.ACC_PRIVATE);
     classMemberRecord.logMemberUse(method2, Opcodes.INVOKEVIRTUAL);
@@ -148,7 +148,7 @@ public class ClassMemberRecordTest {
 
   @Test
   public void filterUsedMemberWithTrackedDeclaration_noMemberDeclaration() {
-    ClassMemberKey classMemberKey = MethodKey.create("package.path.OwnerClass", "method", "(II)I");
+    ClassMemberKey classMemberKey = MethodKey.create("package/path/OwnerClass", "method", "(II)I");
 
     classMemberRecord.logMemberUse(classMemberKey, Opcodes.INVOKEVIRTUAL);
     assertThat(classMemberRecord.hasTrackingReason(classMemberKey)).isTrue();
@@ -159,7 +159,7 @@ public class ClassMemberRecordTest {
 
   @Test
   public void filterUsedMemberWithTrackedDeclaration_noMemberUse() {
-    ClassMemberKey classMemberKey = MethodKey.create("package.path.OwnerClass", "method", "(II)I");
+    ClassMemberKey classMemberKey = MethodKey.create("package/path/OwnerClass", "method", "(II)I");
 
     classMemberRecord.logMemberDecl(
         classMemberKey, Opcodes.ACC_PUBLIC | Opcodes.ACC_SUPER, Opcodes.ACC_PRIVATE);
@@ -171,7 +171,7 @@ public class ClassMemberRecordTest {
 
   @Test
   public void filterUsedMemberWithTrackedDeclaration_interfaceMemberWithoutUse_shouldTrack() {
-    ClassMemberKey classMemberKey = MethodKey.create("package.path.OwnerClass", "method", "(II)I");
+    ClassMemberKey classMemberKey = MethodKey.create("package/path/OwnerClass", "method", "(II)I");
 
     classMemberRecord.logMemberDecl(
         classMemberKey, Opcodes.ACC_PUBLIC | Opcodes.ACC_INTERFACE, Opcodes.ACC_PRIVATE);
