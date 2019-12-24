@@ -476,8 +476,7 @@ public class InMemoryNodeEntry implements NodeEntry {
     Preconditions.checkState(dirtyBuildingState.isEvaluating(), "%s %s", this, childForDebugging);
     dirtyBuildingState.signalDep();
     dirtyBuildingState.signalDepPostProcess(
-        childCausesReevaluation(lastEvaluatedVersion, childVersion, childForDebugging),
-        getNumTemporaryDirectDeps());
+        childCausesReevaluation(lastEvaluatedVersion, childVersion), getNumTemporaryDirectDeps());
     return isReady();
   }
 
@@ -662,10 +661,8 @@ public class InMemoryNodeEntry implements NodeEntry {
   }
 
   /** True if the child should cause re-evaluation of this node. */
-  protected boolean childCausesReevaluation(
-      Version lastEvaluatedVersion,
-      Version childVersion,
-      @Nullable SkyKey unusedChildForDebugging) {
+  private static boolean childCausesReevaluation(
+      Version lastEvaluatedVersion, Version childVersion) {
     // childVersion > lastEvaluatedVersion
     return !childVersion.atMost(lastEvaluatedVersion);
   }

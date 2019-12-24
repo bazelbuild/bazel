@@ -15,21 +15,8 @@ package com.google.devtools.build.skyframe;
 
 import java.io.Serializable;
 
-/**
- * A return value of a {@code SkyFunction}.
- */
+/** A return value of a {@code SkyFunction}. */
 public interface SkyValue extends Serializable {
-
-  /**
-   * Returns true for values that may compare objects that must be compared using reference
-   * equality. Such values may force re-evaluation of downstream nodes even if they evaluate to the
-   * same {@link Version} as before, since the downstream nodes may have reference-unequal objects
-   * from the previous evaluation. Under normal circumstances, a node can never re-evaluate to the
-   * same {@link Version}, so this doesn't come into play.
-   */
-  default boolean mustBeReferenceComparedOnRecomputation() {
-    return false;
-  }
 
   /**
    * Returns true for values that can be reused across builds. Some values are inherently "flaky",

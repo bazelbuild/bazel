@@ -485,11 +485,6 @@ public final class AspectValue extends BasicActionLookupValue {
     transitivePackagesForPackageRootResolution = null;
   }
 
-  @Override
-  public final boolean mustBeReferenceComparedOnRecomputation() {
-    return true;
-  }
-
   /**
    * Returns the set of packages transitively loaded by this value. Must only be used for
    * constructing the package -> source root map needed for some builds. If the caller has not
