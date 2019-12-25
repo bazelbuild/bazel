@@ -69,7 +69,7 @@ import java.util.function.Predicate;
   allowResidue = true,
   mustRunInWorkspace = false,
   shortDescription = "Prints help for commands, or the index.",
-  completion = "command|{startup_options,target-syntax,info-keys}",
+  completion = "command|{startup_options,target-syntax,info-keys,explain}",
   help = "resource:help.txt"
 )
 public final class HelpCommand implements BlazeCommand {
@@ -130,22 +130,22 @@ public final class HelpCommand implements BlazeCommand {
       emitGenericHelp(outErr, runtime);
       return BlazeCommandResult.exitCode(ExitCode.SUCCESS);
     }
-    if (options.getResidue().size() != 1) {
+    String helpSubject = options.getResidue().get(0);
+    if (!helpSubject.equalsIgnoreCase("explain") && options.getResidue().size() > 1) {
+      // Allow longer residue for "bazel help explain".
       env.getReporter().handle(Event.error("You must specify exactly one command"));
       return BlazeCommandResult.exitCode(ExitCode.COMMAND_LINE_ERROR);
     }
-    String helpSubject = options.getResidue().get(0);
     String productName = runtime.getProductName();
     // Go through the custom subjects before going through Bazel commands.
     switch (helpSubject) {
       case "startup_options":
-        emitBlazeVersionInfo(outErr, runtime.getProductName());
+        emitBlazeVersionInfo(outErr, productName);
         emitStartupOptions(outErr, helpOptions.helpVerbosity, runtime);
         return BlazeCommandResult.exitCode(ExitCode.SUCCESS);
       case "target-syntax":
-        emitBlazeVersionInfo(outErr, runtime.getProductName());
+        emitBlazeVersionInfo(outErr, productName);
         emitTargetSyntaxHelp(outErr, productName);
-
         return BlazeCommandResult.exitCode(ExitCode.SUCCESS);
       case "info-keys":
         emitInfoKeysHelp(env, outErr);
@@ -158,6 +158,9 @@ public final class HelpCommand implements BlazeCommand {
         return BlazeCommandResult.exitCode(ExitCode.SUCCESS);
       case "everything-as-html":
         new HtmlEmitter(runtime).emit(outErr);
+        return BlazeCommandResult.exitCode(ExitCode.SUCCESS);
+      case "explain":
+        emitCommandExplanation(runtime, outErr, options.getResidue());
         return BlazeCommandResult.exitCode(ExitCode.SUCCESS);
       default: // fall out
     }
@@ -177,6 +180,54 @@ public final class HelpCommand implements BlazeCommand {
             productName));
 
     return BlazeCommandResult.exitCode(ExitCode.SUCCESS);
+  }
+
+  private void emitCommandExplanation(BlazeRuntime runtime, OutErr outErr, List<String> residue) {
+    HashSet<String> flagsInResidue = new HashSet<>();
+    for (String r : residue) {
+      if (r.startsWith("-") && !r.startsWith("-//")) {
+        flagsInResidue.add(r.split("=")[0]);
+      }
+    }
+
+    Map<String, BazelFlagsProto.FlagInfo.Builder> flags = new HashMap<>();
+
+    Predicate<OptionDefinition> userSpecifiedFlags =
+        option -> {
+          return flagsInResidue.contains("--" + option.getOptionName())
+              || flagsInResidue.contains("-" + String.valueOf(option.getAbbreviation()));
+        };
+
+    BiConsumer<String, OptionDefinition> visitor =
+        (commandName, option) -> {
+          if (ImmutableSet.copyOf(option.getOptionMetadataTags())
+              .contains(OptionMetadataTag.INTERNAL)) {
+            return;
+          }
+          BazelFlagsProto.FlagInfo.Builder info =
+              flags.computeIfAbsent(option.getOptionName(), key -> createFlagInfo(option));
+          info.addCommands(commandName);
+        };
+    Consumer<OptionsParser> startupOptionVisitor =
+        parser -> {
+          parser.visitOptions(userSpecifiedFlags, option -> visitor.accept("startup", option));
+        };
+    CommandOptionVisitor commandOptionVisitor =
+        (commandName, commandAnnotation, parser) -> {
+          parser.visitOptions(userSpecifiedFlags, option -> visitor.accept(commandName, option));
+        };
+
+    visitAllOptions(runtime, startupOptionVisitor, commandOptionVisitor);
+
+    for (BazelFlagsProto.FlagInfo.Builder info : flags.values()) {
+      BazelFlagsProto.FlagInfo f = info.build();
+      outErr.printOut("\u001B[32m--" + f.getName() + "\u001B[0m");
+      if (f.getAbbreviation().length() > 0) {
+        outErr.printOut(" [-" + f.getAbbreviation() + "]");
+      }
+      outErr.printOutLn(" (default: " + f.getDefaultValue() + ")");
+      outErr.printOutLn("    " + f.getDocumentation());
+    }
   }
 
   private void emitBlazeVersionInfo(OutErr outErr, String productName) {
@@ -272,6 +323,7 @@ public final class HelpCommand implements BlazeCommand {
     flagBuilder.setHasNegativeFlag(option.hasNegativeOption());
     flagBuilder.setDocumentation(option.getHelpText());
     flagBuilder.setAllowsMultiple(option.allowsMultiple());
+    flagBuilder.setDefaultValue(option.getUnparsedDefaultValue());
     if (option.getAbbreviation() != '\0') {
       flagBuilder.setAbbreviation(String.valueOf(option.getAbbreviation()));
     }
@@ -347,6 +399,9 @@ public final class HelpCommand implements BlazeCommand {
     outErr.printOut("Getting more help:\n");
     outErr.printOut(String.format("  %s help <command>\n", runtime.getProductName()));
     outErr.printOut("                   Prints help and options for <command>.\n");
+    outErr.printOut(
+            String.format("  %s help explain -- <command> <flags> <targets> \n", runtime.getProductName()));
+    outErr.printOut("                   Prints explanations of flags used in a command.\n");
     outErr.printOut(String.format("  %s help startup_options\n", runtime.getProductName()));
     outErr.printOut(String.format("                   Options for the JVM hosting %s.\n",
         runtime.getProductName()));

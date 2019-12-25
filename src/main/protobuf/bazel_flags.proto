@@ -35,6 +35,8 @@ message FlagInfo {
   optional string abbreviation = 5;
   // True if a flag is allowed to occur multiple times in a single arg list.
   optional bool allows_multiple = 6 [default = false];
+  // The default value of this flag as an unparsed string.
+  optional string default_value = 7;
 }
 
 message FlagCollection {

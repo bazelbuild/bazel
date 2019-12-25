@@ -35,4 +35,13 @@ function test_info_keys() {
   expect_log_once "default-package-path"
 }
 
+function test_help_explain() {
+  bazel help explain -- build //... --compilation_mode opt -k >& $TEST_log || fail "help failed"
+
+  expect_log_once "--compilation_mode \[\-c\] (default: fastbuild)"
+  expect_log_once "Specify the mode the binary will be built in. Values: 'fastbuild', 'dbg', 'opt'."
+  expect_log_once "--keep_going \[\-k\] (default: false)"
+  expect_log_once "Continue as much as possible after an error."
+}
+
 run_suite "'help' command tests"
