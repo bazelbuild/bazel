@@ -1444,6 +1444,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
       RuleContext ruleContext, Artifact inputTree, Artifact outputZip) {
     CustomCommandLine args =
         CustomCommandLine.builder()
+            .add("--normalize")
             .add("--exclude_build_data")
             .add("--dont_change_compression")
             .add("--sources")
