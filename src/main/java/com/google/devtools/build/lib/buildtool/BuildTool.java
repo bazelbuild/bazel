@@ -380,6 +380,8 @@ public class BuildTool {
     // The stop time has to be captured before we send the BuildCompleteEvent.
     result.setStopTime(runtime.getClock().currentTimeMillis());
     result.setWasSuspended(stopSuspendCount > startSuspendCount);
+
+    env.getEventBus().post(new BuildPrecompleteEvent());
     env.getEventBus()
         .post(
             new BuildCompleteEvent(
