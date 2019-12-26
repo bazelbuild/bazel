@@ -24,6 +24,8 @@ import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
+import com.google.devtools.build.lib.actions.LostInputsActionExecutionException;
+import com.google.devtools.build.lib.actions.LostInputsExecException;
 import com.google.devtools.build.lib.actions.MetadataProvider;
 import com.google.devtools.build.lib.actions.RunningActionEvent;
 import com.google.devtools.build.lib.actions.SandboxedSpawnActionContext;
@@ -180,7 +182,7 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnActionConte
     // TODO(ulfjack): Guard against client modification of this map.
     private SortedMap<PathFragment, ActionInput> lazyInputMapping;
 
-    public SpawnExecutionContextImpl(
+    SpawnExecutionContextImpl(
         Spawn spawn,
         ActionExecutionContext actionExecutionContext,
         @Nullable StopConcurrentSpawns stopConcurrentSpawns,
@@ -290,6 +292,15 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnActionConte
           break;
         default:
           break;
+      }
+    }
+
+    @Override
+    public void checkForLostInputs() throws LostInputsExecException {
+      try {
+        actionExecutionContext.checkForLostInputs();
+      } catch (LostInputsActionExecutionException e) {
+        throw e.toExecException();
       }
     }
   }

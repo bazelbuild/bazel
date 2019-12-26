@@ -95,18 +95,19 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
     public FakeActionExecutionContext(
         FileOutErr fileOutErr, SpawnActionContext spawnActionContext) {
       super(
-          /* executor= */ null,
-          /* actionInputFileCache= */ null,
+          /*executor=*/ null,
+          /*actionInputFileCache=*/ null,
           ActionInputPrefetcher.NONE,
           new ActionKeyContext(),
-          /* metadataHandler= */ null,
+          /*metadataHandler=*/ null,
+          LostInputsCheck.NONE,
           fileOutErr,
           /*eventHandler=*/ null,
-          /* clientEnv= */ ImmutableMap.of(),
-          /* topLevelFilesets= */ ImmutableMap.of(),
-          /* artifactExpander= */ null,
-          /* actionFileSystem= */ null,
-          /* skyframeDepsResult= */ null);
+          /*clientEnv=*/ ImmutableMap.of(),
+          /*topLevelFilesets=*/ ImmutableMap.of(),
+          /*artifactExpander=*/ null,
+          /*actionFileSystem=*/ null,
+          /*skyframeDepsResult=*/ null);
       this.spawnActionContext = spawnActionContext;
     }
 

@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
+import com.google.devtools.build.lib.actions.ActionExecutionContext.LostInputsCheck;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.ActionInputPrefetcher;
 import com.google.devtools.build.lib.actions.ActionTemplate.ActionTemplateExpansionException;
@@ -788,18 +789,19 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
 
     ActionExecutionContext dummyActionExecutionContext =
         new ActionExecutionContext(
-            null,
-            null,
+            /*executor=*/ null,
+            /*actionInputFileCache=*/ null,
             ActionInputPrefetcher.NONE,
             actionKeyContext,
-            null,
-            null,
-            null,
-            ImmutableMap.<String, String>of(),
-            ImmutableMap.of(),
+            /*metadataHandler=*/ null,
+            LostInputsCheck.NONE,
+            /*fileOutErr=*/ null,
+            /*eventHandler=*/ null,
+            /*clientEnv=*/ ImmutableMap.of(),
+            /*topLevelFilesets=*/ ImmutableMap.of(),
             DUMMY_ARTIFACT_EXPANDER,
-            null,
-            null);
+            /*actionFileSystem=*/ null,
+            /*skyframeDepsResult=*/ null);
     ByteArrayOutputStream moduleMapStream = new ByteArrayOutputStream();
     ByteArrayOutputStream umbrellaHeaderStream = new ByteArrayOutputStream();
     moduleMapAction.newDeterministicWriter(dummyActionExecutionContext)
@@ -841,18 +843,19 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
 
     ActionExecutionContext dummyActionExecutionContext =
         new ActionExecutionContext(
-            null,
-            null,
+            /*executor=*/ null,
+            /*actionInputFileCache=*/ null,
             ActionInputPrefetcher.NONE,
             actionKeyContext,
-            null,
-            null,
-            null,
-            ImmutableMap.of(),
-            ImmutableMap.of(),
+            /*metadataHandler=*/ null,
+            LostInputsCheck.NONE,
+            /*fileOutErr=*/ null,
+            /*eventHandler=*/ null,
+            /*clientEnv=*/ ImmutableMap.of(),
+            /*topLevelFilesets=*/ ImmutableMap.of(),
             DUMMY_ARTIFACT_EXPANDER,
-            null,
-            null);
+            /*actionFileSystem=*/ null,
+            /*skyframeDepsResult=*/ null);
 
     ByteArrayOutputStream moduleMapStream = new ByteArrayOutputStream();
     ByteArrayOutputStream umbrellaHeaderStream = new ByteArrayOutputStream();

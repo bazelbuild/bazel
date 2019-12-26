@@ -44,7 +44,7 @@ public class ActionInputDepOwnerMap implements ActionInputMapSink, ActionInputDe
   }
 
   @Override
-  public Collection<Artifact> getDepOwners(ActionInput input) {
-    return depOwnersByInputs.get(input);
+  public ImmutableSet<Artifact> getDepOwners(ActionInput input) {
+    return ImmutableSet.copyOf(depOwnersByInputs.get(input));
   }
 }
