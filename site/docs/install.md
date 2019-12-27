@@ -24,5 +24,5 @@ See the instructions for installing Bazel on:
 ## Community-Supported Architectures
 *   [ppc64le](https://oplab9.parqtec.unicamp.br/pub/ppc64el/bazel)
 
-
+https://twitter.com/MGWVc
 For other platforms, you can try to [compile from source](install-compile-source.md).
