@@ -44,10 +44,9 @@ public class MergedAndroidResources extends ParsedAndroidResources {
       AndroidAaptVersion aaptVersion)
       throws InterruptedException {
 
-    boolean useCompiledMerge = aaptVersion == AndroidAaptVersion.AAPT2;
-
-    Preconditions.checkState(
-        !useCompiledMerge || parsed.getCompiledSymbols() != null,
+    Preconditions.checkArgument(aaptVersion == AndroidAaptVersion.AAPT2);
+    Preconditions.checkNotNull(
+        parsed.getCompiledSymbols(),
         "Should not use compiled merge if no compiled symbols are available!");
 
     AndroidResourceMergingActionBuilder builder =
@@ -55,7 +54,6 @@ public class MergedAndroidResources extends ParsedAndroidResources {
             .setJavaPackage(parsed.getJavaPackage())
             .withDependencies(resourceDeps)
             .setThrowOnResourceConflict(dataContext.throwOnResourceConflict())
-            .setUseCompiledMerge(useCompiledMerge)
             .setAnnotateRFieldsFromTransitiveDeps(dataContext.annotateRFieldsFromTransitiveDeps())
             .setOmitTransitiveDependenciesFromAndroidRClasses(
                 dataContext.omitTransitiveResourcesFromAndroidRClasses());
