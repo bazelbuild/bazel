@@ -38,6 +38,19 @@ public class ProtoLangToolchainTest extends BuildViewTestCase {
     invalidatePackages();
   }
 
+  private void validateProtoLangToolchain(ProtoLangToolchainProvider toolchain) throws Exception {
+    assertThat(toolchain.commandLine()).isEqualTo("cmd-line");
+    assertThat(toolchain.pluginExecutable().getExecutable().getRootRelativePathString())
+        .isEqualTo("x/plugin");
+
+    TransitiveInfoCollection runtimes = toolchain.runtime();
+    assertThat(runtimes.getLabel())
+        .isEqualTo(Label.parseAbsolute("//x:runtime", ImmutableMap.of()));
+
+    assertThat(prettyArtifactNames(toolchain.blacklistedProtos()))
+        .containsExactly("x/metadata.proto", "x/descriptor.proto", "x/any.proto");
+  }
+
   @Test
   public void protoToolchain() throws Exception {
     scratch.file(
@@ -60,19 +73,63 @@ public class ProtoLangToolchainTest extends BuildViewTestCase {
 
     update(ImmutableList.of("//foo:toolchain"), false, 1, true, new EventBus());
 
-    ProtoLangToolchainProvider toolchain =
-        getConfiguredTarget("//foo:toolchain").getProvider(ProtoLangToolchainProvider.class);
+    validateProtoLangToolchain(
+        getConfiguredTarget("//foo:toolchain").getProvider(ProtoLangToolchainProvider.class));
+  }
 
-    assertThat(toolchain.commandLine()).isEqualTo("cmd-line");
-    assertThat(toolchain.pluginExecutable().getExecutable().getRootRelativePathString())
-        .isEqualTo("x/plugin");
+  @Test
+  public void protoToolchainBlacklistProtoLibraries() throws Exception {
+    scratch.file(
+        "x/BUILD",
+        TestConstants.LOAD_PROTO_LIBRARY,
+        "cc_binary(name = 'plugin', srcs = ['plugin.cc'])",
+        "cc_library(name = 'runtime', srcs = ['runtime.cc'])",
+        "proto_library(name = 'descriptors', srcs = ['metadata.proto', 'descriptor.proto'])",
+        "proto_library(name = 'any', srcs = ['any.proto'], import_prefix = 'bar')");
 
-    TransitiveInfoCollection runtimes = toolchain.runtime();
-    assertThat(runtimes.getLabel())
-        .isEqualTo(Label.parseAbsolute("//x:runtime", ImmutableMap.of()));
+    scratch.file(
+        "foo/BUILD",
+        TestConstants.LOAD_PROTO_LANG_TOOLCHAIN,
+        "proto_lang_toolchain(",
+        "    name = 'toolchain',",
+        "    command_line = 'cmd-line',",
+        "    plugin = '//x:plugin',",
+        "    runtime = '//x:runtime',",
+        "    blacklisted_protos = ['//x:descriptors', '//x:any']",
+        ")");
 
-    assertThat(prettyArtifactNames(toolchain.blacklistedProtos()))
-        .containsExactly("x/metadata.proto", "x/descriptor.proto", "x/any.proto");
+    update(ImmutableList.of("//foo:toolchain"), false, 1, true, new EventBus());
+
+    validateProtoLangToolchain(
+        getConfiguredTarget("//foo:toolchain").getProvider(ProtoLangToolchainProvider.class));
+  }
+
+  @Test
+  public void protoToolchainMixedBlacklist() throws Exception {
+    scratch.file(
+        "x/BUILD",
+        TestConstants.LOAD_PROTO_LIBRARY,
+        "cc_binary(name = 'plugin', srcs = ['plugin.cc'])",
+        "cc_library(name = 'runtime', srcs = ['runtime.cc'])",
+        "proto_library(name = 'metadata', srcs = ['metadata.proto'])",
+        "proto_library(name = 'descriptor', srcs = ['descriptor.proto'], import_prefix = 'bar')",
+        "filegroup(name = 'any', srcs = ['any.proto'])");
+
+    scratch.file(
+        "foo/BUILD",
+        TestConstants.LOAD_PROTO_LANG_TOOLCHAIN,
+        "proto_lang_toolchain(",
+        "    name = 'toolchain',",
+        "    command_line = 'cmd-line',",
+        "    plugin = '//x:plugin',",
+        "    runtime = '//x:runtime',",
+        "    blacklisted_protos = ['//x:metadata', '//x:descriptor', '//x:any']",
+        ")");
+
+    update(ImmutableList.of("//foo:toolchain"), false, 1, true, new EventBus());
+
+    validateProtoLangToolchain(
+        getConfiguredTarget("//foo:toolchain").getProvider(ProtoLangToolchainProvider.class));
   }
 
   @Test
