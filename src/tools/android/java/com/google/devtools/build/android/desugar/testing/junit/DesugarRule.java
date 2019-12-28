@@ -18,13 +18,22 @@ package com.google.devtools.build.android.desugar.testing.junit;
 
 import static com.google.common.base.Preconditions.checkState;
 
+import com.google.auto.value.AutoAnnotation;
+import com.google.common.collect.HashBasedTable;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableTable;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.LinkedHashMultimap;
 import com.google.common.collect.Multimap;
+import com.google.common.collect.Sets;
+import com.google.common.collect.Table;
 import com.google.devtools.build.android.desugar.Desugar;
+import com.google.devtools.build.android.desugar.langmodel.ClassMemberKey;
+import com.google.devtools.build.android.desugar.langmodel.FieldKey;
+import com.google.devtools.build.android.desugar.langmodel.MethodKey;
+import com.google.devtools.build.android.desugar.testing.junit.LoadMethodHandle.MemberUseContext;
 import com.google.devtools.build.runtime.RunfilesPaths;
 import com.google.errorprone.annotations.FormatMethod;
 import java.io.IOException;
@@ -35,7 +44,10 @@ import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodHandles.Lookup;
 import java.lang.management.ManagementFactory;
 import java.lang.management.RuntimeMXBean;
+import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
+import java.lang.reflect.Member;
+import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.net.MalformedURLException;
 import java.net.URL;
@@ -49,6 +61,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
@@ -59,6 +72,7 @@ import org.junit.runner.RunWith;
 import org.junit.runners.model.Statement;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.Opcodes;
+import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.ClassNode;
 import org.objectweb.asm.tree.FieldNode;
 import org.objectweb.asm.tree.MethodNode;
@@ -95,10 +109,28 @@ public class DesugarRule implements TestRule {
 
   private final ImmutableList<Field> injectableClassLiterals;
   private final ImmutableList<Field> injectableAsmNodes;
+  private final ImmutableList<Field> injectableMethodHandles;
   private final ImmutableList<Field> injectableZipEntries;
 
   /** The state of the already-created directories to avoid directory re-creation. */
   private final Map<String, Path> tempDirs = new HashMap<>();
+
+  /** A table for the lookup of missing user-supplied class member descriptors. */
+  private final Table<
+          Integer, // Desugar round
+          ClassMemberKey, // A class member without descriptor (empty descriptor string).
+          Set<ClassMemberKey>> // The set of same-name class members with their descriptors.
+      descriptorLookupRepo = HashBasedTable.create();
+
+  /**
+   * A table for the lookup of reflection-based class member representation from round and class
+   * member key.
+   */
+  private final Table<
+          Integer, // Desugar round
+          ClassMemberKey, // A class member with descriptor.
+          java.lang.reflect.Member> // A reflection-based Member instance.
+      reflectionBasedMembers = HashBasedTable.create();
 
   /**
    * The entry point to create a {@link DesugarRule}.
@@ -122,6 +154,7 @@ public class DesugarRule implements TestRule {
       ImmutableList<Path> classPathEntries,
       ImmutableList<Field> injectableClassLiterals,
       ImmutableList<Field> injectableAsmNodes,
+      ImmutableList<Field> injectableMethodHandles,
       ImmutableList<Field> injectableZipEntries) {
     this.testInstance = testInstance;
     this.testInstanceLookup = testInstanceLookup;
@@ -136,6 +169,7 @@ public class DesugarRule implements TestRule {
 
     this.injectableClassLiterals = injectableClassLiterals;
     this.injectableAsmNodes = injectableAsmNodes;
+    this.injectableMethodHandles = injectableMethodHandles;
     this.injectableZipEntries = injectableZipEntries;
   }
 
@@ -166,12 +200,15 @@ public class DesugarRule implements TestRule {
               transInputs = transOutputs;
             }
 
+            ClassLoader inputClassLoader = getInputClassLoader();
             for (Field field : injectableClassLiterals) {
               Class<?> classLiteral =
-                  getClassLiteral(
+                  loadClassLiteral(
                       field.getDeclaredAnnotation(LoadClass.class),
-                      getInputClassLoader(),
-                      jarTransformationRecords);
+                      jarTransformationRecords,
+                      inputClassLoader,
+                      reflectionBasedMembers,
+                      descriptorLookupRepo);
               MethodHandle fieldSetter = testInstanceLookup.unreflectSetter(field);
               fieldSetter.invoke(testInstance, classLiteral);
             }
@@ -188,6 +225,19 @@ public class DesugarRule implements TestRule {
               fieldSetter.invoke(testInstance, asmNode);
             }
 
+            for (Field field : injectableMethodHandles) {
+              MethodHandle methodHandle =
+                  getMethodHandle(
+                      field.getDeclaredAnnotation(LoadMethodHandle.class),
+                      testInstanceLookup,
+                      jarTransformationRecords,
+                      inputClassLoader,
+                      reflectionBasedMembers,
+                      descriptorLookupRepo);
+              MethodHandle fieldSetter = testInstanceLookup.unreflectSetter(field);
+              fieldSetter.invoke(testInstance, methodHandle);
+            }
+
             for (Field field : injectableZipEntries) {
               ZipEntry zipEntry = getZipEntry(field.getDeclaredAnnotation(LoadZipEntry.class));
               MethodHandle fieldSetter = testInstanceLookup.unreflectSetter(field);
@@ -199,23 +249,99 @@ public class DesugarRule implements TestRule {
         description);
   }
 
-  private static Class<?> getClassLiteral(
-      LoadClass classLiteralRequest,
+  private static void fillMissingClassMemberDescriptorRepo(
+      int round,
+      Class<?> classLiteral,
+      Table<Integer, ClassMemberKey, Set<ClassMemberKey>> missingDescriptorLookupRepo) {
+    String ownerName = Type.getInternalName(classLiteral);
+    for (Constructor<?> constructor : classLiteral.getDeclaredConstructors()) {
+      ClassMemberKey memberKeyWithoutDescriptor = MethodKey.create(ownerName, "<init>", "");
+      ClassMemberKey memberKeyWithDescriptor =
+          MethodKey.create(ownerName, "<init>", Type.getConstructorDescriptor(constructor));
+      if (missingDescriptorLookupRepo.contains(round, memberKeyWithoutDescriptor)) {
+        missingDescriptorLookupRepo
+            .get(round, memberKeyWithoutDescriptor)
+            .add(memberKeyWithDescriptor);
+      } else {
+        missingDescriptorLookupRepo.put(
+            round, memberKeyWithoutDescriptor, Sets.newHashSet(memberKeyWithDescriptor));
+      }
+    }
+    for (Method method : classLiteral.getDeclaredMethods()) {
+      ClassMemberKey memberKeyWithoutDescriptor = MethodKey.create(ownerName, method.getName(), "");
+      ClassMemberKey memberKeyWithDescriptor =
+          MethodKey.create(ownerName, method.getName(), Type.getMethodDescriptor(method));
+      if (missingDescriptorLookupRepo.contains(round, memberKeyWithoutDescriptor)) {
+        missingDescriptorLookupRepo
+            .get(round, memberKeyWithoutDescriptor)
+            .add(memberKeyWithDescriptor);
+      } else {
+        missingDescriptorLookupRepo.put(
+            round, memberKeyWithoutDescriptor, Sets.newHashSet(memberKeyWithDescriptor));
+      }
+    }
+    for (Field field : classLiteral.getDeclaredFields()) {
+      ClassMemberKey memberKeyWithoutDescriptor = FieldKey.create(ownerName, field.getName(), "");
+      ClassMemberKey memberKeyWithDescriptor =
+          FieldKey.create(ownerName, field.getName(), Type.getDescriptor(field.getType()));
+      if (missingDescriptorLookupRepo.contains(round, memberKeyWithoutDescriptor)) {
+        missingDescriptorLookupRepo
+            .get(round, memberKeyWithoutDescriptor)
+            .add(memberKeyWithDescriptor);
+      } else {
+        missingDescriptorLookupRepo.put(
+            round, memberKeyWithoutDescriptor, Sets.newHashSet(memberKeyWithDescriptor));
+      }
+    }
+  }
+
+  private static ImmutableTable<Integer, ClassMemberKey, Member> getReflectionBasedClassMembers(
+      int round, Class<?> classLiteral) {
+    ImmutableTable.Builder<Integer, ClassMemberKey, Member> reflectionBasedMembers =
+        ImmutableTable.builder();
+    String ownerName = Type.getInternalName(classLiteral);
+    for (Field field : classLiteral.getDeclaredFields()) {
+      reflectionBasedMembers.put(
+          round,
+          FieldKey.create(ownerName, field.getName(), Type.getDescriptor(field.getType())),
+          field);
+    }
+    for (Constructor<?> constructor : classLiteral.getDeclaredConstructors()) {
+      reflectionBasedMembers.put(
+          round,
+          MethodKey.create(ownerName, "<init>", Type.getConstructorDescriptor(constructor)),
+          constructor);
+    }
+    for (Method method : classLiteral.getDeclaredMethods()) {
+      reflectionBasedMembers.put(
+          round,
+          MethodKey.create(ownerName, method.getName(), Type.getMethodDescriptor(method)),
+          method);
+    }
+    return reflectionBasedMembers.build();
+  }
+
+  private static Class<?> loadClassLiteral(
+      LoadClass loadClassRequest,
+      List<JarTransformationRecord> jarTransformationRecords,
       ClassLoader initialInputClassLoader,
-      List<JarTransformationRecord> jarTransformationRecords)
+      Table<Integer, ClassMemberKey, Member> reflectionBasedMembers,
+      Table<Integer, ClassMemberKey, Set<ClassMemberKey>> missingDescriptorLookupRepo)
       throws Throwable {
-    String qualifiedClassName = classLiteralRequest.value();
-    int round = classLiteralRequest.round();
+    int round = loadClassRequest.round();
     ClassLoader outputJarClassLoader =
         round == 0
             ? initialInputClassLoader
             : jarTransformationRecords.get(round - 1).getOutputClassLoader();
-    return outputJarClassLoader.loadClass(qualifiedClassName);
+    Class<?> classLiteral = outputJarClassLoader.loadClass(loadClassRequest.value());
+    reflectionBasedMembers.putAll(getReflectionBasedClassMembers(round, classLiteral));
+    fillMissingClassMemberDescriptorRepo(round, classLiteral, missingDescriptorLookupRepo);
+    return classLiteral;
   }
 
-  private static Object getAsmNode(
+  private static <T> T getAsmNode(
       LoadAsmNode asmNodeRequest,
-      Class<?> requestedNodeType,
+      Class<T> requestedNodeType,
       List<JarTransformationRecord> jarTransformationRecords,
       ImmutableList<Path> initialInputs)
       throws IOException, ClassNotFoundException {
@@ -226,20 +352,94 @@ public class DesugarRule implements TestRule {
         round == 0 ? initialInputs : jarTransformationRecords.get(round - 1).outputJars();
     ClassNode classNode = findClassNode(classFileName, jars);
     if (requestedNodeType == ClassNode.class) {
-      return classNode;
+      return requestedNodeType.cast(classNode);
     }
 
     String memberName = asmNodeRequest.memberName();
     String memberDescriptor = asmNodeRequest.memberDescriptor();
     if (requestedNodeType == FieldNode.class) {
-      return getFieldNode(classNode, memberName, memberDescriptor);
+      return requestedNodeType.cast(getFieldNode(classNode, memberName, memberDescriptor));
     }
     if (requestedNodeType == MethodNode.class) {
-      return getMethodNode(classNode, memberName, memberDescriptor);
+      return requestedNodeType.cast(getMethodNode(classNode, memberName, memberDescriptor));
     }
 
     throw new UnsupportedOperationException(
         String.format("Injecting a node type (%s) is not supported", requestedNodeType));
+  }
+
+  @AutoAnnotation
+  private static LoadClass createLoadClassLiteralRequest(String value, int round) {
+    return new AutoAnnotation_DesugarRule_createLoadClassLiteralRequest(value, round);
+  }
+
+  private static MethodHandle getMethodHandle(
+      LoadMethodHandle methodHandleRequest,
+      Lookup lookup,
+      List<JarTransformationRecord> jarTransformationRecords,
+      ClassLoader initialInputClassLoader,
+      Table<Integer, ClassMemberKey, java.lang.reflect.Member> reflectionBasedMembers,
+      Table<Integer, ClassMemberKey, Set<ClassMemberKey>> missingDescriptorLookupRepo)
+      throws Throwable {
+    String qualifiedClassName = methodHandleRequest.className();
+    int round = methodHandleRequest.round();
+    Class<?> classLiteral =
+        loadClassLiteral(
+            createLoadClassLiteralRequest(qualifiedClassName, round),
+            jarTransformationRecords,
+            initialInputClassLoader,
+            reflectionBasedMembers,
+            missingDescriptorLookupRepo);
+
+    String ownerInternalName = Type.getInternalName(classLiteral);
+    String memberName = methodHandleRequest.memberName();
+    String memberDescriptor = methodHandleRequest.memberDescriptor();
+
+    switch (methodHandleRequest.usage()) {
+      case METHOD_INVOCATION:
+        MethodKey methodKey = MethodKey.create(ownerInternalName, memberName, memberDescriptor);
+        if (methodKey.descriptor().isEmpty()) {
+          Set<ClassMemberKey> memberKeys = missingDescriptorLookupRepo.get(round, methodKey);
+          if (memberKeys.size() > 1) {
+            throw new IllegalStateException(
+                String.format(
+                    "Method (%s) has same-name overloaded methods: (%s) \n"
+                        + "Please specify a descriptor to disambiguate overloaded method request.",
+                    methodKey, memberKeys));
+          }
+
+          methodKey = (MethodKey) Iterables.getOnlyElement(memberKeys);
+        }
+        if (methodKey.isConstructor()) {
+          return lookup.unreflectConstructor(
+              (Constructor<?>) reflectionBasedMembers.get(round, methodKey));
+        } else {
+          return lookup.unreflect((Method) reflectionBasedMembers.get(round, methodKey));
+        }
+      case FIELD_GETTER:
+        {
+          FieldKey fieldKey = FieldKey.create(ownerInternalName, memberName, memberDescriptor);
+          if (fieldKey.descriptor().isEmpty()) {
+            Set<ClassMemberKey> memberKeys = missingDescriptorLookupRepo.get(round, fieldKey);
+            fieldKey = (FieldKey) Iterables.getOnlyElement(memberKeys);
+          }
+
+          return lookup.unreflectGetter((Field) reflectionBasedMembers.get(round, fieldKey));
+        }
+      case FIELD_SETTER:
+        {
+          FieldKey fieldKey = FieldKey.create(ownerInternalName, memberName, memberDescriptor);
+          if (fieldKey.descriptor().isEmpty()) {
+            Set<ClassMemberKey> memberKeys = missingDescriptorLookupRepo.get(round, fieldKey);
+            fieldKey = (FieldKey) Iterables.getOnlyElement(memberKeys);
+          }
+          return lookup.unreflectSetter((Field) reflectionBasedMembers.get(round, fieldKey));
+        }
+    }
+    throw new AssertionError(
+        String.format(
+            "Beyond exhaustive enum values: Unexpected enum value (%s) for (Enum:%s)",
+            methodHandleRequest.usage(), MemberUseContext.class));
   }
 
   private static FieldNode getFieldNode(
@@ -378,6 +578,7 @@ public class DesugarRule implements TestRule {
     private final MethodHandles.Lookup testInstanceLookup;
     private final ImmutableList<Field> injectableClassLiterals;
     private final ImmutableList<Field> injectableAsmNodes;
+    private final ImmutableList<Field> injectableMethodHandles;
     private final ImmutableList<Field> injectableJarFileEntries;
     private int maxNumOfTransformations = 1;
     private final List<Path> inputs = new ArrayList<>();
@@ -403,6 +604,7 @@ public class DesugarRule implements TestRule {
 
       injectableClassLiterals = findAllFieldsWithAnnotation(testClass, LoadClass.class);
       injectableAsmNodes = findAllFieldsWithAnnotation(testClass, LoadAsmNode.class);
+      injectableMethodHandles = findAllFieldsWithAnnotation(testClass, LoadMethodHandle.class);
       injectableJarFileEntries = findAllFieldsWithAnnotation(testClass, LoadZipEntry.class);
     }
 
@@ -459,6 +661,7 @@ public class DesugarRule implements TestRule {
       checkJVMOptions();
       checkInjectableClassLiterals();
       checkInjectableAsmNodes();
+      checkInjectableMethodHandles();
       checkInjectableZipEntries();
 
       if (bootClassPathEntries.isEmpty()
@@ -486,6 +689,7 @@ public class DesugarRule implements TestRule {
           ImmutableList.copyOf(classPathEntries),
           injectableClassLiterals,
           injectableAsmNodes,
+          injectableMethodHandles,
           injectableJarFileEntries);
     }
 
@@ -524,6 +728,29 @@ public class DesugarRule implements TestRule {
 
         LoadAsmNode astAsmNodeInfo = field.getDeclaredAnnotation(LoadAsmNode.class);
         int round = astAsmNodeInfo.round();
+        if (round < 0 || round > maxNumOfTransformations) {
+          errorMessenger.addError(
+              "Expected the round (actual:%d) of desugar transformation within [0, %d], where 0"
+                  + " indicates no transformation is used.",
+              round, maxNumOfTransformations);
+        }
+      }
+    }
+
+    private void checkInjectableMethodHandles() {
+      for (Field field : injectableMethodHandles) {
+        if (Modifier.isStatic(field.getModifiers())) {
+          errorMessenger.addError("Expected to be non-static for field (%s)", field);
+        }
+
+        if (field.getType() != MethodHandle.class) {
+          errorMessenger.addError(
+              "Expected @LoadMethodHandle annotated on a field with type (%s), but gets (%s)",
+              MethodHandle.class, field);
+        }
+
+        LoadMethodHandle methodHandleRequest = field.getDeclaredAnnotation(LoadMethodHandle.class);
+        int round = methodHandleRequest.round();
         if (round < 0 || round > maxNumOfTransformations) {
           errorMessenger.addError(
               "Expected the round (actual:%d) of desugar transformation within [0, %d], where 0"

@@ -23,7 +23,9 @@ import static org.junit.Assert.assertThrows;
 import com.google.common.flags.Flag;
 import com.google.common.flags.FlagSpec;
 import com.google.common.flags.Flags;
+import com.google.devtools.build.android.desugar.testing.junit.LoadMethodHandle.MemberUseContext;
 import com.google.testing.junit.junit4.api.TestArgs;
+import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.lang.reflect.Method;
 import java.nio.file.Paths;
@@ -94,12 +96,45 @@ public class DesugarRuleTest {
       memberName = "twoIntSum")
   private MethodNode twoIntSum;
 
+
   @LoadAsmNode(
       className =
           "com.google.devtools.build.android.desugar.testing.junit.DesugarRuleTestTarget$Alpha",
       memberName = "multiplier",
       memberDescriptor = "J")
   private FieldNode multiplier;
+
+  @LoadMethodHandle(
+      className =
+          "com.google.devtools.build.android.desugar.testing.junit.DesugarRuleTestTarget$Alpha",
+      memberName = "twoIntSum")
+  private MethodHandle twoIntSumMH;
+
+  @LoadMethodHandle(
+      className =
+          "com.google.devtools.build.android.desugar.testing.junit.DesugarRuleTestTarget$Alpha",
+      memberName = "<init>")
+  private MethodHandle alphaConstructor;
+
+  @LoadMethodHandle(
+      className =
+          "com.google.devtools.build.android.desugar.testing.junit.DesugarRuleTestTarget$Alpha",
+      memberName = "linearLongTransform")
+  private MethodHandle linearLongTransform;
+
+  @LoadMethodHandle(
+      className =
+          "com.google.devtools.build.android.desugar.testing.junit.DesugarRuleTestTarget$Alpha",
+      memberName = "multiplier",
+      usage = MemberUseContext.FIELD_GETTER)
+  private MethodHandle alphaMultiplierGetter;
+
+  @LoadMethodHandle(
+      className =
+          "com.google.devtools.build.android.desugar.testing.junit.DesugarRuleTestTarget$Alpha",
+      memberName = "multiplier",
+      usage = MemberUseContext.FIELD_SETTER)
+  private MethodHandle alphaMultiplierSetter;
 
   @BeforeClass
   public static void parseFlags() throws Exception {
@@ -157,5 +192,33 @@ public class DesugarRuleTest {
   @Test
   public void injectMethodNodes() {
     assertThat(multiplier.desc).isEqualTo("J");
+  }
+
+  @Test
+  public void invokeStaticMethodHandle() throws Throwable {
+    int result = (int) twoIntSumMH.invoke(1, 2);
+    assertThat(result).isEqualTo(3);
+  }
+
+  @Test
+  public void invokeVirtualMethodHandle() throws Throwable {
+    long result = (long) linearLongTransform.invoke(alphaConstructor.invoke(1000, 2), 3L);
+    assertThat(result).isEqualTo(3002);
+  }
+
+  @Test
+  public void invokeFieldGetter() throws Throwable {
+    Object alpha = alphaConstructor.invoke(1000, 2);
+    long result = (long) alphaMultiplierGetter.invoke(alpha);
+    assertThat(result).isEqualTo(1000);
+  }
+
+  @Test
+  public void invokeFieldSetter() throws Throwable {
+    Object alpha = alphaConstructor.invoke(1000, 2);
+    alphaMultiplierSetter.invoke(alpha, 1111);
+
+    long result = (long) alphaMultiplierGetter.invoke(alpha);
+    assertThat(result).isEqualTo(1111);
   }
 }
