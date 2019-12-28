@@ -39,7 +39,7 @@ public class AndroidResourceMerger {
       ImmutableList<SerializedAndroidData> transitive,
       VariantType packageType,
       Path symbolsOut,
-      AndroidDataDeserializer deserializer,
+      AndroidCompiledDataDeserializer deserializer,
       boolean throwOnResourceConflict,
       ExecutorServiceCloser executorService)
       throws IOException {
@@ -136,7 +136,7 @@ public class AndroidResourceMerger {
       boolean throwOnResourceConflict,
       ListeningExecutorService executorService) {
     final ParsedAndroidData.Builder primaryBuilder = ParsedAndroidData.Builder.newBuilder();
-    final AndroidDataDeserializer deserializer = AndroidParsedDataDeserializer.create();
+    final AndroidParsedDataDeserializer deserializer = AndroidParsedDataDeserializer.create();
     primary.deserialize(
         DependencyInfo.DependencyType.PRIMARY, deserializer, primaryBuilder.consumers());
     ParsedAndroidData primaryData = primaryBuilder.build();
@@ -168,7 +168,7 @@ public class AndroidResourceMerger {
       final VariantType type,
       @Nullable final Path symbolsOut,
       @Nullable AndroidResourceClassWriter rclassWriter,
-      AndroidDataDeserializer deserializer,
+      AndroidParsedDataDeserializer deserializer,
       boolean throwOnResourceConflict,
       ListeningExecutorService executorService) {
     Stopwatch timer = Stopwatch.createStarted();

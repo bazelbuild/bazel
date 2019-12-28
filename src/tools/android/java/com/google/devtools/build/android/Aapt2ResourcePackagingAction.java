@@ -339,7 +339,8 @@ public class Aapt2ResourcePackagingAction {
           Files.createDirectories(tmp.resolve("android_data_binding_resources"));
       final Path compiledResources = Files.createDirectories(tmp.resolve("compiled"));
       final Path linkedOut = Files.createDirectories(tmp.resolve("linked"));
-      final AndroidDataDeserializer dataDeserializer = AndroidCompiledDataDeserializer.create();
+      final AndroidCompiledDataDeserializer dataDeserializer =
+          AndroidCompiledDataDeserializer.create();
       final ResourceCompiler compiler =
           ResourceCompiler.create(
               executorService,
