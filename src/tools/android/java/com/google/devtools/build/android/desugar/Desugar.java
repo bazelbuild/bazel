@@ -357,7 +357,7 @@ public class Desugar {
     /** Convert Java 11 nest-based access control to bridge-based access control. */
     @Option(
         name = "desugar_nest_based_private_access",
-        defaultValue = "false",
+        defaultValue = "true",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.UNKNOWN},
         help =
@@ -371,7 +371,7 @@ public class Desugar {
      */
     @Option(
         name = "desugar_indy_string_concat",
-        defaultValue = "false",
+        defaultValue = "true",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.UNKNOWN},
         help =

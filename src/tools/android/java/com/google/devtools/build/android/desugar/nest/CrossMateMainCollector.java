@@ -98,7 +98,8 @@ final class CrossMateMainCollector extends ClassVisitor {
   private static boolean isInDeclOmissionList(MethodKey methodKey) {
     return methodKey.name().startsWith("lambda$") // handled by LambdaDesugaring.
         || methodKey.name().equals("$deserializeLambda$") // handled by LambdaDesugaring.
-        || methodKey.name().contains("jacoco$"); // handled by InterfaceDesugaring.
+        || methodKey.name().contains("jacoco$") // handled by InterfaceDesugaring.
+        || methodKey.name().contains("$jacoco"); // handled by InterfaceDesugaring.
   }
 
   @Override
