@@ -189,6 +189,9 @@ public class CriticalPathComponent {
    * it exists.
    */
   void addSpawnResult(SpawnMetrics metrics, @Nullable String runnerName, boolean wasRemote) {
+    // Mark this component as having remote components if _any_ spawn result contributing
+    // to it contains meaningful remote metrics. Subsequent non-remote spawns in an action
+    // must not reset this flag.
     if (wasRemote) {
       this.remote = true;
     }
