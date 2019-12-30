@@ -95,7 +95,7 @@ public class MerkleTree {
     return inputFiles;
   }
 
-  /** Returns the number of bytes represented by this merkle tree, including directories */
+  /** Returns the sum of file sizes plus protobuf sizes used to represent this merkle tree */
   public long getInputBytes() {
     return inputBytes;
   }

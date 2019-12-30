@@ -303,6 +303,8 @@ public class RemoteSpawnRunner implements SpawnRunner {
                 Duration networkTimeStart = networkTime.getDuration();
                 Stopwatch uploadTime = Stopwatch.createStarted();
                 remoteCache.ensureInputsPresent(merkleTree, additionalInputs);
+                // subtract network time consumed here to ensure wall clock during upload is not double
+                // counted, and metrics time computation does not exceed total time
                 spawnMetrics.setUploadTime(
                     uploadTime.elapsed().minus(
                         networkTime.getDuration().minus(networkTimeStart)));
@@ -422,6 +424,8 @@ public class RemoteSpawnRunner implements SpawnRunner {
     fetchTime.stop();
     totalTime.stop();
     Duration networkTimeEnd = networkTime.get();
+    // subtract network time consumed here to ensure wall clock during fetch is not double
+    // counted, and metrics time computation does not exceed total time
     return createSpawnResult(
         actionResult.getExitCode(),
         cacheHit,
