@@ -33,6 +33,7 @@ import build.bazel.remote.execution.v2.ActionResult;
 import build.bazel.remote.execution.v2.Digest;
 import build.bazel.remote.execution.v2.ExecuteRequest;
 import build.bazel.remote.execution.v2.ExecuteResponse;
+import build.bazel.remote.execution.v2.ExecutedActionMetadata;
 import build.bazel.remote.execution.v2.LogFile;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -51,6 +52,7 @@ import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.SimpleSpawn;
 import com.google.devtools.build.lib.actions.Spawn;
+import com.google.devtools.build.lib.actions.SpawnMetrics;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.SpawnResult.Status;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
@@ -78,10 +80,14 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.devtools.common.options.Options;
+import com.google.protobuf.Timestamp;
+import com.google.protobuf.util.Durations;
+import com.google.protobuf.util.Timestamps;
 import com.google.rpc.Code;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.util.List;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicReference;
@@ -960,6 +966,48 @@ public class RemoteSpawnRunnerTest {
     verify(cache).download(eq(succeededAction), any(Path.class), eq(outErr), any());
     verify(cache, never())
         .downloadMinimal(eq(succeededAction), anyCollection(), any(), any(), any(), any(), any());
+  }
+
+  @Test
+  public void accountingDisabledWithoutWorker() {
+    SpawnMetrics.Builder spawnMetrics = Mockito.mock(SpawnMetrics.Builder.class);
+    RemoteSpawnRunner.spawnMetricsAccounting(spawnMetrics, ExecutedActionMetadata.getDefaultInstance());
+    verifyZeroInteractions(spawnMetrics);
+  }
+
+  @Test
+  public void accountingAddsDurationsForStages() {
+    SpawnMetrics.Builder builder = new SpawnMetrics.Builder()
+        .setRemoteQueueTime(Duration.ofSeconds(1))
+        .setSetupTime(Duration.ofSeconds(2))
+        .setExecutionWallTime(Duration.ofSeconds(2))
+        .setRemoteProcessOutputsTime(Duration.ofSeconds(2));
+    Timestamp queued = Timestamp.getDefaultInstance();
+    com.google.protobuf.Duration oneSecond = Durations.fromMillis(1000);
+    Timestamp workerStart = Timestamps.add(queued, oneSecond);
+    Timestamp executionStart = Timestamps.add(workerStart, oneSecond);
+    Timestamp executionCompleted = Timestamps.add(executionStart, oneSecond);
+    Timestamp outputUploadStart = Timestamps.add(executionCompleted, oneSecond);
+    Timestamp outputUploadComplete = Timestamps.add(outputUploadStart, oneSecond);
+    ExecutedActionMetadata executedMetadata = ExecutedActionMetadata.newBuilder()
+        .setWorker("test worker")
+        .setQueuedTimestamp(queued)
+        .setWorkerStartTimestamp(workerStart)
+        .setExecutionStartTimestamp(executionStart)
+        .setExecutionCompletedTimestamp(executionCompleted)
+        .setOutputUploadStartTimestamp(outputUploadStart)
+        .setOutputUploadCompletedTimestamp(outputUploadComplete)
+        .build();
+    RemoteSpawnRunner.spawnMetricsAccounting(builder, executedMetadata);
+    SpawnMetrics spawnMetrics = builder.build();
+    // remote queue time is accumulated
+    assertThat(spawnMetrics.remoteQueueTime()).isEqualTo(Duration.ofSeconds(2));
+    // setup time is substituted
+    assertThat(spawnMetrics.setupTime()).isEqualTo(Duration.ofSeconds(1));
+    // execution time is unspecified, assume substituted
+    assertThat(spawnMetrics.executionWallTime()).isEqualTo(Duration.ofSeconds(1));
+    // remoteProcessOutputs time is unspecified, assume substituted
+    assertThat(spawnMetrics.remoteProcessOutputsTime()).isEqualTo(Duration.ofSeconds(1));
   }
 
   private static Spawn newSimpleSpawn(Artifact... outputs) {

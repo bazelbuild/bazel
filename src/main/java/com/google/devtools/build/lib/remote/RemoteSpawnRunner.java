@@ -353,7 +353,8 @@ public class RemoteSpawnRunner implements SpawnRunner {
     return Duration.ofNanos(Durations.toNanos(Timestamps.between(from, to)));
   }
 
-  private static void spawnMetricsAccounting(SpawnMetrics.Builder spawnMetrics, ExecutedActionMetadata executionMetadata) {
+  @VisibleForTesting
+  static void spawnMetricsAccounting(SpawnMetrics.Builder spawnMetrics, ExecutedActionMetadata executionMetadata) {
     if (!executionMetadata.getWorker().isEmpty()) {
       // Accumulate queueTime from any previous attempts
       Duration remoteQueueTime = spawnMetrics.build().remoteQueueTime().plus(
