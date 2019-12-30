@@ -311,11 +311,7 @@ public class RemoteSpawnRunner implements SpawnRunner {
               }
               ExecuteResponse reply;
               try (SilentCloseable c = prof.profile(REMOTE_EXECUTION, "execute remotely")) {
-                // remove accounting for execution wait time
-                networkTime.disable();
                 reply = remoteExecutor.executeRemotely(request);
-              } finally {
-                networkTime.enable();
               }
 
               FileOutErr outErr = context.getFileOutErr();

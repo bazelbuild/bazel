@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.remote.util;
 
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
+import build.bazel.remote.execution.v2.ExecutionGrpc;
 import com.google.devtools.build.lib.concurrent.ThreadSafety;
 import com.google.common.base.Stopwatch;
 import io.grpc.CallOptions;
@@ -37,31 +38,18 @@ public class NetworkTime {
 
   private final Stopwatch wallTime = Stopwatch.createUnstarted();
   private int outstanding = 0;
-  private boolean enabled = true;
 
   synchronized private void start() {
-    if (enabled) {
-      if (!wallTime.isRunning()) {
-        wallTime.start();
-      }
-      outstanding++;
+    if (!wallTime.isRunning()) {
+      wallTime.start();
     }
+    outstanding++;
   }
 
   synchronized private void stop() {
-    if (enabled) {
-      if (--outstanding == 0) {
-        wallTime.stop();
-      }
+    if (--outstanding == 0) {
+      wallTime.stop();
     }
-  }
-
-  synchronized public void enable() {
-    enabled = true;
-  }
-
-  synchronized public void disable() {
-    enabled = false;
   }
 
   public Duration getDuration() {
@@ -72,9 +60,12 @@ public class NetworkTime {
     @Override
     public <ReqT, RespT> ClientCall<ReqT, RespT> interceptCall(MethodDescriptor<ReqT, RespT> method, CallOptions callOptions, Channel next) {
       ClientCall<ReqT, RespT> call = next.newCall(method, callOptions);
-      NetworkTime networkTime = CONTEXT_KEY.get();
-      if (networkTime != null) {
-        call = new NetworkTimeCall<>(call, networkTime);
+      // prevent accounting for execution wait time
+      if (method != ExecutionGrpc.getExecuteMethod() && method != ExecutionGrpc.getWaitExecutionMethod()) {
+        NetworkTime networkTime = CONTEXT_KEY.get();
+        if (networkTime != null) {
+          call = new NetworkTimeCall<>(call, networkTime);
+        }
       }
       return call;
     }
