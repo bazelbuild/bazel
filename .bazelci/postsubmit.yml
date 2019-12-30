@@ -88,8 +88,6 @@ tasks:
       - "//tools/python/..."
       # Some prebuilt jars don't run with Java 11
       - "-//src/test/shell/bazel:external_integration_test"
-      # Re-enable once bootstrap works with Java 11
-      - "-//src/test/shell/bazel:bazel_bootstrap_distfile_test"
       # TODO(iirina): Re-enable after #7952 was released.
       - "-//src/test/shell/bazel:embedded_tools_deps_test"
       # Re-enable once fixed: https://github.com/bazelbuild/bazel/issues/8162
