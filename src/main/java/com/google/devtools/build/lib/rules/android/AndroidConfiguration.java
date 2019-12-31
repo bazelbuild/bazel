@@ -182,10 +182,8 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment
   }
 
   /** Types of android manifest mergers. */
+  @Deprecated
   public enum AndroidAaptVersion {
-    /** @deprecated AAPT1 is no longer ever used in production. */
-    @Deprecated
-    AAPT,
     AAPT2;
 
     public static AndroidAaptVersion chooseTargetAaptVersion(RuleContext ruleContext) {
