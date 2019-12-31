@@ -45,6 +45,6 @@ public interface ToolchainInfoApi extends StructApi {
         extraKeywords = @Param(name = "kwargs", doc = "Dictionary of additional entries."),
         selfCall = true,
         useLocation = true)
-    ToolchainInfoApi toolchainInfo(Dict<?, ?> kwargs, Location loc) throws EvalException;
+    ToolchainInfoApi toolchainInfo(Dict<String, Object> kwargs, Location loc) throws EvalException;
   }
 }

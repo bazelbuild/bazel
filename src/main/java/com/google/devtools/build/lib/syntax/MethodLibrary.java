@@ -53,8 +53,7 @@ class MethodLibrary {
               + "It is an error if elements are not comparable (for example int with string). "
               + "<pre class=\"language-python\">min(2, 5, 4) == 2\n"
               + "min([5, 6, 3]) == 3</pre>",
-      extraPositionals =
-          @Param(name = "args", type = Sequence.class, doc = "The elements to be checked."))
+      extraPositionals = @Param(name = "args", doc = "The elements to be checked."))
   public Object min(Sequence<?> args) throws EvalException {
     try {
       return findExtreme(args, EvalUtils.SKYLARK_COMPARATOR.reverse());
@@ -71,8 +70,7 @@ class MethodLibrary {
               + "It is an error if elements are not comparable (for example int with string). "
               + "<pre class=\"language-python\">max(2, 5, 4) == 5\n"
               + "max([5, 6, 3]) == 6</pre>",
-      extraPositionals =
-          @Param(name = "args", type = Sequence.class, doc = "The elements to be checked."))
+      extraPositionals = @Param(name = "args", doc = "The elements to be checked."))
   public Object max(Sequence<?> args) throws EvalException {
     try {
       return findExtreme(args, EvalUtils.SKYLARK_COMPARATOR);
@@ -566,7 +564,7 @@ class MethodLibrary {
       },
       extraKeywords = @Param(name = "kwargs", doc = "Dictionary of additional entries."),
       useStarlarkThread = true)
-  public Dict<?, ?> dict(Object args, Dict<?, ?> kwargs, StarlarkThread thread)
+  public Dict<?, ?> dict(Object args, Dict<String, Object> kwargs, StarlarkThread thread)
       throws EvalException {
     Dict<?, ?> dict =
         args instanceof Dict

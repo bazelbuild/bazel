@@ -117,21 +117,7 @@ final class MethodDescriptor {
     if (!structField) {
       throw new IllegalStateException("not a struct field: " + name);
     }
-    // Enforced by annotation processor.
-    if (useStarlarkThread) {
-      throw new IllegalStateException(
-          "SkylarkCallable has structField and useStarlarkThread: " + name);
-    }
-    int nargs = (useLocation ? 1 : 0) + (useStarlarkSemantics ? 1 : 0);
-    Object[] args = nargs == 0 ? EMPTY : new Object[nargs];
-    // TODO(adonovan): used only once, repository_ctx.os. Abolish?
-    if (useLocation) {
-      args[0] = loc;
-    }
-    // TODO(adonovan): used only once, in getSkylarkLibrariesToLink. Abolish?
-    if (useStarlarkSemantics) {
-      args[nargs - 1] = semantics;
-    }
+    Object[] args = useStarlarkSemantics ? new Object[] {semantics} : EMPTY;
     return call(obj, args, mu);
   }
 

@@ -36,15 +36,6 @@ public class GoldenCase implements StarlarkValue {
   }
 
   @SkylarkCallable(
-      name = "struct_field_method_with_info",
-      documented = false,
-      structField = true,
-      useStarlarkSemantics = true)
-  public String structFieldMethodWithInfo(StarlarkSemantics semantics) {
-    return "foo";
-  }
-
-  @SkylarkCallable(
     name = "zero_arg_method",
     documented = false)
   public Integer zeroArgMethod() {
@@ -202,12 +193,11 @@ public class GoldenCase implements StarlarkValue {
   }
 
   @SkylarkCallable(
-      name = "struct_field_method_with_extra_args",
+      name = "struct_field_method_with_semantics",
       documented = false,
       structField = true,
-      useLocation = true,
       useStarlarkSemantics = true)
-  public String structFieldMethodWithInfo(Location location, StarlarkSemantics starlarkSemantics) {
+  public String structFieldMethodWithSemantics(StarlarkSemantics starlarkSemantics) {
     return "dragon";
   }
 

@@ -436,11 +436,10 @@ public final class SkylarkEvaluationTest extends EvaluationTest {
           @Param(name = "named", type = Boolean.class, positional = false, named = true),
         },
         extraKeywords = @Param(name = "kwargs"))
-    public String withKwargs(boolean pos, boolean named, Dict<?, ?> kwargs) throws EvalException {
+    public String withKwargs(boolean pos, boolean named, Dict<String, Object> kwargs) {
       String kwargsString =
           "kwargs("
               + kwargs
-                  .getContents(String.class, Object.class, "kwargs")
                   .entrySet()
                   .stream()
                   .map(entry -> entry.getKey() + "=" + entry.getValue())
@@ -457,13 +456,11 @@ public final class SkylarkEvaluationTest extends EvaluationTest {
         },
         extraPositionals = @Param(name = "args"),
         extraKeywords = @Param(name = "kwargs"))
-    public String withArgsAndKwargs(String foo, Sequence<?> args, Dict<?, ?> kwargs)
-        throws EvalException {
+    public String withArgsAndKwargs(String foo, Tuple<Object> args, Dict<String, Object> kwargs) {
       String argsString = debugPrintArgs(args);
       String kwargsString =
           "kwargs("
               + kwargs
-                  .getContents(String.class, Object.class, "kwargs")
                   .entrySet()
                   .stream()
                   .map(entry -> entry.getKey() + "=" + entry.getValue())

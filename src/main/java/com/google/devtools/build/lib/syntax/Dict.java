@@ -260,7 +260,7 @@ public final class Dict<K, V>
       extraKeywords = @Param(name = "kwargs", doc = "Dictionary of additional entries."),
       useStarlarkThread = true)
   @SuppressWarnings("unchecked")
-  public NoneType update(Object args, Dict<?, ?> kwargs, StarlarkThread thread)
+  public NoneType update(Object args, Dict<String, Object> kwargs, StarlarkThread thread)
       throws EvalException {
     // TODO(adonovan): opt: don't materialize dict; call put directly.
 
