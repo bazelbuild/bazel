@@ -149,7 +149,9 @@ public class ParsedAndroidDataBuilder {
             @Nullable Factory factory,
             @Nullable Path root,
             KeyValueConsumer<DataKey, DataResource> consumer) {
-          consumer.accept(factory.parse(rawKey), DataValueFile.of(Visibility.UNKNOWN, source));
+          consumer.accept(
+              factory.parse(rawKey),
+              DataValueFile.of(Visibility.UNKNOWN, source, /*fingerprint=*/ null));
         }
 
         @Override
@@ -157,7 +159,7 @@ public class ParsedAndroidDataBuilder {
           target.accept(
               RelativeAssetPath.Factory.of(chooseRoot(defaultRoot).resolve("assets"))
                   .create(source.getPath()),
-              DataValueFile.of(Visibility.UNKNOWN, source));
+              DataValueFile.of(Visibility.UNKNOWN, source, /*fingerprint=*/ null));
         }
       };
     }

@@ -90,6 +90,8 @@ public class MergeConflict {
     return dataKey.shouldDetectConflicts()
         && !primary.valueEquals(overwritten)
         && primary.compareMergePriorityTo(overwritten) == 0
+        // TODO: SourceChecker can probably be removed, since the only no-op use is from AAR
+        // generation (which shouldn't need to do these checks anyway).
         && !checker.checkEquality(primary.source(), overwritten.source());
   }
 

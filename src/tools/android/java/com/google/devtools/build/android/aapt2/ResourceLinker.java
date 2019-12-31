@@ -494,11 +494,8 @@ public class ResourceLinker {
     Path attributes = workingDirectory.resolve("tool.attributes");
     // extract tool annotations from the compile resources.
     final SdkToolAttributeWriter writer = new SdkToolAttributeWriter(attributes);
-    final AndroidCompiledDataDeserializer compiledDataDeserializer =
-        AndroidCompiledDataDeserializer.create();
     for (CompiledResources resources : FluentIterable.from(include).append(compiled)) {
-      compiledDataDeserializer
-          .readAttributes(resources)
+      AndroidCompiledDataDeserializer.readAttributes(resources)
           .forEach((key, value) -> value.writeResource((FullyQualifiedName) key, writer));
     }
     writer.flush();

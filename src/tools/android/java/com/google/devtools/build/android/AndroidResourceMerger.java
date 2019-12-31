@@ -45,7 +45,7 @@ public class AndroidResourceMerger {
       throws IOException {
     AndroidDataMerger merger =
         AndroidDataMerger.createWithPathDeduplictor(
-            executorService, deserializer, ContentComparingChecker.create());
+            executorService, deserializer, AndroidDataMerger.NoopSourceChecker.create());
     final UnwrittenMergedAndroidData merged =
         merger.loadAndMerge(
             transitive,
@@ -253,7 +253,9 @@ public class AndroidResourceMerger {
       boolean throwOnResourceConflict,
       ListeningExecutorService executorService) {
     final ParsedAndroidData.Builder primaryBuilder = ParsedAndroidData.Builder.newBuilder();
-    final AndroidDataDeserializer deserializer = AndroidCompiledDataDeserializer.create();
+    final AndroidDataDeserializer deserializer =
+        AndroidCompiledDataDeserializer.create(
+            /*includeFileContentsForValidation=*/ throwOnResourceConflict);
     primary.deserialize(
         DependencyInfo.DependencyType.PRIMARY, deserializer, primaryBuilder.consumers());
     ParsedAndroidData primaryData = primaryBuilder.build();
@@ -269,7 +271,7 @@ public class AndroidResourceMerger {
               false,
               deserializer,
               throwOnResourceConflict,
-              ContentComparingChecker.create());
+              AndroidDataMerger.NoopSourceChecker.create());
       timer.reset().start();
       merged.writeResourceClass(rclassWriter);
       if (rTxtWriter != null) {
