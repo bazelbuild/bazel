@@ -16,7 +16,6 @@
 
 package com.google.devtools.build.android.desugar.testing.junit;
 
-import com.google.common.annotations.UsedReflectively;
 import java.lang.annotation.Documented;
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
@@ -45,7 +44,6 @@ import java.lang.annotation.Target;
  * }
  * </code></pre>
  */
-@UsedReflectively
 @Documented
 @Target(ElementType.FIELD)
 @Retention(RetentionPolicy.RUNTIME)

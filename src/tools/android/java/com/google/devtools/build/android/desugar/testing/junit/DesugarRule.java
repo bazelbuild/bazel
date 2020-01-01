@@ -19,6 +19,7 @@ package com.google.devtools.build.android.desugar.testing.junit;
 import static com.google.common.base.Preconditions.checkState;
 
 import com.google.auto.value.AutoAnnotation;
+import com.google.common.base.Strings;
 import com.google.common.collect.HashBasedTable;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
@@ -34,7 +35,6 @@ import com.google.devtools.build.android.desugar.langmodel.ClassMemberKey;
 import com.google.devtools.build.android.desugar.langmodel.FieldKey;
 import com.google.devtools.build.android.desugar.langmodel.MethodKey;
 import com.google.devtools.build.android.desugar.testing.junit.LoadMethodHandle.MemberUseContext;
-import com.google.devtools.build.runtime.RunfilesPaths;
 import com.google.errorprone.annotations.FormatMethod;
 import java.io.IOException;
 import java.io.InputStream;
@@ -56,7 +56,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -78,18 +77,14 @@ import org.objectweb.asm.tree.FieldNode;
 import org.objectweb.asm.tree.MethodNode;
 
 /** A JUnit4 Rule that desugars an input jar file and load the transformed jar to JVM. */
-public class DesugarRule implements TestRule {
+public final class DesugarRule implements TestRule {
 
   static final ClassLoader BASE_CLASS_LOADER = ClassLoader.getSystemClassLoader().getParent();
 
-  private static final Path ANDROID_RUNTIME_JAR_PATH =
-      RunfilesPaths.resolve(
-          "third_party/java/android/android_sdk_linux/platforms/experimental/android_blaze.jar");
-
-  private static final Path JACOCO_RUNTIME_PATH =
-      RunfilesPaths.resolve("third_party/java/jacoco/jacoco_agent.jar");
-
   private static final String DEFAULT_OUTPUT_ROOT_PREFIX = "desugared_dump";
+
+  private final Path androidRuntimeJar;
+  private final Path jacocoAgentJar;
 
   /** For hosting desugared jar temporarily. */
   private final TemporaryFolder temporaryFolder = new TemporaryFolder();
@@ -150,6 +145,7 @@ public class DesugarRule implements TestRule {
   }
 
   private DesugarRule(
+      ImmutableList<Field> injectableZipEntries,
       Object testInstance,
       Lookup testInstanceLookup,
       int maxNumOfTransformations,
@@ -162,7 +158,8 @@ public class DesugarRule implements TestRule {
       ImmutableList<Field> injectableClassLiterals,
       ImmutableList<Field> injectableAsmNodes,
       ImmutableList<Field> injectableMethodHandles,
-      ImmutableList<Field> injectableZipEntries) {
+      Path androidRuntimeJar,
+      Path jacocoAgentJar) {
     this.testInstance = testInstance;
     this.testInstanceLookup = testInstanceLookup;
 
@@ -179,6 +176,11 @@ public class DesugarRule implements TestRule {
     this.injectableAsmNodes = injectableAsmNodes;
     this.injectableMethodHandles = injectableMethodHandles;
     this.injectableZipEntries = injectableZipEntries;
+    this.androidRuntimeJar = androidRuntimeJar;
+    this.jacocoAgentJar = jacocoAgentJar;
+
+    checkState(Files.exists(androidRuntimeJar));
+    checkState(Files.exists(jacocoAgentJar));
   }
 
   @Override
@@ -582,7 +584,7 @@ public class DesugarRule implements TestRule {
       if (tempDirs.containsKey(targetDirKey)) {
         outputDirPath = tempDirs.get(targetDirKey);
       } else {
-        outputDirPath = Paths.get(temporaryFolder.newFolder(targetDirKey).getPath());
+        outputDirPath = Paths.get(temporaryFolder.newFolder(targetDirKey.split("/")).getPath());
         tempDirs.put(targetDirKey, outputDirPath);
       }
       outputRuntimePathsBuilder.add(outputDirPath.resolve(path.getFileName()));
@@ -625,10 +627,17 @@ public class DesugarRule implements TestRule {
     private final Multimap<String, String> customCommandOptions = LinkedHashMultimap.create();
     private final ErrorMessenger errorMessenger = new ErrorMessenger();
 
+    private final Path androidRuntimeJar;
+    private final Path jacocoAgentJar;
+
     DesugarRuleBuilder(Object testInstance, MethodHandles.Lookup testInstanceLookup) {
       this.testInstance = testInstance;
       this.testInstanceLookup = testInstanceLookup;
       Class<?> testClass = testInstance.getClass();
+
+      androidRuntimeJar = Paths.get(getExplicitJvmFlagValue("android_runtime_jar", errorMessenger));
+      jacocoAgentJar = Paths.get(getExplicitJvmFlagValue("jacoco_agent_jar", errorMessenger));
+
       if (testClass != testInstanceLookup.lookupClass()) {
         errorMessenger.addError(
             "Expected testInstanceLookup has private access to (%s), but get (%s). Have you"
@@ -653,11 +662,6 @@ public class DesugarRule implements TestRule {
 
     public DesugarRuleBuilder enableIterativeTransformation(int maxNumOfTransformations) {
       this.maxNumOfTransformations = maxNumOfTransformations;
-      return this;
-    }
-
-    public DesugarRuleBuilder addRuntimeInputs(String... inputJars) {
-      Arrays.stream(inputJars).map(RunfilesPaths::resolve).forEach(this::addInputs);
       return this;
     }
 
@@ -707,9 +711,12 @@ public class DesugarRule implements TestRule {
       checkInjectableMethodHandles();
       checkInjectableZipEntries();
 
-      if (bootClassPathEntries.isEmpty()
-          && !customCommandOptions.containsKey("allow_empty_bootclasspath")) {
-        addCommandOptions("bootclasspath_entry", ANDROID_RUNTIME_JAR_PATH.toString());
+      if (!Files.exists(androidRuntimeJar)) {
+        errorMessenger.addError("Android Runtime Jar does not exist: %s", androidRuntimeJar);
+      }
+
+      if (!Files.exists(jacocoAgentJar)) {
+        errorMessenger.addError("Jacoco Agent Jar does not exist: %s", jacocoAgentJar);
       }
 
       if (errorMessenger.containsAnyError()) {
@@ -719,9 +726,15 @@ public class DesugarRule implements TestRule {
                 String.join("\n", errorMessenger.getAllMessages())));
       }
 
-      addClasspathEntries(JACOCO_RUNTIME_PATH);
+      if (bootClassPathEntries.isEmpty()
+          && !customCommandOptions.containsKey("allow_empty_bootclasspath")) {
+        addCommandOptions("bootclasspath_entry", androidRuntimeJar.toString());
+      }
+
+      addClasspathEntries(jacocoAgentJar);
 
       return new DesugarRule(
+          injectableJarFileEntries,
           testInstance,
           testInstanceLookup,
           maxNumOfTransformations,
@@ -734,7 +747,8 @@ public class DesugarRule implements TestRule {
           injectableClassLiterals,
           injectableAsmNodes,
           injectableMethodHandles,
-          injectableJarFileEntries);
+          androidRuntimeJar,
+          jacocoAgentJar);
     }
 
     private void checkInjectableClassLiterals() {
@@ -823,6 +837,17 @@ public class DesugarRule implements TestRule {
               maxNumOfTransformations);
         }
       }
+    }
+
+    private static String getExplicitJvmFlagValue(
+        String jvmFlagKey, ErrorMessenger errorMessenger) {
+      String jvmFlagValue = System.getProperty(jvmFlagKey);
+      if (Strings.isNullOrEmpty(jvmFlagValue)) {
+        errorMessenger.addError(
+            "Expected JVM flag specified: -D%s=<value of %s>", jvmFlagKey, jvmFlagKey);
+        return "";
+      }
+      return jvmFlagValue;
     }
   }
 

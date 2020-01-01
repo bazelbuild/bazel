@@ -20,20 +20,15 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth8.assertThat;
 
 import com.google.common.collect.Streams;
-import com.google.common.flags.Flag;
-import com.google.common.flags.FlagSpec;
-import com.google.common.flags.Flags;
 import com.google.devtools.build.android.desugar.testing.junit.DesugarRule;
 import com.google.devtools.build.android.desugar.testing.junit.LoadAsmNode;
 import com.google.devtools.build.android.desugar.testing.junit.LoadClass;
-import com.google.testing.junit.junit4.api.TestArgs;
 import com.google.testing.testsize.MediumTest;
 import com.google.testing.testsize.MediumTestAttribute;
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodType;
 import java.nio.file.Paths;
-import org.junit.BeforeClass;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -50,41 +45,25 @@ import org.objectweb.asm.tree.MethodNode;
 @MediumTest(MediumTestAttribute.FILE)
 public final class IndyStringConcatFunctionalTest {
 
-  @FlagSpec(
-      help = "The input jar runtime for testing indified string concatenation..",
-      name = "test_input_jar")
-  private static final Flag<String> testInputJar = Flag.nullString();
-
   private static final MethodHandles.Lookup lookup = MethodHandles.lookup();
 
   @Rule
   public final DesugarRule desugarRule =
       DesugarRule.builder(this, lookup)
-          .addInputs(Paths.get(testInputJar.getNonNull()))
+          .addInputs(Paths.get(System.getProperty("input_jar")))
+          .setWorkingJavaPackage(
+              "com.google.devtools.build.android.desugar.stringconcat.functional")
           .addCommandOptions("desugar_indy_string_concat", "true")
           .build();
 
-  @LoadClass("com.google.devtools.build.android.desugar.stringconcat.functional.StringConcatCases")
+  @LoadClass("StringConcatCases")
   private Class<?> stringConcatCases;
 
-  @LoadAsmNode(
-      className =
-          "com.google.devtools.build.android.desugar.stringconcat.functional.StringConcatCases",
-      memberName = "simplePrefix",
-      round = 0)
+  @LoadAsmNode(className = "StringConcatCases", memberName = "simplePrefix", round = 0)
   private MethodNode simpleStrContatBeforeDesugar;
 
-  @LoadAsmNode(
-      className =
-          "com.google.devtools.build.android.desugar.stringconcat.functional.StringConcatCases",
-      memberName = "simplePrefix",
-      round = 1)
+  @LoadAsmNode(className = "StringConcatCases", memberName = "simplePrefix", round = 1)
   private MethodNode simpleStrConcatAfterDesugar;
-
-  @BeforeClass
-  public static void setUpFlags() throws Exception {
-    Flags.parse(TestArgs.get());
-  }
 
   @Test
   public void invokeDynamicInstr_presentBeforeDesugaring() {

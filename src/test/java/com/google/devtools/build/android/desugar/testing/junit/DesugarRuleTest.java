@@ -18,20 +18,15 @@ package com.google.devtools.build.android.desugar.testing.junit;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth8.assertThat;
-import static org.junit.Assert.assertThrows;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 
-import com.google.common.flags.Flag;
-import com.google.common.flags.FlagSpec;
-import com.google.common.flags.Flags;
 import com.google.devtools.build.android.desugar.testing.junit.LoadMethodHandle.MemberUseContext;
-import com.google.testing.junit.junit4.api.TestArgs;
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.lang.reflect.Method;
 import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.zip.ZipEntry;
-import org.junit.BeforeClass;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -42,17 +37,14 @@ import org.objectweb.asm.tree.MethodNode;
 
 /** The test for {@link DesugarRule}. */
 @RunWith(JUnit4.class)
-public class DesugarRuleTest {
-
-  @FlagSpec(help = "The input jar to be processed under desugar operations.", name = "input_jar")
-  private static final Flag<String> inputJar = Flag.nullString();
+public final class DesugarRuleTest {
 
   @Rule
   public final DesugarRule desugarRule =
       DesugarRule.builder(this, MethodHandles.lookup())
+          .addInputs(Paths.get(System.getProperty("input_jar")))
           .enableIterativeTransformation(3)
           .setWorkingJavaPackage("com.google.devtools.build.android.desugar.testing.junit")
-          .addInputs(Paths.get(inputJar.getNonNull()))
           .build();
 
   @LoadClass("DesugarRuleTestTarget$InterfaceSubjectToDesugar")
@@ -113,11 +105,6 @@ public class DesugarRuleTest {
       usage = MemberUseContext.FIELD_SETTER)
   private MethodHandle alphaMultiplierSetter;
 
-  @BeforeClass
-  public static void parseFlags() throws Exception {
-    Flags.parse(TestArgs.get());
-  }
-
   @Test
   public void staticMethodsAreMovedFromOriginatingClass() {
     assertThrows(
@@ -141,8 +128,9 @@ public class DesugarRuleTest {
   }
 
   @Test
-  public void nestMembers() {
-    assertThat(desugarRuleTestTargetClassNode.nestMembers)
+  public void innerClasses() {
+    assertThat(
+            desugarRuleTestTargetClassNode.innerClasses.stream().map(classNode -> classNode.name))
         .contains(
             "com/google/devtools/build/android/desugar/testing/junit/DesugarRuleTestTarget$InterfaceSubjectToDesugar");
   }
@@ -205,3 +193,4 @@ public class DesugarRuleTest {
     assertThat(result).isEqualTo(1111);
   }
 }
+

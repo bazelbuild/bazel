@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package complexcase;
+package com.google.devtools.build.android.desugar.nest.functional.testsrc.complexcase;
 
 /** A nest for testing private interface methods desugaring. */
 public interface Alpha {
@@ -23,7 +23,7 @@ public interface Alpha {
     return Alpha.VAL + bravo.abstractMethod(x, y) + privateStaticMethod(alpha, bravo, x, y);
   }
 
-  static long privateStaticMethod(complexcase.Alpha alpha, Bravo bravo, long x, int y) {
+  static long privateStaticMethod(Alpha alpha, Bravo bravo, long x, int y) {
     return Bravo.VAL + alpha.abstractMethod(x, y) + Bravo.publicStaticMethod(alpha, bravo, x, y);
   }
 

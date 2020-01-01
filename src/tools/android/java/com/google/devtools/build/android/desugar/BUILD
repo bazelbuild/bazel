@@ -29,6 +29,7 @@ java_library(
     visibility = [
         "//src/test/java/com/google/devtools/build/android/desugar:__pkg__",
         "//src/tools/android/java/com/google/devtools/build/android:__pkg__",
+        "//src/tools/android/java/com/google/devtools/build/android/desugar/testing/junit:__pkg__",
     ],
     runtime_deps = [
         "//src/tools/android/java/com/google/devtools/build/android/desugar/dependencies",
@@ -71,6 +72,7 @@ filegroup(
         "//src/tools/android/java/com/google/devtools/build/android/desugar/runtime:srcs",
         "//src/tools/android/java/com/google/devtools/build/android/desugar/strconcat:srcs",
         "//src/tools/android/java/com/google/devtools/build/android/desugar/scan:srcs",
+        "//src/tools/android/java/com/google/devtools/build/android/desugar/testing/junit:srcs",
     ],
     visibility = ["//src/tools/android/java/com/google/devtools/build/android:__pkg__"],
 )

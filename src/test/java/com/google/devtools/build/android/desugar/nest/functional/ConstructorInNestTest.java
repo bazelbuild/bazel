@@ -16,18 +16,14 @@ package com.google.devtools.build.android.desugar.nest.functional;
 
 import static com.google.common.truth.Truth.assertThat;
 
-import com.google.common.flags.Flag;
-import com.google.common.flags.FlagSpec;
-import com.google.common.flags.Flags;
 import com.google.devtools.build.android.desugar.testing.junit.DesugarRule;
 import com.google.devtools.build.android.desugar.testing.junit.LoadClass;
-import com.google.testing.junit.junit4.api.TestArgs;
 import com.google.testing.testsize.MediumTest;
 import com.google.testing.testsize.MediumTestAttribute;
 import java.lang.invoke.MethodHandles;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Modifier;
-import org.junit.BeforeClass;
+import java.nio.file.Paths;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -38,32 +34,24 @@ import org.junit.runners.JUnit4;
 @MediumTest(MediumTestAttribute.FILE)
 public final class ConstructorInNestTest {
 
-  @FlagSpec(
-      help = "The root directory of source root directory for desugar testing.",
-      name = "test_jar_constructor")
-  private static final Flag<String> testJar = Flag.nullString();
-
   @Rule
   public final DesugarRule desugarRule =
       DesugarRule.builder(this, MethodHandles.lookup())
-          .addRuntimeInputs(testJar.getNonNull())
+          .addInputs(Paths.get(System.getProperty("input_jar")))
+          .setWorkingJavaPackage(
+              "com.google.devtools.build.android.desugar.nest.functional.testsrc.simpleunit.constructor")
           .addCommandOptions("desugar_nest_based_private_access", "true")
           .enableIterativeTransformation(3)
           .build();
 
-  @LoadClass("simpleunit.constructor.ConstructorNest$ConstructorServiceMate")
+  @LoadClass("ConstructorNest$ConstructorServiceMate")
   private Class<?> mate;
 
-  @LoadClass("simpleunit.constructor.ConstructorNest$NestCC")
+  @LoadClass("ConstructorNest$NestCC")
   private Class<?> companion;
 
-  @LoadClass("simpleunit.constructor.ConstructorNest")
+  @LoadClass("ConstructorNest")
   private Class<?> invoker;
-
-  @BeforeClass
-  public static void setUpFlags() throws Exception {
-    Flags.parse(TestArgs.get());
-  }
 
   @Test
   public void companionClassIsPresent() {

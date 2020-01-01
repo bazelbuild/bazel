@@ -18,7 +18,6 @@ package com.google.devtools.build.android.desugar.testing.junit;
 
 import static com.google.devtools.build.android.desugar.testing.junit.LoadMethodHandle.MemberUseContext.METHOD_INVOCATION;
 
-import com.google.common.annotations.UsedReflectively;
 import java.lang.annotation.Documented;
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
@@ -55,7 +54,6 @@ import org.objectweb.asm.tree.ClassNode;
  * }
  * </code></pre>
  */
-@UsedReflectively
 @Documented
 @Target(ElementType.FIELD)
 @Retention(RetentionPolicy.RUNTIME)

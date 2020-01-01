@@ -17,22 +17,18 @@ package com.google.devtools.build.android.desugar.nest.functional;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.flags.Flag;
-import com.google.common.flags.FlagSpec;
-import com.google.common.flags.Flags;
 import com.google.devtools.build.android.desugar.testing.junit.DesugarRule;
 import com.google.devtools.build.android.desugar.testing.junit.LoadClass;
-import com.google.testing.junit.junit4.api.TestArgs;
 import com.google.testing.testsize.MediumTest;
 import com.google.testing.testsize.MediumTestAttribute;
 import java.lang.invoke.MethodHandles;
 import java.lang.reflect.Method;
+import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import java.util.stream.Collectors;
 import org.junit.Before;
-import org.junit.BeforeClass;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -43,33 +39,25 @@ import org.junit.runners.JUnit4;
 @MediumTest(MediumTestAttribute.FILE)
 public class InterfaceBridgeTest {
 
-  @FlagSpec(
-      help = "The root directory of source root directory for desugar testing.",
-      name = "test_jar_interfacemethod")
-  private static final Flag<String> testJar = Flag.nullString();
-
   @Rule
   public final DesugarRule desugarRule =
       DesugarRule.builder(this, MethodHandles.lookup())
-          .addRuntimeInputs(testJar.getNonNull())
+          .addInputs(Paths.get(System.getProperty("input_jar")))
+          .setWorkingJavaPackage(
+              "com.google.devtools.build.android.desugar.nest.functional.testsrc.simpleunit.interfacemethod")
           .addCommandOptions("desugar_nest_based_private_access", "true")
           .build();
 
-  @LoadClass(value = "simpleunit.interfacemethod.InterfaceNest$InterfaceMate")
+  @LoadClass(value = "InterfaceNest$InterfaceMate")
   private Class<?> mate;
 
-  @LoadClass(value = "simpleunit.interfacemethod.InterfaceNest")
+  @LoadClass(value = "InterfaceNest")
   private Class<?> invoker;
 
   private Object mateInstance;
 
-  @LoadClass(value = "simpleunit.interfacemethod.InterfaceNest$ConcreteMate")
+  @LoadClass(value = "InterfaceNest$ConcreteMate")
   private Class<?> concreteMate;
-
-  @BeforeClass
-  public static void setUpFlags() throws Exception {
-    Flags.parse(TestArgs.get());
-  }
 
   @Before
   public void loadClassesInNest() throws Exception {
