@@ -51,87 +51,64 @@ public class DesugarRuleTest {
   public final DesugarRule desugarRule =
       DesugarRule.builder(this, MethodHandles.lookup())
           .enableIterativeTransformation(3)
+          .setWorkingJavaPackage("com.google.devtools.build.android.desugar.testing.junit")
           .addInputs(Paths.get(inputJar.getNonNull()))
           .build();
 
+  @LoadClass("DesugarRuleTestTarget$InterfaceSubjectToDesugar")
+  private Class<?> interfaceSubjectToDesugarRound1;
+
+  @LoadClass(value = "DesugarRuleTestTarget$InterfaceSubjectToDesugar", round = 2)
+  private Class<?> interfaceSubjectToDesugarRound2;
+
+  @LoadClass("DesugarRuleTestTarget$InterfaceSubjectToDesugar")
+  private Class<?> interfaceSubjectToDesugarFromSimpleClassName;
+
   @LoadClass(
       "com.google.devtools.build.android.desugar.testing.junit.DesugarRuleTestTarget$InterfaceSubjectToDesugar")
-  private Class<?> interfaceSubjectToDesugarClassRound1;
+  private Class<?> interfaceSubjectToDesugarFromQualifiedClassName;
 
-  @LoadClass(
-      value =
-          "com.google.devtools.build.android.desugar.testing.junit.DesugarRuleTestTarget$InterfaceSubjectToDesugar",
-      round = 2)
-  private Class<?> interfaceSubjectToDesugarClassRound2;
-
-  @LoadClass(
-      "com.google.devtools.build.android.desugar.testing.junit.DesugarRuleTestTarget$InterfaceSubjectToDesugar$$CC")
+  @LoadClass("DesugarRuleTestTarget$InterfaceSubjectToDesugar$$CC")
   private Class<?> interfaceSubjectToDesugarCompanionClassRound1;
 
-  @LoadClass(
-      value =
-          "com.google.devtools.build.android.desugar.testing.junit.DesugarRuleTestTarget$InterfaceSubjectToDesugar$$CC",
-      round = 2)
+  @LoadClass(value = "DesugarRuleTestTarget$InterfaceSubjectToDesugar$$CC", round = 2)
   private Class<?> interfaceSubjectToDesugarCompanionClassRound2;
 
-  @LoadZipEntry(
-      value =
-          "com/google/devtools/build/android/desugar/testing/junit/DesugarRuleTestTarget$InterfaceSubjectToDesugar$$CC.class",
-      round = 1)
+  @LoadZipEntry(value = "DesugarRuleTestTarget$InterfaceSubjectToDesugar$$CC.class", round = 1)
   private ZipEntry interfaceSubjectToDesugarZipEntryRound1;
 
-  @LoadZipEntry(
-      value =
-          "com/google/devtools/build/android/desugar/testing/junit/DesugarRuleTestTarget$InterfaceSubjectToDesugar$$CC.class",
-      round = 2)
+  @LoadZipEntry(value = "DesugarRuleTestTarget$InterfaceSubjectToDesugar$$CC.class", round = 2)
   private ZipEntry interfaceSubjectToDesugarZipEntryRound2;
 
-  @LoadAsmNode(
-      className = "com.google.devtools.build.android.desugar.testing.junit.DesugarRuleTestTarget")
+  @LoadAsmNode(className = "DesugarRuleTestTarget")
   private ClassNode desugarRuleTestTargetClassNode;
 
-  @LoadAsmNode(
-      className =
-          "com.google.devtools.build.android.desugar.testing.junit.DesugarRuleTestTarget$Alpha",
-      memberName = "twoIntSum")
+  @LoadAsmNode(className = "DesugarRuleTestTarget$Alpha", memberName = "twoIntSum")
   private MethodNode twoIntSum;
 
-
   @LoadAsmNode(
-      className =
-          "com.google.devtools.build.android.desugar.testing.junit.DesugarRuleTestTarget$Alpha",
+      className = "DesugarRuleTestTarget$Alpha",
       memberName = "multiplier",
       memberDescriptor = "J")
   private FieldNode multiplier;
 
-  @LoadMethodHandle(
-      className =
-          "com.google.devtools.build.android.desugar.testing.junit.DesugarRuleTestTarget$Alpha",
-      memberName = "twoIntSum")
+  @LoadMethodHandle(className = "DesugarRuleTestTarget$Alpha", memberName = "twoIntSum")
   private MethodHandle twoIntSumMH;
 
-  @LoadMethodHandle(
-      className =
-          "com.google.devtools.build.android.desugar.testing.junit.DesugarRuleTestTarget$Alpha",
-      memberName = "<init>")
+  @LoadMethodHandle(className = "DesugarRuleTestTarget$Alpha", memberName = "<init>")
   private MethodHandle alphaConstructor;
 
-  @LoadMethodHandle(
-      className =
-          "com.google.devtools.build.android.desugar.testing.junit.DesugarRuleTestTarget$Alpha",
-      memberName = "linearLongTransform")
+  @LoadMethodHandle(className = "DesugarRuleTestTarget$Alpha", memberName = "linearLongTransform")
   private MethodHandle linearLongTransform;
 
   @LoadMethodHandle(
-      className =
-          "com.google.devtools.build.android.desugar.testing.junit.DesugarRuleTestTarget$Alpha",
+      className = "DesugarRuleTestTarget$Alpha",
       memberName = "multiplier",
       usage = MemberUseContext.FIELD_GETTER)
   private MethodHandle alphaMultiplierGetter;
 
   @LoadMethodHandle(
-      className =
-          "com.google.devtools.build.android.desugar.testing.junit.DesugarRuleTestTarget$Alpha",
+      className = "DesugarRuleTestTarget$Alpha",
       memberName = "multiplier",
       usage = MemberUseContext.FIELD_SETTER)
   private MethodHandle alphaMultiplierSetter;
@@ -145,14 +122,14 @@ public class DesugarRuleTest {
   public void staticMethodsAreMovedFromOriginatingClass() {
     assertThrows(
         NoSuchMethodException.class,
-        () -> interfaceSubjectToDesugarClassRound1.getDeclaredMethod("staticMethod"));
+        () -> interfaceSubjectToDesugarRound1.getDeclaredMethod("staticMethod"));
   }
 
   @Test
   public void staticMethodsAreMovedFromOriginatingClass_desugarTwice() {
     assertThrows(
         NoSuchMethodException.class,
-        () -> interfaceSubjectToDesugarClassRound2.getDeclaredMethod("staticMethod"));
+        () -> interfaceSubjectToDesugarRound2.getDeclaredMethod("staticMethod"));
   }
 
   @Test
@@ -178,10 +155,16 @@ public class DesugarRuleTest {
 
   @Test
   public void classLoaders_sameInstanceInSameRound() {
-    assertThat(interfaceSubjectToDesugarClassRound1.getClassLoader())
+    assertThat(interfaceSubjectToDesugarRound1.getClassLoader())
         .isSameInstanceAs(interfaceSubjectToDesugarCompanionClassRound1.getClassLoader());
-    assertThat(interfaceSubjectToDesugarClassRound2.getClassLoader())
+    assertThat(interfaceSubjectToDesugarRound2.getClassLoader())
         .isSameInstanceAs(interfaceSubjectToDesugarCompanionClassRound2.getClassLoader());
+  }
+
+  @Test
+  public void classLiterals_requestedWithFullQualifiedClassName() {
+    assertThat(interfaceSubjectToDesugarFromQualifiedClassName)
+        .isSameInstanceAs(interfaceSubjectToDesugarFromSimpleClassName);
   }
 
   @Test

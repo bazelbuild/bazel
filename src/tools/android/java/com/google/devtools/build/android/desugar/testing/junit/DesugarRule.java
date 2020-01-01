@@ -100,6 +100,12 @@ public class DesugarRule implements TestRule {
   /** The maximum number of desugar operations, used for testing idempotency. */
   private final int maxNumOfTransformations;
 
+  /**
+   * The current working java package of desugar operations, when non-empty, used as a prefix to
+   * prepend simple class names to get qualified class names.
+   */
+  private final String workingJavaPackage;
+
   private final List<JarTransformationRecord> jarTransformationRecords;
 
   private final ImmutableList<Path> inputs;
@@ -147,6 +153,7 @@ public class DesugarRule implements TestRule {
       Object testInstance,
       Lookup testInstanceLookup,
       int maxNumOfTransformations,
+      String workingJavaPackage,
       List<JarTransformationRecord> jarTransformationRecords,
       ImmutableList<Path> bootClassPathEntries,
       ImmutableListMultimap<String, String> customCommandOptions,
@@ -160,6 +167,7 @@ public class DesugarRule implements TestRule {
     this.testInstanceLookup = testInstanceLookup;
 
     this.maxNumOfTransformations = maxNumOfTransformations;
+    this.workingJavaPackage = workingJavaPackage;
     this.jarTransformationRecords = jarTransformationRecords;
 
     this.inputs = inputJars;
@@ -208,7 +216,8 @@ public class DesugarRule implements TestRule {
                       jarTransformationRecords,
                       inputClassLoader,
                       reflectionBasedMembers,
-                      descriptorLookupRepo);
+                      descriptorLookupRepo,
+                      workingJavaPackage);
               MethodHandle fieldSetter = testInstanceLookup.unreflectSetter(field);
               fieldSetter.invoke(testInstance, classLiteral);
             }
@@ -220,7 +229,8 @@ public class DesugarRule implements TestRule {
                       field.getDeclaredAnnotation(LoadAsmNode.class),
                       requestedFieldType,
                       jarTransformationRecords,
-                      inputs);
+                      inputs,
+                      workingJavaPackage);
               MethodHandle fieldSetter = testInstanceLookup.unreflectSetter(field);
               fieldSetter.invoke(testInstance, asmNode);
             }
@@ -233,13 +243,19 @@ public class DesugarRule implements TestRule {
                       jarTransformationRecords,
                       inputClassLoader,
                       reflectionBasedMembers,
-                      descriptorLookupRepo);
+                      descriptorLookupRepo,
+                      workingJavaPackage);
               MethodHandle fieldSetter = testInstanceLookup.unreflectSetter(field);
               fieldSetter.invoke(testInstance, methodHandle);
             }
 
             for (Field field : injectableZipEntries) {
-              ZipEntry zipEntry = getZipEntry(field.getDeclaredAnnotation(LoadZipEntry.class));
+              ZipEntry zipEntry =
+                  getZipEntry(
+                      field.getDeclaredAnnotation(LoadZipEntry.class),
+                      jarTransformationRecords,
+                      inputs,
+                      workingJavaPackage);
               MethodHandle fieldSetter = testInstanceLookup.unreflectSetter(field);
               fieldSetter.invoke(testInstance, zipEntry);
             }
@@ -326,14 +342,20 @@ public class DesugarRule implements TestRule {
       List<JarTransformationRecord> jarTransformationRecords,
       ClassLoader initialInputClassLoader,
       Table<Integer, ClassMemberKey, Member> reflectionBasedMembers,
-      Table<Integer, ClassMemberKey, Set<ClassMemberKey>> missingDescriptorLookupRepo)
+      Table<Integer, ClassMemberKey, Set<ClassMemberKey>> missingDescriptorLookupRepo,
+      String workingJavaPackage)
       throws Throwable {
     int round = loadClassRequest.round();
     ClassLoader outputJarClassLoader =
         round == 0
             ? initialInputClassLoader
             : jarTransformationRecords.get(round - 1).getOutputClassLoader();
-    Class<?> classLiteral = outputJarClassLoader.loadClass(loadClassRequest.value());
+    String requestedClassName = loadClassRequest.value();
+    String qualifiedClassName =
+        workingJavaPackage.isEmpty() || requestedClassName.contains(".")
+            ? requestedClassName
+            : workingJavaPackage + "." + requestedClassName;
+    Class<?> classLiteral = outputJarClassLoader.loadClass(qualifiedClassName);
     reflectionBasedMembers.putAll(getReflectionBasedClassMembers(round, classLiteral));
     fillMissingClassMemberDescriptorRepo(round, classLiteral, missingDescriptorLookupRepo);
     return classLiteral;
@@ -343,9 +365,14 @@ public class DesugarRule implements TestRule {
       LoadAsmNode asmNodeRequest,
       Class<T> requestedNodeType,
       List<JarTransformationRecord> jarTransformationRecords,
-      ImmutableList<Path> initialInputs)
+      ImmutableList<Path> initialInputs,
+      String workingJavaPackage)
       throws IOException, ClassNotFoundException {
-    String qualifiedClassName = asmNodeRequest.className();
+    String requestedClassName = asmNodeRequest.className();
+    String qualifiedClassName =
+        workingJavaPackage.isEmpty() || requestedClassName.contains(".")
+            ? requestedClassName
+            : workingJavaPackage + "." + requestedClassName;
     String classFileName = qualifiedClassName.replace('.', '/') + ".class";
     int round = asmNodeRequest.round();
     ImmutableList<Path> jars =
@@ -379,17 +406,18 @@ public class DesugarRule implements TestRule {
       List<JarTransformationRecord> jarTransformationRecords,
       ClassLoader initialInputClassLoader,
       Table<Integer, ClassMemberKey, java.lang.reflect.Member> reflectionBasedMembers,
-      Table<Integer, ClassMemberKey, Set<ClassMemberKey>> missingDescriptorLookupRepo)
+      Table<Integer, ClassMemberKey, Set<ClassMemberKey>> missingDescriptorLookupRepo,
+      String workingJavaPackage)
       throws Throwable {
-    String qualifiedClassName = methodHandleRequest.className();
     int round = methodHandleRequest.round();
     Class<?> classLiteral =
         loadClassLiteral(
-            createLoadClassLiteralRequest(qualifiedClassName, round),
+            createLoadClassLiteralRequest(methodHandleRequest.className(), round),
             jarTransformationRecords,
             initialInputClassLoader,
             reflectionBasedMembers,
-            missingDescriptorLookupRepo);
+            missingDescriptorLookupRepo,
+            workingJavaPackage);
 
     String ownerInternalName = Type.getInternalName(classLiteral);
     String memberName = methodHandleRequest.memberName();
@@ -491,11 +519,20 @@ public class DesugarRule implements TestRule {
     return Iterables.getOnlyElement(matchedMethods);
   }
 
-  private ZipEntry getZipEntry(LoadZipEntry zipEntryRequest) throws IOException {
-    String zipEntryPathName = zipEntryRequest.value();
+  private static ZipEntry getZipEntry(
+      LoadZipEntry zipEntryRequest,
+      List<JarTransformationRecord> jarTransformationRecords,
+      ImmutableList<Path> initialInputs,
+      String workingJavaPackage)
+      throws IOException {
+    String requestedClassFile = zipEntryRequest.value();
+    String zipEntryPathName =
+        workingJavaPackage.isEmpty() || requestedClassFile.contains("/")
+            ? requestedClassFile
+            : workingJavaPackage.replace('.', '/') + '/' + requestedClassFile;
     int round = zipEntryRequest.round();
     ImmutableList<Path> jars =
-        round == 0 ? inputs : jarTransformationRecords.get(round - 1).outputJars();
+        round == 0 ? initialInputs : jarTransformationRecords.get(round - 1).outputJars();
     for (Path jar : jars) {
       ZipFile zipFile = new ZipFile(jar.toFile());
       ZipEntry zipEntry = zipFile.getEntry(zipEntryPathName);
@@ -580,6 +617,7 @@ public class DesugarRule implements TestRule {
     private final ImmutableList<Field> injectableAsmNodes;
     private final ImmutableList<Field> injectableMethodHandles;
     private final ImmutableList<Field> injectableJarFileEntries;
+    private String workingJavaPackage = "";
     private int maxNumOfTransformations = 1;
     private final List<Path> inputs = new ArrayList<>();
     private final List<Path> classPathEntries = new ArrayList<>();
@@ -606,6 +644,11 @@ public class DesugarRule implements TestRule {
       injectableAsmNodes = findAllFieldsWithAnnotation(testClass, LoadAsmNode.class);
       injectableMethodHandles = findAllFieldsWithAnnotation(testClass, LoadMethodHandle.class);
       injectableJarFileEntries = findAllFieldsWithAnnotation(testClass, LoadZipEntry.class);
+    }
+
+    public DesugarRuleBuilder setWorkingJavaPackage(String workingJavaPackage) {
+      this.workingJavaPackage = workingJavaPackage;
+      return this;
     }
 
     public DesugarRuleBuilder enableIterativeTransformation(int maxNumOfTransformations) {
@@ -682,6 +725,7 @@ public class DesugarRule implements TestRule {
           testInstance,
           testInstanceLookup,
           maxNumOfTransformations,
+          workingJavaPackage,
           new ArrayList<>(maxNumOfTransformations),
           ImmutableList.copyOf(bootClassPathEntries),
           ImmutableListMultimap.copyOf(customCommandOptions),
