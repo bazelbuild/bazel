@@ -31,7 +31,7 @@ import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
 
-/** Desugars indified string concatenations to use string builders. */
+/** Desugars indy string concatenations by replacement with string builders. */
 public final class IndyStringConcatDesugaring extends ClassVisitor {
 
   public static final ClassMemberUse INVOKE_JDK11_STRING_CONCAT =

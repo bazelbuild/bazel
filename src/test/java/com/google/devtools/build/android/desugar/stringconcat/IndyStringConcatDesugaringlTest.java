@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.google.devtools.build.android.desugar.stringconcat.functional;
+package com.google.devtools.build.android.desugar.stringconcat;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth8.assertThat;
@@ -44,7 +44,7 @@ import org.objectweb.asm.tree.MethodNode;
  */
 @RunWith(JUnit4.class)
 @MediumTest(MediumTestAttribute.FILE)
-public final class IndyStringConcatFunctionalTest {
+public final class IndyStringConcatDesugaringlTest {
 
   private static final MethodHandles.Lookup lookup = MethodHandles.lookup();
 
@@ -52,21 +52,20 @@ public final class IndyStringConcatFunctionalTest {
   public final DesugarRule desugarRule =
       DesugarRule.builder(this, lookup)
           .addInputs(Paths.get(System.getProperty("input_jar")))
-          .setWorkingJavaPackage(
-              "com.google.devtools.build.android.desugar.stringconcat.functional")
+          .setWorkingJavaPackage("com.google.devtools.build.android.desugar.stringconcat")
           .addCommandOptions("desugar_indy_string_concat", "true")
           .build();
 
   @Inject
-  @DynamicClassLiteral("StringConcatCases")
-  private Class<?> stringConcatCases;
+  @DynamicClassLiteral("StringConcatTestCases")
+  private Class<?> stringConcatTestCases;
 
   @Inject
-  @AsmNode(className = "StringConcatCases", memberName = "simplePrefix", round = 0)
+  @AsmNode(className = "StringConcatTestCases", memberName = "simplePrefix", round = 0)
   private MethodNode simpleStrContatBeforeDesugar;
 
   @Inject
-  @AsmNode(className = "StringConcatCases", memberName = "simplePrefix", round = 1)
+  @AsmNode(className = "StringConcatTestCases", memberName = "simplePrefix", round = 1)
   private MethodNode simpleStrConcatAfterDesugar;
 
   @Test
@@ -89,7 +88,7 @@ public final class IndyStringConcatFunctionalTest {
   public void twoConcat() throws Throwable {
     MethodHandle testHandle =
         lookup.findStatic(
-            stringConcatCases,
+            stringConcatTestCases,
             "twoConcat",
             MethodType.methodType(String.class, String.class, String.class));
     String result = (String) testHandle.invoke("ab", "cd");
@@ -101,7 +100,7 @@ public final class IndyStringConcatFunctionalTest {
   public void twoConcat_StringAndObject() throws Throwable {
     MethodHandle testHandle =
         lookup.findStatic(
-            stringConcatCases,
+            stringConcatTestCases,
             "twoConcat",
             MethodType.methodType(String.class, String.class, Object.class));
     String result = (String) testHandle.invoke("ab", (Object) "cd");
@@ -112,7 +111,7 @@ public final class IndyStringConcatFunctionalTest {
   public void twoConcatWithConstants() throws Throwable {
     MethodHandle testHandle =
         lookup.findStatic(
-            stringConcatCases,
+            stringConcatTestCases,
             "twoConcatWithConstants",
             MethodType.methodType(String.class, String.class, String.class));
     String result = (String) testHandle.invoke("ab", "cd");
@@ -124,7 +123,7 @@ public final class IndyStringConcatFunctionalTest {
   public void threeConcat() throws Throwable {
     MethodHandle testHandle =
         lookup.findStatic(
-            stringConcatCases,
+            stringConcatTestCases,
             "threeConcat",
             MethodType.methodType(String.class, String.class, String.class, String.class));
     String result = (String) testHandle.invoke("ab", "cd", "ef");
@@ -136,7 +135,7 @@ public final class IndyStringConcatFunctionalTest {
   public void twoConcatWithRecipe() throws Throwable {
     MethodHandle testHandle =
         lookup.findStatic(
-            stringConcatCases,
+            stringConcatTestCases,
             "twoConcatWithRecipe",
             MethodType.methodType(String.class, String.class, String.class));
     String result = (String) testHandle.invoke("ab", "cd");
@@ -148,7 +147,7 @@ public final class IndyStringConcatFunctionalTest {
   public void threeConcatWithRecipe() throws Throwable {
     MethodHandle testHandle =
         lookup.findStatic(
-            stringConcatCases,
+            stringConcatTestCases,
             "threeConcatWithRecipe",
             MethodType.methodType(String.class, String.class, String.class, String.class));
     String result = (String) testHandle.invoke("ab", "cd", "ef");
@@ -159,7 +158,7 @@ public final class IndyStringConcatFunctionalTest {
   public void twoConcatWithPrimitives_StringAndInt() throws Throwable {
     MethodHandle testHandle =
         lookup.findStatic(
-            stringConcatCases,
+            stringConcatTestCases,
             "twoConcatWithPrimitives",
             MethodType.methodType(String.class, String.class, int.class));
     String result = (String) testHandle.invoke("ab", 123);
@@ -170,7 +169,7 @@ public final class IndyStringConcatFunctionalTest {
   public void twoConcatWithPrimitives_StringAndLong() throws Throwable {
     MethodHandle testHandle =
         lookup.findStatic(
-            stringConcatCases,
+            stringConcatTestCases,
             "twoConcatWithPrimitives",
             MethodType.methodType(String.class, String.class, long.class));
     String result = (String) testHandle.invoke("ab", 123L);
@@ -181,7 +180,7 @@ public final class IndyStringConcatFunctionalTest {
   public void twoConcatWithPrimitives_StringAndDouble() throws Throwable {
     MethodHandle testHandle =
         lookup.findStatic(
-            stringConcatCases,
+            stringConcatTestCases,
             "twoConcatWithPrimitives",
             MethodType.methodType(String.class, String.class, double.class));
     String result = (String) testHandle.invoke("ab", 123.125);
@@ -192,7 +191,7 @@ public final class IndyStringConcatFunctionalTest {
   public void twoConcatWithPrimitives_intAndString() throws Throwable {
     MethodHandle testHandle =
         lookup.findStatic(
-            stringConcatCases,
+            stringConcatTestCases,
             "twoConcatWithPrimitives",
             MethodType.methodType(String.class, int.class, String.class));
     String result = (String) testHandle.invoke(123, "ABC");
@@ -203,7 +202,7 @@ public final class IndyStringConcatFunctionalTest {
   public void twoConcatWithPrimitives_longAndString() throws Throwable {
     MethodHandle testHandle =
         lookup.findStatic(
-            stringConcatCases,
+            stringConcatTestCases,
             "twoConcatWithPrimitives",
             MethodType.methodType(String.class, long.class, String.class));
     String result = (String) testHandle.invoke(123L, "ABC");
@@ -214,7 +213,7 @@ public final class IndyStringConcatFunctionalTest {
   public void twoConcatWithPrimitives_doubleAndString() throws Throwable {
     MethodHandle testHandle =
         lookup.findStatic(
-            stringConcatCases,
+            stringConcatTestCases,
             "twoConcatWithPrimitives",
             MethodType.methodType(String.class, double.class, String.class));
     String result = (String) testHandle.invoke(123.125, "ABC");
@@ -225,7 +224,7 @@ public final class IndyStringConcatFunctionalTest {
   public void concatWithAllPrimitiveTypes() throws Throwable {
     MethodHandle testHandle =
         lookup.findStatic(
-            stringConcatCases,
+            stringConcatTestCases,
             "concatWithAllPrimitiveTypes",
             MethodType.methodType(
                 String.class,

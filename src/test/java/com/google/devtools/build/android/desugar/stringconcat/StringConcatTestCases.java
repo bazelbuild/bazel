@@ -14,10 +14,10 @@
  * limitations under the License.
  */
 
-package com.google.devtools.build.android.desugar.stringconcat.functional;
+package com.google.devtools.build.android.desugar.stringconcat;
 
 /** Test cases for string concatenations. */
-public class StringConcatCases {
+public final class StringConcatTestCases {
 
   private static final String TEXT_CONSTANT = "<constant>";
 
@@ -102,5 +102,5 @@ public class StringConcatCases {
         + longValue;
   }
 
-  private StringConcatCases() {}
+  private StringConcatTestCases() {}
 }

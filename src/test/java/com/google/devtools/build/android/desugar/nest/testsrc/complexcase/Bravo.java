@@ -12,28 +12,40 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.devtools.build.android.desugar.nest.functional.testsrc.complexcase;
+package com.google.devtools.build.android.desugar.nest.testsrc.complexcase;
 
-/** A nest for testing private interface methods desugaring. */
-public interface Alpha {
+/** For testing private interface methods desugaring. */
+public interface Bravo {
 
-  long VAL = 1000L;
+  long VAL = 1_000_000L;
 
   static long publicStaticMethod(Alpha alpha, Bravo bravo, long x, int y) {
     return Alpha.VAL + bravo.abstractMethod(x, y) + privateStaticMethod(alpha, bravo, x, y);
   }
 
   static long privateStaticMethod(Alpha alpha, Bravo bravo, long x, int y) {
-    return Bravo.VAL + alpha.abstractMethod(x, y) + Bravo.publicStaticMethod(alpha, bravo, x, y);
+    return Alpha.VAL + bravo.abstractMethod(x, y) + bravo.privateInstanceMethod(alpha, x, y);
   }
 
-  default long defaultMethod(Bravo bravo, long x, int y) {
-    return Alpha.VAL + bravo.abstractMethod(x, y) + privateInstanceMethod(bravo, x, y);
+  private long privateInstanceMethod(Alpha alpha, long x, int y) {
+    return Bravo.VAL + alpha.abstractMethod(x, y) + alpha.defaultMethod(this, x, y);
   }
 
-  private long privateInstanceMethod(Bravo bravo, long x, int y) {
-    return Bravo.VAL + abstractMethod(x, y) + bravo.defaultMethod(this, x, y);
+  default long defaultMethod(Alpha alpha, long x, int y) {
+    return Bravo.VAL + alpha.abstractMethod(x, y) + abstractMethod(x, y);
+  }
+
+  private long crossMatePrivateInstanceMethod() {
+    return 123L;
   }
 
   long abstractMethod(long x, int y);
+
+  /** For testing private interface methods desugaring. */
+  interface Charlie extends Bravo {
+    default long invokeCrossMatePrivateInstanceMethod() {
+      // Emits invokespecial instruction.
+      return Bravo.super.crossMatePrivateInstanceMethod();
+    }
+  }
 }

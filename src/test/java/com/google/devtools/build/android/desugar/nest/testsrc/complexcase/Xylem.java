@@ -12,9 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.devtools.build.android.desugar.nest.functional.testsrc.complexcase;
+package com.google.devtools.build.android.desugar.nest.testsrc.complexcase;
 
-import com.google.devtools.build.android.desugar.nest.functional.testsrc.complexcase.Bravo.Charlie;
+import com.google.devtools.build.android.desugar.nest.testsrc.complexcase.Bravo.Charlie;
 
 /** Test class as source data. */
 @SuppressWarnings({"PrivateConstructorForUtilityClass", "FieldCanBeFinal"}) // For testing.

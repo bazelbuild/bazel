@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.devtools.build.android.desugar.nest.functional.testsrc.simpleunit.field;
+package com.google.devtools.build.android.desugar.nest.testsrc.simpleunit.field;
 
 /** A nest for testing private field desugaring. */
 public class FieldNest {

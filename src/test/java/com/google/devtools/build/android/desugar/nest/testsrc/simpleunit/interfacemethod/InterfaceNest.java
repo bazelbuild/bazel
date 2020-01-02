@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.devtools.build.android.desugar.nest.functional.testsrc.simpleunit.interfacemethod;
+package com.google.devtools.build.android.desugar.nest.testsrc.simpleunit.interfacemethod;
 
 import java.util.Collection;
 import java.util.List;
