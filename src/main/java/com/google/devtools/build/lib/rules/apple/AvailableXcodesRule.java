@@ -69,6 +69,6 @@ public class AvailableXcodesRule implements RuleDefinition {
 
 <p>Two targets of this rule can be depended on by an <code>xcode_config</code> rule instance to
 indicate the remotely and locally avaialable xcode versions.
-This allows selection of a an official xcode version from the collectively avaialble xcodes.</p>
+This allows selection of an official xcode version from the collectively avaialble xcodes.</p>
 
 <!-- #END_BLAZE_RULE -->*/
