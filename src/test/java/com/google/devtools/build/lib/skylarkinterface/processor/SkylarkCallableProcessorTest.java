@@ -80,8 +80,8 @@ public final class SkylarkCallableProcessorTest {
         .processedWith(new SkylarkCallableProcessor())
         .failsToCompile()
         .withErrorContaining(
-            "SkylarkCallable-annotated methods with structField=true may not also specify "
-                + "useLocation, useStarlarkThread, extraPositionals, or extraKeywords");
+            "a SkylarkCallable-annotated method with structField=true may not also specify"
+                + " useStarlarkThread");
   }
 
   @Test
@@ -91,8 +91,8 @@ public final class SkylarkCallableProcessorTest {
         .processedWith(new SkylarkCallableProcessor())
         .failsToCompile()
         .withErrorContaining(
-            "SkylarkCallable-annotated methods with structField=true may not also specify "
-                + "useLocation, useStarlarkThread, extraPositionals, or extraKeywords");
+            "a SkylarkCallable-annotated method with structField=true may not also specify"
+                + " extraPositionals");
   }
 
   @Test
@@ -102,8 +102,8 @@ public final class SkylarkCallableProcessorTest {
         .processedWith(new SkylarkCallableProcessor())
         .failsToCompile()
         .withErrorContaining(
-            "SkylarkCallable-annotated methods with structField=true may not also specify "
-                + "useLocation, useStarlarkThread, extraPositionals, or extraKeywords");
+            "a SkylarkCallable-annotated method with structField=true may not also specify"
+                + " extraKeywords");
   }
 
   @Test
@@ -287,7 +287,8 @@ public final class SkylarkCallableProcessorTest {
         .processedWith(new SkylarkCallableProcessor())
         .failsToCompile()
         .withErrorContaining(
-            "SkylarkCallable-annotated methods with selfCall=true must have structField=false");
+            "a SkylarkCallable-annotated method with structField=true may not also specify"
+                + " selfCall=true");
   }
 
   @Test
@@ -328,8 +329,8 @@ public final class SkylarkCallableProcessorTest {
         .that(getFile("ConflictingMethodNames.java"))
         .processedWith(new SkylarkCallableProcessor())
         .failsToCompile()
-        .withErrorContaining("Containing class has more than one method with name "
-            + "'conflicting_method' defined");
+        .withErrorContaining(
+            "Containing class defines more than one method named 'conflicting_method'");
   }
 
   @Test
