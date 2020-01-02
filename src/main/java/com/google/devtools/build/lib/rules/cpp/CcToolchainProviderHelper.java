@@ -216,6 +216,7 @@ public class CcToolchainProviderHelper {
         attributes.isSupportsParamFiles(),
         attributes.isSupportsHeaderParsing(),
         attributes.getAdditionalBuildVariablesComputer(),
+        attributes.getExecutionInfo(),
         getBuildVariables(
             ruleContext.getConfiguration().getOptions(),
             cppConfiguration,

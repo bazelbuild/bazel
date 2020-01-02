@@ -88,6 +88,7 @@ public class CcToolchainAttributesProvider extends ToolchainInfo implements HasC
   private final LicensesProvider licensesProvider;
   private final Label toolchainType;
   private final AdditionalBuildVariablesComputer additionalBuildVariablesComputer;
+  private final ImmutableMap<String, String> executionInfo;
   private final CcToolchainConfigInfo ccToolchainConfigInfo;
   private final String toolchainIdentifier;
   private final FdoProfileProvider fdoOptimizeProvider;
@@ -101,7 +102,8 @@ public class CcToolchainAttributesProvider extends ToolchainInfo implements HasC
   public CcToolchainAttributesProvider(
       RuleContext ruleContext,
       boolean isAppleToolchain,
-      AdditionalBuildVariablesComputer additionalBuildVariablesComputer) {
+      AdditionalBuildVariablesComputer additionalBuildVariablesComputer,
+      ImmutableMap<String, String> executionInfo) {
     super(ImmutableMap.of(), Location.BUILTIN);
     this.ccToolchainLabel = ruleContext.getLabel();
     this.toolchainIdentifier = ruleContext.attributes().get("toolchain_identifier", Type.STRING);
@@ -219,6 +221,7 @@ public class CcToolchainAttributesProvider extends ToolchainInfo implements HasC
       this.toolchainType = null;
     }
     this.additionalBuildVariablesComputer = additionalBuildVariablesComputer;
+    this.executionInfo = executionInfo;
   }
 
   public String getCpu() {
@@ -275,6 +278,10 @@ public class CcToolchainAttributesProvider extends ToolchainInfo implements HasC
 
   public AdditionalBuildVariablesComputer getAdditionalBuildVariablesComputer() {
     return additionalBuildVariablesComputer;
+  }
+
+  public ImmutableMap<String, String> getExecutionInfo() {
+    return executionInfo;
   }
 
   public NestedSet<Artifact> getAllFiles() {

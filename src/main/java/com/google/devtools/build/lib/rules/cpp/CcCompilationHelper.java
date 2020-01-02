@@ -306,7 +306,12 @@ public final class CcCompilationHelper {
     this.actionRegistry = Preconditions.checkNotNull(actionRegistry);
     this.label = Preconditions.checkNotNull(label);
     this.grepIncludes = grepIncludes;
-    this.executionInfo = Preconditions.checkNotNull(executionInfo);
+    ImmutableMap.Builder<String, String> builder = ImmutableMap.builder();
+    builder.putAll(Preconditions.checkNotNull(executionInfo));
+    if (ccToolchain.getExecutionInfo() != null) {
+      builder.putAll(ccToolchain.getExecutionInfo());
+    }
+    this.executionInfo = builder.build();
   }
 
   /** Creates a CcCompilationHelper for cpp source files. */
