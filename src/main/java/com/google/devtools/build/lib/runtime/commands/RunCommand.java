@@ -697,7 +697,9 @@ public class RunCommand implements BlazeCommand  {
   }
 
   private static String notExecutableError(Target target) {
-    return "Cannot run target " + target.getLabel() + ": Not executable";
+    return "Cannot run target " + target.getLabel()
+      + ": Not executable. If the target is created with a Starlark rule, "
+      + "make sure that the rule is marked as 'executable'";
   }
 
   /** Returns null if the target is a runnable rule, or an appropriate error message otherwise. */
