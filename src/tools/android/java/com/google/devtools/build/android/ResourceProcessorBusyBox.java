@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.android;
 
-import com.google.devtools.build.android.AndroidResourceMerger.MergingException;
 import com.google.devtools.build.android.aapt2.Aapt2Exception;
 import com.google.devtools.build.android.resources.JavaIdentifierValidator.InvalidJavaIdentifier;
 import com.google.devtools.build.lib.worker.WorkerProtocol.WorkRequest;
@@ -211,15 +210,16 @@ public class ResourceProcessorBusyBox {
       optionsParser.parse(args);
       options = optionsParser.getOptions(Options.class);
       options.tool.call(optionsParser.getResidue().toArray(new String[0]));
-    } catch (
-        OptionsParsingException
-        | MergingException
-        | IOException
-        | Aapt2Exception
-        | InvalidJavaIdentifier e) {
+    } catch (UserException e) {
+      // UserException is for exceptions that shouldn't have stack traces recorded, including
+      // AndroidDataMerger.MergeConflictException.
+      logger.log(Level.SEVERE, e.getMessage());
+      return 1;
+    } catch (OptionsParsingException | IOException | Aapt2Exception | InvalidJavaIdentifier e) {
       logSuppressed(e);
       throw e;
     } catch (Exception e) {
+      // TODO(jingwen): consider just removing this block.
       logger.log(Level.SEVERE, "Error during processing", e);
       throw e;
     }
