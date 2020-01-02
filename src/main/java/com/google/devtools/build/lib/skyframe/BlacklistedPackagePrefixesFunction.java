@@ -127,7 +127,7 @@ public class BlacklistedPackagePrefixesFunction implements SkyFunction {
 
     @Override
     public boolean processLine(String line) throws IOException {
-      if (!line.isEmpty()) {
+      if (!line.isEmpty() && !line.startsWith("#")) {
         fragments.add(PathFragment.create(line));
       }
       return true;
