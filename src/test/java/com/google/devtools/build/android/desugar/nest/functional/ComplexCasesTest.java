@@ -17,13 +17,14 @@ package com.google.devtools.build.android.desugar.nest.functional;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.devtools.build.android.desugar.testing.junit.DesugarRule;
-import com.google.devtools.build.android.desugar.testing.junit.LoadClass;
+import com.google.devtools.build.android.desugar.testing.junit.DynamicClassLiteral;
 import com.google.testing.testsize.MediumTest;
 import com.google.testing.testsize.MediumTestAttribute;
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodType;
 import java.nio.file.Paths;
+import javax.inject.Inject;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -48,7 +49,8 @@ public final class ComplexCasesTest {
           .addCommandOptions("desugar_nest_based_private_access", "true")
           .build();
 
-  @LoadClass("Xylem")
+  @Inject
+  @DynamicClassLiteral("Xylem")
   private Class<?> invoker;
 
   @Test

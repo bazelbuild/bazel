@@ -21,13 +21,12 @@ import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
-import java.util.zip.ZipEntry;
+import javax.inject.Qualifier;
 
 /**
- * Identifies injectable {@link ZipEntry} fields with a zip entry path. The desugar rule resolves
- * the requested zip entry at runtime and assign it to the annotated field. An injectable {@link
- * ZipEntry} field may have any access modifier (private, package-private, protected, public).
- * Sample usage:
+ * Identifies injectable class-literal fields with the specified class to load at runtime and assign
+ * to the field. An injectable class-literal field may have any access modifier (private,
+ * package-private, protected, public). Sample usage:
  *
  * <pre><code>
  * &#064;RunWith(JUnit4.class)
@@ -38,20 +37,24 @@ import java.util.zip.ZipEntry;
  *       DesugarRule.builder(this, MethodHandles.lookup())
  *           .addRuntimeInputs("path/to/my_jar.jar")
  *           .build();
- *
- *   &#064;LoadZipEntry("my/package/ClassToDesugar.class")
- *   private ZipEntry classToDesugarClassFile;
+ *   &#064;Inject
+ *   &#064;DynamicClassLiteral("my.package.ClassToDesugar")
+ *   private Class<?> classToDesugarClass;
  *
  *   // ... Test methods ...
  * }
  * </code></pre>
  */
+@Qualifier
 @Documented
 @Target(ElementType.FIELD)
 @Retention(RetentionPolicy.RUNTIME)
-public @interface LoadZipEntry {
+public @interface DynamicClassLiteral {
 
-  /** The requested zip entry path name within a zip file. */
+  /**
+   * The fully-qualified class name of the class to load. The format agrees with {@link
+   * Class#getName}.
+   */
   String value();
 
   /** The round during which its associated jar is being used. */

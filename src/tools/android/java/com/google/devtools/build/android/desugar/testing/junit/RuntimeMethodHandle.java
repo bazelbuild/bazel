@@ -16,13 +16,14 @@
 
 package com.google.devtools.build.android.desugar.testing.junit;
 
-import static com.google.devtools.build.android.desugar.testing.junit.LoadMethodHandle.MemberUseContext.METHOD_INVOCATION;
+import static com.google.devtools.build.android.desugar.testing.junit.RuntimeMethodHandle.MemberUseContext.METHOD_INVOCATION;
 
 import java.lang.annotation.Documented;
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
+import javax.inject.Qualifier;
 import org.objectweb.asm.tree.ClassNode;
 
 /**
@@ -42,7 +43,8 @@ import org.objectweb.asm.tree.ClassNode;
  *           .addRuntimeInputs("path/to/my_jar.jar")
  *           .build();
  *
- *   &#064;LoadMethodHandle(
+ *   &#064;Inject
+ *   &#064;RuntimeMethodHandle(
  *       className = "my.package.ClassToDesugar",
  *       memberName = "add",
  *       memberDescriptor = "(II)I",
@@ -54,10 +56,11 @@ import org.objectweb.asm.tree.ClassNode;
  * }
  * </code></pre>
  */
+@Qualifier
 @Documented
 @Target(ElementType.FIELD)
 @Retention(RetentionPolicy.RUNTIME)
-public @interface LoadMethodHandle {
+public @interface RuntimeMethodHandle {
 
   /**
    * The fully-qualified class name of the class to load. The format agrees with {@link

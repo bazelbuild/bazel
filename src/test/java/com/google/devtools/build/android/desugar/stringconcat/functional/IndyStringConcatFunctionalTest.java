@@ -20,15 +20,16 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth8.assertThat;
 
 import com.google.common.collect.Streams;
+import com.google.devtools.build.android.desugar.testing.junit.AsmNode;
 import com.google.devtools.build.android.desugar.testing.junit.DesugarRule;
-import com.google.devtools.build.android.desugar.testing.junit.LoadAsmNode;
-import com.google.devtools.build.android.desugar.testing.junit.LoadClass;
+import com.google.devtools.build.android.desugar.testing.junit.DynamicClassLiteral;
 import com.google.testing.testsize.MediumTest;
 import com.google.testing.testsize.MediumTestAttribute;
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodType;
 import java.nio.file.Paths;
+import javax.inject.Inject;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -56,13 +57,16 @@ public final class IndyStringConcatFunctionalTest {
           .addCommandOptions("desugar_indy_string_concat", "true")
           .build();
 
-  @LoadClass("StringConcatCases")
+  @Inject
+  @DynamicClassLiteral("StringConcatCases")
   private Class<?> stringConcatCases;
 
-  @LoadAsmNode(className = "StringConcatCases", memberName = "simplePrefix", round = 0)
+  @Inject
+  @AsmNode(className = "StringConcatCases", memberName = "simplePrefix", round = 0)
   private MethodNode simpleStrContatBeforeDesugar;
 
-  @LoadAsmNode(className = "StringConcatCases", memberName = "simplePrefix", round = 1)
+  @Inject
+  @AsmNode(className = "StringConcatCases", memberName = "simplePrefix", round = 1)
   private MethodNode simpleStrConcatAfterDesugar;
 
   @Test

@@ -16,7 +16,7 @@ package com.google.devtools.build.android.desugar.nest.functional;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.devtools.build.android.desugar.testing.junit.DesugarRule;
-import com.google.devtools.build.android.desugar.testing.junit.LoadClass;
+import com.google.devtools.build.android.desugar.testing.junit.DynamicClassLiteral;
 import com.google.testing.testsize.MediumTest;
 import com.google.testing.testsize.MediumTestAttribute;
 import java.lang.invoke.MethodHandles;
@@ -26,6 +26,7 @@ import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
+import javax.inject.Inject;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -46,10 +47,12 @@ public final class FieldBridgeTest {
           .addCommandOptions("desugar_nest_based_private_access", "true")
           .build();
 
-  @LoadClass("FieldNest$FieldOwnerMate")
+  @Inject
+  @DynamicClassLiteral("FieldNest$FieldOwnerMate")
   private Class<?> mate;
 
-  @LoadClass("FieldNest")
+  @Inject
+  @DynamicClassLiteral("FieldNest")
   private Class<?> invoker;
 
   private Object mateInstance;

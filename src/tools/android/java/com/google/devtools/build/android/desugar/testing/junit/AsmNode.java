@@ -21,11 +21,15 @@ import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
+import javax.inject.Qualifier;
+import org.objectweb.asm.tree.ClassNode;
 
 /**
- * Identifies injectable class-literal fields with the specified class to load at runtime and assign
- * to the field. An injectable class-literal field may have any access modifier (private,
- * package-private, protected, public). Sample usage:
+ * Identifies injectable ASM node fields (e.g. {@link org.objectweb.asm.tree.ClassNode}, {@link
+ * org.objectweb.asm.tree.MethodNode}, {@link org.objectweb.asm.tree.FieldNode}) with a qualified
+ * class name. The desugar rule resolves the requested class at runtime, parse it into a {@link
+ * ClassNode} and assign parsed class node to the annotated field. An injectable ASM node field may
+ * have any access modifier (private, package-private, protected, public). Sample usage:
  *
  * <pre><code>
  * &#064;RunWith(JUnit4.class)
@@ -37,23 +41,31 @@ import java.lang.annotation.Target;
  *           .addRuntimeInputs("path/to/my_jar.jar")
  *           .build();
  *
- *   &#064;LoadClass("my.package.ClassToDesugar")
- *   private Class<?> classToDesugarClass;
+ *   &#064;Inject
+ *   &#064;AsmNode("my.package.ClassToDesugar")
+ *   private ClassNode classToDesugarClassFile;
  *
  *   // ... Test methods ...
  * }
  * </code></pre>
  */
+@Qualifier
 @Documented
 @Target(ElementType.FIELD)
 @Retention(RetentionPolicy.RUNTIME)
-public @interface LoadClass {
+public @interface AsmNode {
 
   /**
    * The fully-qualified class name of the class to load. The format agrees with {@link
    * Class#getName}.
    */
-  String value();
+  String className();
+
+  /** If non-empty, load the specified class member (field or method) from the enclosing class. */
+  String memberName() default "";
+
+  /** If non-empty, use the specified member descriptor to disambiguate overloaded methods. */
+  String memberDescriptor() default "";
 
   /** The round during which its associated jar is being used. */
   int round() default 1;

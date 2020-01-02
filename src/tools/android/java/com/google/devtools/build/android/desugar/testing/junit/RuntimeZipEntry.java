@@ -21,14 +21,14 @@ import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
-import org.objectweb.asm.tree.ClassNode;
+import java.util.zip.ZipEntry;
+import javax.inject.Qualifier;
 
 /**
- * Identifies injectable ASM node fields (e.g. {@link org.objectweb.asm.tree.ClassNode}, {@link
- * org.objectweb.asm.tree.MethodNode}, {@link org.objectweb.asm.tree.FieldNode}) with a qualified
- * class name. The desugar rule resolves the requested class at runtime, parse it into a {@link
- * ClassNode} and assign parsed class node to the annotated field. An injectable ASM node field may
- * have any access modifier (private, package-private, protected, public). Sample usage:
+ * Identifies injectable {@link ZipEntry} fields with a zip entry path. The desugar rule resolves
+ * the requested zip entry at runtime and assign it to the annotated field. An injectable {@link
+ * ZipEntry} field may have any access modifier (private, package-private, protected, public).
+ * Sample usage:
  *
  * <pre><code>
  * &#064;RunWith(JUnit4.class)
@@ -40,29 +40,22 @@ import org.objectweb.asm.tree.ClassNode;
  *           .addRuntimeInputs("path/to/my_jar.jar")
  *           .build();
  *
- *   &#064;LoadAsmNode("my.package.ClassToDesugar")
- *   private ClassNode classToDesugarClassFile;
+ *   &#064;Inject
+ *   &#064;RuntimeZipEntry("my/package/ClassToDesugar.class")
+ *   private ZipEntry classToDesugarClassFile;
  *
  *   // ... Test methods ...
  * }
  * </code></pre>
  */
+@Qualifier
 @Documented
 @Target(ElementType.FIELD)
 @Retention(RetentionPolicy.RUNTIME)
-public @interface LoadAsmNode {
+public @interface RuntimeZipEntry {
 
-  /**
-   * The fully-qualified class name of the class to load. The format agrees with {@link
-   * Class#getName}.
-   */
-  String className();
-
-  /** If non-empty, load the specified class member (field or method) from the enclosing class. */
-  String memberName() default "";
-
-  /** If non-empty, use the specified member descriptor to disambiguate overloaded methods. */
-  String memberDescriptor() default "";
+  /** The requested zip entry path name within a zip file. */
+  String value();
 
   /** The round during which its associated jar is being used. */
   int round() default 1;

@@ -17,13 +17,14 @@ package com.google.devtools.build.android.desugar.nest.functional;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.devtools.build.android.desugar.testing.junit.DesugarRule;
-import com.google.devtools.build.android.desugar.testing.junit.LoadClass;
+import com.google.devtools.build.android.desugar.testing.junit.DynamicClassLiteral;
 import com.google.testing.testsize.MediumTest;
 import com.google.testing.testsize.MediumTestAttribute;
 import java.lang.invoke.MethodHandles;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Modifier;
 import java.nio.file.Paths;
+import javax.inject.Inject;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -44,13 +45,16 @@ public final class ConstructorInNestTest {
           .enableIterativeTransformation(3)
           .build();
 
-  @LoadClass("ConstructorNest$ConstructorServiceMate")
+  @Inject
+  @DynamicClassLiteral("ConstructorNest$ConstructorServiceMate")
   private Class<?> mate;
 
-  @LoadClass("ConstructorNest$NestCC")
+  @Inject
+  @DynamicClassLiteral("ConstructorNest$NestCC")
   private Class<?> companion;
 
-  @LoadClass("ConstructorNest")
+  @Inject
+  @DynamicClassLiteral("ConstructorNest")
   private Class<?> invoker;
 
   @Test

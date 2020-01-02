@@ -20,13 +20,14 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth8.assertThat;
 import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 
-import com.google.devtools.build.android.desugar.testing.junit.LoadMethodHandle.MemberUseContext;
+import com.google.devtools.build.android.desugar.testing.junit.RuntimeMethodHandle.MemberUseContext;
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.lang.reflect.Method;
 import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.zip.ZipEntry;
+import javax.inject.Inject;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -47,59 +48,77 @@ public final class DesugarRuleTest {
           .setWorkingJavaPackage("com.google.devtools.build.android.desugar.testing.junit")
           .build();
 
-  @LoadClass("DesugarRuleTestTarget$InterfaceSubjectToDesugar")
+  @Inject
+  @DynamicClassLiteral("DesugarRuleTestTarget$InterfaceSubjectToDesugar")
   private Class<?> interfaceSubjectToDesugarRound1;
 
-  @LoadClass(value = "DesugarRuleTestTarget$InterfaceSubjectToDesugar", round = 2)
+  @Inject
+  @DynamicClassLiteral(value = "DesugarRuleTestTarget$InterfaceSubjectToDesugar", round = 2)
   private Class<?> interfaceSubjectToDesugarRound2;
 
-  @LoadClass("DesugarRuleTestTarget$InterfaceSubjectToDesugar")
+  @Inject
+  @DynamicClassLiteral("DesugarRuleTestTarget$InterfaceSubjectToDesugar")
   private Class<?> interfaceSubjectToDesugarFromSimpleClassName;
 
-  @LoadClass(
+  @Inject
+  @DynamicClassLiteral(
       "com.google.devtools.build.android.desugar.testing.junit.DesugarRuleTestTarget$InterfaceSubjectToDesugar")
   private Class<?> interfaceSubjectToDesugarFromQualifiedClassName;
 
-  @LoadClass("DesugarRuleTestTarget$InterfaceSubjectToDesugar$$CC")
+  @Inject
+  @DynamicClassLiteral("DesugarRuleTestTarget$InterfaceSubjectToDesugar$$CC")
   private Class<?> interfaceSubjectToDesugarCompanionClassRound1;
 
-  @LoadClass(value = "DesugarRuleTestTarget$InterfaceSubjectToDesugar$$CC", round = 2)
+  @Inject
+  @DynamicClassLiteral(value = "DesugarRuleTestTarget$InterfaceSubjectToDesugar$$CC", round = 2)
   private Class<?> interfaceSubjectToDesugarCompanionClassRound2;
 
-  @LoadZipEntry(value = "DesugarRuleTestTarget$InterfaceSubjectToDesugar$$CC.class", round = 1)
+  @Inject
+  @RuntimeZipEntry(value = "DesugarRuleTestTarget$InterfaceSubjectToDesugar$$CC.class", round = 1)
   private ZipEntry interfaceSubjectToDesugarZipEntryRound1;
 
-  @LoadZipEntry(value = "DesugarRuleTestTarget$InterfaceSubjectToDesugar$$CC.class", round = 2)
+  @Inject
+  @RuntimeZipEntry(value = "DesugarRuleTestTarget$InterfaceSubjectToDesugar$$CC.class", round = 2)
   private ZipEntry interfaceSubjectToDesugarZipEntryRound2;
 
-  @LoadAsmNode(className = "DesugarRuleTestTarget")
+  @Inject
+  @AsmNode(className = "DesugarRuleTestTarget")
   private ClassNode desugarRuleTestTargetClassNode;
 
-  @LoadAsmNode(className = "DesugarRuleTestTarget$Alpha", memberName = "twoIntSum")
+  @Inject
+  @AsmNode(className = "DesugarRuleTestTarget$Alpha", memberName = "twoIntSum")
   private MethodNode twoIntSum;
 
-  @LoadAsmNode(
+  @Inject
+  @AsmNode(
       className = "DesugarRuleTestTarget$Alpha",
       memberName = "multiplier",
       memberDescriptor = "J")
   private FieldNode multiplier;
 
-  @LoadMethodHandle(className = "DesugarRuleTestTarget$Alpha", memberName = "twoIntSum")
+  @Inject
+  @RuntimeMethodHandle(className = "DesugarRuleTestTarget$Alpha", memberName = "twoIntSum")
   private MethodHandle twoIntSumMH;
 
-  @LoadMethodHandle(className = "DesugarRuleTestTarget$Alpha", memberName = "<init>")
+  @Inject
+  @RuntimeMethodHandle(className = "DesugarRuleTestTarget$Alpha", memberName = "<init>")
   private MethodHandle alphaConstructor;
 
-  @LoadMethodHandle(className = "DesugarRuleTestTarget$Alpha", memberName = "linearLongTransform")
+  @Inject
+  @RuntimeMethodHandle(
+      className = "DesugarRuleTestTarget$Alpha",
+      memberName = "linearLongTransform")
   private MethodHandle linearLongTransform;
 
-  @LoadMethodHandle(
+  @Inject
+  @RuntimeMethodHandle(
       className = "DesugarRuleTestTarget$Alpha",
       memberName = "multiplier",
       usage = MemberUseContext.FIELD_GETTER)
   private MethodHandle alphaMultiplierGetter;
 
-  @LoadMethodHandle(
+  @Inject
+  @RuntimeMethodHandle(
       className = "DesugarRuleTestTarget$Alpha",
       memberName = "multiplier",
       usage = MemberUseContext.FIELD_SETTER)

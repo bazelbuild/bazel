@@ -17,7 +17,7 @@ package com.google.devtools.build.android.desugar.nest.functional;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.devtools.build.android.desugar.testing.junit.DesugarRule;
-import com.google.devtools.build.android.desugar.testing.junit.LoadClass;
+import com.google.devtools.build.android.desugar.testing.junit.DynamicClassLiteral;
 import com.google.testing.testsize.MediumTest;
 import com.google.testing.testsize.MediumTestAttribute;
 import java.lang.invoke.MethodHandle;
@@ -28,6 +28,7 @@ import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
+import javax.inject.Inject;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -50,13 +51,16 @@ public final class MethodInNestTest {
 
   private final MethodHandles.Lookup lookup = MethodHandles.lookup();
 
-  @LoadClass(value = "MethodNest$MethodOwnerMate")
+  @Inject
+  @DynamicClassLiteral(value = "MethodNest$MethodOwnerMate")
   private Class<?> mate;
 
-  @LoadClass("MethodNest$SubMate")
+  @Inject
+  @DynamicClassLiteral("MethodNest$SubMate")
   private Class<?> subClassMate;
 
-  @LoadClass("MethodNest")
+  @Inject
+  @DynamicClassLiteral("MethodNest")
   private Class<?> invoker;
 
   private Object mateInstance;

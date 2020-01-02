@@ -34,7 +34,7 @@ import com.google.devtools.build.android.desugar.Desugar;
 import com.google.devtools.build.android.desugar.langmodel.ClassMemberKey;
 import com.google.devtools.build.android.desugar.langmodel.FieldKey;
 import com.google.devtools.build.android.desugar.langmodel.MethodKey;
-import com.google.devtools.build.android.desugar.testing.junit.LoadMethodHandle.MemberUseContext;
+import com.google.devtools.build.android.desugar.testing.junit.RuntimeMethodHandle.MemberUseContext;
 import com.google.errorprone.annotations.FormatMethod;
 import java.io.IOException;
 import java.io.InputStream;
@@ -64,6 +64,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
+import javax.inject.Inject;
 import org.junit.rules.TemporaryFolder;
 import org.junit.rules.TestRule;
 import org.junit.runner.Description;
@@ -214,7 +215,7 @@ public final class DesugarRule implements TestRule {
             for (Field field : injectableClassLiterals) {
               Class<?> classLiteral =
                   loadClassLiteral(
-                      field.getDeclaredAnnotation(LoadClass.class),
+                      field.getDeclaredAnnotation(DynamicClassLiteral.class),
                       jarTransformationRecords,
                       inputClassLoader,
                       reflectionBasedMembers,
@@ -228,7 +229,7 @@ public final class DesugarRule implements TestRule {
               Class<?> requestedFieldType = field.getType();
               Object asmNode =
                   getAsmNode(
-                      field.getDeclaredAnnotation(LoadAsmNode.class),
+                      field.getDeclaredAnnotation(AsmNode.class),
                       requestedFieldType,
                       jarTransformationRecords,
                       inputs,
@@ -240,7 +241,7 @@ public final class DesugarRule implements TestRule {
             for (Field field : injectableMethodHandles) {
               MethodHandle methodHandle =
                   getMethodHandle(
-                      field.getDeclaredAnnotation(LoadMethodHandle.class),
+                      field.getDeclaredAnnotation(RuntimeMethodHandle.class),
                       testInstanceLookup,
                       jarTransformationRecords,
                       inputClassLoader,
@@ -254,7 +255,7 @@ public final class DesugarRule implements TestRule {
             for (Field field : injectableZipEntries) {
               ZipEntry zipEntry =
                   getZipEntry(
-                      field.getDeclaredAnnotation(LoadZipEntry.class),
+                      field.getDeclaredAnnotation(RuntimeZipEntry.class),
                       jarTransformationRecords,
                       inputs,
                       workingJavaPackage);
@@ -340,19 +341,19 @@ public final class DesugarRule implements TestRule {
   }
 
   private static Class<?> loadClassLiteral(
-      LoadClass loadClassRequest,
+      DynamicClassLiteral dynamicClassLiteralRequest,
       List<JarTransformationRecord> jarTransformationRecords,
       ClassLoader initialInputClassLoader,
       Table<Integer, ClassMemberKey, Member> reflectionBasedMembers,
       Table<Integer, ClassMemberKey, Set<ClassMemberKey>> missingDescriptorLookupRepo,
       String workingJavaPackage)
       throws Throwable {
-    int round = loadClassRequest.round();
+    int round = dynamicClassLiteralRequest.round();
     ClassLoader outputJarClassLoader =
         round == 0
             ? initialInputClassLoader
             : jarTransformationRecords.get(round - 1).getOutputClassLoader();
-    String requestedClassName = loadClassRequest.value();
+    String requestedClassName = dynamicClassLiteralRequest.value();
     String qualifiedClassName =
         workingJavaPackage.isEmpty() || requestedClassName.contains(".")
             ? requestedClassName
@@ -364,7 +365,7 @@ public final class DesugarRule implements TestRule {
   }
 
   private static <T> T getAsmNode(
-      LoadAsmNode asmNodeRequest,
+      AsmNode asmNodeRequest,
       Class<T> requestedNodeType,
       List<JarTransformationRecord> jarTransformationRecords,
       ImmutableList<Path> initialInputs,
@@ -398,12 +399,12 @@ public final class DesugarRule implements TestRule {
   }
 
   @AutoAnnotation
-  private static LoadClass createLoadClassLiteralRequest(String value, int round) {
+  private static DynamicClassLiteral createLoadClassLiteralRequest(String value, int round) {
     return new AutoAnnotation_DesugarRule_createLoadClassLiteralRequest(value, round);
   }
 
   private static MethodHandle getMethodHandle(
-      LoadMethodHandle methodHandleRequest,
+      RuntimeMethodHandle methodHandleRequest,
       Lookup lookup,
       List<JarTransformationRecord> jarTransformationRecords,
       ClassLoader initialInputClassLoader,
@@ -522,7 +523,7 @@ public final class DesugarRule implements TestRule {
   }
 
   private static ZipEntry getZipEntry(
-      LoadZipEntry zipEntryRequest,
+      RuntimeZipEntry zipEntryRequest,
       List<JarTransformationRecord> jarTransformationRecords,
       ImmutableList<Path> initialInputs,
       String workingJavaPackage)
@@ -592,14 +593,14 @@ public final class DesugarRule implements TestRule {
     return outputRuntimePathsBuilder.build();
   }
 
-  private static ImmutableList<Field> findAllFieldsWithAnnotation(
+  private static ImmutableList<Field> findAllInjectableFieldsWithQualifier(
       Class<?> testClass, Class<? extends Annotation> annotationClass) {
     ImmutableList.Builder<Field> fields = ImmutableList.builder();
     for (Class<?> currentClass = testClass;
         currentClass != null;
         currentClass = currentClass.getSuperclass()) {
       for (Field field : currentClass.getDeclaredFields()) {
-        if (field.isAnnotationPresent(annotationClass)) {
+        if (field.isAnnotationPresent(Inject.class) && field.isAnnotationPresent(annotationClass)) {
           fields.add(field);
         }
       }
@@ -649,10 +650,13 @@ public final class DesugarRule implements TestRule {
             "Expected a test instance whose class is annotated with @RunWith. %s", testClass);
       }
 
-      injectableClassLiterals = findAllFieldsWithAnnotation(testClass, LoadClass.class);
-      injectableAsmNodes = findAllFieldsWithAnnotation(testClass, LoadAsmNode.class);
-      injectableMethodHandles = findAllFieldsWithAnnotation(testClass, LoadMethodHandle.class);
-      injectableJarFileEntries = findAllFieldsWithAnnotation(testClass, LoadZipEntry.class);
+      injectableClassLiterals =
+          findAllInjectableFieldsWithQualifier(testClass, DynamicClassLiteral.class);
+      injectableAsmNodes = findAllInjectableFieldsWithQualifier(testClass, AsmNode.class);
+      injectableMethodHandles =
+          findAllInjectableFieldsWithQualifier(testClass, RuntimeMethodHandle.class);
+      injectableJarFileEntries =
+          findAllInjectableFieldsWithQualifier(testClass, RuntimeZipEntry.class);
     }
 
     public DesugarRuleBuilder setWorkingJavaPackage(String workingJavaPackage) {
@@ -761,8 +765,9 @@ public final class DesugarRule implements TestRule {
           errorMessenger.addError("Expected a class literal type (Class<?>) for field (%s)", field);
         }
 
-        LoadClass loadClassAnnotation = field.getDeclaredAnnotation(LoadClass.class);
-        int round = loadClassAnnotation.round();
+        DynamicClassLiteral dynamicClassLiteralAnnotation =
+            field.getDeclaredAnnotation(DynamicClassLiteral.class);
+        int round = dynamicClassLiteralAnnotation.round();
         if (round < 0 || round > maxNumOfTransformations) {
           errorMessenger.addError(
               "Expected the round (Actual:%d) of desugar transformation within [0, %d], where 0"
@@ -780,11 +785,11 @@ public final class DesugarRule implements TestRule {
 
         if (!SUPPORTED_ASM_NODE_TYPES.contains(field.getType())) {
           errorMessenger.addError(
-              "Expected @LoadAsmNode on a field in one of: (%s) but gets (%s)",
+              "Expected @inject @AsmNode on a field in one of: (%s) but gets (%s)",
               SUPPORTED_ASM_NODE_TYPES, field);
         }
 
-        LoadAsmNode astAsmNodeInfo = field.getDeclaredAnnotation(LoadAsmNode.class);
+        AsmNode astAsmNodeInfo = field.getDeclaredAnnotation(AsmNode.class);
         int round = astAsmNodeInfo.round();
         if (round < 0 || round > maxNumOfTransformations) {
           errorMessenger.addError(
@@ -803,11 +808,13 @@ public final class DesugarRule implements TestRule {
 
         if (field.getType() != MethodHandle.class) {
           errorMessenger.addError(
-              "Expected @LoadMethodHandle annotated on a field with type (%s), but gets (%s)",
+              "Expected @Inject @RuntimeMethodHandle annotated on a field with type (%s), but gets"
+                  + " (%s)",
               MethodHandle.class, field);
         }
 
-        LoadMethodHandle methodHandleRequest = field.getDeclaredAnnotation(LoadMethodHandle.class);
+        RuntimeMethodHandle methodHandleRequest =
+            field.getDeclaredAnnotation(RuntimeMethodHandle.class);
         int round = methodHandleRequest.round();
         if (round < 0 || round > maxNumOfTransformations) {
           errorMessenger.addError(
@@ -829,7 +836,7 @@ public final class DesugarRule implements TestRule {
               "Expected a field with Type: (%s) but gets (%s)", ZipEntry.class.getName(), field);
         }
 
-        LoadZipEntry zipEntryInfo = field.getDeclaredAnnotation(LoadZipEntry.class);
+        RuntimeZipEntry zipEntryInfo = field.getDeclaredAnnotation(RuntimeZipEntry.class);
         if (zipEntryInfo.round() < 0 || zipEntryInfo.round() > maxNumOfTransformations) {
           errorMessenger.addError(
               "Expected the round of desugar transformation within [0, %d], where 0 indicates no"
