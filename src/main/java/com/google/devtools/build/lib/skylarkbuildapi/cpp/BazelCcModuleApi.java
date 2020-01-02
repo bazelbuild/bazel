@@ -139,7 +139,7 @@ public interface BazelCcModuleApi<
             name = "system_includes",
             doc =
                 "Search paths for header files referenced by angle brackets, e.g. #include"
-                    + " <foo/bar/header.h>. They can be either relative to the exec root or"
+                    + " &lt;foo/bar/header.h&gt;. They can be either relative to the exec root or"
                     + " absolute. Usually passed with -isystem. Propagated to dependents "
                     + "transitively.",
             positional = false,
