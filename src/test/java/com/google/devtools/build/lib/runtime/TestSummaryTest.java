@@ -1,4 +1,4 @@
-// Copyright 2015 The Bazel Authors. All rights reserved.
+// Copyright 2019 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -11,6 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+//
 
 package com.google.devtools.build.lib.runtime;
 
@@ -123,25 +124,37 @@ public class TestSummaryTest {
     terminalPrinter.print(find(expectedString));
   }
 
-  private void assertShouldNotPrint(BlazeTestStatus status) throws Exception {
+  private void assertShouldNotPrint(BlazeTestStatus status, boolean verboseSummary) {
     AnsiTerminalPrinter terminalPrinter = Mockito.mock(AnsiTerminalPrinter.class);
     TestSummaryPrinter.print(
         createTestSummary(stubTarget, status, NOT_CACHED),
         terminalPrinter,
         Path::getPathString,
-        true,
+        verboseSummary,
         false);
     verify(terminalPrinter, never()).print(anyString());
   }
 
   @Test
-  public void testShouldNotPrintFailedToBuildStatus() throws Exception {
-    assertShouldNotPrint(BlazeTestStatus.FAILED_TO_BUILD);
+  public void testShouldPrintFailedToBuildStatus() {
+    String expectedString = ANY_STRING + "INFO" + ANY_STRING + BlazeTestStatus.FAILED_TO_BUILD;
+    AnsiTerminalPrinter terminalPrinter = Mockito.mock(AnsiTerminalPrinter.class);
+
+    TestSummary summary = createTestSummary(BlazeTestStatus.FAILED_TO_BUILD, NOT_CACHED);
+
+    TestSummaryPrinter.print(summary, terminalPrinter, Path::getPathString, true, false);
+
+    terminalPrinter.print(find(expectedString));
   }
 
   @Test
-  public void testShouldNotPrintHaltedStatus() throws Exception {
-    assertShouldNotPrint(BlazeTestStatus.BLAZE_HALTED_BEFORE_TESTING);
+  public void testShouldNotPrintFailedToBuildStatus() {
+    assertShouldNotPrint(BlazeTestStatus.FAILED_TO_BUILD, false);
+  }
+
+  @Test
+  public void testShouldNotPrintHaltedStatus() {
+    assertShouldNotPrint(BlazeTestStatus.BLAZE_HALTED_BEFORE_TESTING, true);
   }
 
   @Test

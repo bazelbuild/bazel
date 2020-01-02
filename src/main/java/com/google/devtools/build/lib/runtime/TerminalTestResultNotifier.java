@@ -1,4 +1,4 @@
-// Copyright 2014 The Bazel Authors. All rights reserved.
+// Copyright 2019 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -11,11 +11,14 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+//
 package com.google.devtools.build.lib.runtime;
 
 import static com.google.devtools.build.lib.exec.TestStrategy.TestSummaryFormat.DETAILED;
 import static com.google.devtools.build.lib.exec.TestStrategy.TestSummaryFormat.TESTCASE;
 
+import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.analysis.test.TestResult;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
@@ -40,6 +43,9 @@ import java.util.Set;
  * Prints the test results to a terminal.
  */
 public class TerminalTestResultNotifier implements TestResultNotifier {
+  @VisibleForTesting
+  public static final int NUM_FAILED_TO_BUILD = 5;
+
   private static class TestResultStats {
     int numberOfTargets;
     int passCount;
@@ -127,41 +133,34 @@ public class TerminalTestResultNotifier implements TestResultNotifier {
     return false;
   }
 
-  /**
-   * Prints a test result summary that contains only failed tests.
-   */
-  private void printDetailedTestResultSummary(Set<TestSummary> summaries) {
+  private void printSummary(Set<TestSummary> summaries,
+      boolean showAllTests,
+      boolean showNoStatusTests,
+      boolean printFailedTestCases) {
     boolean withConfig = duplicateLabels(summaries);
+    int numFailedToBuildReported = 0;
     for (TestSummary summary : summaries) {
-      if (summary.getStatus() != BlazeTestStatus.PASSED) {
-        TestSummaryPrinter.print(
-            summary,
-            printer,
-            testLogPathFormatter,
-            summaryOptions.verboseSummary,
-            true,
-            withConfig);
+      if (!showAllTests
+          && (BlazeTestStatus.PASSED == summary.getStatus()
+              || !showNoStatusTests && BlazeTestStatus.NO_STATUS == summary.getStatus())) {
+        continue;
       }
-    }
-  }
-
-  /**
-   * Prints a full test result summary.
-   */
-  private void printShortSummary(Set<TestSummary> summaries, boolean showPassingTests) {
-    boolean withConfig = duplicateLabels(summaries);
-    for (TestSummary summary : summaries) {
-      if ((summary.getStatus() != BlazeTestStatus.PASSED
-              && summary.getStatus() != BlazeTestStatus.NO_STATUS)
-          || showPassingTests) {
-        TestSummaryPrinter.print(
-            summary,
-            printer,
-            testLogPathFormatter,
-            summaryOptions.verboseSummary,
-            false,
-            withConfig);
+      if (BlazeTestStatus.FAILED_TO_BUILD == summary.getStatus()) {
+        if (numFailedToBuildReported == NUM_FAILED_TO_BUILD) {
+          printer.printLn("(Skipping other failed to build tests)");
+        }
+        numFailedToBuildReported++;
+        if (numFailedToBuildReported > NUM_FAILED_TO_BUILD) {
+          continue;
+        }
       }
+      TestSummaryPrinter.print(
+          summary,
+          printer,
+          testLogPathFormatter,
+          summaryOptions.verboseSummary,
+          printFailedTestCases,
+          withConfig);
     }
   }
 
@@ -185,7 +184,9 @@ public class TerminalTestResultNotifier implements TestResultNotifier {
     stats.numberOfTargets = summaries.size();
     stats.numberOfExecutedTargets = numberOfExecutedTargets;
 
-    TestOutputFormat testOutput = options.getOptions(ExecutionOptions.class).testOutput;
+    ExecutionOptions executionOptions = Preconditions.checkNotNull(
+        options.getOptions(ExecutionOptions.class));
+    TestOutputFormat testOutput = executionOptions.testOutput;
 
     for (TestSummary summary : summaries) {
       if (summary.isLocalActionCached()
@@ -218,18 +219,18 @@ public class TerminalTestResultNotifier implements TestResultNotifier {
 
     stats.failedCount = summaries.size() - stats.passCount;
 
-    TestSummaryFormat testSummaryFormat = options.getOptions(ExecutionOptions.class).testSummary;
+    TestSummaryFormat testSummaryFormat = executionOptions.testSummary;
     switch (testSummaryFormat) {
       case DETAILED:
-        printDetailedTestResultSummary(summaries);
+        printSummary(summaries, false, true, true);
         break;
 
       case SHORT:
-        printShortSummary(summaries, /* showPassingTests= */ true);
+        printSummary(summaries, true, false, false);
         break;
 
       case TERSE:
-        printShortSummary(summaries, /* showPassingTests= */ false);
+        printSummary(summaries, false, false, false);
         break;
 
       case TESTCASE:

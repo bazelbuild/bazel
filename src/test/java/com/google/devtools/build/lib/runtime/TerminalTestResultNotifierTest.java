@@ -1,4 +1,4 @@
-// Copyright 2015 The Bazel Authors. All rights reserved.
+// Copyright 2019 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -11,6 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+//
 
 package com.google.devtools.build.lib.runtime;
 
@@ -18,11 +19,14 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableSortedSet;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
@@ -35,6 +39,7 @@ import com.google.devtools.build.lib.view.test.TestStatus.TestCase;
 import com.google.devtools.build.lib.view.test.TestStatus.TestCase.Status;
 import com.google.devtools.common.options.OptionsParsingResult;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -104,6 +109,34 @@ public final class TerminalTestResultNotifierTest {
     assertThat(printed).contains(error("2 failing"));
     assertThat(printed).contains("out of 10 test cases");
     assertThat(printed).doesNotContain(ALL_TEST_CASES_PASSED_BUT_TARGET_FAILED_DISCLAIMER);
+  }
+
+  @Test
+  public void shortOption_someFailToBuild() throws Exception {
+    testSummaryFormat = TestSummaryFormat.SHORT;
+    numFailedTestCases = 0;
+    int numFailedToBuildTestCases = TerminalTestResultNotifier.NUM_FAILED_TO_BUILD + 1;
+    numTotalTestCases = 10;
+    targetStatus = BlazeTestStatus.FAILED_TO_BUILD;
+
+    printFailedToBuildSummaries();
+
+    String skippedMessage = getPrintedMessage();
+    assertThat(skippedMessage).isEqualTo("(Skipping other failed to build tests)");
+
+    ArgumentCaptor<String> messageCaptor = ArgumentCaptor.forClass(String.class);
+    verify(ansiTerminalPrinter, times(numFailedToBuildTestCases)).print(messageCaptor.capture());
+    List<String> values = messageCaptor.getAllValues();
+
+    for (int i = 0; i < numFailedToBuildTestCases - 1; i++) {
+      String message = values.get(i);
+      assertThat(message).contains("//foo/bar:baz");
+      assertThat(message).contains(BlazeTestStatus.FAILED_TO_BUILD.toString().replace('_', ' '));
+    }
+
+    String last = values.get(numFailedToBuildTestCases - 1);
+    assertThat(last).contains("Executed 0 out of 6 tests");
+    assertThat(last).contains(numFailedToBuildTestCases + " fail to build");
   }
 
   @Test
@@ -226,14 +259,45 @@ public final class TerminalTestResultNotifierTest {
     verifyNoSummaryPrinted();
   }
 
-  private void printTestCaseSummary() throws LabelSyntaxException {
+  private void printFailedToBuildSummaries() throws LabelSyntaxException {
+    mockExecutionOptions();
+    mockTestSummaryOptions();
+
+    ImmutableSortedSet.Builder<TestSummary> builder = ImmutableSortedSet.orderedBy(
+        Comparator.comparing(o -> o.getLabel().getName()));
+    for (int i = 0; i < TerminalTestResultNotifier.NUM_FAILED_TO_BUILD + 1; i++) {
+      TestSummary testSummary = mock(TestSummary.class);
+      when(testSummary.getTotalTestCases()).thenReturn(0);
+
+      Label labelA = Label.parseAbsolute("//foo/bar:baz" + i, ImmutableMap.of());
+      when(testSummary.getFailedTestCases()).thenReturn(ImmutableList.of());
+      when(testSummary.getStatus()).thenReturn(BlazeTestStatus.FAILED_TO_BUILD);
+      when(testSummary.getLabel()).thenReturn(labelA);
+
+      builder.add(testSummary);
+    }
+
+    TerminalTestResultNotifier terminalTestResultNotifier =
+        new TerminalTestResultNotifier(
+            ansiTerminalPrinter, Path::getPathString, optionsParsingResult);
+    terminalTestResultNotifier.notify(builder.build(), 0);
+  }
+
+  private void mockExecutionOptions() {
     ExecutionOptions executionOptions = ExecutionOptions.DEFAULTS;
     executionOptions.testSummary = testSummaryFormat;
     when(optionsParsingResult.getOptions(ExecutionOptions.class)).thenReturn(executionOptions);
+  }
 
+  private void mockTestSummaryOptions() {
     TestSummaryOptions testSummaryOptions = new TestSummaryOptions();
     testSummaryOptions.verboseSummary = true;
     when(optionsParsingResult.getOptions(TestSummaryOptions.class)).thenReturn(testSummaryOptions);
+  }
+
+  private void printTestCaseSummary() throws LabelSyntaxException {
+    mockExecutionOptions();
+    mockTestSummaryOptions();
 
     TestSummary testSummary = mock(TestSummary.class);
     when(testSummary.getTotalTestCases()).thenReturn(numTotalTestCases);
