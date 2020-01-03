@@ -1043,7 +1043,7 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
         "    name = 'j2objc_wrapper',",
         "    srcs = ['j2objc_wrapper.py'],",
         ")",
-        "filegroup(",
+        "proto_library(",
         "    name = 'blacklisted_protos',",
         "    srcs = ['some_blacklisted_proto.proto'],",
         ")",
