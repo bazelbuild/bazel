@@ -266,16 +266,6 @@ def _impl(ctx):
         tools = [tool(path = "/usr/bin/strip")],
     )
 
-    # TODO(steinman): Replace this with xcode_config.execution_info once is released.
-    execution_requirements = ["requires-darwin"]
-    xcode_config = ctx.attr._xcode_config[apple_common.XcodeVersionConfig]
-    if xcode_config:
-        if xcode_config.availability() == "remote":
-            execution_requirements.append("no-local")
-        elif xcode_config.availability() == "local":
-            execution_requirements.append("no-remote")
-        execution_requirements.append("supports-xcode-requirements-set")
-
     if (ctx.attr.cpu == "tvos_arm64" or
         ctx.attr.cpu == "tvos_x86_64"):
         cpp_header_parsing_action = action_config(
@@ -297,7 +287,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "wrapped_clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = ["requires-darwin"],
                 ),
             ],
         )
@@ -330,7 +320,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "wrapped_clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = ["requires-darwin"],
                 ),
             ],
         )
@@ -366,7 +356,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "wrapped_clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = ["requires-darwin"],
                 ),
             ],
         )
@@ -399,7 +389,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "wrapped_clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = ["requires-darwin"],
                 ),
             ],
         )
@@ -431,7 +421,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "wrapped_clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = ["requires-darwin"],
                 ),
             ],
         )
@@ -463,7 +453,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "wrapped_clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = ["requires-darwin"],
                 ),
             ],
         )
@@ -495,7 +485,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "wrapped_clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = ["requires-darwin"],
                 ),
             ],
         )
@@ -529,7 +519,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "wrapped_clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = ["requires-darwin"],
                 ),
             ],
         )
@@ -564,7 +554,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "wrapped_clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = ["requires-darwin"],
                 ),
             ],
         )
@@ -596,7 +586,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "wrapped_clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = ["requires-darwin"],
                 ),
             ],
         )
@@ -662,7 +652,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "wrapped_clang_pp",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = ["requires-darwin"],
                 ),
             ],
         )
@@ -725,7 +715,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "wrapped_clang_pp",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = ["requires-darwin"],
                 ),
             ],
         )
@@ -787,7 +777,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "wrapped_clang_pp",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = ["requires-darwin"],
                 ),
             ],
         )
@@ -849,7 +839,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "wrapped_clang_pp",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = ["requires-darwin"],
                 ),
             ],
         )
@@ -911,7 +901,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "wrapped_clang_pp",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = ["requires-darwin"],
                 ),
             ],
         )
@@ -974,7 +964,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "wrapped_clang_pp",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = ["requires-darwin"],
                 ),
             ],
         )
@@ -1039,7 +1029,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "wrapped_clang_pp",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = ["requires-darwin"],
                 ),
             ],
         )
@@ -1069,7 +1059,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "cc_wrapper.sh",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = ["requires-darwin"],
                 ),
             ],
         )
@@ -1104,7 +1094,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "cc_wrapper.sh",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = ["requires-darwin"],
                 ),
             ],
         )
@@ -1123,7 +1113,7 @@ def _impl(ctx):
         tools = [
             tool(
                 path = "libtool",
-                execution_requirements = execution_requirements,
+                execution_requirements = ["requires-darwin"],
             ),
         ],
     )
@@ -1149,7 +1139,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "wrapped_clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = ["requires-darwin"],
                 ),
             ],
         )
@@ -1182,7 +1172,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "wrapped_clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = ["requires-darwin"],
                 ),
             ],
         )
@@ -1210,7 +1200,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "wrapped_clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = ["requires-darwin"],
                 ),
             ],
         )
@@ -1243,7 +1233,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "wrapped_clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = ["requires-darwin"],
                 ),
             ],
         )
@@ -1287,7 +1277,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "wrapped_clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = ["requires-darwin"],
                 ),
             ],
         )
@@ -1323,7 +1313,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "wrapped_clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = ["requires-darwin"],
                 ),
             ],
         )
@@ -1358,7 +1348,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "wrapped_clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = ["requires-darwin"],
                 ),
             ],
         )
@@ -1393,7 +1383,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "wrapped_clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = ["requires-darwin"],
                 ),
             ],
         )
@@ -1428,7 +1418,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "wrapped_clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = ["requires-darwin"],
                 ),
             ],
         )
@@ -1465,7 +1455,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "wrapped_clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = ["requires-darwin"],
                 ),
             ],
         )
@@ -1503,7 +1493,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "wrapped_clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = ["requires-darwin"],
                 ),
             ],
         )
@@ -1538,7 +1528,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "wrapped_clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = ["requires-darwin"],
                 ),
             ],
         )
@@ -1564,7 +1554,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "wrapped_clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = ["requires-darwin"],
                 ),
             ],
         )
@@ -1595,7 +1585,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "wrapped_clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = ["requires-darwin"],
                 ),
             ],
         )
@@ -1623,7 +1613,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "wrapped_clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = ["requires-darwin"],
                 ),
             ],
         )
@@ -1656,7 +1646,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "wrapped_clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = ["requires-darwin"],
                 ),
             ],
         )
@@ -1691,7 +1681,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "libtool",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = ["requires-darwin"],
                 ),
             ],
         )
@@ -1723,7 +1713,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "libtool",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = ["requires-darwin"],
                 ),
             ],
         )
@@ -1754,7 +1744,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "libtool",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = ["requires-darwin"],
                 ),
             ],
         )
@@ -1785,7 +1775,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "libtool",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = ["requires-darwin"],
                 ),
             ],
         )
@@ -1816,7 +1806,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "libtool",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = ["requires-darwin"],
                 ),
             ],
         )
@@ -1848,7 +1838,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "libtool",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = ["requires-darwin"],
                 ),
             ],
         )
@@ -1882,7 +1872,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "libtool",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = ["requires-darwin"],
                 ),
             ],
         )
@@ -1952,7 +1942,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "wrapped_clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = ["requires-darwin"],
                 ),
             ],
         )
@@ -2019,7 +2009,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "wrapped_clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = ["requires-darwin"],
                 ),
             ],
         )
@@ -2085,7 +2075,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "wrapped_clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = ["requires-darwin"],
                 ),
             ],
         )
@@ -2151,7 +2141,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "wrapped_clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = ["requires-darwin"],
                 ),
             ],
         )
@@ -2217,7 +2207,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "wrapped_clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = ["requires-darwin"],
                 ),
             ],
         )
@@ -2284,7 +2274,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "wrapped_clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = ["requires-darwin"],
                 ),
             ],
         )
@@ -2353,7 +2343,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "wrapped_clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = ["requires-darwin"],
                 ),
             ],
         )
@@ -2382,7 +2372,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "cc_wrapper.sh",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = ["requires-darwin"],
                 ),
             ],
         )
@@ -2416,7 +2406,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "cc_wrapper.sh",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = ["requires-darwin"],
                 ),
             ],
         )
@@ -2441,7 +2431,7 @@ def _impl(ctx):
         tools = [
             tool(
                 path = "wrapped_clang",
-                execution_requirements = execution_requirements,
+                execution_requirements = ["requires-darwin"],
             ),
         ],
     )
@@ -2467,7 +2457,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "wrapped_clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = ["requires-darwin"],
                 ),
             ],
         )
@@ -2500,7 +2490,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "wrapped_clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = ["requires-darwin"],
                 ),
             ],
         )
@@ -2530,7 +2520,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "cc_wrapper.sh",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = ["requires-darwin"],
                 ),
             ],
         )
@@ -2565,7 +2555,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "cc_wrapper.sh",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = ["requires-darwin"],
                 ),
             ],
         )
@@ -2610,7 +2600,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "libtool",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = ["requires-darwin"],
                 ),
             ],
         )
@@ -2652,7 +2642,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "libtool",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = ["requires-darwin"],
                 ),
             ],
         )
@@ -2693,7 +2683,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "libtool",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = ["requires-darwin"],
                 ),
             ],
         )
@@ -2734,7 +2724,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "libtool",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = ["requires-darwin"],
                 ),
             ],
         )
@@ -2775,7 +2765,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "libtool",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = ["requires-darwin"],
                 ),
             ],
         )
@@ -2817,7 +2807,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "libtool",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = ["requires-darwin"],
                 ),
             ],
         )
@@ -2861,7 +2851,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "libtool",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = ["requires-darwin"],
                 ),
             ],
         )
@@ -5745,10 +5735,6 @@ cc_toolchain_config = rule(
         "cpu": attr.string(mandatory = True),
         "compiler": attr.string(),
         "cxx_builtin_include_directories": attr.string_list(),
-        "_xcode_config": attr.label(default = configuration_field(
-            fragment = "apple",
-            name = "xcode_config_label",
-        )),
     },
     provides = [CcToolchainConfigInfo],
     executable = True,

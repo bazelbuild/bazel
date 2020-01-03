@@ -76,7 +76,6 @@ public final class CcToolchainProvider extends ToolchainInfo
           /* supportsParamFiles= */ false,
           /* supportsHeaderParsing= */ false,
           (buildOptions) -> CcToolchainVariables.EMPTY,
-          /* executionInfo= */ null,
           CcToolchainVariables.EMPTY,
           /* builtinIncludeFiles= */ ImmutableList.of(),
           /* targetBuiltinIncludeFiles= */ ImmutableList.of(),
@@ -129,7 +128,6 @@ public final class CcToolchainProvider extends ToolchainInfo
   private final boolean supportsParamFiles;
   private final boolean supportsHeaderParsing;
   private final AdditionalBuildVariablesComputer additionalBuildVariablesComputer;
-  private final ImmutableMap<String, String> executionInfo;
   private final CcToolchainVariables buildVariables;
   private final ImmutableList<Artifact> builtinIncludeFiles;
   private final ImmutableList<Artifact> targetBuiltinIncludeFiles;
@@ -194,7 +192,6 @@ public final class CcToolchainProvider extends ToolchainInfo
       boolean supportsParamFiles,
       boolean supportsHeaderParsing,
       AdditionalBuildVariablesComputer additionalBuildVariablesComputer,
-      ImmutableMap<String, String> executionInfo,
       CcToolchainVariables buildVariables,
       ImmutableList<Artifact> builtinIncludeFiles,
       ImmutableList<Artifact> targetBuiltinIncludeFiles,
@@ -250,7 +247,6 @@ public final class CcToolchainProvider extends ToolchainInfo
     this.supportsParamFiles = supportsParamFiles;
     this.supportsHeaderParsing = supportsHeaderParsing;
     this.additionalBuildVariablesComputer = additionalBuildVariablesComputer;
-    this.executionInfo = executionInfo;
     this.buildVariables = buildVariables;
     this.builtinIncludeFiles = builtinIncludeFiles;
     this.targetBuiltinIncludeFiles = targetBuiltinIncludeFiles;
@@ -722,10 +718,6 @@ public final class CcToolchainProvider extends ToolchainInfo
           additionalBuildVariablesComputer);
     }
     return buildVariables;
-  }
-
-  public ImmutableMap<String, String> getExecutionInfo() {
-    return executionInfo;
   }
 
   /**

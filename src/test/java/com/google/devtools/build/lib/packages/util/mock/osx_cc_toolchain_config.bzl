@@ -105,15 +105,6 @@ def _impl(ctx):
     builtin_sysroot = ctx.attr.builtin_sysroot if ctx.attr.builtin_sysroot != "" else None
     cc_target_os = ctx.attr.cc_target_os if ctx.attr.cc_target_os != "" else None
 
-    # TODO(steinman): Replace this with xcode_config.execution_info once it is released.
-    execution_requirements = ["requires-darwin"]
-    xcode_config = ctx.attr._xcode_config[apple_common.XcodeVersionConfig]
-    if xcode_config:
-        if xcode_config.availability() == "remote":
-            execution_requirements.append("no-local")
-        elif xcode_config.availability() == "local":
-            execution_requirements.append("no-remote")
-        execution_requirements.append("supports-xcode-requirements-set")
     if (ctx.attr.cpu == "tvos_arm64"):
         preprocess_assemble_action = action_config(
             action_name = ACTION_NAMES.preprocess_assemble,
@@ -134,7 +125,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "tvos/wrapped_clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = ["requires-darwin"],
                 ),
             ],
         )
@@ -158,7 +149,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "tvsim/wrapped_clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = ["requires-darwin"],
                 ),
             ],
         )
@@ -181,7 +172,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "<tool_dir>/wrapped_clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = ["requires-darwin"],
                 ),
             ],
         )
@@ -205,7 +196,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "ios/wrapped_clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = ["requires-darwin"],
                 ),
             ],
         )
@@ -229,7 +220,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "iossim/wrapped_clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = ["requires-darwin"],
                 ),
             ],
         )
@@ -252,7 +243,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "mac/wrapped_clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = ["requires-darwin"],
                 ),
             ],
         )
@@ -275,7 +266,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "watchos/wrapped_clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = ["requires-darwin"],
                 ),
             ],
         )
@@ -298,7 +289,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "watchsim/wrapped_clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = ["requires-darwin"],
                 ),
             ],
         )
@@ -361,7 +352,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "<tool_dir>/wrapped_clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = ["requires-darwin"],
                 ),
             ],
         )
@@ -421,7 +412,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "ios/wrapped_clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = ["requires-darwin"],
                 ),
             ],
         )
@@ -481,7 +472,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "tvos/wrapped_clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = ["requires-darwin"],
                 ),
             ],
         )
@@ -541,7 +532,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "ios/wrapped_clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = ["requires-darwin"],
                 ),
             ],
         )
@@ -601,7 +592,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "watchos/wrapped_clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = ["requires-darwin"],
                 ),
             ],
         )
@@ -661,7 +652,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "iossim/wrapped_clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = ["requires-darwin"],
                 ),
             ],
         )
@@ -721,7 +712,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "watchsim/wrapped_clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = ["requires-darwin"],
                 ),
             ],
         )
@@ -781,7 +772,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "iossim/wrapped_clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = ["requires-darwin"],
                 ),
             ],
         )
@@ -841,7 +832,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "mac/wrapped_clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = ["requires-darwin"],
                 ),
             ],
         )
@@ -901,7 +892,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "tvsim/wrapped_clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = ["requires-darwin"],
                 ),
             ],
         )
@@ -965,7 +956,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "<tool_dir>/wrapped_clang++",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = ["requires-darwin"],
                 ),
             ],
         )
@@ -1026,7 +1017,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "ios/wrapped_clang++",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = ["requires-darwin"],
                 ),
             ],
         )
@@ -1087,7 +1078,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "tvos/wrapped_clang++",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = ["requires-darwin"],
                 ),
             ],
         )
@@ -1148,7 +1139,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "ios/wrapped_clang++",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = ["requires-darwin"],
                 ),
             ],
         )
@@ -1209,7 +1200,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "watchos/wrapped_clang++",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = ["requires-darwin"],
                 ),
             ],
         )
@@ -1270,7 +1261,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "iossim/wrapped_clang++",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = ["requires-darwin"],
                 ),
             ],
         )
@@ -1331,7 +1322,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "watchsim/wrapped_clang++",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = ["requires-darwin"],
                 ),
             ],
         )
@@ -1392,7 +1383,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "iossim/wrapped_clang++",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = ["requires-darwin"],
                 ),
             ],
         )
@@ -1453,7 +1444,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "mac/wrapped_clang++",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = ["requires-darwin"],
                 ),
             ],
         )
@@ -1514,7 +1505,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "tvsim/wrapped_clang++",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = ["requires-darwin"],
                 ),
             ],
         )
@@ -1541,7 +1532,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "<tool_dir>/clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = ["requires-darwin"],
                 ),
             ],
         )
@@ -1566,7 +1557,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "ios/clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = ["requires-darwin"],
                 ),
             ],
         )
@@ -1591,7 +1582,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "iossim/clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = ["requires-darwin"],
                 ),
             ],
         )
@@ -1615,7 +1606,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "mac/clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = ["requires-darwin"],
                 ),
             ],
         )
@@ -1639,7 +1630,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "tvos/clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = ["requires-darwin"],
                 ),
             ],
         )
@@ -1663,7 +1654,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "tvsim/clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = ["requires-darwin"],
                 ),
             ],
         )
@@ -1687,7 +1678,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "watchos/clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = ["requires-darwin"],
                 ),
             ],
         )
@@ -1711,7 +1702,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "watchsim/clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = ["requires-darwin"],
                 ),
             ],
         )
@@ -1746,7 +1737,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "<tool_dir>/wrapped_clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = ["requires-darwin"],
                 ),
             ],
         )
@@ -1778,7 +1769,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "ios/wrapped_clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = ["requires-darwin"],
                 ),
             ],
         )
@@ -1810,7 +1801,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "tvos/wrapped_clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = ["requires-darwin"],
                 ),
             ],
         )
@@ -1842,7 +1833,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "ios/wrapped_clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = ["requires-darwin"],
                 ),
             ],
         )
@@ -1874,7 +1865,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "watchos/wrapped_clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = ["requires-darwin"],
                 ),
             ],
         )
@@ -1907,7 +1898,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "iossim/wrapped_clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = ["requires-darwin"],
                 ),
             ],
         )
@@ -1940,7 +1931,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "watchsim/wrapped_clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = ["requires-darwin"],
                 ),
             ],
         )
@@ -1973,7 +1964,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "iossim/wrapped_clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = ["requires-darwin"],
                 ),
             ],
         )
@@ -2006,7 +1997,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "tvsim/wrapped_clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = ["requires-darwin"],
                 ),
             ],
         )
@@ -2038,7 +2029,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "mac/wrapped_clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = ["requires-darwin"],
                 ),
             ],
         )
@@ -2071,7 +2062,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "<tool_dir>/libtool",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = ["requires-darwin"],
                 ),
             ],
         )
@@ -2101,7 +2092,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "ios/libtool",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = ["requires-darwin"],
                 ),
             ],
         )
@@ -2131,7 +2122,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "tvos/libtool",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = ["requires-darwin"],
                 ),
             ],
         )
@@ -2161,7 +2152,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "ios/libtool",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = ["requires-darwin"],
                 ),
             ],
         )
@@ -2191,7 +2182,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "watchos/libtool",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = ["requires-darwin"],
                 ),
             ],
         )
@@ -2221,7 +2212,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "iossim/libtool",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = ["requires-darwin"],
                 ),
             ],
         )
@@ -2251,7 +2242,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "watchsim/libtool",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = ["requires-darwin"],
                 ),
             ],
         )
@@ -2281,7 +2272,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "iossim/libtool",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = ["requires-darwin"],
                 ),
             ],
         )
@@ -2311,7 +2302,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "mac/libtool",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = ["requires-darwin"],
                 ),
             ],
         )
@@ -2341,7 +2332,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "tvsim/libtool",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = ["requires-darwin"],
                 ),
             ],
         )
@@ -2379,7 +2370,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "<tool_dir>/wrapped_clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = ["requires-darwin"],
                 ),
             ],
         )
@@ -2414,7 +2405,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "ios/wrapped_clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = ["requires-darwin"],
                 ),
             ],
         )
@@ -2449,7 +2440,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "tvos/wrapped_clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = ["requires-darwin"],
                 ),
             ],
         )
@@ -2484,7 +2475,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "ios/wrapped_clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = ["requires-darwin"],
                 ),
             ],
         )
@@ -2519,7 +2510,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "watchos/wrapped_clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = ["requires-darwin"],
                 ),
             ],
         )
@@ -2555,7 +2546,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "iossim/wrapped_clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = ["requires-darwin"],
                 ),
             ],
         )
@@ -2591,7 +2582,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "watchsim/wrapped_clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = ["requires-darwin"],
                 ),
             ],
         )
@@ -2627,7 +2618,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "iossim/wrapped_clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = ["requires-darwin"],
                 ),
             ],
         )
@@ -2663,7 +2654,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "tvsim/wrapped_clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = ["requires-darwin"],
                 ),
             ],
         )
@@ -2698,7 +2689,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "mac/wrapped_clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = ["requires-darwin"],
                 ),
             ],
         )
@@ -2725,7 +2716,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "tvos/wrapped_clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = ["requires-darwin"],
                 ),
             ],
         )
@@ -2749,7 +2740,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "tvsim/wrapped_clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = ["requires-darwin"],
                 ),
             ],
         )
@@ -2772,7 +2763,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "<tool_dir>/wrapped_clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = ["requires-darwin"],
                 ),
             ],
         )
@@ -2796,7 +2787,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "ios/wrapped_clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = ["requires-darwin"],
                 ),
             ],
         )
@@ -2820,7 +2811,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "iossim/wrapped_clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = ["requires-darwin"],
                 ),
             ],
         )
@@ -2843,7 +2834,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "mac/wrapped_clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = ["requires-darwin"],
                 ),
             ],
         )
@@ -2866,7 +2857,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "watchos/wrapped_clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = ["requires-darwin"],
                 ),
             ],
         )
@@ -2889,7 +2880,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "watchsim/wrapped_clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = ["requires-darwin"],
                 ),
             ],
         )
@@ -2914,7 +2905,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "tvos/wrapped_clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = ["requires-darwin"],
                 ),
             ],
         )
@@ -2936,7 +2927,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "tvsim/wrapped_clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = ["requires-darwin"],
                 ),
             ],
         )
@@ -2957,7 +2948,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "<tool_dir>/wrapped_clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = ["requires-darwin"],
                 ),
             ],
         )
@@ -2979,7 +2970,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "ios/wrapped_clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = ["requires-darwin"],
                 ),
             ],
         )
@@ -3001,7 +2992,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "iossim/wrapped_clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = ["requires-darwin"],
                 ),
             ],
         )
@@ -3022,7 +3013,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "mac/wrapped_clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = ["requires-darwin"],
                 ),
             ],
         )
@@ -3043,7 +3034,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "watchos/wrapped_clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = ["requires-darwin"],
                 ),
             ],
         )
@@ -3064,7 +3055,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "watchsim/wrapped_clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = ["requires-darwin"],
                 ),
             ],
         )
@@ -3092,7 +3083,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "<tool_dir>/clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = ["requires-darwin"],
                 ),
             ],
         )
@@ -3118,7 +3109,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "ios/clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = ["requires-darwin"],
                 ),
             ],
         )
@@ -3144,7 +3135,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "iossim/clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = ["requires-darwin"],
                 ),
             ],
         )
@@ -3169,7 +3160,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "mac/clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = ["requires-darwin"],
                 ),
             ],
         )
@@ -3194,7 +3185,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "tvos/clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = ["requires-darwin"],
                 ),
             ],
         )
@@ -3219,7 +3210,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "tvsim/clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = ["requires-darwin"],
                 ),
             ],
         )
@@ -3244,7 +3235,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "watchos/clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = ["requires-darwin"],
                 ),
             ],
         )
@@ -3269,7 +3260,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "watchsim/clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = ["requires-darwin"],
                 ),
             ],
         )
@@ -3300,7 +3291,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "<tool_dir>/wrapped_clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = ["requires-darwin"],
                 ),
             ],
         )
@@ -3329,7 +3320,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "tvos/wrapped_clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = ["requires-darwin"],
                 ),
             ],
         )
@@ -3357,7 +3348,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "ios/wrapped_clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = ["requires-darwin"],
                 ),
             ],
         )
@@ -3385,7 +3376,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "ios/wrapped_clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = ["requires-darwin"],
                 ),
             ],
         )
@@ -3413,7 +3404,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "watchos/wrapped_clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = ["requires-darwin"],
                 ),
             ],
         )
@@ -3441,7 +3432,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "iossim/wrapped_clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = ["requires-darwin"],
                 ),
             ],
         )
@@ -3469,7 +3460,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "watchsim/wrapped_clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = ["requires-darwin"],
                 ),
             ],
         )
@@ -3498,7 +3489,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "tvsim/wrapped_clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = ["requires-darwin"],
                 ),
             ],
         )
@@ -3526,7 +3517,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "iossim/wrapped_clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = ["requires-darwin"],
                 ),
             ],
         )
@@ -3554,7 +3545,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "mac/wrapped_clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = ["requires-darwin"],
                 ),
             ],
         )
@@ -3585,7 +3576,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "<tool_dir>/wrapped_clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = ["requires-darwin"],
                 ),
             ],
         )
@@ -3614,7 +3605,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "tvos/wrapped_clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = ["requires-darwin"],
                 ),
             ],
         )
@@ -3642,7 +3633,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "ios/wrapped_clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = ["requires-darwin"],
                 ),
             ],
         )
@@ -3670,7 +3661,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "ios/wrapped_clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = ["requires-darwin"],
                 ),
             ],
         )
@@ -3698,7 +3689,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "watchos/wrapped_clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = ["requires-darwin"],
                 ),
             ],
         )
@@ -3726,7 +3717,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "iossim/wrapped_clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = ["requires-darwin"],
                 ),
             ],
         )
@@ -3754,7 +3745,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "watchsim/wrapped_clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = ["requires-darwin"],
                 ),
             ],
         )
@@ -3783,7 +3774,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "tvsim/wrapped_clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = ["requires-darwin"],
                 ),
             ],
         )
@@ -3811,7 +3802,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "iossim/wrapped_clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = ["requires-darwin"],
                 ),
             ],
         )
@@ -3839,7 +3830,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "mac/wrapped_clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = ["requires-darwin"],
                 ),
             ],
         )
@@ -3870,7 +3861,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "<tool_dir>/wrapped_clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = ["requires-darwin"],
                 ),
             ],
         )
@@ -3898,7 +3889,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "ios/wrapped_clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = ["requires-darwin"],
                 ),
             ],
         )
@@ -3926,7 +3917,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "tvos/wrapped_clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = ["requires-darwin"],
                 ),
             ],
         )
@@ -3954,7 +3945,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "ios/wrapped_clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = ["requires-darwin"],
                 ),
             ],
         )
@@ -3982,7 +3973,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "watchos/wrapped_clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = ["requires-darwin"],
                 ),
             ],
         )
@@ -4010,7 +4001,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "iossim/wrapped_clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = ["requires-darwin"],
                 ),
             ],
         )
@@ -4038,7 +4029,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "watchsim/wrapped_clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = ["requires-darwin"],
                 ),
             ],
         )
@@ -4066,7 +4057,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "iossim/wrapped_clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = ["requires-darwin"],
                 ),
             ],
         )
@@ -4094,7 +4085,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "mac/wrapped_clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = ["requires-darwin"],
                 ),
             ],
         )
@@ -4122,7 +4113,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "tvsim/wrapped_clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = ["requires-darwin"],
                 ),
             ],
         )
@@ -4149,7 +4140,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "tvos/wrapped_clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = ["requires-darwin"],
                 ),
             ],
         )
@@ -4173,7 +4164,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "tvsim/wrapped_clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = ["requires-darwin"],
                 ),
             ],
         )
@@ -4196,7 +4187,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "<tool_dir>/wrapped_clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = ["requires-darwin"],
                 ),
             ],
         )
@@ -4220,7 +4211,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "ios/wrapped_clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = ["requires-darwin"],
                 ),
             ],
         )
@@ -4244,7 +4235,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "iossim/wrapped_clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = ["requires-darwin"],
                 ),
             ],
         )
@@ -4267,7 +4258,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "mac/wrapped_clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = ["requires-darwin"],
                 ),
             ],
         )
@@ -4290,7 +4281,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "watchos/wrapped_clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = ["requires-darwin"],
                 ),
             ],
         )
@@ -4313,7 +4304,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "watchsim/wrapped_clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = ["requires-darwin"],
                 ),
             ],
         )
@@ -4341,7 +4332,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "<tool_dir>/clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = ["requires-darwin"],
                 ),
             ],
         )
@@ -4367,7 +4358,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "ios/clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = ["requires-darwin"],
                 ),
             ],
         )
@@ -4393,7 +4384,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "iossim/clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = ["requires-darwin"],
                 ),
             ],
         )
@@ -4418,7 +4409,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "mac/clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = ["requires-darwin"],
                 ),
             ],
         )
@@ -4443,7 +4434,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "tvos/clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = ["requires-darwin"],
                 ),
             ],
         )
@@ -4468,7 +4459,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "tvsim/clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = ["requires-darwin"],
                 ),
             ],
         )
@@ -4493,7 +4484,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "watchos/clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = ["requires-darwin"],
                 ),
             ],
         )
@@ -4518,7 +4509,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "watchsim/clang",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = ["requires-darwin"],
                 ),
             ],
         )
@@ -4538,7 +4529,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "<tool_dir>/ar_wrapper",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = ["requires-darwin"],
                 ),
             ],
         )
@@ -4556,7 +4547,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "ios/ar_wrapper",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = ["requires-darwin"],
                 ),
             ],
         )
@@ -4574,7 +4565,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "iossim/ar_wrapper",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = ["requires-darwin"],
                 ),
             ],
         )
@@ -4591,7 +4582,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "mac/ar_wrapper",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = ["requires-darwin"],
                 ),
             ],
         )
@@ -4608,7 +4599,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "tvos/ar_wrapper",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = ["requires-darwin"],
                 ),
             ],
         )
@@ -4625,7 +4616,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "tvsim/ar_wrapper",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = ["requires-darwin"],
                 ),
             ],
         )
@@ -4642,7 +4633,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "watchos/ar_wrapper",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = ["requires-darwin"],
                 ),
             ],
         )
@@ -4659,7 +4650,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "watchsim/ar_wrapper",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = ["requires-darwin"],
                 ),
             ],
         )
@@ -4702,7 +4693,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "<tool_dir>/libtool",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = ["requires-darwin"],
                 ),
             ],
         )
@@ -4742,7 +4733,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "ios/libtool",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = ["requires-darwin"],
                 ),
             ],
         )
@@ -4782,7 +4773,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "tvos/libtool",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = ["requires-darwin"],
                 ),
             ],
         )
@@ -4822,7 +4813,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "ios/libtool",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = ["requires-darwin"],
                 ),
             ],
         )
@@ -4862,7 +4853,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "watchos/libtool",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = ["requires-darwin"],
                 ),
             ],
         )
@@ -4902,7 +4893,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "iossim/libtool",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = ["requires-darwin"],
                 ),
             ],
         )
@@ -4942,7 +4933,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "watchsim/libtool",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = ["requires-darwin"],
                 ),
             ],
         )
@@ -4982,7 +4973,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "iossim/libtool",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = ["requires-darwin"],
                 ),
             ],
         )
@@ -5022,7 +5013,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "mac/libtool",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = ["requires-darwin"],
                 ),
             ],
         )
@@ -5062,7 +5053,7 @@ def _impl(ctx):
             tools = [
                 tool(
                     path = "tvsim/libtool",
-                    execution_requirements = execution_requirements,
+                    execution_requirements = ["requires-darwin"],
                 ),
             ],
         )
@@ -8112,10 +8103,6 @@ cc_toolchain_config = rule(
         "tool_paths": attr.string_dict(),
         "cxx_builtin_include_directories": attr.string_list(),
         "make_variables": attr.string_dict(),
-        "_xcode_config": attr.label(default = configuration_field(
-            fragment = "apple",
-            name = "xcode_config_label",
-        )),
     },
     provides = [CcToolchainConfigInfo],
     executable = True,

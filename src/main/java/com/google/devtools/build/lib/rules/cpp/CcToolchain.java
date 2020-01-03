@@ -28,7 +28,6 @@ import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.events.Location;
 import java.io.Serializable;
 import java.util.HashMap;
-import javax.annotation.Nullable;
 
 /**
  * Implementation for the cc_toolchain rule.
@@ -52,10 +51,7 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
     validateToolchain(ruleContext);
     CcToolchainAttributesProvider attributes =
         new CcToolchainAttributesProvider(
-            ruleContext,
-            isAppleToolchain(),
-            getAdditionalBuildVariablesComputer(ruleContext),
-            getExecutionInfo(ruleContext));
+            ruleContext, isAppleToolchain(), getAdditionalBuildVariablesComputer(ruleContext));
 
     RuleConfiguredTargetBuilder ruleConfiguredTargetBuilder =
         new RuleConfiguredTargetBuilder(ruleContext)
@@ -118,15 +114,6 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
   protected boolean isAppleToolchain() {
     // To be overridden in subclass.
     return false;
-  }
-
-  /**
-   * Returns the execution info for actions that use this toolchain, or null if there are no
-   * toolchain-specific execution requirements.
-   */
-  @Nullable
-  protected ImmutableMap<String, String> getExecutionInfo(RuleContext ruleContext) {
-    return null;
   }
 
   /** Functional interface for a function that accepts cpu and {@link BuildOptions}. */

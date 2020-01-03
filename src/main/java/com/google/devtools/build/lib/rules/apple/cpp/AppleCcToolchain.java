@@ -136,12 +136,6 @@ public class AppleCcToolchain extends CcToolchain {
   }
 
   @Override
-  protected ImmutableMap<String, String> getExecutionInfo(RuleContext ruleContext) {
-    XcodeConfigInfo xcodeConfig = XcodeConfig.getXcodeConfigInfo(ruleContext);
-    return (ImmutableMap<String, String>) xcodeConfig.getExecutionRequirements();
-  }
-
-  @Override
   protected boolean isAppleToolchain() {
     return true;
   }
