@@ -147,11 +147,6 @@ final class Eval {
       defaults = Tuple.wrap(array);
     }
 
-    // TODO(laurentlb): move to Parser or ValidationEnvironment.
-    if (sig.numMandatoryNamedOnly() > 0) {
-      throw new EvalException(node.getLocation(), "Keyword-only argument is forbidden.");
-    }
-
     thread.updateAndExport(
         node.getIdentifier().getName(),
         new StarlarkFunction(

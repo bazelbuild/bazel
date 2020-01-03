@@ -134,10 +134,10 @@ public class BaseFunctionTest extends EvaluationTestCase {
         "mixed(*, foo, bar = ?) does not accept positional arguments, but got 2",
         "mixed(*, foo, bar = ?) does not accept positional arguments, but got 3",
         "mixed(*, foo, bar = ?) does not accept positional arguments, but got 2",
-        "[1, null]",
+        "[1, null, null]",
         "missing mandatory named-only argument 'foo' while calling mixed(*, foo, bar = ?)",
-        "[1, 2]",
-        "[1, 2]",
+        "[1, 2, null]",
+        "[1, 2, null]",
         "mixed(*, foo, bar = ?) does not accept positional arguments, but got 1",
         "unexpected keyword 'wiz' in call to mixed(*, foo, bar = ?)");
   }

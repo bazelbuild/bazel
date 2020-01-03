@@ -343,13 +343,57 @@ public class FunctionTest extends EvaluationTestCase {
   }
 
   @Test
-  public void testKeywordOnlyIsForbidden() throws Exception {
-    checkEvalErrorContains("forbidden", "def foo(a, b, *, c): return a + b + c");
+  public void testKeywordOnly() throws Exception {
+    checkEvalError(
+        "missing mandatory keyword arguments in call to func(a, *, b)",
+        "def func(a, *, b): pass",
+        "func(5)");
+
+    checkEvalError(
+        "too many (2) positional arguments in call to func(a, *, b)",
+        "def func(a, *, b): pass",
+        "func(5, 6)");
+
+    exec("def func(a, *, b, c = 'c'): return a + b + c");
+    assertThat(eval("func('a', b = 'b')")).isEqualTo("abc");
+    assertThat(eval("func('a', b = 'b', c = 'd')")).isEqualTo("abd");
   }
 
   @Test
-  public void testParamAfterStarArgs() throws Exception {
-    checkEvalErrorContains("forbidden", "def foo(a, *b, c): return a");
+  public void testStarArgsAndKeywordOnly() throws Exception {
+    checkEvalError(
+        "missing mandatory keyword arguments in call to func(a, *args, b)",
+        "def func(a, *args, b): pass",
+        "func(5)");
+
+    checkEvalError(
+        "missing mandatory keyword arguments in call to func(a, *args, b)",
+        "def func(a, *args, b): pass",
+        "func(5, 6)");
+
+    exec("def func(a, *args, b, c = 'c'): return a + str(args) + b + c");
+    assertThat(eval("func('a', b = 'b')")).isEqualTo("a()bc");
+    assertThat(eval("func('a', b = 'b', c = 'd')")).isEqualTo("a()bd");
+    assertThat(eval("func('a', 1, 2, b = 'b')")).isEqualTo("a(1, 2)bc");
+    assertThat(eval("func('a', 1, 2, b = 'b', c = 'd')")).isEqualTo("a(1, 2)bd");
+  }
+
+  @Test
+  public void testKeywordOnlyAfterStarArg() throws Exception {
+    checkEvalError(
+        "missing mandatory keyword arguments in call to func(a, *b, c)",
+        "def func(a, *b, c): pass",
+        "func(5)");
+
+    checkEvalError(
+        "missing mandatory keyword arguments in call to func(a, *b, c)",
+        "def func(a, *b, c): pass",
+        "func(5, 6, 7)");
+
+    exec("def func(a, *b, c): return a + str(b) + c");
+    assertThat(eval("func('a', c = 'c')")).isEqualTo("a()c");
+    assertThat(eval("func('a', 1, c = 'c')")).isEqualTo("a(1,)c");
+    assertThat(eval("func('a', 1, 2, c = 'c')")).isEqualTo("a(1, 2)c");
   }
 
   @Test
