@@ -20,7 +20,6 @@ import com.google.devtools.build.lib.skylarkbuildapi.config.ConfigurationTransit
 import com.google.devtools.build.lib.syntax.BaseFunction;
 import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.Sequence;
-import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 
 /**
@@ -40,7 +39,7 @@ public class FakeConfigGlobalLibrary implements ConfigGlobalLibraryApi {
 
   @Override
   public ConfigurationTransitionApi analysisTestTransition(
-      Dict<?, ?> changedSettings, Location location, StarlarkSemantics semantics) {
+      Dict<?, ?> changedSettings, Location location) {
     return new FakeConfigurationTransition();
   }
 }

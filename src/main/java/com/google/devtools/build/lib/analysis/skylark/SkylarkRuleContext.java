@@ -932,7 +932,7 @@ public final class SkylarkRuleContext implements SkylarkRuleContextApi<Constrain
               executionRequirementsUnchecked,
               inputManifestsUnchecked,
               loc,
-              thread.getSemantics());
+              thread);
     }
     return Starlark.NONE;
   }

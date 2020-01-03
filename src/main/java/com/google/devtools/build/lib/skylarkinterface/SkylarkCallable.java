@@ -185,9 +185,12 @@ public @interface SkylarkCallable {
   boolean useStarlarkThread() default false;
 
   /**
-   * If true, the Starlark semantics will be passed as an argument of the annotated function. (Thus,
-   * the annotated method signature must contain StarlarkSemantics as a parameter. See the
+   * If true, the Starlark semantics will be passed to the annotated Java method. (Thus, the
+   * annotated method signature must contain StarlarkSemantics as a parameter. See the
    * interface-level javadoc for details.)
+   *
+   * <p>This option is allowed only for fields ({@code structField=true}). For methods, the {@code
+   * StarlarkThread} parameter provides access to the semantics, and more.
    */
   boolean useStarlarkSemantics() default false;
 

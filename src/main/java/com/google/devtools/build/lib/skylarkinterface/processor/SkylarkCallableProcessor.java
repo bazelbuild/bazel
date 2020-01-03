@@ -139,6 +139,12 @@ public final class SkylarkCallableProcessor extends AbstractProcessor {
       }
       if (annot.structField()) {
         checkStructFieldAnnotation(method, annot);
+      } else if (annot.useStarlarkSemantics()) {
+        errorf(
+            method,
+            "a SkylarkCallable-annotated method with structField=false may not also specify"
+                + " useStarlarkSemantics. (Instead, set useStarlarkThread and call"
+                + " getSemantics().)");
       }
       if (annot.selfCall() && !classesWithSelfcall.add(cls)) {
         errorf(method, "Containing class has more than one selfCall method defined.");

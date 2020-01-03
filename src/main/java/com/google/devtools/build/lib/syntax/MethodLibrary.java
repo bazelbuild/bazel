@@ -983,14 +983,14 @@ class MethodLibrary {
             valueWhenDisabled = "[]",
             named = true),
       },
-      useStarlarkSemantics = true)
+      useStarlarkThread = true)
   public Depset depset(
       Object x,
       String orderString,
       Object direct,
       Object transitive,
       Object items,
-      StarlarkSemantics semantics)
+      StarlarkThread thread)
       throws EvalException {
     Order order;
     Depset result;
@@ -1000,6 +1000,7 @@ class MethodLibrary {
       throw new EvalException(null, ex);
     }
 
+    StarlarkSemantics semantics = thread.getSemantics();
     if (semantics.incompatibleDisableDepsetItems()) {
       if (x != Starlark.NONE) {
         if (direct != Starlark.NONE) {
