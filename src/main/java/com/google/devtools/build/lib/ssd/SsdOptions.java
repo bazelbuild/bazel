@@ -29,7 +29,7 @@ public class SsdOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
       help =
-          "Whether to always compute MD5 digests of files with multiple threads. Setting this to "
+          "Whether to always compute digests of files with multiple threads. Setting this to "
               + "false may improve performance when using a spinning platter.")
   public boolean experimentalMultiThreadedDigest;
 }
