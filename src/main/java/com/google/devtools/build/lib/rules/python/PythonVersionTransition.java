@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.rules.python;
 
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
+import com.google.devtools.build.lib.analysis.config.BuildOptionsCache;
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
 import com.google.errorprone.annotations.Immutable;
 import java.util.Objects;
@@ -61,6 +62,11 @@ public abstract class PythonVersionTransition implements PatchTransition {
   @Override
   public abstract int hashCode();
 
+  // We added this cache after observing an O(100,000)-node build graph that applied multiple exec
+  // transitions to Python 3 tools on every node. Before this cache, this produced O(100,000)
+  // BuildOptions instances that consumed about a gigabyte of memory.
+  private static final BuildOptionsCache<PythonVersion> cache = new BuildOptionsCache<>();
+
   @Override
   public BuildOptions patch(BuildOptions options) {
     PythonVersion newVersion = determineNewVersion(options);
@@ -70,10 +76,15 @@ public abstract class PythonVersionTransition implements PatchTransition {
     if (!opts.canTransitionPythonVersion(newVersion)) {
       return options;
     }
-    BuildOptions newOptions = options.clone();
-    PythonOptions newOpts = newOptions.get(PythonOptions.class);
-    newOpts.setPythonVersion(newVersion);
-    return newOptions;
+    return cache.applyTransition(
+        options,
+        newVersion,
+        () -> {
+          BuildOptions newOptions = options.clone();
+          PythonOptions newOpts = newOptions.get(PythonOptions.class);
+          newOpts.setPythonVersion(newVersion);
+          return newOptions;
+        });
   }
 
   /** A Python version transition that switches to the value specified in the constructor. */
