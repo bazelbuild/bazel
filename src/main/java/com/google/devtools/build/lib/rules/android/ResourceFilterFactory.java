@@ -24,7 +24,6 @@ import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.RuleErrorConsumer;
 import com.google.devtools.build.lib.packages.Type;
-import com.google.devtools.build.lib.rules.android.AndroidConfiguration.AndroidAaptVersion;
 import java.util.List;
 
 /**
@@ -127,21 +126,17 @@ public class ResourceFilterFactory {
       return empty();
     }
 
-    return fromAttrs(
-        AndroidAaptVersion.chooseTargetAaptVersion(ruleContext), ruleContext.attributes());
+    return fromAttrs(ruleContext.attributes());
   }
 
   @VisibleForTesting
-  static ResourceFilterFactory fromAttrs(AndroidAaptVersion aaptVersion, AttributeMap attrs) {
+  static ResourceFilterFactory fromAttrs(AttributeMap attrs) {
     return from(
-        aaptVersion,
         rawFiltersFromAttrs(attrs, RESOURCE_CONFIGURATION_FILTERS_NAME),
         rawFiltersFromAttrs(attrs, DENSITIES_NAME));
   }
 
-  static ResourceFilterFactory from(
-      AndroidAaptVersion aaptVersion, List<String> configFilters, List<String> densities) {
-    Preconditions.checkArgument(aaptVersion == AndroidAaptVersion.AAPT2);
+  static ResourceFilterFactory from(List<String> configFilters, List<String> densities) {
     if (configFilters.isEmpty() && densities.isEmpty()) {
       return empty();
     }

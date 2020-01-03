@@ -25,7 +25,6 @@ import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTa
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.RuleErrorConsumer;
 import com.google.devtools.build.lib.packages.Type;
-import com.google.devtools.build.lib.rules.android.AndroidConfiguration.AndroidAaptVersion;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Objects;
 import javax.annotation.Nullable;
@@ -173,16 +172,14 @@ public class AndroidAssets {
     return assetDir;
   }
 
-  public ParsedAndroidAssets parse(AndroidDataContext dataContext, AndroidAaptVersion aaptVersion)
-      throws InterruptedException {
-    return ParsedAndroidAssets.parseFrom(dataContext, aaptVersion, this);
+  public ParsedAndroidAssets parse(AndroidDataContext dataContext) throws InterruptedException {
+    return ParsedAndroidAssets.parseFrom(dataContext, this);
   }
 
   /** Convenience method to do all of asset processing - parsing and merging. */
-  public MergedAndroidAssets process(
-      AndroidDataContext dataContext, AssetDependencies assetDeps, AndroidAaptVersion aaptVersion)
+  public MergedAndroidAssets process(AndroidDataContext dataContext, AssetDependencies assetDeps)
       throws InterruptedException {
-    return parse(dataContext, aaptVersion).merge(dataContext, assetDeps);
+    return parse(dataContext).merge(dataContext, assetDeps);
   }
 
   @Override
