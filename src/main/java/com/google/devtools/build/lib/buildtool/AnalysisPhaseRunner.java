@@ -46,6 +46,7 @@ import com.google.devtools.build.lib.skyframe.BuildConfigurationValue;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.TargetPatternPhaseValue;
 import com.google.devtools.build.lib.util.AbruptExitException;
+import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.RegexFilter;
 import com.google.devtools.common.options.OptionsParsingException;
 import java.util.Collection;
@@ -221,13 +222,15 @@ public final class AnalysisPhaseRunner {
             env.getReporter(),
             env.getEventBus());
 
+    Pair<Integer, Integer> tcal = view.getTargetsConfiguredAndLoaded();
+
     // TODO(bazel-team): Merge these into one event.
     env.getEventBus()
         .post(
             new AnalysisPhaseCompleteEvent(
                 analysisResult.getTargetsToBuild(),
-                view.getTargetsLoaded(),
-                view.getTargetsConfigured(),
+                /* targetsLoaded */ tcal.second.intValue(),
+                /* targetsConfigured */ tcal.first.intValue(),
                 timer.stop().elapsed(TimeUnit.MILLISECONDS),
                 view.getAndClearPkgManagerStatistics(),
                 view.getActionsConstructed(),

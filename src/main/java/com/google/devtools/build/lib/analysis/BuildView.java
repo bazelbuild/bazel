@@ -78,6 +78,7 @@ import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.TargetPatternPhaseValue;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.RegexFilter;
+import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.WalkableGraph;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -162,17 +163,22 @@ public class BuildView {
     this.skyframeBuildView = skyframeExecutor.getSkyframeBuildView();
   }
 
-  /** The number of configured targets freshly evaluated in the last analysis run. */
-  public int getTargetsConfigured() {
-    return skyframeBuildView.getEvaluatedTargetKeys().size();
-  }
-
-  /** The number of targets (not configured targets) loaded in the last analysis run. */
-  public int getTargetsLoaded() {
-    return skyframeBuildView.getEvaluatedTargetKeys().stream()
-        .map(key -> ((ConfiguredTargetKey) key).getLabel())
-        .collect(toSet())
-        .size();
+  /**
+   * Returns two numbers: number of analyzed and number of loaded targets.
+   *
+   * <p>The first number: configured targets freshly evaluated in the last analysis run.
+   *
+   * <p>The second number: targets (not configured targets) loaded in the last analysis run.
+   */
+  public Pair<Integer, Integer> getTargetsConfiguredAndLoaded() {
+    ImmutableSet<SkyKey> keys = skyframeBuildView.getEvaluatedTargetKeys();
+    int targetsConfigured = keys.size();
+    int targetsLoaded =
+        keys.stream()
+            .map(key -> ((ConfiguredTargetKey) key).getLabel())
+            .collect(toSet())
+            .size();
+    return Pair.of(targetsConfigured, targetsLoaded);
   }
 
   public int getActionsConstructed() {
@@ -213,8 +219,7 @@ public class BuildView {
     logger.atInfo().log("Starting analysis");
     pollInterruptedStatus();
 
-    skyframeBuildView.resetEvaluatedConfiguredTargetKeysSet();
-    skyframeBuildView.resetEvaluationActionCount();
+    skyframeBuildView.resetProgressReceiver();
 
     // TODO(ulfjack): Expensive. Maybe we don't actually need the targets, only the labels?
     Collection<Target> targets =
