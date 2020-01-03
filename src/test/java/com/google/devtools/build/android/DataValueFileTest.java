@@ -39,12 +39,16 @@ public final class DataValueFileTest {
     DataValueFile val2a =
         DataValueFile.of(
             Visibility.UNKNOWN,
-            DataSource.of(DependencyInfo.UNKNOWN, fs.getPath("val2")),
+            DataSource.of(
+                DependencyInfo.create("lib2a", DependencyInfo.DependencyType.UNKNOWN),
+                fs.getPath("val2")),
             /*fingerprint=*/ null);
     DataValueFile val2b =
         DataValueFile.of(
             Visibility.UNKNOWN,
-            DataSource.of(DependencyInfo.UNKNOWN, fs.getPath("val2")),
+            DataSource.of(
+                DependencyInfo.create("lib2b", DependencyInfo.DependencyType.UNKNOWN),
+                fs.getPath("val2")),
             /*fingerprint=*/ null);
 
     assertThat(val1.valueEquals(val2a)).isFalse();

@@ -149,10 +149,19 @@ public class DataValueFile implements DataResource, DataAsset {
       return false;
     }
     DataValueFile other = (DataValueFile) value;
-    return Objects.equals(visibility, other.visibility)
-        && (Objects.equals(source, other.source)
-            // fingerprint==null && other.fingerprint==null shouldn't count as equality.
-            || (fingerprint != null && Objects.equals(fingerprint, other.fingerprint)));
+    if (!Objects.equals(visibility, other.visibility)) {
+      return false;
+    }
+    // Just check the path, ignoring other components of DataSource.  Build label is not
+    // relevant to whether something is a conflict.
+    if (Objects.equals(source.getPath(), other.source.getPath())) {
+      return true;
+    }
+    // fingerprint==null && other.fingerprint==null shouldn't count as equality.
+    if (fingerprint != null && Objects.equals(fingerprint, other.fingerprint)) {
+      return true;
+    }
+    return false;
   }
 
   @Override
