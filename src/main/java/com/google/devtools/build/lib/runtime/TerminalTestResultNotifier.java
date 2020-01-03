@@ -133,6 +133,13 @@ public class TerminalTestResultNotifier implements TestResultNotifier {
     return false;
   }
 
+  /**
+   * Prints test result summary.
+   * @param summaries summaries of tests {@link TestSummary}
+   * @param showAllTests if true, print information about each test regardless of its status
+   * @param showNoStatusTests if true, print information about not executed tests (no status tests)
+   * @param printFailedTestCases if true, print details about which test cases in a test failed
+   */
   private void printSummary(Set<TestSummary> summaries,
       boolean showAllTests,
       boolean showNoStatusTests,
@@ -142,7 +149,7 @@ public class TerminalTestResultNotifier implements TestResultNotifier {
     for (TestSummary summary : summaries) {
       if (!showAllTests
           && (BlazeTestStatus.PASSED == summary.getStatus()
-              || !showNoStatusTests && BlazeTestStatus.NO_STATUS == summary.getStatus())) {
+              || (!showNoStatusTests && BlazeTestStatus.NO_STATUS == summary.getStatus()))) {
         continue;
       }
       if (BlazeTestStatus.FAILED_TO_BUILD == summary.getStatus()) {
