@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""A Starlark cc_toolchain configuration rule for openbsd."""
+"""A Starlark cc_toolchain configuration rule for FreeBSD and OpenBSD."""
 
 load(
     "@bazel_tools//tools/cpp:cc_toolchain_config_lib.bzl",
@@ -57,12 +57,12 @@ all_link_actions = [
 def _impl(ctx):
     cpu = ctx.attr.cpu
     compiler = "compiler"
-    toolchain_identifier = "local_openbsd" if cpu == "openbsd" else "stub_armeabi-v7a"
-    host_system_name = "local" if cpu == "openbsd" else "armeabi-v7a"
-    target_system_name = "local" if cpu == "openbsd" else "armeabi-v7a"
-    target_libc = "local" if cpu == "openbsd" else "armeabi-v7a"
-    abi_version = "local" if cpu == "openbsd" else "armeabi-v7a"
-    abi_libc_version = "local" if cpu == "openbsd" else "armeabi-v7a"
+    toolchain_identifier = "local_{}".format(cpu) if cpu == "freebsd" or cpu == "openbsd" else "stub_armeabi-v7a"
+    host_system_name = "local" if cpu == "freebsd" or cpu == "openbsd" else "armeabi-v7a"
+    target_system_name = "local" if cpu == "freebsd" or cpu == "openbsd" else "armeabi-v7a"
+    target_libc = "local" if cpu == "freebsd" or cpu == "openbsd" else "armeabi-v7a"
+    abi_version = "local" if cpu == "freebsd" or cpu == "openbsd" else "armeabi-v7a"
+    abi_libc_version = "local" if cpu == "freebsd" or cpu == "openbsd" else "armeabi-v7a"
 
     objcopy_embed_data_action = action_config(
         action_name = "objcopy_embed_data",
@@ -70,7 +70,7 @@ def _impl(ctx):
         tools = [tool(path = "/usr/bin/objcopy")],
     )
 
-    action_configs = [objcopy_embed_data_action] if cpu == "openbsd" else []
+    action_configs = [objcopy_embed_data_action] if cpu == "freebsd" or cpu == "openbsd" else []
 
     default_link_flags_feature = feature(
         name = "default_link_flags",
@@ -224,7 +224,7 @@ def _impl(ctx):
         ],
     )
 
-    if cpu == "openbsd":
+    if cpu == "freebsd" or cpu == "openbsd":
         features = [
             default_compile_flags_feature,
             default_link_flags_feature,
@@ -240,17 +240,17 @@ def _impl(ctx):
     else:
         features = [supports_dynamic_linker_feature, supports_pic_feature]
 
-    if (cpu == "openbsd"):
+    if (cpu == "freebsd" or cpu == "openbsd"):
         cxx_builtin_include_directories = ["/usr/lib/clang", "/usr/local/include", "/usr/include"]
     else:
         cxx_builtin_include_directories = []
 
-    if cpu == "openbsd":
+    if cpu == "freebsd" or cpu == "openbsd":
         tool_paths = [
             tool_path(name = "ar", path = "/usr/bin/ar"),
             tool_path(name = "compat-ld", path = "/usr/bin/ld"),
             tool_path(name = "cpp", path = "/usr/bin/cpp"),
-            tool_path(name = "dwp", path = "/usr/bin/false"),
+            tool_path(name = "dwp", path = "/usr/bin/dwp"),
             tool_path(name = "gcc", path = "/usr/bin/clang"),
             tool_path(name = "gcov", path = "/usr/bin/gcov"),
             tool_path(name = "ld", path = "/usr/bin/ld"),
@@ -261,17 +261,17 @@ def _impl(ctx):
         ]
     else:
         tool_paths = [
-            tool_path(name = "ar", path = "/usr/bin/false"),
-            tool_path(name = "compat-ld", path = "/usr/bin/false"),
-            tool_path(name = "cpp", path = "/usr/bin/false"),
-            tool_path(name = "dwp", path = "/usr/bin/false"),
-            tool_path(name = "gcc", path = "/usr/bin/false"),
-            tool_path(name = "gcov", path = "/usr/bin/false"),
-            tool_path(name = "ld", path = "/usr/bin/false"),
-            tool_path(name = "nm", path = "/usr/bin/false"),
-            tool_path(name = "objcopy", path = "/usr/bin/false"),
-            tool_path(name = "objdump", path = "/usr/bin/false"),
-            tool_path(name = "strip", path = "/usr/bin/false"),
+            tool_path(name = "ar", path = "/bin/false"),
+            tool_path(name = "compat-ld", path = "/bin/false"),
+            tool_path(name = "cpp", path = "/bin/false"),
+            tool_path(name = "dwp", path = "/bin/false"),
+            tool_path(name = "gcc", path = "/bin/false"),
+            tool_path(name = "gcov", path = "/bin/false"),
+            tool_path(name = "ld", path = "/bin/false"),
+            tool_path(name = "nm", path = "/bin/false"),
+            tool_path(name = "objcopy", path = "/bin/false"),
+            tool_path(name = "objdump", path = "/bin/false"),
+            tool_path(name = "strip", path = "/bin/false"),
         ]
 
     out = ctx.actions.declare_file(ctx.label.name)
