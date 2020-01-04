@@ -278,7 +278,7 @@ public final class CppCompileActionTemplate extends ActionKeyCacher
   }
 
   @Override
-  public Iterable<Artifact> getInputs() {
+  public NestedSet<Artifact> getInputs() {
     return NestedSetBuilder.<Artifact>stableOrder()
         .add(sourceTreeArtifact)
         .addTransitive(allInputs)

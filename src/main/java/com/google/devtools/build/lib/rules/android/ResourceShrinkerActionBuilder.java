@@ -15,15 +15,12 @@ package com.google.devtools.build.lib.rules.android;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
-import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.rules.android.AndroidConfiguration.AndroidAaptVersion;
 import java.util.Collections;
 import java.util.List;
 
 /** Builder for creating resource shrinker actions. */
 public class ResourceShrinkerActionBuilder {
-  private AndroidAaptVersion targetAaptVersion;
   private Artifact resourceFilesZip;
   private Artifact shrunkJar;
   private Artifact proguardMapping;
@@ -111,12 +108,6 @@ public class ResourceShrinkerActionBuilder {
     return this;
   }
 
-  /** @param androidAaptVersion The aapt version to target with this action. */
-  public ResourceShrinkerActionBuilder setTargetAaptVersion(AndroidAaptVersion androidAaptVersion) {
-    this.targetAaptVersion = androidAaptVersion;
-    return this;
-  }
-
   public Artifact build(AndroidDataContext dataContext) {
 
     checkNotNull(resourceFilesZip);
@@ -127,24 +118,10 @@ public class ResourceShrinkerActionBuilder {
     checkNotNull(primaryResources.getManifest());
     checkNotNull(resourceApkOut);
 
-    BusyBoxActionBuilder builder;
-    if (targetAaptVersion == AndroidAaptVersion.AAPT2) {
-      builder = BusyBoxActionBuilder.create(dataContext, "SHRINK_AAPT2");
-    } else {
-      builder =
-          BusyBoxActionBuilder.create(dataContext, "SHRINK")
-              .maybeAddVectoredFlag("--uncompressedExtensions", uncompressedExtensions)
-              // Order, for some reason, is important.
-              .addVectoredFlag(
-                  "--resourcePackages", getResourcePackages(primaryResources, dependencyResources))
-              .addInput("--primaryManifest", primaryResources.getManifest())
-              .maybeAddInput("--dependencyManifest", getManifests(dependencyResources))
-              .maybeAddFlag(
-                  "--resourceConfigs", resourceFilterFactory.getConfigurationFilterString());
-    }
+    BusyBoxActionBuilder builder = BusyBoxActionBuilder.create(dataContext, "SHRINK_AAPT2");
 
     builder
-        .addAapt(targetAaptVersion)
+        .addAapt()
         .addAndroidJar()
         .maybeAddFlag("--debug", dataContext.useDebug())
         .addInput("--resources", resourceFilesZip)
@@ -158,25 +135,5 @@ public class ResourceShrinkerActionBuilder {
         .buildAndRegister("Shrinking resources", "ResourceShrinker");
 
     return resourceApkOut;
-  }
-
-  private ImmutableList<Artifact> getManifests(ResourceDependencies resourceDependencies) {
-    ImmutableList.Builder<Artifact> manifests = ImmutableList.builder();
-    for (ValidatedAndroidResources resources : resourceDependencies.getResourceContainers()) {
-      if (resources.getManifest() != null) {
-        manifests.add(resources.getManifest());
-      }
-    }
-    return manifests.build();
-  }
-
-  private ImmutableList<String> getResourcePackages(
-      ValidatedAndroidResources primaryResources, ResourceDependencies resourceDependencies) {
-    ImmutableList.Builder<String> resourcePackages = ImmutableList.builder();
-    resourcePackages.add(primaryResources.getJavaPackage());
-    for (ValidatedAndroidResources resources : resourceDependencies.getResourceContainers()) {
-      resourcePackages.add(resources.getJavaPackage());
-    }
-    return resourcePackages.build();
   }
 }

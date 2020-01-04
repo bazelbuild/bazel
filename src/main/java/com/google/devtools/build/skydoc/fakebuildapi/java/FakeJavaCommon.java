@@ -27,7 +27,6 @@ import com.google.devtools.build.lib.skylarkbuildapi.platform.ConstraintValueInf
 import com.google.devtools.build.lib.syntax.Depset;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Sequence;
-import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.skydoc.fakebuildapi.FakeProviderApi;
 
@@ -79,8 +78,7 @@ public class FakeJavaCommon
       FileApi jar,
       Object targetLabel,
       FakeJavaToolchainSkylarkApiProviderApi javaToolchain,
-      Location location,
-      StarlarkSemantics semantics)
+      Location location)
       throws EvalException {
     return null;
   }
@@ -91,8 +89,7 @@ public class FakeJavaCommon
       FileApi jar,
       Label targetLabel,
       FakeJavaToolchainSkylarkApiProviderApi javaToolchain,
-      Location location,
-      StarlarkSemantics semantics)
+      Location location)
       throws EvalException {
     return null;
   }
@@ -105,8 +102,7 @@ public class FakeJavaCommon
       Sequence<?> sourceJars,
       FakeJavaToolchainSkylarkApiProviderApi javaToolchain,
       FakeJavaRuntimeInfoApi hostJavabase,
-      Location location,
-      StarlarkSemantics semantics)
+      Location location)
       throws EvalException {
     return null;
   }

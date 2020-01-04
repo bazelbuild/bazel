@@ -25,7 +25,7 @@ import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.skyframe.WalkableGraph;
 
 /** A version of {@link BuildTool} that handles all cquery work. */
-public class CqueryBuildTool extends PostAnalysisQueryBuildTool<ConfiguredTarget> {
+public final class CqueryBuildTool extends PostAnalysisQueryBuildTool<ConfiguredTarget> {
 
   public CqueryBuildTool(CommandEnvironment env, QueryExpression queryExpression) {
     super(env, queryExpression);

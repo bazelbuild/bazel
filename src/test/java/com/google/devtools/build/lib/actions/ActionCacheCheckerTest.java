@@ -32,6 +32,9 @@ import com.google.devtools.build.lib.actions.util.ActionsTestUtil.FakeMetadataHa
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil.MissDetailsBuilder;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil.NullAction;
 import com.google.devtools.build.lib.clock.Clock;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.testutil.ManualClock;
 import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.util.Fingerprint;
@@ -314,11 +317,12 @@ public class ActionCacheCheckerTest {
     Action action =
         new NullMiddlemanAction() {
           @Override
-          public synchronized Iterable<Artifact> getInputs() {
+          public synchronized NestedSet<Artifact> getInputs() {
             FileSystem fileSystem = getPrimaryOutput().getPath().getFileSystem();
             Path path = fileSystem.getPath("/input");
             ArtifactRoot root = ArtifactRoot.asSourceRoot(Root.fromPath(fileSystem.getPath("/")));
-            return ImmutableList.of(ActionsTestUtil.createArtifact(root, path));
+            return NestedSetBuilder.create(
+                Order.STABLE_ORDER, ActionsTestUtil.createArtifact(root, path));
           }
         };
     runAction(action);  // Not cached so recorded as different deps.

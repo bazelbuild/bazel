@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.skyframe.actiongraph.v2;
 import com.google.devtools.build.lib.analysis.AnalysisProtosV2.ActionGraphComponent;
 import com.google.devtools.build.lib.analysis.AnalysisProtosV2.ActionGraphContainer;
 import com.google.protobuf.CodedOutputStream;
+import com.google.protobuf.util.JsonFormat;
 import java.io.IOException;
 import java.io.PrintStream;
 
@@ -24,7 +25,8 @@ public class StreamedOutputHandler {
   /** Defines the types of proto output this class can handle. */
   public enum OutputType {
     BINARY("proto"),
-    TEXT("textproto");
+    TEXT("textproto"),
+    JSON("jsonproto");
 
     private final String formatName;
 
@@ -40,6 +42,7 @@ public class StreamedOutputHandler {
   private final OutputType outputType;
   private final CodedOutputStream outputStream;
   private final PrintStream printStream;
+  private final JsonFormat.Printer jsonPrinter = JsonFormat.printer();
 
   public StreamedOutputHandler(
       OutputType outputType, CodedOutputStream outputStream, PrintStream printStream) {
@@ -62,6 +65,10 @@ public class StreamedOutputHandler {
       case TEXT:
         printStream.print(wrapperActionGraphComponent(message));
         break;
+      case JSON:
+        jsonPrinter.appendTo(message, printStream);
+        printStream.println();
+        break;
     }
   }
 
@@ -76,6 +83,7 @@ public class StreamedOutputHandler {
         outputStream.flush();
         break;
       case TEXT:
+      case JSON:
         printStream.flush();
         printStream.close();
         break;

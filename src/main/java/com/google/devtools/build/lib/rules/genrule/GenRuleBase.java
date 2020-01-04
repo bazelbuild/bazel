@@ -246,7 +246,7 @@ public abstract class GenRuleBase implements RuleConfiguredTargetFactory {
             ruleContext.getActionOwner(),
             commandHelper.getResolvedTools(),
             inputs.build(),
-            filesToBuild,
+            filesToBuild.toSet(),
             CommandLines.of(argv),
             ruleContext.getConfiguration().getActionEnvironment(),
             ImmutableMap.copyOf(executionInfo),

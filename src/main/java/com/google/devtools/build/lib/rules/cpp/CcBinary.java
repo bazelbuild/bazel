@@ -458,7 +458,7 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
         ImmutableList.Builder<Artifact> objectFiles = ImmutableList.builder();
         objectFiles.addAll(ccCompilationOutputs.getObjectFiles(false));
 
-        for (LibraryToLink library : depsCcLinkingContext.getLibraries()) {
+        for (LibraryToLink library : depsCcLinkingContext.getLibraries().toList()) {
           if (isStaticMode
               || (library.getDynamicLibrary() == null && library.getInterfaceLibrary() == null)) {
             if (library.getPicStaticLibrary() != null) {
@@ -804,7 +804,7 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
         .setOwner(ruleContext.getLabel())
         .addNonCodeInputs(
             ImmutableList.<Artifact>builder()
-                .addAll(ccCompilationContext.getTransitiveCompilationPrerequisites())
+                .addAll(ccCompilationContext.getTransitiveCompilationPrerequisites().toList())
                 .addAll(common.getLinkerScripts())
                 .build())
         .addUserLinkFlags(
@@ -1225,7 +1225,7 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
                 (NestedSet<?>)
                     Depset.getSetFromNoneableParam(dynamicDepsField, Tuple.class, "dynamic_deps");
 
-        for (Tuple<Object> exportsAndLinkerInput : dynamicDeps) {
+        for (Tuple<Object> exportsAndLinkerInput : dynamicDeps.toList()) {
           List<String> exportsFromDynamicDep =
               Sequence.castSkylarkListOrNoneToList(
                   exportsAndLinkerInput.get(0), String.class, "exports_from_dynamic_deps");

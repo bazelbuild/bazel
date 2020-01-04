@@ -47,6 +47,9 @@ import com.google.devtools.build.lib.analysis.actions.SymlinkTreeActionContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
+import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.ConvenienceSymlink;
+import com.google.devtools.build.lib.buildtool.BuildRequestOptions.ConvenienceSymlinksMode;
+import com.google.devtools.build.lib.buildtool.buildevent.ConvenienceSymlinksIdentifiedEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.ExecRootPreparedEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.ExecutionPhaseCompleteEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.ExecutionStartingEvent;
@@ -251,7 +254,7 @@ public class ExecutionTool {
       createActionLogDirectory();
     }
 
-    createConvenienceSymlinks(request.getBuildOptions(), analysisResult);
+    handleConvenienceSymlinks(analysisResult);
 
     ActionCache actionCache = getActionCache();
     actionCache.resetStatistics();
@@ -464,6 +467,23 @@ public class ExecutionTool {
   }
 
   /**
+   * Handles what action to perform on the convenience symlinks. If the the mode is {@link
+   * ConvenienceSymlinksMode.IGNORE}, then skip any creating or cleaning of convenience symlinks.
+   * Otherwise, manage the convenience symlinks and then post a {@link
+   * ConvenienceSymlinksIdentifiedEvent} build event.
+   */
+  private void handleConvenienceSymlinks(AnalysisResult analysisResult) {
+    ImmutableList<ConvenienceSymlink> convenienceSymlinks = ImmutableList.of();
+    if (request.getBuildOptions().experimentalConvenienceSymlinks
+        != ConvenienceSymlinksMode.IGNORE) {
+      convenienceSymlinks = createConvenienceSymlinks(request.getBuildOptions(), analysisResult);
+    }
+    if (request.getBuildOptions().experimentalConvenienceSymlinksBepEvent) {
+      env.getEventBus().post(new ConvenienceSymlinksIdentifiedEvent(convenienceSymlinks));
+    }
+  }
+
+  /**
    * Creates convenience symlinks based on the target configurations.
    *
    * <p>Exactly what target configurations we consider depends on the value of {@code
@@ -476,7 +496,7 @@ public class ExecutionTool {
    * path the symlink should point to, it gets created; otherwise, the symlink is not created, and
    * in fact gets removed if it was already present from a previous invocation.
    */
-  private void createConvenienceSymlinks(
+  private ImmutableList<ConvenienceSymlink> createConvenienceSymlinks(
       BuildRequestOptions buildRequestOptions, AnalysisResult analysisResult) {
     SkyframeExecutor executor = env.getSkyframeExecutor();
     Reporter reporter = env.getReporter();
@@ -494,16 +514,14 @@ public class ExecutionTool {
                 analysisResult.getConfigurationCollection().getTargetConfigurations());
 
     String productName = runtime.getProductName();
-    String workspaceName = env.getWorkspaceName();
     try (SilentCloseable c =
         Profiler.instance().profile("OutputDirectoryLinksUtils.createOutputDirectoryLinks")) {
-      OutputDirectoryLinksUtils.createOutputDirectoryLinks(
+      return OutputDirectoryLinksUtils.createOutputDirectoryLinks(
           runtime.getRuleClassProvider().getSymlinkDefinitions(),
           buildRequestOptions,
-          workspaceName,
+          env.getWorkspaceName(),
           env.getWorkspace(),
-          env.getDirectories().getExecRoot(workspaceName),
-          env.getDirectories().getOutputPath(workspaceName),
+          env.getDirectories(),
           getReporter(),
           targetConfigurations,
           options -> getConfiguration(executor, reporter, options),

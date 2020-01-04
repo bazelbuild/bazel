@@ -21,9 +21,9 @@ import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.syntax.BaseFunction;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.FuncallExpression;
 import com.google.devtools.build.lib.syntax.FunctionSignature;
 import com.google.devtools.build.lib.syntax.Printer;
+import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 import java.util.Collection;
 import java.util.Map;
@@ -51,6 +51,7 @@ public final class SkylarkProvider extends BaseFunction implements SkylarkExport
   private static final String DEFAULT_ERROR_MESSAGE_FORMAT = "Object has no '%s' attribute.";
 
   private final Location location;
+  private final FunctionSignature signature;
 
   /** For schemaful providers, the sorted list of allowed field names. */
   // (The requirement for sortedness comes from SkylarkInfo.fromSortedFieldList,
@@ -127,13 +128,18 @@ public final class SkylarkProvider extends BaseFunction implements SkylarkExport
    */
   private SkylarkProvider(
       @Nullable SkylarkKey key, @Nullable ImmutableList<String> fields, Location location) {
-    super(buildSignature(fields));
+    this.signature = buildSignature(fields);
     this.location = location;
     this.fields = fields;
     this.key = key;  // possibly null
     this.errorMessageFormatForUnknownField =
         key == null ? DEFAULT_ERROR_MESSAGE_FORMAT
             : makeErrorMessageFormatForUnknownField(key.getExportedName());
+  }
+
+  @Override
+  public FunctionSignature getSignature() {
+    return signature;
   }
 
   private static FunctionSignature buildSignature(@Nullable ImmutableList<String> fields) {
@@ -143,18 +149,22 @@ public final class SkylarkProvider extends BaseFunction implements SkylarkExport
   }
 
   @Override
-  protected Object call(Object[] args, @Nullable FuncallExpression ast, StarlarkThread thread)
+  public Object fastcall(StarlarkThread thread, Location loc, Object[] positional, Object[] named)
       throws EvalException, InterruptedException {
-    Location loc = ast != null ? ast.getLocation() : Location.BUILTIN;
+    // TODO(adonovan): we can likely come up with a more efficient implementation
+    // ...then make matchSignature private again?
+    Object[] arguments =
+        Starlark.matchSignature(
+            signature, this, /*defaults=*/ null, thread.mutability(), positional, named);
     if (fields == null) {
       // provider(**kwargs)
       @SuppressWarnings("unchecked")
-      Map<String, Object> kwargs = (Map<String, Object>) args[0];
+      Map<String, Object> kwargs = (Map<String, Object>) arguments[0];
       return SkylarkInfo.create(this, kwargs, loc);
     } else {
       // provider(a=..., b=..., ...)
       // The order of args is determined by the signature: that is, fields, which is sorted.
-      return SkylarkInfo.fromSortedFieldList(this, fields, args, loc);
+      return SkylarkInfo.fromSortedFieldList(this, fields, arguments, loc);
     }
   }
 

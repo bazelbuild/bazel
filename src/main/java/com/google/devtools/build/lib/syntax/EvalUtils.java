@@ -116,8 +116,7 @@ public final class EvalUtils {
       // Object.hashCode within a try/catch, and requiring all
       // unhashable Starlark values to throw a particular unchecked exception
       // with a helpful error message.
-      throw new EvalException(
-          null, Starlark.format("unhashable type: '%s'", EvalUtils.getDataTypeName(x)));
+      throw Starlark.errorf("unhashable type: '%s'", EvalUtils.getDataTypeName(x));
     }
   }
 
@@ -459,16 +458,14 @@ public final class EvalUtils {
     if (object instanceof ClassObject) {
       String customErrorMessage = ((ClassObject) object).getErrorMessageForUnknownField(name);
       if (customErrorMessage != null) {
-        return new EvalException(null, customErrorMessage);
+        return Starlark.errorf("%s", customErrorMessage);
       }
       suffix = SpellChecker.didYouMean(name, ((ClassObject) object).getFieldNames());
     } else {
       suffix = SpellChecker.didYouMean(name, CallUtils.getFieldNames(semantics, object));
     }
-    return new EvalException(
-        null,
-        String.format(
-            "'%s' value has no field or method '%s'%s", getDataTypeName(object), name, suffix));
+    return Starlark.errorf(
+        "'%s' value has no field or method '%s'%s", getDataTypeName(object), name, suffix);
   }
 
   /** Evaluates an eager binary operation, {@code x op y}. (Excludes AND and OR.) */

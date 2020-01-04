@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.rules.android;
 
 import com.google.auto.value.AutoValue;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.rules.android.AndroidConfiguration.AndroidAaptVersion;
 import javax.annotation.Nullable;
 
 /** Helper for creating an {@code aapt2 optimize} action. */
@@ -24,9 +23,7 @@ abstract class Aapt2OptimizeActionBuilder {
 
   void registerAction(AndroidDataContext dataContext) {
     BusyBoxActionBuilder builder =
-        BusyBoxActionBuilder.create(dataContext, "AAPT2_OPTIMIZE")
-            .addAapt(AndroidAaptVersion.AAPT2)
-            .addFlag("--");
+        BusyBoxActionBuilder.create(dataContext, "AAPT2_OPTIMIZE").addAapt().addFlag("--");
     if (resourcePathShorteningMapOut() != null) {
       builder
           .addFlag("--shorten-resource-paths")

@@ -90,7 +90,7 @@ import com.google.devtools.build.lib.rules.proto.ProtoConfiguration;
 import com.google.devtools.build.lib.rules.proto.ProtoInfo;
 import com.google.devtools.build.lib.rules.proto.ProtoLangToolchainRule;
 import com.google.devtools.build.lib.rules.python.PyInfo;
-import com.google.devtools.build.lib.rules.python.PyRuleClasses.PyBinSymlink;
+import com.google.devtools.build.lib.rules.python.PyRuleClasses.PySymlink;
 import com.google.devtools.build.lib.rules.python.PyRuntimeInfo;
 import com.google.devtools.build.lib.rules.python.PyRuntimeRule;
 import com.google.devtools.build.lib.rules.python.PyStarlarkTransitions;
@@ -389,8 +389,8 @@ public class BazelRuleClassProvider {
               new PyBootstrap(
                   PyInfo.PROVIDER, PyRuntimeInfo.PROVIDER, PyStarlarkTransitions.INSTANCE));
 
-          builder.addSymlinkDefinition(PyBinSymlink.PY2);
-          builder.addSymlinkDefinition(PyBinSymlink.PY3);
+          builder.addSymlinkDefinition(PySymlink.PY2);
+          builder.addSymlinkDefinition(PySymlink.PY3);
 
           try {
             builder.addWorkspaceFileSuffix(

@@ -183,6 +183,20 @@ java_test(
 )
 
 java_test(
+    name = "DataValueFileTest",
+    size = "small",
+    srcs = ["DataValueFileTest.java"],
+    deps = [
+        "//src/tools/android/java/com/google/devtools/build/android:android_builder_lib",
+        "//src/tools/android/java/com/google/devtools/build/android/resources",
+        "//third_party:guava",
+        "//third_party:jimfs",
+        "//third_party:junit4",
+        "//third_party:truth",
+    ],
+)
+
+java_test(
     name = "DensitySpecificManifestProcessorTest",
     size = "small",
     srcs = ["DensitySpecificManifestProcessorTest.java"],

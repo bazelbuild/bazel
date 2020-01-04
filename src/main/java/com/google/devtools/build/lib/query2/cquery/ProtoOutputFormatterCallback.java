@@ -35,6 +35,7 @@ import com.google.devtools.build.lib.rules.AliasConfiguredTarget;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.protobuf.Message;
 import com.google.protobuf.TextFormat;
+import com.google.protobuf.util.JsonFormat;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.util.Map;
@@ -45,7 +46,8 @@ class ProtoOutputFormatterCallback extends CqueryThreadsafeCallback {
   /** Defines the types of proto output this class can handle. */
   public enum OutputType {
     BINARY("proto"),
-    TEXT("textproto");
+    TEXT("textproto"),
+    JSON("jsonproto");
 
     private final String formatName;
 
@@ -60,6 +62,7 @@ class ProtoOutputFormatterCallback extends CqueryThreadsafeCallback {
 
   private final OutputType outputType;
   private final AspectResolver resolver;
+  private final JsonFormat.Printer jsonPrinter = JsonFormat.printer();
 
   private AnalysisProtos.CqueryResult.Builder protoResult;
 
@@ -107,6 +110,10 @@ class ProtoOutputFormatterCallback extends CqueryThreadsafeCallback {
         break;
       case TEXT:
         TextFormat.print(message, printStream);
+        break;
+      case JSON:
+        jsonPrinter.appendTo(message, printStream);
+        printStream.append('\n');
         break;
       default:
         throw new IllegalStateException("Unknown outputType " + outputType.formatName());

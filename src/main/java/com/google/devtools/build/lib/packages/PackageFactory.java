@@ -37,13 +37,14 @@ import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.packages.RuleFactory.BuildLangTypedAttributeValuesMap;
 import com.google.devtools.build.lib.syntax.Argument;
 import com.google.devtools.build.lib.syntax.BaseFunction;
+import com.google.devtools.build.lib.syntax.CallExpression;
 import com.google.devtools.build.lib.syntax.ClassObject;
 import com.google.devtools.build.lib.syntax.DefStatement;
+import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.Expression;
 import com.google.devtools.build.lib.syntax.ForStatement;
-import com.google.devtools.build.lib.syntax.FuncallExpression;
 import com.google.devtools.build.lib.syntax.FunctionSignature;
 import com.google.devtools.build.lib.syntax.Identifier;
 import com.google.devtools.build.lib.syntax.IfStatement;
@@ -63,6 +64,7 @@ import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.lib.syntax.StarlarkThread.Extension;
 import com.google.devtools.build.lib.syntax.Statement;
 import com.google.devtools.build.lib.syntax.StringLiteral;
+import com.google.devtools.build.lib.syntax.Tuple;
 import com.google.devtools.build.lib.syntax.ValidationEnvironment;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -494,56 +496,53 @@ public final class PackageFactory {
 
   /** Returns a function-value implementing "package" in the specified package context. */
   // TODO(cparsons): Migrate this function to be defined with @SkylarkCallable.
+  // TODO(adonovan): don't call this function twice (once for BUILD files and
+  // once for the native module) as it results in distinct objects. (Using
+  // @SkylarkCallable may accomplish that.)
   private static BaseFunction newPackageFunction(
       final ImmutableMap<String, PackageArgument<?>> packageArguments) {
-    // Flatten the map of argument name of PackageArgument specifier in two co-indexed arrays:
-    // one for the argument names, to create a FunctionSignature when we create the function,
-    // one of the PackageArgument specifiers, over which to iterate at every function invocation
-    // at the same time that we iterate over the function arguments.
-    final int numArgs = packageArguments.size();
-    final String[] argumentNames = new String[numArgs];
-    final PackageArgument<?>[] argumentSpecifiers = new PackageArgument<?>[numArgs];
-    int i = 0;
-    for (Map.Entry<String, PackageArgument<?>> entry : packageArguments.entrySet()) {
-      argumentNames[i] = entry.getKey();
-      argumentSpecifiers[i++] = entry.getValue();
-    }
+    FunctionSignature signature =
+        FunctionSignature.namedOnly(0, packageArguments.keySet().toArray(new String[0]));
 
-    return new BaseFunction(FunctionSignature.namedOnly(0, argumentNames)) {
+    return new BaseFunction() {
       @Override
       public String getName() {
         return "package";
       }
 
       @Override
-      public Object call(Object[] arguments, FuncallExpression ast, StarlarkThread thread)
-          throws EvalException {
-        Location loc = ast.getLocation();
+      public FunctionSignature getSignature() {
+        return signature; // (only for documentation)
+      }
 
+      @Override
+      public Object call(
+          StarlarkThread thread, Location loc, Tuple<Object> args, Dict<String, Object> kwargs)
+          throws EvalException {
+        if (!args.isEmpty()) {
+          throw new EvalException(null, "unexpected positional arguments");
+        }
         Package.Builder pkgBuilder = getContext(thread, loc).pkgBuilder;
 
         // Validate parameter list
         if (pkgBuilder.isPackageFunctionUsed()) {
-          throw new EvalException(loc, "'package' can only be used once per BUILD file");
+          throw new EvalException(null, "'package' can only be used once per BUILD file");
         }
         pkgBuilder.setPackageFunctionUsed();
 
-        // Parse params
-        boolean foundParameter = false;
-
-        for (int i = 0; i < numArgs; i++) {
-          Object value = arguments[i];
-          if (value != null) {
-            foundParameter = true;
-            argumentSpecifiers[i].convertAndProcess(pkgBuilder, loc, value);
-          }
-        }
-
-        if (!foundParameter) {
+        // Each supplied argument must name a PackageArgument.
+        if (kwargs.isEmpty()) {
           throw new EvalException(
-              loc, "at least one argument must be given to the 'package' function");
+              null, "at least one argument must be given to the 'package' function");
         }
-
+        for (Map.Entry<String, Object> kwarg : kwargs.entrySet()) {
+          String name = kwarg.getKey();
+          PackageArgument<?> pkgarg = packageArguments.get(name);
+          if (pkgarg == null) {
+            throw new EvalException(null, "unexpected keyword argument: " + name);
+          }
+          pkgarg.convertAndProcess(pkgBuilder, loc, kwarg.getValue());
+        }
         return Starlark.NONE;
       }
     };
@@ -585,24 +584,21 @@ public final class PackageFactory {
     private final RuleClass ruleClass;
 
     BuiltinRuleFunction(RuleClass ruleClass) {
-      // TODO(adonovan): the only thing BaseFunction is doing for us is holding
-      // an (uninteresting) FunctionSignature. Can we extend StarlarkCallable directly?
-      // Only docgen appears to depend on BaseFunction.
-      super(FunctionSignature.KWARGS);
       this.ruleClass = Preconditions.checkNotNull(ruleClass);
     }
 
     @Override
-    public NoneType callImpl(
-        StarlarkThread thread,
-        @Nullable FuncallExpression call,
-        List<Object> args,
-        Map<String, Object> kwargs)
+    public FunctionSignature getSignature() {
+      return FunctionSignature.KWARGS; // just for documentation
+    }
+
+    @Override
+    public NoneType call(
+        StarlarkThread thread, Location loc, Tuple<Object> args, Dict<String, Object> kwargs)
         throws EvalException, InterruptedException {
       if (!args.isEmpty()) {
         throw new EvalException(null, "unexpected positional arguments");
       }
-      Location loc = call != null ? call.getLocation() : Location.BUILTIN;
       BazelStarlarkContext.from(thread).checkLoadingOrWorkspacePhase(ruleClass.getName());
       try {
         addRule(getContext(thread, loc), kwargs, loc, thread);
@@ -817,6 +813,7 @@ public final class PackageFactory {
    * unreachable once the StarlarkThread is discarded at the end of evaluation. Please be aware of
    * your memory footprint when making changes here!
    */
+  // TODO(adonovan): is there any reason not to merge this with Package.Builder?
   public static class PackageContext {
     final Package.Builder pkgBuilder;
     final Globber globber;
@@ -1006,10 +1003,15 @@ public final class PackageFactory {
       // Check syntax. Make a pass over the syntax tree to:
       // - reject forbidden BUILD syntax
       // - extract literal glob patterns for prefetching
-      // - record the generator_name of each top-level macro call (coming soon)
+      // - record the generator_name of each top-level macro call
       Set<String> globs = new HashSet<>();
       Set<String> globsWithDirs = new HashSet<>();
-      if (!checkBuildSyntax(file, globs, globsWithDirs, pkgContext.eventHandler)) {
+      if (!checkBuildSyntax(
+          file,
+          globs,
+          globsWithDirs,
+          pkgBuilder.getGeneratorNameByLocation(),
+          pkgContext.eventHandler)) {
         return false;
       }
 
@@ -1058,12 +1060,19 @@ public final class PackageFactory {
   }
 
   /**
-   * checkBuildSyntax visits the syntax tree of a BUILD (not .bzl) file. If it discovers a {@code
-   * def}, {@code if}, or {@code for} statement, or a {@code f(*args)} or {@code f(**kwargs)} call,
-   * it reports an event to handler and returns false.
+   * checkBuildSyntax is a static pass over the syntax tree of a BUILD (not .bzl) file.
    *
-   * <p>It also extracts literal {@code glob(include="pattern")} patterns and adds them to {@code
-   * globs}, or to {@code globsWithDirs} if the call had a {@code exclude_directories=0} argument.
+   * <p>It reports an error to the event handler if it discovers a {@code def}, {@code if}, or
+   * {@code for} statement, or a {@code f(*args)} or {@code f(**kwargs)} call.
+   *
+   * <p>It extracts literal {@code glob(include="pattern")} patterns and adds them to {@code globs},
+   * or to {@code globsWithDirs} if the call had a {@code exclude_directories=0} argument.
+   *
+   * <p>It records in {@code generatorNameByLocation} all calls of the form {@code f(name="foo",
+   * ...)} so that any rules instantiated during the call to {@code f} can be ascribed a "generator
+   * name" of {@code "foo"}.
+   *
+   * <p>It returns true if it reported no errors.
    */
   // TODO(adonovan): restructure so that this is called from the sole place that executes BUILD
   // files. Also, make private; there's reason for tests to call this directly.
@@ -1071,6 +1080,7 @@ public final class PackageFactory {
       StarlarkFile file,
       Collection<String> globs,
       Collection<String> globsWithDirs,
+      Map<Location, String> generatorNameByLocation,
       EventHandler eventHandler) {
     final boolean[] success = {true};
     NodeVisitor checker =
@@ -1085,7 +1095,7 @@ public final class PackageFactory {
           //   glob(["pattern"])
           // This may spuriously match user-defined functions named glob;
           // that's ok, it's only a heuristic.
-          void extractGlobPatterns(FuncallExpression call) {
+          void extractGlobPatterns(CallExpression call) {
             if (call.getFunction() instanceof Identifier
                 && ((Identifier) call.getFunction()).getName().equals("glob")) {
               Expression excludeDirectories = null, include = null;
@@ -1121,7 +1131,7 @@ public final class PackageFactory {
           }
 
           // Reject f(*args) and f(**kwargs) calls in BUILD files.
-          void rejectStarArgs(FuncallExpression call) {
+          void rejectStarArgs(CallExpression call) {
             for (Argument arg : call.getArguments()) {
               if (arg instanceof Argument.StarStar) {
                 error(
@@ -1133,6 +1143,20 @@ public final class PackageFactory {
                     call,
                     "*args arguments are not allowed in BUILD files. Pass the arguments in "
                         + "explicitly.");
+              }
+            }
+          }
+
+          // Record calls of the form f(name="foo", ...)
+          // so that we can later ascribe "foo" as the "generator name"
+          // of any rules instantiated during the call of f.
+          void recordGeneratorName(CallExpression call) {
+            for (Argument arg : call.getArguments()) {
+              if (arg instanceof Argument.Keyword
+                  && arg.getName().equals("name")
+                  && arg.getValue() instanceof StringLiteral) {
+                generatorNameByLocation.put(
+                    call.getLocation(), ((StringLiteral) arg.getValue()).getValue());
               }
             }
           }
@@ -1168,9 +1192,10 @@ public final class PackageFactory {
           }
 
           @Override
-          public void visit(FuncallExpression node) {
+          public void visit(CallExpression node) {
             extractGlobPatterns(node);
             rejectStarArgs(node);
+            recordGeneratorName(node);
             // Continue traversal so as not to miss nested calls
             // like cc_binary(..., f(**kwargs), srcs=glob(...), ...).
             super.visit(node);

@@ -26,7 +26,6 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.SymbolGenerator;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcLinkingContextApi;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.LinkerInputApi;
@@ -34,6 +33,7 @@ import com.google.devtools.build.lib.syntax.Depset;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.SkylarkType;
+import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.syntax.StarlarkList;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.util.Fingerprint;
@@ -186,10 +186,9 @@ public class CcLinkingContext implements CcLinkingContextApi<Artifact> {
     }
 
     @Override
-    public Label getSkylarkOwner(Location location) throws EvalException {
+    public Label getSkylarkOwner() throws EvalException {
       if (owner == null) {
-        throw new EvalException(
-            location,
+        throw Starlark.errorf(
             "Owner is null. This means that some target upstream is of a rule type that uses the"
                 + " old API of create_linking_context");
       }
@@ -347,7 +346,7 @@ public class CcLinkingContext implements CcLinkingContextApi<Artifact> {
 
   public List<Artifact> getStaticModeParamsForExecutableLibraries() {
     ImmutableList.Builder<Artifact> libraryListBuilder = ImmutableList.builder();
-    for (LibraryToLink libraryToLink : getLibraries()) {
+    for (LibraryToLink libraryToLink : getLibraries().toList()) {
       if (libraryToLink.getStaticLibrary() != null) {
         libraryListBuilder.add(libraryToLink.getStaticLibrary());
       } else if (libraryToLink.getPicStaticLibrary() != null) {
@@ -363,7 +362,7 @@ public class CcLinkingContext implements CcLinkingContextApi<Artifact> {
 
   public List<Artifact> getStaticModeParamsForDynamicLibraryLibraries() {
     ImmutableList.Builder<Artifact> artifactListBuilder = ImmutableList.builder();
-    for (LibraryToLink library : getLibraries()) {
+    for (LibraryToLink library : getLibraries().toList()) {
       if (library.getPicStaticLibrary() != null) {
         artifactListBuilder.add(library.getPicStaticLibrary());
       } else if (library.getStaticLibrary() != null) {

@@ -18,12 +18,29 @@ package com.google.devtools.build.android.desugar.langmodel;
 
 import static com.google.devtools.build.android.desugar.langmodel.LangModelConstants.NEST_COMPANION_CLASS_SIMPLE_NAME;
 
+import com.google.common.collect.ImmutableMap;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
 
 /** A utility class for the desguaring of nest-based access control classes. */
 public final class LangModelHelper {
+
+  /**
+   * The primitive type as specified at
+   * https://docs.oracle.com/javase/specs/jvms/se11/html/jvms-2.html#jvms-2.3
+   */
+  private static final ImmutableMap<Type, Type> PRIMITIVES_TO_BOXED_TYPES =
+      ImmutableMap.<Type, Type>builder()
+          .put(Type.INT_TYPE, Type.getObjectType("java/lang/Integer"))
+          .put(Type.BOOLEAN_TYPE, Type.getObjectType("java/lang/Boolean"))
+          .put(Type.BYTE_TYPE, Type.getObjectType("java/lang/Byte"))
+          .put(Type.CHAR_TYPE, Type.getObjectType("java/lang/Character"))
+          .put(Type.SHORT_TYPE, Type.getObjectType("java/lang/Short"))
+          .put(Type.DOUBLE_TYPE, Type.getObjectType("java/lang/Double"))
+          .put(Type.FLOAT_TYPE, Type.getObjectType("java/lang/Float"))
+          .put(Type.LONG_TYPE, Type.getObjectType("java/lang/Long"))
+          .build();
 
   /**
    * Returns the internal name of the nest host class for a given class.
@@ -42,6 +59,15 @@ public final class LangModelHelper {
    */
   public static String nestCompanion(String classInternalName) {
     return nestHost(classInternalName) + '$' + NEST_COMPANION_CLASS_SIMPLE_NAME;
+  }
+
+  /** Whether the given type is a primitive type */
+  public static boolean isPrimitive(Type type) {
+    return PRIMITIVES_TO_BOXED_TYPES.containsKey(type);
+  }
+
+  public static Type toBoxedType(Type primitiveType) {
+    return PRIMITIVES_TO_BOXED_TYPES.get(primitiveType);
   }
 
   /**

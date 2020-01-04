@@ -470,9 +470,8 @@ public class AndroidCommon {
           ImmutableList.<Artifact>builder()
               .addAll(
                   ruleContext
-                      .getPrerequisite("$desugar_java8_extra_bootclasspath", Mode.HOST)
-                      .getProvider(FileProvider.class)
-                      .getFilesToBuild())
+                      .getPrerequisiteArtifacts("$desugar_java8_extra_bootclasspath", Mode.HOST)
+                      .list())
               .add(AndroidSdkProvider.fromRuleContext(ruleContext).getAndroidJar())
               .build();
     } else {
@@ -928,7 +927,8 @@ public class AndroidCommon {
       } else if (fileProvider != null) {
         // The rule definition should enforce that only .apk files are allowed, however, it can't
         // hurt to double check.
-        supportApks.addAll(FileType.filter(fileProvider.getFilesToBuild(), AndroidRuleClasses.APK));
+        supportApks.addAll(
+            FileType.filter(fileProvider.getFilesToBuild().toList(), AndroidRuleClasses.APK));
       }
     }
     return supportApks.build();

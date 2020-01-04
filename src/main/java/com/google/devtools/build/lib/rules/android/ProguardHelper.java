@@ -221,7 +221,7 @@ public final class ProguardHelper {
             .addAll(localProguardSpecs)
             .addAll(specsToInclude);
     for (ProguardSpecProvider dep : proguardDeps) {
-      builder.addAll(dep.getTransitiveProguardSpecs());
+      builder.addAll(dep.getTransitiveProguardSpecs().toList());
     }
 
     return builder.build().asList();

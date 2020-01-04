@@ -50,7 +50,7 @@ public final class ListExpression extends Expression {
   }
 
   // Appends elements to buf, comma-separated, abbreviating if they are numerous or long.
-  // (Also used by FuncallExpression.)
+  // (Also used by CallExpression.)
   static void appendNodes(StringBuilder buf, List<? extends Node> elements) {
     int n = elements.size();
     for (int i = 0; i < n; i++) {

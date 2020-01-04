@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.syntax.SyntaxError;
 import com.google.devtools.build.lib.syntax.ValidationEnvironment;
 import com.google.devtools.build.lib.testutil.TestMode;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
@@ -163,7 +164,7 @@ public class EvaluationTestCase {
       // prevent execution. We also apply BUILD dialect syntax checks.
       Event.replayEventsOn(getEventHandler(), file.errors());
       List<String> globs = new ArrayList<>(); // unused
-      PackageFactory.checkBuildSyntax(file, globs, globs, getEventHandler());
+      PackageFactory.checkBuildSyntax(file, globs, globs, new HashMap<>(), getEventHandler());
     }
     EvalUtils.exec(file, thread);
   }

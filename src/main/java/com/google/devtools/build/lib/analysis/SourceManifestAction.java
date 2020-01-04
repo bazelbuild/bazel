@@ -102,6 +102,8 @@ public final class SourceManifestAction extends AbstractFileWriteAction {
    */
   private final Runfiles runfiles;
 
+  private final boolean remotableSourceManifestActions;
+
   /**
    * Creates a new AbstractSourceManifestAction instance using latin1 encoding to write the manifest
    * file and with a specified root path for manifest entries.
@@ -111,16 +113,32 @@ public final class SourceManifestAction extends AbstractFileWriteAction {
    * @param primaryOutput the file to which to write the manifest
    * @param runfiles runfiles
    */
-  public SourceManifestAction(
+  @VisibleForTesting
+  SourceManifestAction(
       ManifestWriter manifestWriter, ActionOwner owner, Artifact primaryOutput, Runfiles runfiles) {
+    this(manifestWriter, owner, primaryOutput, runfiles, /*remotableSourceManifestActions=*/ false);
+  }
+
+  /**
+   * Creates a new AbstractSourceManifestAction instance using latin1 encoding to write the manifest
+   * file and with a specified root path for manifest entries.
+   *
+   * @param manifestWriter the strategy to use to write manifest entries
+   * @param owner the action owner
+   * @param primaryOutput the file to which to write the manifest
+   * @param runfiles runfiles
+   */
+  @AutoCodec.Instantiator
+  public SourceManifestAction(
+      ManifestWriter manifestWriter,
+      ActionOwner owner,
+      Artifact primaryOutput,
+      Runfiles runfiles,
+      boolean remotableSourceManifestActions) {
     super(owner, getDependencies(runfiles), primaryOutput, false);
     this.manifestWriter = manifestWriter;
     this.runfiles = runfiles;
-  }
-
-  /** The {@link Runfiles} for which this action creates the symlink tree. */
-  public Runfiles getGeneratedRunfiles() {
-    return runfiles;
+    this.remotableSourceManifestActions = remotableSourceManifestActions;
   }
 
   @VisibleForTesting
@@ -144,7 +162,7 @@ public final class SourceManifestAction extends AbstractFileWriteAction {
 
   @Override
   public boolean isRemotable() {
-    return manifestWriter.isRemotable();
+    return remotableSourceManifestActions || manifestWriter.isRemotable();
   }
 
   /**
@@ -194,6 +212,7 @@ public final class SourceManifestAction extends AbstractFileWriteAction {
   @Override
   protected void computeKey(ActionKeyContext actionKeyContext, Fingerprint fp) {
     fp.addString(GUID);
+    fp.addBoolean(remotableSourceManifestActions);
     runfiles.fingerprint(fp);
   }
 

@@ -18,6 +18,7 @@ import static com.google.common.truth.Truth.assertThat;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
+import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.AnalysisResult;
@@ -73,6 +74,8 @@ public class SkylarkActionProviderTest extends AnalysisTestCase {
 
     ActionAnalysisMetadata action = actions.get(0);
     assertThat(action.getMnemonic()).isEqualTo("Genrule");
+    assertThat(action).isInstanceOf(AbstractAction.class);
+    assertThat(((AbstractAction) action).getExecutionInfo()).isNotNull();
   }
 
   @Test
@@ -84,6 +87,7 @@ public class SkylarkActionProviderTest extends AnalysisTestCase {
         "def _impl(target, ctx):",
         "   mnemonics = [a.mnemonic for a in target.actions]",
         "   envs = [a.env for a in target.actions]",
+        "   execution_info = [a.execution_info for a in target.actions]",
         "   inputs = [a.inputs.to_list() for a in target.actions]",
         "   outputs = [a.outputs.to_list() for a in target.actions]",
         "   argv = [a.argv for a in target.actions]",
@@ -91,6 +95,7 @@ public class SkylarkActionProviderTest extends AnalysisTestCase {
         "       actions = target.actions,",
         "       mnemonics = mnemonics,",
         "       envs = envs,",
+        "       execution_info = execution_info,",
         "       inputs = inputs,",
         "       outputs = outputs,",
         "       argv = argv",
@@ -111,6 +116,7 @@ public class SkylarkActionProviderTest extends AnalysisTestCase {
     scratch.file(
         "test/BUILD", "load('//test:rule.bzl', 'my_rule')", "my_rule(", "   name = 'xxx',", ")");
 
+    useConfiguration("--experimental_google_legacy_api");
     AnalysisResult analysisResult =
         update(ImmutableList.of("test/aspect.bzl%MyAspect"), "//test:xxx");
 
@@ -135,6 +141,10 @@ public class SkylarkActionProviderTest extends AnalysisTestCase {
         .containsExactly(
             Dict.of((Mutability) null, "foo", "bar", "pet", "puppy"),
             Dict.of((Mutability) null, "pet", "bunny"));
+
+    Sequence<Dict<String, String>> executionInfo =
+        (Sequence<Dict<String, String>>) fooProvider.getValue("execution_info");
+    assertThat(executionInfo).isNotNull();
 
     Sequence<Sequence<Artifact>> inputs =
         (Sequence<Sequence<Artifact>>) fooProvider.getValue("inputs");

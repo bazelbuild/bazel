@@ -378,7 +378,7 @@ public class SkylarkActionFactory implements SkylarkActionFactoryApi {
       Object executionRequirementsUnchecked,
       Object inputManifestsUnchecked,
       Location location,
-      StarlarkSemantics semantics)
+      StarlarkThread thread)
       throws EvalException {
     context.checkMutable("actions.run_shell");
 
@@ -408,7 +408,7 @@ public class SkylarkActionFactory implements SkylarkActionFactoryApi {
         }
       }
     } else if (commandUnchecked instanceof Sequence) {
-      if (semantics.incompatibleRunShellCommandString()) {
+      if (thread.getSemantics().incompatibleRunShellCommandString()) {
         throw new EvalException(
             location,
             "'command' must be of type string. passing a sequence of strings as 'command'"

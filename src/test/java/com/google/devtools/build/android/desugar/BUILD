@@ -16,8 +16,10 @@ filegroup(
         "//src/test/java/com/google/devtools/build/android/desugar/classes_for_testing_type_inference:srcs",
         "//src/test/java/com/google/devtools/build/android/desugar/dependencies:srcs",
         "//src/test/java/com/google/devtools/build/android/desugar/io:srcs",
+        "//src/test/java/com/google/devtools/build/android/desugar/langmodel:srcs",
         "//src/test/java/com/google/devtools/build/android/desugar/runtime:srcs",
         "//src/test/java/com/google/devtools/build/android/desugar/scan:srcs",
+        "//src/test/java/com/google/devtools/build/android/desugar/testing/junit:srcs",
     ],
     visibility = ["//src/test/java/com/google/devtools/build/android:__pkg__"],
 )

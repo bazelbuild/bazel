@@ -331,4 +331,13 @@ public final class BuildEventId implements Serializable {
                 BuildEventStreamProtos.BuildEventId.BuildMetricsId.getDefaultInstance())
             .build());
   }
+
+  public static BuildEventId convenienceSymlinksIdentifiedId() {
+    return new BuildEventId(
+        BuildEventStreamProtos.BuildEventId.newBuilder()
+            .setConvenienceSymlinksIdentified(
+                BuildEventStreamProtos.BuildEventId.ConvenienceSymlinksIdentifiedId
+                    .getDefaultInstance())
+            .build());
+  }
 }

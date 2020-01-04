@@ -353,8 +353,15 @@ public class SkylarkRepositoryContext
   }
 
   @Override
-  public SkylarkOS getOS(Location location) {
-    WorkspaceRuleEvent w = WorkspaceRuleEvent.newOsEvent(rule.getLabel().toString(), location);
+  public SkylarkOS getOS() {
+    // Historically this event reported the location of the ctx.os expression,
+    // but that's no longer available in the interpreter API. Now we report the
+    // location of the rule's implementation function, and the user must inspect
+    // that code manually (or in a debugger) to find the offending ctx.os expression.
+    WorkspaceRuleEvent w =
+        WorkspaceRuleEvent.newOsEvent(
+            rule.getLabel().toString(),
+            rule.getRuleClassObject().getConfiguredTargetFunction().getLocation());
     env.getListener().post(w);
     return osObject;
   }
@@ -969,7 +976,7 @@ public class SkylarkRepositoryContext
       throw new RepositoryFunctionException(
           new IOException(
               "No URLs left after removing plain http URLs due to missing checksum."
-                  + " Please provde either a checksum or an https download location."),
+                  + " Please provide either a checksum or an https download location."),
           Transience.PERSISTENT);
     }
     return urls;

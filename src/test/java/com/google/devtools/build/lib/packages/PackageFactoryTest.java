@@ -35,6 +35,7 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
@@ -1183,7 +1184,8 @@ public class PackageFactoryTest extends PackageFactoryTestBase {
                 "third_variable = glob(['c'], exclude_directories = 0)"));
     List<String> globs = new ArrayList<>();
     List<String> globsWithDirs = new ArrayList<>();
-    PackageFactory.checkBuildSyntax(file, globs, globsWithDirs, /*eventHandler=*/ null);
+    PackageFactory.checkBuildSyntax(
+        file, globs, globsWithDirs, new HashMap<>(), /*eventHandler=*/ null);
     assertThat(globs).containsExactly("ab", "a", "**/*");
     assertThat(globsWithDirs).containsExactly("c");
   }

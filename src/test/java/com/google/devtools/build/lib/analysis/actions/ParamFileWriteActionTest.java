@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
+import com.google.devtools.build.lib.actions.ActionExecutionContext.LostInputsCheck;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.ActionInputPrefetcher;
 import com.google.devtools.build.lib.actions.ActionResult;
@@ -203,14 +204,15 @@ public class ParamFileWriteActionTest extends BuildViewTestCase {
     Executor executor = new TestExecutorBuilder(fileSystem, directories, binTools).build();
     return new ActionExecutionContext(
         executor,
-        null,
+        /*actionInputFileCache=*/ null,
         ActionInputPrefetcher.NONE,
         actionKeyContext,
-        null,
+        /*metadataHandler=*/ null,
+        LostInputsCheck.NONE,
         new FileOutErr(),
         new StoredEventHandler(),
-        ImmutableMap.<String, String>of(),
-        ImmutableMap.of(),
+        /*clientEnv=*/ ImmutableMap.of(),
+        /*topLevelFilesets=*/ ImmutableMap.of(),
         artifactExpander,
         /*actionFileSystem=*/ null,
         /*skyframeDepsResult=*/ null);

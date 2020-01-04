@@ -26,11 +26,22 @@ import org.objectweb.asm.Type;
 @AutoValue
 public abstract class MethodKey extends ClassMemberKey {
 
-  /**
-   * The factory method for {@link com.google.devtools.build.android.desugar.langmodel.MethodKey}.
-   */
-  public static com.google.devtools.build.android.desugar.langmodel.MethodKey create(
-      String ownerClass, String name, String descriptor) {
+  /** The factory method for {@link MethodKey}. */
+  public static MethodKey create(String ownerClass, String name, String descriptor) {
+    checkState(
+        !ownerClass.contains("."),
+        "Expected a binary/internal class name ('/'-delimited) instead of a qualified name."
+            + " Actual: (%s#%s:%s)",
+        ownerClass,
+        name,
+        descriptor);
+    checkState(
+        descriptor.isEmpty() // Allows empty descriptor for non-overloaded methods.
+            || descriptor.startsWith("("),
+        "Expected a method descriptor. Actual: (%s#%s:%s)",
+        ownerClass,
+        name,
+        descriptor);
     return new AutoValue_MethodKey(ownerClass, name, descriptor);
   }
 
@@ -45,49 +56,41 @@ public abstract class MethodKey extends ClassMemberKey {
   }
 
   /** The synthetic constructor for a private constructor. */
-  public final com.google.devtools.build.android.desugar.langmodel.MethodKey bridgeOfConstructor() {
+  public final MethodKey bridgeOfConstructor() {
     checkState(isConstructor(), "Expect to use for a constructor but is %s", this);
     Type companionClassType = Type.getObjectType(nestCompanion());
     Type[] argumentTypes = getArgumentTypes();
     Type[] bridgeConstructorArgTypes = Arrays.copyOf(argumentTypes, argumentTypes.length + 1);
     bridgeConstructorArgTypes[argumentTypes.length] = companionClassType;
-    return com.google.devtools.build.android.desugar.langmodel.MethodKey.create(
+    return MethodKey.create(
         owner(), name(), Type.getMethodDescriptor(getReturnType(), bridgeConstructorArgTypes));
   }
 
   /** The synthetic bridge method for a private static method in a class. */
-  public final com.google.devtools.build.android.desugar.langmodel.MethodKey
-      bridgeOfClassStaticMethod() {
+  public final MethodKey bridgeOfClassStaticMethod() {
     checkState(!isConstructor(), "Expect a non-constructor method but is a constructor %s", this);
-    return com.google.devtools.build.android.desugar.langmodel.MethodKey.create(
-        owner(), nameWithSuffix("bridge"), descriptor());
+    return MethodKey.create(owner(), nameWithSuffix("bridge"), descriptor());
   }
 
   /** The synthetic bridge method for a private instance method in a class. */
-  public final com.google.devtools.build.android.desugar.langmodel.MethodKey
-      bridgeOfClassInstanceMethod() {
-    return com.google.devtools.build.android.desugar.langmodel.MethodKey.create(
+  public final MethodKey bridgeOfClassInstanceMethod() {
+    return MethodKey.create(
         owner(), nameWithSuffix("bridge"), instanceMethodToStaticDescriptor(this));
   }
 
   /** The substitute method for a private static method in an interface. */
-  public final com.google.devtools.build.android.desugar.langmodel.MethodKey
-      substituteOfInterfaceStaticMethod() {
+  public final MethodKey substituteOfInterfaceStaticMethod() {
     checkState(!isConstructor(), "Expect a non-constructor: %s", this);
-    return com.google.devtools.build.android.desugar.langmodel.MethodKey.create(
-        owner(), name(), descriptor());
+    return MethodKey.create(owner(), name(), descriptor());
   }
 
   /** The substitute method for a private instance method in an interface. */
-  public final com.google.devtools.build.android.desugar.langmodel.MethodKey
-      substituteOfInterfaceInstanceMethod() {
-    return com.google.devtools.build.android.desugar.langmodel.MethodKey.create(
-        owner(), name(), instanceMethodToStaticDescriptor(this));
+  public final MethodKey substituteOfInterfaceInstanceMethod() {
+    return MethodKey.create(owner(), name(), instanceMethodToStaticDescriptor(this));
   }
 
   /** The descriptor of the static version of a given instance method. */
-  private static String instanceMethodToStaticDescriptor(
-      com.google.devtools.build.android.desugar.langmodel.MethodKey methodKey) {
+  private static String instanceMethodToStaticDescriptor(MethodKey methodKey) {
     checkState(!methodKey.isConstructor(), "Expect a Non-constructor method: %s", methodKey);
     Type[] argumentTypes = methodKey.getArgumentTypes();
     Type[] bridgeMethodArgTypes = new Type[argumentTypes.length + 1];
@@ -102,9 +105,7 @@ public abstract class MethodKey extends ClassMemberKey {
   public final <R, P> R accept(
       MemberUseKind methodInstrOpcode,
       boolean isInterface,
-      MethodInstrVisitor<
-              R, ? super com.google.devtools.build.android.desugar.langmodel.MethodKey, P>
-          visitor,
+      MethodInstrVisitor<R, ? super MethodKey, P> visitor,
       P param) {
     if (isConstructor()) {
       checkState(methodInstrOpcode == MemberUseKind.INVOKESPECIAL);

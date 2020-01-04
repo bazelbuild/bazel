@@ -19,6 +19,7 @@ import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.NULL_AC
 
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
+import com.google.devtools.build.lib.actions.ActionExecutionContext.LostInputsCheck;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
@@ -122,6 +123,7 @@ public class CreateIncSymlinkActionTest extends FoundationTestCase {
         /*actionInputPrefetcher=*/ null,
         /*actionKeyContext=*/ null,
         /*metadataHandler=*/ null,
+        LostInputsCheck.NONE,
         /*fileOutErr=*/ null,
         new StoredEventHandler(),
         /*clientEnv=*/ ImmutableMap.of(),

@@ -87,7 +87,7 @@ public final class MockProtoSupport {
     config.create(
         "java/com/google/protobuf/BUILD",
         "package(default_visibility=['//visibility:public'])",
-        "filegroup(name = 'protobuf_proto_sources', srcs = [])");
+        "proto_library(name = 'protobuf_proto_sources', srcs = [])");
 
     // RPC generator plugins.
     config.create("net/rpc/compiler/BUILD",

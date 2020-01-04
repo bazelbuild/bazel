@@ -23,7 +23,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
-import com.google.devtools.build.lib.collect.compacthashset.CompactHashSet;
+import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkInterfaceUtils;
@@ -34,6 +34,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -162,10 +163,8 @@ public final class CallUtils {
       throws EvalException, InterruptedException {
     MethodDescriptor desc = getCacheValue(x.getClass(), semantics).fields.get(fieldName);
     if (desc == null) {
-      throw new EvalException(
-          null,
-          String.format(
-              "value of type %s has no .%s field", EvalUtils.getDataTypeName(x), fieldName));
+      throw Starlark.errorf(
+          "value of type %s has no .%s field", EvalUtils.getDataTypeName(x), fieldName);
     }
     return desc.callField(x, Location.BUILTIN, semantics, /*mu=*/ null);
   }
@@ -214,39 +213,53 @@ public final class CallUtils {
    * Converts Starlark-defined arguments to an array of argument {@link Object}s that may be passed
    * to a given callable-from-Starlark Java method.
    *
+   * @param thread the Starlark thread for the call
+   * @param methodName the named of the called method
+   * @param call the syntax tree of the call expression
    * @param method a descriptor for a java method callable from Starlark
    * @param objClass the class of the java object on which to invoke this method
-   * @param args a list of positional Starlark arguments
-   * @param kwargs a map of keyword Starlark arguments; keys are the used keyword, and values are
-   *     their corresponding values in the method call
-   * @param thread the Starlark thread for the call
+   * @param positional a list of positional arguments
+   * @param named a list of named arguments, as alternating Strings/Objects. May contain dups.
    * @return the array of arguments which may be passed to {@link MethodDescriptor#call}
    * @throws EvalException if the given set of arguments are invalid for the given method. For
    *     example, if any arguments are of unexpected type, or not all mandatory parameters are
    *     specified by the user
    */
+  // TODO(adonovan): move to BuiltinCallable
   static Object[] convertStarlarkArgumentsToJavaMethodArguments(
       StarlarkThread thread,
-      FuncallExpression call,
+      String methodName,
+      Location loc,
       MethodDescriptor method,
       Class<?> objClass,
-      List<Object> args,
-      Map<String, Object> kwargs)
+      Object[] positional,
+      Object[] named)
       throws EvalException {
     Preconditions.checkArgument(!method.isStructField(),
         "struct field methods should be handled by DotExpression separately");
 
+    // TODO(adonovan): optimize and simplify this function and improve the error messages.
+    // In particular, don't build a map unless isAcceptsExtraArgs();
+    // instead, make two passes, the first over positional+named,
+    // the second over the vacant parameters.
+
+    LinkedHashMap<String, Object> kwargs = Maps.newLinkedHashMapWithExpectedSize(named.length / 2);
+    for (int i = 0; i < named.length; i += 2) {
+      String name = (String) named[i]; // safe
+      Object value = named[i + 1];
+      if (kwargs.put(name, value) != null) {
+        throw Starlark.errorf("duplicate argument '%s' in call to '%s'", name, methodName);
+      }
+    }
+
     ImmutableList<ParamDescriptor> parameters = method.getParameters();
-    // *args, **kwargs, location, call, thread, skylark semantics
-    final int extraArgsCount = 6;
+    // TODO(adonovan): opt: compute correct size and use an array.
+    final int extraArgsCount = 5; // *args, **kwargs, Location, StarlarkThread, StarlarkSemantics
     List<Object> builder = new ArrayList<>(parameters.size() + extraArgsCount);
 
     int argIndex = 0;
 
     // Process parameters specified in callable.parameters()
-    // Many methods don't have any kwargs, so don't allocate a new hash set in that case.
-    Set<String> keys =
-        kwargs.isEmpty() ? ImmutableSet.of() : CompactHashSet.create(kwargs.keySet());
     // Positional parameters are always enumerated before non-positional parameters,
     // And default-valued positional parameters are always enumerated after other positional
     // parameters. These invariants are validated by the SkylarkCallable annotation processor.
@@ -262,31 +275,34 @@ public final class CallUtils {
         continue;
       }
 
-      if (argIndex < args.size() && param.isPositional()) { // Positional args and params remain.
-        value = args.get(argIndex);
+      Object namedValue = param.isNamed() ? kwargs.remove(param.getName()) : null;
+
+      if (argIndex < positional.length
+          && param.isPositional()) { // Positional args and params remain.
+        value = positional[argIndex];
         if (!type.contains(value)) {
           throw argumentMismatchException(
-              call,
+              loc,
               String.format(
                   "expected value of type '%s' for parameter '%s'", type, param.getName()),
               method,
               objClass);
         }
-        if (param.isNamed() && keys.contains(param.getName())) {
+        if (namedValue != null) {
           throw argumentMismatchException(
-              call,
+              loc,
               String.format("got multiple values for keyword argument '%s'", param.getName()),
               method,
               objClass);
         }
         argIndex++;
       } else { // No more positional arguments, or no more positional parameters.
-        if (param.isNamed() && !keys.isEmpty() && keys.remove(param.getName())) {
+        if (namedValue != null) {
           // Param specified by keyword argument.
-          value = kwargs.get(param.getName());
+          value = namedValue;
           if (!type.contains(value)) {
             throw argumentMismatchException(
-                call,
+                loc,
                 String.format(
                     "expected value of type '%s' for parameter '%s'", type, param.getName()),
                 method,
@@ -294,65 +310,62 @@ public final class CallUtils {
           }
         } else { // Param not specified by user. Use default value.
           if (param.getDefaultValue().isEmpty()) {
-            throw unspecifiedParameterException(call, param, method, objClass, kwargs);
+            throw unspecifiedParameterException(loc, param, method, objClass, kwargs);
           }
           value = evalDefault(param.getName(), param.getDefaultValue());
         }
       }
-      if (!param.isNoneable() && value instanceof NoneType) {
+      if (value == Starlark.NONE && !param.isNoneable()) {
         throw argumentMismatchException(
-            call,
-            String.format("parameter '%s' cannot be None", param.getName()),
-            method,
-            objClass);
+            loc, String.format("parameter '%s' cannot be None", param.getName()), method, objClass);
       }
       builder.add(value);
     }
 
     // *args
     if (method.isAcceptsExtraArgs()) {
-      builder.add(Tuple.copyOf(args.subList(argIndex, args.size())));
-    } else if (argIndex < args.size()) {
+      builder.add(Tuple.wrap(Arrays.copyOfRange(positional, argIndex, positional.length)));
+    } else if (argIndex < positional.length) {
       throw argumentMismatchException(
-          call,
+          loc,
           String.format(
-              "expected no more than %s positional arguments, but got %s", argIndex, args.size()),
+              "expected no more than %s positional arguments, but got %s",
+              argIndex, positional.length),
           method,
           objClass);
     }
 
     // **kwargs
     if (method.isAcceptsExtraKwargs()) {
-      Dict<String, Object> dict = Dict.of(thread.mutability());
-      for (String k : keys) {
-        dict.put(k, kwargs.get(k), (Location) null);
-      }
-      builder.add(dict);
-    } else if (!keys.isEmpty()) {
-      throw unexpectedKeywordArgumentException(call, keys, method, objClass, thread);
+      builder.add(Dict.wrap(thread.mutability(), kwargs));
+    } else if (!kwargs.isEmpty()) {
+      throw unexpectedKeywordArgumentException(loc, kwargs.keySet(), method, objClass, thread);
     }
 
-    // Add Location, FuncallExpression, and/or StarlarkThread.
-    appendExtraInterpreterArgs(builder, method, call, call.getLocation(), thread);
-
+    if (method.isUseLocation()) {
+      builder.add(loc);
+    }
+    if (method.isUseStarlarkThread()) {
+      builder.add(thread);
+    }
     return builder.toArray();
   }
 
   private static EvalException unspecifiedParameterException(
-      FuncallExpression call,
+      Location loc,
       ParamDescriptor param,
       MethodDescriptor method,
       Class<?> objClass,
       Map<String, Object> kwargs) {
     if (kwargs.containsKey(param.getName())) {
       return argumentMismatchException(
-          call,
+          loc,
           String.format("parameter '%s' may not be specified by name", param.getName()),
           method,
           objClass);
     } else {
       return argumentMismatchException(
-          call,
+          loc,
           String.format("parameter '%s' has no default value", param.getName()),
           method,
           objClass);
@@ -360,7 +373,7 @@ public final class CallUtils {
   }
 
   private static EvalException unexpectedKeywordArgumentException(
-      FuncallExpression call,
+      Location loc,
       Set<String> unexpectedKeywords,
       MethodDescriptor method,
       Class<?> objClass,
@@ -374,14 +387,14 @@ public final class CallUtils {
         // If the flag is True, it must be a deprecation flag. Otherwise it's an experimental flag.
         if (thread.getSemantics().flagValue(flagIdentifier)) {
           return new EvalException(
-              call.getLocation(),
+              loc,
               String.format(
                   "parameter '%s' is deprecated and will be removed soon. It may be "
                       + "temporarily re-enabled by setting --%s=false",
                   param.getName(), flagIdentifier.getFlagName()));
         } else {
           return new EvalException(
-              call.getLocation(),
+              loc,
               String.format(
                   "parameter '%s' is experimental and thus unavailable with the current "
                       + "flags. It may be enabled by setting --%s",
@@ -391,7 +404,7 @@ public final class CallUtils {
     }
 
     return argumentMismatchException(
-        call,
+        loc,
         String.format(
             "unexpected keyword%s %s",
             unexpectedKeywords.size() > 1 ? "s" : "",
@@ -401,47 +414,21 @@ public final class CallUtils {
   }
 
   private static EvalException argumentMismatchException(
-      FuncallExpression call,
-      String errorDescription,
-      MethodDescriptor methodDescriptor,
-      Class<?> objClass) {
+      Location loc, String errorDescription, MethodDescriptor methodDescriptor, Class<?> objClass) {
     if (methodDescriptor.isSelfCall() || SkylarkInterfaceUtils.hasSkylarkGlobalLibrary(objClass)) {
       return new EvalException(
-          call.getLocation(),
+          loc,
           String.format(
               "%s, for call to function %s",
               errorDescription, formatMethod(objClass, methodDescriptor)));
     } else {
       return new EvalException(
-          call.getLocation(),
+          loc,
           String.format(
               "%s, for call to method %s of '%s'",
               errorDescription,
               formatMethod(objClass, methodDescriptor),
               EvalUtils.getDataTypeNameFromClass(objClass)));
-    }
-  }
-
-  private static void appendExtraInterpreterArgs(
-      List<Object> builder,
-      MethodDescriptor method,
-      @Nullable FuncallExpression call,
-      Location loc,
-      StarlarkThread thread) {
-    if (method.isUseLocation()) {
-      builder.add(loc);
-    }
-    if (method.isUseAst()) {
-      if (call == null) {
-        throw new IllegalArgumentException("Callable expects to receive ast: " + method.getName());
-      }
-      builder.add(call);
-    }
-    if (method.isUseStarlarkThread()) {
-      builder.add(thread);
-    }
-    if (method.isUseStarlarkSemantics()) {
-      builder.add(thread.getSemantics());
     }
   }
 

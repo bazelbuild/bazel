@@ -37,7 +37,6 @@ import com.google.devtools.build.lib.actions.CommandAction;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
-import com.google.devtools.build.lib.actions.ExecutionInfoSpecifier;
 import com.google.devtools.build.lib.actions.NotifyOnActionCacheHit;
 import com.google.devtools.build.lib.actions.RunfilesSupplier;
 import com.google.devtools.build.lib.actions.SpawnExecutedEvent;
@@ -81,7 +80,7 @@ import javax.annotation.Nullable;
  */
 // Not final so that we can mock it in tests.
 public class TestRunnerAction extends AbstractAction
-    implements NotifyOnActionCacheHit, ExecutionInfoSpecifier, CommandAction {
+    implements NotifyOnActionCacheHit, CommandAction {
   public static final PathFragment COVERAGE_TMP_ROOT = PathFragment.create("_coverage");
 
   // Used for selecting subset of testcase / testmethods.

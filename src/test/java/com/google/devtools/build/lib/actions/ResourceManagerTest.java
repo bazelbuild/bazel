@@ -21,6 +21,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.ResourceManager.ResourceHandle;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.testutil.TestThread;
 import com.google.devtools.build.lib.testutil.TestUtils;
 import java.util.concurrent.CyclicBarrier;
@@ -432,7 +433,7 @@ public class ResourceManagerTest {
     }
 
     @Override
-    public Iterable<Artifact> getInputs() {
+    public NestedSet<Artifact> getInputs() {
       throw new IllegalStateException();
     }
 

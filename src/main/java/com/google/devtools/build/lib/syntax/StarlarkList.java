@@ -324,16 +324,15 @@ public final class StarlarkList<E> extends AbstractList<E> implements Sequence<E
       doc =
           "Removes the first item from the list whose value is x. "
               + "It is an error if there is no such item.",
-      parameters = {@Param(name = "x", type = Object.class, doc = "The object to remove.")},
-      useLocation = true)
-  public NoneType removeObject(Object x, Location loc) throws EvalException {
+      parameters = {@Param(name = "x", type = Object.class, doc = "The object to remove.")})
+  public NoneType removeObject(Object x) throws EvalException {
     for (int i = 0; i < size; i++) {
       if (elems[i].equals(x)) {
-        remove(i, loc);
+        remove(i, /*loc=*/ null);
         return Starlark.NONE;
       }
     }
-    throw new EvalException(loc, Starlark.format("item %r not found in list", x));
+    throw Starlark.errorf("item %s not found in list", Starlark.repr(x));
   }
 
   /**
@@ -354,20 +353,16 @@ public final class StarlarkList<E> extends AbstractList<E> implements Sequence<E
       doc = "Adds an item to the end of the list.",
       parameters = {
         @Param(name = "item", type = Object.class, doc = "Item to add at the end.", noneable = true)
-      },
-      useLocation = true)
+      })
   @SuppressWarnings("unchecked")
-  public NoneType append(Object item, Location loc) throws EvalException {
-    add((E) item, loc); // unchecked
+  public NoneType append(Object item) throws EvalException {
+    add((E) item, /*loc=*/ null); // unchecked
     return Starlark.NONE;
   }
 
-  @SkylarkCallable(
-      name = "clear",
-      doc = "Removes all the elements of the list.",
-      useLocation = true)
-  public NoneType clearMethod(Location loc) throws EvalException {
-    checkMutable(loc);
+  @SkylarkCallable(name = "clear", doc = "Removes all the elements of the list.")
+  public NoneType clearMethod() throws EvalException {
+    checkMutable(/*loc=*/ null);
     for (int i = 0; i < size; i++) {
       elems[i] = null; // aid GC
     }
@@ -381,11 +376,10 @@ public final class StarlarkList<E> extends AbstractList<E> implements Sequence<E
       parameters = {
         @Param(name = "index", type = Integer.class, doc = "The index of the given position."),
         @Param(name = "item", type = Object.class, doc = "The item.", noneable = true)
-      },
-      useLocation = true)
+      })
   @SuppressWarnings("unchecked")
-  public NoneType insert(Integer index, Object item, Location loc) throws EvalException {
-    add(EvalUtils.clampRangeEndpoint(index, size), (E) item, loc); // unchecked
+  public NoneType insert(Integer index, Object item) throws EvalException {
+    add(EvalUtils.clampRangeEndpoint(index, size), (E) item, /*loc=*/ null); // unchecked
     return Starlark.NONE;
   }
 
@@ -421,9 +415,8 @@ public final class StarlarkList<E> extends AbstractList<E> implements Sequence<E
             noneable = true,
             named = true,
             doc = "The end index of the list portion to inspect.")
-      },
-      useLocation = true)
-  public Integer index(Object x, Object start, Object end, Location loc) throws EvalException {
+      })
+  public Integer index(Object x, Object start, Object end) throws EvalException {
     int i = start == Starlark.NONE ? 0 : EvalUtils.clampRangeEndpoint((Integer) start, size);
     int j = end == Starlark.NONE ? size : EvalUtils.clampRangeEndpoint((Integer) end, size);
     for (; i < j; i++) {
@@ -431,7 +424,7 @@ public final class StarlarkList<E> extends AbstractList<E> implements Sequence<E
         return i;
       }
     }
-    throw new EvalException(loc, Starlark.format("item %r not found in list", x));
+    throw Starlark.errorf("item %s not found in list", Starlark.repr(x));
   }
 
   @SkylarkCallable(
@@ -447,13 +440,12 @@ public final class StarlarkList<E> extends AbstractList<E> implements Sequence<E
             noneable = true,
             defaultValue = "None",
             doc = "The index of the item.")
-      },
-      useLocation = true)
-  public Object pop(Object i, Location loc) throws EvalException {
+      })
+  public Object pop(Object i) throws EvalException {
     int arg = i == Starlark.NONE ? -1 : (Integer) i;
-    int index = EvalUtils.getSequenceIndex(arg, size, loc);
+    int index = EvalUtils.getSequenceIndex(arg, size, /*loc=*/ null);
     Object result = elems[index];
-    remove(index, loc);
+    remove(index, /*loc=*/ null);
     return result;
   }
 }

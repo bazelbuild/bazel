@@ -531,7 +531,7 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
         Runfiles runfiles =
             defaultLauncher.getProvider(RunfilesProvider.class).getDefaultRunfiles();
         NestedSetBuilder<Artifact> unconditionalArtifacts = NestedSetBuilder.compileOrder();
-        for (Artifact a : runfiles.getUnconditionalArtifacts()) {
+        for (Artifact a : runfiles.getUnconditionalArtifacts().toList()) {
           if (!a.equals(defaultLauncherArtifact)) {
             unconditionalArtifacts.add(a);
           }

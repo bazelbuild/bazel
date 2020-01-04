@@ -402,7 +402,7 @@ final class CompilationAttributes {
     if (packageFragment.isPresent()) {
       PathFragment packageFrag = packageFragment.get();
       PathFragment genfilesFrag = genfilesFragment.getRelative(packageFrag);
-      for (PathFragment include : includes()) {
+      for (PathFragment include : includes().toList()) {
         if (!include.isAbsolute()) {
           paths.add(packageFrag.getRelative(include));
           paths.add(genfilesFrag.getRelative(include));

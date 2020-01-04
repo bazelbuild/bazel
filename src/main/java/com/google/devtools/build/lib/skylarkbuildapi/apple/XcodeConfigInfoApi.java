@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkConstructor;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
 
 /**
@@ -82,6 +83,11 @@ public interface XcodeConfigInfoApi<
               + " the version is available both locally and remotely, or 'unknown' if the"
               + " availability could not be determined.")
   public String getAvailabilityString();
+
+  @SkylarkCallable(
+      name = "execution_info",
+      doc = "Returns the execution requirements for actions that use this Xcode config.")
+  public Dict<String, String> getExecutionRequirementsDict();
 
   /** An interface for the provider of {@link XcodeConfigInfoApi}. */
   @SkylarkModule(

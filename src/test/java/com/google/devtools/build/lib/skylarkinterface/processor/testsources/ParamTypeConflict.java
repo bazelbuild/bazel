@@ -26,17 +26,18 @@ import com.google.devtools.build.lib.syntax.StarlarkValue;
 public class ParamTypeConflict implements StarlarkValue {
 
   @SkylarkCallable(
-    name = "param_type_conflict",
-    documented = false,
-    parameters = {
-      @Param(name = "a_parameter",
-          type = String.class,
-          named = true,
-          allowedTypes = {
+      name = "param_type_conflict",
+      documented = false,
+      parameters = {
+        @Param(
+            name = "a_parameter",
+            type = String.class,
+            named = true,
+            allowedTypes = {
               @ParamType(type = String.class),
-          })
-    })
-  public Integer paramTypeConflict() {
+            })
+      })
+  public Integer paramTypeConflict(String x) {
     return 42;
   }
 }

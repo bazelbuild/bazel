@@ -276,6 +276,9 @@ public class LocalSpawnRunnerTest {
     public MetadataInjector getMetadataInjector() {
       throw new UnsupportedOperationException();
     }
+
+    @Override
+    public void checkForLostInputs() {}
   }
 
   private final MetadataProvider mockFileCache = mock(MetadataProvider.class);

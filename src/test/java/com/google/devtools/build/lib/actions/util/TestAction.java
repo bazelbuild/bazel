@@ -54,8 +54,8 @@ public class TestAction extends AbstractAction {
     return artifact.getExecPath().getBaseName().endsWith(".optional");
   }
 
-  private static ImmutableList<Artifact> mandatoryArtifacts(Iterable<Artifact> inputs) {
-    return ImmutableList.copyOf(Iterables.filter(inputs, a -> !isOptional(a)));
+  private static NestedSet<Artifact> mandatoryArtifacts(Iterable<Artifact> inputs) {
+    return NestedSetBuilder.wrap(Order.STABLE_ORDER, Iterables.filter(inputs, a -> !isOptional(a)));
   }
 
   private static ImmutableList<Artifact> optionalArtifacts(Iterable<Artifact> inputs) {
@@ -63,7 +63,7 @@ public class TestAction extends AbstractAction {
   }
 
   protected final Callable<Void> effect;
-  private final ImmutableList<Artifact> mandatoryInputs;
+  private final NestedSet<Artifact> mandatoryInputs;
   private final ImmutableList<Artifact> optionalInputs;
 
   /** Use this constructor if the effect can't throw exceptions. */
@@ -77,17 +77,14 @@ public class TestAction extends AbstractAction {
    */
   public TestAction(
       Callable<Void> effect, NestedSet<Artifact> inputs, ImmutableSet<Artifact> outputs) {
-    super(
-        NULL_ACTION_OWNER,
-        NestedSetBuilder.wrap(Order.STABLE_ORDER, mandatoryArtifacts(inputs)),
-        outputs);
-    this.mandatoryInputs = mandatoryArtifacts(inputs);
+    super(NULL_ACTION_OWNER, mandatoryArtifacts(inputs), outputs);
+    this.mandatoryInputs = (NestedSet<Artifact>) getInputs();
     this.optionalInputs = optionalArtifacts(inputs);
     this.effect = effect;
   }
 
   @Override
-  public Iterable<Artifact> getMandatoryInputs() {
+  public NestedSet<Artifact> getMandatoryInputs() {
     return mandatoryInputs;
   }
 
@@ -103,7 +100,11 @@ public class TestAction extends AbstractAction {
         optionalInputs.stream()
             .filter(i -> i.getPath().exists())
             .collect(ImmutableList.toImmutableList());
-    updateInputs(Iterables.concat(mandatoryInputs, discoveredInputs));
+    updateInputs(
+        NestedSetBuilder.<Artifact>stableOrder()
+            .addTransitive(mandatoryInputs)
+            .addAll(discoveredInputs)
+            .build());
     return discoveredInputs;
   }
 

@@ -542,15 +542,15 @@ public class BuildView {
         };
     return new AnalysisResult(
         configurations,
-        configuredTargets,
+        ImmutableSet.copyOf(configuredTargets),
         aspects,
-        allTargetsToTest,
-        targetsToSkip,
+        allTargetsToTest == null ? null : ImmutableList.copyOf(allTargetsToTest),
+        ImmutableSet.copyOf(targetsToSkip),
         error,
         actionGraph,
         artifactsToOwnerLabelsBuilder.build(),
-        parallelTests,
-        exclusiveTests,
+        ImmutableSet.copyOf(parallelTests),
+        ImmutableSet.copyOf(exclusiveTests),
         topLevelOptions,
         skyframeAnalysisResult.getPackageRoots(),
         loadingResult.getWorkspaceName(),
@@ -675,7 +675,8 @@ public class BuildView {
     ImmutableList.Builder<Artifact> artifacts = ImmutableList.builder();
     // Add to 'artifacts' all extra-actions which were registered by aspects which 'topLevel'
     // might have injected.
-    for (Artifact.DerivedArtifact artifact : provider.getTransitiveExtraActionArtifacts()) {
+    for (Artifact.DerivedArtifact artifact :
+        provider.getTransitiveExtraActionArtifacts().toList()) {
       ActionLookupValue.ActionLookupKey owner = artifact.getArtifactOwner();
       if (owner instanceof AspectKey) {
         if (aspectClasses.contains(((AspectKey) owner).getAspectClass())) {

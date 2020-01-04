@@ -243,7 +243,7 @@ final class JavaInfoBuildHelper {
             "The value of use_ijar is True. Make sure the java_toolchain argument is valid.");
       }
       NestedSetBuilder<Artifact> builder = NestedSetBuilder.naiveLinkOrder();
-      for (Artifact compileJar : compileTimeJars) {
+      for (Artifact compileJar : compileTimeJars.toList()) {
         builder.add(
             buildIjar((SkylarkActionFactory) actions, compileJar, null, javaToolchain, location));
       }
@@ -265,7 +265,7 @@ final class JavaInfoBuildHelper {
                 JavaSourceJarsProvider.class,
                 JavaSourceJarsProvider.create(
                     NestedSetBuilder.emptySet(Order.STABLE_ORDER), sourceJars))
-            .setRuntimeJars(ImmutableList.copyOf(runtimeJars))
+            .setRuntimeJars(runtimeJars.toList())
             .build();
     return javaInfo;
   }
@@ -349,9 +349,7 @@ final class JavaInfoBuildHelper {
             javaInfoBuilder,
             // Include JavaGenJarsProviders from both deps and exports in the JavaGenJarsProvider
             // added to javaInfoBuilder for this target.
-            NestedSetBuilder.wrap(
-                Order.STABLE_ORDER,
-                JavaInfo.fetchProvidersFromList(concat(deps, exports), JavaGenJarsProvider.class)),
+            JavaInfo.fetchProvidersFromList(concat(deps, exports), JavaGenJarsProvider.class),
             ImmutableList.copyOf(annotationProcessorAdditionalInputs));
 
     JavaCompilationArgsProvider javaCompilationArgsProvider =

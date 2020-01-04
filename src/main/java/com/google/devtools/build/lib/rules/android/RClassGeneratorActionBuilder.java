@@ -33,17 +33,10 @@ public class RClassGeneratorActionBuilder {
 
   private Artifact classJarOut;
 
-  private AndroidAaptVersion version;
-
   private boolean finalFields = true;
 
   public RClassGeneratorActionBuilder withDependencies(ResourceDependencies resourceDeps) {
     this.dependencies = resourceDeps;
-    return this;
-  }
-
-  public RClassGeneratorActionBuilder targetAaptVersion(AndroidAaptVersion version) {
-    this.version = version;
     return this;
   }
 
@@ -77,11 +70,8 @@ public class RClassGeneratorActionBuilder {
           .addTransitiveFlagForEach(
               "--library", dependencies.getResourceContainers(), AAPT2_CONVERTER)
           .addTransitiveInputValues(dependencies.getTransitiveAapt2RTxt())
-          .addTransitiveInputValues(dependencies.getTransitiveManifests());
-
-      if (version == AndroidAaptVersion.AAPT2) {
-        builder.addTransitiveInputValues(dependencies.getTransitiveAapt2ValidationArtifacts());
-      }
+          .addTransitiveInputValues(dependencies.getTransitiveManifests())
+          .addTransitiveInputValues(dependencies.getTransitiveAapt2ValidationArtifacts());
     }
 
     builder

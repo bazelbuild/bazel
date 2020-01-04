@@ -42,7 +42,6 @@ public class AndroidResourceMergingActionBuilder {
   // Flags
   private String customJavaPackage;
   private boolean throwOnResourceConflict;
-  private boolean useCompiledMerge;
   private boolean annotateRFieldsFromTransitiveDeps;
   private boolean omitTransitiveDependenciesFromAndroidRClasses;
 
@@ -102,11 +101,6 @@ public class AndroidResourceMergingActionBuilder {
     return this;
   }
 
-  public AndroidResourceMergingActionBuilder setUseCompiledMerge(boolean useCompiledMerge) {
-    this.useCompiledMerge = useCompiledMerge;
-    return this;
-  }
-
   public AndroidResourceMergingActionBuilder setAnnotateRFieldsFromTransitiveDeps(
       boolean annotateRFieldsFromTransitiveDeps) {
     this.annotateRFieldsFromTransitiveDeps = annotateRFieldsFromTransitiveDeps;
@@ -145,7 +139,8 @@ public class AndroidResourceMergingActionBuilder {
           AndroidDataConverter.COMPILED_RESOURCE_CONVERTER);
 
       if (omitTransitiveDependenciesFromAndroidRClasses) {
-        for (ValidatedAndroidResources resources : dependencies.getDirectResourceContainers()) {
+        for (ValidatedAndroidResources resources :
+            dependencies.getDirectResourceContainers().toList()) {
           builder.addInputs(resources.getResources());
           builder.maybeAddInput(resources.getCompiledSymbols());
         }
@@ -166,8 +161,6 @@ public class AndroidResourceMergingActionBuilder {
   }
 
   private void build(AndroidDataContext dataContext) {
-    Preconditions.checkState(useCompiledMerge);
-
     BusyBoxActionBuilder compiledMergeBuilder =
         BusyBoxActionBuilder.create(dataContext, "MERGE_COMPILED")
             .addOutput("--classJarOutput", classJarOut)

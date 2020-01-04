@@ -68,7 +68,8 @@ public class NestAnalyzerTest {
     nestAnalyzer.analyze();
 
     assertThat(nestCompanions.getAllCompanionClasses())
-        .containsExactly("nestanalyzer/AnalyzedTarget$NestCC");
+        .containsExactly(
+            "com/google/devtools/build/android/desugar/nest/testsrc/nestanalyzer/AnalyzedTarget$NestCC");
   }
 
   private static InputStream getZipEntryInputStream(ZipFile jarFile, ZipEntry entry) {

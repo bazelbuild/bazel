@@ -38,7 +38,6 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.RuleErrorConsumer;
 import com.google.devtools.build.lib.packages.Type;
-import com.google.devtools.build.lib.rules.android.AndroidConfiguration.AndroidAaptVersion;
 import com.google.devtools.build.lib.rules.android.databinding.DataBinding;
 import com.google.devtools.build.lib.rules.android.databinding.DataBindingContext;
 import com.google.devtools.build.lib.rules.java.ClasspathConfiguredFragment;
@@ -114,7 +113,6 @@ public abstract class AndroidLocalTestBase implements RuleConfiguredTargetFactor
             ResourceDependencies.fromRuleDeps(ruleContext, /* neverlink = */ false),
             AssetDependencies.fromRuleDeps(ruleContext, /* neverlink = */ false),
             StampedAndroidManifest.getManifestValues(ruleContext),
-            AndroidAaptVersion.chooseTargetAaptVersion(ruleContext),
             ruleContext.getExpander().withDataExecLocations().tokenized("nocompress_extensions"));
 
     attributesBuilder.addRuntimeClassPathEntry(resourceApk.getResourceJavaClassJar());
@@ -494,7 +492,6 @@ public abstract class AndroidLocalTestBase implements RuleConfiguredTargetFactor
       ResourceDependencies resourceDeps,
       AssetDependencies assetDeps,
       Map<String, String> manifestValues,
-      AndroidAaptVersion aaptVersion,
       List<String> noCompressExtensions)
       throws InterruptedException {
 
@@ -512,13 +509,12 @@ public abstract class AndroidLocalTestBase implements RuleConfiguredTargetFactor
             dataBindingContext,
             stamped,
             manifestValues,
-            aaptVersion,
             resources,
             assets,
             resourceDeps,
             assetDeps,
             noCompressExtensions)
-        .generateRClass(dataContext, aaptVersion);
+        .generateRClass(dataContext);
   }
 
   private static NestedSet<Artifact> getLibraryResourceJars(RuleContext ruleContext) {

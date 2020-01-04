@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.base.Preconditions;
-import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
@@ -158,8 +157,9 @@ public final class SkyframeLabelVisitor implements TransitivePackageLoader {
 
   private static boolean isDirectErrorFromTopLevelLabel(Label label, Set<Label> topLevelLabels,
       ErrorInfo errorInfo) {
-    return errorInfo.getException() != null && topLevelLabels.contains(label)
-        && Iterables.contains(errorInfo.getRootCauses(), TransitiveTargetKey.of(label));
+    return errorInfo.getException() != null
+        && topLevelLabels.contains(label)
+        && errorInfo.getRootCauses().toList().contains(TransitiveTargetKey.of(label));
   }
 
   private static void errorAboutLoadingFailure(

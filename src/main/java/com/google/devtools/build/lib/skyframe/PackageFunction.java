@@ -1071,7 +1071,7 @@ public class PackageFunction implements SkyFunction {
         for (SkyKey includeGlobKey : includesGlobKeys) {
           // TODO(bazel-team): NestedSet expansion here is suboptimal.
           boolean foundMatch = false;
-          for (PathFragment match : getGlobMatches(includeGlobKey, globValueMap)) {
+          for (PathFragment match : getGlobMatches(includeGlobKey, globValueMap).toList()) {
             matches.add(match.getPathString());
             foundMatch = true;
           }

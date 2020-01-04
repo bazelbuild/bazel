@@ -65,7 +65,7 @@ public class FakeApkInfo implements ApkInfoApi<FileApi> {
   public static class FakeApkInfoProvider implements ApkInfoApiProvider {
 
     @Override
-    public ApkInfoApi<?> createInfo(Dict<?, ?> kwargs, Location loc) throws EvalException {
+    public ApkInfoApi<?> createInfo(Dict<String, Object> kwargs, Location loc) {
       return new FakeApkInfo();
     }
 

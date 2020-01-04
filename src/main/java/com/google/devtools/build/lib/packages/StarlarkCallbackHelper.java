@@ -16,10 +16,10 @@ package com.google.devtools.build.lib.packages;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.syntax.ClassObject;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.FuncallExpression;
 import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.syntax.StarlarkFunction;
@@ -38,7 +38,6 @@ import com.google.devtools.build.lib.syntax.StarlarkThread;
 public class StarlarkCallbackHelper {
 
   private final StarlarkFunction callback;
-  private final FuncallExpression ast;
 
   // These fields, parts of the state of the loading-phase
   // thread that instantiated a rule, must be propagated to
@@ -55,11 +54,9 @@ public class StarlarkCallbackHelper {
 
   public StarlarkCallbackHelper(
       StarlarkFunction callback,
-      FuncallExpression ast,
       StarlarkSemantics starlarkSemantics,
       BazelStarlarkContext context) {
     this.callback = callback;
-    this.ast = ast;
     this.starlarkSemantics = starlarkSemantics;
     this.context = context;
   }
@@ -80,9 +77,13 @@ public class StarlarkCallbackHelper {
               .build();
       context.storeInThread(thread);
       return Starlark.call(
-          thread, callback, ast, buildArgumentList(ctx, arguments), /*kwargs=*/ ImmutableMap.of());
+          thread,
+          callback,
+          Location.BUILTIN,
+          buildArgumentList(ctx, arguments),
+          /*kwargs=*/ ImmutableMap.of());
     } catch (ClassCastException | IllegalArgumentException e) { // TODO(adonovan): investigate
-      throw new EvalException(ast.getLocation(), e.getMessage());
+      throw new EvalException(null, e.getMessage());
     }
   }
 

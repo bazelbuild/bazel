@@ -45,7 +45,6 @@ final class MethodDescriptor {
   private final boolean selfCall;
   private final boolean allowReturnNones;
   private final boolean useLocation;
-  private final boolean useAst;
   private final boolean useStarlarkThread;
   private final boolean useStarlarkSemantics;
 
@@ -62,7 +61,6 @@ final class MethodDescriptor {
       boolean selfCall,
       boolean allowReturnNones,
       boolean useLocation,
-      boolean useAst,
       boolean useStarlarkThread,
       boolean useStarlarkSemantics) {
     this.method = method;
@@ -77,7 +75,6 @@ final class MethodDescriptor {
     this.selfCall = selfCall;
     this.allowReturnNones = allowReturnNones;
     this.useLocation = useLocation;
-    this.useAst = useAst;
     this.useStarlarkThread = useStarlarkThread;
     this.useStarlarkSemantics = useStarlarkSemantics;
   }
@@ -108,7 +105,6 @@ final class MethodDescriptor {
         annotation.selfCall(),
         annotation.allowReturnNones(),
         annotation.useLocation(),
-        annotation.useAst(),
         annotation.useStarlarkThread(),
         annotation.useStarlarkSemantics());
   }
@@ -121,21 +117,7 @@ final class MethodDescriptor {
     if (!structField) {
       throw new IllegalStateException("not a struct field: " + name);
     }
-    // Enforced by annotation processor.
-    if (useAst || useStarlarkThread) {
-      throw new IllegalStateException(
-          "SkylarkCallable has structField and useAST/useStarlarkThread: " + name);
-    }
-    int nargs = (useLocation ? 1 : 0) + (useStarlarkSemantics ? 1 : 0);
-    Object[] args = nargs == 0 ? EMPTY : new Object[nargs];
-    // TODO(adonovan): used only once, repository_ctx.os. Abolish?
-    if (useLocation) {
-      args[0] = loc;
-    }
-    // TODO(adonovan): used only once, in getSkylarkLibrariesToLink. Abolish?
-    if (useStarlarkSemantics) {
-      args[nargs - 1] = semantics;
-    }
+    Object[] args = useStarlarkSemantics ? new Object[] {semantics} : EMPTY;
     return call(obj, args, mu);
   }
 
@@ -222,11 +204,6 @@ final class MethodDescriptor {
   /** @see SkylarkCallable#allowReturnNones() */
   boolean isAllowReturnNones() {
     return allowReturnNones;
-  }
-
-  /** @see SkylarkCallable#useAst() */
-  boolean isUseAst() {
-    return useAst;
   }
 
   /** @see SkylarkCallable#extraPositionals() */

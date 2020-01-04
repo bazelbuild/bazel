@@ -66,6 +66,14 @@ $ bazel cquery "deps(//tree:ash)" --define species=excelsior --noimplicit_deps
 //tree:manna-ash (hash-of-config)
 </pre>
 
+<p>
+  In parentheses after each configured target, there is information about the
+  configuration in which that target was built. For most targets, this is an
+  (opaque) hash of the build options and values in that configuration. Targets
+  configured in the host configuration are marked with HOST. Input files, like
+  those found in the <pre>srcs</pre> attribute of many library rules, have no
+  need for configuration and are marked with null.
+</p>
 
 <p>
   Keep in mind that <code>cquery</code> works only on the configured target graph. Because of this,
@@ -95,18 +103,45 @@ $ bazel cquery "deps(//tree:ash)" --define species=excelsior --noimplicit_deps
 </ul>
 
 <p>
-  Note that <code>cquery</code> requires a target on which to run the
-  loading and analysis phases. Unless otherwise specified, <code>cquery</code> parses
-  the target(s) listed in the query expression. See the <code>--universe_scope</code>
-  option below for querying targets built under other targets.
+  <code>cquery</code> requires a target on which to run the loading and analysis
+  phases. Unless otherwise specified, <code>cquery</code> parses the target(s)
+  listed in the query expression. See the <a href="#universe_scope-comma-separated-list"><code>--universe_scope</code></a> option
+  below for querying targets built under other targets.
 </p>
 
 <h2 id='functions'>Functions</h2>
 
 <p>
   Of the <a href="query.html#functions" title="list of query functions">set of functions</a>
-  supported by the traiditional <code>query</code>, <code>cquery</code> supports all but siblings, buildfiles, and tests. The
-  functions listed below are <code>cquery</code>-specific.
+  supported by the traditional <code>query</code>, <code>cquery</code> supports
+  all but siblings, buildfiles, and tests.
+</p>
+
+<p>
+  The following functions are also in <code>query</code>, but
+  have <code>cquery</code>-specific notes:
+</p>
+
+<h3>somepath</h3>
+
+<p><code>expr ::= somepath(expr, expr)</code></p>
+
+<p>
+<code>query</code>'s <code>somepath</code> operator functions almost exactly like <code>query</code>'s: it computes paths between two sets of targets. But since <code>cquery</code> runs on configured targets, <code>cquery(//foo, //bar)</code> parses as "find a path from <code>//foo</code> <i>in the target configuration</i> to <code>//bar</code> <i>in the target configuration</i>".
+</p>
+
+<p>
+  If <code>somepath</code> isn't returning any paths, try grepping for
+  your <i>to</i> target from <code>deps(//from-target)</code>, i.e. <code>bazel
+  cquery 'deps(//from-target)' | grep '//to-target'</code>. If you can
+  find <code>//to-target</code> in the results in some other configuration, you
+  know there is a path. If you can find <code>//to-target</code> in a standard
+  configuration (i.e. <code>HOST</code> or <code>null</code>), then you can
+  combine <code>somepath</code> with the <a href="#config"><code>config</code></a> operator to find the path to that configured target (e.g. <code>bazel cquery 'somepath(//from-target, config(//to-target, host))'</code>).
+</p>
+
+<p>
+  The following functions are unique to <code>cquery</code>:
 </p>
 
 <h3>config</h3>
@@ -245,14 +280,24 @@ There are other options for exposing the results as well. </p>
 
 <h3> Transitions </h3>
 
+<pre>
+--transitions=lite
+--transitions=full
+</pre>
+
 <p>
   Configuration <a href="skylark/rules.html#configurations">transitions</a>
   are used to build targets underneath the top level targets in different configurations than the top
-  level targets. For example, a target might impose a transition to the host transition on all
-  dependencies in its <code>tools</code> attribute. These are known as attribute transitions.
-  Rules can also impose transitions on their own configurations, known as rule class transitions.
-  This output format outputs information about these transitions such as what type they are and the
-  effect they have on build options.
+  level targets.
+</p>
+
+<p>
+  For example, a target might impose a transition to the host transition on all
+  dependencies in its <code>tools</code> attribute. These are known as attribute
+  transitions. Rules can also impose transitions on their own configurations,
+  known as rule class transitions. This output format outputs information about
+  these transitions such as what type they are and the effect they have on build
+  options.
 </p>
 
 <p>This output format is triggered by the <code>--transitions</code> flag which by default is set to

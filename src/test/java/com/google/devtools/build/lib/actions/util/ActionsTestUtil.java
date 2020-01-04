@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
+import com.google.devtools.build.lib.actions.ActionExecutionContext.LostInputsCheck;
 import com.google.devtools.build.lib.actions.ActionGraph;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
@@ -154,10 +155,11 @@ public final class ActionsTestUtil {
         ActionInputPrefetcher.NONE,
         actionKeyContext,
         metadataHandler,
+        LostInputsCheck.NONE,
         fileOutErr,
         eventHandler,
         ImmutableMap.copyOf(clientEnv),
-        ImmutableMap.of(),
+        /*topLevelFilesets=*/ ImmutableMap.of(),
         actionGraph == null
             ? createDummyArtifactExpander()
             : ActionInputHelper.actionGraphArtifactExpander(actionGraph),
@@ -169,14 +171,15 @@ public final class ActionsTestUtil {
     DummyExecutor dummyExecutor = new DummyExecutor();
     return new ActionExecutionContext(
         dummyExecutor,
-        null,
+        /*actionInputFileCache=*/ null,
         ActionInputPrefetcher.NONE,
         new ActionKeyContext(),
-        null,
-        null,
+        /*metadataHandler=*/ null,
+        LostInputsCheck.NONE,
+        /*fileOutErr=*/ null,
         eventHandler,
-        ImmutableMap.of(),
-        ImmutableMap.of(),
+        /*clientEnv=*/ ImmutableMap.of(),
+        /*topLevelFilesets=*/ ImmutableMap.of(),
         createDummyArtifactExpander(),
         /*actionFileSystem=*/ null,
         /*skyframeDepsResult=*/ null);
@@ -196,6 +199,7 @@ public final class ActionsTestUtil {
         ActionInputPrefetcher.NONE,
         actionKeyContext,
         metadataHandler,
+        LostInputsCheck.NONE,
         fileOutErr,
         eventHandler,
         ImmutableMap.of(),

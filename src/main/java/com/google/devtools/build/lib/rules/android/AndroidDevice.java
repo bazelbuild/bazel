@@ -238,8 +238,11 @@ public class AndroidDevice implements RuleConfiguredTargetFactory {
         return;
       }
 
-      Iterable<Artifact> files =
-          systemImagesAndSourceProperties.getProvider(FileProvider.class).getFilesToBuild();
+      List<Artifact> files =
+          systemImagesAndSourceProperties
+              .getProvider(FileProvider.class)
+              .getFilesToBuild()
+              .toList();
       sourcePropertiesFile = Iterables.tryFind(files, SOURCE_PROPERTIES_SELECTOR).orNull();
       systemImages = Iterables.filter(files, SOURCE_PROPERTIES_FILTER);
       validateAttributes();
@@ -251,7 +254,7 @@ public class AndroidDevice implements RuleConfiguredTargetFactory {
                 + systemImagesAndSourceProperties.getLabel()
                 + ")");
       }
-      int numberOfSourceProperties = Iterables.size(files) - Iterables.size(systemImages);
+      int numberOfSourceProperties = files.size() - Iterables.size(systemImages);
       if (numberOfSourceProperties > 1) {
         ruleContext.attributeError(
             "system_image",

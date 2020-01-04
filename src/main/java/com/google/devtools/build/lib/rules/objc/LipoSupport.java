@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.rules.objc;
 
-import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
@@ -61,11 +60,12 @@ public class LipoSupport {
                       .build())
               .build(ruleContext));
     } else {
-      ruleContext.registerAction(SymlinkAction.toArtifact(
-          ruleContext.getActionOwner(),
-          Iterables.getOnlyElement(inputBinaries),
-          outputBinary,
-          "Symlinking single-architecture binary"));
+      ruleContext.registerAction(
+          SymlinkAction.toArtifact(
+              ruleContext.getActionOwner(),
+              inputBinaries.getSingleton(),
+              outputBinary,
+              "Symlinking single-architecture binary"));
     }
     return this;
   }

@@ -189,7 +189,6 @@ import com.google.devtools.common.options.OptionsProvider;
 import com.google.errorprone.annotations.ForOverride;
 import java.io.IOException;
 import java.io.PrintStream;
-import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -331,7 +330,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
 
   private final PathResolverFactory pathResolverFactory = new PathResolverFactoryImpl();
   @Nullable private final NonexistentFileReceiver nonexistentFileReceiver;
-  private final MutableSupplier<BigInteger> nonceVersion = new MutableSupplier<>();
 
   private final TrimmedConfigurationCache<SkyKey, Label, OptionsDiffForReconstruction>
       trimmingCache = TrimmedConfigurationProgressReceiver.buildCache();
@@ -544,8 +542,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
             shouldStoreTransitivePackagesInLoadingAndAnalysis(),
             shouldUnblockCpuWorkWhenFetchingDeps,
             defaultBuildOptions,
-            configuredTargetProgress,
-            nonceVersion));
+            configuredTargetProgress));
     map.put(
         SkyFunctions.ASPECT,
         new AspectFunction(
@@ -553,8 +550,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
             ruleClassProvider,
             skylarkImportLookupFunctionForInlining,
             shouldStoreTransitivePackagesInLoadingAndAnalysis(),
-            defaultBuildOptions,
-            nonceVersion));
+            defaultBuildOptions));
     map.put(
         SkyFunctions.LOAD_SKYLARK_ASPECT,
         new ToplevelSkylarkAspectFunction(skylarkImportLookupFunctionForInlining));
@@ -668,11 +664,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     lastConcurrencyLevel = concurrencyLevel;
     perBuildSyscallCache = newPerBuildSyscallCache(concurrencyLevel);
     return perBuildSyscallCache;
-  }
-
-  /** Do not use except in subclasses. */
-  protected void setNonceVersion(BigInteger nonceVersion) {
-    this.nonceVersion.set(nonceVersion);
   }
 
   @ThreadCompatible
@@ -1495,7 +1486,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       configuredTargetProgress.reset();
     }
 
-    List<BuildConfiguration> topLevelTargetConfigs =
+    ImmutableList<BuildConfiguration> topLevelTargetConfigs =
         getConfigurations(
             eventHandler,
             PrepareAnalysisPhaseFunction.getTopLevelBuildOptions(buildOptions, multiCpu),
@@ -1907,7 +1898,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
    * @throws InvalidConfigurationException if any build options produces an invalid configuration
    */
   // TODO(ulfjack): Remove this legacy method after switching to the Skyframe-based implementation.
-  private List<BuildConfiguration> getConfigurations(
+  private ImmutableList<BuildConfiguration> getConfigurations(
       ExtendedEventHandler eventHandler,
       List<BuildOptions> optionsList,
       BuildOptions referenceBuildOptions,
