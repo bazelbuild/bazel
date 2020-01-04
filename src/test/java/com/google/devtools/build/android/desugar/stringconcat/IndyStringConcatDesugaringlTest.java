@@ -22,12 +22,11 @@ import static com.google.common.truth.Truth8.assertThat;
 import com.google.common.collect.Streams;
 import com.google.devtools.build.android.desugar.testing.junit.AsmNode;
 import com.google.devtools.build.android.desugar.testing.junit.DesugarRule;
-import com.google.devtools.build.android.desugar.testing.junit.DynamicClassLiteral;
+import com.google.devtools.build.android.desugar.testing.junit.RuntimeMethodHandle;
 import com.google.testing.testsize.MediumTest;
 import com.google.testing.testsize.MediumTestAttribute;
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
-import java.lang.invoke.MethodType;
 import java.nio.file.Paths;
 import javax.inject.Inject;
 import org.junit.Rule;
@@ -46,19 +45,13 @@ import org.objectweb.asm.tree.MethodNode;
 @MediumTest(MediumTestAttribute.FILE)
 public final class IndyStringConcatDesugaringlTest {
 
-  private static final MethodHandles.Lookup lookup = MethodHandles.lookup();
-
   @Rule
   public final DesugarRule desugarRule =
-      DesugarRule.builder(this, lookup)
+      DesugarRule.builder(this, MethodHandles.lookup())
           .addInputs(Paths.get(System.getProperty("input_jar")))
           .setWorkingJavaPackage("com.google.devtools.build.android.desugar.stringconcat")
           .addCommandOptions("desugar_indy_string_concat", "true")
           .build();
-
-  @Inject
-  @DynamicClassLiteral("StringConcatTestCases")
-  private Class<?> stringConcatTestCases;
 
   @Inject
   @AsmNode(className = "StringConcatTestCases", memberName = "simplePrefix", round = 0)
@@ -84,162 +77,164 @@ public final class IndyStringConcatDesugaringlTest {
         .doesNotContain(Opcodes.INVOKEDYNAMIC);
   }
 
+  @Inject
+  @RuntimeMethodHandle(
+      className = "StringConcatTestCases",
+      memberName = "twoConcat",
+      memberDescriptor = "(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;")
+  private MethodHandle twoConcat;
+
   @Test
   public void twoConcat() throws Throwable {
-    MethodHandle testHandle =
-        lookup.findStatic(
-            stringConcatTestCases,
-            "twoConcat",
-            MethodType.methodType(String.class, String.class, String.class));
-    String result = (String) testHandle.invoke("ab", "cd");
-
+    String result = (String) twoConcat.invoke("ab", "cd");
     assertThat(result).isEqualTo("abcd");
   }
 
+  @Inject
+  @RuntimeMethodHandle(
+      className = "StringConcatTestCases",
+      memberName = "twoConcat",
+      memberDescriptor = "(Ljava/lang/String;Ljava/lang/Object;)Ljava/lang/String;")
+  private MethodHandle twoConcatStringAndObject;
+
   @Test
   public void twoConcat_StringAndObject() throws Throwable {
-    MethodHandle testHandle =
-        lookup.findStatic(
-            stringConcatTestCases,
-            "twoConcat",
-            MethodType.methodType(String.class, String.class, Object.class));
-    String result = (String) testHandle.invoke("ab", (Object) "cd");
+    String result = (String) twoConcatStringAndObject.invoke("ab", (Object) "cd");
     assertThat(result).isEqualTo("T:abcd");
   }
 
+  @Inject
+  @RuntimeMethodHandle(
+      className = "StringConcatTestCases",
+      memberName = "twoConcatWithConstants",
+      memberDescriptor = "(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;")
+  private MethodHandle twoConcatWithConstants;
+
   @Test
   public void twoConcatWithConstants() throws Throwable {
-    MethodHandle testHandle =
-        lookup.findStatic(
-            stringConcatTestCases,
-            "twoConcatWithConstants",
-            MethodType.methodType(String.class, String.class, String.class));
-    String result = (String) testHandle.invoke("ab", "cd");
-
+    String result = (String) twoConcatWithConstants.invoke("ab", "cd");
     assertThat(result).isEqualTo("ab<constant>cd");
   }
 
+  @Inject
+  @RuntimeMethodHandle(className = "StringConcatTestCases", memberName = "threeConcat")
+  private MethodHandle threeConcat;
+
   @Test
   public void threeConcat() throws Throwable {
-    MethodHandle testHandle =
-        lookup.findStatic(
-            stringConcatTestCases,
-            "threeConcat",
-            MethodType.methodType(String.class, String.class, String.class, String.class));
-    String result = (String) testHandle.invoke("ab", "cd", "ef");
-
+    String result = (String) threeConcat.invoke("ab", "cd", "ef");
     assertThat(result).isEqualTo("abcdef");
   }
 
+  @Inject
+  @RuntimeMethodHandle(className = "StringConcatTestCases", memberName = "twoConcatWithRecipe")
+  private MethodHandle twoConcatWithRecipe;
+
   @Test
   public void twoConcatWithRecipe() throws Throwable {
-    MethodHandle testHandle =
-        lookup.findStatic(
-            stringConcatTestCases,
-            "twoConcatWithRecipe",
-            MethodType.methodType(String.class, String.class, String.class));
-    String result = (String) testHandle.invoke("ab", "cd");
-
+    String result = (String) twoConcatWithRecipe.invoke("ab", "cd");
     assertThat(result).isEqualTo("<p>ab<br>cd</p>");
   }
 
+  @Inject
+  @RuntimeMethodHandle(className = "StringConcatTestCases", memberName = "threeConcatWithRecipe")
+  private MethodHandle threeConcatWithRecipe;
+
   @Test
   public void threeConcatWithRecipe() throws Throwable {
-    MethodHandle testHandle =
-        lookup.findStatic(
-            stringConcatTestCases,
-            "threeConcatWithRecipe",
-            MethodType.methodType(String.class, String.class, String.class, String.class));
-    String result = (String) testHandle.invoke("ab", "cd", "ef");
+    String result = (String) threeConcatWithRecipe.invoke("ab", "cd", "ef");
     assertThat(result).isEqualTo("<p>ab<br>cd<br>ef</p>");
   }
 
+  @Inject
+  @RuntimeMethodHandle(
+      className = "StringConcatTestCases",
+      memberName = "twoConcatWithPrimitives",
+      memberDescriptor = "(Ljava/lang/String;I)Ljava/lang/String;")
+  private MethodHandle twoConcatWithPrimitives;
+
   @Test
   public void twoConcatWithPrimitives_StringAndInt() throws Throwable {
-    MethodHandle testHandle =
-        lookup.findStatic(
-            stringConcatTestCases,
-            "twoConcatWithPrimitives",
-            MethodType.methodType(String.class, String.class, int.class));
-    String result = (String) testHandle.invoke("ab", 123);
+    String result = (String) twoConcatWithPrimitives.invoke("ab", 123);
     assertThat(result).isEqualTo("ab123");
   }
+
+  @Inject
+  @RuntimeMethodHandle(
+      className = "StringConcatTestCases",
+      memberName = "twoConcatWithPrimitives",
+      memberDescriptor = "(Ljava/lang/String;J)Ljava/lang/String;")
+  private MethodHandle twoConcatOfStringAndPrimitiveLong;
 
   @Test
   public void twoConcatWithPrimitives_StringAndLong() throws Throwable {
-    MethodHandle testHandle =
-        lookup.findStatic(
-            stringConcatTestCases,
-            "twoConcatWithPrimitives",
-            MethodType.methodType(String.class, String.class, long.class));
-    String result = (String) testHandle.invoke("ab", 123L);
+    String result = (String) twoConcatOfStringAndPrimitiveLong.invoke("ab", 123L);
     assertThat(result).isEqualTo("ab123");
   }
 
+  @Inject
+  @RuntimeMethodHandle(
+      className = "StringConcatTestCases",
+      memberName = "twoConcatWithPrimitives",
+      memberDescriptor = "(Ljava/lang/String;D)Ljava/lang/String;")
+  private MethodHandle twoConcatOfStringAndPrimitiveDouble;
+
   @Test
   public void twoConcatWithPrimitives_StringAndDouble() throws Throwable {
-    MethodHandle testHandle =
-        lookup.findStatic(
-            stringConcatTestCases,
-            "twoConcatWithPrimitives",
-            MethodType.methodType(String.class, String.class, double.class));
-    String result = (String) testHandle.invoke("ab", 123.125);
+    String result = (String) twoConcatOfStringAndPrimitiveDouble.invoke("ab", 123.125);
     assertThat(result).isEqualTo("ab123.125");
   }
 
+  @Inject
+  @RuntimeMethodHandle(
+      className = "StringConcatTestCases",
+      memberName = "twoConcatWithPrimitives",
+      memberDescriptor = "(ILjava/lang/String;)Ljava/lang/String;")
+  private MethodHandle twoConcatOfPrimitiveIntAndString;
+
   @Test
   public void twoConcatWithPrimitives_intAndString() throws Throwable {
-    MethodHandle testHandle =
-        lookup.findStatic(
-            stringConcatTestCases,
-            "twoConcatWithPrimitives",
-            MethodType.methodType(String.class, int.class, String.class));
-    String result = (String) testHandle.invoke(123, "ABC");
+    String result = (String) twoConcatOfPrimitiveIntAndString.invoke(123, "ABC");
     assertThat(result).isEqualTo("123ABC");
   }
+
+  @Inject
+  @RuntimeMethodHandle(
+      className = "StringConcatTestCases",
+      memberName = "twoConcatWithPrimitives",
+      memberDescriptor = "(JLjava/lang/String;)Ljava/lang/String;")
+  private MethodHandle twoConcatOfPrimitiveLongAndString;
 
   @Test
   public void twoConcatWithPrimitives_longAndString() throws Throwable {
-    MethodHandle testHandle =
-        lookup.findStatic(
-            stringConcatTestCases,
-            "twoConcatWithPrimitives",
-            MethodType.methodType(String.class, long.class, String.class));
-    String result = (String) testHandle.invoke(123L, "ABC");
+    String result = (String) twoConcatOfPrimitiveLongAndString.invoke(123L, "ABC");
     assertThat(result).isEqualTo("123ABC");
   }
 
+  @Inject
+  @RuntimeMethodHandle(
+      className = "StringConcatTestCases",
+      memberName = "twoConcatWithPrimitives",
+      memberDescriptor = "(DLjava/lang/String;)Ljava/lang/String;")
+  private MethodHandle twoConcatOfPrimitiveDoubleAndString;
+
   @Test
   public void twoConcatWithPrimitives_doubleAndString() throws Throwable {
-    MethodHandle testHandle =
-        lookup.findStatic(
-            stringConcatTestCases,
-            "twoConcatWithPrimitives",
-            MethodType.methodType(String.class, double.class, String.class));
-    String result = (String) testHandle.invoke(123.125, "ABC");
+    String result = (String) twoConcatOfPrimitiveDoubleAndString.invoke(123.125, "ABC");
     assertThat(result).isEqualTo("123.125ABC");
   }
 
+  @Inject
+  @RuntimeMethodHandle(
+      className = "StringConcatTestCases",
+      memberName = "concatWithAllPrimitiveTypes")
+  private MethodHandle concatWithAllPrimitiveTypes;
+
   @Test
   public void concatWithAllPrimitiveTypes() throws Throwable {
-    MethodHandle testHandle =
-        lookup.findStatic(
-            stringConcatTestCases,
-            "concatWithAllPrimitiveTypes",
-            MethodType.methodType(
-                String.class,
-                String.class,
-                int.class,
-                boolean.class,
-                byte.class,
-                char.class,
-                short.class,
-                double.class,
-                float.class,
-                long.class));
     String result =
         (String)
-            testHandle.invoke(
+            concatWithAllPrimitiveTypes.invoke(
                 "head", // string value
                 1, // int value
                 true, // boolean value

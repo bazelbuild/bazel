@@ -19,12 +19,11 @@ package com.google.devtools.build.android.desugar.nest;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.devtools.build.android.desugar.testing.junit.DesugarRule;
-import com.google.devtools.build.android.desugar.testing.junit.DynamicClassLiteral;
+import com.google.devtools.build.android.desugar.testing.junit.RuntimeMethodHandle;
 import com.google.testing.testsize.MediumTest;
 import com.google.testing.testsize.MediumTestAttribute;
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
-import java.lang.invoke.MethodType;
 import java.nio.file.Paths;
 import javax.inject.Inject;
 import org.junit.Rule;
@@ -52,18 +51,12 @@ public final class NestDesugaringComplexCasesTest {
           .build();
 
   @Inject
-  @DynamicClassLiteral("Xylem")
-  private Class<?> invoker;
+  @RuntimeMethodHandle(className = "Xylem", memberName = "execute")
+  private MethodHandle xylemExecute;
 
   @Test
   public void comprehensiveTest() throws Throwable {
-    long x = 2L;
-    int y = 3;
-    MethodHandle testHandle =
-        lookup.findStatic(
-            invoker, "execute", MethodType.methodType(long.class, long.class, int.class));
-    long result = (long) testHandle.invoke(x, y);
-
+    long result = (long) xylemExecute.invoke((long) 2L, (int) 3);
     assertThat(result).isEqualTo(14004004171L);
   }
 }

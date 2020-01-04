@@ -20,8 +20,10 @@ import static com.google.common.truth.Truth.assertThat;
 
 import com.google.devtools.build.android.desugar.testing.junit.DesugarRule;
 import com.google.devtools.build.android.desugar.testing.junit.DynamicClassLiteral;
+import com.google.devtools.build.android.desugar.testing.junit.RuntimeMethodHandle;
 import com.google.testing.testsize.MediumTest;
 import com.google.testing.testsize.MediumTestAttribute;
+import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Modifier;
@@ -58,6 +60,14 @@ public final class NestDesugaringConstructorAccessTest {
   @Inject
   @DynamicClassLiteral("ConstructorNest")
   private Class<?> invoker;
+
+  @Inject
+  @RuntimeMethodHandle(className = "ConstructorNest", memberName = "createFromZeroArgConstructor")
+  private MethodHandle createFromZeroArgConstructor;
+
+  @Inject
+  @RuntimeMethodHandle(className = "ConstructorNest", memberName = "createFromMultiArgConstructor")
+  private MethodHandle createFromMultiArgConstructor;
 
   @Test
   public void companionClassIsPresent() {
@@ -100,17 +110,14 @@ public final class NestDesugaringConstructorAccessTest {
   }
 
   @Test
-  public void createFromEmptyArgConstructor() throws Exception {
-    assertThat(invoker.getDeclaredMethod("createFromZeroArgConstructor").invoke(null))
-        .isEqualTo(30L);
+  public void createFromEmptyArgConstructor() throws Throwable {
+    long result = (long) createFromZeroArgConstructor.invoke();
+    assertThat(result).isEqualTo(30L);
   }
 
   @Test
-  public void createFromMultiArgConstructor() throws Exception {
-    assertThat(
-            invoker
-                .getDeclaredMethod("createFromMultiArgConstructor", long.class, int.class)
-                .invoke(null, 20L, 30))
-        .isEqualTo(50L);
+  public void createFromMultiArgConstructor() throws Throwable {
+    long result = (long) createFromMultiArgConstructor.invoke((long) 20L, (int) 30);
+    assertThat(result).isEqualTo(50L);
   }
 }
