@@ -466,7 +466,7 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
    * darwin.
    */
   protected void assertRequiresDarwin(Action action) {
-    assertThat(action.getExecutionInfo()).containsKey(ExecutionRequirements.REQUIRES_DARWIN);
+    assertHasRequirement(action, ExecutionRequirements.REQUIRES_DARWIN);
   }
 
   protected ConfiguredTarget addBinWithTransitiveDepOnFrameworkImport() throws Exception {

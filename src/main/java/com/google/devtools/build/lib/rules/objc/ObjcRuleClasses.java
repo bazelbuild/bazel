@@ -27,7 +27,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleContext;
@@ -140,7 +139,7 @@ public class ObjcRuleClasses {
    */
   static SpawnAction.Builder spawnAppleEnvActionBuilder(
       XcodeConfigInfo xcodeConfigInfo, ApplePlatform targetPlatform) {
-    return spawnOnDarwinActionBuilder()
+    return spawnOnDarwinActionBuilder(xcodeConfigInfo)
         .setEnvironment(appleToolchainEnvironment(xcodeConfigInfo, targetPlatform));
   }
 
@@ -155,30 +154,9 @@ public class ObjcRuleClasses {
         .build();
   }
 
-  /**
-   * Creates a new spawn action builder that requires a darwin architecture to run.
-   */
-  static SpawnAction.Builder spawnOnDarwinActionBuilder() {
-    return new SpawnAction.Builder().setExecutionInfo(darwinActionExecutionRequirement());
-  }
-
-  /**
-   * Returns action requirement information for darwin architecture.
-   */
-  static ImmutableMap<String, String> darwinActionExecutionRequirement() {
-    return ImmutableMap.of(ExecutionRequirements.REQUIRES_DARWIN, "");
-  }
-
-  /**
-   * Creates a new spawn action builder that requires a darwin architecture to run and calls bash
-   * to execute cmd.
-   * Once we have a fix for b/21874752  we should be able to call setShellCommand(cmd)
-   * directly, but right now we don't have a buildhelpers package on Macs so we must specify
-   * the path to /bin/bash explicitly.
-   */
-  static SpawnAction.Builder spawnBashOnDarwinActionBuilder(String cmd) {
-    return spawnOnDarwinActionBuilder()
-        .setShellCommand(ImmutableList.of("/bin/bash", "-c", cmd));
+  /** Creates a new spawn action builder that requires a darwin architecture to run. */
+  static SpawnAction.Builder spawnOnDarwinActionBuilder(XcodeConfigInfo xcodeConfigInfo) {
+    return new SpawnAction.Builder().setExecutionInfo(xcodeConfigInfo.getExecutionRequirements());
   }
 
   /**

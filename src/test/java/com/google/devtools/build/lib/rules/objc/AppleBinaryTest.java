@@ -25,6 +25,7 @@ import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CommandAction;
+import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.actions.SymlinkAction;
@@ -168,6 +169,196 @@ public class AppleBinaryTest extends ObjcRuleTestCase {
     assertAppleSdkVersionEnv(action, "2.1");
     assertAppleSdkPlatformEnv(action, "WatchOS");
     assertXcodeVersionEnv(action, "7.3");
+  }
+
+  @Test
+  public void testLocalXcodeSetsLocalOnlyRequirementLipo() throws Exception {
+    scratch.file(
+        "xcode/BUILD",
+        "xcode_version(",
+        "    name = 'version10_1_0',",
+        "    version = '10.1.0',",
+        "    aliases = ['10.1' ,'10.1.0'],",
+        "    default_ios_sdk_version = '12.1',",
+        "    default_tvos_sdk_version = '12.1',",
+        "    default_macos_sdk_version = '10.14',",
+        "    default_watchos_sdk_version = '5.1',",
+        ")",
+        "xcode_version(",
+        "    name = 'version10_2_1',",
+        "    version = '10.2.1',",
+        "    aliases = ['10.2.1' ,'10.2'],",
+        "    default_ios_sdk_version = '12.2',",
+        "    default_tvos_sdk_version = '12.2',",
+        "    default_macos_sdk_version = '10.14',",
+        "    default_watchos_sdk_version = '5.2',",
+        ")",
+        "available_xcodes(",
+        "    name= 'local',",
+        "    versions = [':version10_1_0'],",
+        "    default = ':version10_1_0',",
+        ")",
+        "available_xcodes(",
+        "    name= 'remote',",
+        "    versions = [':version10_2_1'],",
+        "    default = ':version10_2_1',",
+        ")",
+        "xcode_config(",
+        "    name = 'my_config',",
+        "    local_versions = ':local',",
+        "    remote_versions = ':remote',",
+        ")");
+    getRuleType().scratchTarget(scratch, "platform_type", "'watchos'");
+
+    useConfigurationWithCustomXcode(
+        "--xcode_version=10.1",
+        "--xcode_version_config=//xcode:my_config",
+        "--watchos_cpus=i386,armv7k",
+        "--watchos_sdk_version=2.1");
+    CommandAction action = (CommandAction) lipoBinAction("//x:x");
+    assertHasRequirement(action, ExecutionRequirements.REQUIREMENTS_SET);
+    assertHasRequirement(action, ExecutionRequirements.NO_REMOTE);
+  }
+
+  @Test
+  public void testRemoteXcodeSetsLocalOnlyRequirementLipo() throws Exception {
+    scratch.file(
+        "xcode/BUILD",
+        "xcode_version(",
+        "    name = 'version10_1_0',",
+        "    version = '10.1.0',",
+        "    aliases = ['10.1' ,'10.1.0'],",
+        "    default_ios_sdk_version = '12.1',",
+        "    default_tvos_sdk_version = '12.1',",
+        "    default_macos_sdk_version = '10.14',",
+        "    default_watchos_sdk_version = '5.1',",
+        ")",
+        "xcode_version(",
+        "    name = 'version10_2_1',",
+        "    version = '10.2.1',",
+        "    aliases = ['10.2.1' ,'10.2'],",
+        "    default_ios_sdk_version = '12.2',",
+        "    default_tvos_sdk_version = '12.2',",
+        "    default_macos_sdk_version = '10.14',",
+        "    default_watchos_sdk_version = '5.2',",
+        ")",
+        "available_xcodes(",
+        "    name= 'local',",
+        "    versions = [':version10_1_0'],",
+        "    default = ':version10_1_0',",
+        ")",
+        "available_xcodes(",
+        "    name= 'remote',",
+        "    versions = [':version10_2_1'],",
+        "    default = ':version10_2_1',",
+        ")",
+        "xcode_config(",
+        "    name = 'my_config',",
+        "    local_versions = ':local',",
+        "    remote_versions = ':remote',",
+        ")");
+    getRuleType().scratchTarget(scratch, "platform_type", "'watchos'");
+
+    useConfigurationWithCustomXcode(
+        "--xcode_version=10.2.1",
+        "--xcode_version_config=//xcode:my_config",
+        "--watchos_cpus=i386,armv7k",
+        "--watchos_sdk_version=2.1");
+    CommandAction action = (CommandAction) lipoBinAction("//x:x");
+    assertHasRequirement(action, ExecutionRequirements.REQUIREMENTS_SET);
+    assertHasRequirement(action, ExecutionRequirements.NO_LOCAL);
+    assertNotHasRequirement(action, ExecutionRequirements.NO_REMOTE);
+  }
+
+  @Test
+  public void testLocalXcodeSetsRemoteOnlyRequirementLipo() throws Exception {
+    scratch.file(
+        "xcode/BUILD",
+        "xcode_version(",
+        "    name = 'version10_1_0',",
+        "    version = '10.1.0',",
+        "    aliases = ['10.1' ,'10.1.0'],",
+        "    default_ios_sdk_version = '12.1',",
+        "    default_tvos_sdk_version = '12.1',",
+        "    default_macos_sdk_version = '10.14',",
+        "    default_watchos_sdk_version = '5.1',",
+        ")",
+        "xcode_version(",
+        "    name = 'version10_2_1',",
+        "    version = '10.2.1',",
+        "    aliases = ['10.2.1' ,'10.2'],",
+        "    default_ios_sdk_version = '12.2',",
+        "    default_tvos_sdk_version = '12.2',",
+        "    default_macos_sdk_version = '10.14',",
+        "    default_watchos_sdk_version = '5.2',",
+        ")",
+        "available_xcodes(",
+        "    name= 'local',",
+        "    versions = [':version10_1_0'],",
+        "    default = ':version10_1_0',",
+        ")",
+        "available_xcodes(",
+        "    name= 'remote',",
+        "    versions = [':version10_2_1'],",
+        "    default = ':version10_2_1',",
+        ")",
+        "xcode_config(",
+        "    name = 'my_config',",
+        "    local_versions = ':local',",
+        "    remote_versions = ':remote',",
+        ")");
+    getRuleType().scratchTarget(scratch, "platform_type", "'watchos'");
+
+    useConfigurationWithCustomXcode(
+        "--xcode_version=10.2.1",
+        "--xcode_version_config=//xcode:my_config",
+        "--watchos_cpus=i386,armv7k",
+        "--watchos_sdk_version=2.1");
+    CommandAction action = (CommandAction) lipoBinAction("//x:x");
+    assertHasRequirement(action, ExecutionRequirements.REQUIREMENTS_SET);
+    assertHasRequirement(action, ExecutionRequirements.NO_LOCAL);
+    assertNotHasRequirement(action, ExecutionRequirements.NO_REMOTE);
+  }
+
+  @Test
+  public void testMutualXcodeNoLocalityRequirementsLipo() throws Exception {
+    scratch.file(
+        "xcode/BUILD",
+        "xcode_version(",
+        "    name = 'version10_1_0',",
+        "    version = '10.1.0',",
+        "    aliases = ['10.1' ,'10.1.0'],",
+        "    default_ios_sdk_version = '12.1',",
+        "    default_tvos_sdk_version = '12.1',",
+        "    default_macos_sdk_version = '10.14',",
+        "    default_watchos_sdk_version = '5.1',",
+        ")",
+        "available_xcodes(",
+        "    name= 'local',",
+        "    versions = [':version10_1_0'],",
+        "    default = ':version10_1_0',",
+        ")",
+        "available_xcodes(",
+        "    name= 'remote',",
+        "    versions = [':version10_1_0'],",
+        "    default = ':version10_1_0',",
+        ")",
+        "xcode_config(",
+        "    name = 'my_config',",
+        "    local_versions = ':local',",
+        "    remote_versions = ':remote',",
+        ")");
+    getRuleType().scratchTarget(scratch, "platform_type", "'watchos'");
+
+    useConfigurationWithCustomXcode(
+        "--xcode_version=10.1",
+        "--xcode_version_config=//xcode:my_config",
+        "--watchos_cpus=i386,armv7k",
+        "--watchos_sdk_version=2.1");
+    CommandAction action = (CommandAction) lipoBinAction("//x:x");
+    assertHasRequirement(action, ExecutionRequirements.REQUIREMENTS_SET);
+    assertNotHasRequirement(action, ExecutionRequirements.NO_LOCAL);
+    assertNotHasRequirement(action, ExecutionRequirements.NO_REMOTE);
   }
 
   @Test
