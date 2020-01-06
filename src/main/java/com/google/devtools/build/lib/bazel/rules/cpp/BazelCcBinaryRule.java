@@ -15,14 +15,18 @@
 package com.google.devtools.build.lib.bazel.rules.cpp;
 
 import static com.google.devtools.build.lib.packages.Attribute.attr;
+import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
 import static com.google.devtools.build.lib.packages.Type.BOOLEAN;
 
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.bazel.rules.cpp.BazelCppRuleClasses.CcBinaryBaseRule;
 import com.google.devtools.build.lib.packages.RuleClass;
+import com.google.devtools.build.lib.packages.SkylarkProviderIdentifier;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
+import com.google.devtools.build.lib.util.FileTypeSet;
 
 /** Rule definition for cc_binary rules. */
 public final class BazelCcBinaryRule implements RuleDefinition {
@@ -72,6 +76,17 @@ public final class BazelCcBinaryRule implements RuleDefinition {
             attr("linkshared", BOOLEAN)
                 .value(false)
                 .nonconfigurable("used to *determine* the rule's configuration"))
+        .add(
+            attr("dynamic_deps", LABEL_LIST)
+                .allowedFileTypes(FileTypeSet.NO_FILE)
+                .mandatoryProvidersList(
+                    ImmutableList.of(
+                        ImmutableList.of(
+                            SkylarkProviderIdentifier.forKey(
+                                BazelCppSemantics.CC_SHARED_INFO_PROVIDER)),
+                        ImmutableList.of(
+                            SkylarkProviderIdentifier.forKey(
+                                BazelCppSemantics.CC_SHARED_INFO_PROVIDER_RULES_CC)))))
         .build();
   }
 
