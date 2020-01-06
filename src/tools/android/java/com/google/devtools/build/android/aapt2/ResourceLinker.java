@@ -294,10 +294,20 @@ public class ResourceLinker {
 
   private List<String> compiledResourcesToPaths(
       CompiledResources compiled, Predicate<DirectoryEntry> shouldKeep) {
-    // Using sequential streams to maintain the overlay order for aapt2.
-    return Stream.concat(include.stream(), Stream.of(compiled))
-        .sequential()
-        .map(CompiledResources::getZip)
+    // NB: "include" can have duplicates, in particular because Aapt2ResourcePackagingAction
+    // creates this by concatenating two different options.  Since the *last* definition of anything
+    // takes precedence, keep the last instance of each entry.
+    List<Path> dedupedZips =
+        Stream.concat(include.stream(), Stream.of(compiled))
+            .map(CompiledResources::getZip)
+            .collect(ImmutableList.toImmutableList())
+            .reverse()
+            .stream()
+            .distinct()
+            .collect(ImmutableList.toImmutableList())
+            .reverse();
+
+    return dedupedZips.stream()
         .map(z -> executorService.submit(() -> filterZip(z, shouldKeep)))
         .map(rethrowLinkError(Future::get))
         // the process will always take as long as the longest Future
@@ -311,10 +321,6 @@ public class ResourceLinker {
             .resolve("filtered")
             // make absolute paths relative so that resolve will make a new path.
             .resolve(path.isAbsolute() ? path.subpath(1, path.getNameCount()) : path);
-    // TODO(b/74258184): How can this path already exist?
-    if (Files.exists(outPath)) {
-      return outPath;
-    }
     Files.createDirectories(outPath.getParent());
     try (FileChannel inChannel = FileChannel.open(path, StandardOpenOption.READ);
         FileChannel outChannel =
