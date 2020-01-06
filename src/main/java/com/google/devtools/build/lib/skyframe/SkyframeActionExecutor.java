@@ -775,6 +775,7 @@ public final class SkyframeActionExecutor {
    */
   Iterable<Artifact> discoverInputs(
       Action action,
+      ActionLookupData actionLookupData,
       MetadataProvider metadataProvider,
       MetadataHandler metadataHandler,
       ProgressEventBehavior progressEventBehavior,
@@ -835,6 +836,7 @@ public final class SkyframeActionExecutor {
           env.getListener(),
           actionExecutionContext.getInputPath(action.getPrimaryOutput()),
           action,
+          actionLookupData,
           e,
           actionExecutionContext.getFileOutErr(),
           ErrorTiming.BEFORE_EXECUTION);
@@ -1095,6 +1097,7 @@ public final class SkyframeActionExecutor {
                 eventHandler,
                 actionExecutionContext.getInputPath(action.getPrimaryOutput()),
                 action,
+                actionLookupData,
                 e,
                 actionExecutionContext.getFileOutErr(),
                 ErrorTiming.AFTER_EXECUTION));
@@ -1434,16 +1437,18 @@ public final class SkyframeActionExecutor {
       ExtendedEventHandler eventHandler,
       Path primaryOutputPath,
       Action action,
+      ActionLookupData actionLookupData,
       ActionExecutionException e,
       FileOutErr outErrBuffer,
       ErrorTiming errorTiming) {
     if (e instanceof LostInputsActionExecutionException) {
       // If inputs are lost, then avoid publishing ActionExecutedEvent or reporting the error.
       // Action rewinding will rerun this failed action after trying to regenerate the lost inputs.
-      // However, enrich the exception so that, if rewinding fails, an ActionExecutedEvent can be
-      // published, and the error reported.
+      // Enrich the exception so it can be distinguished by shared actions getting cache hits and so
+      // that, if rewinding fails, an ActionExecutedEvent can be published, and the error reported.
       LostInputsActionExecutionException lostInputsException =
           (LostInputsActionExecutionException) e;
+      lostInputsException.setPrimaryAction(actionLookupData);
       lostInputsException.setPrimaryOutputPath(primaryOutputPath);
       lostInputsException.setFileOutErr(outErrBuffer);
       return lostInputsException;

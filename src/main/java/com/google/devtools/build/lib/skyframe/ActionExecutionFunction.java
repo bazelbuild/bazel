@@ -264,7 +264,13 @@ public class ActionExecutionFunction implements SkyFunction {
       stateMap.remove(action);
       throw new ActionExecutionFunctionException(
           skyframeActionExecutor.processAndGetExceptionToThrow(
-              env.getListener(), null, action, e, new FileOutErr(), ErrorTiming.BEFORE_EXECUTION));
+              env.getListener(),
+              /*primaryOutputPath=*/ null,
+              action,
+              actionLookupData,
+              e,
+              new FileOutErr(),
+              ErrorTiming.BEFORE_EXECUTION));
     }
     if (env.valuesMissing()) {
       return null;
@@ -449,6 +455,7 @@ public class ActionExecutionFunction implements SkyFunction {
     // Remove action from state map in case it's there (won't be unless it discovers inputs).
     stateMap.remove(action);
 
+    boolean isPrimaryAction = e.isPrimaryAction(actionLookupData);
     RewindPlan rewindPlan = null;
     try {
       ActionInputDepOwners inputDepOwners =
@@ -489,21 +496,26 @@ public class ActionExecutionFunction implements SkyFunction {
                     env.getListener(),
                     e.getPrimaryOutputPath(),
                     action,
+                    actionLookupData,
                     rewindingFailedException,
                     e.getFileOutErr(),
                     ActionExecutedEvent.ErrorTiming.AFTER_EXECUTION)));
       }
 
-      if (e.isActionStartedEventAlreadyEmitted()) {
-        env.getListener().post(new ActionRewoundEvent(actionStartTime, action));
-      }
-      skyframeActionExecutor.resetFailedActionExecution(action, lostDiscoveredInputs);
-      for (Action actionToRestart : rewindPlan.getAdditionalActionsToRestart()) {
-        skyframeActionExecutor.resetPreviouslyCompletedActionExecution(actionToRestart);
+      if (isPrimaryAction) {
+        // This action is the "winner" amongst its set of shared actions. Only it must post events
+        // and clean up state associated with its shared action set.
+        if (e.isActionStartedEventAlreadyEmitted()) {
+          env.getListener().post(new ActionRewoundEvent(actionStartTime, action));
+        }
+        skyframeActionExecutor.resetFailedActionExecution(action, lostDiscoveredInputs);
+        for (Action actionToRestart : rewindPlan.getAdditionalActionsToRestart()) {
+          skyframeActionExecutor.resetPreviouslyCompletedActionExecution(actionToRestart);
+        }
       }
       return rewindPlan.getNodesToRestart();
     } finally {
-      if (rewindPlan == null && e.isActionStartedEventAlreadyEmitted()) {
+      if (rewindPlan == null && isPrimaryAction && e.isActionStartedEventAlreadyEmitted()) {
         // Rewinding was unsuccessful. SkyframeActionExecutor's ActionRunner didn't emit an
         // ActionCompletionEvent because it hoped rewinding would fix things. Because it won't, this
         // must emit one to compensate.
@@ -810,6 +822,7 @@ public class ActionExecutionFunction implements SkyFunction {
             state.discoveredInputs =
                 skyframeActionExecutor.discoverInputs(
                     action,
+                    actionLookupData,
                     metadataHandler,
                     metadataHandler,
                     skyframeActionExecutor.probeCompletedAndReset(action)

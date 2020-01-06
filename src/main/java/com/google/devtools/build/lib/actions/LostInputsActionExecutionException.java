@@ -32,7 +32,15 @@ public class LostInputsActionExecutionException extends ActionExecutionException
   private final ActionInputDepOwners owners;
 
   /**
-   * If an ActionStartedEvent was emitted, then:
+   * The {@link ActionLookupData} for the action whose evaluation failed. Used to distinguish
+   * whether an action handling this exception was primary in its set of shared actions. Event
+   * emission and action execution state invalidation should only happen for the primary action.
+   */
+  @Nullable private ActionLookupData primaryAction;
+
+  /**
+   * If an ActionStartedEvent was emitted and this action is primary (amongst its set of shared
+   * actions), then:
    *
    * <ul>
    *   <li>if rewinding is attempted, then an ActionRewindEvent should be emitted.
@@ -88,6 +96,19 @@ public class LostInputsActionExecutionException extends ActionExecutionException
     this.fileOutErr = fileOutErr;
   }
 
+  public void setPrimaryAction(ActionLookupData primaryAction) {
+    this.primaryAction = primaryAction;
+  }
+
+  /**
+   * Whether {@code actionLookupData} is equal to the previously set primary action. May only be
+   * called after the primary action is set.
+   */
+  public boolean isPrimaryAction(ActionLookupData actionLookupData) {
+    Preconditions.checkNotNull(primaryAction, "expected primary action to have been set");
+    return actionLookupData.equals(primaryAction);
+  }
+
   public boolean isActionStartedEventAlreadyEmitted() {
     return actionStartedEventAlreadyEmitted;
   }
@@ -113,6 +134,7 @@ public class LostInputsActionExecutionException extends ActionExecutionException
    * would be lost if so.
    */
   public LostInputsExecException toExecException() {
+    Preconditions.checkState(primaryAction == null);
     Preconditions.checkState(!actionStartedEventAlreadyEmitted);
     Preconditions.checkState(primaryOutputPath == null);
     Preconditions.checkState(fileOutErr == null);
