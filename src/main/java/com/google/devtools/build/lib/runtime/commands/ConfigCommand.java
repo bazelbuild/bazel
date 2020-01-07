@@ -26,6 +26,7 @@ import com.google.common.collect.Sets;
 import com.google.common.collect.Table;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.runtime.BlazeCommand;
 import com.google.devtools.build.lib.runtime.BlazeCommandResult;
@@ -198,6 +199,14 @@ public class ConfigCommand implements BlazeCommand {
     return BlazeCommandResult.exitCode(ExitCode.SUCCESS);
   }
 
+  /**
+   * Starlark options don't have configuration fragments. This is just to keep their output
+   * consistent with native options, i.e. to include "user-defined" section in the output list.
+   */
+  private static class UserDefinedFragment extends FragmentOptions {
+    // Intentionally empty: we read the actual options directly from BuildOptions.
+  }
+
   private Table<Class<? extends FragmentOptions>, String, Pair<Object, Object>> diffConfigurations(
       BuildConfiguration config1, BuildConfiguration config2) {
     Table<Class<? extends FragmentOptions>, String, Pair<Object, Object>> diffs =
@@ -211,10 +220,11 @@ public class ConfigCommand implements BlazeCommand {
       diffs.row(fragment).putAll(diffOptions(fragment, options1, options2));
     }
 
+    diffs.row(UserDefinedFragment.class).putAll(diffStarlarkOptions(config1, config2));
     return diffs;
   }
 
-  private Map<String, Pair<Object, Object>> diffOptions(
+  private static Map<String, Pair<Object, Object>> diffOptions(
       Class<? extends FragmentOptions> fragment,
       @Nullable FragmentOptions options1,
       @Nullable FragmentOptions options2) {
@@ -232,7 +242,22 @@ public class ConfigCommand implements BlazeCommand {
     return diffs;
   }
 
-  private String describeConfigDiff(
+  private static Map<String, Pair<Object, Object>> diffStarlarkOptions(
+      BuildConfiguration config1, BuildConfiguration config2) {
+    Map<Label, Object> starlarkOptions1 = config1.getOptions().getStarlarkOptions();
+    Map<Label, Object> starlarkOptions2 = config2.getOptions().getStarlarkOptions();
+    Map<String, Pair<Object, Object>> diffs = new HashMap<>();
+    for (Label option : Sets.union(starlarkOptions1.keySet(), starlarkOptions2.keySet())) {
+      Object value1 = starlarkOptions1.get(option);
+      Object value2 = starlarkOptions2.get(option);
+      if (!Objects.equals(value1, value2)) {
+        diffs.put(option.toString(), Pair.of(value1, value2));
+      }
+    }
+    return diffs;
+  }
+
+  private static String describeConfigDiff(
       Table<Class<? extends FragmentOptions>, String, Pair<Object, Object>> diff) {
     StringBuilder sb = new StringBuilder();
 
@@ -243,7 +268,7 @@ public class ConfigCommand implements BlazeCommand {
     return sb.toString();
   }
 
-  private void displayFragmentDiff(
+  private static void displayFragmentDiff(
       Class<? extends FragmentOptions> fragmentClass,
       Map<String, Pair<Object, Object>> diff,
       StringBuilder sb) {
