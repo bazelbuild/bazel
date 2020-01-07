@@ -63,7 +63,10 @@ def create_android_sdk_rules(
         "build-tools/%s/aidl.exe" % build_tools_directory,
         "build-tools/%s/zipalign.exe" % build_tools_directory,
         "platform-tools/adb.exe",
-    ] + native.glob(["build-tools/%s/aapt2.exe" % build_tools_directory])
+    ] + native.glob(
+        ["build-tools/%s/aapt2.exe" % build_tools_directory],
+        allow_empty = True,
+    )
 
     linux_only_files = [
         "build-tools/%s/aapt" % build_tools_directory,
@@ -73,6 +76,7 @@ def create_android_sdk_rules(
     ] + native.glob(
         ["extras", "build-tools/%s/aapt2" % build_tools_directory],
         exclude_directories = 0,
+        allow_empty = True,
     )
 
     # This filegroup is used to pass the minimal contents of the SDK to the
