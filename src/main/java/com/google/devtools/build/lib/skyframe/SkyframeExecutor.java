@@ -2368,10 +2368,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       throws InterruptedException {
     checkActive();
 
-    List<SkyKey> keys = new ArrayList<>(ConfiguredTargetValue.keys(values));
-    for (AspectValueKey aspectKey : aspectKeys) {
-      keys.add(aspectKey);
-    }
     eventHandler.post(new ConfigurationPhaseStartedEvent(configuredTargetProgress));
     EvaluationContext evaluationContext =
         EvaluationContext.newBuilder()
@@ -2381,7 +2377,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
                 () -> NamedForkJoinPool.newNamedPool("skyframe-evaluator", numThreads))
             .setEventHander(eventHandler)
             .build();
-    EvaluationResult<ActionLookupValue> result = buildDriver.evaluate(keys, evaluationContext);
+    EvaluationResult<ActionLookupValue> result =
+        buildDriver.evaluate(Iterables.concat(values, aspectKeys), evaluationContext);
     // Get rid of any memory retained by the cache -- all loading is done.
     perBuildSyscallCache.clear();
     return result;
