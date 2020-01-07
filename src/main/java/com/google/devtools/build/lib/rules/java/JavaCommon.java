@@ -81,7 +81,7 @@ public class JavaCommon {
                 && action.getMnemonic().equals(ResourceJarActionBuilder.MNEMONIC)) {
               // recurse on resource jar actions
               collectMetadataArtifacts(
-                  action.getInputs(), analysisEnvironment, metadataFilesBuilder);
+                  action.getInputs().toList(), analysisEnvironment, metadataFilesBuilder);
             }
           }
         }
@@ -933,7 +933,7 @@ public class JavaCommon {
   }
 
   /** Gets all the deps. */
-  public final Iterable<? extends TransitiveInfoCollection> getDependencies() {
+  public final List<? extends TransitiveInfoCollection> getDependencies() {
     return targetsTreatedAsDeps(ClasspathType.BOTH);
   }
 

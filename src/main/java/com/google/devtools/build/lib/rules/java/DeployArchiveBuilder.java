@@ -256,20 +256,16 @@ public class DeployArchiveBuilder {
 
   private static NestedSet<Artifact> getArchiveInputs(
       JavaTargetAttributes attributes,
-      Iterable<Artifact> runtimeClasspathForArchive,
+      NestedSet<Artifact> runtimeClasspathForArchive,
       @Nullable Function<Artifact, Artifact> derivedJarFunction) {
     NestedSetBuilder<Artifact> inputs = NestedSetBuilder.stableOrder();
     if (derivedJarFunction != null) {
       inputs.addAll(
-          Streams.stream(runtimeClasspathForArchive)
+          runtimeClasspathForArchive.toList().stream()
               .map(derivedJarFunction)
               .collect(toImmutableList()));
     } else {
-      if (runtimeClasspathForArchive instanceof NestedSet) {
-        inputs.addTransitive((NestedSet<Artifact>) runtimeClasspathForArchive);
-      } else {
-        inputs.addAll(runtimeClasspathForArchive);
-      }
+      inputs.addTransitive(runtimeClasspathForArchive);
     }
     // TODO(bazel-team): Remove?  Resources not used as input to singlejar action
     inputs.addAll(attributes.getResources().values());
@@ -293,7 +289,7 @@ public class DeployArchiveBuilder {
 
     Iterable<Artifact> runtimeJars = runtimeJarsBuilder.build();
 
-    Iterable<Artifact> runtimeClasspathForArchive = attributes.getRuntimeClassPathForArchive();
+    NestedSet<Artifact> runtimeClasspathForArchive = attributes.getRuntimeClassPathForArchive();
 
     // TODO(kmb): Consider not using getArchiveInputs, specifically because we don't want/need to
     // transform anything but the runtimeClasspath and b/c we currently do it twice here and below
@@ -316,14 +312,10 @@ public class DeployArchiveBuilder {
     if (derivedJars != null) {
       runtimeClasspath.addAll(
           Iterables.transform(
-              Iterables.concat(runtimeJars, runtimeClasspathForArchive), derivedJars));
+              Iterables.concat(runtimeJars, runtimeClasspathForArchive.toList()), derivedJars));
     } else {
       runtimeClasspath.addAll(runtimeJars);
-      if (runtimeClasspathForArchive instanceof NestedSet) {
-        runtimeClasspath.addTransitive((NestedSet<Artifact>) runtimeClasspathForArchive);
-      } else {
-        runtimeClasspath.addAll(runtimeClasspathForArchive);
-      }
+      runtimeClasspath.addTransitive(runtimeClasspathForArchive);
     }
 
     if (launcher != null) {

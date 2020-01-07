@@ -1669,7 +1669,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
       AndroidCommon common, JavaTargetAttributes attributes) {
     return ImmutableList.<Artifact>builder()
         .addAll(common.getRuntimeJars())
-        .addAll(attributes.getRuntimeClassPathForArchive())
+        .addAll(attributes.getRuntimeClassPathForArchive().toList())
         .build();
   }
 
