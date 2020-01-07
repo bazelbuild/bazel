@@ -17,7 +17,6 @@ package com.google.devtools.build.lib.analysis;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.test.TestProvider;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -63,23 +62,6 @@ public final class TopLevelArtifactHelper {
     public boolean areImportant() {
       return important;
     }
-  }
-
-  /**
-   * Returns an ArtifactsInOutputGroup instance whose artifacts are filtered to only those in a
-   * given set of known-built Artifacts; used in errorful scenarios for partial output reporting.
-   */
-  public static ArtifactsInOutputGroup outputGroupWithOnlyBuiltArtifacts(
-      ArtifactsInOutputGroup aog, ImmutableSet<Artifact> builtArtifacts) {
-    NestedSetBuilder<Artifact> resultArtifacts = NestedSetBuilder.stableOrder();
-    // Iterating over all artifacts in the output group although we already iterated over the set
-    // while collecting all builtArtifacts. Ideally we would have a NestedSetIntersectionView that
-    // would not require duplicating some-or-all of the original NestedSet.
-    aog.getArtifacts().toList().stream()
-        .filter(builtArtifacts::contains)
-        .forEach(resultArtifacts::add);
-    return new ArtifactsInOutputGroup(
-        aog.getOutputGroup(), aog.areImportant(), resultArtifacts.build());
   }
 
   /**
@@ -197,7 +179,10 @@ public final class TopLevelArtifactHelper {
   public static ArtifactsToBuild getAllArtifactsToBuild(TransitiveInfoCollection target,
       TopLevelArtifactContext context) {
     return getAllArtifactsToBuild(
-        OutputGroupInfo.get(target), target.getProvider(FileProvider.class), context);
+        OutputGroupInfo.get(target),
+        target.getProvider(FileProvider.class),
+        context
+    );
   }
 
   public static ArtifactsToBuild getAllArtifactsToBuild(
