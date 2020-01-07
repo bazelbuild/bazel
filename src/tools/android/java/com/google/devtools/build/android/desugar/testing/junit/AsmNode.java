@@ -42,7 +42,7 @@ import org.objectweb.asm.tree.ClassNode;
  *           .build();
  *
  *   &#064;Inject
- *   &#064;AsmNode("my.package.ClassToDesugar")
+ *   &#064;AsmNode(className = "my.package.ClassToDesugar")
  *   private ClassNode classToDesugarClassFile;
  *
  *   // ... Test methods ...
