@@ -175,80 +175,84 @@ public final class DesugarRule implements TestRule {
     return new Statement() {
       @Override
       public void evaluate() throws Throwable {
-        ImmutableList<Path> transInputs = inputs;
-        for (int round = 1; round <= maxNumOfTransformations; round++) {
-          ImmutableList<Path> transOutputs =
-              getRuntimeOutputPaths(
-                  transInputs,
-                  tempDirs,
-                  /* outputRootPrefix= */ DEFAULT_OUTPUT_ROOT_PREFIX + "_" + round);
-          JarTransformationRecord transformationRecord =
-              JarTransformationRecord.create(
-                  transInputs,
-                  transOutputs,
-                  classPathEntries,
-                  bootClassPathEntries,
-                  extraCustomCommandOptions);
-          Desugar.main(transformationRecord.getDesugarFlags().toArray(new String[0]));
-
-          jarTransformationRecords.add(transformationRecord);
-          transInputs = transOutputs;
-        }
-
-        ClassLoader inputClassLoader = getInputClassLoader();
-        for (Field field : injectableClassLiterals) {
-          Class<?> classLiteral =
-              loadClassLiteral(
-                  field.getDeclaredAnnotation(DynamicClassLiteral.class),
-                  jarTransformationRecords,
-                  inputClassLoader,
-                  reflectionBasedMembers,
-                  descriptorLookupRepo,
-                  workingJavaPackage);
-          MethodHandle fieldSetter = testInstanceLookup.unreflectSetter(field);
-          fieldSetter.invoke(testInstance, classLiteral);
-        }
-
-        for (Field field : injectableAsmNodes) {
-          Class<?> requestedFieldType = field.getType();
-          Object asmNode =
-              getAsmNode(
-                  field.getDeclaredAnnotation(AsmNode.class),
-                  requestedFieldType,
-                  jarTransformationRecords,
-                  inputs,
-                  workingJavaPackage);
-          MethodHandle fieldSetter = testInstanceLookup.unreflectSetter(field);
-          fieldSetter.invoke(testInstance, asmNode);
-        }
-
-        for (Field field : injectableMethodHandles) {
-          MethodHandle methodHandle =
-              getMethodHandle(
-                  field.getDeclaredAnnotation(RuntimeMethodHandle.class),
-                  testInstanceLookup,
-                  jarTransformationRecords,
-                  inputClassLoader,
-                  reflectionBasedMembers,
-                  descriptorLookupRepo,
-                  workingJavaPackage);
-          MethodHandle fieldSetter = testInstanceLookup.unreflectSetter(field);
-          fieldSetter.invoke(testInstance, methodHandle);
-        }
-
-        for (Field field : injectableZipEntries) {
-          ZipEntry zipEntry =
-              getZipEntry(
-                  field.getDeclaredAnnotation(RuntimeZipEntry.class),
-                  jarTransformationRecords,
-                  inputs,
-                  workingJavaPackage);
-          MethodHandle fieldSetter = testInstanceLookup.unreflectSetter(field);
-          fieldSetter.invoke(testInstance, zipEntry);
-        }
+        before();
         base.evaluate();
       }
     };
+  }
+
+  private void before() throws Throwable {
+    ImmutableList<Path> transInputs = inputs;
+    for (int round = 1; round <= maxNumOfTransformations; round++) {
+      ImmutableList<Path> transOutputs =
+          getRuntimeOutputPaths(
+              transInputs,
+              tempDirs,
+              /* outputRootPrefix= */ DEFAULT_OUTPUT_ROOT_PREFIX + "_" + round);
+      JarTransformationRecord transformationRecord =
+          JarTransformationRecord.create(
+              transInputs,
+              transOutputs,
+              classPathEntries,
+              bootClassPathEntries,
+              extraCustomCommandOptions);
+      Desugar.main(transformationRecord.getDesugarFlags().toArray(new String[0]));
+
+      jarTransformationRecords.add(transformationRecord);
+      transInputs = transOutputs;
+    }
+
+    ClassLoader inputClassLoader = getInputClassLoader();
+    for (Field field : injectableClassLiterals) {
+      Class<?> classLiteral =
+          loadClassLiteral(
+              field.getDeclaredAnnotation(DynamicClassLiteral.class),
+              jarTransformationRecords,
+              inputClassLoader,
+              reflectionBasedMembers,
+              descriptorLookupRepo,
+              workingJavaPackage);
+      MethodHandle fieldSetter = testInstanceLookup.unreflectSetter(field);
+      fieldSetter.invoke(testInstance, classLiteral);
+    }
+
+    for (Field field : injectableAsmNodes) {
+      Class<?> requestedFieldType = field.getType();
+      Object asmNode =
+          getAsmNode(
+              field.getDeclaredAnnotation(AsmNode.class),
+              requestedFieldType,
+              jarTransformationRecords,
+              inputs,
+              workingJavaPackage);
+      MethodHandle fieldSetter = testInstanceLookup.unreflectSetter(field);
+      fieldSetter.invoke(testInstance, asmNode);
+    }
+
+    for (Field field : injectableMethodHandles) {
+      MethodHandle methodHandle =
+          getMethodHandle(
+              field.getDeclaredAnnotation(RuntimeMethodHandle.class),
+              testInstanceLookup,
+              jarTransformationRecords,
+              inputClassLoader,
+              reflectionBasedMembers,
+              descriptorLookupRepo,
+              workingJavaPackage);
+      MethodHandle fieldSetter = testInstanceLookup.unreflectSetter(field);
+      fieldSetter.invoke(testInstance, methodHandle);
+    }
+
+    for (Field field : injectableZipEntries) {
+      ZipEntry zipEntry =
+          getZipEntry(
+              field.getDeclaredAnnotation(RuntimeZipEntry.class),
+              jarTransformationRecords,
+              inputs,
+              workingJavaPackage);
+      MethodHandle fieldSetter = testInstanceLookup.unreflectSetter(field);
+      fieldSetter.invoke(testInstance, zipEntry);
+    }
   }
 
   private static void fillMissingClassMemberDescriptorRepo(
