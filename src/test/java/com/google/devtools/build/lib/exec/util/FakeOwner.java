@@ -145,7 +145,7 @@ public final class FakeOwner implements ActionExecutionMetadata {
   }
 
   @Override
-  public Iterable<Artifact> getMandatoryInputs() {
+  public NestedSet<Artifact> getMandatoryInputs() {
     throw new UnsupportedOperationException();
   }
 

@@ -396,7 +396,7 @@ public abstract class AbstractAction extends ActionKeyCacher implements Action, 
       EventHandler eventHandler, MetadataProvider metadataProvider) throws IOException {
     // Report "directory dependency checking" warning only for non-generated directories (generated
     // ones will be reported earlier).
-    for (Artifact input : getMandatoryInputs()) {
+    for (Artifact input : getMandatoryInputs().toList()) {
       // Assume that if the file did not exist, we would not have gotten here.
       if (input.isSourceArtifact() && metadataProvider.getMetadata(input).getType().isDirectory()) {
         // TODO(ulfjack): What about dependency checking of special files?

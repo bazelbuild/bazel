@@ -78,7 +78,8 @@ public final class Actions {
     }
     // Don't bother to check input and output counts first; the expected result for these tests is
     // to always be true (i.e., that this method returns true).
-    if (!artifactsEqualWithoutOwner(actionA.getMandatoryInputs(), actionB.getMandatoryInputs())) {
+    if (!artifactsEqualWithoutOwner(
+        actionA.getMandatoryInputs().toList(), actionB.getMandatoryInputs().toList())) {
       return false;
     }
     if (!artifactsEqualWithoutOwner(actionA.getOutputs(), actionB.getOutputs())) {

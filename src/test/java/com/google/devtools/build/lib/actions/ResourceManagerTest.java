@@ -463,7 +463,7 @@ public class ResourceManagerTest {
     }
 
     @Override
-    public Iterable<Artifact> getMandatoryInputs() {
+    public NestedSet<Artifact> getMandatoryInputs() {
       throw new IllegalStateException();
     }
 

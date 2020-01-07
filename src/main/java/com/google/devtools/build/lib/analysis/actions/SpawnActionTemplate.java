@@ -197,7 +197,7 @@ public final class SpawnActionTemplate extends ActionKeyCacher
   }
 
   @Override
-  public Iterable<Artifact> getMandatoryInputs() {
+  public NestedSet<Artifact> getMandatoryInputs() {
     return getInputs();
   }
 

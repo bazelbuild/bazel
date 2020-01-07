@@ -254,7 +254,7 @@ public final class CppCompileActionTemplate extends ActionKeyCacher
   }
 
   @Override
-  public Iterable<Artifact> getMandatoryInputs() {
+  public NestedSet<Artifact> getMandatoryInputs() {
     return NestedSetBuilder.<Artifact>compileOrder()
         .add(sourceTreeArtifact)
         .addTransitive(mandatoryInputs)

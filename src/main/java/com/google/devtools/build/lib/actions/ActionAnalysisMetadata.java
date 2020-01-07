@@ -194,7 +194,7 @@ public interface ActionAnalysisMetadata {
    * mandatory for action execution to succeed (e.g. header files retrieved from *.d file from the
    * previous build).
    */
-  Iterable<Artifact> getMandatoryInputs();
+  NestedSet<Artifact> getMandatoryInputs();
 
   /**
    * @return true iff path prefix conflict (conflict where two actions generate
