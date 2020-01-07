@@ -886,7 +886,7 @@ public class TestRunnerAction extends AbstractAction
   }
 
   @Override
-  public Iterable<Artifact> getPossibleInputsForTesting() {
+  public NestedSet<Artifact> getPossibleInputsForTesting() {
     return getInputs();
   }
 

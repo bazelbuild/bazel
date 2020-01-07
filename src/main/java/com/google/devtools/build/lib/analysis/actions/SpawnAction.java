@@ -268,7 +268,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
 
   @Override
   @VisibleForTesting
-  public Iterable<Artifact> getPossibleInputsForTesting() {
+  public NestedSet<Artifact> getPossibleInputsForTesting() {
     return getInputs();
   }
 

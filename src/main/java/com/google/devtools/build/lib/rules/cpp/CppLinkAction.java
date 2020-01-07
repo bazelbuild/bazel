@@ -204,7 +204,7 @@ public final class CppLinkAction extends AbstractAction implements CommandAction
 
   @Override
   @VisibleForTesting
-  public Iterable<Artifact> getPossibleInputsForTesting() {
+  public NestedSet<Artifact> getPossibleInputsForTesting() {
     return getInputs();
   }
 
