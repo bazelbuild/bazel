@@ -43,15 +43,15 @@ public class StarlarkThreadDebuggingTest {
   // and returns the function value.
   private static StarlarkFunction defineFunc(StarlarkThread thread) throws Exception {
     EvalUtils.exec(ParserInput.fromLines("def f(): pass"), thread);
-    return (StarlarkFunction) thread.lookup("f");
+    return (StarlarkFunction) thread.getGlobals().lookup("f");
   }
 
   @Test
   public void testListFramesFromGlobalFrame() throws Exception {
     StarlarkThread thread = newStarlarkThread();
-    thread.update("a", 1);
-    thread.update("b", 2);
-    thread.update("c", 3);
+    thread.getGlobals().put("a", 1);
+    thread.getGlobals().put("b", 2);
+    thread.getGlobals().put("c", 3);
 
     ImmutableList<DebugFrame> frames = thread.listFrames(Location.BUILTIN);
 
@@ -68,17 +68,17 @@ public class StarlarkThreadDebuggingTest {
   @Test
   public void testListFramesFromChildFrame() throws Exception {
     StarlarkThread thread = newStarlarkThread();
-    thread.update("a", 1);
-    thread.update("b", 2);
-    thread.update("c", 3);
+    thread.getGlobals().put("a", 1);
+    thread.getGlobals().put("b", 2);
+    thread.getGlobals().put("c", 3);
     Location loc =
         Location.fromPathAndStartColumn(
             PathFragment.create("foo/bar"), 0, 0, new LineAndColumn(12, 0));
     StarlarkFunction f = defineFunc(thread);
     thread.push(f, loc);
-    thread.update("a", 4); // shadow parent frame var
-    thread.update("y", 5);
-    thread.update("z", 6);
+    thread.updateLexical("a", 4); // shadow parent frame var
+    thread.updateLexical("y", 5);
+    thread.updateLexical("z", 6);
 
     ImmutableList<DebugFrame> frames = thread.listFrames(Location.BUILTIN);
 
@@ -186,7 +186,7 @@ public class StarlarkThreadDebuggingTest {
   @Test
   public void testEvaluateVariableInScope() throws Exception {
     StarlarkThread thread = newStarlarkThread();
-    thread.update("a", 1);
+    thread.getGlobals().put("a", 1);
 
     Object a = thread.debugEval(Expression.parse(ParserInput.fromLines("a")));
     assertThat(a).isEqualTo(1);
@@ -195,7 +195,7 @@ public class StarlarkThreadDebuggingTest {
   @Test
   public void testEvaluateVariableNotInScopeFails() throws Exception {
     StarlarkThread thread = newStarlarkThread();
-    thread.update("a", 1);
+    thread.getGlobals().put("a", 1);
 
     EvalException e =
         assertThrows(
@@ -207,7 +207,7 @@ public class StarlarkThreadDebuggingTest {
   @Test
   public void testEvaluateExpressionOnVariableInScope() throws Exception {
     StarlarkThread thread = newStarlarkThread();
-    thread.update("a", "string");
+    thread.getGlobals().put("a", "string");
 
     assertThat(thread.debugEval(Expression.parse(ParserInput.fromLines("a.startswith('str')"))))
         .isEqualTo(true);

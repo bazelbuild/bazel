@@ -479,8 +479,8 @@ public final class CallUtils {
           StarlarkThread.builder(mutability)
               .useDefaultSemantics()
               .setGlobals(Module.createForBuiltins(Starlark.UNIVERSE))
-              .build()
-              .update("unbound", Starlark.UNBOUND);
+              .build();
+      thread.getGlobals().put("unbound", Starlark.UNBOUND);
       x = EvalUtils.eval(ParserInput.fromLines(expr), thread);
       defaultValueCache.put(expr, x);
       return x;

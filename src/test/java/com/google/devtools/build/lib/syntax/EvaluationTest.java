@@ -85,7 +85,7 @@ public class EvaluationTest extends EvaluationTestCase {
   public void testForLoopAbortedOnInterrupt() throws Exception {
     StarlarkThread thread = createStarlarkThread(mutability, NullEventHandler.INSTANCE);
     InterruptFunction interruptFunction = new InterruptFunction();
-    thread.update("interrupt", interruptFunction);
+    thread.getGlobals().put("interrupt", interruptFunction);
 
     ParserInput input =
         ParserInput.fromLines(
@@ -108,7 +108,7 @@ public class EvaluationTest extends EvaluationTestCase {
   public void testForComprehensionAbortedOnInterrupt() throws Exception {
     StarlarkThread thread = createStarlarkThread(mutability, NullEventHandler.INSTANCE);
     InterruptFunction interruptFunction = new InterruptFunction();
-    thread.update("interrupt", interruptFunction);
+    thread.getGlobals().put("interrupt", interruptFunction);
 
     ParserInput input = ParserInput.fromLines("[interrupt(i == 5) for i in range(100)]");
 
@@ -126,7 +126,7 @@ public class EvaluationTest extends EvaluationTestCase {
   public void testFunctionCallsNotStartedOnInterrupt() throws Exception {
     StarlarkThread thread = createStarlarkThread(mutability, NullEventHandler.INSTANCE);
     InterruptFunction interruptFunction = new InterruptFunction();
-    thread.update("interrupt", interruptFunction);
+    thread.getGlobals().put("interrupt", interruptFunction);
 
     ParserInput input =
         ParserInput.fromLines("interrupt(False); interrupt(True); interrupt(False);");

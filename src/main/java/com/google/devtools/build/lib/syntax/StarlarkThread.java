@@ -747,7 +747,7 @@ public final class StarlarkThread implements Freezable {
 
   /** Modifies a binding in the current Frame. If it is the module Frame, also export it. */
   StarlarkThread updateAndExport(String varname, Object value) throws EvalException {
-    update(varname, value);
+    updateUnresolved(varname, value);
     if (callstack.isEmpty()) {
       globalFrame.exportedBindings.add(varname);
     }
@@ -771,18 +771,19 @@ public final class StarlarkThread implements Freezable {
     void assign(String name, Object value);
   }
 
-  /**
-   * Modifies a binding in the current Frame of this StarlarkThread, as would an {@link
-   * AssignmentStatement}. Does not try to modify an inherited binding. This will shadow any
-   * inherited binding, which may be an error that you want to guard against before calling this
-   * function.
-   *
-   * @param varname the name of the variable to be bound
-   * @param value the value to bind to the variable
-   * @return this StarlarkThread, in fluid style
-   */
-  // TODO(adonovan): eliminate sole external call from EvaluationTestCase and make private.
-  public StarlarkThread update(String varname, Object value) {
+  // Updates a lexical (local) binding.
+  // Requires that the lexical frame is not an alias for the global frame,
+  // that is, that the thread is not idle and a function call is underway
+  void updateLexical(String varname, Object value) {
+    Preconditions.checkNotNull(value, "trying to assign null to '%s'", varname);
+    if (this.lexicalFrame == this.globalFrame) {
+      throw new IllegalStateException("updateLexical called on idle thread");
+    }
+    updateUnresolved(varname, value);
+  }
+
+  // Updates a binding in the current local frame, which may be the global frame.
+  void updateUnresolved(String varname, Object value) {
     Preconditions.checkNotNull(value, "trying to assign null to '%s'", varname);
     try {
       lexicalFrame.put(varname, value);
@@ -795,7 +796,6 @@ public final class StarlarkThread implements Freezable {
       throw new AssertionError(
           Starlark.format("Can't update %s to %r in frozen environment", varname, value), e);
     }
-    return this;
   }
 
   // Used only for Eval.evalComprehension..
@@ -822,23 +822,22 @@ public final class StarlarkThread implements Freezable {
   /**
    * Returns the value of a variable defined in the Module scope (e.g. global variables, functions).
    */
-  public Object moduleLookup(String varname) {
-    return globalFrame.getDirectBindings(varname);
+  Object moduleLookup(String varname) {
+    return globalFrame.lookup(varname);
   }
 
   /** Returns the value of a variable defined in the Universe scope (builtins). */
-  public Object universeLookup(String varname) {
+  Object universeLookup(String varname) {
     // TODO(laurentlb): look only at globalFrame.universe.
     return globalFrame.get(varname);
   }
 
   /**
    * Returns the value from the environment whose name is "varname" if it exists, otherwise null.
-   *
-   * <p>TODO(laurentlb): Remove this method. Callers should know where the value is defined and use
-   * the corresponding method (e.g. localLookup or moduleLookup).
    */
-  Object lookup(String varname) {
+  // TODO(laurentlb): Remove this method. Callers should know where the value is defined and use the
+  // corresponding method (e.g. localLookup or moduleLookup).
+  Object lookupUnresolved(String varname) {
     // Lexical frame takes precedence, then globals.
     Object lexicalValue = lexicalFrame.get(varname);
     if (lexicalValue != null) {

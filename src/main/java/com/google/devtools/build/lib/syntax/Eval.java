@@ -204,7 +204,10 @@ final class Eval {
       }
 
       // Define module-local variable.
-      thread.update(binding.getLocalName().getName(), value);
+      // TODO(adonovan): eventually the default behavior should be that
+      // loads bind file-locally. Either way, the resolver should designate
+      // the proper scope of binding.getLocalName().
+      thread.updateUnresolved(binding.getLocalName().getName(), value);
     }
   }
 
@@ -591,7 +594,7 @@ final class Eval {
           String name = id.getName();
           if (id.getScope() == null) {
             // Legacy behavior, to be removed.
-            Object result = thread.lookup(name);
+            Object result = thread.lookupUnresolved(name);
             if (result == null) {
               String error =
                   ValidationEnvironment.createInvalidIdentifierException(

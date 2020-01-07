@@ -91,7 +91,7 @@ public final class StarlarkFunction extends BaseFunction {
             getSignature(), this, getDefaultValues(), thread.mutability(), positional, named);
     ImmutableList<String> names = getSignature().getParameterNames();
     for (int i = 0; i < names.size(); ++i) {
-      thread.update(names.get(i), arguments[i]);
+      thread.updateLexical(names.get(i), arguments[i]);
     }
 
     return Eval.execStatements(thread, statements);

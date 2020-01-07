@@ -442,7 +442,7 @@ public class SkylarkDebugServerTest {
                 Scope.newBuilder()
                     .setName("global")
                     .addBinding(getValueProto("c", 3))
-                    .addBinding(getValueProto("fn", thread.moduleLookup("fn"))))
+                    .addBinding(getValueProto("fn", thread.getGlobals().lookup("fn"))))
             .build());
 
     assertFramesEqualIgnoringValueIdentifiers(
@@ -459,7 +459,7 @@ public class SkylarkDebugServerTest {
                     .setName("global")
                     .addBinding(getValueProto("a", 1))
                     .addBinding(getValueProto("c", 3))
-                    .addBinding(getValueProto("fn", thread.moduleLookup("fn"))))
+                    .addBinding(getValueProto("fn", thread.getGlobals().lookup("fn"))))
             .build());
   }
 
