@@ -22,7 +22,9 @@ import com.google.devtools.build.lib.query2.cquery.CqueryOptions;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryFunction;
 import com.google.devtools.build.lib.query2.engine.QueryExpression;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
+import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.WalkableGraph;
+import java.util.Collection;
 
 /** A version of {@link BuildTool} that handles all cquery work. */
 public final class CqueryBuildTool extends PostAnalysisQueryBuildTool<ConfiguredTarget> {
@@ -36,7 +38,9 @@ public final class CqueryBuildTool extends PostAnalysisQueryBuildTool<Configured
       BuildRequest request,
       BuildConfiguration hostConfiguration,
       TopLevelConfigurations configurations,
-      WalkableGraph walkableGraph) {
+      Collection<SkyKey> transitiveConfigurationKeys,
+      WalkableGraph walkableGraph)
+      throws InterruptedException {
     ImmutableList<QueryFunction> extraFunctions =
         new ImmutableList.Builder<QueryFunction>()
             .addAll(ConfiguredTargetQueryEnvironment.CQUERY_FUNCTIONS)
@@ -49,6 +53,7 @@ public final class CqueryBuildTool extends PostAnalysisQueryBuildTool<Configured
         extraFunctions,
         configurations,
         hostConfiguration,
+        transitiveConfigurationKeys,
         env.getRelativeWorkingDirectory().getPathString(),
         env.getPackageManager().getPackagePath(),
         () -> walkableGraph,

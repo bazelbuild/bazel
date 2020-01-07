@@ -20,7 +20,9 @@ import com.google.devtools.build.lib.query2.PostAnalysisQueryEnvironment.TopLeve
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryFunction;
 import com.google.devtools.build.lib.query2.testutil.AbstractQueryTest.QueryHelper;
 import com.google.devtools.build.lib.query2.testutil.PostAnalysisQueryHelper;
+import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.WalkableGraph;
+import java.util.Collection;
 
 /**
  * {@link QueryHelper} for {@link ConfiguredTargetQueryTest}. Big warts: uses an {@link
@@ -32,7 +34,10 @@ import com.google.devtools.build.skyframe.WalkableGraph;
 public class ConfiguredTargetQueryHelper extends PostAnalysisQueryHelper<ConfiguredTarget> {
   @Override
   protected ConfiguredTargetQueryEnvironment getPostAnalysisQueryEnvironment(
-      WalkableGraph walkableGraph, TopLevelConfigurations topLevelConfigurations) {
+      WalkableGraph walkableGraph,
+      TopLevelConfigurations topLevelConfigurations,
+      Collection<SkyKey> transitiveConfigurationKeys)
+      throws InterruptedException {
     ImmutableList<QueryFunction> extraFunctions =
         ImmutableList.copyOf(ConfiguredTargetQueryEnvironment.CQUERY_FUNCTIONS);
     return new ConfiguredTargetQueryEnvironment(
@@ -41,6 +46,7 @@ public class ConfiguredTargetQueryHelper extends PostAnalysisQueryHelper<Configu
         extraFunctions,
         topLevelConfigurations,
         analysisHelper.getHostConfiguration(),
+        transitiveConfigurationKeys,
         parserPrefix,
         analysisHelper.getPackageManager().getPackagePath(),
         () -> walkableGraph,

@@ -27,8 +27,10 @@ import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.QueryRuntimeHelper;
 import com.google.devtools.build.lib.runtime.QueryRuntimeHelper.Factory.CommandLineException;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutorWrappingWalkableGraph;
+import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.WalkableGraph;
 import java.io.IOException;
+import java.util.Collection;
 
 /**
  * Version of {@link BuildTool} that handles all work for queries based on results from the analysis
@@ -66,6 +68,7 @@ public abstract class PostAnalysisQueryBuildTool<T> extends BuildTool {
             request,
             analysisResult.getConfigurationCollection().getHostConfiguration(),
             new TopLevelConfigurations(analysisResult.getTopLevelTargetsWithConfigs()),
+            env.getSkyframeExecutor().getTransitiveConfigurationKeys(),
             queryRuntimeHelper,
             queryExpression);
       } catch (QueryException | IOException e) {
@@ -83,12 +86,15 @@ public abstract class PostAnalysisQueryBuildTool<T> extends BuildTool {
       BuildRequest request,
       BuildConfiguration hostConfiguration,
       TopLevelConfigurations topLevelConfigurations,
-      WalkableGraph walkableGraph);
+      Collection<SkyKey> transitiveConfigurationKeys,
+      WalkableGraph walkableGraph)
+      throws InterruptedException;
 
   private void doPostAnalysisQuery(
       BuildRequest request,
       BuildConfiguration hostConfiguration,
       TopLevelConfigurations topLevelConfigurations,
+      Collection<SkyKey> transitiveConfigurationKeys,
       QueryRuntimeHelper queryRuntimeHelper,
       QueryExpression queryExpression)
       throws InterruptedException, QueryException, IOException {
@@ -96,7 +102,12 @@ public abstract class PostAnalysisQueryBuildTool<T> extends BuildTool {
         SkyframeExecutorWrappingWalkableGraph.of(env.getSkyframeExecutor());
 
     PostAnalysisQueryEnvironment<T> postAnalysisQueryEnvironment =
-        getQueryEnvironment(request, hostConfiguration, topLevelConfigurations, walkableGraph);
+        getQueryEnvironment(
+            request,
+            hostConfiguration,
+            topLevelConfigurations,
+            transitiveConfigurationKeys,
+            walkableGraph);
 
     Iterable<NamedThreadSafeOutputFormatterCallback<T>> callbacks =
         postAnalysisQueryEnvironment.getDefaultOutputFormatters(

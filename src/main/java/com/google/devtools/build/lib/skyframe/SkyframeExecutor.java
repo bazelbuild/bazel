@@ -2082,6 +2082,13 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     return builder.build();
   }
 
+  /** Returns every {@link BuildConfigurationValue.Key} in the graph. */
+  public Collection<SkyKey> getTransitiveConfigurationKeys() {
+    return memoizingEvaluator.getDoneValues().keySet().stream()
+        .filter(key -> SkyFunctions.BUILD_CONFIGURATION.equals(key.functionName()))
+        .collect(ImmutableList.toImmutableList());
+  }
+
   /**
    * The result of {@link #getConfigurations(ExtendedEventHandler, BuildOptions, Iterable)} which
    * also registers if an error was recorded.
