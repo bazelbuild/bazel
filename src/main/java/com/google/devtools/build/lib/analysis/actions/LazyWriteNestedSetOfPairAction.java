@@ -65,7 +65,7 @@ public final class LazyWriteNestedSetOfPairAction extends AbstractFileWriteActio
   private String getContents() {
     if (fileContents == null) {
       StringBuilder stringBuilder = new StringBuilder();
-      for (Pair<String, String> pair : pairsToWrite) {
+      for (Pair<String, String> pair : pairsToWrite.toList()) {
         stringBuilder
             .append(pair.first)
             .append(":")

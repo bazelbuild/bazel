@@ -132,7 +132,7 @@ public class StandaloneTestStrategy extends TestStrategy {
             ImmutableMap.copyOf(executionInfo),
             action.getRunfilesSupplier(),
             ImmutableMap.of(),
-            /*inputs=*/ ImmutableList.copyOf(action.getInputs()),
+            /*inputs=*/ action.getInputs().toList(),
             /*tools=*/ ImmutableList.<Artifact>of(),
             ImmutableList.copyOf(action.getSpawnOutputs()),
             localResourceUsage);

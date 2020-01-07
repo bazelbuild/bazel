@@ -206,16 +206,14 @@ public final class SymlinkAction extends AbstractAction {
       // Validate that input path is a file with the executable bit is set.
       if (!inputPath.isFile()) {
         throw new ActionExecutionException(
-            "'" + Iterables.getOnlyElement(getInputs()).prettyPrint() + "' is not a file",
-            this,
-            false);
+            "'" + getInputs().getSingleton().prettyPrint() + "' is not a file", this, false);
       }
       if (!inputPath.isExecutable()) {
         throw new ActionExecutionException(
             "failed to create symbolic link '"
                 + Iterables.getOnlyElement(getOutputs()).prettyPrint()
                 + "': file '"
-                + Iterables.getOnlyElement(getInputs()).prettyPrint()
+                + getInputs().getSingleton().prettyPrint()
                 + "' is not executable",
             this,
             false);
@@ -225,7 +223,7 @@ public final class SymlinkAction extends AbstractAction {
           "failed to create symbolic link '"
               + Iterables.getOnlyElement(getOutputs()).prettyPrint()
               + "' to the '"
-              + Iterables.getOnlyElement(getInputs()).prettyPrint()
+              + getInputs().getSingleton().prettyPrint()
               + "' due to I/O error: "
               + e.getMessage(),
           e,
@@ -254,18 +252,24 @@ public final class SymlinkAction extends AbstractAction {
         actionExecutionContext.getExecRoot().getRelative(getInputPath()).createDirectory();
       }
     } catch (IOException e) {
-      throw new ActionExecutionException("failed to touch symbolic link '"
-          + Iterables.getOnlyElement(getOutputs()).prettyPrint()
-          + "' to the '" + Iterables.getOnlyElement(getInputs()).prettyPrint()
-          + "' due to I/O error: " + e.getMessage(), e, this, false);
+      throw new ActionExecutionException(
+          "failed to touch symbolic link '"
+              + Iterables.getOnlyElement(getOutputs()).prettyPrint()
+              + "' to the '"
+              + getInputs().getSingleton().prettyPrint()
+              + "' due to I/O error: "
+              + e.getMessage(),
+          e,
+          this,
+          false);
     }
   }
 
   private String printInputs() {
-    if (Iterables.isEmpty(getInputs())) {
+    if (getInputs().isEmpty()) {
       return inputPath.getPathString();
-    } else if (Iterables.size(getInputs()) == 1){
-      return Iterables.getOnlyElement(getInputs()).prettyPrint();
+    } else if (getInputs().isSingleton()) {
+      return getInputs().getSingleton().prettyPrint();
     } else {
       throw new IllegalStateException(
           "Inputs unexpectedly contains more than 1 element: " + getInputs());

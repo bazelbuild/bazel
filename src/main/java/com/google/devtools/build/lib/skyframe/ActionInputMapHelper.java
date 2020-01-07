@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.skyframe;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionInputMapSink;
 import com.google.devtools.build.lib.actions.ActionLookupData;
@@ -115,7 +114,7 @@ class ActionInputMapHelper {
 
     if (generatingAction instanceof SymlinkAction) {
       Artifact.DerivedArtifact outputManifest =
-          (Artifact.DerivedArtifact) Iterables.getOnlyElement(generatingAction.getInputs());
+          (Artifact.DerivedArtifact) generatingAction.getInputs().getSingleton();
       ActionLookupData manifestGeneratingKey = outputManifest.getGeneratingActionKey();
       Preconditions.checkState(
           manifestGeneratingKey.getActionLookupKey().equals(filesetActionLookupKey),
@@ -127,7 +126,7 @@ class ActionInputMapHelper {
       ActionAnalysisMetadata symlinkTreeAction =
           filesetActionLookupValue.getAction(manifestGeneratingKey.getActionIndex());
       Artifact.DerivedArtifact inputManifest =
-          (Artifact.DerivedArtifact) Iterables.getOnlyElement(symlinkTreeAction.getInputs());
+          (Artifact.DerivedArtifact) symlinkTreeAction.getInputs().getSingleton();
       ActionLookupData inputManifestGeneratingKey = inputManifest.getGeneratingActionKey();
       Preconditions.checkState(
           inputManifestGeneratingKey.getActionLookupKey().equals(filesetActionLookupKey),

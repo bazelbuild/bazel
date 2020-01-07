@@ -385,7 +385,7 @@ public class ActionRewindStrategy {
       ArrayList<Artifact.DerivedArtifact> newlyVisitedArtifacts,
       ArrayList<ActionLookupData> newlyVisitedActions) {
 
-    for (Artifact input : action.getInputs()) {
+    for (Artifact input : action.getInputs().toList()) {
       if (input.isSourceArtifact()) {
         continue;
       }

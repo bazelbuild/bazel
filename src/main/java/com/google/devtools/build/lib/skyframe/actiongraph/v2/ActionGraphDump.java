@@ -33,9 +33,7 @@ import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
-import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetView;
-import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.AspectDescriptor;
 import com.google.devtools.build.lib.query2.aquery.AqueryActionFilter;
 import com.google.devtools.build.lib.query2.aquery.AqueryUtils;
@@ -181,7 +179,7 @@ public class ActionGraphDump {
     if (includeParamFiles) {
       // Assumption: if an Action takes a params file as an input, it will be used
       // to provide params to the command.
-      for (Artifact input : action.getInputs()) {
+      for (Artifact input : action.getInputs().toList()) {
         String inputFileExecPath = input.getExecPathString();
         if (getParamFileNameToContentMap().containsKey(inputFileExecPath)) {
           AnalysisProtosV2.ParamFile paramFile =
@@ -221,11 +219,8 @@ public class ActionGraphDump {
 
     if (includeArtifacts) {
       // Store inputs
-      Iterable<Artifact> inputs = action.getInputs();
-      if (!(inputs instanceof NestedSet)) {
-        inputs = NestedSetBuilder.wrap(Order.STABLE_ORDER, inputs);
-      }
-      NestedSetView<Artifact> nestedSetView = new NestedSetView<>((NestedSet<Artifact>) inputs);
+      NestedSet<Artifact> inputs = action.getInputs();
+      NestedSetView<Artifact> nestedSetView = new NestedSetView<>(inputs);
 
       if (nestedSetView.directs().size() > 0 || nestedSetView.transitives().size() > 0) {
         actionBuilder.addInputDepSetIds(

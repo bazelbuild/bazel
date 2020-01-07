@@ -403,7 +403,7 @@ public class ActionCacheChecker {
         entry.addFile(output.getExecPath(), metadata);
       }
     }
-    for (Artifact input : action.getInputs()) {
+    for (Artifact input : action.getInputs().toList()) {
       entry.addFile(input.getExecPath(), getMetadataMaybe(metadataHandler, input));
     }
     entry.getFileDigest();
@@ -514,7 +514,7 @@ public class ActionCacheChecker {
       // Since we never validate action key for middlemen, we should not store
       // it in the cache entry and just use empty string instead.
       entry = new ActionCache.Entry("", ImmutableMap.<String, String>of(), false);
-      for (Artifact input : action.getInputs()) {
+      for (Artifact input : action.getInputs().toList()) {
         entry.addFile(input.getExecPath(), getMetadataMaybe(metadataHandler, input));
       }
     }

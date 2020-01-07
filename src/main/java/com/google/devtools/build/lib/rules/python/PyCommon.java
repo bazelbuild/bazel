@@ -941,7 +941,8 @@ public final class PyCommon {
       }
       Iterable<Artifact> pySrcs =
           FileType.filter(
-              src.getProvider(FileProvider.class).getFilesToBuild(), PyRuleClasses.PYTHON_SOURCE);
+              src.getProvider(FileProvider.class).getFilesToBuild().toList(),
+              PyRuleClasses.PYTHON_SOURCE);
       Iterables.addAll(sourceFiles, pySrcs);
       if (Iterables.isEmpty(pySrcs)) {
         ruleContext.attributeWarning("srcs",
@@ -995,12 +996,15 @@ public final class PyCommon {
     PythonInfo info =
         PythonInfo.newBuilder()
             .addAllSourceFile(Artifact.toExecPaths(sources))
-            .addAllDepFile(Artifact.toExecPaths(dependencies))
+            .addAllDepFile(Artifact.toExecPaths(dependencies.toList()))
             .build();
 
     return new PyPseudoAction(
         owner,
-        NestedSetBuilder.wrap(Order.STABLE_ORDER, Iterables.concat(sources, dependencies)),
+        NestedSetBuilder.<Artifact>stableOrder()
+            .addAll(sources)
+            .addTransitive(dependencies)
+            .build(),
         ImmutableList.of(output),
         "Python",
         PYTHON_INFO,

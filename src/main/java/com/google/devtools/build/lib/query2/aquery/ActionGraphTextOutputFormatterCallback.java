@@ -182,25 +182,25 @@ class ActionGraphTextOutputFormatterCallback extends AqueryThreadsafeCallback {
     }
 
     if (options.includeArtifacts) {
-    stringBuilder
-        .append("  Inputs: [")
-        .append(
-            Streams.stream(action.getInputs())
-                .map(input -> input.getExecPathString())
-                .sorted()
-                .collect(Collectors.joining(", ")))
-        .append("]\n")
-        .append("  Outputs: [")
-        .append(
-            Streams.stream(action.getOutputs())
-                .map(
-                    output ->
-                        output.isTreeArtifact()
-                            ? output.getExecPathString() + " (TreeArtifact)"
-                            : output.getExecPathString())
-                .sorted()
-                .collect(Collectors.joining(", ")))
-        .append("]\n");
+      stringBuilder
+          .append("  Inputs: [")
+          .append(
+              action.getInputs().toList().stream()
+                  .map(input -> input.getExecPathString())
+                  .sorted()
+                  .collect(Collectors.joining(", ")))
+          .append("]\n")
+          .append("  Outputs: [")
+          .append(
+              Streams.stream(action.getOutputs())
+                  .map(
+                      output ->
+                          output.isTreeArtifact()
+                              ? output.getExecPathString() + " (TreeArtifact)"
+                              : output.getExecPathString())
+                  .sorted()
+                  .collect(Collectors.joining(", ")))
+          .append("]\n");
     }
 
     if (action instanceof AbstractAction) {
@@ -257,7 +257,7 @@ class ActionGraphTextOutputFormatterCallback extends AqueryThreadsafeCallback {
     if (options.includeParamFiles) {
       // Assumption: if an Action takes a param file as an input, it will be used
       // to provide params to the command.
-      for (Artifact input : action.getInputs()) {
+      for (Artifact input : action.getInputs().toList()) {
         String inputFileName = input.getExecPathString();
         if (getParamFileNameToContentMap().containsKey(inputFileName)) {
           stringBuilder

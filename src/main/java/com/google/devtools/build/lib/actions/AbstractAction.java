@@ -246,7 +246,7 @@ public abstract class AbstractAction extends ActionKeyCacher implements Action, 
   public Artifact getPrimaryInput() {
     // The default behavior is to return the first input artifact.
     // Call through the method, not the field, because it may be overridden.
-    return Iterables.getFirst(getInputs(), null);
+    return Iterables.getFirst(getInputs().toList(), null);
   }
 
   @Override
@@ -520,7 +520,7 @@ public abstract class AbstractAction extends ActionKeyCacher implements Action, 
 
   @Override
   public Depset getSkylarkInputs() {
-    return Depset.of(Artifact.TYPE, NestedSetBuilder.wrap(Order.STABLE_ORDER, getInputs()));
+    return Depset.of(Artifact.TYPE, getInputs());
   }
 
   @Override
