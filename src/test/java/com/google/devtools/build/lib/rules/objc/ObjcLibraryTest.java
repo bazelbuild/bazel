@@ -1825,7 +1825,7 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
 
   @Test
   public void testCustomModuleMap() throws Exception {
-    checkCustomModuleMapPropagatedByTargetUnderTest(RULE_TYPE);
+    checkCustomModuleMap(RULE_TYPE);
   }
 
   private boolean containsObjcFeature(String srcName) throws Exception {

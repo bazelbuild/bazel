@@ -97,7 +97,6 @@ public final class ObjcCommon {
     private ImmutableSet.Builder<Artifact> textualHeaders = ImmutableSet.builder();
     private Iterable<ObjcProvider> depObjcProviders = ImmutableList.of();
     private Iterable<ObjcProvider> runtimeDepObjcProviders = ImmutableList.of();
-    private Iterable<ObjcProvider> repropagatedModuleMapObjcProviders = ImmutableList.of();
     private Iterable<String> defines = ImmutableList.of();
     private Iterable<PathFragment> includes = ImmutableList.of();
     private IntermediateArtifacts intermediateArtifacts;
@@ -246,22 +245,6 @@ public final class ObjcCommon {
     }
 
     /**
-     * Adds Objc providers whose module maps should be repropagated as if they are directly
-     * associated with the target propagating the provider being built.
-     *
-     * <p>This supports a small number of specialized use cases, like J2Objc, where the module maps
-     * associated with the {@code java_library} (via an aspect) need to be repropagated by the
-     * {@code j2objc_library} that depends on them so that Swift code can access those module maps
-     * for the purposes of strict module map propagation (without propagating the module maps
-     * _fully_ transitively).
-     */
-    Builder addRepropagatedModuleMapObjcProviders(Iterable<ObjcProvider> objcProviders) {
-      this.repropagatedModuleMapObjcProviders =
-          Iterables.concat(this.repropagatedModuleMapObjcProviders, objcProviders);
-      return this;
-    }
-
-    /**
      * Adds additional static libraries to be linked into the final ObjC application bundle.
      */
     Builder addExtraImportLibraries(Iterable<Artifact> extraImportLibraries) {
@@ -393,39 +376,19 @@ public final class ObjcCommon {
         }
       }
 
-      if (useStrictObjcModuleMaps(context)) {
-        for (ObjcProvider provider : repropagatedModuleMapObjcProviders) {
-          objcProvider.addAllForDirectDependents(MODULE_MAP, provider.get(ObjcProvider.MODULE_MAP));
-          objcProvider.addAllForDirectDependents(
-              TOP_LEVEL_MODULE_MAP, provider.get(ObjcProvider.TOP_LEVEL_MODULE_MAP));
-        }
-      }
-
       if (hasModuleMap) {
         CppModuleMap moduleMap = intermediateArtifacts.moduleMap();
         Optional<Artifact> umbrellaHeader = moduleMap.getUmbrellaHeader();
         if (umbrellaHeader.isPresent()) {
           objcProvider.add(UMBRELLA_HEADER, umbrellaHeader.get());
         }
-        if (useStrictObjcModuleMaps(context)) {
-          objcProvider.addForDirectDependents(MODULE_MAP, moduleMap.getArtifact());
-          objcProvider.addForDirectDependents(TOP_LEVEL_MODULE_MAP, moduleMap);
-        } else {
-          objcProvider.add(MODULE_MAP, moduleMap.getArtifact());
-          objcProvider.add(TOP_LEVEL_MODULE_MAP, moduleMap);
-        }
+        objcProvider.add(MODULE_MAP, moduleMap.getArtifact());
+        objcProvider.add(TOP_LEVEL_MODULE_MAP, moduleMap);
       }
 
       objcProvider.addAll(LINKED_BINARY, linkedBinary.asSet());
 
       return new ObjcCommon(objcProvider.build(), compilationArtifacts, textualHeaders.build());
-    }
-
-    private static boolean useStrictObjcModuleMaps(RuleContext context) {
-      // We need to check isLegalFragment first because some non-compilation rules don't declare
-      // this fragment.
-      return context.isLegalFragment(ObjcConfiguration.class)
-          && context.getFragment(ObjcConfiguration.class).useStrictObjcModuleMaps();
     }
 
     private static boolean isCcLibrary(ConfiguredTargetAndData info) {

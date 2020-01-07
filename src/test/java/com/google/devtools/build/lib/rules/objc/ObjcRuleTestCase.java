@@ -1795,25 +1795,9 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
         .isEqualTo("a.o");
   }
 
-  protected void checkCustomModuleMapNotPropagatedByTargetUnderTest(
-      RuleType ruleType) throws Exception {
-    checkCustomModuleMap(ruleType, false);
-  }
-
-  protected void checkCustomModuleMapPropagatedByTargetUnderTest(
-      RuleType ruleType) throws Exception {
-    checkCustomModuleMap(ruleType, true);
-  }
-
-  private void checkCustomModuleMap(RuleType ruleType, boolean targetUnderTestShouldPropagate)
-      throws Exception {
-    useConfiguration(
-        "--apple_platform_type=ios",
-        "--experimental_objc_enable_module_maps",
-        "--incompatible_strict_objc_module_maps");
-    ruleType.scratchTarget(scratch, "deps", "['//z:a']");
-    scratch.file("z/a.m");
-    scratch.file("z/a.h");
+  protected void checkCustomModuleMap(RuleType ruleType) throws Exception {
+    useConfiguration("--experimental_objc_enable_module_maps");
+    ruleType.scratchTarget(scratch, "deps", "['//z:testModuleMap']");
     scratch.file("z/b.m");
     scratch.file("z/b.h");
     scratch.file("y/module.modulemap", "module my_module_b { export *\n header b.h }");
@@ -1824,12 +1808,6 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
         "hdrs = ['b.h'],",
         "srcs = ['b.m'],",
         "module_map = '//y:mm'",
-        ")",
-        "objc_library(",
-        "name = 'a',",
-        "hdrs = ['a.h'],",
-        "srcs = ['a.m'],",
-        "deps = [':testModuleMap']",
         ")");
     scratch.file("y/BUILD",
         "filegroup(",
@@ -1841,30 +1819,12 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
     assertThat(compileActionA.getArguments()).doesNotContain("-fmodule-maps");
     assertThat(compileActionA.getArguments()).doesNotContain("-fmodule-name");
 
-    String x8664Genfiles =
-        configurationGenfiles("x86_64", ConfigurationDistinguisher.APPLE_CROSSTOOL, null);
-
-    // The target with the module map should propagate it to its direct dependers...
     ObjcProvider provider = providerForTarget("//z:testModuleMap");
     assertThat(Artifact.toExecPaths(provider.get(MODULE_MAP)))
         .containsExactly("y/module.modulemap");
 
-    // ...and the target depending on //z:testModuleMap will see it (as well as its own)...
-    provider = providerForTarget("//z:a");
-    assertThat(Artifact.toExecPaths(provider.get(MODULE_MAP)))
-        .containsExactly(x8664Genfiles + "/z/a.modulemaps/module.modulemap", "y/module.modulemap");
-
     provider = providerForTarget("//x:x");
-    if (targetUnderTestShouldPropagate) {
-      // ...and //x:x should propagate //z:a but not //z:testModuleMap.
-      assertThat(Artifact.toExecPaths(provider.get(MODULE_MAP)))
-          .containsExactly(
-              x8664Genfiles + "/x/x.modulemaps/module.modulemap",
-              x8664Genfiles + "/z/a.modulemaps/module.modulemap");
-    } else {
-      // ...but //x:x should not see them.
-      assertThat(Artifact.toExecPaths(provider.get(MODULE_MAP))).isEmpty();
-    }
+    assertThat(Artifact.toExecPaths(provider.get(MODULE_MAP))).contains("y/module.modulemap");
   }
 
   /**

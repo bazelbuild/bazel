@@ -828,13 +828,11 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
     for (Attribute dependentAttribute : dependentAttributes) {
       if (ruleContext.attributes().has(dependentAttribute.getName(), BuildType.LABEL_LIST)
           || ruleContext.attributes().has(dependentAttribute.getName(), BuildType.LABEL)) {
-        Iterable<ObjcProvider> depObjcProviders =
+        builder.addDepObjcProviders(
             ruleContext.getPrerequisites(
                 dependentAttribute.getName(),
                 dependentAttribute.getAccessMode(),
-                ObjcProvider.SKYLARK_CONSTRUCTOR);
-        builder.addDepObjcProviders(depObjcProviders);
-        builder.addRepropagatedModuleMapObjcProviders(depObjcProviders);
+                ObjcProvider.SKYLARK_CONSTRUCTOR));
       }
     }
 
