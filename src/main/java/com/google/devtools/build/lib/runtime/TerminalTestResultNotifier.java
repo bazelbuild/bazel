@@ -43,6 +43,10 @@ import java.util.Set;
  * Prints the test results to a terminal.
  */
 public class TerminalTestResultNotifier implements TestResultNotifier {
+  // The number of failed-to-build tests to report.
+  // (We do not want to report hundreds of failed-to-build tests as it would probably be caused
+  // by some intermediate target not related to tests themselves.)
+  // The total number of failed-to-build tests will be reported in any case.
   @VisibleForTesting
   public static final int NUM_FAILED_TO_BUILD = 5;
 
@@ -229,15 +233,18 @@ public class TerminalTestResultNotifier implements TestResultNotifier {
     TestSummaryFormat testSummaryFormat = executionOptions.testSummary;
     switch (testSummaryFormat) {
       case DETAILED:
-        printSummary(summaries, false, true, true);
+        printSummary(summaries, /* showAllTests= */ false,
+            /* showNoStatusTests= */ true, /* printFailedTestCases= */ true);
         break;
 
       case SHORT:
-        printSummary(summaries, true, false, false);
+        printSummary(summaries, /* showAllTests= */ true,
+            /* showNoStatusTests= */ false, /* printFailedTestCases= */ false);
         break;
 
       case TERSE:
-        printSummary(summaries, false, false, false);
+        printSummary(summaries, /* showAllTests= */ false,
+            /* showNoStatusTests= */ false, /* printFailedTestCases= */ false);
         break;
 
       case TESTCASE:

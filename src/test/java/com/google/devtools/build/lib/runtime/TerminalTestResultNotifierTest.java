@@ -260,8 +260,12 @@ public final class TerminalTestResultNotifierTest {
   }
 
   private void printFailedToBuildSummaries() throws LabelSyntaxException {
-    mockExecutionOptions();
-    mockTestSummaryOptions();
+    ExecutionOptions executionOptions = ExecutionOptions.DEFAULTS;
+    executionOptions.testSummary = testSummaryFormat;
+    when(optionsParsingResult.getOptions(ExecutionOptions.class)).thenReturn(executionOptions);
+    TestSummaryOptions testSummaryOptions = new TestSummaryOptions();
+    testSummaryOptions.verboseSummary = true;
+    when(optionsParsingResult.getOptions(TestSummaryOptions.class)).thenReturn(testSummaryOptions);
 
     ImmutableSortedSet.Builder<TestSummary> builder = ImmutableSortedSet.orderedBy(
         Comparator.comparing(o -> o.getLabel().getName()));
@@ -283,21 +287,13 @@ public final class TerminalTestResultNotifierTest {
     terminalTestResultNotifier.notify(builder.build(), 0);
   }
 
-  private void mockExecutionOptions() {
+  private void printTestCaseSummary() throws LabelSyntaxException {
     ExecutionOptions executionOptions = ExecutionOptions.DEFAULTS;
     executionOptions.testSummary = testSummaryFormat;
     when(optionsParsingResult.getOptions(ExecutionOptions.class)).thenReturn(executionOptions);
-  }
-
-  private void mockTestSummaryOptions() {
     TestSummaryOptions testSummaryOptions = new TestSummaryOptions();
     testSummaryOptions.verboseSummary = true;
     when(optionsParsingResult.getOptions(TestSummaryOptions.class)).thenReturn(testSummaryOptions);
-  }
-
-  private void printTestCaseSummary() throws LabelSyntaxException {
-    mockExecutionOptions();
-    mockTestSummaryOptions();
 
     TestSummary testSummary = mock(TestSummary.class);
     when(testSummary.getTotalTestCases()).thenReturn(numTotalTestCases);
