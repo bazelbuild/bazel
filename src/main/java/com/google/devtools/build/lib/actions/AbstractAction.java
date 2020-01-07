@@ -82,14 +82,13 @@ public abstract class AbstractAction extends ActionKeyCacher implements Action, 
    * <p>If the "tools" set does not contain exactly the right set of artifacts, the following can
    * happen: If an artifact that should be included is missing, the tool might not be restarted when
    * it should, and builds can become incorrect (example: The compiler binary is not part of this
-   * set, then the compiler gets upgraded, but the worker strategy still reuses the old version).
-   * If an artifact that should *not* be included is accidentally part of this set, the worker
-   * process will be restarted more often that is necessary - e.g. if a file that is unique to each
-   * unit of work, e.g. the source code that a compiler should compile for a compile action, is
-   * part of this set, then the worker will never be reused and will be restarted for each unit of
-   * work.
+   * set, then the compiler gets upgraded, but the worker strategy still reuses the old version). If
+   * an artifact that should *not* be included is accidentally part of this set, the worker process
+   * will be restarted more often that is necessary - e.g. if a file that is unique to each unit of
+   * work, e.g. the source code that a compiler should compile for a compile action, is part of this
+   * set, then the worker will never be reused and will be restarted for each unit of work.
    */
-  private final Iterable<Artifact> tools;
+  private final NestedSet<Artifact> tools;
 
   @GuardedBy("this")
   private boolean inputsDiscovered = false;  // Only used when discoversInputs() returns true
@@ -214,7 +213,7 @@ public abstract class AbstractAction extends ActionKeyCacher implements Action, 
   }
 
   @Override
-  public Iterable<Artifact> getTools() {
+  public NestedSet<Artifact> getTools() {
     return tools;
   }
 

@@ -110,7 +110,7 @@ public final class FakeOwner implements ActionExecutionMetadata {
   }
 
   @Override
-  public Iterable<Artifact> getTools() {
+  public NestedSet<Artifact> getTools() {
     throw new UnsupportedOperationException();
   }
 

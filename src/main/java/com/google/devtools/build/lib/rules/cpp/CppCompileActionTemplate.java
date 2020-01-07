@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.rules.cpp.CcCompilationHelper.SourceCategory;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.util.Fingerprint;
@@ -273,8 +274,8 @@ public final class CppCompileActionTemplate extends ActionKeyCacher
   }
 
   @Override
-  public Iterable<Artifact> getTools() {
-    return ImmutableList.<Artifact>of();
+  public NestedSet<Artifact> getTools() {
+    return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
   }
 
   @Override

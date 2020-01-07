@@ -181,7 +181,7 @@ public class SpawnIncludeScanner {
     }
 
     @Override
-    public Iterable<Artifact> getTools() {
+    public NestedSet<Artifact> getTools() {
       throw new UnsupportedOperationException();
     }
 
