@@ -409,6 +409,7 @@ public class Desugar {
   private final boolean allowCallsToObjectsNonNull;
   private final boolean allowCallsToLongCompare;
   private final boolean allowCallsToLongUnsigned;
+  private final boolean allowCallsToPrimitiveWrappers;
   /** An instance of Desugar is expected to be used ONLY ONCE */
   private boolean used;
 
@@ -424,6 +425,7 @@ public class Desugar {
     this.allowCallsToObjectsNonNull = options.minSdkVersion >= 19;
     this.allowCallsToLongCompare = options.minSdkVersion >= 19 && !options.alwaysRewriteLongCompare;
     this.allowCallsToLongUnsigned = options.minSdkVersion >= 26;
+    this.allowCallsToPrimitiveWrappers = options.minSdkVersion >= 24;
     this.used = false;
   }
 
@@ -846,6 +848,9 @@ public class Desugar {
       if (!allowCallsToLongCompare) {
         visitor = new LongCompareMethodRewriter(visitor, rewriter);
       }
+      if (!allowCallsToPrimitiveWrappers) {
+        visitor = new PrimitiveWrapperRewriter(visitor, rewriter);
+      }
 
       visitor = new Java7Compatibility(visitor, (ClassReaderFactory) null, bootclasspathReader);
       if (options.generateBaseClassesForDefaultMethods) {
@@ -914,6 +919,9 @@ public class Desugar {
     }
     if (!allowCallsToLongCompare) {
       visitor = new LongCompareMethodRewriter(visitor, rewriter);
+    }
+    if (!allowCallsToPrimitiveWrappers) {
+      visitor = new PrimitiveWrapperRewriter(visitor, rewriter);
     }
     if (outputJava7) {
       // null ClassReaderFactory b/c we don't expect to need it for lambda classes
@@ -1003,6 +1011,9 @@ public class Desugar {
     }
     if (!allowCallsToLongCompare) {
       visitor = new LongCompareMethodRewriter(visitor, rewriter);
+    }
+    if (!allowCallsToPrimitiveWrappers) {
+      visitor = new PrimitiveWrapperRewriter(visitor, rewriter);
     }
     if (!options.onlyDesugarJavac9ForLint) {
       if (outputJava7) {
