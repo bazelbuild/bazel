@@ -361,7 +361,11 @@ public class HttpConnectorTest {
         fail("Should have thrown");
       } catch (IOException expected) {
         assertThat(expected).hasCauseThat().isInstanceOf(SocketTimeoutException.class);
-        assertThat(expected).hasCauseThat().hasMessageThat().isEqualTo("connect timed out");
+        assertThat(expected)
+            .hasCauseThat()
+            .hasMessageThat()
+            .ignoringCase()
+            .isEqualTo("connect timed out");
       }
     }
   }
