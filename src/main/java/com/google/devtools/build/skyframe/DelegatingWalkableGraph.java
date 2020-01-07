@@ -124,7 +124,7 @@ public class DelegatingWalkableGraph implements WalkableGraph {
   }
 
   @Override
-  public Map<SkyKey, Iterable<SkyKey>> getReverseDeps(Iterable<SkyKey> keys)
+  public Map<SkyKey, Iterable<SkyKey>> getReverseDeps(Iterable<? extends SkyKey> keys)
       throws InterruptedException {
     Map<SkyKey, ? extends NodeEntry> entries = getBatch(null, Reason.WALKABLE_GRAPH_RDEPS, keys);
     Map<SkyKey, Iterable<SkyKey>> result = new HashMap<>(entries.size());

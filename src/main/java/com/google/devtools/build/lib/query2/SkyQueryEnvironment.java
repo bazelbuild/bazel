@@ -485,8 +485,8 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
     return targetifyValues(getReverseDepLabelsOfLabels(transitiveTraversalKeys));
   }
 
-  protected Map<SkyKey, Iterable<SkyKey>> getReverseDepLabelsOfLabels(Iterable<SkyKey> labels)
-      throws InterruptedException {
+  protected Map<SkyKey, Iterable<SkyKey>> getReverseDepLabelsOfLabels(
+      Iterable<? extends SkyKey> labels) throws InterruptedException {
     return graph.getReverseDeps(labels);
   }
 
