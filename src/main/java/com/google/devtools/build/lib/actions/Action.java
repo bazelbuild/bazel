@@ -191,7 +191,7 @@ public interface Action extends ActionExecutionMetadata {
    * computed before it can make a decision.
    */
   @Nullable
-  Iterable<Artifact> discoverInputs(ActionExecutionContext actionExecutionContext)
+  NestedSet<Artifact> discoverInputs(ActionExecutionContext actionExecutionContext)
       throws ActionExecutionException, InterruptedException;
 
   /**
