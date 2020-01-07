@@ -31,7 +31,6 @@ import com.google.devtools.build.lib.actions.BuildFailedException;
 import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.actions.ExecutorInitException;
 import com.google.devtools.build.lib.actions.LocalHostCapacity;
-import com.google.devtools.build.lib.actions.MetadataProvider;
 import com.google.devtools.build.lib.actions.PackageRoots;
 import com.google.devtools.build.lib.actions.ResourceManager;
 import com.google.devtools.build.lib.actions.ResourceSet;
@@ -63,7 +62,6 @@ import com.google.devtools.build.lib.exec.BlazeExecutor;
 import com.google.devtools.build.lib.exec.CheckUpToDateFilter;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.exec.ExecutorBuilder;
-import com.google.devtools.build.lib.exec.SingleBuildFileCache;
 import com.google.devtools.build.lib.exec.SpawnActionContextMaps;
 import com.google.devtools.build.lib.exec.SymlinkTreeStrategy;
 import com.google.devtools.build.lib.profiler.AutoProfiler;
@@ -121,7 +119,6 @@ public class ExecutionTool {
   private final BlazeRuntime runtime;
   private final BuildRequest request;
   private BlazeExecutor executor;
-  private final MetadataProvider fileCache;
   private final ActionInputPrefetcher prefetcher;
   private final ImmutableList<ActionContextProvider> actionContextProviders;
   private SpawnActionContextMaps spawnActionContextMaps;
@@ -151,18 +148,9 @@ public class ExecutionTool {
     builder
         .addStrategyByContext(WorkspaceStatusAction.Context.class, "")
         .addStrategyByContext(SymlinkTreeActionContext.class, "");
-
-    // Unfortunately, the exec root cache is not shared with caches in the remote execution client.
-    this.fileCache =
-        new SingleBuildFileCache(env.getExecRoot().getPathString(), runtime.getFileSystem());
+      
     this.prefetcher = builder.getActionInputPrefetcher();
-
     this.actionContextProviders = builder.getActionContextProviders();
-    for (ActionContextProvider provider : actionContextProviders) {
-      try (SilentCloseable closeable = Profiler.instance().profile(provider + ".init")) {
-        provider.init(fileCache);
-      }
-    }
 
     // There are many different SpawnActions, and we want to control the action context they use
     // independently from each other, for example, to run genrules locally and Java compile action
@@ -689,7 +677,7 @@ public class ExecutionTool {
         request.getPackageCacheOptions().checkOutputFiles
             ? modifiedOutputFiles
             : ModifiedFileSet.NOTHING_MODIFIED,
-        fileCache,
+        env.getFileCache(),
         prefetcher);
   }
 
