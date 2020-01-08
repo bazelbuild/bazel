@@ -436,7 +436,7 @@ public class ActionCacheChecker {
     // is a superset of getMandatoryInputs(). See bug about an "action not in canonical form"
     // error message and the integration test test_crosstool_change_and_failure().
     Map<PathFragment, Artifact> allowedDerivedInputsMap = new HashMap<>();
-    for (Artifact derivedInput : action.getAllowedDerivedInputs()) {
+    for (Artifact derivedInput : action.getAllowedDerivedInputs().toList()) {
       if (!derivedInput.isSourceArtifact()) {
         allowedDerivedInputsMap.put(derivedInput.getExecPath(), derivedInput);
       }

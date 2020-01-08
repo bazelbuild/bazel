@@ -212,7 +212,7 @@ public class HeaderDiscovery {
 
     private Collection<Path> dependencies;
     private List<Path> permittedSystemIncludePrefixes;
-    private Iterable<Artifact> allowedDerivedInputs;
+    private NestedSet<Artifact> allowedDerivedInputs;
 
     /** Sets the action for which to discover inputs. */
     public Builder setAction(Action action) {
@@ -245,7 +245,7 @@ public class HeaderDiscovery {
     }
 
     /** Sets permitted inputs to the build */
-    public Builder setAllowedDerivedinputs(Iterable<Artifact> allowedDerivedInputs) {
+    public Builder setAllowedDerivedInputs(NestedSet<Artifact> allowedDerivedInputs) {
       this.allowedDerivedInputs = allowedDerivedInputs;
       return this;
     }
@@ -254,7 +254,10 @@ public class HeaderDiscovery {
     public HeaderDiscovery build() {
       Map<PathFragment, Artifact> allowedDerivedInputsMap = new HashMap<>();
       ImmutableSet.Builder<Artifact> treeArtifacts = ImmutableSet.builder();
-      for (Artifact a : allowedDerivedInputs) {
+      for (Artifact a : allowedDerivedInputs.toList()) {
+        if (a.isSourceArtifact()) {
+          continue;
+        }
         if (a.isTreeArtifact()) {
           treeArtifacts.add(a);
         }

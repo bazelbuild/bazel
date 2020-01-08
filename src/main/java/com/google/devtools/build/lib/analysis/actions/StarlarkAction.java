@@ -133,7 +133,7 @@ public final class StarlarkAction extends SpawnAction {
   }
 
   @Override
-  public Iterable<Artifact> getAllowedDerivedInputs() {
+  public NestedSet<Artifact> getAllowedDerivedInputs() {
     return getInputs();
   }
 

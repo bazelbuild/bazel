@@ -205,7 +205,7 @@ public interface Action extends ActionExecutionMetadata {
    * <p>The method is allowed to return source artifacts. They are useless, though, since exec paths
    * in the action cache referring to source artifacts are always resolved.
    */
-  Iterable<Artifact> getAllowedDerivedInputs();
+  NestedSet<Artifact> getAllowedDerivedInputs();
 
   /**
    * Informs the action that its inputs are {@code inputs}, and that its inputs are now known. Can
