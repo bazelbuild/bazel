@@ -15,7 +15,7 @@ package com.google.devtools.build.lib.analysis.config;
 
 import static com.google.common.truth.Truth.assertThat;
 
-import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.NullTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.SplitTransition;
@@ -59,7 +59,7 @@ public class TransitionFactoriesTest {
   public void splitTransition() {
     TransitionFactory<Object> factory =
         TransitionFactories.of(
-            (SplitTransition) buildOptions -> ImmutableMap.of("test0", buildOptions.clone()));
+            (SplitTransition) buildOptions -> ImmutableList.of(buildOptions.clone()));
     assertThat(factory).isNotNull();
     assertThat(factory.isHost()).isFalse();
     assertThat(factory.isSplit()).isTrue();

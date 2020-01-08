@@ -22,7 +22,7 @@ import static com.google.devtools.build.lib.packages.BuildType.NODEP_LABEL;
 import static com.google.devtools.build.lib.packages.Type.STRING;
 import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 
-import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
@@ -273,7 +273,7 @@ public class CircularDependencyTest extends BuildViewTestCase {
                                 optionsFragment.commandLineBuildVariables.stream()
                                     .filter((pair) -> !pair.getKey().equals(define))
                                     .collect(toImmutableList());
-                            return ImmutableMap.of("define_cleaner", newOptions);
+                            return ImmutableList.of(newOptions);
                           };
                         }
 

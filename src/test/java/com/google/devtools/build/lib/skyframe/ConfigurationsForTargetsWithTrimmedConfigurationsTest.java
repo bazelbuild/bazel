@@ -52,7 +52,6 @@ import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.testutil.TestSpec;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import java.util.List;
-import java.util.Map;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -69,27 +68,27 @@ public class ConfigurationsForTargetsWithTrimmedConfigurationsTest
 
   private static class NoopSplitTransition implements SplitTransition {
     @Override
-    public Map<String, BuildOptions> split(BuildOptions buildOptions) {
-      return ImmutableMap.of("noop", buildOptions);
+    public List<BuildOptions> split(BuildOptions buildOptions) {
+      return ImmutableList.of(buildOptions);
     }
   }
 
   private static class SetsHostCpuSplitTransition implements SplitTransition {
     @Override
-    public Map<String, BuildOptions> split(BuildOptions buildOptions) {
+    public List<BuildOptions> split(BuildOptions buildOptions) {
       BuildOptions result = buildOptions.clone();
       result.get(CoreOptions.class).hostCpu = "SET BY SPLIT";
-      return ImmutableMap.of("hostCpu", result);
+      return ImmutableList.of(result);
     }
   }
 
   private static class SetsCpuSplitTransition implements SplitTransition {
 
     @Override
-    public Map<String, BuildOptions> split(BuildOptions buildOptions) {
+    public List<BuildOptions> split(BuildOptions buildOptions) {
       BuildOptions result = buildOptions.clone();
       result.get(CoreOptions.class).cpu = "SET BY SPLIT";
-      return ImmutableMap.of("cpu", result);
+      return ImmutableList.of(result);
     }
   }
 
@@ -566,14 +565,14 @@ public class ConfigurationsForTargetsWithTrimmedConfigurationsTest
    */
   private static SplitTransition newSplitTransition(final String prefix) {
     return buildOptions -> {
-      ImmutableMap.Builder<String, BuildOptions> result = ImmutableMap.builder();
+      ImmutableList.Builder<BuildOptions> result = ImmutableList.builder();
       for (int index = 1; index <= 2; index++) {
         BuildOptions toOptions = buildOptions.clone();
         TestConfiguration.TestOptions baseOptions =
             toOptions.get(TestConfiguration.TestOptions.class);
         baseOptions.testFilter =
             (baseOptions.testFilter == null ? "" : baseOptions.testFilter) + prefix + index;
-        result.put(prefix + index, toOptions);
+        result.add(toOptions);
       }
       return result.build();
     };
