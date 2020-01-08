@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcLinkingContextApi;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.LinkerInputApi;
 import com.google.devtools.build.lib.syntax.Depset;
 import com.google.devtools.build.lib.syntax.EvalException;
+import com.google.devtools.build.lib.syntax.Printer;
 import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.SkylarkType;
 import com.google.devtools.build.lib.syntax.Starlark;
@@ -234,6 +235,26 @@ public class CcLinkingContext implements CcLinkingContextApi<Artifact> {
       return linkstamps;
     }
 
+    @Override
+    public void debugPrint(Printer printer) {
+      printer.append("<LinkerInput(owner=");
+      owner.debugPrint(printer);
+      printer.append(", libraries=[");
+      for (LibraryToLink libraryToLink : libraries) {
+        libraryToLink.debugPrint(printer);
+        printer.append(", ");
+      }
+      printer.append("], userLinkFlags=[");
+      printer.append(Joiner.on(", ").join(userLinkFlags));
+      printer.append("], nonCodeInputs=[");
+      for (Artifact nonCodeInput : nonCodeInputs) {
+        nonCodeInput.debugPrint(printer);
+        printer.append(", ");
+      }
+      // TODO(cparsons): Add debug repesentation of linkstamps.
+      printer.append("])>");
+    }
+
     public static Builder builder() {
       return new Builder();
     }
@@ -324,6 +345,16 @@ public class CcLinkingContext implements CcLinkingContextApi<Artifact> {
 
   private final NestedSet<LinkerInput> linkerInputs;
   private final ExtraLinkTimeLibraries extraLinkTimeLibraries;
+
+  @Override
+  public void debugPrint(Printer printer) {
+    printer.append("<CcLinkingContext([");
+    for (LinkerInput linkerInput : linkerInputs.toList()) {
+      linkerInput.debugPrint(printer);
+      printer.append(", ");
+    }
+    printer.append("])>");
+  }
 
   public CcLinkingContext(
       NestedSet<LinkerInput> linkerInputs, ExtraLinkTimeLibraries extraLinkTimeLibraries) {

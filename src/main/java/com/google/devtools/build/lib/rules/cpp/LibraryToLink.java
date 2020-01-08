@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.rules.cpp;
 
 import com.google.auto.value.AutoValue;
 import com.google.auto.value.AutoValue.CopyAnnotations;
+import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -22,6 +23,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.LibraryToLinkApi;
+import com.google.devtools.build.lib.syntax.Printer;
 import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.SkylarkType;
 import com.google.devtools.build.lib.syntax.StarlarkList;
@@ -130,6 +132,34 @@ public abstract class LibraryToLink implements LibraryToLinkApi<Artifact> {
   abstract boolean getMustKeepDebug();
 
   abstract boolean getDisableWholeArchive();
+
+  @Override
+  public void debugPrint(Printer printer) {
+    printer.append("<LibraryToLink(");
+    printer.append(
+        Joiner.on(", ")
+            .skipNulls()
+            .join(
+                mapEntry("object", getObjectFiles()),
+                mapEntry("pic_objects", getPicObjectFiles()),
+                mapEntry("static_library", getStaticLibrary()),
+                mapEntry("pic_static_library", getPicStaticLibrary()),
+                mapEntry("dynamic_library", getDynamicLibrary()),
+                mapEntry("resolved_symlink_dynamic_library", getResolvedSymlinkDynamicLibrary()),
+                mapEntry("interface_library", getInterfaceLibrary()),
+                mapEntry(
+                    "resolved_symlink_interface_library", getResolvedSymlinkInterfaceLibrary()),
+                mapEntry("alwayslink", getAlwayslink())));
+    printer.append(")>");
+  }
+
+  private static String mapEntry(String keyName, Object value) {
+    if (value == null) {
+      return null;
+    } else {
+      return keyName + "=" + value;
+    }
+  }
 
   public static Builder builder() {
     return new AutoValue_LibraryToLink.Builder()
