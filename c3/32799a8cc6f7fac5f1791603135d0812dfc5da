@@ -1,0 +1,56 @@
+Incompatible changes:
+
+  - The following attributes of CcToolchainProvider, which formerly
+    were
+    accessible both as fields (x.f) and as methods (x.f()), are now
+    only fields:
+
+New features:
+
+  - Similar to the
+    [.bazelignore](https://docs.bazel.build/versions/master/guide.html
+    #.bazelignore) in the main repository, a `.bazelignore` file in
+    external repository will cause the specified directories to be
+    ignored by Bazel. Bazel won't try to identify any packages under
+    the directories, but the files can still be referenced in other
+    BUILD files.
+  - bazelignore files now support line comments, e.g. "# this is a
+    comment"
+
+Important changes:
+
+  - Experimental support for d8 merger is now available for use using
+    --define=android_dexmerger_tool=d8_dexmerger.
+  - Critical path run time should not have a longer run time than
+    total execution run time.
+  - Remove "please do not import" warning for cc rules.
+  - x.f() is now equivalent to y=x.f; y(). That is, x.f should return
+    the same
+    attribute value regardless of whether it is accessed as a field
+    or called
+    like a method. Any arguments to the call are evaluated after the
+    x.f operation.
+  - Add desugaring support for RoleManager#addRoleHolderAsUser
+  - Adds ctx.target_platform_has_constraint to allow rules to check
+    the target platform's constraints.
+  - Critical path run time should not have a longer run time than
+    total execution run time.
+  - Post new ConvenienceSymlinksIdentifiedEvent to the
+    BuildEventProtocol when
+    --experimental_convenience_symlinks_bep_event is enabled.
+  - Keyword-only arguments are now allowed:
+        def foo(a, *, k): pass
+        def foo(a, *b, k): pass
+      where k can be specified only by keyword:
+        foo(5, k=6)
+  - Generated Go protobufs now depend on //net/proto2/go:protodeps in
+    addition to //net/proto2/go:proto
+  - cquery 'somepath' returns more reliable results when the
+    dep has a different configuration than the parent. To get a
+    result for
+    `somepath(//foo, //bar`) where //bar isn't in the top-level
+    configuration,
+    run your query with `--universe_scope=//foo`. See cquery docs for
+    details.
+
+This release contains contributions from many people at Google, as well as Adam Liddell, Alessandro Patti, Andreas Herrmann, Bor Kae Hwang, Brian Silverman, Emran BatmanGhelich, George Gensure, Greg Estren, Jeff Palm, Jonathan Beverly, Mark Nevill, Patrick Niklaus, Peter, Philipp Wollermann, Ryan Beasley, Shin Yamamoto, Yen-Chi Chen.
