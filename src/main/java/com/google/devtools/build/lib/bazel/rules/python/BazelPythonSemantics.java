@@ -235,14 +235,13 @@ public class BazelPythonSemantics implements PythonSemantics {
 
       if (OS.getCurrent() != OS.WINDOWS) {
         PathFragment shExecutable = ShToolchain.getPathOrError(ruleContext);
-        String pythonExecutableName = OS.getCurrent() == OS.OPENBSD ? "python3" : "python";
         ruleContext.registerAction(
             new SpawnAction.Builder()
                 .addInput(zipFile)
                 .addOutput(executable)
                 .setShellCommand(
                     shExecutable,
-                    "echo '#!/usr/bin/env " + pythonExecutableName + "' | cat - "
+                    "echo '#!/usr/bin/env python3' | cat - "
                         + zipFile.getExecPathString()
                         + " > "
                         + executable.getExecPathString())
