@@ -51,6 +51,7 @@ import com.google.devtools.build.lib.query2.engine.QueryUtil.AggregateAllOutputF
 import com.google.devtools.build.lib.query2.engine.ThreadSafeOutputFormatterCallback;
 import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
 import com.google.devtools.build.lib.skyframe.BazelSkyframeExecutorConstants;
+import com.google.devtools.build.lib.skyframe.BlacklistedPackagePrefixesFunction;
 import com.google.devtools.build.lib.skyframe.PackageValue;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
@@ -92,8 +93,7 @@ public abstract class SkyframeQueryHelper extends AbstractQueryHelper<Target> {
   private boolean blockUniverseEvaluationErrors;
   protected final ActionKeyContext actionKeyContext = new ActionKeyContext();
 
-  private final PathFragment additionalBlacklistedPackagePrefixesFile =
-      PathFragment.create("blacklist");
+  private final PathFragment blacklistedPackagePrefixesFile = PathFragment.create("blacklist");
 
   @Override
   public void setUp() throws Exception {
@@ -136,7 +136,7 @@ public abstract class SkyframeQueryHelper extends AbstractQueryHelper<Target> {
 
   @Override
   public PathFragment getBlacklistedPackagePrefixesFile() {
-    return additionalBlacklistedPackagePrefixesFile;
+    return blacklistedPackagePrefixesFile;
   }
 
   @Override
@@ -313,7 +313,8 @@ public abstract class SkyframeQueryHelper extends AbstractQueryHelper<Target> {
             .setDirectories(directories)
             .setActionKeyContext(actionKeyContext)
             .setDefaultBuildOptions(getDefaultBuildOptions(ruleClassProvider))
-            .setAdditionalBlacklistedPackagePrefixesFile(additionalBlacklistedPackagePrefixesFile)
+            .setBlacklistedPackagePrefixesFunction(
+                new BlacklistedPackagePrefixesFunction(blacklistedPackagePrefixesFile))
             .setExtraSkyFunctions(analysisMock.getSkyFunctions(directories))
             .build();
     skyframeExecutor.injectExtraPrecomputedValues(

@@ -310,8 +310,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   protected SkyframeIncrementalBuildMonitor incrementalBuildMonitor =
       new SkyframeIncrementalBuildMonitor();
 
-  private final ImmutableSet<PathFragment> hardcodedBlacklistedPackagePrefixes;
-  private final PathFragment additionalBlacklistedPackagePrefixesFile;
+  private final SkyFunction blacklistedPackagePrefixesFunction;
 
   private final ConfiguredRuleClassProvider ruleClassProvider;
 
@@ -386,8 +385,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       Factory workspaceStatusActionFactory,
       ImmutableMap<SkyFunctionName, SkyFunction> extraSkyFunctions,
       ExternalFileAction externalFileAction,
-      ImmutableSet<PathFragment> hardcodedBlacklistedPackagePrefixes,
-      PathFragment additionalBlacklistedPackagePrefixesFile,
+      SkyFunction blacklistedPackagePrefixesFunction,
       CrossRepositoryLabelViolationStrategy crossRepositoryLabelViolationStrategy,
       List<BuildFileName> buildFilesByPriority,
       ActionOnIOExceptionReadingBuildFile actionOnIOExceptionReadingBuildFile,
@@ -421,9 +419,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     this.fileSystem = fileSystem;
     this.directories = Preconditions.checkNotNull(directories);
     this.actionKeyContext = Preconditions.checkNotNull(actionKeyContext);
+    this.blacklistedPackagePrefixesFunction = blacklistedPackagePrefixesFunction;
     this.extraSkyFunctions = extraSkyFunctions;
-    this.hardcodedBlacklistedPackagePrefixes = hardcodedBlacklistedPackagePrefixes;
-    this.additionalBlacklistedPackagePrefixesFile = additionalBlacklistedPackagePrefixesFile;
 
     this.ruleClassProvider = (ConfiguredRuleClassProvider) pkgFactory.getRuleClassProvider();
     this.defaultBuildOptions = defaultBuildOptions;
@@ -502,10 +499,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     map.put(
         SkyFunctions.COLLECT_PACKAGES_UNDER_DIRECTORY,
         newCollectPackagesUnderDirectoryFunction(directories));
-    map.put(
-        SkyFunctions.BLACKLISTED_PACKAGE_PREFIXES,
-        new BlacklistedPackagePrefixesFunction(
-            hardcodedBlacklistedPackagePrefixes, additionalBlacklistedPackagePrefixesFile));
+    map.put(SkyFunctions.BLACKLISTED_PACKAGE_PREFIXES, blacklistedPackagePrefixesFunction);
     map.put(SkyFunctions.TESTS_IN_SUITE, new TestExpansionFunction());
     map.put(SkyFunctions.TEST_SUITE_EXPANSION, new TestsForTargetPatternFunction());
     map.put(SkyFunctions.TARGET_PATTERN_PHASE, new TargetPatternPhaseFunction());

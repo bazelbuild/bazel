@@ -34,21 +34,18 @@ import java.nio.charset.StandardCharsets;
 import javax.annotation.Nullable;
 
 /**
- * A function that returns the union of a set of hardcoded blacklisted package prefixes and the
- * contents of a hardcoded filepath whose contents is a blacklisted package prefix on each line.
+ * A {@link SkyFunction} for {@link BlacklistedPackagePrefixesValue}.
+ *
+ * <p>It is used to implement the `.bazelignore` feature.
  */
 public class BlacklistedPackagePrefixesFunction implements SkyFunction {
-  private ImmutableSet<PathFragment> hardcodedBlacklistedPackagePrefixes;
-  private PathFragment additionalBlacklistedPackagePrefixesFile;
+  private final PathFragment blacklistedPackagePrefixesFile;
 
-  public BlacklistedPackagePrefixesFunction(
-      ImmutableSet<PathFragment> hardcodedBlacklistedPackagePrefixes,
-      PathFragment additionalBlacklistedPackagePrefixesFile) {
-    this.hardcodedBlacklistedPackagePrefixes = hardcodedBlacklistedPackagePrefixes;
-    this.additionalBlacklistedPackagePrefixesFile = additionalBlacklistedPackagePrefixesFile;
+  public BlacklistedPackagePrefixesFunction(PathFragment blacklistedPackagePrefixesFile) {
+    this.blacklistedPackagePrefixesFile = blacklistedPackagePrefixesFile;
   }
 
-  private static void getBlacklistedPackagePrefixes(
+  public static void getBlacklistedPackagePrefixes(
       RootedPath patternFile, ImmutableSet.Builder<PathFragment> blacklistedPackagePrefixesBuilder)
       throws BlacklistedPatternsFunctionException {
     try (InputStreamReader reader =
@@ -73,10 +70,7 @@ public class BlacklistedPackagePrefixesFunction implements SkyFunction {
     RepositoryName repositoryName = (RepositoryName) key.argument();
 
     ImmutableSet.Builder<PathFragment> blacklistedPackagePrefixesBuilder = ImmutableSet.builder();
-
-    blacklistedPackagePrefixesBuilder.addAll(hardcodedBlacklistedPackagePrefixes);
-
-    if (!additionalBlacklistedPackagePrefixesFile.equals(PathFragment.EMPTY_FRAGMENT)) {
+    if (!blacklistedPackagePrefixesFile.equals(PathFragment.EMPTY_FRAGMENT)) {
       PathPackageLocator pkgLocator = PrecomputedValue.PATH_PACKAGE_LOCATOR.get(env);
       if (env.valuesMissing()) {
         return null;
@@ -85,7 +79,7 @@ public class BlacklistedPackagePrefixesFunction implements SkyFunction {
       if (repositoryName.isMain()) {
         for (Root packagePathEntry : pkgLocator.getPathEntries()) {
           RootedPath rootedPatternFile =
-              RootedPath.toRootedPath(packagePathEntry, additionalBlacklistedPackagePrefixesFile);
+              RootedPath.toRootedPath(packagePathEntry, blacklistedPackagePrefixesFile);
           FileValue patternFileValue = (FileValue) env.getValue(FileValue.key(rootedPatternFile));
           if (patternFileValue == null) {
             return null;
@@ -105,8 +99,7 @@ public class BlacklistedPackagePrefixesFunction implements SkyFunction {
         if (repositoryValue.repositoryExists()) {
           RootedPath rootedPatternFile =
               RootedPath.toRootedPath(
-                  Root.fromPath(repositoryValue.getPath()),
-                  additionalBlacklistedPackagePrefixesFile);
+                  Root.fromPath(repositoryValue.getPath()), blacklistedPackagePrefixesFile);
           FileValue patternFileValue = (FileValue) env.getValue(FileValue.key(rootedPatternFile));
           if (patternFileValue == null) {
             return null;
@@ -118,7 +111,7 @@ public class BlacklistedPackagePrefixesFunction implements SkyFunction {
       }
     }
 
-    return new BlacklistedPackagePrefixesValue(blacklistedPackagePrefixesBuilder.build());
+    return BlacklistedPackagePrefixesValue.of(blacklistedPackagePrefixesBuilder.build());
   }
 
   private static final class PathFragmentLineProcessor
@@ -126,7 +119,7 @@ public class BlacklistedPackagePrefixesFunction implements SkyFunction {
     private final ImmutableSet.Builder<PathFragment> fragments = ImmutableSet.builder();
 
     @Override
-    public boolean processLine(String line) throws IOException {
+    public boolean processLine(String line) {
       if (!line.isEmpty() && !line.startsWith("#")) {
         fragments.add(PathFragment.create(line));
       }

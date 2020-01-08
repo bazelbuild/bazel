@@ -30,8 +30,17 @@ import com.google.devtools.build.skyframe.SkyValue;
 public class BlacklistedPackagePrefixesValue implements SkyValue {
   private final ImmutableSet<PathFragment> patterns;
 
-  public BlacklistedPackagePrefixesValue(ImmutableSet<PathFragment> patterns) {
+  @AutoCodec @AutoCodec.VisibleForSerialization
+  public static final BlacklistedPackagePrefixesValue NO_BLACKLIST =
+      new BlacklistedPackagePrefixesValue(ImmutableSet.of());
+
+  private BlacklistedPackagePrefixesValue(ImmutableSet<PathFragment> patterns) {
     this.patterns = Preconditions.checkNotNull(patterns);
+  }
+
+  @AutoCodec.Instantiator
+  public static BlacklistedPackagePrefixesValue of(ImmutableSet<PathFragment> patterns) {
+    return patterns.isEmpty() ? NO_BLACKLIST : new BlacklistedPackagePrefixesValue(patterns);
   }
 
   /** Creates a key from the main repository. */

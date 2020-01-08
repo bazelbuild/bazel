@@ -422,8 +422,7 @@ public abstract class AbstractPackageLoader implements PackageLoader {
         .put(
             SkyFunctions.BLACKLISTED_PACKAGE_PREFIXES,
             new BlacklistedPackagePrefixesFunction(
-                /*hardcodedBlacklistedPackagePrefixes=*/ ImmutableSet.of(),
-                /*additionalBlacklistedPackagePrefixesFile=*/ PathFragment.EMPTY_FRAGMENT))
+                /*blacklistedPackagePrefixesFile=*/ PathFragment.EMPTY_FRAGMENT))
         .put(SkyFunctions.CONTAINING_PACKAGE_LOOKUP, new ContainingPackageLookupFunction())
         .put(SkyFunctions.AST_FILE_LOOKUP, new ASTFileLookupFunction(ruleClassProvider))
         .put(
