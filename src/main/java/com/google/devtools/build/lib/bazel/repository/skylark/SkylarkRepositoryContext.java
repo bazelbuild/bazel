@@ -1035,7 +1035,8 @@ public class SkylarkRepositoryContext
   }
 
   /**
-   * Try to compute the paths of all attibutes that are labels, including labels in list arguments.
+   * Try to compute the paths of all attributes that are labels, including labels in list and dict
+   * arguments.
    *
    * <p>The value is ignored, but any missing information from the environment is detected (and an
    * exception thrown). In this way, we can enforce that all arguments are evaluated before we start
@@ -1050,6 +1051,13 @@ public class SkylarkRepositoryContext
       }
       if (value instanceof Sequence) {
         for (Object entry : (Sequence) value) {
+          if (entry instanceof Label) {
+            getPathFromLabel((Label) entry);
+          }
+        }
+      }
+      if (value instanceof Dict) {
+        for (Object entry : ((Dict) value).keySet()) {
           if (entry instanceof Label) {
             getPathFromLabel((Label) entry);
           }
