@@ -18,7 +18,6 @@ import com.google.common.base.Ascii;
 import com.google.common.base.CharMatcher;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.ParamType;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
@@ -707,13 +706,12 @@ final class StringModule implements StarlarkValue {
             noneable = true,
             defaultValue = "None",
             doc = "optional position before which to restrict to search.")
-      },
-      useLocation = true)
-  public Integer index(String self, String sub, Integer start, Object end, Location loc)
-      throws EvalException {
+      })
+  public Integer index(String self, String sub, Integer start, Object end) throws EvalException {
     int res = stringFind(true, self, sub, start, end, "'end' argument to index");
     if (res < 0) {
-      throw new EvalException(loc, Starlark.format("substring %r not found in %r", sub, self));
+      throw Starlark.errorf(
+          "substring %s not found in %s", Starlark.repr(sub), Starlark.repr(self));
     }
     return res;
   }
@@ -1023,13 +1021,11 @@ final class StringModule implements StarlarkValue {
               name = "kwargs",
               type = Dict.class,
               defaultValue = "{}",
-              doc = "Dictionary of arguments."),
-      useLocation = true)
-  public String format(String self, Sequence<?> args, Dict<?, ?> kwargs, Location loc)
-      throws EvalException {
+              doc = "Dictionary of arguments."))
+  public String format(String self, Sequence<?> args, Dict<?, ?> kwargs) throws EvalException {
     @SuppressWarnings("unchecked")
     List<Object> argObjects = (List<Object>) args.getImmutableList();
-    return new FormatParser(loc)
+    return new FormatParser()
         .format(self, argObjects, kwargs.getContents(String.class, Object.class, "kwargs"));
   }
 

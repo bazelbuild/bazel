@@ -134,7 +134,6 @@ public final class SkylarkRuleConfiguredTargetUtil {
           Starlark.call(
               thread,
               ruleImplementation,
-              Location.BUILTIN,
               /*args=*/ ImmutableList.of(skylarkRuleContext),
               /*kwargs=*/ ImmutableMap.of());
 

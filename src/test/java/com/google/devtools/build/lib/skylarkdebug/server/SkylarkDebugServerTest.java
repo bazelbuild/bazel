@@ -361,7 +361,7 @@ public class SkylarkDebugServerTest {
     assertFramesEqualIgnoringValueIdentifiers(
         frames.getFrame(0),
         Frame.newBuilder()
-            .setFunctionName("<top level>")
+            .setFunctionName("<toplevel>")
             .setLocation(breakpoint.toBuilder().setColumnNumber(1))
             .addScope(
                 Scope.newBuilder()
@@ -448,7 +448,7 @@ public class SkylarkDebugServerTest {
     assertFramesEqualIgnoringValueIdentifiers(
         frames.getFrame(1),
         Frame.newBuilder()
-            .setFunctionName("<top level>")
+            .setFunctionName("<toplevel>")
             .setLocation(
                 Location.newBuilder()
                     .setPath("/a/build/file/test.bzl")

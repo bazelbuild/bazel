@@ -21,7 +21,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.testing.EqualsTester;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.SkylarkProvider.SkylarkKey;
 import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.devtools.build.lib.syntax.Starlark;
@@ -141,7 +140,6 @@ public final class SkylarkProviderTest {
         Starlark.call(
             thread,
             provider,
-            Location.BUILTIN,
             /*args=*/ ImmutableList.of(),
             /*kwargs=*/ ImmutableMap.of("a", 1, "b", 2, "c", 3));
     assertThat(result).isInstanceOf(SkylarkInfo.class);

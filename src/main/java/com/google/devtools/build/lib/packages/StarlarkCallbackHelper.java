@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.packages;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.events.EventHandler;
-import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.syntax.ClassObject;
 import com.google.devtools.build.lib.syntax.EvalException;
@@ -79,7 +78,6 @@ public class StarlarkCallbackHelper {
       return Starlark.call(
           thread,
           callback,
-          Location.BUILTIN,
           buildArgumentList(ctx, arguments),
           /*kwargs=*/ ImmutableMap.of());
     } catch (ClassCastException | IllegalArgumentException e) { // TODO(adonovan): investigate

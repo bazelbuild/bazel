@@ -300,13 +300,9 @@ public final class SkylarkEvaluationTest extends EvaluationTest {
           + ")";
     }
 
-    @SkylarkCallable(
-        name = "with_extra",
-        documented = false,
-        useLocation = true,
-        useStarlarkThread = true)
-    public String withExtraInterpreterParams(Location location, StarlarkThread thread) {
-      return "with_extra(" + location.line() + ")";
+    @SkylarkCallable(name = "with_extra", documented = false, useStarlarkThread = true)
+    public String withExtraInterpreterParams(StarlarkThread thread) {
+      return "with_extra(" + thread.getCallerLocation().line() + ")";
     }
 
     @SkylarkCallable(
@@ -353,7 +349,6 @@ public final class SkylarkEvaluationTest extends EvaluationTest {
               positional = false,
               named = true)
         },
-        useLocation = true,
         useStarlarkThread = true)
     public String withParamsAndExtraInterpreterParams(
         Integer pos1,
@@ -364,7 +359,6 @@ public final class SkylarkEvaluationTest extends EvaluationTest {
         Object nonNoneable,
         Object noneable,
         Object multi,
-        Location location,
         StarlarkThread thread) {
       return "with_params_and_extra("
           + pos1
@@ -381,7 +375,7 @@ public final class SkylarkEvaluationTest extends EvaluationTest {
           + (noneable != Starlark.NONE ? ", " + noneable : "")
           + (multi != Starlark.NONE ? ", " + multi : "")
           + ", "
-          + location.line()
+          + thread.getCallerLocation().line()
           + ")";
     }
 
@@ -2204,6 +2198,17 @@ public final class SkylarkEvaluationTest extends EvaluationTest {
         "  return a",
         "x = foo()");
     assertThat(lookup("x")).isEqualTo(18);
+  }
+
+  @Test
+  public void testListComprehensionsTemporarilyRebindGlobals() throws Exception {
+    // This test asserts the buggy behavior of https://github.com/bazelbuild/starlark/issues/92.
+    exec(
+        "x = 1", //
+        "def f():",
+        "  return x",
+        "y = [f() for x in [2]][0]");
+    assertThat(lookup("y")).isEqualTo(2); // TODO(adonovan): should be 1!
   }
 
   @Test

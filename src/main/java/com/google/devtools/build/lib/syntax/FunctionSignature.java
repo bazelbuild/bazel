@@ -409,10 +409,11 @@ public abstract class FunctionSignature {
   }
 
   /** A ready-made signature to allow only keyword parameters and put them in a kwarg parameter */
-  public static final FunctionSignature KWARGS =
-      FunctionSignature.of(0, 0, 0, false, true, "kwargs");
+  public static final FunctionSignature KWARGS = of(0, 0, 0, false, true, "kwargs");
+
+  /** A ready-made signature that accepts no arguments. */
+  public static final FunctionSignature NOARGS = of(0, 0, 0, false, false);
 
   /** A ready-made signature that allows any arguments. */
-  public static final FunctionSignature ANY =
-      FunctionSignature.of(0, 0, 0, true, true, "args", "kwargs");
+  public static final FunctionSignature ANY = of(0, 0, 0, true, true, "args", "kwargs");
 }

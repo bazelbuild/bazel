@@ -233,7 +233,7 @@ final class ThreadHandler {
         throw new DebugRequestException(
             String.format("Thread %s is not paused or does not exist.", threadId));
       }
-      return thread.thread.listFrames(thread.location).stream()
+      return thread.thread.listFrames().stream()
           .map(frame -> DebugEventHelper.getFrameProto(thread.objectMap, frame))
           .collect(toImmutableList());
     }

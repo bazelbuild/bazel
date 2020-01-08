@@ -17,7 +17,6 @@ package com.google.devtools.build.lib.syntax;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
@@ -112,7 +111,7 @@ final class MethodDescriptor {
   private static final Object[] EMPTY = {};
 
   /** Calls this method, which must have {@code structField=true}. */
-  Object callField(Object obj, Location loc, StarlarkSemantics semantics, @Nullable Mutability mu)
+  Object callField(Object obj, StarlarkSemantics semantics, @Nullable Mutability mu)
       throws EvalException, InterruptedException {
     if (!structField) {
       throw new IllegalStateException("not a struct field: " + name);

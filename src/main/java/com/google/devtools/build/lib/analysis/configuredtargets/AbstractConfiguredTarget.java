@@ -119,12 +119,10 @@ public abstract class AbstractConfiguredTarget
   }
 
   @Override
-  public Object getValue(Location loc, StarlarkSemantics semantics, String name)
-      throws EvalException {
+  public Object getValue(StarlarkSemantics semantics, String name) throws EvalException {
     if (semantics.incompatibleDisableTargetProviderFields()
         && !SPECIAL_FIELD_NAMES.contains(name)) {
-      throw new EvalException(
-          loc,
+      throw Starlark.errorf(
           "Accessing providers via the field syntax on structs is "
               + "deprecated and will be removed soon. It may be temporarily re-enabled by setting "
               + "--incompatible_disable_target_provider_fields=false. See "

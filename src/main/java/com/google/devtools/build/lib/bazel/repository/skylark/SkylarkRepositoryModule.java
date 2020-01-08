@@ -203,7 +203,7 @@ public class SkylarkRepositoryModule implements RepositoryModuleApi {
                 .append(" (rule definition at ")
                 .append(ruleClassDefinitionLocation.toString())
                 .append("):");
-        for (DebugFrame frame : thread.listFrames(loc)) {
+        for (DebugFrame frame : thread.listFrames()) {
           callStack.append("\n - ").append(frame.location().toString());
         }
 
