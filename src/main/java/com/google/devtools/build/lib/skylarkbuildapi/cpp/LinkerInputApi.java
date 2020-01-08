@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.skylarkbuildapi.cpp;
 
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
@@ -38,9 +37,8 @@ public interface LinkerInputApi<
       name = "owner",
       doc = "Returns the owner of this LinkerInput.",
       enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_CC_SHARED_LIBRARY,
-      useLocation = true,
       structField = true)
-  Label getSkylarkOwner(Location location) throws EvalException;
+  Label getSkylarkOwner() throws EvalException;
 
   @SkylarkCallable(
       name = "user_link_flags",

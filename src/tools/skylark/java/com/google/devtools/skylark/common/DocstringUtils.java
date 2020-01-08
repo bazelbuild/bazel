@@ -129,7 +129,7 @@ public final class DocstringUtils {
   /** Parses a docstring from a string literal and appends any new errors to the given list. */
   public static DocstringInfo parseDocstring(
       StringLiteral docstring, List<DocstringParseError> errors) {
-    int indentation = docstring.getLocation().getStartLineAndColumn().getColumn() - 1;
+    int indentation = docstring.getStartLocation().column() - 1;
     return parseDocstring(docstring.getValue(), indentation, errors);
   }
 

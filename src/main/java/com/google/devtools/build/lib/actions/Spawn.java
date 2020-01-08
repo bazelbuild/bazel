@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.actions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import java.util.Collection;
 import javax.annotation.Nullable;
 
@@ -65,26 +66,26 @@ public interface Spawn {
    *
    * <p>The returned set of files is a subset of what getInputFiles() returns.
    *
-   * <p>This method explicitly does not expand middleman artifacts. Pass the result
-   * to an appropriate utility method on {@link com.google.devtools.build.lib.actions.Artifact} to
-   * expand the middlemen.
+   * <p>This method explicitly does not expand middleman artifacts. Pass the result to an
+   * appropriate utility method on {@link com.google.devtools.build.lib.actions.Artifact} to expand
+   * the middlemen.
    *
-   * <p>This is for use with persistent workers, so we can restart workers when their binaries
-   * have changed.
+   * <p>This is for use with persistent workers, so we can restart workers when their binaries have
+   * changed.
    */
-  Iterable<? extends ActionInput> getToolFiles();
+  NestedSet<? extends ActionInput> getToolFiles();
 
   /**
    * Returns the list of files that this command may read.
    *
-   * <p>This method explicitly does not expand middleman artifacts. Pass the result
-   * to an appropriate utility method on {@link com.google.devtools.build.lib.actions.Artifact} to
-   * expand the middlemen.
+   * <p>This method explicitly does not expand middleman artifacts. Pass the result to an
+   * appropriate utility method on {@link com.google.devtools.build.lib.actions.Artifact} to expand
+   * the middlemen.
    *
-   * <p>This is for use with remote execution, so we can ship inputs before starting the
-   * command. Order stability across multiple calls should be upheld for performance reasons.
+   * <p>This is for use with remote execution, so we can ship inputs before starting the command.
+   * Order stability across multiple calls should be upheld for performance reasons.
    */
-  Iterable<? extends ActionInput> getInputFiles();
+  NestedSet<? extends ActionInput> getInputFiles();
 
   /**
    * Returns the collection of files that this command must write.  Callers should not mutate

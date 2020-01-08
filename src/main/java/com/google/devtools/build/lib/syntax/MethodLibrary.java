@@ -22,7 +22,6 @@ import com.google.common.collect.Ordering;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet.NestedSetDepthException;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.Event;
-import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkGlobalLibrary;
@@ -53,8 +52,7 @@ class MethodLibrary {
               + "It is an error if elements are not comparable (for example int with string). "
               + "<pre class=\"language-python\">min(2, 5, 4) == 2\n"
               + "min([5, 6, 3]) == 3</pre>",
-      extraPositionals =
-          @Param(name = "args", type = Sequence.class, doc = "The elements to be checked."))
+      extraPositionals = @Param(name = "args", doc = "The elements to be checked."))
   public Object min(Sequence<?> args) throws EvalException {
     try {
       return findExtreme(args, EvalUtils.SKYLARK_COMPARATOR.reverse());
@@ -71,8 +69,7 @@ class MethodLibrary {
               + "It is an error if elements are not comparable (for example int with string). "
               + "<pre class=\"language-python\">max(2, 5, 4) == 5\n"
               + "max([5, 6, 3]) == 6</pre>",
-      extraPositionals =
-          @Param(name = "args", type = Sequence.class, doc = "The elements to be checked."))
+      extraPositionals = @Param(name = "args", doc = "The elements to be checked."))
   public Object max(Sequence<?> args) throws EvalException {
     try {
       return findExtreme(args, EvalUtils.SKYLARK_COMPARATOR);
@@ -206,8 +203,7 @@ class MethodLibrary {
         }
 
         Object callKeyFunc(Object x) throws EvalException, InterruptedException {
-          return Starlark.call(
-              thread, keyfn, Location.BUILTIN, Collections.singletonList(x), ImmutableMap.of());
+          return Starlark.call(thread, keyfn, Collections.singletonList(x), ImmutableMap.of());
         }
       }
 
@@ -566,7 +562,7 @@ class MethodLibrary {
       },
       extraKeywords = @Param(name = "kwargs", doc = "Dictionary of additional entries."),
       useStarlarkThread = true)
-  public Dict<?, ?> dict(Object args, Dict<?, ?> kwargs, StarlarkThread thread)
+  public Dict<?, ?> dict(Object args, Dict<String, Object> kwargs, StarlarkThread thread)
       throws EvalException {
     Dict<?, ?> dict =
         args instanceof Dict
@@ -743,12 +739,10 @@ class MethodLibrary {
             legacyNamed = true,
             noneable = true)
       },
-      useLocation = true,
       useStarlarkThread = true)
-  public Object getattr(
-      Object obj, String name, Object defaultValue, Location loc, StarlarkThread thread)
+  public Object getattr(Object obj, String name, Object defaultValue, StarlarkThread thread)
       throws EvalException, InterruptedException {
-    Object result = EvalUtils.getAttr(thread, loc, obj, name);
+    Object result = EvalUtils.getAttr(thread, obj, name);
     if (result == null) {
       if (defaultValue != Starlark.UNBOUND) {
         return defaultValue;
@@ -836,10 +830,8 @@ class MethodLibrary {
       },
       // NB: as compared to Python3, we're missing optional named-only arguments 'end' and 'file'
       extraPositionals = @Param(name = "args", doc = "The objects to print."),
-      useLocation = true,
       useStarlarkThread = true)
-  public NoneType print(String sep, Sequence<?> args, Location loc, StarlarkThread thread)
-      throws EvalException {
+  public NoneType print(String sep, Sequence<?> args, StarlarkThread thread) throws EvalException {
     try {
       Printer p = Printer.getPrinter();
       String separator = "";
@@ -854,7 +846,7 @@ class MethodLibrary {
       if (thread.getSemantics().internalSkylarkFlagTestCanary()) {
         p.append("<== skylark flag test ==>");
       }
-      thread.handleEvent(Event.debug(loc, p.toString()));
+      thread.handleEvent(Event.debug(thread.getCallerLocation(), p.toString()));
       return Starlark.NONE;
     } catch (NestedSetDepthException exception) {
       throw Starlark.errorf(
@@ -985,14 +977,14 @@ class MethodLibrary {
             valueWhenDisabled = "[]",
             named = true),
       },
-      useStarlarkSemantics = true)
+      useStarlarkThread = true)
   public Depset depset(
       Object x,
       String orderString,
       Object direct,
       Object transitive,
       Object items,
-      StarlarkSemantics semantics)
+      StarlarkThread thread)
       throws EvalException {
     Order order;
     Depset result;
@@ -1002,6 +994,7 @@ class MethodLibrary {
       throw new EvalException(null, ex);
     }
 
+    StarlarkSemantics semantics = thread.getSemantics();
     if (semantics.incompatibleDisableDepsetItems()) {
       if (x != Starlark.NONE) {
         if (direct != Starlark.NONE) {

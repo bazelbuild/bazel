@@ -30,7 +30,6 @@ import com.google.devtools.build.lib.syntax.Depset;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.Starlark;
-import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 
 /** A module that contains Skylark utilities for Java support. */
@@ -111,8 +110,7 @@ public class JavaSkylarkCommon
       Artifact jar,
       Object targetLabel,
       JavaToolchainProvider javaToolchain,
-      Location location,
-      StarlarkSemantics semantics)
+      Location location)
       throws EvalException {
     return JavaInfoBuildHelper.getInstance()
         .buildIjar(
@@ -129,8 +127,7 @@ public class JavaSkylarkCommon
       Artifact jar,
       Label targetLabel,
       JavaToolchainProvider javaToolchain,
-      Location location,
-      StarlarkSemantics semantics)
+      Location location)
       throws EvalException {
     return JavaInfoBuildHelper.getInstance()
         .stampJar(actions, jar, targetLabel, javaToolchain, location);
@@ -144,8 +141,7 @@ public class JavaSkylarkCommon
       Sequence<?> sourceJars, // <Artifact> expected.
       JavaToolchainProvider javaToolchain,
       JavaRuntimeInfo hostJavabase,
-      Location location,
-      StarlarkSemantics semantics)
+      Location location)
       throws EvalException {
     return JavaInfoBuildHelper.getInstance()
         .packSourceFiles(

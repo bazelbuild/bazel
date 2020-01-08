@@ -13,7 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis.config.transitions;
 
-import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.collect.ImmutableList;
@@ -22,8 +22,6 @@ import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.HostTransition;
 import com.google.devtools.build.lib.cmdline.Label;
 import java.util.List;
-import java.util.Map;
-import java.util.stream.IntStream;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -196,13 +194,10 @@ public class ComposingTransitionTest {
     }
 
     @Override
-    public Map<String, BuildOptions> split(BuildOptions options) {
-      return IntStream.range(0, flagValues.size())
-          .boxed()
-          .collect(
-              toImmutableMap(
-                  i -> "stub_split" + i,
-                  i -> updateOptions(options, flagLabel, flagValues.get(i))));
+    public List<BuildOptions> split(BuildOptions options) {
+      return flagValues.stream()
+          .map(value -> updateOptions(options, flagLabel, value))
+          .collect(toImmutableList());
     }
   }
 }

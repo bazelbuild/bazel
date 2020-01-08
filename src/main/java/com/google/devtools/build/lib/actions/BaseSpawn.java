@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Collection;
 import java.util.List;
@@ -102,12 +103,12 @@ public class BaseSpawn implements Spawn {
   }
 
   @Override
-  public Iterable<? extends ActionInput> getToolFiles() {
+  public NestedSet<? extends ActionInput> getToolFiles() {
     return action.getTools();
   }
 
   @Override
-  public Iterable<? extends ActionInput> getInputFiles() {
+  public NestedSet<? extends ActionInput> getInputFiles() {
     return action.getInputs();
   }
 

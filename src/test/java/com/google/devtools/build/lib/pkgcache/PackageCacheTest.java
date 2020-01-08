@@ -420,7 +420,7 @@ public class PackageCacheTest extends FoundationTestCase {
     reporter.removeHandler(failFastHandler);
     List<Event> events = getPackage("e").getEvents();
     assertThat(events).hasSize(1);
-    assertThat(events.get(0).getLocation().getStartLineAndColumn().getLine()).isEqualTo(2);
+    assertThat(events.get(0).getLocation().line()).isEqualTo(2);
   }
 
   /** Static tests (i.e. no changes to filesystem, nor calls to sync). */

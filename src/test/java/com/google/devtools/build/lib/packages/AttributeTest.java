@@ -23,6 +23,7 @@ import static com.google.devtools.build.lib.packages.Type.STRING_LIST;
 import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 
 import com.google.common.base.Predicates;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.HostTransition;
@@ -39,7 +40,6 @@ import com.google.devtools.build.lib.util.FileTypeSet;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
-import java.util.Map;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -286,8 +286,8 @@ public class AttributeTest {
 
   private static class TestSplitTransition implements SplitTransition {
     @Override
-    public Map<String, BuildOptions> split(BuildOptions buildOptions) {
-      return ImmutableMap.of("test0", buildOptions.clone(), "test1", buildOptions.clone());
+    public List<BuildOptions> split(BuildOptions buildOptions) {
+      return ImmutableList.of(buildOptions.clone(), buildOptions.clone());
     }
   }
 

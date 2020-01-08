@@ -119,6 +119,7 @@ public class EvaluationTestCase {
   public StarlarkThread getStarlarkThread() {
     return thread;
   }
+
   // TODO(adonovan): don't let subclasses inherit vaguely specified "helpers".
   // Separate all the tests clearly into tests of the scanner, parser, resolver,
   // and evaluation.
@@ -128,13 +129,15 @@ public class EvaluationTestCase {
     return Expression.parse(ParserInput.fromLines(lines));
   }
 
+  /** Updates a binding in the module associated with the thread. */
   public EvaluationTestCase update(String varname, Object value) throws Exception {
-    thread.update(varname, value);
+    thread.getGlobals().put(varname, value);
     return this;
   }
 
+  /** Returns the value of a binding in the module associated with the thread. */
   public Object lookup(String varname) throws Exception {
-    return thread.moduleLookup(varname);
+    return thread.getGlobals().lookup(varname);
   }
 
   /** Joins the lines, parses them as an expression, and evaluates it. */
@@ -427,7 +430,7 @@ public class EvaluationTestCase {
     }
 
     /**
-     * Registers a variable that has to be updated before a test
+     * Registers an update to a module variable to be bound before a test
      *
      * @param name
      * @param value

@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.syntax;
 
-import com.google.devtools.build.lib.events.Location;
 import javax.annotation.Nullable;
 
 /** A variant of ClassObject for implementations that require a StarlarkSemantics. */
@@ -22,11 +21,10 @@ public interface SkylarkClassObject extends ClassObject {
   /**
    * Returns the value of the field with the given name, or null if the field does not exist.
    *
-   * @param loc the location of the field access operation
    * @param semantics the Starlark semantics, which determine the available fields
    * @param name the name of the field to retrieve
-   * @throws EvalException if the field exists could not be retrieved
+   * @throws EvalException if the field exists but could not be retrieved
    */
   @Nullable
-  Object getValue(Location loc, StarlarkSemantics semantics, String name) throws EvalException;
+  Object getValue(StarlarkSemantics semantics, String name) throws EvalException;
 }

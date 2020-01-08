@@ -17,7 +17,6 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
-import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
@@ -151,7 +150,7 @@ public class WriteBuildInfoPropertiesAction extends AbstractFileWriteAction {
       public void writeOutputFile(OutputStream out) throws IOException {
         WorkspaceStatusAction.Context context = ctx.getContext(WorkspaceStatusAction.Context.class);
         Map<String, String> values = new LinkedHashMap<>();
-        for (Artifact valueFile : getInputs()) {
+        for (Artifact valueFile : getInputs().toList()) {
           values.putAll(WorkspaceStatusAction.parseValues(ctx.getInputPath(valueFile)));
         }
 
@@ -207,6 +206,6 @@ public class WriteBuildInfoPropertiesAction extends AbstractFileWriteAction {
 
   @Override
   public boolean isVolatile() {
-    return includeVolatile && !Iterables.isEmpty(getInputs());
+    return includeVolatile && !getInputs().isEmpty();
   }
 }

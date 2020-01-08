@@ -408,9 +408,9 @@ public class CppLinkActionBuilder {
       compiled.addAll(lib.getLtoCompilationContext().getBitcodeFiles());
     }
 
-    // This flattens the set of object files, so for M binaries and N .o files,
-    // this is O(M*N). If we had a nested set of .o files, we could have O(M + N) instead.
-    Map<PathFragment, Artifact> allBitcode = new HashMap<>();
+    // Make this a NestedSet to return from LtoBackendAction.getAllowedDerivedInputs. For M binaries
+    // and N .o files, this is O(M*N). If we had nested sets of bitcode files, it would be O(M + N).
+    NestedSetBuilder<Artifact> allBitcode = NestedSetBuilder.stableOrder();
     // Since this link includes object files from another library, we know that library must be
     // statically linked, so we need to look at includeLinkStaticInLtoIndexing to decide whether
     // to include its objects in the LTO indexing for this target.
@@ -421,17 +421,17 @@ public class CppLinkActionBuilder {
         }
         for (Artifact objectFile : lib.getObjectFiles()) {
           if (compiled.contains(objectFile)) {
-            allBitcode.put(objectFile.getExecPath(), objectFile);
+            allBitcode.add(objectFile);
           }
         }
       }
     }
     for (LinkerInput input : objectFiles) {
       if (this.ltoCompilationContext.containsBitcodeFile(input.getArtifact())) {
-        allBitcode.put(input.getArtifact().getExecPath(), input.getArtifact());
+        allBitcode.add(input.getArtifact());
       }
     }
-    BitcodeFiles bitcodeFiles = new BitcodeFiles(allBitcode);
+    BitcodeFiles bitcodeFiles = new BitcodeFiles(allBitcode.build());
 
     ImmutableList.Builder<LtoBackendArtifacts> ltoOutputs = ImmutableList.builder();
     for (LinkerInputs.LibraryToLink lib : uniqueLibraries.toList()) {

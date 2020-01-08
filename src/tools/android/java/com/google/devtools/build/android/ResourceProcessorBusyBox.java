@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.android;
 
-import com.google.devtools.build.android.AndroidResourceMerger.MergingException;
 import com.google.devtools.build.android.aapt2.Aapt2Exception;
 import com.google.devtools.build.android.resources.JavaIdentifierValidator.InvalidJavaIdentifier;
 import com.google.devtools.build.lib.worker.WorkerProtocol.WorkRequest;
@@ -70,12 +69,6 @@ public class ResourceProcessorBusyBox {
       @Override
       void call(String[] args) throws Exception {
         AndroidResourceParsingAction.main(args);
-      }
-    },
-    MERGE() {
-      @Override
-      void call(String[] args) throws Exception {
-        AndroidResourceMergingAction.main(args);
       }
     },
     MERGE_COMPILED() {
@@ -165,7 +158,7 @@ public class ResourceProcessorBusyBox {
         help =
             "The processing tool to execute. "
                 + "Valid tools: GENERATE_BINARY_R, PARSE, "
-                + "MERGE, GENERATE_AAR, MERGE_MANIFEST, COMPILE_LIBRARY_RESOURCES, "
+                + "GENERATE_AAR, MERGE_MANIFEST, COMPILE_LIBRARY_RESOURCES, "
                 + "LINK_STATIC_LIBRARY, AAPT2_PACKAGE, SHRINK_AAPT2, MERGE_COMPILED.")
     public Tool tool;
   }
@@ -217,15 +210,16 @@ public class ResourceProcessorBusyBox {
       optionsParser.parse(args);
       options = optionsParser.getOptions(Options.class);
       options.tool.call(optionsParser.getResidue().toArray(new String[0]));
-    } catch (
-        OptionsParsingException
-        | MergingException
-        | IOException
-        | Aapt2Exception
-        | InvalidJavaIdentifier e) {
+    } catch (UserException e) {
+      // UserException is for exceptions that shouldn't have stack traces recorded, including
+      // AndroidDataMerger.MergeConflictException.
+      logger.log(Level.SEVERE, e.getMessage());
+      return 1;
+    } catch (OptionsParsingException | IOException | Aapt2Exception | InvalidJavaIdentifier e) {
       logSuppressed(e);
       throw e;
     } catch (Exception e) {
+      // TODO(jingwen): consider just removing this block.
       logger.log(Level.SEVERE, "Error during processing", e);
       throw e;
     }

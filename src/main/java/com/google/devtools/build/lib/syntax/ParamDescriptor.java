@@ -18,13 +18,14 @@ import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.ParamType;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
+import java.util.concurrent.ConcurrentHashMap;
 import javax.annotation.Nullable;
 
 /** A value class for storing {@link Param} metadata to avoid using Java proxies. */
 final class ParamDescriptor {
 
   private final String name;
-  private final String defaultValue;
+  @Nullable private final Object defaultValue;
   private final Class<?> type;
   private final Class<?> generic1;
   private final boolean noneable;
@@ -33,40 +34,29 @@ final class ParamDescriptor {
   // While the type can be inferred completely by the Param annotation, this tuple allows for the
   // type of a given parameter to be determined only once, as it is an expensive operation.
   private final SkylarkType skylarkType;
-
-  // The next two fields relate to toggling this parameter via semantic flag -- they will
-  // be null if and only if this parameter is enabled, and will otherwise contain information
-  // about what to do with the disabled parameter. (If the parameter is 'disabled', it will be
-  // treated as unusable from Starlark.)
-
-  // The value of this disabled parameter (as interpreted in Starlark) will be passed to the Java
-  // method.
-  @Nullable private final String valueOverride;
-  // The flag responsible for disabling this parameter. If a user attempts to use this disabled
-  // parameter from Starlark, this identifier can be used to create the appropriate error message.
-  @Nullable private final FlagIdentifier flagResponsibleForDisable;
+  // The semantics flag responsible for disabling this parameter, or null if enabled.
+  // It is an error for Starlark code to supply a value to a disabled parameter.
+  @Nullable private final FlagIdentifier disabledByFlag;
 
   private ParamDescriptor(
       String name,
-      String defaultValue,
+      @Nullable String defaultExpr,
       Class<?> type,
       Class<?> generic1,
       boolean noneable,
       boolean named,
       boolean positional,
       SkylarkType skylarkType,
-      @Nullable String valueOverride,
-      @Nullable FlagIdentifier flagResponsibleForDisable) {
+      @Nullable FlagIdentifier disabledByFlag) {
     this.name = name;
-    this.defaultValue = defaultValue;
+    this.defaultValue = defaultExpr.isEmpty() ? null : evalDefault(name, defaultExpr);
     this.type = type;
     this.generic1 = generic1;
     this.noneable = noneable;
     this.named = named;
     this.positional = positional;
     this.skylarkType = skylarkType;
-    this.valueOverride = valueOverride;
-    this.flagResponsibleForDisable = flagResponsibleForDisable;
+    this.disabledByFlag = disabledByFlag;
   }
 
   /**
@@ -78,22 +68,20 @@ final class ParamDescriptor {
     Class<?> generic = param.generic1();
     boolean noneable = param.noneable();
 
-    boolean isParamEnabledWithCurrentSemantics =
-        starlarkSemantics.isFeatureEnabledBasedOnTogglingFlags(
-            param.enableOnlyWithFlag(), param.disableWithFlag());
-
-    String valueOverride = null;
-    FlagIdentifier flagResponsibleForDisable = FlagIdentifier.NONE;
-    if (!isParamEnabledWithCurrentSemantics) {
-      valueOverride = param.valueWhenDisabled();
-      flagResponsibleForDisable =
+    String defaultExpr = param.defaultValue();
+    FlagIdentifier disabledByFlag = null;
+    if (!starlarkSemantics.isFeatureEnabledBasedOnTogglingFlags(
+        param.enableOnlyWithFlag(), param.disableWithFlag())) {
+      defaultExpr = param.valueWhenDisabled();
+      disabledByFlag =
           param.enableOnlyWithFlag() != FlagIdentifier.NONE
               ? param.enableOnlyWithFlag()
               : param.disableWithFlag();
     }
+
     return new ParamDescriptor(
         param.name(),
-        param.defaultValue(),
+        defaultExpr,
         type,
         generic,
         noneable,
@@ -101,8 +89,7 @@ final class ParamDescriptor {
             || (param.legacyNamed() && !starlarkSemantics.incompatibleRestrictNamedParams()),
         param.positional(),
         getType(type, generic, param.allowedTypes(), noneable),
-        valueOverride,
-        flagResponsibleForDisable);
+        disabledByFlag);
   }
 
   /** @see Param#name() */
@@ -158,8 +145,9 @@ final class ParamDescriptor {
     return named;
   }
 
-  /** @see Param#defaultValue() */
-  String getDefaultValue() {
+  /** Returns the effective default value of this parameter, or null if mandatory. */
+  @Nullable
+  Object getDefaultValue() {
     return defaultValue;
   }
 
@@ -167,36 +155,55 @@ final class ParamDescriptor {
     return skylarkType;
   }
 
-  /** Returns true if this parameter is disabled under the current skylark semantic flags. */
-  boolean isDisabledInCurrentSemantics() {
-    return valueOverride != null;
+  /** Returns the flag responsible for disabling this parameter, or null if it is enabled. */
+  @Nullable
+  FlagIdentifier disabledByFlag() {
+    return disabledByFlag;
   }
 
-  /**
-   * Returns the value the parameter should take, given that the parameter is disabled under the
-   * current skylark semantics.
-   *
-   * @throws IllegalStateException if invoked when {@link #isDisabledInCurrentSemantics()} is false
-   */
-  String getValueOverride() {
-    Preconditions.checkState(
-        isDisabledInCurrentSemantics(),
-        "parameter is not disabled under the current semantic flags. getValueOverride should be "
-            + "called only if isParameterDisabled is true");
-    return valueOverride;
+  // A memoization of evalDefault, keyed by expression.
+  // This cache is manually maintained (instead of using LoadingCache),
+  // as default values may sometimes be recursively requested.
+  private static final ConcurrentHashMap<String, Object> defaultValueCache =
+      new ConcurrentHashMap<>();
+
+  // Evaluates the default value expression for a parameter.
+  private static Object evalDefault(String name, String expr) {
+    // Common cases; also needed for bootstrapping UNIVERSE.
+    if (expr.equals("None")) {
+      return Starlark.NONE;
+    } else if (expr.equals("True")) {
+      return true;
+    } else if (expr.equals("False")) {
+      return false;
+    } else if (expr.equals("unbound")) {
+      return Starlark.UNBOUND;
+    }
+
+    Object x = defaultValueCache.get(expr);
+    if (x != null) {
+      return x;
+    }
+    try (Mutability mutability = Mutability.create("initialization")) {
+      // Note that this Starlark thread ignores command line flags.
+      StarlarkThread thread =
+          StarlarkThread.builder(mutability)
+              .useDefaultSemantics()
+              .setGlobals(Module.createForBuiltins(Starlark.UNIVERSE))
+              .build();
+      thread.getGlobals().put("unbound", Starlark.UNBOUND);
+      x = EvalUtils.eval(ParserInput.fromLines(expr), thread);
+      defaultValueCache.put(expr, x);
+      return x;
+    } catch (Exception ex) {
+      if (ex instanceof InterruptedException) {
+        Thread.currentThread().interrupt();
+      }
+      throw new IllegalArgumentException(
+          String.format(
+              "while evaluating default value '%s' of parameter '%s': %s",
+              expr, name, ex.getMessage()));
+    }
   }
 
-  /**
-   * Returns the flag responsible for disabling this parameter, given that the parameter is disabled
-   * under the current skylark semantics.
-   *
-   * @throws IllegalStateException if invoked when {@link #isDisabledInCurrentSemantics()} is false
-   */
-  FlagIdentifier getFlagResponsibleForDisable() {
-    Preconditions.checkState(
-        isDisabledInCurrentSemantics(),
-        "parameter is not disabled under the current semantic flags. getFlagResponsibleForDisable "
-            + " should be called only if isParameterDisabled is true");
-    return flagResponsibleForDisable;
-  }
 }

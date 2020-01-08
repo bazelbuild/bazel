@@ -22,11 +22,14 @@ import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.Bui
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.MemoryMetrics;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.PackageMetrics;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.TargetMetrics;
+import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.TimingMetrics;
 import com.google.devtools.build.lib.buildtool.BuildPrecompleteEvent;
 import com.google.devtools.build.lib.metrics.MetricsModule.Options;
+import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import java.lang.management.ManagementFactory;
 import java.lang.management.MemoryMXBean;
+import java.time.Duration;
 import java.util.concurrent.atomic.AtomicLong;
 
 class MetricsCollector {
@@ -77,6 +80,7 @@ class MetricsCollector {
     metrics.setMemoryMetrics(createMemoryMetrics());
     metrics.setTargetMetrics(createTargetMetrics());
     metrics.setPackageMetrics(createPackageMetrics());
+    metrics.setTimingMetrics(createTimingMetrics());
     return metrics.build();
   }
 
@@ -106,5 +110,18 @@ class MetricsCollector {
 
   private PackageMetrics createPackageMetrics() {
     return PackageMetrics.newBuilder().setPackagesLoaded(packagesLoaded).build();
+  }
+
+  private static TimingMetrics createTimingMetrics() {
+    TimingMetrics.Builder timingMetricsBuilder = TimingMetrics.newBuilder();
+    Duration elapsedWallTime = Profiler.elapsedTimeMaybe();
+    if (elapsedWallTime != null) {
+      timingMetricsBuilder.setWallTimeInMs(elapsedWallTime.toMillis());
+    }
+    Duration cpuTime = Profiler.getProcessCpuTimeMaybe();
+    if (cpuTime != null) {
+      timingMetricsBuilder.setCpuTimeInMs(cpuTime.toMillis());
+    }
+    return timingMetricsBuilder.build();
   }
 }

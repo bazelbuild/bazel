@@ -36,15 +36,6 @@ public class GoldenCase implements StarlarkValue {
   }
 
   @SkylarkCallable(
-      name = "struct_field_method_with_info",
-      documented = false,
-      structField = true,
-      useStarlarkSemantics = true)
-  public String structFieldMethodWithInfo(StarlarkSemantics semantics) {
-    return "foo";
-  }
-
-  @SkylarkCallable(
     name = "zero_arg_method",
     documented = false)
   public Integer zeroArgMethod() {
@@ -52,20 +43,10 @@ public class GoldenCase implements StarlarkValue {
   }
 
   @SkylarkCallable(
-      name = "zero_arg_method_with_environment",
+      name = "zero_arg_method_with_thread",
       documented = false,
       useStarlarkThread = true)
   public Integer zeroArgMethod(StarlarkThread thread) {
-    return 0;
-  }
-
-  @SkylarkCallable(
-      name = "zero_arg_method_with_skylark_info",
-      documented = false,
-      useLocation = true,
-      useStarlarkThread = true,
-      useStarlarkSemantics = true)
-  public Integer zeroArgMethod(Location loc, StarlarkThread thread, StarlarkSemantics semantics) {
     return 0;
   }
 
@@ -105,7 +86,7 @@ public class GoldenCase implements StarlarkValue {
   }
 
   @SkylarkCallable(
-      name = "three_arg_method_with_params_and_info",
+      name = "three_arg_method_with_params_and_thread",
       documented = false,
       parameters = {
         @Param(name = "one", type = String.class, named = true),
@@ -113,15 +94,9 @@ public class GoldenCase implements StarlarkValue {
         @Param(name = "three", type = String.class, named = true),
       },
       useLocation = true,
-      useStarlarkThread = true,
-      useStarlarkSemantics = true)
+      useStarlarkThread = true)
   public String threeArgMethodWithParams(
-      String one,
-      Integer two,
-      String three,
-      Location loc,
-      StarlarkThread thread,
-      StarlarkSemantics starlarkSemantics) {
+      String one, Integer two, String three, Location loc, StarlarkThread thread) {
     return "baz";
   }
 
@@ -153,7 +128,7 @@ public class GoldenCase implements StarlarkValue {
   }
 
   @SkylarkCallable(
-      name = "two_arg_method_with_params_and_info_and_kwargs",
+      name = "two_arg_method_with_params_and_thread_and_kwargs",
       documented = false,
       parameters = {
         @Param(name = "one", type = String.class, named = true),
@@ -161,15 +136,9 @@ public class GoldenCase implements StarlarkValue {
       },
       extraKeywords = @Param(name = "kwargs"),
       useLocation = true,
-      useStarlarkThread = true,
-      useStarlarkSemantics = true)
+      useStarlarkThread = true)
   public String twoArgMethodWithParamsAndInfoAndKwargs(
-      String one,
-      Integer two,
-      Dict<?, ?> kwargs,
-      Location loc,
-      StarlarkThread thread,
-      StarlarkSemantics starlarkSemantics) {
+      String one, Integer two, Dict<?, ?> kwargs, Location loc, StarlarkThread thread) {
     return "blep";
   }
 
@@ -202,12 +171,11 @@ public class GoldenCase implements StarlarkValue {
   }
 
   @SkylarkCallable(
-      name = "struct_field_method_with_extra_args",
+      name = "struct_field_method_with_semantics",
       documented = false,
       structField = true,
-      useLocation = true,
       useStarlarkSemantics = true)
-  public String structFieldMethodWithInfo(Location location, StarlarkSemantics starlarkSemantics) {
+  public String structFieldMethodWithSemantics(StarlarkSemantics starlarkSemantics) {
     return "dragon";
   }
 

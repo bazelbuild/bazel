@@ -24,7 +24,6 @@ import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.bazel.repository.RepositoryResolvedEvent;
 import com.google.devtools.build.lib.bazel.repository.downloader.HttpDownloader;
 import com.google.devtools.build.lib.events.Event;
-import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.BazelStarlarkContext;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.SymbolGenerator;
@@ -185,7 +184,6 @@ public class SkylarkRepositoryFunction extends RepositoryFunction {
           Starlark.call(
               thread,
               function,
-              Location.BUILTIN,
               /*args=*/ ImmutableList.of(skylarkRepositoryContext),
               /*kwargs=*/ ImmutableMap.of());
       RepositoryResolvedEvent resolved =

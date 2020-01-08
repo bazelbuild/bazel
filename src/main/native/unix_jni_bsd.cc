@@ -85,7 +85,7 @@ int StatNanoSeconds(const portable_stat_struct &statbuf, StatTimes t) {
 
 ssize_t portable_getxattr(const char *path, const char *name, void *value,
                           size_t size, bool *attr_not_found) {
-#if (HAVE_EXTATTR)
+#if defined(HAVE_EXTATTR)
   ssize_t result =
       extattr_get_file(path, EXTATTR_NAMESPACE_SYSTEM, name, value, size);
   *attr_not_found = (errno == ENOATTR);
@@ -98,7 +98,7 @@ ssize_t portable_getxattr(const char *path, const char *name, void *value,
 
 ssize_t portable_lgetxattr(const char *path, const char *name, void *value,
                            size_t size, bool *attr_not_found) {
-#if (HAVE_EXTATTR)
+#if defined(HAVE_EXTATTR)
   ssize_t result =
       extattr_get_link(path, EXTATTR_NAMESPACE_SYSTEM, name, value, size);
   *attr_not_found = (errno == ENOATTR);
@@ -110,7 +110,7 @@ ssize_t portable_lgetxattr(const char *path, const char *name, void *value,
 }
 
 int portable_sysctlbyname(const char *name_chars, long *mibp, size_t *sizep) {
-#if (HAVE_SYSCTLBYNAME)
+#if defined(HAVE_SYSCTLBYNAME)
   return sysctlbyname(name_chars, mibp, sizep, NULL, 0);
 #else
   errno = ENOSYS;

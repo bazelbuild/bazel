@@ -52,7 +52,6 @@ import com.google.devtools.build.lib.syntax.IntegerLiteral;
 import com.google.devtools.build.lib.syntax.ListExpression;
 import com.google.devtools.build.lib.syntax.Module;
 import com.google.devtools.build.lib.syntax.Mutability;
-import com.google.devtools.build.lib.syntax.Node;
 import com.google.devtools.build.lib.syntax.NodeVisitor;
 import com.google.devtools.build.lib.syntax.NoneType;
 import com.google.devtools.build.lib.syntax.ParserInput;
@@ -749,7 +748,7 @@ public final class PackageFactory {
             buildFile.asPath().getParentDirectory(), packageId, ImmutableSet.of(), locator);
     ParserInput input =
         ParserInput.create(
-            FileSystemUtils.convertFromLatin1(buildFileBytes), buildFile.asPath().asFragment());
+            FileSystemUtils.convertFromLatin1(buildFileBytes), buildFile.asPath().toString());
     StarlarkFile file =
         parseBuildFile(packageId, input, /*preludeStatements=*/ ImmutableList.<Statement>of());
     Package result =
@@ -799,7 +798,7 @@ public final class PackageFactory {
     try {
       return FileSystemUtils.readWithKnownFileSize(buildFile, buildFile.getFileSize());
     } catch (IOException e) {
-      eventHandler.handle(Event.error(Location.fromFile(buildFile), e.getMessage()));
+      eventHandler.handle(Event.error(Location.fromFile(buildFile.toString()), e.getMessage()));
       return null;
     }
   }
@@ -973,7 +972,7 @@ public final class PackageFactory {
     // after we've parsed the BUILD file and created the Package.
     String error = LabelValidator.validatePackageName(packageId.getPackageFragment().toString());
     if (error != null) {
-      pkgContext.eventHandler.handle(Event.error(file.getLocation(), error));
+      pkgContext.eventHandler.handle(Event.error(file.getStartLocation(), error));
       return false;
     }
 
@@ -1085,8 +1084,8 @@ public final class PackageFactory {
     final boolean[] success = {true};
     NodeVisitor checker =
         new NodeVisitor() {
-          void error(Node node, String message) {
-            eventHandler.handle(Event.error(node.getLocation(), message));
+          void error(Location loc, String message) {
+            eventHandler.handle(Event.error(loc, message));
             success[0] = false;
           }
 
@@ -1135,12 +1134,12 @@ public final class PackageFactory {
             for (Argument arg : call.getArguments()) {
               if (arg instanceof Argument.StarStar) {
                 error(
-                    call,
+                    arg.getStartLocation(),
                     "**kwargs arguments are not allowed in BUILD files. Pass the arguments in "
                         + "explicitly.");
               } else if (arg instanceof Argument.Star) {
                 error(
-                    call,
+                    arg.getStartLocation(),
                     "*args arguments are not allowed in BUILD files. Pass the arguments in "
                         + "explicitly.");
               }
@@ -1156,7 +1155,8 @@ public final class PackageFactory {
                   && arg.getName().equals("name")
                   && arg.getValue() instanceof StringLiteral) {
                 generatorNameByLocation.put(
-                    call.getLocation(), ((StringLiteral) arg.getValue()).getValue());
+                    // TODO(adonovan): use lparen location
+                    call.getStartLocation(), ((StringLiteral) arg.getValue()).getValue());
               }
             }
           }
@@ -1168,7 +1168,7 @@ public final class PackageFactory {
           @Override
           public void visit(DefStatement node) {
             error(
-                node,
+                node.getStartLocation(),
                 "function definitions are not allowed in BUILD files. You may move the function to "
                     + "a .bzl file and load it.");
           }
@@ -1176,7 +1176,7 @@ public final class PackageFactory {
           @Override
           public void visit(ForStatement node) {
             error(
-                node,
+                node.getStartLocation(),
                 "for statements are not allowed in BUILD files. You may inline the loop, move it "
                     + "to a function definition (in a .bzl file), or as a last resort use a list "
                     + "comprehension.");
@@ -1185,7 +1185,7 @@ public final class PackageFactory {
           @Override
           public void visit(IfStatement node) {
             error(
-                node,
+                node.getStartLocation(),
                 "if statements are not allowed in BUILD files. You may move conditional logic to a "
                     + "function definition (in a .bzl file), or for simple cases use an if "
                     + "expression.");

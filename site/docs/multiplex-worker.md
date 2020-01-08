@@ -56,8 +56,13 @@ atomically (i.e. messages don't overlap). Responses must contain the
 Multiplex workers are not enabled by default. A ruleset can turn on Multiplex
 Workers by using the `supports-multiplex-workers` tag in the
 `execution_requirements` of an action (just like the `supports-workers` tag
-enables regular workers). A ruleset is encouraged to use Multiplex Workers if
-possible, since this will improve performance.
+enables regular workers). As is the case when using regular workers, a worker
+strategy needs to be specified, either at the ruleset level, eg.
+`--strategy=[some_mnemonic]=worker`, or generally at the strategy level, eg.
+`--dynamic_local_strategy=worker,standalone`. No additional flags are
+necessary, and `supports-multiplex-workers` takes precedence over
+`supports-workers`, if both are set. A ruleset is encouraged to use Multiplex
+Workers if possible, since this will improve performance.
 
 ### WARNING
 

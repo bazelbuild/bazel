@@ -909,16 +909,16 @@ public final class RuleContext extends TargetContext
                         .executionPlatform(getToolchainContext().executionPlatform().label())
                         .build());
     BuildOptions fromOptions = getConfiguration().getOptions();
-    Map<String, BuildOptions> splitOptions = transition.split(fromOptions);
+    List<BuildOptions> splitOptions = transition.split(fromOptions);
     List<ConfiguredTargetAndData> deps = getConfiguredTargetAndTargetDeps(attributeName);
 
-    if (SplitTransition.equals(fromOptions, splitOptions.values())) {
+    if (SplitTransition.equals(fromOptions, splitOptions)) {
       // The split transition is not active. Defer the decision on which CPU to use.
       return ImmutableMap.of(Optional.<String>absent(), deps);
     }
 
     Set<String> cpus = new HashSet<>();
-    for (BuildOptions options : splitOptions.values()) {
+    for (BuildOptions options : splitOptions) {
       // This method should only be called when the split config is enabled on the command line, in
       // which case this cpu can't be null.
       cpus.add(options.get(CoreOptions.class).cpu);

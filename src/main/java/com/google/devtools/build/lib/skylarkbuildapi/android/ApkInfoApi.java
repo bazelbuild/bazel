@@ -87,6 +87,6 @@ public interface ApkInfoApi<FileT extends FileApi> extends StructApi {
         extraKeywords = @Param(name = "kwargs"),
         useLocation = true,
         selfCall = true)
-    ApkInfoApi<?> createInfo(Dict<?, ?> kwargs, Location loc) throws EvalException;
+    ApkInfoApi<?> createInfo(Dict<String, Object> kwargs, Location loc) throws EvalException;
   }
 }

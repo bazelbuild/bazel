@@ -204,7 +204,7 @@ public final class CppLinkAction extends AbstractAction implements CommandAction
 
   @Override
   @VisibleForTesting
-  public Iterable<Artifact> getPossibleInputsForTesting() {
+  public NestedSet<Artifact> getPossibleInputsForTesting() {
     return getInputs();
   }
 
@@ -329,8 +329,8 @@ public final class CppLinkAction extends AbstractAction implements CommandAction
           ImmutableList.copyOf(getCommandLine(actionExecutionContext.getArtifactExpander())),
           getEnvironment(actionExecutionContext.getClientEnv()),
           getExecutionInfo(),
-          ImmutableList.copyOf(getInputs()),
-          getOutputs().asList(),
+          getInputs(),
+          getOutputs(),
           estimateResourceConsumptionLocal());
     } catch (CommandLineExpansionException e) {
       throw new ActionExecutionException(

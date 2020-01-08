@@ -95,7 +95,7 @@ public class LegacyDynamicSpawnStrategy implements SpawnActionContext {
         @Nullable ExecException execException,
         List<SpawnResult> spawnResults) {
       return new AutoValue_LegacyDynamicSpawnStrategy_DynamicExecutionResult(
-          strategyIdentifier, fileOutErr, execException, spawnResults);
+          strategyIdentifier, fileOutErr, execException, ImmutableList.copyOf(spawnResults));
     }
 
     abstract StrategyIdentifier strategyIdentifier();
@@ -112,7 +112,7 @@ public class LegacyDynamicSpawnStrategy implements SpawnActionContext {
      * <p>The list will typically contain one element, but could contain zero elements if spawn
      * execution did not complete, or multiple elements if multiple sub-spawns were executed.
      */
-    abstract List<SpawnResult> spawnResults();
+    abstract ImmutableList<SpawnResult> spawnResults();
   }
 
   private static final ImmutableSet<String> WORKER_BLACKLISTED_MNEMONICS =

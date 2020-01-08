@@ -44,6 +44,8 @@ import com.google.devtools.build.lib.actions.SpawnContinuation;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.includescanning.IncludeParser.GrepIncludesFileType;
 import com.google.devtools.build.lib.includescanning.IncludeParser.Inclusion;
 import com.google.devtools.build.lib.util.io.FileOutErr;
@@ -181,7 +183,7 @@ public class SpawnIncludeScanner {
     }
 
     @Override
-    public Iterable<Artifact> getTools() {
+    public NestedSet<Artifact> getTools() {
       throw new UnsupportedOperationException();
     }
 
@@ -234,7 +236,7 @@ public class SpawnIncludeScanner {
     }
 
     @Override
-    public Iterable<Artifact> getMandatoryInputs() {
+    public NestedSet<Artifact> getMandatoryInputs() {
       throw new UnsupportedOperationException();
     }
 
@@ -340,8 +342,9 @@ public class SpawnIncludeScanner {
       GrepIncludesFileType fileType)
       throws ExecException, InterruptedException {
     ActionInput output = ActionInputHelper.fromPath(outputExecPath);
-    ImmutableList<? extends ActionInput> inputs = ImmutableList.of(grepIncludes, input);
-    ImmutableList<ActionInput> outputs = ImmutableList.of(output);
+    NestedSet<? extends ActionInput> inputs =
+        NestedSetBuilder.create(Order.STABLE_ORDER, grepIncludes, input);
+    ImmutableSet<ActionInput> outputs = ImmutableSet.of(output);
     ImmutableList<String> command =
         ImmutableList.of(
             grepIncludes.getExecPathString(),
@@ -459,8 +462,9 @@ public class SpawnIncludeScanner {
       Artifact grepIncludes,
       GrepIncludesFileType fileType) {
     ActionInput output = ActionInputHelper.fromPath(outputExecPath);
-    ImmutableList<? extends ActionInput> inputs = ImmutableList.of(grepIncludes, input);
-    ImmutableList<ActionInput> outputs = ImmutableList.of(output);
+    NestedSet<? extends ActionInput> inputs =
+        NestedSetBuilder.create(Order.STABLE_ORDER, grepIncludes, input);
+    ImmutableSet<ActionInput> outputs = ImmutableSet.of(output);
     ImmutableList<String> command =
         ImmutableList.of(
             grepIncludes.getExecPathString(),

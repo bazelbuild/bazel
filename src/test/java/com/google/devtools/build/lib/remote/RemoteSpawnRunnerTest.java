@@ -55,6 +55,8 @@ import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.SpawnResult.Status;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.clock.JavaClock;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.Reporter;
@@ -836,8 +838,8 @@ public class RemoteSpawnRunnerTest {
             /*arguments=*/ ImmutableList.of(),
             /*environment=*/ ImmutableMap.of(),
             /*executionInfo=*/ ImmutableMap.of(),
-            /*inputs=*/ ImmutableList.of(input),
-            /*outputs=*/ ImmutableList.<ActionInput>of(),
+            /*inputs=*/ NestedSetBuilder.create(Order.STABLE_ORDER, input),
+            /*outputs=*/ ImmutableSet.<ActionInput>of(),
             ResourceSet.ZERO);
     SpawnExecutionContext policy =
         new FakeSpawnExecutionContext(spawn, fakeFileCache, execRoot, outErr);
@@ -973,8 +975,8 @@ public class RemoteSpawnRunnerTest {
         /*arguments=*/ ImmutableList.of(),
         /*environment=*/ ImmutableMap.of(),
         /*executionInfo=*/ executionInfo,
-        /*inputs=*/ ImmutableList.of(),
-        /*outputs=*/ ImmutableList.copyOf(outputs),
+        /*inputs=*/ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+        /*outputs=*/ ImmutableSet.copyOf(outputs),
         ResourceSet.ZERO);
   }
 

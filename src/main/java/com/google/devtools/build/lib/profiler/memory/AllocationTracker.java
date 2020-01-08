@@ -255,19 +255,15 @@ public class AllocationTracker implements Sampler {
         if (line == -1) {
           final Location location;
           if (object instanceof Node) {
-            location = ((Node) object).getLocation();
+            location = ((Node) object).getStartLocation();
           } else if (object instanceof StarlarkCallable) {
             location = ((StarlarkCallable) object).getLocation();
           } else {
             throw new IllegalStateException(
                 "Unknown node type: " + object.getClass().getSimpleName());
           }
-          if (location != null) {
-            file = location.getPath() != null ? location.getPath().getPathString() : "<unknown>";
-            line = location.getStartLine() != null ? location.getStartLine() : -1;
-          } else {
-            file = "<native>";
-          }
+          file = location.file();
+          line = location.line();
         }
         if (object instanceof StarlarkCallable) {
           String function = ((StarlarkCallable) object).getName();

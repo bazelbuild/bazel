@@ -796,7 +796,7 @@ public class SkylarkCustomCommandLine extends CommandLine {
               .setSemantics(starlarkSemantics)
               .setEventHandler(NullEventHandler.INSTANCE)
               .build();
-      return Starlark.call(thread, mapFn, Location.BUILTIN, args, /*kwargs=*/ ImmutableMap.of());
+      return Starlark.call(thread, mapFn, args, /*kwargs=*/ ImmutableMap.of());
     } catch (EvalException e) {
       throw new CommandLineExpansionException(errorMessage(e.getMessage(), location, e.getCause()));
     } catch (InterruptedException e) {
@@ -826,7 +826,6 @@ public class SkylarkCustomCommandLine extends CommandLine {
             Starlark.call(
                 thread,
                 mapFn,
-                Location.BUILTIN,
                 originalValues.subList(i, i + 1),
                 /*kwargs=*/ ImmutableMap.of());
         if (ret instanceof String) {

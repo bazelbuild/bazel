@@ -336,7 +336,7 @@ public final class PrintActionCommand implements BlazeCommand {
         continue;
       }
 
-      expandRecursiveHelper(actionGraph, middlemanAction.getInputs(), visited, result);
+      expandRecursiveHelper(actionGraph, middlemanAction.getInputs().toList(), visited, result);
     }
   }
 
@@ -375,7 +375,7 @@ public final class PrintActionCommand implements BlazeCommand {
       Set<Artifact> expandedArtifacts = Sets.newHashSet();
       expandRecursive(
           env.getSkyframeExecutor().getActionGraph(env.getReporter()),
-          action.getInputs(),
+          action.getInputs().toList(),
           expandedArtifacts);
       for (Artifact input : expandedArtifacts) {
         if (filesDesired.remove(input.getRootRelativePath().getSafePathString())) {

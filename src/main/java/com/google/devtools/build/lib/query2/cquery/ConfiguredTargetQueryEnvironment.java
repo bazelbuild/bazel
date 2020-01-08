@@ -13,7 +13,9 @@
 // limitations under the License.
 package com.google.devtools.build.lib.query2.cquery;
 
+import com.google.common.base.Functions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.AsyncFunction;
 import com.google.common.util.concurrent.Futures;
@@ -50,6 +52,8 @@ import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.WalkableGraph;
 import java.io.OutputStream;
 import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Set;
 import java.util.function.Supplier;
@@ -79,6 +83,23 @@ public class ConfiguredTargetQueryEnvironment
 
   private final ConfiguredTargetAccessor accessor;
 
+  /**
+   * Stores every configuration in the transitive closure of the build graph as a map from its
+   * user-friendly hash to the configuration itself.
+   *
+   * <p>This is used to find configured targets in, e.g. {@code somepath} queries. Given {@code
+   * somepath(//foo, //bar)}, cquery finds the configured targets for {@code //foo} and {@code
+   * //bar} by creating a {@link ConfiguredTargetKey} from their labels and <i>some</i>
+   * configuration, then querying the {@link WalkableGraph} to find the matching configured target.
+   *
+   * <p>Having this map lets cquery choose from all available configurations in the graph,
+   * particularly includings configurations that aren't the host or top-level.
+   *
+   * <p>This can also be used in cquery's {@code config} function to match against explicitly
+   * specified configs. This, in particular, is where having user-friendly hashes is invaluable.
+   */
+  private final ImmutableMap<String, BuildConfiguration> transitiveConfigurations;
+
   @Override
   protected KeyExtractor<ConfiguredTarget, ConfiguredTargetKey> getConfiguredTargetKeyExtractor() {
     return configuredTargetKeyExtractor;
@@ -90,10 +111,12 @@ public class ConfiguredTargetQueryEnvironment
       Iterable<QueryFunction> extraFunctions,
       TopLevelConfigurations topLevelConfigurations,
       BuildConfiguration hostConfiguration,
+      Collection<SkyKey> transitiveConfigurationKeys,
       String parserPrefix,
       PathPackageLocator pkgPath,
       Supplier<WalkableGraph> walkableGraphSupplier,
-      Set<Setting> settings) {
+      Set<Setting> settings)
+      throws InterruptedException {
     super(
         keepGoing,
         eventHandler,
@@ -118,6 +141,8 @@ public class ConfiguredTargetQueryEnvironment
             throw new IllegalStateException("Interruption unexpected in configured query", e);
           }
         };
+    this.transitiveConfigurations =
+        getTransitiveConfigurations(transitiveConfigurationKeys, walkableGraphSupplier.get());
   }
 
   public ConfiguredTargetQueryEnvironment(
@@ -126,16 +151,19 @@ public class ConfiguredTargetQueryEnvironment
       Iterable<QueryFunction> extraFunctions,
       TopLevelConfigurations topLevelConfigurations,
       BuildConfiguration hostConfiguration,
+      Collection<SkyKey> transitiveConfigurationKeys,
       String parserPrefix,
       PathPackageLocator pkgPath,
       Supplier<WalkableGraph> walkableGraphSupplier,
-      CqueryOptions cqueryOptions) {
+      CqueryOptions cqueryOptions)
+      throws InterruptedException {
     this(
         keepGoing,
         eventHandler,
         extraFunctions,
         topLevelConfigurations,
         hostConfiguration,
+        transitiveConfigurationKeys,
         parserPrefix,
         pkgPath,
         walkableGraphSupplier,
@@ -152,6 +180,16 @@ public class ConfiguredTargetQueryEnvironment
 
   private static ImmutableList<QueryFunction> getCqueryFunctions() {
     return ImmutableList.of(new ConfigFunction());
+  }
+
+  private static ImmutableMap<String, BuildConfiguration> getTransitiveConfigurations(
+      Collection<SkyKey> transitiveConfigurationKeys, WalkableGraph graph)
+      throws InterruptedException {
+    return graph.getSuccessfulValues(transitiveConfigurationKeys).values().stream()
+        .map(value -> (BuildConfigurationValue) value)
+        .map(BuildConfigurationValue::getConfiguration)
+        .sorted(Comparator.comparing(BuildConfiguration::checksum))
+        .collect(ImmutableMap.toImmutableMap(BuildConfiguration::checksum, Functions.identity()));
   }
 
   @Override
@@ -275,8 +313,24 @@ public class ConfiguredTargetQueryEnvironment
     if (configuredTarget != null) {
       return configuredTarget;
     }
-    // Last chance: source file.
-    return getNullConfiguredTarget(label);
+
+    // Try as a source file.
+    configuredTarget = getNullConfiguredTarget(label);
+    if (configuredTarget != null) {
+      return configuredTarget;
+    }
+
+    // Finally, try every other configuration in the build (e.g. configurations that are the result
+    // of transitions and therefore not top-level).
+    for (BuildConfiguration configuration : transitiveConfigurations.values()) {
+      configuredTarget = getValueFromKey(ConfiguredTargetValue.key(label, configuration));
+      if (configuredTarget != null) {
+        return configuredTarget;
+      }
+    }
+
+    // No matches: give up.
+    return null;
   }
 
   @Override

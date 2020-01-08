@@ -85,7 +85,7 @@ public class EvaluationTest extends EvaluationTestCase {
   public void testForLoopAbortedOnInterrupt() throws Exception {
     StarlarkThread thread = createStarlarkThread(mutability, NullEventHandler.INSTANCE);
     InterruptFunction interruptFunction = new InterruptFunction();
-    thread.update("interrupt", interruptFunction);
+    thread.getGlobals().put("interrupt", interruptFunction);
 
     ParserInput input =
         ParserInput.fromLines(
@@ -108,7 +108,7 @@ public class EvaluationTest extends EvaluationTestCase {
   public void testForComprehensionAbortedOnInterrupt() throws Exception {
     StarlarkThread thread = createStarlarkThread(mutability, NullEventHandler.INSTANCE);
     InterruptFunction interruptFunction = new InterruptFunction();
-    thread.update("interrupt", interruptFunction);
+    thread.getGlobals().put("interrupt", interruptFunction);
 
     ParserInput input = ParserInput.fromLines("[interrupt(i == 5) for i in range(100)]");
 
@@ -126,7 +126,7 @@ public class EvaluationTest extends EvaluationTestCase {
   public void testFunctionCallsNotStartedOnInterrupt() throws Exception {
     StarlarkThread thread = createStarlarkThread(mutability, NullEventHandler.INSTANCE);
     InterruptFunction interruptFunction = new InterruptFunction();
-    thread.update("interrupt", interruptFunction);
+    thread.getGlobals().put("interrupt", interruptFunction);
 
     ParserInput input =
         ParserInput.fromLines("interrupt(False); interrupt(True); interrupt(False);");
@@ -799,19 +799,14 @@ public class EvaluationTest extends EvaluationTestCase {
 
   @Test
   public void testDictKeysTooManyArgs() throws Exception {
-    newTest()
-        .testIfExactError(
-            "expected no more than 0 positional arguments, but got 1, "
-                + "for call to method keys() of 'dict'",
-            "{'a': 1}.keys('abc')");
+    newTest().testIfExactError("keys() got unexpected positional argument", "{'a': 1}.keys('abc')");
   }
 
   @Test
   public void testDictKeysTooManyKeyArgs() throws Exception {
     newTest()
         .testIfExactError(
-            "unexpected keyword 'arg', for call to method keys() of 'dict'",
-            "{'a': 1}.keys(arg='abc')");
+            "keys() got unexpected keyword argument 'arg'", "{'a': 1}.keys(arg='abc')");
   }
 
   @Test
@@ -819,17 +814,17 @@ public class EvaluationTest extends EvaluationTestCase {
     // TODO(adonovan): when the duplication is literal, this should be caught by a static check.
     newTest()
         .testIfExactError(
-            "duplicate argument 'arg' in call to 'keys'",
-            "{'a': 1}.keys(arg='abc', arg='def', k=1, k=2)");
+            "int() got multiple values for argument 'base'", "int('1', base=10, base=16)");
+    new SkylarkTest()
+        .testIfExactError(
+            "int() got multiple values for argument 'base'", "int('1', base=10, **dict(base=16))");
   }
 
   @Test
   public void testArgBothPosKey() throws Exception {
     newTest()
         .testIfErrorContains(
-            "got multiple values for keyword argument 'base', "
-                + "for call to function int(x, base = unbound)",
-            "int('2', 3, base=3)");
+            "int() got multiple values for argument 'base'", "int('2', 3, base=3)");
   }
 
   @Test

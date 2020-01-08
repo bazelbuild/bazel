@@ -58,6 +58,8 @@ import com.google.devtools.build.lib.analysis.BlazeVersionInfo;
 import com.google.devtools.build.lib.authandtls.AuthAndTLSOptions;
 import com.google.devtools.build.lib.authandtls.GoogleAuthUtils;
 import com.google.devtools.build.lib.clock.JavaClock;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.exec.util.FakeOwner;
 import com.google.devtools.build.lib.remote.RemoteRetrier.ExponentialBackoff;
@@ -167,8 +169,9 @@ public class GrpcRemoteExecutionClientTest {
             ImmutableList.of("/bin/echo", "Hi!"),
             ImmutableMap.of("VARIABLE", "value"),
             /*executionInfo=*/ ImmutableMap.<String, String>of(),
-            /*inputs=*/ ImmutableList.of(ActionInputHelper.fromPath("input")),
-            /*outputs=*/ ImmutableList.<ActionInput>of(
+            /*inputs=*/ NestedSetBuilder.create(
+                Order.STABLE_ORDER, ActionInputHelper.fromPath("input")),
+            /*outputs=*/ ImmutableSet.<ActionInput>of(
                 new ActionInput() {
                   @Override
                   public String getExecPathString() {
@@ -259,7 +262,8 @@ public class GrpcRemoteExecutionClientTest {
             logDir,
             /* filesToDownload= */ ImmutableSet.of());
 
-    inputDigest = fakeFileCache.createScratchInput(simpleSpawn.getInputFiles().get(0), "xyz");
+    inputDigest =
+        fakeFileCache.createScratchInput(simpleSpawn.getInputFiles().getSingleton(), "xyz");
     command =
         Command.newBuilder()
             .addAllArguments(ImmutableList.of("/bin/echo", "Hi!"))

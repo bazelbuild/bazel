@@ -13,8 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.pkgcache;
 
-import static java.util.Comparator.comparingInt;
-
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -32,6 +30,7 @@ import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.Target;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Set;
 import java.util.TreeSet;
@@ -74,7 +73,7 @@ public final class CompileOneDependencyTransformer {
       orderedList.add(rule);
     }
 
-    Collections.sort(orderedList, comparingInt(arg -> arg.getLocation().getStartOffset()));
+    Collections.sort(orderedList, Comparator.comparing(arg -> arg.getLocation()));
     return orderedList;
   }
 

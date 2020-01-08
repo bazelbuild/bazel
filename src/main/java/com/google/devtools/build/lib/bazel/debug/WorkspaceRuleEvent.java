@@ -69,7 +69,7 @@ public final class WorkspaceRuleEvent implements ProgressLike {
         WorkspaceLogProtos.WorkspaceEvent.newBuilder();
     result = result.setExecuteEvent(e.build());
     if (location != null) {
-      result = result.setLocation(location.print());
+      result = result.setLocation(location.toString());
     }
     if (ruleLabel != null) {
       result = result.setRule(ruleLabel);
@@ -100,7 +100,7 @@ public final class WorkspaceRuleEvent implements ProgressLike {
         WorkspaceLogProtos.WorkspaceEvent.newBuilder();
     result = result.setDownloadEvent(e.build());
     if (location != null) {
-      result = result.setLocation(location.print());
+      result = result.setLocation(location.toString());
     }
     if (ruleLabel != null) {
       result = result.setRule(ruleLabel);
@@ -122,7 +122,7 @@ public final class WorkspaceRuleEvent implements ProgressLike {
         WorkspaceLogProtos.WorkspaceEvent.newBuilder();
     result = result.setExtractEvent(e);
     if (location != null) {
-      result = result.setLocation(location.print());
+      result = result.setLocation(location.toString());
     }
     if (ruleLabel != null) {
       result = result.setRule(ruleLabel);
@@ -155,7 +155,7 @@ public final class WorkspaceRuleEvent implements ProgressLike {
         WorkspaceLogProtos.WorkspaceEvent.newBuilder();
     result = result.setDownloadAndExtractEvent(e.build());
     if (location != null) {
-      result = result.setLocation(location.print());
+      result = result.setLocation(location.toString());
     }
     if (ruleLabel != null) {
       result = result.setRule(ruleLabel);
@@ -177,7 +177,7 @@ public final class WorkspaceRuleEvent implements ProgressLike {
         WorkspaceLogProtos.WorkspaceEvent.newBuilder();
     result = result.setFileEvent(e);
     if (location != null) {
-      result = result.setLocation(location.print());
+      result = result.setLocation(location.toString());
     }
     if (ruleLabel != null) {
       result = result.setRule(ruleLabel);
@@ -194,7 +194,7 @@ public final class WorkspaceRuleEvent implements ProgressLike {
         WorkspaceLogProtos.WorkspaceEvent.newBuilder();
     result = result.setReadEvent(e);
     if (location != null) {
-      result = result.setLocation(location.print());
+      result = result.setLocation(location.toString());
     }
     if (ruleLabel != null) {
       result = result.setRule(ruleLabel);
@@ -212,7 +212,7 @@ public final class WorkspaceRuleEvent implements ProgressLike {
         WorkspaceLogProtos.WorkspaceEvent.newBuilder();
     result = result.setDeleteEvent(e);
     if (location != null) {
-      result = result.setLocation(location.print());
+      result = result.setLocation(location.toString());
     }
     if (ruleLabel != null) {
       result = result.setRule(ruleLabel);
@@ -230,7 +230,7 @@ public final class WorkspaceRuleEvent implements ProgressLike {
         WorkspaceLogProtos.WorkspaceEvent.newBuilder();
     result = result.setPatchEvent(e);
     if (location != null) {
-      result = result.setLocation(location.print());
+      result = result.setLocation(location.toString());
     }
     if (ruleLabel != null) {
       result = result.setRule(ruleLabel);
@@ -246,7 +246,7 @@ public final class WorkspaceRuleEvent implements ProgressLike {
         WorkspaceLogProtos.WorkspaceEvent.newBuilder();
     result = result.setOsEvent(e);
     if (location != null) {
-      result = result.setLocation(location.print());
+      result = result.setLocation(location.toString());
     }
     if (ruleLabel != null) {
       result = result.setRule(ruleLabel);
@@ -264,7 +264,7 @@ public final class WorkspaceRuleEvent implements ProgressLike {
         WorkspaceLogProtos.WorkspaceEvent.newBuilder();
     result = result.setSymlinkEvent(e);
     if (location != null) {
-      result = result.setLocation(location.print());
+      result = result.setLocation(location.toString());
     }
     if (ruleLabel != null) {
       result = result.setRule(ruleLabel);
@@ -292,7 +292,7 @@ public final class WorkspaceRuleEvent implements ProgressLike {
         WorkspaceLogProtos.WorkspaceEvent.newBuilder();
     result = result.setTemplateEvent(e);
     if (location != null) {
-      result = result.setLocation(location.print());
+      result = result.setLocation(location.toString());
     }
     if (ruleLabel != null) {
       result = result.setRule(ruleLabel);
@@ -309,7 +309,7 @@ public final class WorkspaceRuleEvent implements ProgressLike {
         WorkspaceLogProtos.WorkspaceEvent.newBuilder();
     result = result.setWhichEvent(e);
     if (location != null) {
-      result = result.setLocation(location.print());
+      result = result.setLocation(location.toString());
     }
     if (ruleLabel != null) {
       result = result.setRule(ruleLabel);

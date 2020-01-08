@@ -69,7 +69,7 @@ class LocationOutputFormatter extends AbstractUnorderedFormatter {
         for (Target target : partialResult) {
           Location location = target.getLocation();
           writer
-              .append(location.print())
+              .append(location.toString())
               .append(": ")
               .append(target.getTargetKind())
               .append(" ")

@@ -20,21 +20,13 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Stack;
 
-/**
- * A tokenizer for the BUILD language.
- *
- * <p>See: <a href="https://docs.python.org/2/reference/lexical_analysis.html"/>for some details.
- *
- * <p>
- */
+/** A scanner for Starlark. */
 final class Lexer {
 
   // Characters that can come immediately prior to an '=' character to generate
@@ -59,22 +51,7 @@ final class Lexer {
   private final char[] buffer;
   private int pos;
 
-  /**
-   * The part of the location information that is common to all LexerLocation
-   * instances created by this Lexer.  Factored into a separate object so that
-   * many Locations instances can share the same information as compactly as
-   * possible, without closing over a Lexer instance.
-   */
-  private static class LocationInfo {
-    final LineNumberTable lineNumberTable;
-    final PathFragment filename;
-    LocationInfo(PathFragment filename, LineNumberTable lineNumberTable) {
-      this.filename = filename;
-      this.lineNumberTable = lineNumberTable;
-    }
-  }
-
-  private final LocationInfo locationInfo;
+  private final LineNumberTable lnt; // maps offsets to Locations
 
   // The stack of enclosing indentation levels; always contains '0' at the
   // bottom.
@@ -114,11 +91,10 @@ final class Lexer {
 
   /** Constructs a lexer which tokenizes the parser input. Errors are appended to {@code errors}. */
   Lexer(ParserInput input, List<Event> errors) {
-    LineNumberTable lnt = LineNumberTable.create(input.getContent(), input.getPath());
+    this.lnt = LineNumberTable.create(input.getContent(), input.getFile());
     this.buffer = input.getContent();
     this.pos = 0;
     this.errors = errors;
-    this.locationInfo = new LocationInfo(input.getPath(), lnt);
     this.checkIndentation = true;
     this.comments = new ArrayList<>();
     this.dents = 0;
@@ -135,12 +111,9 @@ final class Lexer {
     return stringEscapeEvents;
   }
 
-  /**
-   * Returns the filename from which the lexer's input came. Returns an empty value if the input
-   * came from a string.
-   */
-  PathFragment getFilename() {
-    return locationInfo.filename != null ? locationInfo.filename : PathFragment.EMPTY_FRAGMENT;
+  /** Returns the apparent name of the lexer's input file. */
+  String getFile() {
+    return lnt.getFile();
   }
 
   /**
@@ -176,54 +149,48 @@ final class Lexer {
     errors.add(Event.error(createLocation(start, end), message));
   }
 
-  Location createLocation(int start, int end) {
-    return new LexerLocation(locationInfo.lineNumberTable, start, end);
+  LexerLocation createLocation(int start, int end) {
+    return new LexerLocation(lnt, start, end);
   }
 
-  // Don't use an inner class as we don't want to close over the Lexer, only
-  // the LocationInfo.
+  // A LexerLocation records the span (both start and end) of a token or grammar production.
+  // It implements Location by describing the start position,
+  // but it also exposes the end location through getEndLocation.
+  // This class will be merged with Location and eliminated when we make the Parser
+  // record token offsets in the syntax tree, and create Locations on demand.
   @AutoCodec
   @Immutable
   static final class LexerLocation extends Location {
     private final LineNumberTable lineNumberTable;
+    final int startOffset;
+    final int endOffset;
 
     LexerLocation(LineNumberTable lineNumberTable, int startOffset, int endOffset) {
-      super(startOffset, endOffset);
+      this.startOffset = startOffset;
+      this.endOffset = endOffset;
       this.lineNumberTable = lineNumberTable;
     }
 
     @Override
-    public PathFragment getPath() {
-      return lineNumberTable.getPath(getStartOffset());
+    public String file() {
+      return lineNumberTable.getFile();
     }
 
     @Override
-    public LineAndColumn getStartLineAndColumn() {
-      return lineNumberTable.getLineAndColumn(getStartOffset());
+    public LineAndColumn getLineAndColumn() {
+      return lineNumberTable.getLineAndColumn(startOffset);
     }
 
-    @Override
-    public LineAndColumn getEndLineAndColumn() {
+    // For Node.getEndLocation. This is a temporary measure.
+    Location getEndLocation() {
       // The end offset is the location *past* the actual end position --> subtract 1:
-      int endOffset = getEndOffset() - 1;
+      // TODO(adonovan): use half-open intervals again. CL 170723732 was a mistake.
+      int endOffset = this.endOffset - 1;
       if (endOffset < 0) {
         endOffset = 0;
       }
-      return lineNumberTable.getLineAndColumn(endOffset);
-    }
-
-    @Override
-    public int hashCode() {
-      return Objects.hash(lineNumberTable, internalHashCode());
-    }
-
-    @Override
-    public boolean equals(Object other) {
-      if (other == null || !other.getClass().equals(getClass())) {
-        return false;
-      }
-      LexerLocation that = (LexerLocation) other;
-      return internalEquals(that) && Objects.equals(this.lineNumberTable, that.lineNumberTable);
+      LineAndColumn linecol = lineNumberTable.getLineAndColumn(endOffset);
+      return Location.fromFileLineColumn(file(), linecol.line, linecol.column);
     }
   }
 

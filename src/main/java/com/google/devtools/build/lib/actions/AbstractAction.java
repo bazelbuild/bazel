@@ -82,14 +82,13 @@ public abstract class AbstractAction extends ActionKeyCacher implements Action, 
    * <p>If the "tools" set does not contain exactly the right set of artifacts, the following can
    * happen: If an artifact that should be included is missing, the tool might not be restarted when
    * it should, and builds can become incorrect (example: The compiler binary is not part of this
-   * set, then the compiler gets upgraded, but the worker strategy still reuses the old version).
-   * If an artifact that should *not* be included is accidentally part of this set, the worker
-   * process will be restarted more often that is necessary - e.g. if a file that is unique to each
-   * unit of work, e.g. the source code that a compiler should compile for a compile action, is
-   * part of this set, then the worker will never be reused and will be restarted for each unit of
-   * work.
+   * set, then the compiler gets upgraded, but the worker strategy still reuses the old version). If
+   * an artifact that should *not* be included is accidentally part of this set, the worker process
+   * will be restarted more often that is necessary - e.g. if a file that is unique to each unit of
+   * work, e.g. the source code that a compiler should compile for a compile action, is part of this
+   * set, then the worker will never be reused and will be restarted for each unit of work.
    */
-  private final Iterable<Artifact> tools;
+  private final NestedSet<Artifact> tools;
 
   @GuardedBy("this")
   private boolean inputsDiscovered = false;  // Only used when discoversInputs() returns true
@@ -183,14 +182,14 @@ public abstract class AbstractAction extends ActionKeyCacher implements Action, 
    * to do so.
    */
   @Override
-  public Iterable<Artifact> discoverInputs(ActionExecutionContext actionExecutionContext)
+  public NestedSet<Artifact> discoverInputs(ActionExecutionContext actionExecutionContext)
       throws ActionExecutionException, InterruptedException {
     throw new IllegalStateException("discoverInputs cannot be called for " + this.prettyPrint()
         + " since it does not discover inputs");
   }
 
   @Override
-  public Iterable<Artifact> getAllowedDerivedInputs() {
+  public NestedSet<Artifact> getAllowedDerivedInputs() {
     throw new IllegalStateException(
         "Method must be overridden for actions that may have unknown inputs.");
   }
@@ -214,7 +213,7 @@ public abstract class AbstractAction extends ActionKeyCacher implements Action, 
   }
 
   @Override
-  public Iterable<Artifact> getTools() {
+  public NestedSet<Artifact> getTools() {
     return tools;
   }
 
@@ -247,7 +246,7 @@ public abstract class AbstractAction extends ActionKeyCacher implements Action, 
   public Artifact getPrimaryInput() {
     // The default behavior is to return the first input artifact.
     // Call through the method, not the field, because it may be overridden.
-    return Iterables.getFirst(getInputs(), null);
+    return Iterables.getFirst(getInputs().toList(), null);
   }
 
   @Override
@@ -397,7 +396,7 @@ public abstract class AbstractAction extends ActionKeyCacher implements Action, 
       EventHandler eventHandler, MetadataProvider metadataProvider) throws IOException {
     // Report "directory dependency checking" warning only for non-generated directories (generated
     // ones will be reported earlier).
-    for (Artifact input : getMandatoryInputs()) {
+    for (Artifact input : getMandatoryInputs().toList()) {
       // Assume that if the file did not exist, we would not have gotten here.
       if (input.isSourceArtifact() && metadataProvider.getMetadata(input).getType().isDirectory()) {
         // TODO(ulfjack): What about dependency checking of special files?
@@ -521,7 +520,7 @@ public abstract class AbstractAction extends ActionKeyCacher implements Action, 
 
   @Override
   public Depset getSkylarkInputs() {
-    return Depset.of(Artifact.TYPE, NestedSetBuilder.wrap(Order.STABLE_ORDER, getInputs()));
+    return Depset.of(Artifact.TYPE, getInputs());
   }
 
   @Override

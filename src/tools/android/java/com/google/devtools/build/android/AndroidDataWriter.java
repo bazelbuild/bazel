@@ -28,7 +28,6 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.devtools.build.android.AndroidResourceMerger.MergingException;
-import com.google.devtools.build.android.AndroidResourceMergingAction.Options;
 import com.google.devtools.build.android.junctions.JunctionCreator;
 import com.google.devtools.build.android.junctions.NoopJunctionCreator;
 import com.google.devtools.build.android.junctions.WindowsJunctionCreator;
@@ -129,38 +128,6 @@ public class AndroidDataWriter implements AndroidDataWritingVisitor {
             throw new PngException(e);
           }
         }
-      };
-
-  /**
-   * The merged {@link Options#resourcesOutput} is only used for validation and not for running
-   * (unlike the final APK), so the image files do not need to be the true image files. We only need
-   * the filenames to be the same.
-   *
-   * <p>Thus, we only create empty files for PNGs (convenient with a custom PngCruncher object).
-   * This does miss out on other image files like .webp.
-   */
-  static final PngCruncher STUB_CRUNCHER =
-      new PngCruncher() {
-
-        @Override
-        public void crunchPng(int key, File from, File to) throws PngException {
-          try {
-            to.createNewFile();
-            if (!to.setLastModified(System.currentTimeMillis())) {
-              throw new PngException("Could not set milliseconds");
-            }
-          } catch (IOException e) {
-            throw new PngException(e);
-          }
-        }
-
-        @Override
-        public int start() {
-          return 0;
-        }
-
-        @Override
-        public void end(int key) {}
       };
 
   private final Path destination;

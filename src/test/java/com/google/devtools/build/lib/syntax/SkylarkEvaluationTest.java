@@ -300,19 +300,9 @@ public final class SkylarkEvaluationTest extends EvaluationTest {
           + ")";
     }
 
-    @SkylarkCallable(
-        name = "with_extra",
-        documented = false,
-        useLocation = true,
-        useStarlarkThread = true,
-        useStarlarkSemantics = true)
-    public String withExtraInterpreterParams(
-        Location location, StarlarkThread thread, StarlarkSemantics sem) {
-      return "with_extra("
-          + location.getStartLine()
-          + ", "
-          + (sem != null)
-          + ")";
+    @SkylarkCallable(name = "with_extra", documented = false, useStarlarkThread = true)
+    public String withExtraInterpreterParams(StarlarkThread thread) {
+      return "with_extra(" + thread.getCallerLocation().line() + ")";
     }
 
     @SkylarkCallable(
@@ -359,9 +349,7 @@ public final class SkylarkEvaluationTest extends EvaluationTest {
               positional = false,
               named = true)
         },
-        useLocation = true,
-        useStarlarkThread = true,
-        useStarlarkSemantics = true)
+        useStarlarkThread = true)
     public String withParamsAndExtraInterpreterParams(
         Integer pos1,
         boolean pos2,
@@ -371,9 +359,7 @@ public final class SkylarkEvaluationTest extends EvaluationTest {
         Object nonNoneable,
         Object noneable,
         Object multi,
-        Location location,
-        StarlarkThread thread,
-        StarlarkSemantics sem) {
+        StarlarkThread thread) {
       return "with_params_and_extra("
           + pos1
           + ", "
@@ -389,9 +375,7 @@ public final class SkylarkEvaluationTest extends EvaluationTest {
           + (noneable != Starlark.NONE ? ", " + noneable : "")
           + (multi != Starlark.NONE ? ", " + multi : "")
           + ", "
-          + location.getStartLine()
-          + ", "
-          + (sem != null)
+          + thread.getCallerLocation().line()
           + ")";
     }
 
@@ -436,11 +420,10 @@ public final class SkylarkEvaluationTest extends EvaluationTest {
           @Param(name = "named", type = Boolean.class, positional = false, named = true),
         },
         extraKeywords = @Param(name = "kwargs"))
-    public String withKwargs(boolean pos, boolean named, Dict<?, ?> kwargs) throws EvalException {
+    public String withKwargs(boolean pos, boolean named, Dict<String, Object> kwargs) {
       String kwargsString =
           "kwargs("
               + kwargs
-                  .getContents(String.class, Object.class, "kwargs")
                   .entrySet()
                   .stream()
                   .map(entry -> entry.getKey() + "=" + entry.getValue())
@@ -457,13 +440,11 @@ public final class SkylarkEvaluationTest extends EvaluationTest {
         },
         extraPositionals = @Param(name = "args"),
         extraKeywords = @Param(name = "kwargs"))
-    public String withArgsAndKwargs(String foo, Sequence<?> args, Dict<?, ?> kwargs)
-        throws EvalException {
+    public String withArgsAndKwargs(String foo, Tuple<Object> args, Dict<String, Object> kwargs) {
       String argsString = debugPrintArgs(args);
       String kwargsString =
           "kwargs("
               + kwargs
-                  .getContents(String.class, Object.class, "kwargs")
                   .entrySet()
                   .stream()
                   .map(entry -> entry.getKey() + "=" + entry.getValue())
@@ -1134,7 +1115,8 @@ public final class SkylarkEvaluationTest extends EvaluationTest {
     // posOrNamed by name and three positional parameters, there is a conflict.
     new SkylarkTest()
         .update("mock", new Mock())
-        .testIfErrorContains("got multiple values for keyword argument 'posOrNamed'",
+        .testIfErrorContains(
+            "with_params() got multiple values for argument 'posOrNamed'",
             "mock.with_params(1, True, True, posOrNamed=True, named=True)");
   }
 
@@ -1142,17 +1124,20 @@ public final class SkylarkEvaluationTest extends EvaluationTest {
   public void testTooManyPositionalArgs() throws Exception {
     new SkylarkTest()
         .update("mock", new Mock())
-        .testIfErrorContains("expected no more than 3 positional arguments, but got 4",
+        .testIfErrorContains(
+            "with_params() accepts no more than 3 positional arguments but got 4",
             "mock.with_params(1, True, True, 'toomany', named=True)");
 
     new SkylarkTest()
         .update("mock", new Mock())
-        .testIfErrorContains("expected no more than 3 positional arguments, but got 5",
+        .testIfErrorContains(
+            "with_params() accepts no more than 3 positional arguments but got 5",
             "mock.with_params(1, True, True, 'toomany', 'alsotoomany', named=True)");
 
     new SkylarkTest()
         .update("mock", new Mock())
-        .testIfErrorContains("expected no more than 1 positional arguments, but got 2",
+        .testIfErrorContains(
+            "is_empty() accepts no more than 1 positional argument but got 2",
             "mock.is_empty('a', 'b')");
   }
 
@@ -1180,19 +1165,12 @@ public final class SkylarkEvaluationTest extends EvaluationTest {
         .update("mock", new Mock())
         .setUp("")
         .testIfExactError(
-            "parameter 'named' has no default value, for call to "
-                + "method with_params(pos1, pos2 = False, posOrNamed = False, named, "
-                + "optionalNamed = False, nonNoneable = \"a\", noneable = None, multi = None) "
-                + "of 'Mock'",
-            "mock.with_params(1, True)");
+            "with_params() missing 1 required named argument: named", "mock.with_params(1, True)");
     new SkylarkTest()
         .update("mock", new Mock())
         .setUp("")
         .testIfExactError(
-            "parameter 'named' has no default value, for call to "
-                + "method with_params(pos1, pos2 = False, posOrNamed = False, named, "
-                + "optionalNamed = False, nonNoneable = \"a\", noneable = None, multi = None) "
-                + "of 'Mock'",
+            "with_params() missing 1 required named argument: named",
             "mock.with_params(1, True, True)");
     new SkylarkTest()
         .update("mock", new Mock())
@@ -1210,30 +1188,28 @@ public final class SkylarkEvaluationTest extends EvaluationTest {
         .update("mock", new Mock())
         .setUp("")
         .testIfExactError(
-            "unexpected keyword 'n', for call to "
-                + "method with_params(pos1, pos2 = False, posOrNamed = False, named, "
-                + "optionalNamed = False, nonNoneable = \"a\", noneable = None, multi = None) "
-                + "of 'Mock'",
+            "with_params() got unexpected keyword argument 'posornamed' (did you mean"
+                + " 'posOrNamed'?)",
+            "mock.with_params(1, True, named=True, posornamed=True)");
+    new SkylarkTest()
+        .update("mock", new Mock())
+        .setUp("")
+        .testIfExactError(
+            "with_params() got unexpected keyword argument 'n'",
             "mock.with_params(1, True, named=True, posOrNamed=True, n=2)");
     new SkylarkTest()
         .update("mock", new Mock())
         .setUp("")
         .testIfExactError(
-            "parameter 'nonNoneable' cannot be None, for call to method "
-                + "with_params(pos1, pos2 = False, posOrNamed = False, named, "
-                + "optionalNamed = False, nonNoneable = \"a\", noneable = None, multi = None) "
-                + "of 'Mock'",
+            "in call to with_params(), parameter 'nonNoneable' cannot be None",
             "mock.with_params(1, True, True, named=True, optionalNamed=False, nonNoneable=None)");
 
     new SkylarkTest()
         .update("mock", new Mock())
         .setUp("")
         .testIfExactError(
-            "expected value of type 'string or int or sequence of ints or NoneType' for parameter"
-                + " 'multi', for call to method "
-                + "with_params(pos1, pos2 = False, posOrNamed = False, named, "
-                + "optionalNamed = False, nonNoneable = \"a\", noneable = None, multi = None) "
-                + "of 'Mock'",
+            "in call to with_params(), parameter 'multi' got value of type 'bool', want 'string or"
+                + " int or sequence of ints or NoneType'",
             "mock.with_params(1, True, named=True, multi=False)");
 
     // We do not enforce list item parameter type constraints.
@@ -1280,7 +1256,7 @@ public final class SkylarkEvaluationTest extends EvaluationTest {
     new SkylarkTest()
         .update("mock", new Mock())
         .testIfErrorContains(
-            "expected value of type 'string' for parameter 'pos', for call to function MockFn(pos)",
+            "in call to MockFn(), parameter 'pos' got value of type 'int', want 'string'",
             "v = mock(1)");
   }
 
@@ -1315,7 +1291,7 @@ public final class SkylarkEvaluationTest extends EvaluationTest {
     new SkylarkTest()
         .update("mock", new Mock())
         .setUp("v = mock.with_extra()")
-        .testLookup("v", "with_extra(1, true)");
+        .testLookup("v", "with_extra(1)");
   }
 
   @Test
@@ -1331,7 +1307,7 @@ public final class SkylarkEvaluationTest extends EvaluationTest {
     new SkylarkTest()
         .update("mock", new Mock())
         .setUp("b = mock.with_params_and_extra(1, True, named=True)")
-        .testLookup("b", "with_params_and_extra(1, true, false, true, false, a, 1, true)");
+        .testLookup("b", "with_params_and_extra(1, true, false, true, false, a, 1)");
   }
 
   @Test
@@ -1985,8 +1961,7 @@ public final class SkylarkEvaluationTest extends EvaluationTest {
   public void testPrintBadKwargs() throws Exception {
     new SkylarkTest()
         .testIfErrorContains(
-            "unexpected keywords 'end', 'other', for call to function print(sep = \" \", *args)",
-            "print(end='x', other='y')");
+            "print() got unexpected keyword argument 'end'", "print(end='x', other='y')");
   }
 
   // Override tests in EvaluationTest incompatible with Skylark
@@ -2217,6 +2192,17 @@ public final class SkylarkEvaluationTest extends EvaluationTest {
         "  return a",
         "x = foo()");
     assertThat(lookup("x")).isEqualTo(18);
+  }
+
+  @Test
+  public void testListComprehensionsTemporarilyRebindGlobals() throws Exception {
+    // This test asserts the buggy behavior of https://github.com/bazelbuild/starlark/issues/92.
+    exec(
+        "x = 1", //
+        "def f():",
+        "  return x",
+        "y = [f() for x in [2]][0]");
+    assertThat(lookup("y")).isEqualTo(2); // TODO(adonovan): should be 1!
   }
 
   @Test

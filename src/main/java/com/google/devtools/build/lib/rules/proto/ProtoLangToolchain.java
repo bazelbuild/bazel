@@ -44,6 +44,8 @@ public class ProtoLangToolchain implements RuleConfiguredTargetFactory {
       ProtoInfo protoInfo = protos.get(ProtoInfo.PROVIDER);
       // TODO(cushon): it would be nice to make this mandatory and stop adding files to build too
       if (protoInfo != null) {
+        // TODO(yannic): Switch to getTransitiveProtoSources() and remove references to
+        // original proto sources when ProtoInfo is mandatory.
         blacklistedProtos.addAll(protoInfo.getOriginalDirectProtoSources());
       } else {
         // Only add files from FileProvider if |protos| is not a proto_library to avoid adding

@@ -99,7 +99,7 @@ public class PrintingEventHandler extends AbstractEventHandler
           StringBuilder builder = new StringBuilder();
           builder.append(event.getKind()).append(": ");
           if (event.getLocation() != null) {
-            builder.append(event.getLocation().print()).append(": ");
+            builder.append(event.getLocation()).append(": ");
           }
           builder.append(event.getMessage()).append("\n");
           outErr.getErrorStream().write(builder.toString().getBytes(StandardCharsets.UTF_8));

@@ -56,8 +56,8 @@ public interface CcCompilationContextApi extends StarlarkValue {
       name = "system_includes",
       doc =
           "Returns the set of search paths (as strings) for header files referenced by angle"
-              + " brackets, e.g. #include <foo/bar/header.h>. They can be either relative to the"
-              + " exec root or absolute. Usually passed with -isystem.",
+              + " brackets, e.g. #include &lt;foo/bar/header.h&gt;. They can be either relative to"
+              + " the exec root or absolute. Usually passed with -isystem.",
       structField = true)
   Depset getSkylarkSystemIncludeDirs();
 

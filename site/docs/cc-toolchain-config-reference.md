@@ -750,7 +750,7 @@ The following is a reference of `CcToolchainConfigInfo` build variables.
    <td>compile</td>
    <td>Sequence of <code>-iquote</code> includes -
        directories in which the compiler searches for headers included using
-       <code>#include&lt;foo.h&gt;</code>.
+       <code>#include "foo.h"</code>.
    </td>
   </tr>
   <tr>
@@ -759,7 +759,7 @@ The following is a reference of `CcToolchainConfigInfo` build variables.
    <td>compile</td>
    <td>Sequence of <code>-isystem</code> includes -
        directories in which the compiler searches for headers included using
-       <code>#include "foo.h"</code>.
+       <code>#include &lt;foo.h&gt;</code>.
    </td>
   </tr>
   <tr>

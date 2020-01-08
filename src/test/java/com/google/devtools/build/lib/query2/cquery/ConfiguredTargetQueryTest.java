@@ -20,7 +20,6 @@ import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
 import static com.google.devtools.build.lib.packages.Type.STRING;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
@@ -42,8 +41,9 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Iterator;
-import java.util.Map;
+import java.util.List;
 import java.util.Set;
+import java.util.stream.Collectors;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -267,12 +267,12 @@ public class ConfiguredTargetQueryTest extends PostAnalysisQueryTest<ConfiguredT
     }
 
     @Override
-    public Map<String, BuildOptions> split(BuildOptions options) {
+    public List<BuildOptions> split(BuildOptions options) {
       BuildOptions result1 = options.clone();
       BuildOptions result2 = options.clone();
       result1.get(TestOptions.class).testArguments = Collections.singletonList(toOption1);
       result2.get(TestOptions.class).testArguments = Collections.singletonList(toOption2);
-      return ImmutableMap.of("result1", result1, "result2", result2);
+      return ImmutableList.of(result1, result2);
     }
   }
 
@@ -419,5 +419,66 @@ public class ConfiguredTargetQueryTest extends PostAnalysisQueryTest<ConfiguredT
       assertThat(getConfiguration(first)).isNotNull();
       assertThat(getConfiguration(resultIterator.next())).isNull();
     }
+  }
+
+  @Test
+  public void testSomePath_DepInCustomConfiguration() throws Exception {
+    writeFile(
+        "tools/whitelists/function_transition_whitelist/BUILD",
+        "package_group(",
+        "    name = 'function_transition_whitelist',",
+        "    packages = [",
+        "        '//test/...',",
+        "    ],",
+        ")");
+    writeFile(
+        "test/rules.bzl",
+        "def _rule_impl(ctx):",
+        "    return []",
+        "string_flag = rule(",
+        "    implementation = _rule_impl,",
+        "    build_setting = config.string()",
+        ")",
+        "def _transition_impl(settings, attr):",
+        "    return {'//test:my_flag': 'custom string'}",
+        "my_transition = transition(",
+        "    implementation = _transition_impl,",
+        "    inputs = [],",
+        "    outputs = ['//test:my_flag'],",
+        ")",
+        "rule_with_deps_transition = rule(",
+        "    implementation = _rule_impl,",
+        "    attrs = {",
+        "        'deps': attr.label_list(cfg = my_transition),",
+        "        '_whitelist_function_transition': attr.label(",
+        "            default = '//tools/whitelists/function_transition_whitelist',",
+        "        ),",
+        "    }",
+        ")",
+        "simple_rule = rule(",
+        "    implementation = _rule_impl,",
+        "    attrs = {}",
+        ")");
+
+    writeFile(
+        "test/BUILD",
+        "load('//test:rules.bzl', 'rule_with_deps_transition', 'simple_rule', 'string_flag')",
+        "string_flag(",
+        "    name = 'my_flag',",
+        "    build_setting_default = '')",
+        "rule_with_deps_transition(",
+        "    name = 'buildme',",
+        "    deps = [':mydep'])",
+        "simple_rule(name = 'mydep')");
+
+    // If we don't set --universe_scope=//test:buildme, then cquery builds both //test:buildme and
+    // //test:mydep as top-level targets. That means //test:mydep will have two configured targets:
+    // one under the transitioned configuration and one under the top-level configuration. In these
+    // cases cquery prefers the top-level configured one, which won't produce a match since that's
+    // not the one down this dependency path.
+    helper.setUniverseScope("//test:buildme");
+    Set<ConfiguredTarget> result = eval("somepath(//test:buildme, //test:mydep)");
+    assertThat(result.stream().map(ct -> ct.getLabel().toString()).collect(Collectors.toList()))
+        .contains("//test:mydep");
   }
 }

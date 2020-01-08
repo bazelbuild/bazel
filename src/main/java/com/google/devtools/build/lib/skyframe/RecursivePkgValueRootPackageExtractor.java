@@ -65,7 +65,7 @@ public class RecursivePkgValueRootPackageExtractor implements RootPackageExtract
           root.asPath(),
           repository.getName());
       ImmutableList.Builder<PackageIdentifier> packageIds = ImmutableList.builder();
-      for (String packageName : lookup.getPackages()) {
+      for (String packageName : lookup.getPackages().toList()) {
         // TODO(bazel-team): Make RecursivePkgValue return NestedSet<PathFragment> so this transform
         // is unnecessary.
         PathFragment packageNamePathFragment = PathFragment.create(packageName);

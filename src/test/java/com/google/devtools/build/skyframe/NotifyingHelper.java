@@ -175,7 +175,8 @@ public class NotifyingHelper {
     IS_DIRTY,
     IS_READY,
     CHECK_IF_DONE,
-    GET_ALL_DIRECT_DEPS_FOR_INCOMPLETE_NODE
+    GET_ALL_DIRECT_DEPS_FOR_INCOMPLETE_NODE,
+    RESET_FOR_RESTART_FROM_SCRATCH,
   }
 
   /**
@@ -339,6 +340,12 @@ public class NotifyingHelper {
       graphListener.accept(
           myKey, EventType.GET_ALL_DIRECT_DEPS_FOR_INCOMPLETE_NODE, Order.BEFORE, this);
       return super.getAllDirectDepsForIncompleteNode();
+    }
+
+    @Override
+    public void resetForRestartFromScratch() {
+      getDelegate().resetForRestartFromScratch();
+      graphListener.accept(myKey, EventType.RESET_FOR_RESTART_FROM_SCRATCH, Order.AFTER, this);
     }
 
     @Override

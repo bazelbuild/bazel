@@ -54,10 +54,8 @@ public class ToolchainInfo extends NativeInfo implements ToolchainInfoApi {
     }
 
     @Override
-    public ToolchainInfo toolchainInfo(Dict<?, ?> kwargs, Location loc) throws EvalException {
-      Map<String, Object> data =
-          Dict.castSkylarkDictOrNoneToDict(kwargs, String.class, Object.class, "kwargs");
-      return new ToolchainInfo(data, loc);
+    public ToolchainInfo toolchainInfo(Dict<String, Object> kwargs, Location loc) {
+      return new ToolchainInfo(kwargs, loc);
     }
   }
 

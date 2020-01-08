@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.syntax;
 import com.google.common.collect.ImmutableList;
 import com.google.common.hash.HashCode;
 import com.google.devtools.build.lib.events.Event;
-import com.google.devtools.build.lib.events.Location;
 import java.io.IOException;
 import java.util.Collections;
 import java.util.List;
@@ -40,7 +39,7 @@ public final class StarlarkFile extends Node {
       ImmutableList<Statement> statements,
       List<Event> errors,
       String contentHashCode,
-      Location location,
+      Lexer.LexerLocation location,
       ImmutableList<Comment> comments,
       List<Event> stringEscapeEvents) {
     this.statements = statements;
@@ -90,7 +89,7 @@ public final class StarlarkFile extends Node {
         statements,
         errors,
         null,
-        this.statements.get(firstStatement).getLocation(),
+        (Lexer.LexerLocation) this.statements.get(firstStatement).getStartLocation(),
         ImmutableList.of(),
         stringEscapeEvents);
   }

@@ -55,6 +55,7 @@ import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
 import com.google.devtools.build.lib.events.Location;
@@ -206,10 +207,10 @@ public class JavaCompileAction extends AbstractAction implements CommandAction {
       ActionExecutionContext actionExecutionContext, JavaCompileActionContext context)
       throws IOException {
     HashSet<String> direct = new HashSet<>();
-    for (Artifact directJar : directJars) {
+    for (Artifact directJar : directJars.toList()) {
       direct.add(directJar.getExecPathString());
     }
-    for (Artifact depArtifact : dependencyArtifacts) {
+    for (Artifact depArtifact : dependencyArtifacts.toList()) {
       for (Deps.Dependency dep :
           context.getDependencies(depArtifact, actionExecutionContext).getDependencyList()) {
         direct.add(dep.getPath());
@@ -234,11 +235,13 @@ public class JavaCompileAction extends AbstractAction implements CommandAction {
   }
 
   static class ReducedClasspath {
-    final ImmutableList<Artifact> reducedJars;
+    final NestedSet<Artifact> reducedJars;
+    final int reducedLength;
     final int fullLength;
 
     ReducedClasspath(ImmutableList<Artifact> reducedJars, int fullLength) {
-      this.reducedJars = reducedJars;
+      this.reducedJars = NestedSetBuilder.wrap(Order.STABLE_ORDER, reducedJars);
+      this.reducedLength = reducedJars.size();
       this.fullLength = fullLength;
     }
   }
@@ -261,7 +264,7 @@ public class JavaCompileAction extends AbstractAction implements CommandAction {
     classpathLine.add("--reduce_classpath_mode", fallback ? "BAZEL_FALLBACK" : "BAZEL_REDUCED");
     classpathLine.add("--full_classpath_length", Integer.toString(reducedClasspath.fullLength));
     classpathLine.add(
-        "--reduced_classpath_length", Integer.toString(reducedClasspath.reducedJars.size()));
+        "--reduced_classpath_length", Integer.toString(reducedClasspath.reducedLength));
 
     CommandLines reducedCommandLine =
         CommandLines.builder()
@@ -274,12 +277,16 @@ public class JavaCompileAction extends AbstractAction implements CommandAction {
             actionExecutionContext.getArtifactExpander(),
             getPrimaryOutput().getExecPath(),
             configuration.getCommandLineLimits());
+    NestedSet<Artifact> inputs =
+        NestedSetBuilder.<Artifact>stableOrder()
+            .addTransitive(mandatoryInputs)
+            .addTransitive(fallback ? transitiveInputs : reducedClasspath.reducedJars)
+            .build();
     return new JavaSpawn(
         expandedCommandLines,
         getEffectiveEnvironment(actionExecutionContext),
         executionInfo,
-        Iterables.concat(
-            mandatoryInputs, fallback ? transitiveInputs : reducedClasspath.reducedJars));
+        inputs);
   }
 
   private JavaSpawn getFullSpawn(ActionExecutionContext actionExecutionContext)
@@ -294,7 +301,10 @@ public class JavaCompileAction extends AbstractAction implements CommandAction {
         expandedCommandLines,
         getEffectiveEnvironment(actionExecutionContext),
         executionInfo,
-        Iterables.concat(mandatoryInputs, transitiveInputs));
+        NestedSetBuilder.<Artifact>stableOrder()
+            .addTransitive(mandatoryInputs)
+            .addTransitive(transitiveInputs)
+            .build());
   }
 
   private ImmutableMap<String, String> getEffectiveEnvironment(
@@ -381,7 +391,7 @@ public class JavaCompileAction extends AbstractAction implements CommandAction {
         return;
       }
       List<String> shortNames = new ArrayList<>();
-      for (String name : processorClasses) {
+      for (String name : processorClasses.toList()) {
         // Annotation processor names are qualified class names. Omit the package part for the
         // progress message, e.g. `com.google.Foo` -> `Foo`.
         int idx = name.lastIndexOf('.');
@@ -429,13 +439,13 @@ public class JavaCompileAction extends AbstractAction implements CommandAction {
   }
 
   private final class JavaSpawn extends BaseSpawn {
-    final Iterable<ActionInput> inputs;
+    final NestedSet<ActionInput> inputs;
 
     public JavaSpawn(
         CommandLines.ExpandedCommandLines expandedCommandLines,
         Map<String, String> environment,
         Map<String, String> executionInfo,
-        Iterable<Artifact> inputs) {
+        NestedSet<Artifact> inputs) {
       super(
           ImmutableList.copyOf(expandedCommandLines.arguments()),
           environment,
@@ -443,11 +453,14 @@ public class JavaCompileAction extends AbstractAction implements CommandAction {
           EmptyRunfilesSupplier.INSTANCE,
           JavaCompileAction.this,
           LOCAL_RESOURCES);
-      this.inputs = Iterables.concat(inputs, expandedCommandLines.getParamFiles());
+      this.inputs =
+          NestedSetBuilder.<ActionInput>fromNestedSet(inputs)
+              .addAll(expandedCommandLines.getParamFiles())
+              .build();
     }
 
     @Override
-    public Iterable<? extends ActionInput> getInputFiles() {
+    public NestedSet<? extends ActionInput> getInputFiles() {
       return inputs;
     }
   }
@@ -504,7 +517,7 @@ public class JavaCompileAction extends AbstractAction implements CommandAction {
   }
 
   @Override
-  public Iterable<Artifact> getPossibleInputsForTesting() {
+  public NestedSet<Artifact> getPossibleInputsForTesting() {
     return null;
   }
 

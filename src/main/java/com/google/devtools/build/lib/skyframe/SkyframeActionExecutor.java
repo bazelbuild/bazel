@@ -81,6 +81,7 @@ import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.actions.cache.MetadataHandler;
 import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ExecutorUtil;
 import com.google.devtools.build.lib.concurrent.Sharder;
 import com.google.devtools.build.lib.concurrent.ThrowableRecordingRunnableWrapper;
@@ -773,8 +774,9 @@ public final class SkyframeActionExecutor {
    * <p>This method is just a wrapper around {@link Action#discoverInputs} that properly processes
    * any ActionExecutionException thrown before rethrowing it to the caller.
    */
-  Iterable<Artifact> discoverInputs(
+  NestedSet<Artifact> discoverInputs(
       Action action,
+      ActionLookupData actionLookupData,
       MetadataProvider metadataProvider,
       MetadataHandler metadataHandler,
       ProgressEventBehavior progressEventBehavior,
@@ -803,7 +805,7 @@ public final class SkyframeActionExecutor {
     }
     actionExecutionContext.getEventHandler().post(new ScanningActionEvent(action));
     try {
-      Iterable<Artifact> artifacts = action.discoverInputs(actionExecutionContext);
+      NestedSet<Artifact> artifacts = action.discoverInputs(actionExecutionContext);
 
       // Input discovery may have been affected by lost inputs. If an action filesystem is used, it
       // may know whether inputs were lost. We should fail fast if any were; rewinding may be able
@@ -835,6 +837,7 @@ public final class SkyframeActionExecutor {
           env.getListener(),
           actionExecutionContext.getInputPath(action.getPrimaryOutput()),
           action,
+          actionLookupData,
           e,
           actionExecutionContext.getFileOutErr(),
           ErrorTiming.BEFORE_EXECUTION);
@@ -1095,6 +1098,7 @@ public final class SkyframeActionExecutor {
                 eventHandler,
                 actionExecutionContext.getInputPath(action.getPrimaryOutput()),
                 action,
+                actionLookupData,
                 e,
                 actionExecutionContext.getFileOutErr(),
                 ErrorTiming.AFTER_EXECUTION));
@@ -1434,16 +1438,18 @@ public final class SkyframeActionExecutor {
       ExtendedEventHandler eventHandler,
       Path primaryOutputPath,
       Action action,
+      ActionLookupData actionLookupData,
       ActionExecutionException e,
       FileOutErr outErrBuffer,
       ErrorTiming errorTiming) {
     if (e instanceof LostInputsActionExecutionException) {
       // If inputs are lost, then avoid publishing ActionExecutedEvent or reporting the error.
       // Action rewinding will rerun this failed action after trying to regenerate the lost inputs.
-      // However, enrich the exception so that, if rewinding fails, an ActionExecutedEvent can be
-      // published, and the error reported.
+      // Enrich the exception so it can be distinguished by shared actions getting cache hits and so
+      // that, if rewinding fails, an ActionExecutedEvent can be published, and the error reported.
       LostInputsActionExecutionException lostInputsException =
           (LostInputsActionExecutionException) e;
+      lostInputsException.setPrimaryAction(actionLookupData);
       lostInputsException.setPrimaryOutputPath(primaryOutputPath);
       lostInputsException.setFileOutErr(outErrBuffer);
       return lostInputsException;

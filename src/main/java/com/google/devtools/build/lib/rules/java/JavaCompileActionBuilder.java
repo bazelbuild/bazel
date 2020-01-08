@@ -123,12 +123,12 @@ public final class JavaCompileActionBuilder {
       JavaCompileInfo.Builder info =
           JavaCompileInfo.newBuilder()
               .addAllSourceFile(Artifact.toExecPaths(sourceFiles))
-              .addAllClasspath(Artifact.toExecPaths(classpathEntries))
-              .addAllBootclasspath(Artifact.toExecPaths(bootclasspathEntries))
+              .addAllClasspath(Artifact.toExecPaths(classpathEntries.toList()))
+              .addAllBootclasspath(Artifact.toExecPaths(bootclasspathEntries.toList()))
               .addAllSourcepath(Artifact.toExecPaths(sourceJars))
               .addAllJavacOpt(javacOpts)
-              .addAllProcessor(processorNames)
-              .addAllProcessorpath(Artifact.toExecPaths(processorPath))
+              .addAllProcessor(processorNames.toList())
+              .addAllProcessorpath(Artifact.toExecPaths(processorPath.toList()))
               .setOutputjar(outputJar.getExecPathString());
       info.addAllArgument(arguments);
       builder.setExtension(JavaCompileInfo.javaCompileInfo, info.build());

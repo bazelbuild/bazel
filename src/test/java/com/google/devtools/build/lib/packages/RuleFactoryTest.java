@@ -40,12 +40,12 @@ import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
 @RunWith(JUnit4.class)
-public class RuleFactoryTest extends PackageLoadingTestCase {
+public final class RuleFactoryTest extends PackageLoadingTestCase {
 
   private ConfiguredRuleClassProvider provider = TestRuleClassProvider.getRuleClassProvider();
   private final RuleFactory ruleFactory = new RuleFactory(provider);
 
-  public static final Location LOCATION_42 = Location.fromFileAndOffsets(null, 42, 42);
+  private static final Location DUMMY_LOCATION = Location.fromFileLineColumn("dummy", 42, 1);
 
   @Test
   public void testCreateRule() throws Exception {
@@ -69,7 +69,7 @@ public class RuleFactoryTest extends PackageLoadingTestCase {
             ruleClass,
             new BuildLangTypedAttributeValuesMap(attributeValues),
             new Reporter(new EventBus()),
-            LOCATION_42,
+            DUMMY_LOCATION,
             /*thread=*/ null,
             new AttributeContainer(ruleClass));
 
@@ -87,7 +87,8 @@ public class RuleFactoryTest extends PackageLoadingTestCase {
 
     assertThat(rule.getRuleClass()).isEqualTo("cc_library");
     assertThat(rule.getTargetKind()).isEqualTo("cc_library rule");
-    assertThat(rule.getLocation().getStartOffset()).isEqualTo(42);
+    assertThat(rule.getLocation().line()).isEqualTo(42);
+    assertThat(rule.getLocation().column()).isEqualTo(1);
     assertThat(rule.containsErrors()).isFalse();
 
     // Attr with explicitly-supplied value:
@@ -123,7 +124,7 @@ public class RuleFactoryTest extends PackageLoadingTestCase {
             ruleClass,
             new BuildLangTypedAttributeValuesMap(attributeValues),
             new Reporter(new EventBus()),
-            Location.fromFileAndOffsets(myPkgPath.asFragment(), 42, 42),
+            Location.fromFile(myPkgPath.toString()),
             /*thread=*/ null,
             new AttributeContainer(ruleClass));
     assertThat(rule.containsErrors()).isFalse();
@@ -154,7 +155,7 @@ public class RuleFactoryTest extends PackageLoadingTestCase {
                     ruleClass,
                     new BuildLangTypedAttributeValuesMap(attributeValues),
                     new Reporter(new EventBus()),
-                    LOCATION_42,
+                    DUMMY_LOCATION,
                     /*thread=*/ null,
                     new AttributeContainer(ruleClass)));
     assertThat(e).hasMessageThat().contains("must be in the WORKSPACE file");
@@ -185,7 +186,7 @@ public class RuleFactoryTest extends PackageLoadingTestCase {
                     ruleClass,
                     new BuildLangTypedAttributeValuesMap(attributeValues),
                     new Reporter(new EventBus()),
-                    Location.fromFileAndOffsets(myPkgPath.asFragment(), 42, 42),
+                    Location.fromFileLineColumn(myPkgPath.toString(), 42, 1),
                     /*thread=*/ null,
                     new AttributeContainer(ruleClass)));
     assertThat(e).hasMessageThat().contains("cannot be in the WORKSPACE file");
@@ -228,7 +229,7 @@ public class RuleFactoryTest extends PackageLoadingTestCase {
                     ruleClass,
                     new BuildLangTypedAttributeValuesMap(attributeValues),
                     new Reporter(new EventBus()),
-                    Location.fromFileAndOffsets(myPkgPath.asFragment(), 42, 42),
+                    Location.fromFileLineColumn(myPkgPath.toString(), 42, 1),
                     /*thread=*/ null,
                     new AttributeContainer(ruleClass)));
     assertWithMessage(e.getMessage())
@@ -262,7 +263,7 @@ public class RuleFactoryTest extends PackageLoadingTestCase {
               pkg,
               Label.create(pkg.getPackageIdentifier(), "myrule"),
               ruleClass,
-              Location.fromFile(myPkgPath),
+              Location.fromFile(myPkgPath.toString()),
               new AttributeContainer(ruleClass));
       if (TargetUtils.isTestRule(rule)) {
         assertAttr(ruleClass, "tags", Type.STRING_LIST);

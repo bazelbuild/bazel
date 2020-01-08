@@ -330,7 +330,7 @@ public class CriticalPathComputer {
   private void finalizeActionStat(
       long startTimeNanos, Action action, CriticalPathComponent component) {
     long finishTimeNanos = clock.nanoTime();
-    for (Artifact input : action.getInputs()) {
+    for (Artifact input : action.getInputs().toList()) {
       addArtifactDependency(component, input, finishTimeNanos);
     }
     component.finishActionExecution(startTimeNanos, finishTimeNanos);

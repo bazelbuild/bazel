@@ -18,7 +18,6 @@ package com.google.devtools.build.android.desugar.langmodel;
 
 import static com.google.common.truth.Truth.assertThat;
 
-import com.google.testing.testsize.SmallTest;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -26,7 +25,6 @@ import org.objectweb.asm.Opcodes;
 
 /** Tests for {@link ClassMemberRecord}. */
 @RunWith(JUnit4.class)
-@SmallTest
 public class ClassMemberRecordTest {
 
   private final ClassMemberRecord classMemberRecord = ClassMemberRecord.create();

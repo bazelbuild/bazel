@@ -17,7 +17,6 @@ import com.google.common.base.Supplier;
 import com.google.devtools.build.lib.actions.ActionContext;
 import com.google.devtools.build.lib.actions.ActionGraph;
 import com.google.devtools.build.lib.actions.ExecutorInitException;
-import com.google.devtools.build.lib.actions.MetadataProvider;
 import com.google.devtools.build.lib.analysis.ArtifactsToOwnerLabels;
 
 /**
@@ -33,15 +32,6 @@ public abstract class ActionContextProvider {
    * and other factors influencing how the executor is set up.
    */
   public abstract Iterable<? extends ActionContext> getActionContexts();
-
-  /**
-   * Two-phase initialization. The input file cache usually comes from a different module than the
-   * {@link ActionContextProvider} instances that require it, so this method is called after {@link
-   * com.google.devtools.build.lib.runtime.BlazeModule#executorInit}.
-   *
-   * @param actionInputFileCache the input file cache
-   */
-  public void init(MetadataProvider actionInputFileCache) {}
 
   /**
    * Called when the executor is constructed. The parameter contains all the contexts that were

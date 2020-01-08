@@ -47,7 +47,6 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventCollector;
 import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.Location;
-import com.google.devtools.build.lib.events.Location.LineAndColumn;
 import com.google.devtools.build.lib.packages.Attribute.SkylarkComputedDefaultTemplate.CannotPrecomputeDefaultsException;
 import com.google.devtools.build.lib.packages.Attribute.ValidityPredicate;
 import com.google.devtools.build.lib.packages.ConfigurationFragmentPolicy.MissingFragmentPolicy;
@@ -252,8 +251,8 @@ public class RuleClassTest extends PackageLoadingTestCase {
   @Before
   public final void setRuleLocation() throws Exception {
     testBuildfilePath = root.getRelative("testpackage/BUILD");
-    testRuleLocation = Location.fromPathAndStartColumn(
-        testBuildfilePath.asFragment(), 0, 0, new LineAndColumn(TEST_RULE_DEFINED_AT_LINE, 0));
+    testRuleLocation =
+        Location.fromFileLineColumn(testBuildfilePath.toString(), TEST_RULE_DEFINED_AT_LINE, 0);
   }
 
   private Package.Builder createDummyPackageBuilder() {
@@ -381,9 +380,8 @@ public class RuleClassTest extends PackageLoadingTestCase {
     ).iterator();
 
     for (Event event : collector) {
-      assertThat(event.getLocation().getStartLineAndColumn().getLine())
-          .isEqualTo(TEST_RULE_DEFINED_AT_LINE);
-      assertThat(event.getLocation().getPath()).isEqualTo(testBuildfilePath.asFragment());
+      assertThat(event.getLocation().line()).isEqualTo(TEST_RULE_DEFINED_AT_LINE);
+      assertThat(event.getLocation().file()).isEqualTo(testBuildfilePath.toString());
       assertThat(event.getMessage())
           .isEqualTo(TEST_RULE_LABEL.toString().substring(1) + ": " + expectedMessages.next());
     }

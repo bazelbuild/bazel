@@ -67,7 +67,6 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment
   private final HeaderDiscovery.DotdPruningMode dotdPruningPlan;
   private final boolean shouldScanIncludes;
   private final Label appleSdk;
-  private final boolean strictObjcModuleMaps;
 
   ObjcConfiguration(ObjcCommandLineOptions objcOptions, CoreOptions options) {
     this.iosSimulatorDevice = objcOptions.iosSimulatorDevice;
@@ -96,7 +95,6 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment
             : HeaderDiscovery.DotdPruningMode.DO_NOT_USE;
     this.shouldScanIncludes = objcOptions.scanIncludes;
     this.appleSdk = objcOptions.appleSdk;
-    this.strictObjcModuleMaps = objcOptions.strictObjcModuleMaps;
   }
 
   /**
@@ -259,10 +257,5 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment
   /** Returns the label for the Apple SDK for current build configuration. */
   public Label getAppleSdk() {
     return appleSdk;
-  }
-
-  /** Returns true if Objective-C module maps should only be propagated to direct dependencies. */
-  public boolean useStrictObjcModuleMaps() {
-    return strictObjcModuleMaps;
   }
 }

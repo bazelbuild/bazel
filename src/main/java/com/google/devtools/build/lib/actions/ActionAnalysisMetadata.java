@@ -105,11 +105,11 @@ public interface ActionAnalysisMetadata {
    * <p>This may be used by spawn strategies to determine whether an external tool has not changed
    * since the last time it was used and could thus be reused, or whether it has to be restarted.
    *
-   * <p>See {@link AbstractAction#getTools()} for an explanation of why it's important that this
-   * set contains exactly the right set of artifacts in order for the build to stay correct and the
+   * <p>See {@link AbstractAction#getTools()} for an explanation of why it's important that this set
+   * contains exactly the right set of artifacts in order for the build to stay correct and the
    * worker strategy to work.
    */
-  Iterable<Artifact> getTools();
+  NestedSet<Artifact> getTools();
 
   /**
    * Returns the input Artifacts that this Action depends upon. May be empty.
@@ -194,7 +194,7 @@ public interface ActionAnalysisMetadata {
    * mandatory for action execution to succeed (e.g. header files retrieved from *.d file from the
    * previous build).
    */
-  Iterable<Artifact> getMandatoryInputs();
+  NestedSet<Artifact> getMandatoryInputs();
 
   /**
    * @return true iff path prefix conflict (conflict where two actions generate

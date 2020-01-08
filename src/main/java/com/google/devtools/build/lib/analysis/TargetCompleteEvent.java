@@ -208,12 +208,14 @@ public final class TargetCompleteEvent
    * Construct a target completion event for a failed target, with the given non-empty root causes.
    */
   public static TargetCompleteEvent createFailed(
-      ConfiguredTargetAndData ct,
-      NestedSet<Cause> rootCauses,
-      NestedSet<ArtifactsInOutputGroup> outputs) {
+      ConfiguredTargetAndData ct, NestedSet<Cause> rootCauses) {
     Preconditions.checkArgument(!rootCauses.isEmpty());
     return new TargetCompleteEvent(
-        ct, rootCauses, CompletionContext.FAILED_COMPLETION_CTX, outputs, false);
+        ct,
+        rootCauses,
+        CompletionContext.FAILED_COMPLETION_CTX,
+        NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+        false);
   }
 
   /** Returns the label of the target associated with the event. */

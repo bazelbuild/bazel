@@ -2369,4 +2369,78 @@ EOF
   expect_log 'data_repo.*main/withimplicit.bzl:6'
 }
 
+function test_overwrite_existing_workspace_build() {
+  # Verify that the WORKSPACE and BUILD files provided by
+  # the invocation of an http_archive rule correctly
+  # overwritel any such file packed in the archive.
+  WRKDIR=$(mktemp -d "${TEST_TMPDIR}/testXXXXXX")
+  cd "${WRKDIR}"
+
+  for bad_file in \
+      'echo BAD content > $1' \
+      'ln -s /does/not/exist/BAD $1'
+
+  do
+    rm -rf ext ext.tar
+    mkdir ext
+    sh -c "${bad_file}" -- ext/WORKSPACE
+    sh -c "${bad_file}" -- ext/BUILD.bazel
+    echo hello world > ext/data
+    tar cvf ext.tar ext
+
+    for BUILD_FILE in \
+      'build_file_content = '\''exports_files(["data", "WORKSPACE"])'\' \
+      'build_file = "@//:external_build_file"'
+    do
+      rm -rf main
+      mkdir main
+      cd main
+
+      cat > WORKSPACE <<EOF
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+http_archive(
+   name = "ext",
+   strip_prefix = "ext",
+   url = 'file://${WRKDIR}/ext.tar',
+   ${BUILD_FILE},
+)
+EOF
+      echo
+      ls -al ${WRKDIR}/ext
+      echo
+      cat WORKSPACE
+      echo
+
+      cat > external_build_file <<'EOF'
+exports_files(["data", "WORKSPACE"])
+EOF
+
+      cat > BUILD <<'EOF'
+genrule(
+  name = "it",
+  cmd = "cp $< $@",
+  srcs = ["@ext//:data"],
+  outs = ["it.txt"],
+)
+
+genrule(
+  name = "ws",
+  cmd = "cp $< $@",
+  srcs = ["@ext//:WORKSPACE"],
+  outs = ["ws.txt"],
+)
+EOF
+
+      bazel build //:it || fail "Expected success"
+      grep 'world' `bazel info bazel-genfiles`/it.txt \
+          || fail "Wrong content of data file"
+      bazel build //:ws || fail "Expected success"
+      grep 'BAD' `bazel info bazel-genfiles`/ws.txt \
+          && fail "WORKSPACE file not overwritten" || :
+
+      cd ..
+    done
+  done
+}
+
 run_suite "external tests"

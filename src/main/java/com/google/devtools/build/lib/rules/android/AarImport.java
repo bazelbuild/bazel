@@ -31,7 +31,6 @@ import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.rules.android.AndroidConfiguration.AndroidAaptVersion;
 import com.google.devtools.build.lib.rules.android.databinding.DataBinding;
 import com.google.devtools.build.lib.rules.java.ImportDepsCheckActionBuilder;
 import com.google.devtools.build.lib.rules.java.JavaCommon;
@@ -112,10 +111,7 @@ public class AarImport implements RuleConfiguredTargetFactory {
 
     MergedAndroidAssets mergedAssets =
         AndroidAssets.forAarImport(assets)
-            .process(
-                dataContext,
-                AssetDependencies.fromRuleDeps(ruleContext, neverlink),
-                AndroidAaptVersion.chooseTargetAaptVersion(ruleContext));
+            .process(dataContext, AssetDependencies.fromRuleDeps(ruleContext, neverlink));
 
     ResourceApk resourceApk = ResourceApk.of(validatedResources, mergedAssets, null, null);
 

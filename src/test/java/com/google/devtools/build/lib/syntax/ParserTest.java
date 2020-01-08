@@ -23,7 +23,6 @@ import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.Location;
-import com.google.devtools.build.lib.events.Location.LineAndColumn;
 import com.google.devtools.build.lib.events.util.EventCollectionApparatus;
 import java.util.LinkedList;
 import java.util.List;
@@ -85,14 +84,12 @@ public final class ParserTest {
   }
 
   private static String getText(String text, Node node) {
-    return text.substring(node.getLocation().getStartOffset(),
-                          node.getLocation().getEndOffset());
+    return text.substring(node.getStartOffset(), node.getEndOffset());
   }
 
-  private void assertLocation(int start, int end, Location location)
-      throws Exception {
-    int actualStart = location.getStartOffset();
-    int actualEnd = location.getEndOffset();
+  private static void assertLocation(int start, int end, Node node) throws Exception {
+    int actualStart = node.getStartOffset();
+    int actualEnd = node.getEndOffset();
 
     if (actualStart != start || actualEnd != end) {
       fail("Expected location = [" + start + ", " + end + "), found ["
@@ -190,8 +187,8 @@ public final class ParserTest {
     assertThat(i.getValue()).isEqualTo(5);
     IntegerLiteral i2 = (IntegerLiteral) e2.getX();
     assertThat(i2.getValue()).isEqualTo(5);
-    assertLocation(0, 2, e.getLocation());
-    assertLocation(0, 3, e2.getLocation());
+    assertLocation(0, 2, e);
+    assertLocation(0, 3, e2);
   }
 
   @Test
@@ -288,15 +285,15 @@ public final class ParserTest {
   @Test
   public void testStringLiteralOptimizationLocation() throws Exception {
     StringLiteral l = (StringLiteral) parseExpression("'abc' + 'def'");
-    assertThat(l.getLocation().getStartOffset()).isEqualTo(0);
-    assertThat(l.getLocation().getEndOffset()).isEqualTo(13);
+    assertThat(l.getStartOffset()).isEqualTo(0);
+    assertThat(l.getEndOffset()).isEqualTo(13);
   }
 
   @Test
   public void testStringLiteralOptimizationDifferentQuote() throws Exception {
     StringLiteral l = (StringLiteral) parseExpression("'abc' + \"def\"");
-    assertThat(l.getLocation().getStartOffset()).isEqualTo(0);
-    assertThat(l.getLocation().getEndOffset()).isEqualTo(13);
+    assertThat(l.getStartOffset()).isEqualTo(0);
+    assertThat(l.getEndOffset()).isEqualTo(13);
   }
 
   @Test
@@ -304,7 +301,7 @@ public final class ParserTest {
     IndexExpression e = (IndexExpression) parseExpression("a[i]");
     assertThat(e.getObject().toString()).isEqualTo("a");
     assertThat(e.getKey().toString()).isEqualTo("i");
-    assertLocation(0, 4, e.getLocation());
+    assertLocation(0, 4, e);
   }
 
   @Test
@@ -336,7 +333,7 @@ public final class ParserTest {
     evalSlice("'0123'[1:3:-1]", 1, 3, -1);
 
     Expression slice = parseExpression("'0123'[1:3:-1]");
-    assertLocation(0, 14, slice.getLocation());
+    assertLocation(0, 14, slice);
   }
 
   private static void evalSlice(String statement, Object... expectedArgs) throws SyntaxError {
@@ -377,9 +374,9 @@ public final class ParserTest {
     Identifier arg1val = ((Identifier) arg1.getValue());
     assertThat(arg1val.getName()).isEqualTo("$error$");
 
-    assertLocation(5, 29, arg1val.getLocation());
+    assertLocation(5, 29, arg1val);
     assertThat(src.substring(5, 28)).isEqualTo("[x for foo foo foo foo]");
-    assertThat(arg1val.getLocation().getEndLineAndColumn().getColumn()).isEqualTo(29);
+    assertThat(arg1val.getEndLocation().column()).isEqualTo(29);
 
     IntegerLiteral arg2 = (IntegerLiteral) e.getArguments().get(2).getValue();
     assertThat((int) arg2.getValue()).isEqualTo(3);
@@ -403,7 +400,7 @@ public final class ParserTest {
     String expr = "f(1 % 2)";
     CallExpression call = (CallExpression) parseExpression(expr);
     Argument arg = call.getArguments().get(0);
-    assertThat(arg.getLocation().getEndOffset()).isLessThan(call.getLocation().getEndOffset());
+    assertThat(arg.getEndLocation()).isLessThan(call.getEndLocation());
   }
 
   @Test
@@ -411,14 +408,14 @@ public final class ParserTest {
     String expr = "f(1 + 2)";
     CallExpression call = (CallExpression) parseExpression(expr);
     Argument arg = call.getArguments().get(0);
-    assertThat(arg.getLocation().getEndOffset()).isLessThan(call.getLocation().getEndOffset());
+    assertThat(arg.getEndLocation()).isLessThan(call.getEndLocation());
   }
 
   @Test
   public void testAssignLocation() {
     List<Statement> statements = parseStatements("a = b;c = d\n");
     Statement statement = statements.get(0);
-    assertThat(statement.getLocation().getEndOffset()).isEqualTo(5);
+    assertThat(statement.getEndOffset()).isEqualTo(5);
   }
 
   @Test
@@ -494,17 +491,16 @@ public final class ParserTest {
   }
 
   @Test
-  public void testEndLineAndColumnIsInclusive() {
+  public void testEndLineAndColumnIsInclusive() { // <-- this behavior is a mistake
     AssignmentStatement stmt = (AssignmentStatement) parseStatement("a = b");
-    assertThat(stmt.getLHS().getLocation().getEndLineAndColumn())
-        .isEqualTo(new LineAndColumn(1, 1));
+    assertThat(stmt.getLHS().getEndLocation().toString()).isEqualTo(":1:1");
   }
 
   @Test
   public void testFuncallLocation() {
     List<Statement> statements = parseStatements("a(b);c = d\n");
     Statement statement = statements.get(0);
-    assertThat(statement.getLocation().getEndOffset()).isEqualTo(4);
+    assertThat(statement.getEndOffset()).isEqualTo(4);
   }
 
   @Test
@@ -653,16 +649,16 @@ public final class ParserTest {
     assertThat(loop).hasSize(4);
 
     assertThat(((FlowStatement) loop.get(0)).getKind()).isEqualTo(TokenKind.BREAK);
-    assertLocation(34, 39, loop.get(0).getLocation());
+    assertLocation(34, 39, loop.get(0));
 
     assertThat(((FlowStatement) loop.get(1)).getKind()).isEqualTo(TokenKind.CONTINUE);
-    assertLocation(44, 52, loop.get(1).getLocation());
+    assertLocation(44, 52, loop.get(1));
 
     assertThat(((FlowStatement) loop.get(2)).getKind()).isEqualTo(TokenKind.PASS);
-    assertLocation(57, 61, loop.get(2).getLocation());
+    assertLocation(57, 61, loop.get(2));
 
     assertThat(((FlowStatement) loop.get(3)).getKind()).isEqualTo(TokenKind.BREAK);
-    assertLocation(66, 71, loop.get(3).getLocation());
+    assertLocation(66, 71, loop.get(3));
   }
 
   @Test
@@ -976,16 +972,15 @@ public final class ParserTest {
     StringBuilder commentLines = new StringBuilder();
     for (Comment comment : result.getComments()) {
       // Comments start and end on the same line
-      assertWithMessage(
-              comment.getLocation().getStartLineAndColumn().getLine()
-                  + " ends on "
-                  + comment.getLocation().getEndLineAndColumn().getLine())
-          .that(comment.getLocation().getEndLineAndColumn().getLine())
-          .isEqualTo(comment.getLocation().getStartLineAndColumn().getLine());
+      Location start = comment.getStartLocation();
+      Location end = comment.getEndLocation();
+      assertWithMessage(start.line() + " ends on " + end.line())
+          .that(end.line())
+          .isEqualTo(start.line());
       commentLines.append('(');
-      commentLines.append(comment.getLocation().getStartLineAndColumn().getLine());
+      commentLines.append(start.line());
       commentLines.append(',');
-      commentLines.append(comment.getLocation().getStartLineAndColumn().getColumn());
+      commentLines.append(start.column());
       commentLines.append(") ");
     }
     assertWithMessage("Found: " + commentLines)
@@ -1105,10 +1100,9 @@ public final class ParserTest {
     assertThat(stmt.getImport().getValue()).isEqualTo("//foo/bar:file.bzl");
     assertThat(stmt.getBindings()).hasSize(1);
     Identifier sym = stmt.getBindings().get(0).getLocalName();
-    int startOffset = sym.getLocation().getStartOffset();
-    int endOffset = sym.getLocation().getEndOffset();
+    int startOffset = sym.getStartOffset();
     assertWithMessage("getStartOffset()").that(startOffset).isEqualTo(27);
-    assertWithMessage("getEndOffset()").that(endOffset).isEqualTo(startOffset + 10);
+    assertWithMessage("getEndOffset()").that(sym.getEndOffset()).isEqualTo(startOffset + 10);
   }
 
   @Test
@@ -1164,10 +1158,9 @@ public final class ParserTest {
     assertThat(actualSymbols).hasSize(1);
     Identifier sym = actualSymbols.get(0).getLocalName();
     assertThat(sym.getName()).isEqualTo("my_alias");
-    int startOffset = sym.getLocation().getStartOffset();
-    int endOffset = sym.getLocation().getEndOffset();
+    int startOffset = sym.getStartOffset();
     assertWithMessage("getStartOffset()").that(startOffset).isEqualTo(27);
-    assertWithMessage("getEndOffset()").that(endOffset).isEqualTo(startOffset + 8);
+    assertWithMessage("getEndOffset()").that(sym.getEndOffset()).isEqualTo(startOffset + 8);
   }
 
   @Test

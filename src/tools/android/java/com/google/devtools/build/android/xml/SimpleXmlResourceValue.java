@@ -56,9 +56,6 @@ import javax.xml.namespace.QName;
 @Immutable
 public class SimpleXmlResourceValue implements XmlResourceValue {
 
-  // TODO(b/143918417): change to false, and remove
-  static final boolean USE_BROKEN_DESERIALIZATION = true;
-
   static final QName TAG_BOOL = QName.valueOf("bool");
   static final QName TAG_COLOR = QName.valueOf("color");
   static final QName TAG_DIMEN = QName.valueOf("dimen");
@@ -203,21 +200,7 @@ public class SimpleXmlResourceValue implements XmlResourceValue {
       }
       stringValue = stringBuilder.toString();
     } else if (item.hasPrim()) {
-      if (!USE_BROKEN_DESERIALIZATION) {
-        stringValue = convertPrimitiveToString(item.getPrim());
-      } else {
-        if (resourceType == ResourceType.COLOR || resourceType == ResourceType.DRAWABLE) {
-          stringValue = String.format("#%1$8s", Integer.toHexString(0)).replace(' ', '0');
-        } else if (resourceType == ResourceType.INTEGER) {
-          stringValue = Integer.toString(0);
-        } else if (resourceType == ResourceType.BOOL) {
-          stringValue = "false";
-        } else if (resourceType == ResourceType.FRACTION
-            || resourceType == ResourceType.DIMEN
-            || resourceType == ResourceType.STRING) {
-          stringValue = Integer.toString(0);
-        }
-      }
+      stringValue = convertPrimitiveToString(item.getPrim());
     } else {
       throw new IllegalArgumentException(
           String.format("'%s' with value %s is not a simple resource type.", resourceType, proto));

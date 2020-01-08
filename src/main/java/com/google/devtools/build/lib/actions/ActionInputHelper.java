@@ -49,18 +49,16 @@ public final class ActionInputHelper {
         // it cannot expand arbitrary middlemen without access to a global action graph.
         // We could check this constraint here too, but it seems unnecessary. This code is
         // going away anyway.
-        Preconditions.checkArgument(mm.isMiddlemanArtifact(),
-            "%s is not a middleman artifact", mm);
+        Preconditions.checkArgument(mm.isMiddlemanArtifact(), "%s is not a middleman artifact", mm);
         ActionAnalysisMetadata middlemanAction = actionGraph.getGeneratingAction(mm);
         Preconditions.checkState(middlemanAction != null, mm);
         // TODO(bazel-team): Consider expanding recursively or throwing an exception here.
         // Most likely, this code will cause silent errors if we ever have a middleman that
         // contains a middleman.
         if (middlemanAction.getActionType() == Action.MiddlemanType.AGGREGATING_MIDDLEMAN) {
-          Artifact.addNonMiddlemanArtifacts(middlemanAction.getInputs(), output,
-              Functions.<Artifact>identity());
+          Artifact.addNonMiddlemanArtifacts(
+              middlemanAction.getInputs().toList(), output, Functions.<Artifact>identity());
         }
-
       }
     };
   }

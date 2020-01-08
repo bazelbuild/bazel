@@ -35,6 +35,7 @@ public class ProtoLangToolchainTest extends BuildViewTestCase {
   @Before
   public void setUp() throws Exception {
     MockProtoSupport.setupWorkspace(scratch);
+    MockProtoSupport.setup(mockToolsConfig);
     invalidatePackages();
   }
 
@@ -58,7 +59,8 @@ public class ProtoLangToolchainTest extends BuildViewTestCase {
         "cc_binary(name = 'plugin', srcs = ['plugin.cc'])",
         "cc_library(name = 'runtime', srcs = ['runtime.cc'])",
         "filegroup(name = 'descriptors', srcs = ['metadata.proto', 'descriptor.proto'])",
-        "filegroup(name = 'any', srcs = ['any.proto'])");
+        "filegroup(name = 'any', srcs = ['any.proto'])",
+        "proto_library(name = 'blacklist', srcs = [':descriptors', ':any'])");
 
     scratch.file(
         "foo/BUILD",
@@ -68,7 +70,7 @@ public class ProtoLangToolchainTest extends BuildViewTestCase {
         "    command_line = 'cmd-line',",
         "    plugin = '//x:plugin',",
         "    runtime = '//x:runtime',",
-        "    blacklisted_protos = ['//x:descriptors', '//x:any']",
+        "    blacklisted_protos = ['//x:blacklist']",
         ")");
 
     update(ImmutableList.of("//foo:toolchain"), false, 1, true, new EventBus());

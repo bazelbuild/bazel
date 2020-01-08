@@ -32,7 +32,7 @@ import com.google.devtools.build.lib.packages.StructProvider;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Starlark;
 import java.util.LinkedHashMap;
-import java.util.Map;
+import java.util.List;
 import java.util.Objects;
 
 /**
@@ -106,7 +106,7 @@ public class StarlarkRuleTransitionProvider implements TransitionFactory<Rule> {
     // attributes that are then configured by the outputs of these transitions.
     @Override
     public BuildOptions patch(BuildOptions buildOptions) {
-      Map<String, BuildOptions> result;
+      List<BuildOptions> result;
       try {
         result = applyAndValidate(buildOptions, starlarkDefinedConfigTransition, attrObject);
       } catch (EvalException | InterruptedException e) {
@@ -127,7 +127,7 @@ public class StarlarkRuleTransitionProvider implements TransitionFactory<Rule> {
                     "Rule transition only allowed to return a single transitioned configuration."));
         return buildOptions.clone();
       }
-      return Iterables.getOnlyElement(result.values());
+      return Iterables.getOnlyElement(result);
     }
 
     @Override
