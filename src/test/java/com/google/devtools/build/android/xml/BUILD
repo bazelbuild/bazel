@@ -22,6 +22,18 @@ java_test(
 )
 
 java_test(
+    name = "ProtoXmlUtilsTest",
+    size = "small",
+    srcs = ["ProtoXmlUtilsTest.java"],
+    deps = [
+        "//src/tools/android/java/com/google/devtools/build/android:android_builder_lib",
+        "//src/tools/android/java/com/google/devtools/build/android/proto:resources_java_proto",
+        "//third_party:junit4",
+        "//third_party:truth",
+    ],
+)
+
+java_test(
     name = "SimpleXmlResourceValueTest",
     size = "small",
     srcs = ["SimpleXmlResourceValueTest.java"],
