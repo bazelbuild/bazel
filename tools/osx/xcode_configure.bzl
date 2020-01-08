@@ -235,6 +235,11 @@ def _darwin_build_file(repository_ctx):
     if default_xcode_target:
         buildcontents += "\n  default = ':%s'," % default_xcode_target
     buildcontents += "\n)\n"
+    if repository_ctx.attr.remote_xcode:
+        buildcontents += "xcode_config(name = 'all_xcodes',"
+        buildcontents += "\n  remote_versions = '%s', " % repository_ctx.attr.remote_xcode
+        buildcontents += "\n  local_versions = ':host_available_xcodes', "
+        buildcontents += "\n)\n"
     return buildcontents
 
 def _impl(repository_ctx):
@@ -262,12 +267,14 @@ xcode_autoconf = repository_rule(
     local = True,
     attrs = {
         "xcode_locator": attr.string(),
+        "remote_xcode": attr.string(),
     },
 )
 
-def xcode_configure(xcode_locator_label):
+def xcode_configure(xcode_locator_label, remote_xcode_label = None):
     """Generates a repository containing host xcode version information."""
     xcode_autoconf(
         name = "local_config_xcode",
         xcode_locator = xcode_locator_label,
+        remote_xcode = remote_xcode_label,
     )
