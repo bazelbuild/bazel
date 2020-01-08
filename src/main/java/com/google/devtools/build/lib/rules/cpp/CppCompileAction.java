@@ -380,7 +380,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
    * {@link #discoverInputs(ActionExecutionContext)} must be called before this method is called on
    * each action execution.
    */
-  public Iterable<Artifact> getAdditionalInputs() {
+  public NestedSet<Artifact> getAdditionalInputs() {
     return Preconditions.checkNotNull(additionalInputs);
   }
 
@@ -1420,19 +1420,16 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
   protected Spawn createSpawn(Map<String, String> clientEnv) throws ActionExecutionException {
     // Intentionally not adding {@link CppCompileAction#inputsForInvalidation}, those are not needed
     // for execution.
-    ImmutableList.Builder<ActionInput> inputsBuilder =
-        new ImmutableList.Builder<ActionInput>()
-            .addAll(getMandatoryInputs())
-            .addAll(getAdditionalInputs());
+    NestedSetBuilder<ActionInput> inputsBuilder =
+        NestedSetBuilder.<ActionInput>stableOrder()
+            .addTransitive(getMandatoryInputs())
+            .addTransitive(getAdditionalInputs());
     if (getParamFileActionInput() != null) {
       inputsBuilder.add(getParamFileActionInput());
     }
-    ImmutableList<ActionInput> inputs = inputsBuilder.build();
+    NestedSet<ActionInput> inputs = inputsBuilder.build();
 
     ImmutableMap<String, String> executionInfo = getExecutionInfo();
-    ImmutableList.Builder<ActionInput> outputs =
-        ImmutableList.builderWithExpectedSize(getOutputs().size() + 1);
-    outputs.addAll(getOutputs());
     if (getDotdFile() != null && useInMemoryDotdFiles()) {
       /*
        * CppCompileAction does dotd file scanning locally inside the Bazel process and thus
@@ -1458,7 +1455,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
           getEnvironment(clientEnv),
           executionInfo,
           inputs,
-          outputs.build(),
+          getOutputs(),
           estimateResourceConsumptionLocal());
     } catch (CommandLineExpansionException e) {
       throw new ActionExecutionException(

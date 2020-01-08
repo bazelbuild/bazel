@@ -19,6 +19,7 @@ import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
@@ -38,6 +39,8 @@ import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.clock.BlazeClock;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.PrintingEventHandler;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.exec.BinTools;
@@ -158,8 +161,8 @@ public class StandaloneSpawnStrategyTest {
         ImmutableList.copyOf(arguments),
         /*environment=*/ ImmutableMap.of(),
         /*executionInfo=*/ ImmutableMap.of(),
-        /*inputs=*/ ImmutableList.of(),
-        /*outputs=*/ ImmutableList.of(),
+        /*inputs=*/ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+        /*outputs=*/ ImmutableSet.of(),
         ResourceSet.ZERO);
   }
 
@@ -240,14 +243,15 @@ public class StandaloneSpawnStrategyTest {
       // down where that env var is coming from.
       return;
     }
-    Spawn spawn = new SimpleSpawn(
-        new ActionsTestUtil.NullAction(),
-        ImmutableList.of("/usr/bin/env"),
-        /*environment=*/ ImmutableMap.of("foo", "bar", "baz", "boo"),
-        /*executionInfo=*/ ImmutableMap.of(),
-        /*inputs=*/ ImmutableList.of(),
-        /*outputs=*/ ImmutableList.of(),
-        ResourceSet.ZERO);
+    Spawn spawn =
+        new SimpleSpawn(
+            new ActionsTestUtil.NullAction(),
+            ImmutableList.of("/usr/bin/env"),
+            /*environment=*/ ImmutableMap.of("foo", "bar", "baz", "boo"),
+            /*executionInfo=*/ ImmutableMap.of(),
+            /*inputs=*/ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+            /*outputs=*/ ImmutableSet.of(),
+            ResourceSet.ZERO);
     run(spawn);
     assertThat(Sets.newHashSet(out().split("\n"))).isEqualTo(Sets.newHashSet("foo=bar", "baz=boo"));
   }

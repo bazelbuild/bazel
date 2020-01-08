@@ -383,7 +383,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
     return getSpawn(getInputs());
   }
 
-  final Spawn getSpawn(Iterable<Artifact> inputs) throws CommandLineExpansionException {
+  final Spawn getSpawn(NestedSet<Artifact> inputs) throws CommandLineExpansionException {
     return new ActionSpawn(
         commandLines.allArguments(),
         ImmutableMap.of(),
@@ -547,8 +547,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
 
   /** A spawn instance that is tied to a specific SpawnAction. */
   private class ActionSpawn extends BaseSpawn {
-
-    private final ImmutableList<ActionInput> inputs;
+    private final NestedSet<ActionInput> inputs;
     private final Map<Artifact, ImmutableList<FilesetOutputSymlink>> filesetMappings;
     private final ImmutableMap<String, String> effectiveEnvironment;
 
@@ -561,7 +560,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
     private ActionSpawn(
         ImmutableList<String> arguments,
         Map<String, String> clientEnv,
-        Iterable<Artifact> inputs,
+        NestedSet<Artifact> inputs,
         Iterable<? extends ActionInput> additionalInputs,
         Map<Artifact, ImmutableList<FilesetOutputSymlink>> filesetMappings) {
       super(
@@ -571,7 +570,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
           SpawnAction.this.getRunfilesSupplier(),
           SpawnAction.this,
           resourceSet);
-      ImmutableList.Builder<ActionInput> inputsBuilder = ImmutableList.builder();
+      NestedSetBuilder<ActionInput> inputsBuilder = NestedSetBuilder.stableOrder();
       ImmutableList<Artifact> manifests = getRunfilesSupplier().getManifests();
       for (Artifact input : inputs) {
         if (!input.isFileset() && !manifests.contains(input)) {
@@ -597,7 +596,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
     }
 
     @Override
-    public Iterable<? extends ActionInput> getInputFiles() {
+    public NestedSet<? extends ActionInput> getInputFiles() {
       return inputs;
     }
   }

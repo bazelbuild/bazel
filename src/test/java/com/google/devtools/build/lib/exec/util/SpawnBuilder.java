@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.exec.util;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
@@ -27,6 +28,8 @@ import com.google.devtools.build.lib.actions.RunfilesSupplier;
 import com.google.devtools.build.lib.actions.SimpleSpawn;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -45,7 +48,7 @@ public final class SpawnBuilder {
   private final Map<String, String> environment = new HashMap<>();
   private final Map<String, String> executionInfo = new HashMap<>();
   private ImmutableMap<String, String> execProperties = ImmutableMap.of();
-  private final List<ActionInput> inputs = new ArrayList<>();
+  private final NestedSetBuilder<ActionInput> inputs = NestedSetBuilder.stableOrder();
   private final List<ActionInput> outputs = new ArrayList<>();
   private final Map<Artifact, ImmutableList<FilesetOutputSymlink>> filesetMappings =
       new HashMap<>();
@@ -66,9 +69,9 @@ public final class SpawnBuilder {
         ImmutableMap.copyOf(executionInfo),
         runfilesSupplier,
         ImmutableMap.copyOf(filesetMappings),
-        ImmutableList.copyOf(inputs),
-        /*tools=*/ ImmutableList.<Artifact>of(),
-        ImmutableList.copyOf(outputs),
+        inputs.build(),
+        /*tools=*/ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+        ImmutableSet.copyOf(outputs),
         ResourceSet.ZERO);
   }
 

@@ -439,13 +439,13 @@ public class JavaCompileAction extends AbstractAction implements CommandAction {
   }
 
   private final class JavaSpawn extends BaseSpawn {
-    final Iterable<ActionInput> inputs;
+    final NestedSet<ActionInput> inputs;
 
     public JavaSpawn(
         CommandLines.ExpandedCommandLines expandedCommandLines,
         Map<String, String> environment,
         Map<String, String> executionInfo,
-        Iterable<Artifact> inputs) {
+        NestedSet<Artifact> inputs) {
       super(
           ImmutableList.copyOf(expandedCommandLines.arguments()),
           environment,
@@ -453,11 +453,14 @@ public class JavaCompileAction extends AbstractAction implements CommandAction {
           EmptyRunfilesSupplier.INSTANCE,
           JavaCompileAction.this,
           LOCAL_RESOURCES);
-      this.inputs = Iterables.concat(inputs, expandedCommandLines.getParamFiles());
+      this.inputs =
+          NestedSetBuilder.<ActionInput>fromNestedSet(inputs)
+              .addAll(expandedCommandLines.getParamFiles())
+              .build();
     }
 
     @Override
-    public Iterable<? extends ActionInput> getInputFiles() {
+    public NestedSet<? extends ActionInput> getInputFiles() {
       return inputs;
     }
   }

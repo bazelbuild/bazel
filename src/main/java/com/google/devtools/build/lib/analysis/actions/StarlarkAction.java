@@ -206,8 +206,7 @@ public final class StarlarkAction extends SpawnAction {
 
   @Override
   public Iterable<Artifact> getInputFilesForExtraAction(
-      ActionExecutionContext actionExecutionContext)
-      throws ActionExecutionException, InterruptedException {
+      ActionExecutionContext actionExecutionContext) {
     return allInputs;
   }
 

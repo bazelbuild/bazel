@@ -274,7 +274,7 @@ public final class NestedSetBuilder<E> {
     return new NestedSetBuilder<>(Order.NAIVE_LINK_ORDER);
   }
 
-  public static <E> NestedSetBuilder<E> fromNestedSet(NestedSet<E> set) {
+  public static <E> NestedSetBuilder<E> fromNestedSet(NestedSet<? extends E> set) {
     return new NestedSetBuilder<E>(set.getOrder()).addTransitive(set);
   }
 
