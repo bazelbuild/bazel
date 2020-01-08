@@ -19,7 +19,6 @@ import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheStats;
 import com.google.common.primitives.Longs;
-import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
@@ -51,7 +50,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
  * <p>Note that the (path, metadata) tuples must be unique, otherwise the XOR-based approach will
  * fail.
  */
-public class DigestUtils {
+public final class DigestUtils {
 
   // Object to synchronize on when serializing large file reads.
   private static final Object DIGEST_LOCK = new Object();
@@ -276,21 +275,6 @@ public class DigestUtils {
   }
 
   /**
-   * @param mdMap A collection of (execPath, FileArtifactValue) pairs. Values may be null.
-   * @return an <b>order-independent</b> digest from the given "set" of (path, metadata) pairs.
-   */
-  public static byte[] fromMetadata(Map<String, FileArtifactValue> mdMap) {
-    byte[] result = new byte[1]; // reserve the empty string
-    // Profiling showed that MessageDigest engine instantiation was a hotspot, so create one
-    // instance for this computation to amortize its cost.
-    Fingerprint fp = new Fingerprint();
-    for (Map.Entry<String, FileArtifactValue> entry : mdMap.entrySet()) {
-      result = xor(result, getDigest(fp, entry.getKey(), entry.getValue()));
-    }
-    return result;
-  }
-
-  /**
    * @param env A collection of (String, String) pairs.
    * @return an order-independent digest of the given set of pairs.
    */
@@ -303,21 +287,6 @@ public class DigestUtils {
       result = xor(result, fp.digestAndReset());
     }
     return result;
-  }
-
-  private static byte[] getDigest(Fingerprint fp, String execPath, FileArtifactValue md) {
-    fp.addString(execPath);
-
-    if (md == null) {
-      // Move along, nothing to see here.
-    } else if (md.getDigest() != null) {
-      fp.addBytes(md.getDigest());
-    } else {
-      // Use the timestamp if the digest is not present, but not both. Modifying a timestamp while
-      // keeping the contents of a file the same should not cause rebuilds.
-      fp.addLong(md.getModifiedTime());
-    }
-    return fp.digestAndReset();
   }
 
   /** Compute lhs ^= rhs bitwise operation of the arrays. May clobber either argument. */
