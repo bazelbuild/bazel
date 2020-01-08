@@ -4588,56 +4588,58 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
     AssertionError e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//foo:r"));
     assertThat(e)
         .hasMessageThat()
-        .contains("parameter 'toolchain_identifier' has no default value");
+        .contains("missing 1 required named argument: toolchain_identifier");
   }
 
   @Test
   public void testCcToolchainInfoFromSkylarkRequiredHostSystemName() throws Exception {
     setupSkylarkRuleForStringFieldsTesting("host_system_name");
     AssertionError e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//foo:r"));
-    assertThat(e).hasMessageThat().contains("parameter 'host_system_name' has no default value");
+    assertThat(e).hasMessageThat().contains("missing 1 required named argument: host_system_name");
   }
 
   @Test
   public void testCcToolchainInfoFromSkylarkRequiredTargetSystemName() throws Exception {
     setupSkylarkRuleForStringFieldsTesting("target_system_name");
     AssertionError e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//foo:r"));
-    assertThat(e).hasMessageThat().contains("parameter 'target_system_name' has no default value");
+    assertThat(e)
+        .hasMessageThat()
+        .contains("missing 1 required named argument: target_system_name");
   }
 
   @Test
   public void testCcToolchainInfoFromSkylarkRequiredTargetCpu() throws Exception {
     setupSkylarkRuleForStringFieldsTesting("target_cpu");
     AssertionError e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//foo:r"));
-    assertThat(e).hasMessageThat().contains("parameter 'target_cpu' has no default value");
+    assertThat(e).hasMessageThat().contains("missing 1 required named argument: target_cpu");
   }
 
   @Test
   public void testCcToolchainInfoFromSkylarkRequiredTargetLibc() throws Exception {
     setupSkylarkRuleForStringFieldsTesting("target_libc");
     AssertionError e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//foo:r"));
-    assertThat(e).hasMessageThat().contains("parameter 'target_libc' has no default value");
+    assertThat(e).hasMessageThat().contains("missing 1 required named argument: target_libc");
   }
 
   @Test
   public void testCcToolchainInfoFromSkylarkRequiredCompiler() throws Exception {
     setupSkylarkRuleForStringFieldsTesting("compiler");
     AssertionError e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//foo:r"));
-    assertThat(e).hasMessageThat().contains("parameter 'compiler' has no default value");
+    assertThat(e).hasMessageThat().contains("missing 1 required named argument: compiler");
   }
 
   @Test
   public void testCcToolchainInfoFromSkylarkRequiredAbiVersion() throws Exception {
     setupSkylarkRuleForStringFieldsTesting("abi_version");
     AssertionError e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//foo:r"));
-    assertThat(e).hasMessageThat().contains("parameter 'abi_version' has no default value");
+    assertThat(e).hasMessageThat().contains("missing 1 required named argument: abi_version");
   }
 
   @Test
   public void testCcToolchainInfoFromSkylarkRequiredAbiLibcVersion() throws Exception {
     setupSkylarkRuleForStringFieldsTesting("abi_libc_version");
     AssertionError e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//foo:r"));
-    assertThat(e).hasMessageThat().contains("parameter 'abi_libc_version' has no default value");
+    assertThat(e).hasMessageThat().contains("missing 1 required named argument: abi_libc_version");
   }
 
   @Test

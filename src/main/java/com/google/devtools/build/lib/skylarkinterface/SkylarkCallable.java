@@ -127,11 +127,15 @@ public @interface SkylarkCallable {
    * than are explicitly allowed by the method signature. If this is defined, all additional
    * positional arguments are passed as elements of a {@link Tuple<Object>} to the method.
    *
-   * <p>See python's <code>*args</code> (http://thepythonguru.com/python-args-and-kwargs/).
+   * <p>See Python's <code>*args</code> (http://thepythonguru.com/python-args-and-kwargs/).
    *
    * <p>If defined, the annotated method must declare a corresponding parameter to which a {@code
    * Tuple<Object>} may be assigned. See the interface-level javadoc for details.
    */
+  // TODO(adonovan): consider using a simpler type than Param here. All that's needed at run-time
+  // is a boolean. The doc tools want a name and doc string, but the rest is irrelevant and
+  // distracting.
+  // Ditto extraKeywords.
   Param extraPositionals() default @Param(name = "");
 
   /**
@@ -141,7 +145,7 @@ public @interface SkylarkCallable {
    * explicitly declared by the method signature. If this is defined, all additional named arguments
    * are passed as elements of a {@link Dict<String, Object>} to the method.
    *
-   * <p>See python's <code>**kwargs</code> (http://thepythonguru.com/python-args-and-kwargs/).
+   * <p>See Python's <code>**kwargs</code> (http://thepythonguru.com/python-args-and-kwargs/).
    *
    * <p>If defined, the annotated method must declare a corresponding parameter to which a {@code
    * Dict<String, Object>} may be assigned. See the interface-level javadoc for details.

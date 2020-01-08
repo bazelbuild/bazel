@@ -110,8 +110,7 @@ public class MethodLibraryTest extends EvaluationTestCase {
     // only one built-in function.
     new BothModesTest()
         .testIfExactError(
-            "expected value of type 'string' for parameter 'sub', "
-                + "for call to method index(sub, start = 0, end = None) of 'string'",
+            "in call to index(), parameter 'sub' got value of type 'int', want 'string'",
             "'test'.index(1)");
   }
 
@@ -135,8 +134,7 @@ public class MethodLibraryTest extends EvaluationTestCase {
                 + LINE_SEPARATOR
                 + "\t\t\"test\".index(x)"
                 + LINE_SEPARATOR
-                + "expected value of type 'string' for parameter 'sub', "
-                + "for call to method index(sub, start = 0, end = None) of 'string'",
+                + "in call to index(), parameter 'sub' got value of type 'int', want 'string'",
             "def foo():",
             "  bar(1)",
             "def bar(x):",
@@ -150,8 +148,8 @@ public class MethodLibraryTest extends EvaluationTestCase {
     new BothModesTest()
         .testIfErrorContains("substring \"z\" not found in \"abc\"", "'abc'.index('z')")
         .testIfErrorContains(
-            "expected value of type 'string or tuple of strings' for parameter 'sub', "
-                + "for call to method startswith(sub, start = 0, end = None) of 'string'",
+            "in call to startswith(), parameter 'sub' got value of type 'int', want 'string or"
+                + " tuple of strings'",
             "'test'.startswith(1)")
         .testIfErrorContains("in dict, got string, want iterable", "dict('a')");
   }
@@ -334,7 +332,8 @@ public class MethodLibraryTest extends EvaluationTestCase {
             "in dict, dictionary update sequence element #0 is not iterable (string)",
             "dict([('a')])")
         .testIfErrorContains(
-            "expected no more than 1 positional arguments, but got 3", "dict((3,4), (3,2), (1,2))")
+            "dict() accepts no more than 1 positional argument but got 3",
+            "dict((3,4), (3,2), (1,2))")
         .testIfErrorContains(
             "item #0 has length 3, but exactly two elements are required",
             "dict([('a', 'b', 'c')])");
@@ -461,8 +460,7 @@ public class MethodLibraryTest extends EvaluationTestCase {
         .testExpression("hash('skylark')", "skylark".hashCode())
         .testExpression("hash('google')", "google".hashCode())
         .testIfErrorContains(
-            "expected value of type 'string' for parameter 'value', "
-                + "for call to function hash(value)",
+            "in call to hash(), parameter 'value' got value of type 'NoneType', want 'string'",
             "hash(None)");
   }
 
@@ -759,8 +757,7 @@ public class MethodLibraryTest extends EvaluationTestCase {
   public void testExperimentalStarlarkConfig() throws Exception {
     new SkylarkTest("--incompatible_restrict_named_params")
         .testIfErrorContains(
-            "parameter 'elements' may not be specified by name, "
-                + "for call to method join(elements) of 'string'",
+            "join() got named argument for positional-only parameter 'elements'",
             "','.join(elements=['foo', 'bar'])");
   }
 
@@ -796,7 +793,7 @@ public class MethodLibraryTest extends EvaluationTestCase {
             "parameter 'direct' cannot be specified both positionally and by keyword",
             "depset([0, 1], 'default', direct=[0,1])")
         .testIfErrorContains(
-            "parameter 'items' is deprecated and will be removed soon. "
+            "in call to depset(), parameter 'items' is deprecated and will be removed soon. "
                 + "It may be temporarily re-enabled by setting "
                 + "--incompatible_disable_depset_inputs=false",
             "depset(items=[0,1])");

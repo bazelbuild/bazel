@@ -713,9 +713,7 @@ public class AppleStaticLibraryTest extends ObjcRuleTestCase {
     AssertionError expected =
         assertThrows(AssertionError.class, () ->
             getConfiguredTarget("//examples/apple_skylark:my_target"));
-    assertThat(expected)
-        .hasMessageThat()
-        .contains("unexpected keyword 'foo', for call to function AppleStaticLibrary");
+    assertThat(expected).hasMessageThat().contains("unexpected keyword argument 'foo'");
   }
 
   @Test

@@ -122,13 +122,12 @@ public class PyInfoTest extends SkylarkTestCase {
   @Test
   public void starlarkConstructorErrors_TransitiveSources() throws Exception {
     checkEvalErrorContains(
-        "'transitive_sources' has no default value", //
+        "missing 1 required named argument: transitive_sources", //
         "PyInfo()");
     checkEvalErrorContains(
-        "expected value of type 'depset of Files' for parameter 'transitive_sources'",
-        "PyInfo(transitive_sources = 'abc')");
+        "got value of type 'string', want 'depset of Files'", "PyInfo(transitive_sources = 'abc')");
     checkEvalErrorContains(
-        "expected value of type 'depset of Files' for parameter 'transitive_sources'",
+        "got value of type 'depset', want 'depset of Files'",
         "PyInfo(transitive_sources = depset(direct=['abc']))");
     checkEvalErrorContains(
         "'transitive_sources' field should be a postorder-compatible depset of Files",
@@ -138,31 +137,31 @@ public class PyInfoTest extends SkylarkTestCase {
   @Test
   public void starlarkConstructorErrors_UsesSharedLibraries() throws Exception {
     checkEvalErrorContains(
-        "expected value of type 'bool' for parameter 'uses_shared_libraries'",
+        "got value of type 'string', want 'bool'",
         "PyInfo(transitive_sources = depset([]), uses_shared_libraries = 'abc')");
   }
 
   @Test
   public void starlarkConstructorErrors_Imports() throws Exception {
     checkEvalErrorContains(
-        "expected value of type 'depset of strings' for parameter 'imports'",
+        "got value of type 'string', want 'depset of strings'",
         "PyInfo(transitive_sources = depset([]), imports = 'abc')");
     checkEvalErrorContains(
-        "expected value of type 'depset of strings' for parameter 'imports'",
+        "got value of type 'depset', want 'depset of strings'",
         "PyInfo(transitive_sources = depset([]), imports = depset(direct=[123]))");
   }
 
   @Test
   public void starlarkConstructorErrors_HasPy2OnlySources() throws Exception {
     checkEvalErrorContains(
-        "expected value of type 'bool' for parameter 'has_py2_only_sources'",
+        "got value of type 'string', want 'bool'",
         "PyInfo(transitive_sources = depset([]), has_py2_only_sources = 'abc')");
   }
 
   @Test
   public void starlarkConstructorErrors_HasPy3OnlySources() throws Exception {
     checkEvalErrorContains(
-        "expected value of type 'bool' for parameter 'has_py3_only_sources'",
+        "got value of type 'string', want 'bool'",
         "PyInfo(transitive_sources = depset([]), has_py3_only_sources = 'abc')");
   }
 }

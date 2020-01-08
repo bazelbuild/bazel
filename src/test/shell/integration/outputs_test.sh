@@ -170,7 +170,7 @@ EOF
   if bazel build //$pkg:demo &> $TEST_log; then
     fail "Build expected to fail"
   fi
-  expect_log "expected value of type 'dict or NoneType or function' for parameter 'outputs', for call to function rule"
+  expect_log "got.* 'select', want 'dict or NoneType or function'" # (outputs)
 }
 
 function test_configurable_output_error() {

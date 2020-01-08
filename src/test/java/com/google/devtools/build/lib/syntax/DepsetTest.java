@@ -239,7 +239,8 @@ public class DepsetTest extends EvaluationTestCase {
   public void testTooManyPositionals() throws Exception {
     new BothModesTest()
         .testIfErrorContains(
-            "expected no more than 2 positional arguments, but got 3", "depset([], 'default', [])");
+            "depset() accepts no more than 2 positional arguments but got 3",
+            "depset([], 'default', [])");
   }
 
 

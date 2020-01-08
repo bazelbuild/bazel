@@ -7,11 +7,11 @@ assert_eq(reversed('__test  '.elems()), [' ', ' ', 't', 's', 'e', 't', '_', '_']
 assert_eq(reversed('bbb'.elems()), ['b', 'b', 'b'])
 
 ---
-reversed(None) ### expected value of type 'sequence'
+reversed(None) ### got .* 'NoneType', want 'sequence'
 ---
-reversed(1) ### expected value of type 'sequence'
+reversed(1) ### got .* 'int', want 'sequence'
 ---
-reversed({1: 3}) ### expected value of type 'sequence'
+reversed({1: 3}) ### got .* 'dict', want 'sequence'
 ---
 
 x = ['a', 'b']

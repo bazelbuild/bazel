@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.syntax;
 
 import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
-import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
@@ -28,7 +27,7 @@ import javax.annotation.Nullable;
  * metadata. This is needed because the annotation is sometimes in a superclass.
  *
  * <p>The annotation metadata is duplicated in this class to avoid usage of Java dynamic proxies
- * which are ~7X slower.
+ * which are ~7× slower.
  */
 final class MethodDescriptor {
   private final Method method;
@@ -38,9 +37,9 @@ final class MethodDescriptor {
   private final String doc;
   private final boolean documented;
   private final boolean structField;
-  private final ImmutableList<ParamDescriptor> parameters;
-  private final ParamDescriptor extraPositionals;
-  private final ParamDescriptor extraKeywords;
+  private final ParamDescriptor[] parameters;
+  private final boolean extraPositionals;
+  private final boolean extraKeywords;
   private final boolean selfCall;
   private final boolean allowReturnNones;
   private final boolean useLocation;
@@ -54,9 +53,9 @@ final class MethodDescriptor {
       String doc,
       boolean documented,
       boolean structField,
-      ImmutableList<ParamDescriptor> parameters,
-      ParamDescriptor extraPositionals,
-      ParamDescriptor extraKeywords,
+      ParamDescriptor[] parameters,
+      boolean extraPositionals,
+      boolean extraKeywords,
       boolean selfCall,
       boolean allowReturnNones,
       boolean useLocation,
@@ -98,9 +97,9 @@ final class MethodDescriptor {
         annotation.structField(),
         Arrays.stream(annotation.parameters())
             .map(param -> ParamDescriptor.of(param, semantics))
-            .collect(ImmutableList.toImmutableList()),
-        ParamDescriptor.of(annotation.extraPositionals(), semantics),
-        ParamDescriptor.of(annotation.extraKeywords(), semantics),
+            .toArray(ParamDescriptor[]::new),
+        !annotation.extraPositionals().name().isEmpty(),
+        !annotation.extraKeywords().name().isEmpty(),
         annotation.selfCall(),
         annotation.allowReturnNones(),
         annotation.useLocation(),
@@ -205,28 +204,29 @@ final class MethodDescriptor {
     return allowReturnNones;
   }
 
-  /** @see SkylarkCallable#extraPositionals() */
-  ParamDescriptor getExtraPositionals() {
+  /** @return {@code true} if this method accepts extra arguments ({@code *args}) */
+  boolean acceptsExtraArgs() {
     return extraPositionals;
   }
 
-  ParamDescriptor getExtraKeywords() {
+  /** @see SkylarkCallable#extraKeywords() */
+  boolean acceptsExtraKwargs() {
     return extraKeywords;
   }
 
-  /** @return {@code true} if this method accepts extra arguments ({@code *args}) */
-  boolean isAcceptsExtraArgs() {
-    return !getExtraPositionals().getName().isEmpty();
-  }
-
-  /** @see SkylarkCallable#extraKeywords() */
-  boolean isAcceptsExtraKwargs() {
-    return !getExtraKeywords().getName().isEmpty();
-  }
-
   /** @see SkylarkCallable#parameters() */
-  ImmutableList<ParamDescriptor> getParameters() {
+  ParamDescriptor[] getParameters() {
     return parameters;
+  }
+
+  /** Returns the index of the named parameter or -1 if not found. */
+  int getParameterIndex(String name) {
+    for (int i = 0; i < parameters.length; i++) {
+      if (parameters[i].getName().equals(name)) {
+        return i;
+      }
+    }
+    return -1;
   }
 
   /** @see SkylarkCallable#documented() */

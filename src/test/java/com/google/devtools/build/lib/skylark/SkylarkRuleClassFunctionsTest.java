@@ -458,10 +458,7 @@ public final class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
   @Test
   public void testNonLabelAttrWithProviders() throws Exception {
     checkEvalErrorContains(
-        "unexpected keyword 'providers', for call to method "
-            + "string(default = '', doc = '', mandatory = False, values = []) "
-            + "of 'attr (a language module)'",
-        "attr.string(providers = ['a'])");
+        "unexpected keyword argument 'providers'", "attr.string(providers = ['a'])");
   }
 
   private static final RuleClass.ConfiguredTargetFactory<Object, Object, Exception>
@@ -546,11 +543,7 @@ public final class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
 
   @Test
   public void testAttrDefaultValueBadType() throws Exception {
-    checkEvalErrorContains(
-        "expected value of type 'string' for parameter 'default', for call to method "
-            + "string(default = '', doc = '', mandatory = False, values = []) "
-            + "of 'attr (a language module)'",
-        "attr.string(default = 1)");
+    checkEvalErrorContains("got value of type 'int', want 'string'", "attr.string(default = 1)");
   }
 
   @Test
@@ -580,10 +573,7 @@ public final class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
   @Test
   public void testAttrBadKeywordArguments() throws Exception {
     checkEvalErrorContains(
-        "unexpected keyword 'bad_keyword', for call to method "
-            + "string(default = '', doc = '', mandatory = False, values = []) of "
-            + "'attr (a language module)'",
-        "attr.string(bad_keyword = '')");
+        "string() got unexpected keyword argument 'bad_keyword'", "attr.string(bad_keyword = '')");
   }
 
   @Test
@@ -650,11 +640,7 @@ public final class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
 
   @Test
   public void testAttrDocValueBadType() throws Exception {
-    checkEvalErrorContains(
-        "expected value of type 'string' for parameter 'doc', for call to method "
-            + "string(default = '', doc = '', mandatory = False, values = []) "
-            + "of 'attr (a language module)'",
-        "attr.string(doc = 1)");
+    checkEvalErrorContains("got value of type 'int', want 'string'", "attr.string(doc = 1)");
   }
 
   @Test
@@ -670,7 +656,9 @@ public final class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
   }
 
   @Test
-  public void testLateBoundAttrWorksWithOnlyLabel() throws Exception {
+  public void testFunctionAsAttrDefault() throws Exception {
+    exec("def f(): pass");
+
     // Late-bound attributes, which are computed during analysis as a function
     // of the configuration, are only available for attributes involving labels:
     //   attr.label
@@ -678,48 +666,34 @@ public final class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
     //   attr.label_keyed_string_dict
     //   attr.output,
     //   attr.output_list
-    checkEvalErrorContains(
-        "expected value of type 'string' for parameter 'default', for call to method "
-            + "string(default = '', doc = '', mandatory = False, values = []) "
-            + "of 'attr (a language module)'",
-        "def attr_value(cfg): return 'a'",
-        "attr.string(default=attr_value)");
-  }
+    // (See testRuleClassImplicitOutputFunctionDependingOnComputedAttribute
+    // for a more detailed positive test.)
+    evalAndExport(
+        "attr.label(default=f)",
+        "attr.label_list(default=f)",
+        "attr.label_keyed_string_dict(default=f)");
+    // Note: the default parameter of attr.output{,_list} is deprecated
+    // (see --incompatible_no_output_attr_default)
 
-  @Test
-  public void testNoComputedAttrDefaults() throws Exception {
-    // This is a regression test for github.com/bazelbuild/bazel/issues/9463.
-    // The loading-phase feature, computed attribute defaults, is not exposed
-    // to Starlark.
-    // (Not to be confused with "late-bound defaults", an analysis-phase
-    // mechanism only for attributes involving labels; see test above.)
+    // For all other attribute types, the default value may not be a function.
     //
-    // Most attributes like attr.string should not accept a function as
-    // their default value. (The bug was that the @SkylarkCallable
+    // (This is a regression test for github.com/bazelbuild/bazel/issues/9463.
+    // The loading-phase feature of "computed attribute defaults" is not exposed
+    // to Starlark; the bug was that the @SkylarkCallable
     // annotation was more permissive than the method declaration.)
-    exec("def f(): pass");
+    checkEvalErrorContains("got value of type 'function', want 'string'", "attr.string(default=f)");
     checkEvalErrorContains(
-        "expected value of type 'string' for parameter 'default'", "attr.string(default=f)");
+        "got value of type 'function', want 'sequence of strings'", "attr.string_list(default=f)");
+    checkEvalErrorContains("got value of type 'function', want 'int'", "attr.int(default=f)");
     checkEvalErrorContains(
-        "expected value of type 'sequence of strings' for parameter 'default'",
-        "attr.string_list(default=f)");
+        "got value of type 'function', want 'sequence of ints'", "attr.int_list(default=f)");
+    checkEvalErrorContains("got value of type 'function', want 'bool'", "attr.bool(default=f)");
     checkEvalErrorContains(
-        "expected value of type 'int' for parameter 'default'", "attr.int(default=f)");
+        "got value of type 'function', want 'dict'", "attr.string_dict(default=f)");
     checkEvalErrorContains(
-        "expected value of type 'sequence of ints' for parameter 'default'",
-        "attr.int_list(default=f)");
-    checkEvalErrorContains(
-        "expected value of type 'bool' for parameter 'default'", "attr.bool(default=f)");
-    checkEvalErrorContains(
-        "expected value of type 'dict' for parameter 'default'", "attr.string_dict(default=f)");
-    checkEvalErrorContains(
-        "expected value of type 'dict' for parameter 'default'",
-        "attr.string_list_dict(default=f)");
-    // Also:
-    // - The attr.output(default=...) parameter is deprecated
-    //   (see --incompatible_no_output_attr_default)
-    // - attr.license appears to be disabled already.
-    //   (see --incompatible_no_attr_license)
+        "got value of type 'function', want 'dict'", "attr.string_list_dict(default=f)");
+    // Note: attr.license appears to be disabled already.
+    // (see --incompatible_no_attr_license)
   }
 
   private static final Label FAKE_LABEL = Label.parseAbsoluteUnchecked("//fake/label.bzl");
@@ -812,23 +786,20 @@ public final class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
   public void testRuleUnknownKeyword() throws Exception {
     registerDummyStarlarkFunction();
     checkEvalErrorContains(
-        "unexpected keyword 'bad_keyword', for call to function rule(",
-        "rule(impl, bad_keyword = 'some text')");
+        "unexpected keyword argument 'bad_keyword'", "rule(impl, bad_keyword = 'some text')");
   }
 
   @Test
   public void testRuleImplementationMissing() throws Exception {
     checkEvalErrorContains(
-        "parameter 'implementation' has no default value, for call to function rule(",
-        "rule(attrs = {})");
+        "rule() missing 1 required positional argument: implementation", "rule(attrs = {})");
   }
 
   @Test
   public void testRuleBadTypeForAdd() throws Exception {
     registerDummyStarlarkFunction();
     checkEvalErrorContains(
-        "expected value of type 'dict or NoneType' for parameter 'attrs', "
-            + "for call to function rule(",
+        "in call to rule(), parameter 'attrs' got value of type 'string', want 'dict or NoneType'",
         "rule(impl, attrs = 'some text')");
   }
 
@@ -843,9 +814,7 @@ public final class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
   @Test
   public void testRuleBadTypeForDoc() throws Exception {
     registerDummyStarlarkFunction();
-    checkEvalErrorContains(
-        "expected value of type 'string' for parameter 'doc', for call to function rule(",
-        "rule(impl, doc = 1)");
+    checkEvalErrorContains("got value of type 'int', want 'string'", "rule(impl, doc = 1)");
   }
 
   @Test
@@ -1093,8 +1062,8 @@ public final class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
   @Test
   public void testLabelAttrWrongDefault() throws Exception {
     checkEvalErrorContains(
-        "expected value of type 'Label or string or LateBoundDefault or function or NoneType' "
-            + "for parameter 'default', for call to method label(",
+        "got value of type 'int', want 'Label or string or LateBoundDefault or function or"
+            + " NoneType'",
         "attr.label(default = 123)");
   }
 
@@ -1191,8 +1160,7 @@ public final class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
 
   @Test
   public void testStructPosArgs() throws Exception {
-    checkEvalErrorContains(
-        "expected no more than 0 positional arguments, but got 1", "x = struct(1, b = 2)");
+    checkEvalErrorContains("struct() got unexpected positional argument", "x = struct(1, b = 2)");
   }
 
   @Test
@@ -1452,10 +1420,7 @@ public final class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
 
   @Test
   public void declaredProvidersBadTypeForDoc() throws Exception {
-    checkEvalErrorContains(
-        "expected value of type 'string' for parameter 'doc', for call to function "
-            + "provider(doc = '', fields = None)",
-        "provider(doc = 1)");
+    checkEvalErrorContains("got value of type 'int', want 'string'", "provider(doc = 1)");
   }
 
   @Test
@@ -1594,9 +1559,7 @@ public final class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
   @Test
   public void aspectBadTypeForDoc() throws Exception {
     registerDummyStarlarkFunction();
-    checkEvalErrorContains(
-        "expected value of type 'string' for parameter 'doc', for call to function aspect(",
-        "aspect(impl, doc = 1)");
+    checkEvalErrorContains("got value of type 'int', want 'string'", "aspect(impl, doc = 1)");
   }
 
   @Test

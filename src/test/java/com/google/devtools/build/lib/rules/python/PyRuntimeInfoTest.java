@@ -143,14 +143,14 @@ public class PyRuntimeInfoTest extends SkylarkTestCase {
   @Test
   public void starlarkConstructorErrors_Files() throws Exception {
     checkEvalErrorContains(
-        "expected value of type 'depset of Files or NoneType' for parameter 'files'",
+        "got value of type 'string', want 'depset of Files or NoneType'",
         "PyRuntimeInfo(",
         "    interpreter = dummy_interpreter,",
         "    files = 'abc',",
         "    python_version = 'PY2',",
         ")");
     checkEvalErrorContains(
-        "expected value of type 'depset of Files or NoneType' for parameter 'files'",
+        "got value of type 'depset', want 'depset of Files or NoneType'",
         "PyRuntimeInfo(",
         "    interpreter = dummy_interpreter,",
         "    files = depset(['abc']),",
@@ -168,7 +168,7 @@ public class PyRuntimeInfoTest extends SkylarkTestCase {
   @Test
   public void starlarkConstructorErrors_PythonVersion() throws Exception {
     checkEvalErrorContains(
-        "parameter 'python_version' has no default value",
+        "missing 1 required named argument: python_version",
         "PyRuntimeInfo(",
         "    interpreter_path = '/system/interpreter',",
         ")");

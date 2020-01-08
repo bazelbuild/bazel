@@ -1115,7 +1115,8 @@ public final class SkylarkEvaluationTest extends EvaluationTest {
     // posOrNamed by name and three positional parameters, there is a conflict.
     new SkylarkTest()
         .update("mock", new Mock())
-        .testIfErrorContains("got multiple values for keyword argument 'posOrNamed'",
+        .testIfErrorContains(
+            "with_params() got multiple values for argument 'posOrNamed'",
             "mock.with_params(1, True, True, posOrNamed=True, named=True)");
   }
 
@@ -1123,17 +1124,20 @@ public final class SkylarkEvaluationTest extends EvaluationTest {
   public void testTooManyPositionalArgs() throws Exception {
     new SkylarkTest()
         .update("mock", new Mock())
-        .testIfErrorContains("expected no more than 3 positional arguments, but got 4",
+        .testIfErrorContains(
+            "with_params() accepts no more than 3 positional arguments but got 4",
             "mock.with_params(1, True, True, 'toomany', named=True)");
 
     new SkylarkTest()
         .update("mock", new Mock())
-        .testIfErrorContains("expected no more than 3 positional arguments, but got 5",
+        .testIfErrorContains(
+            "with_params() accepts no more than 3 positional arguments but got 5",
             "mock.with_params(1, True, True, 'toomany', 'alsotoomany', named=True)");
 
     new SkylarkTest()
         .update("mock", new Mock())
-        .testIfErrorContains("expected no more than 1 positional arguments, but got 2",
+        .testIfErrorContains(
+            "is_empty() accepts no more than 1 positional argument but got 2",
             "mock.is_empty('a', 'b')");
   }
 
@@ -1161,19 +1165,12 @@ public final class SkylarkEvaluationTest extends EvaluationTest {
         .update("mock", new Mock())
         .setUp("")
         .testIfExactError(
-            "parameter 'named' has no default value, for call to "
-                + "method with_params(pos1, pos2 = False, posOrNamed = False, named, "
-                + "optionalNamed = False, nonNoneable = \"a\", noneable = None, multi = None) "
-                + "of 'Mock'",
-            "mock.with_params(1, True)");
+            "with_params() missing 1 required named argument: named", "mock.with_params(1, True)");
     new SkylarkTest()
         .update("mock", new Mock())
         .setUp("")
         .testIfExactError(
-            "parameter 'named' has no default value, for call to "
-                + "method with_params(pos1, pos2 = False, posOrNamed = False, named, "
-                + "optionalNamed = False, nonNoneable = \"a\", noneable = None, multi = None) "
-                + "of 'Mock'",
+            "with_params() missing 1 required named argument: named",
             "mock.with_params(1, True, True)");
     new SkylarkTest()
         .update("mock", new Mock())
@@ -1191,30 +1188,28 @@ public final class SkylarkEvaluationTest extends EvaluationTest {
         .update("mock", new Mock())
         .setUp("")
         .testIfExactError(
-            "unexpected keyword 'n', for call to "
-                + "method with_params(pos1, pos2 = False, posOrNamed = False, named, "
-                + "optionalNamed = False, nonNoneable = \"a\", noneable = None, multi = None) "
-                + "of 'Mock'",
+            "with_params() got unexpected keyword argument 'posornamed' (did you mean"
+                + " 'posOrNamed'?)",
+            "mock.with_params(1, True, named=True, posornamed=True)");
+    new SkylarkTest()
+        .update("mock", new Mock())
+        .setUp("")
+        .testIfExactError(
+            "with_params() got unexpected keyword argument 'n'",
             "mock.with_params(1, True, named=True, posOrNamed=True, n=2)");
     new SkylarkTest()
         .update("mock", new Mock())
         .setUp("")
         .testIfExactError(
-            "parameter 'nonNoneable' cannot be None, for call to method "
-                + "with_params(pos1, pos2 = False, posOrNamed = False, named, "
-                + "optionalNamed = False, nonNoneable = \"a\", noneable = None, multi = None) "
-                + "of 'Mock'",
+            "in call to with_params(), parameter 'nonNoneable' cannot be None",
             "mock.with_params(1, True, True, named=True, optionalNamed=False, nonNoneable=None)");
 
     new SkylarkTest()
         .update("mock", new Mock())
         .setUp("")
         .testIfExactError(
-            "expected value of type 'string or int or sequence of ints or NoneType' for parameter"
-                + " 'multi', for call to method "
-                + "with_params(pos1, pos2 = False, posOrNamed = False, named, "
-                + "optionalNamed = False, nonNoneable = \"a\", noneable = None, multi = None) "
-                + "of 'Mock'",
+            "in call to with_params(), parameter 'multi' got value of type 'bool', want 'string or"
+                + " int or sequence of ints or NoneType'",
             "mock.with_params(1, True, named=True, multi=False)");
 
     // We do not enforce list item parameter type constraints.
@@ -1261,7 +1256,7 @@ public final class SkylarkEvaluationTest extends EvaluationTest {
     new SkylarkTest()
         .update("mock", new Mock())
         .testIfErrorContains(
-            "expected value of type 'string' for parameter 'pos', for call to function MockFn(pos)",
+            "in call to MockFn(), parameter 'pos' got value of type 'int', want 'string'",
             "v = mock(1)");
   }
 
@@ -1966,8 +1961,7 @@ public final class SkylarkEvaluationTest extends EvaluationTest {
   public void testPrintBadKwargs() throws Exception {
     new SkylarkTest()
         .testIfErrorContains(
-            "unexpected keywords 'end', 'other', for call to function print(sep = \" \", *args)",
-            "print(end='x', other='y')");
+            "print() got unexpected keyword argument 'end'", "print(end='x', other='y')");
   }
 
   // Override tests in EvaluationTest incompatible with Skylark

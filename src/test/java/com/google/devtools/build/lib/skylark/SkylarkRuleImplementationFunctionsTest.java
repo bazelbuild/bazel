@@ -222,20 +222,20 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
   @Test
   public void testSkylarkFunctionTooFewArguments() throws Exception {
     checkSkylarkFunctionError(
-        "parameter 'mandatory' has no default value", "mock(mandatory_key='y')");
+        "missing 1 required positional argument: mandatory", "mock(mandatory_key='y')");
   }
 
   @Test
   public void testSkylarkFunctionTooManyArguments() throws Exception {
     checkSkylarkFunctionError(
-        "expected no more than 2 positional arguments, but got 3",
+        "mock() accepts no more than 2 positional arguments but got 3",
         "mock('a', 'b', 'c', mandatory_key='y')");
   }
 
   @Test
   public void testSkylarkFunctionAmbiguousArguments() throws Exception {
     checkSkylarkFunctionError(
-        "got multiple values for keyword argument 'mandatory'",
+        "mock() got multiple values for argument 'mandatory'",
         "mock('by position', mandatory='by_key', mandatory_key='c')");
   }
 
@@ -325,8 +325,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
   public void testCreateSpawnActionArgumentsBadExecutable() throws Exception {
     setRuleContext(createRuleContext("//foo:foo"));
     checkEvalErrorContains(
-        "expected value of type 'File or string or FilesToRunProvider' for parameter 'executable', "
-            + "for call to method run(",
+        "got value of type 'int', want 'File or string or FilesToRunProvider'",
         "ruleContext.actions.run(",
         "  inputs = ruleContext.files.srcs,",
         "  outputs = ruleContext.files.srcs,",
@@ -380,7 +379,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
   public void testCreateSpawnActionUnknownParam() throws Exception {
     setRuleContext(createRuleContext("//foo:foo"));
     checkEvalErrorContains(
-        "unexpected keyword 'bad_param', for call to method run(",
+        "run() got unexpected keyword argument 'bad_param'",
         "f = ruleContext.actions.declare_file('foo.sh')",
         "ruleContext.actions.run(outputs=[], bad_param = 'some text', executable = f)");
   }
@@ -541,8 +540,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
     checkEmptyAction("mnemonic = 'test', inputs = depset(ruleContext.files.srcs)");
 
     checkEvalErrorContains(
-        "parameter 'mnemonic' has no default value, for call to method "
-            + "do_nothing(mnemonic, inputs = []) of 'actions'",
+        "do_nothing() missing 1 required named argument: mnemonic",
         "ruleContext.actions.do_nothing(inputs = ruleContext.files.srcs)");
   }
 
@@ -771,7 +769,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
   public void testBadParamTypeErrorMessage() throws Exception {
     setRuleContext(createRuleContext("//foo:foo"));
     checkEvalErrorContains(
-        "expected value of type 'string or Args' for parameter 'content'",
+        "got value of type 'int', want 'string or Args'",
         "ruleContext.actions.write(",
         "  output = ruleContext.files.srcs[0],",
         "  content = 1,",
@@ -852,8 +850,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
   public void testRunfilesBadSetGenericType() throws Exception {
     setRuleContext(createRuleContext("//foo:foo"));
     checkEvalErrorContains(
-        "expected value of type 'depset of Files or NoneType' for parameter 'transitive_files', "
-            + "for call to method runfiles(",
+        "got value of type 'depset', want 'depset of Files or NoneType'",
         "ruleContext.runfiles(transitive_files=depset([1, 2, 3]))");
   }
 
@@ -950,7 +947,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
   public void testRunfilesBadKeywordArguments() throws Exception {
     setRuleContext(createRuleContext("//foo:foo"));
     checkEvalErrorContains(
-        "unexpected keyword 'bad_keyword', for call to method runfiles(",
+        "runfiles() got unexpected keyword argument 'bad_keyword'",
         "ruleContext.runfiles(bad_keyword = '')");
   }
 
@@ -1307,7 +1304,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
         assertThrows(AssertionError.class, () -> getConfiguredTarget("//test:my_rule"));
     assertThat(expected)
         .hasMessageThat()
-        .contains("unexpected keyword 'foo', for call to function DefaultInfo(");
+        .contains("DefaultInfo() got unexpected keyword argument 'foo'");
   }
 
   @Test
@@ -1999,9 +1996,11 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
         "silly_rule(name = 'silly')");
     thrown.handleAssertionErrors(); // Compatibility with JUnit 4.11
     thrown.expect(AssertionError.class);
+    // This confusing message shows why we should distinguish
+    // built-ins and Starlark functions in their repr strings.
     thrown.expectMessage(
-        "expected value of type 'function' for parameter 'implementation', "
-            + "for call to function rule");
+        "in call to rule(), parameter 'implementation' got value of type 'function', want"
+            + " 'function'");
     getConfiguredTarget("//test:silly");
   }
 
@@ -2365,7 +2364,8 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
         "args = ruleContext.actions.args()",
         "args.add_all(1)");
     checkEvalErrorContains(
-        "expected value of type 'sequence or depset' for parameter 'values'",
+        "in call to add_all(), parameter 'values' got value of type 'int', want 'sequence or"
+            + " depset'",
         "args = ruleContext.actions.args()",
         "args.add_all('--foo', 1)");
   }
@@ -2787,7 +2787,8 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
     assertThat(expected)
         .hasMessageThat()
         .contains(
-            "expected value of type 'int' for parameter 'default', " + "for call to method int(");
+            "in call to int(), parameter 'default' got value of type 'LateBoundDefault', want"
+                + " 'int'");
   }
 
   @Test
