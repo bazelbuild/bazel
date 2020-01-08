@@ -127,7 +127,7 @@ public class TestSummaryPrinter {
       boolean withConfigurationName) {
     BlazeTestStatus status = summary.getStatus();
     // Skip output for tests that failed to build.
-    if (status == BlazeTestStatus.FAILED_TO_BUILD
+    if ((!verboseSummary && status == BlazeTestStatus.FAILED_TO_BUILD)
         || status == BlazeTestStatus.BLAZE_HALTED_BEFORE_TESTING) {
       return;
     }
