@@ -43,7 +43,7 @@ public class J2ObjcLibrary implements RuleConfiguredTargetFactory {
           + " perform J2ObjC dead code stripping.";
 
   public static final ImmutableList<String> J2OBJC_SUPPORTED_RULES =
-      ImmutableList.of("java_import", "java_library", "proto_library");
+      ImmutableList.of("java_import", "java_library", "java_proto_library", "proto_library");
 
   private ObjcCommon common(RuleContext ruleContext) throws InterruptedException {
     return new ObjcCommon.Builder(ruleContext)
