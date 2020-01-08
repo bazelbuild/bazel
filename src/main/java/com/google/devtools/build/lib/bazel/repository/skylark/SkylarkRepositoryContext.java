@@ -253,7 +253,7 @@ public class SkylarkRepositoryContext
     if (!path.getPath().getPathString().startsWith(outputDirectory.getPathString())) {
       throw new RepositoryFunctionException(
           new EvalException(
-              Location.fromFile(path.getPath()),
+              Location.fromFile(path.toString()),
               "Cannot " + operation + " outside of the repository directory for path " + path),
           Transience.PERSISTENT);
     }
@@ -703,7 +703,7 @@ public class SkylarkRepositoryContext
     if (!archivePath.exists()) {
       throw new RepositoryFunctionException(
           new EvalException(
-              Location.fromFile(archivePath.getPath()),
+              Location.fromFile(archivePath.toString()),
               String.format("Archive path '%s' does not exist.", archivePath.toString())),
           Transience.TRANSIENT);
     }

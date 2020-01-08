@@ -20,10 +20,8 @@ import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.events.Location;
-import com.google.devtools.build.lib.events.Location.LineAndColumn;
 import com.google.devtools.build.lib.syntax.StarlarkThread.ReadyToPause;
 import com.google.devtools.build.lib.syntax.StarlarkThread.Stepping;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -71,9 +69,7 @@ public class StarlarkThreadDebuggingTest {
     thread.getGlobals().put("a", 1);
     thread.getGlobals().put("b", 2);
     thread.getGlobals().put("c", 3);
-    Location loc =
-        Location.fromPathAndStartColumn(
-            PathFragment.create("foo/bar"), 0, 0, new LineAndColumn(12, 0));
+    Location loc = Location.fromFileLineColumn("foo/bar", 12, 0);
     StarlarkFunction f = defineFunc(thread);
     thread.push(f, loc);
     thread.updateLexical("a", 4); // shadow parent frame var

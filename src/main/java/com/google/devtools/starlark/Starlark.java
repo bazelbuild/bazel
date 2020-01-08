@@ -23,7 +23,6 @@ import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.devtools.build.lib.syntax.ParserInput;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.lib.syntax.SyntaxError;
-import com.google.devtools.build.lib.vfs.PathFragment; // sad
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
@@ -99,7 +98,7 @@ class Starlark {
     // lines only until the parse is complete.
 
     while ((line = prompt()) != null) {
-      ParserInput input = makeInput("<stdin>", line);
+      ParserInput input = ParserInput.create(line, "<stdin>");
       try {
         Object result = EvalUtils.execAndEvalOptionalFinalExpression(input, thread);
         if (result != null) {
@@ -129,14 +128,10 @@ class Starlark {
     }
   }
 
-  private static ParserInput makeInput(String filename, String content) {
-    return ParserInput.create(content, PathFragment.create(filename));
-  }
-
   /** Execute a Starlark file. */
   private int execute(String filename, String content) {
     try {
-      EvalUtils.exec(makeInput(filename, content), thread);
+      EvalUtils.exec(ParserInput.create(content, filename), thread);
       return 0;
     } catch (SyntaxError ex) {
       for (Event ev : ex.errors()) {

@@ -19,6 +19,7 @@ import com.google.devtools.build.lib.packages.DependencyFilter;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.query2.common.CommonQueryOptions;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Comparator;
 
 /**
@@ -59,10 +60,31 @@ class FormatUtils {
    */
   static String getLocation(Target target, boolean relative) {
     Location location = target.getLocation();
-    return relative
-        ? location.print(
-            target.getPackage().getPackageDirectory().asFragment(),
-            target.getPackage().getNameFragment())
-        : location.print();
+    if (relative) {
+      PathFragment file = PathFragment.create(location.file());
+
+      // If target's location starts with the absolute package directory,
+      // replace it with root-relative package directory.
+      PathFragment dir = target.getPackage().getPackageDirectory().asFragment();
+      PathFragment name = target.getPackage().getNameFragment();
+      if (file.startsWith(dir)) {
+        PathFragment suffix = file.relativeTo(dir);
+
+        StringBuilder buf = new StringBuilder();
+        buf.append(name.getRelative(suffix));
+        int line = location.line();
+        if (line != 0) {
+          buf.append(':').append(line);
+          int column = location.column();
+          if (column != 0) {
+            buf.append(':').append(column);
+          }
+        } else {
+          buf.append(":1"); // legacy "entire file" notation
+        }
+        return buf.toString();
+      }
+    }
+    return location.toString();
   }
 }

@@ -306,7 +306,7 @@ public final class SkylarkEvaluationTest extends EvaluationTest {
         useLocation = true,
         useStarlarkThread = true)
     public String withExtraInterpreterParams(Location location, StarlarkThread thread) {
-      return "with_extra(" + location.getStartLine() + ")";
+      return "with_extra(" + location.line() + ")";
     }
 
     @SkylarkCallable(
@@ -381,7 +381,7 @@ public final class SkylarkEvaluationTest extends EvaluationTest {
           + (noneable != Starlark.NONE ? ", " + noneable : "")
           + (multi != Starlark.NONE ? ", " + multi : "")
           + ", "
-          + location.getStartLine()
+          + location.line()
           + ")";
     }
 

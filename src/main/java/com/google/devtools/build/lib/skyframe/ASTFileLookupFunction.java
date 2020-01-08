@@ -113,7 +113,7 @@ public class ASTFileLookupFunction implements SkyFunction {
     StarlarkFile file = null;
     try {
       byte[] bytes = FileSystemUtils.readWithKnownFileSize(path, fileValue.getSize());
-      ParserInput input = ParserInput.create(bytes, path.asFragment());
+      ParserInput input = ParserInput.create(bytes, path.toString());
       file = StarlarkFile.parseWithDigest(input, path.getDigest());
     } catch (IOException e) {
       throw new ASTLookupFunctionException(new ErrorReadingSkylarkExtensionException(e),

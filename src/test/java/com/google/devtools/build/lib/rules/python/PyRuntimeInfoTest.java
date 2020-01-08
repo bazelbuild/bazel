@@ -91,7 +91,7 @@ public class PyRuntimeInfoTest extends SkylarkTestCase {
         "    python_version = 'PY2',",
         ")");
     PyRuntimeInfo info = (PyRuntimeInfo) lookup("info");
-    assertThat(info.getCreationLoc().getStartOffset()).isEqualTo(7);
+    assertThat(info.getCreationLoc().toString()).isEqualTo(":1:8");
     assertThat(info.getInterpreterPath()).isNull();
     assertThat(info.getInterpreter()).isEqualTo(dummyInterpreter);
     assertHasOrderAndContainsExactly(info.getFiles(), Order.STABLE_ORDER, dummyFile);
@@ -106,7 +106,7 @@ public class PyRuntimeInfoTest extends SkylarkTestCase {
         "    python_version = 'PY2',",
         ")");
     PyRuntimeInfo info = (PyRuntimeInfo) lookup("info");
-    assertThat(info.getCreationLoc().getStartOffset()).isEqualTo(7);
+    assertThat(info.getCreationLoc().toString()).isEqualTo(":1:8");
     assertThat(info.getInterpreterPath()).isEqualTo(PathFragment.create("/system/interpreter"));
     assertThat(info.getInterpreter()).isNull();
     assertThat(info.getFiles()).isNull();

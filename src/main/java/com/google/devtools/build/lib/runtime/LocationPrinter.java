@@ -51,7 +51,7 @@ class LocationPrinter {
       @Nullable PathFragment workspacePathFragment,
       ImmutableList<Root> packagePathRoots) {
     PathFragment relativePathToUse = null;
-    PathFragment locationPathFragment = location.getPath();
+    PathFragment locationPathFragment = PathFragment.create(location.file());
     if (locationPathFragment.isAbsolute()) {
       if (workspacePathFragment != null && locationPathFragment.startsWith(workspacePathFragment)) {
         relativePathToUse = locationPathFragment.relativeTo(workspacePathFragment);
@@ -64,6 +64,17 @@ class LocationPrinter {
         }
       }
     }
-    return relativePathToUse == null ? location.print() : location.printWithPath(relativePathToUse);
+
+    StringBuilder b = new StringBuilder();
+    b.append(relativePathToUse != null ? relativePathToUse : locationPathFragment);
+    int line = location.line();
+    if (line != 0) {
+      b.append(':').append(line);
+      int column = location.column();
+      if (column != 0) {
+        b.append(':').append(column);
+      }
+    }
+    return b.toString();
   }
 }

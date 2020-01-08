@@ -92,17 +92,18 @@ final class Eval {
       execAugmentedAssignment(node);
     } else {
       Object rvalue = eval(thread, node.getRHS());
-      assign(node.getLHS(), rvalue, thread, node.getLocation());
+      // TODO(adonovan): use location of = operator.
+      assign(node.getLHS(), rvalue, thread, node.getStartLocation());
     }
   }
 
   private TokenKind execFor(ForStatement node) throws EvalException, InterruptedException {
     Object o = eval(thread, node.getCollection());
     Iterable<?> seq = Starlark.toIterable(o);
-    EvalUtils.lock(o, node.getLocation());
+    EvalUtils.lock(o, node.getStartLocation());
     try {
       for (Object it : seq) {
-        assign(node.getLHS(), it, thread, node.getLocation());
+        assign(node.getLHS(), it, thread, node.getLHS().getStartLocation());
 
         switch (execStatementsInternal(node.getBlock())) {
           case PASS:
@@ -121,7 +122,7 @@ final class Eval {
         }
       }
     } finally {
-      EvalUtils.unlock(o, node.getLocation());
+      EvalUtils.unlock(o, node.getStartLocation());
     }
     return TokenKind.PASS;
   }
@@ -151,7 +152,7 @@ final class Eval {
         node.getIdentifier().getName(),
         new StarlarkFunction(
             node.getIdentifier().getName(),
-            node.getIdentifier().getLocation(),
+            node.getIdentifier().getStartLocation(),
             sig,
             defaults,
             node.getStatements(),
@@ -175,7 +176,7 @@ final class Eval {
       // TODO(adonovan): make this a static check.
       if (orig.isPrivate() && !node.mayLoadInternalSymbols()) {
         throw new EvalException(
-            orig.getLocation(),
+            orig.getStartLocation(),
             "symbol '" + orig.getName() + "' is private and cannot be imported.");
       }
 
@@ -184,7 +185,7 @@ final class Eval {
       StarlarkThread.Extension module = thread.getExtension(moduleName);
       if (module == null) {
         throw new EvalException(
-            node.getImport().getLocation(),
+            node.getImport().getStartLocation(),
             String.format(
                 "file '%s' was not correctly loaded. "
                     + "Make sure the 'load' statement appears in the global scope in your file",
@@ -195,7 +196,7 @@ final class Eval {
       Object value = module.getBindings().get(orig.getName());
       if (value == null) {
         throw new EvalException(
-            orig.getLocation(),
+            orig.getStartLocation(),
             String.format(
                 "file '%s' does not contain symbol '%s'%s",
                 moduleName,
@@ -221,7 +222,7 @@ final class Eval {
 
   private TokenKind exec(Statement st) throws EvalException, InterruptedException {
     if (dbg != null) {
-      dbg.before(thread, st.getLocation());
+      dbg.before(thread, st.getStartLocation());
     }
 
     try {
@@ -364,7 +365,7 @@ final class Eval {
     Expression lhs = stmt.getLHS();
     TokenKind op = stmt.getOperator();
     Expression rhs = stmt.getRHS();
-    Location loc = stmt.getLocation();
+    Location loc = stmt.getStartLocation(); // TODO(adonovan): use operator location
 
     if (lhs instanceof Identifier) {
       Object x = eval(thread, lhs);
@@ -461,7 +462,9 @@ final class Eval {
               return Starlark.truth(x) ? x : eval(thread, binop.getY());
             default:
               Object y = eval(thread, binop.getY());
-              return EvalUtils.binaryOp(binop.getOperator(), x, y, thread, binop.getLocation());
+              // TODO(adonovan): use operator location
+              return EvalUtils.binaryOp(
+                  binop.getOperator(), x, y, thread, binop.getStartLocation());
           }
         }
 
@@ -479,11 +482,11 @@ final class Eval {
         {
           DictExpression dictexpr = (DictExpression) expr;
           Dict<Object, Object> dict = Dict.of(thread.mutability());
-          Location loc = dictexpr.getLocation();
           for (DictExpression.Entry entry : dictexpr.getEntries()) {
             Object k = eval(thread, entry.getKey());
             Object v = eval(thread, entry.getValue());
             int before = dict.size();
+            Location loc = entry.getKey().getStartLocation(); // TODO(adonovan): use colon location
             dict.put(k, v, loc);
             if (dict.size() == before) {
               throw new EvalException(
@@ -498,7 +501,8 @@ final class Eval {
           DotExpression dot = (DotExpression) expr;
           Object object = eval(thread, dot.getObject());
           String name = dot.getField().getName();
-          Object result = EvalUtils.getAttr(thread, dot.getLocation(), object, name);
+          // TODO(adonovan): use location of dot token.
+          Object result = EvalUtils.getAttr(thread, dot.getStartLocation(), object, name);
           if (result == null) {
             throw EvalUtils.getMissingAttrException(object, name, thread.getSemantics());
           }
@@ -553,7 +557,7 @@ final class Eval {
             Object value = eval(thread, star.getValue());
             if (!(value instanceof StarlarkIterable)) {
               throw new EvalException(
-                  call.getLocation(),
+                  star.getStartLocation(),
                   "argument after * must be an iterable, not " + EvalUtils.getDataTypeName(value));
             }
             // TODO(adonovan): opt: if value.size is known, preallocate (and skip if empty).
@@ -568,7 +572,7 @@ final class Eval {
             Object value = eval(thread, starstar.getValue());
             if (!(value instanceof Dict)) {
               throw new EvalException(
-                  call.getLocation(),
+                  starstar.getStartLocation(),
                   "argument after ** must be a dict, not " + EvalUtils.getDataTypeName(value));
             }
             Dict<?, ?> kwargs = (Dict<?, ?>) value;
@@ -577,7 +581,7 @@ final class Eval {
             for (Map.Entry<?, ?> e : kwargs.entrySet()) {
               if (!(e.getKey() instanceof String)) {
                 throw new EvalException(
-                    call.getLocation(),
+                    starstar.getStartLocation(),
                     "keywords must be strings, not " + EvalUtils.getDataTypeName(e.getKey()));
               }
               named[j++] = e.getKey();
@@ -585,7 +589,7 @@ final class Eval {
             }
           }
 
-          return Starlark.fastcall(thread, fn, call.getLocation(), positional, named);
+          return Starlark.fastcall(thread, fn, call.getStartLocation(), positional, named);
         }
 
       case IDENTIFIER:
@@ -599,7 +603,7 @@ final class Eval {
               String error =
                   ValidationEnvironment.createInvalidIdentifierException(
                       id.getName(), thread.getVariableNames());
-              throw new EvalException(id.getLocation(), error);
+              throw new EvalException(id.getStartLocation(), error);
             }
             return result;
           }
@@ -629,7 +633,7 @@ final class Eval {
                       + name
                       + "' is referenced before assignment.";
             }
-            throw new EvalException(id.getLocation(), error);
+            throw new EvalException(id.getStartLocation(), error);
           }
           return result;
         }
@@ -639,7 +643,8 @@ final class Eval {
           IndexExpression index = (IndexExpression) expr;
           Object object = eval(thread, index.getObject());
           Object key = eval(thread, index.getKey());
-          return EvalUtils.index(object, key, thread, index.getLocation());
+          // TODO(adonovan): use location of lbracket token
+          return EvalUtils.index(object, key, thread, index.getStartLocation());
         }
 
       case INTEGER_LITERAL:
@@ -663,7 +668,7 @@ final class Eval {
           Object start = slice.getStart() == null ? Starlark.NONE : eval(thread, slice.getStart());
           Object end = slice.getEnd() == null ? Starlark.NONE : eval(thread, slice.getEnd());
           Object step = slice.getStep() == null ? Starlark.NONE : eval(thread, slice.getStep());
-          Location loc = slice.getLocation();
+          Location loc = slice.getStartLocation(); // TODO(adonovan): use lbracket location
 
           // TODO(adonovan): move the rest into a public EvalUtils.slice() operator.
 
@@ -703,7 +708,7 @@ final class Eval {
         {
           UnaryOperatorExpression unop = (UnaryOperatorExpression) expr;
           Object x = eval(thread, unop.getX());
-          return EvalUtils.unaryOp(unop.getOperator(), x, unop.getLocation());
+          return EvalUtils.unaryOp(unop.getOperator(), x, unop.getStartLocation());
         }
     }
     throw new IllegalArgumentException("unexpected expression: " + expr.kind());
@@ -744,7 +749,7 @@ final class Eval {
             Comprehension.For forClause = (Comprehension.For) clause;
 
             Object iterable = eval(thread, forClause.getIterable());
-            Location loc = comp.getLocation();
+            Location loc = comp.getStartLocation(); // TODO(adonovan): use location of 'for' token
             Iterable<?> listValue = Starlark.toIterable(iterable);
             EvalUtils.lock(iterable, loc);
             try {
@@ -771,7 +776,7 @@ final class Eval {
           Object k = eval(thread, body.getKey());
           EvalUtils.checkHashable(k);
           Object v = eval(thread, body.getValue());
-          dict.put(k, v, comp.getLocation());
+          dict.put(k, v, comp.getStartLocation()); // TODO(adonovan): use colon location
         } else {
           list.add(eval(thread, ((Expression) comp.getBody())));
         }

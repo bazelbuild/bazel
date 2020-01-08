@@ -364,7 +364,7 @@ public final class Mutability implements AutoCloseable {
 
     if (mutability.isLocked(object)) {
       Iterable<String> locs =
-          Iterables.transform(mutability.getLockLocations(object), Location::print);
+          Iterables.transform(mutability.getLockLocations(object), Location::toString);
       throw new MutabilityException(
           "trying to mutate a locked object (is it currently being iterated over by a for loop "
           + "or comprehension?)\n"
