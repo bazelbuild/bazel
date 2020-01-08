@@ -280,8 +280,8 @@ public abstract class StarlarkDefinedConfigTransition implements ConfigurationTr
         StarlarkThread thread =
             StarlarkThread.builder(mutability)
                 .setSemantics(semantics)
-                .setEventHandler(getEventHandler())
                 .build();
+        thread.setPrintHandler(StarlarkThread.makeDebugPrintHandler(getEventHandler()));
         starlarkContext.storeInThread(thread);
         return Starlark.call(thread, function, args, /*kwargs=*/ ImmutableMap.of());
       }

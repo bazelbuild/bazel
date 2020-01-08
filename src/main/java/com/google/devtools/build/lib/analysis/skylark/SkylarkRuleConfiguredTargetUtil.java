@@ -101,8 +101,10 @@ public final class SkylarkRuleConfiguredTargetUtil {
       StarlarkThread thread =
           StarlarkThread.builder(mutability)
               .setSemantics(starlarkSemantics)
-              .setEventHandler(ruleContext.getAnalysisEnvironment().getEventHandler())
               .build();
+      thread.setPrintHandler(
+          StarlarkThread.makeDebugPrintHandler(
+              ruleContext.getAnalysisEnvironment().getEventHandler()));
 
       new BazelStarlarkContext(
               BazelStarlarkContext.Phase.ANALYSIS,

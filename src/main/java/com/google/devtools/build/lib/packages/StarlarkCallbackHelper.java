@@ -72,8 +72,8 @@ public class StarlarkCallbackHelper {
       StarlarkThread thread =
           StarlarkThread.builder(mutability)
               .setSemantics(starlarkSemantics)
-              .setEventHandler(eventHandler)
               .build();
+      thread.setPrintHandler(StarlarkThread.makeDebugPrintHandler(eventHandler));
       context.storeInThread(thread);
       return Starlark.call(
           thread,

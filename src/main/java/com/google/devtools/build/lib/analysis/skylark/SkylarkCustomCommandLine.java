@@ -32,7 +32,6 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.events.Location;
-import com.google.devtools.build.lib.events.NullEventHandler;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
 import com.google.devtools.build.lib.skylarkbuildapi.FileRootApi;
@@ -794,8 +793,8 @@ public class SkylarkCustomCommandLine extends CommandLine {
       StarlarkThread thread =
           StarlarkThread.builder(mutability)
               .setSemantics(starlarkSemantics)
-              .setEventHandler(NullEventHandler.INSTANCE)
               .build();
+      thread.setPrintHandler((th, msg) -> {}); // why does this code discard prints?
       return Starlark.call(thread, mapFn, args, /*kwargs=*/ ImmutableMap.of());
     } catch (EvalException e) {
       throw new CommandLineExpansionException(errorMessage(e.getMessage(), location, e.getCause()));
@@ -817,9 +816,9 @@ public class SkylarkCustomCommandLine extends CommandLine {
       StarlarkThread thread =
           StarlarkThread.builder(mutability)
               .setSemantics(starlarkSemantics)
-              // TODO(b/77140311): Error if we issue print statements
-              .setEventHandler(NullEventHandler.INSTANCE)
               .build();
+      // TODO(b/77140311): Error if we issue print statements
+      thread.setPrintHandler((th, msg) -> {});
       int count = originalValues.size();
       for (int i = 0; i < count; ++i) {
         Object ret =

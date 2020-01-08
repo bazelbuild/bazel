@@ -987,9 +987,9 @@ public final class PackageFactory {
           StarlarkThread.builder(mutability)
               .setGlobals(Module.createForBuiltins(env.build()))
               .setSemantics(semantics)
-              .setEventHandler(pkgContext.eventHandler) // for print statements
               .setImportedExtensions(imports)
               .build();
+      thread.setPrintHandler(StarlarkThread.makeDebugPrintHandler(pkgContext.eventHandler));
 
       // Validate.
       ValidationEnvironment.validateFile(

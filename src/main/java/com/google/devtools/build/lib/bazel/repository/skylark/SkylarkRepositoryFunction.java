@@ -124,8 +124,8 @@ public class SkylarkRepositoryFunction extends RepositoryFunction {
       StarlarkThread thread =
           StarlarkThread.builder(mutability)
               .setSemantics(starlarkSemantics)
-              .setEventHandler(env.getListener())
               .build();
+      thread.setPrintHandler(StarlarkThread.makeDebugPrintHandler(env.getListener()));
 
       // The fetch phase does not need the tools repository
       // or the fragment map because it happens before analysis.

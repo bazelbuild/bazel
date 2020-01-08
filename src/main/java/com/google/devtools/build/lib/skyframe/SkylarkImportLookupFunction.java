@@ -594,7 +594,7 @@ public class SkylarkImportLookupFunction implements SkyFunction {
               extensionLabel,
               mutability,
               starlarkSemantics,
-              eventHandler,
+              StarlarkThread.makeDebugPrintHandler(eventHandler),
               file.getContentHashCode(),
               importMap,
               packageFactory.getNativeModule(inWorkspace),

@@ -41,7 +41,6 @@ import com.google.devtools.build.lib.analysis.skylark.SkylarkModules;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
-import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.graph.Digraph;
 import com.google.devtools.build.lib.graph.Node;
 import com.google.devtools.build.lib.packages.Attribute;
@@ -799,7 +798,7 @@ public /*final*/ class ConfiguredRuleClassProvider implements RuleClassProvider 
       Label fileLabel,
       Mutability mutability,
       StarlarkSemantics starlarkSemantics,
-      EventHandler eventHandler,
+      StarlarkThread.PrintHandler printHandler,
       String astFileContentHashCode,
       Map<String, Extension> importMap,
       ClassObject nativeModule,
@@ -811,10 +810,10 @@ public /*final*/ class ConfiguredRuleClassProvider implements RuleClassProvider 
         StarlarkThread.builder(mutability)
             .setGlobals(Module.createForBuiltins(env).withLabel(fileLabel))
             .setSemantics(starlarkSemantics)
-            .setEventHandler(eventHandler)
             .setFileContentHashCode(astFileContentHashCode)
             .setImportedExtensions(importMap)
             .build();
+    thread.setPrintHandler(printHandler);
 
     new BazelStarlarkContext(
             BazelStarlarkContext.Phase.LOADING,

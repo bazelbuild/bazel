@@ -21,7 +21,6 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Ordering;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet.NestedSetDepthException;
 import com.google.devtools.build.lib.collect.nestedset.Order;
-import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkGlobalLibrary;
@@ -341,6 +340,7 @@ class MethodLibrary {
     try {
       return Starlark.str(x);
     } catch (NestedSetDepthException exception) {
+      // TODO(adonovan): move into NestedSetDepthException so it becomes throw e.toEvalException().
       throw Starlark.errorf(
           "depset exceeded maximum depth %d"
               + ". This was only discovered when attempting to flatten the depset for str(), as "
@@ -832,31 +832,31 @@ class MethodLibrary {
       extraPositionals = @Param(name = "args", doc = "The objects to print."),
       useStarlarkThread = true)
   public NoneType print(String sep, Sequence<?> args, StarlarkThread thread) throws EvalException {
-    try {
-      Printer p = Printer.getPrinter();
-      String separator = "";
-      for (Object x : args) {
-        p.append(separator);
+    Printer p = Printer.getPrinter();
+    String separator = "";
+    for (Object x : args) {
+      p.append(separator);
+      try {
         p.debugPrint(x);
-        separator = sep;
+      } catch (NestedSetDepthException exception) {
+        throw Starlark.errorf(
+            "depset exceeded maximum depth %d. This was only discovered when attempting to flatten"
+                + " the depset for print(), as the size of depsets is unknown until flattening."
+                + " See https://github.com/bazelbuild/bazel/issues/9180 for details and possible "
+                + "solutions.",
+            exception.getDepthLimit());
       }
-      // As part of the integration test "skylark_flag_test.sh", if the
-      // "--internal_skylark_flag_test_canary" flag is enabled, append an extra marker string to
-      // the output.
-      if (thread.getSemantics().internalSkylarkFlagTestCanary()) {
-        p.append("<== skylark flag test ==>");
-      }
-      thread.handleEvent(Event.debug(thread.getCallerLocation(), p.toString()));
-      return Starlark.NONE;
-    } catch (NestedSetDepthException exception) {
-      throw Starlark.errorf(
-          "depset exceeded maximum depth %d"
-              + ". This was only discovered when attempting to flatten the depset for print(), as "
-              + "the size of depsets is unknown until flattening. "
-              + "See https://github.com/bazelbuild/bazel/issues/9180 for details and possible "
-              + "solutions.",
-          exception.getDepthLimit());
+      separator = sep;
     }
+    // As part of the integration test "skylark_flag_test.sh", if the
+    // "--internal_skylark_flag_test_canary" flag is enabled, append an extra marker string to
+    // the output.
+    if (thread.getSemantics().internalSkylarkFlagTestCanary()) {
+      p.append("<== skylark flag test ==>");
+    }
+
+    thread.getPrintHandler().print(thread, p.toString());
+    return Starlark.NONE;
   }
 
   @SkylarkCallable(

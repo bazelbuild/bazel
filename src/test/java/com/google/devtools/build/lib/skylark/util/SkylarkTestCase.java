@@ -59,11 +59,11 @@ public abstract class SkylarkTestCase extends BuildViewTestCase {
             StarlarkThread thread =
                 StarlarkThread.builder(mutability)
                     .setSemantics(getSkylarkSemantics())
-                    .setEventHandler(getEventHandler())
                     .setGlobals(
                         globals.withLabel(
                             Label.parseAbsoluteUnchecked("//test:label", /*defaultToMain=*/ false)))
                     .build();
+            thread.setPrintHandler(StarlarkThread.makeDebugPrintHandler(getEventHandler()));
 
             // This StarlarkThread has no PackageContext, so attempts to create a rule will fail.
             // Rule creation is tested by SkylarkIntegrationTest.

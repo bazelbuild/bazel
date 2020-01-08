@@ -75,8 +75,8 @@ public class SkylarkAspectFactory implements ConfiguredAspectFactory {
       StarlarkThread thread =
           StarlarkThread.builder(mutability)
               .setSemantics(analysisEnv.getSkylarkSemantics())
-              .setEventHandler(analysisEnv.getEventHandler())
               .build();
+      thread.setPrintHandler(StarlarkThread.makeDebugPrintHandler(analysisEnv.getEventHandler()));
 
       new BazelStarlarkContext(
               BazelStarlarkContext.Phase.ANALYSIS,

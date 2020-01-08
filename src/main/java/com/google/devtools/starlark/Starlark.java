@@ -14,8 +14,6 @@
 package com.google.devtools.starlark;
 
 import com.google.devtools.build.lib.events.Event;
-import com.google.devtools.build.lib.events.EventHandler;
-import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.Module;
@@ -40,29 +38,21 @@ class Starlark {
   private static final String START_PROMPT = ">> ";
   private static final String CONTINUATION_PROMPT = ".. ";
 
-  private static final EventHandler PRINT_HANDLER =
-      new EventHandler() {
-        @Override
-        public void handle(Event event) {
-          if (event.getKind() == EventKind.ERROR) {
-            System.err.println(event.getMessage());
-          } else {
-            System.out.println(event.getMessage());
-          }
-        }
-      };
-
   private static final Charset CHARSET = StandardCharsets.ISO_8859_1;
   private final BufferedReader reader =
       new BufferedReader(new InputStreamReader(System.in, CHARSET));
   private final Mutability mutability = Mutability.create("interpreter");
-  private final StarlarkThread thread =
-      StarlarkThread.builder(mutability)
-          .useDefaultSemantics()
-          .setGlobals(
-              Module.createForBuiltins(com.google.devtools.build.lib.syntax.Starlark.UNIVERSE))
-          .setEventHandler(PRINT_HANDLER)
-          .build();
+  private final StarlarkThread thread;
+
+  {
+    thread =
+        StarlarkThread.builder(mutability)
+            .useDefaultSemantics()
+            .setGlobals(
+                Module.createForBuiltins(com.google.devtools.build.lib.syntax.Starlark.UNIVERSE))
+            .build();
+    thread.setPrintHandler((th, msg) -> System.out.println(msg));
+  }
 
   private String prompt() {
     StringBuilder input = new StringBuilder();

@@ -97,9 +97,6 @@ import javax.annotation.Nullable;
 // As best I can tell, all the skyframe serialization
 // as it applies to LexicalFrames is redundant, as these are transient
 // and should not exist after loading.
-// We will remove the CallExpression parameter from StarlarkFunction.call.
-// Clients should use getCallerLocation instead.
-// The only place that still needs an AST is Bazel's generator_name.
 // Once the API is small and sound, we can start to represent all
 // the lexical frames within a single function using just an array,
 // indexed by a small integer computed during the validation pass.
@@ -483,11 +480,8 @@ public final class StarlarkThread implements Freezable {
   /** The semantics options that affect how Skylark code is evaluated. */
   private final StarlarkSemantics semantics;
 
-  /**
-   * An EventHandler for errors and warnings. This is not used in the BUILD language, however it
-   * might be used in Skylark code called from the BUILD language, so shouldn't be null.
-   */
-  private final EventHandler eventHandler;
+  /** PrintHandler for Starlark print statements. */
+  private PrintHandler printHandler = StarlarkThread::defaultPrintHandler;
 
   /**
    * For each imported extension, a global Skylark frame from which to load() individual bindings.
@@ -584,15 +578,33 @@ public final class StarlarkThread implements Freezable {
   }
 
   /**
-   * Returns an EventHandler for errors and warnings. The BUILD language doesn't use it directly,
-   * but can call Skylark code that does use it.
-   *
-   * @return an EventHandler
+   * A PrintHandler determines how a Starlark thread deals with print statements. It is invoked by
+   * the built-in {@code print} function. Its default behavior is to write the message to standard
+   * error, preceded by the location of the print statement, {@code thread.getCallerLocation()}.
    */
-  // TODO(adonovan): turn this into a print handler and break dependency on EventHandler.
-  // First, we must report scan/parse/validation errors using an exception containing events.
-  public EventHandler getEventHandler() {
-    return eventHandler;
+  public interface PrintHandler {
+    void print(StarlarkThread thread, String msg);
+  }
+
+  /** Returns the PrintHandler for Starlark print statements. */
+  PrintHandler getPrintHandler() {
+    return printHandler;
+  }
+
+  /** Returns a PrintHandler that sends DEBUG events to the provided EventHandler. */
+  // TODO(adonovan): move to lib.events.Event when we reverse the dependency.
+  // For now, clients call thread.setPrintHandler(StarlarkThread.makeDebugPrintHandler(h));
+  public static PrintHandler makeDebugPrintHandler(EventHandler h) {
+    return (thread, msg) -> h.handle(Event.debug(thread.getCallerLocation(), msg));
+  }
+
+  /** Sets the behavior of Starlark print statements executed by this thread. */
+  public void setPrintHandler(PrintHandler h) {
+    this.printHandler = Preconditions.checkNotNull(h);
+  }
+
+  private static void defaultPrintHandler(StarlarkThread thread, String msg) {
+    System.err.println(thread.getCallerLocation() + ": " + msg);
   }
 
   /** Reports whether {@code fn} has been recursively reentered within this thread. */
@@ -653,7 +665,7 @@ public final class StarlarkThread implements Freezable {
   }
 
   /**
-   * Constructs an StarlarkThread. This is the main, most basic constructor.
+   * Constructs a StarlarkThread. This is the main, most basic constructor.
    *
    * @param globalFrame a frame for the global StarlarkThread
    * @param eventHandler an EventHandler for warnings, errors, etc
@@ -663,7 +675,6 @@ public final class StarlarkThread implements Freezable {
   private StarlarkThread(
       Module globalFrame,
       StarlarkSemantics semantics,
-      EventHandler eventHandler,
       Map<String, Extension> importedExtensions,
       @Nullable String fileContentHashCode) {
     this.lexicalFrame = Preconditions.checkNotNull(globalFrame);
@@ -671,7 +682,6 @@ public final class StarlarkThread implements Freezable {
     this.mutability = globalFrame.mutability();
     Preconditions.checkArgument(!globalFrame.mutability().isFrozen());
     this.semantics = semantics;
-    this.eventHandler = eventHandler;
     this.importedExtensions = importedExtensions;
     this.transitiveHashCode =
         computeTransitiveContentHashCode(fileContentHashCode, importedExtensions);
@@ -683,11 +693,14 @@ public final class StarlarkThread implements Freezable {
    * <p>The caller must explicitly set the semantics by calling either {@link #setSemantics} or
    * {@link #useDefaultSemantics}.
    */
+  // TODO(adonovan): eliminate the builder:
+  // - replace importedExtensions by a callback
+  // - eliminate fileContentHashCode
+  // - decouple Module from thread.
   public static class Builder {
     private final Mutability mutability;
     @Nullable private Module parent;
     @Nullable private StarlarkSemantics semantics;
-    @Nullable private EventHandler eventHandler;
     @Nullable private Map<String, Extension> importedExtensions;
     @Nullable private String fileContentHashCode;
 
@@ -713,13 +726,6 @@ public final class StarlarkThread implements Freezable {
 
     public Builder useDefaultSemantics() {
       this.semantics = StarlarkSemantics.DEFAULT_SEMANTICS;
-      return this;
-    }
-
-    /** Sets an EventHandler for errors and warnings. */
-    public Builder setEventHandler(EventHandler eventHandler) {
-      Preconditions.checkState(this.eventHandler == null);
-      this.eventHandler = eventHandler;
       return this;
     }
 
@@ -768,8 +774,7 @@ public final class StarlarkThread implements Freezable {
       if (importedExtensions == null) {
         importedExtensions = ImmutableMap.of();
       }
-      return new StarlarkThread(
-          globalFrame, semantics, eventHandler, importedExtensions, fileContentHashCode);
+      return new StarlarkThread(globalFrame, semantics, importedExtensions, fileContentHashCode);
     }
   }
 
@@ -887,10 +892,6 @@ public final class StarlarkThread implements Freezable {
 
   public StarlarkSemantics getSemantics() {
     return semantics;
-  }
-
-  void handleEvent(Event event) {
-    eventHandler.handle(event);
   }
 
   /**

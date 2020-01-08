@@ -18,9 +18,7 @@ import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.events.EventCollector;
-import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.Location;
-import com.google.devtools.build.lib.events.NullEventHandler;
 import com.google.devtools.build.lib.syntax.util.EvaluationTestCase;
 import com.google.devtools.build.lib.testutil.TestMode;
 import java.util.Collections;
@@ -54,7 +52,8 @@ public class EvaluationTest extends EvaluationTestCase {
   @Test
   public void testExecutionStopsAtFirstError() throws Exception {
     EventCollector printEvents = new EventCollector();
-    StarlarkThread thread = createStarlarkThread(mutability, printEvents);
+    StarlarkThread thread =
+        createStarlarkThread(mutability, StarlarkThread.makeDebugPrintHandler(printEvents));
     ParserInput input = ParserInput.fromLines("print('hello'); x = 1//0; print('goodbye')");
 
     assertThrows(EvalException.class, () -> EvalUtils.exec(input, thread));
@@ -67,7 +66,8 @@ public class EvaluationTest extends EvaluationTestCase {
   @Test
   public void testExecutionNotStartedOnInterrupt() throws Exception {
     EventCollector printEvents = new EventCollector();
-    StarlarkThread thread = createStarlarkThread(mutability, printEvents);
+    StarlarkThread thread =
+        createStarlarkThread(mutability, StarlarkThread.makeDebugPrintHandler(printEvents));
     ParserInput input = ParserInput.fromLines("print('hello');");
 
     try {
@@ -83,7 +83,7 @@ public class EvaluationTest extends EvaluationTestCase {
 
   @Test
   public void testForLoopAbortedOnInterrupt() throws Exception {
-    StarlarkThread thread = createStarlarkThread(mutability, NullEventHandler.INSTANCE);
+    StarlarkThread thread = createStarlarkThread(mutability, (th, msg) -> {});
     InterruptFunction interruptFunction = new InterruptFunction();
     thread.getGlobals().put("interrupt", interruptFunction);
 
@@ -106,7 +106,7 @@ public class EvaluationTest extends EvaluationTestCase {
 
   @Test
   public void testForComprehensionAbortedOnInterrupt() throws Exception {
-    StarlarkThread thread = createStarlarkThread(mutability, NullEventHandler.INSTANCE);
+    StarlarkThread thread = createStarlarkThread(mutability, (th, msg) -> {});
     InterruptFunction interruptFunction = new InterruptFunction();
     thread.getGlobals().put("interrupt", interruptFunction);
 
@@ -124,7 +124,7 @@ public class EvaluationTest extends EvaluationTestCase {
 
   @Test
   public void testFunctionCallsNotStartedOnInterrupt() throws Exception {
-    StarlarkThread thread = createStarlarkThread(mutability, NullEventHandler.INSTANCE);
+    StarlarkThread thread = createStarlarkThread(mutability, (th, msg) -> {});
     InterruptFunction interruptFunction = new InterruptFunction();
     thread.getGlobals().put("interrupt", interruptFunction);
 
@@ -163,14 +163,15 @@ public class EvaluationTest extends EvaluationTestCase {
   }
 
   private static StarlarkThread createStarlarkThread(
-      Mutability mutability, EventHandler eventHandler) {
-    return StarlarkThread.builder(mutability)
-        .useDefaultSemantics()
-        .setGlobals(
-            Module.createForBuiltins(
-                Starlark.UNIVERSE)) // for print... this should not be necessary
-        .setEventHandler(eventHandler)
-        .build();
+      Mutability mutability, StarlarkThread.PrintHandler printHandler) {
+    StarlarkThread thread =
+        StarlarkThread.builder(mutability)
+            .useDefaultSemantics()
+            // Provide the UNIVERSE for print... this should not be necessary
+            .setGlobals(Module.createForBuiltins(Starlark.UNIVERSE))
+            .build();
+    thread.setPrintHandler(printHandler);
+    return thread;
   }
 
   @Test
