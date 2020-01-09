@@ -186,7 +186,7 @@ public abstract class JavaCompilationArgsProvider implements TransitiveInfoProvi
    * Returns a {@link JavaCompilationArgsProvider} that forwards the union of information from the
    * inputs. Direct deps of the inputs are merged into the direct deps of the outputs.
    *
-   * <p>This is moralley equivalent to an exports-only {@code java_import} rule that forwards some
+   * <p>This is morally equivalent to an exports-only {@code java_import} rule that forwards some
    * dependencies.
    */
   public static JavaCompilationArgsProvider merge(Iterable<JavaCompilationArgsProvider> providers) {
