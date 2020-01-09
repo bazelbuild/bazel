@@ -368,7 +368,7 @@ public class RemoteSpawnRunner implements SpawnRunner {
     if (!executionOptions.shouldMaterializeParamFiles()) {
       return;
     }
-    for (ActionInput actionInput : spawn.getInputFiles()) {
+    for (ActionInput actionInput : spawn.getInputFiles().toList()) {
       if (actionInput instanceof ParamFileActionInput) {
         ParamFileActionInput paramFileActionInput = (ParamFileActionInput) actionInput;
         Path outputPath = execRoot.getRelative(paramFileActionInput.getExecPath());

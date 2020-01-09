@@ -22,7 +22,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Streams;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.Action;
@@ -247,7 +246,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
   public Sequence<CommandLineArgsApi> getStarlarkArgs() throws EvalException {
     ImmutableList.Builder<CommandLineArgsApi> result = ImmutableList.builder();
     ImmutableSet<Artifact> directoryInputs =
-        Streams.stream(getInputs())
+        getInputs().toList().stream()
             .filter(artifact -> artifact.isDirectory())
             .collect(ImmutableSet.toImmutableSet());
 
@@ -517,7 +516,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
               .setValue(variable.getValue())
               .build());
     }
-    for (ActionInput input : spawn.getInputFiles()) {
+    for (ActionInput input : spawn.getInputFiles().toList()) {
       // Explicitly ignore middleman artifacts here.
       if (!(input instanceof Artifact) || !((Artifact) input).isMiddlemanArtifact()) {
         info.addInputFile(input.getExecPathString());
@@ -572,7 +571,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
           resourceSet);
       NestedSetBuilder<ActionInput> inputsBuilder = NestedSetBuilder.stableOrder();
       ImmutableList<Artifact> manifests = getRunfilesSupplier().getManifests();
-      for (Artifact input : inputs) {
+      for (Artifact input : inputs.toList()) {
         if (!input.isFileset() && !manifests.contains(input)) {
           inputsBuilder.add(input);
         }

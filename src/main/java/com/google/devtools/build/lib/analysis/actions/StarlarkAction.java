@@ -180,7 +180,7 @@ public final class StarlarkAction extends SpawnAction {
       return;
     }
     Map<String, Artifact> usedInputs = new HashMap<>();
-    for (Artifact input : allInputs) {
+    for (Artifact input : allInputs.toList()) {
       usedInputs.put(input.getExecPathString(), input);
     }
     try (BufferedReader br =

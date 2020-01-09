@@ -146,7 +146,7 @@ public class ActionCacheChecker {
   private static boolean validateArtifacts(
       ActionCache.Entry entry,
       Action action,
-      Iterable<Artifact> actionInputs,
+      NestedSet<Artifact> actionInputs,
       MetadataHandler metadataHandler,
       boolean checkOutput) {
     Map<String, FileArtifactValue> mdMap = new HashMap<>();
@@ -155,7 +155,7 @@ public class ActionCacheChecker {
         mdMap.put(artifact.getExecPathString(), getMetadataMaybe(metadataHandler, artifact));
       }
     }
-    for (Artifact artifact : actionInputs) {
+    for (Artifact artifact : actionInputs.toList()) {
       mdMap.put(artifact.getExecPathString(), getMetadataMaybe(metadataHandler, artifact));
     }
     return !Arrays.equals(DigestUtils.fromMetadata(mdMap), entry.getFileDigest());
@@ -303,7 +303,7 @@ public class ActionCacheChecker {
       @Nullable ActionCache.Entry entry,
       EventHandler handler,
       MetadataHandler metadataHandler,
-      Iterable<Artifact> actionInputs,
+      NestedSet<Artifact> actionInputs,
       Map<String, String> clientEnv,
       Map<String, String> remoteDefaultPlatformProperties) {
     // Unconditional execution can be applied only for actions that are allowed to be executed.

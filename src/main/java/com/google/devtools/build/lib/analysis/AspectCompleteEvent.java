@@ -126,7 +126,8 @@ public class AspectCompleteEvent
   public ReportedArtifacts reportedArtifacts() {
     ImmutableSet.Builder<NestedSet<Artifact>> builder = ImmutableSet.builder();
     if (artifacts != null) {
-      for (ArtifactsInOutputGroup artifactsInGroup : artifacts.getAllArtifactsByOutputGroup()) {
+      for (ArtifactsInOutputGroup artifactsInGroup :
+          artifacts.getAllArtifactsByOutputGroup().toList()) {
         builder.add(artifactsInGroup.getArtifacts());
       }
     }
@@ -141,7 +142,8 @@ public class AspectCompleteEvent
         BuildEventStreamProtos.TargetComplete.newBuilder();
     builder.setSuccess(!failed());
     if (artifacts != null) {
-      for (ArtifactsInOutputGroup artifactsInGroup : artifacts.getAllArtifactsByOutputGroup()) {
+      for (ArtifactsInOutputGroup artifactsInGroup :
+          artifacts.getAllArtifactsByOutputGroup().toList()) {
         OutputGroup.Builder groupBuilder = OutputGroup.newBuilder();
         groupBuilder.setName(artifactsInGroup.getOutputGroup());
         groupBuilder.addFileSets(

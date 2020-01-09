@@ -97,7 +97,7 @@ public final class SandboxHelpers {
     // actions that accept TreeArtifacts as inputs generally expect that the empty directory is
     // created. So we add those explicitly here.
     // TODO(ulfjack): Move this code to SpawnInputExpander.
-    for (ActionInput input : spawn.getInputFiles()) {
+    for (ActionInput input : spawn.getInputFiles().toList()) {
       if (input instanceof Artifact && ((Artifact) input).isTreeArtifact()) {
         List<Artifact> containedArtifacts = new ArrayList<>();
         artifactExpander.expand((Artifact) input, containedArtifacts);
