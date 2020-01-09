@@ -336,6 +336,19 @@ public class ConfigSettingTest extends BuildViewTestCase {
         ")");
   }
 
+  /** Tests that None is not specifiable for a key's value. */
+  @Test
+  public void noneValueInSetting() throws Exception {
+    checkError(
+        "foo",
+        "none",
+        "ERROR /workspace/foo/BUILD:1:1: //foo:none: "
+            + "expected value of type 'string' for dict value element, but got None (NoneType)",
+        "config_setting(",
+        "    name = 'none',",
+        "    values = {\"none_value\": None})");
+  }
+
   /**
    * Tests that *some* settings (values or flag_values) must be specified.
    */
