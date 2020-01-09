@@ -26,6 +26,8 @@ Can not be a commit hash, since typically it is forbidden by git servers.""",
         "remote": "URL of the git repository to fetch from.",
         "init_submodules": """If True, submodules update command will be called after fetching
 and resetting to the specified reference.""",
+        "recursive_init_submodules": """if True, all submodules will be updated recursively
+after fetching and resetting the repo to the specified instance.""",
     },
 )
 
@@ -77,6 +79,7 @@ def git_repo(ctx, directory):
         fetch_ref = fetch_ref,
         remote = ctx.attr.remote,
         init_submodules = ctx.attr.init_submodules,
+        recursive_init_submodules = ctx.attr.recursive_init_submodules,
     )
 
     ctx.report_progress("Cloning %s of %s" % (reset_ref, ctx.attr.remote))
@@ -107,6 +110,9 @@ def _update(ctx, git_repo):
     if git_repo.init_submodules:
         ctx.report_progress("Updating submodules")
         update_submodules(ctx, git_repo)
+    elif git_repo.recursive_init_submodules:
+        ctx.report_progress("Updating submodules recursively")
+        update_submodules(ctx, git_repo, recursive = True)
 
 def init(ctx, git_repo):
     cl = ["git", "init", str(git_repo.directory)]
@@ -143,8 +149,11 @@ def reset(ctx, git_repo):
 def clean(ctx, git_repo):
     _git(ctx, git_repo, "clean", "-xdf")
 
-def update_submodules(ctx, git_repo):
-    _git(ctx, git_repo, "submodule", "update", "--init", "--checkout", "--force")
+def update_submodules(ctx, git_repo, recursive = False):
+    if recursive:
+        _git(ctx, git_repo, "submodule", "update", "--init", "--recursive", "--checkout", "--force")
+    else:
+        _git(ctx, git_repo, "submodule", "update", "--init", "--checkout", "--force")
 
 def _get_head_commit(ctx, git_repo):
     return _git(ctx, git_repo, "log", "-n", "1", "--pretty=format:%H")
