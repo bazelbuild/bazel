@@ -205,7 +205,7 @@ public final class StarlarkAction extends SpawnAction {
   }
 
   @Override
-  public Iterable<Artifact> getInputFilesForExtraAction(
+  public NestedSet<Artifact> getInputFilesForExtraAction(
       ActionExecutionContext actionExecutionContext) {
     return allInputs;
   }

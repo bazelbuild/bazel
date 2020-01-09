@@ -16,12 +16,13 @@ package com.google.devtools.build.lib.actions;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.ResourceManager.ResourceHandle;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.testutil.TestThread;
 import com.google.devtools.build.lib.testutil.TestUtils;
 import java.util.concurrent.CyclicBarrier;
@@ -468,9 +469,9 @@ public class ResourceManagerTest {
     }
 
     @Override
-    public Iterable<Artifact> getInputFilesForExtraAction(
-      ActionExecutionContext actionExecutionContext) {
-    return ImmutableList.of();
+    public NestedSet<Artifact> getInputFilesForExtraAction(
+        ActionExecutionContext actionExecutionContext) {
+      return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
   }
 
     @Override

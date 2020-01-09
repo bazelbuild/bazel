@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.actions;
 
 import com.google.common.base.Preconditions;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -502,20 +501,19 @@ public abstract class AbstractAction extends ActionKeyCacher implements Action, 
    * Returns input files that need to be present to allow extra_action rules to shadow this action
    * correctly when run remotely. This is at least the normal inputs of the action, but may include
    * other files as well. For example C(++) compilation may perform include file header scanning.
-   * This needs to be mirrored by the extra_action rule. Called by
-   * {@link com.google.devtools.build.lib.analysis.extra.ExtraAction} at execution time for actions
-   * that return true for {link #discoversInputs()}.
+   * This needs to be mirrored by the extra_action rule. Called by {@link
+   * com.google.devtools.build.lib.analysis.extra.ExtraAction} at execution time for actions that
+   * return true for {link #discoversInputs()}.
    *
    * @param actionExecutionContext Services in the scope of the action, like the Out/Err streams.
-   * @throws ActionExecutionException only when code called from this method
-   *     throws that exception.
+   * @throws ActionExecutionException only when code called from this method throws that exception.
    * @throws InterruptedException if interrupted
    */
   @Override
-  public Iterable<Artifact> getInputFilesForExtraAction(
+  public NestedSet<Artifact> getInputFilesForExtraAction(
       ActionExecutionContext actionExecutionContext)
       throws ActionExecutionException, InterruptedException {
-    return ImmutableList.of();
+    return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
   }
 
   @Override

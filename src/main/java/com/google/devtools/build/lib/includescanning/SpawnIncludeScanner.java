@@ -257,7 +257,7 @@ public class SpawnIncludeScanner {
     }
 
     @Override
-    public Iterable<Artifact> getInputFilesForExtraAction(
+    public NestedSet<Artifact> getInputFilesForExtraAction(
         ActionExecutionContext actionExecutionContext) {
       throw new UnsupportedOperationException();
     }

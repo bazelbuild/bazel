@@ -1567,7 +1567,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
    */
   @Nullable
   @Override
-  public Iterable<Artifact> getInputFilesForExtraAction(
+  public NestedSet<Artifact> getInputFilesForExtraAction(
       ActionExecutionContext actionExecutionContext)
       throws ActionExecutionException, InterruptedException {
     try {
@@ -1587,7 +1587,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
                   .setSystemIncludeDirs(getSystemIncludeDirs())
                   .setCmdlineIncludes(getCmdlineIncludes(getCompilerOptions()))
                   .build());
-      return Sets.difference(discoveredInputs.toSet(), getInputs().toSet());
+      return discoveredInputs;
     } catch (CommandLineExpansionException e) {
       throw new ActionExecutionException(
           "failed to generate compile environment variables for rule '"

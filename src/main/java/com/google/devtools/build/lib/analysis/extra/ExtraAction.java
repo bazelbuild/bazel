@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.analysis.extra;
 
 import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
@@ -79,7 +78,10 @@ public final class ExtraAction extends SpawnAction {
     super(
         shadowedAction.getOwner(),
         NestedSetBuilder.emptySet(Order.STABLE_ORDER),
-        createInputs(shadowedAction.getInputs(), ImmutableList.<Artifact>of(), extraActionInputs),
+        createInputs(
+            shadowedAction.getInputs(),
+            NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+            extraActionInputs),
         outputs,
         Iterables.getFirst(outputs, null),
         AbstractAction.DEFAULT_RESOURCE_SET,
@@ -125,7 +127,7 @@ public final class ExtraAction extends SpawnAction {
     // We need to update our inputs to take account of any additional
     // inputs the shadowed action may need to do its work.
     NestedSet<Artifact> oldInputs = getInputs();
-    Iterable<Artifact> inputFilesForExtraAction =
+    NestedSet<Artifact> inputFilesForExtraAction =
         shadowedAction.getInputFilesForExtraAction(actionExecutionContext);
     if (inputFilesForExtraAction == null) {
       return null;
@@ -138,11 +140,11 @@ public final class ExtraAction extends SpawnAction {
 
   private static NestedSet<Artifact> createInputs(
       NestedSet<Artifact> shadowedActionInputs,
-      Iterable<Artifact> inputFilesForExtraAction,
+      NestedSet<Artifact> inputFilesForExtraAction,
       NestedSet<Artifact> extraActionInputs) {
     return new NestedSetBuilder<Artifact>(Order.STABLE_ORDER)
         .addTransitive(shadowedActionInputs)
-        .addAll(inputFilesForExtraAction)
+        .addTransitive(inputFilesForExtraAction)
         .addTransitive(extraActionInputs)
         .build();
   }
