@@ -285,40 +285,6 @@ public class TimestampBuilderMediumTest extends TimestampBuilderTestCase {
     assertThat(button2.pressed).isTrue(); // name changed. must rebuild.
   }
 
-  @Test
-  public void testDuplicateInputs() throws Exception {
-    // (/hello,/hello) -> [action] -> /goodbye
-
-    Artifact hello = createSourceArtifact("hello");
-    FileSystemUtils.createDirectoryAndParents(hello.getPath().getParentDirectory());
-    FileSystemUtils.writeContentAsLatin1(hello.getPath(), "hello");
-    Artifact goodbye = createDerivedArtifact("goodbye");
-    Button button = createActionButton(asNestedSet(hello, hello), ImmutableSet.of(goodbye));
-
-    button.pressed = false;
-    buildArtifacts(persistentBuilder(cache), goodbye);
-    assertThat(button.pressed).isTrue(); // built
-
-    button.pressed = false;
-    buildArtifacts(persistentBuilder(cache), goodbye);
-    assertThat(button.pressed).isFalse(); // not rebuilt
-
-    FileSystemUtils.writeContentAsLatin1(hello.getPath(), "hello2");
-
-    button.pressed = false;
-    buildArtifacts(persistentBuilder(cache), goodbye);
-    assertThat(button.pressed).isTrue(); // rebuilt
-
-    button.pressed = false;
-    buildArtifacts(persistentBuilder(cache), goodbye);
-    assertThat(button.pressed).isFalse(); // not rebuilt
-
-    // Creating a new persistent cache does not cause a rebuild
-    cache.save();
-    buildArtifacts(persistentBuilder(createCache()), goodbye);
-    assertThat(button.pressed).isFalse(); // not rebuilt
-  }
-
   /**
    * Tests that changing timestamp of the input file without changing it content
    * does not cause action reexecution when metadata cache uses file digests in

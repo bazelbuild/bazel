@@ -637,19 +637,6 @@ public class ParallelBuilderTest extends TimestampBuilderTestCase {
     assertThat(e).hasMessageThat().isEqualTo(CYCLE_MSG);
   }
 
-  @Test
-  public void testDuplicatedInput() throws Exception {
-    // <null> -> [action] -> foo
-    // (foo, foo) -> [action] -> bar
-    Artifact foo = createDerivedArtifact("foo");
-    Artifact bar = createDerivedArtifact("bar");
-    registerAction(new TestAction(TestAction.NO_EFFECT, emptyNestedSet, ImmutableSet.of(foo)));
-    registerAction(
-        new TestAction(TestAction.NO_EFFECT, asNestedSet(foo, foo), ImmutableSet.of(bar)));
-    buildArtifacts(bar);
-  }
-
-
   // Regression test for bug #735765, "ParallelBuilder still issues new jobs
   // after one has failed, without --keep-going."  The incorrect behaviour is
   // that, when the first job fails, while no new jobs are added to the queue
