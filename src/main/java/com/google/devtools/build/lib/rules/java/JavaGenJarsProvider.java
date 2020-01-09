@@ -37,7 +37,7 @@ public final class JavaGenJarsProvider
   @Nullable private final Artifact genSourceJar;
 
   private final NestedSet<Artifact> processorClasspath;
-  private final ImmutableList<String> processorClassNames;
+  private final NestedSet<String> processorClassNames;
 
   private final NestedSet<Artifact> transitiveGenClassJars;
   private final NestedSet<Artifact> transitiveGenSourceJars;
@@ -66,7 +66,7 @@ public final class JavaGenJarsProvider
         genClassJar,
         genSourceJar,
         plugins.plugins().processorClasspath(),
-        plugins.plugins().processorClasses().toList(),
+        plugins.plugins().processorClasses(),
         classJarsBuilder.build(),
         sourceJarsBuilder.build());
   }
@@ -77,7 +77,7 @@ public final class JavaGenJarsProvider
       @Nullable Artifact genClassJar,
       @Nullable Artifact genSourceJar,
       NestedSet<Artifact> processorClasspath,
-      ImmutableList<String> processorClassNames,
+      NestedSet<String> processorClassNames,
       NestedSet<Artifact> transitiveGenClassJars,
       NestedSet<Artifact> transitiveGenSourceJars) {
     this.usesAnnotationProcessing = usesAnnotationProcessing;
@@ -135,6 +135,6 @@ public final class JavaGenJarsProvider
 
   @Override
   public ImmutableList<String> getProcessorClassNames() {
-    return processorClassNames;
+    return processorClassNames.toList();
   }
 }
