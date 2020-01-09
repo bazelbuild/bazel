@@ -153,7 +153,7 @@ platform(
     constraint_values = [
         ":highcpu_machine",
     ],
-    parents = ["@bazel_tools//platforms:host_platform"],
+    parents = ["@local_config_platform//:host"],
 )
 
 REMOTE_PLATFORMS = ("rbe_ubuntu1604_java8", "rbe_ubuntu1804_java11")
