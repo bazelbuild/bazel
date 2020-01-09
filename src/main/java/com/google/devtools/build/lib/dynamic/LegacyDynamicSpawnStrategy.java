@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.dynamic;
 
+
 import com.google.auto.value.AutoValue;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
@@ -22,7 +23,9 @@ import com.google.common.collect.Lists;
 import com.google.common.io.Files;
 import com.google.devtools.build.lib.actions.ActionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
+import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
+import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.ExecutionStrategy;
 import com.google.devtools.build.lib.actions.ExecutorInitException;
 import com.google.devtools.build.lib.actions.SandboxedSpawnActionContext;
@@ -193,7 +196,28 @@ public class LegacyDynamicSpawnStrategy implements SpawnActionContext {
   public List<SpawnResult> exec(
       final Spawn spawn, final ActionExecutionContext actionExecutionContext)
       throws ExecException, InterruptedException {
-
+    if (options.requireAvailabilityInfo) {
+      if (spawn.getExecutionInfo().containsKey(ExecutionRequirements.REQUIRES_DARWIN)
+          && !spawn.getMnemonic().equals("Genrule")) {
+        if (!spawn.getExecutionInfo().containsKey(ExecutionRequirements.REQUIREMENTS_SET)) {
+          throw new EnvironmentalExecException(
+              String.format(
+                  "The following spawn was missing Xcode-related execution requirements. Please"
+                      + " let the Bazel team know if you encounter this issue. You can work around"
+                      + " this error by passing --experimental_require_availability_info=false --"
+                      + " at your own risk! This may cause some actions to be executed on the"
+                      + " wrong platform, which can result in build failures.\n"
+                      + "Failing spawn: mnemonic = %s\n"
+                      + "tool files = %s\n"
+                      + "execution platform = %s\n"
+                      + "execution info = %s\n",
+                  spawn.getMnemonic(),
+                  spawn.getToolFiles(),
+                  spawn.getExecutionPlatform(),
+                  spawn.getExecutionInfo()));
+        }
+      }
+    }
     ExecutionPolicy executionPolicy = getExecutionPolicy.apply(spawn);
 
     // If a Spawn cannot run remotely, we must always execute it locally. Resources will already

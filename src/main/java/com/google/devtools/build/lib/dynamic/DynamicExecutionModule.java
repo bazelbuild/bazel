@@ -168,6 +168,9 @@ public class DynamicExecutionModule extends BlazeModule {
     if (!Spawns.mayBeExecutedRemotely(spawn)) {
       return ExecutionPolicy.LOCAL_EXECUTION_ONLY;
     }
+    if (!Spawns.mayBeExecutedLocally(spawn)) {
+      return ExecutionPolicy.REMOTE_EXECUTION_ONLY;
+    }
 
     return ExecutionPolicy.ANYWHERE;
   }

@@ -120,4 +120,14 @@ public class DynamicExecutionOptions extends OptionsBase {
     defaultValue = "false"
   )
   public boolean debugSpawnScheduler;
+
+  @Option(
+      name = "experimental_require_availability_info",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      defaultValue = "false",
+      help =
+          "If true, fail the build if there are actions that set requires-darwin but do not have"
+              + "Xcode availability-related execution requirements set.")
+  public boolean requireAvailabilityInfo;
 }
