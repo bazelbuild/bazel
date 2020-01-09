@@ -113,6 +113,7 @@ public class TestRunnerAction extends AbstractAction
   private final PathFragment testInfrastructureFailure;
   private final PathFragment baseDir;
   private final Artifact coverageData;
+  private final Artifact coverageDirectory;
   private final TestTargetProperties testProperties;
   private final TestTargetExecutionSettings executionSettings;
   private final int shardNum;
@@ -165,6 +166,7 @@ public class TestRunnerAction extends AbstractAction
       Artifact testLog,
       Artifact cacheStatus,
       Artifact coverageArtifact,
+      Artifact coverageDirectory,
       TestTargetProperties testProperties,
       Map<String, String> extraTestEnv,
       TestTargetExecutionSettings executionSettings,
@@ -179,8 +181,9 @@ public class TestRunnerAction extends AbstractAction
         /*tools=*/ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
         inputs,
         runfilesSupplier,
-        nonNullAsSet(testLog, cacheStatus, coverageArtifact),
+        nonNullAsSet(testLog, cacheStatus, coverageArtifact, coverageDirectory),
         configuration.getActionEnvironment());
+    // TODO: Update this check
     Preconditions.checkState((collectCoverageScript == null) == (coverageArtifact == null));
     this.testSetupScript = testSetupScript;
     this.useTestWrapperInsteadOfTestSetupSh = useTestWrapperInsteadOfTestSetupSh;
@@ -192,6 +195,7 @@ public class TestRunnerAction extends AbstractAction
     this.testLog = testLog;
     this.cacheStatus = cacheStatus;
     this.coverageData = coverageArtifact;
+    this.coverageDirectory = coverageDirectory;
     this.shardNum = shardNum;
     this.runNumber = runNumber;
     this.testProperties = Preconditions.checkNotNull(testProperties);
@@ -259,7 +263,8 @@ public class TestRunnerAction extends AbstractAction
     outputs.add(ActionInputHelper.fromPath(getUndeclaredOutputsManifestPath()));
     outputs.add(ActionInputHelper.fromPath(getUndeclaredOutputsAnnotationsPath()));
     if (isCoverageMode()) {
-      outputs.add(getCoverageData());
+      outputs.add(coverageData);
+      outputs.add(coverageDirectory);
     }
     return outputs;
   }
@@ -275,8 +280,8 @@ public class TestRunnerAction extends AbstractAction
     if (resolver.toPath(getTestLog()).exists()) {
       builder.add(Pair.of(TestFileNameConstants.TEST_LOG, resolver.toPath(getTestLog())));
     }
-    if (getCoverageData() != null && resolver.toPath(getCoverageData()).exists()) {
-      builder.add(Pair.of(TestFileNameConstants.TEST_COVERAGE, resolver.toPath(getCoverageData())));
+    if (coverageData != null && resolver.toPath(coverageData).exists()) {
+      builder.add(Pair.of(TestFileNameConstants.TEST_COVERAGE, resolver.toPath(coverageData)));
     }
     if (execRoot != null) {
       ResolvedPaths resolvedPaths = resolve(execRoot);
@@ -569,7 +574,7 @@ public class TestRunnerAction extends AbstractAction
 
       env.put("COVERAGE_MANIFEST", getCoverageManifest().getExecPathString());
       env.put("COVERAGE_DIR", getCoverageDirectory().getPathString());
-      env.put("COVERAGE_OUTPUT_FILE", getCoverageData().getExecPathString());
+      env.put("COVERAGE_OUTPUT_FILE", coverageData.getExecPathString());
     }
   }
 
@@ -693,6 +698,7 @@ public class TestRunnerAction extends AbstractAction
     return coverageData != null;
   }
 
+  // TODO: Update documentation!
   /**
    * Returns a directory to temporarily store coverage results for the given action relative to the
    * execution root. This directory is used to store all coverage results related to the test
@@ -704,8 +710,9 @@ public class TestRunnerAction extends AbstractAction
    * potentially can include extra suffix, such as a shard number (if test execution was sharded).
    */
   public PathFragment getCoverageDirectory() {
-    return COVERAGE_TMP_ROOT.getRelative(
-        FileSystemUtils.removeExtension(getTestLog().getRootRelativePath()));
+    return coverageDirectory.getExecPath();
+    //COVERAGE_TMP_ROOT.getRelative(
+    //    FileSystemUtils.removeExtension(getTestLog().getRootRelativePath()));
   }
 
   public TestTargetProperties getTestProperties() {
@@ -974,12 +981,14 @@ public class TestRunnerAction extends AbstractAction
       return getPath(xmlOutputPath);
     }
 
+    @Nullable
     public Path getCoverageDirectory() {
       return getPath(TestRunnerAction.this.getCoverageDirectory());
     }
 
+    @Nullable
     public Path getCoverageDataPath() {
-      return getPath(getCoverageData().getExecPath());
+      return getPath(coverageData.getExecPath());
     }
   }
 

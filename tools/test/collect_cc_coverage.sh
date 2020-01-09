@@ -64,7 +64,7 @@ function init_gcov() {
 function llvm_coverage() {
   local output_file="${1}"; shift
   export LLVM_PROFILE_FILE="${COVERAGE_DIR}/%h-%p-%m.profraw"
-  "${COVERAGE_GCOV_PATH}" merge -output "${output_file}" \
+  /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/llvm-profdata merge -output "${output_file}" \
       "${COVERAGE_DIR}"/*.profraw
 }
 
@@ -114,7 +114,8 @@ function gcov_coverage() {
           # Don't generate branch coverage (-b) because of a gcov issue that
           # segfaults when both -i and -b are used (see
           # https://gcc.gnu.org/bugzilla/show_bug.cgi?id=84879).
-          "${GCOV}" -i -o "$(dirname ${gcda})" "${gcda}" &> "$gcov_log"
+          # TODO: No -i on MacOS
+          "${GCOV}" -a -o "$(dirname ${gcda})" "${gcda}" &> "$gcov_log" || cat "$gcov_log"
 
           # Go through all the files that were created by the gcov command above
           # and append their content to the output .gcov file.
@@ -126,7 +127,8 @@ function gcov_coverage() {
           # Creating 'hello-lib.cc.gcov'
           #
           # We grep the names of the files that were created from that output.
-          cat "$gcov_log" | grep "Creating" | cut -d " " -f 2 | cut -d"'" -f2 | \
+          # TODO: MacOS gcov prints lower-case "creating"
+          cat "$gcov_log" | grep -i "Creating" | cut -d " " -f 2 | cut -d"'" -f2 | \
               while read gcov_file; do
             echo "Processing $gcov_file"
             cat "$gcov_file" >> "$output_file"
