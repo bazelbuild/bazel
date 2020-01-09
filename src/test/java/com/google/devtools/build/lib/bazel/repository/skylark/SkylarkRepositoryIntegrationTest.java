@@ -24,7 +24,7 @@ import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
-import com.google.devtools.build.lib.bazel.repository.downloader.HttpDownloader;
+import com.google.devtools.build.lib.bazel.repository.downloader.DownloadManager;
 import com.google.devtools.build.lib.packages.BuildFileContainsErrorsException;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.rules.repository.LocalRepositoryFunction;
@@ -71,7 +71,7 @@ public class SkylarkRepositoryIntegrationTest extends BuildViewTestCase {
         BlazeDirectories directories) {
       // Add both the local repository and the skylark repository functions
       // The RepositoryCache mock injected with the SkylarkRepositoryFunction
-      HttpDownloader downloader = Mockito.mock(HttpDownloader.class);
+      DownloadManager downloader = Mockito.mock(DownloadManager.class);
       RepositoryFunction localRepositoryFunction = new LocalRepositoryFunction();
       SkylarkRepositoryFunction skylarkRepositoryFunction =
           new SkylarkRepositoryFunction(downloader);
