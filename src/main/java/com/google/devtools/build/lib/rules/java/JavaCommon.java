@@ -267,13 +267,11 @@ public class JavaCommon {
         getJavaCompilationArtifacts(),
         /* deps= */ ImmutableList.of(
             JavaCompilationArgsProvider.legacyFromTargets(
-                targetsTreatedAsDeps(ClasspathType.COMPILE_ONLY), javaProtoLibraryStrictDeps)),
+                targetsTreatedAsDeps(ClasspathType.COMPILE_ONLY))),
         /* runtimeDeps= */ ImmutableList.of(
-            JavaCompilationArgsProvider.legacyFromTargets(
-                getRuntimeDeps(ruleContext), javaProtoLibraryStrictDeps)),
+            JavaCompilationArgsProvider.legacyFromTargets(getRuntimeDeps(ruleContext))),
         /* exports= */ ImmutableList.of(
-            JavaCompilationArgsProvider.legacyFromTargets(
-                getExports(ruleContext), javaProtoLibraryStrictDeps)));
+            JavaCompilationArgsProvider.legacyFromTargets(getExports(ruleContext))));
   }
 
   static JavaCompilationArgsProvider collectJavaCompilationArgs(
@@ -820,8 +818,7 @@ public class JavaCommon {
     List<TransitiveInfoCollection> runtimeDepInfo = getRuntimeDeps(ruleContext);
     checkRuntimeDeps(ruleContext, runtimeDepInfo);
     JavaCompilationArgsProvider provider =
-        JavaCompilationArgsProvider.legacyFromTargets(
-            runtimeDepInfo, semantics.isJavaProtoLibraryStrictDeps(ruleContext));
+        JavaCompilationArgsProvider.legacyFromTargets(runtimeDepInfo);
     attributes.addRuntimeClassPathEntries(provider.getRuntimeJars());
   }
 

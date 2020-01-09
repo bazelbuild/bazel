@@ -475,11 +475,5 @@ public interface JavaSemantics {
 
   Artifact getObfuscatedConstantStringMap(RuleContext ruleContext) throws InterruptedException;
 
-  /**
-   * Checks if dependency errors coming from java_proto_library rules should be treated as errors
-   * even if the java_proto_library rule sets strict_deps = 0.
-   */
-  boolean isJavaProtoLibraryStrictDeps(RuleContext ruleContext);
-
   void checkDependencyRuleKinds(RuleContext ruleContext);
 }

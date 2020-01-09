@@ -120,22 +120,14 @@ public abstract class JavaCompilationArgsProvider implements TransitiveInfoProvi
   @Deprecated
   public static JavaCompilationArgsProvider legacyFromTargets(
       Iterable<? extends TransitiveInfoCollection> infos) {
-    return legacyFromTargets(infos, /* javaProtoLibraryStrictDeps= */ false);
-  }
-
-  @Deprecated
-  public static JavaCompilationArgsProvider legacyFromTargets(
-      Iterable<? extends TransitiveInfoCollection> infos, boolean javaProtoLibraryStrictDeps) {
     Builder argsBuilder = builder();
     for (TransitiveInfoCollection info : infos) {
       JavaCompilationArgsProvider provider = null;
 
-      if (javaProtoLibraryStrictDeps) {
-        JavaStrictCompilationArgsProvider strictCompilationArgsProvider =
-            JavaInfo.getProvider(JavaStrictCompilationArgsProvider.class, info);
-        if (strictCompilationArgsProvider != null) {
-          provider = strictCompilationArgsProvider.getJavaCompilationArgsProvider();
-        }
+      JavaStrictCompilationArgsProvider strictCompilationArgsProvider =
+          JavaInfo.getProvider(JavaStrictCompilationArgsProvider.class, info);
+      if (strictCompilationArgsProvider != null) {
+        provider = strictCompilationArgsProvider.getJavaCompilationArgsProvider();
       }
       if (provider == null) {
         provider = JavaInfo.getProvider(JavaCompilationArgsProvider.class, info);
