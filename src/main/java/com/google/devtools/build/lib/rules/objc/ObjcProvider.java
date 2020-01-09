@@ -705,7 +705,7 @@ public final class ObjcProvider implements Info, ObjcProviderApi<Artifact> {
    * Indicates whether {@code flag} is set on this provider.
    */
   public boolean is(Flag flag) {
-    return Iterables.contains(get(FLAG), flag);
+    return get(FLAG).toList().contains(flag);
   }
 
   /** Returns the list of .a files required for linking that arise from objc libraries. */
@@ -713,9 +713,9 @@ public final class ObjcProvider implements Info, ObjcProviderApi<Artifact> {
     // JRE libraries must be ordered after all regular objc libraries.
     NestedSet<Artifact> jreLibs = get(JRE_LIBRARY);
     return ImmutableList.<Artifact>builder()
-        .addAll(Iterables.filter(
-            get(LIBRARY), Predicates.not(Predicates.in(jreLibs.toSet()))))
-        .addAll(jreLibs)
+        .addAll(
+            Iterables.filter(get(LIBRARY).toList(), Predicates.not(Predicates.in(jreLibs.toSet()))))
+        .addAll(jreLibs.toList())
         .build();
   }
 
@@ -734,7 +734,7 @@ public final class ObjcProvider implements Info, ObjcProviderApi<Artifact> {
           NestedSet<Artifact> headers = header();
           NestedSetBuilder<Artifact> generatedHeadersBuilder =
               new NestedSetBuilder<>(headers.getOrder());
-          for (Artifact header : headers) {
+          for (Artifact header : headers.toList()) {
             if (!header.isSourceArtifact()) {
               generatedHeadersBuilder.add(header);
             }
@@ -752,7 +752,7 @@ public final class ObjcProvider implements Info, ObjcProviderApi<Artifact> {
       synchronized (this) {
         if (generatedHeaderList == null) {
           ImmutableList.Builder<Artifact> generatedHeadersBuilder = ImmutableList.builder();
-          for (Artifact header : header()) {
+          for (Artifact header : header().toList()) {
             if (!header.isSourceArtifact()) {
               generatedHeadersBuilder.add(header);
             }
@@ -797,7 +797,7 @@ public final class ObjcProvider implements Info, ObjcProviderApi<Artifact> {
       for (Artifact ccLibrary : avoidProvider.getCcLibraries()) {
         avoidLibrariesSet.add(ccLibrary.getRunfilesPath());
       }
-      for (Artifact libraryToAvoid : avoidProvider.getPropagable(LIBRARY)) {
+      for (Artifact libraryToAvoid : avoidProvider.getPropagable(LIBRARY).toList()) {
         avoidLibrariesSet.add(libraryToAvoid.getRunfilesPath());
       }
     }
@@ -897,7 +897,7 @@ public final class ObjcProvider implements Info, ObjcProviderApi<Artifact> {
     // root directory, hence only the path fragment after the root directory is compared.
     HashSet<PathFragment> avoidPathsSet = new HashSet<>();
     for (ObjcProvider avoidProvider : avoidProviders) {
-      for (Artifact artifact : avoidProvider.getPropagable(key)) {
+      for (Artifact artifact : avoidProvider.getPropagable(key).toList()) {
         avoidPathsSet.add(artifact.getRunfilesPath());
       }
     }
@@ -938,7 +938,7 @@ public final class ObjcProvider implements Info, ObjcProviderApi<Artifact> {
    */
   private NestedSet<String> getFrameworkNames(Key<Artifact> key) {
     NestedSetBuilder<String> names = new NestedSetBuilder<>(key.order);
-    for (Artifact file : get(key)) {
+    for (Artifact file : get(key).toList()) {
       PathFragment frameworkDir = file.getExecPath().getParentDirectory();
       checkIsFrameworkDirectory(frameworkDir);
       names.add(getFrameworkName(frameworkDir));
@@ -953,7 +953,7 @@ public final class ObjcProvider implements Info, ObjcProviderApi<Artifact> {
    */
   private NestedSet<String> getFrameworkPaths(Key<Artifact> key) {
     NestedSetBuilder<String> paths = new NestedSetBuilder<>(key.order);
-    for (Artifact file : get(key)) {
+    for (Artifact file : get(key).toList()) {
       PathFragment frameworkDir = file.getExecPath().getParentDirectory();
       checkIsFrameworkDirectory(frameworkDir);
       paths.add(getFrameworkPath(frameworkDir));
@@ -1116,6 +1116,13 @@ public final class ObjcProvider implements Info, ObjcProviderApi<Artifact> {
     /**
      * Add elements in toAdd, and propagate them to any (transitive) dependers on this ObjcProvider.
      */
+    public <E> Builder addAll(Key<E> key, NestedSet<? extends E> toAdd) {
+      return addAll(key, toAdd.toList());
+    }
+
+    /**
+     * Add elements in toAdd, and propagate them to any (transitive) dependers on this ObjcProvider.
+     */
     public <E> Builder addAll(Key<E> key, Iterable<? extends E> toAdd) {
       uncheckedAddAll(key, toAdd, this.items);
       if (ObjcProvider.KEYS_FOR_DIRECT.contains(key)) {
@@ -1156,7 +1163,7 @@ public final class ObjcProvider implements Info, ObjcProviderApi<Artifact> {
       NestedSet<?> toAdd = ObjcProviderSkylarkConverters.convertToJava(key, skylarkToAdd);
       uncheckedAddTransitive(key, toAdd, this.items);
       if (ObjcProvider.KEYS_FOR_DIRECT.contains(key)) {
-        uncheckedAddAllDirect(key, toAdd, this.directItems);
+        uncheckedAddAllDirect(key, toAdd.toList(), this.directItems);
       }
     }
 

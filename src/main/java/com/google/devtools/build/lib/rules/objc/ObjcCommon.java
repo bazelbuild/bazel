@@ -49,6 +49,7 @@ import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.Info;
@@ -86,6 +87,11 @@ public final class ObjcCommon {
       }
     }
     return inputs.build();
+  }
+
+  /** Filters fileset artifacts out of a group of artifacts. */
+  public static ImmutableList<Artifact> filterFileset(NestedSet<Artifact> artifacts) {
+    return filterFileset(artifacts.toList());
   }
 
   static class Builder {
@@ -313,12 +319,10 @@ public final class ObjcCommon {
 
       if (compilationAttributes.isPresent()) {
         CompilationAttributes attributes = compilationAttributes.get();
+        PathFragment usrIncludeDir = PathFragment.create(AppleToolchain.sdkDir() + "/usr/include/");
         Iterable<PathFragment> sdkIncludes =
             Iterables.transform(
-                Interspersing.prependEach(
-                    AppleToolchain.sdkDir() + "/usr/include/",
-                    Iterables.transform(attributes.sdkIncludes(), PathFragment::getSafePathString)),
-                PathFragment::create);
+                attributes.sdkIncludes().toList(), (p) -> usrIncludeDir.getRelative(p));
         objcProvider
             .addAll(HEADER, filterFileset(attributes.hdrs()))
             .addAll(HEADER, filterFileset(attributes.textualHdrs()))

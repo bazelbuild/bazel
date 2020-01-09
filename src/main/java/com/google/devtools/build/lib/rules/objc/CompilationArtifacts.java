@@ -19,6 +19,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 
 /**
  * Artifacts related to compilation. Any rule containing compilable sources will create an instance
@@ -67,6 +68,7 @@ final class CompilationArtifacts {
      * Adds precompiled sources (.o files).
      */
     Builder addPrecompiledSrcs(Iterable<Artifact> precompiledSrcs) {
+      // TODO(ulfjack): These are ignored *except* for a check below whether they are empty.
       this.precompiledSrcs = Iterables.concat(this.precompiledSrcs, precompiledSrcs);
       return this;
     }
@@ -78,14 +80,6 @@ final class CompilationArtifacts {
       return this;
     }
 
-    Builder addAllSources(CompilationArtifacts otherArtifacts) {
-      return this.addNonArcSrcs(otherArtifacts.getNonArcSrcs())
-          .addSrcs(otherArtifacts.getSrcs())
-          .addPrecompiledSrcs(otherArtifacts.getPrecompiledSrcs())
-          .addPrivateHdrs(otherArtifacts.getPrivateHdrs())
-          .addAdditionalHdrs(otherArtifacts.getAdditionalHdrs());
-    }
-
     CompilationArtifacts build() {
       Optional<Artifact> archive = Optional.absent();
       if (!Iterables.isEmpty(srcs)
@@ -93,8 +87,7 @@ final class CompilationArtifacts {
           || !Iterables.isEmpty(precompiledSrcs)) {
         archive = Optional.of(intermediateArtifacts.archive());
       }
-      return new CompilationArtifacts(
-          srcs, nonArcSrcs, additionalHdrs, privateHdrs, precompiledSrcs, archive);
+      return new CompilationArtifacts(srcs, nonArcSrcs, additionalHdrs, privateHdrs, archive);
     }
   }
 
@@ -103,35 +96,30 @@ final class CompilationArtifacts {
   private final Optional<Artifact> archive;
   private final Iterable<Artifact> additionalHdrs;
   private final Iterable<Artifact> privateHdrs;
-  private final Iterable<Artifact> precompiledSrcs;
 
   private CompilationArtifacts(
       Iterable<Artifact> srcs,
       Iterable<Artifact> nonArcSrcs,
       Iterable<Artifact> additionalHdrs,
       Iterable<Artifact> privateHdrs,
-      Iterable<Artifact> precompiledSrcs,
       Optional<Artifact> archive) {
     this.srcs = Preconditions.checkNotNull(srcs);
     this.nonArcSrcs = Preconditions.checkNotNull(nonArcSrcs);
     this.additionalHdrs = Preconditions.checkNotNull(additionalHdrs);
     this.privateHdrs = Preconditions.checkNotNull(privateHdrs);
-    this.precompiledSrcs = Preconditions.checkNotNull(precompiledSrcs);
     this.archive = Preconditions.checkNotNull(archive);
   }
 
-  public Iterable<Artifact> getSrcs() {
+  Iterable<Artifact> getSrcs() {
     return srcs;
   }
 
-  public Iterable<Artifact> getNonArcSrcs() {
+  Iterable<Artifact> getNonArcSrcs() {
     return nonArcSrcs;
   }
 
-  /**
-   * Returns the public headers that aren't included in the hdrs attribute.
-   */
-  public Iterable<Artifact> getAdditionalHdrs() {
+  /** Returns the public headers that aren't included in the hdrs attribute. */
+  Iterable<Artifact> getAdditionalHdrs() {
     return additionalHdrs;
   }
 
@@ -139,24 +127,16 @@ final class CompilationArtifacts {
    * Returns the private headers from the srcs attribute, which may by imported by any source or
    * header in this target, but not by sources or headers of dependers.
    */
-  public Iterable<Artifact> getPrivateHdrs() {
+  Iterable<Artifact> getPrivateHdrs() {
     return privateHdrs;
   }
 
   /**
-   * Returns .o files provided to the build directly as srcs.
+   * Returns the output archive library (.a) file created by combining object files of the srcs, non
+   * arc srcs, and precompiled srcs of this artifact collection. Returns absent if there are no such
+   * source files for which to create an archive library.
    */
-  public Iterable<Artifact> getPrecompiledSrcs() {
-    return precompiledSrcs;
-  }
-
-  /**
-   * Returns the output archive library (.a) file created by combining object files of the srcs,
-   * non arc srcs, and precompiled srcs of this artifact collection. Returns absent if there
-   * are no such source files for which to create an archive library.
-   */
-  public Optional<Artifact> getArchive() {
+  Optional<Artifact> getArchive() {
     return archive;
   }
-
 }

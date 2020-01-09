@@ -170,8 +170,9 @@ public class CompilationSupport {
    * Frameworks implicitly linked to iOS, watchOS, and tvOS binaries when using legacy compilation.
    */
   @VisibleForTesting
-  static final ImmutableList<SdkFramework> AUTOMATIC_SDK_FRAMEWORKS =
-      ImmutableList.of(new SdkFramework("Foundation"), new SdkFramework("UIKit"));
+  static final NestedSet<SdkFramework> AUTOMATIC_SDK_FRAMEWORKS =
+      NestedSetBuilder.create(
+          Order.STABLE_ORDER, new SdkFramework("Foundation"), new SdkFramework("UIKit"));
 
   /** Selects cc libraries that have alwayslink=1. */
   private static final Predicate<Artifact> ALWAYS_LINKED_CC_LIBRARY =
@@ -283,7 +284,7 @@ public class CompilationSupport {
       ExtraCompileArgs extraCompileArgs,
       CcToolchainProvider ccToolchain,
       FdoContext fdoContext,
-      Iterable<PathFragment> priorityHeaders,
+      List<PathFragment> priorityHeaders,
       Collection<Artifact> sources,
       Collection<Artifact> privateHdrs,
       Collection<Artifact> publicHdrs,
@@ -315,7 +316,7 @@ public class CompilationSupport {
             .addPublicHeaders(publicHdrs)
             .addPrivateHeadersUnchecked(dependentGeneratedHdrs)
             .addCcCompilationContexts(
-                Streams.stream(AnalysisUtils.getProviders(deps, CcInfo.PROVIDER))
+                AnalysisUtils.getProviders(deps, CcInfo.PROVIDER).stream()
                     .map(CcInfo::getCcCompilationContext)
                     .collect(ImmutableList.toImmutableList()))
             .setCopts(
@@ -357,19 +358,20 @@ public class CompilationSupport {
       ExtraCompileArgs extraCompileArgs,
       CcToolchainProvider ccToolchain,
       FdoContext fdoContext,
-      Iterable<PathFragment> priorityHeaders,
+      List<PathFragment> priorityHeaders,
       LinkTargetType linkType,
       Artifact linkActionInput)
       throws RuleErrorException, InterruptedException {
     PrecompiledFiles precompiledFiles = new PrecompiledFiles(ruleContext);
-    Collection<Artifact> arcSources = ImmutableSortedSet.copyOf(compilationArtifacts.getSrcs());
-    Collection<Artifact> nonArcSources =
+    ImmutableSortedSet<Artifact> arcSources =
+        ImmutableSortedSet.copyOf(compilationArtifacts.getSrcs());
+    ImmutableSortedSet<Artifact> nonArcSources =
         ImmutableSortedSet.copyOf(compilationArtifacts.getNonArcSrcs());
-    Collection<Artifact> privateHdrs =
+    ImmutableSortedSet<Artifact> privateHdrs =
         ImmutableSortedSet.copyOf(compilationArtifacts.getPrivateHdrs());
-    Collection<Artifact> publicHdrs =
+    ImmutableSortedSet<Artifact> publicHdrs =
         Stream.concat(
-                Streams.stream(attributes.hdrs()),
+                attributes.hdrs().toList().stream(),
                 Streams.stream(compilationArtifacts.getAdditionalHdrs()))
             .collect(toImmutableSortedSet(naturalOrder()));
     // This is a hack to inject generated headers into the action graph for include scanning.  This
@@ -677,23 +679,18 @@ public class CompilationSupport {
   }
 
   /** Returns a list of framework header search path fragments. */
-  static ImmutableList<PathFragment> frameworkHeaderSearchPathFragments(ObjcProvider provider)
-      throws InterruptedException {
-    ImmutableList.Builder<PathFragment> searchPaths = new ImmutableList.Builder<>();
-    return searchPaths
-        .addAll(uniqueParentDirectories(provider.get(FRAMEWORK_SEARCH_PATHS)))
-        .build();
+  static ImmutableList<PathFragment> frameworkHeaderSearchPathFragments(ObjcProvider provider) {
+    return uniqueParentDirectories(provider.get(FRAMEWORK_SEARCH_PATHS)).asList();
   }
 
   /** Returns a list of framework library search paths. */
-  static ImmutableList<String> frameworkLibrarySearchPaths(ObjcProvider provider)
-      throws InterruptedException {
+  static ImmutableList<String> frameworkLibrarySearchPaths(ObjcProvider provider) {
     ImmutableList.Builder<String> searchPaths = new ImmutableList.Builder<>();
     return searchPaths
         // Add library search paths corresponding to custom (non-SDK) frameworks. For each framework
         // foo/bar.framework, include "foo" as a search path.
-        .addAll(provider.staticFrameworkPaths())
-        .addAll(provider.dynamicFrameworkPaths())
+        .addAll(provider.staticFrameworkPaths().toList())
+        .addAll(provider.dynamicFrameworkPaths().toList())
         .build();
   }
 
@@ -912,7 +909,7 @@ public class CompilationSupport {
    */
   CompilationSupport validateAttributes() throws RuleErrorException {
     for (PathFragment absoluteInclude :
-        Iterables.filter(attributes.includes(), PathFragment::isAbsolute)) {
+        Iterables.filter(attributes.includes().toList(), PathFragment::isAbsolute)) {
       ruleContext.attributeError(
           "includes", String.format(ABSOLUTE_INCLUDES_PATH_FORMAT, absoluteInclude));
     }
@@ -989,7 +986,7 @@ public class CompilationSupport {
    * @throws RuleErrorException for invalid crosstool files
    */
   CompilationSupport registerCompileAndArchiveActions(
-      ObjcCommon common, Iterable<PathFragment> priorityHeaders)
+      ObjcCommon common, List<PathFragment> priorityHeaders)
       throws RuleErrorException, InterruptedException {
     return registerCompileAndArchiveActions(common, ExtraCompileArgs.NONE, priorityHeaders);
   }
@@ -1008,7 +1005,7 @@ public class CompilationSupport {
       CompilationArtifacts compilationArtifacts,
       ObjcProvider objcProvider,
       ExtraCompileArgs extraCompileArgs,
-      Iterable<PathFragment> priorityHeaders)
+      List<PathFragment> priorityHeaders)
       throws RuleErrorException, InterruptedException {
     Preconditions.checkNotNull(toolchain);
     Preconditions.checkNotNull(toolchain.getFdoContext());
@@ -1040,7 +1037,8 @@ public class CompilationSupport {
 
       // TODO(b/30783125): Signal the need for this action in the CROSSTOOL.
       registerObjFilelistAction(
-          compilationInfo.getFirst().getObjectFiles(/* usePic= */ false), objList);
+          ImmutableSet.copyOf(compilationInfo.getFirst().getObjectFiles(/* usePic= */ false)),
+          objList);
     } else {
       compilationInfo =
           ccCompileAndLink(
@@ -1071,7 +1069,7 @@ public class CompilationSupport {
    * @throws RuleErrorException for invalid crosstool files
    */
   CompilationSupport registerCompileAndArchiveActions(
-      ObjcCommon common, ExtraCompileArgs extraCompileArgs, Iterable<PathFragment> priorityHeaders)
+      ObjcCommon common, ExtraCompileArgs extraCompileArgs, List<PathFragment> priorityHeaders)
       throws RuleErrorException, InterruptedException {
     if (common.getCompilationArtifacts().isPresent()) {
       registerCompileAndArchiveActions(
@@ -1129,13 +1127,16 @@ public class CompilationSupport {
     Artifact inputFileList = intermediateArtifacts.linkerObjList();
     ImmutableSet<Artifact> forceLinkArtifacts = getForceLoadArtifacts(objcProvider);
 
-    Iterable<Artifact> objFiles =
-        Iterables.concat(
-            bazelBuiltLibraries, objcProvider.get(IMPORTED_LIBRARY), objcProvider.getCcLibraries());
     // Clang loads archives specified in filelists and also specified as -force_load twice,
     // resulting in duplicate symbol errors unless they are deduped.
-    objFiles = Iterables.filter(objFiles, Predicates.not(Predicates.in(forceLinkArtifacts)));
-
+    ImmutableSet<Artifact> objFiles =
+        ImmutableSet.copyOf(
+            Iterables.filter(
+                Iterables.concat(
+                    bazelBuiltLibraries,
+                    objcProvider.get(IMPORTED_LIBRARY).toList(),
+                    objcProvider.getCcLibraries()),
+                Predicates.not(Predicates.in(forceLinkArtifacts))));
     registerObjFilelistAction(objFiles, inputFileList);
 
     LinkTargetType linkType =
@@ -1259,13 +1260,13 @@ public class CompilationSupport {
    * Registers an action that writes given set of object files to the given objList. This objList is
    * suitable to signal symbols to archive in a libtool archiving invocation.
    */
+  // TODO(ulfjack): Use NestedSet for objFiles.
   private CompilationSupport registerObjFilelistAction(
-      Iterable<Artifact> objFiles, Artifact objList) {
-    ImmutableSet<Artifact> dedupedObjFiles = ImmutableSet.copyOf(objFiles);
+      ImmutableSet<Artifact> objFiles, Artifact objList) {
     CustomCommandLine.Builder objFilesToLinkParam = new CustomCommandLine.Builder();
     NestedSetBuilder<Artifact> treeObjFiles = NestedSetBuilder.stableOrder();
 
-    for (Artifact objFile : dedupedObjFiles) {
+    for (Artifact objFile : objFiles) {
       // If the obj file is a tree artifact, we need to expand it into the contained individual
       // files properly.
       if (objFile.isTreeArtifact()) {
@@ -1355,7 +1356,7 @@ public class CompilationSupport {
    */
   private Set<String> frameworkNames(ObjcProvider provider) {
     Set<String> names = new LinkedHashSet<>();
-    names.addAll(SdkFramework.names(provider.get(SDK_FRAMEWORK).toList()));
+    names.addAll(SdkFramework.names(provider.get(SDK_FRAMEWORK)));
     names.addAll(provider.staticFrameworkNames().toList());
     names.addAll(provider.dynamicFrameworkNames().toList());
     return names;
@@ -1604,7 +1605,9 @@ public class CompilationSupport {
     // TODO(bazel-team): Include textual headers in the module map when Xcode 6 support is
     // dropped.
     // TODO(b/32225593): Include private headers in the module map.
-    Iterable<Artifact> publicHeaders = attributes.hdrs();
+    // Both registerGenerateModuleMapAction and registerGenerateUmbrellaHeaderAction make a copy,
+    // so flattening eagerly here using toList() is acceptable.
+    Iterable<Artifact> publicHeaders = attributes.hdrs().toList();
     publicHeaders = Iterables.concat(publicHeaders, compilationArtifacts.getAdditionalHdrs());
     CppModuleMap moduleMap = intermediateArtifacts.moduleMap();
     registerGenerateModuleMapAction(moduleMap, publicHeaders);
@@ -1625,6 +1628,18 @@ public class CompilationSupport {
    * @return this compilation support
    */
   public CompilationSupport registerGenerateModuleMapAction(
+      CppModuleMap moduleMap, NestedSet<Artifact> publicHeaders) {
+    return registerGenerateModuleMapAction(moduleMap, publicHeaders.toList());
+  }
+
+  /**
+   * Registers an action that will generate a clang module map.
+   *
+   * @param moduleMap the module map to generate
+   * @param publicHeaders the headers that should be directly accessible by dependers
+   * @return this compilation support
+   */
+  public CompilationSupport registerGenerateModuleMapAction(
       CppModuleMap moduleMap, Iterable<Artifact> publicHeaders) {
     publicHeaders = Iterables.filter(publicHeaders, CppFileTypes.MODULE_MAP_HEADER);
     ruleContext.registerAction(
@@ -1633,7 +1648,7 @@ public class CompilationSupport {
             moduleMap,
             ImmutableList.<Artifact>of(),
             publicHeaders,
-            attributes.moduleMapsForDirectDeps(),
+            attributes.moduleMapsForDirectDeps().toList(),
             ImmutableList.<PathFragment>of(),
             /*compiledModule=*/ true,
             /*moduleMapHomeIsCwd=*/ false,
@@ -1663,9 +1678,9 @@ public class CompilationSupport {
     }
   }
 
-  private static Iterable<PathFragment> uniqueParentDirectories(Iterable<PathFragment> paths) {
+  private static ImmutableSet<PathFragment> uniqueParentDirectories(NestedSet<PathFragment> paths) {
     ImmutableSet.Builder<PathFragment> parents = new ImmutableSet.Builder<>();
-    for (PathFragment path : paths) {
+    for (PathFragment path : paths.toList()) {
       parents.add(path.getParentDirectory());
     }
     return parents.build();

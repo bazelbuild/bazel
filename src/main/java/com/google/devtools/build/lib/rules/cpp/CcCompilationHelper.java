@@ -997,7 +997,7 @@ public final class CcCompilationHelper {
       boolean compiled =
           featureConfiguration.isEnabled(CppRuleClasses.HEADER_MODULES)
               || featureConfiguration.isEnabled(CppRuleClasses.COMPILE_ALL_MODULES);
-      Iterable<CppModuleMap> dependentModuleMaps = collectModuleMaps();
+      List<CppModuleMap> dependentModuleMaps = collectModuleMaps();
 
       if (generateModuleMap) {
         Optional<Artifact> umbrellaHeader = cppModuleMap.getUmbrellaHeader();
@@ -1090,7 +1090,7 @@ public final class CcCompilationHelper {
   private CppModuleMapAction createModuleMapAction(
       CppModuleMap moduleMap,
       PublicHeaders publicHeaders,
-      Iterable<CppModuleMap> dependentModuleMaps,
+      List<CppModuleMap> dependentModuleMaps,
       boolean compiledModule) {
     return new CppModuleMapAction(
         actionConstructionContext.getActionOwner(),
@@ -1122,21 +1122,27 @@ public final class CcCompilationHelper {
     }
   }
 
-  private Iterable<CppModuleMap> collectModuleMaps() {
-    // Cpp module maps may be null for some rules. We filter the nulls out at the end.
+  private List<CppModuleMap> collectModuleMaps() {
+    // Cpp module maps may be null for some rules.
     List<CppModuleMap> result =
         ccCompilationContexts.stream()
             .map(CPP_DEPS_TO_MODULES)
+            .filter(Predicates.notNull())
             .collect(toCollection(ArrayList::new));
 
     if (ccToolchain != null) {
-      result.add(ccToolchain.getCcInfo().getCcCompilationContext().getCppModuleMap());
+      CppModuleMap toolchainModuleMap =
+          ccToolchain.getCcInfo().getCcCompilationContext().getCppModuleMap();
+      if (toolchainModuleMap != null) {
+        result.add(toolchainModuleMap);
+      }
     }
     for (CppModuleMap additionalCppModuleMap : additionalCppModuleMaps) {
+      // These can't be null which is enforced before adding to additionalCppModuleMaps.
       result.add(additionalCppModuleMap);
     }
 
-    return Iterables.filter(result, Predicates.notNull());
+    return result;
   }
 
   /** @return whether this target needs to generate a pic header module. */

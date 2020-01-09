@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.rules.objc;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.getFirstArtifactEndingWith;
-import static com.google.devtools.build.lib.rules.objc.CompilationSupport.AUTOMATIC_SDK_FRAMEWORKS;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.HEADER;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.INCLUDE;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.MODULE_MAP;
@@ -382,7 +381,7 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
             .add("-ObjC")
             .addAll(
                 Interspersing.beforeEach(
-                    "-framework", SdkFramework.names(AUTOMATIC_SDK_FRAMEWORKS)))
+                    "-framework", SdkFramework.names(CompilationSupport.AUTOMATIC_SDK_FRAMEWORKS)))
             .addAll(Interspersing.beforeEach("-framework", frameworkPathBaseNames.build()))
             .add("-filelist")
             .add(filelistArtifact.getExecPathString())

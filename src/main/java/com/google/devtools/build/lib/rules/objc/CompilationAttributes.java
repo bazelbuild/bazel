@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.rules.cpp.CcCommon;
 import com.google.devtools.build.lib.rules.cpp.CppModuleMap;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import java.util.List;
 
 /**
  * Provides a way to access attributes that are common to all compilation rules.
@@ -278,7 +279,7 @@ final class CompilationAttributes {
         // Make sure all dependencies that have headers are included here. If a module map is
         // missing, its private headers will be treated as public!
         if (ruleContext.attributes().has("deps", BuildType.LABEL_LIST)) {
-          Iterable<ObjcProvider> providers =
+          List<ObjcProvider> providers =
               ruleContext.getPrerequisites("deps", Mode.TARGET, ObjcProvider.SKYLARK_CONSTRUCTOR);
           for (ObjcProvider provider : providers) {
             moduleMaps.addTransitive(provider.get(TOP_LEVEL_MODULE_MAP));
