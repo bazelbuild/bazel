@@ -117,7 +117,7 @@ public final class CcCompilationHelper {
     FdoContext.BranchFdoProfile branchFdoProfile = fdoContext.getBranchFdoProfile();
     // Optimization phase
     if (branchFdoProfile != null) {
-      if (!Iterables.isEmpty(getAuxiliaryFdoInputs(fdoContext))) {
+      if (!getAuxiliaryFdoInputs(fdoContext).isEmpty()) {
         if (featureConfiguration.isEnabled(CppRuleClasses.AUTOFDO)
             || featureConfiguration.isEnabled(CppRuleClasses.XBINARYFDO)) {
           variablesBuilder.put(
@@ -136,8 +136,8 @@ public final class CcCompilationHelper {
   }
 
   /** Returns the auxiliary files that need to be added to the {@link CppCompileAction}. */
-  private static Iterable<Artifact> getAuxiliaryFdoInputs(FdoContext fdoContext) {
-    ImmutableSet.Builder<Artifact> auxiliaryInputs = ImmutableSet.builder();
+  private static NestedSet<Artifact> getAuxiliaryFdoInputs(FdoContext fdoContext) {
+    NestedSetBuilder<Artifact> auxiliaryInputs = NestedSetBuilder.stableOrder();
 
     if (fdoContext.getPrefetchHintsArtifact() != null) {
       auxiliaryInputs.add(fdoContext.getPrefetchHintsArtifact());
@@ -396,7 +396,15 @@ public final class CcCompilationHelper {
    * Add the corresponding files as public textual header files. These files will not be compiled
    * into a target's header module, but will be made visible as textual includes to dependent rules.
    */
-  public CcCompilationHelper addPublicTextualHeaders(Iterable<Artifact> textualHeaders) {
+  public CcCompilationHelper addPublicTextualHeaders(NestedSet<Artifact> textualHeaders) {
+    return addPublicTextualHeaders(textualHeaders.toList());
+  }
+
+  /**
+   * Add the corresponding files as public textual header files. These files will not be compiled
+   * into a target's header module, but will be made visible as textual includes to dependent rules.
+   */
+  public CcCompilationHelper addPublicTextualHeaders(List<Artifact> textualHeaders) {
     Iterables.addAll(this.publicTextualHeaders, textualHeaders);
     for (Artifact header : textualHeaders) {
       this.additionalExportedHeaders.add(header.getExecPath());
@@ -947,7 +955,7 @@ public final class CcCompilationHelper {
     mergeToolchainDependentCcCompilationContext(ccToolchain, ccCompilationContextBuilder);
 
     // But defines come after those inherited from deps.
-    ccCompilationContextBuilder.addDefines(defines);
+    ccCompilationContextBuilder.addDefines(NestedSetBuilder.wrap(Order.LINK_ORDER, defines));
 
     ccCompilationContextBuilder.addNonTransitiveDefines(localDefines);
 

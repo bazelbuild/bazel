@@ -21,9 +21,7 @@ import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
-import com.google.common.collect.Streams;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.ActionContinuationOrResult;
@@ -264,7 +262,7 @@ public final class CppLinkAction extends AbstractAction implements CommandAction
   @Override
   public Sequence<CommandLineArgsApi> getStarlarkArgs() throws EvalException {
     ImmutableSet<Artifact> directoryInputs =
-        Streams.stream(getInputs())
+        getInputs().toList().stream()
             .filter(artifact -> artifact.isDirectory())
             .collect(ImmutableSet.toImmutableSet());
 
@@ -432,7 +430,8 @@ public final class CppLinkAction extends AbstractAction implements CommandAction
     // The uses of getLinkConfiguration in this method may not be consistent with the computed key.
     // I.e., this may be incrementally incorrect.
     CppLinkInfo.Builder info = CppLinkInfo.newBuilder();
-    info.addAllInputFile(Artifact.toExecPaths(getLinkCommandLine().getLinkerInputArtifacts()));
+    info.addAllInputFile(
+        Artifact.toExecPaths(getLinkCommandLine().getLinkerInputArtifacts().toList()));
     info.setOutputFile(getPrimaryOutput().getExecPathString());
     if (interfaceOutputLibrary != null) {
       info.setInterfaceOutputFile(interfaceOutputLibrary.getArtifact().getExecPathString());
@@ -534,8 +533,7 @@ public final class CppLinkAction extends AbstractAction implements CommandAction
             ? MIN_DYNAMIC_LINK_RESOURCES
             : MIN_STATIC_LINK_RESOURCES;
 
-    final int inputSize = Iterables.size(getLinkCommandLine().getLinkerInputArtifacts());
-
+    int inputSize = getLinkCommandLine().getLinkerInputArtifacts().memoizedFlattenAndGetSize();
     return ResourceSet.createWithRamCpu(
         Math.max(
             inputSize * LINK_RESOURCES_PER_INPUT.getMemoryMb(), minLinkResources.getMemoryMb()),

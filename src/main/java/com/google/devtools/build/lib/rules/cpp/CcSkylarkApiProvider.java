@@ -85,7 +85,7 @@ public final class CcSkylarkApiProvider extends SkylarkApiProvider
         getInfo().get(CcInfo.PROVIDER).getCcCompilationContext();
     return ccCompilationContext == null
         ? ImmutableList.<String>of()
-        : ccCompilationContext.getDefines();
+        : ccCompilationContext.getDefines().toList();
   }
 
   @Override

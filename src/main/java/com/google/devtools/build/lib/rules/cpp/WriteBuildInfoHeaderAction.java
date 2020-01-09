@@ -17,7 +17,6 @@ package com.google.devtools.build.lib.rules.cpp;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.base.Preconditions;
-import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
@@ -97,11 +96,11 @@ public final class WriteBuildInfoHeaderAction extends AbstractFileWriteAction {
     }
 
     final Map<String, String> values = new LinkedHashMap<>();
-    for (Artifact valueFile : getInputs()) {
+    for (Artifact valueFile : getInputs().toList()) {
       values.putAll(WorkspaceStatusAction.parseValues(ctx.getInputPath(valueFile)));
     }
 
-    final boolean redacted = Iterables.isEmpty(getInputs());
+    final boolean redacted = getInputs().isEmpty();
 
     return new DeterministicWriter() {
       @Override
@@ -158,7 +157,7 @@ public final class WriteBuildInfoHeaderAction extends AbstractFileWriteAction {
     // relinked because of other reasons.
     // Without inputs the contents of the header do not change, so there is no
     // point in executing the action again in that case.
-    return writeVolatileInfo && !Iterables.isEmpty(getInputs());
+    return writeVolatileInfo && !getInputs().isEmpty();
   }
 
   /**

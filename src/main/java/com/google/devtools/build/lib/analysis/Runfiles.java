@@ -1077,9 +1077,14 @@ public final class Runfiles implements RunfilesApi {
       return addTargetExceptFileTargets(target, mapping);
     }
 
-    /**
-     * Adds symlinks to given artifacts at their exec paths.
-     */
+    /** Adds symlinks to given artifacts at their exec paths. */
+    public Builder addSymlinksToArtifacts(NestedSet<Artifact> artifacts) {
+      // These are symlinks using the exec path, not the root-relative path, which currently
+      // requires flattening.
+      return addSymlinksToArtifacts(artifacts.toList());
+    }
+
+    /** Adds symlinks to given artifacts at their exec paths. */
     public Builder addSymlinksToArtifacts(Iterable<Artifact> artifacts) {
       for (Artifact artifact : artifacts) {
         addSymlink(artifact.getExecPath(), artifact);
@@ -1098,25 +1103,19 @@ public final class Runfiles implements RunfilesApi {
       return this;
     }
 
-    /**
-     * Add the other {@link Runfiles} object transitively.
-     */
+    /** Add the other {@link Runfiles} object transitively. */
     public Builder merge(Runfiles runfiles) {
       return merge(runfiles, true, true);
     }
 
     /**
-     * Add the other {@link Runfiles} object transitively, but don't merge
-     * unconditional artifacts.
+     * Add the other {@link Runfiles} object transitively, but don't merge unconditional artifacts.
      */
     public Builder mergeExceptUnconditionalArtifacts(Runfiles runfiles) {
       return merge(runfiles, false, true);
     }
 
-    /**
-     * Add the other {@link Runfiles} object transitively, but don't merge
-     * pruning manifests.
-     */
+    /** Add the other {@link Runfiles} object transitively, but don't merge pruning manifests. */
     public Builder mergeExceptPruningManifests(Runfiles runfiles) {
       return merge(runfiles, true, false);
     }

@@ -439,7 +439,12 @@ public class CppCompileActionBuilder {
     return actionClassId;
   }
 
-  public CppCompileActionBuilder addMandatoryInputs(Iterable<Artifact> artifacts) {
+  public CppCompileActionBuilder addMandatoryInputs(NestedSet<Artifact> artifacts) {
+    mandatoryInputsBuilder.addTransitive(artifacts);
+    return this;
+  }
+
+  public CppCompileActionBuilder addMandatoryInputs(List<Artifact> artifacts) {
     mandatoryInputsBuilder.addAll(artifacts);
     return this;
   }

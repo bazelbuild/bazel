@@ -256,7 +256,7 @@ public abstract class CcModule
         Depset.getSetFromNoneableParam(
             frameworkIncludeDirs, String.class, "framework_include_directories"),
         Depset.getSetFromNoneableParam(defines, String.class, "preprocessor_defines"),
-        NestedSetBuilder.emptySet(Order.STABLE_ORDER));
+        ImmutableList.of());
   }
 
   @Override
@@ -610,7 +610,8 @@ public abstract class CcModule
     CcCompilationContext.Builder ccCompilationContext =
         CcCompilationContext.builder(
             /* actionConstructionContext= */ null, /* configuration= */ null, /* label= */ null);
-    ccCompilationContext.addDeclaredIncludeSrcs(toNestedSetOfArtifacts(headers, "headers"));
+    ccCompilationContext.addDeclaredIncludeSrcs(
+        toNestedSetOfArtifacts(headers, "headers").toList());
     ccCompilationContext.addSystemIncludeDirs(
         toNestedSetOfStrings(systemIncludes, "system_includes").toList().stream()
             .map(x -> PathFragment.create(x))
@@ -631,7 +632,7 @@ public abstract class CcModule
             .collect(ImmutableList.toImmutableList()));
     ccCompilationContext.addDefines(toNestedSetOfStrings(defines, "defines"));
     ccCompilationContext.addNonTransitiveDefines(
-        toNestedSetOfStrings(localDefines, "local_defines"));
+        toNestedSetOfStrings(localDefines, "local_defines").toList());
     return ccCompilationContext.build();
   }
 
@@ -1797,8 +1798,8 @@ public abstract class CcModule
         convertToNestedSet(picObjectsObject, Artifact.class, "pic_objects");
     validateExtensions(
         location, "pic_objects", picObjects.toList(), Link.OBJECT_FILETYPES, Link.OBJECT_FILETYPES);
-    ccCompilationOutputsBuilder.addObjectFiles(objects);
-    ccCompilationOutputsBuilder.addPicObjectFiles(picObjects);
+    ccCompilationOutputsBuilder.addObjectFiles(objects.toList());
+    ccCompilationOutputsBuilder.addPicObjectFiles(picObjects.toList());
     return ccCompilationOutputsBuilder.build();
   }
 

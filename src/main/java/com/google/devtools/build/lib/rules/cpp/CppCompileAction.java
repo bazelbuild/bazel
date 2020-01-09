@@ -22,7 +22,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
-import com.google.common.collect.Streams;
 import com.google.common.io.ByteStreams;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.AbstractAction;
@@ -455,7 +454,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
       ActionExecutionContext actionExecutionContext,
       NestedSet<Artifact> headers,
       List<CcCompilationContext.HeaderInfo> headerInfo) {
-    Set<Artifact> undeclaredHeaders = Sets.newHashSet(headers);
+    Set<Artifact> undeclaredHeaders = Sets.newHashSet(headers.toList());
 
     // Remove all declared headers and find out which modules were used while at it.
     CcCompilationContext.HeadersAndModules headersAndModules =
@@ -502,7 +501,8 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
     }
 
     return NestedSetBuilder.wrap(
-        Order.STABLE_ORDER, Iterables.filter(headers, header -> !missing.contains(header)));
+        Order.STABLE_ORDER,
+        Iterables.filter(headers.toList(), header -> !missing.contains(header)));
   }
 
   /**
@@ -808,7 +808,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
    */
   @VisibleForTesting
   public ImmutableCollection<String> getDefines() {
-    return ccCompilationContext.getDefines();
+    return ccCompilationContext.getDefines().toList();
   }
 
   @Override
@@ -851,7 +851,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
   @Override
   public Sequence<CommandLineArgsApi> getStarlarkArgs() throws EvalException {
     ImmutableSet<Artifact> directoryInputs =
-        Streams.stream(getInputs())
+        getInputs().toList().stream()
             .filter(artifact -> artifact.isDirectory())
             .collect(ImmutableSet.toImmutableSet());
 
@@ -891,7 +891,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
     info.setOutputFile(outputFile.getExecPathString());
     info.setSourceFile(getSourceFile().getExecPathString());
     if (inputsDiscovered()) {
-      info.addAllSourcesAndHeaders(Artifact.toExecPaths(getInputs()));
+      info.addAllSourcesAndHeaders(Artifact.toExecPaths(getInputs().toList()));
     } else {
       info.addSourcesAndHeaders(getSourceFile().getExecPathString());
       info.addAllSourcesAndHeaders(
@@ -946,15 +946,15 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
    */
   @VisibleForTesting
   public void validateInclusions(
-      ActionExecutionContext actionExecutionContext, Iterable<Artifact> inputsForValidation)
+      ActionExecutionContext actionExecutionContext, NestedSet<Artifact> inputsForValidation)
       throws ActionExecutionException {
     IncludeProblems errors = new IncludeProblems();
     Set<Artifact> allowedIncludes = new HashSet<>();
     for (Artifact input :
         Iterables.concat(
-            mandatoryInputs,
-            ccCompilationContext.getDeclaredIncludeSrcs(),
-            additionalPrunableHeaders)) {
+            mandatoryInputs.toList(),
+            ccCompilationContext.getDeclaredIncludeSrcs().toList(),
+            additionalPrunableHeaders.toList())) {
       if (input.isMiddlemanArtifact() || input.isTreeArtifact()) {
         actionExecutionContext.getArtifactExpander().expand(input, allowedIncludes);
       }
@@ -969,7 +969,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
     // Copy the nested sets to hash sets for fast contains checking, but do so lazily.
     // Avoid immutable sets here to limit memory churn.
     Set<PathFragment> declaredIncludeDirs = null;
-    for (Artifact input : inputsForValidation) {
+    for (Artifact input : inputsForValidation.toList()) {
       // Only declared modules are added to an action and so they are always valid.
       if (input.isFileType(CppFileTypes.CPP_MODULE)) {
         continue;
@@ -1165,9 +1165,10 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
    * Extracts all module (.pcm) files from potentialModules and returns a Variables object where
    * their exec paths are added to the value "module_files".
    */
-  private static CcToolchainVariables getOverwrittenVariables(Iterable<Artifact> potentialModules) {
+  private static CcToolchainVariables getOverwrittenVariables(
+      NestedSet<Artifact> potentialModules) {
     ImmutableList.Builder<String> usedModulePaths = ImmutableList.builder();
-    for (Artifact input : potentialModules) {
+    for (Artifact input : potentialModules.toList()) {
       if (input.isFileType(CppFileTypes.CPP_MODULE)) {
         usedModulePaths.add(input.getExecPathString());
       }
@@ -1206,7 +1207,8 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
       discoveredModules =
           NestedSetBuilder.wrap(
               Order.STABLE_ORDER,
-              Iterables.filter(inputs, input -> input.isFileType(CppFileTypes.CPP_MODULE)));
+              Iterables.filter(
+                  inputs.toList(), input -> input.isFileType(CppFileTypes.CPP_MODULE)));
     }
   }
 
@@ -1276,7 +1278,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
       NestedSet<Artifact> prunableHeaders,
       NestedSet<PathFragment> declaredIncludeDirs,
       List<PathFragment> builtInIncludeDirectories,
-      Iterable<Artifact> inputsForInvalidation,
+      NestedSet<Artifact> inputsForInvalidation,
       boolean validateTopLevelHeaderInclusions) {
     fp.addUUID(actionClassId);
     env.addTo(fp);
@@ -1302,9 +1304,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
 
     // This is needed for CppLinkstampCompile.
     fp.addInt(0);
-    for (Artifact artifact : inputsForInvalidation) {
-      fp.addString(artifact.expandToCommandLine());
-    }
+    actionKeyContext.addNestedSetToFingerprint(fp, inputsForInvalidation);
   }
 
   private byte[] getCommandLineKey() throws CommandLineExpansionException {
@@ -1580,15 +1580,14 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
       if (includeScanningHeaderData == null) {
         return null;
       }
-      Iterable<Artifact> discoveredInputs =
+      NestedSet<Artifact> discoveredInputs =
           findUsedHeaders(
               actionExecutionContext,
               includeScanningHeaderData
                   .setSystemIncludeDirs(getSystemIncludeDirs())
                   .setCmdlineIncludes(getCmdlineIncludes(getCompilerOptions()))
                   .build());
-      return Sets.difference(
-          ImmutableSet.copyOf(discoveredInputs), ImmutableSet.copyOf(getInputs()));
+      return Sets.difference(discoveredInputs.toSet(), getInputs().toSet());
     } catch (CommandLineExpansionException e) {
       throw new ActionExecutionException(
           "failed to generate compile environment variables for rule '"

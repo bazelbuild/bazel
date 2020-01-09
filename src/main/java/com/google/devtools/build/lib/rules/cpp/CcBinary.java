@@ -957,7 +957,8 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
     // at the leaves than the root, but that both increases parallelism and reduces the final
     // action's input size.
     Packager packager =
-        createIntermediateDwpPackagers(context, dwpOutput, toolchain, dwpFiles, dwoFiles, 1);
+        createIntermediateDwpPackagers(
+            context, dwpOutput, toolchain, dwpFiles, dwoFiles.toList(), 1);
     packager.spawnAction.setMnemonic("CcGenerateDwp").addOutput(dwpOutput);
     packager.commandLine.addExecPath("-o", dwpOutput);
     context.registerAction(packager.build(context));
@@ -983,7 +984,7 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
       Artifact dwpOutput,
       CcToolchainProvider toolchain,
       NestedSet<Artifact> dwpFiles,
-      Iterable<Artifact> dwoFiles,
+      List<Artifact> dwoFiles,
       int intermediateDwpCount)
       throws RuleErrorException {
     List<Packager> packagers = new ArrayList<>();

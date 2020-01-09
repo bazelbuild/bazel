@@ -140,7 +140,7 @@ public final class CcCompilationContext implements CcCompilationContextApi {
 
   @Override
   public Depset getSkylarkDefines() {
-    return Depset.of(SkylarkType.STRING, NestedSetBuilder.wrap(Order.STABLE_ORDER, getDefines()));
+    return Depset.of(SkylarkType.STRING, getDefines());
   }
 
   @Override
@@ -472,7 +472,7 @@ public final class CcCompilationContext implements CcCompilationContextApi {
    * Returns the set of defines needed to compile this target. This includes definitions from the
    * transitive deps closure for the target. The order of the returned collection is deterministic.
    */
-  public ImmutableList<String> getDefines() {
+  public NestedSet<String> getDefines() {
     return commandLineCcCompilationContext.defines;
   }
 
@@ -556,7 +556,7 @@ public final class CcCompilationContext implements CcCompilationContextApi {
     private final ImmutableList<PathFragment> quoteIncludeDirs;
     private final ImmutableList<PathFragment> systemIncludeDirs;
     private final ImmutableList<PathFragment> frameworkIncludeDirs;
-    private final ImmutableList<String> defines;
+    private final NestedSet<String> defines;
     private final ImmutableList<String> localDefines;
 
     CommandLineCcCompilationContext(
@@ -564,7 +564,7 @@ public final class CcCompilationContext implements CcCompilationContextApi {
         ImmutableList<PathFragment> quoteIncludeDirs,
         ImmutableList<PathFragment> systemIncludeDirs,
         ImmutableList<PathFragment> frameworkIncludeDirs,
-        ImmutableList<String> defines,
+        NestedSet<String> defines,
         ImmutableList<String> localDefines) {
       this.includeDirs = includeDirs;
       this.quoteIncludeDirs = quoteIncludeDirs;
@@ -603,7 +603,7 @@ public final class CcCompilationContext implements CcCompilationContextApi {
     private final NestedSetBuilder<Artifact> transitiveModules = NestedSetBuilder.stableOrder();
     private final NestedSetBuilder<Artifact> transitivePicModules = NestedSetBuilder.stableOrder();
     private final Set<Artifact> directModuleMaps = new LinkedHashSet<>();
-    private final Set<String> defines = new LinkedHashSet<>();
+    private final NestedSetBuilder<String> defines = NestedSetBuilder.linkOrder();
     private final Set<String> localDefines = new LinkedHashSet<>();
     private CppModuleMap cppModuleMap;
     private CppModuleMap verificationModuleMap;
@@ -680,7 +680,7 @@ public final class CcCompilationContext implements CcCompilationContextApi {
         directModuleMaps.add(otherCcCompilationContext.getCppModuleMap().getArtifact());
       }
 
-      defines.addAll(otherCcCompilationContext.getDefines());
+      defines.addTransitive(otherCcCompilationContext.getDefines());
       virtualToOriginalHeaders.addTransitive(
           otherCcCompilationContext.getVirtualToOriginalHeaders());
       return this;
@@ -798,19 +798,15 @@ public final class CcCompilationContext implements CcCompilationContextApi {
       return this;
     }
 
-    /**
-     * Adds a single define.
-     */
+    /** Adds a single define. */
     public Builder addDefine(String define) {
       defines.add(define);
       return this;
     }
 
-    /**
-     * Adds multiple defines.
-     */
-    public Builder addDefines(Iterable<String> defines) {
-      Iterables.addAll(this.defines, defines);
+    /** Adds multiple defines. */
+    public Builder addDefines(NestedSet<String> defines) {
+      this.defines.addTransitive(defines);
       return this;
     }
 
@@ -893,7 +889,7 @@ public final class CcCompilationContext implements CcCompilationContextApi {
               ImmutableList.copyOf(quoteIncludeDirs),
               ImmutableList.copyOf(systemIncludeDirs),
               ImmutableList.copyOf(frameworkIncludeDirs),
-              ImmutableList.copyOf(defines),
+              defines.build(),
               ImmutableList.copyOf(localDefines)),
           // TODO(b/110873917): We don't have the middle man compilation prerequisite, therefore, we
           // use the compilation prerequisites as they were passed to the builder, i.e. we use every
