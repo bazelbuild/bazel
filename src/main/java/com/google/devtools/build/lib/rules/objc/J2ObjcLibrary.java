@@ -28,7 +28,6 @@ import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTa
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.Type;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.List;
 
 /**
@@ -100,30 +99,6 @@ public class J2ObjcLibrary implements RuleConfiguredTargetFactory {
         .addNativeDeclaredProvider(objcProvider)
         .addSkylarkTransitiveInfo(ObjcProvider.SKYLARK_NAME, objcProvider)
         .build();
-  }
-
-  /**
-   * Returns header search paths necessary to compile the J2ObjC-generated code from a single
-   * target.
-   *
-   * @param ruleContext the rule context
-   * @param objcFileRootExecPath the exec path under which all J2ObjC-generated file resides
-   * @param sourcesToTranslate the source files to be translated by J2ObjC in a single target
-   */
-  public static Iterable<PathFragment> j2objcSourceHeaderSearchPaths(RuleContext ruleContext,
-      PathFragment objcFileRootExecPath, Iterable<Artifact> sourcesToTranslate) {
-    PathFragment genRoot = ruleContext.getConfiguration().getGenfilesFragment();
-    ImmutableList.Builder<PathFragment> headerSearchPaths = ImmutableList.builder();
-    headerSearchPaths.add(objcFileRootExecPath);
-    // We add another header search path with gen root if we have generated sources to translate.
-    for (Artifact sourceToTranslate : sourcesToTranslate) {
-      if (!sourceToTranslate.isSourceArtifact()) {
-        headerSearchPaths.add(objcFileRootExecPath.getRelative(genRoot));
-        return headerSearchPaths.build();
-      }
-    }
-
-    return headerSearchPaths.build();
   }
 
   private static void checkAttributes(RuleContext ruleContext) {
