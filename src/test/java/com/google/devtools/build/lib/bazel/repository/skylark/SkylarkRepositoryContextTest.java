@@ -24,7 +24,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.io.CharStreams;
-import com.google.devtools.build.lib.bazel.repository.downloader.HttpDownloader;
+import com.google.devtools.build.lib.bazel.repository.downloader.DownloadManager;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.Attribute;
@@ -125,7 +125,7 @@ public final class SkylarkRepositoryContextTest {
     Rule rule =
         WorkspaceFactoryHelper.createAndAddRepositoryRule(
             packageBuilder, buildRuleClass(attributes), null, kwargs, Location.BUILTIN);
-    HttpDownloader downloader = Mockito.mock(HttpDownloader.class);
+    DownloadManager downloader = Mockito.mock(DownloadManager.class);
     SkyFunction.Environment environment = Mockito.mock(SkyFunction.Environment.class);
     when(environment.getListener()).thenReturn(listener);
     PathPackageLocator packageLocator =

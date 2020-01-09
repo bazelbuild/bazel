@@ -22,7 +22,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.bazel.repository.RepositoryResolvedEvent;
-import com.google.devtools.build.lib.bazel.repository.downloader.HttpDownloader;
+import com.google.devtools.build.lib.bazel.repository.downloader.DownloadManager;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.BazelStarlarkContext;
 import com.google.devtools.build.lib.packages.Rule;
@@ -57,12 +57,12 @@ import javax.annotation.Nullable;
  */
 public class SkylarkRepositoryFunction extends RepositoryFunction {
 
-  private final HttpDownloader httpDownloader;
+  private final DownloadManager downloadManager;
   private double timeoutScaling = 1.0;
   @Nullable private RepositoryRemoteExecutor repositoryRemoteExecutor;
 
-  public SkylarkRepositoryFunction(HttpDownloader httpDownloader) {
-    this.httpDownloader = httpDownloader;
+  public SkylarkRepositoryFunction(DownloadManager downloadManager) {
+    this.downloadManager = downloadManager;
   }
 
   public void setTimeoutScaling(double timeoutScaling) {
@@ -146,7 +146,7 @@ public class SkylarkRepositoryFunction extends RepositoryFunction {
               blacklistedPatterns,
               env,
               clientEnvironment,
-              httpDownloader,
+              downloadManager,
               directories.getEmbeddedBinariesRoot(),
               timeoutScaling,
               markerData,
