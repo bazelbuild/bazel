@@ -199,7 +199,7 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
                 /* manifestProto= */ outputs.manifestProto(),
                 /* sourceJars= */ ImmutableList.of(srcJar));
 
-    JavaTargetAttributes attributes = helper.getAttributes();
+    JavaTargetAttributes attributes = attributesBuilder.build();
     List<Artifact> nativeLibraries = attributes.getNativeLibraries();
     if (!nativeLibraries.isEmpty()) {
       jvmFlags.add(

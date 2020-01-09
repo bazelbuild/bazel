@@ -154,7 +154,7 @@ public final class JavaCompilationHelper {
     this(ruleContext, semantics, getDefaultJavacOptsFromRule(ruleContext), attributes);
   }
 
-  public JavaTargetAttributes getAttributes() {
+  JavaTargetAttributes getAttributes() {
     if (builtAttributes == null) {
       builtAttributes = attributes.build();
     }

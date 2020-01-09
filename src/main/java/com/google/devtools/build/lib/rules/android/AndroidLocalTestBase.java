@@ -231,16 +231,14 @@ public abstract class AndroidLocalTestBase implements RuleConfiguredTargetFactor
             javaRuleOutputJarsProviderBuilder,
             javaSourceJarsProviderBuilder);
 
-    // JavaCompilationHelper.getAttributes() builds the JavaTargetAttributes, after which the
-    // JavaTargetAttributes becomes immutable. This is an extra safety check to avoid inconsistent
-    // states (i.e. building the JavaTargetAttributes then modifying it again).
-    addJavaClassJarToArtifactsBuilder(javaArtifactsBuilder, helper.getAttributes(), classJar);
+    JavaTargetAttributes attributes = attributesBuilder.build();
+    addJavaClassJarToArtifactsBuilder(javaArtifactsBuilder, attributes, classJar);
 
     javaRuleOutputJarsProviderBuilder.setJdeps(outputs.depsProto());
     helper.createCompileAction(outputs);
     helper.createSourceJarAction(srcJar, outputs.genSource());
 
-    setUpJavaCommon(javaCommon, helper, javaArtifactsBuilder.build());
+    setUpJavaCommon(javaCommon, helper, javaArtifactsBuilder.build(), attributes);
 
     Artifact launcher = JavaHelper.launcherArtifactForTarget(javaSemantics, ruleContext);
 
@@ -278,7 +276,7 @@ public abstract class AndroidLocalTestBase implements RuleConfiguredTargetFactor
                   ruleContext.getImplicitOutputArtifact(JavaSemantics.JAVA_ONE_VERSION_ARTIFACT))
               .useToolchain(javaToolchain)
               .checkJars(
-                  NestedSetBuilder.fromNestedSet(helper.getAttributes().getRuntimeClassPath())
+                  NestedSetBuilder.fromNestedSet(attributes.getRuntimeClassPath())
                       .add(classJar)
                       .build())
               .build(ruleContext);
@@ -309,7 +307,7 @@ public abstract class AndroidLocalTestBase implements RuleConfiguredTargetFactor
         .setOutputJar(deployJar)
         .setJavaStartClass(mainClass)
         .setDeployManifestLines(ImmutableList.<String>of())
-        .setAttributes(helper.getAttributes())
+        .setAttributes(attributes)
         .addRuntimeJars(javaCommon.getJavaCompilationArtifacts().getRuntimeJars())
         .setIncludeBuildData(true)
         .setRunfilesMiddleman(runfilesSupport.getRunfilesMiddleman())
@@ -351,9 +349,9 @@ public abstract class AndroidLocalTestBase implements RuleConfiguredTargetFactor
         javaInfoBuilder
             .addProvider(JavaSourceJarsProvider.class, sourceJarsProvider)
             .addProvider(JavaRuleOutputJarsProvider.class, ruleOutputJarsProvider)
-            .addProvider(JavaSourceInfoProvider.class,
-                    JavaSourceInfoProvider.fromJavaTargetAttributes(
-                            helper.getAttributes(), javaSemantics))
+            .addProvider(
+                JavaSourceInfoProvider.class,
+                JavaSourceInfoProvider.fromJavaTargetAttributes(attributes, javaSemantics))
             .build();
 
     return builder
@@ -381,12 +379,13 @@ public abstract class AndroidLocalTestBase implements RuleConfiguredTargetFactor
   private static void setUpJavaCommon(
       JavaCommon common,
       JavaCompilationHelper helper,
-      JavaCompilationArtifacts javaCompilationArtifacts) {
+      JavaCompilationArtifacts javaCompilationArtifacts,
+      JavaTargetAttributes attributes) {
     common.setJavaCompilationArtifacts(javaCompilationArtifacts);
     common.setClassPathFragment(
         new ClasspathConfiguredFragment(
             common.getJavaCompilationArtifacts(),
-            helper.getAttributes(),
+            attributes,
             false,
             helper.getBootclasspathOrDefault()));
   }
