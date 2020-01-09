@@ -200,7 +200,7 @@ public final class PostGCMemoryUseRecorder implements NotificationListener {
           help =
               "If true calls System.gc() after a build to try and get a post-gc peak heap"
                   + " measurement.")
-      public boolean experimentalSForceGcAfterBuild;
+      public boolean experimentalForceGcAfterBuild;
     }
 
     @Override
@@ -213,7 +213,7 @@ public final class PostGCMemoryUseRecorder implements NotificationListener {
       Options options = env.getOptions().getOptions(Options.class);
       if (options != null
           && ("test".equals(env.getCommand().name()) || "build".equals(env.getCommand().name()))) {
-        forceGc = options.experimentalSForceGcAfterBuild;
+        forceGc = options.experimentalForceGcAfterBuild;
       } else {
         forceGc = false;
       }
