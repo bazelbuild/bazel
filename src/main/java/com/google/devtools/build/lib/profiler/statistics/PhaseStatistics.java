@@ -23,7 +23,6 @@ import com.google.devtools.build.lib.profiler.analysis.ProfileInfo.Task;
 import java.util.EnumMap;
 import java.util.Iterator;
 import java.util.List;
-import javax.annotation.Nullable;
 
 /**
  * Extracts and keeps statistics for one {@link ProfilePhase} for formatting to various outputs.
@@ -35,22 +34,16 @@ public final class PhaseStatistics implements Iterable<ProfilerTask> {
   private long totalDurationNanos;
   private final EnumMap<ProfilerTask, Long> taskDurations;
   private final EnumMap<ProfilerTask, Long> taskCounts;
-  private final PhaseVfsStatistics vfsStatistics;
   private boolean wasExecuted;
 
-  public PhaseStatistics(ProfilePhase phase, boolean generateVfsStatistics) {
+  public PhaseStatistics(ProfilePhase phase) {
     this.phase = phase;
     this.taskDurations = new EnumMap<>(ProfilerTask.class);
     this.taskCounts = new EnumMap<>(ProfilerTask.class);
-    if (generateVfsStatistics) {
-      vfsStatistics = new PhaseVfsStatistics(phase);
-    } else {
-      vfsStatistics = null;
-    }
   }
 
-  public PhaseStatistics(ProfilePhase phase, ProfileInfo info, String workSpaceName, boolean vfs) {
-    this(phase, vfs);
+  public PhaseStatistics(ProfilePhase phase, ProfileInfo info, String workSpaceName) {
+    this(phase);
     addProfileInfo(workSpaceName, info);
   }
 
@@ -60,9 +53,6 @@ public final class PhaseStatistics implements Iterable<ProfilerTask> {
   public void addProfileInfo(String workSpaceName, ProfileInfo info) {
     Task phaseTask = info.getPhaseTask(phase);
     if (phaseTask != null) {
-      if (vfsStatistics != null) {
-        vfsStatistics.addProfileInfo(workSpaceName, info);
-      }
       wasExecuted = true;
       long infoPhaseDuration = info.getPhaseDuration(phaseTask);
       phaseDurationNanos += infoPhaseDuration;
@@ -90,9 +80,6 @@ public final class PhaseStatistics implements Iterable<ProfilerTask> {
     Preconditions.checkArgument(
         phase == other.phase, "Should not combine statistics from different phases");
     if (other.wasExecuted) {
-      if (vfsStatistics != null && other.vfsStatistics != null) {
-        vfsStatistics.add(other.vfsStatistics);
-      }
       wasExecuted = true;
       phaseDurationNanos += other.phaseDurationNanos;
       totalDurationNanos += other.totalDurationNanos;
@@ -118,11 +105,6 @@ public final class PhaseStatistics implements Iterable<ProfilerTask> {
 
   public ProfilePhase getProfilePhase() {
     return phase;
-  }
-
-  @Nullable
-  public PhaseVfsStatistics getVfsStatistics() {
-    return vfsStatistics;
   }
 
   /**

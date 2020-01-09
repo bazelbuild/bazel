@@ -20,14 +20,10 @@ import com.google.devtools.build.lib.profiler.statistics.CriticalPathStatistics;
 import com.google.devtools.build.lib.profiler.statistics.PhaseStatistics;
 import com.google.devtools.build.lib.profiler.statistics.PhaseSummaryStatistics;
 import com.google.devtools.build.lib.profiler.statistics.PhaseVfsStatistics;
-import com.google.devtools.build.lib.profiler.statistics.PhaseVfsStatistics.Stat;
 import com.google.devtools.build.lib.util.TimeUtilities;
-
 import java.io.PrintStream;
 import java.util.Arrays;
 import java.util.EnumMap;
-
-import javax.annotation.Nullable;
 
 /**
  * Output {@link PhaseSummaryStatistics}, {@link PhaseStatistics} and {@link PhaseVfsStatistics}
@@ -38,22 +34,16 @@ public final class PhaseText extends TextPrinter {
   private final PhaseSummaryStatistics phaseSummaryStats;
   private final EnumMap<ProfilePhase, PhaseStatistics> phaseStatistics;
   private final Optional<CriticalPathStatistics> criticalPathStatistics;
-  private final int vfsStatsLimit;
 
-  /**
-   * @param vfsStatsLimit maximum number of VFS statistics to print, or -1 for no limit.
-   */
   public PhaseText(
       PrintStream out,
       PhaseSummaryStatistics phaseSummaryStats,
       EnumMap<ProfilePhase, PhaseStatistics> phaseStatistics,
-      Optional<CriticalPathStatistics> critPathStats,
-      int vfsStatsLimit) {
+      Optional<CriticalPathStatistics> critPathStats) {
     super(out);
     this.phaseSummaryStats = phaseSummaryStats;
     this.phaseStatistics = phaseStatistics;
     this.criticalPathStatistics = critPathStats;
-    this.vfsStatsLimit = vfsStatsLimit;
   }
 
   public void print() {
@@ -105,8 +95,6 @@ public final class PhaseText extends TextPrinter {
 
     if (!stats.isEmpty()) {
       printTimingDistribution(stats);
-      printLn();
-      printVfsStatistics(stats.getVfsStatistics());
     }
   }
 
@@ -154,8 +142,6 @@ public final class PhaseText extends TextPrinter {
       criticalPaths.printCriticalPaths();
       printLn();
     }
-
-    printVfsStatistics(execPhase.getVfsStatistics());
   }
 
   /**
@@ -173,36 +159,6 @@ public final class PhaseText extends TextPrinter {
           stats.getCount(type),
           TimeUtilities.prettyTime(stats.getMeanDuration(type)));
     }
-  }
-
-  /**
-   * Print the time spent on VFS operations on each path. Output is grouped by operation and
-   * sorted by descending duration. If multiple of the same VFS operation were logged for the same
-   * path, print the total duration.
-   */
-  private void printVfsStatistics(@Nullable PhaseVfsStatistics stats) {
-    if (vfsStatsLimit == 0 || stats == null || stats.isEmpty()) {
-      return;
-    }
-
-    lnPrint("VFS path statistics:");
-    lnPrintf("%15s %10s %10s %s", "Type", "Frequency", "Duration", "Path");
-    for (ProfilerTask type : stats) {
-      int numPrinted = 0;
-      for (Stat stat : stats.getSortedStatistics(type)) {
-        if (vfsStatsLimit != -1 && numPrinted++ == vfsStatsLimit) {
-          lnPrintf("... %d more ...", stats.getStatisticsCount(type) - vfsStatsLimit);
-          break;
-        }
-        lnPrintf(
-            "%15s %10d %10s %s",
-            type.name(),
-            stat.getCount(),
-            TimeUtilities.prettyTime(stat.getDuration()),
-            stat.path);
-      }
-    }
-    printLn();
   }
 }
 
