@@ -160,8 +160,7 @@ public abstract class AndroidLocalTestBase implements RuleConfiguredTargetFactor
     attributesBuilder.addResource(
         PathFragment.create("com/android/tools/test_config.properties"), propertiesFile);
 
-    String testClass =
-        getAndCheckTestClass(ruleContext, ImmutableList.copyOf(attributesBuilder.getSourceFiles()));
+    String testClass = getAndCheckTestClass(ruleContext, javaCommon.getSrcsArtifacts());
     getAndCheckTestSupport(ruleContext);
     if (Whitelist.hasWhitelist(ruleContext, "multiple_proto_rule_types_in_deps_whitelist")
         && !Whitelist.isAvailable(ruleContext, "multiple_proto_rule_types_in_deps_whitelist")) {

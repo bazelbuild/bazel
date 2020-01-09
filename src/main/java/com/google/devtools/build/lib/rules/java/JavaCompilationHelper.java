@@ -341,10 +341,9 @@ public final class JavaCompilationHelper {
   }
 
   private boolean shouldInstrumentJar() {
-    // TODO(bazel-team): What about source jars?
     RuleContext ruleContext = getRuleContext();
     return getConfiguration().isCodeCoverageEnabled()
-        && attributes.hasSourceFiles()
+        && attributes.hasSources()
         && InstrumentedFilesCollector.shouldIncludeLocalSources(
             ruleContext.getConfiguration(), ruleContext.getLabel(), ruleContext.isTestTarget());
   }
@@ -353,7 +352,7 @@ public final class JavaCompilationHelper {
     if (!getJavaConfiguration().useHeaderCompilation()) {
       return false;
     }
-    if (!attributes.hasSourceFiles() && !attributes.hasSourceJars()) {
+    if (!attributes.hasSources()) {
       return false;
     }
     if (javaToolchain.getForciblyDisableHeaderCompilation()) {
