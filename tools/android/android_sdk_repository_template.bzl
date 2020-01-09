@@ -376,7 +376,7 @@ def create_system_images_filegroups(system_image_dirs):
                 ]),
             )
             native.filegroup(
-                name = "%s_extra" % name,
+                name = "%s_qemu2_extra" % name,
                 srcs = native.glob(["%s/kernel-ranchu" % system_image_dir]),
             )
         else:
@@ -399,6 +399,6 @@ def create_system_images_filegroups(system_image_dirs):
           """ % name,
             )
             native.filegroup(
-                name = "%s_extra" % name,
+                name = "%s_qemu2_extra" % name,
                 srcs = [],
             )
