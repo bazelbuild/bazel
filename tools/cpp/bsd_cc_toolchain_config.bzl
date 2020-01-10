@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""A Starlark cc_toolchain configuration rule for freebsd."""
+"""A Starlark cc_toolchain configuration rule for FreeBSD and OpenBSD."""
 
 load(
     "@bazel_tools//tools/cpp:cc_toolchain_config_lib.bzl",
@@ -56,13 +56,14 @@ all_link_actions = [
 
 def _impl(ctx):
     cpu = ctx.attr.cpu
+    is_bsd = cpu == "freebsd" or cpu == "openbsd"
     compiler = "compiler"
-    toolchain_identifier = "local_freebsd" if cpu == "freebsd" else "stub_armeabi-v7a"
-    host_system_name = "local" if cpu == "freebsd" else "armeabi-v7a"
-    target_system_name = "local" if cpu == "freebsd" else "armeabi-v7a"
-    target_libc = "local" if cpu == "freebsd" else "armeabi-v7a"
-    abi_version = "local" if cpu == "freebsd" else "armeabi-v7a"
-    abi_libc_version = "local" if cpu == "freebsd" else "armeabi-v7a"
+    toolchain_identifier = "local_{}".format(cpu) if is_bsd else "stub_armeabi-v7a"
+    host_system_name = "local" if is_bsd else "armeabi-v7a"
+    target_system_name = "local" if is_bsd else "armeabi-v7a"
+    target_libc = "local" if is_bsd else "armeabi-v7a"
+    abi_version = "local" if is_bsd else "armeabi-v7a"
+    abi_libc_version = "local" if is_bsd else "armeabi-v7a"
 
     objcopy_embed_data_action = action_config(
         action_name = "objcopy_embed_data",
@@ -70,7 +71,7 @@ def _impl(ctx):
         tools = [tool(path = "/usr/bin/objcopy")],
     )
 
-    action_configs = [objcopy_embed_data_action] if cpu == "freebsd" else []
+    action_configs = [objcopy_embed_data_action] if is_bsd else []
 
     default_link_flags_feature = feature(
         name = "default_link_flags",
@@ -224,7 +225,7 @@ def _impl(ctx):
         ],
     )
 
-    if cpu == "freebsd":
+    if is_bsd:
         features = [
             default_compile_flags_feature,
             default_link_flags_feature,
@@ -240,12 +241,12 @@ def _impl(ctx):
     else:
         features = [supports_dynamic_linker_feature, supports_pic_feature]
 
-    if (cpu == "freebsd"):
+    if (is_bsd):
         cxx_builtin_include_directories = ["/usr/lib/clang", "/usr/local/include", "/usr/include"]
     else:
         cxx_builtin_include_directories = []
 
-    if cpu == "freebsd":
+    if is_bsd:
         tool_paths = [
             tool_path(name = "ar", path = "/usr/bin/ar"),
             tool_path(name = "compat-ld", path = "/usr/bin/ld"),
