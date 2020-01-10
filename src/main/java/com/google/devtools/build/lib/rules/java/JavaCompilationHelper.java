@@ -237,6 +237,7 @@ public final class JavaCompilationHelper {
     builder.setExtdirInputs(getExtdirInputs());
     builder.setToolsJars(javaToolchain.getTools());
     builder.setJavaBuilder(javaToolchain.getJavaBuilder());
+    builder.setGenSourceOutput(outputs.genSource());
     builder.setOutputs(outputs);
 
     builder.setAdditionalOutputs(attributes.getAdditionalOutputs());

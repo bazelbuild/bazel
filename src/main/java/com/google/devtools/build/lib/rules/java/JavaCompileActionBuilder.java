@@ -52,6 +52,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
+import java.util.stream.Stream;
 import javax.annotation.Nullable;
 
 /** Java compilation action builder. */
@@ -168,6 +169,7 @@ public final class JavaCompileActionBuilder {
   private NestedSet<Artifact> extraData = NestedSetBuilder.emptySet(Order.NAIVE_LINK_ORDER);
   private Label targetLabel;
   @Nullable private String injectingRuleKind;
+  private Artifact genSourceOutput;
   private JavaCompileOutputs<Artifact> outputs;
 
   public JavaCompileActionBuilder(
@@ -302,10 +304,15 @@ public final class JavaCompileActionBuilder {
   }
 
   private ImmutableSet<Artifact> allOutputs() {
-    return ImmutableSet.<Artifact>builder()
-        .addAll(outputs.toSet())
-        .addAll(additionalOutputs)
-        .build();
+    ImmutableSet.Builder<Artifact> result =
+        ImmutableSet.<Artifact>builder()
+            .add(outputs.output())
+            .add(outputs.manifestProto())
+            .addAll(additionalOutputs);
+    Stream.of(outputs.depsProto(), outputs.nativeHeader(), genSourceOutput)
+        .filter(x -> x != null)
+        .forEachOrdered(result::add);
+    return result.build();
   }
 
   private CustomCommandLine buildParamFileContents(Collection<String> javacOpts) {
@@ -319,7 +326,7 @@ public final class JavaCompileActionBuilder {
     result.addExecPath("--output", outputs.output());
     result.addExecPath("--native_header_output", outputs.nativeHeader());
     result.addPath("--sourcegendir", sourceGenDirectory);
-    result.addExecPath("--generated_sources_output", outputs.genSource());
+    result.addExecPath("--generated_sources_output", genSourceOutput);
     result.addExecPath("--output_manifest_proto", outputs.manifestProto());
     if (compressJar) {
       result.add("--compress_jar");
@@ -529,6 +536,10 @@ public final class JavaCompileActionBuilder {
   public JavaCompileActionBuilder setInjectingRuleKind(@Nullable String injectingRuleKind) {
     this.injectingRuleKind = injectingRuleKind;
     return this;
+  }
+
+  public void setGenSourceOutput(Artifact genSourceOutput) {
+    this.genSourceOutput = genSourceOutput;
   }
 
   public void setOutputs(JavaCompileOutputs<Artifact> outputs) {
