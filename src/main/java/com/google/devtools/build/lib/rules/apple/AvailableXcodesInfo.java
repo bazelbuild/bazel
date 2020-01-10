@@ -17,7 +17,7 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeInfo;
 
-/** The available xcode versions computed from the {@code avaialable_xcodes} rule. */
+/** The available xcode versions computed from the {@code available_xcodes} rule. */
 @Immutable
 public class AvailableXcodesInfo extends NativeInfo {
   /** Skylark name for this provider. */
