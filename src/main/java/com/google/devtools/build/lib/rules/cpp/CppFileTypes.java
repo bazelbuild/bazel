@@ -18,7 +18,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.FileTypeSet;
-import java.util.List;
 import java.util.regex.Pattern;
 
 /**
@@ -63,7 +62,7 @@ public final class CppFileTypes {
         }
 
         @Override
-        public List<String> getExtensions() {
+        public ImmutableList<String> getExtensions() {
           return ImmutableList.of(ext);
         }
       };
@@ -78,7 +77,7 @@ public final class CppFileTypes {
         }
 
         @Override
-        public List<String> getExtensions() {
+        public ImmutableList<String> getExtensions() {
           return ImmutableList.of(ext);
         }
       };
@@ -95,7 +94,7 @@ public final class CppFileTypes {
         }
 
         @Override
-        public List<String> getExtensions() {
+        public ImmutableList<String> getExtensions() {
           return ImmutableList.of(ext, ".asm");
         }
       };
@@ -103,7 +102,7 @@ public final class CppFileTypes {
   public static final FileType PIC_ARCHIVE = FileType.of(".pic.a");
   public static final FileType ARCHIVE =
       new FileType() {
-        final List<String> extensions = ImmutableList.of(".a", ".lib");
+        final ImmutableList<String> extensions = ImmutableList.of(".a", ".lib");
 
         @Override
         public boolean apply(String path) {
@@ -121,8 +120,8 @@ public final class CppFileTypes {
         }
 
         @Override
-        public List<String> getExtensions() {
-          return ImmutableList.copyOf(extensions);
+        public ImmutableList<String> getExtensions() {
+          return extensions;
         }
       };
 
@@ -138,7 +137,7 @@ public final class CppFileTypes {
         }
 
         @Override
-        public List<String> getExtensions() {
+        public ImmutableList<String> getExtensions() {
           return ImmutableList.of(ext, ".lo.lib");
         }
       };
@@ -154,7 +153,7 @@ public final class CppFileTypes {
         }
 
         @Override
-        public List<String> getExtensions() {
+        public ImmutableList<String> getExtensions() {
           return ImmutableList.of(ext, ".obj");
         }
       };
@@ -223,4 +222,5 @@ public final class CppFileTypes {
         && !CPP_MODULE.matches(fileName);
   }
 
+  private CppFileTypes() {}
 }
