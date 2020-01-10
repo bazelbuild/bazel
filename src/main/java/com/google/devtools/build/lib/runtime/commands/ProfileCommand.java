@@ -38,7 +38,6 @@ import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionsBase;
-import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingResult;
 import java.io.BufferedOutputStream;
 import java.io.IOException;
@@ -92,9 +91,6 @@ public final class ProfileCommand implements BlazeCommand {
       }
     };
   }
-
-  @Override
-  public void editOptions(OptionsParser optionsParser) {}
 
   @Override
   public BlazeCommandResult exec(final CommandEnvironment env, OptionsParsingResult options) {

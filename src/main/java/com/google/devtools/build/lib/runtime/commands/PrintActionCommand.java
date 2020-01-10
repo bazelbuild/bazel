@@ -56,7 +56,6 @@ import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionsBase;
-import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingResult;
 import com.google.protobuf.TextFormat;
 import java.util.ArrayList;
@@ -78,9 +77,6 @@ import java.util.Set;
          allowResidue = true,
          canRunInOutputDirectory = true)
 public final class PrintActionCommand implements BlazeCommand {
-
-  @Override
-  public void editOptions(OptionsParser optionsParser) { }
 
   /**
    * Options for print_action, used to parse command-line arguments.
