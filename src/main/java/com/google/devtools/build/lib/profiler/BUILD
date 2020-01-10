@@ -17,7 +17,6 @@ java_library(
         "MetricData.java",
         "PredicateBasedStatRecorder.java",
         "ProfilePhase.java",
-        "ProfilePhaseStatistics.java",
         "Profiler.java",
         "ProfilerTask.java",
         "SilentCloseable.java",

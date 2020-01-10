@@ -19,16 +19,12 @@ import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.statistics.CriticalPathStatistics;
 import com.google.devtools.build.lib.profiler.statistics.PhaseStatistics;
 import com.google.devtools.build.lib.profiler.statistics.PhaseSummaryStatistics;
-import com.google.devtools.build.lib.profiler.statistics.PhaseVfsStatistics;
 import com.google.devtools.build.lib.util.TimeUtilities;
 import java.io.PrintStream;
 import java.util.Arrays;
 import java.util.EnumMap;
 
-/**
- * Output {@link PhaseSummaryStatistics}, {@link PhaseStatistics} and {@link PhaseVfsStatistics}
- * in text format.
- */
+/** Output {@link PhaseSummaryStatistics} and {@link PhaseStatistics} in text format. */
 public final class PhaseText extends TextPrinter {
 
   private final PhaseSummaryStatistics phaseSummaryStats;
@@ -63,7 +59,7 @@ public final class PhaseText extends TextPrinter {
    * Print a table for the phase overview with runtime and runtime percentage per phase and total.
    */
   private void printPhaseSummaryStatistics() {
-    print("\n=== PHASE SUMMARY INFORMATION ===\n");
+    lnPrint("=== PHASE SUMMARY INFORMATION ===\n");
     for (ProfilePhase phase : phaseSummaryStats) {
       long phaseDuration = phaseSummaryStats.getDurationNanos(phase);
       double relativeDuration = phaseSummaryStats.getRelativeDuration(phase);

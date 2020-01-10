@@ -46,7 +46,7 @@ import javax.annotation.Nullable;
 
 /** Tracks allocations for memory reporting. */
 @ConditionallyThreadCompatible
-public class AllocationTracker implements Sampler {
+public final class AllocationTracker implements Sampler {
 
   private static class AllocationSample {
     @Nullable final RuleClass ruleClass; // Current rule being analysed, if any
@@ -124,17 +124,12 @@ public class AllocationTracker implements Sampler {
   }
 
   /** A pair of rule/aspect name and the bytes it consumes. */
-  public static class RuleBytes {
+  public static final class RuleBytes {
     private final String name;
     private long bytes;
 
     public RuleBytes(String name) {
       this.name = name;
-    }
-
-    /** The name of the rule or aspect. */
-    public String getName() {
-      return name;
     }
 
     /** The number of bytes total occupied by this rule or aspect class. */

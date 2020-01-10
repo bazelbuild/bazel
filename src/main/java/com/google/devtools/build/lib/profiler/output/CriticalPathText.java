@@ -52,11 +52,6 @@ public final class CriticalPathText extends TextPrinter {
       CriticalPathEntry totalPath, CriticalPathEntry optimalPath) {
     lnPrint(totalPath.task.type);
 
-    lnPrintf(
-        TWO_COLUMN_FORMAT,
-        "Main thread scheduling delays",
-        TimeUtilities.prettyTime(criticalPathStats.getMainThreadWaitTime()));
-
     printLn();
     lnPrint("Critical path time:");
 

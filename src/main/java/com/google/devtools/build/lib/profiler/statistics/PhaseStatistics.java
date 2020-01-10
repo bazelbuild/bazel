@@ -42,15 +42,13 @@ public final class PhaseStatistics implements Iterable<ProfilerTask> {
     this.taskCounts = new EnumMap<>(ProfilerTask.class);
   }
 
-  public PhaseStatistics(ProfilePhase phase, ProfileInfo info, String workSpaceName) {
+  public PhaseStatistics(ProfilePhase phase, ProfileInfo info) {
     this(phase);
-    addProfileInfo(workSpaceName, info);
+    addProfileInfo(info);
   }
 
-  /**
-   * Add statistics from {@link ProfileInfo} to the ones already accumulated for this phase.
-   */
-  public void addProfileInfo(String workSpaceName, ProfileInfo info) {
+  /** Add statistics from {@link ProfileInfo} to the ones already accumulated for this phase. */
+  public void addProfileInfo(ProfileInfo info) {
     Task phaseTask = info.getPhaseTask(phase);
     if (phaseTask != null) {
       wasExecuted = true;
@@ -71,23 +69,6 @@ public final class PhaseStatistics implements Iterable<ProfilerTask> {
         long count = Math.max(0, attr.count);
         add(taskCounts, type, count);
         add(taskDurations, type, totalTime);
-      }
-    }
-  }
-
-  /** Add statistics accumulated in another PhaseStatistics object to this one. */
-  public void add(PhaseStatistics other) {
-    Preconditions.checkArgument(
-        phase == other.phase, "Should not combine statistics from different phases");
-    if (other.wasExecuted) {
-      wasExecuted = true;
-      phaseDurationNanos += other.phaseDurationNanos;
-      totalDurationNanos += other.totalDurationNanos;
-      for (ProfilerTask type : other) {
-        long otherCount = other.getCount(type);
-        long otherDuration = other.getTotalDurationNanos(type);
-        add(taskCounts, type, otherCount);
-        add(taskDurations, type, otherDuration);
       }
     }
   }

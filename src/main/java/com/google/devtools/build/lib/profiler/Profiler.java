@@ -36,7 +36,6 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.io.OutputStreamWriter;
 import java.lang.management.ManagementFactory;
-import java.nio.Buffer;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
@@ -1018,7 +1017,7 @@ public final class Profiler {
           ObjectDescriber describer = new ObjectDescriber();
           TaskData data;
           while ((data = queue.take()) != POISON_PILL) {
-            ((Buffer) sink).clear();
+            sink.clear();
 
             VarInt.putVarLong(data.threadId, sink);
             VarInt.putVarInt(data.id, sink);
@@ -1100,7 +1099,7 @@ public final class Profiler {
 
     @Override
     public void enqueue(TaskData data) {
-      if (!metadataPosted.get().booleanValue()) {
+      if (!metadataPosted.get()) {
         metadataPosted.set(Boolean.TRUE);
         // Create a TaskData object that is special-cased below.
         queue.add(
