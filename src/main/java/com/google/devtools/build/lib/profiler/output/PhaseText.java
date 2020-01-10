@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.profiler.statistics.PhaseStatistics;
 import com.google.devtools.build.lib.profiler.statistics.PhaseSummaryStatistics;
 import com.google.devtools.build.lib.util.TimeUtilities;
 import java.io.PrintStream;
+import java.time.Duration;
 import java.util.Arrays;
 import java.util.EnumMap;
 
@@ -61,18 +62,22 @@ public final class PhaseText extends TextPrinter {
   private void printPhaseSummaryStatistics() {
     lnPrint("=== PHASE SUMMARY INFORMATION ===\n");
     for (ProfilePhase phase : phaseSummaryStats) {
-      long phaseDuration = phaseSummaryStats.getDurationNanos(phase);
+      long phaseDurationInMs =
+          Duration.ofNanos(phaseSummaryStats.getDurationNanos(phase)).toMillis();
       double relativeDuration = phaseSummaryStats.getRelativeDuration(phase);
       lnPrintf(
           THREE_COLUMN_FORMAT,
           "Total " + phase.nick + " phase time",
-          TimeUtilities.prettyTime(phaseDuration),
+          String.format("%.3f s", phaseDurationInMs / 1000.0),
           prettyPercentage(relativeDuration));
     }
+
+    lnPrintf("------------------------------------------------");
+    long totalDurationInMs = Duration.ofNanos(phaseSummaryStats.getTotalDuration()).toMillis();
     lnPrintf(
         THREE_COLUMN_FORMAT,
         "Total run time",
-        TimeUtilities.prettyTime(phaseSummaryStats.getTotalDuration()),
+        String.format("%.3f s", totalDurationInMs / 1000.0),
         "100.00%");
     printLn();
   }
