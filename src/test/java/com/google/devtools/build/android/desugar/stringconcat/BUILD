@@ -1,7 +1,5 @@
 load("@rules_java//java:defs.bzl", "java_library", "java_test")
 
-# Description:
-#   Tests for the Java 8 desugaring tool for Android.
 package(
     default_testonly = 1,
     default_visibility = ["//src/test/java/com/google/devtools/build/android/desugar:__subpackages__"],
@@ -10,22 +8,24 @@ package(
 licenses(["notice"])  # Apache 2.0
 
 java_test(
-    name = "DesugarRuleTest",
-    srcs = ["DesugarRuleTest.java"],
+    name = "IndyStringConcatDesugaringlTest",
+    size = "medium",
+    srcs = ["IndyStringConcatDesugaringlTest.java"],
     data = [
-        ":desugar_rule_test_target",
+        ":string_concat_cases",
         "//src/tools/android/java/com/google/devtools/build/android/desugar/testing/junit:android_jar_for_testing",
         "//src/tools/android/java/com/google/devtools/build/android/desugar/testing/junit:jacoco_agent_jar",
     ],
     jvm_flags = [
-        "-Dinput_jar=$(location :desugar_rule_test_target)",
+        "-Dinput_jar=$(location :string_concat_cases)",
         # Required by Desugar#verifyLambdaDumpDirectoryRegistered
         "-Djdk.internal.lambda.dumpProxyClasses=$$(mktemp -d)",
         "-Dandroid_runtime_jar=$(location //src/tools/android/java/com/google/devtools/build/android/desugar/testing/junit:android_jar_for_testing)",
         "-Djacoco_agent_jar=$(location //src/tools/android/java/com/google/devtools/build/android/desugar/testing/junit:jacoco_agent_jar)",
+        "-Djava.lang.invoke.stringConcat=MH_INLINE_SIZED_EXACT",
     ],
+    test_class = "com.google.devtools.build.android.desugar.stringconcat.IndyStringConcatDesugaringlTest",
     deps = [
-        "//src/test/java/com/google/devtools/build/lib:testutil",
         "//src/tools/android/java/com/google/devtools/build/android/desugar/testing/junit:desugar_rule",
         "//third_party:asm",
         "//third_party:asm-tree",
@@ -39,13 +39,13 @@ java_test(
 )
 
 java_library(
-    name = "desugar_rule_test_target",
-    testonly = 1,
-    srcs = ["DesugarRuleTestTarget.java"],
+    name = "string_concat_cases",
+    srcs = ["StringConcatTestCases.java"],
     javacopts = select({
         "//src/tools/android/java/com/google/devtools/build/android/desugar/testing/junit:jdk11-config": [
             "-source 11",
             "-target 11",
+            "-XDstringConcat=indyWithConstants",  # Enable OpenJDK version of String concat.
         ],
         "//conditions:default": [],
     }),

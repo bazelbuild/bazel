@@ -19,7 +19,10 @@ package com.google.devtools.build.android.desugar.nest;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.devtools.build.android.desugar.testing.junit.DesugarRule;
+import com.google.devtools.build.android.desugar.testing.junit.DesugarRunner;
 import com.google.devtools.build.android.desugar.testing.junit.DynamicClassLiteral;
+import com.google.devtools.build.android.desugar.testing.junit.JdkSuppress;
+import com.google.devtools.build.android.desugar.testing.junit.JdkVersion;
 import com.google.devtools.build.android.desugar.testing.junit.RuntimeMethodHandle;
 import com.google.devtools.build.android.desugar.testing.junit.RuntimeMethodHandle.MemberUseContext;
 import com.google.testing.testsize.MediumTest;
@@ -36,10 +39,9 @@ import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
 
 /** Tests for accessing private methods from another class within a nest. */
-@RunWith(JUnit4.class)
+@RunWith(DesugarRunner.class)
 @MediumTest(MediumTestAttribute.FILE)
 public final class NestDesugaringMethodAccessTest {
 
@@ -74,6 +76,7 @@ public final class NestDesugaringMethodAccessTest {
   }
 
   @Test
+  @JdkSuppress(minJdkVersion = JdkVersion.V11)
   public void methodBridgeGeneration() throws Exception {
     List<String> bridgeMethodNames =
         Arrays.stream(mate.getDeclaredMethods())
@@ -92,58 +95,53 @@ public final class NestDesugaringMethodAccessTest {
             "privateInstanceMethod$bridge");
   }
 
-  @Inject
-  @RuntimeMethodHandle(
-      className = "MethodNest",
-      memberName = "populatedFromInvokePrivateStaticMethod",
-      usage = MemberUseContext.FIELD_GETTER)
-  private MethodHandle populatedFromInvokePrivateStaticMethod;
-
   @Test
-  public void invokePrivateStaticMethod_staticInitializer() throws Throwable {
+  public void invokePrivateStaticMethod_staticInitializer(
+      @RuntimeMethodHandle(
+              className = "MethodNest",
+              memberName = "populatedFromInvokePrivateStaticMethod",
+              usage = MemberUseContext.FIELD_GETTER)
+          MethodHandle populatedFromInvokePrivateStaticMethod)
+      throws Throwable {
     long result = (long) populatedFromInvokePrivateStaticMethod.invoke();
     assertThat(result).isEqualTo(385L); // 128L + 256 + 1
   }
 
-  @Inject
-  @RuntimeMethodHandle(
-      className = "MethodNest",
-      memberName = "populatedFromInvokePrivateInstanceMethod",
-      usage = MemberUseContext.FIELD_GETTER)
-  private MethodHandle populatedFromInvokePrivateInstanceMethod;
-
   @Test
-  public void invokePrivateInstanceMethod_instanceInitializer() throws Throwable {
+  public void invokePrivateInstanceMethod_instanceInitializer(
+      @RuntimeMethodHandle(
+              className = "MethodNest",
+              memberName = "populatedFromInvokePrivateInstanceMethod",
+              usage = MemberUseContext.FIELD_GETTER)
+          MethodHandle populatedFromInvokePrivateInstanceMethod)
+      throws Throwable {
     long result = (long) populatedFromInvokePrivateInstanceMethod.invoke(invokerInstance);
     assertThat(result).isEqualTo(768L); // 128L + 256 + 1
   }
 
-  @Inject
-  @RuntimeMethodHandle(className = "MethodNest", memberName = "invokePrivateStaticMethod")
-  private MethodHandle invokePrivateStaticMethod;
-
   @Test
-  public void invokePrivateStaticMethod() throws Throwable {
+  public void invokePrivateStaticMethod(
+      @RuntimeMethodHandle(className = "MethodNest", memberName = "invokePrivateStaticMethod")
+          MethodHandle invokePrivateStaticMethod)
+      throws Throwable {
     long result = (long) invokePrivateStaticMethod.invokeExact((long) 1L, (int) 2);
     assertThat(result).isEqualTo(1L + 2);
   }
 
-  @Inject
-  @RuntimeMethodHandle(className = "MethodNest", memberName = "invokePrivateInstanceMethod")
-  private MethodHandle invokePrivateInstanceMethod;
-
   @Test
-  public void invokePrivateInstanceMethod() throws Throwable {
+  public void invokePrivateInstanceMethod(
+      @RuntimeMethodHandle(className = "MethodNest", memberName = "invokePrivateInstanceMethod")
+          MethodHandle invokePrivateInstanceMethod)
+      throws Throwable {
     long result = (long) invokePrivateInstanceMethod.invoke(mateInstance, 2L, 3);
     assertThat(result).isEqualTo(2L + 3);
   }
 
-  @Inject
-  @RuntimeMethodHandle(className = "MethodNest", memberName = "invokeStaticMethod")
-  private MethodHandle invokeStaticMethod;
-
   @Test
-  public void invokeStaticMethod() throws Throwable {
+  public void invokeStaticMethod(
+      @RuntimeMethodHandle(className = "MethodNest", memberName = "invokeStaticMethod")
+          MethodHandle invokeStaticMethod)
+      throws Throwable {
     long x = 3L;
     int y = 4;
 
@@ -151,12 +149,11 @@ public final class NestDesugaringMethodAccessTest {
     assertThat(result).isEqualTo(x + y);
   }
 
-  @Inject
-  @RuntimeMethodHandle(className = "MethodNest", memberName = "invokeInstanceMethod")
-  private MethodHandle invokeInstanceMethod;
-
   @Test
-  public void invokeInstanceMethod() throws Throwable {
+  public void invokeInstanceMethod(
+      @RuntimeMethodHandle(className = "MethodNest", memberName = "invokeInstanceMethod")
+          MethodHandle invokeInstanceMethod)
+      throws Throwable {
     long x = 4L;
     int y = 5;
 
@@ -164,28 +161,26 @@ public final class NestDesugaringMethodAccessTest {
     assertThat(result).isEqualTo(x + y);
   }
 
-  @Inject
-  @RuntimeMethodHandle(
-      className = "MethodNest",
-      memberName = "invokeSuperAccessPrivateInstanceMethod")
-  private MethodHandle invokeSuperAccessPrivateInstanceMethod;
-
   @Test
-  public void invokeSuperAccessPrivateInstanceMethod() throws Throwable {
+  public void invokeSuperAccessPrivateInstanceMethod(
+      @RuntimeMethodHandle(
+              className = "MethodNest",
+              memberName = "invokeSuperAccessPrivateInstanceMethod")
+          MethodHandle invokeSuperAccessPrivateInstanceMethod)
+      throws Throwable {
     assertThat(
             invokeSuperAccessPrivateInstanceMethod.invoke(
                 subClassMate.getConstructor().newInstance(), 7L, 8))
         .isEqualTo(16L); // 15 + 1
   }
 
-  @Inject
-  @RuntimeMethodHandle(
-      className = "MethodNest",
-      memberName = "invokeCastAccessPrivateInstanceMethod")
-  private MethodHandle invokeCastAccessPrivateInstanceMethod;
-
   @Test
-  public void invokeCastAccessPrivateInstanceMethod() throws Throwable {
+  public void invokeCastAccessPrivateInstanceMethod(
+      @RuntimeMethodHandle(
+              className = "MethodNest",
+              memberName = "invokeCastAccessPrivateInstanceMethod")
+          MethodHandle invokeCastAccessPrivateInstanceMethod)
+      throws Throwable {
     long result =
         (long)
             invokeCastAccessPrivateInstanceMethod.invoke(

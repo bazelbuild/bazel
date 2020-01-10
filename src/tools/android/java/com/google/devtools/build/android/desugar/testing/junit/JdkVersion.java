@@ -16,6 +16,9 @@
 
 package com.google.devtools.build.android.desugar.testing.junit;
 
+import com.google.common.base.Splitter;
+import java.util.List;
+
 /**
  * Enumeration of the currently known Java ClassFile versions.
  *
@@ -24,6 +27,9 @@ package com.google.devtools.build.android.desugar.testing.junit;
  * https://docs.oracle.com/javase/specs/jvms/se11/html/jvms-4.html#jvms-4.1-200-B.2
  */
 public final class JdkVersion {
+  private static final Splitter SPLITTER_DOT = Splitter.on('.');
+  private static final String JAVA_RUNTIME_VERSION_TEXT =
+      System.getProperty("java.runtime.version");
 
   public static final int V1_1 = 3 << 16 | 45;
   public static final int V1_2 = 0 << 16 | 46;
@@ -39,6 +45,17 @@ public final class JdkVersion {
   public static final int V12 = 0 << 16 | 56;
   public static final int V13 = 0 << 16 | 57;
   public static final int V14 = 0 << 16 | 58;
+
+  public static int getJavaRuntimeVersion() {
+    if (JAVA_RUNTIME_VERSION_TEXT.startsWith("1.1.")) {
+      return JdkVersion.V1_1;
+    }
+    List<String> versionSegments = SPLITTER_DOT.splitToList(JAVA_RUNTIME_VERSION_TEXT);
+    if (JAVA_RUNTIME_VERSION_TEXT.startsWith("1.")) {
+      return JdkVersion.V1_2 - 2 + Integer.parseInt(versionSegments.get(1));
+    }
+    return JdkVersion.V9 - 9 + Integer.parseInt(versionSegments.get(0));
+  }
 
   private JdkVersion() {}
 }

@@ -31,13 +31,12 @@ import javax.inject.Inject;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
 import org.objectweb.asm.tree.ClassNode;
 import org.objectweb.asm.tree.FieldNode;
 import org.objectweb.asm.tree.MethodNode;
 
 /** The test for {@link DesugarRule}. */
-@RunWith(JUnit4.class)
+@RunWith(DesugarRunner.class)
 public final class DesugarRuleTest {
 
   @Rule
@@ -175,6 +174,13 @@ public final class DesugarRuleTest {
   }
 
   @Test
+  public void injectClassLiteralsFromParam(
+      @DynamicClassLiteral("DesugarRuleTestTarget$InterfaceSubjectToDesugar")
+          Class<?> interfaceSubjectToDesugarParam) {
+    assertThat(interfaceSubjectToDesugarParam).isSameInstanceAs(interfaceSubjectToDesugarRound1);
+  }
+
+  @Test
   public void injectFieldNodes() {
     assertThat(twoIntSum.desc).isEqualTo("(II)I");
   }
@@ -212,4 +218,3 @@ public final class DesugarRuleTest {
     assertThat(result).isEqualTo(1111);
   }
 }
-

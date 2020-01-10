@@ -50,7 +50,7 @@ import javax.inject.Qualifier;
  */
 @Qualifier
 @Documented
-@Target(ElementType.FIELD)
+@Target({ElementType.FIELD, ElementType.PARAMETER})
 @Retention(RetentionPolicy.RUNTIME)
 public @interface RuntimeZipEntry {
 

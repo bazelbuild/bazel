@@ -19,23 +19,22 @@ package com.google.devtools.build.android.desugar.nest;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.devtools.build.android.desugar.testing.junit.DesugarRule;
+import com.google.devtools.build.android.desugar.testing.junit.DesugarRunner;
 import com.google.devtools.build.android.desugar.testing.junit.RuntimeMethodHandle;
 import com.google.testing.testsize.MediumTest;
 import com.google.testing.testsize.MediumTestAttribute;
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.nio.file.Paths;
-import javax.inject.Inject;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
 
 /**
  * Tests for accessing a series of private fields, constructors and methods from another class
  * within a nest.
  */
-@RunWith(JUnit4.class)
+@RunWith(DesugarRunner.class)
 @MediumTest(MediumTestAttribute.FILE)
 public final class NestDesugaringComplexCasesTest {
 
@@ -50,12 +49,10 @@ public final class NestDesugaringComplexCasesTest {
           .addCommandOptions("desugar_nest_based_private_access", "true")
           .build();
 
-  @Inject
-  @RuntimeMethodHandle(className = "Xylem", memberName = "execute")
-  private MethodHandle xylemExecute;
-
   @Test
-  public void comprehensiveTest() throws Throwable {
+  public void comprehensiveTest(
+      @RuntimeMethodHandle(className = "Xylem", memberName = "execute") MethodHandle xylemExecute)
+      throws Throwable {
     long result = (long) xylemExecute.invoke((long) 2L, (int) 3);
     assertThat(result).isEqualTo(14004004171L);
   }

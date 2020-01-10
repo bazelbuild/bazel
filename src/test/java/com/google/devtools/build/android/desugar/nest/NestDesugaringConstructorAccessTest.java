@@ -19,6 +19,7 @@ package com.google.devtools.build.android.desugar.nest;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.devtools.build.android.desugar.testing.junit.DesugarRule;
+import com.google.devtools.build.android.desugar.testing.junit.DesugarRunner;
 import com.google.devtools.build.android.desugar.testing.junit.DynamicClassLiteral;
 import com.google.devtools.build.android.desugar.testing.junit.RuntimeMethodHandle;
 import com.google.testing.testsize.MediumTest;
@@ -32,10 +33,9 @@ import javax.inject.Inject;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
 
 /** Tests for accessing private constructors from another class within a nest. */
-@RunWith(JUnit4.class)
+@RunWith(DesugarRunner.class)
 @MediumTest(MediumTestAttribute.FILE)
 public final class NestDesugaringConstructorAccessTest {
 
@@ -60,14 +60,6 @@ public final class NestDesugaringConstructorAccessTest {
   @Inject
   @DynamicClassLiteral("ConstructorNest")
   private Class<?> invoker;
-
-  @Inject
-  @RuntimeMethodHandle(className = "ConstructorNest", memberName = "createFromZeroArgConstructor")
-  private MethodHandle createFromZeroArgConstructor;
-
-  @Inject
-  @RuntimeMethodHandle(className = "ConstructorNest", memberName = "createFromMultiArgConstructor")
-  private MethodHandle createFromMultiArgConstructor;
 
   @Test
   public void companionClassIsPresent() {
@@ -110,13 +102,23 @@ public final class NestDesugaringConstructorAccessTest {
   }
 
   @Test
-  public void createFromEmptyArgConstructor() throws Throwable {
+  public void createFromEmptyArgConstructor(
+      @RuntimeMethodHandle(
+              className = "ConstructorNest",
+              memberName = "createFromZeroArgConstructor")
+          MethodHandle createFromZeroArgConstructor)
+      throws Throwable {
     long result = (long) createFromZeroArgConstructor.invoke();
     assertThat(result).isEqualTo(30L);
   }
 
   @Test
-  public void createFromMultiArgConstructor() throws Throwable {
+  public void createFromMultiArgConstructor(
+      @RuntimeMethodHandle(
+              className = "ConstructorNest",
+              memberName = "createFromMultiArgConstructor")
+          MethodHandle createFromMultiArgConstructor)
+      throws Throwable {
     long result = (long) createFromMultiArgConstructor.invoke((long) 20L, (int) 30);
     assertThat(result).isEqualTo(50L);
   }

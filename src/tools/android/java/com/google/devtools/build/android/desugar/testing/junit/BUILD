@@ -17,6 +17,7 @@ java_library(
         "//third_party:asm-commons",
         "//third_party:asm-tree",
         "//third_party:auto_value",
+        "//third_party:flogger",
         "//third_party:guava",
         "//third_party:jsr305",
         "//third_party:jsr330_inject",
@@ -40,6 +41,13 @@ genrule(
     cmd = """
         cp $(location //third_party/java/jacoco:blaze-agent-0.8.3) $(OUTS)
     """,
+)
+
+config_setting(
+    name = "jdk11-config",
+    constraint_values = [
+        "@rules_java//java/constraints:jdk11",
+    ],
 )
 
 filegroup(

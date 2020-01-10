@@ -20,6 +20,7 @@ import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.android.desugar.testing.junit.DesugarRule;
+import com.google.devtools.build.android.desugar.testing.junit.DesugarRunner;
 import com.google.devtools.build.android.desugar.testing.junit.DynamicClassLiteral;
 import com.google.devtools.build.android.desugar.testing.junit.RuntimeMethodHandle;
 import com.google.testing.testsize.MediumTest;
@@ -36,10 +37,9 @@ import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
 
 /** Tests for accessing private interface methods from another class within a nest. */
-@RunWith(JUnit4.class)
+@RunWith(DesugarRunner.class)
 @MediumTest(MediumTestAttribute.FILE)
 public class NestDesugaringInterfaceMethodAccessTest {
 
@@ -75,70 +75,64 @@ public class NestDesugaringInterfaceMethodAccessTest {
         .containsExactly("invokeInstanceMethodInClassBoundary", "mateValues");
   }
 
-  @Inject
-  @RuntimeMethodHandle(className = "InterfaceNest", memberName = "invokePrivateStaticMethod")
-  private MethodHandle invokePrivateStaticMethod;
-
   @Test
-  public void invokePrivateStaticMethod() throws Throwable {
+  public void invokePrivateStaticMethod(
+      @RuntimeMethodHandle(className = "InterfaceNest", memberName = "invokePrivateStaticMethod")
+          MethodHandle invokePrivateStaticMethod)
+      throws Throwable {
     long result = (long) invokePrivateStaticMethod.invoke(10L, 20);
     assertThat(result).isEqualTo(30L);
   }
 
-  @Inject
-  @RuntimeMethodHandle(className = "InterfaceNest", memberName = "invokePrivateInstanceMethod")
-  private MethodHandle invokePrivateInstanceMethod;
-
   @Test
-  public void invokePrivateInstanceMethod() throws Throwable {
+  public void invokePrivateInstanceMethod(
+      @RuntimeMethodHandle(className = "InterfaceNest", memberName = "invokePrivateInstanceMethod")
+          MethodHandle invokePrivateInstanceMethod)
+      throws Throwable {
     long result = (long) invokePrivateInstanceMethod.invoke(mateInstance, 20L, 30);
     assertThat(result).isEqualTo(50L);
   }
 
-  @Inject
-  @RuntimeMethodHandle(
-      className = "InterfaceNest",
-      memberName = "invokeInClassBoundaryStaticMethod")
-  private MethodHandle invokeInClassBoundaryStaticMethod;
-
   @Test
-  public void invokeInClassBoundaryStaticMethod() throws Throwable {
+  public void invokeInClassBoundaryStaticMethod(
+      @RuntimeMethodHandle(
+              className = "InterfaceNest",
+              memberName = "invokeInClassBoundaryStaticMethod")
+          MethodHandle invokeInClassBoundaryStaticMethod)
+      throws Throwable {
     long result = (long) invokeInClassBoundaryStaticMethod.invoke(2L);
     assertThat(result).isEqualTo(3L); // 0 + 1 + 2
   }
 
-  @Inject
-  @RuntimeMethodHandle(
-      className = "InterfaceNest",
-      memberName = "invokeInClassBoundaryInstanceMethod")
-  private MethodHandle invokeInClassBoundaryInstanceMethod;
-
   @Test
-  public void invokeInClassBoundaryInstanceMethod() throws Throwable {
+  public void invokeInClassBoundaryInstanceMethod(
+      @RuntimeMethodHandle(
+              className = "InterfaceNest",
+              memberName = "invokeInClassBoundaryInstanceMethod")
+          MethodHandle invokeInClassBoundaryInstanceMethod)
+      throws Throwable {
     long result = (long) invokeInClassBoundaryInstanceMethod.invoke(mateInstance, 3L);
     assertThat(result).isEqualTo(6L); // 0 + 1 + 2 + 3
   }
 
-  @Inject
-  @RuntimeMethodHandle(
-      className = "InterfaceNest",
-      memberName = "invokePrivateStaticMethodWithLambda")
-  private MethodHandle invokePrivateStaticMethodWithLambda;
-
   @Test
-  public void invokePrivateStaticMethodWithLambda() throws Throwable {
+  public void invokePrivateStaticMethodWithLambda(
+      @RuntimeMethodHandle(
+              className = "InterfaceNest",
+              memberName = "invokePrivateStaticMethodWithLambda")
+          MethodHandle invokePrivateStaticMethodWithLambda)
+      throws Throwable {
     long result = (long) invokePrivateStaticMethodWithLambda.invoke(2L, 3L, 4L, 5L);
     assertThat(result).isEqualTo(17L);
   }
 
-  @Inject
-  @RuntimeMethodHandle(
-      className = "InterfaceNest",
-      memberName = "invokePrivateInstanceMethodWithLambda")
-  private MethodHandle invokePrivateInstanceMethodWithLambda;
-
   @Test
-  public void invokePrivateInstanceMethodWithLambda() throws Throwable {
+  public void invokePrivateInstanceMethodWithLambda(
+      @RuntimeMethodHandle(
+              className = "InterfaceNest",
+              memberName = "invokePrivateInstanceMethodWithLambda")
+          MethodHandle invokePrivateInstanceMethodWithLambda)
+      throws Throwable {
     long result =
         (long)
             invokePrivateInstanceMethodWithLambda.invoke(

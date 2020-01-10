@@ -33,6 +33,7 @@ java_library(
     ],
     runtime_deps = [
         "//src/tools/android/java/com/google/devtools/build/android/desugar/dependencies",
+        "//src/tools/android/java/com/google/devtools/build/android/desugar/runtime:string_concats",
         "//src/tools/android/java/com/google/devtools/build/android/desugar/runtime:throwable_extension",
     ],
     deps = [

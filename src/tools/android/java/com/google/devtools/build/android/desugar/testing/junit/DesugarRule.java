@@ -16,20 +16,14 @@
 
 package com.google.devtools.build.android.desugar.testing.junit;
 
-import static com.google.common.base.Preconditions.checkState;
-
 import com.google.auto.value.AutoAnnotation;
 import com.google.common.collect.ImmutableList;
-import java.lang.annotation.Annotation;
+import com.google.common.collect.ImmutableSet;
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodHandles.Lookup;
+import java.lang.reflect.AnnotatedElement;
 import java.lang.reflect.Field;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.util.Map;
-import java.util.zip.ZipEntry;
-import javax.inject.Inject;
 import org.junit.rules.TestRule;
 import org.junit.runner.Description;
 import org.junit.runners.model.Statement;
@@ -42,15 +36,8 @@ public final class DesugarRule implements TestRule {
   private final Object testInstance;
   private final MethodHandles.Lookup testInstanceLookup;
 
-  private final ImmutableList<Field> injectableClassLiterals;
-  private final ImmutableList<Field> injectableAsmNodes;
-  private final ImmutableList<Field> injectableMethodHandles;
-  private final ImmutableList<Field> injectableZipEntries;
-
-  private final Map<DynamicClassLiteral, Class<?>> dynamicClassLiterals;
-  private final Map<AsmNode, Object> asmNodes;
-  private final Map<RuntimeMethodHandle, MethodHandle> runtimeMethodHandles;
-  private final Map<RuntimeZipEntry, ZipEntry> runtimeZipEntries;
+  private final ImmutableList<Field> injectableFields;
+  private final RuntimeEntityResolver runtimeEntityResolver;
 
   /**
    * The entry point to create a {@link DesugarRule}.
@@ -64,32 +51,22 @@ public final class DesugarRule implements TestRule {
   }
 
   DesugarRule(
-      ImmutableList<Field> injectableAsmNodes,
       Object testInstance,
       Lookup testInstanceLookup,
-      ImmutableList<Field> injectableClassLiterals,
-      ImmutableList<Field> injectableMethodHandles,
-      ImmutableList<Field> injectableZipEntries,
-      Path androidRuntimeJar,
-      Path jacocoAgentJar,
-      Map<DynamicClassLiteral, Class<?>> dynamicClassLiterals,
-      Map<AsmNode, Object> asmNodes,
-      Map<RuntimeMethodHandle, MethodHandle> runtimeMethodHandles,
-      Map<RuntimeZipEntry, ZipEntry> runtimeZipEntries) {
+      ImmutableList<Field> injectableFields,
+      RuntimeEntityResolver runtimeEntityResolver) {
     this.testInstance = testInstance;
     this.testInstanceLookup = testInstanceLookup;
+    this.injectableFields = injectableFields;
+    this.runtimeEntityResolver = runtimeEntityResolver;
+  }
 
-    this.injectableClassLiterals = injectableClassLiterals;
-    this.injectableAsmNodes = injectableAsmNodes;
-    this.injectableMethodHandles = injectableMethodHandles;
-    this.injectableZipEntries = injectableZipEntries;
-    this.dynamicClassLiterals = dynamicClassLiterals;
-    this.asmNodes = asmNodes;
-    this.runtimeMethodHandles = runtimeMethodHandles;
-    this.runtimeZipEntries = runtimeZipEntries;
-
-    checkState(Files.exists(androidRuntimeJar));
-    checkState(Files.exists(jacocoAgentJar));
+  ImmutableSet<Integer> getInputClassFileMajorVersions() {
+    try {
+      return runtimeEntityResolver.getInputClassFileMajorVersions();
+    } catch (Throwable throwable) {
+      throw new IllegalStateException(throwable);
+    }
   }
 
   @Override
@@ -104,31 +81,17 @@ public final class DesugarRule implements TestRule {
   }
 
   private void before() throws Throwable {
-    for (Field field : injectableClassLiterals) {
-      DynamicClassLiteral dynamicClassLiteralRequest =
-          field.getDeclaredAnnotation(DynamicClassLiteral.class);
-      Class<?> classLiteral = dynamicClassLiterals.get(dynamicClassLiteralRequest);
+    for (Field field : injectableFields) {
       MethodHandle fieldSetter = testInstanceLookup.unreflectSetter(field);
-      fieldSetter.invoke(testInstance, classLiteral);
+      fieldSetter.invoke(testInstance, resolve(field, field.getType()));
     }
+  }
 
-    for (Field field : injectableAsmNodes) {
-      Object asmNode = asmNodes.get(field.getDeclaredAnnotation(AsmNode.class));
-      MethodHandle fieldSetter = testInstanceLookup.unreflectSetter(field);
-      fieldSetter.invoke(testInstance, asmNode);
-    }
-
-    for (Field field : injectableMethodHandles) {
-      MethodHandle methodHandle =
-          runtimeMethodHandles.get(field.getDeclaredAnnotation(RuntimeMethodHandle.class));
-      MethodHandle fieldSetter = testInstanceLookup.unreflectSetter(field);
-      fieldSetter.invoke(testInstance, methodHandle);
-    }
-
-    for (Field field : injectableZipEntries) {
-      ZipEntry zipEntry = runtimeZipEntries.get(field.getDeclaredAnnotation(RuntimeZipEntry.class));
-      MethodHandle fieldSetter = testInstanceLookup.unreflectSetter(field);
-      fieldSetter.invoke(testInstance, zipEntry);
+  public Object resolve(AnnotatedElement param, Class<?> type) {
+    try {
+      return runtimeEntityResolver.resolve(param, type);
+    } catch (Throwable throwable) {
+      throw new AssertionError(throwable);
     }
   }
 
@@ -137,18 +100,4 @@ public final class DesugarRule implements TestRule {
     return new AutoAnnotation_DesugarRule_createDynamicClassLiteral(value, round);
   }
 
-  static ImmutableList<Field> findAllInjectableFieldsWithQualifier(
-      Class<?> testClass, Class<? extends Annotation> annotationClass) {
-    ImmutableList.Builder<Field> fields = ImmutableList.builder();
-    for (Class<?> currentClass = testClass;
-        currentClass != null;
-        currentClass = currentClass.getSuperclass()) {
-      for (Field field : currentClass.getDeclaredFields()) {
-        if (field.isAnnotationPresent(Inject.class) && field.isAnnotationPresent(annotationClass)) {
-          fields.add(field);
-        }
-      }
-    }
-    return fields.build();
-  }
 }
