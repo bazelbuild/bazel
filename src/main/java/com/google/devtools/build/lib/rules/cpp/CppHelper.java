@@ -238,6 +238,9 @@ public class CppHelper {
   /**
    * Convenience function for finding the dynamic runtime inputs for the current toolchain. Useful
    * for non C++ rules that link against the C++ runtime.
+   *
+   * <p>This uses the default feature configuration. Do *not* use this method in rules that use a
+   * non-default feature configuration, or risk a mismatch.
    */
   public static NestedSet<Artifact> getDefaultCcToolchainDynamicRuntimeInputs(
       RuleContext ruleContext) throws RuleErrorException {
@@ -251,6 +254,9 @@ public class CppHelper {
   /**
    * Convenience function for finding the dynamic runtime inputs for the current toolchain. Useful
    * for Starlark-defined rules that link against the C++ runtime.
+   *
+   * <p>This uses the default feature configuration. Do *not* use this method in rules that use a
+   * non-default feature configuration, or risk a mismatch.
    */
   public static NestedSet<Artifact> getDefaultCcToolchainDynamicRuntimeInputsFromStarlark(
       RuleContext ruleContext) throws EvalException {

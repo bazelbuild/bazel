@@ -50,6 +50,7 @@ import com.google.devtools.build.lib.rules.cpp.LibraryToLink;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider.ClasspathType;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration.OneVersionEnforcementLevel;
 import com.google.devtools.build.lib.rules.java.proto.GeneratedExtensionRegistryProvider;
+import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -240,11 +241,6 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
         new ClasspathConfiguredFragment(
             javaArtifacts, attributes, false, helper.getBootclasspathOrDefault()));
 
-    // Collect the action inputs for the runfiles collector here because we need to access the
-    // analysis environment, and that may no longer be safe when the runfiles collector runs.
-    NestedSet<Artifact> dynamicRuntimeActionInputs =
-        CppHelper.getDefaultCcToolchainDynamicRuntimeInputs(ruleContext);
-
     Iterables.addAll(
         jvmFlags, semantics.getJvmFlags(ruleContext, common.getSrcsArtifacts(), userJvmFlags));
     if (ruleContext.hasErrors()) {
@@ -322,6 +318,13 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
       }
     }
     NestedSet<Artifact> filesToBuild = filesBuilder.build();
+
+    NestedSet<Artifact> dynamicRuntimeActionInputs;
+    try {
+      dynamicRuntimeActionInputs = ccToolchain.getDynamicRuntimeLinkInputs(featureConfiguration);
+    } catch (EvalException e) {
+      throw ruleContext.throwWithRuleError(e.getMessage());
+    }
 
     collectDefaultRunfiles(
         runfilesBuilder,
