@@ -123,6 +123,8 @@ def _http_file_impl(ctx):
     return update_attrs(ctx.attr, _http_file_attrs.keys(), {"sha256": download_info.sha256})
 
 _HTTP_JAR_BUILD = """
+load("@rules_java//java:defs.bzl", "java_import")
+
 package(default_visibility = ["//visibility:public"])
 
 java_import(
