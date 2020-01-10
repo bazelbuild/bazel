@@ -40,9 +40,7 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
 import java.util.Collection;
 import java.util.HashSet;
-import java.util.LinkedHashSet;
 import java.util.Map;
-import java.util.Set;
 import javax.annotation.Nullable;
 
 /**
@@ -112,15 +110,15 @@ public final class LtoBackendAction extends SpawnAction {
     return imports != null;
   }
 
-  private Set<Artifact> computeBitcodeInputs(Collection<PathFragment> inputPaths) {
-    HashSet<Artifact> bitcodeInputs = new HashSet<>();
+  private NestedSet<Artifact> computeBitcodeInputs(Collection<PathFragment> inputPaths) {
+    NestedSetBuilder<Artifact> bitcodeInputs = NestedSetBuilder.stableOrder();
     for (PathFragment inputPath : inputPaths) {
       Artifact inputArtifact = bitcodeFiles.lookup(inputPath);
       if (inputArtifact != null) {
         bitcodeInputs.add(inputArtifact);
       }
     }
-    return bitcodeInputs;
+    return bitcodeInputs.build();
   }
 
   @Nullable
@@ -158,28 +156,24 @@ public final class LtoBackendAction extends SpawnAction {
     }
 
     // Convert the import set of paths to the set of bitcode file artifacts.
-    Set<Artifact> bitcodeInputSet = computeBitcodeInputs(importSet);
-    if (bitcodeInputSet.size() != importSet.size()) {
+    NestedSet<Artifact> bitcodeInputSet = computeBitcodeInputs(importSet);
+    if (bitcodeInputSet.toList().size() != importSet.size()) {
       throw new ActionExecutionException(
           "error computing inputs from imports file "
               + actionExecutionContext.getInputPath(imports),
           this,
           false);
     }
-    updateInputs(createInputs(bitcodeInputSet, getMandatoryInputs()));
+    updateInputs(
+        NestedSetBuilder.fromNestedSet(bitcodeInputSet)
+            .addTransitive(getMandatoryInputs())
+            .build());
     return bitcodeInputSet;
   }
 
   @Override
-  public Collection<Artifact> getMandatoryInputs() {
-    return mandatoryInputs.toList();
-  }
-
-  private static Iterable<Artifact> createInputs(
-      Set<Artifact> newInputs, Collection<Artifact> curInputs) {
-    Set<Artifact> result = new LinkedHashSet<>(newInputs);
-    result.addAll(curInputs);
-    return result;
+  public NestedSet<Artifact> getMandatoryInputs() {
+    return mandatoryInputs;
   }
 
   @Override

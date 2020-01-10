@@ -46,6 +46,7 @@ import com.google.bytestream.ByteStreamProto.WriteResponse;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Maps;
 import com.google.common.util.concurrent.ListeningScheduledExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.devtools.build.lib.actions.ActionInput;
@@ -208,6 +209,20 @@ public class GrpcRemoteExecutionClientTest {
     FileSystemUtils.createDirectoryAndParents(stderr.getParentDirectory());
     outErr = new FileOutErr(stdout, stderr);
     RemoteOptions remoteOptions = Options.getDefaults(RemoteOptions.class);
+
+    remoteOptions.remoteHeaders =
+        ImmutableList.of(
+            Maps.immutableEntry("CommonKey1", "CommonValue1"),
+            Maps.immutableEntry("CommonKey2", "CommonValue2"));
+    remoteOptions.remoteExecHeaders =
+        ImmutableList.of(
+            Maps.immutableEntry("ExecKey1", "ExecValue1"),
+            Maps.immutableEntry("ExecKey2", "ExecValue2"));
+    remoteOptions.remoteCacheHeaders =
+        ImmutableList.of(
+            Maps.immutableEntry("CacheKey1", "CacheValue1"),
+            Maps.immutableEntry("CacheKey2", "CacheValue2"));
+
     RemoteRetrier retrier =
         TestUtils.newRemoteRetrier(
             () -> new ExponentialBackoff(remoteOptions),
@@ -217,7 +232,7 @@ public class GrpcRemoteExecutionClientTest {
         new ReferenceCountedChannel(
             InProcessChannelBuilder.forName(fakeServerName).directExecutor().build());
     GrpcRemoteExecutor executor =
-        new GrpcRemoteExecutor(channel.retain(), null, retrier);
+        new GrpcRemoteExecutor(channel.retain(), null, retrier, remoteOptions);
     CallCredentials creds =
         GoogleAuthUtils.newCallCredentials(Options.getDefaults(AuthAndTLSOptions.class));
     ByteStreamUploader uploader =
@@ -507,6 +522,69 @@ public class GrpcRemoteExecutionClientTest {
           .isEqualTo(BlazeVersionInfo.instance().getVersion());
       return next.startCall(call, headers);
     }
+  }
+
+  @Test
+  public void extraHeaders() throws Exception {
+    BindableService actionCache =
+        new ActionCacheImplBase() {
+          @Override
+          public void getActionResult(
+              GetActionResultRequest request, StreamObserver<ActionResult> responseObserver) {
+            responseObserver.onError(Status.NOT_FOUND.asRuntimeException());
+          }
+        };
+    serviceRegistry.addService(actionCache);
+
+    BindableService cas =
+        new ContentAddressableStorageImplBase() {
+          @Override
+          public void findMissingBlobs(
+              FindMissingBlobsRequest request,
+              StreamObserver<FindMissingBlobsResponse> responseObserver) {
+            responseObserver.onNext(FindMissingBlobsResponse.getDefaultInstance());
+            responseObserver.onCompleted();
+          }
+        };
+    serviceRegistry.addService(cas);
+
+    BindableService execService =
+        new ExecutionImplBase() {
+          @Override
+          public void execute(ExecuteRequest request, StreamObserver<Operation> responseObserver) {
+            responseObserver.onNext(Operation.getDefaultInstance());
+            responseObserver.onCompleted();
+          }
+        };
+    ServerInterceptor interceptor =
+        new ServerInterceptor() {
+          @Override
+          public <ReqT, RespT> ServerCall.Listener<ReqT> interceptCall(
+              ServerCall<ReqT, RespT> call,
+              Metadata metadata,
+              ServerCallHandler<ReqT, RespT> next) {
+            assertThat(
+                    metadata.get(Metadata.Key.of("CommonKey1", Metadata.ASCII_STRING_MARSHALLER)))
+                .isEqualTo("CommonValue1");
+            assertThat(
+                    metadata.get(Metadata.Key.of("CommonKey2", Metadata.ASCII_STRING_MARSHALLER)))
+                .isEqualTo("CommonValue2");
+            assertThat(metadata.get(Metadata.Key.of("ExecKey1", Metadata.ASCII_STRING_MARSHALLER)))
+                .isEqualTo("ExecValue1");
+            assertThat(metadata.get(Metadata.Key.of("ExecKey2", Metadata.ASCII_STRING_MARSHALLER)))
+                .isEqualTo("ExecValue2");
+            assertThat(metadata.get(Metadata.Key.of("CacheKey1", Metadata.ASCII_STRING_MARSHALLER)))
+                .isEqualTo(null);
+            assertThat(metadata.get(Metadata.Key.of("CacheKey2", Metadata.ASCII_STRING_MARSHALLER)))
+                .isEqualTo(null);
+            return next.startCall(call, metadata);
+          }
+        };
+    serviceRegistry.addService(ServerInterceptors.intercept(execService, interceptor));
+
+    FakeSpawnExecutionContext policy =
+        new FakeSpawnExecutionContext(simpleSpawn, fakeFileCache, execRoot, outErr);
+    client.exec(simpleSpawn, policy);
   }
 
   @Test

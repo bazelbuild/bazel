@@ -796,7 +796,7 @@ public class SkylarkCustomCommandLine extends CommandLine {
               .setSemantics(starlarkSemantics)
               .setEventHandler(NullEventHandler.INSTANCE)
               .build();
-      return Starlark.call(thread, mapFn, /*call=*/ null, args, /*kwargs=*/ ImmutableMap.of());
+      return Starlark.call(thread, mapFn, Location.BUILTIN, args, /*kwargs=*/ ImmutableMap.of());
     } catch (EvalException e) {
       throw new CommandLineExpansionException(errorMessage(e.getMessage(), location, e.getCause()));
     } catch (InterruptedException e) {
@@ -810,7 +810,7 @@ public class SkylarkCustomCommandLine extends CommandLine {
       BaseFunction mapFn,
       List<Object> originalValues,
       Consumer<String> consumer,
-      Location location,
+      Location loc,
       StarlarkSemantics starlarkSemantics)
       throws CommandLineExpansionException {
     try (Mutability mutability = Mutability.create("map_each")) {
@@ -826,7 +826,7 @@ public class SkylarkCustomCommandLine extends CommandLine {
             Starlark.call(
                 thread,
                 mapFn,
-                /*call=*/ null,
+                Location.BUILTIN,
                 originalValues.subList(i, i + 1),
                 /*kwargs=*/ ImmutableMap.of());
         if (ret instanceof String) {
@@ -848,11 +848,10 @@ public class SkylarkCustomCommandLine extends CommandLine {
         }
       }
     } catch (EvalException e) {
-      throw new CommandLineExpansionException(errorMessage(e.getMessage(), location, e.getCause()));
+      throw new CommandLineExpansionException(errorMessage(e.getMessage(), loc, e.getCause()));
     } catch (InterruptedException e) {
       Thread.currentThread().interrupt();
-      throw new CommandLineExpansionException(
-          errorMessage("Thread was interrupted", location, null));
+      throw new CommandLineExpansionException(errorMessage("Thread was interrupted", loc, null));
     }
   }
 

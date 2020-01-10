@@ -97,7 +97,7 @@ import javax.annotation.Nullable;
 // As best I can tell, all the skyframe serialization
 // as it applies to LexicalFrames is redundant, as these are transient
 // and should not exist after loading.
-// We will remove the FuncallExpression parameter from StarlarkFunction.call.
+// We will remove the CallExpression parameter from StarlarkFunction.call.
 // Clients should use getCallerLocation instead.
 // The only place that still needs an AST is Bazel's generator_name.
 // Once the API is small and sound, we can start to represent all
@@ -286,28 +286,21 @@ public final class StarlarkThread implements Freezable {
     // This is a consequence of not representing toplevel statements as a function.
     // TODO(adonovan): fix that.
 
-    final Location callerLoc; // location of the enclosing call (may be Location.BUILTIN)
-    @Nullable final FuncallExpression call; // syntax of the enclosing call
+    final Location callLoc; // location of the enclosing call (may be Location.BUILTIN)
     final Frame savedLexicals; // the saved lexicals of the parent
     final Module savedModule; // the saved module of the parent (TODO(adonovan): eliminate)
     @Nullable SilentCloseable profileSpan; // current span of walltime profiler
 
-    CallFrame(
-        StarlarkCallable fn,
-        Location callerLoc,
-        @Nullable FuncallExpression call,
-        Frame savedLexicals,
-        Module savedModule) {
+    CallFrame(StarlarkCallable fn, Location callLoc, Frame savedLexicals, Module savedModule) {
       this.fn = fn;
-      this.callerLoc = callerLoc;
-      this.call = call;
+      this.callLoc = callLoc;
       this.savedLexicals = savedLexicals;
       this.savedModule = savedModule;
     }
 
     @Override
     public String toString() {
-      return fn.getName() + "@" + callerLoc;
+      return fn.getName() + "@" + callLoc;
     }
   }
 
@@ -513,8 +506,8 @@ public final class StarlarkThread implements Freezable {
    * @param fn the function whose scope to enter
    * @param loc the source location of the function call.
    */
-  void push(StarlarkCallable fn, Location loc, @Nullable FuncallExpression call) {
-    CallFrame fr = new CallFrame(fn, loc, call, this.lexicalFrame, this.globalFrame);
+  void push(StarlarkCallable fn, Location loc) {
+    CallFrame fr = new CallFrame(fn, loc, this.lexicalFrame, this.globalFrame);
     callstack.add(fr);
 
     // Push the function onto the allocation tracker's stack.
@@ -608,14 +601,14 @@ public final class StarlarkThread implements Freezable {
     return false;
   }
 
-  /** Returns the call expression and called function for the outermost call being evaluated. */
+  /** Returns the call location and called function for the outermost call being evaluated. */
   // TODO(adonovan): replace this by an API for walking the call stack, then move to lib.packages.
-  public Pair<FuncallExpression, StarlarkCallable> getOutermostCall() {
+  public Pair<Location, StarlarkCallable> getOutermostCall() {
     if (callstack.isEmpty()) {
       return null;
     }
     CallFrame outermost = callstack.get(0);
-    return new Pair<>(outermost.call, outermost.fn);
+    return new Pair<>(outermost.callLoc, outermost.fn);
   }
 
   /**
@@ -904,7 +897,7 @@ public final class StarlarkThread implements Freezable {
               .setLocation(loc)
               .build());
       lex = fr.savedLexicals;
-      loc = fr.callerLoc;
+      loc = fr.callLoc;
     }
     // TODO(adonovan): simplify by fixing the callstack's off-by-one problem.
     // We won't need to pass in 'loc' nor add a fake <top level> frame, nor

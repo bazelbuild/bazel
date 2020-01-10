@@ -215,9 +215,8 @@ public interface SkylarkRepositoryContextApi<RepositoryFunctionExceptionT extend
   @SkylarkCallable(
       name = "os",
       structField = true,
-      doc = "A struct to access information from the system.",
-      useLocation = true)
-  SkylarkOSApi getOS(Location location);
+      doc = "A struct to access information from the system.")
+  SkylarkOSApi getOS();
 
   @SkylarkCallable(
       name = "execute",

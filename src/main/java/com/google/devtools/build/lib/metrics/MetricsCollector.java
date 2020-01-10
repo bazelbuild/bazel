@@ -22,7 +22,7 @@ import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.Bui
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.MemoryMetrics;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.PackageMetrics;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.TargetMetrics;
-import com.google.devtools.build.lib.buildtool.buildevent.BuildCompleteEvent;
+import com.google.devtools.build.lib.buildtool.BuildPrecompleteEvent;
 import com.google.devtools.build.lib.metrics.MetricsModule.Options;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import java.lang.management.ManagementFactory;
@@ -67,7 +67,7 @@ class MetricsCollector {
   }
 
   @Subscribe
-  public void onBuildComplete(BuildCompleteEvent event) {
+  public void onBuildComplete(BuildPrecompleteEvent event) {
     env.getEventBus().post(new BuildMetricsEvent(createBuildMetrics()));
   }
 

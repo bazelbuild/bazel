@@ -29,7 +29,6 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.syntax.Depset;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Sequence;
-import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.lib.syntax.StarlarkValue;
@@ -267,15 +266,13 @@ public interface JavaCommonApi<
             allowedTypes = {@ParamType(type = JavaToolchainSkylarkApiProviderApi.class)},
             doc = "A JavaToolchainInfo to used to find the ijar tool."),
       },
-      useStarlarkSemantics = true,
       useLocation = true)
   FileApi runIjar(
       SkylarkActionFactoryT actions,
       FileT jar,
       Object targetLabel,
       JavaToolchainT javaToolchain,
-      Location location,
-      StarlarkSemantics semantics)
+      Location location)
       throws EvalException;
 
   @SkylarkCallable(
@@ -317,15 +314,13 @@ public interface JavaCommonApi<
             allowedTypes = {@ParamType(type = JavaToolchainSkylarkApiProviderApi.class)},
             doc = "A JavaToolchainInfo to used to find the stamp_jar tool."),
       },
-      useStarlarkSemantics = true,
       useLocation = true)
   FileApi stampJar(
       SkylarkActionFactoryT actions,
       FileT jar,
       Label targetLabel,
       JavaToolchainT javaToolchain,
-      Location location,
-      StarlarkSemantics semantics)
+      Location location)
       throws EvalException;
 
   @SkylarkCallable(
@@ -379,7 +374,6 @@ public interface JavaCommonApi<
             doc = "A JavaRuntimeInfo to be used for packing sources."),
       },
       allowReturnNones = true,
-      useStarlarkSemantics = true,
       useLocation = true)
   FileApi packSources(
       SkylarkActionFactoryT actions,
@@ -388,8 +382,7 @@ public interface JavaCommonApi<
       Sequence<?> sourceJars, // <FileT> expected.
       JavaToolchainT javaToolchain,
       JavaRuntimeT hostJavabase,
-      Location location,
-      StarlarkSemantics semantics)
+      Location location)
       throws EvalException;
 
   @SkylarkCallable(

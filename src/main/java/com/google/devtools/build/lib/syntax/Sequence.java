@@ -126,11 +126,9 @@ public interface Sequence<E>
     if (obj instanceof Sequence) {
       return ((Sequence<?>) obj).getContents(type, description);
     }
-    throw new EvalException(
-        null,
-        String.format(
-            "Illegal argument: %s is not of expected type list or NoneType",
-            description == null ? Starlark.repr(obj) : String.format("'%s'", description)));
+    throw Starlark.errorf(
+        "Illegal argument: %s is not of expected type list or NoneType",
+        description == null ? Starlark.repr(obj) : String.format("'%s'", description));
   }
 
   /**

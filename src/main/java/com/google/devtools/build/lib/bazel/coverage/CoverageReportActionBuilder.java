@@ -168,7 +168,7 @@ public final class CoverageReportActionBuilder {
       EventHandler reporter,
       BlazeDirectories directories,
       Collection<ConfiguredTarget> targetsToTest,
-      Iterable<Artifact> baselineCoverageArtifacts,
+      NestedSet<Artifact> baselineCoverageArtifacts,
       ArtifactFactory factory,
       ActionKeyContext actionKeyContext,
       ArtifactOwner artifactOwner,
@@ -189,7 +189,7 @@ public final class CoverageReportActionBuilder {
         reportGenerator = testParams.getCoverageReportGenerator();
       }
     }
-    builder.addAll(baselineCoverageArtifacts);
+    builder.addAll(baselineCoverageArtifacts.toList());
 
     ImmutableList<Artifact> coverageArtifacts = builder.build();
     if (!coverageArtifacts.isEmpty()) {
@@ -213,7 +213,7 @@ public final class CoverageReportActionBuilder {
   }
 
   private FileWriteAction generateLcovFileWriteAction(
-      Artifact lcovArtifact, ImmutableList<Artifact>coverageArtifacts) {
+      Artifact lcovArtifact, ImmutableList<Artifact> coverageArtifacts) {
     List<String> filepaths = new ArrayList<>(coverageArtifacts.size());
     for (Artifact artifact : coverageArtifacts) {
       filepaths.add(artifact.getExecPathString());

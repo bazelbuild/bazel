@@ -110,7 +110,7 @@ public class CcToolchainProviderHelper {
         staticRuntimeLinkMiddleman =
             staticRuntimeLinkMiddlemanSet.isEmpty()
                 ? null
-                : Iterables.getOnlyElement(staticRuntimeLinkMiddlemanSet);
+                : staticRuntimeLinkMiddlemanSet.getSingleton();
       } else {
         staticRuntimeLinkMiddleman = null;
       }
@@ -129,7 +129,7 @@ public class CcToolchainProviderHelper {
     if (dynamicRuntimeLib != null) {
       NestedSetBuilder<Artifact> dynamicRuntimeLinkSymlinksBuilder = NestedSetBuilder.stableOrder();
       for (Artifact artifact :
-          dynamicRuntimeLib.getProvider(FileProvider.class).getFilesToBuild()) {
+          dynamicRuntimeLib.getProvider(FileProvider.class).getFilesToBuild().toList()) {
         if (CppHelper.SHARED_LIBRARY_FILETYPES.matches(artifact.getFilename())) {
           dynamicRuntimeLinkInputs.add(artifact);
           dynamicRuntimeLinkSymlinksBuilder.add(

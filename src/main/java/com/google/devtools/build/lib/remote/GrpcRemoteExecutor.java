@@ -21,6 +21,7 @@ import build.bazel.remote.execution.v2.ExecutionGrpc.ExecutionBlockingStub;
 import build.bazel.remote.execution.v2.WaitExecutionRequest;
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
+import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
 import com.google.longrunning.Operation;
 import com.google.rpc.Status;
@@ -42,19 +43,23 @@ class GrpcRemoteExecutor {
   private final RemoteRetrier retrier;
 
   private final AtomicBoolean closed = new AtomicBoolean();
+  private final RemoteOptions options;
 
   public GrpcRemoteExecutor(
       ReferenceCountedChannel channel,
       @Nullable CallCredentials callCredentials,
-      RemoteRetrier retrier) {
+      RemoteRetrier retrier,
+      RemoteOptions options) {
     this.channel = channel;
     this.callCredentials = callCredentials;
     this.retrier = retrier;
+    this.options = options;
   }
 
   private ExecutionBlockingStub execBlockingStub() {
     return ExecutionGrpc.newBlockingStub(channel)
         .withInterceptors(TracingMetadataUtils.attachMetadataFromContextInterceptor())
+        .withInterceptors(TracingMetadataUtils.newExecHeadersInterceptor(options))
         .withCallCredentials(callCredentials);
   }
 

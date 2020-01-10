@@ -21,7 +21,6 @@ import com.google.devtools.build.lib.skylarkbuildapi.repository.RepositoryModule
 import com.google.devtools.build.lib.syntax.BaseFunction;
 import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.FuncallExpression;
 import com.google.devtools.build.lib.syntax.FunctionSignature;
 import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.Starlark;
@@ -34,9 +33,7 @@ import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.Attr
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.AttributeType;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.RuleInfo;
 import java.util.List;
-import java.util.Map;
 import java.util.stream.Collectors;
-import javax.annotation.Nullable;
 
 /**
  * Fake implementation of {@link RepositoryModuleApi}.
@@ -61,7 +58,7 @@ public class FakeRepositoryModule implements RepositoryModuleApi {
       Boolean configure,
       Boolean remotable,
       String doc,
-      FuncallExpression ast,
+      Location loc,
       StarlarkThread thread)
       throws EvalException {
     List<AttributeInfo> attrInfos;
@@ -85,7 +82,7 @@ public class FakeRepositoryModule implements RepositoryModuleApi {
     // Only the Builder is passed to RuleInfoWrapper as the rule name is not yet available.
     RuleInfo.Builder ruleInfo = RuleInfo.newBuilder().setDocString(doc).addAllAttribute(attrInfos);
 
-    ruleInfoList.add(new RuleInfoWrapper(functionIdentifier, ast.getLocation(), ruleInfo));
+    ruleInfoList.add(new RuleInfoWrapper(functionIdentifier, loc, ruleInfo));
     return functionIdentifier;
   }
 
@@ -101,23 +98,14 @@ public class FakeRepositoryModule implements RepositoryModuleApi {
     private static int idCounter = 0;
     private final String name = "RepositoryRuleDefinitionIdentifier" + idCounter++;
 
-    public RepositoryRuleDefinitionIdentifier() {
-      super(FunctionSignature.KWARGS);
-    }
-
-    @Override
-    public Object callImpl(
-        StarlarkThread thread,
-        @Nullable FuncallExpression call,
-        List<Object> args,
-        Map<String, Object> kwargs)
-        throws EvalException {
-      throw new EvalException("not implemented");
-    }
-
     @Override
     public String getName() {
       return name;
+    }
+
+    @Override
+    public FunctionSignature getSignature() {
+      return FunctionSignature.KWARGS;
     }
   }
 

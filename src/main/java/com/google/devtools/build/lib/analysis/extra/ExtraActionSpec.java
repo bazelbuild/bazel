@@ -138,7 +138,7 @@ public final class ExtraActionSpec implements TransitiveInfoProvider {
     String commandMessage = String.format("Executing extra_action %s on %s", label, ownerLabel);
     owningRule.registerAction(
         new ExtraAction(
-            ImmutableSet.copyOf(extraActionInputs.build()),
+            extraActionInputs.build(),
             runfilesSupplier,
             extraActionOutputs,
             actionToShadow,

@@ -909,4 +909,27 @@ EOF
       fail "bazel build should've passed with --features=compiler_param_file"
 }
 
+function test_disable_cc_toolchain_detection() {
+  cat > ok.cc <<EOF
+#include <stdio.h>
+int main() {
+  printf("Hello\n");
+}
+EOF
+
+  cat > BUILD <<EOF
+cc_binary(
+  name = "ok",
+  srcs = ["ok.cc"],
+)
+EOF
+
+  # This only shows reliably for query due to ordering issues in how Bazel shows
+  # errors.
+  BAZEL_DO_NOT_DETECT_CPP_TOOLCHAIN=1 bazel query 'deps(//:ok)' &>"$TEST_log" || \
+    fail "Should pass with fake toolchain"
+  expect_not_log "An error occurred during the fetch of repository 'local_config_cc'"
+  expect_log "@local_config_cc//:empty"
+}
+
 run_suite "cc_integration_test"

@@ -75,7 +75,7 @@ public class ResourceFilter {
     NestedSetBuilder<ValidatedAndroidResources> builder =
         new NestedSetBuilder<>(resourceContainers.getOrder());
 
-    for (ValidatedAndroidResources container : resourceContainers) {
+    for (ValidatedAndroidResources container : resourceContainers.toList()) {
       builder.add(container.filter(errorConsumer, this, /* isDependency = */ true));
     }
 

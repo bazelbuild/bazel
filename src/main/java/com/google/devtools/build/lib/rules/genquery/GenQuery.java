@@ -250,7 +250,7 @@ public class GenQuery implements RuleConfiguredTargetFactory {
             "errors were encountered while computing transitive closure of the scope.");
       }
       validTargets.addTransitive(transNode.getTransitiveTargets());
-      for (Label transitiveLabel : transNode.getTransitiveTargets()) {
+      for (Label transitiveLabel : transNode.getTransitiveTargets().toList()) {
         successfulPackageKeys.add(PackageValue.key(transitiveLabel.getPackageIdentifier()));
       }
     }
@@ -273,7 +273,7 @@ public class GenQuery implements RuleConfiguredTargetFactory {
     }
     ImmutableMap<PackageIdentifier, Package> packageMap = packageMapBuilder.build();
     ImmutableMap.Builder<Label, Target> validTargetsMapBuilder = ImmutableMap.builder();
-    for (Label label : validTargets.build()) {
+    for (Label label : validTargets.build().toList()) {
       try {
         Target target = packageMap.get(label.getPackageIdentifier()).getTarget(label.getName());
         validTargetsMapBuilder.put(label, target);

@@ -193,11 +193,7 @@ public interface GoWrapCcHelperApi<
       documented = false,
       parameters = {
         @Param(name = "ctx", positional = false, named = true, type = SkylarkRuleContextApi.class),
-        @Param(
-            name = "gopkg",
-            positional = false,
-            named = true,
-            allowedTypes = {@ParamType(type = NoneType.class), @ParamType(type = FileApi.class)}),
+        @Param(name = "gopkg", positional = false, named = true, type = FileApi.class),
         @Param(name = "export", positional = false, named = true, type = FileApi.class),
         @Param(name = "swig_out_go", positional = false, named = true, type = FileApi.class),
       })
@@ -210,11 +206,7 @@ public interface GoWrapCcHelperApi<
       documented = false,
       parameters = {
         @Param(name = "ctx", positional = false, named = true, type = SkylarkRuleContextApi.class),
-        @Param(
-            name = "gopkg",
-            positional = false,
-            named = true,
-            allowedTypes = {@ParamType(type = NoneType.class), @ParamType(type = FileApi.class)}),
+        @Param(name = "gopkg", positional = false, named = true, type = FileApi.class),
       })
   public Depset /*<FileT>*/ getGopackageFilesForStarlark(
       SkylarkRuleContextT skylarkRuleContext, FileT skylarkGopkg);

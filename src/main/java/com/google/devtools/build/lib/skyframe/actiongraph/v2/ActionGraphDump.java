@@ -25,7 +25,6 @@ import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CommandAction;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
-import com.google.devtools.build.lib.actions.ExecutionInfoSpecifier;
 import com.google.devtools.build.lib.analysis.AnalysisProtosV2;
 import com.google.devtools.build.lib.analysis.AnalysisProtosV2.ActionGraphComponent;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
@@ -194,10 +193,9 @@ public class ActionGraphDump {
         }
       }
     }
-
-    if (action instanceof ExecutionInfoSpecifier) {
-      ExecutionInfoSpecifier executionInfoSpecifier = (ExecutionInfoSpecifier) action;
-      for (Map.Entry<String, String> info : executionInfoSpecifier.getExecutionInfo().entrySet()) {
+    Map<String, String> executionInfo = action.getExecutionInfo();
+    if (executionInfo != null) {
+      for (Map.Entry<String, String> info : executionInfo.entrySet()) {
         actionBuilder.addExecutionInfo(
             AnalysisProtosV2.KeyValuePair.newBuilder()
                 .setKey(info.getKey())

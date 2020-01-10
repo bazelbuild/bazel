@@ -253,7 +253,8 @@ public final class PrintActionCommand implements BlazeCommand {
       // We do for extra actions, but as we're past the action graph building phase,
       // we cannot call it without risking to trigger creation of OutputArtifacts post
       // graph building phase (not allowed). Right now we do not need them for our scenarios.
-      visitor.visitWhiteNodes(configuredTarget.getProvider(FileProvider.class).getFilesToBuild());
+      visitor.visitWhiteNodes(
+          configuredTarget.getProvider(FileProvider.class).getFilesToBuild().toList());
 
       Iterable<ActionAnalysisMetadata> actions = visitor.getActions();
       for (ActionAnalysisMetadata action : actions) {
@@ -283,7 +284,7 @@ public final class PrintActionCommand implements BlazeCommand {
         return;
       }
 
-      for (Artifact artifact : artifacts) {
+      for (Artifact artifact : artifacts.toList()) {
         ActionAnalysisMetadata action = actionGraph.getGeneratingAction(artifact);
         if (filter.shouldOutput(action, configuredTarget, env)) {
           if (action instanceof Action) {

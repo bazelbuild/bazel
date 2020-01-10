@@ -23,12 +23,12 @@ import com.google.common.base.CharMatcher;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.analysis.PrerequisiteArtifacts;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.rules.proto.ProtoInfo;
-import com.google.devtools.build.lib.rules.proto.ProtoSourceFileBlacklist;
 import java.util.ArrayList;
 
 /** Common rule attributes used by an objc_proto_library. */
@@ -86,10 +86,9 @@ final class ProtoAttributes {
   }
 
   /** Returns the list of well known type protos. */
-  ImmutableList<Artifact> getWellKnownTypeProtos() {
-    return ruleContext
-        .getPrerequisiteArtifacts(ObjcRuleClasses.PROTOBUF_WELL_KNOWN_TYPES, Mode.HOST)
-        .list();
+  NestedSet<Artifact> getWellKnownTypeProtos() {
+    return PrerequisiteArtifacts.nestedSet(
+        ruleContext, ObjcRuleClasses.PROTOBUF_WELL_KNOWN_TYPES, Mode.HOST);
   }
 
   /** Returns the list of proto files to compile. */
@@ -109,24 +108,6 @@ final class ProtoAttributes {
     return ruleContext
         .getPrerequisiteArtifacts(ObjcRuleClasses.PROTO_COMPILER_SUPPORT_ATTR, Mode.HOST)
         .list();
-  }
-
-  /**
-   * Filters the well known protos from the given list of proto files. This should be used to
-   * prevent the well known protos from being generated as they are already generated in the runtime
-   * library.
-   */
-  Iterable<Artifact> filterWellKnownProtos(Iterable<Artifact> protoFiles) {
-    ProtoSourceFileBlacklist wellKnownProtoBlacklist =
-        new ProtoSourceFileBlacklist(ruleContext, getWellKnownTypeProtos());
-    return wellKnownProtoBlacklist.filter(protoFiles);
-  }
-
-  /** Returns whether the given proto is a well known proto or not. */
-  boolean isProtoWellKnown(Artifact protoFile) {
-    ProtoSourceFileBlacklist wellKnownProtoBlacklist =
-        new ProtoSourceFileBlacklist(ruleContext, getWellKnownTypeProtos());
-    return wellKnownProtoBlacklist.isBlacklisted(protoFile);
   }
 
   /**

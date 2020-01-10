@@ -89,7 +89,7 @@ public final class ParameterFileWriteAction extends AbstractFileWriteAction {
     this.commandLine = commandLine;
     this.type = type;
     this.charset = charset;
-    this.hasInputArtifactToExpand = !Iterables.isEmpty(inputs);
+    this.hasInputArtifactToExpand = !inputs.isEmpty();
   }
 
   @VisibleForTesting

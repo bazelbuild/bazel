@@ -368,7 +368,7 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
             J2OBJC_PROTO_TOOLCHAIN_ATTR, TARGET, ProtoLangToolchainProvider.class);
     // Avoid pulling in any generated files from blacklisted protos.
     ProtoSourceFileBlacklist protoBlacklist =
-        new ProtoSourceFileBlacklist(ruleContext, protoToolchain.blacklistedProtos().toList());
+        new ProtoSourceFileBlacklist(ruleContext, protoToolchain.blacklistedProtos());
 
     ImmutableList<Artifact> filteredProtoSources =
         ImmutableList.copyOf(protoBlacklist.filter(protoSources));

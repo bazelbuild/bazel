@@ -45,7 +45,6 @@ import com.google.devtools.build.lib.actions.CommandLines.CommandLineAndParamFil
 import com.google.devtools.build.lib.actions.CommandLines.ParamFileActionInput;
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
-import com.google.devtools.build.lib.actions.ExecutionInfoSpecifier;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
 import com.google.devtools.build.lib.actions.ResourceSet;
@@ -60,7 +59,6 @@ import com.google.devtools.build.lib.actions.extra.ExtraActionInfo;
 import com.google.devtools.build.lib.analysis.skylark.Args;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.collect.CollectionUtils;
-import com.google.devtools.build.lib.collect.IterablesChain;
 import com.google.devtools.build.lib.collect.compacthashset.CompactHashSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -110,8 +108,7 @@ import javax.annotation.Nullable;
 
 /** Action that represents some kind of C++ compilation step. */
 @ThreadCompatible
-public class CppCompileAction extends AbstractAction
-    implements IncludeScannable, ExecutionInfoSpecifier, CommandAction {
+public class CppCompileAction extends AbstractAction implements IncludeScannable, CommandAction {
 
   private static final PathFragment BUILD_PATH_FRAGMENT = PathFragment.create("BUILD");
 
@@ -121,7 +118,7 @@ public class CppCompileAction extends AbstractAction
   private final Artifact sourceFile;
   private final CppConfiguration cppConfiguration;
   private final NestedSet<Artifact> mandatoryInputs;
-  private final Iterable<Artifact> inputsForInvalidation;
+  private final NestedSet<Artifact> inputsForInvalidation;
 
   /**
    * The set of input files that in addition to {@link CcCompilationContext#getDeclaredIncludeSrcs}
@@ -152,7 +149,7 @@ public class CppCompileAction extends AbstractAction
    * The fingerprint of {@link #compileCommandLine}. This is computed lazily so that the command
    * line is not unnecessarily flattened outside of action execution.
    */
-  byte[] commandLineKey = null;
+  byte[] commandLineKey;
 
   private final ImmutableMap<String, String> executionInfo;
   private final String actionName;
@@ -173,13 +170,13 @@ public class CppCompileAction extends AbstractAction
    * Set when the action prepares for execution. Used to preserve state between preparation and
    * execution.
    */
-  private Iterable<Artifact> additionalInputs = null;
+  private NestedSet<Artifact> additionalInputs;
 
   /**
    * Used only during input discovery, when input discovery requires other actions to be executed
    * first.
    */
-  private Collection<Artifact.DerivedArtifact> usedModules = null;
+  private Collection<Artifact.DerivedArtifact> usedModules;
 
   /**
    * This field is set only for C++ module compiles (compiling .cppmap files into .pcm files). It
@@ -193,14 +190,14 @@ public class CppCompileAction extends AbstractAction
   private NestedSet<Artifact> discoveredModules = null;
 
   /** Used modules that are not transitively used through other topLevelModules. */
-  private NestedSet<Artifact> topLevelModules = null;
+  private NestedSet<Artifact> topLevelModules;
 
-  private CcToolchainVariables overwrittenVariables = null;
+  private CcToolchainVariables overwrittenVariables;
 
   private ParamFileActionInput paramFileActionInput;
   private PathFragment paramFilePath;
 
-  private Iterable<Artifact> alternateIncludeScanningDataInputs = null;
+  private final Iterable<Artifact> alternateIncludeScanningDataInputs;
 
   /**
    * Creates a new action to compile C/C++ source files.
@@ -412,12 +409,12 @@ public class CppCompileAction extends AbstractAction
    * #mandatoryInputs}. Thus, even with include scanning turned off, we pretend that we "discover"
    * these headers.
    */
-  private Iterable<Artifact> findUsedHeaders(
+  private NestedSet<Artifact> findUsedHeaders(
       ActionExecutionContext actionExecutionContext, IncludeScanningHeaderData headerData)
       throws ActionExecutionException, InterruptedException {
     try {
       try {
-        ListenableFuture<Iterable<Artifact>> future =
+        ListenableFuture<List<Artifact>> future =
             actionExecutionContext
                 .getContext(CppIncludeScanningContext.class)
                 .findAdditionalInputs(this, actionExecutionContext, includeProcessing, headerData);
@@ -426,7 +423,7 @@ public class CppCompileAction extends AbstractAction
               .addTransitive(additionalPrunableHeaders)
               .build();
         }
-        return CollectionUtils.makeImmutable(future.get());
+        return NestedSetBuilder.wrap(Order.STABLE_ORDER, future.get());
       } catch (ExecutionException e) {
         Throwables.throwIfInstanceOf(e.getCause(), ExecException.class);
         Throwables.throwIfInstanceOf(e.getCause(), InterruptedException.class);
@@ -454,9 +451,9 @@ public class CppCompileAction extends AbstractAction
    * invalid from {@code headers}. That way, the compiler does not get access to them (assuming a
    * sand-boxed environment) and can diagnose the missing headers.
    */
-  private Iterable<Artifact> filterDiscoveredHeaders(
+  private NestedSet<Artifact> filterDiscoveredHeaders(
       ActionExecutionContext actionExecutionContext,
-      Iterable<Artifact> headers,
+      NestedSet<Artifact> headers,
       List<CcCompilationContext.HeaderInfo> headerInfo) {
     Set<Artifact> undeclaredHeaders = Sets.newHashSet(headers);
 
@@ -475,7 +472,7 @@ public class CppCompileAction extends AbstractAction
     for (Artifact source : getIncludeScannerSources()) {
       undeclaredHeaders.remove(source);
     }
-    for (Artifact header : additionalPrunableHeaders) {
+    for (Artifact header : additionalPrunableHeaders.toList()) {
       undeclaredHeaders.remove(header);
     }
     if (undeclaredHeaders.isEmpty()) {
@@ -504,7 +501,8 @@ public class CppCompileAction extends AbstractAction
       return headers;
     }
 
-    return ImmutableList.copyOf(Iterables.filter(headers, header -> !missing.contains(header)));
+    return NestedSetBuilder.wrap(
+        Order.STABLE_ORDER, Iterables.filter(headers, header -> !missing.contains(header)));
   }
 
   /**
@@ -642,13 +640,14 @@ public class CppCompileAction extends AbstractAction
     NestedSetBuilder<Artifact> discoveredModulesBuilder = NestedSetBuilder.stableOrder();
     for (Artifact module : topLevel) {
       topLevelModulesBuilder.add(module);
-      discoveredModulesBuilder.addTransitive(transitivelyUsedModules.get(module));
+      discoveredModulesBuilder.addTransitiveAndBlockIfFuture(transitivelyUsedModules.get(module));
     }
     topLevelModules = topLevelModulesBuilder.build();
     discoveredModulesBuilder.addTransitive(topLevelModules);
     NestedSet<Artifact> discoveredModules = discoveredModulesBuilder.build();
 
-    additionalInputs = IterablesChain.concat(additionalInputs, discoveredModules);
+    additionalInputs =
+        NestedSetBuilder.fromNestedSet(additionalInputs).addTransitive(discoveredModules).build();
     if (outputFile.isFileType(CppFileTypes.CPP_MODULE)) {
       this.discoveredModules = discoveredModules;
     }
@@ -896,7 +895,7 @@ public class CppCompileAction extends AbstractAction
     } else {
       info.addSourcesAndHeaders(getSourceFile().getExecPathString());
       info.addAllSourcesAndHeaders(
-          Artifact.toExecPaths(ccCompilationContext.getDeclaredIncludeSrcs()));
+          Artifact.toExecPaths(ccCompilationContext.getDeclaredIncludeSrcs().toList()));
     }
     // TODO(ulfjack): Extra actions currently ignore the client environment.
     for (Map.Entry<String, String> envVariable :
@@ -988,7 +987,8 @@ public class CppCompileAction extends AbstractAction
         continue;
       }
       if (declaredIncludeDirs == null) {
-        declaredIncludeDirs = Sets.newHashSet(ccCompilationContext.getDeclaredIncludeDirs());
+        declaredIncludeDirs =
+            Sets.newHashSet(ccCompilationContext.getDeclaredIncludeDirs().toList());
       }
       if (!isDeclaredIn(cppConfiguration, actionExecutionContext, input, declaredIncludeDirs)) {
         errors.add(input.getExecPath().toString());
@@ -1003,11 +1003,12 @@ public class CppCompileAction extends AbstractAction
             System.err.println("INFO: Include(s) were OK for '" + getSourceFile()
                 + "', declared srcs:");
           }
-          for (Artifact a : ccCompilationContext.getDeclaredIncludeSrcs()) {
+          for (Artifact a : ccCompilationContext.getDeclaredIncludeSrcs().toList()) {
             System.err.println("  '" + a.toDetailString() + "'");
           }
           System.err.println(" or under declared dirs:");
-          for (PathFragment f : Sets.newTreeSet(ccCompilationContext.getDeclaredIncludeDirs())) {
+          for (PathFragment f :
+              Sets.newTreeSet(ccCompilationContext.getDeclaredIncludeDirs().toList())) {
             System.err.println("  '" + f + "'");
           }
           System.err.println(" with prefixes:");
@@ -1131,13 +1132,18 @@ public class CppCompileAction extends AbstractAction
    */
   @VisibleForTesting // productionVisibility = Visibility.PRIVATE
   @ThreadCompatible
-  final void updateActionInputs(Iterable<Artifact> discoveredInputs) {
+  final void updateActionInputs(NestedSet<Artifact> discoveredInputs) {
     Preconditions.checkState(
         discoversInputs(), "Can't call if not discovering inputs: %s %s", discoveredInputs, this);
     try (SilentCloseable c = Profiler.instance().profile(ProfilerTask.ACTION_UPDATE, describe())) {
-      Iterable<Artifact> fixed = IterablesChain.concat(mandatoryInputs, inputsForInvalidation);
-      super.updateInputs(
-          discoveredInputs == null ? fixed : IterablesChain.concat(fixed, discoveredInputs));
+      NestedSetBuilder<Artifact> inputsBuilder =
+          NestedSetBuilder.<Artifact>stableOrder()
+              .addTransitive(mandatoryInputs)
+              .addTransitive(inputsForInvalidation);
+      if (discoveredInputs != null) {
+        inputsBuilder.addTransitive(discoveredInputs);
+      }
+      super.updateInputs(inputsBuilder.build());
     }
   }
 
@@ -1178,11 +1184,11 @@ public class CppCompileAction extends AbstractAction
   @Override
   public Iterable<Artifact> getAllowedDerivedInputs() {
     Set<Artifact> result = CompactHashSet.create();
-    addNonSources(result, mandatoryInputs);
-    addNonSources(result, additionalPrunableHeaders);
+    addNonSources(result, mandatoryInputs.toList());
+    addNonSources(result, additionalPrunableHeaders.toList());
     addNonSources(result, inputsForInvalidation);
-    addNonSources(result, getDeclaredIncludeSrcs());
-    addNonSources(result, ccCompilationContext.getTransitiveModules(usePic));
+    addNonSources(result, getDeclaredIncludeSrcs().toList());
+    addNonSources(result, ccCompilationContext.getTransitiveModules(usePic).toList());
     Artifact artifact = getSourceFile();
     if (!artifact.isSourceArtifact()) {
       result.add(artifact);
@@ -1198,7 +1204,7 @@ public class CppCompileAction extends AbstractAction
    * action cache hit.
    */
   @Override
-  public synchronized void updateInputs(Iterable<Artifact> inputs) {
+  public synchronized void updateInputs(NestedSet<Artifact> inputs) {
     super.updateInputs(inputs);
     if (outputFile.isFileType(CppFileTypes.CPP_MODULE)) {
       discoveredModules =
@@ -1656,13 +1662,13 @@ public class CppCompileAction extends AbstractAction
       message.append('\n');
     }
 
-    for (PathFragment path : ccCompilationContext.getDeclaredIncludeDirs()) {
+    for (PathFragment path : ccCompilationContext.getDeclaredIncludeDirs().toList()) {
       message.append("  Declared include directory: ");
       message.append(ShellEscaper.escapeString(path.getPathString()));
       message.append('\n');
     }
 
-    for (Artifact src : getDeclaredIncludeSrcs()) {
+    for (Artifact src : getDeclaredIncludeSrcs().toList()) {
       message.append("  Declared include source: ");
       message.append(ShellEscaper.escapeString(src.getExecPathString()));
       message.append('\n');

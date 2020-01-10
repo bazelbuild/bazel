@@ -154,10 +154,10 @@ void SetScheduling(bool batch_cpu_scheduling, int io_nice_level) {
   // Stubbed out so we can compile.
 }
 
-blaze_util::Path GetProcessCWD(int pid) {
+std::unique_ptr<blaze_util::Path> GetProcessCWD(int pid) {
 #if defined(HAVE_PROCSTAT)
   if (kill(pid, 0) < 0) {
-    return blaze_util::Path();
+    return nullptr;
   }
   auto procstat = procstat_open_sysctl();
   unsigned int n;
@@ -184,9 +184,9 @@ blaze_util::Path GetProcessCWD(int pid) {
     procstat_freeprocs(procstat, p);
   }
   procstat_close(procstat);
-  return blaze_util::Path(cwd);
+  return std::unique_ptr<blaze_util::Path>(new blaze_util::Path(cwd));
 #else
-  return blaze_util::Path("");
+  return nullptr;
 #endif
 }
 

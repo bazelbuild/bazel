@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.devtools.build.lib.syntax.ParserInput;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.lib.syntax.SyntaxError;
+import com.google.devtools.build.lib.vfs.PathFragment; // sad
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
@@ -89,7 +90,7 @@ class Starlark {
 
   /** Provide a REPL evaluating Starlark code. */
   @SuppressWarnings("CatchAndPrintStackTrace")
-  public void readEvalPrintLoop() {
+  private void readEvalPrintLoop() {
     String line;
 
     // TODO(adonovan): parse a compound statement, like the Python and
@@ -98,7 +99,7 @@ class Starlark {
     // lines only until the parse is complete.
 
     while ((line = prompt()) != null) {
-      ParserInput input = ParserInput.fromLines(line);
+      ParserInput input = makeInput("<stdin>", line);
       try {
         Object result = EvalUtils.execAndEvalOptionalFinalExpression(input, thread);
         if (result != null) {
@@ -109,8 +110,7 @@ class Starlark {
           System.err.println(ev);
         }
       } catch (EvalException ex) {
-        // TODO(adonovan): show Starlark (not Java) stack.
-        ex.printStackTrace();
+        System.err.println(ex.print());
       } catch (InterruptedException ex) {
         System.err.println("Interrupted");
       }
@@ -118,30 +118,33 @@ class Starlark {
   }
 
   /** Execute a Starlark file. */
-  public int executeFile(String path) {
+  private int executeFile(String filename) {
     String content;
     try {
-      content = new String(Files.readAllBytes(Paths.get(path)), CHARSET);
-      return execute(content);
+      content = new String(Files.readAllBytes(Paths.get(filename)), CHARSET);
+      return execute(filename, content);
     } catch (Exception e) {
       e.printStackTrace();
       return 1;
     }
   }
 
+  private static ParserInput makeInput(String filename, String content) {
+    return ParserInput.create(content, PathFragment.create(filename));
+  }
+
   /** Execute a Starlark file. */
-  public int execute(String content) {
-    ParserInput input = ParserInput.create(content, null);
+  private int execute(String filename, String content) {
     try {
-      EvalUtils.exec(input, thread);
+      EvalUtils.exec(makeInput(filename, content), thread);
       return 0;
     } catch (SyntaxError ex) {
       for (Event ev : ex.errors()) {
         System.err.println(ev);
       }
       return 1;
-    } catch (EvalException e) {
-      System.err.println(e.print());
+    } catch (EvalException ex) {
+      System.err.println(ex.print());
       return 1;
     } catch (Exception e) {
       e.printStackTrace(System.err);
@@ -156,7 +159,7 @@ class Starlark {
     } else if (args.length == 1 && !args[0].equals("-c")) {
       ret = new Starlark().executeFile(args[0]);
     } else if (args.length == 2 && args[0].equals("-c")) {
-      ret = new Starlark().execute(args[1]);
+      ret = new Starlark().execute("<command-line>", args[1]);
     } else {
       System.err.println("USAGE: Starlark [-c \"<cmdLineProgram>\" | <fileName>]");
       ret = 1;

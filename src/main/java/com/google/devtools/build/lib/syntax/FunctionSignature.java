@@ -104,14 +104,13 @@ public abstract class FunctionSignature {
     return numOptionalPositionals() + numOptionalNamedOnly();
   }
 
-  /** number of all named parameters: mandatory and optional of positionals and named-only */
-  public int numAllNamed() {
-    return numPositionals() + numNamedOnly();
+  private boolean hasStar() {
+    return hasVarargs() || (numNamedOnly() > 0);
   }
 
   /** total number of parameters */
   public int numParameters() {
-    return numAllNamed() + (hasVarargs() ? 1 : 0) + (hasKwargs() ? 1 : 0);
+    return numPositionals() + numNamedOnly() + (hasStar() ? 1 : 0) + (hasKwargs() ? 1 : 0);
   }
 
   private static final Interner<ImmutableList<String>> namesInterner =
@@ -156,7 +155,6 @@ public abstract class FunctionSignature {
             hasKwargs,
             names(parameterNames));
 
-    Preconditions.checkArgument(parameterNames.size() == sig.numParameters());
     return signatureInterner.intern(sig);
   }
 
@@ -193,7 +191,6 @@ public abstract class FunctionSignature {
     int named = positionals + namedOnly;
     int args = named + (hasVarargs ? 1 : 0) + (hasKwargs ? 1 : 0);
     int endMandatoryNamedOnly = positionals + mandatoryNamedOnly;
-    boolean hasStar = hasVarargs || (namedOnly > 0);
     int iStarArg = named;
     int iKwArg = args - 1;
 
@@ -231,7 +228,7 @@ public abstract class FunctionSignature {
     for (; i < positionals; i++) {
       show.optional(i);
     }
-    if (hasStar) {
+    if (hasStar()) {
       show.comma();
       printer.append("*");
       if (hasVarargs) {

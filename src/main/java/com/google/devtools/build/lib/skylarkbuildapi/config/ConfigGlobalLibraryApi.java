@@ -23,7 +23,6 @@ import com.google.devtools.build.lib.syntax.BaseFunction;
 import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Sequence;
-import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 
 /**
@@ -132,11 +131,9 @@ public interface ConfigGlobalLibraryApi {
                     + "are unchanged. Use this to declare specific configuration settings that "
                     + "an analysis test requires to be set in order to pass."),
       },
-      useLocation = true,
-      useStarlarkSemantics = true)
+      useLocation = true)
   ConfigurationTransitionApi analysisTestTransition(
       Dict<?, ?> changedSettings, // <String, String> expected
-      Location location,
-      StarlarkSemantics semantics)
+      Location location)
       throws EvalException;
 }

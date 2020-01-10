@@ -144,7 +144,7 @@ public abstract class JavaCompilationArgsProvider implements TransitiveInfoProvi
         argsBuilder.addExports(provider);
       } else {
         NestedSet<Artifact> filesToBuild = info.getProvider(FileProvider.class).getFilesToBuild();
-        for (Artifact jar : FileType.filter(filesToBuild, JavaSemantics.JAR)) {
+        for (Artifact jar : FileType.filter(filesToBuild.toList(), JavaSemantics.JAR)) {
           argsBuilder
               .addRuntimeJar(jar)
               .addDirectCompileTimeJar(/* interfaceJar= */ jar, /* fullJar= */ jar);

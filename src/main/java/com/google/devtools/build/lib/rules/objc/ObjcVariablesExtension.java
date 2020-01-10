@@ -197,7 +197,7 @@ class ObjcVariablesExtension implements VariablesExtension {
         Artifact.toExecPaths(objcProvider.getCcLibraries()));
     builder.addStringSequenceVariable(
         IMPORTED_LIBRARY_EXEC_PATHS_VARIABLE_NAME,
-        Artifact.toExecPaths(objcProvider.get(IMPORTED_LIBRARY)));
+        Artifact.toExecPaths(objcProvider.get(IMPORTED_LIBRARY).toList()));
   }
 
   private void addExecutableLinkVariables(CcToolchainVariables.Builder builder) {

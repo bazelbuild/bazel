@@ -30,7 +30,6 @@ import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.supplier.InterruptibleSupplier;
-import com.google.devtools.build.lib.util.BigIntegerFingerprintUtils;
 import com.google.devtools.build.lib.util.GroupedList.GroupedListHelper;
 import com.google.devtools.build.skyframe.EvaluationProgressReceiver.EvaluationState;
 import com.google.devtools.build.skyframe.EvaluationProgressReceiver.NodeState;
@@ -44,7 +43,6 @@ import com.google.devtools.build.skyframe.SkyFunction.Restart;
 import com.google.devtools.build.skyframe.SkyFunctionEnvironment.UndonePreviouslyRequestedDeps;
 import com.google.devtools.build.skyframe.SkyFunctionException.ReifiedSkyFunctionException;
 import com.google.devtools.build.skyframe.ThinNodeEntry.DirtyType;
-import java.math.BigInteger;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -333,20 +331,6 @@ abstract class AbstractParallelEvaluator {
               skyKey, rDepsToSignal, state.getVersion(), EnqueueParentBehavior.ENQUEUE);
           return DirtyOutcome.ALREADY_PROCESSED;
         case NEEDS_REBUILDING:
-          if (state.canPruneDepsByFingerprint()) {
-            Iterable<SkyKey> lastDirectDepsKeys =
-                state.getLastDirectDepsGroupWhenPruningDepsByFingerprint();
-            if (lastDirectDepsKeys != null) {
-              BigInteger groupFingerprint =
-                  composeDepFingerprints(
-                      lastDirectDepsKeys,
-                      evaluatorContext.getBatchValues(
-                          skyKey, Reason.DEP_REQUESTED, lastDirectDepsKeys));
-              if (state.unmarkNeedsRebuildingIfGroupUnchangedUsingFingerprint(groupFingerprint)) {
-                return maybeHandleDirtyNode(state);
-              }
-            }
-          }
           state.markRebuilding();
           return DirtyOutcome.NEEDS_EVALUATION;
         case NEEDS_FORCED_REBUILDING:
@@ -1075,33 +1059,6 @@ abstract class AbstractParallelEvaluator {
       evaluatorContext.getVisitor().enqueueEvaluation(depKey, Integer.MAX_VALUE);
     }
     return MaybeHandleUndoneDepResult.DEP_NOT_DONE;
-  }
-
-  static BigInteger composeDepFingerprints(
-      Iterable<SkyKey> directDepGroup, Map<SkyKey, ? extends NodeEntry> depEntries)
-      throws InterruptedException {
-    BigInteger groupFingerprint = BigInteger.ZERO;
-    for (SkyKey dep : directDepGroup) {
-      NodeEntry depEntry = depEntries.get(dep);
-      if (!isDoneForBuild(depEntry)) {
-        // Something weird happened: maybe something fell out of graph or was restarted?
-        return null;
-      }
-      SkyValue depValue = depEntry.getValue();
-      if (depValue == null) {
-        return null;
-      }
-      BigInteger depFingerprint = depValue.getValueFingerprint();
-      if (depFingerprint == null) {
-        depFingerprint = depEntry.getVersion().getFingerprint();
-        if (depFingerprint == null) {
-          return null;
-        }
-      }
-      groupFingerprint =
-          BigIntegerFingerprintUtils.composeOrdered(groupFingerprint, depFingerprint);
-    }
-    return groupFingerprint;
   }
 
   /**

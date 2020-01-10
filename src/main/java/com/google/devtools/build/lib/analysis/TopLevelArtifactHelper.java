@@ -103,7 +103,7 @@ public final class TopLevelArtifactHelper {
      */
     public NestedSet<Artifact> getImportantArtifacts() {
       NestedSetBuilder<Artifact> builder = new NestedSetBuilder<>(artifacts.getOrder());
-      for (ArtifactsInOutputGroup artifactsInOutputGroup : artifacts) {
+      for (ArtifactsInOutputGroup artifactsInOutputGroup : artifacts.toList()) {
         if (artifactsInOutputGroup.areImportant()) {
           builder.addTransitive(artifactsInOutputGroup.getArtifacts());
         }
@@ -116,7 +116,7 @@ public final class TopLevelArtifactHelper {
      */
     public NestedSet<Artifact> getAllArtifacts() {
       NestedSetBuilder<Artifact> builder = new NestedSetBuilder<>(artifacts.getOrder());
-      for (ArtifactsInOutputGroup artifactsInOutputGroup : artifacts) {
+      for (ArtifactsInOutputGroup artifactsInOutputGroup : artifacts.toList()) {
         builder.addTransitive(artifactsInOutputGroup.getArtifacts());
       }
       return builder.build();

@@ -67,7 +67,7 @@ public class NodeVisitor {
     visit(node.getY());
   }
 
-  public void visit(FuncallExpression node) {
+  public void visit(CallExpression node) {
     visit(node.getFunction());
     visitAll(node.getArguments());
   }

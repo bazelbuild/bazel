@@ -19,7 +19,6 @@ package com.google.devtools.build.android.desugar.langmodel;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.collect.ImmutableList;
-import com.google.testing.testsize.SmallTest;
 import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -30,7 +29,6 @@ import org.objectweb.asm.Opcodes;
 
 /** Tests for {@link ClassMemberTrackReason}. */
 @RunWith(JUnit4.class)
-@SmallTest
 public class ClassMemberTrackReasonTest {
 
   private static final ImmutableList<Integer> MEMBER_USE_OPCODES =

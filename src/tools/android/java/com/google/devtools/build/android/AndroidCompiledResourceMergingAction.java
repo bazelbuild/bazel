@@ -21,15 +21,20 @@ import com.google.common.base.Strings;
 import com.google.devtools.build.android.AndroidDataMerger.MergeConflictException;
 import com.google.devtools.build.android.AndroidResourceMerger.MergingException;
 import com.google.devtools.build.android.AndroidResourceProcessor.AaptConfigOptions;
+import com.google.devtools.build.android.Converters.ExistingPathConverter;
 import com.google.devtools.build.android.Converters.PathConverter;
+import com.google.devtools.build.android.Converters.SerializedAndroidDataConverter;
+import com.google.devtools.build.android.Converters.SerializedAndroidDataListConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
+import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.ShellQuotedParamsFilePreProcessor;
 import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -49,7 +54,125 @@ public class AndroidCompiledResourceMergingAction {
       Logger.getLogger(AndroidCompiledResourceMergingAction.class.getName());
 
   /** Flag specifications for this action. */
-  public static class Options extends AndroidResourceMergingAction.Options {
+  public static class Options extends OptionsBase {
+    @Option(
+        name = "primaryData",
+        defaultValue = "null",
+        converter = SerializedAndroidDataConverter.class,
+        category = "input",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        help =
+            "The directory containing the primary resource directory. The contents will override"
+                + " the contents of any other resource directories during merging."
+                + " The expected format is "
+                + SerializedAndroidData.EXPECTED_FORMAT)
+    public SerializedAndroidData primaryData;
+
+    @Option(
+        name = "primaryManifest",
+        defaultValue = "null",
+        converter = ExistingPathConverter.class,
+        category = "input",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        help = "Path to primary resource's manifest file.")
+    public Path primaryManifest;
+
+    @Option(
+        name = "data",
+        defaultValue = "",
+        converter = SerializedAndroidDataListConverter.class,
+        category = "input",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        help =
+            "Transitive Data dependencies. These values will be used if not defined in the "
+                + "primary resources. The expected format is "
+                + SerializedAndroidData.EXPECTED_FORMAT
+                + "[&...]")
+    public List<SerializedAndroidData> transitiveData;
+
+    @Option(
+        name = "directData",
+        defaultValue = "",
+        converter = SerializedAndroidDataListConverter.class,
+        category = "input",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        help =
+            "Direct Data dependencies. These values will be used if not defined in the "
+                + "primary resources. The expected format is "
+                + SerializedAndroidData.EXPECTED_FORMAT
+                + "[&...]")
+    public List<SerializedAndroidData> directData;
+
+    @Option(
+        name = "classJarOutput",
+        defaultValue = "null",
+        converter = PathConverter.class,
+        category = "output",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        help = "Path for the generated java class jar.")
+    public Path classJarOutput;
+
+    @Option(
+        name = "manifestOutput",
+        defaultValue = "null",
+        converter = PathConverter.class,
+        category = "output",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        help = "Path for the output processed AndroidManifest.xml.")
+    public Path manifestOutput;
+
+    @Option(
+        name = "packageForR",
+        defaultValue = "null",
+        category = "config",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        help = "Custom java package to generate the R symbols files.")
+    public String packageForR;
+
+    @Option(
+        name = "throwOnResourceConflict",
+        defaultValue = "false",
+        category = "config",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        help = "If passed, resource merge conflicts will be treated as errors instead of warnings")
+    public boolean throwOnResourceConflict;
+
+    @Option(
+        name = "targetLabel",
+        defaultValue = "null",
+        category = "input",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        help = "A label to add to the output jar's manifest as 'Target-Label'")
+    public String targetLabel;
+
+    @Option(
+        name = "injectingRuleKind",
+        defaultValue = "null",
+        category = "input",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        help = "A string to add to the output jar's manifest as 'Injecting-Rule-Kind'")
+    public String injectingRuleKind;
+
+    @Option(
+        name = "annotate_r_fields_from_transitive_deps",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        help =
+            "If enabled, annotates R with 'targetLabel' and transitive fields with their"
+                + " respective labels.")
+    public boolean annotateTransitiveFields;
+
     @Option(
         name = "rTxtOut",
         defaultValue = "null",

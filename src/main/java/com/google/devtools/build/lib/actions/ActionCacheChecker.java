@@ -23,6 +23,9 @@ import com.google.devtools.build.lib.actions.cache.ActionCache;
 import com.google.devtools.build.lib.actions.cache.DigestUtils;
 import com.google.devtools.build.lib.actions.cache.MetadataHandler;
 import com.google.devtools.build.lib.actions.cache.Protos.ActionCacheStatistics.MissReason;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.EventKind;
@@ -242,7 +245,7 @@ public class ActionCacheChecker {
   // guarantee it will be available for other events.
   public Token getTokenIfNeedToExecute(
       Action action,
-      Iterable<Artifact> resolvedCacheArtifacts,
+      List<Artifact> resolvedCacheArtifacts,
       Map<String, String> clientEnv,
       EventHandler handler,
       MetadataHandler metadataHandler,
@@ -265,14 +268,14 @@ public class ActionCacheChecker {
     if (!cacheConfig.enabled()) {
       return new Token(getKeyString(action));
     }
-    Iterable<Artifact> actionInputs = action.getInputs();
+    NestedSet<Artifact> actionInputs = action.getInputs();
     // Resolve action inputs from cache, if necessary.
     boolean inputsDiscovered = action.inputsDiscovered();
     if (!inputsDiscovered && resolvedCacheArtifacts != null) {
       // The action doesn't know its inputs, but the caller has a good idea of what they are.
       Preconditions.checkState(action.discoversInputs(),
           "Actions that don't know their inputs must discover them: %s", action);
-      actionInputs = resolvedCacheArtifacts;
+      actionInputs = NestedSetBuilder.wrap(Order.STABLE_ORDER, resolvedCacheArtifacts);
     }
     ActionCache.Entry entry = getCacheEntry(action);
     if (mustExecute(
@@ -408,7 +411,7 @@ public class ActionCacheChecker {
   }
 
   @Nullable
-  public Iterable<Artifact> getCachedInputs(Action action, PackageRootResolver resolver)
+  public List<Artifact> getCachedInputs(Action action, PackageRootResolver resolver)
       throws InterruptedException {
     ActionCache.Entry entry = getCacheEntry(action);
     if (entry == null || entry.isCorrupted()) {

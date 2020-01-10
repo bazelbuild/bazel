@@ -144,4 +144,7 @@ public class FakeSpawnExecutionContext implements SpawnExecutionContext {
       }
     };
   }
+
+  @Override
+  public void checkForLostInputs() {}
 }

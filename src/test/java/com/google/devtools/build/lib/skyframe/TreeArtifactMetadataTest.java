@@ -260,8 +260,7 @@ public class TreeArtifactMetadataTest extends ArtifactFunctionTestCase {
                       actionKeyContext,
                       ImmutableList.copyOf(actions),
                       ALL_OWNER,
-                      /*outputFiles=*/ null),
-                  /*nonceVersion=*/ null)));
+                      /*outputFiles=*/ null))));
     }
   }
 

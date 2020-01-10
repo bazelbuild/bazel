@@ -346,7 +346,11 @@ public final class RunfilesSupport {
         .getAnalysisEnvironment()
         .registerAction(
             new SourceManifestAction(
-                ManifestType.SOURCE_SYMLINKS, context.getActionOwner(), inputManifest, runfiles));
+                ManifestType.SOURCE_SYMLINKS,
+                context.getActionOwner(),
+                inputManifest,
+                runfiles,
+                context.getConfiguration().remotableSourceManifestActions()));
 
     if (!createSymlinks) {
       // Just return the manifest if that's all the build calls for.

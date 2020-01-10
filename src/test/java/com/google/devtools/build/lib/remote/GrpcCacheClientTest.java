@@ -49,6 +49,7 @@ import com.google.bytestream.ByteStreamProto.WriteResponse;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedMap;
+import com.google.common.collect.Maps;
 import com.google.common.util.concurrent.ListeningScheduledExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
@@ -75,14 +76,20 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.devtools.common.options.Options;
 import com.google.protobuf.ByteString;
+import io.grpc.BindableService;
 import io.grpc.CallCredentials;
 import io.grpc.CallOptions;
 import io.grpc.Channel;
 import io.grpc.ClientCall;
 import io.grpc.ClientInterceptor;
 import io.grpc.Context;
+import io.grpc.Metadata;
 import io.grpc.MethodDescriptor;
 import io.grpc.Server;
+import io.grpc.ServerCall;
+import io.grpc.ServerCallHandler;
+import io.grpc.ServerInterceptor;
+import io.grpc.ServerInterceptors;
 import io.grpc.Status;
 import io.grpc.inprocess.InProcessChannelBuilder;
 import io.grpc.inprocess.InProcessServerBuilder;
@@ -683,6 +690,74 @@ public class GrpcCacheClientTest {
     ActionKey actionKey = DIGEST_UTIL.computeActionKey(action);
     Command cmd = Command.getDefaultInstance();
     return remoteCache.upload(actionKey, action, cmd, execRoot, outputs, outErr);
+  }
+
+  @Test
+  public void extraHeaders() throws Exception {
+    RemoteOptions remoteOptions = Options.getDefaults(RemoteOptions.class);
+    remoteOptions.remoteHeaders =
+        ImmutableList.of(
+            Maps.immutableEntry("CommonKey1", "CommonValue1"),
+            Maps.immutableEntry("CommonKey2", "CommonValue2"));
+    remoteOptions.remoteExecHeaders =
+        ImmutableList.of(
+            Maps.immutableEntry("ExecKey1", "ExecValue1"),
+            Maps.immutableEntry("ExecKey2", "ExecValue2"));
+    remoteOptions.remoteCacheHeaders =
+        ImmutableList.of(
+            Maps.immutableEntry("CacheKey1", "CacheValue1"),
+            Maps.immutableEntry("CacheKey2", "CacheValue2"));
+
+    ServerInterceptor interceptor =
+        new ServerInterceptor() {
+          @Override
+          public <ReqT, RespT> ServerCall.Listener<ReqT> interceptCall(
+              ServerCall<ReqT, RespT> call,
+              Metadata metadata,
+              ServerCallHandler<ReqT, RespT> next) {
+            assertThat(
+                    metadata.get(Metadata.Key.of("CommonKey1", Metadata.ASCII_STRING_MARSHALLER)))
+                .isEqualTo("CommonValue1");
+            assertThat(
+                    metadata.get(Metadata.Key.of("CommonKey2", Metadata.ASCII_STRING_MARSHALLER)))
+                .isEqualTo("CommonValue2");
+            assertThat(metadata.get(Metadata.Key.of("CacheKey1", Metadata.ASCII_STRING_MARSHALLER)))
+                .isEqualTo("CacheValue1");
+            assertThat(metadata.get(Metadata.Key.of("CacheKey2", Metadata.ASCII_STRING_MARSHALLER)))
+                .isEqualTo("CacheValue2");
+            assertThat(metadata.get(Metadata.Key.of("ExecKey1", Metadata.ASCII_STRING_MARSHALLER)))
+                .isEqualTo(null);
+            assertThat(metadata.get(Metadata.Key.of("ExecKey2", Metadata.ASCII_STRING_MARSHALLER)))
+                .isEqualTo(null);
+            return next.startCall(call, metadata);
+          }
+        };
+
+    BindableService cas =
+        new ContentAddressableStorageImplBase() {
+          @Override
+          public void findMissingBlobs(
+              FindMissingBlobsRequest request,
+              StreamObserver<FindMissingBlobsResponse> responseObserver) {
+            responseObserver.onNext(FindMissingBlobsResponse.getDefaultInstance());
+            responseObserver.onCompleted();
+          }
+        };
+    serviceRegistry.addService(cas);
+    BindableService actionCache =
+        new ActionCacheImplBase() {
+          @Override
+          public void getActionResult(
+              GetActionResultRequest request, StreamObserver<ActionResult> responseObserver) {
+            responseObserver.onNext(ActionResult.getDefaultInstance());
+            responseObserver.onCompleted();
+          }
+        };
+    serviceRegistry.addService(ServerInterceptors.intercept(actionCache, interceptor));
+
+    GrpcCacheClient client = newClient(remoteOptions);
+    RemoteCache remoteCache = new RemoteCache(client, remoteOptions, DIGEST_UTIL);
+    remoteCache.downloadActionResult(DIGEST_UTIL.asActionKey(DIGEST_UTIL.computeAsUtf8("key")));
   }
 
   @Test

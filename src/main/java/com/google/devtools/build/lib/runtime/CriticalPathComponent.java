@@ -59,8 +59,8 @@ public class CriticalPathComponent {
   private long finishNanos = 0;
   private volatile boolean isRunning = false;
 
-  /** We keep here the critical path time for the most expensive child. */
-  private long childAggregatedElapsedTime = 0;
+  /** The longest aggregate runtime of this component and its critical path. */
+  private long aggregatedElapsedTime = 0;
 
   private final Action action;
   private final Artifact primaryOutput;
@@ -85,7 +85,6 @@ public class CriticalPathComponent {
     this.action = Preconditions.checkNotNull(action);
     this.primaryOutput = action.getPrimaryOutput();
     this.startNanos = startNanos;
-    this.phaseChange = false;
   }
 
   /**
@@ -114,6 +113,10 @@ public class CriticalPathComponent {
     if (isRunning || finishNanos - startNanos > getElapsedTimeNanos()) {
       this.startNanos = startNanos;
       this.finishNanos = finishNanos;
+      // In case aggregatedElapsedTime was never set (such as a leaf node with no depedencies) with
+      // #addDepInfo, we want to set it here in which case the elapsed time is just the run time of
+      // this component.
+      aggregatedElapsedTime = Math.max(aggregatedElapsedTime, this.finishNanos - this.startNanos);
       isRunning = false;
     }
 
@@ -226,13 +229,19 @@ public class CriticalPathComponent {
   }
 
   /**
-   * Add statistics for one dependency of this action. Caller should ensure {@code dep} not running.
+   * Updates the child component if the union of the new dependency component runtime and the
+   * current component runtime is greater than the union of the current child runtime and current
+   * component runtime. The caller should ensure the dependency component is not running.
    */
-  synchronized void addDepInfo(CriticalPathComponent dep) {
-    long childAggregatedWallTime = dep.getAggregatedElapsedTimeNanos();
-    // Replace the child if its critical path had the maximum elapsed time.
-    if (child == null || childAggregatedWallTime > this.childAggregatedElapsedTime) {
-      this.childAggregatedElapsedTime = childAggregatedWallTime;
+  synchronized void addDepInfo(CriticalPathComponent dep, long componentFinishNanos) {
+    long currentElapsedTime = componentFinishNanos - startNanos;
+    long aggregatedElapsedTime = dep.getAggregatedElapsedTimeNanos() + currentElapsedTime;
+    // This corrects the overlapping run time.
+    if (dep.finishNanos > startNanos) {
+      aggregatedElapsedTime -= dep.finishNanos - startNanos;
+    }
+    if (child == null || aggregatedElapsedTime > this.aggregatedElapsedTime) {
+      this.aggregatedElapsedTime = aggregatedElapsedTime;
       child = dep;
     }
   }
@@ -284,7 +293,7 @@ public class CriticalPathComponent {
 
   private long getAggregatedElapsedTimeNanos() {
     Preconditions.checkState(!isRunning, "Still running %s", this);
-    return getElapsedTimeNanos() + childAggregatedElapsedTime;
+    return aggregatedElapsedTime;
   }
 
   /**

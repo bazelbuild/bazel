@@ -29,7 +29,6 @@ import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.TriState;
 import com.google.devtools.build.lib.packages.Type;
-import com.google.devtools.build.lib.rules.android.AndroidConfiguration.AndroidAaptVersion;
 import com.google.devtools.build.lib.rules.android.AndroidLibraryAarInfo.Aar;
 import com.google.devtools.build.lib.rules.android.databinding.DataBinding;
 import com.google.devtools.build.lib.rules.java.JavaCommon;
@@ -165,10 +164,7 @@ public abstract class AndroidLibrary implements RuleConfiguredTargetFactory {
                   DataBinding.contextFrom(ruleContext, dataContext.getAndroidConfig()),
                   isNeverLink);
 
-      MergedAndroidAssets assets =
-          AndroidAssets.from(ruleContext)
-              .process(
-                  dataContext, assetDeps, AndroidAaptVersion.chooseTargetAaptVersion(ruleContext));
+      MergedAndroidAssets assets = AndroidAssets.from(ruleContext).process(dataContext, assetDeps);
 
       resourceApk = ResourceApk.of(resources, assets, null, null);
 

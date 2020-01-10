@@ -139,7 +139,7 @@ public final class TargetCompleteEvent
         ConfiguredTargetKey.of(
             targetAndData.getConfiguredTarget(), targetAndData.getConfiguration());
     postedAfterBuilder.add(BuildEventId.targetConfigured(aliasLabel));
-    for (Cause cause : getRootCauses()) {
+    for (Cause cause : getRootCauses().toList()) {
       postedAfterBuilder.add(BuildEventId.fromCause(cause));
     }
     this.postedAfter = postedAfterBuilder.build();
@@ -211,7 +211,7 @@ public final class TargetCompleteEvent
       ConfiguredTargetAndData ct,
       NestedSet<Cause> rootCauses,
       NestedSet<ArtifactsInOutputGroup> outputs) {
-    Preconditions.checkArgument(!Iterables.isEmpty(rootCauses));
+    Preconditions.checkArgument(!rootCauses.isEmpty());
     return new TargetCompleteEvent(
         ct, rootCauses, CompletionContext.FAILED_COMPLETION_CTX, outputs, false);
   }
@@ -235,14 +235,14 @@ public final class TargetCompleteEvent
   }
 
   /** Get the root causes of the target. May be empty. */
-  public Iterable<Cause> getRootCauses() {
+  public NestedSet<Cause> getRootCauses() {
     return rootCauses;
   }
 
   public Iterable<Artifact> getLegacyFilteredImportantArtifacts() {
     // TODO(ulfjack): This duplicates code in ArtifactsToBuild.
     NestedSetBuilder<Artifact> builder = new NestedSetBuilder<>(outputs.getOrder());
-    for (ArtifactsInOutputGroup artifactsInOutputGroup : outputs) {
+    for (ArtifactsInOutputGroup artifactsInOutputGroup : outputs.toList()) {
       if (artifactsInOutputGroup.areImportant()) {
         builder.addTransitive(artifactsInOutputGroup.getArtifacts());
       }
@@ -260,7 +260,7 @@ public final class TargetCompleteEvent
   @Override
   public Collection<BuildEventId> getChildrenEvents() {
     ImmutableList.Builder<BuildEventId> childrenBuilder = ImmutableList.builder();
-    for (Cause cause : getRootCauses()) {
+    for (Cause cause : getRootCauses().toList()) {
       childrenBuilder.add(BuildEventId.fromCause(cause));
     }
     if (isTest) {
@@ -347,10 +347,10 @@ public final class TargetCompleteEvent
   @Override
   public Collection<LocalFile> referencedLocalFiles() {
     ImmutableList.Builder<LocalFile> builder = ImmutableList.builder();
-    for (ArtifactsInOutputGroup group : outputs) {
+    for (ArtifactsInOutputGroup group : outputs.toList()) {
       if (group.areImportant()) {
         completionContext.visitArtifacts(
-            filterFilesets(group.getArtifacts()),
+            filterFilesets(group.getArtifacts().toList()),
             new ArtifactReceiver() {
               @Override
               public void accept(Artifact artifact) {
@@ -368,7 +368,7 @@ public final class TargetCompleteEvent
       }
     }
     if (baselineCoverageArtifacts != null) {
-      for (Artifact artifact : baselineCoverageArtifacts) {
+      for (Artifact artifact : baselineCoverageArtifacts.toList()) {
         builder.add(
             new LocalFile(
                 completionContext.pathResolver().toPath(artifact), LocalFileType.COVERAGE_OUTPUT));
@@ -417,7 +417,7 @@ public final class TargetCompleteEvent
   @Override
   public ReportedArtifacts reportedArtifacts() {
     ImmutableSet.Builder<NestedSet<Artifact>> builder = ImmutableSet.builder();
-    for (ArtifactsInOutputGroup artifactsInGroup : outputs) {
+    for (ArtifactsInOutputGroup artifactsInGroup : outputs.toList()) {
       if (artifactsInGroup.areImportant()) {
         builder.add(artifactsInGroup.getArtifacts());
       }
@@ -439,7 +439,7 @@ public final class TargetCompleteEvent
 
   private Iterable<OutputGroup> getOutputFilesByGroup(ArtifactGroupNamer namer) {
     ImmutableList.Builder<OutputGroup> groups = ImmutableList.builder();
-    for (ArtifactsInOutputGroup artifactsInOutputGroup : outputs) {
+    for (ArtifactsInOutputGroup artifactsInOutputGroup : outputs.toList()) {
       if (!artifactsInOutputGroup.areImportant()) {
         continue;
       }

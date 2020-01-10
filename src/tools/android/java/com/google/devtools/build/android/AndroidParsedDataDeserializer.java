@@ -137,7 +137,8 @@ public class AndroidParsedDataDeserializer implements AndroidDataDeserializer {
         @SuppressWarnings("unchecked")
         KeyValueConsumer<DataKey, DataValue> value =
             (KeyValueConsumer<DataKey, DataValue>) entry.getValue();
-        value.accept(entry.getKey(), DataValueFile.of(Visibility.UNKNOWN, source));
+        value.accept(
+            entry.getKey(), DataValueFile.of(Visibility.UNKNOWN, source, /*fingerprint=*/ null));
       }
     }
   }

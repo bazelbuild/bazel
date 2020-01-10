@@ -16,6 +16,8 @@
 
 package com.google.devtools.build.android.desugar.langmodel;
 
+import static com.google.common.base.Preconditions.checkState;
+
 import com.google.auto.value.AutoValue;
 import org.objectweb.asm.Type;
 
@@ -23,11 +25,21 @@ import org.objectweb.asm.Type;
 @AutoValue
 public abstract class FieldKey extends ClassMemberKey {
 
-  /**
-   * The factory method for {@link com.google.devtools.build.android.desugar.langmodel.FieldKey}.
-   */
-  public static com.google.devtools.build.android.desugar.langmodel.FieldKey create(
-      String ownerClass, String name, String descriptor) {
+  /** The factory method for {@link FieldKey}. */
+  public static FieldKey create(String ownerClass, String name, String descriptor) {
+    checkState(
+        !ownerClass.contains("."),
+        "Expected a binary/internal class name ('/'-delimited) instead of a qualified name."
+            + " Actual: (%s#%s:%s)",
+        ownerClass,
+        name,
+        descriptor);
+    checkState(
+        !descriptor.startsWith("("),
+        "Expected a type descriptor for field instead of a method descriptor. Actual: (%s#%s:%s)",
+        ownerClass,
+        name,
+        descriptor);
     return new AutoValue_FieldKey(ownerClass, name, descriptor);
   }
 
@@ -36,10 +48,7 @@ public abstract class FieldKey extends ClassMemberKey {
    * codes.
    */
   public final <R, P> R accept(
-      MemberUseKind fieldUseKind,
-      FieldInstrVisitor<R, ? super com.google.devtools.build.android.desugar.langmodel.FieldKey, P>
-          visitor,
-      P param) {
+      MemberUseKind fieldUseKind, FieldInstrVisitor<R, ? super FieldKey, P> visitor, P param) {
     switch (fieldUseKind) {
       case GETSTATIC:
         return visitor.visitGetStatic(this, param);

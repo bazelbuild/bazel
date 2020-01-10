@@ -18,6 +18,7 @@ import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.FutureSpawn;
+import com.google.devtools.build.lib.actions.LostInputsExecException;
 import com.google.devtools.build.lib.actions.MetadataProvider;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnResult;
@@ -100,7 +101,7 @@ public interface SpawnRunner {
    * <p>{@link SpawnRunner} implementations should post a progress status before any potentially
    * long-running operation.
    */
-  public enum ProgressStatus {
+  enum ProgressStatus {
     /** Spawn is waiting for local or remote resources to become available. */
     SCHEDULING,
 
@@ -118,7 +119,7 @@ public interface SpawnRunner {
     EXECUTING,
 
     /** Downloading outputs from a remote machine. */
-    DOWNLOADING;
+    DOWNLOADING
   }
 
   /**
@@ -206,6 +207,9 @@ public interface SpawnRunner {
      * outputs that are stored remotely.
      */
     MetadataInjector getMetadataInjector();
+
+    /** Throws if lost inputs have been detected. */
+    void checkForLostInputs() throws LostInputsExecException;
   }
 
   /**

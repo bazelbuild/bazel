@@ -21,6 +21,7 @@ import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient;
+import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.protobuf.ByteString;
 import java.io.IOException;
@@ -37,17 +38,22 @@ public final class DiskAndRemoteCacheClient implements RemoteCacheClient {
 
   private final RemoteCacheClient remoteCache;
   private final DiskCacheClient diskCache;
+  private final RemoteOptions options;
 
-  public DiskAndRemoteCacheClient(DiskCacheClient diskCache, RemoteCacheClient remoteCache) {
+  public DiskAndRemoteCacheClient(
+      DiskCacheClient diskCache, RemoteCacheClient remoteCache, RemoteOptions options) {
     this.diskCache = Preconditions.checkNotNull(diskCache);
     this.remoteCache = Preconditions.checkNotNull(remoteCache);
+    this.options = options;
   }
 
   @Override
   public void uploadActionResult(ActionKey actionKey, ActionResult actionResult)
       throws IOException, InterruptedException {
     diskCache.uploadActionResult(actionKey, actionResult);
-    remoteCache.uploadActionResult(actionKey, actionResult);
+    if (!options.incompatibleRemoteResultsIgnoreDisk || options.remoteUploadLocalResults) {
+      remoteCache.uploadActionResult(actionKey, actionResult);
+    }
   }
 
   @Override
@@ -60,7 +66,9 @@ public final class DiskAndRemoteCacheClient implements RemoteCacheClient {
   public ListenableFuture<Void> uploadFile(Digest digest, Path file) {
     try {
       diskCache.uploadFile(digest, file).get();
-      remoteCache.uploadFile(digest, file).get();
+      if (!options.incompatibleRemoteResultsIgnoreDisk || options.remoteUploadLocalResults) {
+        remoteCache.uploadFile(digest, file).get();
+      }
     } catch (ExecutionException e) {
       return Futures.immediateFailedFuture(e.getCause());
     } catch (InterruptedException e) {
@@ -73,7 +81,9 @@ public final class DiskAndRemoteCacheClient implements RemoteCacheClient {
   public ListenableFuture<Void> uploadBlob(Digest digest, ByteString data) {
     try {
       diskCache.uploadBlob(digest, data).get();
-      remoteCache.uploadBlob(digest, data).get();
+      if (!options.incompatibleRemoteResultsIgnoreDisk || options.remoteUploadLocalResults) {
+        remoteCache.uploadBlob(digest, data).get();
+      }
     } catch (ExecutionException e) {
       return Futures.immediateFailedFuture(e.getCause());
     } catch (InterruptedException e) {
@@ -130,22 +140,26 @@ public final class DiskAndRemoteCacheClient implements RemoteCacheClient {
       return Futures.immediateFailedFuture(e);
     }
 
-    ListenableFuture<Void> download =
-        closeStreamOnError(remoteCache.downloadBlob(digest, tempOut), tempOut);
-    ListenableFuture<Void> saveToDiskAndTarget =
-        Futures.transformAsync(
-            download,
-            (unused) -> {
-              try {
-                tempOut.close();
-                diskCache.captureFile(tempPath, digest, /* isActionCache= */ false);
-              } catch (IOException e) {
-                return Futures.immediateFailedFuture(e);
-              }
-              return diskCache.downloadBlob(digest, out);
-            },
-            MoreExecutors.directExecutor());
-    return saveToDiskAndTarget;
+    if (!options.incompatibleRemoteResultsIgnoreDisk || options.remoteAcceptCached) {
+      ListenableFuture<Void> download =
+          closeStreamOnError(remoteCache.downloadBlob(digest, tempOut), tempOut);
+      ListenableFuture<Void> saveToDiskAndTarget =
+          Futures.transformAsync(
+              download,
+              (unused) -> {
+                try {
+                  tempOut.close();
+                  diskCache.captureFile(tempPath, digest, /* isActionCache= */ false);
+                } catch (IOException e) {
+                  return Futures.immediateFailedFuture(e);
+                }
+                return diskCache.downloadBlob(digest, out);
+              },
+              MoreExecutors.directExecutor());
+      return saveToDiskAndTarget;
+    } else {
+      return Futures.immediateFuture(null);
+    }
   }
 
   @Override
@@ -154,16 +168,20 @@ public final class DiskAndRemoteCacheClient implements RemoteCacheClient {
       return diskCache.downloadActionResult(actionKey);
     }
 
-    return Futures.transformAsync(
-        remoteCache.downloadActionResult(actionKey),
-        (actionResult) -> {
-          if (actionResult == null) {
-            return Futures.immediateFuture(null);
-          } else {
-            diskCache.uploadActionResult(actionKey, actionResult);
-            return Futures.immediateFuture(actionResult);
-          }
-        },
-        MoreExecutors.directExecutor());
+    if (!options.incompatibleRemoteResultsIgnoreDisk || options.remoteAcceptCached) {
+      return Futures.transformAsync(
+          remoteCache.downloadActionResult(actionKey),
+          (actionResult) -> {
+            if (actionResult == null) {
+              return Futures.immediateFuture(null);
+            } else {
+              diskCache.uploadActionResult(actionKey, actionResult);
+              return Futures.immediateFuture(actionResult);
+            }
+          },
+          MoreExecutors.directExecutor());
+    } else {
+      return Futures.immediateFuture(null);
+    }
   }
 }

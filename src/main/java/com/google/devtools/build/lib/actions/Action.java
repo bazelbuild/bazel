@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.actions;
 
 import com.google.devtools.build.lib.actions.extra.ExtraActionInfo;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ConditionallyThreadCompatible;
 import com.google.devtools.build.lib.vfs.Path;
 import java.io.IOException;
@@ -208,10 +209,10 @@ public interface Action extends ActionExecutionMetadata {
 
   /**
    * Informs the action that its inputs are {@code inputs}, and that its inputs are now known. Can
-   * only be called for actions that discover inputs. After this method is called,
-   * {@link ActionExecutionMetadata#inputsDiscovered} should return true.
+   * only be called for actions that discover inputs. After this method is called, {@link
+   * ActionExecutionMetadata#inputsDiscovered} should return true.
    */
-  void updateInputs(Iterable<Artifact> inputs);
+  void updateInputs(NestedSet<Artifact> inputs);
 
   /**
    * Returns true if the output should bypass output filtering. This is used for test actions.

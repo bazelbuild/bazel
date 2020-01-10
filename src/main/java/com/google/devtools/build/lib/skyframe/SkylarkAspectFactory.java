@@ -92,7 +92,7 @@ public class SkylarkAspectFactory implements ConfiguredAspectFactory {
             Starlark.call(
                 thread,
                 skylarkAspect.getImplementation(),
-                /*call=*/ null,
+                Location.BUILTIN,
                 /*args=*/ ImmutableList.of(ctadBase.getConfiguredTarget(), skylarkRuleContext),
                 /*kwargs=*/ ImmutableMap.of());
 
@@ -204,7 +204,7 @@ public class SkylarkAspectFactory implements ConfiguredAspectFactory {
   private void addAspectToStackTrace(Target base, EvalException e) {
     if (e instanceof EvalExceptionWithStackTrace) {
       ((EvalExceptionWithStackTrace) e)
-          .registerPhantomFuncall(
+          .registerPhantomCall(
               String.format("%s(...)", skylarkAspect.getName()),
               base.getAssociatedRule().getLocation(),
               skylarkAspect.getImplementation());

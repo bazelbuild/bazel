@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainProvider;
 import com.google.devtools.build.lib.rules.proto.ProtoInfo;
+import com.google.devtools.build.lib.rules.proto.ProtoSourceFileBlacklist;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.HashSet;
@@ -311,8 +312,10 @@ final class ProtobufSupport {
   private Iterable<Artifact> getGeneratedProtoOutputs(
       Iterable<Artifact> protoFiles, String extension) {
     ImmutableList.Builder<Artifact> builder = new ImmutableList.Builder<>();
+    ProtoSourceFileBlacklist wellKnownProtoBlacklist =
+        new ProtoSourceFileBlacklist(ruleContext, attributes.getWellKnownTypeProtos());
     for (Artifact protoFile : protoFiles) {
-      if (attributes.isProtoWellKnown(protoFile)) {
+      if (wellKnownProtoBlacklist.isBlacklisted(protoFile)) {
         continue;
       }
       String protoFileName = FileSystemUtils.removeExtension(protoFile.getFilename());
@@ -380,7 +383,7 @@ final class ProtobufSupport {
 
     Iterable<String> protoFilePaths =
         Artifact.toRootRelativePaths(
-            Ordering.natural().immutableSortedCopy(protoFilesBuilder.build()));
+            Ordering.natural().immutableSortedCopy(protoFilesBuilder.build().toList()));
 
     Iterable<String> filterLines =
         Iterables.transform(

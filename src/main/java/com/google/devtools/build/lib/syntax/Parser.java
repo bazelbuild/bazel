@@ -471,8 +471,8 @@ final class Parser {
     }
   }
 
-  // funcall_suffix ::= '(' arg_list? ')'
-  private Expression parseFuncallSuffix(int start, Expression function) {
+  // call_suffix ::= '(' arg_list? ')'
+  private Expression parseCallSuffix(int start, Expression function) {
     ImmutableList<Argument> args = ImmutableList.of();
     expect(TokenKind.LPAREN);
     int end;
@@ -484,7 +484,7 @@ final class Parser {
       end = token.right;
       expect(TokenKind.RPAREN);
     }
-    return setLocation(new FuncallExpression(function, args), start, end);
+    return setLocation(new CallExpression(function, args), start, end);
   }
 
   // Parse a list of call arguments.
@@ -725,7 +725,7 @@ final class Parser {
     }
   }
 
-  // primary_with_suffix ::= primary (selector_suffix | substring_suffix | funcall_suffix)*
+  // primary_with_suffix ::= primary (selector_suffix | substring_suffix | call_suffix)*
   private Expression parsePrimaryWithSuffix() {
     int start = token.left;
     Expression receiver = parsePrimary();
@@ -735,7 +735,7 @@ final class Parser {
       } else if (token.kind == TokenKind.LBRACKET) {
         receiver = parseSubstringSuffix(start, receiver);
       } else if (token.kind == TokenKind.LPAREN) {
-        receiver = parseFuncallSuffix(start, receiver);
+        receiver = parseCallSuffix(start, receiver);
       } else {
         break;
       }

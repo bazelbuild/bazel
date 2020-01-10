@@ -27,12 +27,8 @@ public class ParamNeitherNamedNorPositional implements StarlarkValue {
   @SkylarkCallable(
       name = "param_neither_named_nor_positional",
       documented = false,
-      parameters = {
-          @Param(name = "a_parameter",
-              named = false,
-              positional = false)
-      })
-  public Integer paramUndecidable() {
+      parameters = {@Param(name = "a_parameter", named = false, positional = false)})
+  public Integer paramUndecidable(Object x) {
     return 42;
   }
 }

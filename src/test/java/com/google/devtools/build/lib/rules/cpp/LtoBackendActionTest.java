@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
+import com.google.devtools.build.lib.actions.ActionExecutionContext.LostInputsCheck;
 import com.google.devtools.build.lib.actions.ActionInputPrefetcher;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Executor;
@@ -90,6 +91,7 @@ public class LtoBackendActionTest extends BuildViewTestCase {
             ActionInputPrefetcher.NONE,
             actionKeyContext,
             /*metadataHandler=*/ null,
+            LostInputsCheck.NONE,
             new FileOutErr(),
             new StoredEventHandler(),
             /*clientEnv=*/ ImmutableMap.of(),

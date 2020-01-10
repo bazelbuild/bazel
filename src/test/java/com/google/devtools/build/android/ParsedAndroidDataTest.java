@@ -101,14 +101,17 @@ public class ParsedAndroidDataTest {
                 ImmutableSet.of(
                     MergeConflict.of(
                         key,
-                        DataValueFile.of(Visibility.UNKNOWN, assetSource),
-                        DataValueFile.of(Visibility.UNKNOWN, otherAssetSource))),
+                        DataValueFile.of(Visibility.UNKNOWN, assetSource, /*fingerprint=*/ null),
+                        DataValueFile.of(
+                            Visibility.UNKNOWN, otherAssetSource, /*fingerprint=*/ null))),
                 ImmutableMap.<DataKey, DataResource>of(),
                 ImmutableMap.<DataKey, DataResource>of(),
                 ImmutableMap.<DataKey, DataAsset>of(
                     key,
                     DataValueFile.of(
-                        Visibility.UNKNOWN, otherAssetSource.overwrite(assetSource)))));
+                        Visibility.UNKNOWN,
+                        otherAssetSource.overwrite(assetSource),
+                        /*fingerprint=*/ null))));
   }
 
   @Test
@@ -353,8 +356,10 @@ public class ParsedAndroidDataTest {
                 ImmutableSet.of(
                     MergeConflict.of(
                         drawableMenu,
-                        DataValueFile.of(Visibility.UNKNOWN, rootDrawableMenuPath),
-                        DataValueFile.of(Visibility.UNKNOWN, otherRootDrawableMenuPath)),
+                        DataValueFile.of(
+                            Visibility.UNKNOWN, rootDrawableMenuPath, /*fingerprint=*/ null),
+                        DataValueFile.of(
+                            Visibility.UNKNOWN, otherRootDrawableMenuPath, /*fingerprint=*/ null)),
                     MergeConflict.of(
                         stringExit,
                         DataResourceXml.createWithNoNamespace(
@@ -376,7 +381,8 @@ public class ParsedAndroidDataTest {
                     drawableMenu, // key
                     DataValueFile.of(
                         Visibility.UNKNOWN,
-                        otherRootDrawableMenuPath.overwrite(rootDrawableMenuPath)), // value
+                        otherRootDrawableMenuPath.overwrite(rootDrawableMenuPath),
+                        /*fingerprint=*/ null), // value
                     attributeFoo, // key
                     DataResourceXml.createWithNoNamespace(
                         otherRootValuesPath.overwrite(rootValuesPath),

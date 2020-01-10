@@ -271,7 +271,7 @@ public class CppLinkActionBuilder {
       boolean includeLinkStaticInLtoIndexing) {
     NestedSetBuilder<LinkerInputs.LibraryToLink> uniqueLibrariesBuilder =
         NestedSetBuilder.linkOrder();
-    for (LinkerInputs.LibraryToLink lib : originalUniqueLibraries) {
+    for (LinkerInputs.LibraryToLink lib : originalUniqueLibraries.toList()) {
       if (!lib.containsObjectFiles()) {
         uniqueLibrariesBuilder.add(lib);
         continue;
@@ -404,7 +404,7 @@ public class CppLinkActionBuilder {
       boolean includeLinkStaticInLtoIndexing)
       throws RuleErrorException {
     Set<Artifact> compiled = new LinkedHashSet<>();
-    for (LinkerInputs.LibraryToLink lib : uniqueLibraries) {
+    for (LinkerInputs.LibraryToLink lib : uniqueLibraries.toList()) {
       compiled.addAll(lib.getLtoCompilationContext().getBitcodeFiles());
     }
 
@@ -415,7 +415,7 @@ public class CppLinkActionBuilder {
     // statically linked, so we need to look at includeLinkStaticInLtoIndexing to decide whether
     // to include its objects in the LTO indexing for this target.
     if (includeLinkStaticInLtoIndexing) {
-      for (LinkerInputs.LibraryToLink lib : uniqueLibraries) {
+      for (LinkerInputs.LibraryToLink lib : uniqueLibraries.toList()) {
         if (!lib.containsObjectFiles()) {
           continue;
         }
@@ -434,7 +434,7 @@ public class CppLinkActionBuilder {
     BitcodeFiles bitcodeFiles = new BitcodeFiles(allBitcode);
 
     ImmutableList.Builder<LtoBackendArtifacts> ltoOutputs = ImmutableList.builder();
-    for (LinkerInputs.LibraryToLink lib : uniqueLibraries) {
+    for (LinkerInputs.LibraryToLink lib : uniqueLibraries.toList()) {
       if (!lib.containsObjectFiles()) {
         continue;
       }
@@ -552,7 +552,7 @@ public class CppLinkActionBuilder {
       NestedSet<LibraryToLink> librariesToLink) {
     ImmutableList.Builder<LinkerInputs.LibraryToLink> librariesToLinkBuilder =
         ImmutableList.builder();
-    for (LibraryToLink libraryToLink : librariesToLink) {
+    for (LibraryToLink libraryToLink : librariesToLink.toList()) {
       LinkerInputs.LibraryToLink staticLibraryToLink =
           libraryToLink.getStaticLibrary() == null ? null : libraryToLink.getStaticLibraryToLink();
       LinkerInputs.LibraryToLink picStaticLibraryToLink =

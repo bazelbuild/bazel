@@ -14,9 +14,11 @@
 
 package com.google.devtools.build.lib.actions;
 
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.Path;
+import javax.annotation.Nullable;
 
 /**
  * An {@link ActionExecutionException} thrown when an action fails to execute because one or more of
@@ -40,13 +42,13 @@ public class LostInputsActionExecutionException extends ActionExecutionException
   private boolean actionStartedEventAlreadyEmitted;
 
   /** Used to report the action execution failure if rewinding also fails. */
-  private Path primaryOutputPath;
+  @Nullable private Path primaryOutputPath;
 
   /**
    * Used to report the action execution failure if rewinding also fails. Note that this will be
    * closed, so it may only be used for reporting.
    */
-  private FileOutErr fileOutErr;
+  @Nullable private FileOutErr fileOutErr;
 
   /** Used to inform rewinding that lost inputs were found during input discovery. */
   private boolean fromInputDiscovery;
@@ -100,5 +102,21 @@ public class LostInputsActionExecutionException extends ActionExecutionException
 
   public void setFromInputDiscovery() {
     this.fromInputDiscovery = true;
+  }
+
+  /**
+   * Converts to the "lost inputs" subtype of the other exception type ({@link ExecException}) used
+   * during action execution.
+   *
+   * <p>May not be used if this exception has been decorated with additional information from its
+   * context (e.g. from {@link #setPrimaryOutputPath} or other setters) because that information
+   * would be lost if so.
+   */
+  public LostInputsExecException toExecException() {
+    Preconditions.checkState(!actionStartedEventAlreadyEmitted);
+    Preconditions.checkState(primaryOutputPath == null);
+    Preconditions.checkState(fileOutErr == null);
+    Preconditions.checkState(!fromInputDiscovery);
+    return new LostInputsExecException(lostInputs, owners, this);
   }
 }

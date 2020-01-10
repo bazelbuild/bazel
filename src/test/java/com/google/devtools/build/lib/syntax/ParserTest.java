@@ -121,7 +121,7 @@ public final class ParserTest {
   }
 
   // helper func for testing arguments:
-  private static Expression getArg(FuncallExpression f, int index) {
+  private static Expression getArg(CallExpression f, int index) {
     return f.getArguments().get(index).getValue();
   }
 
@@ -196,7 +196,7 @@ public final class ParserTest {
 
   @Test
   public void testFuncallExpr() throws Exception {
-    FuncallExpression e = (FuncallExpression) parseExpression("foo[0](1, 2, bar=wiz)");
+    CallExpression e = (CallExpression) parseExpression("foo[0](1, 2, bar=wiz)");
 
     IndexExpression function = (IndexExpression) e.getFunction();
     Identifier functionList = (Identifier) function.getObject();
@@ -221,8 +221,7 @@ public final class ParserTest {
 
   @Test
   public void testMethCallExpr() throws Exception {
-    FuncallExpression e =
-      (FuncallExpression) parseExpression("foo.foo(1, 2, bar=wiz)");
+    CallExpression e = (CallExpression) parseExpression("foo.foo(1, 2, bar=wiz)");
 
     DotExpression dotExpression = (DotExpression) e.getFunction();
     assertThat(dotExpression.getField().getName()).isEqualTo("foo");
@@ -244,8 +243,7 @@ public final class ParserTest {
 
   @Test
   public void testChainedMethCallExpr() throws Exception {
-    FuncallExpression e =
-      (FuncallExpression) parseExpression("foo.replace().split(1)");
+    CallExpression e = (CallExpression) parseExpression("foo.replace().split(1)");
 
     DotExpression dotExpr = (DotExpression) e.getFunction();
     assertThat(dotExpr.getField().getName()).isEqualTo("split");
@@ -267,7 +265,7 @@ public final class ParserTest {
 
   @Test
   public void testStringMethExpr() throws Exception {
-    FuncallExpression e = (FuncallExpression) parseExpression("'foo'.foo()");
+    CallExpression e = (CallExpression) parseExpression("'foo'.foo()");
 
     DotExpression dotExpression = (DotExpression) e.getFunction();
     assertThat(dotExpression.getField().getName()).isEqualTo("foo");
@@ -314,8 +312,7 @@ public final class ParserTest {
     SliceExpression s = (SliceExpression) parseExpression("'FOO.CC'[:].lower()[1:]");
     assertThat(((IntegerLiteral) s.getStart()).getValue()).isEqualTo(1);
 
-    FuncallExpression e = (FuncallExpression) parseExpression(
-        "'FOO.CC'.lower()[1:].startswith('oo')");
+    CallExpression e = (CallExpression) parseExpression("'FOO.CC'.lower()[1:].startswith('oo')");
     DotExpression dotExpression = (DotExpression) e.getFunction();
     assertThat(dotExpression.getField().getName()).isEqualTo("startswith");
     assertThat(e.getArguments()).hasSize(1);
@@ -361,8 +358,7 @@ public final class ParserTest {
 
     // We call parseFile, not parseExpression, as the latter is all-or-nothing.
     String src = "f(1, [x for foo foo foo foo], 3)";
-    FuncallExpression e =
-        (FuncallExpression) ((ExpressionStatement) parseStatement(src)).getExpression();
+    CallExpression e = (CallExpression) ((ExpressionStatement) parseStatement(src)).getExpression();
 
     assertContainsError("syntax error at 'foo'");
 
@@ -405,7 +401,7 @@ public final class ParserTest {
   @Test
   public void testSecondaryLocation() throws SyntaxError {
     String expr = "f(1 % 2)";
-    FuncallExpression call = (FuncallExpression) parseExpression(expr);
+    CallExpression call = (CallExpression) parseExpression(expr);
     Argument arg = call.getArguments().get(0);
     assertThat(arg.getLocation().getEndOffset()).isLessThan(call.getLocation().getEndOffset());
   }
@@ -413,7 +409,7 @@ public final class ParserTest {
   @Test
   public void testPrimaryLocation() throws SyntaxError {
     String expr = "f(1 + 2)";
-    FuncallExpression call = (FuncallExpression) parseExpression(expr);
+    CallExpression call = (CallExpression) parseExpression(expr);
     Argument arg = call.getArguments().get(0);
     assertThat(arg.getLocation().getEndOffset()).isLessThan(call.getLocation().getEndOffset());
   }
@@ -535,7 +531,7 @@ public final class ParserTest {
   public void testArgumentPositions() throws Exception {
     String expr = "f(0,g(1,2),2)";
     assertExpressionLocationCorrect(expr);
-    FuncallExpression f = (FuncallExpression) parseExpression(expr);
+    CallExpression f = (CallExpression) parseExpression(expr);
     assertThat(getText(expr, getArg(f, 0))).isEqualTo("0");
     assertThat(getText(expr, getArg(f, 1))).isEqualTo("g(1,2)");
     assertThat(getText(expr, getArg(f, 2))).isEqualTo("2");

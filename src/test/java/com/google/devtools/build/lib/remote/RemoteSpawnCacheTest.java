@@ -204,6 +204,9 @@ public class RemoteSpawnCacheTest {
             }
           };
         }
+
+        @Override
+        public void checkForLostInputs() {}
       };
 
   private static SimpleSpawn simpleSpawnWithExecutionInfo(

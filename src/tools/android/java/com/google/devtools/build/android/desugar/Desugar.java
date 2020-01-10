@@ -17,6 +17,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.devtools.build.android.desugar.LambdaClassMaker.LAMBDA_METAFACTORY_DUMPER_PROPERTY;
+import static com.google.devtools.build.android.desugar.strconcat.IndyStringConcatDesugaring.INVOKE_JDK11_STRING_CONCAT;
 
 import com.google.auto.value.AutoValue;
 import com.google.common.annotations.VisibleForTesting;
@@ -25,6 +26,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.io.ByteStreams;
 import com.google.common.io.Closer;
+import com.google.common.io.Resources;
 import com.google.devtools.build.android.Converters.ExistingPathConverter;
 import com.google.devtools.build.android.Converters.PathConverter;
 import com.google.devtools.build.android.desugar.io.CoreLibraryRewriter;
@@ -36,9 +38,11 @@ import com.google.devtools.build.android.desugar.io.InputFileProvider;
 import com.google.devtools.build.android.desugar.io.OutputFileProvider;
 import com.google.devtools.build.android.desugar.io.ThrowingClassLoader;
 import com.google.devtools.build.android.desugar.langmodel.ClassMemberRecord;
+import com.google.devtools.build.android.desugar.langmodel.ClassMemberUseCounter;
 import com.google.devtools.build.android.desugar.nest.NestAnalyzer;
 import com.google.devtools.build.android.desugar.nest.NestCompanions;
 import com.google.devtools.build.android.desugar.nest.NestDesugaring;
+import com.google.devtools.build.android.desugar.strconcat.IndyStringConcatDesugaring;
 import com.google.devtools.build.lib.worker.WorkerProtocol.WorkRequest;
 import com.google.devtools.build.lib.worker.WorkerProtocol.WorkResponse;
 import com.google.devtools.common.options.Option;
@@ -353,13 +357,27 @@ public class Desugar {
     /** Convert Java 11 nest-based access control to bridge-based access control. */
     @Option(
         name = "desugar_nest_based_private_access",
-        defaultValue = "false",
+        defaultValue = "true",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.UNKNOWN},
         help =
             "Desugar JVM 11 native supported accessing private nest members with bridge method"
                 + " based accessors. This flag includes desugaring private interface methods.")
     public boolean desugarNestBasedPrivateAccess;
+
+    /**
+     * Convert Java 9 invokedynamic-based string concatenations to StringBuilder-based
+     * concatenations. @see https://openjdk.java.net/jeps/280
+     */
+    @Option(
+        name = "desugar_indy_string_concat",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        help =
+            "Desugar JVM 9 string concatenation operations to string builder based"
+                + " implementations.")
+    public boolean desugarIndifyStringConcat;
 
     @Option(
         name = "persistent_worker",
@@ -378,6 +396,7 @@ public class Desugar {
   private final CoreLibraryRewriter rewriter;
   private final LambdaClassMaker lambdas;
   private final GeneratedClassStore store = new GeneratedClassStore();
+  private final ClassMemberUseCounter classMemberUseCounter = new ClassMemberUseCounter();
   private final Set<String> visitedExceptionTypes = new LinkedHashSet<>();
   /** The counter to record the times of try-with-resources desugaring is invoked. */
   private final AtomicInteger numOfTryWithResourcesInvoked = new AtomicInteger();
@@ -589,7 +608,17 @@ public class Desugar {
       }
     }
 
-    // 3. See if we need to copy try-with-resources runtime library
+    // 3. See if we need to copy StringConcats methods for Indify string desugaring.
+    if (classMemberUseCounter.getMemberUseCount(INVOKE_JDK11_STRING_CONCAT) > 0) {
+      String resourceName = "com/google/devtools/build/android/desugar/runtime/StringConcats.class";
+      try (InputStream stream = Resources.getResource(resourceName).openStream()) {
+        outputFileProvider.write(resourceName, ByteStreams.toByteArray(stream));
+      } catch (IOException e) {
+        throw new IOError(e);
+      }
+    }
+
+    // 4. See if we need to copy try-with-resources runtime library
     if (allowTryWithResources || options.desugarTryWithResourcesOmitRuntimeClasses) {
       // try-with-resources statements are okay in the output jar.
       return;
@@ -1023,6 +1052,10 @@ public class Desugar {
 
     if (options.desugarNestBasedPrivateAccess && classMemberRecord.hasAnyReason()) {
       visitor = new NestDesugaring(visitor, nestCompanions, classMemberRecord);
+    }
+
+    if (options.desugarIndifyStringConcat) {
+      visitor = new IndyStringConcatDesugaring(classMemberUseCounter, visitor);
     }
 
     return visitor;
