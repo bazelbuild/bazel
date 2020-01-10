@@ -380,6 +380,13 @@ public final class JavaCompilationHelper {
     return true;
   }
 
+  private Artifact turbineOutput(Artifact classJar, String newExtension) {
+    return getAnalysisEnvironment()
+        .getDerivedArtifact(
+            FileSystemUtils.replaceExtension(classJar.getRootRelativePath(), newExtension),
+            classJar.getRoot());
+  }
+
   /**
    * Creates the Action that compiles ijars from source.
    *
@@ -390,16 +397,8 @@ public final class JavaCompilationHelper {
       Artifact runtimeJar, JavaCompilationArtifacts.Builder artifactBuilder)
       throws InterruptedException {
 
-    Artifact headerJar =
-        getAnalysisEnvironment()
-            .getDerivedArtifact(
-                FileSystemUtils.replaceExtension(runtimeJar.getRootRelativePath(), "-hjar.jar"),
-                runtimeJar.getRoot());
-    Artifact headerDeps =
-        getAnalysisEnvironment()
-            .getDerivedArtifact(
-                FileSystemUtils.replaceExtension(runtimeJar.getRootRelativePath(), "-hjar.jdeps"),
-                runtimeJar.getRoot());
+    Artifact headerJar = turbineOutput(runtimeJar, "-hjar.jar");
+    Artifact headerDeps = turbineOutput(runtimeJar, "-hjar.jdeps");
 
     JavaTargetAttributes attributes = getAttributes();
     JavaHeaderCompileActionBuilder builder = new JavaHeaderCompileActionBuilder(getRuleContext());
