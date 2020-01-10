@@ -253,11 +253,7 @@ public class XcodeConfig implements RuleConfiguredTargetFactory {
       String versionOverrideFlag)
       throws RuleErrorException {
 
-    // Mutually available Xcode versions are versions that are available both locally and remotely,
-    // but are referred to by the aliases listed in remote_xcodes.
-    Set<XcodeVersionRuleData> mutuallyAvailableVersions =
-        Sets.newHashSet(remoteVersions.getAvailableVersions());
-    mutuallyAvailableVersions.retainAll(Sets.newHashSet(localVersions.getAvailableVersions()));
+
     Map<String, XcodeVersionRuleData> localAliasesToVersionMap;
     Map<String, XcodeVersionRuleData> remoteAliasesToVersionMap;
     try {
@@ -265,6 +261,14 @@ public class XcodeConfig implements RuleConfiguredTargetFactory {
       remoteAliasesToVersionMap = aliasesToVersionMap(remoteVersions.getAvailableVersions());
     } catch (XcodeConfigException e) {
       throw ruleContext.throwWithRuleError(e.getMessage());
+    }
+    // Mutually available Xcode versions are versions that are available both locally and remotely,
+    // but are referred to by the aliases listed in remote_xcodes.
+    Set<XcodeVersionRuleData> mutuallyAvailableVersions = Sets.newHashSet();
+    for (String version : localAliasesToVersionMap.keySet()) {
+      if (remoteAliasesToVersionMap.containsKey(version)) {
+        mutuallyAvailableVersions.add(remoteAliasesToVersionMap.get(version));
+      }
     }
     if (!Strings.isNullOrEmpty(versionOverrideFlag)) {
       XcodeVersionRuleData specifiedVersionFromRemote =

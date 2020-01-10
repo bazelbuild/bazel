@@ -375,6 +375,11 @@ public class XcodeConfigTest extends BuildViewTestCase {
         "xcode_version(",
         "    name = 'version10',",
         "    version = '10',",
+        "    aliases = [ '10.0'],",
+        ")",
+        "xcode_version(",
+        "    name = 'other_version10',",
+        "    version = '10.0',",
         ")",
         "available_xcodes(",
         "    name = 'remote',",
@@ -383,7 +388,7 @@ public class XcodeConfigTest extends BuildViewTestCase {
         ")",
         "available_xcodes(",
         "    name = 'local',",
-        "    versions = [':version84', ':version10', ':version92', ':version9'],",
+        "    versions = [':version84', ':other_version10', ':version92', ':version9'],",
         "    default = ':version84',",
         ")");
     useConfiguration("--xcode_version_config=//xcode:foo");
