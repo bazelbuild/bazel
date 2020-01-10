@@ -698,7 +698,8 @@ def _impl(ctx):
                 ),
             ],
         )
-    elif (ctx.attr.cpu == "freebsd" or ctx.attr.cpu == "openbsd"):
+    elif (ctx.attr.cpu == "freebsd" or
+          ctx.attr.cpu == "openbsd"):
         default_compile_flags_feature = feature(
             name = "default_compile_flags",
             enabled = True,
