@@ -884,7 +884,7 @@ class MethodLibrary {
       })
   public String type(Object object) {
     // There is no 'type' type in Skylark, so we return a string with the type name.
-    return EvalUtils.getDataTypeName(object, false);
+    return Starlark.type(object);
   }
 
   @SkylarkCallable(

@@ -391,8 +391,8 @@ final class NodePrinter {
             printExpr(slice.getStart());
           }
           buf.append(':');
-          if (slice.getEnd() != null) {
-            printExpr(slice.getEnd());
+          if (slice.getStop() != null) {
+            printExpr(slice.getStop());
           }
           if (slice.getStep() != null) {
             buf.append(':');

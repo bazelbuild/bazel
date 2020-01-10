@@ -286,11 +286,9 @@ public final class EvalUtils {
 
   /**
    * Resolves a positive or negative index to an index in the range [0, length), or throws
-   * EvalException if it is out-of-range. If the index is negative, it counts backward from
-   * length.
+   * EvalException if it is out of range. If the index is negative, it counts backward from length.
    */
-  public static int getSequenceIndex(int index, int length, Location loc)
-      throws EvalException {
+  static int getSequenceIndex(int index, int length, Location loc) throws EvalException {
     int actualIndex = index;
     if (actualIndex < 0) {
       actualIndex += length;
@@ -304,107 +302,23 @@ public final class EvalUtils {
   }
 
   /**
-   * Performs index resolution after verifying that the given object has index type.
+   * Returns the effective index denoted by a user-supplied integer. First, if the integer is
+   * negative, the length of the sequence is added to it, so an index of -1 represents the last
+   * element of the sequence. Then, the integer is "clamped" into the inclusive interval [0,
+   * length].
    */
-  public static int getSequenceIndex(Object index, int length, Location loc)
-      throws EvalException {
-    if (!(index instanceof Integer)) {
-      throw new EvalException(loc, "indices must be integers, not " + getDataTypeName(index));
-    }
-    return getSequenceIndex(((Integer) index).intValue(), length, loc);
-  }
-
-  /**
-   * Resolves a positive or negative index to an integer that can denote the left or right boundary
-   * of a slice. If reverse is false, the slice has positive stride (i.e., its elements are in their
-   * normal order) and the result is guaranteed to be in range [0, length + 1). If reverse is true,
-   * the slice has negative stride and the result is in range [-1, length). In either case, if the
-   * index is negative, it counts backward from length. Note that an input index of -1 represents
-   * the last element's position, while an output integer of -1 represents the imaginary position
-   * to the left of the first element.
-   */
-  public static int clampRangeEndpoint(int index, int length, boolean reverse) {
+  static int toIndex(int index, int length) {
     if (index < 0) {
       index += length;
     }
-    if (!reverse) {
-      return Math.max(Math.min(index, length), 0);
+
+    if (index < 0) {
+      return 0;
+    } else if (index > length) {
+      return length;
     } else {
-      return Math.max(Math.min(index, length - 1), -1);
+      return index;
     }
-  }
-
-  /**
-   * Resolves a positive or negative index to an integer that can denote the boundary for a
-   * slice with positive stride.
-   */
-  public static int clampRangeEndpoint(int index, int length) {
-    return clampRangeEndpoint(index, length, false);
-  }
-
-  /**
-   * Calculates the indices of the elements that should be included in the slice [start:end:step]
-   * of a sequence with the given length. Each of start, end, and step must be supplied, and step
-   * may not be 0.
-   */
-  public static List<Integer> getSliceIndices(int start, int end, int step, int length) {
-    if (step == 0) {
-      throw new IllegalArgumentException("Slice step cannot be zero");
-    }
-    start = clampRangeEndpoint(start, length, step < 0);
-    end = clampRangeEndpoint(end, length, step < 0);
-    // precise computation is slightly more involved, but since it can overshoot only by a single
-    // element it's fine
-    final int expectedMaxSize = Math.abs(start - end) / Math.abs(step) + 1;
-    ImmutableList.Builder<Integer> indices = ImmutableList.builderWithExpectedSize(expectedMaxSize);
-    for (int current = start; step > 0 ? current < end : current > end; current += step) {
-      indices.add(current);
-    }
-    return indices.build();
-  }
-
-  /**
-   * Calculates the indices of the elements in a slice, after validating the arguments and replacing
-   * Starlark.NONE with default values. Throws an EvalException if a bad argument is given.
-   */
-  public static List<Integer> getSliceIndices(
-      Object startObj, Object endObj, Object stepObj, int length, Location loc)
-      throws EvalException {
-    int start;
-    int end;
-    int step;
-
-    if (stepObj == Starlark.NONE) {
-      step = 1;
-    } else if (stepObj instanceof Integer) {
-      step = ((Integer) stepObj).intValue();
-    } else {
-      throw new EvalException(
-          loc, String.format("slice step must be an integer, not '%s'", stepObj));
-    }
-    if (step == 0) {
-      throw new EvalException(loc, "slice step cannot be zero");
-    }
-
-    if (startObj == Starlark.NONE) {
-      start = (step > 0) ? 0 : length - 1;
-    } else if (startObj instanceof Integer) {
-      start = ((Integer) startObj).intValue();
-    } else {
-      throw new EvalException(
-          loc, String.format("slice start must be an integer, not '%s'", startObj));
-    }
-    if (endObj == Starlark.NONE) {
-      // If step is negative, can't use -1 for end since that would be converted
-      // to the rightmost element's position.
-      end = (step > 0) ? length : -length - 1;
-    } else if (endObj instanceof Integer) {
-      end = ((Integer) endObj).intValue();
-    } else {
-      throw new EvalException(loc, String.format("slice end must be an integer, not '%s'", endObj));
-    }
-
-    return getSliceIndices(start, end, step, length);
   }
 
   /** @return true if x is Java null or Skylark None */
@@ -833,7 +747,7 @@ public final class EvalUtils {
    *
    * @throws EvalException if {@code object} is not a sequence or mapping.
    */
-  public static Object index(Object object, Object key, StarlarkThread thread, Location loc)
+  static Object index(Object object, Object key, StarlarkThread thread, Location loc)
       throws EvalException, InterruptedException {
     if (object instanceof SkylarkIndexable) {
       Object result = ((SkylarkIndexable) object).getIndex(key, loc);
@@ -843,7 +757,8 @@ public final class EvalUtils {
       return result == null ? null : Starlark.fromJava(result, thread.mutability());
     } else if (object instanceof String) {
       String string = (String) object;
-      int index = getSequenceIndex(key, string.length(), loc);
+      int index = Starlark.toInt(key, "string index");
+      index = getSequenceIndex(index, string.length(), loc);
       return string.substring(index, index + 1);
     } else {
       throw new EvalException(

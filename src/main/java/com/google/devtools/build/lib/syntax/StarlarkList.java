@@ -24,7 +24,6 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import java.util.AbstractList;
 import java.util.Arrays;
 import java.util.Collection;
-import java.util.List;
 import javax.annotation.Nullable;
 
 /** A StarlarkList is a mutable finite sequence of values. */
@@ -222,16 +221,18 @@ public final class StarlarkList<E> extends AbstractList<E> implements Sequence<E
   }
 
   @Override
-  public StarlarkList<E> getSlice(
-      Object start, Object end, Object step, Location loc, Mutability mutability)
-      throws EvalException {
-    // TODO(adonovan): this is horribly inefficient.
-    List<Integer> indices = EvalUtils.getSliceIndices(start, end, step, size(), loc);
-    Object[] array = new Object[indices.size()];
-    for (int i = 0; i < indices.size(); ++i) {
-      array[i] = elems[indices.get(i)];
+  public StarlarkList<E> getSlice(Mutability mu, int start, int stop, int step) {
+    RangeList indices = new RangeList(start, stop, step);
+    int n = indices.size();
+    Object[] res = new Object[n];
+    if (step == 1) { // common case
+      System.arraycopy(elems, indices.at(0), res, 0, n);
+    } else {
+      for (int i = 0; i < n; ++i) {
+        res[i] = elems[indices.at(i)];
+      }
     }
-    return wrap(mutability, array);
+    return wrap(mu, res);
   }
 
   // Postcondition: elems.length >= mincap.
@@ -379,7 +380,7 @@ public final class StarlarkList<E> extends AbstractList<E> implements Sequence<E
       })
   @SuppressWarnings("unchecked")
   public NoneType insert(Integer index, Object item) throws EvalException {
-    add(EvalUtils.clampRangeEndpoint(index, size), (E) item, /*loc=*/ null); // unchecked
+    add(EvalUtils.toIndex(index, size), (E) item, /*loc=*/ null); // unchecked
     return Starlark.NONE;
   }
 
@@ -405,20 +406,20 @@ public final class StarlarkList<E> extends AbstractList<E> implements Sequence<E
             name = "start",
             type = Integer.class,
             defaultValue = "None",
-            noneable = true,
+            noneable = true, // TODO(adonovan): this is wrong
             named = true,
             doc = "The start index of the list portion to inspect."),
         @Param(
             name = "end",
             type = Integer.class,
             defaultValue = "None",
-            noneable = true,
+            noneable = true, // TODO(adonovan): this is wrong
             named = true,
             doc = "The end index of the list portion to inspect.")
       })
   public Integer index(Object x, Object start, Object end) throws EvalException {
-    int i = start == Starlark.NONE ? 0 : EvalUtils.clampRangeEndpoint((Integer) start, size);
-    int j = end == Starlark.NONE ? size : EvalUtils.clampRangeEndpoint((Integer) end, size);
+    int i = start == Starlark.NONE ? 0 : EvalUtils.toIndex((Integer) start, size);
+    int j = end == Starlark.NONE ? size : EvalUtils.toIndex((Integer) end, size);
     for (; i < j; i++) {
       if (elems[i].equals(x)) {
         return i;
@@ -437,8 +438,8 @@ public final class StarlarkList<E> extends AbstractList<E> implements Sequence<E
         @Param(
             name = "i",
             type = Integer.class,
-            noneable = true,
-            defaultValue = "None",
+            noneable = true, // TODO(adonovan): this is wrong
+            defaultValue = "-1",
             doc = "The index of the item.")
       })
   public Object pop(Object i) throws EvalException {

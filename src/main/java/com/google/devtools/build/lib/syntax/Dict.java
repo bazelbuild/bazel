@@ -281,7 +281,7 @@ public final class Dict<K, V>
               + "<pre class=\"language-python\">"
               + "{2: \"a\", 4: \"b\", 1: \"c\"}.values() == [\"a\", \"b\", \"c\"]</pre>\n",
       useStarlarkThread = true)
-  public StarlarkList<?> invoke(StarlarkThread thread) throws EvalException {
+  public StarlarkList<?> values0(StarlarkThread thread) throws EvalException {
     return StarlarkList.copyOf(thread.mutability(), values());
   }
 

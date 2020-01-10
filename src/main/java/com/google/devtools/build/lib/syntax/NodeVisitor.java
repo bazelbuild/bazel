@@ -167,8 +167,8 @@ public class NodeVisitor {
     if (node.getStart() != null) {
       visit(node.getStart());
     }
-    if (node.getEnd() != null) {
-      visit(node.getEnd());
+    if (node.getStop() != null) {
+      visit(node.getStop());
     }
     if (node.getStep() != null) {
       visit(node.getStep());

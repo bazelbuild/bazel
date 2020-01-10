@@ -333,7 +333,8 @@ final class Eval {
       dict.put(key, value, loc);
     } else if (object instanceof StarlarkList) {
       StarlarkList<Object> list = (StarlarkList<Object>) object;
-      int index = EvalUtils.getSequenceIndex(key, list.size(), loc);
+      int index = Starlark.toInt(key, "list index");
+      index = EvalUtils.getSequenceIndex(index, list.size(), loc);
       list.set(index, value, loc);
     } else {
       throw new EvalException(
@@ -693,41 +694,16 @@ final class Eval {
       case SLICE:
         {
           SliceExpression slice = (SliceExpression) expr;
-          Object object = eval(thread, slice.getObject());
+          Object x = eval(thread, slice.getObject());
           Object start = slice.getStart() == null ? Starlark.NONE : eval(thread, slice.getStart());
-          Object end = slice.getEnd() == null ? Starlark.NONE : eval(thread, slice.getEnd());
+          Object stop = slice.getStop() == null ? Starlark.NONE : eval(thread, slice.getStop());
           Object step = slice.getStep() == null ? Starlark.NONE : eval(thread, slice.getStep());
-          Location loc = slice.getStartLocation(); // TODO(adonovan): use lbracket location
-
-          // TODO(adonovan): move the rest into a public EvalUtils.slice() operator.
-
-          if (object instanceof Sequence) {
-            return ((Sequence<?>) object).getSlice(start, end, step, loc, thread.mutability());
+          try {
+            return Starlark.slice(thread.mutability(), x, start, stop, step);
+          } catch (EvalException ex) {
+            // TODO(adonovan): use lbracket location
+            throw ex.ensureLocation(slice.getStartLocation());
           }
-
-          if (object instanceof String) {
-            String string = (String) object;
-            List<Integer> indices =
-                EvalUtils.getSliceIndices(start, end, step, string.length(), loc);
-            // TODO(adonovan): opt: optimize for common case, step=1.
-            char[] result = new char[indices.size()];
-            char[] original = string.toCharArray();
-            int resultIndex = 0;
-            for (int originalIndex : indices) {
-              result[resultIndex] = original[originalIndex];
-              ++resultIndex;
-            }
-            return new String(result);
-          }
-
-          throw new EvalException(
-              loc,
-              String.format(
-                  "type '%s' has no operator [:](%s, %s, %s)",
-                  EvalUtils.getDataTypeName(object),
-                  EvalUtils.getDataTypeName(start),
-                  EvalUtils.getDataTypeName(end),
-                  EvalUtils.getDataTypeName(step)));
         }
 
       case STRING_LITERAL:

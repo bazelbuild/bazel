@@ -583,7 +583,7 @@ public class MethodLibraryTest extends EvaluationTestCase {
   public void testIndexOnFunction() throws Exception {
     new BothModesTest()
         .testIfErrorContains("type 'function' has no operator [](int)", "len[1]")
-        .testIfErrorContains("type 'function' has no operator [:](int, int, NoneType)", "len[1:4]");
+        .testIfErrorContains("invalid slice operand: function", "len[1:4]");
   }
 
   @Test

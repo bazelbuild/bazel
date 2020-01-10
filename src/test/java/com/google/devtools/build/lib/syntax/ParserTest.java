@@ -315,7 +315,7 @@ public final class ParserTest {
     assertThat(e.getArguments()).hasSize(1);
 
     s = (SliceExpression) parseExpression("'FOO.CC'[1:][:2]");
-    assertThat(((IntegerLiteral) s.getEnd()).getValue()).isEqualTo(2);
+    assertThat(((IntegerLiteral) s.getStop()).getValue()).isEqualTo(2);
   }
 
   @Test
@@ -341,11 +341,11 @@ public final class ParserTest {
 
     // There is no way to evaluate the expression here, so we rely on string comparison.
     String start = e.getStart() == null ? "" : e.getStart().toString();
-    String end = e.getEnd() == null ? "" : e.getEnd().toString();
+    String stop = e.getStop() == null ? "" : e.getStop().toString();
     String step = e.getStep() == null ? "" : e.getStep().toString();
 
     assertThat(start).isEqualTo(expectedArgs[0].toString());
-    assertThat(end).isEqualTo(expectedArgs[1].toString());
+    assertThat(stop).isEqualTo(expectedArgs[1].toString());
     assertThat(step).isEqualTo(expectedArgs[2].toString());
   }
 
