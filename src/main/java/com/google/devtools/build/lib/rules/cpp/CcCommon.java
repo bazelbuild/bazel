@@ -712,12 +712,12 @@ public final class CcCommon {
         /* prefixConsumer= */ true);
   }
 
-  /**
-   * Returns any linker scripts found in the dependencies of the rule.
-   */
-  Iterable<Artifact> getLinkerScripts() {
-    return FileType.filter(ruleContext.getPrerequisiteArtifacts("deps", Mode.TARGET).list(),
-        CppFileTypes.LINKER_SCRIPT);
+  /** Returns any linker scripts found in the "deps" attribute of the rule. */
+  List<Artifact> getLinkerScripts() {
+    return ruleContext
+        .getPrerequisiteArtifacts("deps", Mode.TARGET)
+        .filter(CppFileTypes.LINKER_SCRIPT)
+        .list();
   }
 
   /** Returns the Windows DEF file specified in win_def_file attribute of the rule. */
@@ -748,8 +748,7 @@ public final class CcCommon {
     return getInstrumentedFilesProvider(
         files,
         withBaselineCoverage,
-        /* virtualToOriginalHeaders= */ NestedSetBuilder.create(Order.STABLE_ORDER)
-        );
+        /* virtualToOriginalHeaders= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER));
   }
 
   public InstrumentedFilesInfo getInstrumentedFilesProvider(
@@ -954,9 +953,9 @@ public final class CcCommon {
                   + "This is most likely a misconfiguration in the C++ toolchain.");
         }
       }
-      if ((cppConfiguration.forcePic())
-          && (!featureConfiguration.isEnabled(CppRuleClasses.PIC)
-              && !featureConfiguration.isEnabled(CppRuleClasses.SUPPORTS_PIC))) {
+      if (cppConfiguration.forcePic()
+          && !featureConfiguration.isEnabled(CppRuleClasses.PIC)
+          && !featureConfiguration.isEnabled(CppRuleClasses.SUPPORTS_PIC)) {
         throw new EvalException(/* location= */ null, PIC_CONFIGURATION_ERROR);
       }
       return featureConfiguration;

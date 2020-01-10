@@ -398,7 +398,7 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
             .merge(precompiledFileObjects)
             .merge(compilationInfo.getCcCompilationOutputs())
             .build();
-    Iterable<Artifact> additionalLinkerInputs = common.getAdditionalLinkerInputs();
+    List<Artifact> additionalLinkerInputs = common.getAdditionalLinkerInputs();
 
     // Allows the dynamic library generated for code of test targets to be linked separately.
     boolean linkCompileOutputSeparately =
@@ -710,7 +710,7 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
       CcCommon common,
       PrecompiledFiles precompiledFiles,
       CcCompilationOutputs ccCompilationOutputs,
-      Iterable<Artifact> additionalLinkerInputs,
+      List<Artifact> additionalLinkerInputs,
       CcLinkingOutputs ccLinkingOutputs,
       CcCompilationContext ccCompilationContext,
       boolean fake,
@@ -802,11 +802,8 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
     userLinkflags.addAll(common.getLinkopts());
     currentCcLinkingContextBuilder
         .setOwner(ruleContext.getLabel())
-        .addNonCodeInputs(
-            ImmutableList.<Artifact>builder()
-                .addAll(ccCompilationContext.getTransitiveCompilationPrerequisites().toList())
-                .addAll(common.getLinkerScripts())
-                .build())
+        .addNonCodeInputs(ccCompilationContext.getTransitiveCompilationPrerequisites().toList())
+        .addNonCodeInputs(common.getLinkerScripts())
         .addUserLinkFlags(
             ImmutableList.of(
                 LinkOptions.of(userLinkflags.build(), ruleContext.getSymbolGenerator())));
