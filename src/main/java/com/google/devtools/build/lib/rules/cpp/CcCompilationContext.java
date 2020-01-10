@@ -879,7 +879,7 @@ public final class CcCompilationContext implements CcCompilationContextApi {
 
     @VisibleForTesting // productionVisibility = Visibility.PRIVATE
     public CcCompilationContext build(ActionOwner owner, MiddlemanFactory middlemanFactory) {
-      Artifact prerequisiteStampFile = createMiddleman(owner, middlemanFactory);
+      NestedSet<Artifact> constructedPrereq = createMiddleman(owner, middlemanFactory);
       HeaderInfo headerInfo = headerInfoBuilder.build();
       transitiveHeaderInfo.add(headerInfo);
 
@@ -891,12 +891,7 @@ public final class CcCompilationContext implements CcCompilationContextApi {
               ImmutableList.copyOf(frameworkIncludeDirs),
               defines.build(),
               ImmutableList.copyOf(localDefines)),
-          // TODO(b/110873917): We don't have the middle man compilation prerequisite, therefore, we
-          // use the compilation prerequisites as they were passed to the builder, i.e. we use every
-          // header instead of a middle man.
-          prerequisiteStampFile == null
-              ? compilationPrerequisites.build()
-              : NestedSetBuilder.create(Order.STABLE_ORDER, prerequisiteStampFile),
+          constructedPrereq,
           declaredIncludeDirs.build(),
           declaredIncludeSrcs.build(),
           nonCodeInputs.build(),
@@ -912,41 +907,45 @@ public final class CcCompilationContext implements CcCompilationContextApi {
           virtualToOriginalHeaders.build());
     }
 
-    /**
-     * Creates a middleman for the compilation prerequisites.
-     *
-     * @return the middleman or null if there are no prerequisites
-     */
-    private Artifact createMiddleman(ActionOwner owner,
-        MiddlemanFactory middlemanFactory) {
-      if (middlemanFactory == null || compilationPrerequisites.isEmpty()) {
-        return null;
+    /** Creates a middleman for the compilation prerequisites. */
+    private NestedSet<Artifact> createMiddleman(
+        ActionOwner owner, MiddlemanFactory middlemanFactory) {
+      if (middlemanFactory == null) {
+        // TODO(b/110873917): We don't have a middleman factory, therefore, we use the compilation
+        // prerequisites as they were passed to the builder, i.e. we use every header instead of a
+        // middle man.
+        return compilationPrerequisites.build();
+      }
+      if (compilationPrerequisites.isEmpty()) {
+        return compilationPrerequisites.build();
       }
 
-      // Compilation prerequisites gathered in the compilationPrerequisites
-      // must be generated prior to executing C++ compilation step that depends
-      // on them (since these prerequisites include all potential header files, etc
-      // that could be referenced during compilation). So there is a definite need
-      // to ensure scheduling edge dependency. However, those prerequisites should
-      // have no effect on the decision whether C++ compilation should happen in
-      // the first place - only CppCompileAction outputs (*.o and *.d files) and
-      // all files referenced by the *.d file should be used to make that decision.
-      // If this action was never executed, then *.d file would be missing, forcing
-      // compilation to occur. If *.d file is present and has not changed then the
-      // only reason that would force us to re-compile would be change in one of
-      // the files referenced by the *.d file, since no other files participated
-      // in the compilation. We also need to propagate errors through this
-      // dependency link. So we use an scheduling dependency middleman.
-      // Such middleman will be ignored by the dependency checker yet will still
-      // represent an edge in the action dependency graph - forcing proper execution
+      // Compilation prerequisites gathered in the compilationPrerequisites must be generated prior
+      // to executing a C++ compilation step that depends on them (since these prerequisites include
+      // all potential header files, etc that could be referenced during compilation). So there is a
+      // definite need to ensure a scheduling dependency. However, those prerequisites should have
+      // no effect on the decision whether C++ compilation should happen in the first place - only
+      // the CppCompileAction outputs (.o and .d files) and all files referenced by the .d file
+      // should be used to make that decision.
+      //
+      // If this action was never executed, then the .d file is missing, forcing compilation. If the
+      // .d file is present and has not changed then the only reason that would force us to
+      // re-compile would be change in one of the files referenced by the .d file, since no other
+      // files participated in the compilation.
+      //
+      // We also need to propagate errors through this dependency link. Therefore, we use a
+      // scheduling dependency middleman. Such a middleman will be ignored by the dependency checker
+      // yet still represents an edge in the action dependency graph - forcing proper execution
       // order and error propagation.
       String name = cppModuleMap != null ? cppModuleMap.getName() : label.toString();
-      return middlemanFactory.createSchedulingDependencyMiddleman(
-          owner,
-          name,
-          purpose,
-          compilationPrerequisites.build(),
-          configuration.getMiddlemanDirectory(label.getPackageIdentifier().getRepository()));
+      Artifact prerequisiteStampFile =
+          middlemanFactory.createSchedulingDependencyMiddleman(
+              owner,
+              name,
+              purpose,
+              compilationPrerequisites.build(),
+              configuration.getMiddlemanDirectory(label.getPackageIdentifier().getRepository()));
+      return NestedSetBuilder.create(Order.STABLE_ORDER, prerequisiteStampFile);
     }
   }
 
