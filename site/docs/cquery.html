@@ -127,60 +127,85 @@ $ bazel cquery "deps(//tree:ash)" --define species=excelsior --noimplicit_deps
 <p>
   Of the <a href="query.html#functions" title="list of query functions">set of functions</a>
   supported by the traditional <code>query</code>, <code>cquery</code> supports
-  all but siblings, buildfiles, and tests.
+  all
+  but <a href="query.html#siblings">siblings</a>, <a href="query.html#buildfiles">buildfiles</a>,
+  and <a href="query.html#tests">tests</a>.
 </p>
 
-<p>
-  <b>The following functions are also in <code>query</code>, but
-  have <code>cquery</code>-specific notes:</b>
-</p>
+<h3><code>query</code> functions with <code>cquery</code>-specific notes:</h3>
 
-<h3>somepath</h3>
+<h4 id="somepath">somepath</h4>
 
 <p><code>expr ::= somepath(expr, expr)</code></p>
 
 <p>
-<code>cquery</code>'s <code>somepath</code> operator functions almost exactly like <code>query</code>'s: it computes paths between two sets of targets. But since <code>cquery</code> runs on configured targets, <code>cquery(//foo, //bar)</code> parses as "find a path from <code>//foo</code> <i>in the target configuration</i> to <code>//bar</code> <i>in the target configuration</i>".
+  <code>cquery</code>'s <code>somepath</code> works conceptually exactly
+  like <code>query</code>'s: it computes paths between two sets of targets. But
+  since <code>cquery</code> evaluates <i>configured</i> targets, <code>//foo</code>
+  and <code>//bar</code> are ambiguous. What if a
+  top level-configured <code>//foo</code> depends on a
+  top level-configured <code>//bar</code> and a custom-configured <code>//foo</code>
+  depends on a host-configured <code>//bar</code>? Which ones
+  should <code>cquery</code> choose?
+</p>
+
+<p>
+  When multiple choices exist, <code>cquery</code> chooses an arbitrary one. This
+  choice is deterministic but no guarantee is made which one will be chosen.
+  This might mean <code>cquery</code> searches a version of <code>//bar</code>
+  that <i>isn't</i> in <code>foo</code>'s deps, even if some other version is.
 </p>
 
 <p>
   If <code>somepath</code> isn't returning any paths, try grepping for
   your <i>to</i> target from <code>deps(//from-target)</code>, i.e. <code>bazel
-  cquery 'deps(//from-target)' | grep '//to-target'</code>. If you can
-  find <code>//to-target</code> in the results in some other configuration, you
-  know there is a path. If you can find <code>//to-target</code> in a standard
-  configuration (i.e. <code>HOST</code> or <code>null</code>), then you can
-  combine <code>somepath</code> with the <a href="#config"><code>config</code></a> operator to find the path to that configured target (e.g. <code>bazel cquery 'somepath(//from-target, config(//to-target, host))'</code>).
+  cquery 'deps(//from-target)' | grep
+  '//to-target'</code>. If <code>//to-target</code> appears in the results,
+  re-run <code>somepath</code> with
+  <a href="#config"><code>config()</code></a> to clarify which version you want,
+  e.g.: <code>bazel cquery 'somepath(//from-target, config(//to-target,
+  host))'</code>).
 </p>
 
-<p>
-  <b>The following functions are unique to <code>cquery</code>:</b>
-</p>
+<h3><code>cquery</code>-unique functions:</h3>
 
-<h3>config</h3>
+<h4 id="config">config</h4>
 
 <p><code>expr ::= config(expr, word)</code></p>
 
 <p>
-  The <code>config</code> operator attempts to return the result of the first argument, configured
-  in the configuration specified by the second argument. Today, the second argument can only take in
-  three options <code>target</code>, <code>host</code>, or <code>null</code> but we hope to expand
-  this functionality to be able to input custom configurations (or custom configuration diffs from
-  the default target configuration).
+  The <code>config</code> operator attempts to find the configured target for
+  the label denoted by the first argument and configuration specified by the
+  second argument.
 </p>
-
-<p><code>$ bazel cquery config(//foo, host) --universe_scope=//bar</code></p>
 
 <p>
-  Note that the above example query will return <code>//foo</code> configured in the host configuration
-  <em>if and only if</em> <code>//foo</code> exists in the host configuration in the universe of
-  this query (which we've set to the transitive closure of <code>//bar</code>).
+  Valid values for the second argument
+  are <code>"target"</code>, <code>"host"</code>, <code>"null"</code>, or a
+  custom configuration hash. Hashes can be retrieved from <code>$
+  bazel config</code> or a prevous <code>cquery</code>'s output.
 </p>
+
+<p>
+  Examples:
+</p>
+
+<pre>
+$ bazel cquery "config(//bar, host)" --universe_scope=//foo
+</pre>
+
+<pre>
+$ bazel cquery "deps(//foo)"
+//bar (HOST)
+//baz (3732cc8c6d40d97)
+
+$ bazel cquery "config(//baz, 3732cc8c6d40d97)"
+</pre>
 
 <p>
   If not all results of the first argument can be found in the specified
-  configuration, then only those that can be found are returned. If no results of the
-  first argument can be found in the specified configuration, an error is thrown.
+  configuration, only those that can be found are returned. If no results
+  can be found in the specified configuration, the query fails.
 </p>
 
 <h2 id='options'>Options</h2>
@@ -392,23 +417,25 @@ There are other options for exposing the results as well. </p>
 
 <ul>
   <li>
-    <strong>Inaccessible configurations.</strong> With the exception of the host configuration being
-    printed as <code>HOST</code>, Configurations are currently output as
-    hashes and there is no way for the user to input them (and thus to directly
-    specify the configuration to query a target in).
+    <strong>All targets that <code>cquery</code> "builds" must have the same
+    configuration.</strong>
 
     <p>
-      Jan 2020 update: This is
-      changing. See <a href="https://docs.google.com/document/d/1ZbcOi8htQrKichHGWq6Dc8-HI7oFjvoBYeRoTedsgWY">cquery
-      somepath: easy mode</a>.
+      Before evaluating queries, <code>cquery</code> triggers a build up to just
+      before the point where build actions would execute. The targets it
+      "builds" are by default selected from all labels that appear in the query
+      expression (this can be overridden
+      with <a href="#universe_scope-comma-separated-list"><code>--universe_scope</code></a>). These
+      must have the same configuration.
     </p>
-  </li>
 
-  <li>
-    <strong>Top-level targets must all be in the same configuration.</strong> All top-level
-    targets (either parsed from the query expression or set by
-    <a href="#universe_scope-comma-separated-list"><code>--universe_scope</code></a>)
-    must build at the top level in the same configuration.
+    <p>
+      While these generally share the top-level "target" configuration,
+      rules can change their own configuration with
+
+      <a href="skylark/config.html#incoming-edge-transitions">incoming edge transitions</a>.
+      This is where </code>cquery</code> falls short.
+    </p>
 
     <p>
       Workaround: If possible, set <code>--universe_scope</code> to a stricter
@@ -417,7 +444,7 @@ There are other options for exposing the results as well. </p>
 
     <pre>
 # This command attempts to build the transitive closures of both //foo and
-# //bar.
+# //bar. //bar uses an incoming edge transition to change its --cpu flag.
 $ bazel cquery 'somepath(//foo, //bar)'
 ERROR: Error doing post analysis query: Top-level targets //foo and //bar
 have different configurations (top-level targets with different
@@ -427,28 +454,39 @@ configurations is not supported)
 # //bar should exist in the correct configuration.
 $ bazel cquery 'somepath(//foo, //bar)' --universe_scope=//foo
    </pre>
+  </li>
+
+  <li>
+    <strong>No support
+      for <a href="https://docs.bazel.build/versions/master/skylark/aspects.html">aspects</a>.</strong>
+  </li>
+
+  <li>
+    <strong>No support
+    for <a href="query.html#output-graph"><code>--output=graph</code></a>
+      or <a href="query.html#output-xml"><code>--output=xml</code></a>.</strong>
+  </li>
+
+  <li>
+    <strong>No support for recursive target patterns (<code>
+        "/..."</code>).</strong>
+  </li>
+
+  <li>
+    <strong>Non-deterministic output.</strong>
 
     <p>
-      Jan 2020 update: This is
-      changing. See <a href="https://docs.google.com/document/d/1ZbcOi8htQrKichHGWq6Dc8-HI7oFjvoBYeRoTedsgWY">cquery
-      somepath: easy mode</a>.
+      <code>cquery</code> does not automatically wipe the build graph from
+      previous commands and is therefore prone to picking up results from past
+      queries. For example, <code>genquery</code> exerts a host transition on
+      its <code>tools</code> attribute - that is, it configures its tools in the
+      <a href="https://docs.bazel.build/versions/master/skylark/rules.html#configurations">host
+      configuration</a>.
     </p>
-  </li>
 
-  <li>
-    <strong>No support for <a href="https://docs.bazel.build/versions/master/skylark/aspects.html">aspects</a>,
-    <a href="query.html#output-formats" title="list of query output formats">output
-    options</a>, or recursive target patterns (/...).</strong>
-  </li>
-
-  <li>
-    <strong>Non-deterministic output.</strong> <code>Cquery</code> does not automatically wipe the build
-    graph from previous commands and is therefore prone to picking up results
-    from past queries. For example, <code>genquery</code> exerts a host transition on its <code>tools</code>
-    attribute - that is, it configures its tools in the
-    <a href="https://docs.bazel.build/versions/master/skylark/rules.html#configurations">host
-    configuration</a>.
-    We can see the lingering effects of that transition below.
+    <p>
+      We can see the lingering effects of that transition below.
+    </p>
 
 <pre>
 $ cat > foo/BUILD &lt;&lt;&lt;EOF

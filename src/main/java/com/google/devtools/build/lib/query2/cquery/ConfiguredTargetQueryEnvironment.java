@@ -323,7 +323,7 @@ public class ConfiguredTargetQueryEnvironment
     // Finally, try every other configuration in the build (e.g. configurations that are the result
     // of transitions and therefore not top-level).
     for (BuildConfiguration configuration : transitiveConfigurations.values()) {
-      configuredTarget = getValueFromKey(ConfiguredTargetValue.key(label, configuration));
+      configuredTarget = getConfiguredTarget(label, configuration);
       if (configuredTarget != null) {
         return configuredTarget;
       }
@@ -331,6 +331,16 @@ public class ConfiguredTargetQueryEnvironment
 
     // No matches: give up.
     return null;
+  }
+
+  /**
+   * Returns the {@link ConfiguredTarget} for the given label and configuration if it exists, else
+   * null.
+   */
+  @Nullable
+  private ConfiguredTarget getConfiguredTarget(Label label, BuildConfiguration configuration)
+      throws InterruptedException {
+    return getValueFromKey(ConfiguredTargetValue.key(label, configuration));
   }
 
   @Override
@@ -360,22 +370,32 @@ public class ConfiguredTargetQueryEnvironment
       @Override
       public Void call() throws QueryException, InterruptedException {
         List<ConfiguredTarget> transformedResult = new ArrayList<>();
+        boolean userFriendlyConfigName = true;
         for (ConfiguredTarget target : targets) {
           Label label = getCorrectLabel(target);
           ConfiguredTarget configuredTarget;
           switch (configuration) {
-            case "\'host\'":
+            case "host":
               configuredTarget = getHostConfiguredTarget(label);
               break;
-            case "\'target\'":
+            case "target":
               configuredTarget = getTargetConfiguredTarget(label);
               break;
-            case "\'null\'":
+            case "null":
               configuredTarget = getNullConfiguredTarget(label);
               break;
             default:
+              BuildConfiguration config = transitiveConfigurations.get(configuration);
+              if (config != null) {
+                configuredTarget = getConfiguredTarget(label, config);
+                userFriendlyConfigName = false;
+                break;
+              }
               throw new QueryException(
-                  "the second argument of the config function must be 'target', 'host', or 'null'");
+                  "Unknown value '"
+                      + configuration
+                      + "'. The second argument of config() must be 'target', 'host', 'null', or a"
+                      + " valid configuration hash (i.e. one of the outputs of 'blaze config')");
           }
           if (configuredTarget != null) {
             transformedResult.add(configuredTarget);
@@ -383,11 +403,12 @@ public class ConfiguredTargetQueryEnvironment
         }
         if (transformedResult.isEmpty()) {
           throw new QueryException(
-              "No target (in) "
-                  + pattern
-                  + " could be found in the "
-                  + configuration
-                  + " configuration");
+              String.format(
+                  "No target (in) %s could be found in the %s",
+                  pattern,
+                  userFriendlyConfigName
+                      ? "'" + configuration + "' configuration"
+                      : "configuration with checksum '" + configuration + "'"));
         }
         callback.process(transformedResult);
         return null;
@@ -410,20 +431,19 @@ public class ConfiguredTargetQueryEnvironment
   @Nullable
   @Override
   protected ConfiguredTarget getHostConfiguredTarget(Label label) throws InterruptedException {
-    return getValueFromKey(ConfiguredTargetValue.key(label, hostConfiguration));
+    return getConfiguredTarget(label, hostConfiguration);
   }
 
   @Nullable
   @Override
   protected ConfiguredTarget getTargetConfiguredTarget(Label label) throws InterruptedException {
     if (topLevelConfigurations.isTopLevelTarget(label)) {
-      return getValueFromKey(
-          ConfiguredTargetValue.key(
-              label, topLevelConfigurations.getConfigurationForTopLevelTarget(label)));
+      return getConfiguredTarget(
+          label, topLevelConfigurations.getConfigurationForTopLevelTarget(label));
     } else {
       ConfiguredTarget toReturn;
       for (BuildConfiguration configuration : topLevelConfigurations.getConfigurations()) {
-        toReturn = getValueFromKey(ConfiguredTargetValue.key(label, configuration));
+        toReturn = getConfiguredTarget(label, configuration);
         if (toReturn != null) {
           return toReturn;
         }
@@ -435,7 +455,7 @@ public class ConfiguredTargetQueryEnvironment
   @Nullable
   @Override
   protected ConfiguredTarget getNullConfiguredTarget(Label label) throws InterruptedException {
-    return getValueFromKey(ConfiguredTargetValue.key(label, null));
+    return getConfiguredTarget(label, null);
   }
 
   @Nullable

@@ -18,6 +18,7 @@ import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
 import static com.google.devtools.build.lib.packages.Type.STRING;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
@@ -34,6 +35,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryFunction;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.Setting;
+import com.google.devtools.build.lib.query2.engine.QueryException;
 import com.google.devtools.build.lib.query2.testutil.PostAnalysisQueryTest;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.vfs.Path;
@@ -310,6 +312,45 @@ public class ConfiguredTargetQueryTest extends PostAnalysisQueryTest<ConfiguredT
         "simple_rule(name = 'dep')");
   }
 
+  private void createConfigTransitioningRuleClass() throws Exception {
+    writeFile(
+        "tools/whitelists/function_transition_whitelist/BUILD",
+        "package_group(",
+        "    name = 'function_transition_whitelist',",
+        "    packages = [",
+        "        '//test/...',",
+        "    ],",
+        ")");
+    writeFile(
+        "test/rules.bzl",
+        "def _rule_impl(ctx):",
+        "    return []",
+        "string_flag = rule(",
+        "    implementation = _rule_impl,",
+        "    build_setting = config.string()",
+        ")",
+        "def _transition_impl(settings, attr):",
+        "    return {'//test:my_flag': 'custom string'}",
+        "my_transition = transition(",
+        "    implementation = _transition_impl,",
+        "    inputs = [],",
+        "    outputs = ['//test:my_flag'],",
+        ")",
+        "rule_with_deps_transition = rule(",
+        "    implementation = _rule_impl,",
+        "    attrs = {",
+        "        'deps': attr.label_list(cfg = my_transition),",
+        "        '_whitelist_function_transition': attr.label(",
+        "            default = '//tools/whitelists/function_transition_whitelist',",
+        "        ),",
+        "    }",
+        ")",
+        "simple_rule = rule(",
+        "    implementation = _rule_impl,",
+        "    attrs = {}",
+        ")");
+  }
+
   @Test
   public void testConfig_target() throws Exception {
     createConfigRulesAndBuild();
@@ -363,11 +404,55 @@ public class ConfiguredTargetQueryTest extends PostAnalysisQueryTest<ConfiguredT
   }
 
   @Test
+  public void testConfig_configHash() throws Exception {
+    createConfigTransitioningRuleClass();
+    writeFile(
+        "test/BUILD",
+        "load('//test:rules.bzl', 'rule_with_deps_transition', 'simple_rule', 'string_flag')",
+        "string_flag(",
+        "    name = 'my_flag',",
+        "    build_setting_default = '')",
+        "rule_with_deps_transition(",
+        "    name = 'buildme',",
+        "    deps = [':mydep'])",
+        "simple_rule(name = 'mydep')");
+
+    // If we don't set --universe_scope=//test:buildme, cquery builds both //test:buildme and
+    // //test:mydep as top-level targets. That means //test:mydep will have two configured targets:
+    // one under the transitioned configuration and one under the top-level configuration. By
+    // setting --universe_scope we ensure only the transitioned version exists.
+    helper.setUniverseScope("//test:buildme");
+    helper.setQuerySettings(Setting.ONLY_TARGET_DEPS, Setting.NO_IMPLICIT_DEPS);
+    Set<ConfiguredTarget> result = eval("deps(//test:buildme, 1)");
+    assertThat(result).hasSize(2);
+
+    ImmutableList<ConfiguredTarget> stableOrderList = ImmutableList.copyOf(result);
+    int myDepIndex = stableOrderList.get(0).getLabel().toString().equals("//test:mydep") ? 0 : 1;
+    BuildConfiguration myDepConfig = getConfiguration(stableOrderList.get(myDepIndex));
+    BuildConfiguration stringFlagConfig = getConfiguration(stableOrderList.get(1 - myDepIndex));
+
+    // Note: eval() resets the universe scope after each call. We have to xplicitly set it again.
+    helper.setUniverseScope("//test:buildme");
+    assertThat(eval("config(//test:mydep, " + myDepConfig.checksum() + ")")).hasSize(1);
+
+    helper.setUniverseScope("//test:buildme");
+    QueryException e =
+        assertThrows(
+            QueryException.class,
+            () -> eval("config(//test:mydep, " + stringFlagConfig.checksum() + ")"));
+    assertThat(e)
+        .hasMessageThat()
+        .contains("No target (in) //test:mydep could be found in the configuration with checksum");
+  }
+
+  @Test
   public void testConfig_badConfig() throws Exception {
     createConfigRulesAndBuild();
     assertThat(evalThrows("config(//test:my_rule,foo)", true))
         .isEqualTo(
-            "the second argument of the config function must be 'target', 'host', or 'null'");
+            "Unknown value 'foo'. The second argument of config() must be 'target', 'host', "
+                + "'null', or a valid configuration hash (i.e. one of the outputs of "
+                + "'blaze config')");
   }
 
   @Test
@@ -423,43 +508,7 @@ public class ConfiguredTargetQueryTest extends PostAnalysisQueryTest<ConfiguredT
 
   @Test
   public void testSomePath_DepInCustomConfiguration() throws Exception {
-    writeFile(
-        "tools/whitelists/function_transition_whitelist/BUILD",
-        "package_group(",
-        "    name = 'function_transition_whitelist',",
-        "    packages = [",
-        "        '//test/...',",
-        "    ],",
-        ")");
-    writeFile(
-        "test/rules.bzl",
-        "def _rule_impl(ctx):",
-        "    return []",
-        "string_flag = rule(",
-        "    implementation = _rule_impl,",
-        "    build_setting = config.string()",
-        ")",
-        "def _transition_impl(settings, attr):",
-        "    return {'//test:my_flag': 'custom string'}",
-        "my_transition = transition(",
-        "    implementation = _transition_impl,",
-        "    inputs = [],",
-        "    outputs = ['//test:my_flag'],",
-        ")",
-        "rule_with_deps_transition = rule(",
-        "    implementation = _rule_impl,",
-        "    attrs = {",
-        "        'deps': attr.label_list(cfg = my_transition),",
-        "        '_whitelist_function_transition': attr.label(",
-        "            default = '//tools/whitelists/function_transition_whitelist',",
-        "        ),",
-        "    }",
-        ")",
-        "simple_rule = rule(",
-        "    implementation = _rule_impl,",
-        "    attrs = {}",
-        ")");
-
+    createConfigTransitioningRuleClass();
     writeFile(
         "test/BUILD",
         "load('//test:rules.bzl', 'rule_with_deps_transition', 'simple_rule', 'string_flag')",
