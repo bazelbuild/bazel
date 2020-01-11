@@ -74,7 +74,7 @@ public final class NestDesugaringFieldAccessTest {
 
   @Test
   @JdkSuppress(minJdkVersion = JdkVersion.V11)
-  public void bridgeMethodGeneration() throws Exception {
+  public void bridgeMethodGeneration() {
     List<String> bridgeMethodNames =
         Arrays.stream(mate.getDeclaredMethods())
             .map(Method::getName)
