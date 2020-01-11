@@ -24,6 +24,8 @@ import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodHandles.Lookup;
 import java.lang.reflect.AnnotatedElement;
 import java.lang.reflect.Field;
+import javax.tools.JavaCompiler;
+import javax.tools.ToolProvider;
 import org.junit.rules.TestRule;
 import org.junit.runner.Description;
 import org.junit.runners.model.Statement;
@@ -32,6 +34,7 @@ import org.junit.runners.model.Statement;
 public final class DesugarRule implements TestRule {
 
   static final ClassLoader BASE_CLASS_LOADER = ClassLoader.getSystemClassLoader().getParent();
+  // static final
 
   private final Object testInstance;
   private final MethodHandles.Lookup testInstanceLookup;
@@ -47,6 +50,7 @@ public final class DesugarRule implements TestRule {
    *     MethodHandles.lookup()</code>
    */
   public static DesugarRuleBuilder builder(Object testInstance, Lookup testInstanceLookup) {
+    JavaCompiler systemJavaCompiler = ToolProvider.getSystemJavaCompiler();
     return new DesugarRuleBuilder(testInstance, testInstanceLookup);
   }
 

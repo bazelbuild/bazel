@@ -122,6 +122,7 @@ public final class DesugarRuleTest {
       memberName = "multiplier",
       usage = MemberUseContext.FIELD_SETTER)
   private MethodHandle alphaMultiplierSetter;
+  
 
   @Test
   public void staticMethodsAreMovedFromOriginatingClass() {

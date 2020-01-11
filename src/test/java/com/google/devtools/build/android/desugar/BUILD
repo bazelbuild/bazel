@@ -17,6 +17,7 @@ filegroup(
         "//src/test/java/com/google/devtools/build/android/desugar/dependencies:srcs",
         "//src/test/java/com/google/devtools/build/android/desugar/io:srcs",
         "//src/test/java/com/google/devtools/build/android/desugar/langmodel:srcs",
+        "//src/test/java/com/google/devtools/build/android/desugar/nest:srcs",
         "//src/test/java/com/google/devtools/build/android/desugar/runtime:srcs",
         "//src/test/java/com/google/devtools/build/android/desugar/scan:srcs",
         "//src/test/java/com/google/devtools/build/android/desugar/stringconcat:srcs",

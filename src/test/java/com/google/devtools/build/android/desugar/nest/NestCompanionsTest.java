@@ -18,7 +18,6 @@ import static com.google.common.truth.Truth.assertThat;
 
 import com.google.devtools.build.android.desugar.langmodel.ClassMemberRecord;
 import com.google.devtools.build.android.desugar.langmodel.MethodKey;
-import com.google.testing.testsize.SmallTest;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -26,7 +25,6 @@ import org.objectweb.asm.Opcodes;
 
 /** The tests for {@link NestCompanions}. */
 @RunWith(JUnit4.class)
-@SmallTest
 public class NestCompanionsTest {
 
   private final ClassMemberRecord classMemberRecord = ClassMemberRecord.create();

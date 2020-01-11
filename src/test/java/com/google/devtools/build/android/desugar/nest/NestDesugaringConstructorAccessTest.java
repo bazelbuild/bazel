@@ -18,12 +18,13 @@ package com.google.devtools.build.android.desugar.nest;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import com.google.devtools.build.android.desugar.testing.junit.AsmNode;
 import com.google.devtools.build.android.desugar.testing.junit.DesugarRule;
 import com.google.devtools.build.android.desugar.testing.junit.DesugarRunner;
 import com.google.devtools.build.android.desugar.testing.junit.DynamicClassLiteral;
+import com.google.devtools.build.android.desugar.testing.junit.JdkSuppress;
+import com.google.devtools.build.android.desugar.testing.junit.JdkVersion;
 import com.google.devtools.build.android.desugar.testing.junit.RuntimeMethodHandle;
-import com.google.testing.testsize.MediumTest;
-import com.google.testing.testsize.MediumTestAttribute;
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.lang.reflect.Constructor;
@@ -33,10 +34,10 @@ import javax.inject.Inject;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.objectweb.asm.tree.ClassNode;
 
 /** Tests for accessing private constructors from another class within a nest. */
 @RunWith(DesugarRunner.class)
-@MediumTest(MediumTestAttribute.FILE)
 public final class NestDesugaringConstructorAccessTest {
 
   @Rule
@@ -54,27 +55,38 @@ public final class NestDesugaringConstructorAccessTest {
   private Class<?> mate;
 
   @Inject
-  @DynamicClassLiteral("ConstructorNest$NestCC")
-  private Class<?> companion;
-
-  @Inject
   @DynamicClassLiteral("ConstructorNest")
   private Class<?> invoker;
 
   @Test
-  public void companionClassIsPresent() {
+  @JdkSuppress(minJdkVersion = JdkVersion.V11)
+  public void inputClassFileMajorVersions(
+      @AsmNode(className = "ConstructorNest", round = 0) ClassNode beforeDesugarClassNode,
+      @AsmNode(className = "ConstructorNest", round = 1) ClassNode afterDesugarClassNode) {
+    assertThat(beforeDesugarClassNode.version).isEqualTo(JdkVersion.V11);
+    assertThat(afterDesugarClassNode.version).isEqualTo(JdkVersion.V1_7);
+  }
+
+  @Test
+  @JdkSuppress(minJdkVersion = JdkVersion.V11)
+  public void companionClassIsPresent(
+      @DynamicClassLiteral("ConstructorNest$NestCC") Class<?> companion) {
     assertThat(companion).isNotNull();
   }
 
   @Test
-  public void companionClassHierarchy() {
+  @JdkSuppress(minJdkVersion = JdkVersion.V11)
+  public void companionClassHierarchy(
+      @DynamicClassLiteral("ConstructorNest$NestCC") Class<?> companion) {
     assertThat(companion.getEnclosingClass()).isEqualTo(invoker);
     assertThat(companion.getEnclosingConstructor()).isNull();
     assertThat(companion.getEnclosingMethod()).isNull();
   }
 
   @Test
-  public void companionClassModifiers() {
+  @JdkSuppress(minJdkVersion = JdkVersion.V11)
+  public void companionClassModifiers(
+      @DynamicClassLiteral("ConstructorNest$NestCC") Class<?> companion) {
     assertThat(companion.isSynthetic()).isTrue();
     assertThat(companion.isMemberClass()).isTrue();
     assertThat(Modifier.isAbstract(companion.getModifiers())).isTrue();
@@ -87,13 +99,17 @@ public final class NestDesugaringConstructorAccessTest {
   }
 
   @Test
-  public void zeroArgConstructorBridge() throws Exception {
+  @JdkSuppress(minJdkVersion = JdkVersion.V11)
+  public void zeroArgConstructorBridge(
+      @DynamicClassLiteral("ConstructorNest$NestCC") Class<?> companion) throws Exception {
     Constructor<?> constructor = mate.getDeclaredConstructor(companion);
     assertThat(constructor.getModifiers() & 0x7).isEqualTo(0);
   }
 
   @Test
-  public void multiArgConstructorBridge() throws Exception {
+  @JdkSuppress(minJdkVersion = JdkVersion.V11)
+  public void multiArgConstructorBridge(
+      @DynamicClassLiteral("ConstructorNest$NestCC") Class<?> companion) throws Exception {
     Constructor<?> constructor = mate.getDeclaredConstructor(long.class, int.class, companion);
 
     assertThat(Modifier.isPublic(constructor.getModifiers())).isFalse();

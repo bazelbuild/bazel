@@ -16,15 +16,16 @@ package com.google.devtools.build.android.desugar.nest;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assume.assumeTrue;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.android.desugar.io.FileContentProvider;
 import com.google.devtools.build.android.desugar.langmodel.ClassMemberRecord;
-import com.google.devtools.build.runtime.RunfilesPaths;
-import com.google.testing.testsize.MediumTest;
-import com.google.testing.testsize.MediumTestAttribute;
+import com.google.devtools.build.android.desugar.testing.junit.JdkSuppress;
+import com.google.devtools.build.android.desugar.testing.junit.JdkVersion;
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.file.Paths;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 import org.junit.Test;
@@ -33,8 +34,7 @@ import org.junit.runners.JUnit4;
 
 /** The tests for {@link NestAnalyzer}. */
 @RunWith(JUnit4.class)
-@MediumTest(MediumTestAttribute.FILE)
-public class NestAnalyzerTest {
+public final class NestAnalyzerTest {
 
   private final ClassMemberRecord classMemberRecord = ClassMemberRecord.create();
   private final NestCompanions nestCompanions = NestCompanions.create(classMemberRecord);
@@ -48,12 +48,11 @@ public class NestAnalyzerTest {
   }
 
   @Test
+  @JdkSuppress(minJdkVersion = JdkVersion.V11)
   public void companionClassGeneration() throws IOException {
-    ZipFile jarFile =
-        new ZipFile(
-            RunfilesPaths.resolve(
-                    "third_party/bazel/src/test/java/com/google/devtools/build/android/desugar/nest/testsrc/nestanalyzer/libanalyzed_target.jar")
-                .toFile());
+    assumeTrue(JdkVersion.getJavaRuntimeVersion() >= JdkVersion.V11);
+
+    ZipFile jarFile = new ZipFile(Paths.get(System.getProperty("input_jar")).toFile());
     NestAnalyzer nestAnalyzer =
         new NestAnalyzer(
             jarFile.stream()

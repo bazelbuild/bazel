@@ -17,12 +17,13 @@ package com.google.devtools.build.android.desugar.nest;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import com.google.devtools.build.android.desugar.testing.junit.AsmNode;
 import com.google.devtools.build.android.desugar.testing.junit.DesugarRule;
 import com.google.devtools.build.android.desugar.testing.junit.DesugarRunner;
 import com.google.devtools.build.android.desugar.testing.junit.DynamicClassLiteral;
+import com.google.devtools.build.android.desugar.testing.junit.JdkSuppress;
+import com.google.devtools.build.android.desugar.testing.junit.JdkVersion;
 import com.google.devtools.build.android.desugar.testing.junit.RuntimeMethodHandle;
-import com.google.testing.testsize.MediumTest;
-import com.google.testing.testsize.MediumTestAttribute;
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.lang.reflect.Field;
@@ -36,10 +37,10 @@ import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.objectweb.asm.tree.ClassNode;
 
 /** Tests for accessing private fields from another class within a nest. */
 @RunWith(DesugarRunner.class)
-@MediumTest(MediumTestAttribute.FILE)
 public final class NestDesugaringFieldAccessTest {
 
   @Rule
@@ -63,6 +64,16 @@ public final class NestDesugaringFieldAccessTest {
   }
 
   @Test
+  @JdkSuppress(minJdkVersion = JdkVersion.V11)
+  public void inputClassFileMajorVersions(
+      @AsmNode(className = "FieldNest", round = 0) ClassNode beforeDesugarClassNode,
+      @AsmNode(className = "FieldNest", round = 1) ClassNode afterDesugarClassNode) {
+    assertThat(beforeDesugarClassNode.version).isEqualTo(JdkVersion.V11);
+    assertThat(afterDesugarClassNode.version).isEqualTo(JdkVersion.V1_7);
+  }
+
+  @Test
+  @JdkSuppress(minJdkVersion = JdkVersion.V11)
   public void bridgeMethodGeneration() throws Exception {
     List<String> bridgeMethodNames =
         Arrays.stream(mate.getDeclaredMethods())
