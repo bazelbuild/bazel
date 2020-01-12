@@ -17,5 +17,6 @@ package com.google.testing.junit.runner;
 /** An interface for running the tests in a specified suite. */
 @FunctionalInterface
 interface SuiteTestRunner {
-  int runTestsInSuite(String suiteClassName, String[] testArgs, ClassLoader testRunnerClassLoader);
+  int runTestsInSuite(
+      String suiteClassName, String[] testArgs, ClassLoader testRunnerClassLoader, boolean resolve);
 }

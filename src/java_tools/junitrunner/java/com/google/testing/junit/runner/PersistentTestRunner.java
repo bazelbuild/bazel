@@ -73,7 +73,8 @@ final class PersistentTestRunner {
         int exitCode = -1;
         try {
           exitCode =
-              suiteTestRunner.runTestsInSuite(suitClassName, arguments, testRunnerClassLoader);
+              suiteTestRunner.runTestsInSuite(
+                  suitClassName, arguments, testRunnerClassLoader, /* resolve= */ true);
         } finally {
           System.setOut(originalStdOut);
           System.setErr(originalStdErr);
@@ -99,16 +100,16 @@ final class PersistentTestRunner {
    * Returns a {@link Class} with the given name. Loads the class for the given classloader, or from
    * the system classloader if none is specified.
    */
-  static Class<?> getTestClass(String name, ClassLoader classLoader) {
+  static Class<?> getTestClass(String name, ClassLoader classLoader, boolean resolve) {
     if (name == null) {
       return null;
     }
 
     try {
-      if (classLoader != null) {
-        return Class.forName(name, true, classLoader);
+      if (classLoader == null) {
+        return Class.forName(name);
       }
-      return Class.forName(name);
+      return Class.forName(name, resolve, classLoader);
     } catch (ClassNotFoundException e) {
       return null;
     }

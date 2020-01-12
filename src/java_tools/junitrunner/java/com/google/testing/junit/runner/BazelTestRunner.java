@@ -75,13 +75,14 @@ public class BazelTestRunner {
           PersistentTestRunner.runPersistentTestRunner(
               suiteClassName,
               System.getenv("WORKSPACE_PREFIX"),
-              (suitClass, testArgs, classLoader) ->
-                  runTestsInSuite(suitClass, testArgs, classLoader)));
+              (suitClass, testArgs, classLoader, resolve) ->
+                  runTestsInSuite(suitClass, testArgs, classLoader, resolve)));
     }
 
     int exitCode;
     try {
-      exitCode = runTestsInSuite(suiteClassName, args, /* classLoader= */ null);
+      exitCode =
+          runTestsInSuite(suiteClassName, args, /* classLoader= */ null, /* resolve =*/ false);
     } catch (Throwable e) {
       // An exception was thrown by the runner. Print the error to the output stream so it will be
       // logged
@@ -137,8 +138,8 @@ public class BazelTestRunner {
    * in the system classloader if none is specified.
    */
   private static int runTestsInSuite(
-      String suiteClassName, String[] args, ClassLoader classLoader) {
-    Class<?> suite = PersistentTestRunner.getTestClass(suiteClassName, classLoader);
+      String suiteClassName, String[] args, ClassLoader classLoader, boolean resolve) {
+    Class<?> suite = PersistentTestRunner.getTestClass(suiteClassName, classLoader, resolve);
 
     if (suite == null) {
       // No class found corresponding to the system property passed in from Bazel
