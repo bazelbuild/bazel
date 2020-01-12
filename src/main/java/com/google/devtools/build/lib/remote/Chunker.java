@@ -142,13 +142,12 @@ public final class Chunker {
    * <p>Closes any open resources (file handles, ...).
    */
   public void seek(long toOffset) throws IOException {
-    maybeInitialize();
+    boolean resetAndSkip = toOffset < offset;
     if (toOffset < offset) {
       reset();
-      if (toOffset != 0) {
-        data.skip(toOffset);
-      }
-    } else if (offset != toOffset) {
+    }
+    if (toOffset != 0 && toOffset != offset) {
+      maybeInitialize();
       data.skip(toOffset - offset);
     }
     offset = toOffset;
