@@ -20,12 +20,19 @@ import com.google.devtools.build.lib.util.OS;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Set;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 /**
  * A base class for constructing test suites by searching the classpath for
  * tests, possibly restricted to a predicate.
  */
 public class BazelTestSuiteBuilder {
+
+  static {
+    // Avoid verbose INFO logging in tests.
+    Logger.getLogger(BazelTestSuiteBuilder.class.getName()).getParent().setLevel(Level.WARNING);
+  }
 
   /**
    * @return a TestSuiteBuilder configured for Bazel.

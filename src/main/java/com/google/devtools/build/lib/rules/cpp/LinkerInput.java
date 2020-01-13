@@ -47,6 +47,10 @@ public interface LinkerInput {
    */
   boolean isFake();
 
+  default boolean isLinkstamp() {
+    return false;
+  }
+
   /**
    * Return the list of object files included in the input artifact, if there are any. It is
    * legal to call this only when {@link #containsObjectFiles()} returns true.

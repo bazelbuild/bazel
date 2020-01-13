@@ -46,9 +46,9 @@ public interface CcCompilationOutputsApi<FileT extends FileApi> extends Starlark
   Sequence<FileT> getSkylarkObjectFiles(boolean usePic, Location location, StarlarkThread thread)
       throws EvalException;
 
-  @SkylarkCallable(name = "objects", documented = false, useLocation = true, structField = true)
-  Sequence<FileT> getSkylarkObjects(Location location) throws EvalException;
+  @SkylarkCallable(name = "objects", documented = false, structField = true)
+  Sequence<FileT> getSkylarkObjects() throws EvalException;
 
-  @SkylarkCallable(name = "pic_objects", documented = false, useLocation = true, structField = true)
-  Sequence<FileT> getSkylarkPicObjects(Location location) throws EvalException;
+  @SkylarkCallable(name = "pic_objects", documented = false, structField = true)
+  Sequence<FileT> getSkylarkPicObjects() throws EvalException;
 }

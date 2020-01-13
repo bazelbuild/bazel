@@ -104,7 +104,7 @@ public class BaseRuleClasses {
       "//tools/test:coverage_report_generator";
 
   private static final String DEFAULT_COVERAGE_OUTPUT_GENERATOR_VALUE =
-      "@bazel_tools//tools/test/CoverageOutputGenerator/java/com/google/devtools/coverageoutputgenerator:Main";
+      "@bazel_tools//tools/test:lcov_merger";
 
   @AutoCodec
   static final Resolver<TestConfiguration, Label> COVERAGE_REPORT_GENERATOR_CONFIGURATION_RESOLVER =

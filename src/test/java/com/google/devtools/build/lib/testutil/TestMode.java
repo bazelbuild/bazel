@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.testutil;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.skylark.SkylarkModules;
-import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.StarlarkSemanticsOptions;
 import com.google.devtools.build.lib.syntax.Module;
 import com.google.devtools.build.lib.syntax.Mutability;
@@ -41,13 +40,17 @@ public abstract class TestMode {
       new TestMode() {
         @Override
         public StarlarkThread createStarlarkThread(
-            EventHandler eventHandler, Map<String, Object> builtins, String... skylarkOptions)
+            StarlarkThread.PrintHandler printHandler,
+            Map<String, Object> builtins,
+            String... skylarkOptions)
             throws Exception {
-          return StarlarkThread.builder(Mutability.create("build test"))
-              .setGlobals(createModule(builtins))
-              .setEventHandler(eventHandler)
-              .setSemantics(TestMode.parseSkylarkSemantics(skylarkOptions))
-              .build();
+          StarlarkThread thread =
+              StarlarkThread.builder(Mutability.create("build test"))
+                  .setGlobals(createModule(builtins))
+                  .setSemantics(TestMode.parseSkylarkSemantics(skylarkOptions))
+                  .build();
+          thread.setPrintHandler(printHandler);
+          return thread;
         }
       };
 
@@ -55,13 +58,17 @@ public abstract class TestMode {
       new TestMode() {
         @Override
         public StarlarkThread createStarlarkThread(
-            EventHandler eventHandler, Map<String, Object> builtins, String... skylarkOptions)
+            StarlarkThread.PrintHandler printHandler,
+            Map<String, Object> builtins,
+            String... skylarkOptions)
             throws Exception {
-          return StarlarkThread.builder(Mutability.create("skylark test"))
-              .setGlobals(createModule(builtins))
-              .setEventHandler(eventHandler)
-              .setSemantics(TestMode.parseSkylarkSemantics(skylarkOptions))
-              .build();
+          StarlarkThread thread =
+              StarlarkThread.builder(Mutability.create("skylark test"))
+                  .setGlobals(createModule(builtins))
+                  .setSemantics(TestMode.parseSkylarkSemantics(skylarkOptions))
+                  .build();
+          thread.setPrintHandler(printHandler);
+          return thread;
         }
       };
 
@@ -74,6 +81,8 @@ public abstract class TestMode {
   }
 
   public abstract StarlarkThread createStarlarkThread(
-      EventHandler eventHandler, Map<String, Object> builtins, String... skylarkOptions)
+      StarlarkThread.PrintHandler printHandler,
+      Map<String, Object> builtins,
+      String... skylarkOptions)
       throws Exception;
 }

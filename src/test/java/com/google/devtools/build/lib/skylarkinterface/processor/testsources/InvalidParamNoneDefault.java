@@ -28,9 +28,9 @@ public class InvalidParamNoneDefault implements StarlarkValue {
       name = "method_with_invalid_default",
       documented = false,
       parameters = {
-          @Param(name = "a_parameter", type = String.class, named = true, defaultValue = "None"),
+        @Param(name = "a_parameter", type = String.class, named = true, defaultValue = "None"),
       })
-  public String methodWithParams() {
+  public String methodWithParams(String x) {
     return "lamb";
   }
 }

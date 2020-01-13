@@ -39,6 +39,7 @@ import static com.google.devtools.build.lib.rules.cpp.CppFileTypes.SHARED_LIBRAR
 import static com.google.devtools.build.lib.rules.cpp.CppFileTypes.VERSIONED_SHARED_LIBRARY;
 
 import com.google.common.base.Predicates;
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.PlatformConfiguration;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
@@ -505,6 +506,17 @@ public class BazelCppRuleClasses {
                   .skipAnalysisTimeFileTypeCheck()
                   .mandatoryProviders(SkylarkProviderIdentifier.forKey(CcInfo.PROVIDER.getKey()))
                   .aspect(graphNodeAspect, GraphNodeAspect.ASPECT_PARAMETERS))
+          .add(
+              attr("dynamic_deps", LABEL_LIST)
+                  .allowedFileTypes(FileTypeSet.NO_FILE)
+                  .mandatoryProvidersList(
+                      ImmutableList.of(
+                          ImmutableList.of(
+                              SkylarkProviderIdentifier.forKey(
+                                  BazelCppSemantics.CC_SHARED_INFO_PROVIDER)),
+                          ImmutableList.of(
+                              SkylarkProviderIdentifier.forKey(
+                                  BazelCppSemantics.CC_SHARED_INFO_PROVIDER_RULES_CC)))))
           /*<!-- #BLAZE_RULE($cc_binary_base).ATTRIBUTE(malloc) -->
           Override the default dependency on malloc.
           <p>

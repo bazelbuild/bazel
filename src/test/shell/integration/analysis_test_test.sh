@@ -164,7 +164,7 @@ EOF
 
   cat "${PRODUCT_NAME}-testlogs/package/test_target/test.log" > "$TEST_log"
   expect_log "target_under_test failed"
-  expect_log "type 'string' has no method method_doesnt_exist()"
+  expect_log "'string' value has no field or method 'method_doesnt_exist'"
 }
 
 run_suite "analysis_test rule tests"

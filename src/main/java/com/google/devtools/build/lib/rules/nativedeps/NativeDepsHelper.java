@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
 import com.google.devtools.build.lib.analysis.actions.SymlinkAction;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.rules.cpp.CcCommon;
@@ -142,8 +143,8 @@ public abstract class NativeDepsHelper {
   }
 
   /** Determines if there is any code to be linked in the input iterable. */
-  private static boolean containsCodeToLink(Iterable<LibraryToLink> libraries) {
-    for (LibraryToLink library : libraries) {
+  private static boolean containsCodeToLink(NestedSet<LibraryToLink> libraries) {
+    for (LibraryToLink library : libraries.toList()) {
       if (containsCodeToLink(library)) {
         return true;
       }
@@ -194,8 +195,8 @@ public abstract class NativeDepsHelper {
     List<String> linkopts = new ArrayList<>(extraLinkOpts);
     linkopts.addAll(ccLinkingContext.getFlattenedUserLinkFlags());
 
-    CppHelper.checkLinkstampsUnique(ruleContext, ccLinkingContext.getLinkstamps());
-    ImmutableSet<Linkstamp> linkstamps = ImmutableSet.copyOf(ccLinkingContext.getLinkstamps());
+    CppHelper.checkLinkstampsUnique(ruleContext, ccLinkingContext.getLinkstamps().toList());
+    ImmutableSet<Linkstamp> linkstamps = ccLinkingContext.getLinkstamps().toSet();
     List<Artifact> buildInfoArtifacts =
         linkstamps.isEmpty()
             ? ImmutableList.<Artifact>of()

@@ -123,25 +123,37 @@ public class TestSummaryTest {
     terminalPrinter.print(find(expectedString));
   }
 
-  private void assertShouldNotPrint(BlazeTestStatus status) throws Exception {
+  private void assertShouldNotPrint(BlazeTestStatus status, boolean verboseSummary) {
     AnsiTerminalPrinter terminalPrinter = Mockito.mock(AnsiTerminalPrinter.class);
     TestSummaryPrinter.print(
         createTestSummary(stubTarget, status, NOT_CACHED),
         terminalPrinter,
         Path::getPathString,
-        true,
+        verboseSummary,
         false);
     verify(terminalPrinter, never()).print(anyString());
   }
 
   @Test
-  public void testShouldNotPrintFailedToBuildStatus() throws Exception {
-    assertShouldNotPrint(BlazeTestStatus.FAILED_TO_BUILD);
+  public void testShouldPrintFailedToBuildStatus() {
+    String expectedString = ANY_STRING + "INFO" + ANY_STRING + BlazeTestStatus.FAILED_TO_BUILD;
+    AnsiTerminalPrinter terminalPrinter = Mockito.mock(AnsiTerminalPrinter.class);
+
+    TestSummary summary = createTestSummary(BlazeTestStatus.FAILED_TO_BUILD, NOT_CACHED);
+
+    TestSummaryPrinter.print(summary, terminalPrinter, Path::getPathString, true, false);
+
+    terminalPrinter.print(find(expectedString));
   }
 
   @Test
-  public void testShouldNotPrintHaltedStatus() throws Exception {
-    assertShouldNotPrint(BlazeTestStatus.BLAZE_HALTED_BEFORE_TESTING);
+  public void testShouldNotPrintFailedToBuildStatus() {
+    assertShouldNotPrint(BlazeTestStatus.FAILED_TO_BUILD, false);
+  }
+
+  @Test
+  public void testShouldNotPrintHaltedStatus() {
+    assertShouldNotPrint(BlazeTestStatus.BLAZE_HALTED_BEFORE_TESTING, true);
   }
 
   @Test

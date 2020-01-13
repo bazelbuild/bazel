@@ -15,38 +15,81 @@
 package com.google.devtools.build.lib.syntax;
 
 import com.google.devtools.build.lib.events.Location;
-import java.util.List;
-import java.util.Map;
-import javax.annotation.Nullable;
 
 /**
  * The StarlarkCallable interface is implemented by all Starlark values that may be called from
  * Starlark like a function, including built-in functions and methods, Starlark functions, and
  * application-defined objects (such as rules, aspects, and providers in Bazel).
+ *
+ * <p>It defines two methods: {@code fastcall}, for performance, or {@code call} for convenience. By
+ * default, {@code fastcall} delegates to {@code call}, and call throws an exception, so an
+ * implementer may override either one.
  */
+// TODO(adonovan): rename to just "Callable", since it's unambiguous.
 public interface StarlarkCallable extends StarlarkValue {
 
   /**
-   * Call this function with the given arguments.
+   * Defines the "convenient" implementation of function calling for a callable value.
    *
-   * <p>Neither the callee nor the caller may modify the args List or kwargs Map.
+   * <p>Do not call this function directly. Use the {@link Starlark#call} function to make a call,
+   * as it handles necessary book-keeping such as maintenance of the call stack, exception handling,
+   * and so on.
    *
-   * @param args the list of positional arguments
-   * @param kwargs the mapping of named arguments
-   * @param call the syntax tree of the function call
+   * <p>The default implementation throws an exception.
+   *
    * @param thread the StarlarkThread in which the function is called
-   * @return the result of the call
-   * @throws EvalException if there was an error invoking this function
+   * @param loc source location of the Starlark call expression, or BUILTIN; (going away)
+   * @param args a tuple of the arguments passed by position
+   * @param kwargs a new, mutable dict of the arguments passed by keyword. Iteration order is
+   *     determined by keyword order in the call expression.
    */
-  // TODO(adonovan):
-  // - make StarlarkThread the first parameter.
-  // - eliminate the FuncallExpression parameter (which can be accessed through thread).
-  Object call(
-      List<Object> args,
-      @Nullable Map<String, Object> kwargs,
-      @Nullable FuncallExpression call,
-      StarlarkThread thread)
-      throws EvalException, InterruptedException;
+  default Object call(
+      StarlarkThread thread, Location loc, Tuple<Object> args, Dict<String, Object> kwargs)
+      throws EvalException, InterruptedException {
+    throw Starlark.errorf("function %s not implemented", getName());
+  }
+
+  /**
+   * Defines the "fast" implementation of function calling for a callable value.
+   *
+   * <p>Do not call this function directly. Use the {@link Starlark#call} or {@link
+   * Starlark#fastcall} function to make a call, as it handles necessary book-keeping such as
+   * maintenance of the call stack, exception handling, and so on.
+   *
+   * <p>This method defines the low-level or "fast" calling convention. A more convenient interface
+   * is provided by the {@link #call} method, which provides a signature analogous to {@code def
+   * f(*args, **kwargs)}, or possibly the "self-call" feature of the {@link
+   * SkylarkCallable#selfCall} annotation mechanism. Implementations may elect to use {@code
+   * Starlark.matchSignature} to assist with argument processing.
+   *
+   * <p>The default implementation forwards the call to {@code call}, after rejecting any duplicate
+   * named arguments. Other implementations of this method should similarly reject duplicates.
+   *
+   * @param thread the StarlarkThread in which the function is called
+   * @param loc source location of the Starlark call expression, or BUILTIN; (going away)
+   * @param positional a list of positional arguments
+   * @param named a list of named arguments, as alternating Strings/Objects. May contain dups.
+   */
+  default Object fastcall(
+      StarlarkThread thread,
+      Location loc, // TODO(adonovan): eliminate
+      Object[] positional,
+      Object[] named)
+      throws EvalException, InterruptedException {
+    Object[] arguments =
+        Starlark.matchSignature(
+            FunctionSignature.ANY, // def f(*args, **kwargs)
+            this,
+            /*defaults=*/ null,
+            thread.mutability(),
+            positional,
+            named);
+    @SuppressWarnings("unchecked")
+    Tuple<Object> args = (Tuple<Object>) arguments[0];
+    @SuppressWarnings("unchecked")
+    Dict<String, Object> kwargs = (Dict<String, Object>) arguments[1];
+    return call(thread, loc, args, kwargs);
+  }
 
   /** Returns the form this callable value should take in a stack trace. */
   String getName();
@@ -55,5 +98,7 @@ public interface StarlarkCallable extends StarlarkValue {
    * Returns the location of the definition of this callable value, or BUILTIN if it was not defined
    * in Starlark code.
    */
-  Location getLocation();
+  default Location getLocation() {
+    return Location.BUILTIN;
+  }
 }

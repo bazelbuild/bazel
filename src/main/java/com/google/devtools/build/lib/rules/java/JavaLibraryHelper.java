@@ -204,7 +204,7 @@ public final class JavaLibraryHelper {
       boolean createOutputSourceJar,
       @Nullable Artifact outputSourceJar,
       @Nullable JavaInfo.Builder javaInfoBuilder,
-      Iterable<JavaGenJarsProvider> transitiveJavaGenJars,
+      List<JavaGenJarsProvider> transitiveJavaGenJars,
       ImmutableList<Artifact> additionalJavaBaseInputs)
       throws InterruptedException {
 
@@ -295,7 +295,7 @@ public final class JavaLibraryHelper {
       JavaCompilationHelper helper,
       @Nullable Artifact genClassJar,
       @Nullable Artifact genSourceJar,
-      Iterable<JavaGenJarsProvider> transitiveJavaGenJars) {
+      List<JavaGenJarsProvider> transitiveJavaGenJars) {
     return JavaGenJarsProvider.create(
         helper.usesAnnotationProcessing(),
         genClassJar,

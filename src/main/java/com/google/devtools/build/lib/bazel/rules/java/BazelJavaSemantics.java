@@ -211,7 +211,7 @@ public class BazelJavaSemantics implements JavaSemantics {
     public String getValue() {
       StringBuilder buffer = new StringBuilder();
       buffer.append("\"");
-      for (Artifact artifact : jars) {
+      for (Artifact artifact : jars.toList()) {
         if (buffer.length() > 1) {
           buffer.append(File.pathSeparatorChar);
         }
@@ -341,17 +341,11 @@ public class BazelJavaSemantics implements JavaSemantics {
           "export JACOCO_JAVA_RUNFILES_ROOT=${JAVA_RUNFILES}/" + workspacePrefix)
       );
       arguments.add(
-          Substitution.of(
-              JavaSemantics.JAVA_COVERAGE_NEW_IMPLEMENTATION_PLACEHOLDER,
-              "export JAVA_COVERAGE_NEW_IMPLEMENTATION=YES"));
-      arguments.add(
           Substitution.of("%java_start_class%", ShellEscaper.escapeString(javaStartClass)));
     } else {
       arguments.add(Substitution.of(JavaSemantics.JACOCO_METADATA_PLACEHOLDER, ""));
       arguments.add(Substitution.of(JavaSemantics.JACOCO_MAIN_CLASS_PLACEHOLDER, ""));
       arguments.add(Substitution.of(JavaSemantics.JACOCO_JAVA_RUNFILES_ROOT_PLACEHOLDER, ""));
-      arguments.add(
-          Substitution.of(JavaSemantics.JAVA_COVERAGE_NEW_IMPLEMENTATION_PLACEHOLDER, ""));
     }
 
     arguments.add(Substitution.of("%java_start_class%",
@@ -405,7 +399,7 @@ public class BazelJavaSemantics implements JavaSemantics {
             .addJoinedValues(
                 "classpath",
                 ";",
-                Iterables.transform(classpath, Artifact.ROOT_RELATIVE_PATH_STRING))
+                Iterables.transform(classpath.toList(), Artifact.ROOT_RELATIVE_PATH_STRING))
             // TODO(laszlocsomor): Change the Launcher to accept multiple jvm_flags entries. As of
             // 2019-02-13 the Launcher accepts just one jvm_flags entry, which contains all the
             // flags, joined by TAB characters. The Launcher splits up the string to get the
@@ -718,11 +712,6 @@ public class BazelJavaSemantics implements JavaSemantics {
   public Artifact getObfuscatedConstantStringMap(RuleContext ruleContext)
       throws InterruptedException {
     return null;
-  }
-
-  @Override
-  public boolean isJavaProtoLibraryStrictDeps(RuleContext ruleContext) {
-    return false;
   }
 
   @Override

@@ -15,15 +15,14 @@
 package com.google.devtools.build.lib.skylarkbuildapi.cpp;
 
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Sequence;
+import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
-import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.lib.syntax.StarlarkValue;
 
 /** Either libraries, flags or other files that may be passed to the linker as inputs. */
@@ -38,9 +37,8 @@ public interface LinkerInputApi<
       name = "owner",
       doc = "Returns the owner of this LinkerInput.",
       enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_CC_SHARED_LIBRARY,
-      useLocation = true,
       structField = true)
-  Label getSkylarkOwner(Location location) throws EvalException;
+  Label getSkylarkOwner() throws EvalException;
 
   @SkylarkCallable(
       name = "user_link_flags",
@@ -56,8 +54,8 @@ public interface LinkerInputApi<
               + "deprecated. See #8118.",
       structField = true,
       enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_CC_SHARED_LIBRARY,
-      useStarlarkThread = true)
-  Sequence<LibraryToLinkT> getSkylarkLibrariesToLink(StarlarkThread thread);
+      useStarlarkSemantics = true)
+  Sequence<LibraryToLinkT> getSkylarkLibrariesToLink(StarlarkSemantics semantics);
 
   @SkylarkCallable(
       name = "additional_inputs",

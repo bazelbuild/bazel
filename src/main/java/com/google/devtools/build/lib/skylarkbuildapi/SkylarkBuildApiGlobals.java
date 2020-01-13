@@ -57,6 +57,6 @@ public interface SkylarkBuildApiGlobals {
       },
       useLocation = true,
       useStarlarkThread = true)
-  public LateBoundDefaultApi configurationField(
+  LateBoundDefaultApi configurationField(
       String fragment, String name, Location loc, StarlarkThread thread) throws EvalException;
 }

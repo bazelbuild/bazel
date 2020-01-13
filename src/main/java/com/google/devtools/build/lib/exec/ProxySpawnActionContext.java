@@ -21,7 +21,6 @@ import com.google.devtools.build.lib.actions.SpawnActionContext;
 import com.google.devtools.build.lib.actions.SpawnContinuation;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.UserExecException;
-import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.NullEventHandler;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -44,8 +43,7 @@ public final class ProxySpawnActionContext implements SpawnActionContext {
   @Override
   public List<SpawnResult> exec(Spawn spawn, ActionExecutionContext actionExecutionContext)
       throws ExecException, InterruptedException {
-    return resolveOne(spawn, actionExecutionContext.getEventHandler())
-        .exec(spawn, actionExecutionContext);
+    return resolveOne(spawn, actionExecutionContext).exec(spawn, actionExecutionContext);
   }
 
   @Override
@@ -53,16 +51,16 @@ public final class ProxySpawnActionContext implements SpawnActionContext {
       Spawn spawn, ActionExecutionContext actionExecutionContext) throws InterruptedException {
     SpawnActionContext resolvedContext;
     try {
-      resolvedContext = resolveOne(spawn, actionExecutionContext.getEventHandler());
+      resolvedContext = resolveOne(spawn, actionExecutionContext);
     } catch (ExecException e) {
       return SpawnContinuation.failedWithExecException(e);
     }
     return resolvedContext.beginExecution(spawn, actionExecutionContext);
   }
 
-  private SpawnActionContext resolveOne(Spawn spawn, EventHandler eventHandler)
+  private SpawnActionContext resolveOne(Spawn spawn, ActionExecutionContext actionExecutionContext)
       throws UserExecException {
-    List<SpawnActionContext> strategies = resolve(spawn, eventHandler);
+    List<SpawnActionContext> strategies = resolve(spawn, actionExecutionContext);
 
     // Because the strategies are ordered by preference, we can execute the spawn with the best
     // possible one by simply filtering out the ones that can't execute it and then picking the
@@ -78,14 +76,15 @@ public final class ProxySpawnActionContext implements SpawnActionContext {
    *     correct {@link SpawnActionContext} for the given spawn.
    */
   @VisibleForTesting
-  public List<SpawnActionContext> resolve(Spawn spawn, EventHandler eventHandler)
-      throws UserExecException {
+  public List<SpawnActionContext> resolve(
+      Spawn spawn, ActionExecutionContext actionExecutionContext) throws UserExecException {
     List<SpawnActionContext> strategies =
-        spawnActionContextMaps.getSpawnActionContexts(spawn, eventHandler);
+        spawnActionContextMaps.getSpawnActionContexts(
+            spawn, actionExecutionContext.getEventHandler());
 
     strategies =
         strategies.stream()
-            .filter(spawnActionContext -> spawnActionContext.canExec(spawn))
+            .filter(spawnActionContext -> spawnActionContext.canExec(spawn, actionExecutionContext))
             .collect(Collectors.toList());
 
     if (strategies.isEmpty()) {
@@ -102,8 +101,8 @@ public final class ProxySpawnActionContext implements SpawnActionContext {
   }
 
   @Override
-  public boolean canExec(Spawn spawn) {
+  public boolean canExec(Spawn spawn, ActionExecutionContext actionExecutionContext) {
     return spawnActionContextMaps.getSpawnActionContexts(spawn, NullEventHandler.INSTANCE).stream()
-        .anyMatch(spawnActionContext -> spawnActionContext.canExec(spawn));
+        .anyMatch(spawnActionContext -> spawnActionContext.canExec(spawn, actionExecutionContext));
   }
 }

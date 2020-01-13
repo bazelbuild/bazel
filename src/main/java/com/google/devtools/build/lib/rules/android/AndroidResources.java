@@ -28,7 +28,6 @@ import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTa
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.RuleErrorConsumer;
-import com.google.devtools.build.lib.rules.android.AndroidConfiguration.AndroidAaptVersion;
 import com.google.devtools.build.lib.rules.android.databinding.DataBindingContext;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Arrays;
@@ -317,7 +316,7 @@ public class AndroidResources {
   private static ImmutableList<Artifact> getResources(Iterable<FileProvider> targets) {
     ImmutableList.Builder<Artifact> builder = ImmutableList.builder();
     for (FileProvider target : targets) {
-      builder.addAll(target.getFilesToBuild());
+      builder.addAll(target.getFilesToBuild().toList());
     }
 
     return builder.build();
@@ -400,11 +399,9 @@ public class AndroidResources {
   public ParsedAndroidResources parse(
       AndroidDataContext dataContext,
       StampedAndroidManifest manifest,
-      AndroidAaptVersion aaptVersion,
       DataBindingContext dataBindingContext)
       throws InterruptedException {
-    return ParsedAndroidResources.parseFrom(
-        dataContext, this, manifest, aaptVersion, dataBindingContext);
+    return ParsedAndroidResources.parseFrom(dataContext, this, manifest, dataBindingContext);
   }
 
   /**
@@ -422,20 +419,18 @@ public class AndroidResources {
         dataContext,
         manifest,
         ResourceDependencies.fromRuleDeps(ruleContext, neverlink),
-        dataBindingContext,
-        AndroidAaptVersion.chooseTargetAaptVersion(ruleContext));
+        dataBindingContext);
   }
 
   ValidatedAndroidResources process(
       AndroidDataContext dataContext,
       StampedAndroidManifest manifest,
       ResourceDependencies resourceDeps,
-      DataBindingContext dataBindingContext,
-      AndroidAaptVersion aaptVersion)
+      DataBindingContext dataBindingContext)
       throws InterruptedException {
-    return parse(dataContext, manifest, aaptVersion, dataBindingContext)
-        .merge(dataContext, resourceDeps, aaptVersion)
-        .validate(dataContext, aaptVersion);
+    return parse(dataContext, manifest, dataBindingContext)
+        .merge(dataContext, resourceDeps)
+        .validate(dataContext);
   }
 
   @Override

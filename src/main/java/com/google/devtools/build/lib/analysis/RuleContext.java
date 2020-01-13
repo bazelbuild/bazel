@@ -57,6 +57,7 @@ import com.google.devtools.build.lib.analysis.config.transitions.SplitTransition
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.constraints.ConstraintSemantics;
+import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.analysis.stringtemplate.TemplateContext;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -79,7 +80,6 @@ import com.google.devtools.build.lib.packages.FileTarget;
 import com.google.devtools.build.lib.packages.FilesetEntry;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.Info;
-import com.google.devtools.build.lib.packages.InfoInterface;
 import com.google.devtools.build.lib.packages.InputFile;
 import com.google.devtools.build.lib.packages.NativeProvider;
 import com.google.devtools.build.lib.packages.OutputFile;
@@ -476,18 +476,25 @@ public final class RuleContext extends TargetContext
   }
 
   @Nullable
-  public Fragment getSkylarkFragment(String name, ConfigurationTransition transition) {
+  public Fragment getSkylarkFragment(String name, ConfigurationTransition transition)
+      throws EvalException {
     Class<? extends Fragment> fragmentClass =
         getConfiguration(transition).getSkylarkFragmentByName(name);
     if (fragmentClass == null) {
       return null;
     }
-    return getFragment(fragmentClass, name,
-        String.format(
-            " Please update the '%1$sfragments' argument of the rule definition "
-            + "(for example: %1$sfragments = [\"%2$s\"])",
-            (transition.isHostTransition()) ? "host_" : "", name),
-        transition);
+    try {
+      return getFragment(
+          fragmentClass,
+          name,
+          String.format(
+              " Please update the '%1$sfragments' argument of the rule definition "
+                  + "(for example: %1$sfragments = [\"%2$s\"])",
+              transition.isHostTransition() ? "host_" : "", name),
+          transition);
+    } catch (IllegalArgumentException ex) { // fishy
+      throw new EvalException(null, ex.getMessage());
+    }
   }
 
   public ImmutableCollection<String> getSkylarkFragmentNames(ConfigurationTransition transition) {
@@ -1063,8 +1070,8 @@ public final class RuleContext extends TargetContext
    * Returns all the providers of the specified type that are listed under the specified attribute
    * of this target in the BUILD file.
    */
-  public <C extends TransitiveInfoProvider> Iterable<C> getPrerequisites(String attributeName,
-      Mode mode, final Class<C> classType) {
+  public <C extends TransitiveInfoProvider> List<C> getPrerequisites(
+      String attributeName, Mode mode, final Class<C> classType) {
     AnalysisUtils.checkProvider(classType);
     return AnalysisUtils.getProviders(getPrerequisites(attributeName, mode), classType);
   }
@@ -1073,7 +1080,7 @@ public final class RuleContext extends TargetContext
    * Returns all the declared providers (native and Skylark) for the specified constructor under the
    * specified attribute of this target in the BUILD file.
    */
-  public <T extends InfoInterface> Iterable<T> getPrerequisites(
+  public <T extends Info> List<T> getPrerequisites(
       String attributeName, Mode mode, final NativeProvider<T> skylarkKey) {
     return AnalysisUtils.getProviders(getPrerequisites(attributeName, mode), skylarkKey);
   }
@@ -1082,7 +1089,7 @@ public final class RuleContext extends TargetContext
    * Returns all the declared providers (native and Skylark) for the specified constructor under the
    * specified attribute of this target in the BUILD file.
    */
-  public <T extends InfoInterface> Iterable<T> getPrerequisites(
+  public <T extends Info> List<T> getPrerequisites(
       String attributeName, Mode mode, final BuiltinProvider<T> skylarkKey) {
     return AnalysisUtils.getProviders(getPrerequisites(attributeName, mode), skylarkKey);
   }
@@ -1093,7 +1100,7 @@ public final class RuleContext extends TargetContext
    * TransitiveInfoCollection under the specified attribute.
    */
   @Nullable
-  public <T extends InfoInterface> T getPrerequisite(
+  public <T extends Info> T getPrerequisite(
       String attributeName, Mode mode, final NativeProvider<T> skylarkKey) {
     TransitiveInfoCollection prerequisite = getPrerequisite(attributeName, mode);
     return prerequisite == null ? null : prerequisite.get(skylarkKey);
@@ -1105,7 +1112,7 @@ public final class RuleContext extends TargetContext
    * TransitiveInfoCollection under the specified attribute.
    */
   @Nullable
-  public <T extends InfoInterface> T getPrerequisite(
+  public <T extends Info> T getPrerequisite(
       String attributeName, Mode mode, final BuiltinProvider<T> skylarkKey) {
     TransitiveInfoCollection prerequisite = getPrerequisite(attributeName, mode);
     return prerequisite == null ? null : prerequisite.get(skylarkKey);
@@ -1219,6 +1226,13 @@ public final class RuleContext extends TargetContext
     return toolchainContext;
   }
 
+  public boolean targetPlatformHasConstraint(ConstraintValueInfo constraintValue) {
+    if (toolchainContext == null || toolchainContext.targetPlatform() == null) {
+      return false;
+    }
+    return toolchainContext.targetPlatform().constraints().hasConstraintValue(constraintValue);
+  }
+
   public ConstraintSemantics getConstraintSemantics() {
     return constraintSemantics;
   }
@@ -1318,9 +1332,9 @@ public final class RuleContext extends TargetContext
   private Artifact transitiveInfoCollectionToArtifact(
       String attributeName, TransitiveInfoCollection target) {
     if (target != null) {
-      Iterable<Artifact> artifacts = target.getProvider(FileProvider.class).getFilesToBuild();
-      if (Iterables.size(artifacts) == 1) {
-        return Iterables.getOnlyElement(artifacts);
+      NestedSet<Artifact> artifacts = target.getProvider(FileProvider.class).getFilesToBuild();
+      if (artifacts.isSingleton()) {
+        return artifacts.getSingleton();
       } else {
         attributeError(attributeName, target.getLabel() + " expected a single artifact");
       }
@@ -1542,7 +1556,7 @@ public final class RuleContext extends TargetContext
   public static boolean isVisible(Label label, TransitiveInfoCollection prerequisite) {
     // Check visibility attribute
     for (PackageGroupContents specification :
-        prerequisite.getProvider(VisibilityProvider.class).getVisibility()) {
+        prerequisite.getProvider(VisibilityProvider.class).getVisibility().toList()) {
       if (specification.containsPackage(label.getPackageIdentifier())) {
         return true;
       }
@@ -1730,7 +1744,7 @@ public final class RuleContext extends TargetContext
     private boolean validateFilesetEntry(FilesetEntry filesetEntry, ConfiguredTargetAndData src) {
       NestedSet<Artifact> filesToBuild =
           src.getConfiguredTarget().getProvider(FileProvider.class).getFilesToBuild();
-      if (filesToBuild.isSingleton() && Iterables.getOnlyElement(filesToBuild).isFileset()) {
+      if (filesToBuild.isSingleton() && filesToBuild.getSingleton().isFileset()) {
         return true;
       }
 
@@ -2012,15 +2026,15 @@ public final class RuleContext extends TargetContext
       // If we performed this check when allowedFileTypes == NO_FILE this would
       // always throw an error in those cases
       if (allowedFileTypes != FileTypeSet.NO_FILE) {
-        Iterable<Artifact> artifacts =
+        NestedSet<Artifact> artifacts =
             prerequisite.getConfiguredTarget().getProvider(FileProvider.class).getFilesToBuild();
-        if (attribute.isSingleArtifact() && Iterables.size(artifacts) != 1) {
+        if (attribute.isSingleArtifact() && !artifacts.isSingleton()) {
           attributeError(
               attribute.getName(),
               "'" + prerequisite.getTarget().getLabel() + "' must produce a single file");
           return;
         }
-        for (Artifact sourceArtifact : artifacts) {
+        for (Artifact sourceArtifact : artifacts.toList()) {
           if (allowedFileTypes.apply(sourceArtifact.getFilename())) {
             return;
           }

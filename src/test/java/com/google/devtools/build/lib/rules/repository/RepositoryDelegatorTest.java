@@ -28,7 +28,7 @@ import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
-import com.google.devtools.build.lib.bazel.repository.downloader.HttpDownloader;
+import com.google.devtools.build.lib.bazel.repository.downloader.DownloadManager;
 import com.google.devtools.build.lib.bazel.repository.skylark.SkylarkRepositoryFunction;
 import com.google.devtools.build.lib.bazel.repository.skylark.SkylarkRepositoryModule;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
@@ -116,7 +116,7 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
             /* defaultSystemJavabase= */ null,
             TestConstants.PRODUCT_NAME);
     managedDirectoriesKnowledge = new TestManagedDirectoriesKnowledge();
-    HttpDownloader downloader = Mockito.mock(HttpDownloader.class);
+    DownloadManager downloader = Mockito.mock(DownloadManager.class);
     RepositoryFunction localRepositoryFunction = new LocalRepositoryFunction();
     testSkylarkRepositoryFunction =
         new TestSkylarkRepositoryFunction(rootPath, downloader, managedDirectoriesKnowledge);
@@ -197,8 +197,7 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
                 .put(
                     SkyFunctions.BLACKLISTED_PACKAGE_PREFIXES,
                     new BlacklistedPackagePrefixesFunction(
-                        /*hardcodedBlacklistedPackagePrefixes=*/ ImmutableSet.of(),
-                        /*additionalBlacklistedPackagePrefixesFile=*/ PathFragment.EMPTY_FRAGMENT))
+                        /*blacklistedPackagePrefixesFile=*/ PathFragment.EMPTY_FRAGMENT))
                 .put(SkyFunctions.RESOLVED_HASH_VALUES, new ResolvedHashesFunction())
                 .build(),
             differencer);
@@ -385,7 +384,7 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
 
     private TestSkylarkRepositoryFunction(
         Path workspaceRoot,
-        HttpDownloader downloader,
+        DownloadManager downloader,
         TestManagedDirectoriesKnowledge managedDirectoriesKnowledge) {
       super(downloader);
       this.workspaceRoot = workspaceRoot;

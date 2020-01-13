@@ -13,15 +13,11 @@
 // limitations under the License.
 package com.google.devtools.build.lib.packages;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
 import com.google.common.base.Objects;
-import com.google.common.base.Preconditions;
-import com.google.common.collect.ImmutableCollection;
-import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.Ordering;
 import com.google.devtools.build.lib.events.Location;
-import com.google.devtools.build.lib.skylarkbuildapi.StructApi;
+import com.google.devtools.build.lib.skylarkbuildapi.core.StructApi;
 import com.google.devtools.build.lib.syntax.ClassObject;
 import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
@@ -31,7 +27,6 @@ import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.SkylarkType;
 import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.protobuf.TextFormat;
-import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -39,10 +34,23 @@ import java.util.Map;
 import javax.annotation.Nullable;
 
 /**
- * A generic skylark object with fields, constructable by calling {@code struct()} in skylark.
+ * An abstract base class for Starlark values that have fields, have to_json and to_proto methods,
+ * have an associated provider (type symbol), and may be returned as the result of analysis from one
+ * target to another.
+ *
+ * <p>StructImpl does not specify how the fields are represented; subclasses must define {@code
+ * getValue} and {@code getFieldNames}. For example, {@code NativeInfo} supplies fields from the
+ * subclass's {@code SkylarkCallable(structField=true)} annotations, and {@code SkylarkInfo}
+ * supplies fields from the map provided at its construction.
+ *
+ * <p>Two StructImpls are equivalent if they have the same provider and, for each field name
+ * reported by {@code getFieldNames} their corresponding field values are equivalent, or accessing
+ * them both returns an error.
  */
-public abstract class StructImpl extends Info
-    implements ClassObject, StructApi, Serializable {
+public abstract class StructImpl implements Info, ClassObject, StructApi {
+
+  private final Provider provider;
+  private final Location location;
 
   /**
    * Constructs an {@link StructImpl}.
@@ -52,49 +60,25 @@ public abstract class StructImpl extends Info
    *     {@link Location#BUILTIN}.
    */
   protected StructImpl(Provider provider, @Nullable Location location) {
-    super(provider, location);
+    this.provider = provider;
+    this.location = location != null ? location : Location.BUILTIN;
   }
 
-  /**
-   * Preprocesses a map of field values to convert the field names and field values to
-   * Skylark-acceptable names and types.
-   *
-   * <p>Entries are ordered by key.
-   */
-  static ImmutableSortedMap<String, Object> copyValues(Map<String, Object> values) {
-    Preconditions.checkNotNull(values);
-    ImmutableSortedMap.Builder<String, Object> builder = ImmutableSortedMap.naturalOrder();
-    for (Map.Entry<String, Object> e : values.entrySet()) {
-      builder.put(Attribute.getSkylarkName(e.getKey()), Starlark.fromJava(e.getValue(), null));
-    }
-    return builder.build();
+  @Override
+  public Provider getProvider() {
+    return provider;
   }
 
-  /**
-   * Returns whether the given field name exists.
-   *
-   * <p>This conceptually extends the API for {@link ClassObject}.
-   */
-  public abstract boolean hasField(String name);
-
-  /**
-   * <p>Wraps {@link ClassObject#getValue(String)}, returning null in cases where
-   * {@link EvalException} would have been thrown.
-   */
-  @VisibleForTesting
-  public Object getValueOrNull(String name) {
-    try {
-      return getValue(name);
-    } catch (EvalException e) {
-      return null;
-    }
+  @Override
+  public Location getCreationLoc() {
+    return location;
   }
 
   /**
    * Returns the result of {@link #getValue(String)}, cast as the given type, throwing {@link
    * EvalException} if the cast fails.
    */
-  public <T> T getValue(String key, Class<T> type) throws EvalException {
+  public final <T> T getValue(String key, Class<T> type) throws EvalException {
     Object obj = getValue(key);
     if (obj == null) {
       return null;
@@ -104,21 +88,12 @@ public abstract class StructImpl extends Info
   }
 
   /**
-   * {@inheritDoc}
-   *
-   * <p>Overrides {@link ClassObject#getFieldNames()}, but does not allow {@link EvalException} to
-   * be thrown.
-   */
-  @Override
-  public abstract ImmutableCollection<String> getFieldNames();
-
-  /**
    * Returns the error message format to use for unknown fields.
    *
    * <p>By default, it is the one specified by the provider.
    */
   protected String getErrorMessageFormatForUnknownField() {
-    return provider.getErrorMessageFormatForUnknownField();
+    return getProvider().getErrorMessageFormatForUnknownField();
   }
 
   @Override
@@ -137,7 +112,7 @@ public abstract class StructImpl extends Info
     if (this == other) {
       return true;
     }
-    if (!this.provider.equals(other.provider)) {
+    if (!this.getProvider().equals(other.getProvider())) {
       return false;
     }
     // Compare objects' fields and their values
@@ -157,7 +132,7 @@ public abstract class StructImpl extends Info
     List<String> fields = new ArrayList<>(getFieldNames());
     Collections.sort(fields);
     List<Object> objectsToHash = new ArrayList<>();
-    objectsToHash.add(provider);
+    objectsToHash.add(getProvider());
     for (String field : fields) {
       objectsToHash.add(field);
       objectsToHash.add(getValueOrNull(field));
@@ -184,6 +159,14 @@ public abstract class StructImpl extends Info
       printer.repr(getValueOrNull(fieldName));
     }
     printer.append(")");
+  }
+
+  private Object getValueOrNull(String name) {
+    try {
+      return getValue(name);
+    } catch (EvalException e) {
+      return null;
+    }
   }
 
   @Override

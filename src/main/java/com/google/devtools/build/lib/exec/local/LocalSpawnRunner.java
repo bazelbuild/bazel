@@ -316,7 +316,7 @@ public class LocalSpawnRunner implements SpawnRunner {
         context.prefetchInputs();
       }
 
-      for (ActionInput input : spawn.getInputFiles()) {
+      for (ActionInput input : spawn.getInputFiles().toList()) {
         if (input instanceof ParamFileActionInput) {
           VirtualActionInput virtualActionInput = (VirtualActionInput) input;
           Path outputPath = execRoot.getRelative(virtualActionInput.getExecPath());

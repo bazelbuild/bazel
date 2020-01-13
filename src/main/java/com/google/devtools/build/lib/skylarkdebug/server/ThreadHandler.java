@@ -30,7 +30,6 @@ import com.google.devtools.build.lib.syntax.ParserInput;
 import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.lib.syntax.SyntaxError;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
@@ -234,7 +233,7 @@ final class ThreadHandler {
         throw new DebugRequestException(
             String.format("Thread %s is not paused or does not exist.", threadId));
       }
-      return thread.thread.listFrames(thread.location).stream()
+      return thread.thread.listFrames().stream()
           .map(frame -> DebugEventHelper.getFrameProto(thread.objectMap, frame))
           .collect(toImmutableList());
     }
@@ -296,7 +295,7 @@ final class ThreadHandler {
     try {
       servicingEvalRequest.set(true);
 
-      ParserInput input = ParserInput.create(content, PathFragment.create("<debug eval>"));
+      ParserInput input = ParserInput.create(content, "<debug eval>");
       Object x = EvalUtils.execAndEvalOptionalFinalExpression(input, thread);
       return x != null ? x : Starlark.NONE;
     } finally {

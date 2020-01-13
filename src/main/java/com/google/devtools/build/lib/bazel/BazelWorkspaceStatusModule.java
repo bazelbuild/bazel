@@ -19,6 +19,7 @@ import static java.util.stream.Collectors.joining;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
@@ -33,6 +34,8 @@ import com.google.devtools.build.lib.analysis.WorkspaceStatusAction;
 import com.google.devtools.build.lib.analysis.WorkspaceStatusAction.Key;
 import com.google.devtools.build.lib.analysis.WorkspaceStatusAction.KeyType;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.exec.ExecutorBuilder;
 import com.google.devtools.build.lib.runtime.BlazeModule;
@@ -77,8 +80,8 @@ public class BazelWorkspaceStatusModule extends BlazeModule {
         Artifact stableStatus, Artifact volatileStatus, String username, String hostname) {
       super(
           ActionOwner.SYSTEM_ACTION_OWNER,
-          Artifact.NO_ARTIFACTS,
-          ImmutableList.of(stableStatus, volatileStatus));
+          NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+          ImmutableSet.of(stableStatus, volatileStatus));
       this.stableStatus = stableStatus;
       this.volatileStatus = volatileStatus;
       this.username = username;

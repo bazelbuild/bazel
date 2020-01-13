@@ -49,7 +49,6 @@ import com.google.devtools.build.skyframe.EvaluationContext;
 import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingResult;
 import java.util.HashSet;
 import java.util.List;
@@ -73,9 +72,6 @@ public final class SyncCommand implements BlazeCommand {
 
   static final ImmutableSet<String> WHITELISTED_NATIVE_RULES =
       ImmutableSet.of("local_repository", "new_local_repository", "local_config_platform");
-
-  @Override
-  public void editOptions(OptionsParser optionsParser) {}
 
   private static void reportError(CommandEnvironment env, EvaluationResult<SkyValue> value) {
     if (value.getError().getException() != null) {

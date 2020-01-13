@@ -20,13 +20,12 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
-import com.google.devtools.build.lib.skylarkbuildapi.ProviderApi;
 import com.google.devtools.build.lib.skylarkbuildapi.SkylarkAspectApi;
 import com.google.devtools.build.lib.skylarkbuildapi.SkylarkRuleFunctionsApi;
+import com.google.devtools.build.lib.skylarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.syntax.BaseFunction;
 import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.FuncallExpression;
 import com.google.devtools.build.lib.syntax.FunctionSignature;
 import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.SkylarkType;
@@ -147,7 +146,7 @@ public class FakeSkylarkRuleFunctionsApi implements SkylarkRuleFunctionsApi<File
       Object analysisTest,
       Object buildSetting,
       Object cfg,
-      FuncallExpression ast,
+      Location loc,
       StarlarkThread funcallThread)
       throws EvalException {
     ImmutableMap.Builder<String, FakeDescriptor> attrsMapBuilder = ImmutableMap.builder();
@@ -169,7 +168,7 @@ public class FakeSkylarkRuleFunctionsApi implements SkylarkRuleFunctionsApi<File
     // Only the Builder is passed to RuleInfoWrapper as the rule name is not yet available.
     RuleInfo.Builder ruleInfo = RuleInfo.newBuilder().setDocString(doc).addAllAttribute(attrInfos);
 
-    ruleInfoList.add(new RuleInfoWrapper(functionIdentifier, ast.getLocation(), ruleInfo));
+    ruleInfoList.add(new RuleInfoWrapper(functionIdentifier, loc, ruleInfo));
 
     return functionIdentifier;
   }
@@ -200,7 +199,7 @@ public class FakeSkylarkRuleFunctionsApi implements SkylarkRuleFunctionsApi<File
       Sequence<?> toolchains,
       String doc,
       Boolean applyToFiles,
-      FuncallExpression ast,
+      Location loc,
       StarlarkThread funcallThread)
       throws EvalException {
     FakeSkylarkAspect fakeAspect = new FakeSkylarkAspect();
@@ -233,7 +232,7 @@ public class FakeSkylarkRuleFunctionsApi implements SkylarkRuleFunctionsApi<File
             .addAllAttribute(attrInfos)
             .addAllAspectAttribute(aspectAttrs);
 
-    aspectInfoList.add(new AspectInfoWrapper(fakeAspect, ast.getLocation(), aspectInfo));
+    aspectInfoList.add(new AspectInfoWrapper(fakeAspect, loc, aspectInfo));
 
     return fakeAspect;
   }
@@ -250,8 +249,9 @@ public class FakeSkylarkRuleFunctionsApi implements SkylarkRuleFunctionsApi<File
     private static int idCounter = 0;
     private final String name = "RuleDefinitionIdentifier" + idCounter++;
 
-    public RuleDefinitionIdentifier() {
-      super(FunctionSignature.KWARGS);
+    @Override
+    public FunctionSignature getSignature() {
+      return FunctionSignature.KWARGS;
     }
 
     @Override

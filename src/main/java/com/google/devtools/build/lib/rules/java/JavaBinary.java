@@ -50,6 +50,7 @@ import com.google.devtools.build.lib.rules.cpp.LibraryToLink;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider.ClasspathType;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration.OneVersionEnforcementLevel;
 import com.google.devtools.build.lib.rules.java.proto.GeneratedExtensionRegistryProvider;
+import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -199,7 +200,7 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
                 /* manifestProto= */ outputs.manifestProto(),
                 /* sourceJars= */ ImmutableList.of(srcJar));
 
-    JavaTargetAttributes attributes = helper.getAttributes();
+    JavaTargetAttributes attributes = attributesBuilder.build();
     List<Artifact> nativeLibraries = attributes.getNativeLibraries();
     if (!nativeLibraries.isEmpty()) {
       jvmFlags.add(
@@ -239,11 +240,6 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
     common.setClassPathFragment(
         new ClasspathConfiguredFragment(
             javaArtifacts, attributes, false, helper.getBootclasspathOrDefault()));
-
-    // Collect the action inputs for the runfiles collector here because we need to access the
-    // analysis environment, and that may no longer be safe when the runfiles collector runs.
-    Iterable<Artifact> dynamicRuntimeActionInputs =
-        CppHelper.getDefaultCcToolchainDynamicRuntimeInputs(ruleContext);
 
     Iterables.addAll(
         jvmFlags, semantics.getJvmFlags(ruleContext, common.getSrcsArtifacts(), userJvmFlags));
@@ -322,6 +318,13 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
       }
     }
     NestedSet<Artifact> filesToBuild = filesBuilder.build();
+
+    NestedSet<Artifact> dynamicRuntimeActionInputs;
+    try {
+      dynamicRuntimeActionInputs = ccToolchain.getDynamicRuntimeLinkInputs(featureConfiguration);
+    } catch (EvalException e) {
+      throw ruleContext.throwWithRuleError(e.getMessage());
+    }
 
     collectDefaultRunfiles(
         runfilesBuilder,
@@ -509,9 +512,8 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
       JavaCompilationArtifacts javaArtifacts,
       NestedSet<Artifact> filesToBuild,
       Artifact launcher,
-      Iterable<Artifact> dynamicRuntimeActionInputs) {
-    // Convert to iterable: filesToBuild has a different order.
-    builder.addArtifacts((Iterable<Artifact>) filesToBuild);
+      NestedSet<Artifact> dynamicRuntimeActionInputs) {
+    builder.addTransitiveArtifactsWrappedInStableOrder(filesToBuild);
     builder.addArtifacts(javaArtifacts.getRuntimeJars());
     if (launcher != null) {
       final TransitiveInfoCollection defaultLauncher =
@@ -531,7 +533,7 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
         Runfiles runfiles =
             defaultLauncher.getProvider(RunfilesProvider.class).getDefaultRunfiles();
         NestedSetBuilder<Artifact> unconditionalArtifacts = NestedSetBuilder.compileOrder();
-        for (Artifact a : runfiles.getUnconditionalArtifacts()) {
+        for (Artifact a : runfiles.getUnconditionalArtifacts().toList()) {
           if (!a.equals(defaultLauncherArtifact)) {
             unconditionalArtifacts.add(a);
           }
@@ -554,7 +556,7 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
     builder.addTargets(runtimeDeps, JavaRunfilesProvider.TO_RUNFILES);
     builder.addTargets(runtimeDeps, RunfilesProvider.DEFAULT_RUNFILES);
 
-    builder.addArtifacts((Iterable<Artifact>) common.getRuntimeClasspath());
+    builder.addTransitiveArtifactsWrappedInStableOrder(common.getRuntimeClasspath());
 
     // Add the JDK files if it comes from the source repository (see java_stub_template.txt).
     JavaRuntimeInfo javaRuntime = JavaRuntimeInfo.from(ruleContext);
@@ -565,7 +567,7 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
         // Add symlinks to the C++ runtime libraries under a path that can be built
         // into the Java binary without having to embed the crosstool, gcc, and grte
         // version information contained within the libraries' package paths.
-        for (Artifact lib : dynamicRuntimeActionInputs) {
+        for (Artifact lib : dynamicRuntimeActionInputs.toList()) {
           PathFragment path = CPP_RUNTIMES.getRelative(lib.getExecPath().getBaseName());
           builder.addSymlink(path, lib);
         }
@@ -583,7 +585,7 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
       Iterable<? extends TransitiveInfoCollection> deps) {
     NestedSet<LibraryToLink> linkerInputs =
         new NativeLibraryNestedSetBuilder().addJavaTargets(deps).build();
-    return LibraryToLink.getDynamicLibrariesForLinking(linkerInputs);
+    return LibraryToLink.getDynamicLibrariesForLinking(linkerInputs.toList());
   }
 
   private static boolean isJavaTestRule(RuleContext ruleContext) {

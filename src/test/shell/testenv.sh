@@ -120,19 +120,6 @@ else
 fi
 
 
-function use_bazel_workspace_file() {
-  mkdir -p src/test/shell/bazel
-  cat >src/test/shell/bazel/list_source_repository.bzl <<EOF
-def list_source_repository(name):
-  pass
-EOF
-  touch src/test/shell/bazel/BUILD
-  rm -f WORKSPACE distdir.bzl
-  ln -sf ${workspace_file} WORKSPACE
-  touch BUILD
-  ln -sf ${distdir_bzl_file} distdir.bzl
-}
-
 # This function copies the tools directory from Bazel.
 function copy_tools_directory() {
   cp -RL ${tools_dir}/* tools

@@ -28,6 +28,6 @@ public class SkylarkCommandLine implements SkylarkCommandLineApi {
     NestedSet<Artifact> artifacts = files.getSetFromParam(Artifact.class, "files");
     // TODO(bazel-team): This method should be deprecated and strongly discouraged, as it
     // flattens a depset during analysis.
-    return Artifact.joinExecPaths(separator, artifacts);
+    return Artifact.joinExecPaths(separator, artifacts.toList());
   }
 }

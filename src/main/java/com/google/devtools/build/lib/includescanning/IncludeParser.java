@@ -377,7 +377,7 @@ class IncludeParser {
           logger.warning("Error getting hints for " + packageFragment + ": " + e);
           continue;
         }
-        for (PathFragment file : globValue.getMatches()) {
+        for (PathFragment file : globValue.getMatches().toList()) {
           hints.add(
               artifactFactory.getSourceArtifact(
                   packageFragment.getRelative(file), globKey.getPackageRoot()));

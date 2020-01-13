@@ -58,13 +58,25 @@ public final class MockObjcSupport {
 
   /** Returns the set of flags required to build objc libraries using the mock OSX crosstool. */
   public static ImmutableList<String> requiredObjcCrosstoolFlags() {
+    ImmutableList.Builder<String> builder = ImmutableList.builder();
+    return builder
+        .addAll(requiredObjcCrosstoolFlagsNoXcodeConfig())
+        .add("--xcode_version_config=" + MockObjcSupport.XCODE_VERSION_CONFIG)
+        .build();
+  }
+
+  /**
+   * Returns the set of flags required to build objc libraries using the mock OSX crosstool except
+   * for --xcode_version_config.
+   */
+  public static ImmutableList<String> requiredObjcCrosstoolFlagsNoXcodeConfig() {
+
     ImmutableList.Builder<String> argsBuilder = ImmutableList.builder();
     argsBuilder.addAll(TestConstants.OSX_CROSSTOOL_FLAGS);
 
     // TODO(b/68751876): Set --apple_crosstool_top and --crosstool_top using the
     // AppleCrosstoolTransition
     argsBuilder
-        .add("--xcode_version_config=" + MockObjcSupport.XCODE_VERSION_CONFIG)
         .add("--apple_crosstool_top=" + MockObjcSupport.DEFAULT_OSX_CROSSTOOL)
         .add("--crosstool_top=" + MockObjcSupport.DEFAULT_OSX_CROSSTOOL);
 
@@ -155,7 +167,6 @@ public final class MockObjcSupport {
     config.create(TestConstants.TOOLS_REPOSITORY_SCRATCH + "tools/objc/xctest.plist");
     config.create(TestConstants.TOOLS_REPOSITORY_SCRATCH + "tools/objc/proto_support");
     config.create(TestConstants.TOOLS_REPOSITORY_SCRATCH + "tools/objc/j2objc_dead_code_pruner.py");
-    config.create(TestConstants.TOOLS_REPOSITORY_SCRATCH + "tools/objc/header_scanner");
     setupCcToolchainConfig(config);
     setupObjcProto(config);
   }

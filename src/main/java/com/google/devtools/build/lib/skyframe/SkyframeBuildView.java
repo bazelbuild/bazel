@@ -58,7 +58,9 @@ import com.google.devtools.build.lib.causes.LabelCause;
 import com.google.devtools.build.lib.causes.LoadingFailedCause;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
@@ -112,9 +114,8 @@ public final class SkyframeBuildView {
   // This hack allows us to see when a configured target has been invalidated, and thus when the set
   // of artifact conflicts needs to be recomputed (whenever a configured target has been invalidated
   // or newly evaluated).
-  private final EvaluationProgressReceiver progressReceiver =
+  private final ConfiguredTargetValueProgressReceiver progressReceiver =
       new ConfiguredTargetValueProgressReceiver();
-  private final Set<SkyKey> evaluatedConfiguredTargets = Sets.newConcurrentHashSet();
   // Used to see if checks of graph consistency need to be done after analysis.
   private volatile boolean someConfiguredTargetEvaluated = false;
 
@@ -122,8 +123,6 @@ public final class SkyframeBuildView {
   // has been invalidated after graph pruning has been executed.
   private Set<SkyKey> dirtiedConfiguredTargetKeys = Sets.newConcurrentHashSet();
   private volatile boolean anyConfiguredTargetDeleted = false;
-
-  private final AtomicInteger evaluatedActionCount = new AtomicInteger();
 
   private final ConfiguredRuleClassProvider ruleClassProvider;
 
@@ -159,12 +158,12 @@ public final class SkyframeBuildView {
     this.ruleClassProvider = ruleClassProvider;
   }
 
-  public void resetEvaluatedConfiguredTargetKeysSet() {
-    evaluatedConfiguredTargets.clear();
+  public void resetProgressReceiver() {
+    progressReceiver.reset();
   }
 
-  public Set<SkyKey> getEvaluatedTargetKeys() {
-    return ImmutableSet.copyOf(evaluatedConfiguredTargets);
+  public ImmutableSet<SkyKey> getEvaluatedTargetKeys() {
+    return ImmutableSet.copyOf(progressReceiver.evaluatedConfiguredTargets);
   }
 
   ConfiguredTargetFactory getConfiguredTargetFactory() {
@@ -172,11 +171,7 @@ public final class SkyframeBuildView {
   }
 
   public int getEvaluatedActionCount() {
-    return evaluatedActionCount.get();
-  }
-
-  public void resetEvaluationActionCount() {
-    evaluatedActionCount.set(0);
+    return progressReceiver.evaluatedActionCount.get();
   }
 
   /**
@@ -375,7 +370,7 @@ public final class SkyframeBuildView {
    */
   public SkyframeAnalysisResult configureTargets(
       ExtendedEventHandler eventHandler,
-      List<ConfiguredTargetKey> values,
+      List<ConfiguredTargetKey> ctKeys,
       List<AspectValueKey> aspectKeys,
       Supplier<Map<BuildConfigurationValue.Key, BuildConfiguration>> configurationLookupSupplier,
       EventBus eventBus,
@@ -387,15 +382,48 @@ public final class SkyframeBuildView {
     try (SilentCloseable c = Profiler.instance().profile("skyframeExecutor.configureTargets")) {
       result =
           skyframeExecutor.configureTargets(
-              eventHandler, values, aspectKeys, keepGoing, numThreads);
+              eventHandler, ctKeys, aspectKeys, keepGoing, numThreads);
     } finally {
       enableAnalysis(false);
     }
+
+    Collection<AspectValue> aspects = Lists.newArrayListWithCapacity(aspectKeys.size());
+    Root singleSourceRoot = skyframeExecutor.getForcedSingleSourceRootIfNoExecrootSymlinkCreation();
+    NestedSetBuilder<Package> packages =
+        singleSourceRoot == null ? NestedSetBuilder.stableOrder() : null;
+    for (AspectValueKey aspectKey : aspectKeys) {
+      AspectValue value = (AspectValue) result.get(aspectKey);
+      if (value == null) {
+        // Skip aspects that couldn't be applied to targets.
+        continue;
+      }
+      aspects.add(value);
+      if (packages != null) {
+        packages.addTransitive(value.getTransitivePackagesForPackageRootResolution());
+      }
+    }
+
+    Collection<ConfiguredTarget> cts = Lists.newArrayListWithCapacity(ctKeys.size());
+    for (ConfiguredTargetKey value : ctKeys) {
+      ConfiguredTargetValue ctValue = (ConfiguredTargetValue) result.get(value);
+      if (ctValue == null) {
+        continue;
+      }
+      cts.add(ctValue.getConfiguredTarget());
+      if (packages != null) {
+        packages.addTransitive(ctValue.getTransitivePackagesForPackageRootResolution());
+      }
+    }
+    PackageRoots packageRoots =
+        singleSourceRoot == null
+            ? new MapAsPackageRoots(collectPackageRoots(packages.build().toList()))
+            : new PackageRootsNoSymlinkCreation(singleSourceRoot);
+
     try (SilentCloseable c =
         Profiler.instance().profile("skyframeExecutor.findArtifactConflicts")) {
       ImmutableSet<SkyKey> newKeys =
-          ImmutableSet.<SkyKey>builderWithExpectedSize(values.size() + aspectKeys.size())
-              .addAll(values)
+          ImmutableSet.<SkyKey>builderWithExpectedSize(ctKeys.size() + aspectKeys.size())
+              .addAll(ctKeys)
               .addAll(aspectKeys)
               .build();
       if (someConfiguredTargetEvaluated
@@ -408,54 +436,19 @@ public final class SkyframeBuildView {
         // some way -- either we analyzed a new target or we invalidated an old one or are building
         // targets together that haven't been built before.
         skyframeActionExecutor.findAndStoreArtifactConflicts(
-            skyframeExecutor.getActionLookupValuesInBuild(values, aspectKeys));
+            skyframeExecutor.getActionLookupValuesInBuild(ctKeys, aspectKeys));
         someConfiguredTargetEvaluated = false;
       }
     }
     ImmutableMap<ActionAnalysisMetadata, ConflictException> badActions =
         skyframeActionExecutor.badActions();
-
-    Collection<AspectValue> goodAspects = Lists.newArrayListWithCapacity(values.size());
-    Root singleSourceRoot = skyframeExecutor.getForcedSingleSourceRootIfNoExecrootSymlinkCreation();
-    NestedSetBuilder<Package> packages =
-        singleSourceRoot == null ? NestedSetBuilder.stableOrder() : null;
-    for (AspectValueKey aspectKey : aspectKeys) {
-      AspectValue value = (AspectValue) result.get(aspectKey);
-      if (value == null) {
-        // Skip aspects that couldn't be applied to targets.
-        continue;
-      }
-      goodAspects.add(value);
-      if (packages != null) {
-        packages.addTransitive(value.getTransitivePackagesForPackageRootResolution());
-      }
-    }
-
-    // Filter out all CTs that have a bad action and convert to a list of configured targets. This
-    // code ensures that the resulting list of configured targets has the same order as the incoming
-    // list of values, i.e., that the order is deterministic.
-    Collection<ConfiguredTarget> goodCts = Lists.newArrayListWithCapacity(values.size());
-    for (ConfiguredTargetKey value : values) {
-      ConfiguredTargetValue ctValue = (ConfiguredTargetValue) result.get(value);
-      if (ctValue == null) {
-        continue;
-      }
-      goodCts.add(ctValue.getConfiguredTarget());
-      if (packages != null) {
-        packages.addTransitive(ctValue.getTransitivePackagesForPackageRootResolution());
-      }
-    }
-    PackageRoots packageRoots =
-        singleSourceRoot == null
-            ? new MapAsPackageRoots(collectPackageRoots(packages.build().toList()))
-            : new PackageRootsNoSymlinkCreation(singleSourceRoot);
-
     if (!result.hasError() && badActions.isEmpty()) {
       return new SkyframeAnalysisResult(
-          /*hasLoadingError=*/false, /*hasAnalysisError=*/false,
-          ImmutableList.copyOf(goodCts),
+          /*hasLoadingError=*/ false,
+          /*hasAnalysisError=*/ false,
+          ImmutableList.copyOf(cts),
           result.getWalkableGraph(),
-          ImmutableList.copyOf(goodAspects),
+          ImmutableList.copyOf(aspects),
           packageRoots);
     }
 
@@ -502,15 +495,21 @@ public final class SkyframeBuildView {
     if (!badActions.isEmpty()) {
       // In order to determine the set of configured targets transitively error free from action
       // conflict issues, we run a post-processing update() that uses the bad action map.
-      EvaluationResult<PostConfiguredTargetValue> actionConflictResult =
-          skyframeExecutor.postConfigureTargets(eventHandler, values, keepGoing, badActions);
+      EvaluationResult<PostConfiguredTargetValue> actionConflictResult;
+      enableAnalysis(true);
+      try {
+        actionConflictResult =
+            skyframeExecutor.postConfigureTargets(eventHandler, ctKeys, keepGoing, badActions);
+      } finally {
+        enableAnalysis(false);
+      }
 
-      goodCts = Lists.newArrayListWithCapacity(values.size());
-      for (ConfiguredTargetKey value : values) {
+      cts = Lists.newArrayListWithCapacity(ctKeys.size());
+      for (ConfiguredTargetKey value : ctKeys) {
         PostConfiguredTargetValue postCt =
             actionConflictResult.get(PostConfiguredTargetValue.key(value));
         if (postCt != null) {
-          goodCts.add(postCt.getCt());
+          cts.add(postCt.getCt());
         }
       }
     }
@@ -518,9 +517,9 @@ public final class SkyframeBuildView {
     return new SkyframeAnalysisResult(
         errors.first,
         result.hasError() || !badActions.isEmpty(),
-        ImmutableList.copyOf(goodCts),
+        ImmutableList.copyOf(cts),
         result.getWalkableGraph(),
-        ImmutableList.copyOf(goodAspects),
+        ImmutableList.copyOf(aspects),
         packageRoots);
   }
 
@@ -552,8 +551,7 @@ public final class SkyframeBuildView {
       skyframeExecutor
           .getCyclesReporter().reportCycles(errorInfo.getCycleInfo(), errorKey, eventHandler);
       Exception cause = errorInfo.getException();
-      Preconditions.checkState(
-          cause != null || !Iterables.isEmpty(errorInfo.getCycleInfo()), errorInfo);
+      Preconditions.checkState(cause != null || !errorInfo.getCycleInfo().isEmpty(), errorInfo);
 
       if (errorKey.argument() instanceof AspectValueKey) {
         // We skip Aspects in the keepGoing case; the failures should already have been reported to
@@ -584,7 +582,7 @@ public final class SkyframeBuildView {
       ConfiguredTargetKey label = (ConfiguredTargetKey) errorKey.argument();
       Label topLevelLabel = label.getLabel();
 
-      Iterable<Cause> rootCauses;
+      NestedSet<Cause> rootCauses;
       if (cause instanceof ConfiguredValueCreationException) {
         ConfiguredValueCreationException ctCause = (ConfiguredValueCreationException) cause;
         // Previously, the nested set was de-duplicating loading root cause labels. Now that we
@@ -592,7 +590,7 @@ public final class SkyframeBuildView {
         // order to keep backwards compatibility, we de-duplicate root cause labels here.
         // TODO(ulfjack): Remove this code once we've migrated to the BEP.
         Set<Label> loadingRootCauses = new HashSet<>();
-        for (Cause rootCause : ctCause.getRootCauses()) {
+        for (Cause rootCause : ctCause.getRootCauses().toList()) {
           if (rootCause instanceof LoadingFailedCause) {
             hasLoadingError = true;
             loadingRootCauses.add(rootCause.getLabel());
@@ -606,20 +604,22 @@ public final class SkyframeBuildView {
           }
         }
         rootCauses = ctCause.getRootCauses();
-      } else if (!Iterables.isEmpty(errorInfo.getCycleInfo())) {
+      } else if (!errorInfo.getCycleInfo().isEmpty()) {
         Label analysisRootCause = maybeGetConfiguredTargetCycleCulprit(
             topLevelLabel, errorInfo.getCycleInfo());
-        rootCauses = analysisRootCause != null
-            ? ImmutableList.of(new LabelCause(analysisRootCause, "Dependency cycle"))
-            // TODO(ulfjack): We need to report the dependency cycle here. How?
-            : ImmutableList.of();
+        rootCauses =
+            analysisRootCause != null
+                ? NestedSetBuilder.create(
+                    Order.STABLE_ORDER, new LabelCause(analysisRootCause, "Dependency cycle"))
+                // TODO(ulfjack): We need to report the dependency cycle here. How?
+                : NestedSetBuilder.emptySet(Order.STABLE_ORDER);
       } else if (cause instanceof ActionConflictException) {
         ((ActionConflictException) cause).reportTo(eventHandler);
         // TODO(ulfjack): Report the action conflict.
-        rootCauses = ImmutableList.of();
+        rootCauses = NestedSetBuilder.emptySet(Order.STABLE_ORDER);
       } else {
         // TODO(ulfjack): Report something!
-        rootCauses = ImmutableList.of();
+        rootCauses = NestedSetBuilder.emptySet(Order.STABLE_ORDER);
       }
       if (keepGoing) {
         eventHandler.handle(
@@ -873,8 +873,11 @@ public final class SkyframeBuildView {
     return skyframeExecutor.getActionKeyContext();
   }
 
-  private class ConfiguredTargetValueProgressReceiver
+  private final class ConfiguredTargetValueProgressReceiver
       extends EvaluationProgressReceiver.NullEvaluationProgressReceiver {
+    private final Set<SkyKey> evaluatedConfiguredTargets = Sets.newConcurrentHashSet();
+    private final AtomicInteger evaluatedActionCount = new AtomicInteger();
+
     @Override
     public void invalidated(SkyKey skyKey, InvalidationState state) {
       if (skyKey.functionName().equals(SkyFunctions.CONFIGURED_TARGET)) {
@@ -919,6 +922,11 @@ public final class SkyframeBuildView {
           && value instanceof AspectValue) {
         evaluatedActionCount.addAndGet(((AspectValue) value).getNumActions());
       }
+    }
+
+    public void reset() {
+      evaluatedConfiguredTargets.clear();
+      evaluatedActionCount.set(0);
     }
   }
 }

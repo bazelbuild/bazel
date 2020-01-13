@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.android;
 
-import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
@@ -82,7 +81,7 @@ public class AndroidDeviceScriptFixture implements RuleConfiguredTargetFactory {
     if (cmd == null) {
       // The fact that there is only one file and that it has the right extension is enforced by the
       // rule definition.
-      return Iterables.getOnlyElement(script.getProvider(FileProvider.class).getFilesToBuild());
+      return script.getProvider(FileProvider.class).getFilesToBuild().getSingleton();
     } else {
       return writeFixtureScript(ruleContext, cmd);
     }

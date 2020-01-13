@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.AbstractFileWriteAction;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.util.Fingerprint;
 import java.io.IOException;
@@ -54,7 +55,11 @@ final class InstrumentedFileManifestAction extends AbstractFileWriteAction {
 
   @VisibleForTesting
   InstrumentedFileManifestAction(ActionOwner owner, NestedSet<Artifact> files, Artifact output) {
-    super(owner, /*inputs=*/Artifact.NO_ARTIFACTS, output, /*makeExecutable=*/false);
+    super(
+        owner,
+        /*inputs=*/ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+        output,
+        /*makeExecutable=*/ false);
     this.files = files;
   }
 
@@ -65,7 +70,7 @@ final class InstrumentedFileManifestAction extends AbstractFileWriteAction {
       public void writeOutputFile(OutputStream out) throws IOException {
         // Sort the exec paths before writing them out.
         String[] fileNames =
-            Iterables.toArray(Iterables.transform(files, TO_EXEC_PATH), String.class);
+            Iterables.toArray(Iterables.transform(files.toList(), TO_EXEC_PATH), String.class);
         Arrays.sort(fileNames);
         try (Writer writer = new OutputStreamWriter(out, ISO_8859_1)) {
           for (String name : fileNames) {
@@ -81,7 +86,7 @@ final class InstrumentedFileManifestAction extends AbstractFileWriteAction {
   protected void computeKey(ActionKeyContext actionKeyContext, Fingerprint fp) {
     fp.addString(GUID);
     // Not sorting here is probably cheaper, though it might lead to unnecessary re-execution.
-    fp.addStrings(Iterables.transform(files, TO_EXEC_PATH));
+    fp.addStrings(Iterables.transform(files.toList(), TO_EXEC_PATH));
   }
 
   /**

@@ -39,6 +39,8 @@ import com.google.devtools.build.lib.actions.MissingInputFileException;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.actions.cache.DigestUtils;
 import com.google.devtools.build.lib.actions.util.TestAction.DummyAction;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.NullEventHandler;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileStatusWithDigestAdapter;
@@ -234,7 +236,7 @@ public class TreeArtifactMetadataTest extends ArtifactFunctionTestCase {
             execPath,
             ALL_OWNER,
             SpecialArtifactType.TREE);
-    actions.add(new DummyAction(ImmutableList.<Artifact>of(), output));
+    actions.add(new DummyAction(NestedSetBuilder.emptySet(Order.STABLE_ORDER), output));
     FileSystemUtils.createDirectoryAndParents(fullPath);
     return output;
   }
@@ -258,8 +260,7 @@ public class TreeArtifactMetadataTest extends ArtifactFunctionTestCase {
                       actionKeyContext,
                       ImmutableList.copyOf(actions),
                       ALL_OWNER,
-                      /*outputFiles=*/ null),
-                  /*nonceVersion=*/ null)));
+                      /*outputFiles=*/ null))));
     }
   }
 

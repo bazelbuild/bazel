@@ -51,7 +51,7 @@ function test_build_with_aapt2() {
   setup_android_sdk_support
   create_android_binary
 
-  assert_build //java/bazel:bin --android_aapt=aapt2
+  assert_build //java/bazel:bin
 }
 
 run_suite "aapt2 integration test"

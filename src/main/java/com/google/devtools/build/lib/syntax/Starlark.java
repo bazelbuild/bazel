@@ -19,6 +19,8 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkInterfaceUtils;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.util.Pair;
+import com.google.errorprone.annotations.CheckReturnValue;
+import com.google.errorprone.annotations.FormatMethod;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -28,8 +30,7 @@ import javax.annotation.Nullable;
  * The Starlark class defines the most important entry points, constants, and functions needed by
  * all clients of the Starlark interpreter.
  */
-// TODO(adonovan): move these here:
-// len, str, iterate, equal, compare, getattr, index, slice, parse, exec, eval, and so on.
+// TODO(adonovan): move these here: equal, compare, getattr, index, parse, exec, eval, and so on.
 public final class Starlark {
 
   private Starlark() {} // uninstantiable
@@ -154,7 +155,7 @@ public final class Starlark {
     if (x instanceof StarlarkIterable) {
       return (Iterable<?>) x;
     }
-    throw new EvalException(null, "type '" + EvalUtils.getDataTypeName(x) + "' is not iterable");
+    throw errorf("type '%s' is not iterable", type(x));
   }
 
   /**
@@ -193,6 +194,11 @@ public final class Starlark {
     }
   }
 
+  /** Returns the name of the type of a value as if by the Starlark expression {@code type(x)}. */
+  public static String type(Object x) {
+    return EvalUtils.getDataTypeName(x, false);
+  }
+
   /** Returns the string form of a value as if by the Starlark expression {@code str(x)}. */
   public static String str(Object x) {
     return Printer.getPrinter().str(x).toString();
@@ -213,6 +219,158 @@ public final class Starlark {
     return Printer.getPrinter().formatWithList(pattern, arguments).toString();
   }
 
+  /** Returns a slice of a sequence as if by the Starlark operation {@code x[start:stop:step]}. */
+  public static Object slice(
+      Mutability mu, Object x, Object startObj, Object stopObj, Object stepObj)
+      throws EvalException {
+    int n;
+    if (x instanceof String) {
+      n = ((String) x).length();
+    } else if (x instanceof Sequence) {
+      n = ((Sequence) x).size();
+    } else {
+      throw errorf("invalid slice operand: %s", type(x));
+    }
+
+    int start;
+    int stop;
+    int step;
+
+    // step
+    if (stepObj == NONE) {
+      step = 1;
+    } else {
+      step = toInt(stepObj, "slice step");
+      if (step == 0) {
+        throw errorf("slice step cannot be zero");
+      }
+    }
+
+    // start, stop
+    if (step > 0) {
+      // positive stride: default indices are [0:n].
+      if (startObj == NONE) {
+        start = 0;
+      } else {
+        start = EvalUtils.toIndex(toInt(startObj, "start index"), n);
+      }
+
+      if (stopObj == NONE) {
+        stop = n;
+      } else {
+        stop = EvalUtils.toIndex(toInt(stopObj, "stop index"), n);
+      }
+
+      if (stop < start) {
+        stop = start; // => empty result
+      }
+
+    } else {
+      // negative stride: default indices are effectively [n-1:-1],
+      // though to get this effect using explicit indices requires
+      // [n-1:-1-n:-1] because of the treatment of negative values.
+      if (startObj == NONE) {
+        start = n - 1;
+      } else {
+        start = toInt(startObj, "start index");
+        if (start < 0) {
+          start += n;
+        }
+        if (start >= n) {
+          start = n - 1;
+        }
+      }
+
+      if (stopObj == NONE) {
+        stop = -1;
+      } else {
+        stop = toInt(stopObj, "stop index");
+        if (stop < 0) {
+          stop += n;
+        }
+        if (stop < -1) {
+          stop = -1;
+        }
+      }
+
+      if (start < stop) {
+        start = stop; // => empty result
+      }
+    }
+
+    // slice operation
+    if (x instanceof String) {
+      return StringModule.slice((String) x, start, stop, step);
+    } else {
+      return ((Sequence<?>) x).getSlice(mu, start, stop, step);
+    }
+  }
+
+  static int toInt(Object x, String name) throws EvalException {
+    if (x instanceof Integer) {
+      return (Integer) x;
+    }
+    throw errorf("got %s for %s, want int", type(x), name);
+  }
+
+  /**
+   * Calls the function-like value {@code fn} in the specified thread, passing it the given
+   * positional and named arguments, as if by the Starlark expression {@code fn(*args, **kwargs)}.
+   */
+  public static Object call(
+      StarlarkThread thread,
+      Object fn,
+      List<Object> args,
+      Map<String, Object> kwargs)
+      throws EvalException, InterruptedException {
+    Object[] named = new Object[2 * kwargs.size()];
+    int i = 0;
+    for (Map.Entry<String, Object> e : kwargs.entrySet()) {
+      named[i++] = e.getKey();
+      named[i++] = e.getValue();
+    }
+    return fastcall(thread, fn, args.toArray(), named);
+  }
+
+  /**
+   * Calls the function-like value {@code fn} in the specified thread, passing it the given
+   * positional and named arguments in the "fastcall" array representation.
+   */
+  public static Object fastcall(
+      StarlarkThread thread, Object fn, Object[] positional, Object[] named)
+      throws EvalException, InterruptedException {
+    StarlarkCallable callable;
+    if (fn instanceof StarlarkCallable) {
+      callable = (StarlarkCallable) fn;
+    } else {
+      // @SkylarkCallable(selfCall)?
+      MethodDescriptor desc =
+          CallUtils.getSelfCallMethodDescriptor(thread.getSemantics(), fn.getClass());
+      if (desc == null) {
+        throw errorf("'%s' object is not callable", type(fn));
+      }
+      callable = new BuiltinCallable(fn, desc.getName(), desc);
+    }
+
+    thread.push(callable);
+    try {
+      return callable.fastcall(thread, thread.getCallerLocation(), positional, named);
+    } finally {
+      thread.pop();
+    }
+  }
+
+  /**
+   * Returns a new EvalException with no location and an error message produced by Java-style string
+   * formatting ({@code String.format(format, args)}). Use {@code errorf("%s", msg)} to produce an
+   * error message from a non-constant expression {@code msg}.
+   */
+  @FormatMethod
+  @CheckReturnValue // don't forget to throw it
+  public static EvalException errorf(String format, Object... args) {
+    return new EvalException(null, String.format(format, args));
+  }
+
   /**
    * Adds to the environment {@code env} all {@code StarlarkCallable}-annotated fields and methods
    * of value {@code v}. The class of {@code v} must have or inherit a {@code SkylarkModule} or
@@ -228,7 +386,12 @@ public final class Starlark {
     // TODO(adonovan): logically this should be a parameter.
     StarlarkSemantics semantics = StarlarkSemantics.DEFAULT_SEMANTICS;
     for (String name : CallUtils.getMethodNames(semantics, v.getClass())) {
-      env.put(name, CallUtils.getBuiltinCallable(semantics, v, name));
+      // We use the 2-arg (desc=null) BuiltinCallable constructor instead of passing
+      // the descriptor that CallUtils.getMethod would return,
+      // because DEFAULT_SEMANTICS is probably incorrect for the call.
+      // The effect is that the default semantics determine which methods appear in
+      // env, but the thread's semantics determine which method calls succeed.
+      env.put(name, new BuiltinCallable(v, name));
     }
   }
 
@@ -243,6 +406,32 @@ public final class Starlark {
       throw new IllegalArgumentException(cls.getName() + " is not annotated with @SkylarkModule");
     }
     env.put(annot.name(), v);
+  }
+
+  /**
+   * Checks the {@code positional} and {@code named} arguments supplied to an implementation of
+   * {@link StarlarkCallable#fastcall} to ensure they match the {@code signature}. It returns an
+   * array of effective parameter values corresponding to the parameters of the signature. Newly
+   * allocated values (e.g. a {@code **kwargs} dict) use the Mutability {@code mu}.
+   *
+   * <p>If the function has optional parameters, their default values must be supplied by {@code
+   * defaults}; see {@link BaseFunction#getDefaultValues} for details.
+   *
+   * <p>The caller is responsible for accessing the correct element and casting to an appropriate
+   * type.
+   *
+   * <p>On failure, it throws an EvalException incorporating {@code func.toString()}.
+   */
+  public static Object[] matchSignature(
+      FunctionSignature signature,
+      StarlarkCallable func, // only used in error messages
+      @Nullable Tuple<Object> defaults,
+      @Nullable Mutability mu,
+      Object[] positional,
+      Object[] named)
+      throws EvalException {
+    // TODO(adonovan): move implementation here.
+    return BaseFunction.matchSignature(signature, func, defaults, mu, positional, named);
   }
 
   // TODO(adonovan):

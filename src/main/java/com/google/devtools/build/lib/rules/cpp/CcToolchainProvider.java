@@ -865,68 +865,6 @@ public final class CcToolchainProvider extends ToolchainInfo
     return toolchainIdentifier.contains("llvm");
   }
 
-  /**
-   * WARNING: This method is only added to allow incremental migration of existing users. Please do
-   * not use in new code. Will be removed soon as part of the new Skylark API to the C++ toolchain.
-   *
-   * Returns the execution path to the linker binary to use for this build. Relative paths are
-   * relative to the execution root.
-   */
-  @Override
-  public String getLdExecutableForSkylark() {
-    PathFragment ldExecutable = getToolPathFragmentOrNull(CppConfiguration.Tool.LD);
-    return ldExecutable != null ? ldExecutable.getPathString() : "";
-  }
-
-  /**
-   * WARNING: This method is only added to allow incremental migration of existing users. Please do
-   * not use in new code. Will be removed soon as part of the new Skylark API to the C++ toolchain.
-   *
-   * Returns the path to the GNU binutils 'objcopy' binary to use for this build. (Corresponds to
-   * $(OBJCOPY) in make-dbg.) Relative paths are relative to the execution root.
-   */
-  @Override
-  public String getObjCopyExecutableForSkylark() {
-    PathFragment objCopyExecutable = getToolPathFragmentOrNull(Tool.OBJCOPY);
-    return objCopyExecutable != null ? objCopyExecutable.getPathString() : "";
-  }
-
-  @Override
-  public String getCppExecutableForSkylark() {
-    PathFragment cppExecutable = getToolPathFragmentOrNull(Tool.GCC);
-    return cppExecutable != null ? cppExecutable.getPathString() : "";
-  }
-
-  @Override
-  public String getCpreprocessorExecutableForSkylark() {
-    PathFragment cpreprocessorExecutable = getToolPathFragmentOrNull(Tool.CPP);
-    return cpreprocessorExecutable != null ? cpreprocessorExecutable.getPathString() : "";
-  }
-
-  @Override
-  public String getNmExecutableForSkylark() {
-    PathFragment nmExecutable = getToolPathFragmentOrNull(Tool.NM);
-    return nmExecutable != null ? nmExecutable.getPathString() : "";
-  }
-
-  @Override
-  public String getObjdumpExecutableForSkylark() {
-    PathFragment objdumpExecutable = getToolPathFragmentOrNull(Tool.OBJDUMP);
-    return objdumpExecutable != null ? objdumpExecutable.getPathString() : "";
-  }
-
-  @Override
-  public String getArExecutableForSkylark() {
-    PathFragment arExecutable = getToolPathFragmentOrNull(Tool.AR);
-    return arExecutable != null ? arExecutable.getPathString() : "";
-  }
-
-  @Override
-  public String getStripExecutableForSkylark() {
-    PathFragment stripExecutable = getToolPathFragmentOrNull(Tool.STRIP);
-    return stripExecutable != null ? stripExecutable.getPathString() : "";
-  }
-
   // Not all of CcToolchainProvider is exposed to Skylark, which makes implementing deep equality
   // impossible: if Java-only parts are considered, the behavior is surprising in Skylark, if they
   // are not, the behavior is surprising in Java. Thus, object identity it is.

@@ -30,7 +30,9 @@ import com.google.devtools.build.lib.syntax.StarlarkValue;
         "A root for files. The roots are the directories containing files, and they are mapped "
             + "together into a single directory tree to form the execution environment.")
 public interface FileRootApi extends StarlarkValue {
-  @SkylarkCallable(name = "path", structField = true,
+  @SkylarkCallable(
+      name = "path",
+      structField = true,
       doc = "Returns the relative path from the exec root to the actual root.")
-  public String getExecPathString();
+  String getExecPathString();
 }

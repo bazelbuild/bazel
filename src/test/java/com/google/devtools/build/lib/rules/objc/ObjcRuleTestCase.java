@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.rules.objc;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.getFirstArtifactEndingWith;
-import static com.google.devtools.build.lib.rules.objc.CompilationSupport.AUTOMATIC_SDK_FRAMEWORKS;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.HEADER;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.INCLUDE;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.MODULE_MAP;
@@ -34,7 +33,6 @@ import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CommandAction;
-import com.google.devtools.build.lib.actions.ExecutionInfoSpecifier;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
@@ -266,6 +264,25 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
     super.useConfiguration(args);
   }
 
+  protected void useConfigurationWithCustomXcode(String... args) throws Exception {
+    ImmutableList<String> extraArgs = MockObjcSupport.requiredObjcCrosstoolFlagsNoXcodeConfig();
+    args = Arrays.copyOf(args, args.length + extraArgs.size());
+    for (int i = 0; i < extraArgs.size(); i++) {
+      args[(args.length - extraArgs.size()) + i] = extraArgs.get(i);
+    }
+    super.useConfiguration(args);
+  }
+
+  /** Asserts that an action specifies the given requirement. */
+  protected void assertHasRequirement(Action action, String executionRequirement) {
+    assertThat(action.getExecutionInfo()).containsKey(executionRequirement);
+  }
+
+  /** Asserts that an action does not specify the given requirement. */
+  protected void assertNotHasRequirement(Action action, String executionRequirement) {
+    assertThat(action.getExecutionInfo()).doesNotContainKey(executionRequirement);
+  }
+
   /**
    * Returns the arguments to pass to clang for specifying module map artifact location and
    * module name.
@@ -364,7 +381,7 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
             .add("-ObjC")
             .addAll(
                 Interspersing.beforeEach(
-                    "-framework", SdkFramework.names(AUTOMATIC_SDK_FRAMEWORKS)))
+                    "-framework", SdkFramework.names(CompilationSupport.AUTOMATIC_SDK_FRAMEWORKS)))
             .addAll(Interspersing.beforeEach("-framework", frameworkPathBaseNames.build()))
             .add("-filelist")
             .add(filelistArtifact.getExecPathString())
@@ -447,8 +464,8 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
    * Asserts that the given action can specify execution requirements, and requires execution on
    * darwin.
    */
-  protected void assertRequiresDarwin(ExecutionInfoSpecifier action) {
-    assertThat(action.getExecutionInfo()).containsKey(ExecutionRequirements.REQUIRES_DARWIN);
+  protected void assertRequiresDarwin(Action action) {
+    assertHasRequirement(action, ExecutionRequirements.REQUIRES_DARWIN);
   }
 
   protected ConfiguredTarget addBinWithTransitiveDepOnFrameworkImport() throws Exception {
@@ -1777,25 +1794,9 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
         .isEqualTo("a.o");
   }
 
-  protected void checkCustomModuleMapNotPropagatedByTargetUnderTest(
-      RuleType ruleType) throws Exception {
-    checkCustomModuleMap(ruleType, false);
-  }
-
-  protected void checkCustomModuleMapPropagatedByTargetUnderTest(
-      RuleType ruleType) throws Exception {
-    checkCustomModuleMap(ruleType, true);
-  }
-
-  private void checkCustomModuleMap(RuleType ruleType, boolean targetUnderTestShouldPropagate)
-      throws Exception {
-    useConfiguration(
-        "--apple_platform_type=ios",
-        "--experimental_objc_enable_module_maps",
-        "--incompatible_strict_objc_module_maps");
-    ruleType.scratchTarget(scratch, "deps", "['//z:a']");
-    scratch.file("z/a.m");
-    scratch.file("z/a.h");
+  protected void checkCustomModuleMap(RuleType ruleType) throws Exception {
+    useConfiguration("--experimental_objc_enable_module_maps");
+    ruleType.scratchTarget(scratch, "deps", "['//z:testModuleMap']");
     scratch.file("z/b.m");
     scratch.file("z/b.h");
     scratch.file("y/module.modulemap", "module my_module_b { export *\n header b.h }");
@@ -1806,12 +1807,6 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
         "hdrs = ['b.h'],",
         "srcs = ['b.m'],",
         "module_map = '//y:mm'",
-        ")",
-        "objc_library(",
-        "name = 'a',",
-        "hdrs = ['a.h'],",
-        "srcs = ['a.m'],",
-        "deps = [':testModuleMap']",
         ")");
     scratch.file("y/BUILD",
         "filegroup(",
@@ -1823,30 +1818,12 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
     assertThat(compileActionA.getArguments()).doesNotContain("-fmodule-maps");
     assertThat(compileActionA.getArguments()).doesNotContain("-fmodule-name");
 
-    String x8664Genfiles =
-        configurationGenfiles("x86_64", ConfigurationDistinguisher.APPLE_CROSSTOOL, null);
-
-    // The target with the module map should propagate it to its direct dependers...
     ObjcProvider provider = providerForTarget("//z:testModuleMap");
     assertThat(Artifact.toExecPaths(provider.get(MODULE_MAP)))
         .containsExactly("y/module.modulemap");
 
-    // ...and the target depending on //z:testModuleMap will see it (as well as its own)...
-    provider = providerForTarget("//z:a");
-    assertThat(Artifact.toExecPaths(provider.get(MODULE_MAP)))
-        .containsExactly(x8664Genfiles + "/z/a.modulemaps/module.modulemap", "y/module.modulemap");
-
     provider = providerForTarget("//x:x");
-    if (targetUnderTestShouldPropagate) {
-      // ...and //x:x should propagate //z:a but not //z:testModuleMap.
-      assertThat(Artifact.toExecPaths(provider.get(MODULE_MAP)))
-          .containsExactly(
-              x8664Genfiles + "/x/x.modulemaps/module.modulemap",
-              x8664Genfiles + "/z/a.modulemaps/module.modulemap");
-    } else {
-      // ...but //x:x should not see them.
-      assertThat(Artifact.toExecPaths(provider.get(MODULE_MAP))).isEmpty();
-    }
+    assertThat(Artifact.toExecPaths(provider.get(MODULE_MAP))).contains("y/module.modulemap");
   }
 
   /**

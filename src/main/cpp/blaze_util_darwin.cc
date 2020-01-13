@@ -124,7 +124,7 @@ void WarnFilesystemType(const blaze_util::Path &output_base) {
   }
 }
 
-string GetSelfPath() {
+string GetSelfPath(const char* argv0) {
   char pathbuf[PROC_PIDPATHINFO_MAXSIZE] = {};
   int len = proc_pidpath(getpid(), pathbuf, sizeof(pathbuf));
   if (len == 0) {
@@ -151,13 +151,14 @@ void SetScheduling(bool batch_cpu_scheduling, int io_nice_level) {
   // stubbed out so we can compile for Darwin.
 }
 
-blaze_util::Path GetProcessCWD(int pid) {
+std::unique_ptr<blaze_util::Path> GetProcessCWD(int pid) {
   struct proc_vnodepathinfo info = {};
   if (proc_pidinfo(
           pid, PROC_PIDVNODEPATHINFO, 0, &info, sizeof(info)) != sizeof(info)) {
-    return blaze_util::Path();
+    return nullptr;
   }
-  return blaze_util::Path(string(info.pvi_cdir.vip_path));
+  return std::unique_ptr<blaze_util::Path>(
+      new blaze_util::Path(string(info.pvi_cdir.vip_path)));
 }
 
 bool IsSharedLibrary(const string &filename) {

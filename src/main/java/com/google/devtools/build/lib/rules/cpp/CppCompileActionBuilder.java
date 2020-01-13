@@ -25,10 +25,9 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.collect.CollectionUtils;
-import com.google.devtools.build.lib.collect.IterablesChain;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.RuleErrorConsumer;
 import com.google.devtools.build.lib.rules.cpp.CcCommon.CoptsFilter;
@@ -78,7 +77,7 @@ public class CppCompileActionBuilder {
   private final boolean codeCoverageEnabled;
   @Nullable private String actionName;
   private ImmutableList<Artifact> builtinIncludeFiles;
-  private Iterable<Artifact> inputsForInvalidation = ImmutableList.of();
+  private NestedSet<Artifact> inputsForInvalidation = NestedSetBuilder.emptySet(Order.STABLE_ORDER);
   private Iterable<Artifact> additionalPrunableHeaders = ImmutableList.of();
   private ImmutableList<PathFragment> builtinIncludeDirectories;
   // New fields need to be added to the copy constructor.
@@ -368,9 +367,11 @@ public class CppCompileActionBuilder {
         .build();
   }
 
-  Iterable<Artifact> buildInputsForInvalidation() {
-    return IterablesChain.concat(
-        this.inputsForInvalidation, ccCompilationContext.getTransitiveCompilationPrerequisites());
+  NestedSet<Artifact> buildInputsForInvalidation() {
+    return NestedSetBuilder.<Artifact>stableOrder()
+        .addTransitive(this.inputsForInvalidation)
+        .addTransitive(ccCompilationContext.getTransitiveCompilationPrerequisites())
+        .build();
   }
 
   private boolean useHeaderModules() {
@@ -438,7 +439,12 @@ public class CppCompileActionBuilder {
     return actionClassId;
   }
 
-  public CppCompileActionBuilder addMandatoryInputs(Iterable<Artifact> artifacts) {
+  public CppCompileActionBuilder addMandatoryInputs(NestedSet<Artifact> artifacts) {
+    mandatoryInputsBuilder.addTransitive(artifacts);
+    return this;
+  }
+
+  public CppCompileActionBuilder addMandatoryInputs(List<Artifact> artifacts) {
     mandatoryInputsBuilder.addAll(artifacts);
     return this;
   }
@@ -580,9 +586,8 @@ public class CppCompileActionBuilder {
   }
 
   public CppCompileActionBuilder setInputsForInvalidation(
-      Iterable<Artifact> inputsForInvalidation) {
-    this.inputsForInvalidation =
-        Preconditions.checkNotNull(CollectionUtils.makeImmutable(inputsForInvalidation));
+      NestedSet<Artifact> inputsForInvalidation) {
+    this.inputsForInvalidation = inputsForInvalidation;
     return this;
   }
 

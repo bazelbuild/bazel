@@ -14,106 +14,67 @@
 package com.google.devtools.build.lib.syntax;
 
 import com.google.common.base.Joiner;
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Ordering;
 import com.google.common.collect.Sets;
-import com.google.devtools.build.lib.events.Location;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
+import java.util.Arrays;
+import java.util.Set;
 import javax.annotation.Nullable;
 
 /**
- * A base class for Skylark functions, whether builtin or user-defined.
+ * BaseFunction is an abstract base class to simplify the task of defining a subclass of
+ * StarlarkCallable.
  *
- * <p>Nomenclature: We call "Parameters" the formal parameters of a function definition. We call
- * "Arguments" the actual values supplied at the call site.
- *
- * <p>The outer calling convention is like that of python3, with named parameters that can be
- * mandatory or optional, and also be positional or named-only, and rest parameters for extra
- * positional and keyword arguments. Callers supply a {@code List<Object>} args for positional
- * arguments and a {@code Map<String, Object>} for keyword arguments, where positional arguments
- * will be resolved first, then keyword arguments, with errors for a clash between the two, for
- * missing mandatory parameter, or for unexpected extra positional or keyword argument in absence of
- * rest parameter.
- *
- * <p>The inner calling convention is to pass the underlying method an {@code Object[]} of the
- * type-checked argument values, one per expected parameter, parameters being sorted as documented
- * in {@link FunctionSignature}.
- *
- * <p>The function may provide default values for optional parameters not provided by the caller.
- * These default values can be null if there are no optional parameters or for builtin functions,
- * but not for user-defined functions that have optional parameters.
+ * <p>Subclasses of BaseFunction provide a {@code FunctionSignature} and an optional tuple of
+ * default values for optional parameters, and BaseFunction implements the functionality of {@link
+ * #toString}, {@link #repr}, and {@link #isImmutable}. The signature may also be used by
+ * documentation tools.
  */
 public abstract class BaseFunction implements StarlarkCallable {
 
-  // TODO(adonovan): Turn fields into abstract methods. Make processArguments a static function
-  // with multiple parameters, instead of a "mix-in" that accesses instance fields.
-
-  private final FunctionSignature signature;
-
   /**
-   * The default values of optional parameters. Both the list and its elements may be null. A null
-   * list is equivalent to a list containing only null elements.
+   * Returns the signature of this function. This does not affect argument validation; it is only
+   * for documentation and error messages. However, subclasses may choose to pass it to {@link
+   * Starlark#matchSignature}.
    */
-  // TODO(adonovan): investigate why null elements are permitted. I would expect one non-null
-  // element per optional parameter, without exception.
-  @Nullable private final List<Object> defaultValues;
-
-  /** Returns the signature of this function. */
-  public FunctionSignature getSignature() {
-    return signature;
-  }
+  public abstract FunctionSignature getSignature();
 
   /**
-   * Returns the tuple of parameter default values of this function value. May be null and may
-   * contain null elements.
+   * Returns the optional tuple of default values for optional parameters. For example, the defaults
+   * for {@code def f(a, b=1, *, c, d=2)} would be {@code (1, 2)}. May return null if the function
+   * has no optional parameters.
+   *
+   * <p>As with {@code getSignature}, this method does not affect argument validation; it is only
+   * for documentation and error messages. However, subclasses may choose to pass it to {@link
+   * Starlark#matchSignature}.
    */
   @Nullable
-  public List<Object> getDefaultValues() {
-    return defaultValues;
+  public Tuple<Object> getDefaultValues() {
+    return null;
   }
 
-  /** Constructs a BaseFunction with a given signature and default values. */
-  protected BaseFunction(FunctionSignature signature, @Nullable List<Object> defaultValues) {
-    this.signature = Preconditions.checkNotNull(signature);
-    this.defaultValues = defaultValues;
-    if (defaultValues != null) {
-      Preconditions.checkArgument(defaultValues.size() == signature.numOptionals());
-    }
-  }
-
-  /** Constructs a BaseFunction with a given signature without default values. */
-  protected BaseFunction(FunctionSignature signature) {
-    this(signature, /*defaultValues=*/ null);
-  }
-
-  /**
-   * The size of the array required by the callee.
-   */
-  protected int getArgArraySize() {
-    return signature.numParameters();
-  }
-
-  /**
-   * Process the caller-provided arguments into an array suitable for the callee (this function).
-   */
-  public Object[] processArguments(
-      List<Object> args,
-      @Nullable Map<String, Object> kwargs,
-      @Nullable Location loc,
-      @Nullable StarlarkThread thread)
+  // TODO(adonovan): This has nothing to do with BaseFunction.
+  // Move it to Starlark.matchSignature (in a follow-up, for ease of review).
+  static Object[] matchSignature(
+      FunctionSignature signature,
+      StarlarkCallable func, // only for use in error messages
+      Tuple<Object> defaults,
+      @Nullable Mutability mu,
+      Object[] positional,
+      Object[] named)
       throws EvalException {
+    // TODO(adonovan): simplify this function. Combine cases 1 and 2 without loss of efficiency.
+    // TODO(adonovan): reduce the verbosity of errors. Printing func.toString is often excessive.
+    // Make the error messages consistent in form.
+    // TODO(adonovan): report an error if there were missing values in 'defaults'.
 
-    Object[] arguments = new Object[getArgArraySize()];
+    Object[] arguments = new Object[signature.numParameters()];
 
     ImmutableList<String> names = signature.getParameterNames();
 
     // Note that this variable will be adjusted down if there are extra positionals,
     // after these extra positionals are dumped into starParam.
-    int numPositionalArgs = args.size();
+    int numPositionalArgs = positional.length;
 
     int numMandatoryPositionalParams = signature.numMandatoryPositionals();
     int numOptionalPositionalParams = signature.numOptionalPositionals();
@@ -130,205 +91,127 @@ public abstract class BaseFunction implements StarlarkCallable {
     if (hasVarargs) {
       // Nota Bene: we collect extra positional arguments in a (tuple,) rather than a [list],
       // and this is actually the same as in Python.
-      int starParamIndex = numNamedParams;
+      Object varargs;
       if (numPositionalArgs > numPositionalParams) {
-        arguments[starParamIndex] =
-            Tuple.copyOf(args.subList(numPositionalParams, numPositionalArgs));
+        varargs =
+            Tuple.wrap(Arrays.copyOfRange(positional, numPositionalParams, numPositionalArgs));
         numPositionalArgs = numPositionalParams; // clip numPositionalArgs
       } else {
-        arguments[starParamIndex] = Tuple.empty();
+        varargs = Tuple.empty();
       }
+      arguments[numNamedParams] = varargs;
     } else if (numPositionalArgs > numPositionalParams) {
-      throw new EvalException(loc,
+      throw new EvalException(
+          null,
           numPositionalParams > 0
-          ? "too many (" + numPositionalArgs + ") positional arguments in call to " + this
-          : this + " does not accept positional arguments, but got " + numPositionalArgs);
+              ? "too many (" + numPositionalArgs + ") positional arguments in call to " + func
+              : func + " does not accept positional arguments, but got " + numPositionalArgs);
     }
 
     for (int i = 0; i < numPositionalArgs; i++) {
-      arguments[i] = args.get(i);
+      arguments[i] = positional[i];
     }
 
     // (2) handle keyword arguments
-    if (kwargs == null || kwargs.isEmpty()) {
+    if (named.length == 0) {
       // Easy case (2a): there are no keyword arguments.
       // All arguments were positional, so check we had enough to fill all mandatory positionals.
       if (numPositionalArgs < numMandatoryPositionalParams) {
-        throw new EvalException(loc, String.format(
+        throw Starlark.errorf(
             "insufficient arguments received by %s (got %s, expected at least %s)",
-            this, numPositionalArgs, numMandatoryPositionalParams));
+            func, numPositionalArgs, numMandatoryPositionalParams);
       }
       // We had no named argument, so fail if there were mandatory named-only parameters
       if (numMandatoryNamedOnlyParams > 0) {
-        throw new EvalException(loc, String.format(
-            "missing mandatory keyword arguments in call to %s", this));
+        throw Starlark.errorf("missing mandatory keyword arguments in call to %s", func);
       }
       // Fill in defaults for missing optional parameters, that were conveniently grouped together,
       // thanks to the absence of mandatory named-only parameters as checked above.
-      if (defaultValues != null) {
-        int j = numPositionalArgs - numMandatoryPositionalParams;
+      if (defaults != null) {
         int endOptionalParams = numPositionalParams + numOptionalNamedOnlyParams;
         for (int i = numPositionalArgs; i < endOptionalParams; i++) {
-          arguments[i] = defaultValues.get(j++);
+          arguments[i] = defaults.get(i - numMandatoryPositionalParams);
         }
       }
       // If there's a kwarg, it's empty.
       if (hasKwargs) {
-        arguments[kwargIndex] = Dict.of(thread.mutability());
+        arguments[kwargIndex] = Dict.of(mu);
       }
-    } else if (hasKwargs && numNamedParams == 0) {
-      // Easy case (2b): there are no named parameters, but there is a **kwargs.
-      // Therefore all keyword arguments go directly to the kwarg.
-      // Note that *args and **kwargs themselves don't count as named.
-      // Also note that no named parameters means no mandatory parameters that weren't passed,
-      // and no missing optional parameters for which to use a default. Thus, no loops.
-      // NB: not 2a means kwarg isn't null
-      arguments[kwargIndex] = Dict.copyOf(thread.mutability(), kwargs);
     } else {
-      // Hard general case (2c): some keyword arguments may correspond to named parameters
-      Dict<String, Object> kwArg = hasKwargs ? Dict.of(thread.mutability()) : Dict.empty();
+      // general case (2b): some keyword arguments may correspond to named parameters
+      Dict<String, Object> kwargs = hasKwargs ? Dict.of(mu) : null;
 
-      // For nicer stabler error messages, start by checking against
-      // an argument being provided both as positional argument and as keyword argument.
-      ArrayList<String> bothPosKey = new ArrayList<>();
-      for (int i = 0; i < numPositionalArgs; i++) {
-        String name = names.get(i);
-        if (kwargs.containsKey(name)) {
-          bothPosKey.add(name);
-        }
-      }
-      if (!bothPosKey.isEmpty()) {
-        throw new EvalException(loc,
-            String.format("argument%s '%s' passed both by position and by name in call to %s",
-                (bothPosKey.size() > 1 ? "s" : ""), Joiner.on("', '").join(bothPosKey), this));
-      }
-
-      // Accept the arguments that were passed.
-      for (Map.Entry<String, Object> entry : kwargs.entrySet()) {
-        String keyword = entry.getKey();
-        Object value = entry.getValue();
+      // Accept the named arguments that were passed.
+      for (int i = 0; i < named.length; i += 2) {
+        String keyword = (String) named[i]; // safe
+        Object value = named[i + 1];
         int pos = names.indexOf(keyword); // the list should be short, so linear scan is OK.
         if (0 <= pos && pos < numNamedParams) {
+          if (arguments[pos] != null) {
+            throw Starlark.errorf("%s got multiple values for parameter '%s'", func, keyword);
+          }
           arguments[pos] = value;
         } else {
           if (!hasKwargs) {
-            List<String> unexpected = Ordering.natural().sortedCopy(Sets.difference(
-                kwargs.keySet(), ImmutableSet.copyOf(names.subList(0, numNamedParams))));
-            throw new EvalException(loc, String.format("unexpected keyword%s '%s' in call to %s",
-                    unexpected.size() > 1 ? "s" : "", Joiner.on("', '").join(unexpected), this));
+            Set<String> unexpected = Sets.newHashSet();
+            for (int j = 0; j < named.length; j += 2) {
+              unexpected.add((String) named[j]);
+            }
+            unexpected.removeAll(names.subList(0, numNamedParams));
+            // TODO(adonovan): do spelling check.
+            throw Starlark.errorf(
+                "unexpected keyword%s '%s' in call to %s",
+                unexpected.size() > 1 ? "s" : "",
+                Joiner.on("', '").join(Ordering.natural().sortedCopy(unexpected)),
+                func);
           }
-          if (kwArg.containsKey(keyword)) {
-            throw new EvalException(loc, String.format(
-                "%s got multiple values for keyword argument '%s'", this, keyword));
+          int sz = kwargs.size();
+          kwargs.put(keyword, value, null);
+          if (kwargs.size() == sz) {
+            throw Starlark.errorf(
+                "%s got multiple values for keyword argument '%s'", func, keyword);
           }
-          kwArg.put(keyword, value, loc);
         }
       }
       if (hasKwargs) {
-        arguments[kwargIndex] = Dict.copyOf(thread.mutability(), kwArg);
+        arguments[kwargIndex] = kwargs;
       }
 
-      // Check that all mandatory parameters were filled in general case 2c.
+      // Check that all mandatory parameters were filled in general case 2b.
       // Note: it's possible that numPositionalArgs > numMandatoryPositionalParams but that's OK.
       for (int i = numPositionalArgs; i < numMandatoryPositionalParams; i++) {
         if (arguments[i] == null) {
-          throw new EvalException(loc, String.format(
-              "missing mandatory positional argument '%s' while calling %s",
-              names.get(i), this));
+          throw Starlark.errorf(
+              "missing mandatory positional argument '%s' while calling %s", names.get(i), func);
         }
       }
 
       int endMandatoryNamedOnlyParams = numPositionalParams + numMandatoryNamedOnlyParams;
       for (int i = numPositionalParams; i < endMandatoryNamedOnlyParams; i++) {
         if (arguments[i] == null) {
-          throw new EvalException(loc, String.format(
-              "missing mandatory named-only argument '%s' while calling %s",
-              names.get(i), this));
+          throw Starlark.errorf(
+              "missing mandatory named-only argument '%s' while calling %s", names.get(i), func);
         }
       }
 
       // Get defaults for those parameters that weren't passed.
-      if (defaultValues != null) {
+      if (defaults != null) {
         for (int i = Math.max(numPositionalArgs, numMandatoryPositionalParams);
              i < numPositionalParams; i++) {
           if (arguments[i] == null) {
-            arguments[i] = defaultValues.get(i - numMandatoryPositionalParams);
+            arguments[i] = defaults.get(i - numMandatoryPositionalParams);
           }
         }
         int numMandatoryParams = numMandatoryPositionalParams + numMandatoryNamedOnlyParams;
         for (int i = numMandatoryParams + numOptionalPositionalParams; i < numNamedParams; i++) {
           if (arguments[i] == null) {
-            arguments[i] = defaultValues.get(i - numMandatoryParams);
+            arguments[i] = defaults.get(i - numMandatoryParams);
           }
         }
       }
-    } // End of general case 2c for argument passing.
+    } // End of general case 2b for argument passing.
 
     return arguments;
-  }
-
-  /**
-   * The outer calling convention to a BaseFunction.
-   *
-   * @param args a list of all positional arguments (as in *args)
-   * @param kwargs a map for key arguments (as in **kwargs)
-   * @param ast the expression for this function's definition
-   * @param thread the StarlarkThread in the function is called
-   * @return the value resulting from evaluating the function with the given arguments
-   * @throws EvalException-s containing source information.
-   */
-  public Object call(
-      List<Object> args,
-      @Nullable Map<String, Object> kwargs,
-      @Nullable FuncallExpression ast,
-      StarlarkThread thread)
-      throws EvalException, InterruptedException {
-    // ast is null when called from Java (as there's no Skylark call site).
-    Location loc = ast == null ? Location.BUILTIN : ast.getLocation();
-
-    Object[] arguments = processArguments(args, kwargs, loc, thread);
-    return callWithArgArray(arguments, ast, thread, getLocation());
-  }
-
-  /**
-   * Inner call to a BaseFunction subclasses need to @Override this method.
-   *
-   * @param args an array of argument values sorted as per the signature.
-   * @param ast the source code for the function if user-defined
-   * @param thread the Starlark thread for the call
-   * @throws InterruptedException may be thrown in the function implementations.
-   */
-  // Don't make it abstract, so that subclasses may be defined that @Override the outer call() only.
-  protected Object call(Object[] args, @Nullable FuncallExpression ast, StarlarkThread thread)
-      throws EvalException, InterruptedException {
-    throw new EvalException(
-        (ast == null) ? Location.BUILTIN : ast.getLocation(),
-        String.format("function %s not implemented", getName()));
-  }
-
-  /**
-   * The outer calling convention to a BaseFunction. This function expects all arguments to have
-   * been resolved into positional ones.
-   *
-   * @param ast the expression for this function's definition
-   * @param thread the StarlarkThread in the function is called
-   * @return the value resulting from evaluating the function with the given arguments
-   * @throws EvalException-s containing source information.
-   */
-  // TODO(adonovan): make this private. The sole external caller has a location but no ast.
-  public Object callWithArgArray(
-      Object[] arguments, @Nullable FuncallExpression ast, StarlarkThread thread, Location loc)
-      throws EvalException, InterruptedException {
-    try {
-      if (Callstack.enabled) {
-        Callstack.push(this);
-      }
-      return call(arguments, ast, thread);
-    } finally {
-      if (Callstack.enabled) {
-        Callstack.pop();
-      }
-    }
   }
 
   /**
@@ -339,12 +222,13 @@ public abstract class BaseFunction implements StarlarkCallable {
     StringBuilder sb = new StringBuilder();
     sb.append(getName());
     sb.append('(');
-    signature.toStringBuilder(sb, this::printDefaultValue);
+    getSignature().toStringBuilder(sb, this::printDefaultValue);
     sb.append(')');
     return sb.toString();
   }
 
   private String printDefaultValue(int i) {
+    Tuple<Object> defaultValues = getDefaultValues();
     Object v = defaultValues != null ? defaultValues.get(i) : null;
     return v != null ? Starlark.repr(v) : null;
   }
@@ -357,10 +241,5 @@ public abstract class BaseFunction implements StarlarkCallable {
   @Override
   public void repr(Printer printer) {
     printer.append("<function " + getName() + ">");
-  }
-
-  @Override
-  public Location getLocation() {
-    return Location.BUILTIN;
   }
 }

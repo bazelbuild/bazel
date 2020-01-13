@@ -563,8 +563,8 @@ public abstract class Args implements CommandLineArgsApi {
 
     @Override
     public ImmutableSet<Artifact> getDirectoryArtifacts() {
-      for (Iterable<?> collection : potentialDirectoryArtifacts) {
-        scanForDirectories(collection);
+      for (NestedSet<?> collection : potentialDirectoryArtifacts) {
+        scanForDirectories(collection.toList());
       }
       potentialDirectoryArtifacts.clear();
       return ImmutableSet.copyOf(directoryArtifacts);

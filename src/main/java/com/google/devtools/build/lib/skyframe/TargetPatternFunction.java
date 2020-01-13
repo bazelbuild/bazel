@@ -44,13 +44,18 @@ public class TargetPatternFunction implements SkyFunction {
   @Override
   public SkyValue compute(SkyKey key, Environment env) throws TargetPatternFunctionException,
       InterruptedException {
-    BlacklistedPackagePrefixesValue blacklisted =
-        (BlacklistedPackagePrefixesValue) env.getValue(BlacklistedPackagePrefixesValue.key());
-    if (env.valuesMissing()) {
-      return null;
-    }
     TargetPatternValue.TargetPatternKey patternKey =
         ((TargetPatternValue.TargetPatternKey) key.argument());
+    TargetPattern parsedPattern = patternKey.getParsedPattern();
+
+    BlacklistedPackagePrefixesValue blacklist =
+        (BlacklistedPackagePrefixesValue)
+            env.getValue(BlacklistedPackagePrefixesValue.key(parsedPattern.getRepository()));
+    if (blacklist == null) {
+      return null;
+    }
+    ImmutableSet<PathFragment> blacklistedPatterns = blacklist.getPatterns();
+
     ResolvedTargets<Target> resolvedTargets;
     try {
       EnvironmentBackedRecursivePackageProvider provider =
@@ -61,7 +66,6 @@ public class TargetPatternFunction implements SkyFunction {
               env.getListener(),
               patternKey.getPolicy(),
               MultisetSemaphore.<PackageIdentifier>unbounded());
-      TargetPattern parsedPattern = patternKey.getParsedPattern();
       ImmutableSet<PathFragment> excludedSubdirectories = patternKey.getExcludedSubdirectories();
       ResolvedTargets.Builder<Target> resolvedTargetsBuilder = ResolvedTargets.builder();
       BatchCallback<Target, RuntimeException> callback =
@@ -75,7 +79,7 @@ public class TargetPatternFunction implements SkyFunction {
           };
       parsedPattern.eval(
           resolver,
-          blacklisted.getPatterns(),
+          blacklistedPatterns,
           excludedSubdirectories,
           callback,
           // The exception type here has to match the one on the BatchCallback. Since the callback

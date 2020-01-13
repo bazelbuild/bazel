@@ -307,14 +307,14 @@ public class LcovMergerTestUtils {
   static void assertTracefile1(SourceFileCoverage sourceFile) {
     Map<String, Integer> lineNumbers = sourceFile.getLineNumbers();
     assertThat(lineNumbers.size()).isEqualTo(3);
-    assertThat(lineNumbers.keySet()).containsAllOf(FUNC_1, FUNC_2, FUNC_3);
+    assertThat(lineNumbers.keySet()).containsAtLeast(FUNC_1, FUNC_2, FUNC_3);
     assertThat(lineNumbers.get(FUNC_1)).isEqualTo(FUNC_1_LINE_NR);
     assertThat(lineNumbers.get(FUNC_2)).isEqualTo(FUNC_2_LINE_NR);
     assertThat(lineNumbers.get(FUNC_3)).isEqualTo(FUNC_3_LINE_NR);
 
     Map<String, Integer> functionsExecution = sourceFile.getFunctionsExecution();
     assertThat(functionsExecution.size()).isEqualTo(3);
-    assertThat(functionsExecution.keySet()).containsAllOf(FUNC_1, FUNC_2, FUNC_3);
+    assertThat(functionsExecution.keySet()).containsAtLeast(FUNC_1, FUNC_2, FUNC_3);
     assertThat(functionsExecution.get(FUNC_1)).isEqualTo(FUNC_1_NR_EXECUTED_LINES_TRACEFILE1);
     assertThat(functionsExecution.get(FUNC_2)).isEqualTo(FUNC_2_NR_EXECUTED_LINES_TRACEFILE1);
     assertThat(functionsExecution.get(FUNC_3)).isEqualTo(FUNC_3_NR_EXECUTED_LINES_TRACEFILE1);
@@ -328,14 +328,14 @@ public class LcovMergerTestUtils {
   static void assertTracefile2(SourceFileCoverage sourceFile) {
     Map<String, Integer> lineNumbers = sourceFile.getLineNumbers();
     assertThat(lineNumbers.size()).isEqualTo(3);
-    assertThat(lineNumbers.keySet()).containsAllOf(FUNC_1, FUNC_2, FUNC_3);
+    assertThat(lineNumbers.keySet()).containsAtLeast(FUNC_1, FUNC_2, FUNC_3);
     assertThat(lineNumbers.get(FUNC_1)).isEqualTo(FUNC_1_LINE_NR);
     assertThat(lineNumbers.get(FUNC_2)).isEqualTo(FUNC_2_LINE_NR);
     assertThat(lineNumbers.get(FUNC_3)).isEqualTo(FUNC_3_LINE_NR);
 
     Map<String, Integer> functionsExecution = sourceFile.getFunctionsExecution();
     assertThat(functionsExecution.size()).isEqualTo(3);
-    assertThat(functionsExecution.keySet()).containsAllOf(FUNC_1, FUNC_2, FUNC_3);
+    assertThat(functionsExecution.keySet()).containsAtLeast(FUNC_1, FUNC_2, FUNC_3);
     assertThat(functionsExecution.get(FUNC_1)).isEqualTo(FUNC_1_NR_EXECUTED_LINES_TRACEFILE2);
     assertThat(functionsExecution.get(FUNC_2)).isEqualTo(FUNC_2_NR_EXECECUTED_LINES_TRACEFILE2);
     assertThat(functionsExecution.get(FUNC_3)).isEqualTo(FUNC_3_NR_EXECUTED_LINES_TRACEFILE2);
@@ -348,7 +348,7 @@ public class LcovMergerTestUtils {
 
   static void assertMergedLineNumbers(TreeMap<String, Integer> lineNumbers) {
     assertThat(lineNumbers.size()).isEqualTo(3);
-    assertThat(lineNumbers.keySet()).containsAllOf(FUNC_1, FUNC_2, FUNC_3);
+    assertThat(lineNumbers.keySet()).containsAtLeast(FUNC_1, FUNC_2, FUNC_3);
     assertThat(lineNumbers.get(FUNC_1)).isEqualTo(FUNC_1_LINE_NR);
     assertThat(lineNumbers.get(FUNC_2)).isEqualTo(FUNC_2_LINE_NR);
     assertThat(lineNumbers.get(FUNC_3)).isEqualTo(FUNC_3_LINE_NR);
@@ -356,7 +356,7 @@ public class LcovMergerTestUtils {
 
   static void assertMergedFunctionsExecution(TreeMap<String, Integer> functionsExecution) {
     assertThat(functionsExecution.size()).isEqualTo(3);
-    assertThat(functionsExecution.keySet()).containsAllOf(FUNC_1, FUNC_2, FUNC_3);
+    assertThat(functionsExecution.keySet()).containsAtLeast(FUNC_1, FUNC_2, FUNC_3);
     assertThat(functionsExecution.get(FUNC_1))
         .isEqualTo(FUNC_1_NR_EXECUTED_LINES_TRACEFILE1 + FUNC_1_NR_EXECUTED_LINES_TRACEFILE2);
     assertThat(functionsExecution.get(FUNC_2))

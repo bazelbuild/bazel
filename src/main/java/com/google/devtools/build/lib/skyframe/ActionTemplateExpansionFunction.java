@@ -165,7 +165,9 @@ public class ActionTemplateExpansionFunction implements SkyFunction {
     }
 
     return Actions.findArtifactPrefixConflicts(
-        new MapBasedImmutableActionGraph(generatingActions), artifactPathMap);
+        new MapBasedImmutableActionGraph(generatingActions),
+        artifactPathMap,
+        /*strictConflictChecks=*/ true);
   }
 
   private static class MapBasedImmutableActionGraph implements ActionGraph {

@@ -15,17 +15,22 @@ package com.google.devtools.build.lib.syntax;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.events.Location;
-import com.google.devtools.build.lib.profiler.Profiler;
-import com.google.devtools.build.lib.profiler.ProfilerTask;
-import com.google.devtools.build.lib.profiler.SilentCloseable;
 
 /** A StarlarkFunction is the function value created by a Starlark {@code def} statement. */
 public final class StarlarkFunction extends BaseFunction {
 
   private final String name;
+  private final FunctionSignature signature;
   private final Location location;
   private final ImmutableList<Statement> statements;
   private final Module module; // a function closes over its defining module
+  private final Tuple<Object> defaultValues;
+
+  // isToplevel indicates that this is the <toplevel> function containing
+  // top-level statements of a file. It causes assignments to unresolved
+  // identifiers to update the module, not the lexical frame.
+  // TODO(adonovan): remove this hack when identifier resolution is accurate.
+  boolean isToplevel;
 
   // TODO(adonovan): make this private. The CodecTests should go through interpreter to instantiate
   // such things.
@@ -33,14 +38,25 @@ public final class StarlarkFunction extends BaseFunction {
       String name,
       Location location,
       FunctionSignature signature,
-      ImmutableList<Object> defaultValues,
+      Tuple<Object> defaultValues,
       ImmutableList<Statement> statements,
       Module module) {
-    super(signature, defaultValues);
     this.name = name;
+    this.signature = signature;
     this.location = location;
     this.statements = statements;
     this.module = module;
+    this.defaultValues = defaultValues;
+  }
+
+  @Override
+  public Tuple<Object> getDefaultValues() {
+    return defaultValues;
+  }
+
+  @Override
+  public FunctionSignature getSignature() {
+    return signature;
   }
 
   @Override
@@ -53,6 +69,9 @@ public final class StarlarkFunction extends BaseFunction {
     return name;
   }
 
+  /** @deprecated Do not assume function values are represented as syntax trees. */
+  // TODO(adonovan): the only non-test use is to obtain the function's doc string. Add API for that.
+  @Deprecated
   public ImmutableList<Statement> getStatements() {
     return statements;
   }
@@ -62,34 +81,26 @@ public final class StarlarkFunction extends BaseFunction {
   }
 
   @Override
-  protected Object call(Object[] arguments, FuncallExpression ast, StarlarkThread thread)
+  public Object fastcall(StarlarkThread thread, Location loc, Object[] positional, Object[] named)
       throws EvalException, InterruptedException {
     if (thread.mutability().isFrozen()) {
-      throw new EvalException(getLocation(), "Trying to call in frozen environment");
+      throw Starlark.errorf("Trying to call in frozen environment");
     }
     if (thread.isRecursiveCall(this)) {
-      throw new EvalException(
-          getLocation(),
-          String.format(
-              "Recursion was detected when calling '%s' from '%s'",
-              getName(), thread.getCurrentFunction().getName()));
+      throw Starlark.errorf("function '%s' called recursively", name);
     }
 
-    Location loc = ast == null ? Location.BUILTIN : ast.getLocation();
-    thread.push(this, loc, ast);
-    try (SilentCloseable c =
-        Profiler.instance().profile(ProfilerTask.STARLARK_USER_FN, getName())) {
-      // Registering the functions's arguments as variables in the local StarlarkThread
-      // foreach loop is not used to avoid iterator overhead
-      ImmutableList<String> names = getSignature().getParameterNames();
-      for (int i = 0; i < names.size(); ++i) {
-        thread.update(names.get(i), arguments[i]);
-      }
-
-      return Eval.execStatements(thread, statements);
-    } finally {
-      thread.pop();
+    // Compute the effective parameter values
+    // and update the corresponding variables.
+    Object[] arguments =
+        Starlark.matchSignature(
+            getSignature(), this, getDefaultValues(), thread.mutability(), positional, named);
+    ImmutableList<String> names = getSignature().getParameterNames();
+    for (int i = 0; i < names.size(); ++i) {
+      thread.updateLexical(names.get(i), arguments[i]);
     }
+
+    return Eval.execFunctionBody(thread, statements, isToplevel);
   }
 
   @Override

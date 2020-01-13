@@ -19,6 +19,7 @@ import com.android.resources.ResourceType;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.jimfs.Jimfs;
+import com.google.devtools.build.android.resources.Visibility;
 import java.nio.file.FileSystem;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -37,9 +38,12 @@ public final class PlaceholderRTxtWriterTest {
     Path rTxt = fs.getPath("r.txt");
     PlaceholderRTxtWriter rTxtWriter = PlaceholderRTxtWriter.create(rTxt);
 
-    rTxtWriter.acceptSimpleResource(DependencyInfo.UNKNOWN, ResourceType.ARRAY, "x");
-    rTxtWriter.acceptSimpleResource(DependencyInfo.UNKNOWN, ResourceType.STRING, "y");
-    rTxtWriter.acceptSimpleResource(DependencyInfo.UNKNOWN, ResourceType.STRING, "z");
+    rTxtWriter.acceptSimpleResource(
+        DependencyInfo.UNKNOWN, Visibility.UNKNOWN, ResourceType.ARRAY, "x");
+    rTxtWriter.acceptSimpleResource(
+        DependencyInfo.UNKNOWN, Visibility.UNKNOWN, ResourceType.STRING, "y");
+    rTxtWriter.acceptSimpleResource(
+        DependencyInfo.UNKNOWN, Visibility.UNKNOWN, ResourceType.STRING, "z");
     rTxtWriter.flush();
 
     assertThat(Files.readAllLines(rTxt))
@@ -53,6 +57,7 @@ public final class PlaceholderRTxtWriterTest {
 
     rTxtWriter.acceptStyleableResource(
         DependencyInfo.UNKNOWN,
+        Visibility.UNKNOWN,
         FullyQualifiedName.of(
             FullyQualifiedName.DEFAULT_PACKAGE,
             /*qualifiers=*/ ImmutableList.of(),

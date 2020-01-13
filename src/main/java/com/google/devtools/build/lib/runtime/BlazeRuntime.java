@@ -804,10 +804,12 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
    * handler is registered.
    */
   public static final class RemoteExceptionHandler implements SubscriberExceptionHandler {
+    static final String FAILURE_MSG = "Failure in EventBus subscriber";
+
     @Override
     public void handleException(Throwable exception, SubscriberExceptionContext context) {
-      logger.log(Level.SEVERE, "Failure in EventBus subscriber", exception);
-      LoggingUtil.logToRemote(Level.SEVERE, "Failure in EventBus subscriber.", exception);
+      logger.log(Level.SEVERE, FAILURE_MSG, exception);
+      LoggingUtil.logToRemote(Level.SEVERE, FAILURE_MSG, exception);
     }
   }
 

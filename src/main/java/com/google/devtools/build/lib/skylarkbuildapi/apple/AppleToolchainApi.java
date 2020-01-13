@@ -27,29 +27,25 @@ public interface AppleToolchainApi<AppleConfigurationApiT extends AppleConfigura
     extends StarlarkValue {
 
   @SkylarkCallable(
-    name = "sdk_dir",
-    doc = "Returns the platform directory inside of Xcode for a given configuration."
-  )
-  public String sdkDirConstant();
+      name = "sdk_dir",
+      doc = "Returns the platform directory inside of Xcode for a given configuration.")
+  String sdkDirConstant();
 
   @SkylarkCallable(
-    name = "developer_dir",
-    doc = "Returns the Developer directory inside of Xcode for a given configuration."
-  )
-  public String developerDirConstant();
+      name = "developer_dir",
+      doc = "Returns the Developer directory inside of Xcode for a given configuration.")
+  String developerDirConstant();
 
   @SkylarkCallable(
-    name = "platform_developer_framework_dir",
-    doc = "Returns the platform frameworks directory inside of Xcode for a given configuration.",
-    parameters = {
-      @Param(
-          name = "configuration",
-          positional = true,
-          named = false,
-          type = AppleConfigurationApi.class,
-          doc = "The apple configuration fragment."
-      )
-    }
-  )
-  public String platformFrameworkDirFromConfig(AppleConfigurationApiT configuration);
+      name = "platform_developer_framework_dir",
+      doc = "Returns the platform frameworks directory inside of Xcode for a given configuration.",
+      parameters = {
+        @Param(
+            name = "configuration",
+            positional = true,
+            named = false,
+            type = AppleConfigurationApi.class,
+            doc = "The apple configuration fragment.")
+      })
+  String platformFrameworkDirFromConfig(AppleConfigurationApiT configuration);
 }

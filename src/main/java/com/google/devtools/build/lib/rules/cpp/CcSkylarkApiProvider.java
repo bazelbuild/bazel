@@ -85,7 +85,7 @@ public final class CcSkylarkApiProvider extends SkylarkApiProvider
         getInfo().get(CcInfo.PROVIDER).getCcCompilationContext();
     return ccCompilationContext == null
         ? ImmutableList.<String>of()
-        : ccCompilationContext.getDefines();
+        : ccCompilationContext.getDefines().toList();
   }
 
   @Override
@@ -136,7 +136,7 @@ public final class CcSkylarkApiProvider extends SkylarkApiProvider
         getInfo().get(CcInfo.PROVIDER).getCcCompilationContext();
 
     ImmutableList.Builder<String> options = ImmutableList.builder();
-    for (String define : ccCompilationContext.getDefines()) {
+    for (String define : ccCompilationContext.getDefines().toList()) {
       options.add("-D" + define);
     }
     for (PathFragment path : ccCompilationContext.getSystemIncludeDirs()) {

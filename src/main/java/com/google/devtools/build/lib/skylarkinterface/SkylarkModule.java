@@ -61,8 +61,10 @@ public @interface SkylarkModule {
   /** A title for the documentation page generated for this type. */
   String title() default "";
 
-  String doc();
+  /** Module documentation in HTML. May be empty only if {@code !documented()}. */
+  String doc() default "";
 
+  /** Whether the module should appear in the documentation. */
   boolean documented() default true;
 
   /**

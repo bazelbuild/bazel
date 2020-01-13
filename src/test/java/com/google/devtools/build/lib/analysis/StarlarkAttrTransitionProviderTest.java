@@ -26,7 +26,7 @@ import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Provider;
-import com.google.devtools.build.lib.packages.SkylarkInfo.MapBackedSkylarkInfo;
+import com.google.devtools.build.lib.packages.SkylarkInfo;
 import com.google.devtools.build.lib.packages.SkylarkProvider;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.packages.util.BazelMockAndroidSupport;
@@ -150,11 +150,11 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
         "my_rule(name = 'test', dep = ':dep')",
         "simple_rule(name = 'dep')");
 
-    MapBackedSkylarkInfo splitAttr =
-        (MapBackedSkylarkInfo)
+    SkylarkInfo splitAttr =
+        (SkylarkInfo)
             getMyInfoFromTarget(getConfiguredTarget("//test/skylark:test")).getValue("split_attr");
 
-    assertThat(splitAttr.hasField("dep")).isFalse();
+    assertThat(splitAttr.getValue("dep")).isNull();
     assertThat(splitAttr.getFieldNames()).isEmpty();
   }
 

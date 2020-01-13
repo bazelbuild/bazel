@@ -84,6 +84,7 @@ public class LocalConfigPlatformFunctionTest {
           new Object[] {OS.LINUX, "@platforms//os:linux"},
           new Object[] {OS.DARWIN, "@platforms//os:osx"},
           new Object[] {OS.FREEBSD, "@platforms//os:freebsd"},
+          new Object[] {OS.OPENBSD, "@platforms//os:openbsd"},
           new Object[] {OS.WINDOWS, "@platforms//os:windows"});
     }
 

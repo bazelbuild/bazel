@@ -117,7 +117,7 @@ public final class CcCompilationHelper {
     FdoContext.BranchFdoProfile branchFdoProfile = fdoContext.getBranchFdoProfile();
     // Optimization phase
     if (branchFdoProfile != null) {
-      if (!Iterables.isEmpty(getAuxiliaryFdoInputs(fdoContext))) {
+      if (!getAuxiliaryFdoInputs(fdoContext).isEmpty()) {
         if (featureConfiguration.isEnabled(CppRuleClasses.AUTOFDO)
             || featureConfiguration.isEnabled(CppRuleClasses.XBINARYFDO)) {
           variablesBuilder.put(
@@ -136,8 +136,8 @@ public final class CcCompilationHelper {
   }
 
   /** Returns the auxiliary files that need to be added to the {@link CppCompileAction}. */
-  private static Iterable<Artifact> getAuxiliaryFdoInputs(FdoContext fdoContext) {
-    ImmutableSet.Builder<Artifact> auxiliaryInputs = ImmutableSet.builder();
+  private static NestedSet<Artifact> getAuxiliaryFdoInputs(FdoContext fdoContext) {
+    NestedSetBuilder<Artifact> auxiliaryInputs = NestedSetBuilder.stableOrder();
 
     if (fdoContext.getPrefetchHintsArtifact() != null) {
       auxiliaryInputs.add(fdoContext.getPrefetchHintsArtifact());
@@ -260,7 +260,7 @@ public final class CcCompilationHelper {
   private final CcToolchainProvider ccToolchain;
   private final FdoContext fdoContext;
   private boolean generateModuleMap = true;
-  private String purpose = null;
+  private String purpose = "cc_compilation_middleman";
   private boolean generateNoPicAction;
   private boolean generatePicAction;
   private boolean isCodeCoverageEnabled = true;
@@ -344,6 +344,7 @@ public final class CcCompilationHelper {
     setLooseIncludeDirs(common.getLooseIncludeDirs());
     addSystemIncludeDirs(common.getSystemIncludeDirs());
     setCoptsFilter(common.getCoptsFilter());
+    setPurpose(common.getPurpose(semantics));
     return this;
   }
 
@@ -395,7 +396,15 @@ public final class CcCompilationHelper {
    * Add the corresponding files as public textual header files. These files will not be compiled
    * into a target's header module, but will be made visible as textual includes to dependent rules.
    */
-  public CcCompilationHelper addPublicTextualHeaders(Iterable<Artifact> textualHeaders) {
+  public CcCompilationHelper addPublicTextualHeaders(NestedSet<Artifact> textualHeaders) {
+    return addPublicTextualHeaders(textualHeaders.toList());
+  }
+
+  /**
+   * Add the corresponding files as public textual header files. These files will not be compiled
+   * into a target's header module, but will be made visible as textual includes to dependent rules.
+   */
+  public CcCompilationHelper addPublicTextualHeaders(List<Artifact> textualHeaders) {
     Iterables.addAll(this.publicTextualHeaders, textualHeaders);
     for (Artifact header : textualHeaders) {
       this.additionalExportedHeaders.add(header.getExecPath());
@@ -557,6 +566,15 @@ public final class CcCompilationHelper {
    * Adds the given defines to the compiler command line of this target as well as its dependent
    * targets.
    */
+  public CcCompilationHelper addDefines(NestedSet<String> defines) {
+    this.defines.addAll(defines.toList());
+    return this;
+  }
+
+  /**
+   * Adds the given defines to the compiler command line of this target as well as its dependent
+   * targets.
+   */
   public CcCompilationHelper addDefines(Iterable<String> defines) {
     Iterables.addAll(this.defines, defines);
     return this;
@@ -590,6 +608,15 @@ public final class CcCompilationHelper {
    * Adds the given directories to the system include directories (they are passed with {@code
    * "-isystem"} to the compiler); these are also passed to dependent rules.
    */
+  public CcCompilationHelper addSystemIncludeDirs(NestedSet<PathFragment> systemIncludeDirs) {
+    this.systemIncludeDirs.addAll(systemIncludeDirs.toList());
+    return this;
+  }
+
+  /**
+   * Adds the given directories to the system include directories (they are passed with {@code
+   * "-isystem"} to the compiler); these are also passed to dependent rules.
+   */
   public CcCompilationHelper addSystemIncludeDirs(Iterable<PathFragment> systemIncludeDirs) {
     Iterables.addAll(this.systemIncludeDirs, systemIncludeDirs);
     return this;
@@ -599,8 +626,26 @@ public final class CcCompilationHelper {
    * Adds the given directories to the quote include directories (they are passed with {@code
    * "-iquote"} to the compiler); these are also passed to dependent rules.
    */
+  public CcCompilationHelper addQuoteIncludeDirs(NestedSet<PathFragment> quoteIncludeDirs) {
+    this.quoteIncludeDirs.addAll(quoteIncludeDirs.toList());
+    return this;
+  }
+
+  /**
+   * Adds the given directories to the quote include directories (they are passed with {@code
+   * "-iquote"} to the compiler); these are also passed to dependent rules.
+   */
   public CcCompilationHelper addQuoteIncludeDirs(Iterable<PathFragment> quoteIncludeDirs) {
     Iterables.addAll(this.quoteIncludeDirs, quoteIncludeDirs);
+    return this;
+  }
+
+  /**
+   * Adds the given directories to the include directories (they are passed with {@code "-I"} to the
+   * compiler); these are also passed to dependent rules.
+   */
+  public CcCompilationHelper addIncludeDirs(NestedSet<PathFragment> includeDirs) {
+    this.includeDirs.addAll(includeDirs.toList());
     return this;
   }
 
@@ -946,7 +991,7 @@ public final class CcCompilationHelper {
     mergeToolchainDependentCcCompilationContext(ccToolchain, ccCompilationContextBuilder);
 
     // But defines come after those inherited from deps.
-    ccCompilationContextBuilder.addDefines(defines);
+    ccCompilationContextBuilder.addDefines(NestedSetBuilder.wrap(Order.LINK_ORDER, defines));
 
     ccCompilationContextBuilder.addNonTransitiveDefines(localDefines);
 
@@ -988,7 +1033,7 @@ public final class CcCompilationHelper {
       boolean compiled =
           featureConfiguration.isEnabled(CppRuleClasses.HEADER_MODULES)
               || featureConfiguration.isEnabled(CppRuleClasses.COMPILE_ALL_MODULES);
-      Iterable<CppModuleMap> dependentModuleMaps = collectModuleMaps();
+      List<CppModuleMap> dependentModuleMaps = collectModuleMaps();
 
       if (generateModuleMap) {
         Optional<Artifact> umbrellaHeader = cppModuleMap.getUmbrellaHeader();
@@ -1062,8 +1107,8 @@ public final class CcCompilationHelper {
    * @param purpose must be a string which is suitable for use as a filename. A single rule may have
    *     many middlemen with distinct purposes.
    */
-  public CcCompilationHelper setPurpose(@Nullable String purpose) {
-    this.purpose = purpose;
+  public CcCompilationHelper setPurpose(String purpose) {
+    this.purpose = Preconditions.checkNotNull(purpose);
     return this;
   }
 
@@ -1081,7 +1126,7 @@ public final class CcCompilationHelper {
   private CppModuleMapAction createModuleMapAction(
       CppModuleMap moduleMap,
       PublicHeaders publicHeaders,
-      Iterable<CppModuleMap> dependentModuleMaps,
+      List<CppModuleMap> dependentModuleMaps,
       boolean compiledModule) {
     return new CppModuleMapAction(
         actionConstructionContext.getActionOwner(),
@@ -1113,21 +1158,27 @@ public final class CcCompilationHelper {
     }
   }
 
-  private Iterable<CppModuleMap> collectModuleMaps() {
-    // Cpp module maps may be null for some rules. We filter the nulls out at the end.
+  private List<CppModuleMap> collectModuleMaps() {
+    // Cpp module maps may be null for some rules.
     List<CppModuleMap> result =
         ccCompilationContexts.stream()
             .map(CPP_DEPS_TO_MODULES)
+            .filter(Predicates.notNull())
             .collect(toCollection(ArrayList::new));
 
     if (ccToolchain != null) {
-      result.add(ccToolchain.getCcInfo().getCcCompilationContext().getCppModuleMap());
+      CppModuleMap toolchainModuleMap =
+          ccToolchain.getCcInfo().getCcCompilationContext().getCppModuleMap();
+      if (toolchainModuleMap != null) {
+        result.add(toolchainModuleMap);
+      }
     }
     for (CppModuleMap additionalCppModuleMap : additionalCppModuleMaps) {
+      // These can't be null which is enforced before adding to additionalCppModuleMaps.
       result.add(additionalCppModuleMap);
     }
 
-    return Iterables.filter(result, Predicates.notNull());
+    return result;
   }
 
   /** @return whether this target needs to generate a pic header module. */
@@ -1186,14 +1237,14 @@ public final class CcCompilationHelper {
 
     HashMap<String, Integer> count = new LinkedHashMap<>();
     HashMap<String, Integer> number = new LinkedHashMap<>();
-    for (Artifact source : sourceArtifacts) {
+    for (Artifact source : sourceArtifacts.toList()) {
       String outputName =
           FileSystemUtils.removeExtension(source.getRootRelativePath()).getBaseName();
       count.put(outputName.toLowerCase(),
           count.getOrDefault(outputName.toLowerCase(), 0) + 1);
     }
 
-    for (Artifact source : sourceArtifacts) {
+    for (Artifact source : sourceArtifacts.toList()) {
       String outputName =
           FileSystemUtils.removeExtension(source.getRootRelativePath()).getBaseName();
       if (count.getOrDefault(outputName.toLowerCase(), 0) > 1) {
@@ -1277,7 +1328,8 @@ public final class CcCompilationHelper {
     String outputNamePrefixDir = null;
     // purpose is only used by objc rules, it ends with either "_non_objc_arc" or "_objc_arc".
     // Here we use it to distinguish arc and non-arc compilation.
-    if (purpose != null) {
+    Preconditions.checkNotNull(purpose);
+    if (purpose.endsWith("_objc_arc")) {
       outputNamePrefixDir = purpose.endsWith("_non_objc_arc") ? "non_arc" : "arc";
     }
     outputNameMap = calculateOutputNameMapByType(compilationUnitSources, outputNamePrefixDir);

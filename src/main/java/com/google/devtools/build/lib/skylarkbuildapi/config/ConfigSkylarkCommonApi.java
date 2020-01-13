@@ -14,7 +14,7 @@
 
 package com.google.devtools.build.lib.skylarkbuildapi.config;
 
-import com.google.devtools.build.lib.skylarkbuildapi.ProviderApi;
+import com.google.devtools.build.lib.skylarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.syntax.StarlarkValue;
@@ -26,9 +26,8 @@ import com.google.devtools.build.lib.syntax.StarlarkValue;
 public interface ConfigSkylarkCommonApi extends StarlarkValue {
 
   @SkylarkCallable(
-    name = "FeatureFlagInfo",
-    doc = "The key used to retrieve the provider containing config_feature_flag's value.",
-    structField = true
-  )
-  public ProviderApi getConfigFeatureFlagProviderConstructor();
+      name = "FeatureFlagInfo",
+      doc = "The key used to retrieve the provider containing config_feature_flag's value.",
+      structField = true)
+  ProviderApi getConfigFeatureFlagProviderConstructor();
 }

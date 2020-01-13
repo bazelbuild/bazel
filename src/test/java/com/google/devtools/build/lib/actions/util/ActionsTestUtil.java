@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
+import com.google.devtools.build.lib.actions.ActionExecutionContext.LostInputsCheck;
 import com.google.devtools.build.lib.actions.ActionGraph;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
@@ -63,6 +64,8 @@ import com.google.devtools.build.lib.analysis.actions.SpawnActionTemplate.Output
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.Reporter;
@@ -152,10 +155,11 @@ public final class ActionsTestUtil {
         ActionInputPrefetcher.NONE,
         actionKeyContext,
         metadataHandler,
+        LostInputsCheck.NONE,
         fileOutErr,
         eventHandler,
         ImmutableMap.copyOf(clientEnv),
-        ImmutableMap.of(),
+        /*topLevelFilesets=*/ ImmutableMap.of(),
         actionGraph == null
             ? createDummyArtifactExpander()
             : ActionInputHelper.actionGraphArtifactExpander(actionGraph),
@@ -167,14 +171,15 @@ public final class ActionsTestUtil {
     DummyExecutor dummyExecutor = new DummyExecutor();
     return new ActionExecutionContext(
         dummyExecutor,
-        null,
+        /*actionInputFileCache=*/ null,
         ActionInputPrefetcher.NONE,
         new ActionKeyContext(),
-        null,
-        null,
+        /*metadataHandler=*/ null,
+        LostInputsCheck.NONE,
+        /*fileOutErr=*/ null,
         eventHandler,
-        ImmutableMap.of(),
-        ImmutableMap.of(),
+        /*clientEnv=*/ ImmutableMap.of(),
+        /*topLevelFilesets=*/ ImmutableMap.of(),
         createDummyArtifactExpander(),
         /*actionFileSystem=*/ null,
         /*skyframeDepsResult=*/ null);
@@ -194,6 +199,7 @@ public final class ActionsTestUtil {
         ActionInputPrefetcher.NONE,
         actionKeyContext,
         metadataHandler,
+        LostInputsCheck.NONE,
         fileOutErr,
         eventHandler,
         ImmutableMap.of(),
@@ -365,19 +371,28 @@ public final class ActionsTestUtil {
   public static class NullAction extends AbstractAction {
 
     public NullAction() {
-      super(NULL_ACTION_OWNER, Artifact.NO_ARTIFACTS, ImmutableList.of(DUMMY_ARTIFACT));
+      super(
+          NULL_ACTION_OWNER,
+          NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+          ImmutableList.of(DUMMY_ARTIFACT));
     }
 
     public NullAction(ActionOwner owner, Artifact... outputs) {
-      super(owner, Artifact.NO_ARTIFACTS, ImmutableList.copyOf(outputs));
+      super(owner, NestedSetBuilder.emptySet(Order.STABLE_ORDER), ImmutableList.copyOf(outputs));
     }
 
     public NullAction(Artifact... outputs) {
-      super(NULL_ACTION_OWNER, Artifact.NO_ARTIFACTS, ImmutableList.copyOf(outputs));
+      super(
+          NULL_ACTION_OWNER,
+          NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+          ImmutableList.copyOf(outputs));
     }
 
     public NullAction(List<Artifact> inputs, Artifact... outputs) {
-      super(NULL_ACTION_OWNER, inputs, ImmutableList.copyOf(outputs));
+      super(
+          NULL_ACTION_OWNER,
+          NestedSetBuilder.wrap(Order.STABLE_ORDER, inputs),
+          ImmutableList.copyOf(outputs));
     }
 
     @Override

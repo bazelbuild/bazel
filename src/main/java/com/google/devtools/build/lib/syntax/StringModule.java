@@ -18,7 +18,6 @@ import com.google.common.base.Ascii;
 import com.google.common.base.CharMatcher;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.ParamType;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
@@ -68,19 +67,36 @@ final class StringModule implements StarlarkValue {
 
   private StringModule() {}
 
+  // Returns s[start:stop:step], as if by Sequence.getSlice.
+  static String slice(String s, int start, int stop, int step) {
+    RangeList indices = new RangeList(start, stop, step);
+    int n = indices.size();
+    if (step == 1) { // common case
+      return s.substring(indices.at(0), indices.at(n));
+    } else {
+      char[] res = new char[n];
+      for (int i = 0; i < n; ++i) {
+        res[i] = s.charAt(indices.at(i));
+      }
+      return new String(res);
+    }
+  }
+
   // Emulate Python substring function
   // It converts out of range indices, and never fails
+  //
+  // TODO(adonovan): opt: avoid this function, as String.substring now allocates a copy (!)
   private static String pythonSubstring(String str, int start, Object end, String what)
       throws EvalException {
     if (start == 0 && EvalUtils.isNullOrNone(end)) {
       return str;
     }
-    start = EvalUtils.clampRangeEndpoint(start, str.length());
+    start = EvalUtils.toIndex(start, str.length());
     int stop;
     if (EvalUtils.isNullOrNone(end)) {
       stop = str.length();
     } else if (end instanceof Integer) {
-      stop = EvalUtils.clampRangeEndpoint((Integer) end, str.length());
+      stop = EvalUtils.toIndex((Integer) end, str.length());
     } else {
       throw new EvalException(
           null, "expected int for " + what + ", got " + EvalUtils.getDataTypeName(end));
@@ -112,11 +128,9 @@ final class StringModule implements StarlarkValue {
     int i = 0;
     for (Object item : items) {
       if (!(item instanceof String)) {
-        throw new EvalException(
-            null,
-            String.format(
-                "expected string for sequence element %d, got '%s'",
-                i, EvalUtils.getDataTypeName(item)));
+        throw Starlark.errorf(
+            "expected string for sequence element %d, got '%s'",
+            i, EvalUtils.getDataTypeName(item));
       }
       i++;
     }
@@ -331,13 +345,11 @@ final class StringModule implements StarlarkValue {
             defaultValue = "None",
             doc = "The maximum number of splits.")
       },
-      useStarlarkThread = true,
-      useLocation = true)
+      useStarlarkThread = true)
   public StarlarkList<String> split(
-      String self, String sep, Object maxSplitO, Location loc, StarlarkThread thread)
-      throws EvalException {
+      String self, String sep, Object maxSplitO, StarlarkThread thread) throws EvalException {
     if (sep.isEmpty()) {
-      throw new EvalException(loc, "Empty separator");
+      throw Starlark.errorf("Empty separator");
     }
     int maxSplit = Integer.MAX_VALUE;
     if (maxSplitO != Starlark.NONE) {
@@ -380,13 +392,11 @@ final class StringModule implements StarlarkValue {
             defaultValue = "None",
             doc = "The maximum number of splits.")
       },
-      useStarlarkThread = true,
-      useLocation = true)
+      useStarlarkThread = true)
   public StarlarkList<String> rsplit(
-      String self, String sep, Object maxSplitO, Location loc, StarlarkThread thread)
-      throws EvalException {
+      String self, String sep, Object maxSplitO, StarlarkThread thread) throws EvalException {
     if (sep.isEmpty()) {
-      throw new EvalException(loc, "Empty separator");
+      throw Starlark.errorf("Empty separator");
     }
     int maxSplit = Integer.MAX_VALUE;
     if (maxSplitO != Starlark.NONE) {
@@ -423,23 +433,19 @@ final class StringModule implements StarlarkValue {
             defaultValue = "unbound",
             doc = "The string to split on.")
       },
-      useStarlarkThread = true,
-      useLocation = true)
-  public Tuple<String> partition(String self, Object sep, Location loc, StarlarkThread thread)
+      useStarlarkThread = true)
+  public Tuple<String> partition(String self, Object sep, StarlarkThread thread)
       throws EvalException {
     if (sep == Starlark.UNBOUND) {
-        throw new EvalException(
-            loc,
-            "parameter 'sep' has no default value, "
-                + "for call to method partition(sep) of 'string'");
+      throw Starlark.errorf(
+          "parameter 'sep' has no default value, for call to method 'partition(sep)' of 'string'");
     } else if (!(sep instanceof String)) {
-      throw new EvalException(
-          loc,
-          "expected value of type 'string' for parameter"
-              + " 'sep', for call to method partition(sep = unbound) of 'string'");
+      throw Starlark.errorf(
+          "expected value of type 'string' for parameter 'sep', for call to method 'partition()' of"
+              + " 'string'");
     }
 
-    return partitionWrapper(self, (String) sep, true, loc);
+    return partitionWrapper(self, (String) sep, true);
   }
 
   @SkylarkCallable(
@@ -458,22 +464,19 @@ final class StringModule implements StarlarkValue {
             defaultValue = "unbound",
             doc = "The string to split on.")
       },
-      useStarlarkThread = true,
-      useLocation = true)
-  public Tuple<String> rpartition(String self, Object sep, Location loc, StarlarkThread thread)
+      useStarlarkThread = true)
+  public Tuple<String> rpartition(String self, Object sep, StarlarkThread thread)
       throws EvalException {
     if (sep == Starlark.UNBOUND) {
-        throw new EvalException(
-            loc,
-            "parameter 'sep' has no default value, "
-                + "for call to method partition(sep) of 'string'");
+      throw Starlark.errorf(
+          "parameter 'sep' has no default value, "
+              + "for call to method partition(sep) of 'string'");
     } else if (!(sep instanceof String)) {
-      throw new EvalException(
-          loc,
-          "expected value of type 'string' for parameter"
-              + " 'sep', for call to method partition(sep = unbound) of 'string'");
+      throw Starlark.errorf(
+          "expected value of type 'string' for parameter 'sep', for call to method partition(sep ="
+              + " unbound) of 'string'");
     }
-    return partitionWrapper(self, (String) sep, false, loc);
+    return partitionWrapper(self, (String) sep, false);
   }
 
   /**
@@ -490,13 +493,12 @@ final class StringModule implements StarlarkValue {
    * @param separator The string to split on
    * @param forward A flag that controls whether the input string is split around the first ({@code
    *     true}) or last ({@code false}) occurrence of the separator.
-   * @param loc The location that is used for potential exceptions
    * @return a 3-Tuple of the form (part_before_separator, separator, part_after_separator).
    */
-  private static Tuple<String> partitionWrapper(
-      String input, String separator, boolean forward, Location loc) throws EvalException {
+  private static Tuple<String> partitionWrapper(String input, String separator, boolean forward)
+      throws EvalException {
     if (separator.isEmpty()) {
-      throw new EvalException(loc, "empty separator");
+      throw Starlark.errorf("empty separator");
     }
 
     String a = "";
@@ -578,8 +580,9 @@ final class StringModule implements StarlarkValue {
       throws EvalException {
     String substr = pythonSubstring(self, start, end, msg);
     int subpos = forward ? substr.indexOf(sub) : substr.lastIndexOf(sub);
-    start = EvalUtils.clampRangeEndpoint(start, self.length());
-    return subpos < 0 ? subpos : subpos + start;
+    return subpos < 0
+        ? subpos //
+        : subpos + EvalUtils.toIndex(start, self.length());
   }
 
   private static final Pattern SPLIT_LINES_PATTERN =
@@ -649,7 +652,7 @@ final class StringModule implements StarlarkValue {
             defaultValue = "None",
             doc = "optional position before which to restrict to search.")
       })
-  public Integer invoke(String self, String sub, Integer start, Object end) throws EvalException {
+  public Integer find(String self, String sub, Integer start, Object end) throws EvalException {
     return stringFind(true, self, sub, start, end, "'end' argument to find");
   }
 
@@ -682,13 +685,12 @@ final class StringModule implements StarlarkValue {
             noneable = true,
             defaultValue = "None",
             doc = "optional position before which to restrict to search.")
-      },
-      useLocation = true)
-  public Integer rindex(String self, String sub, Integer start, Object end, Location loc)
-      throws EvalException {
+      })
+  public Integer rindex(String self, String sub, Integer start, Object end) throws EvalException {
     int res = stringFind(false, self, sub, start, end, "'end' argument to rindex");
     if (res < 0) {
-      throw new EvalException(loc, Starlark.format("substring %r not found in %r", sub, self));
+      throw Starlark.errorf(
+          "substring %s not found in %s", Starlark.repr(sub), Starlark.repr(self));
     }
     return res;
   }
@@ -722,13 +724,12 @@ final class StringModule implements StarlarkValue {
             noneable = true,
             defaultValue = "None",
             doc = "optional position before which to restrict to search.")
-      },
-      useLocation = true)
-  public Integer index(String self, String sub, Integer start, Object end, Location loc)
-      throws EvalException {
+      })
+  public Integer index(String self, String sub, Integer start, Object end) throws EvalException {
     int res = stringFind(true, self, sub, start, end, "'end' argument to index");
     if (res < 0) {
-      throw new EvalException(loc, Starlark.format("substring %r not found in %r", sub, self));
+      throw Starlark.errorf(
+          "substring %s not found in %s", Starlark.repr(sub), Starlark.repr(self));
     }
     return res;
   }
@@ -1038,13 +1039,11 @@ final class StringModule implements StarlarkValue {
               name = "kwargs",
               type = Dict.class,
               defaultValue = "{}",
-              doc = "Dictionary of arguments."),
-      useLocation = true)
-  public String format(String self, Sequence<?> args, Dict<?, ?> kwargs, Location loc)
-      throws EvalException {
+              doc = "Dictionary of arguments."))
+  public String format(String self, Sequence<?> args, Dict<?, ?> kwargs) throws EvalException {
     @SuppressWarnings("unchecked")
     List<Object> argObjects = (List<Object>) args.getImmutableList();
-    return new FormatParser(loc)
+    return new FormatParser()
         .format(self, argObjects, kwargs.getContents(String.class, Object.class, "kwargs"));
   }
 

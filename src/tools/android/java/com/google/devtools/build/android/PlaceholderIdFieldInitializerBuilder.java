@@ -14,7 +14,6 @@
 package com.google.devtools.build.android;
 
 import com.android.resources.ResourceType;
-import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -26,6 +25,7 @@ import com.google.devtools.build.android.resources.FieldInitializer;
 import com.google.devtools.build.android.resources.FieldInitializers;
 import com.google.devtools.build.android.resources.IntArrayFieldInitializer;
 import com.google.devtools.build.android.resources.IntFieldInitializer;
+import com.google.devtools.build.android.resources.Visibility;
 import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.Collection;
@@ -110,44 +110,10 @@ class PlaceholderIdFieldInitializerBuilder {
 
   private static final int APP_PACKAGE_MASK = 0x7f000000;
   private static final int ATTR_TYPE_ID = 1;
-  private static final Logger logger =
-      Logger.getLogger(PlaceholderIdFieldInitializerBuilder.class.getName());
   private static final String NORMALIZED_ANDROID_PREFIX = "android_";
 
-  /**
-   * Assign any public ids to the given idBuilder.
-   *
-   * @param nameToId where to store the final name -> id mappings
-   * @param publicIds known public resources (can contain null values, if ID isn't reserved)
-   * @param typeId the type slot for the current resource type.
-   * @return the final set of assigned resource ids (includes those without apriori assignments).
-   */
-  private static Set<Integer> assignPublicIds(
-      Map<String, Integer> nameToId, SortedMap<String, Optional<Integer>> publicIds, int typeId) {
-    LinkedHashMap<Integer, String> assignedIds = new LinkedHashMap<>();
-    int prevId = getInitialIdForTypeId(typeId);
-    for (Map.Entry<String, Optional<Integer>> entry : publicIds.entrySet()) {
-      Optional<Integer> id = entry.getValue();
-      if (id.isPresent()) {
-        prevId = id.get();
-      } else {
-        prevId = nextFreeId(prevId + 1, assignedIds.keySet());
-      }
-      String previousMapping = assignedIds.put(prevId, entry.getKey());
-      if (previousMapping != null) {
-        logger.warning(
-            String.format(
-                "Multiple entry names declared for public entry identifier 0x%x (%s and %s)",
-                prevId, previousMapping, entry.getKey()));
-      }
-      nameToId.put(entry.getKey(), prevId);
-    }
-    return assignedIds.keySet();
-  }
-
-  private static int extractTypeId(int fullID) {
-    return (fullID & 0x00FF0000) >> 16;
-  }
+  private static final Logger logger =
+      Logger.getLogger(PlaceholderIdFieldInitializerBuilder.class.getName());
 
   private static int getInitialIdForTypeId(int typeId) {
     return APP_PACKAGE_MASK | (typeId << 16);
@@ -176,9 +142,6 @@ class PlaceholderIdFieldInitializerBuilder {
   private final Map<ResourceType, SortedMap<String, DependencyInfo>> innerClasses =
       new EnumMap<>(ResourceType.class);
 
-  private final Map<ResourceType, SortedMap<String, Optional<Integer>>> publicIds =
-      new EnumMap<>(ResourceType.class);
-
   private final Map<String, Map<String, /*inlineable=*/ Boolean>> styleableAttrs =
       new LinkedHashMap<>();
 
@@ -186,30 +149,9 @@ class PlaceholderIdFieldInitializerBuilder {
     this.androidIdProvider = androidIdProvider;
   }
 
-  public void addPublicResource(ResourceType type, String name, Optional<Integer> value) {
-    SortedMap<String, Optional<Integer>> publicMappings = publicIds.get(type);
-    if (publicMappings == null) {
-      publicMappings = new TreeMap<>();
-      publicIds.put(type, publicMappings);
-    }
-    Optional<Integer> oldValue = publicMappings.put(name, value);
-    // AAPT should issue an error, but do a bit of sanity checking here just in case.
-    if (oldValue != null && !oldValue.equals(value)) {
-      // Enforce a consistent ordering on the warning message.
-      Integer lower = oldValue.orNull();
-      Integer higher = value.orNull();
-      if (Ordering.natural().compare(oldValue.orNull(), value.orNull()) > 0) {
-        lower = higher;
-        higher = oldValue.orNull();
-      }
-      logger.warning(
-          String.format(
-              "resource %s/%s has conflicting public identifiers (0x%x vs 0x%x)",
-              type, name, lower, higher));
-    }
-  }
-
-  public void addSimpleResource(DependencyInfo dependencyInfo, ResourceType type, String name) {
+  public void addSimpleResource(
+      DependencyInfo dependencyInfo, Visibility visibility, ResourceType type, String name) {
+    Object unused = visibility; // TODO(b/26297204): use 'visibility'
     innerClasses
         .computeIfAbsent(type, t -> new TreeMap<>())
         // com.google.devtools.build.android.xml.AttrXmlResourceValue might directly call this
@@ -224,12 +166,14 @@ class PlaceholderIdFieldInitializerBuilder {
 
   public void addStyleableResource(
       DependencyInfo dependencyInfo,
+      Visibility visibility,
       FullyQualifiedName key,
       Map<FullyQualifiedName, Boolean> attrs) {
+    Object unused = visibility; // TODO(b/26297204): use 'visibility'
     ResourceType type = ResourceType.STYLEABLE;
     // The configuration can play a role in sorting, but that isn't modeled yet.
     String normalizedStyleableName = normalizeName(key.name());
-    addSimpleResource(dependencyInfo, type, normalizedStyleableName);
+    addSimpleResource(dependencyInfo, visibility, type, normalizedStyleableName);
     // We should have merged styleables, so there should only be one definition per configuration.
     // However, we don't combine across configurations, so there can be a pre-existing definition.
     Map<String, Boolean> normalizedAttrs = styleableAttrs.get(normalizedStyleableName);
@@ -255,9 +199,6 @@ class PlaceholderIdFieldInitializerBuilder {
     // After assigning public IDs, we count up monotonically, so we don't need to track additional
     // assignedIds to avoid collisions (use an ImmutableSet to ensure we don't add more).
     Set<Integer> assignedIds = ImmutableSet.of();
-    if (publicIds.containsKey(ResourceType.ATTR)) {
-      assignedIds = assignPublicIds(attrToId, publicIds.get(ResourceType.ATTR), attrTypeId);
-    }
     Set<String> inlineAttrs = new LinkedHashSet<>();
     Set<String> styleablesWithInlineAttrs = new TreeSet<>();
     for (Map.Entry<String, Map<String, Boolean>> styleableAttrEntry : styleableAttrs.entrySet()) {
@@ -291,65 +232,6 @@ class PlaceholderIdFieldInitializerBuilder {
     return ImmutableMap.copyOf(attrToId);
   }
 
-  private Map<ResourceType, Integer> assignTypeIdsForPublic() {
-    Map<ResourceType, Integer> allocatedTypeIds = new EnumMap<>(ResourceType.class);
-    if (publicIds.isEmpty()) {
-      return allocatedTypeIds;
-    }
-    // Keep track of the reverse mapping from Int -> Type for validation.
-    Map<Integer, ResourceType> assignedIds = new LinkedHashMap<>();
-    for (Map.Entry<ResourceType, SortedMap<String, Optional<Integer>>> publicTypeEntry :
-        publicIds.entrySet()) {
-      ResourceType currentType = publicTypeEntry.getKey();
-      Integer reservedTypeSlot = null;
-      String previousResource = null;
-      for (Map.Entry<String, Optional<Integer>> publicEntry :
-          publicTypeEntry.getValue().entrySet()) {
-        Optional<Integer> reservedId = publicEntry.getValue();
-        if (!reservedId.isPresent()) {
-          continue;
-        }
-        Integer typePortion = extractTypeId(reservedId.get());
-        if (reservedTypeSlot == null) {
-          reservedTypeSlot = typePortion;
-          previousResource = publicEntry.getKey();
-        } else {
-          if (!reservedTypeSlot.equals(typePortion)) {
-            logger.warning(
-                String.format(
-                    "%s has conflicting type codes for its public identifiers (%s=%s vs %s=%s)",
-                    currentType.getName(),
-                    previousResource,
-                    reservedTypeSlot,
-                    publicEntry.getKey(),
-                    typePortion));
-          }
-        }
-      }
-      if (currentType == ResourceType.ATTR
-          && reservedTypeSlot != null
-          && !reservedTypeSlot.equals(ATTR_TYPE_ID)) {
-        logger.warning(
-            String.format(
-                "Cannot force ATTR to have type code other than 0x%02x (got 0x%02x from %s)",
-                ATTR_TYPE_ID, reservedTypeSlot, previousResource));
-      }
-      if (reservedTypeSlot == null) {
-        logger.warning(String.format("Invalid public resource of type %s - ignoring", currentType));
-      } else {
-        allocatedTypeIds.put(currentType, reservedTypeSlot);
-        ResourceType alreadyAssigned = assignedIds.put(reservedTypeSlot, currentType);
-        if (alreadyAssigned != null) {
-          logger.warning(
-              String.format(
-                  "Multiple type names declared for public type identifier 0x%x (%s vs %s)",
-                  reservedTypeSlot, alreadyAssigned, currentType));
-        }
-      }
-    }
-    return allocatedTypeIds;
-  }
-
   public FieldInitializers build() throws AttrLookupException {
     Map<ResourceType, Collection<FieldInitializer>> initializers =
         new EnumMap<>(ResourceType.class);
@@ -366,7 +248,7 @@ class PlaceholderIdFieldInitializerBuilder {
         fields = getAttrInitializers(attrAssignments, sortedFields);
       } else {
         int typeId = typeIdMap.get(type);
-        fields = getResourceInitializers(type, typeId, sortedFields);
+        fields = getResourceInitializers(typeId, sortedFields);
       }
       // The maximum number of Java fields is 2^16.
       // See the JVM reference "4.11. Limitations of the Java Virtual Machine."
@@ -377,9 +259,7 @@ class PlaceholderIdFieldInitializerBuilder {
   }
 
   private Map<ResourceType, Integer> chooseTypeIds() {
-    // Go through public entries. Those may have forced certain type assignments, so take those
-    // into account first.
-    Map<ResourceType, Integer> allocatedTypeIds = assignTypeIdsForPublic();
+    Map<ResourceType, Integer> allocatedTypeIds = new EnumMap<>(ResourceType.class);
     Set<Integer> reservedTypeSlots = ImmutableSet.copyOf(allocatedTypeIds.values());
     // ATTR always takes up slot #1, even if it isn't present.
     allocatedTypeIds.put(ResourceType.ATTR, ATTR_TYPE_ID);
@@ -416,13 +296,10 @@ class PlaceholderIdFieldInitializerBuilder {
   }
 
   private ImmutableList<FieldInitializer> getResourceInitializers(
-      ResourceType type, int typeId, SortedMap<String, DependencyInfo> sortedFields) {
+      int typeId, SortedMap<String, DependencyInfo> sortedFields) {
     ImmutableList.Builder<FieldInitializer> initList = ImmutableList.builder();
     Map<String, Integer> publicNameToId = new LinkedHashMap<>();
     Set<Integer> assignedIds = ImmutableSet.of();
-    if (publicIds.containsKey(type)) {
-      assignedIds = assignPublicIds(publicNameToId, publicIds.get(type), typeId);
-    }
     int resourceIds = nextFreeId(getInitialIdForTypeId(typeId), assignedIds);
     for (Map.Entry<String, DependencyInfo> entry : sortedFields.entrySet()) {
       String field = entry.getKey();
@@ -459,7 +336,12 @@ class PlaceholderIdFieldInitializerBuilder {
             // matter---this is the PlaceholderIdFieldInitializerBuilder, after all.
             attrId = 0x7FFFFFFF;
           } else {
-            throw new AttrLookupException("App attribute not found: " + attr);
+            logger.info(
+                String.format(
+                    "Attribute \"%s\" of styleable \"%s\" not defined among dependencies."
+                        + " Ignoring.",
+                    field, attr));
+            continue;
           }
         }
         arrayInitValues.put(attr, attrId);

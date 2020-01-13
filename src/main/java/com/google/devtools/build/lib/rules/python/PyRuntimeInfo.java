@@ -42,7 +42,7 @@ import javax.annotation.Nullable;
  * invariants mirror the user-visible API on {@link PyRuntimeInfoApi} except that {@code None} is
  * replaced by null.
  */
-public class PyRuntimeInfo extends Info implements PyRuntimeInfoApi<Artifact> {
+public final class PyRuntimeInfo implements Info, PyRuntimeInfoApi<Artifact> {
 
   /** The Starlark-accessible top-level builtin name for this provider type. */
   public static final String STARLARK_NAME = "PyRuntimeInfo";
@@ -50,6 +50,7 @@ public class PyRuntimeInfo extends Info implements PyRuntimeInfoApi<Artifact> {
   /** The singular {@code PyRuntimeInfo} provider type object. */
   public static final PyRuntimeInfoProvider PROVIDER = new PyRuntimeInfoProvider();
 
+  private final Location location;
   @Nullable private final PathFragment interpreterPath;
   @Nullable private final Artifact interpreter;
   // Validated on initalization to contain Artifact
@@ -63,14 +64,24 @@ public class PyRuntimeInfo extends Info implements PyRuntimeInfoApi<Artifact> {
       @Nullable Artifact interpreter,
       @Nullable Depset files,
       PythonVersion pythonVersion) {
-    super(PROVIDER, location);
     Preconditions.checkArgument((interpreterPath == null) != (interpreter == null));
     Preconditions.checkArgument((interpreter == null) == (files == null));
     Preconditions.checkArgument(pythonVersion.isTargetValue());
+    this.location = location != null ? location : Location.BUILTIN;
     this.files = files;
     this.interpreterPath = interpreterPath;
     this.interpreter = interpreter;
     this.pythonVersion = pythonVersion;
+  }
+
+  @Override
+  public PyRuntimeInfoProvider getProvider() {
+    return PROVIDER;
+  }
+
+  @Override
+  public Location getCreationLoc() {
+    return location;
   }
 
   /** Constructs an instance from native rule logic (built-in location) for an in-build runtime. */

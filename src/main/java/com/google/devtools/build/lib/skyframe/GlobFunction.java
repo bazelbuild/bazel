@@ -20,6 +20,7 @@ import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.actions.InconsistentFilesystemException;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.vfs.Dirent;
@@ -56,8 +57,10 @@ public final class GlobFunction implements SkyFunction {
       throws GlobFunctionException, InterruptedException {
     GlobDescriptor glob = (GlobDescriptor) skyKey.argument();
 
+    RepositoryName repositoryName = glob.getPackageId().getRepository();
     BlacklistedPackagePrefixesValue blacklistedPackagePrefixes =
-        (BlacklistedPackagePrefixesValue) env.getValue(BlacklistedPackagePrefixesValue.key());
+        (BlacklistedPackagePrefixesValue)
+            env.getValue(BlacklistedPackagePrefixesValue.key(repositoryName));
     if (env.valuesMissing()) {
       return null;
     }
@@ -79,7 +82,7 @@ public final class GlobFunction implements SkyFunction {
               env.getValue(
                   PackageLookupValue.key(
                       PackageIdentifier.create(
-                          glob.getPackageId().getRepository(),
+                          repositoryName,
                           glob.getPackageId().getPackageFragment().getRelative(globSubdir))));
       if (globSubdirPkgLookupValue == null) {
         return null;

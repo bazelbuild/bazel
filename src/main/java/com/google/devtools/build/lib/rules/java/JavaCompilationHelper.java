@@ -71,8 +71,6 @@ public final class JavaCompilationHelper {
   private final ImmutableList<Artifact> additionalJavaBaseInputs;
   private final StrictDepsMode strictJavaDeps;
   private final String fixDepsTool;
-  // TODO(twerth): Remove after java_proto_library.strict_deps migration is done.
-  private final boolean javaProtoLibraryStrictDeps;
 
   private static final PathFragment JAVAC = PathFragment.create("_javac");
 
@@ -96,7 +94,6 @@ public final class JavaCompilationHelper {
     this.strictJavaDeps =
         disableStrictDeps ? StrictDepsMode.OFF : getJavaConfiguration().getFilteredStrictJavaDeps();
     this.fixDepsTool = getJavaConfiguration().getFixDepsTool();
-    this.javaProtoLibraryStrictDeps = semantics.isJavaProtoLibraryStrictDeps(ruleContext);
   }
 
   public JavaCompilationHelper(
@@ -157,7 +154,7 @@ public final class JavaCompilationHelper {
     this(ruleContext, semantics, getDefaultJavacOptsFromRule(ruleContext), attributes);
   }
 
-  public JavaTargetAttributes getAttributes() {
+  JavaTargetAttributes getAttributes() {
     if (builtAttributes == null) {
       builtAttributes = attributes.build();
     }
@@ -240,6 +237,7 @@ public final class JavaCompilationHelper {
     builder.setExtdirInputs(getExtdirInputs());
     builder.setToolsJars(javaToolchain.getTools());
     builder.setJavaBuilder(javaToolchain.getJavaBuilder());
+    builder.setGenSourceOutput(outputs.genSource());
     builder.setOutputs(outputs);
 
     builder.setAdditionalOutputs(attributes.getAdditionalOutputs());
@@ -279,12 +277,10 @@ public final class JavaCompilationHelper {
    * create a separate jar for the compilation and add resources with singlejar.
    */
   private boolean separateResourceJar(JavaTargetAttributes attributes) {
-    return !Iterables.isEmpty(
-        Iterables.concat(
-            attributes.getResources().values(),
-            attributes.getResourceJars(),
-            attributes.getClassPathResources(),
-            getTranslations()));
+    return !attributes.getResources().isEmpty()
+        || !attributes.getResourceJars().isEmpty()
+        || !attributes.getClassPathResources().isEmpty()
+        || !getTranslations().isEmpty();
   }
 
   private ImmutableMap<String, String> getExecutionInfo() throws InterruptedException {
@@ -346,10 +342,9 @@ public final class JavaCompilationHelper {
   }
 
   private boolean shouldInstrumentJar() {
-    // TODO(bazel-team): What about source jars?
     RuleContext ruleContext = getRuleContext();
     return getConfiguration().isCodeCoverageEnabled()
-        && attributes.hasSourceFiles()
+        && attributes.hasSources()
         && InstrumentedFilesCollector.shouldIncludeLocalSources(
             ruleContext.getConfiguration(), ruleContext.getLabel(), ruleContext.isTestTarget());
   }
@@ -358,7 +353,7 @@ public final class JavaCompilationHelper {
     if (!getJavaConfiguration().useHeaderCompilation()) {
       return false;
     }
-    if (!attributes.hasSourceFiles() && !attributes.hasSourceJars()) {
+    if (!attributes.hasSources()) {
       return false;
     }
     if (javaToolchain.getForciblyDisableHeaderCompilation()) {
@@ -386,6 +381,13 @@ public final class JavaCompilationHelper {
     return true;
   }
 
+  private Artifact turbineOutput(Artifact classJar, String newExtension) {
+    return getAnalysisEnvironment()
+        .getDerivedArtifact(
+            FileSystemUtils.replaceExtension(classJar.getRootRelativePath(), newExtension),
+            classJar.getRoot());
+  }
+
   /**
    * Creates the Action that compiles ijars from source.
    *
@@ -396,16 +398,8 @@ public final class JavaCompilationHelper {
       Artifact runtimeJar, JavaCompilationArtifacts.Builder artifactBuilder)
       throws InterruptedException {
 
-    Artifact headerJar =
-        getAnalysisEnvironment()
-            .getDerivedArtifact(
-                FileSystemUtils.replaceExtension(runtimeJar.getRootRelativePath(), "-hjar.jar"),
-                runtimeJar.getRoot());
-    Artifact headerDeps =
-        getAnalysisEnvironment()
-            .getDerivedArtifact(
-                FileSystemUtils.replaceExtension(runtimeJar.getRootRelativePath(), "-hjar.jdeps"),
-                runtimeJar.getRoot());
+    Artifact headerJar = turbineOutput(runtimeJar, "-hjar.jar");
+    Artifact headerDeps = turbineOutput(runtimeJar, "-hjar.jdeps");
 
     JavaTargetAttributes attributes = getAttributes();
     JavaHeaderCompileActionBuilder builder = new JavaHeaderCompileActionBuilder(getRuleContext());
@@ -413,7 +407,10 @@ public final class JavaCompilationHelper {
     builder.setSourceJars(attributes.getSourceJars());
     builder.setClasspathEntries(attributes.getCompileTimeClassPath());
     builder.setBootclasspathEntries(
-        ImmutableList.copyOf(Iterables.concat(getBootclasspathOrDefault(), getExtdirInputs())));
+        NestedSetBuilder.<Artifact>stableOrder()
+            .addTransitive(getBootclasspathOrDefault())
+            .addTransitive(getExtdirInputs())
+            .build());
 
     // only run API-generating annotation processors during header compilation
     JavaPluginInfo plugins = attributes.plugins().apiGeneratingPlugins();
@@ -422,8 +419,10 @@ public final class JavaCompilationHelper {
     // It is used to allow Error Prone checks to load additional data,
     // and Error Prone doesn't run during header compilation.
     builder.addAllJavacOpts(getJavacOpts());
-    if (Iterables.contains(
-        plugins.processorClasses(), "dagger.internal.codegen.ComponentProcessor")) {
+    if (plugins
+        .processorClasses()
+        .toList()
+        .contains("dagger.internal.codegen.ComponentProcessor")) {
       // see b/31371210
       builder.addJavacOpt("-Aexperimental_turbine_hjar");
     }
@@ -664,8 +663,7 @@ public final class JavaCompilationHelper {
 
   private NestedSet<Artifact> getNonRecursiveCompileTimeJarsFromCollection(
       Iterable<? extends TransitiveInfoCollection> deps) {
-    return JavaCompilationArgsProvider.legacyFromTargets(deps, javaProtoLibraryStrictDeps)
-        .getDirectCompileTimeJars();
+    return JavaCompilationArgsProvider.legacyFromTargets(deps).getDirectCompileTimeJars();
   }
 
   static void addDependencyArtifactsToAttributes(
@@ -761,8 +759,8 @@ public final class JavaCompilationHelper {
   }
 
   /** Returns the extdir artifacts. */
-  private final ImmutableList<Artifact> getExtdirInputs() {
-    return javaToolchain.getExtclasspath().toList();
+  private final NestedSet<Artifact> getExtdirInputs() {
+    return javaToolchain.getExtclasspath();
   }
 
   /**

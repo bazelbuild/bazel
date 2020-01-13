@@ -37,7 +37,6 @@ import com.google.devtools.build.lib.actions.CommandAction;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
-import com.google.devtools.build.lib.actions.ExecutionInfoSpecifier;
 import com.google.devtools.build.lib.actions.NotifyOnActionCacheHit;
 import com.google.devtools.build.lib.actions.RunfilesSupplier;
 import com.google.devtools.build.lib.actions.SpawnExecutedEvent;
@@ -52,6 +51,9 @@ import com.google.devtools.build.lib.analysis.test.TestActionContext.TestRunnerS
 import com.google.devtools.build.lib.buildeventstream.TestFileNameConstants;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.ImmutableIterable;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.exec.TestStrategy;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.LoggingUtil;
@@ -78,7 +80,7 @@ import javax.annotation.Nullable;
  */
 // Not final so that we can mock it in tests.
 public class TestRunnerAction extends AbstractAction
-    implements NotifyOnActionCacheHit, ExecutionInfoSpecifier, CommandAction {
+    implements NotifyOnActionCacheHit, CommandAction {
   public static final PathFragment COVERAGE_TMP_ROOT = PathFragment.create("_coverage");
 
   // Used for selecting subset of testcase / testmethods.
@@ -134,8 +136,8 @@ public class TestRunnerAction extends AbstractAction
 
   private final boolean cancelConcurrentTestsOnSuccess;
 
-  private static ImmutableList<Artifact> list(Artifact... artifacts) {
-    ImmutableList.Builder<Artifact> builder = ImmutableList.builder();
+  private static ImmutableSet<Artifact> nonNullAsSet(Artifact... artifacts) {
+    ImmutableSet.Builder<Artifact> builder = ImmutableSet.builder();
     for (Artifact artifact : artifacts) {
       if (artifact != null) {
         builder.add(artifact);
@@ -154,7 +156,7 @@ public class TestRunnerAction extends AbstractAction
    */
   TestRunnerAction(
       ActionOwner owner,
-      Iterable<Artifact> inputs,
+      NestedSet<Artifact> inputs,
       RunfilesSupplier runfilesSupplier,
       Artifact testSetupScript, // Must be in inputs
       boolean useTestWrapperInsteadOfTestSetupSh,
@@ -174,10 +176,10 @@ public class TestRunnerAction extends AbstractAction
       boolean cancelConcurrentTestsOnSuccess) {
     super(
         owner,
-        /*tools=*/ ImmutableList.of(),
+        /*tools=*/ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
         inputs,
         runfilesSupplier,
-        list(testLog, cacheStatus, coverageArtifact),
+        nonNullAsSet(testLog, cacheStatus, coverageArtifact),
         configuration.getActionEnvironment());
     Preconditions.checkState((collectCoverageScript == null) == (coverageArtifact == null));
     this.testSetupScript = testSetupScript;
@@ -884,7 +886,7 @@ public class TestRunnerAction extends AbstractAction
   }
 
   @Override
-  public Iterable<Artifact> getPossibleInputsForTesting() {
+  public NestedSet<Artifact> getPossibleInputsForTesting() {
     return getInputs();
   }
 

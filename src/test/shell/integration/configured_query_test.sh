@@ -576,4 +576,26 @@ EOF
   assert_not_contains "//$pkg:foo_feature .*//$pkg:foo_feature" output
 }
 
+function test_manual_tagged_targets_always_included_for_queries() {
+  local -r pkg=$FUNCNAME
+  mkdir -p $pkg
+  cat > $pkg/BUILD <<EOF
+genrule(
+  name = "always_build",
+  srcs = [],
+  outs = ["always_build.out"],
+  cmd = "echo hi > $@")
+genrule(
+  name = "only_build_explicitly",
+  tags = ["manual"],
+  srcs = [],
+  outs = ["only_build_explicitly.out"],
+  cmd = "echo hi > $@")
+EOF
+
+  bazel cquery "//$pkg:all" > output 2>"$TEST_log" || fail "Expected success"
+  assert_contains "//$pkg:always_build" output
+  assert_contains "//$pkg:only_build_explicitly" output
+}
+
 run_suite "${PRODUCT_NAME} configured query tests"

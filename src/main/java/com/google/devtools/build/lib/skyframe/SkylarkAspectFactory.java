@@ -27,7 +27,7 @@ import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.AspectDescriptor;
 import com.google.devtools.build.lib.packages.AspectParameters;
 import com.google.devtools.build.lib.packages.BazelStarlarkContext;
-import com.google.devtools.build.lib.packages.InfoInterface;
+import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.SkylarkDefinedAspect;
 import com.google.devtools.build.lib.packages.StructImpl;
@@ -38,6 +38,7 @@ import com.google.devtools.build.lib.syntax.EvalExceptionWithStackTrace;
 import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.devtools.build.lib.syntax.SkylarkType;
+import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.lib.syntax.StarlarkValue;
 import java.util.Map;
@@ -74,12 +75,11 @@ public class SkylarkAspectFactory implements ConfiguredAspectFactory {
       StarlarkThread thread =
           StarlarkThread.builder(mutability)
               .setSemantics(analysisEnv.getSkylarkSemantics())
-              .setEventHandler(analysisEnv.getEventHandler())
               .build();
-      // NB: loading phase functions are not available: this is analysis already, so we do
-      // *not* setLoadingPhase().
+      thread.setPrintHandler(StarlarkThread.makeDebugPrintHandler(analysisEnv.getEventHandler()));
 
       new BazelStarlarkContext(
+              BazelStarlarkContext.Phase.ANALYSIS,
               toolsRepository,
               /* fragmentNameToClass=*/ null,
               ruleContext.getRule().getPackage().getRepositoryMapping(),
@@ -87,16 +87,13 @@ public class SkylarkAspectFactory implements ConfiguredAspectFactory {
               ruleContext.getLabel())
           .storeInThread(thread);
 
-      Object aspectSkylarkObject;
       try {
-        aspectSkylarkObject =
-            skylarkAspect
-                .getImplementation()
-                .call(
-                    /*args=*/ ImmutableList.of(ctadBase.getConfiguredTarget(), skylarkRuleContext),
-                    /* kwargs= */ ImmutableMap.of(),
-                    /*ast=*/ null,
-                    thread);
+        Object aspectSkylarkObject =
+            Starlark.call(
+                thread,
+                skylarkAspect.getImplementation(),
+                /*args=*/ ImmutableList.of(ctadBase.getConfiguredTarget(), skylarkRuleContext),
+                /*kwargs=*/ ImmutableMap.of());
 
         // If allowing analysis failures, targets should be created somewhat normally, and errors
         // will be propagated via a hook elsewhere as AnalysisFailureInfo.
@@ -106,7 +103,7 @@ public class SkylarkAspectFactory implements ConfiguredAspectFactory {
           return null;
         } else if (!(aspectSkylarkObject instanceof StructImpl)
             && !(aspectSkylarkObject instanceof Iterable)
-            && !(aspectSkylarkObject instanceof InfoInterface)) {
+            && !(aspectSkylarkObject instanceof Info)) {
           ruleContext.ruleError(
               String.format(
                   "Aspect implementation should return a struct, a list, or a provider "
@@ -137,7 +134,7 @@ public class SkylarkAspectFactory implements ConfiguredAspectFactory {
       addDeclaredProviders(builder, (Iterable) aspectSkylarkObject);
     } else {
       // Either an old-style struct or a single declared provider (not in a list)
-      InfoInterface info = (InfoInterface) aspectSkylarkObject;
+      Info info = (Info) aspectSkylarkObject;
       Location loc = info.getCreationLoc();
       if (info.getProvider().getKey().equals(StructProvider.STRUCT.getKey())) {
         // Old-style struct, that may contain declared providers.
@@ -175,10 +172,10 @@ public class SkylarkAspectFactory implements ConfiguredAspectFactory {
     int i = 0;
     for (Object o : aspectSkylarkObject) {
       Location loc = skylarkAspect.getImplementation().getLocation();
-      InfoInterface declaredProvider =
+      Info declaredProvider =
           SkylarkType.cast(
               o,
-              InfoInterface.class,
+              Info.class,
               loc,
               "A return value of an aspect implementation function should be "
                   + "a sequence of declared providers, instead got a %s at index %d",
@@ -206,7 +203,7 @@ public class SkylarkAspectFactory implements ConfiguredAspectFactory {
   private void addAspectToStackTrace(Target base, EvalException e) {
     if (e instanceof EvalExceptionWithStackTrace) {
       ((EvalExceptionWithStackTrace) e)
-          .registerPhantomFuncall(
+          .registerPhantomCall(
               String.format("%s(...)", skylarkAspect.getName()),
               base.getAssociatedRule().getLocation(),
               skylarkAspect.getImplementation());

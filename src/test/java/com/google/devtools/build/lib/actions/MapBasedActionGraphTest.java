@@ -20,6 +20,8 @@ import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictEx
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil.UncheckedActionConflictException;
 import com.google.devtools.build.lib.actions.util.TestAction;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.AbstractQueueVisitor;
 import com.google.devtools.build.lib.concurrent.ErrorClassifier;
 import com.google.devtools.build.lib.vfs.FileSystem;
@@ -48,14 +50,20 @@ public class MapBasedActionGraphTest {
     Path path = root.getRelative("foo");
     Artifact output =
         ActionsTestUtil.createArtifact(ArtifactRoot.asDerivedRoot(execRoot, root), path);
-    Action action = new TestAction(TestAction.NO_EFFECT,
-        ImmutableSet.<Artifact>of(), ImmutableSet.of(output));
+    Action action =
+        new TestAction(
+            TestAction.NO_EFFECT,
+            NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+            ImmutableSet.of(output));
     actionGraph.registerAction(action);
     actionGraph.unregisterAction(action);
     path = root.getRelative("bar");
     output = ActionsTestUtil.createArtifact(ArtifactRoot.asDerivedRoot(execRoot, root), path);
-    Action action2 = new TestAction(TestAction.NO_EFFECT,
-        ImmutableSet.<Artifact>of(), ImmutableSet.of(output));
+    Action action2 =
+        new TestAction(
+            TestAction.NO_EFFECT,
+            NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+            ImmutableSet.of(output));
     actionGraph.registerAction(action);
     actionGraph.registerAction(action2);
     actionGraph.unregisterAction(action);
@@ -69,11 +77,17 @@ public class MapBasedActionGraphTest {
     Path path = root.getRelative("/root/foo");
     Artifact output =
         ActionsTestUtil.createArtifact(ArtifactRoot.asDerivedRoot(execRoot, root), path);
-    Action action = new TestAction(TestAction.NO_EFFECT,
-        ImmutableSet.<Artifact>of(), ImmutableSet.of(output));
+    Action action =
+        new TestAction(
+            TestAction.NO_EFFECT,
+            NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+            ImmutableSet.of(output));
     actionGraph.registerAction(action);
-    Action otherAction = new TestAction(TestAction.NO_EFFECT,
-        ImmutableSet.<Artifact>of(), ImmutableSet.of(output));
+    Action otherAction =
+        new TestAction(
+            TestAction.NO_EFFECT,
+            NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+            ImmutableSet.of(output));
     actionGraph.registerAction(otherAction);
     actionGraph.unregisterAction(action);
   }
@@ -97,8 +111,11 @@ public class MapBasedActionGraphTest {
       Path root = fileSystem.getPath("/root");
       Path path = root.getRelative("foo");
       output = ActionsTestUtil.createArtifact(ArtifactRoot.asDerivedRoot(execRoot, root), path);
-      allActions.add(new TestAction(
-          TestAction.NO_EFFECT, ImmutableSet.<Artifact>of(), ImmutableSet.of(output)));
+      allActions.add(
+          new TestAction(
+              TestAction.NO_EFFECT,
+              NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+              ImmutableSet.of(output)));
     }
 
     private void registerAction(final Action action) {
@@ -135,8 +152,11 @@ public class MapBasedActionGraphTest {
       if (Math.random() < 0.5) {
         action = Iterables.getFirst(allActions, null);
       } else {
-        action = new TestAction(
-            TestAction.NO_EFFECT, ImmutableSet.<Artifact>of(), ImmutableSet.of(output));
+        action =
+            new TestAction(
+                TestAction.NO_EFFECT,
+                NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+                ImmutableSet.of(output));
         allActions.add(action);
       }
       if (Math.random() < 0.5) {

@@ -18,14 +18,15 @@ import static com.google.common.truth.Truth.assertThat;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.util.TestAction;
 import com.google.devtools.build.lib.actionsketch.ActionSketch;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
-import java.util.Collection;
 import javax.annotation.Nullable;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -44,10 +45,14 @@ public class TopDownActionCacheTest extends TimestampBuilderTestCase {
     buildArtifacts(amnesiacBuilder(), artifacts);
   }
 
+  private static NestedSet<Artifact> asNestedSet(Artifact... artifacts) {
+    return NestedSetBuilder.create(Order.STABLE_ORDER, artifacts);
+  }
+
   @Test
   public void testAmnesiacBuilderGetsTopDownHit() throws Exception {
     Artifact hello = createDerivedArtifact("hello");
-    Button button = createActionButton(emptySet, Sets.newHashSet(hello));
+    Button button = createActionButton(emptyNestedSet, ImmutableSet.of(hello));
 
     button.pressed = false;
     buildArtifacts(hello);
@@ -62,8 +67,8 @@ public class TopDownActionCacheTest extends TimestampBuilderTestCase {
   public void testTransitiveTopDownCache() throws Exception {
     Artifact hello = createDerivedArtifact("hello");
     Artifact hello2 = createDerivedArtifact("hello2");
-    Button button = createActionButton(emptySet, ImmutableSet.of(hello));
-    Button button2 = createActionButton(ImmutableSet.of(hello), ImmutableSet.of(hello2));
+    Button button = createActionButton(emptyNestedSet, ImmutableSet.of(hello));
+    Button button2 = createActionButton(asNestedSet(hello), ImmutableSet.of(hello2));
 
     button.pressed = false;
     button2.pressed = false;
@@ -83,9 +88,9 @@ public class TopDownActionCacheTest extends TimestampBuilderTestCase {
     Artifact hello = createDerivedArtifact("hello");
     Artifact hello2 = createDerivedArtifact("hello2");
 
-    ActionKeyButton button = createActionKeyButton(emptySet, ImmutableSet.of(hello), "abc");
+    ActionKeyButton button = createActionKeyButton(emptyNestedSet, ImmutableSet.of(hello), "abc");
     ActionKeyButton button2 =
-        createActionKeyButton(ImmutableSet.of(hello), ImmutableSet.of(hello2), "xyz");
+        createActionKeyButton(asNestedSet(hello), ImmutableSet.of(hello2), "xyz");
 
     button.pressed = false;
     button2.pressed = false;
@@ -102,8 +107,8 @@ public class TopDownActionCacheTest extends TimestampBuilderTestCase {
     clearActions();
     hello = createDerivedArtifact("hello");
     hello2 = createDerivedArtifact("hello2");
-    button = createActionKeyButton(emptySet, ImmutableSet.of(hello), "abc");
-    button2 = createActionKeyButton(ImmutableSet.of(hello), ImmutableSet.of(hello2), "123");
+    button = createActionKeyButton(emptyNestedSet, ImmutableSet.of(hello), "abc");
+    button2 = createActionKeyButton(asNestedSet(hello), ImmutableSet.of(hello2), "123");
     button.pressed = false;
     button2.pressed = false;
     buildArtifacts(hello2);
@@ -119,8 +124,8 @@ public class TopDownActionCacheTest extends TimestampBuilderTestCase {
     clearActions();
     hello = createDerivedArtifact("hello");
     hello2 = createDerivedArtifact("hello2");
-    button = createActionKeyButton(emptySet, ImmutableSet.of(hello), "456");
-    button2 = createActionKeyButton(ImmutableSet.of(hello), ImmutableSet.of(hello2), "123");
+    button = createActionKeyButton(emptyNestedSet, ImmutableSet.of(hello), "456");
+    button2 = createActionKeyButton(asNestedSet(hello), ImmutableSet.of(hello2), "123");
     button.pressed = false;
     button2.pressed = false;
     buildArtifacts(hello2);
@@ -141,7 +146,7 @@ public class TopDownActionCacheTest extends TimestampBuilderTestCase {
     FileSystemUtils.writeContentAsLatin1(hello.getPath(), "content1");
 
     Artifact goodbye = createDerivedArtifact("goodbye");
-    Button button = createActionButton(ImmutableSet.of(hello), Sets.newHashSet(goodbye));
+    Button button = createActionButton(asNestedSet(hello), ImmutableSet.of(goodbye));
 
     button.pressed = false;
     buildArtifacts(goodbye);
@@ -187,7 +192,7 @@ public class TopDownActionCacheTest extends TimestampBuilderTestCase {
     private final ActionKeyButton button;
 
     public MutableActionKeyAction(
-        ActionKeyButton button, Collection<Artifact> inputs, Collection<Artifact> outputs) {
+        ActionKeyButton button, NestedSet<Artifact> inputs, ImmutableSet<Artifact> outputs) {
       super(button, inputs, outputs);
       this.button = button;
     }
@@ -208,7 +213,7 @@ public class TopDownActionCacheTest extends TimestampBuilderTestCase {
   }
 
   private ActionKeyButton createActionKeyButton(
-      Collection<Artifact> inputs, Collection<Artifact> outputs, String key) {
+      NestedSet<Artifact> inputs, ImmutableSet<Artifact> outputs, String key) {
     ActionKeyButton button = new ActionKeyButton(key);
     registerAction(new MutableActionKeyAction(button, inputs, outputs));
     return button;

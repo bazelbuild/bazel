@@ -31,7 +31,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.Location;
-import com.google.devtools.build.lib.packages.InfoInterface;
+import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.PackageSpecification.PackageGroupContents;
 import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.skyframe.BuildConfigurationValue;
@@ -119,12 +119,10 @@ public abstract class AbstractConfiguredTarget
   }
 
   @Override
-  public Object getValue(Location loc, StarlarkSemantics semantics, String name)
-      throws EvalException {
+  public Object getValue(StarlarkSemantics semantics, String name) throws EvalException {
     if (semantics.incompatibleDisableTargetProviderFields()
         && !SPECIAL_FIELD_NAMES.contains(name)) {
-      throw new EvalException(
-          loc,
+      throw Starlark.errorf(
           "Accessing providers via the field syntax on structs is "
               + "deprecated and will be removed soon. It may be temporarily re-enabled by setting "
               + "--incompatible_disable_target_provider_fields=false. See "
@@ -218,7 +216,7 @@ public abstract class AbstractConfiguredTarget
   /** Returns a declared provider provided by this target. Only meant to use from Skylark. */
   @Nullable
   @Override
-  public final InfoInterface get(Provider.Key providerKey) {
+  public final Info get(Provider.Key providerKey) {
     if (providerKey.equals(DefaultInfo.PROVIDER.getKey())) {
       return getDefaultProvider();
     }
@@ -227,7 +225,7 @@ public abstract class AbstractConfiguredTarget
 
   /** Implement in subclasses to get a skylark provider for a given {@code providerKey}. */
   @Nullable
-  protected abstract InfoInterface rawGetSkylarkProvider(Provider.Key providerKey);
+  protected abstract Info rawGetSkylarkProvider(Provider.Key providerKey);
 
   public String getRuleClassString() {
     return "";

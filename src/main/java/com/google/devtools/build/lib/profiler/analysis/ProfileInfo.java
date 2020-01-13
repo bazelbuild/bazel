@@ -13,20 +13,11 @@
 // limitations under the License.
 package com.google.devtools.build.lib.profiler.analysis;
 
-import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.devtools.build.lib.profiler.ProfilerTask.CRITICAL_PATH;
 import static com.google.devtools.build.lib.profiler.ProfilerTask.TASK_COUNT;
 
-import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterables;
-import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
-import com.google.common.collect.MultimapBuilder.ListMultimapBuilder;
-import com.google.common.collect.Ordering;
-import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.profiler.ProfilePhase;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
@@ -36,23 +27,17 @@ import java.io.BufferedInputStream;
 import java.io.DataInputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.PrintStream;
 import java.io.UnsupportedEncodingException;
 import java.nio.ByteBuffer;
-import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
-import java.util.Deque;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.TimeUnit;
-import java.util.regex.Pattern;
-import java.util.stream.Stream;
 import java.util.zip.Inflater;
 import java.util.zip.InflaterInputStream;
 
@@ -162,14 +147,6 @@ public class ProfileInfo {
     }
   }
 
-  public static final Ordering<Task> TASK_DURATION_ORDERING =
-      new Ordering<Task>() {
-        @Override
-        public int compare(Task o1, Task o2) {
-          return Long.compare(o1.durationNanos, o2.durationNanos);
-        }
-      };
-
   /**
    * Container for the profile record information.
    *
@@ -219,10 +196,6 @@ public class ProfileInfo {
 
     public boolean hasStats() {
       return !stats.isEmpty();
-    }
-
-    public boolean isFake() {
-      return id < 0;
     }
 
     public long getInheritedDuration() {
@@ -286,70 +259,6 @@ public class ProfileInfo {
     }
 
     /**
-     * Produce a nicely indented tree of the task and its subtasks with execution time.
-     *
-     * <p>Execution times are in milliseconds.
-     *
-     * <p>Example:
-     *
-     * <pre>
-     * 636779 STARLARK_USER_FN (259.593 ms) /path/file.bzl:42#function [
-     *   636810 STARLARK_USER_FN (257.768 ms) /path/file.bzl:133#_other_function [
-     *     636974 STARLARK_BUILTIN_FN (254.596 ms) some.package.PackageFactory$9#genrule []
-     *   2 subtree(s) omitted]
-     * ]
-     * </pre>
-     *
-     * @param durationThresholdMillis Tasks with a shorter duration than this threshold will be
-     *     skipped
-     * @return whether this task took longer than the threshold and was thus printed
-     */
-    public boolean printTaskTree(PrintStream out, long durationThresholdMillis) {
-      return printTaskTree(out, "", TimeUnit.MILLISECONDS.toNanos(durationThresholdMillis));
-    }
-
-    /**
-     * @see #printTaskTree(PrintStream, long)
-     */
-    private boolean printTaskTree(
-        PrintStream out, String indent, final long durationThresholdNanos) {
-      if (durationNanos < durationThresholdNanos) {
-        return false;
-      }
-      out.printf("%s%6d %s", indent, id, type);
-      out.printf(" (%5.3f ms) ", durationNanos / 1000000.0);
-      out.print(getDescription());
-
-      out.print(" [");
-      ImmutableList<Task> sortedSubTasks =
-          Stream.of(subtasks)
-              .filter(task -> task.durationNanos >= durationThresholdNanos)
-              .sorted(TASK_DURATION_ORDERING.reverse())
-              .collect(toImmutableList());
-      String sep = "";
-      for (Task task : sortedSubTasks) {
-        out.print(sep);
-        out.println();
-        task.printTaskTree(out, indent + "  ", durationThresholdNanos);
-        sep = ",";
-      }
-      if (!sortedSubTasks.isEmpty()) {
-        out.println();
-        out.print(indent);
-      }
-      int skipped = subtasks.length - sortedSubTasks.size();
-      if (skipped > 0) {
-        out.printf("%d subtree(s) omitted", skipped);
-      }
-      out.print("]");
-
-      if (indent.equals("")) {
-        out.println();
-      }
-      return true;
-    }
-
-    /**
      * Tasks records by default sorted by their id. Since id was obtained using
      * AtomicInteger, this comparison will correctly sort tasks in time-ascending
      * order regardless of their origin thread.
@@ -357,43 +266,6 @@ public class ProfileInfo {
     @Override
     public int compareTo(Task task) {
       return this.id - task.id;
-    }
-  }
-
-  /**
-   * Represents node on critical build path
-   */
-  public static final class CriticalPathEntry {
-    public final Task task;
-    public final long duration;
-    public final long cumulativeDuration;
-    public final CriticalPathEntry next;
-
-    private long criticalTime = 0L;
-
-    public CriticalPathEntry(Task task, long duration, CriticalPathEntry next) {
-      this.task = task;
-      this.duration = duration;
-      this.next = next;
-      this.cumulativeDuration =
-          duration + (next != null ? next.cumulativeDuration : 0);
-    }
-
-    private void setCriticalTime(long duration) {
-      criticalTime = duration;
-    }
-
-    public long getCriticalTime() {
-      return criticalTime;
-    }
-
-    /**
-     * @return true when this is just an action element on the critical path as logged by
-     *     {@link com.google.devtools.build.lib.runtime.BuildSummaryStatsModule} and is thus a
-     *     pre-processed and -analyzed critical path element
-     */
-    public boolean isComponent() {
-      return task.type == ProfilerTask.CRITICAL_PATH_COMPONENT;
     }
   }
 
@@ -453,11 +325,6 @@ public class ProfileInfo {
   public final List<Task> allTasksById;
   public List<Task> rootTasksById;  // Not final due to the late initialization.
   public final List<Task> phaseTasks;
-  private ListMultimap<String, Task> userFunctions;
-  private ListMultimap<String, Task> compiledUserFunctions;
-  private ListMultimap<String, Task> builtinFunctions;
-
-  public final Map<Task, Task[]> actionDependencyMap;
 
   private ProfileInfo(String comment) {
     this.comment = comment;
@@ -465,7 +332,6 @@ public class ProfileInfo {
     descriptionList = Lists.newArrayListWithExpectedSize(10000);
     allTasksById = Lists.newArrayListWithExpectedSize(50000);
     phaseTasks = Lists.newArrayList();
-    actionDependencyMap = Maps.newHashMapWithExpectedSize(10000);
   }
 
   private void addTask(Task task) {
@@ -520,59 +386,6 @@ public class ProfileInfo {
   }
 
   /**
-   * Collects all Skylark function tasks. Must be called before calling
-   * {@link #getSkylarkUserFunctionTasks} and {@link #getSkylarkBuiltinFunctionTasks}.
-   */
-  private void calculateSkylarkStatistics() {
-    userFunctions = ListMultimapBuilder.treeKeys().arrayListValues().build();
-    compiledUserFunctions = ListMultimapBuilder.treeKeys().arrayListValues().build();
-    builtinFunctions = ListMultimapBuilder.treeKeys().arrayListValues().build();
-
-    for (Task task : allTasksById) {
-      if (task.type == ProfilerTask.STARLARK_BUILTIN_FN) {
-        builtinFunctions.put(task.getDescription(), task);
-      } else if (task.type == ProfilerTask.STARLARK_USER_FN) {
-        userFunctions.put(task.getDescription(), task);
-      } else if (task.type == ProfilerTask.STARLARK_USER_COMPILED_FN) {
-        compiledUserFunctions.put(task.getDescription(), task);
-      }
-    }
-  }
-
-  /**
-   * {@link #calculateSkylarkStatistics} must have been called before.
-   * @return The {@link Task}s profiled for each user-defined Skylark function name.
-   */
-  public ListMultimap<String, Task> getSkylarkUserFunctionTasks() {
-    if (userFunctions == null) {
-      calculateSkylarkStatistics();
-    }
-    return userFunctions;
-  }
-
-  /**
-   * {@link #calculateSkylarkStatistics} must have been called before.
-   * @return The {@link Task}s profiled for each user-defined Skylark function name.
-   */
-  public ListMultimap<String, Task> getCompiledSkylarkUserFunctionTasks() {
-    if (compiledUserFunctions == null) {
-      calculateSkylarkStatistics();
-    }
-    return compiledUserFunctions;
-  }
-
-  /**
-   * {@link #calculateSkylarkStatistics} must have been called before.
-   * @return The {@link Task}s profiled for each builtin Skylark function name.
-   */
-  public ListMultimap<String, Task> getSkylarkBuiltinFunctionTasks() {
-    if (builtinFunctions == null) {
-      calculateSkylarkStatistics();
-    }
-    return builtinFunctions;
-  }
-
-  /**
    * Calculates cumulative time attributed to the specific task type.
    * Expects to be called only for root (parentId = 0) tasks.
    * calculateStats() must have been called first.
@@ -593,16 +406,6 @@ public class ProfileInfo {
       }
     }
     return new AggregateAttr(count, totalTime);
-  }
-
-  /**
-   * Returns the minimum task start time, that is, when the profile actually started.
-   *
-   * <p>This should be very close to zero except that some Blaze versions contained a bug that made
-   * them not subtract the current time from task start times in the profile.</p>
-   */
-  public long getMinTaskStartTime() {
-    return minTaskStartTime;
   }
 
   /**
@@ -659,168 +462,6 @@ public class ProfileInfo {
     }
     Preconditions.checkState(duration >= 0);
     return duration;
-  }
-
-  /**
-   * Calculates critical path for the specific action
-   * excluding specified nested task types (e.g. VFS-related time) and not
-   * accounting for overhead related to the Blaze scheduler.
-   */
-  private CriticalPathEntry computeCriticalPathForAction(
-      Set<ProfilerTask> ignoredTypes, Set<Task> ignoredTasks,
-      Task actionTask, Map<Task, CriticalPathEntry> cache, Deque<Task> stack) {
-
-    // Loop check is expensive for the Deque (and we don't want to use hash sets because adding
-    // and removing elements was shown to be very expensive). To avoid quadratic costs we're
-    // checking for infinite loop only when deque's size equal to the power of 2 and >= 32.
-    if ((stack.size() & 0x1F) == 0 && Integer.bitCount(stack.size()) == 1) {
-      if (stack.contains(actionTask)) {
-        // This situation will appear if build has ended with the
-        // IllegalStateException thrown by the
-        // ParallelBuilder.getNextCompletedAction(), warning user about
-        // possible cycle in the dependency graph. But the exception text
-        // is more friendly and will actually identify the loop.
-        // Do not use Preconditions class below due to the very expensive
-        // toString() calls used in the message.
-        throw new IllegalStateException ("Dependency graph contains loop:\n"
-            + actionTask + " in the\n" + Joiner.on('\n').join(stack));
-      }
-    }
-    stack.addLast(actionTask);
-    CriticalPathEntry entry;
-    try {
-      entry = cache.get(actionTask);
-      long entryDuration = 0;
-      if (entry == null) {
-        Task[] actionPrerequisites = actionDependencyMap.get(actionTask);
-        if (actionPrerequisites != null) {
-          for (Task task : actionPrerequisites) {
-            CriticalPathEntry candidate =
-              computeCriticalPathForAction(ignoredTypes, ignoredTasks, task, cache, stack);
-            if (entry == null || entryDuration < candidate.cumulativeDuration) {
-              entry = candidate;
-              entryDuration = candidate.cumulativeDuration;
-            }
-          }
-        }
-        if (actionTask.type == ProfilerTask.ACTION) {
-          long duration = actionTask.durationNanos;
-          if (ignoredTasks.contains(actionTask)) {
-            duration = 0L;
-          } else {
-            for (ProfilerTask type : ignoredTypes) {
-              duration -= actionTask.aggregatedStats.getAttr(type).totalTime;
-            }
-          }
-
-          entry = new CriticalPathEntry(actionTask, duration, entry);
-          cache.put(actionTask, entry);
-        }
-      }
-    } finally {
-      stack.removeLast();
-    }
-    return entry;
-  }
-
-  /**
-   * Returns the critical path information from the {@code CriticalPathComputer} recorded stats.
-   * This code does not have the "Critical" column (Time difference if we removed this node from
-   * the critical path).
-   */
-  public CriticalPathEntry getCriticalPathNewVersion() {
-    for (Task task : rootTasksById) {
-      if (task.type == CRITICAL_PATH) {
-        CriticalPathEntry entry = null;
-        for (Task shared : task.subtasks) {
-          entry = new CriticalPathEntry(shared, shared.durationNanos, entry);
-        }
-        return entry;
-      }
-    }
-    return null;
-  }
-
-  /**
-   * Calculates critical path for the given action graph excluding
-   * specified tasks (usually ones that belong to the "real" critical path).
-   */
-  public CriticalPathEntry getCriticalPath(Set<ProfilerTask> ignoredTypes) {
-    Task actionTask = getPhaseTask(ProfilePhase.EXECUTE);
-    if (actionTask == null) {
-      return null;
-    }
-    Map <Task, CriticalPathEntry> cache = Maps.newHashMapWithExpectedSize(1000);
-    CriticalPathEntry result = computeCriticalPathForAction(ignoredTypes,
-        new HashSet<Task>(), actionTask, cache,
-        new ArrayDeque<Task>());
-    if (result != null) {
-      return result;
-    }
-    return getCriticalPathNewVersion();
-  }
-
-  /**
-   * Calculates critical path time that will be saved by eliminating specific
-   * entry from the critical path
-   */
-  public void analyzeCriticalPath(Set<ProfilerTask> ignoredTypes, CriticalPathEntry path) {
-    // With light critical path we do not need to analyze since it is already preprocessed
-    // by blaze build.
-    if (path == null || path.isComponent()) {
-      return;
-    }
-    for (CriticalPathEntry entry = path; entry != null; entry = entry.next) {
-      Map <Task, CriticalPathEntry> cache = Maps.newHashMapWithExpectedSize(1000);
-      entry.setCriticalTime(path.cumulativeDuration -
-          computeCriticalPathForAction(ignoredTypes, Sets.newHashSet(entry.task),
-          getPhaseTask(ProfilePhase.EXECUTE), cache,  new ArrayDeque<Task>())
-          .cumulativeDuration);
-    }
-  }
-
-  /**
-   * Return the next critical path entry for the task or null if there is none.
-   */
-  public CriticalPathEntry getNextCriticalPathEntryForTask(CriticalPathEntry path, Task task) {
-    for (CriticalPathEntry entry = path; entry != null; entry = entry.next) {
-      if (entry.task.id == task.id) {
-        return entry;
-      }
-    }
-    return null;
-  }
-
-  /**
-   * Returns time action waited in the execution queue (difference between
-   * ACTION task start time and ACTION_SUBMIT task start time).
-   */
-  public long getActionWaitTime(Task actionTask) {
-    return 0L; // submission time is not available.
-  }
-
-  /**
-   * Returns time action waited in the parallel builder completion queue
-   * (difference between ACTION task end time and ACTION_BUILDER start time).
-   */
-  public long getActionQueueTime(Task actionTask) {
-    // Light critical path does not record queue time.
-    if (actionTask.type == ProfilerTask.CRITICAL_PATH_COMPONENT) {
-      return 0;
-    }
-    Preconditions.checkArgument(actionTask.type == ProfilerTask.ACTION);
-    return 0L; // queue task is not available.
-  }
-
-  /**
-   * Searches for the task by its description. Linear in the number of tasks.
-   * @param description a regular expression pattern which will be matched against the task
-   * description
-   * @return an Iterable of Tasks matching the description
-   */
-  public Iterable<Task> findTasksByDescription(final Pattern description) {
-    return Iterables.filter(
-        allTasksById, task -> description.matcher(task.getDescription()).find());
   }
 
   /**

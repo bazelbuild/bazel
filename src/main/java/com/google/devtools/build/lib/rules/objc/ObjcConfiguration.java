@@ -65,12 +65,8 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment
   private final boolean deviceDebugEntitlements;
   private final boolean enableAppleBinaryNativeProtos;
   private final HeaderDiscovery.DotdPruningMode dotdPruningPlan;
-  private final boolean experimentalHeaderThinning;
-  private final int objcHeaderThinningPartitionSize;
   private final boolean shouldScanIncludes;
-  private final Label objcHeaderScannerTool;
   private final Label appleSdk;
-  private final boolean strictObjcModuleMaps;
 
   ObjcConfiguration(ObjcCommandLineOptions objcOptions, CoreOptions options) {
     this.iosSimulatorDevice = objcOptions.iosSimulatorDevice;
@@ -97,12 +93,8 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment
         objcOptions.useDotdPruning
             ? HeaderDiscovery.DotdPruningMode.USE
             : HeaderDiscovery.DotdPruningMode.DO_NOT_USE;
-    this.experimentalHeaderThinning = objcOptions.experimentalObjcHeaderThinning;
-    this.objcHeaderThinningPartitionSize = objcOptions.objcHeaderThinningPartitionSize;
     this.shouldScanIncludes = objcOptions.scanIncludes;
-    this.objcHeaderScannerTool = objcOptions.objcHeaderScannerTool;
     this.appleSdk = objcOptions.appleSdk;
-    this.strictObjcModuleMaps = objcOptions.strictObjcModuleMaps;
   }
 
   /**
@@ -257,33 +249,13 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment
     return dotdPruningPlan;
   }
 
-  /** Returns true if header thinning of ObjcCompile actions is enabled to reduce action inputs. */
-  public boolean useExperimentalHeaderThinning() {
-    return experimentalHeaderThinning;
-  }
-
   /** Returns true iff we should do "include scanning" during this build. */
   public boolean shouldScanIncludes() {
     return shouldScanIncludes;
   }
 
-  /** Returns the max number of source files to add to each header scanning action. */
-  public int objcHeaderThinningPartitionSize() {
-    return objcHeaderThinningPartitionSize;
-  }
-
-  /** Returns the label for the ObjC header scanner tool. */
-  public Label getObjcHeaderScannerTool() {
-    return objcHeaderScannerTool;
-  }
-
   /** Returns the label for the Apple SDK for current build configuration. */
   public Label getAppleSdk() {
     return appleSdk;
-  }
-
-  /** Returns true if Objective-C module maps should only be propagated to direct dependencies. */
-  public boolean useStrictObjcModuleMaps() {
-    return strictObjcModuleMaps;
   }
 }

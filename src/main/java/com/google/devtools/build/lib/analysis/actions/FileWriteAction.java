@@ -22,6 +22,9 @@ import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.util.Fingerprint;
@@ -81,7 +84,7 @@ public final class FileWriteAction extends AbstractFileWriteAction {
 
   private FileWriteAction(
       ActionOwner owner,
-      Iterable<Artifact> inputs,
+      NestedSet<Artifact> inputs,
       Artifact output,
       CharSequence fileContents,
       boolean makeExecutable,
@@ -102,7 +105,7 @@ public final class FileWriteAction extends AbstractFileWriteAction {
   @AutoCodec.Instantiator
   FileWriteAction(
       ActionOwner owner,
-      Iterable<Artifact> inputs,
+      NestedSet<Artifact> inputs,
       Artifact primaryOutput,
       CharSequence fileContents,
       boolean makeExecutable) {
@@ -121,7 +124,7 @@ public final class FileWriteAction extends AbstractFileWriteAction {
    * @param output the Artifact that will be created by executing this Action
    */
   public static FileWriteAction createEmptyWithInputs(
-      ActionOwner owner, Iterable<Artifact> inputs, Artifact output) {
+      ActionOwner owner, NestedSet<Artifact> inputs, Artifact output) {
     return new FileWriteAction(owner, inputs, output, "", false, Compression.DISALLOW);
   }
 
@@ -142,7 +145,12 @@ public final class FileWriteAction extends AbstractFileWriteAction {
       boolean makeExecutable,
       Compression allowCompression) {
     return new FileWriteAction(
-        owner, Artifact.NO_ARTIFACTS, output, fileContents, makeExecutable, allowCompression);
+        owner,
+        NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+        output,
+        fileContents,
+        makeExecutable,
+        allowCompression);
   }
 
   /**
@@ -164,7 +172,7 @@ public final class FileWriteAction extends AbstractFileWriteAction {
       boolean makeExecutable) {
     return new FileWriteAction(
         context.getActionOwner(),
-        Artifact.NO_ARTIFACTS,
+        NestedSetBuilder.emptySet(Order.STABLE_ORDER),
         output,
         fileContents,
         makeExecutable,

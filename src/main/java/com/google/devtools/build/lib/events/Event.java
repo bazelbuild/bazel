@@ -171,13 +171,14 @@ public final class Event implements Serializable {
     return location;
   }
 
-  /**
-   * Returns <i>some</i> moderately sane representation of the event. Should never be used in
-   * user-visible places, only for debugging and testing.
-   */
+  /** Returns the event formatted as {@code "ERROR foo.bzl:1:2: oops"}. */
   @Override
   public String toString() {
-    return kind + " " + (location != null ? location.print() : "<no location>") + ": "
+    // TODO(adonovan): <no location> is just noise.
+    return kind
+        + " "
+        + (location != null ? location.toString() : "<no location>")
+        + ": "
         + getMessage();
   }
 

@@ -21,10 +21,10 @@ import com.google.devtools.build.lib.skylarkbuildapi.repository.RepositoryModule
 import com.google.devtools.build.lib.syntax.BaseFunction;
 import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.FuncallExpression;
 import com.google.devtools.build.lib.syntax.FunctionSignature;
 import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.Starlark;
+import com.google.devtools.build.lib.syntax.StarlarkFunction;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.skydoc.fakebuildapi.FakeDescriptor;
 import com.google.devtools.build.skydoc.fakebuildapi.FakeSkylarkRuleFunctionsApi.AttributeNameComparator;
@@ -51,14 +51,14 @@ public class FakeRepositoryModule implements RepositoryModuleApi {
 
   @Override
   public BaseFunction repositoryRule(
-      BaseFunction implementation,
+      StarlarkFunction implementation,
       Object attrs,
       Boolean local,
       Sequence<?> environ, // <String> expected
       Boolean configure,
       Boolean remotable,
       String doc,
-      FuncallExpression ast,
+      Location loc,
       StarlarkThread thread)
       throws EvalException {
     List<AttributeInfo> attrInfos;
@@ -82,7 +82,7 @@ public class FakeRepositoryModule implements RepositoryModuleApi {
     // Only the Builder is passed to RuleInfoWrapper as the rule name is not yet available.
     RuleInfo.Builder ruleInfo = RuleInfo.newBuilder().setDocString(doc).addAllAttribute(attrInfos);
 
-    ruleInfoList.add(new RuleInfoWrapper(functionIdentifier, ast.getLocation(), ruleInfo));
+    ruleInfoList.add(new RuleInfoWrapper(functionIdentifier, loc, ruleInfo));
     return functionIdentifier;
   }
 
@@ -98,13 +98,14 @@ public class FakeRepositoryModule implements RepositoryModuleApi {
     private static int idCounter = 0;
     private final String name = "RepositoryRuleDefinitionIdentifier" + idCounter++;
 
-    public RepositoryRuleDefinitionIdentifier() {
-      super(FunctionSignature.KWARGS);
-    }
-
     @Override
     public String getName() {
       return name;
+    }
+
+    @Override
+    public FunctionSignature getSignature() {
+      return FunctionSignature.KWARGS;
     }
   }
 

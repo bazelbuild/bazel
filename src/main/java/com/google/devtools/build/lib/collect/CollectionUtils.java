@@ -130,7 +130,6 @@ public final class CollectionUtils {
     return iterable instanceof ImmutableList<?>
         || iterable instanceof ImmutableSet<?>
         || iterable instanceof IterablesChain<?>
-        || iterable instanceof DedupingIterable<?>
         || iterable instanceof NestedSet<?>
         || iterable instanceof ImmutableIterable<?>;
   }
@@ -210,7 +209,7 @@ public final class CollectionUtils {
   }
 
   /**
-   * A variant of {@link com.google.common.collect.Iterables.isEmpty} that avoids expanding nested
+   * A variant of {@link com.google.common.collect.Iterables#isEmpty} that avoids expanding nested
    * sets.
    */
   public static <T> boolean isEmpty(Iterable<T> iterable) {

@@ -17,7 +17,6 @@ package com.google.devtools.build.lib.analysis;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -59,7 +58,7 @@ public final class PrerequisiteArtifacts {
     }
     Set<Artifact> result = new LinkedHashSet<>();
     for (FileProvider target : prerequisites) {
-      Iterables.addAll(result, target.getFilesToBuild());
+      result.addAll(target.getFilesToBuild().toList());
     }
     return new PrerequisiteArtifacts(ruleContext, attributeName, ImmutableList.copyOf(result));
   }

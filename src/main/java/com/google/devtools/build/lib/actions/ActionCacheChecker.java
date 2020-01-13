@@ -23,6 +23,9 @@ import com.google.devtools.build.lib.actions.cache.ActionCache;
 import com.google.devtools.build.lib.actions.cache.DigestUtils;
 import com.google.devtools.build.lib.actions.cache.MetadataHandler;
 import com.google.devtools.build.lib.actions.cache.Protos.ActionCacheStatistics.MissReason;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.EventKind;
@@ -143,7 +146,7 @@ public class ActionCacheChecker {
   private static boolean validateArtifacts(
       ActionCache.Entry entry,
       Action action,
-      Iterable<Artifact> actionInputs,
+      NestedSet<Artifact> actionInputs,
       MetadataHandler metadataHandler,
       boolean checkOutput) {
     Map<String, FileArtifactValue> mdMap = new HashMap<>();
@@ -152,7 +155,7 @@ public class ActionCacheChecker {
         mdMap.put(artifact.getExecPathString(), getMetadataMaybe(metadataHandler, artifact));
       }
     }
-    for (Artifact artifact : actionInputs) {
+    for (Artifact artifact : actionInputs.toList()) {
       mdMap.put(artifact.getExecPathString(), getMetadataMaybe(metadataHandler, artifact));
     }
     return !Arrays.equals(DigestUtils.fromMetadata(mdMap), entry.getFileDigest());
@@ -242,7 +245,7 @@ public class ActionCacheChecker {
   // guarantee it will be available for other events.
   public Token getTokenIfNeedToExecute(
       Action action,
-      Iterable<Artifact> resolvedCacheArtifacts,
+      List<Artifact> resolvedCacheArtifacts,
       Map<String, String> clientEnv,
       EventHandler handler,
       MetadataHandler metadataHandler,
@@ -265,14 +268,14 @@ public class ActionCacheChecker {
     if (!cacheConfig.enabled()) {
       return new Token(getKeyString(action));
     }
-    Iterable<Artifact> actionInputs = action.getInputs();
+    NestedSet<Artifact> actionInputs = action.getInputs();
     // Resolve action inputs from cache, if necessary.
     boolean inputsDiscovered = action.inputsDiscovered();
     if (!inputsDiscovered && resolvedCacheArtifacts != null) {
       // The action doesn't know its inputs, but the caller has a good idea of what they are.
       Preconditions.checkState(action.discoversInputs(),
           "Actions that don't know their inputs must discover them: %s", action);
-      actionInputs = resolvedCacheArtifacts;
+      actionInputs = NestedSetBuilder.wrap(Order.STABLE_ORDER, resolvedCacheArtifacts);
     }
     ActionCache.Entry entry = getCacheEntry(action);
     if (mustExecute(
@@ -300,7 +303,7 @@ public class ActionCacheChecker {
       @Nullable ActionCache.Entry entry,
       EventHandler handler,
       MetadataHandler metadataHandler,
-      Iterable<Artifact> actionInputs,
+      NestedSet<Artifact> actionInputs,
       Map<String, String> clientEnv,
       Map<String, String> remoteDefaultPlatformProperties) {
     // Unconditional execution can be applied only for actions that are allowed to be executed.
@@ -400,7 +403,7 @@ public class ActionCacheChecker {
         entry.addFile(output.getExecPath(), metadata);
       }
     }
-    for (Artifact input : action.getInputs()) {
+    for (Artifact input : action.getInputs().toList()) {
       entry.addFile(input.getExecPath(), getMetadataMaybe(metadataHandler, input));
     }
     entry.getFileDigest();
@@ -408,7 +411,7 @@ public class ActionCacheChecker {
   }
 
   @Nullable
-  public Iterable<Artifact> getCachedInputs(Action action, PackageRootResolver resolver)
+  public List<Artifact> getCachedInputs(Action action, PackageRootResolver resolver)
       throws InterruptedException {
     ActionCache.Entry entry = getCacheEntry(action);
     if (entry == null || entry.isCorrupted()) {
@@ -433,7 +436,7 @@ public class ActionCacheChecker {
     // is a superset of getMandatoryInputs(). See bug about an "action not in canonical form"
     // error message and the integration test test_crosstool_change_and_failure().
     Map<PathFragment, Artifact> allowedDerivedInputsMap = new HashMap<>();
-    for (Artifact derivedInput : action.getAllowedDerivedInputs()) {
+    for (Artifact derivedInput : action.getAllowedDerivedInputs().toList()) {
       if (!derivedInput.isSourceArtifact()) {
         allowedDerivedInputsMap.put(derivedInput.getExecPath(), derivedInput);
       }
@@ -511,7 +514,7 @@ public class ActionCacheChecker {
       // Since we never validate action key for middlemen, we should not store
       // it in the cache entry and just use empty string instead.
       entry = new ActionCache.Entry("", ImmutableMap.<String, String>of(), false);
-      for (Artifact input : action.getInputs()) {
+      for (Artifact input : action.getInputs().toList()) {
         entry.addFile(input.getExecPath(), getMetadataMaybe(metadataHandler, input));
       }
     }

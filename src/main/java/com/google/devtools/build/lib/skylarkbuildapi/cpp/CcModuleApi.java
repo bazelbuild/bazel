@@ -17,9 +17,10 @@ package com.google.devtools.build.lib.skylarkbuildapi.cpp;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
-import com.google.devtools.build.lib.skylarkbuildapi.ProviderApi;
 import com.google.devtools.build.lib.skylarkbuildapi.SkylarkActionFactoryApi;
 import com.google.devtools.build.lib.skylarkbuildapi.SkylarkRuleContextApi;
+import com.google.devtools.build.lib.skylarkbuildapi.core.ProviderApi;
+import com.google.devtools.build.lib.skylarkbuildapi.platform.ConstraintValueInfoApi;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.ParamType;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
@@ -48,7 +49,8 @@ public interface CcModuleApi<
         LinkingContextT extends CcLinkingContextApi<?>,
         LibraryToLinkT extends LibraryToLinkApi<FileT>,
         CcToolchainVariablesT extends CcToolchainVariablesApi,
-        SkylarkRuleContextT extends SkylarkRuleContextApi,
+        ConstraintValueT extends ConstraintValueInfoApi,
+        SkylarkRuleContextT extends SkylarkRuleContextApi<ConstraintValueT>,
         CcToolchainConfigInfoT extends CcToolchainConfigInfoApi,
         CompilationOutputsT extends CcCompilationOutputsApi<FileT>>
     extends StarlarkValue {
@@ -566,6 +568,24 @@ public interface CcModuleApi<
             positional = false,
             named = true,
             defaultValue = "False"),
+        @Param(
+            name = "dynamic_library_symlink_path",
+            doc =
+                "Override the default path of the dynamic library link in the solib directory. "
+                    + "Empty string to use the default.",
+            positional = false,
+            named = true,
+            type = String.class,
+            defaultValue = "''"),
+        @Param(
+            name = "interface_library_symlink_path",
+            doc =
+                "Override the default path of the interface library link in the solib directory. "
+                    + "Empty string to use the default.",
+            positional = false,
+            named = true,
+            type = String.class,
+            defaultValue = "''"),
       })
   LibraryToLinkT createLibraryLinkerInput(
       Object actions,
@@ -576,6 +596,8 @@ public interface CcModuleApi<
       Object dynamicLibrary,
       Object interfaceLibrary,
       boolean alwayslink,
+      String dynamicLibraryPath,
+      String interfaceLibraryPath,
       Location location,
       StarlarkThread thread)
       throws EvalException, InterruptedException;

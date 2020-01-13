@@ -41,12 +41,12 @@ public interface AnalysisFailureApi extends StarlarkValue {
               + "of the target responsible for construction of this object.",
       documented = false,
       structField = true)
-  public Label getLabel();
+  Label getLabel();
 
   @SkylarkCallable(
       name = "message",
       doc = "A string representation of the analysis-phase error which occurred.",
       documented = false,
       structField = true)
-  public String getMessage();
+  String getMessage();
 }

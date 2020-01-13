@@ -126,14 +126,10 @@ final class DebugEventHelper {
     if (location == null) {
       return null;
     }
-    Location.LineAndColumn lineAndColumn = location.getStartLineAndColumn();
-    if (lineAndColumn == null) {
-      return null;
-    }
     return SkylarkDebuggingProtos.Location.newBuilder()
-        .setLineNumber(lineAndColumn.getLine())
-        .setColumnNumber(lineAndColumn.getColumn())
-        .setPath(location.getPath().getPathString())
+        .setLineNumber(location.line())
+        .setColumnNumber(location.column())
+        .setPath(location.file())
         .build();
   }
 

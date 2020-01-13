@@ -31,7 +31,6 @@ import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.packages.NativeProvider;
 import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
-import com.google.devtools.build.lib.rules.android.AndroidConfiguration.AndroidAaptVersion;
 import com.google.devtools.build.lib.rules.android.AndroidLibraryAarInfo.Aar;
 import com.google.devtools.build.lib.rules.android.databinding.DataBinding;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider;
@@ -156,8 +155,7 @@ public abstract class AndroidSkylarkData
           .process(
               ctx,
               AssetDependencies.fromProviders(
-                  deps.getContents(AndroidAssetsInfo.class, "deps"), neverlink),
-              getAndroidAaptVersionForLibrary(ctx))
+                  deps.getContents(AndroidAssetsInfo.class, "deps"), neverlink))
           .toProvider();
     } catch (RuleErrorException e) {
       throw handleRuleException(errorReporter, e);
@@ -188,8 +186,7 @@ public abstract class AndroidSkylarkData
               ResourceDependencies.fromProviders(
                   deps.getContents(AndroidResourcesInfo.class, "deps"), neverlink),
               DataBinding.contextFrom(
-                  enableDataBinding, ctx.getActionConstructionContext(), ctx.getAndroidConfig()),
-              getAndroidAaptVersionForLibrary(ctx));
+                  enableDataBinding, ctx.getActionConstructionContext(), ctx.getAndroidConfig()));
     } catch (RuleErrorException e) {
       throw handleRuleException(errorReporter, e);
     }
@@ -281,7 +278,6 @@ public abstract class AndroidSkylarkData
       Sequence<?> deps) // <ConfiguredTarget>
       throws InterruptedException, EvalException {
     List<ConfiguredTarget> depsTargets = deps.getContents(ConfiguredTarget.class, "deps");
-    AndroidAaptVersion aaptVersion = getAndroidAaptVersionForLibrary(ctx);
 
     ValidatedAndroidResources validatedResources =
         AndroidResources.forAarImport(resources)
@@ -291,16 +287,15 @@ public abstract class AndroidSkylarkData
                 ResourceDependencies.fromProviders(
                     getProviders(depsTargets, AndroidResourcesInfo.PROVIDER),
                     /* neverlink = */ false),
-                DataBinding.getDisabledDataBindingContext(ctx),
-                aaptVersion);
+                DataBinding.getDisabledDataBindingContext(ctx));
 
     MergedAndroidAssets mergedAssets =
         AndroidAssets.forAarImport(assets)
             .process(
                 ctx,
                 AssetDependencies.fromProviders(
-                    getProviders(depsTargets, AndroidAssetsInfo.PROVIDER), /* neverlink = */ false),
-                aaptVersion);
+                    getProviders(depsTargets, AndroidAssetsInfo.PROVIDER),
+                    /* neverlink = */ false));
 
     ResourceApk resourceApk = ResourceApk.of(validatedResources, mergedAssets, null, null);
 
@@ -358,7 +353,6 @@ public abstract class AndroidSkylarkData
               AssetDependencies.fromProviders(
                   getProviders(depsTargets, AndroidAssetsInfo.PROVIDER), /* neverlink = */ false),
               manifestValues.getContents(String.class, String.class, "manifest_values"),
-              AndroidAaptVersion.chooseTargetAaptVersion(ctx, errorReporter, aaptVersionString),
               noCompressExtensions.getContents(String.class, "nocompress_extensions"));
 
       ImmutableMap.Builder<Provider, NativeInfo> builder = ImmutableMap.builder();
@@ -396,14 +390,10 @@ public abstract class AndroidSkylarkData
       Location location,
       StarlarkThread thread)
       throws EvalException {
-    AndroidAaptVersion aaptVersion = AndroidAaptVersion.AAPT2;
-
     return new BinaryDataSettings(
-        aaptVersion,
         fromNoneableOrDefault(
             shrinkResources, Boolean.class, ctx.getAndroidConfig().useAndroidResourceShrinking()),
         ResourceFilterFactory.from(
-            aaptVersion,
             resourceConfigurationFilters.getContents(
                 String.class, "resource_configuration_filters"),
             densities.getContents(String.class, "densities")),
@@ -433,17 +423,14 @@ public abstract class AndroidSkylarkData
   }
 
   private static class BinaryDataSettings implements AndroidBinaryDataSettingsApi {
-    private final AndroidAaptVersion aaptVersion;
     private final boolean shrinkResources;
     private final ResourceFilterFactory resourceFilterFactory;
     private final ImmutableList<String> noCompressExtensions;
 
     private BinaryDataSettings(
-        AndroidAaptVersion aaptVersion,
         boolean shrinkResources,
         ResourceFilterFactory resourceFilterFactory,
         ImmutableList<String> noCompressExtensions) {
-      this.aaptVersion = aaptVersion;
       this.shrinkResources = shrinkResources;
       this.resourceFilterFactory = resourceFilterFactory;
       this.noCompressExtensions = noCompressExtensions;
@@ -510,7 +497,6 @@ public abstract class AndroidSkylarkData
                   AndroidBinary.shouldShrinkResourceCycles(
                       ctx.getAndroidConfig(), errorReporter, settings.shrinkResources),
                   manifestValueMap,
-                  settings.aaptVersion,
                   AndroidResources.from(
                       errorReporter,
                       getFileProviders(
@@ -533,7 +519,7 @@ public abstract class AndroidSkylarkData
                       dataBindingEnabled,
                       ctx.getActionConstructionContext(),
                       ctx.getAndroidConfig()))
-              .generateRClass(ctx, settings.aaptVersion);
+              .generateRClass(ctx);
 
       return AndroidBinaryDataInfo.of(
           resourceApk.getArtifact(),
@@ -602,7 +588,6 @@ public abstract class AndroidSkylarkData
                   /* neverlink = */ false),
               proguardOutputJar,
               proguardMapping,
-              settings.aaptVersion,
               settings.resourceFilterFactory,
               settings.noCompressExtensions);
       return binaryDataInfo.withShrunkApk(shrunkApk);
@@ -627,23 +612,6 @@ public abstract class AndroidSkylarkData
             resourceApk.getResourceJavaClassJar(), resourceApk.getResourceJavaSrcJar()));
 
     return Dict.copyOf((Mutability) null, builder.build());
-  }
-
-  /**
-   * An algorithm to select the aapt version.
-   *
-   * <p>The calling rule doesn't have the aapt_version attribute (e.g. android_library), so fall
-   * back to a simpler algorithm instead of {@code AndroidAaptVersion.chooseTargetAaptVersion}.
-   * <li>1. If value of --android_aapt is either aapt or aapt2, use it.
-   * <li>2. Else, use aapt2 if the sdk contains it. If it doesn't, use aapt.
-   */
-  private static AndroidAaptVersion getAndroidAaptVersionForLibrary(AndroidDataContext ctx) {
-    AndroidAaptVersion aaptVersion = ctx.getAndroidConfig().getAndroidAaptVersion();
-    if (aaptVersion == AndroidAaptVersion.AUTO) {
-      aaptVersion =
-          ctx.getSdk().getAapt2() == null ? AndroidAaptVersion.AAPT : AndroidAaptVersion.AAPT2;
-    }
-    return aaptVersion;
   }
 
   private static JavaInfo getJavaInfoForRClassJar(Artifact rClassJar, Artifact rClassSrcJar) {
@@ -725,7 +693,7 @@ public abstract class AndroidSkylarkData
       List<ConfiguredTarget> targets) {
     ImmutableList.Builder<Artifact> builder = ImmutableList.builder();
     for (FileProvider provider : getFileProviders(targets)) {
-      builder.addAll(provider.getFilesToBuild());
+      builder.addAll(provider.getFilesToBuild().toList());
     }
 
     return builder.build();

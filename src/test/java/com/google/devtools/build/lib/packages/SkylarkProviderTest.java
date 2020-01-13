@@ -57,7 +57,7 @@ public final class SkylarkProviderTest {
     assertThat(provider.getName()).isEqualTo("prov");
     assertThat(provider.getPrintableName()).isEqualTo("prov");
     assertThat(provider.getErrorMessageFormatForUnknownField())
-        .isEqualTo("'prov' object has no attribute '%s'");
+        .isEqualTo("'prov' value has no field or method '%s'");
     assertThat(provider.isImmutable()).isTrue();
     assertThat(Starlark.repr(provider)).isEqualTo("<provider>");
     assertThat(provider.getKey()).isEqualTo(key);
@@ -67,7 +67,6 @@ public final class SkylarkProviderTest {
   public void schemalessProvider_Instantiation() throws Exception {
     SkylarkProvider provider = SkylarkProvider.createUnexportedSchemaless(/*location=*/ null);
     SkylarkInfo info = instantiateWithA1B2C3(provider);
-    assertThat(info.isCompact()).isFalse();
     assertHasExactlyValuesA1B2C3(info);
   }
 
@@ -76,7 +75,6 @@ public final class SkylarkProviderTest {
     SkylarkProvider provider = SkylarkProvider.createUnexportedSchemaful(
         ImmutableList.of("a", "b", "c"), /*location=*/ null);
     SkylarkInfo info = instantiateWithA1B2C3(provider);
-    assertThat(info.isCompact()).isTrue();
     assertHasExactlyValuesA1B2C3(info);
   }
 
@@ -139,8 +137,11 @@ public final class SkylarkProviderTest {
     StarlarkThread thread =
         StarlarkThread.builder(Mutability.create("test")).useDefaultSemantics().build();
     Object result =
-        provider.call(
-            ImmutableList.of(), ImmutableMap.of("a", 1, "b", 2, "c", 3), /*ast=*/ null, thread);
+        Starlark.call(
+            thread,
+            provider,
+            /*args=*/ ImmutableList.of(),
+            /*kwargs=*/ ImmutableMap.of("a", 1, "b", 2, "c", 3));
     assertThat(result).isInstanceOf(SkylarkInfo.class);
     return (SkylarkInfo) result;
   }

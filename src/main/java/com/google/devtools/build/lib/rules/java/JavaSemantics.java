@@ -21,7 +21,6 @@ import static com.google.devtools.build.lib.packages.ImplicitOutputsFunction.fro
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
@@ -187,7 +186,6 @@ public interface JavaSemantics {
   String JACOCO_METADATA_PLACEHOLDER = "%set_jacoco_metadata%";
   String JACOCO_MAIN_CLASS_PLACEHOLDER = "%set_jacoco_main_class%";
   String JACOCO_JAVA_RUNFILES_ROOT_PLACEHOLDER = "%set_jacoco_java_runfiles_root%";
-  String JAVA_COVERAGE_NEW_IMPLEMENTATION_PLACEHOLDER = "%set_java_coverage_new_implementation%";
 
   /** Substitution for exporting the jars needed for jacoco coverage. */
   class ComputedJacocoSubstitution extends ComputedSubstitution {
@@ -206,7 +204,7 @@ public interface JavaSemantics {
      */
     @Override
     public String getValue() {
-      return Streams.stream(jars)
+      return jars.toList().stream()
           .map(artifact -> pathPrefix + "/" + artifact.getRootRelativePathString())
           .collect(Collectors.joining(File.pathSeparator, "export JACOCO_METADATA_JARS=", ""));
     }
@@ -475,12 +473,6 @@ public interface JavaSemantics {
       throws InterruptedException;
 
   Artifact getObfuscatedConstantStringMap(RuleContext ruleContext) throws InterruptedException;
-
-  /**
-   * Checks if dependency errors coming from java_proto_library rules should be treated as errors
-   * even if the java_proto_library rule sets strict_deps = 0.
-   */
-  boolean isJavaProtoLibraryStrictDeps(RuleContext ruleContext);
 
   void checkDependencyRuleKinds(RuleContext ruleContext);
 }

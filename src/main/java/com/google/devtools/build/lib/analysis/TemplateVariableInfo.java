@@ -52,7 +52,7 @@ public final class TemplateVariableInfo extends NativeInfo implements TemplateVa
 
   @AutoCodec.Instantiator
   public TemplateVariableInfo(ImmutableMap<String, String> variables, Location location) {
-    super(PROVIDER, ImmutableMap.of(), location);
+    super(PROVIDER, location);
     this.variables = variables;
   }
 

@@ -25,7 +25,6 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
-import com.google.devtools.build.lib.rules.android.AndroidConfiguration.AndroidAaptVersion;
 import com.google.devtools.build.lib.rules.android.databinding.DataBinding;
 import com.google.devtools.build.lib.rules.android.databinding.DataBindingContext;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -237,12 +236,6 @@ public class AndroidResourcesTest extends ResourceTestBase {
 
     assertThat(parsed.getCompiledSymbols()).isNotNull();
 
-    // The parse action should take resources in and output symbols
-    assertActionArtifacts(
-        ruleContext,
-        /* inputs = */ parsed.getResources(),
-        /* outputs = */ ImmutableList.of(parsed.getSymbols()));
-
     // Since there was no data binding, the compile action should just take in resources and output
     // compiled symbols.
     assertActionArtifacts(
@@ -256,12 +249,6 @@ public class AndroidResourcesTest extends ResourceTestBase {
     RuleContext ruleContext = getRuleContextWithDataBinding();
 
     ParsedAndroidResources parsed = assertParse(ruleContext);
-
-    // The parse action should take resources and busybox artifacts in and output symbols
-    assertActionArtifacts(
-        ruleContext,
-        /* inputs = */ parsed.getResources(),
-        /* outputs = */ ImmutableList.of(parsed.getSymbols()));
 
     // The compile action should take in resources and manifest in and output compiled symbols and
     // a databinding zip.
@@ -282,8 +269,7 @@ public class AndroidResourcesTest extends ResourceTestBase {
     MergedAndroidResources merged =
         parsed.merge(
             AndroidDataContext.forNative(ruleContext),
-            ResourceDependencies.fromRuleDeps(ruleContext, /* neverlink = */ false),
-            AndroidAaptVersion.chooseTargetAaptVersion(ruleContext));
+            ResourceDependencies.fromRuleDeps(ruleContext, /* neverlink = */ false));
 
     // Besides processed manifest, inherited values should be equal
     assertThat(parsed).isEqualTo(new ParsedAndroidResources(merged, parsed.getStampedManifest()));
@@ -303,16 +289,6 @@ public class AndroidResourcesTest extends ResourceTestBase {
             .add(parsed.getManifest())
             .build(),
         /* outputs = */ ImmutableList.of(merged.getClassJar(), merged.getManifest()));
-
-    // The old symbols file is still needed to build the merged resources zip
-    assertActionArtifacts(
-        ruleContext,
-        /* inputs = */ ImmutableList.<Artifact>builder()
-            .addAll(merged.getResources())
-            .add(merged.getSymbols())
-            .add(parsed.getManifest())
-            .build(),
-        /* outputs = */ ImmutableList.of(merged.getMergedResources()));
   }
 
   @Test
@@ -321,7 +297,7 @@ public class AndroidResourcesTest extends ResourceTestBase {
 
     MergedAndroidResources merged = makeMergedResources(ruleContext);
     ValidatedAndroidResources validated =
-        merged.validate(AndroidDataContext.forNative(ruleContext), AndroidAaptVersion.AAPT2);
+        merged.validate(AndroidDataContext.forNative(ruleContext));
 
     // Inherited values should be equal
     assertThat(merged).isEqualTo(new MergedAndroidResources(validated));
@@ -354,12 +330,10 @@ public class AndroidResourcesTest extends ResourceTestBase {
   }
 
   @Test
-  public void testValidateNoAapt1() throws Exception {
-    useConfiguration("--incompatible_prohibit_aapt1");
+  public void testValidate() throws Exception {
     RuleContext ruleContext = getRuleContext();
 
-    makeMergedResources(ruleContext)
-        .validate(AndroidDataContext.forNative(ruleContext), AndroidAaptVersion.AAPT2);
+    makeMergedResources(ruleContext).validate(AndroidDataContext.forNative(ruleContext));
 
     Set<String> actionMnemonics =
         ruleContext.getAnalysisEnvironment().getRegisteredActions().stream()
@@ -381,10 +355,7 @@ public class AndroidResourcesTest extends ResourceTestBase {
         ProcessedAndroidData.of(
             makeParsedResources(ruleContext),
             AndroidAssets.from(ruleContext)
-                .process(
-                    AndroidDataContext.forNative(ruleContext),
-                    AssetDependencies.empty(),
-                    AndroidAaptVersion.AAPT2),
+                .process(AndroidDataContext.forNative(ruleContext), AssetDependencies.empty()),
             manifest,
             rTxt,
             ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_JAVA_SOURCE_JAR),
@@ -396,9 +367,7 @@ public class AndroidResourcesTest extends ResourceTestBase {
 
     ValidatedAndroidResources validated =
         processedData
-            .generateRClass(
-                AndroidDataContext.forNative(ruleContext),
-                AndroidAaptVersion.chooseTargetAaptVersion(ruleContext))
+            .generateRClass(AndroidDataContext.forNative(ruleContext))
             .getValidatedResources();
 
     // An action to generate the R.class file should be registered.
@@ -420,7 +389,6 @@ public class AndroidResourcesTest extends ResourceTestBase {
                 getManifest(),
                 false,
                 ImmutableMap.of(),
-                AndroidAaptVersion.AAPT2,
                 AndroidResources.empty(),
                 AndroidAssets.empty(),
                 ResourceDependencies.empty(),
@@ -429,18 +397,10 @@ public class AndroidResourcesTest extends ResourceTestBase {
                 ImmutableList.of(),
                 false,
                 DataBinding.contextFrom(ruleContext, dataContext.getAndroidConfig()))
-            .generateRClass(dataContext, AndroidAaptVersion.AAPT2);
+            .generateRClass(dataContext);
 
     assertThat(resourceApk.getResourceProguardConfig()).isNotNull();
     assertThat(resourceApk.getMainDexProguardConfig()).isNotNull();
-  }
-
-  @Test
-  public void test_incompatibleProhibitAapt1_targetsAapt2() throws Exception {
-    useConfiguration("--incompatible_prohibit_aapt1");
-    RuleContext ruleContext = getRuleContext("android_binary", "manifest = 'AndroidManifest.xml',");
-    assertThat(AndroidAaptVersion.chooseTargetAaptVersion(ruleContext))
-        .isEqualTo(AndroidAaptVersion.AAPT2);
   }
 
   /**
@@ -466,7 +426,6 @@ public class AndroidResourcesTest extends ResourceTestBase {
         raw.parse(
             AndroidDataContext.forNative(ruleContext),
             manifest,
-            AndroidAaptVersion.AAPT2,
             dataBindingContext);
 
     // Inherited values should be equal
@@ -483,8 +442,7 @@ public class AndroidResourcesTest extends ResourceTestBase {
     return makeParsedResources(ruleContext)
         .merge(
             AndroidDataContext.forNative(ruleContext),
-            ResourceDependencies.fromRuleDeps(ruleContext, /* neverlink = */ false),
-            AndroidAaptVersion.AAPT2);
+            ResourceDependencies.fromRuleDeps(ruleContext, /* neverlink = */ false));
   }
 
   private ParsedAndroidResources makeParsedResources(RuleContext ruleContext)
@@ -504,7 +462,6 @@ public class AndroidResourcesTest extends ResourceTestBase {
         .parse(
             AndroidDataContext.forNative(ruleContext),
             getManifest(),
-            AndroidAaptVersion.AAPT2,
             dataBindingContext);
   }
 

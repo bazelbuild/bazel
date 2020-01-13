@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.syntax;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Ordering;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Location;
@@ -117,8 +116,7 @@ public final class EvalUtils {
       // Object.hashCode within a try/catch, and requiring all
       // unhashable Starlark values to throw a particular unchecked exception
       // with a helpful error message.
-      throw new EvalException(
-          null, Starlark.format("unhashable type: '%s'", EvalUtils.getDataTypeName(x)));
+      throw Starlark.errorf("unhashable type: '%s'", EvalUtils.getDataTypeName(x));
     }
   }
 
@@ -288,11 +286,9 @@ public final class EvalUtils {
 
   /**
    * Resolves a positive or negative index to an index in the range [0, length), or throws
-   * EvalException if it is out-of-range. If the index is negative, it counts backward from
-   * length.
+   * EvalException if it is out of range. If the index is negative, it counts backward from length.
    */
-  public static int getSequenceIndex(int index, int length, Location loc)
-      throws EvalException {
+  static int getSequenceIndex(int index, int length, Location loc) throws EvalException {
     int actualIndex = index;
     if (actualIndex < 0) {
       actualIndex += length;
@@ -306,136 +302,28 @@ public final class EvalUtils {
   }
 
   /**
-   * Performs index resolution after verifying that the given object has index type.
+   * Returns the effective index denoted by a user-supplied integer. First, if the integer is
+   * negative, the length of the sequence is added to it, so an index of -1 represents the last
+   * element of the sequence. Then, the integer is "clamped" into the inclusive interval [0,
+   * length].
    */
-  public static int getSequenceIndex(Object index, int length, Location loc)
-      throws EvalException {
-    if (!(index instanceof Integer)) {
-      throw new EvalException(loc, "indices must be integers, not " + getDataTypeName(index));
-    }
-    return getSequenceIndex(((Integer) index).intValue(), length, loc);
-  }
-
-  /**
-   * Resolves a positive or negative index to an integer that can denote the left or right boundary
-   * of a slice. If reverse is false, the slice has positive stride (i.e., its elements are in their
-   * normal order) and the result is guaranteed to be in range [0, length + 1). If reverse is true,
-   * the slice has negative stride and the result is in range [-1, length). In either case, if the
-   * index is negative, it counts backward from length. Note that an input index of -1 represents
-   * the last element's position, while an output integer of -1 represents the imaginary position
-   * to the left of the first element.
-   */
-  public static int clampRangeEndpoint(int index, int length, boolean reverse) {
+  static int toIndex(int index, int length) {
     if (index < 0) {
       index += length;
     }
-    if (!reverse) {
-      return Math.max(Math.min(index, length), 0);
+
+    if (index < 0) {
+      return 0;
+    } else if (index > length) {
+      return length;
     } else {
-      return Math.max(Math.min(index, length - 1), -1);
+      return index;
     }
-  }
-
-  /**
-   * Resolves a positive or negative index to an integer that can denote the boundary for a
-   * slice with positive stride.
-   */
-  public static int clampRangeEndpoint(int index, int length) {
-    return clampRangeEndpoint(index, length, false);
-  }
-
-  /**
-   * Calculates the indices of the elements that should be included in the slice [start:end:step]
-   * of a sequence with the given length. Each of start, end, and step must be supplied, and step
-   * may not be 0.
-   */
-  public static List<Integer> getSliceIndices(int start, int end, int step, int length) {
-    if (step == 0) {
-      throw new IllegalArgumentException("Slice step cannot be zero");
-    }
-    start = clampRangeEndpoint(start, length, step < 0);
-    end = clampRangeEndpoint(end, length, step < 0);
-    // precise computation is slightly more involved, but since it can overshoot only by a single
-    // element it's fine
-    final int expectedMaxSize = Math.abs(start - end) / Math.abs(step) + 1;
-    ImmutableList.Builder<Integer> indices = ImmutableList.builderWithExpectedSize(expectedMaxSize);
-    for (int current = start; step > 0 ? current < end : current > end; current += step) {
-      indices.add(current);
-    }
-    return indices.build();
-  }
-
-  /**
-   * Calculates the indices of the elements in a slice, after validating the arguments and replacing
-   * Starlark.NONE with default values. Throws an EvalException if a bad argument is given.
-   */
-  public static List<Integer> getSliceIndices(
-      Object startObj, Object endObj, Object stepObj, int length, Location loc)
-      throws EvalException {
-    int start;
-    int end;
-    int step;
-
-    if (stepObj == Starlark.NONE) {
-      step = 1;
-    } else if (stepObj instanceof Integer) {
-      step = ((Integer) stepObj).intValue();
-    } else {
-      throw new EvalException(
-          loc, String.format("slice step must be an integer, not '%s'", stepObj));
-    }
-    if (step == 0) {
-      throw new EvalException(loc, "slice step cannot be zero");
-    }
-
-    if (startObj == Starlark.NONE) {
-      start = (step > 0) ? 0 : length - 1;
-    } else if (startObj instanceof Integer) {
-      start = ((Integer) startObj).intValue();
-    } else {
-      throw new EvalException(
-          loc, String.format("slice start must be an integer, not '%s'", startObj));
-    }
-    if (endObj == Starlark.NONE) {
-      // If step is negative, can't use -1 for end since that would be converted
-      // to the rightmost element's position.
-      end = (step > 0) ? length : -length - 1;
-    } else if (endObj instanceof Integer) {
-      end = ((Integer) endObj).intValue();
-    } else {
-      throw new EvalException(loc, String.format("slice end must be an integer, not '%s'", endObj));
-    }
-
-    return getSliceIndices(start, end, step, length);
   }
 
   /** @return true if x is Java null or Skylark None */
   public static boolean isNullOrNone(Object x) {
     return x == null || x == Starlark.NONE;
-  }
-
-  /**
-   * Build a Dict of kwarg arguments from a list, removing null-s or None-s.
-   *
-   * @param thread the StarlarkThread in which this map can be mutated.
-   * @param init a series of key, value pairs (as consecutive arguments) as in {@code optionMap(k1,
-   *     v1, k2, v2, k3, v3)} where each key is a String, each value is an arbitrary Objet.
-   * @return a {@code Map<String, Object>} that has all the specified entries, where key, value
-   *     pairs appearing earlier have precedence, i.e. {@code k1, v1} may override {@code k3, v3}.
-   *     <p>Ignore any entry where the value is null or None. Keys cannot be null.
-   */
-  @SuppressWarnings("unchecked")
-  public static <K, V> Dict<K, V> optionMap(StarlarkThread thread, Object... init) {
-    ImmutableMap.Builder<K, V> b = new ImmutableMap.Builder<>();
-    Preconditions.checkState(init.length % 2 == 0);
-    for (int i = init.length - 2; i >= 0; i -= 2) {
-      K key = (K) Preconditions.checkNotNull(init[i]);
-      V value = (V) init[i + 1];
-      if (!isNullOrNone(value)) {
-        b.put(key, value);
-      }
-    }
-    return Dict.copyOf(thread.mutability(), b.build());
   }
 
   /**
@@ -447,84 +335,52 @@ public final class EvalUtils {
     Eval.setDebugger(dbg);
   }
 
-  /** Returns the named field or method of the specified object. */
-  static Object getAttr(StarlarkThread thread, Location loc, Object object, String name)
+  /** Returns the named field or method of value {@code x}, or null if not found. */
+  // TODO(adonovan): publish this method as Starlark.getattr(Semantics, Mutability, Object, String).
+  static Object getAttr(StarlarkThread thread, Object x, String name)
       throws EvalException, InterruptedException {
-    MethodDescriptor method =
-        object instanceof Class<?>
-            ? CallUtils.getMethod(thread.getSemantics(), (Class<?>) object, name)
-            : CallUtils.getMethod(thread.getSemantics(), object.getClass(), name);
-    if (method != null && method.isStructField()) {
-      return method.call(
-          object,
-          CallUtils.extraInterpreterArgs(method, /*ast=*/ null, loc, thread).toArray(),
-          loc,
-          thread);
-    }
+    StarlarkSemantics semantics = thread.getSemantics();
+    Mutability mu = thread.mutability();
 
-    if (object instanceof SkylarkClassObject) {
-      try {
-        return ((SkylarkClassObject) object).getValue(loc, thread.getSemantics(), name);
-      } catch (IllegalArgumentException ex) { // TODO(adonovan): why necessary?
-        throw new EvalException(loc, ex);
-      }
-    }
-
-    if (object instanceof ClassObject) {
-      Object result = null;
-      try {
-        result = ((ClassObject) object).getValue(name);
-      } catch (IllegalArgumentException ex) {
-        throw new EvalException(loc, ex);
-      }
-      // ClassObjects may have fields that are annotated with @SkylarkCallable.
-      // Since getValue() does not know about those, we cannot expect that result is a valid object.
-      if (result != null) {
-        return Starlark.fromJava(result, thread.mutability());
-      }
-    }
+    // @SkylarkCallable-annotated field or method?
+    MethodDescriptor method = CallUtils.getMethod(semantics, x.getClass(), name);
     if (method != null) {
-      return new BuiltinCallable(object, name);
+      if (method.isStructField()) {
+        return method.callField(x, semantics, mu);
+      } else {
+        return new BuiltinCallable(x, name, method);
+      }
     }
+
+    // user-defined field?
+    if (x instanceof ClassObject) {
+      // TODO(adonovan): merge SkylarkClassObject and ClassObject, using a default implementation.
+      Object field =
+          x instanceof SkylarkClassObject
+              ? ((SkylarkClassObject) x).getValue(semantics, name)
+              : ((ClassObject) x).getValue(name);
+      if (field != null) {
+        return Starlark.checkValid(field);
+      }
+    }
+
     return null;
   }
 
-  static EvalException getMissingFieldException(
-      Object object, String name, Location loc, StarlarkSemantics semantics, String accessName) {
+  static EvalException getMissingAttrException(
+      Object object, String name, StarlarkSemantics semantics) {
     String suffix = "";
-    EvalException toSuppress = null;
     if (object instanceof ClassObject) {
       String customErrorMessage = ((ClassObject) object).getErrorMessageForUnknownField(name);
       if (customErrorMessage != null) {
-        return new EvalException(loc, customErrorMessage);
+        return Starlark.errorf("%s", customErrorMessage);
       }
-      try {
-        suffix = SpellChecker.didYouMean(name, ((ClassObject) object).getFieldNames());
-      } catch (EvalException ee) {
-        toSuppress = ee;
-      }
+      suffix = SpellChecker.didYouMean(name, ((ClassObject) object).getFieldNames());
     } else {
       suffix = SpellChecker.didYouMean(name, CallUtils.getFieldNames(semantics, object));
     }
-    if (suffix.isEmpty() && hasMethod(semantics, object, name)) {
-      // If looking up the field failed, then we know that this method must have struct_field=false
-      suffix = ", however, a method of that name exists";
-    }
-    EvalException ee =
-        new EvalException(
-            loc,
-            String.format(
-                "object of type '%s' has no %s '%s'%s",
-                getDataTypeName(object), accessName, name, suffix));
-    if (toSuppress != null) {
-      ee.addSuppressed(toSuppress);
-    }
-    return ee;
-  }
-
-  /** Returns whether the given object has a method with the given name. */
-  static boolean hasMethod(StarlarkSemantics semantics, Object object, String name) {
-    return CallUtils.getMethodNames(semantics, object.getClass()).contains(name);
+    return Starlark.errorf(
+        "'%s' value has no field or method '%s'%s", getDataTypeName(object), name, suffix);
   }
 
   /** Evaluates an eager binary operation, {@code x op y}. (Excludes AND and OR.) */
@@ -891,7 +747,7 @@ public final class EvalUtils {
    *
    * @throws EvalException if {@code object} is not a sequence or mapping.
    */
-  public static Object index(Object object, Object key, StarlarkThread thread, Location loc)
+  static Object index(Object object, Object key, StarlarkThread thread, Location loc)
       throws EvalException, InterruptedException {
     if (object instanceof SkylarkIndexable) {
       Object result = ((SkylarkIndexable) object).getIndex(key, loc);
@@ -901,7 +757,8 @@ public final class EvalUtils {
       return result == null ? null : Starlark.fromJava(result, thread.mutability());
     } else if (object instanceof String) {
       String string = (String) object;
-      int index = getSequenceIndex(key, string.length(), loc);
+      int index = Starlark.toInt(key, "string index");
+      index = getSequenceIndex(index, string.length(), loc);
       return string.substring(index, index + 1);
     } else {
       throw new EvalException(
@@ -916,8 +773,8 @@ public final class EvalUtils {
    * options defined by {@code thread.getSemantics}, and returns the syntax tree. It uses Starlark
    * (not BUILD) validation semantics.
    *
-   * <p>The thread is primarily used for its GlobalFrame. Scan/parse/validate errors are recorded in
-   * the StarlarkFile. It is the caller's responsibility to inspect them.
+   * <p>The thread is primarily used for its Module. Scan/parse/validate errors are recorded in the
+   * StarlarkFile. It is the caller's responsibility to inspect them.
    */
   public static StarlarkFile parseAndValidateSkylark(ParserInput input, StarlarkThread thread) {
     StarlarkFile file = StarlarkFile.parse(input);
@@ -937,15 +794,24 @@ public final class EvalUtils {
     if (!file.ok()) {
       throw new SyntaxError(file.errors());
     }
-    // TODO(adonovan): turn toplevel statements into a StarlarkFunction, and call it.
-    // This ensures we have an entry in the call stack even for the toplevel.
     exec(file, thread);
   }
 
   /** Executes a parsed, validated Starlark file in a given StarlarkThread. */
   public static void exec(StarlarkFile file, StarlarkThread thread)
       throws EvalException, InterruptedException {
-    Eval.execFile(thread, file);
+    StarlarkFunction toplevel =
+        new StarlarkFunction(
+            "<toplevel>",
+            file.getStartLocation(),
+            FunctionSignature.NOARGS,
+            /*defaultValues=*/ Tuple.empty(),
+            file.getStatements(),
+            thread.getGlobals());
+    // Hack: assume unresolved identifiers are globals.
+    toplevel.isToplevel = true;
+
+    Starlark.fastcall(thread, toplevel, NOARGS, NOARGS);
   }
 
   /**
@@ -957,9 +823,18 @@ public final class EvalUtils {
       throws SyntaxError, EvalException, InterruptedException {
     Expression expr = Expression.parse(input);
     ValidationEnvironment.validateExpr(expr, thread.getGlobals(), thread.getSemantics());
-    // TODO(adonovan): turn expr into a StarlarkFunction, and call it.
-    // This ensures we have an entry in the call stack even for the toplevel.
-    return Eval.eval(thread, expr);
+
+    // Turn expression into a no-arg StarlarkFunction and call it.
+    StarlarkFunction fn =
+        new StarlarkFunction(
+            "<expr>",
+            expr.getStartLocation(),
+            FunctionSignature.NOARGS,
+            /*defaultValues=*/ Tuple.empty(),
+            ImmutableList.<Statement>of(new ReturnStatement(expr)),
+            thread.getGlobals());
+
+    return Starlark.fastcall(thread, fn, NOARGS, NOARGS);
   }
 
   /**
@@ -976,19 +851,38 @@ public final class EvalUtils {
   public static Object execAndEvalOptionalFinalExpression(ParserInput input, StarlarkThread thread)
       throws SyntaxError, EvalException, InterruptedException {
     StarlarkFile file = StarlarkFile.parse(input);
-    List<Statement> stmts = file.getStatements();
-    Expression expr = null;
-    int n = stmts.size();
-    if (n > 0 && stmts.get(n - 1) instanceof ExpressionStatement) {
-      expr = ((ExpressionStatement) stmts.get(n - 1)).getExpression();
-      stmts = stmts.subList(0, n - 1);
-    }
     ValidationEnvironment.validateFile(
         file, thread.getGlobals(), thread.getSemantics(), /*isBuildFile=*/ false);
     if (!file.ok()) {
       throw new SyntaxError(file.errors());
     }
-    Eval.execStatements(thread, stmts);
-    return expr != null ? Eval.eval(thread, expr) : null;
+
+    // If the final statement is an expression, synthesize a return statement.
+    ImmutableList<Statement> stmts = file.getStatements();
+    int n = stmts.size();
+    if (n > 0 && stmts.get(n - 1) instanceof ExpressionStatement) {
+      Expression expr = ((ExpressionStatement) stmts.get(n - 1)).getExpression();
+      stmts =
+          ImmutableList.<Statement>builder()
+              .addAll(stmts.subList(0, n - 1))
+              .add(new ReturnStatement(expr))
+              .build();
+    }
+
+    // Turn the file into a no-arg function and call it.
+    StarlarkFunction toplevel =
+        new StarlarkFunction(
+            "<toplevel>",
+            file.getStartLocation(),
+            FunctionSignature.NOARGS,
+            /*defaultValues=*/ Tuple.empty(),
+            stmts,
+            thread.getGlobals());
+    // Hack: assume unresolved identifiers are globals.
+    toplevel.isToplevel = true;
+
+    return Starlark.fastcall(thread, toplevel, NOARGS, NOARGS);
   }
+
+  private static final Object[] NOARGS = {};
 }

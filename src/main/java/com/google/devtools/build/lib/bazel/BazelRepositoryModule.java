@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.bazel.repository.LocalConfigPlatformRule;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.RepositoryOverride;
 import com.google.devtools.build.lib.bazel.repository.cache.RepositoryCache;
+import com.google.devtools.build.lib.bazel.repository.downloader.DownloadManager;
 import com.google.devtools.build.lib.bazel.repository.downloader.HttpDownloader;
 import com.google.devtools.build.lib.bazel.repository.skylark.SkylarkRepositoryFunction;
 import com.google.devtools.build.lib.bazel.repository.skylark.SkylarkRepositoryModule;
@@ -95,7 +96,9 @@ public class BazelRepositoryModule extends BlazeModule {
   private final AtomicBoolean isFetch = new AtomicBoolean(false);
   private final SkylarkRepositoryFunction skylarkRepositoryFunction;
   private final RepositoryCache repositoryCache = new RepositoryCache();
-  private final HttpDownloader httpDownloader = new HttpDownloader(repositoryCache);
+  private final HttpDownloader httpDownloader = new HttpDownloader();
+  private final DownloadManager downloadManager =
+      new DownloadManager(repositoryCache, httpDownloader);
   private final MutableSupplier<Map<String, String>> clientEnvironmentSupplier =
       new MutableSupplier<>();
   private ImmutableMap<RepositoryName, PathFragment> overrides = ImmutableMap.of();
@@ -108,7 +111,7 @@ public class BazelRepositoryModule extends BlazeModule {
   private final ManagedDirectoriesKnowledgeImpl managedDirectoriesKnowledge;
 
   public BazelRepositoryModule() {
-    this.skylarkRepositoryFunction = new SkylarkRepositoryFunction(httpDownloader);
+    this.skylarkRepositoryFunction = new SkylarkRepositoryFunction(downloadManager);
     this.repositoryHandlers = repositoryRules();
     ManagedDirectoriesListener listener =
         repositoryNamesWithManagedDirs -> {
@@ -259,10 +262,8 @@ public class BazelRepositoryModule extends BlazeModule {
       }
 
       if (repoOptions.experimentalDistdir != null) {
-        httpDownloader.setDistdir(
-            repoOptions
-                .experimentalDistdir
-                .stream()
+        downloadManager.setDistdir(
+            repoOptions.experimentalDistdir.stream()
                 .map(
                     path ->
                         path.isAbsolute()
@@ -270,7 +271,7 @@ public class BazelRepositoryModule extends BlazeModule {
                             : env.getBlazeWorkspace().getWorkspace().getRelative(path))
                 .collect(Collectors.toList()));
       } else {
-        httpDownloader.setDistdir(ImmutableList.<Path>of());
+        downloadManager.setDistdir(ImmutableList.<Path>of());
       }
 
       if (repoOptions.httpTimeoutScaling > 0) {

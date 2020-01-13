@@ -17,9 +17,9 @@ package com.google.devtools.build.skydoc.fakebuildapi.cpp;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
-import com.google.devtools.build.lib.skylarkbuildapi.ProviderApi;
 import com.google.devtools.build.lib.skylarkbuildapi.SkylarkActionFactoryApi;
 import com.google.devtools.build.lib.skylarkbuildapi.SkylarkRuleContextApi;
+import com.google.devtools.build.lib.skylarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.BazelCcModuleApi;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcCompilationContextApi;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcCompilationOutputsApi;
@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcToolchainVariablesApi
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.FeatureConfigurationApi;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.LibraryToLinkApi;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.LinkerInputApi;
+import com.google.devtools.build.lib.skylarkbuildapi.platform.ConstraintValueInfoApi;
 import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Sequence;
@@ -46,7 +47,8 @@ public class FakeCcModule
     implements BazelCcModuleApi<
         SkylarkActionFactoryApi,
         FileApi,
-        SkylarkRuleContextApi,
+        ConstraintValueInfoApi,
+        SkylarkRuleContextApi<ConstraintValueInfoApi>,
         CcToolchainProviderApi<FeatureConfigurationApi>,
         FeatureConfigurationApi,
         CcCompilationContextApi,
@@ -162,6 +164,8 @@ public class FakeCcModule
       Object dynamicLibrary,
       Object interfaceLibrary,
       boolean alwayslink,
+      String dynamicLibraryPath,
+      String interfaceLibraryPath,
       Location location,
       StarlarkThread thread) {
     return null;
@@ -214,7 +218,8 @@ public class FakeCcModule
   }
 
   @Override
-  public boolean isCcToolchainResolutionEnabled(SkylarkRuleContextApi ruleContext) {
+  public boolean isCcToolchainResolutionEnabled(
+      SkylarkRuleContextApi<ConstraintValueInfoApi> context) {
     return false;
   }
 
@@ -287,7 +292,7 @@ public class FakeCcModule
 
   @Override
   public CcToolchainConfigInfoApi ccToolchainConfigInfoFromSkylark(
-      SkylarkRuleContextApi skylarkRuleContext,
+      SkylarkRuleContextApi<ConstraintValueInfoApi> skylarkRuleContext,
       Sequence<?> features,
       Sequence<?> actionConfigs,
       Sequence<?> artifactNamePatterns,

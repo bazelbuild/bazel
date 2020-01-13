@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.exec;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.actions.ActionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.ActionInput;
@@ -24,6 +25,8 @@ import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
+import com.google.devtools.build.lib.actions.LostInputsActionExecutionException;
+import com.google.devtools.build.lib.actions.LostInputsExecException;
 import com.google.devtools.build.lib.actions.MetadataProvider;
 import com.google.devtools.build.lib.actions.RunningActionEvent;
 import com.google.devtools.build.lib.actions.SandboxedSpawnActionContext;
@@ -88,7 +91,7 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnActionConte
   }
 
   @Override
-  public boolean canExec(Spawn spawn) {
+  public boolean canExec(Spawn spawn, ActionExecutionContext actionExecutionContext) {
     return spawnRunner.canExec(spawn);
   }
 
@@ -180,7 +183,7 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnActionConte
     // TODO(ulfjack): Guard against client modification of this map.
     private SortedMap<PathFragment, ActionInput> lazyInputMapping;
 
-    public SpawnExecutionContextImpl(
+    SpawnExecutionContextImpl(
         Spawn spawn,
         ActionExecutionContext actionExecutionContext,
         @Nullable StopConcurrentSpawns stopConcurrentSpawns,
@@ -213,6 +216,11 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnActionConte
     @Override
     public MetadataHandler getMetadataInjector() {
       return actionExecutionContext.getMetadataHandler();
+    }
+
+    @Override
+    public <T extends ActionContext> T getContext(Class<T> identifyingType) {
+      return actionExecutionContext.getContext(identifyingType);
     }
 
     @Override
@@ -290,6 +298,15 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnActionConte
           break;
         default:
           break;
+      }
+    }
+
+    @Override
+    public void checkForLostInputs() throws LostInputsExecException {
+      try {
+        actionExecutionContext.checkForLostInputs();
+      } catch (LostInputsActionExecutionException e) {
+        throw e.toExecException();
       }
     }
   }

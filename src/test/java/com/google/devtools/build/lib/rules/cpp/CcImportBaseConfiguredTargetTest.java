@@ -180,6 +180,42 @@ public abstract class CcImportBaseConfiguredTargetTest extends BuildViewTestCase
   }
 
   @Test
+  public void testCcImportWithVersionedSharedLibrary() throws Exception {
+    useConfiguration("--cpu=k8");
+    ConfiguredTarget target =
+        scratchConfiguredTarget(
+            "a",
+            "foo",
+            skylarkImplementationLoadStatement,
+            "cc_import(name = 'foo', shared_library = 'libfoo.so.1ab2.1_a2')");
+    Artifact dynamicLibrary =
+        Iterables.getOnlyElement(target.get(CcInfo.PROVIDER).getCcLinkingContext().getLibraries())
+            .getResolvedSymlinkDynamicLibrary();
+    Iterable<Artifact> dynamicLibrariesForRuntime =
+        target
+            .get(CcInfo.PROVIDER)
+            .getCcLinkingContext()
+            .getDynamicLibrariesForRuntime(/* linkingStatically= */ false);
+    assertThat(artifactsToStrings(ImmutableList.of(dynamicLibrary)))
+        .containsExactly("src a/libfoo.so.1ab2.1_a2");
+    assertThat(artifactsToStrings(dynamicLibrariesForRuntime))
+        .containsExactly("bin _solib_k8/_U_S_Sa_Cfoo___Ua/libfoo.so.1ab2.1_a2");
+  }
+
+  @Test
+  public void testCcImportWithInvalidVersionedSharedLibrary() throws Exception {
+    checkError(
+        "a",
+        "foo",
+        "does not produce any cc_import shared_library files " + "(expected .so, .dylib or .dll)",
+        skylarkImplementationLoadStatement,
+        "cc_import(",
+        "  name = 'foo',",
+        "  shared_library = 'libfoo.so.1ab2.ab',",
+        ")");
+  }
+
+  @Test
   public void testCcImportWithInterfaceSharedLibrary() throws Exception {
     useConfiguration("--cpu=k8");
     ConfiguredTarget target =

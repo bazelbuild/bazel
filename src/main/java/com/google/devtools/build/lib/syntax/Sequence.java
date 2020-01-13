@@ -62,7 +62,8 @@ public interface Sequence<E>
    */
   @Override
   default E getIndex(Object key, Location loc) throws EvalException {
-    return get(EvalUtils.getSequenceIndex(key, size(), loc));
+    int index = Starlark.toInt(key, "sequence index");
+    return get(EvalUtils.getSequenceIndex(index, size(), loc));
   }
 
   @Override
@@ -71,16 +72,12 @@ public interface Sequence<E>
   }
 
   /**
-   * Constructs a version of this {@code Sequence} containing just the items in a slice.
-   *
-   * <p>{@code mutability} will be used for the resulting list. If it is null, the list will be
-   * immutable. For {@code Tuple}s, which are always immutable, this argument is ignored.
-   *
-   * @see EvalUtils#getSliceIndices
-   * @throws EvalException if the key is invalid; uses {@code loc} for error reporting
+   * Returns the slice of this sequence, {@code this[start:stop:step]}. <br>
+   * For positive strides ({@code step > 0}), {@code 0 <= start <= stop <= size()}. <br>
+   * For negative strides ({@code step < 0}), {@code -1 <= stop <= start < size()}. <br>
+   * The caller must ensure that the start and stop indices are valid and that step is non-zero.
    */
-  Sequence<E> getSlice(Object start, Object end, Object step, Location loc, Mutability mutability)
-      throws EvalException;
+  Sequence<E> getSlice(Mutability mu, int start, int stop, int step);
 
   /**
    * Casts a {@code List<?>} to an unmodifiable {@code List<T>}, after checking that its contents
@@ -126,11 +123,9 @@ public interface Sequence<E>
     if (obj instanceof Sequence) {
       return ((Sequence<?>) obj).getContents(type, description);
     }
-    throw new EvalException(
-        null,
-        String.format(
-            "Illegal argument: %s is not of expected type list or NoneType",
-            description == null ? Starlark.repr(obj) : String.format("'%s'", description)));
+    throw Starlark.errorf(
+        "Illegal argument: %s is not of expected type list or NoneType",
+        description == null ? Starlark.repr(obj) : String.format("'%s'", description));
   }
 
   /**

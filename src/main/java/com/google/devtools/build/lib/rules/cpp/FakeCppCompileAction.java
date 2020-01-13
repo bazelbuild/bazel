@@ -72,7 +72,7 @@ public class FakeCppCompileAction extends CppCompileAction {
       boolean usePic,
       boolean useHeaderModules,
       NestedSet<Artifact> mandatoryInputs,
-      Iterable<Artifact> inputsForInvalidation,
+      NestedSet<Artifact> inputsForInvalidation,
       ImmutableList<Artifact> builtinIncludeFiles,
       NestedSet<Artifact> prunableHeaders,
       Artifact outputFile,
@@ -164,7 +164,7 @@ public class FakeCppCompileAction extends CppCompileAction {
               .setDependencies(
                   processDepset(actionExecutionContext, execRoot, dotDContents).getDependencies())
               .setPermittedSystemIncludePrefixes(getPermittedSystemIncludePrefixes(execRoot))
-              .setAllowedDerivedinputs(getAllowedDerivedInputs());
+              .setAllowedDerivedInputs(getAllowedDerivedInputs());
 
       if (needsIncludeValidation) {
         discoveryBuilder.shouldValidateInclusions();

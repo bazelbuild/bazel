@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
 import com.google.devtools.build.lib.syntax.StarlarkValue;
 import java.io.IOException;
+import javax.annotation.Nullable;
 
 /** Interface for actions in Skylark. */
 @SkylarkModule(
@@ -42,24 +43,20 @@ import java.io.IOException;
             + "Fields that are inapplicable are set to <code>None</code>.")
 public interface ActionApi extends StarlarkValue {
 
-  @SkylarkCallable(
-    name = "mnemonic",
-    structField = true,
-    doc = "The mnemonic for this action."
-  )
-  public abstract String getMnemonic();
+  @SkylarkCallable(name = "mnemonic", structField = true, doc = "The mnemonic for this action.")
+  String getMnemonic();
 
   @SkylarkCallable(
       name = "inputs",
       doc = "A set of the input files of this action.",
       structField = true)
-  public Depset getSkylarkInputs();
+  Depset getSkylarkInputs();
 
   @SkylarkCallable(
       name = "outputs",
       doc = "A set of the output files of this action.",
       structField = true)
-  public Depset getSkylarkOutputs();
+  Depset getSkylarkOutputs();
 
   @SkylarkCallable(
       name = "argv",
@@ -71,7 +68,7 @@ public interface ActionApi extends StarlarkValue {
               + "and <code>\"-c\"</code>.",
       structField = true,
       allowReturnNones = true)
-  public Sequence<String> getSkylarkArgv() throws EvalException;
+  Sequence<String> getSkylarkArgv() throws EvalException;
 
   @SkylarkCallable(
       name = "args",
@@ -87,17 +84,17 @@ public interface ActionApi extends StarlarkValue {
       structField = true,
       allowReturnNones = true,
       enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_ACTION_ARGS)
-  public Sequence<CommandLineArgsApi> getStarlarkArgs() throws EvalException;
+  Sequence<CommandLineArgsApi> getStarlarkArgs() throws EvalException;
 
   @SkylarkCallable(
-    name = "content",
-    doc =
-        "For actions created by <a href=\"actions.html#write\">ctx.actions.write()</a> or "
-            + "<a href=\"actions.html#expand_template\">ctx.actions.expand_template()</a>,"
-            + " the contents of the file to be written.",
-    structField = true,
-    allowReturnNones = true)
-  public String getSkylarkContent() throws IOException;
+      name = "content",
+      doc =
+          "For actions created by <a href=\"actions.html#write\">ctx.actions.write()</a> or "
+              + "<a href=\"actions.html#expand_template\">ctx.actions.expand_template()</a>,"
+              + " the contents of the file to be written.",
+      structField = true,
+      allowReturnNones = true)
+  String getSkylarkContent() throws IOException;
 
   @SkylarkCallable(
       name = "substitutions",
@@ -107,7 +104,7 @@ public interface ActionApi extends StarlarkValue {
               + " an immutable dict holding the substitution mapping.",
       structField = true,
       allowReturnNones = true)
-  public Dict<String, String> getSkylarkSubstitutions();
+  Dict<String, String> getSkylarkSubstitutions();
 
   @SkylarkCallable(
       name = "env",
@@ -116,5 +113,19 @@ public interface ActionApi extends StarlarkValue {
           "The 'fixed' environment variables for this action. This includes only environment"
               + " settings which are explicitly set by the action definition, and thus omits"
               + " settings which are only pre-set in the execution environment.")
-  public Dict<String, String> getEnv();
+  Dict<String, String> getEnv();
+
+  @SkylarkCallable(
+      name = "execution_info",
+      structField = true,
+      doc =
+          "The execution requirements for this action, set for this action specifically. This is a"
+              + " dictionary that maps strings specifying execution info to arbitrary strings."
+              + " This is in order to match the structure of execution info in other parts of the"
+              + " code base; all relevant info is in the keyset. Returns None if this action does"
+              + " not expose execution requirements.",
+      allowReturnNones = true,
+      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_GOOGLE_LEGACY_API)
+  @Nullable
+  public Dict<String, String> getExecutionInfoDict();
 }

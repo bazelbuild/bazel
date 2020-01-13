@@ -29,12 +29,13 @@ import com.google.devtools.build.lib.profiler.PredicateBasedStatRecorder.Recorde
 import com.google.devtools.build.lib.profiler.StatRecorder.VfsHeuristics;
 import com.google.devtools.build.lib.util.VarInt;
 import com.google.gson.stream.JsonWriter;
+import com.sun.management.OperatingSystemMXBean;
 import java.io.BufferedOutputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.OutputStreamWriter;
-import java.nio.Buffer;
+import java.lang.management.ManagementFactory;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
@@ -406,6 +407,7 @@ public final class Profiler {
   private ImmutableSet<ProfilerTask> profiledTasks;
   private volatile long profileStartTime;
   private volatile boolean recordAllDurations = false;
+  private Duration profileCpuStartTime;
 
   /** This counter provides a unique id for every task, used to provide a parent/child relation. */
   private AtomicInteger taskId = new AtomicInteger();
@@ -491,6 +493,29 @@ public final class Profiler {
     return -1;
   }
 
+  // Returns the elapsed wall clock time since the profile has been started or null if inactive.
+  public static Duration elapsedTimeMaybe() {
+    if (instance.isActive()) {
+      return Duration.ofNanos(instance.clock.nanoTime())
+          .minus(Duration.ofNanos(instance.profileStartTime));
+    }
+    return null;
+  }
+
+  private static Duration getProcessCpuTime() {
+    OperatingSystemMXBean bean =
+        (OperatingSystemMXBean) ManagementFactory.getOperatingSystemMXBean();
+    return Duration.ofNanos(bean.getProcessCpuTime());
+  }
+
+  // Returns the CPU time since the profile has been started or null if inactive.
+  public static Duration getProcessCpuTimeMaybe() {
+    if (instance().isActive()) {
+      return getProcessCpuTime().minus(instance().profileCpuStartTime);
+    }
+    return null;
+  }
+
   /**
    * Enable profiling.
    *
@@ -571,6 +596,7 @@ public final class Profiler {
 
     // activate profiler
     profileStartTime = execStartTimeNanos;
+    profileCpuStartTime = getProcessCpuTime();
 
     if (enabledCpuUsageProfiling) {
       cpuUsageThread = new CollectLocalCpuUsage();
@@ -646,6 +672,7 @@ public final class Profiler {
     taskStack = null;
     initHistograms();
     profileStartTime = 0L;
+    profileCpuStartTime = null;
 
     for (SlowestTaskAggregator aggregator : slowestTasks) {
       if (aggregator != null) {
@@ -990,7 +1017,7 @@ public final class Profiler {
           ObjectDescriber describer = new ObjectDescriber();
           TaskData data;
           while ((data = queue.take()) != POISON_PILL) {
-            ((Buffer) sink).clear();
+            sink.clear();
 
             VarInt.putVarLong(data.threadId, sink);
             VarInt.putVarInt(data.id, sink);
@@ -1072,7 +1099,7 @@ public final class Profiler {
 
     @Override
     public void enqueue(TaskData data) {
-      if (!metadataPosted.get().booleanValue()) {
+      if (!metadataPosted.get()) {
         metadataPosted.set(Boolean.TRUE);
         // Create a TaskData object that is special-cased below.
         queue.add(

@@ -78,7 +78,8 @@ public final class Actions {
     }
     // Don't bother to check input and output counts first; the expected result for these tests is
     // to always be true (i.e., that this method returns true).
-    if (!artifactsEqualWithoutOwner(actionA.getMandatoryInputs(), actionB.getMandatoryInputs())) {
+    if (!artifactsEqualWithoutOwner(
+        actionA.getMandatoryInputs().toList(), actionB.getMandatoryInputs().toList())) {
       return false;
     }
     if (!artifactsEqualWithoutOwner(actionA.getOutputs(), actionB.getOutputs())) {
@@ -263,7 +264,8 @@ public final class Actions {
   }
 
   /**
-   * Returns a comparator for use with {@link #findArtifactPrefixConflicts(ActionGraph, SortedMap)}.
+   * Returns a comparator for use with {@link #findArtifactPrefixConflicts(ActionGraph, SortedMap,
+   * boolean)}.
    */
   public static Comparator<PathFragment> comparatorForPrefixConflicts() {
     return PathFragmentPrefixComparator.INSTANCE;
@@ -306,12 +308,16 @@ public final class Actions {
    * @param actionGraph the {@link ActionGraph} to query for artifact conflicts
    * @param artifactPathMap a map mapping generated artifacts to their exec paths. The map must be
    *     sorted using the comparator from {@link #comparatorForPrefixConflicts()}.
+   * @param strictConflictChecks report path prefix conflicts, regardless of
+   *     shouldReportPathPrefixConflict().
    * @return A map between actions that generated the conflicting artifacts and their associated
    *     {@link ArtifactPrefixConflictException}.
    */
   public static Map<ActionAnalysisMetadata, ArtifactPrefixConflictException>
       findArtifactPrefixConflicts(
-          ActionGraph actionGraph, SortedMap<PathFragment, Artifact> artifactPathMap) {
+          ActionGraph actionGraph,
+          SortedMap<PathFragment, Artifact> artifactPathMap,
+          boolean strictConflictChecks) {
     // You must construct the sorted map using this comparator for the algorithm to work.
     // The algorithm requires subdirectories to immediately follow parent directories,
     // before any files in that directory.
@@ -363,7 +369,7 @@ public final class Actions {
               Preconditions.checkNotNull(actionGraph.getGeneratingAction(artifactI), artifactI);
           ActionAnalysisMetadata actionJ =
               Preconditions.checkNotNull(actionGraph.getGeneratingAction(artifactJ), artifactJ);
-          if (actionI.shouldReportPathPrefixConflict(actionJ)) {
+          if (strictConflictChecks || actionI.shouldReportPathPrefixConflict(actionJ)) {
             ArtifactPrefixConflictException exception = new ArtifactPrefixConflictException(pathI,
                 pathJ, actionI.getOwner().getLabel(), actionJ.getOwner().getLabel());
             badActions.put(actionI, exception);

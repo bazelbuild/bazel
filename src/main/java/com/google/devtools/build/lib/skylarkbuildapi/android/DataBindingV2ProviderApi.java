@@ -15,8 +15,8 @@ package com.google.devtools.build.lib.skylarkbuildapi.android;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
-import com.google.devtools.build.lib.skylarkbuildapi.ProviderApi;
-import com.google.devtools.build.lib.skylarkbuildapi.StructApi;
+import com.google.devtools.build.lib.skylarkbuildapi.core.ProviderApi;
+import com.google.devtools.build.lib.skylarkbuildapi.core.StructApi;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkConstructor;
@@ -51,7 +51,7 @@ public interface DataBindingV2ProviderApi<T extends FileApi> extends StructApi {
           "Do not use this module. It is intended for migration purposes only. If you depend on "
               + "it, you will be broken when it is removed.",
       documented = false)
-  public final class LabelJavaPackagePair implements StarlarkValue {
+  final class LabelJavaPackagePair implements StarlarkValue {
 
     public static final SkylarkType TYPE = SkylarkType.of(LabelJavaPackagePair.class);
 
@@ -75,7 +75,7 @@ public interface DataBindingV2ProviderApi<T extends FileApi> extends StructApi {
   }
 
   /** Name of this info object. */
-  public static final String NAME = "DataBindingV2Info";
+  String NAME = "DataBindingV2Info";
 
   /**
    * Returns the setter store files from this rule. This is a list to support multiple
@@ -126,7 +126,7 @@ public interface DataBindingV2ProviderApi<T extends FileApi> extends StructApi {
           "Do not use this module. It is intended for migration purposes only. If you depend on "
               + "it, you will be broken when it is removed.",
       documented = false)
-  public interface Provider<FileT extends FileApi> extends ProviderApi {
+  interface Provider<FileT extends FileApi> extends ProviderApi {
 
     @SkylarkCallable(
         name = NAME,

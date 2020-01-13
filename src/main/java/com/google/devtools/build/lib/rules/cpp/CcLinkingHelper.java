@@ -195,7 +195,7 @@ public final class CcLinkingHelper {
   }
 
   /** Adds the corresponding non-code files as linker inputs. */
-  public CcLinkingHelper addNonCodeLinkerInputs(Iterable<Artifact> nonCodeLinkerInputs) {
+  public CcLinkingHelper addNonCodeLinkerInputs(List<Artifact> nonCodeLinkerInputs) {
     for (Artifact nonCodeLinkerInput : nonCodeLinkerInputs) {
       String basename = nonCodeLinkerInput.getFilename();
       Preconditions.checkArgument(!Link.OBJECT_FILETYPES.matches(basename));
@@ -340,11 +340,7 @@ public final class CcLinkingHelper {
     return this;
   }
 
-  /**
-   * Create the C++ link actions, and the corresponding linking related providers.
-   *
-   * @throws RuleErrorException
-   */
+  /** Create the C++ link actions, and the corresponding linking related providers. */
   public CcLinkingOutputs link(CcCompilationOutputs ccOutputs)
       throws RuleErrorException, InterruptedException {
     Preconditions.checkNotNull(ccOutputs);
@@ -363,7 +359,7 @@ public final class CcLinkingHelper {
   public CcLinkingContext buildCcLinkingContextFromLibrariesToLink(
       List<LibraryToLink> librariesToLink, CcCompilationContext ccCompilationContext) {
     ImmutableList.Builder<Linkstamp> linkstampBuilder = ImmutableList.builder();
-    for (Artifact linkstamp : linkstamps.build()) {
+    for (Artifact linkstamp : linkstamps.build().toList()) {
       linkstampBuilder.add(
           new Linkstamp(
               linkstamp,
@@ -403,8 +399,6 @@ public final class CcLinkingHelper {
    * can be used for linking, but doesn't contain any executable code. This increases the number of
    * cache hits for link actions. Call {@link #emitInterfaceSharedLibraries(boolean)} to enable this
    * behavior.
-   *
-   * @throws RuleErrorException
    */
   private CcLinkingOutputs createCcLinkActions(CcCompilationOutputs ccOutputs)
       throws RuleErrorException, InterruptedException {
@@ -765,7 +759,9 @@ public final class CcLinkingHelper {
     if (dynamicLinkType.isExecutable()) {
       ccLinkingOutputs.setExecutable(linkerOutput);
     }
-    ccLinkingOutputs.addLinkActionInputs(dynamicLinkAction.getInputs());
+    if (fake) {
+      ccLinkingOutputs.addLinkActionInputs(dynamicLinkAction.getInputs());
+    }
     actionConstructionContext.registerAction(dynamicLinkAction);
 
     LinkerInputs.LibraryToLink dynamicLibrary = dynamicLinkAction.getOutputLibrary();
@@ -850,8 +846,6 @@ public final class CcLinkingHelper {
    * action, because the linux link action depends on hardcoded values in
    * LinkCommandLine.getRawLinkArgv(), which are applied on the condition that an action_config is
    * not present. TODO(b/30393154): Assert that the given link action has an action_config.
-   *
-   * @throws RuleErrorException
    */
   private Artifact getLinkedArtifact(LinkTargetType linkTargetType) throws RuleErrorException {
       String maybePicName = label.getName() + linkedArtifactNameSuffix;
@@ -879,7 +873,7 @@ public final class CcLinkingHelper {
       NestedSet<LibraryToLink> librariesToLink, boolean staticMode, boolean forDynamicLibrary) {
     ImmutableList.Builder<LinkerInputs.LibraryToLink> librariesToLinkBuilder =
         ImmutableList.builder();
-    for (LibraryToLink libraryToLink : librariesToLink) {
+    for (LibraryToLink libraryToLink : librariesToLink.toList()) {
       LinkerInputs.LibraryToLink staticLibraryToLink =
           libraryToLink.getStaticLibrary() == null ? null : libraryToLink.getStaticLibraryToLink();
       LinkerInputs.LibraryToLink picStaticLibraryToLink =

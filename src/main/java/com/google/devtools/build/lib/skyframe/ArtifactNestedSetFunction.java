@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.collect.MapMaker;
+import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -66,10 +67,6 @@ class ArtifactNestedSetFunction implements SkyFunction {
    * therefore not populating artifactSkyKeyToValueOrException with X2's member Artifacts. Hence if
    * we clear artifactSkyKeyToValueOrException between build 0 and 1, X2's member artifacts'
    * SkyValues would not be available in the map.
-   *
-   * <p>The map has weak references to keys to prevent memory leaks: if an Artifact no longer
-   * exists, its entry would be automatically removed from the map by the GC. Note that the map
-   * compares the SkyKeys by identity rather than with the .equals method.
    */
   private final ConcurrentMap<SkyKey, ValueOrException2<IOException, ActionExecutionException>>
       artifactSkyKeyToValueOrException;
@@ -88,7 +85,7 @@ class ArtifactNestedSetFunction implements SkyFunction {
   private static Integer sizeThreshold = null;
 
   private ArtifactNestedSetFunction() {
-    artifactSkyKeyToValueOrException = new MapMaker().weakKeys().makeMap();
+    artifactSkyKeyToValueOrException = Maps.newConcurrentMap();
     nestedSetToSkyKey = new MapMaker().weakKeys().makeMap();
   }
 

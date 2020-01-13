@@ -14,8 +14,6 @@
 
 package com.google.devtools.build.lib.packages;
 
-import static com.google.devtools.build.lib.syntax.Starlark.NONE;
-
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
@@ -30,27 +28,28 @@ import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.packages.Package.NameConflictException;
 import com.google.devtools.build.lib.packages.PackageFactory.EnvironmentExtension;
 import com.google.devtools.build.lib.syntax.BaseFunction;
-import com.google.devtools.build.lib.syntax.BuiltinFunction;
 import com.google.devtools.build.lib.syntax.ClassObject;
+import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.FunctionSignature;
 import com.google.devtools.build.lib.syntax.Module;
 import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.devtools.build.lib.syntax.ParserInput;
-import com.google.devtools.build.lib.syntax.SkylarkUtils;
-import com.google.devtools.build.lib.syntax.SkylarkUtils.Phase;
 import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.syntax.StarlarkFile;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.lib.syntax.StarlarkThread.Extension;
+import com.google.devtools.build.lib.syntax.Tuple;
 import com.google.devtools.build.lib.syntax.ValidationEnvironment;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import javax.annotation.Nullable;
 
@@ -121,7 +120,7 @@ public class WorkspaceFactory {
     if (!file.ok()) {
       Event.replayEventsOn(localReporter, file.errors());
       throw new BuildFileContainsErrorsException(
-          LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER, "Failed to parse " + source.getPath());
+          LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER, "Failed to parse " + source.getFile());
     }
     execute(
         file,
@@ -129,7 +128,8 @@ public class WorkspaceFactory {
         starlarkSemantics,
         localReporter,
         WorkspaceFileValue.key(
-            RootedPath.toRootedPath(Root.fromPath(workspaceDir), source.getPath())));
+            RootedPath.toRootedPath(
+                Root.fromPath(workspaceDir), PathFragment.create(source.getFile()))));
   }
 
   /**
@@ -166,10 +166,9 @@ public class WorkspaceFactory {
         StarlarkThread.builder(mutability)
             .setSemantics(starlarkSemantics)
             .setGlobals(Module.createForBuiltins(env))
-            .setEventHandler(localReporter)
             .setImportedExtensions(importMap)
             .build();
-    SkylarkUtils.setPhase(thread, Phase.WORKSPACE);
+    thread.setPrintHandler(StarlarkThread.makeDebugPrintHandler(localReporter));
     thread.setThreadLocal(
         PackageFactory.PackageContext.class,
         new PackageFactory.PackageContext(builder, null, localReporter));
@@ -179,6 +178,7 @@ public class WorkspaceFactory {
     // repository mapping because calls to the Label constructor in the WORKSPACE file
     // are, by definition, not in an external repository and so they don't need the mapping
     new BazelStarlarkContext(
+            BazelStarlarkContext.Phase.WORKSPACE,
             /* toolsRepository= */ null,
             /* fragmentNameToClass= */ null,
             /* repoMapping= */ ImmutableMap.of(),
@@ -189,9 +189,11 @@ public class WorkspaceFactory {
     // Validate the file, apply BUILD dialect checks, then execute.
     ValidationEnvironment.validateFile(
         file, thread.getGlobals(), starlarkSemantics, /*isBuildFile=*/ true);
+    List<String> globs = new ArrayList<>(); // unused
     if (!file.ok()) {
       Event.replayEventsOn(localReporter, file.errors());
-    } else if (PackageFactory.checkBuildSyntax(file, localReporter)) {
+    } else if (PackageFactory.checkBuildSyntax(
+        file, globs, globs, new HashMap<>(), localReporter)) {
       try {
         EvalUtils.exec(file, thread);
       } catch (EvalException ex) {
@@ -259,24 +261,35 @@ public class WorkspaceFactory {
    * Returns a function-value implementing the build or workspace rule "ruleClass" (e.g. cc_library)
    * in the specified package context.
    */
-  private static BuiltinFunction newRuleFunction(
+  private static BaseFunction newRuleFunction(
       final RuleFactory ruleFactory, final String ruleClassName, final boolean allowOverride) {
-    return new BuiltinFunction(FunctionSignature.KWARGS) {
+    return new BaseFunction() {
       @Override
       public String getName() {
         return ruleClassName;
       }
 
-      public Object invoke(Map<String, Object> kwargs, Location loc, StarlarkThread thread)
+      @Override
+      public FunctionSignature getSignature() {
+        return FunctionSignature.KWARGS; // just for documentation
+      }
+
+      @Override
+      public Object call(
+          StarlarkThread thread, Location loc, Tuple<Object> args, Dict<String, Object> kwargs)
           throws EvalException, InterruptedException {
+        if (!args.isEmpty()) {
+          throw new EvalException(null, "unexpected positional arguments");
+        }
         try {
           Package.Builder builder = PackageFactory.getContext(thread, loc).pkgBuilder;
+          // TODO(adonovan): this doesn't look safe!
           String externalRepoName = (String) kwargs.get("name");
           if (!allowOverride
               && externalRepoName != null
               && builder.getTarget(externalRepoName) != null) {
             throw new EvalException(
-                loc,
+                null,
                 "Cannot redefine repository after any load statement in the WORKSPACE file"
                     + " (for repository '"
                     + kwargs.get("name")
@@ -298,7 +311,7 @@ public class WorkspaceFactory {
                   loc);
           if (!WorkspaceGlobals.isLegalWorkspaceName(rule.getName())) {
             throw new EvalException(
-                loc,
+                null,
                 rule
                     + "'s name field must be a legal workspace name;"
                     + " workspace names may contain only A-Z, a-z, 0-9, '-', '_' and '.'");
@@ -306,9 +319,9 @@ public class WorkspaceFactory {
         } catch (RuleFactory.InvalidRuleException
             | Package.NameConflictException
             | LabelSyntaxException e) {
-          throw new EvalException(loc, e.getMessage());
+          throw new EvalException(null, e.getMessage());
         }
-        return NONE;
+        return Starlark.NONE;
       }
     };
   }
@@ -357,13 +370,19 @@ public class WorkspaceFactory {
       ImmutableMap<String, Object> workspaceFunctions, String version) {
     ImmutableMap.Builder<String, Object> env = new ImmutableMap.Builder<>();
     Starlark.addMethods(env, new SkylarkNativeModule());
-    for (Map.Entry<String, Object> function : workspaceFunctions.entrySet()) {
-      // "workspace" is explicitly omitted from the native module, as it must only occur at the
-      // top of a WORKSPACE file.
-      // TODO(cparsons): Clean up separation between environments.
-      if (!function.getKey().equals("workspace")) {
-        env.put(function);
+    for (Map.Entry<String, Object> entry : workspaceFunctions.entrySet()) {
+      String name = entry.getKey();
+      if (name.startsWith("$")) {
+        // Skip "abstract" rules like "$go_rule".
+        continue;
       }
+      // "workspace" is explicitly omitted from the native module,
+      // as it must only occur at the top of a WORKSPACE file.
+      // TODO(cparsons): Clean up separation between environments.
+      if (name.equals("workspace")) {
+        continue;
+      }
+      env.put(entry);
     }
 
     env.put("bazel_version", version);

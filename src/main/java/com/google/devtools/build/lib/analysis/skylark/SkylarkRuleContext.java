@@ -39,6 +39,7 @@ import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.LabelExpander;
 import com.google.devtools.build.lib.analysis.LabelExpander.NotUniqueExpansionException;
 import com.google.devtools.build.lib.analysis.LocationExpander;
+import com.google.devtools.build.lib.analysis.ResolvedToolchainContext;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
@@ -49,6 +50,7 @@ import com.google.devtools.build.lib.analysis.config.FragmentCollection;
 import com.google.devtools.build.lib.analysis.config.HostTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
+import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
 import com.google.devtools.build.lib.analysis.stringtemplate.ExpansionException;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesInfo;
@@ -82,7 +84,6 @@ import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.NoneType;
 import com.google.devtools.build.lib.syntax.Printer;
 import com.google.devtools.build.lib.syntax.Sequence;
-import com.google.devtools.build.lib.syntax.SkylarkIndexable;
 import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.syntax.StarlarkList;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
@@ -109,7 +110,7 @@ import javax.annotation.Nullable;
  * object and makes it impossible to accidentally use this object where it's not supposed to be used
  * (such attempts will result in {@link EvalException}s).
  */
-public final class SkylarkRuleContext implements SkylarkRuleContextApi {
+public final class SkylarkRuleContext implements SkylarkRuleContextApi<ConstraintValueInfo> {
 
   public static final Function<Attribute, Object> ATTRIBUTE_VALUE_EXTRACTOR_FOR_ASPECT =
       new Function<Attribute, Object>() {
@@ -299,15 +300,13 @@ public final class SkylarkRuleContext implements SkylarkRuleContextApi {
       outputs.put(key, value);
     }
 
-
     @Override
     public boolean isImmutable() {
       return context.isImmutable();
     }
 
     @Override
-    public ImmutableCollection<String> getFieldNames() throws EvalException {
-      checkMutable();
+    public ImmutableCollection<String> getFieldNames() {
       ImmutableList.Builder<String> result = ImmutableList.builder();
       if (context.isExecutable() && executableCreated) {
         result.add(EXECUTABLE_OUTPUT_NAME);
@@ -688,9 +687,14 @@ public final class SkylarkRuleContext implements SkylarkRuleContextApi {
   }
 
   @Override
-  public SkylarkIndexable toolchains() throws EvalException {
+  public ResolvedToolchainContext toolchains() throws EvalException {
     checkMutable("toolchains");
     return ruleContext.getToolchainContext();
+  }
+
+  @Override
+  public boolean targetPlatformHasConstraint(ConstraintValueInfo constraintValue) {
+    return ruleContext.targetPlatformHasConstraint(constraintValue);
   }
 
   @Override
@@ -928,7 +932,7 @@ public final class SkylarkRuleContext implements SkylarkRuleContextApi {
               executionRequirementsUnchecked,
               inputManifestsUnchecked,
               loc,
-              thread.getSemantics());
+              thread);
     }
     return Starlark.NONE;
   }
@@ -1067,7 +1071,7 @@ public final class SkylarkRuleContext implements SkylarkRuleContextApi {
     // TODO(lberki): This flattens a NestedSet.
     // However, we can't turn this into a Depset because it's an incompatible change to
     // Skylark.
-    Iterables.addAll(inputs, helper.getResolvedTools());
+    inputs.addAll(helper.getResolvedTools().toList());
 
     ImmutableMap<String, String> executionRequirements =
         ImmutableMap.copyOf(
@@ -1175,7 +1179,7 @@ public final class SkylarkRuleContext implements SkylarkRuleContextApi {
     for (TransitiveInfoCollection current : knownLabels) {
       builder.put(
           AliasProvider.getDependencyLabel(current),
-          ImmutableList.copyOf(current.getProvider(FileProvider.class).getFilesToBuild()));
+          current.getProvider(FileProvider.class).getFilesToBuild().toList());
     }
 
     return builder.build();

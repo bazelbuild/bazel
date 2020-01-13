@@ -276,7 +276,7 @@ public abstract class CcProtoAspect extends NativeAspectClass implements Configu
     private boolean areSrcsBlacklisted() {
       return !new ProtoSourceFileBlacklist(
               ruleContext, getProtoToolchainProvider().blacklistedProtos())
-          .checkSrcs(protoInfo.getOriginalDirectProtoSources(), "cc_proto_library");
+          .checkSrcs(protoInfo.getOriginalTransitiveProtoSources(), "cc_proto_library");
     }
 
     private FeatureConfiguration getFeatureConfiguration() {
@@ -303,6 +303,7 @@ public abstract class CcProtoAspect extends NativeAspectClass implements Configu
     private CcCompilationHelper initializeCompilationHelper(
         FeatureConfiguration featureConfiguration, List<TransitiveInfoCollection> deps)
         throws InterruptedException {
+      CcCommon common = new CcCommon(ruleContext);
       CcToolchainProvider toolchain = ccToolchain(ruleContext);
       CcCompilationHelper helper =
           new CcCompilationHelper(
@@ -318,7 +319,8 @@ public abstract class CcProtoAspect extends NativeAspectClass implements Configu
                       ruleContext.getRule(), ruleContext.isAllowTagsPropagation()))
               .addCcCompilationContexts(CppHelper.getCompilationContextsFromDeps(deps))
               .addCcCompilationContexts(
-                  ImmutableList.of(CcCompilationHelper.getStlCcCompilationContext(ruleContext)));
+                  ImmutableList.of(CcCompilationHelper.getStlCcCompilationContext(ruleContext)))
+              .setPurpose(common.getPurpose(cppSemantics));
       // Don't instrument the generated C++ files even when --collect_code_coverage is set.
       helper.setCodeCoverageEnabled(false);
 

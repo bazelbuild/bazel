@@ -809,6 +809,45 @@ function test_skylark_repository_file_invalidation_batch() {
   file_invalidation_test_template --batch
 }
 
+# Test invalidation based on changes of the Starlark semantics
+function starlark_invalidation_test_template() {
+  local startup_flag="${1-}"
+  local execution_file="$(setup_invalidation_test)"
+  local flags="--action_env FOO=BAR --action_env BAR=BAZ --action_env BAZ=FOO"
+  local bazel_build="bazel ${startup_flag} build ${flags}"
+
+  ${bazel_build} --noincompatible_run_shell_command_string @foo//:bar \
+    >& ${TEST_log} || fail "Expected success"
+  expect_log "<1> FOO=BAR BAR=BAZ BAZ=FOO"
+  assert_equals 1 $(cat "${execution_file}")
+
+  echo; cat ${TEST_log}; echo
+
+  ${bazel_build} --noincompatible_run_shell_command_string @foo//:bar \
+    >& ${TEST_log} || fail "Expected success"
+  assert_equals 1 $(cat "${execution_file}")
+
+  echo; cat ${TEST_log}; echo
+
+  # Changing the starlark semantics should invalidate once
+  ${bazel_build} --incompatible_run_shell_command_string @foo//:bar \
+    >& ${TEST_log} || fail "Expected success"
+  expect_log "<2> FOO=BAR BAR=BAZ BAZ=FOO"
+  assert_equals 2 $(cat "${execution_file}")
+  ${bazel_build} --incompatible_run_shell_command_string @foo//:bar \
+    >& ${TEST_log} || fail "Expected success"
+  assert_equals 2 $(cat "${execution_file}")
+}
+
+function test_starlark_invalidation() {
+    starlark_invalidation_test_template
+}
+
+function test_starlark_invalidation_batch() {
+    starlark_invalidation_test_template --batch
+}
+
+
 function test_repo_env() {
   setup_skylark_repository
 

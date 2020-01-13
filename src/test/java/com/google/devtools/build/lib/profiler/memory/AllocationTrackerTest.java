@@ -18,17 +18,14 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import com.google.devtools.build.lib.events.Location;
-import com.google.devtools.build.lib.events.Location.LineAndColumn;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleFunction;
 import com.google.devtools.build.lib.profiler.memory.AllocationTracker.RuleBytes;
-import com.google.devtools.build.lib.syntax.BaseFunction;
 import com.google.devtools.build.lib.syntax.Callstack;
 import com.google.devtools.build.lib.syntax.Expression;
-import com.google.devtools.build.lib.syntax.FunctionSignature;
 import com.google.devtools.build.lib.syntax.ParserInput;
+import com.google.devtools.build.lib.syntax.StarlarkCallable;
 import com.google.devtools.build.lib.syntax.SyntaxError;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.perftools.profiles.ProfileProto.Function;
 import com.google.perftools.profiles.ProfileProto.Profile;
 import com.google.perftools.profiles.ProfileProto.Sample;
@@ -51,20 +48,17 @@ public final class AllocationTrackerTest {
   // makeExpr returns an expression located at the specified file and line.
   private static Expression makeExpr(String file, int line) throws SyntaxError {
     ParserInput input =
-        ParserInput.create(
-            new String(new char[line - 1]).replace('\u0000', '\n') + "None",
-            PathFragment.create(file));
+        ParserInput.create(new String(new char[line - 1]).replace('\u0000', '\n') + "None", file);
     return Expression.parse(input);
   }
 
-  private static class TestFunction extends BaseFunction {
+  private static class TestFunction implements StarlarkCallable {
     private final String name;
     private final Location location;
 
     TestFunction(String file, String name, int line) {
-      super(FunctionSignature.ANY, /*defaultValues=*/ null);
       this.name = name;
-      this.location = location(file, line);
+      this.location = Location.fromFileLineColumn(file, line, 0);
     }
 
     @Override
@@ -76,8 +70,6 @@ public final class AllocationTrackerTest {
     public Location getLocation() {
       return location;
     }
-
-    public void invoke() {}
   }
 
   static class TestRuleFunction extends TestFunction implements RuleFunction {
@@ -215,10 +207,5 @@ public final class AllocationTrackerTest {
       result.add(String.format("%s:%s:%d", file, method, line));
     }
     return result;
-  }
-
-  private static Location location(String path, int line) {
-    return Location.fromPathAndStartColumn(
-        PathFragment.create(path), 0, 0, new LineAndColumn(line, 0));
   }
 }

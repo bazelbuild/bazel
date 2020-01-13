@@ -84,17 +84,20 @@ public class PrepareDepsOfPatternFunction implements SkyFunction {
     TargetPattern parsedPattern = patternKey.getParsedPattern();
 
     BlacklistedPackagePrefixesValue blacklist =
-        (BlacklistedPackagePrefixesValue) env.getValue(BlacklistedPackagePrefixesValue.key());
+        (BlacklistedPackagePrefixesValue)
+            env.getValue(BlacklistedPackagePrefixesValue.key(parsedPattern.getRepository()));
     if (blacklist == null) {
       return null;
     }
+    ImmutableSet<PathFragment> blacklistedPatterns = blacklist.getPatterns();
+
     // This SkyFunction is used to load the universe, so we want both the blacklisted directories
     // from the global blacklist and the excluded directories from the TargetPatternKey itself to be
     // embedded in the SkyKeys created and used by the DepsOfPatternPreparer. The
     // DepsOfPatternPreparer ignores excludedSubdirectories and embeds blacklistedSubdirectories in
     // the SkyKeys it creates and uses.
     ImmutableSet<PathFragment> blacklistedSubdirectories =
-        patternKey.getAllSubdirectoriesToExclude(blacklist.getPatterns());
+        patternKey.getAllSubdirectoriesToExclude(blacklistedPatterns);
     ImmutableSet<PathFragment> excludedSubdirectories = ImmutableSet.of();
 
     DepsOfPatternPreparer preparer =

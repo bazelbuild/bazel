@@ -18,9 +18,10 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
-import com.google.devtools.build.lib.skylarkbuildapi.ProviderApi;
 import com.google.devtools.build.lib.skylarkbuildapi.SkylarkActionFactoryApi;
 import com.google.devtools.build.lib.skylarkbuildapi.SkylarkRuleContextApi;
+import com.google.devtools.build.lib.skylarkbuildapi.core.ProviderApi;
+import com.google.devtools.build.lib.skylarkbuildapi.platform.ConstraintValueInfoApi;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.ParamType;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
@@ -28,7 +29,6 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.syntax.Depset;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Sequence;
-import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.lib.syntax.StarlarkValue;
@@ -40,7 +40,8 @@ public interface JavaCommonApi<
         JavaInfoT extends JavaInfoApi<FileT>,
         JavaToolchainT extends JavaToolchainSkylarkApiProviderApi,
         JavaRuntimeT extends JavaRuntimeInfoApi,
-        SkylarkRuleContextT extends SkylarkRuleContextApi,
+        ConstraintValueT extends ConstraintValueInfoApi,
+        SkylarkRuleContextT extends SkylarkRuleContextApi<ConstraintValueT>,
         SkylarkActionFactoryT extends SkylarkActionFactoryApi>
     extends StarlarkValue {
 
@@ -51,7 +52,7 @@ public interface JavaCommonApi<
           "Returns the Java declared provider. <br>"
               + "The same value is accessible as <code>JavaInfo</code>. <br>"
               + "Prefer using <code>JavaInfo</code> in new code.")
-  public ProviderApi getJavaProvider();
+  ProviderApi getJavaProvider();
 
   @SkylarkCallable(
       name = "compile",
@@ -203,7 +204,7 @@ public interface JavaCommonApi<
       },
       useLocation = true,
       useStarlarkThread = true)
-  public JavaInfoT createJavaCompileAction(
+  JavaInfoT createJavaCompileAction(
       SkylarkRuleContextT skylarkRuleContext,
       Sequence<?> sourceJars, // <FileT> expected.
       Sequence<?> sourceFiles, // <FileT> expected.
@@ -265,15 +266,13 @@ public interface JavaCommonApi<
             allowedTypes = {@ParamType(type = JavaToolchainSkylarkApiProviderApi.class)},
             doc = "A JavaToolchainInfo to used to find the ijar tool."),
       },
-      useStarlarkSemantics = true,
       useLocation = true)
-  public FileApi runIjar(
+  FileApi runIjar(
       SkylarkActionFactoryT actions,
       FileT jar,
       Object targetLabel,
       JavaToolchainT javaToolchain,
-      Location location,
-      StarlarkSemantics semantics)
+      Location location)
       throws EvalException;
 
   @SkylarkCallable(
@@ -315,15 +314,13 @@ public interface JavaCommonApi<
             allowedTypes = {@ParamType(type = JavaToolchainSkylarkApiProviderApi.class)},
             doc = "A JavaToolchainInfo to used to find the stamp_jar tool."),
       },
-      useStarlarkSemantics = true,
       useLocation = true)
-  public FileApi stampJar(
+  FileApi stampJar(
       SkylarkActionFactoryT actions,
       FileT jar,
       Label targetLabel,
       JavaToolchainT javaToolchain,
-      Location location,
-      StarlarkSemantics semantics)
+      Location location)
       throws EvalException;
 
   @SkylarkCallable(
@@ -377,17 +374,15 @@ public interface JavaCommonApi<
             doc = "A JavaRuntimeInfo to be used for packing sources."),
       },
       allowReturnNones = true,
-      useStarlarkSemantics = true,
       useLocation = true)
-  public FileApi packSources(
+  FileApi packSources(
       SkylarkActionFactoryT actions,
       FileT outputJar,
       Sequence<?> sourceFiles, // <FileT> expected.
       Sequence<?> sourceJars, // <FileT> expected.
       JavaToolchainT javaToolchain,
       JavaRuntimeT hostJavabase,
-      Location location,
-      StarlarkSemantics semantics)
+      Location location)
       throws EvalException;
 
   @SkylarkCallable(
@@ -408,7 +403,7 @@ public interface JavaCommonApi<
       useLocation = true)
   // TODO(b/78512644): migrate callers to passing explicit javacopts or using custom toolchains, and
   // delete
-  public ImmutableList<String> getDefaultJavacOpts(JavaToolchainT javaToolchain, Location loc)
+  ImmutableList<String> getDefaultJavacOpts(JavaToolchainT javaToolchain, Location loc)
       throws EvalException;
 
   @SkylarkCallable(
@@ -423,7 +418,7 @@ public interface JavaCommonApi<
             generic1 = JavaInfoApi.class,
             doc = "The list of providers to merge."),
       })
-  public JavaInfoT mergeJavaProviders(Sequence<?> providers /* <JavaInfoT> expected. */)
+  JavaInfoT mergeJavaProviders(Sequence<?> providers /* <JavaInfoT> expected. */)
       throws EvalException;
 
   @SkylarkCallable(
@@ -439,7 +434,7 @@ public interface JavaCommonApi<
             type = JavaInfoApi.class,
             doc = "The java info."),
       })
-  public JavaInfoT makeNonStrict(JavaInfoT javaInfo);
+  JavaInfoT makeNonStrict(JavaInfoT javaInfo);
 
   @SkylarkCallable(
       name = "JavaToolchainInfo",
@@ -447,7 +442,7 @@ public interface JavaCommonApi<
           "The key used to retrieve the provider that contains information about the Java "
               + "toolchain being used.",
       structField = true)
-  public ProviderApi getJavaToolchainProvider();
+  ProviderApi getJavaToolchainProvider();
 
   @SkylarkCallable(
       name = "JavaRuntimeInfo",
@@ -455,7 +450,7 @@ public interface JavaCommonApi<
           "The key used to retrieve the provider that contains information about the Java "
               + "runtime being used.",
       structField = true)
-  public ProviderApi getJavaRuntimeProvider();
+  ProviderApi getJavaRuntimeProvider();
 
   @SkylarkCallable(
       name = "is_java_toolchain_resolution_enabled_do_not_use",
@@ -476,7 +471,7 @@ public interface JavaCommonApi<
       doc = "The provider used to supply message bundles for translation",
       structField = true,
       enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_GOOGLE_LEGACY_API)
-  public ProviderApi getMessageBundleInfo();
+  ProviderApi getMessageBundleInfo();
 
   @SkylarkCallable(
       name = "add_constraints",
@@ -498,8 +493,8 @@ public interface JavaCommonApi<
             doc = "Constraints to add")
       },
       enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_GOOGLE_LEGACY_API)
-  public JavaInfoT addConstraints(
-      JavaInfoT javaInfo, Sequence<?> constraints /* <String> expected. */) throws EvalException;
+  JavaInfoT addConstraints(JavaInfoT javaInfo, Sequence<?> constraints /* <String> expected. */)
+      throws EvalException;
 
   @SkylarkCallable(
       name = "experimental_disable_annotation_processing",
@@ -517,7 +512,7 @@ public interface JavaCommonApi<
             doc = "The JavaInfo to process.")
       },
       enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_GOOGLE_LEGACY_API)
-  public JavaInfoT removeAnnotationProcessors(JavaInfoT javaInfo);
+  JavaInfoT removeAnnotationProcessors(JavaInfoT javaInfo);
 
   @SkylarkCallable(
       name = "compile_time_jdeps",
@@ -531,7 +526,7 @@ public interface JavaCommonApi<
             doc = "The JavaInfo to query."),
       },
       enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_GOOGLE_LEGACY_API)
-  public Depset /*<FileT>*/ getCompileTimeJavaDependencyArtifacts(JavaInfoT javaInfo);
+  Depset /*<FileT>*/ getCompileTimeJavaDependencyArtifacts(JavaInfoT javaInfo);
 
   @SkylarkCallable(
       name = "add_compile_time_jdeps",
@@ -553,7 +548,7 @@ public interface JavaCommonApi<
             doc = "Compile-time jdeps files to add.")
       },
       enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_GOOGLE_LEGACY_API)
-  public JavaInfoT addCompileTimeJavaDependencyArtifacts(
+  JavaInfoT addCompileTimeJavaDependencyArtifacts(
       JavaInfoT javaInfo, Sequence<?> compileTimeJavaDependencyArtifacts /* <FileT> expected. */)
       throws EvalException;
 
@@ -570,6 +565,6 @@ public interface JavaCommonApi<
       },
       useLocation = true,
       enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_GOOGLE_LEGACY_API)
-  public Label getJavaToolchainLabel(
-      JavaToolchainSkylarkApiProviderApi toolchain, Location location) throws EvalException;
+  Label getJavaToolchainLabel(JavaToolchainSkylarkApiProviderApi toolchain, Location location)
+      throws EvalException;
 }

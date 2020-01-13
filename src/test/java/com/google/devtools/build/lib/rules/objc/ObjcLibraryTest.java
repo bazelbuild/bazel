@@ -39,6 +39,7 @@ import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CommandAction;
+import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
@@ -1569,6 +1570,56 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
   }
 
   @Test
+  public void testPruningActionsSetLocalityBasedOnXcode() throws Exception {
+    scratch.file(
+        "xcode/BUILD",
+        "xcode_version(",
+        "   name = 'version10_1_0',",
+        "   version = '10.1.0',",
+        "   aliases = ['10.1' ,'10.1.0'],",
+        "   default_ios_sdk_version = '12.1',",
+        "   default_tvos_sdk_version = '12.1',",
+        "   default_macos_sdk_version = '10.14',",
+        "   default_watchos_sdk_version = '5.1',",
+        ")",
+        "xcode_version(",
+        "   name = 'version10_2_1',",
+        "   version = '10.2.1',",
+        "   aliases = ['10.2.1' ,'10.2'],",
+        "   default_ios_sdk_version = '12.2',",
+        "   default_tvos_sdk_version = '12.2',",
+        "   default_macos_sdk_version = '10.14',",
+        "   default_watchos_sdk_version = '5.2',",
+        ")",
+        "available_xcodes(",
+        "   name= 'local',",
+        "   versions = [':version10_1_0'],",
+        "   default = ':version10_1_0',",
+        ")",
+        "available_xcodes(",
+        "   name= 'remote',",
+        "   versions = [':version10_2_1'],",
+        "   default = ':version10_2_1',",
+        ")",
+        "xcode_config(",
+        "   name = 'my_config',",
+        "   local_versions = ':local',",
+        "   remote_versions = ':remote',",
+        ")");
+
+    useConfigurationWithCustomXcode(
+        "--xcode_version=10.2.1",
+        "--xcode_version_config=//xcode:my_config",
+        "--objc_use_dotd_pruning",
+        "--crosstool_top=" + MockObjcSupport.DEFAULT_OSX_CROSSTOOL);
+    createLibraryTargetWriter("//lib:lib").setList("srcs", "a.m").write();
+    CppCompileAction action = (CppCompileAction) compileAction("//lib:lib", "a.o");
+    assertHasRequirement(action, ExecutionRequirements.REQUIREMENTS_SET);
+    assertHasRequirement(action, ExecutionRequirements.NO_LOCAL);
+    assertNotHasRequirement(action, ExecutionRequirements.NO_REMOTE);
+  }
+
+  @Test
   public void testUsesDotdPruning() throws Exception {
     useConfiguration(
         "--crosstool_top=" + MockObjcSupport.DEFAULT_OSX_CROSSTOOL, "--objc_use_dotd_pruning");
@@ -1774,7 +1825,7 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
 
   @Test
   public void testCustomModuleMap() throws Exception {
-    checkCustomModuleMapPropagatedByTargetUnderTest(RULE_TYPE);
+    checkCustomModuleMap(RULE_TYPE);
   }
 
   private boolean containsObjcFeature(String srcName) throws Exception {

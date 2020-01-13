@@ -35,6 +35,8 @@ import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
 import java.io.BufferedReader;
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -50,7 +52,7 @@ import javax.annotation.Nullable;
 public final class StarlarkAction extends SpawnAction {
 
   private final Optional<Artifact> unusedInputsList;
-  private final Iterable<Artifact> allInputs;
+  private final NestedSet<Artifact> allInputs;
 
   /**
    * Constructs a StarlarkAction using direct initialization arguments.
@@ -79,8 +81,8 @@ public final class StarlarkAction extends SpawnAction {
    */
   public StarlarkAction(
       ActionOwner owner,
-      Iterable<Artifact> tools,
-      Iterable<Artifact> inputs,
+      NestedSet<Artifact> tools,
+      NestedSet<Artifact> inputs,
       Iterable<Artifact> outputs,
       Artifact primaryOutput,
       ResourceSet resourceSet,
@@ -131,12 +133,12 @@ public final class StarlarkAction extends SpawnAction {
   }
 
   @Override
-  public Iterable<Artifact> getAllowedDerivedInputs() {
+  public NestedSet<Artifact> getAllowedDerivedInputs() {
     return getInputs();
   }
 
   @Override
-  public Iterable<Artifact> discoverInputs(ActionExecutionContext actionExecutionContext)
+  public NestedSet<Artifact> discoverInputs(ActionExecutionContext actionExecutionContext)
       throws ActionExecutionException, InterruptedException {
     // We need to "re-discover" all the original inputs: the unused ones that were removed
     // might now be needed.
@@ -178,7 +180,7 @@ public final class StarlarkAction extends SpawnAction {
       return;
     }
     Map<String, Artifact> usedInputs = new HashMap<>();
-    for (Artifact input : allInputs) {
+    for (Artifact input : allInputs.toList()) {
       usedInputs.put(input.getExecPathString(), input);
     }
     try (BufferedReader br =
@@ -194,7 +196,7 @@ public final class StarlarkAction extends SpawnAction {
         usedInputs.remove(line);
       }
     }
-    updateInputs(usedInputs.values());
+    updateInputs(NestedSetBuilder.wrap(Order.STABLE_ORDER, usedInputs.values()));
   }
 
   @Override
@@ -203,9 +205,8 @@ public final class StarlarkAction extends SpawnAction {
   }
 
   @Override
-  public Iterable<Artifact> getInputFilesForExtraAction(
-      ActionExecutionContext actionExecutionContext)
-      throws ActionExecutionException, InterruptedException {
+  public NestedSet<Artifact> getInputFilesForExtraAction(
+      ActionExecutionContext actionExecutionContext) {
     return allInputs;
   }
 

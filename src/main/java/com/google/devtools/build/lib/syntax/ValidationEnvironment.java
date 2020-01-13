@@ -169,7 +169,7 @@ public final class ValidationEnvironment extends NodeVisitor {
         for (LoadStatement.Binding b : load.getBindings()) {
           if (!names.add(b.getLocalName().getName())) {
             addError(
-                b.getLocalName().getLocation(),
+                b.getLocalName().getStartLocation(),
                 String.format(
                     "load statement defines '%s' more than once", b.getLocalName().getName()));
           }
@@ -205,7 +205,7 @@ public final class ValidationEnvironment extends NodeVisitor {
         assign(elem);
       }
     } else {
-      addError(lhs.getLocation(), "cannot assign to '" + lhs + "'");
+      addError(lhs.getStartLocation(), "cannot assign to '" + lhs + "'");
     }
   }
 
@@ -221,7 +221,7 @@ public final class ValidationEnvironment extends NodeVisitor {
         // generic error
         error = createInvalidIdentifierException(node.getName(), getAllSymbols());
       }
-      addError(node.getLocation(), error);
+      addError(node.getStartLocation(), error);
       return;
     }
     // TODO(laurentlb): In BUILD files, calling setScope will throw an exception. This happens
@@ -263,7 +263,7 @@ public final class ValidationEnvironment extends NodeVisitor {
   @Override
   public void visit(ReturnStatement node) {
     if (block.scope != Scope.Local) {
-      addError(node.getLocation(), "return statements must be inside a function");
+      addError(node.getStartLocation(), "return statements must be inside a function");
     }
     super.visit(node);
   }
@@ -272,7 +272,7 @@ public final class ValidationEnvironment extends NodeVisitor {
   public void visit(ForStatement node) {
     if (block.scope != Scope.Local) {
       addError(
-          node.getLocation(),
+          node.getStartLocation(),
           "for loops are not allowed at the top level. You may move it inside a function "
               + "or use a comprehension, [f(x) for x in sequence]");
     }
@@ -287,7 +287,7 @@ public final class ValidationEnvironment extends NodeVisitor {
   @Override
   public void visit(LoadStatement node) {
     if (block.scope == Scope.Local) {
-      addError(node.getLocation(), "load statement not at top level");
+      addError(node.getStartLocation(), "load statement not at top level");
     }
     super.visit(node);
   }
@@ -295,8 +295,7 @@ public final class ValidationEnvironment extends NodeVisitor {
   @Override
   public void visit(FlowStatement node) {
     if (node.getKind() != TokenKind.PASS && loopCount <= 0) {
-      addError(
-          node.getLocation(), node.getKind().toString() + " statement must be inside a for loop");
+      addError(node.getStartLocation(), node.getKind() + " statement must be inside a for loop");
     }
     super.visit(node);
   }
@@ -335,7 +334,7 @@ public final class ValidationEnvironment extends NodeVisitor {
   public void visit(DefStatement node) {
     if (block.scope == Scope.Local) {
       addError(
-          node.getLocation(),
+          node.getStartLocation(),
           "nested functions are not allowed. Move the function to the top level.");
     }
     for (Parameter param : node.getParameters()) {
@@ -358,7 +357,7 @@ public final class ValidationEnvironment extends NodeVisitor {
   public void visit(IfStatement node) {
     if (block.scope != Scope.Local) {
       addError(
-          node.getLocation(),
+          node.getStartLocation(),
           "if statements are not allowed at the top level. You may move it inside a function "
               + "or use an if expression (x if condition else y).");
     }
@@ -373,7 +372,8 @@ public final class ValidationEnvironment extends NodeVisitor {
     // Other bad cases are handled in assign.
     if (node.isAugmented() && node.getLHS() instanceof ListExpression) {
       addError(
-          node.getLocation(), "cannot perform augmented assignment on a list or tuple expression");
+          node.getStartLocation(),
+          "cannot perform augmented assignment on a list or tuple expression");
     }
 
     assign(node.getLHS());
@@ -387,13 +387,14 @@ public final class ValidationEnvironment extends NodeVisitor {
     // TODO(laurentlb): Forbid reassignment in BUILD files too.
     if (prev != null && block.scope == Scope.Module && !isBuildFile) {
       addError(
-          id.getLocation(),
+          id.getStartLocation(),
           String.format(
               "cannot reassign global '%s' (read more at"
                   + " https://bazel.build/versions/master/docs/skylark/errors/read-only-variable.html)",
               id.getName()));
       if (prev != PREDECLARED) {
-        addError(prev.getLocation(), String.format("'%s' previously declared here", id.getName()));
+        addError(
+            prev.getStartLocation(), String.format("'%s' previously declared here", id.getName()));
       }
     }
   }
@@ -433,7 +434,7 @@ public final class ValidationEnvironment extends NodeVisitor {
           continue;
         }
         addError(
-            statement.getLocation(),
+            statement.getStartLocation(),
             "load() statements must be called before any other statement. "
                 + "First non-load() statement appears at "
                 + firstStatement
@@ -442,7 +443,7 @@ public final class ValidationEnvironment extends NodeVisitor {
       }
 
       if (firstStatement == null) {
-        firstStatement = statement.getLocation();
+        firstStatement = statement.getStartLocation();
       }
     }
   }

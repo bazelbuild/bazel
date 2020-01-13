@@ -19,7 +19,6 @@ import com.google.devtools.build.lib.actions.Artifact.SourceArtifact;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.syntax.ClassObject;
-import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.StarlarkValue;
 import javax.annotation.Nullable;
 
@@ -50,12 +49,7 @@ public interface ConfiguredTarget extends TransitiveInfoCollection, ClassObject,
         : getConfigurationKey().getOptionsDiff().getChecksum();
   }
 
-  /**
-   * Returns keys for a legacy Skylark provider.
-   *
-   * Overrides {@link ClassObject#getFieldNames()}, but does not allow {@link EvalException} to
-   * be thrown.
-   */
+  /** Returns keys for a legacy Skylark provider. */
   @Override
   ImmutableCollection<String> getFieldNames();
 

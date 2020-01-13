@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.rules.android;
 
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.rules.android.AndroidConfiguration.AndroidAaptVersion;
 import com.google.devtools.build.lib.skylarkbuildapi.android.ParsedAndroidAssetsApi;
 import com.google.devtools.build.lib.syntax.SkylarkType;
 import java.util.Objects;
@@ -30,17 +29,14 @@ public class ParsedAndroidAssets extends AndroidAssets implements ParsedAndroidA
   @Nullable private final Artifact compiledSymbols;
   private final Label label;
 
-  public static ParsedAndroidAssets parseFrom(
-      AndroidDataContext dataContext, AndroidAaptVersion aaptVersion, AndroidAssets assets)
+  public static ParsedAndroidAssets parseFrom(AndroidDataContext dataContext, AndroidAssets assets)
       throws InterruptedException {
     AndroidResourceParsingActionBuilder builder =
         new AndroidResourceParsingActionBuilder()
-            .setOutput(dataContext.createOutputArtifact(AndroidRuleClasses.ANDROID_ASSET_SYMBOLS));
-
-    if (aaptVersion == AndroidAaptVersion.AAPT2) {
-      builder.setCompiledSymbolsOutput(
-          dataContext.createOutputArtifact(AndroidRuleClasses.ANDROID_ASSET_COMPILED_SYMBOLS));
-    }
+            .setOutput(dataContext.createOutputArtifact(AndroidRuleClasses.ANDROID_ASSET_SYMBOLS))
+            .setCompiledSymbolsOutput(
+                dataContext.createOutputArtifact(
+                    AndroidRuleClasses.ANDROID_ASSET_COMPILED_SYMBOLS));
 
     return builder.build(dataContext, assets);
   }

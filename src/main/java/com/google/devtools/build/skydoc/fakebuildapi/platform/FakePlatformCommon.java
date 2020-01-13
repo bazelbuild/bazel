@@ -14,7 +14,7 @@
 
 package com.google.devtools.build.skydoc.fakebuildapi.platform;
 
-import com.google.devtools.build.lib.skylarkbuildapi.ProviderApi;
+import com.google.devtools.build.lib.skylarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.skylarkbuildapi.platform.PlatformCommonApi;
 import com.google.devtools.build.skydoc.fakebuildapi.FakeProviderApi;
 

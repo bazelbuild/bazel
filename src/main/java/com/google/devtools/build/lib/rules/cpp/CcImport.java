@@ -167,6 +167,7 @@ public abstract class CcImport implements RuleConfiguredTargetFactory {
             .addPublicHeaders(common.getHeaders())
             .setHeadersCheckingMode(HeadersCheckingMode.STRICT)
             .setCodeCoverageEnabled(CcCompilationHelper.isCodeCoverageEnabled(ruleContext))
+            .setPurpose(common.getPurpose(semantics))
             .compile();
 
     Map<String, NestedSet<Artifact>> outputGroups =

@@ -8,10 +8,11 @@ package(
 )
 
 java_library(
-    name = "nest_pipeline",
+    name = "nest",
     srcs = glob(["*.java"]),
     deps = [
         "//src/tools/android/java/com/google/devtools/build/android/desugar/io",
+        "//src/tools/android/java/com/google/devtools/build/android/desugar/langmodel",
         "//third_party:asm",
         "//third_party:asm-commons",
         "//third_party:asm-tree",

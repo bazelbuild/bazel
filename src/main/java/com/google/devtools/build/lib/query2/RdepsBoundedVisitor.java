@@ -106,7 +106,7 @@ class RdepsBoundedVisitor extends AbstractTargetOuputtingVisitor<DepAndRdepAtDep
     // Retrieve the reverse deps as SkyKeys and defer the targetification and filtering to next
     // recursive visitation.
     Map<SkyKey, Iterable<SkyKey>> unfilteredRdepsOfRdeps =
-        env.graph.getReverseDeps(uniqueValidRdepsBelowDepthBound);
+        env.getReverseDepLabelsOfLabels(uniqueValidRdepsBelowDepthBound);
 
     ImmutableList.Builder<DepAndRdepAtDepth> depAndRdepAtDepthsToVisitBuilder =
         ImmutableList.builder();

@@ -328,9 +328,9 @@ final class NodePrinter {
           break;
         }
 
-      case FUNCALL:
+      case CALL:
         {
-          FuncallExpression call = (FuncallExpression) expr;
+          CallExpression call = (CallExpression) expr;
           printExpr(call.getFunction());
           buf.append('(');
           String sep = "";
@@ -391,8 +391,8 @@ final class NodePrinter {
             printExpr(slice.getStart());
           }
           buf.append(':');
-          if (slice.getEnd() != null) {
-            printExpr(slice.getEnd());
+          if (slice.getStop() != null) {
+            printExpr(slice.getStop());
           }
           if (slice.getStep() != null) {
             buf.append(':');

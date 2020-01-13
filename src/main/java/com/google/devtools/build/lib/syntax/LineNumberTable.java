@@ -17,10 +17,9 @@ package com.google.devtools.build.lib.syntax;
 import com.google.common.collect.Interner;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.events.Location.LineAndColumn;
+import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.util.Pair;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Arrays;
 import java.util.Objects;
 
@@ -38,27 +37,26 @@ final class LineNumberTable {
   /** A mapping from line number (line >= 1) to character offset into the file. */
   private final int[] linestart;
 
-  private final PathFragment path;
+  private final String file;
   private final int bufferLength;
 
-  private LineNumberTable(char[] buffer, PathFragment path) {
-    this(computeLinestart(buffer), path, buffer.length);
+  private LineNumberTable(char[] buffer, String file) {
+    this(computeLinestart(buffer), file, buffer.length);
   }
 
-  private LineNumberTable(int[] linestart, PathFragment path, int bufferLength) {
+  private LineNumberTable(int[] linestart, String file, int bufferLength) {
     this.linestart = linestart;
-    this.path = path;
+    this.file = file;
     this.bufferLength = bufferLength;
   }
 
   @AutoCodec.Instantiator
-  static LineNumberTable createForSerialization(
-      int[] linestart, PathFragment path, int bufferLength) {
-    return LINE_NUMBER_TABLE_INTERNER.intern(new LineNumberTable(linestart, path, bufferLength));
+  static LineNumberTable createForSerialization(int[] linestart, String file, int bufferLength) {
+    return LINE_NUMBER_TABLE_INTERNER.intern(new LineNumberTable(linestart, file, bufferLength));
   }
 
-  static LineNumberTable create(char[] buffer, PathFragment path) {
-    return new LineNumberTable(buffer, path);
+  static LineNumberTable create(char[] buffer, String file) {
+    return new LineNumberTable(buffer, file);
   }
 
   private int getLineAt(int offset) {
@@ -84,14 +82,14 @@ final class LineNumberTable {
     }
   }
 
-  LineAndColumn getLineAndColumn(int offset) {
+  Location.LineAndColumn getLineAndColumn(int offset) {
     int line = getLineAt(offset);
     int column = offset - linestart[line] + 1;
-    return new LineAndColumn(line, column);
+    return new Location.LineAndColumn(line, column);
   }
 
-  PathFragment getPath(int offset) {
-    return path;
+  String getFile() {
+    return file;
   }
 
   Pair<Integer, Integer> getOffsetsForLine(int line) {
@@ -104,7 +102,7 @@ final class LineNumberTable {
 
   @Override
   public int hashCode() {
-    return Objects.hash(Arrays.hashCode(linestart), path, bufferLength);
+    return Objects.hash(Arrays.hashCode(linestart), file, bufferLength);
   }
 
   @Override
@@ -115,7 +113,7 @@ final class LineNumberTable {
     LineNumberTable that = (LineNumberTable) other;
     return this.bufferLength == that.bufferLength
         && Arrays.equals(this.linestart, that.linestart)
-        && Objects.equals(this.path, that.path);
+        && this.file.equals(that.file);
   }
 
   private static int[] computeLinestart(char[] buffer) {

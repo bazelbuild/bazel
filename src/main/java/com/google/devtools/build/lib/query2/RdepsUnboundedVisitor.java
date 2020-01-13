@@ -104,8 +104,7 @@ class RdepsUnboundedVisitor extends AbstractTargetOuputtingVisitor<DepAndRdep> {
     // need to filter out disallowed edges, but cannot do so before targetification occurs. This
     // means we may be wastefully visiting nodes via disallowed edges.
     ImmutableList.Builder<DepAndRdep> depAndRdepsToVisitBuilder = ImmutableList.builder();
-    env.graph
-        .getReverseDeps(uniqueValidRdeps)
+    env.getReverseDepLabelsOfLabels(uniqueValidRdeps)
         .entrySet()
         .forEach(
             reverseDepsEntry ->

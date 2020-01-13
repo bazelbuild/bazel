@@ -32,9 +32,12 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainProvider;
 import com.google.devtools.build.lib.rules.proto.ProtoInfo;
+import com.google.devtools.build.lib.rules.proto.ProtoSourceFileBlacklist;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import java.util.Collection;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 
 /**
@@ -64,10 +67,10 @@ final class ProtobufSupport {
   private final RuleContext ruleContext;
   private final BuildConfiguration buildConfiguration;
   private final ProtoAttributes attributes;
-  private final Iterable<ObjcProtoProvider> objcProtoProviders;
+  private final Collection<ObjcProtoProvider> objcProtoProviders;
   private final NestedSet<Artifact> portableProtoFilters;
   private final CcToolchainProvider toolchain;
-  private final Iterable<Artifact> dylibHandledProtos;
+  private final ImmutableSet<Artifact> dylibHandledProtos;
 
   /**
    * Creates a new proto support for the protobuf library. This support code bundles up all the
@@ -85,11 +88,11 @@ final class ProtobufSupport {
    * @param toolchain if not null, the toolchain to override the default toolchain for the rule
    *     context.
    */
-  public ProtobufSupport(
+  ProtobufSupport(
       RuleContext ruleContext,
       BuildConfiguration buildConfiguration,
       NestedSet<Artifact> dylibHandledProtos,
-      Iterable<ObjcProtoProvider> objcProtoProviders,
+      Collection<ObjcProtoProvider> objcProtoProviders,
       NestedSet<Artifact> portableProtoFilters,
       CcToolchainProvider toolchain) {
     this.ruleContext = ruleContext;
@@ -102,13 +105,11 @@ final class ProtobufSupport {
   }
 
   /** Registers the action that will compile the generated code. */
-  public ProtobufSupport registerCompilationAction()
-      throws RuleErrorException, InterruptedException {
+  ProtobufSupport registerCompilationAction() throws RuleErrorException, InterruptedException {
     if (!hasOutputProtos()) {
       return this;
     }
-    Iterable<PathFragment> userHeaderSearchPaths =
-        ImmutableList.of(getWorkspaceRelativeOutputDir());
+    List<PathFragment> userHeaderSearchPaths = ImmutableList.of(getWorkspaceRelativeOutputDir());
 
     CompilationArtifacts compilationArtifacts =
         new CompilationArtifacts.Builder()
@@ -140,7 +141,7 @@ final class ProtobufSupport {
    * Returns the ObjcProvider for this target, or Optional.absent() if there were no protos to
    * generate.
    */
-  public Optional<ObjcProvider> getObjcProvider() throws InterruptedException {
+  Optional<ObjcProvider> getObjcProvider() throws InterruptedException {
     if (!hasOutputProtos()) {
       return Optional.absent();
     }
@@ -233,7 +234,7 @@ final class ProtobufSupport {
         .build();
   }
 
-  public ProtobufSupport registerGenerationAction() {
+  ProtobufSupport registerGenerationAction() {
     if (!hasOutputProtos()) {
       return this;
     }
@@ -269,6 +270,10 @@ final class ProtobufSupport {
             .build(ruleContext));
 
     return this;
+  }
+
+  private static String getProtoInputsFileContents(NestedSet<Artifact> protoFiles) {
+    return getProtoInputsFileContents(protoFiles.toList());
   }
 
   private static String getProtoInputsFileContents(Iterable<Artifact> protoFiles) {
@@ -308,11 +313,17 @@ final class ProtobufSupport {
     return buildConfiguration.getBinDirectory().getExecPath().getRelative(rootRelativeOutputDir);
   }
 
-  private Iterable<Artifact> getGeneratedProtoOutputs(
-      Iterable<Artifact> protoFiles, String extension) {
+  private List<Artifact> getGeneratedProtoOutputs(
+      NestedSet<Artifact> protoFiles, String extension) {
+    return getGeneratedProtoOutputs(protoFiles.toList(), extension);
+  }
+
+  private List<Artifact> getGeneratedProtoOutputs(Iterable<Artifact> protoFiles, String extension) {
     ImmutableList.Builder<Artifact> builder = new ImmutableList.Builder<>();
+    ProtoSourceFileBlacklist wellKnownProtoBlacklist =
+        new ProtoSourceFileBlacklist(ruleContext, attributes.getWellKnownTypeProtos());
     for (Artifact protoFile : protoFiles) {
-      if (attributes.isProtoWellKnown(protoFile)) {
+      if (wellKnownProtoBlacklist.isBlacklisted(protoFile)) {
         continue;
       }
       String protoFileName = FileSystemUtils.removeExtension(protoFile.getFilename());
@@ -333,10 +344,8 @@ final class ProtobufSupport {
     return builder.build();
   }
 
-  /**
-   * Returns the transitive portable proto filter files from a list of ObjcProtoProviders.
-   */
-  public static NestedSet<Artifact> getTransitivePortableProtoFilters(
+  /** Returns the transitive portable proto filter files from a list of ObjcProtoProviders. */
+  static NestedSet<Artifact> getTransitivePortableProtoFilters(
       Iterable<ObjcProtoProvider> objcProtoProviders) {
     NestedSetBuilder<Artifact> portableProtoFilters = NestedSetBuilder.stableOrder();
     for (ObjcProtoProvider objcProtoProvider : objcProtoProviders) {
@@ -345,11 +354,9 @@ final class ProtobufSupport {
     return portableProtoFilters.build();
   }
 
-  /**
-   * Returns a target specific generated artifact that represents a portable filter file.
-   */
-  public static Artifact getGeneratedPortableFilter(RuleContext ruleContext,
-      BuildConfiguration buildConfiguration) {
+  /** Returns a target specific generated artifact that represents a portable filter file. */
+  static Artifact getGeneratedPortableFilter(
+      RuleContext ruleContext, BuildConfiguration buildConfiguration) {
     return ruleContext.getUniqueDirectoryArtifact(
         "_proto_filters",
         "generated_filter_file.pbascii",
@@ -361,8 +368,8 @@ final class ProtobufSupport {
    * this file is a portable filter that allows all the transitive proto files contained in the
    * given {@link ProtoInfo} providers.
    */
-  public static void registerPortableFilterGenerationAction(
-      RuleContext ruleContext, Artifact generatedPortableFilter, Iterable<ProtoInfo> protoInfos) {
+  static void registerPortableFilterGenerationAction(
+      RuleContext ruleContext, Artifact generatedPortableFilter, List<ProtoInfo> protoInfos) {
     ruleContext.registerAction(
         FileWriteAction.create(
             ruleContext,
@@ -380,7 +387,7 @@ final class ProtobufSupport {
 
     Iterable<String> protoFilePaths =
         Artifact.toRootRelativePaths(
-            Ordering.natural().immutableSortedCopy(protoFilesBuilder.build()));
+            Ordering.natural().immutableSortedCopy(protoFilesBuilder.build().toList()));
 
     Iterable<String> filterLines =
         Iterables.transform(

@@ -135,7 +135,7 @@ class StarlarkBuildLibrary {
       documented = false,
       useStarlarkThread = true,
       useLocation = true)
-  public NoneType invoke(
+  public NoneType licenses(
       Sequence<?> licensesList, // list of license strings
       Location loc,
       StarlarkThread thread)

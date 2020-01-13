@@ -81,7 +81,7 @@ public class JavaCommon {
                 && action.getMnemonic().equals(ResourceJarActionBuilder.MNEMONIC)) {
               // recurse on resource jar actions
               collectMetadataArtifacts(
-                  action.getInputs(), analysisEnvironment, metadataFilesBuilder);
+                  action.getInputs().toList(), analysisEnvironment, metadataFilesBuilder);
             }
           }
         }
@@ -267,13 +267,11 @@ public class JavaCommon {
         getJavaCompilationArtifacts(),
         /* deps= */ ImmutableList.of(
             JavaCompilationArgsProvider.legacyFromTargets(
-                targetsTreatedAsDeps(ClasspathType.COMPILE_ONLY), javaProtoLibraryStrictDeps)),
+                targetsTreatedAsDeps(ClasspathType.COMPILE_ONLY))),
         /* runtimeDeps= */ ImmutableList.of(
-            JavaCompilationArgsProvider.legacyFromTargets(
-                getRuntimeDeps(ruleContext), javaProtoLibraryStrictDeps)),
+            JavaCompilationArgsProvider.legacyFromTargets(getRuntimeDeps(ruleContext))),
         /* exports= */ ImmutableList.of(
-            JavaCompilationArgsProvider.legacyFromTargets(
-                getExports(ruleContext), javaProtoLibraryStrictDeps)));
+            JavaCompilationArgsProvider.legacyFromTargets(getExports(ruleContext))));
   }
 
   static JavaCompilationArgsProvider collectJavaCompilationArgs(
@@ -778,7 +776,7 @@ public class JavaCommon {
         ruleContext,
         instrumentationSpec,
         JAVA_METADATA_COLLECTOR,
-        filesToBuild,
+        filesToBuild.toList(),
         coverageSupportFiles,
         coverageEnvironment,
         /* withBaselineCoverage= */ !TargetUtils.isTestRule(ruleContext.getTarget()),
@@ -820,8 +818,7 @@ public class JavaCommon {
     List<TransitiveInfoCollection> runtimeDepInfo = getRuntimeDeps(ruleContext);
     checkRuntimeDeps(ruleContext, runtimeDepInfo);
     JavaCompilationArgsProvider provider =
-        JavaCompilationArgsProvider.legacyFromTargets(
-            runtimeDepInfo, semantics.isJavaProtoLibraryStrictDeps(ruleContext));
+        JavaCompilationArgsProvider.legacyFromTargets(runtimeDepInfo);
     attributes.addRuntimeClassPathEntries(provider.getRuntimeJars());
   }
 
@@ -933,12 +930,12 @@ public class JavaCommon {
   }
 
   /** Gets all the deps. */
-  public final Iterable<? extends TransitiveInfoCollection> getDependencies() {
+  public final List<? extends TransitiveInfoCollection> getDependencies() {
     return targetsTreatedAsDeps(ClasspathType.BOTH);
   }
 
   /** Gets all the deps that implement a particular provider. */
-  public final <P extends TransitiveInfoProvider> Iterable<P> getDependencies(Class<P> provider) {
+  public final <P extends TransitiveInfoProvider> List<P> getDependencies(Class<P> provider) {
     return JavaInfo.getProvidersFromListOfTargets(provider, getDependencies());
   }
 

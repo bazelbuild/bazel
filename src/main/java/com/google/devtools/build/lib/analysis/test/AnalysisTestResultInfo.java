@@ -14,16 +14,15 @@
 
 package com.google.devtools.build.lib.analysis.test;
 
-import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.skylarkbuildapi.test.AnalysisTestResultInfoApi;
 
 /**
- * Encapsulates the result of analyis-phase testing. Build targets which return an instance of
- * this provider signal to the build system that it should generate 'stub' test executable.
+ * Encapsulates the result of analyis-phase testing. Build targets which return an instance of this
+ * provider signal to the build system that it should generate 'stub' test executable.
  */
-public class AnalysisTestResultInfo extends Info implements AnalysisTestResultInfoApi {
+public class AnalysisTestResultInfo implements Info, AnalysisTestResultInfoApi {
 
   /**
    * Singleton provider instance for {@link AnalysisTestResultInfo}.
@@ -35,9 +34,13 @@ public class AnalysisTestResultInfo extends Info implements AnalysisTestResultIn
   private final String message;
 
   public AnalysisTestResultInfo(Boolean success, String message) {
-    super(SKYLARK_CONSTRUCTOR, Location.BUILTIN);
     this.success = success;
     this.message = message;
+  }
+
+  @Override
+  public TestResultInfoProvider getProvider() {
+    return SKYLARK_CONSTRUCTOR;
   }
 
   @Override

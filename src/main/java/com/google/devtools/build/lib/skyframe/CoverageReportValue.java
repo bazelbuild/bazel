@@ -28,7 +28,7 @@ public class CoverageReportValue extends BasicActionLookupValue {
   @AutoCodec public static final CoverageReportKey COVERAGE_REPORT_KEY = new CoverageReportKey();
 
   CoverageReportValue(GeneratingActions generatingActions) {
-    super(generatingActions, /*nonceVersion=*/ null);
+    super(generatingActions);
   }
 
   static class CoverageReportKey extends ActionLookupKey {

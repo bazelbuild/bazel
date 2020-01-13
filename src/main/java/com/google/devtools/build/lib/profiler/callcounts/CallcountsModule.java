@@ -18,7 +18,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
-import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
@@ -60,7 +59,7 @@ public class CallcountsModule extends BlazeModule {
   }
 
   @Override
-  public void beforeCommand(CommandEnvironment env) throws AbruptExitException {
+  public void beforeCommand(CommandEnvironment env) {
     this.outputPath = env.getOptions().getOptions(CallcountsOptions.class).outputPath;
     Callcounts.init(SAMPLE_PERIOD, SAMPLE_VARIANCE, MAX_CALLSTACK);
     this.reporter = env.getReporter();

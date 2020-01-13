@@ -30,21 +30,19 @@ public interface JavaRuleOutputJarsProviderApi<OutputJarT extends OutputJarApi<?
     extends StarlarkValue {
 
   @SkylarkCallable(name = "jars", doc = "A list of jars the rule outputs.", structField = true)
-  public ImmutableList<OutputJarT> getOutputJars();
+  ImmutableList<OutputJarT> getOutputJars();
 
   @SkylarkCallable(
-    name = "jdeps",
-    doc = "The jdeps file for rule outputs.",
-    structField = true,
-    allowReturnNones = true
-  )
-  public FileApi getJdeps();
+      name = "jdeps",
+      doc = "The jdeps file for rule outputs.",
+      structField = true,
+      allowReturnNones = true)
+  FileApi getJdeps();
 
   @SkylarkCallable(
-    name = "native_headers",
-    doc = "An archive of native header files.",
-    structField = true,
-    allowReturnNones = true
-  )
-  public FileApi getNativeHeaders();
+      name = "native_headers",
+      doc = "An archive of native header files.",
+      structField = true,
+      allowReturnNones = true)
+  FileApi getNativeHeaders();
 }

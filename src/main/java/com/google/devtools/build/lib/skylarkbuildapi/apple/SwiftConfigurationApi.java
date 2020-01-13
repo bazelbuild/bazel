@@ -28,8 +28,9 @@ import com.google.devtools.build.lib.syntax.StarlarkValue;
 public interface SwiftConfigurationApi extends StarlarkValue {
 
   @SkylarkCallable(
-    name = "copts",
-    doc = "A list of compiler options that should be passed to <code>swiftc</code> when compiling "
-        + "Swift code.")
-  public ImmutableList<String> getCopts();
+      name = "copts",
+      doc =
+          "A list of compiler options that should be passed to <code>swiftc</code> when compiling "
+              + "Swift code.")
+  ImmutableList<String> getCopts();
 }

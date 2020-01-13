@@ -14,7 +14,7 @@
 
 package com.google.devtools.build.lib.skylarkbuildapi.config;
 
-import com.google.devtools.build.lib.skylarkbuildapi.StructApi;
+import com.google.devtools.build.lib.skylarkbuildapi.core.StructApi;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
@@ -30,20 +30,17 @@ public interface ConfigFeatureFlagProviderApi extends StructApi {
   @SkylarkCallable(
       name = "value",
       doc = "The current value of the flag in the flag's current configuration.",
-      structField = true
-  )
-  public String getFlagValue();
+      structField = true)
+  String getFlagValue();
 
   @SkylarkCallable(
-    name = "is_valid_value",
-    doc = "The value of the flag in the configuration used by the flag rule.",
-    parameters = {
-      @Param(
-        name = "value",
-        type = String.class,
-        doc = "String, the value to check for validity for this flag."
-      ),
-    }
-  )
-  public boolean isValidValue(String value);
+      name = "is_valid_value",
+      doc = "The value of the flag in the configuration used by the flag rule.",
+      parameters = {
+        @Param(
+            name = "value",
+            type = String.class,
+            doc = "String, the value to check for validity for this flag."),
+      })
+  boolean isValidValue(String value);
 }

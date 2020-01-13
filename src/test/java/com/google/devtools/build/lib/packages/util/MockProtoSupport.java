@@ -87,7 +87,7 @@ public final class MockProtoSupport {
     config.create(
         "java/com/google/protobuf/BUILD",
         "package(default_visibility=['//visibility:public'])",
-        "filegroup(name = 'protobuf_proto_sources', srcs = [])");
+        "proto_library(name = 'protobuf_proto_sources', srcs = [])");
 
     // RPC generator plugins.
     config.create("net/rpc/compiler/BUILD",
@@ -169,8 +169,11 @@ public final class MockProtoSupport {
         "        cmd = '')",
         "proto_library(name='descriptor',",
         "              srcs=['descriptor.proto'])");
-    config.create("net/proto2/go/BUILD",
+    config.create(
+        "net/proto2/go/BUILD",
         "package(default_visibility=['//visibility:public'])",
+        "go_library(name = 'protodeps',",
+        "           srcs = [ 'protodeps.go' ])",
         "go_library(name = 'proto',",
         "           srcs = [ 'proto.go' ])");
     config.create("net/proto2/compiler/go/BUILD",

@@ -201,7 +201,12 @@ class SkylarkAttributesCollection implements SkylarkAttributesCollectionApi {
       }
       filesBuilder.put(
           skyname,
-          context.getRuleContext().getPrerequisiteArtifacts(a.getName(), Mode.DONT_CHECK).list());
+          StarlarkList.copyOf(
+              /*mutability=*/ null,
+              context
+                  .getRuleContext()
+                  .getPrerequisiteArtifacts(a.getName(), Mode.DONT_CHECK)
+                  .list()));
 
       if (type == BuildType.LABEL && !a.getTransitionFactory().isSplit()) {
         Object prereq = context.getRuleContext().getPrerequisite(a.getName(), Mode.DONT_CHECK);

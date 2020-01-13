@@ -35,58 +35,56 @@ public interface AppleConfigurationApi<ApplePlatformTypeApiT extends ApplePlatfo
           "<b>Deprecated. Use <a href='#single_arch_cpu'>single_arch_cpu</a> instead.</b> "
               + "The value of ios_cpu for this configuration.")
   @StarlarkDeprecated
-  public String getIosCpu();
+  String getIosCpu();
 
   @SkylarkCallable(
-    name = "single_arch_cpu",
-    structField = true,
-    doc =
-        "The single \"effective\" architecture for this configuration (e.g., <code>i386</code> or "
-            + "<code>arm64</code>) in the context of rule logic that is only concerned with a "
-            + "single architecture (such as <code>objc_library</code>, which registers "
-            + "single-architecture compile actions)."
-  )
-  public String getSingleArchitecture();
+      name = "single_arch_cpu",
+      structField = true,
+      doc =
+          "The single \"effective\" architecture for this configuration (e.g., <code>i386</code>"
+              + " or <code>arm64</code>) in the context of rule logic that is only concerned with"
+              + " a single architecture (such as <code>objc_library</code>, which registers"
+              + " single-architecture compile actions).")
+  String getSingleArchitecture();
 
   @SkylarkCallable(
-    name = "single_arch_platform",
-    doc = "The platform of the current configuration. This should only be invoked in a context "
-        + "where only a single architecture may be supported; consider "
-        + "<a href='#multi_arch_platform'>multi_arch_platform</a> for other cases.",
-    structField = true
-  )
-  public ApplePlatformApi getSingleArchPlatform();
+      name = "single_arch_platform",
+      doc =
+          "The platform of the current configuration. This should only be invoked in a context "
+              + "where only a single architecture may be supported; consider "
+              + "<a href='#multi_arch_platform'>multi_arch_platform</a> for other cases.",
+      structField = true)
+  ApplePlatformApi getSingleArchPlatform();
 
   @SkylarkCallable(
-    name = "multi_arch_platform",
-    doc = "The platform of the current configuration for the given platform type. This should only "
-        + "be invoked in a context where multiple architectures may be supported; consider "
-        + "<a href='#single_arch_platform'>single_arch_platform</a> for other cases.",
-    parameters = {
-      @Param(
-          name = "platform_type",
-          positional = true,
-          named = false,
-          type = ApplePlatformTypeApi.class,
-          doc = "The apple platform type."
-      )
-    }
-  )
-  public ApplePlatformApi getMultiArchPlatform(ApplePlatformTypeApiT platformType);
+      name = "multi_arch_platform",
+      doc =
+          "The platform of the current configuration for the given platform type. This should only "
+              + "be invoked in a context where multiple architectures may be supported; consider "
+              + "<a href='#single_arch_platform'>single_arch_platform</a> for other cases.",
+      parameters = {
+        @Param(
+            name = "platform_type",
+            positional = true,
+            named = false,
+            type = ApplePlatformTypeApi.class,
+            doc = "The apple platform type.")
+      })
+  ApplePlatformApi getMultiArchPlatform(ApplePlatformTypeApiT platformType);
 
   @SkylarkCallable(
       name = "ios_cpu_platform",
-      doc = "<b>Deprecated. Use <a href='#single_arch_platform'>single_arch_platform</a> or "
-          + "<a href='#multi_arch_platform'>multi_arch_platform</a> instead.</b> "
-          + "The platform given by the ios_cpu flag.")
-  public ApplePlatformApi getIosCpuPlatform();
+      doc =
+          "<b>Deprecated. Use <a href='#single_arch_platform'>single_arch_platform</a> or "
+              + "<a href='#multi_arch_platform'>multi_arch_platform</a> instead.</b> "
+              + "The platform given by the ios_cpu flag.")
+  ApplePlatformApi getIosCpuPlatform();
 
   @SkylarkCallable(
-    name = "bitcode_mode",
-    doc = "Returns the Bitcode mode to use for compilation steps.<p>"
-        + "This field is only valid for device builds; for simulator builds, it always returns "
-        + "<code>'none'</code>.",
-    structField = true
-  )
-  public AppleBitcodeModeApi getBitcodeMode();
+      name = "bitcode_mode",
+      doc =
+          "Returns the Bitcode mode to use for compilation steps.<p>This field is only valid for"
+              + " device builds; for simulator builds, it always returns <code>'none'</code>.",
+      structField = true)
+  AppleBitcodeModeApi getBitcodeMode();
 }

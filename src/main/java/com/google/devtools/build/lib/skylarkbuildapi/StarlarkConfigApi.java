@@ -48,9 +48,8 @@ import com.google.devtools.build.lib.syntax.StarlarkValue;
             + "  )</pre>")
 public interface StarlarkConfigApi extends StarlarkValue {
 
-  static final String FLAG_ARG = "flag";
-  static final String FLAG_ARG_DOC =
-      "Whether or not this build setting is callable on the command line.";
+  String FLAG_ARG = "flag";
+  String FLAG_ARG_DOC = "Whether or not this build setting is callable on the command line.";
 
   @SkylarkCallable(
       name = "int",

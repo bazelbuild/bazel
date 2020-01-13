@@ -78,7 +78,7 @@ public class JavaLibrary implements RuleConfiguredTargetFactory {
     JavaConfiguration javaConfig = ruleContext.getFragment(JavaConfiguration.class);
     NestedSetBuilder<Artifact> filesBuilder = NestedSetBuilder.stableOrder();
 
-    JavaTargetAttributes attributes = helper.getAttributes();
+    JavaTargetAttributes attributes = attributesBuilder.build();
     if (attributes.hasMessages()) {
       helper.setTranslations(
           semantics.translate(ruleContext, javaConfig, attributes.getMessages()));

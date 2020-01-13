@@ -289,12 +289,13 @@ public class AndroidIdlHelper {
     List<String> preprocessedArgs = new ArrayList<>();
 
     // add import roots so the aidl compiler will know where to look for the imports
-    for (String idlImport : transitiveIdlImportData.getTransitiveIdlImportRoots()) {
+    for (String idlImport : transitiveIdlImportData.getTransitiveIdlImportRoots().toList()) {
       preprocessedArgs.add("-I" + idlImport);
     }
     // add preprocessed aidl files
     preprocessedArgs.add("-p" + sdk.getFrameworkAidl().getExecPathString());
-    for (Artifact idlPreprocessed : transitiveIdlImportData.getTransitiveIdlPreprocessed()) {
+    for (Artifact idlPreprocessed :
+        transitiveIdlImportData.getTransitiveIdlPreprocessed().toList()) {
       preprocessedArgs.add("-p" + idlPreprocessed.getExecPathString());
     }
 

@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.skylarkbuildapi.cpp.FeatureConfigurationApi
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.PyWrapCcHelperApi;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.PyWrapCcInfoApi;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.WrapCcIncludeProviderApi;
+import com.google.devtools.build.lib.skylarkbuildapi.platform.ConstraintValueInfoApi;
 import com.google.devtools.build.lib.syntax.Depset;
 import com.google.devtools.build.lib.syntax.Sequence;
 
@@ -32,7 +33,8 @@ import com.google.devtools.build.lib.syntax.Sequence;
 public class FakePyWrapCcHelper
     implements PyWrapCcHelperApi<
         FileApi,
-        SkylarkRuleContextApi,
+        ConstraintValueInfoApi,
+        SkylarkRuleContextApi<ConstraintValueInfoApi>,
         CcInfoApi,
         FeatureConfigurationApi,
         CcToolchainProviderApi<FeatureConfigurationApi>,
@@ -41,42 +43,45 @@ public class FakePyWrapCcHelper
         WrapCcIncludeProviderApi> {
 
   @Override
-  public Sequence<String> getPyExtensionLinkopts(SkylarkRuleContextApi skylarkRuleContext) {
+  public Sequence<String> getPyExtensionLinkopts(
+      SkylarkRuleContextApi<ConstraintValueInfoApi> skylarkRuleContext) {
     return null;
   }
 
   @Override
   public Depset getTransitivePythonSources(
-      SkylarkRuleContextApi skylarkRuleContext, FileApi pyFile) {
+      SkylarkRuleContextApi<ConstraintValueInfoApi> skylarkRuleContext, FileApi pyFile) {
     return null;
   }
 
   @Override
   public RunfilesApi getPythonRunfiles(
-      SkylarkRuleContextApi skylarkRuleContext, Depset filesToBuild) {
+      SkylarkRuleContextApi<ConstraintValueInfoApi> skylarkRuleContext, Depset filesToBuild) {
     return null;
   }
 
   @Override
   public PyWrapCcInfoApi getPyWrapCcInfo(
-      SkylarkRuleContextApi skylarkRuleContext, CcInfoApi ccInfo) {
+      SkylarkRuleContextApi<ConstraintValueInfoApi> skylarkRuleContext, CcInfoApi ccInfo) {
     return null;
   }
 
   @Override
   public FeatureConfigurationApi skylarkGetFeatureConfiguration(
-      SkylarkRuleContextApi skylarkRuleContext,
+      SkylarkRuleContextApi<ConstraintValueInfoApi> skylarkRuleContext,
       CcToolchainProviderApi<FeatureConfigurationApi> ccToolchain) {
     return null;
   }
 
   @Override
-  public Depset skylarkCollectTransitiveSwigIncludes(SkylarkRuleContextApi skylarkRuleContext) {
+  public Depset skylarkCollectTransitiveSwigIncludes(
+      SkylarkRuleContextApi<ConstraintValueInfoApi> skylarkRuleContext) {
     return null;
   }
 
   @Override
-  public String skylarkGetMangledTargetName(SkylarkRuleContextApi skylarkRuleContext) {
+  public String skylarkGetMangledTargetName(
+      SkylarkRuleContextApi<ConstraintValueInfoApi> skylarkRuleContext) {
     return null;
   }
 
@@ -88,7 +93,7 @@ public class FakePyWrapCcHelper
 
   @Override
   public void registerSwigAction(
-      SkylarkRuleContextApi skylarkRuleContext,
+      SkylarkRuleContextApi<ConstraintValueInfoApi> skylarkRuleContext,
       CcToolchainProviderApi<FeatureConfigurationApi> ccToolchain,
       FeatureConfigurationApi featureConfiguration,
       CcCompilationContextApi wrapperCcCompilationContext,
@@ -106,7 +111,7 @@ public class FakePyWrapCcHelper
 
   @Override
   public CompilationInfoApi skylarkCreateCompileActions(
-      SkylarkRuleContextApi skylarkRuleContext,
+      SkylarkRuleContextApi<ConstraintValueInfoApi> skylarkRuleContext,
       FeatureConfigurationApi featureConfiguration,
       CcToolchainProviderApi<FeatureConfigurationApi> ccToolchain,
       FileApi ccFile,

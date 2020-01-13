@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.profiler;
 
 import com.google.common.base.Predicate;
-import com.google.common.collect.ImmutableList;
 import java.util.List;
 
 /**
@@ -87,10 +86,5 @@ public class PredicateBasedStatRecorder implements StatRecorder {
       this.recorder = recorder;
       this.predicate = predicate;
     }
-  }
-
-  /** Returns all the delegate stat recorders. */
-  public ImmutableList<StatRecorder> getRecorders() {
-    return ImmutableList.<StatRecorder>builder().add(recorders).build();
   }
 }

@@ -918,7 +918,7 @@ public final class PyCommon {
                 ruleContext,
                 semantics.getCoverageInstrumentationSpec(),
                 METADATA_COLLECTOR,
-                filesToBuild,
+                filesToBuild.toList(),
                 /* reportedToActualSources= */ NestedSetBuilder.create(Order.STABLE_ORDER)))
         // Python targets are not really compilable. The best we can do is make sure that all
         // generated source files are ready.
@@ -941,7 +941,8 @@ public final class PyCommon {
       }
       Iterable<Artifact> pySrcs =
           FileType.filter(
-              src.getProvider(FileProvider.class).getFilesToBuild(), PyRuleClasses.PYTHON_SOURCE);
+              src.getProvider(FileProvider.class).getFilesToBuild().toList(),
+              PyRuleClasses.PYTHON_SOURCE);
       Iterables.addAll(sourceFiles, pySrcs);
       if (Iterables.isEmpty(pySrcs)) {
         ruleContext.attributeWarning("srcs",
@@ -983,24 +984,27 @@ public final class PyCommon {
   }
 
   /**
-   * Creates a {@link PseudoAction} that is only used for providing
-   * information to the blaze extra_action feature.
+   * Creates a {@link PseudoAction} that is only used for providing information to the blaze
+   * extra_action feature.
    */
   public static Action makePyExtraActionPseudoAction(
       ActionOwner owner,
-      Iterable<Artifact> sources,
-      Iterable<Artifact> dependencies,
+      List<Artifact> sources,
+      NestedSet<Artifact> dependencies,
       Artifact output) {
 
     PythonInfo info =
         PythonInfo.newBuilder()
             .addAllSourceFile(Artifact.toExecPaths(sources))
-            .addAllDepFile(Artifact.toExecPaths(dependencies))
+            .addAllDepFile(Artifact.toExecPaths(dependencies.toList()))
             .build();
 
     return new PyPseudoAction(
         owner,
-        NestedSetBuilder.wrap(Order.STABLE_ORDER, Iterables.concat(sources, dependencies)),
+        NestedSetBuilder.<Artifact>stableOrder()
+            .addAll(sources)
+            .addTransitive(dependencies)
+            .build(),
         ImmutableList.of(output),
         "Python",
         PYTHON_INFO,

@@ -1121,7 +1121,7 @@ public final class BuildOptions implements Cloneable, Serializable {
       if (this == o) {
         return true;
       }
-      if (o == null || getClass() != o.getClass()) {
+      if (!(o instanceof OptionsDiffForReconstruction)) {
         return false;
       }
       OptionsDiffForReconstruction that = (OptionsDiffForReconstruction) o;
@@ -1263,7 +1263,6 @@ public final class BuildOptions implements Cloneable, Serializable {
     private static final ConcurrentHashMap<ByteString, OptionsDiffForReconstruction>
         byteStringToDiffMap = new ConcurrentHashMap<>();
 
-    @VisibleForTesting
     public DiffToByteCache() {}
 
     @Override

@@ -44,9 +44,7 @@ public interface DottedVersionApi<SelfT extends DottedVersionApi<?>>
             positional = true,
             named = false,
             type = DottedVersionApi.class,
-            doc = "The other dotted version."
-        )
-      }
-  )
-  public int compareTo_skylark(SelfT other);
+            doc = "The other dotted version.")
+      })
+  int compareTo_skylark(SelfT other);
 }

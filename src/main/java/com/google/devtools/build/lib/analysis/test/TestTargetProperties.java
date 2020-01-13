@@ -99,7 +99,10 @@ public class TestTargetProperties {
     ruleContext.getConfiguration().modifyExecutionInfo(executionInfo, TestRunnerAction.MNEMONIC);
     this.executionInfo = ImmutableMap.copyOf(executionInfo);
 
-    isRemotable = ExecutionRequirements.maybeExecutedRemotely(executionInfo.keySet());
+    isRemotable =
+        !executionInfo.containsKey(ExecutionRequirements.LOCAL)
+            && !executionInfo.containsKey(ExecutionRequirements.NO_REMOTE)
+            && !executionInfo.containsKey(ExecutionRequirements.NO_REMOTE_EXEC);
 
     language = TargetUtils.getRuleLanguage(rule);
   }
