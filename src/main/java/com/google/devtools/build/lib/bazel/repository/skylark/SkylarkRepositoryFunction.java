@@ -56,6 +56,7 @@ import javax.annotation.Nullable;
  * A repository function to delegate work done by skylark remote repositories.
  */
 public class SkylarkRepositoryFunction extends RepositoryFunction {
+  static final String SEMANTICS = "STARLARK_SEMANTICS";
 
   private final DownloadManager downloadManager;
   private double timeoutScaling = 1.0;
@@ -67,6 +68,25 @@ public class SkylarkRepositoryFunction extends RepositoryFunction {
 
   public void setTimeoutScaling(double timeoutScaling) {
     this.timeoutScaling = timeoutScaling;
+  }
+
+  static String describeSemantics(StarlarkSemantics semantics) {
+    // Here we use the hash code provided by AutoValue. This is unique, as long
+    // as the number of bits in the StarlarkSemantics is small enough. We will have to
+    // move to a longer description once the number of flags grows too large.
+    return "" + semantics.hashCode();
+  }
+
+  @Override
+  protected boolean verifySemanticsMarkerData(Map<String, String> markerData, Environment env)
+      throws InterruptedException {
+    StarlarkSemantics starlarkSemantics = PrecomputedValue.STARLARK_SEMANTICS.get(env);
+    if (starlarkSemantics == null) {
+      // As it is a precomputed value, it should already be available. If not, returning
+      // false is the safe thing to do.
+      return false;
+    }
+    return describeSemantics(starlarkSemantics).equals(markerData.get(SEMANTICS));
   }
 
   @Nullable
@@ -93,6 +113,7 @@ public class SkylarkRepositoryFunction extends RepositoryFunction {
     if (env.valuesMissing()) {
       return null;
     }
+    markerData.put(SEMANTICS, describeSemantics(starlarkSemantics));
 
     Set<String> verificationRules =
         RepositoryDelegatorFunction.OUTPUT_VERIFICATION_REPOSITORY_RULES.get(env);
