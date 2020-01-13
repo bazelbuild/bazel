@@ -20,7 +20,6 @@ import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
-import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.profiler.ProfilePhase;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
@@ -287,31 +286,12 @@ public class ProfileInfo {
     public final long cumulativeDuration;
     public final CriticalPathEntry next;
 
-    private long criticalTime = 0L;
-
     public CriticalPathEntry(Task task, long duration, CriticalPathEntry next) {
       this.task = task;
       this.duration = duration;
       this.next = next;
       this.cumulativeDuration =
           duration + (next != null ? next.cumulativeDuration : 0);
-    }
-
-    private void setCriticalTime(long duration) {
-      criticalTime = duration;
-    }
-
-    public long getCriticalTime() {
-      return criticalTime;
-    }
-
-    /**
-     * @return true when this is just an action element on the critical path as logged by
-     *     {@link com.google.devtools.build.lib.runtime.BuildSummaryStatsModule} and is thus a
-     *     pre-processed and -analyzed critical path element
-     */
-    public boolean isComponent() {
-      return task.type == ProfilerTask.CRITICAL_PATH_COMPONENT;
     }
   }
 
@@ -514,13 +494,14 @@ public class ProfileInfo {
   }
 
   /**
-   * Calculates critical path for the specific action
-   * excluding specified nested task types (e.g. VFS-related time) and not
-   * accounting for overhead related to the Blaze scheduler.
+   * Calculates critical path for the specific action excluding specified nested task types (e.g.
+   * VFS-related time) and not accounting for overhead related to the Blaze scheduler.
    */
   private CriticalPathEntry computeCriticalPathForAction(
-      Set<ProfilerTask> ignoredTypes, Set<Task> ignoredTasks,
-      Task actionTask, Map<Task, CriticalPathEntry> cache, Deque<Task> stack) {
+      Set<Task> ignoredTasks,
+      Task actionTask,
+      Map<Task, CriticalPathEntry> cache,
+      Deque<Task> stack) {
 
     // Loop check is expensive for the Deque (and we don't want to use hash sets because adding
     // and removing elements was shown to be very expensive). To avoid quadratic costs we're
@@ -548,7 +529,7 @@ public class ProfileInfo {
         if (actionPrerequisites != null) {
           for (Task task : actionPrerequisites) {
             CriticalPathEntry candidate =
-              computeCriticalPathForAction(ignoredTypes, ignoredTasks, task, cache, stack);
+                computeCriticalPathForAction(ignoredTasks, task, cache, stack);
             if (entry == null || entryDuration < candidate.cumulativeDuration) {
               entry = candidate;
               entryDuration = candidate.cumulativeDuration;
@@ -559,10 +540,6 @@ public class ProfileInfo {
           long duration = actionTask.durationNanos;
           if (ignoredTasks.contains(actionTask)) {
             duration = 0L;
-          } else {
-            for (ProfilerTask type : ignoredTypes) {
-              duration -= actionTask.aggregatedStats.getAttr(type).totalTime;
-            }
           }
 
           entry = new CriticalPathEntry(actionTask, duration, entry);
@@ -594,46 +571,21 @@ public class ProfileInfo {
   }
 
   /**
-   * Calculates critical path for the given action graph excluding
-   * specified tasks (usually ones that belong to the "real" critical path).
+   * Calculates critical path for the given action graph excluding specified tasks (usually ones
+   * that belong to the "real" critical path).
    */
-  public CriticalPathEntry getCriticalPath(Set<ProfilerTask> ignoredTypes) {
+  public CriticalPathEntry getCriticalPath() {
     Task actionTask = getPhaseTask(ProfilePhase.EXECUTE);
     if (actionTask == null) {
       return null;
     }
     Map <Task, CriticalPathEntry> cache = Maps.newHashMapWithExpectedSize(1000);
     CriticalPathEntry result =
-        computeCriticalPathForAction(
-            ignoredTypes, new HashSet<>(), actionTask, cache, new ArrayDeque<>());
+        computeCriticalPathForAction(new HashSet<>(), actionTask, cache, new ArrayDeque<>());
     if (result != null) {
       return result;
     }
     return getCriticalPathNewVersion();
-  }
-
-  /**
-   * Calculates critical path time that will be saved by eliminating specific
-   * entry from the critical path
-   */
-  public void analyzeCriticalPath(Set<ProfilerTask> ignoredTypes, CriticalPathEntry path) {
-    // With light critical path we do not need to analyze since it is already preprocessed
-    // by blaze build.
-    if (path == null || path.isComponent()) {
-      return;
-    }
-    for (CriticalPathEntry entry = path; entry != null; entry = entry.next) {
-      Map <Task, CriticalPathEntry> cache = Maps.newHashMapWithExpectedSize(1000);
-      entry.setCriticalTime(
-          path.cumulativeDuration
-              - computeCriticalPathForAction(
-                      ignoredTypes,
-                      Sets.newHashSet(entry.task),
-                      getPhaseTask(ProfilePhase.EXECUTE),
-                      cache,
-                      new ArrayDeque<>())
-                  .cumulativeDuration);
-    }
   }
 
   /**

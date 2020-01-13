@@ -13,8 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.profiler;
 
-import com.google.common.base.Predicate;
-import java.util.EnumSet;
 
 /**
  * All possible types of profiler tasks. Each type also defines description and
@@ -123,19 +121,6 @@ public enum ProfilerTask {
   /** Whether the Profiler collects the slowest instances of this task. */
   public boolean collectsSlowestInstances() {
     return slowestInstancesCount > 0;
-  }
-
-  /**
-   * Build a set containing all ProfilerTasks for which the given predicate is true.
-   */
-  public static EnumSet<ProfilerTask> allSatisfying(Predicate<ProfilerTask> predicate) {
-    EnumSet<ProfilerTask> set = EnumSet.noneOf(ProfilerTask.class);
-    for (ProfilerTask taskType : values()) {
-      if (predicate.apply(taskType)) {
-        set.add(taskType);
-      }
-    }
-    return set;
   }
 
   public boolean isVfs() {

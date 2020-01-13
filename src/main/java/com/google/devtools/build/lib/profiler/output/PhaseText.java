@@ -131,8 +131,7 @@ public final class PhaseText extends TextPrinter {
 
     CriticalPathText criticalPaths = null;
     if (criticalPathStatistics.isPresent()) {
-      criticalPaths = new CriticalPathText(out, criticalPathStatistics.get(), execTime);
-      criticalPaths.printTimingBreakdown();
+      criticalPaths = new CriticalPathText(out, criticalPathStatistics.get());
       printLn();
     }
 
@@ -162,5 +161,4 @@ public final class PhaseText extends TextPrinter {
     }
   }
 }
-
 
