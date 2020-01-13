@@ -28,12 +28,10 @@ import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.syntax.Mutability.Freezable;
 import com.google.devtools.build.lib.syntax.Mutability.MutabilityException;
 import com.google.devtools.build.lib.util.Fingerprint;
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Objects;
@@ -98,19 +96,11 @@ import javax.annotation.Nullable;
 // Once the API is small and sound, we can start to represent all
 // the lexical frames within a single function using just an array,
 // indexed by a small integer computed during the validation pass.
-public final class StarlarkThread implements Freezable {
+public final class StarlarkThread {
 
   /**
-   * A mapping of bindings, either mutable or immutable according to an associated {@link
-   * Mutability}. The order of the bindings within a single {@link Frame} is deterministic but
-   * unspecified.
-   *
-   * <p>Any non-frozen {@link Frame} must have the same {@link Mutability} as the current {@link
-   * StarlarkThread}, to avoid interference from other evaluation contexts. For example, a {@link
-   * StarlarkFunction} will close over the global frame of the {@link StarlarkThread} in which it
-   * was defined. When the function is called from other {@link StarlarkThread}s (possibly
-   * simultaneously), that global frame must already be frozen; a new local {@link Frame} is created
-   * to represent the lexical scope of the function.
+   * A mapping of bindings. The order of the bindings within a single {@link Frame} is deterministic
+   * but unspecified.
    *
    * <p>A {@link Frame} can have an associated "parent" {@link Frame}, which is used in {@link #get}
    * and {@link #getTransitiveBindings()}
@@ -118,7 +108,7 @@ public final class StarlarkThread implements Freezable {
    * <p>TODO(laurentlb): "parent" should be named "universe" since it contains only the builtins.
    * The "get" method shouldn't look at the universe (so that "moduleLookup" works as expected)
    */
-  interface Frame extends Freezable {
+  interface Frame {
     /**
      * Gets a binding from this {@link Frame} or one of its transitive parents.
      *
@@ -142,10 +132,7 @@ public final class StarlarkThread implements Freezable {
      */
     void put(String varname, Object value) throws MutabilityException;
 
-    /**
-     * TODO(laurentlb): Remove this method when possible. It should probably not be part of the
-     * public interface.
-     */
+    // TODO(laurentlb): Remove this method.
     void remove(String varname) throws MutabilityException;
 
     /**
@@ -158,64 +145,17 @@ public final class StarlarkThread implements Freezable {
     Map<String, Object> getTransitiveBindings();
   }
 
-  interface LexicalFrame extends Frame {
-  }
+  private static final class LexicalFrame implements Frame {
+    private final Map<String, Object> bindings; // in creation order
 
-  private static final class ImmutableEmptyLexicalFrame implements LexicalFrame {
-    private static final ImmutableEmptyLexicalFrame INSTANCE = new ImmutableEmptyLexicalFrame();
-
-    @Override
-    public Mutability mutability() {
-      return Mutability.IMMUTABLE;
-    }
-
-    @Nullable
-    @Override
-    public Object get(String varname) {
-      return null;
-    }
-
-    @Override
-    public void put(String varname, Object value) throws MutabilityException {
-      Mutability.checkMutable(this, mutability());
-      throw new IllegalStateException();
-    }
-
-    @Override
-    public void remove(String varname) throws MutabilityException {
-      Mutability.checkMutable(this, mutability());
-      throw new IllegalStateException();
-    }
-
-    @Override
-    public Map<String, Object> getTransitiveBindings() {
-      return ImmutableMap.of();
-    }
-
-    @Override
-    public String toString() {
-      return "<ImmutableEmptyLexicalFrame>";
-    }
-  }
-
-  private static final class MutableLexicalFrame implements LexicalFrame {
-    private final Mutability mutability;
-    /** Bindings are maintained in order of creation. */
-    private final LinkedHashMap<String, Object> bindings;
-
-    private MutableLexicalFrame(Mutability mutability, int initialCapacity) {
-      this.mutability = mutability;
+    // (Starlark functions)
+    private LexicalFrame(int initialCapacity) {
       this.bindings = Maps.newLinkedHashMapWithExpectedSize(initialCapacity);
     }
 
-    private MutableLexicalFrame(Mutability mutability) {
-      this.mutability = mutability;
-      this.bindings = new LinkedHashMap<>();
-    }
-
-    @Override
-    public Mutability mutability() {
-      return mutability;
+    // (Builtin functions)
+    private LexicalFrame() {
+      this.bindings = ImmutableMap.of();
     }
 
     @Nullable
@@ -225,14 +165,12 @@ public final class StarlarkThread implements Freezable {
     }
 
     @Override
-    public void put(String varname, Object value) throws MutabilityException {
-      Mutability.checkMutable(this, mutability());
+    public void put(String varname, Object value) {
       bindings.put(varname, value);
     }
 
     @Override
-    public void remove(String varname) throws MutabilityException {
-      Mutability.checkMutable(this, mutability());
+    public void remove(String varname) {
       bindings.remove(varname);
     }
 
@@ -240,14 +178,10 @@ public final class StarlarkThread implements Freezable {
     public Map<String, Object> getTransitiveBindings() {
       return bindings;
     }
-
-    @Override
-    public String toString() {
-      return String.format("<MutableLexicalFrame%s>", mutability());
-    }
   }
 
-  // The mutability of the StarlarkThread comes from its initial global frame.
+  // The mutability of the StarlarkThread comes from its initial module.
+  // TODO(adonovan): not every thread initializes a module.
   private final Mutability mutability;
 
   private final Map<Class<?>, Object> threadLocals = new HashMap<>();
@@ -257,7 +191,6 @@ public final class StarlarkThread implements Freezable {
    * {@code key}, so that it can later be retrieved by {@code getThreadLocal(key)}.
    */
   public <T> void setThreadLocal(Class<T> key, T value) {
-    // The clazz parameter is redundant, but it makes the API clearer.
     threadLocals.put(key, value);
   }
 
@@ -539,14 +472,16 @@ public final class StarlarkThread implements Freezable {
       // global vs local identifiers in the syntax tree.
       if (!sfn.isToplevel) {
         this.lexicalFrame =
-            new MutableLexicalFrame(
-                this.mutability(), /*initialCapacity=*/ sfn.getSignature().numParameters());
+            new LexicalFrame(/*initialCapacity=*/ sfn.getSignature().numParameters());
+      } else {
+        this.lexicalFrame = sfn.getModule();
       }
       this.globalFrame = sfn.getModule();
       taskKind = ProfilerTask.STARLARK_USER_FN;
     } else {
       // built-in function
-      this.lexicalFrame = DUMMY_LEXICAL_FRAME;
+      this.lexicalFrame = new LexicalFrame();
+
       // this.globalFrame is left as is.
       // For built-ins, thread.globals() returns the module
       // of the file from which the built-in was called.
@@ -582,13 +517,8 @@ public final class StarlarkThread implements Freezable {
     }
   }
 
-  // Builtins cannot create or modify variable bindings,
-  // so it's sufficient to use a shared instance.
-  private static final LexicalFrame DUMMY_LEXICAL_FRAME = ImmutableEmptyLexicalFrame.INSTANCE;
-
   private final String transitiveHashCode;
 
-  @Override
   public Mutability mutability() {
     return mutability;
   }
