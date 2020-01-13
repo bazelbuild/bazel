@@ -46,6 +46,7 @@ import com.google.devtools.build.lib.analysis.actions.SymlinkTreeActionContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
+import com.google.devtools.build.lib.analysis.test.TestActionContext;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.ConvenienceSymlink;
 import com.google.devtools.build.lib.buildtool.BuildRequestOptions.ConvenienceSymlinksMode;
 import com.google.devtools.build.lib.buildtool.buildevent.ConvenienceSymlinksIdentifiedEvent;
@@ -148,7 +149,7 @@ public class ExecutionTool {
     builder
         .addStrategyByContext(WorkspaceStatusAction.Context.class, "")
         .addStrategyByContext(SymlinkTreeActionContext.class, "");
-      
+
     this.prefetcher = builder.getActionInputPrefetcher();
     this.actionContextProviders = builder.getActionContextProviders();
 
@@ -157,10 +158,10 @@ public class ExecutionTool {
     // in prod. Thus, for SpawnActions, we decide the action context to use not only based on the
     // context class, but also the mnemonic of the action.
     ExecutionOptions options = request.getOptions(ExecutionOptions.class);
+    // TODO(jmmv): This should live in some testing-related Blaze module, not here.
+    builder.addStrategyByContext(TestActionContext.class, options.testStrategy);
     spawnActionContextMaps =
-        builder
-            .getSpawnActionContextMapsBuilder()
-            .build(actionContextProviders, options.testStrategy);
+        builder.getSpawnActionContextMapsBuilder().build(actionContextProviders);
 
     if (options.availableResources != null && options.removeLocalResources) {
       throw new ExecutorInitException(

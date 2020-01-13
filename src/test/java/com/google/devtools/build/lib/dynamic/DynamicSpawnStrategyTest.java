@@ -23,14 +23,12 @@ import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
-import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.Uninterruptibles;
 import com.google.devtools.build.lib.actions.ActionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
-import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.BaseSpawn;
@@ -47,9 +45,6 @@ import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil.NullAction;
-import com.google.devtools.build.lib.analysis.test.TestActionContext;
-import com.google.devtools.build.lib.analysis.test.TestResult;
-import com.google.devtools.build.lib.analysis.test.TestRunnerAction;
 import com.google.devtools.build.lib.exec.BlazeExecutor;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.exec.ExecutorBuilder;
@@ -62,7 +57,6 @@ import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.util.FileSystems;
-import com.google.devtools.build.lib.view.test.TestStatus;
 import com.google.devtools.common.options.OptionsParser;
 import java.io.IOException;
 import java.util.Arrays;
@@ -376,8 +370,7 @@ public class DynamicSpawnStrategyTest {
     ExecutorBuilder executorBuilder =
         new ExecutorBuilder()
             .addActionContextProvider(new SimpleActionContextProvider(localStrategy))
-            .addActionContextProvider(new SimpleActionContextProvider(remoteStrategy))
-            .addActionContextProvider(new SimpleActionContextProvider(new NoopTestActionContext()));
+            .addActionContextProvider(new SimpleActionContextProvider(remoteStrategy));
 
     if (sandboxedStrategy != null) {
       executorBuilder.addActionContextProvider(new SimpleActionContextProvider(sandboxedStrategy));
@@ -387,7 +380,7 @@ public class DynamicSpawnStrategyTest {
     SpawnActionContextMaps spawnActionContextMaps =
         executorBuilder
             .getSpawnActionContextMapsBuilder()
-            .build(executorBuilder.getActionContextProviders(), "mock-test");
+            .build(executorBuilder.getActionContextProviders());
 
     Executor executor =
         new BlazeExecutor(
@@ -1057,31 +1050,6 @@ public class DynamicSpawnStrategyTest {
 
     assertThatStrategyPropagatesException(
         localExec, remoteExec, legacyBehavior ? new UserExecException(e) : e);
-  }
-
-  @ExecutionStrategy(contextType = TestActionContext.class, name = "mock-test")
-  private static class NoopTestActionContext implements TestActionContext {
-    @Override
-    public TestRunnerSpawn createTestRunnerSpawn(
-        TestRunnerAction testRunnerAction, ActionExecutionContext actionExecutionContext) {
-      throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public boolean isTestKeepGoing() {
-      throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public TestResult newCachedTestResult(
-        Path execRoot, TestRunnerAction action, TestStatus.TestResultData cached) {
-      throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public ListenableFuture<Void> getTestCancelFuture(ActionOwner owner, int shard) {
-      throw new UnsupportedOperationException();
-    }
   }
 
   @AutoValue
