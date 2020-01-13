@@ -476,7 +476,8 @@ public class ActionExecutionFunction implements SkyFunction {
       } else if (state.discoveredInputs != null) {
         failedActionDeps =
             Iterables.concat(
-                inputDeps.keySet(), Iterables.transform(state.discoveredInputs, Artifact::key));
+                inputDeps.keySet(),
+                Iterables.transform(state.discoveredInputs.toList(), Artifact::key));
       } else {
         failedActionDeps = inputDeps.keySet();
       }
@@ -842,7 +843,7 @@ public class ActionExecutionFunction implements SkyFunction {
       switch (addDiscoveredInputs(
           state.inputArtifactData,
           state.expandedArtifacts,
-          filterKnownInputs(state.discoveredInputs, state.inputArtifactData),
+          state.filterKnownDiscoveredInputs(),
           env)) {
         case VALUES_MISSING:
           return null;
@@ -959,7 +960,7 @@ public class ActionExecutionFunction implements SkyFunction {
         switch (addDiscoveredInputs(
             state.inputArtifactData,
             state.expandedArtifacts,
-            filterKnownInputs(state.discoveredInputs, state.inputArtifactData),
+            state.filterKnownDiscoveredInputs(),
             env)) {
           case VALUES_MISSING:
             return;
@@ -1283,11 +1284,6 @@ public class ActionExecutionFunction implements SkyFunction {
         inputArtifactData, expandedArtifacts, filesetsInsideRunfiles, topLevelFilesets);
   }
 
-  private static Iterable<Artifact> filterKnownInputs(
-      Iterable<Artifact> newInputs, ActionInputMap inputArtifactData) {
-    return Iterables.filter(newInputs, input -> inputArtifactData.getMetadata(input) == null);
-  }
-
   static boolean actionDependsOnBuildId(Action action) {
     // Volatile build actions may need to execute even if none of their known inputs have changed.
     // Depending on the build id ensures that these actions have a chance to execute.
@@ -1387,6 +1383,11 @@ public class ActionExecutionFunction implements SkyFunction {
         executor.updateActionFileSystemContext(
             actionFileSystem, env, metadataHandler.getOutputStore()::injectOutputData, filesets);
       }
+    }
+
+    Iterable<Artifact> filterKnownDiscoveredInputs() {
+      return Iterables.filter(
+          discoveredInputs.toList(), input -> inputArtifactData.getMetadata(input) == null);
     }
 
     @Override
