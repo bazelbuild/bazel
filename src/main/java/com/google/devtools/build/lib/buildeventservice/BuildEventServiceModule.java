@@ -193,7 +193,7 @@ public abstract class BuildEventServiceModule<BESOptionsT extends BuildEventServ
     return e.getCause() instanceof TimeoutException;
   }
 
-  private void waitForPreviousInvocation() {
+  private void waitForPreviousInvocation(boolean isShutdown) {
     if (closeFuturesWithTimeoutsMap.isEmpty()) {
       return;
     }
@@ -214,7 +214,8 @@ public abstract class BuildEventServiceModule<BESOptionsT extends BuildEventServ
     boolean cancelCloseFutures = true;
     switch (previousUploadMode) {
       case FULLY_ASYNC:
-        waitingFutureMap = halfCloseFuturesWithTimeoutsMap;
+        waitingFutureMap =
+            isShutdown ? closeFuturesWithTimeoutsMap : halfCloseFuturesWithTimeoutsMap;
         cancelCloseFutures = false;
         break;
       case WAIT_FOR_UPLOAD_COMPLETE:
@@ -328,7 +329,7 @@ public abstract class BuildEventServiceModule<BESOptionsT extends BuildEventServ
     // allow completing previous runs using BES, for example:
     //   bazel build (..run with async BES..)
     //   bazel info <-- Doesn't run with BES unless we wait before checking the whitelist.
-    waitForPreviousInvocation();
+    waitForPreviousInvocation("shutdown".equals(cmdEnv.getCommandName()));
 
     if (!whitelistedCommands(besOptions).contains(cmdEnv.getCommandName())) {
       // Exit early if the running command isn't supported.
