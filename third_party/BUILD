@@ -469,6 +469,7 @@ UNNECESSARY_DYNAMIC_LIBRARIES = select({
     "//src/conditions:arm": "*.so *.jnilib *.dll",
     "//src/conditions:linux_aarch64": "*.so *.jnilib *.dll",
     "//src/conditions:linux_ppc": "*.so *.jnilib *.dll",
+    "//src/conditions:openbsd": "*.so *.jnilib *.dll",
     # Play it safe -- better have a big binary than a slow binary
     # zip -d does require an argument. Supply something bogus.
     "//conditions:default": "*.bogusextension",
@@ -625,6 +626,11 @@ config_setting(
 config_setting(
     name = "freebsd",
     values = {"host_cpu": "freebsd"},
+)
+
+config_setting(
+    name = "openbsd",
+    values = {"host_cpu": "openbsd"},
 )
 
 config_setting(

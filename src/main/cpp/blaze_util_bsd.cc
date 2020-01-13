@@ -128,7 +128,7 @@ string GetSelfPath(const char* argv0) {
   // Otherwise, if argv[0] contains a slash, then it's a relative path. Prepend
   // the current directory to form an absolute path.
   if (argv0str.length() > 0 && argv0str.find('/') != std::string::npos) {
-    return GetCwd() + "/" + argv0str;
+    return blaze_util::GetCwd() + "/" + argv0str;
   }
 
   // TODO(aldersondrive): Try to find the executable by inspecting the PATH.
