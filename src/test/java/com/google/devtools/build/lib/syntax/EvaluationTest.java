@@ -183,7 +183,7 @@ public class EvaluationTest extends EvaluationTestCase {
         .testExpression("123 + 456", 579)
         .testExpression("456 - 123", 333)
         .testExpression("8 % 3", 2)
-        .testIfErrorContains("unsupported operand type(s) for %: 'int' and 'string'", "3 % 'foo'")
+        .testIfErrorContains("unsupported binary operation: int % string", "3 % 'foo'")
         .testExpression("-5", -5)
         .testIfErrorContains("unsupported unary operation: -string", "-'foo'");
   }
@@ -341,7 +341,7 @@ public class EvaluationTest extends EvaluationTestCase {
         .testExpression("-7 // 2", -4)
         .testExpression("-7 // -2", 3)
         .testExpression("2147483647 // 2", 1073741823)
-        .testIfErrorContains("unsupported operand type(s) for //: 'string' and 'int'", "'str' // 2")
+        .testIfErrorContains("unsupported binary operation: string // int", "'str' // 2")
         .testIfExactError("integer division by zero", "5 // 0");
   }
 
@@ -385,8 +385,7 @@ public class EvaluationTest extends EvaluationTestCase {
     assertThat(x).isEqualTo(Tuple.of(1, 2, 3, 4));
     assertThat(EvalUtils.isImmutable(x)).isTrue();
 
-    checkEvalError("unsupported operand type(s) for +: 'tuple' and 'list'",
-        "(1,2) + [3,4]"); // list + tuple
+    checkEvalError("unsupported binary operation: tuple + list", "(1,2) + [3,4]");
   }
 
   @Test
@@ -572,10 +571,8 @@ public class EvaluationTest extends EvaluationTestCase {
     newTest()
         .testExpression("[1, 2] + [3, 4]", StarlarkList.of(thread.mutability(), 1, 2, 3, 4))
         .testExpression("(1, 2) + (3, 4)", Tuple.of(1, 2, 3, 4))
-        .testIfExactError(
-            "unsupported operand type(s) for +: 'list' and 'tuple'", "[1, 2] + (3, 4)")
-        .testIfExactError(
-            "unsupported operand type(s) for +: 'tuple' and 'list'", "(1, 2) + [3, 4]");
+        .testIfExactError("unsupported binary operation: list + tuple", "[1, 2] + (3, 4)")
+        .testIfExactError("unsupported binary operation: tuple + list", "(1, 2) + [3, 4]");
   }
 
   @Test
@@ -744,7 +741,8 @@ public class EvaluationTest extends EvaluationTestCase {
     newTest()
         .testIfErrorContains(
             "'in <string>' requires string as left operand, not 'int'", "1 in '123'")
-        .testIfErrorContains("'int' is not iterable. in operator only works on ", "'a' in 1");
+        .testIfErrorContains(
+            "unsupported binary operation: string in int (right operand must be", "'a' in 1");
   }
 
   @Test

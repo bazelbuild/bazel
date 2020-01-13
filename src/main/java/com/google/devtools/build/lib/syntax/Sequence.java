@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.syntax;
 
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import java.util.Collections;
@@ -53,21 +52,15 @@ public interface Sequence<E>
     return ImmutableList.copyOf(this);
   }
 
-  /**
-   * Retrieve an entry from a Sequence.
-   *
-   * @param key the index
-   * @param loc a {@link Location} in case of error
-   * @throws EvalException if the key is invalid
-   */
+  /** Retrieves an entry from a Sequence. */
   @Override
-  default E getIndex(Object key, Location loc) throws EvalException {
+  default E getIndex(StarlarkSemantics semantics, Object key) throws EvalException {
     int index = Starlark.toInt(key, "sequence index");
-    return get(EvalUtils.getSequenceIndex(index, size(), loc));
+    return get(EvalUtils.getSequenceIndex(index, size()));
   }
 
   @Override
-  default boolean containsKey(Object key, Location loc) throws EvalException {
+  default boolean containsKey(StarlarkSemantics semantics, Object key) throws EvalException {
     return contains(key);
   }
 

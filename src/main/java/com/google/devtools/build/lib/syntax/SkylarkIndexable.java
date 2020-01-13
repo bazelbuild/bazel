@@ -14,13 +14,9 @@
 
 package com.google.devtools.build.lib.syntax;
 
-import com.google.devtools.build.lib.events.Location;
-
-/**
- * Skylark values that support index access, i.e. `object[key]`
- */
+/** A Starlark value that support indexed access, {@code object[key]}. */
 public interface SkylarkIndexable extends SkylarkQueryable {
 
   /** Returns the value associated with the given key. */
-  Object getIndex(Object key, Location loc) throws EvalException;
+  Object getIndex(StarlarkSemantics semantics, Object key) throws EvalException;
 }

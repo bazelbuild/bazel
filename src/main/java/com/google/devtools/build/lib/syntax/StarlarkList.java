@@ -444,7 +444,7 @@ public final class StarlarkList<E> extends AbstractList<E> implements Sequence<E
       })
   public Object pop(Object i) throws EvalException {
     int arg = i == Starlark.NONE ? -1 : (Integer) i;
-    int index = EvalUtils.getSequenceIndex(arg, size, /*loc=*/ null);
+    int index = EvalUtils.getSequenceIndex(arg, size);
     Object result = elems[index];
     remove(index, /*loc=*/ null);
     return result;

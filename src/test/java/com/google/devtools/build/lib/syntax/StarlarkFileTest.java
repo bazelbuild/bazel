@@ -69,7 +69,7 @@ public class StarlarkFileTest {
       EvalUtils.exec(file, thread);
       throw new AssertionError("execution succeeded unexpectedly");
     } catch (EvalException ex) {
-      assertThat(ex.getMessage()).contains("unsupported operand type(s) for +: 'int' and 'list'");
+      assertThat(ex.getMessage()).contains("unsupported binary operation: int + list");
       assertThat(ex.getLocation().line()).isEqualTo(4);
     }
   }

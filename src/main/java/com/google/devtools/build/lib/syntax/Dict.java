@@ -152,9 +152,17 @@ public final class Dict<K, V>
   // SkylarkInterfaceUtils.getSkylarkCallable. The two 'get' methods cause it to get
   // confused as to which one has the annotation. Fix it and remove "2" suffix.
   public Object get2(Object key, Object defaultValue, StarlarkThread thread) throws EvalException {
-    if (containsKey(key, null, thread)) {
-      return this.get(key);
+    Object v = this.get(key);
+    if (v != null) {
+      return v;
     }
+
+    // This statement is executed for its effect, which is to throw "unhashable"
+    // if key is unhashable, instead of returning defaultValue.
+    // I think this is a bug: the correct behavior is simply 'return defaultValue'.
+    // See https://github.com/bazelbuild/starlark/issues/65.
+    containsKey(thread.getSemantics(), key);
+
     return defaultValue;
   }
 
@@ -508,21 +516,16 @@ public final class Dict<K, V>
   }
 
   @Override
-  public final Object getIndex(Object key, Location loc) throws EvalException {
-    if (!this.containsKey(key)) {
-      throw new EvalException(loc, Starlark.format("key %r not found in dictionary", key));
+  public Object getIndex(StarlarkSemantics semantics, Object key) throws EvalException {
+    Object v = get(key);
+    if (v == null) {
+      throw Starlark.errorf("key %s not found in dictionary", Starlark.repr(key));
     }
-    return this.get(key);
+    return v;
   }
 
   @Override
-  public final boolean containsKey(Object key, Location loc) throws EvalException {
-    return this.containsKey(key);
-  }
-
-  @Override
-  public final boolean containsKey(Object key, Location loc, StarlarkThread thread)
-      throws EvalException {
+  public boolean containsKey(StarlarkSemantics semantics, Object key) throws EvalException {
     EvalUtils.checkHashable(key);
     return this.containsKey(key);
   }
