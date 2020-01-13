@@ -23,9 +23,9 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.LinkedHashMultimap;
-import com.google.common.collect.Ordering;
 import com.google.common.collect.Table;
 import com.google.devtools.build.lib.actions.ActionContext;
 import com.google.devtools.build.lib.actions.ActionContextMarker;
@@ -52,6 +52,7 @@ import java.util.Map.Entry;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.stream.Collectors;
+import javax.annotation.Nullable;
 
 /**
  * Container for looking up the {@link ActionContext} to use for a given action.
@@ -63,7 +64,8 @@ import java.util.stream.Collectors;
  * contexts and mappings. At runtime, the {@link BlazeExecutor} uses the constructed object to find
  * the context for each action.
  */
-public final class SpawnActionContextMaps implements DynamicStrategyRegistry {
+public final class SpawnActionContextMaps
+    implements DynamicStrategyRegistry, RemoteLocalFallbackRegistry {
 
   /** A stored entry for a {@link RegexFilter} to {@link SpawnActionContext} mapping. */
   @AutoValue
@@ -80,18 +82,21 @@ public final class SpawnActionContextMaps implements DynamicStrategyRegistry {
       mnemonicToRemoteDynamicStrategies;
   private final ImmutableMultimap<String, SandboxedSpawnActionContext>
       mnemonicToLocalDynamicStrategies;
+  @Nullable private final AbstractSpawnStrategy remoteLocalFallbackStrategy;
 
   private SpawnActionContextMaps(
       ImmutableSortedMap<String, List<SpawnActionContext>> mnemonicToSpawnStrategiesMap,
       ImmutableList<ActionContext> strategies,
       ImmutableList<RegexFilterSpawnActionContext> spawnStrategyRegexList,
       ImmutableMultimap<String, SandboxedSpawnActionContext> mnemonicToRemoteDynamicStrategies,
-      ImmutableMultimap<String, SandboxedSpawnActionContext> mnemonicToLocalDynamicStrategies) {
+      ImmutableMultimap<String, SandboxedSpawnActionContext> mnemonicToLocalDynamicStrategies,
+      AbstractSpawnStrategy remoteLocalFallbackStrategy) {
     this.mnemonicToSpawnStrategiesMap = mnemonicToSpawnStrategiesMap;
     this.strategies = strategies;
     this.spawnStrategyRegexList = spawnStrategyRegexList;
     this.mnemonicToRemoteDynamicStrategies = mnemonicToRemoteDynamicStrategies;
     this.mnemonicToLocalDynamicStrategies = mnemonicToLocalDynamicStrategies;
+    this.remoteLocalFallbackStrategy = remoteLocalFallbackStrategy;
   }
 
   /**
@@ -137,6 +142,12 @@ public final class SpawnActionContextMaps implements DynamicStrategyRegistry {
         .build();
   }
 
+  @Nullable
+  @Override
+  public AbstractSpawnStrategy getRemoteLocalFallbackStrategy() {
+    return remoteLocalFallbackStrategy;
+  }
+
   /** Returns a map from action context class to its instantiated context object. */
   @VisibleForTesting
   public ImmutableMap<Class<? extends ActionContext>, ActionContext> contextMap() {
@@ -150,6 +161,7 @@ public final class SpawnActionContextMaps implements DynamicStrategyRegistry {
     }
     contextMap.put(SpawnActionContext.class, new ProxySpawnActionContext(this));
     contextMap.put(DynamicStrategyRegistry.class, this);
+    contextMap.put(RemoteLocalFallbackRegistry.class, this);
     return ImmutableMap.copyOf(contextMap);
   }
 
@@ -216,7 +228,8 @@ public final class SpawnActionContextMaps implements DynamicStrategyRegistry {
         ImmutableList.copyOf(strategies),
         ImmutableList.of(),
         ImmutableMultimap.of(),
-        ImmutableMultimap.of());
+        ImmutableMultimap.of(),
+        /* remoteLocalFallbackStrategy=*/ null);
   }
 
   /** A stored entry for a {@link RegexFilter} to {@code strategy} mapping. */
@@ -239,6 +252,7 @@ public final class SpawnActionContextMaps implements DynamicStrategyRegistry {
         LinkedHashMultimap.create();
     private final LinkedHashMultimap<String, String> localDynamicStrategyByMnemonicMap =
         LinkedHashMultimap.create();
+    @Nullable private String remoteLocalFallbackStrategyName;
 
     /**
      * Returns a builder modules can use to add mappings from mnemonics to strategy names.
@@ -282,6 +296,19 @@ public final class SpawnActionContextMaps implements DynamicStrategyRegistry {
      */
     public LinkedHashMultimap<String, String> localDynamicStrategyByMnemonicMap() {
       return localDynamicStrategyByMnemonicMap;
+    }
+
+    /**
+     * Sets the command-line identifier of the strategy to be used when falling back from remote to
+     * local execution.
+     *
+     * <p>Note that this is an optional setting, if not provided {@link
+     * SpawnActionContextMaps#getRemoteLocalFallbackStrategy()} will return {@code null}. If the
+     * value <b>is</b> provided it must match the commandline identifier of a registered strategy
+     * (at {@linkplain #build build} time).
+     */
+    public void setRemoteFallbackStrategy(String remoteLocalFallbackStrategy) {
+      this.remoteLocalFallbackStrategyName = remoteLocalFallbackStrategy;
     }
 
     /**
@@ -367,20 +394,35 @@ public final class SpawnActionContextMaps implements DynamicStrategyRegistry {
                 entry.regexFilter(), contexts.build()));
       }
 
-      ActionContext context =
+      ActionContext testStrategy =
           strategyConverter.getStrategy(TestActionContext.class, testStrategyValue);
-      if (context == null) {
+      if (testStrategy == null) {
         throw makeExceptionForInvalidStrategyValue(
             testStrategyValue, "test", strategyConverter.getValidValues(TestActionContext.class));
       }
-      strategies.add(context);
+      strategies.add(testStrategy);
+
+      AbstractSpawnStrategy remoteLocalFallbackStrategy = null;
+      if (remoteLocalFallbackStrategyName != null) {
+        SpawnActionContext strategy =
+            strategyConverter.getStrategy(
+                SpawnActionContext.class, remoteLocalFallbackStrategyName);
+        if (!(strategy instanceof AbstractSpawnStrategy)) {
+          throw makeExceptionForInvalidStrategyValue(
+              remoteLocalFallbackStrategyName,
+              "remote local fallback",
+              strategyConverter.getValidValues(SpawnActionContext.class, "remote"));
+        }
+        remoteLocalFallbackStrategy = (AbstractSpawnStrategy) strategy;
+      }
 
       return new SpawnActionContextMaps(
           spawnStrategyMap.build(),
           strategies.build(),
           spawnStrategyRegexList.build(),
           toActionContexts(strategyConverter, remoteDynamicStrategyByMnemonicMap),
-          toActionContexts(strategyConverter, localDynamicStrategyByMnemonicMap));
+          toActionContexts(strategyConverter, localDynamicStrategyByMnemonicMap),
+          remoteLocalFallbackStrategy);
     }
 
     private ImmutableMultimap<String, SandboxedSpawnActionContext> toActionContexts(
@@ -452,8 +494,12 @@ public final class SpawnActionContextMaps implements DynamicStrategyRegistry {
       return (T) (name.isEmpty() ? defaultClassMap.get(clazz) : classMap.get(clazz, name));
     }
 
-    private String getValidValues(Class<? extends ActionContext> context) {
-      return Joiner.on(", ").join(Ordering.natural().sortedCopy(classMap.row(context).keySet()));
+    private String getValidValues(Class<? extends ActionContext> context, String... excludes) {
+      ImmutableSet<String> excludedNames = ImmutableSet.copyOf(excludes);
+      return classMap.row(context).keySet().stream()
+          .filter(s -> !excludedNames.contains(s))
+          .sorted()
+          .collect(Collectors.joining(", "));
     }
 
     private String getUserFriendlyName(Class<? extends ActionContext> context) {

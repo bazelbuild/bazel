@@ -107,6 +107,12 @@ public class ExecutorBuilder {
     return this;
   }
 
+  /** Sets the strategy name to use if remote execution is not possible. */
+  public ExecutorBuilder setRemoteFallbackStrategy(String remoteLocalFallbackStrategy) {
+    spawnActionContextMapsBuilder.setRemoteFallbackStrategy(remoteLocalFallbackStrategy);
+    return this;
+  }
+
   /**
    * Adds an implementation with a specific strategy name.
    *

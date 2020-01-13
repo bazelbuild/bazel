@@ -13,6 +13,9 @@
 // limitations under the License.
 package com.google.devtools.build.lib.remote.util;
 
+import com.google.common.collect.ClassToInstanceMap;
+import com.google.common.collect.ImmutableClassToInstanceMap;
+import com.google.devtools.build.lib.actions.ActionContext;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
@@ -48,13 +51,24 @@ public class FakeSpawnExecutionContext implements SpawnExecutionContext {
   private final MetadataProvider metadataProvider;
   private final Path execRoot;
   private final FileOutErr outErr;
+  private final ClassToInstanceMap<ActionContext> actionContextRegistry;
 
   public FakeSpawnExecutionContext(
       Spawn spawn, MetadataProvider metadataProvider, Path execRoot, FileOutErr outErr) {
+    this(spawn, metadataProvider, execRoot, outErr, ImmutableClassToInstanceMap.of());
+  }
+
+  public FakeSpawnExecutionContext(
+      Spawn spawn,
+      MetadataProvider metadataProvider,
+      Path execRoot,
+      FileOutErr outErr,
+      ClassToInstanceMap<ActionContext> actionContextRegistry) {
     this.spawn = spawn;
     this.metadataProvider = metadataProvider;
     this.execRoot = execRoot;
     this.outErr = outErr;
+    this.actionContextRegistry = actionContextRegistry;
   }
 
   public boolean isLockOutputFilesCalled() {
@@ -143,6 +157,11 @@ public class FakeSpawnExecutionContext implements SpawnExecutionContext {
         throw new UnsupportedOperationException();
       }
     };
+  }
+
+  @Override
+  public <T extends ActionContext> T getContext(Class<T> identifyingType) {
+    return actionContextRegistry.getInstance(identifyingType);
   }
 
   @Override

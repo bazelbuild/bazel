@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.exec;
 
+import com.google.devtools.build.lib.actions.ActionContext;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
@@ -29,6 +30,7 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
 import java.time.Duration;
 import java.util.SortedMap;
+import javax.annotation.Nullable;
 
 /**
  * A runner for spawns. Implementations can execute spawns on the local machine as a subprocess with
@@ -207,6 +209,13 @@ public interface SpawnRunner {
      * outputs that are stored remotely.
      */
     MetadataInjector getMetadataInjector();
+
+    /**
+     * Returns the context registered for the given identifying type or {@code null} if none was
+     * registered.
+     */
+    @Nullable
+    <T extends ActionContext> T getContext(Class<T> identifyingType);
 
     /** Throws if lost inputs have been detected. */
     void checkForLostInputs() throws LostInputsExecException;

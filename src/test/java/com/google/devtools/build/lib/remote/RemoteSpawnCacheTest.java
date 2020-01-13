@@ -33,6 +33,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.eventbus.EventBus;
+import com.google.devtools.build.lib.actions.ActionContext;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -209,6 +210,11 @@ public class RemoteSpawnCacheTest {
 
         @Override
         public void checkForLostInputs() {}
+
+        @Override
+        public <T extends ActionContext> T getContext(Class<T> identifyingType) {
+          throw new UnsupportedOperationException();
+        }
       };
 
   private static SimpleSpawn simpleSpawnWithExecutionInfo(

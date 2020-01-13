@@ -507,6 +507,8 @@ public final class RemoteModule extends BlazeModule {
       builder.setActionInputPrefetcher(actionInputFetcher);
       remoteOutputService.setActionInputFetcher(actionInputFetcher);
     }
+
+    builder.setRemoteFallbackStrategy(remoteOptions.remoteLocalFallbackStrategy);
   }
 
   @Override

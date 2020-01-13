@@ -250,7 +250,6 @@ public class GrpcRemoteExecutionClientTest {
             execRoot,
             remoteOptions,
             Options.getDefaults(ExecutionOptions.class),
-            null,
             /* verboseFailures= */ true,
             /*cmdlineReporter=*/ null,
             "build-req-id",
