@@ -97,7 +97,7 @@ public class MethodLibraryTest extends EvaluationTestCase {
                 + LINE_SEPARATOR
                 + "\t\ts += \"2\""
                 + LINE_SEPARATOR
-                + "unsupported operand type(s) for +: 'int' and 'string'",
+                + "unsupported binary operation: int + string",
             "def foo():",
             "  s = 1",
             "  s += '2'",
@@ -229,7 +229,7 @@ public class MethodLibraryTest extends EvaluationTestCase {
   @Test
   public void testBooleanUnsupportedOperationFails() throws Exception {
     new BothModesTest()
-        .testIfErrorContains("unsupported operand type(s) for +: 'bool' and 'bool'", "True + True");
+        .testIfErrorContains("unsupported binary operation: bool + bool", "True + True");
   }
 
   @Test
@@ -474,7 +474,7 @@ public class MethodLibraryTest extends EvaluationTestCase {
         .testExpression("repr(a)", "range(0, 3)")
         .testExpression("repr(range(1,2,3))", "range(1, 2, 3)")
         .testExpression("type(a)", "range")
-        .testIfErrorContains("unsupported operand type(s) for +: 'range' and 'range'", "a + a")
+        .testIfErrorContains("unsupported binary operation: range + range", "a + a")
         .testIfErrorContains("'range' value has no field or method 'append'", "a.append(3)")
         .testExpression("str(list(range(5)))", "[0, 1, 2, 3, 4]")
         .testExpression("str(list(range(0)))", "[]")
@@ -504,7 +504,7 @@ public class MethodLibraryTest extends EvaluationTestCase {
         .testExpression("str(range(0, 10, 2)[::-2])", "range(8, -2, -4)")
         .testExpression("str(range(5)[1::-1])", "range(1, -1, -1)")
         .testIfErrorContains("step cannot be 0", "range(2, 3, 0)")
-        .testIfErrorContains("unsupported operand type(s) for *: 'range' and 'int'", "range(3) * 3")
+        .testIfErrorContains("unsupported binary operation: range * int", "range(3) * 3")
         .testIfErrorContains("Cannot compare range objects", "range(3) < range(5)")
         .testIfErrorContains("Cannot compare range objects", "range(4) > [1]")
         .testExpression("4 in range(1, 10)", true)

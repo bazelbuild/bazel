@@ -30,13 +30,11 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
-import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.PackageSpecification.PackageGroupContents;
 import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.skyframe.BuildConfigurationValue;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.Printer;
 import com.google.devtools.build.lib.syntax.SkylarkClassObject;
 import com.google.devtools.build.lib.syntax.Starlark;
@@ -147,32 +145,30 @@ public abstract class AbstractConfiguredTarget
   }
 
   @Override
-  public final Object getIndex(Object key, Location loc) throws EvalException {
+  public final Object getIndex(StarlarkSemantics semantics, Object key) throws EvalException {
     if (!(key instanceof Provider)) {
-      throw new EvalException(loc, String.format(
+      throw Starlark.errorf(
           "Type Target only supports indexing by object constructors, got %s instead",
-          EvalUtils.getDataTypeName(key)));
+          Starlark.type(key));
     }
     Provider constructor = (Provider) key;
     Object declaredProvider = get(constructor.getKey());
     if (declaredProvider != null) {
       return declaredProvider;
     }
-    throw new EvalException(
-        loc,
-        Starlark.format(
-            "%r%s doesn't contain declared provider '%s'",
-            this,
-            getRuleClassString().isEmpty() ? "" : " (rule '" + getRuleClassString() + "')",
-            constructor.getPrintableName()));
+    throw Starlark.errorf(
+        "%s%s doesn't contain declared provider '%s'",
+        Starlark.repr(this),
+        getRuleClassString().isEmpty() ? "" : " (rule '" + getRuleClassString() + "')",
+        constructor.getPrintableName());
   }
 
   @Override
-  public boolean containsKey(Object key, Location loc) throws EvalException {
+  public boolean containsKey(StarlarkSemantics semantics, Object key) throws EvalException {
     if (!(key instanceof Provider)) {
-      throw new EvalException(loc, String.format(
+      throw Starlark.errorf(
           "Type Target only supports querying by object constructors, got %s instead",
-          EvalUtils.getDataTypeName(key)));
+          Starlark.type(key));
     }
     return get(((Provider) key).getKey()) != null;
   }

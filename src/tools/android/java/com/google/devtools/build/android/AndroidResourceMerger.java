@@ -254,8 +254,7 @@ public class AndroidResourceMerger {
       ListeningExecutorService executorService) {
     final ParsedAndroidData.Builder primaryBuilder = ParsedAndroidData.Builder.newBuilder();
     final AndroidDataDeserializer deserializer =
-        AndroidCompiledDataDeserializer.create(
-            /*includeFileContentsForValidation=*/ throwOnResourceConflict);
+        AndroidCompiledDataDeserializer.create(/*includeFileContentsForValidation=*/ true);
     primary.deserialize(
         DependencyInfo.DependencyType.PRIMARY, deserializer, primaryBuilder.consumers());
     ParsedAndroidData primaryData = primaryBuilder.build();

@@ -98,8 +98,12 @@ final class Eval {
       execAugmentedAssignment(node);
     } else {
       Object rvalue = eval(thread, node.getRHS());
-      // TODO(adonovan): use location of = operator.
-      assign(node.getLHS(), rvalue, thread, node.getStartLocation());
+      try {
+        assign(node.getLHS(), rvalue, thread);
+      } catch (EvalException ex) {
+        // TODO(adonovan): use location of = operator.
+        throw ex.ensureLocation(node.getStartLocation());
+      }
     }
   }
 
@@ -109,7 +113,7 @@ final class Eval {
     EvalUtils.lock(o, node.getStartLocation());
     try {
       for (Object it : seq) {
-        assign(node.getLHS(), it, thread, node.getLHS().getStartLocation());
+        assign(node.getLHS(), it, thread);
 
         switch (execStatements(node.getBlock(), /*indented=*/ true)) {
           case PASS:
@@ -127,6 +131,8 @@ final class Eval {
             throw new IllegalStateException("unreachable");
         }
       }
+    } catch (EvalException ex) {
+      throw ex.ensureLocation(node.getLHS().getStartLocation());
     } finally {
       EvalUtils.unlock(o, node.getStartLocation());
     }
@@ -269,22 +275,22 @@ final class Eval {
 
   /**
    * Updates the environment bindings, and possibly mutates objects, so as to assign the given value
-   * to the given expression. The expression must be valid for an {@code LValue}.
+   * to the given expression. May throw an EvalException without location.
    */
-  private void assign(Expression expr, Object value, StarlarkThread thread, Location loc)
+  private void assign(Expression expr, Object value, StarlarkThread thread)
       throws EvalException, InterruptedException {
     if (expr instanceof Identifier) {
       assignIdentifier((Identifier) expr, value, thread);
     } else if (expr instanceof IndexExpression) {
       Object object = eval(thread, ((IndexExpression) expr).getObject());
       Object key = eval(thread, ((IndexExpression) expr).getKey());
-      assignItem(object, key, value, loc);
+      assignItem(object, key, value);
     } else if (expr instanceof ListExpression) {
       ListExpression list = (ListExpression) expr;
-      assignList(list.getElements(), value, thread, loc);
+      assignList(list.getElements(), value, thread);
     } else {
       // Not possible for validated ASTs.
-      throw new EvalException(loc, "cannot assign to '" + expr + "'");
+      throw Starlark.errorf("cannot assign to '%s'", expr);
     }
   }
 
@@ -325,58 +331,52 @@ final class Eval {
    *
    * @throws EvalException if the object is not a list or dict
    */
-  @SuppressWarnings("unchecked")
-  private void assignItem(Object object, Object key, Object value, Location loc)
-      throws EvalException {
+  private static void assignItem(Object object, Object key, Object value) throws EvalException {
     if (object instanceof Dict) {
+      @SuppressWarnings("unchecked")
       Dict<Object, Object> dict = (Dict<Object, Object>) object;
-      dict.put(key, value, loc);
+      dict.put(key, value, /*loc=*/ null);
     } else if (object instanceof StarlarkList) {
+      @SuppressWarnings("unchecked")
       StarlarkList<Object> list = (StarlarkList<Object>) object;
       int index = Starlark.toInt(key, "list index");
-      index = EvalUtils.getSequenceIndex(index, list.size(), loc);
-      list.set(index, value, loc);
+      index = EvalUtils.getSequenceIndex(index, list.size());
+      list.set(index, value, /*loc=*/ null);
     } else {
-      throw new EvalException(
-          loc,
-          "can only assign an element in a dictionary or a list, not in a '"
-              + EvalUtils.getDataTypeName(object)
-              + "'");
+      throw Starlark.errorf(
+          "can only assign an element in a dictionary or a list, not in a '%s'",
+          Starlark.type(object));
     }
   }
 
   /**
-   * Recursively assigns an iterable value to a sequence of assignable expressions.
-   *
-   * @throws EvalException if the list literal has length 0, or if the value is not an iterable of
-   *     matching length
+   * Recursively assigns an iterable value to a sequence of assignable expressions. May throw an
+   * EvalException without location.
    */
-  private void assignList(List<Expression> lhs, Object x, StarlarkThread thread, Location loc)
+  private void assignList(List<Expression> lhs, Object x, StarlarkThread thread)
       throws EvalException, InterruptedException {
     // TODO(adonovan): lock/unlock rhs during iteration so that
     // assignments fail when the left side aliases the right,
     // which is a tricky case in Python assignment semantics.
     int nrhs = Starlark.len(x);
     if (nrhs < 0) {
-      throw new EvalException(loc, "type '" + EvalUtils.getDataTypeName(x) + "' is not iterable");
+      throw Starlark.errorf("type '%s' is not iterable", Starlark.type(x));
     }
     Iterable<?> rhs = Starlark.toIterable(x); // fails if x is a string
     int len = lhs.size();
     if (len == 0) {
-      throw new EvalException(
-          loc, "lists or tuples on the left-hand side of assignments must have at least one item");
+      throw Starlark.errorf(
+          "lists or tuples on the left-hand side of assignments must have at least one item");
     }
     if (len != nrhs) {
-      throw new EvalException(
-          loc,
-          String.format(
-              "assignment length mismatch: left-hand side has length %d, but right-hand side"
-                  + " evaluates to value of length %d",
-              len, nrhs));
+      throw Starlark.errorf(
+          "assignment length mismatch: left-hand side has length %d, but right-hand side evaluates"
+              + " to value of length %d",
+          len, nrhs);
     }
     int i = 0;
     for (Object item : rhs) {
-      assign(lhs.get(i), item, thread, loc);
+      assign(lhs.get(i), item, thread);
       i++;
     }
   }
@@ -386,6 +386,8 @@ final class Eval {
     Expression lhs = stmt.getLHS();
     TokenKind op = stmt.getOperator();
     Expression rhs = stmt.getRHS();
+    // TODO(adonovan): don't materialize Locations before an error has occurred.
+    // (Requires syntax tree to record offsets and defer Location conversion.)
     Location loc = stmt.getStartLocation(); // TODO(adonovan): use operator location
 
     if (lhs instanceof Identifier) {
@@ -399,11 +401,15 @@ final class Eval {
       IndexExpression index = (IndexExpression) lhs;
       Object object = eval(thread, index.getObject());
       Object key = eval(thread, index.getKey());
-      Object x = EvalUtils.index(object, key, thread, loc);
+      Object x = EvalUtils.index(thread.mutability(), thread.getSemantics(), object, key);
       // Evaluate rhs after lhs.
       Object y = eval(thread, rhs);
       Object z = inplaceBinaryOp(op, x, y, thread, loc);
-      assignItem(object, key, z, loc);
+      try {
+        assignItem(object, key, z);
+      } catch (EvalException ex) {
+        throw ex.ensureLocation(loc);
+      }
     } else if (lhs instanceof ListExpression) {
       throw new EvalException(loc, "cannot perform augmented assignment on a list literal");
     } else {
@@ -414,7 +420,7 @@ final class Eval {
 
   private static Object inplaceBinaryOp(
       TokenKind op, Object x, Object y, StarlarkThread thread, Location location)
-      throws EvalException, InterruptedException {
+      throws EvalException {
     // list += iterable  behaves like  list.extend(iterable)
     // TODO(b/141263526): following Python, allow list+=iterable (but not list+iterable).
     if (op == TokenKind.PLUS && x instanceof StarlarkList && y instanceof StarlarkList) {
@@ -507,11 +513,17 @@ final class Eval {
             Object k = eval(thread, entry.getKey());
             Object v = eval(thread, entry.getValue());
             int before = dict.size();
-            Location loc = entry.getKey().getStartLocation(); // TODO(adonovan): use colon location
-            dict.put(k, v, loc);
+            try {
+              dict.put(k, v, /*loc=*/ null);
+            } catch (EvalException ex) {
+              // TODO(adonovan): use colon location
+              throw ex.ensureLocation(entry.getKey().getStartLocation());
+            }
             if (dict.size() == before) {
+              // TODO(adonovan): use colon location
               throw new EvalException(
-                  loc, "Duplicated key " + Starlark.repr(k) + " when creating dictionary");
+                  entry.getKey().getStartLocation(),
+                  "Duplicated key " + Starlark.repr(k) + " when creating dictionary");
             }
           }
           return dict;
@@ -582,7 +594,7 @@ final class Eval {
             if (!(value instanceof StarlarkIterable)) {
               throw new EvalException(
                   star.getStartLocation(),
-                  "argument after * must be an iterable, not " + EvalUtils.getDataTypeName(value));
+                  "argument after * must be an iterable, not " + Starlark.type(value));
             }
             // TODO(adonovan): opt: if value.size is known, preallocate (and skip if empty).
             ArrayList<Object> list = new ArrayList<>();
@@ -597,7 +609,7 @@ final class Eval {
             if (!(value instanceof Dict)) {
               throw new EvalException(
                   starstar.getStartLocation(),
-                  "argument after ** must be a dict, not " + EvalUtils.getDataTypeName(value));
+                  "argument after ** must be a dict, not " + Starlark.type(value));
             }
             Dict<?, ?> kwargs = (Dict<?, ?>) value;
             int j = named.length;
@@ -606,7 +618,7 @@ final class Eval {
               if (!(e.getKey() instanceof String)) {
                 throw new EvalException(
                     starstar.getStartLocation(),
-                    "keywords must be strings, not " + EvalUtils.getDataTypeName(e.getKey()));
+                    "keywords must be strings, not " + Starlark.type(e.getKey()));
               }
               named[j++] = e.getKey();
               named[j++] = e.getValue();
@@ -673,8 +685,12 @@ final class Eval {
           IndexExpression index = (IndexExpression) expr;
           Object object = eval(thread, index.getObject());
           Object key = eval(thread, index.getKey());
-          // TODO(adonovan): use location of lbracket token
-          return EvalUtils.index(object, key, thread, index.getStartLocation());
+          try {
+            return EvalUtils.index(thread.mutability(), thread.getSemantics(), object, key);
+          } catch (EvalException ex) {
+            // TODO(adonovan): use location of lbracket token
+            throw ex.ensureLocation(index.getStartLocation());
+          }
         }
 
       case INTEGER_LITERAL:
@@ -713,7 +729,11 @@ final class Eval {
         {
           UnaryOperatorExpression unop = (UnaryOperatorExpression) expr;
           Object x = eval(thread, unop.getX());
-          return EvalUtils.unaryOp(unop.getOperator(), x, unop.getStartLocation());
+          try {
+            return EvalUtils.unaryOp(unop.getOperator(), x);
+          } catch (EvalException ex) {
+            throw ex.ensureLocation(unop.getStartLocation());
+          }
         }
     }
     throw new IllegalArgumentException("unexpected expression: " + expr.kind());
@@ -758,12 +778,15 @@ final class Eval {
             Object iterable = eval(thread, forClause.getIterable());
             Location loc = comp.getStartLocation(); // TODO(adonovan): use location of 'for' token
             Iterable<?> listValue = Starlark.toIterable(iterable);
+            // TODO(adonovan): lock should not need loc.
             EvalUtils.lock(iterable, loc);
             try {
               for (Object elem : listValue) {
-                assign(forClause.getVars(), elem, thread, loc);
+                assign(forClause.getVars(), elem, thread);
                 execClauses(index + 1);
               }
+            } catch (EvalException ex) {
+              throw ex.ensureLocation(loc);
             } finally {
               EvalUtils.unlock(iterable, loc);
             }
@@ -783,7 +806,12 @@ final class Eval {
           Object k = eval(thread, body.getKey());
           EvalUtils.checkHashable(k);
           Object v = eval(thread, body.getValue());
-          dict.put(k, v, comp.getStartLocation()); // TODO(adonovan): use colon location
+          try {
+            dict.put(k, v, /*loc=*/ null);
+          } catch (EvalException ex) {
+            // TODO(adonovan): use colon location
+            throw ex.ensureLocation(comp.getStartLocation());
+          }
         } else {
           list.add(eval(thread, ((Expression) comp.getBody())));
         }

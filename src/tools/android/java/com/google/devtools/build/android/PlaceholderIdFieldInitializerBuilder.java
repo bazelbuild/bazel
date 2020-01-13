@@ -154,14 +154,7 @@ class PlaceholderIdFieldInitializerBuilder {
     Object unused = visibility; // TODO(b/26297204): use 'visibility'
     innerClasses
         .computeIfAbsent(type, t -> new TreeMap<>())
-        // com.google.devtools.build.android.xml.AttrXmlResourceValue might directly call this
-        // for enum/flag attributes instead of going through resource merging as normal.  So we take
-        // the minimum of all DependencyInfo instances passed in, making no assumptions on when
-        // we're called.
-        .merge(
-            normalizeName(name),
-            dependencyInfo,
-            (di1, di2) -> DependencyInfo.DISTANCE_COMPARATOR.compare(di1, di2) < 0 ? di1 : di2);
+        .put(normalizeName(name), dependencyInfo);
   }
 
   public void addStyleableResource(

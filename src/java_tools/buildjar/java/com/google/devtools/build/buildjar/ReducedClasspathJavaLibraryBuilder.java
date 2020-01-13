@@ -69,10 +69,8 @@ public class ReducedClasspathJavaLibraryBuilder extends SimpleJavaLibraryBuilder
     }
 
     BlazeJavacStatistics.Builder stats =
-        result
-            .statistics()
-            .toBuilder()
-            .minClasspathLength(build.getDependencyModule().getUsedClasspath().size());
+        result.statistics().toBuilder()
+            .minClasspathLength(build.getDependencyModule().getImplicitDependenciesMap().size());
     build.getProcessors().stream()
         .map(p -> p.substring(p.lastIndexOf('.') + 1))
         .forEachOrdered(stats::addProcessor);

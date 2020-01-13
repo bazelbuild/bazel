@@ -1468,7 +1468,7 @@ public final class SkylarkEvaluationTest extends EvaluationTest {
     new SkylarkTest("--incompatible_depset_union=false")
         .testExpression("str(depset([1, 3]) | depset([1, 2]))", "depset([1, 2, 3])")
         .testExpression("str(depset([1, 2]) | [1, 3])", "depset([1, 2, 3])")
-        .testIfExactError("unsupported operand type(s) for |: 'int' and 'bool'", "2 | False");
+        .testIfExactError("unsupported binary operation: int | bool", "2 | False");
   }
 
   @Test
@@ -1476,7 +1476,8 @@ public final class SkylarkEvaluationTest extends EvaluationTest {
     new SkylarkTest()
         .testIfErrorContains("not iterable", "list(depset(['a', 'b']))")
         .testIfErrorContains("not iterable", "max(depset([1, 2, 3]))")
-        .testIfErrorContains("not iterable", "1 in depset([1, 2, 3])")
+        .testIfErrorContains(
+            "unsupported binary operation: int in depset", "1 in depset([1, 2, 3])")
         .testIfErrorContains("not iterable", "sorted(depset(['a', 'b']))")
         .testIfErrorContains("not iterable", "tuple(depset(['a', 'b']))")
         .testIfErrorContains("not iterable", "[x for x in depset()]")
@@ -1648,11 +1649,10 @@ public final class SkylarkEvaluationTest extends EvaluationTest {
   @Test
   public void testPlusOnDictDeprecated() throws Exception {
     new SkylarkTest()
-        .testIfErrorContains(
-            "unsupported operand type(s) for +: 'dict' and 'dict'", "{1: 2} + {3: 4}");
+        .testIfErrorContains("unsupported binary operation: dict + dict", "{1: 2} + {3: 4}");
     new SkylarkTest()
         .testIfErrorContains(
-            "unsupported operand type(s) for +: 'dict' and 'dict'",
+            "unsupported binary operation: dict + dict",
             "def func():",
             "  d = {1: 2}",
             "  d += {3: 4}",
@@ -1857,8 +1857,8 @@ public final class SkylarkEvaluationTest extends EvaluationTest {
 
   @Test
   public void testListAnTupleConcatenationDoesNotWorkInSkylark() throws Exception {
-    new SkylarkTest().testIfExactError("unsupported operand type(s) for +: 'list' and 'tuple'",
-        "[1, 2] + (3, 4)");
+    new SkylarkTest()
+        .testIfExactError("unsupported binary operation: list + tuple", "[1, 2] + (3, 4)");
   }
 
   @Test

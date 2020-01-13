@@ -969,7 +969,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
   public void testStructPlusArtifactErrorMessage() throws Exception {
     setRuleContext(createRuleContext("//foo:foo"));
     checkEvalErrorContains(
-        "unsupported operand type(s) for +: 'File' and 'struct'",
+        "unsupported binary operation: File + struct",
         "ruleContext.files.tools[0] + struct(a = 1)");
   }
 
