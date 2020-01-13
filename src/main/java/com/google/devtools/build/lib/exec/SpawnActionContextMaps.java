@@ -29,8 +29,10 @@ import com.google.common.collect.Ordering;
 import com.google.common.collect.Table;
 import com.google.devtools.build.lib.actions.ActionContext;
 import com.google.devtools.build.lib.actions.ActionContextMarker;
+import com.google.devtools.build.lib.actions.DynamicStrategyRegistry;
 import com.google.devtools.build.lib.actions.ExecutionStrategy;
 import com.google.devtools.build.lib.actions.ExecutorInitException;
+import com.google.devtools.build.lib.actions.SandboxedSpawnActionContext;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnActionContext;
 import com.google.devtools.build.lib.analysis.test.TestActionContext;
@@ -39,6 +41,7 @@ import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.RegexFilter;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -60,7 +63,7 @@ import java.util.stream.Collectors;
  * contexts and mappings. At runtime, the {@link BlazeExecutor} uses the constructed object to find
  * the context for each action.
  */
-public final class SpawnActionContextMaps {
+public final class SpawnActionContextMaps implements DynamicStrategyRegistry {
 
   /** A stored entry for a {@link RegexFilter} to {@link SpawnActionContext} mapping. */
   @AutoValue
@@ -73,14 +76,22 @@ public final class SpawnActionContextMaps {
   private final ImmutableSortedMap<String, List<SpawnActionContext>> mnemonicToSpawnStrategiesMap;
   private final ImmutableList<ActionContext> strategies;
   private final ImmutableList<RegexFilterSpawnActionContext> spawnStrategyRegexList;
+  private final ImmutableMultimap<String, SandboxedSpawnActionContext>
+      mnemonicToRemoteDynamicStrategies;
+  private final ImmutableMultimap<String, SandboxedSpawnActionContext>
+      mnemonicToLocalDynamicStrategies;
 
   private SpawnActionContextMaps(
       ImmutableSortedMap<String, List<SpawnActionContext>> mnemonicToSpawnStrategiesMap,
       ImmutableList<ActionContext> strategies,
-      ImmutableList<RegexFilterSpawnActionContext> spawnStrategyRegexList) {
+      ImmutableList<RegexFilterSpawnActionContext> spawnStrategyRegexList,
+      ImmutableMultimap<String, SandboxedSpawnActionContext> mnemonicToRemoteDynamicStrategies,
+      ImmutableMultimap<String, SandboxedSpawnActionContext> mnemonicToLocalDynamicStrategies) {
     this.mnemonicToSpawnStrategiesMap = mnemonicToSpawnStrategiesMap;
     this.strategies = strategies;
     this.spawnStrategyRegexList = spawnStrategyRegexList;
+    this.mnemonicToRemoteDynamicStrategies = mnemonicToRemoteDynamicStrategies;
+    this.mnemonicToLocalDynamicStrategies = mnemonicToLocalDynamicStrategies;
   }
 
   /**
@@ -113,8 +124,22 @@ public final class SpawnActionContextMaps {
     return Preconditions.checkNotNull(mnemonicToSpawnStrategiesMap.get(""));
   }
 
+  @Override
+  public List<SandboxedSpawnActionContext> getDynamicSpawnActionContexts(
+      Spawn spawn, DynamicMode dynamicMode) {
+    ImmutableMultimap<String, SandboxedSpawnActionContext> mnemonicToDynamicStrategies =
+        dynamicMode == DynamicStrategyRegistry.DynamicMode.REMOTE
+            ? mnemonicToRemoteDynamicStrategies
+            : mnemonicToLocalDynamicStrategies;
+    return ImmutableList.<SandboxedSpawnActionContext>builder()
+        .addAll(mnemonicToDynamicStrategies.get(spawn.getMnemonic()))
+        .addAll(mnemonicToDynamicStrategies.get(""))
+        .build();
+  }
+
   /** Returns a map from action context class to its instantiated context object. */
-  ImmutableMap<Class<? extends ActionContext>, ActionContext> contextMap() {
+  @VisibleForTesting
+  public ImmutableMap<Class<? extends ActionContext>, ActionContext> contextMap() {
     Map<Class<? extends ActionContext>, ActionContext> contextMap = new HashMap<>();
     for (ActionContext context : strategies) {
       ExecutionStrategy annotation = context.getClass().getAnnotation(ExecutionStrategy.class);
@@ -124,11 +149,13 @@ public final class SpawnActionContextMaps {
       contextMap.put(context.getClass(), context);
     }
     contextMap.put(SpawnActionContext.class, new ProxySpawnActionContext(this));
+    contextMap.put(DynamicStrategyRegistry.class, this);
     return ImmutableMap.copyOf(contextMap);
   }
 
   /** Returns a list of all referenced {@link ActionContext} instances. */
-  ImmutableList<ActionContext> allContexts() {
+  @VisibleForTesting
+  public ImmutableList<ActionContext> allContexts() {
     // We need to keep only the last occurrences of the entries in contextImplementations
     // (so we respect insertion order but also instantiate them only once).
     LinkedHashSet<ActionContext> allContexts = new LinkedHashSet<>();
@@ -187,7 +214,9 @@ public final class SpawnActionContextMaps {
     return new SpawnActionContextMaps(
         ImmutableSortedMap.copyOf(spawnStrategyMnemonicMap, String.CASE_INSENSITIVE_ORDER),
         ImmutableList.copyOf(strategies),
-        ImmutableList.of());
+        ImmutableList.of(),
+        ImmutableMultimap.of(),
+        ImmutableMultimap.of());
   }
 
   /** A stored entry for a {@link RegexFilter} to {@code strategy} mapping. */
@@ -204,9 +233,12 @@ public final class SpawnActionContextMaps {
         LinkedHashMultimap.create();
     private ImmutableListMultimap.Builder<Class<? extends ActionContext>, String>
         strategyByContextMapBuilder = ImmutableListMultimap.builder();
-
     private final ImmutableList.Builder<RegexFilterStrategy> strategyByRegexpBuilder =
         ImmutableList.builder();
+    private final LinkedHashMultimap<String, String> remoteDynamicStrategyByMnemonicMap =
+        LinkedHashMultimap.create();
+    private final LinkedHashMultimap<String, String> localDynamicStrategyByMnemonicMap =
+        LinkedHashMultimap.create();
 
     /**
      * Returns a builder modules can use to add mappings from mnemonics to strategy names.
@@ -220,6 +252,36 @@ public final class SpawnActionContextMaps {
      */
     public LinkedHashMultimap<String, String> strategyByMnemonicMap() {
       return strategyByMnemonicMap;
+    }
+
+    /**
+     * Returns a builder modules can use to add mappings from mnemonics to strategy names for use in
+     * the remote branch of dynamic execution.
+     *
+     * <p>If a spawn action is executed whose mnemonic maps to the empty string or is not present in
+     * the map at all, the choice of the implementation is left to Blaze.
+     *
+     * <p>Matching on mnemonics is done case-insensitively so it is recommended that any module
+     * makes sure that no two strategies refer to the same mnemonic. If they do, Blaze will pick the
+     * last one added.
+     */
+    public LinkedHashMultimap<String, String> remoteDynamicStrategyByMnemonicMap() {
+      return remoteDynamicStrategyByMnemonicMap;
+    }
+
+    /**
+     * Returns a builder modules can use to add mappings from mnemonics to strategy names for use in
+     * the local branch of dynamic execution.
+     *
+     * <p>If a spawn action is executed whose mnemonic maps to the empty string or is not present in
+     * the map at all, the choice of the implementation is left to Blaze.
+     *
+     * <p>Matching on mnemonics is done case-insensitively so it is recommended that any module
+     * makes sure that no two strategies refer to the same mnemonic. If they do, Blaze will pick the
+     * last one added.
+     */
+    public LinkedHashMultimap<String, String> localDynamicStrategyByMnemonicMap() {
+      return localDynamicStrategyByMnemonicMap;
     }
 
     /**
@@ -314,7 +376,42 @@ public final class SpawnActionContextMaps {
       strategies.add(context);
 
       return new SpawnActionContextMaps(
-          spawnStrategyMap.build(), strategies.build(), spawnStrategyRegexList.build());
+          spawnStrategyMap.build(),
+          strategies.build(),
+          spawnStrategyRegexList.build(),
+          toActionContexts(strategyConverter, remoteDynamicStrategyByMnemonicMap),
+          toActionContexts(strategyConverter, localDynamicStrategyByMnemonicMap));
+    }
+
+    private ImmutableMultimap<String, SandboxedSpawnActionContext> toActionContexts(
+        StrategyConverter strategyConverter,
+        LinkedHashMultimap<String, String> dynamicStrategyByMnemonicMap)
+        throws ExecutorInitException {
+      ImmutableMultimap.Builder<String, SandboxedSpawnActionContext> mnemonicToStrategies =
+          ImmutableMultimap.builder();
+      for (Entry<String, Collection<String>> mnemonicToIdentifiers :
+          dynamicStrategyByMnemonicMap.asMap().entrySet()) {
+        for (String identifier : mnemonicToIdentifiers.getValue()) {
+          if (identifier.isEmpty()) {
+            continue;
+          }
+          SpawnActionContext context =
+              strategyConverter.getStrategy(SpawnActionContext.class, identifier);
+          if (context == null) {
+            throw makeExceptionForInvalidStrategyValue(
+                identifier,
+                Joiner.on(' ').skipNulls().join(Strings.emptyToNull(identifier), "spawn"),
+                strategyConverter.getValidValues(SpawnActionContext.class));
+          }
+          if (!(context instanceof SandboxedSpawnActionContext)) {
+            throw new ExecutorInitException(
+                "Requested strategy " + identifier + " exists but does not support sandboxing");
+          }
+          mnemonicToStrategies.put(
+              mnemonicToIdentifiers.getKey(), (SandboxedSpawnActionContext) context);
+        }
+      }
+      return mnemonicToStrategies.build();
     }
   }
 

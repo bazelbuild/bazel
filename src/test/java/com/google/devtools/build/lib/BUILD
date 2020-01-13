@@ -279,6 +279,9 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/dynamic",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
+        "//src/main/java/com/google/devtools/common/options:options_internal",
+        "//src/main/protobuf:test_status_java_proto",
+        "//third_party:auto_value",
     ],
 )
 

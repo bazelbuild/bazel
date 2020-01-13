@@ -17,10 +17,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.ActionContext;
 import java.util.List;
 
-/**
- * An {@link ActionContextProvider} that just provides the {@link ActionContext}s it's given.
- */
-final class SimpleActionContextProvider extends ActionContextProvider {
+/** An {@link ActionContextProvider} that just provides the {@link ActionContext}s it's given. */
+public final class SimpleActionContextProvider extends ActionContextProvider {
   private final List<ActionContext> actionContexts;
 
   public SimpleActionContextProvider(ActionContext... contexts) {

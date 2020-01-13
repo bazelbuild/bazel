@@ -18,6 +18,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.ActionContext;
 import com.google.devtools.build.lib.actions.ActionInputPrefetcher;
 import com.google.devtools.build.lib.actions.Executor;
+import com.google.devtools.build.lib.actions.Spawn;
+import com.google.devtools.build.lib.actions.SpawnActionContext;
 import com.google.devtools.build.lib.util.RegexFilter;
 import java.util.ArrayList;
 import java.util.List;
@@ -74,6 +76,38 @@ public class ExecutorBuilder {
   }
 
   /**
+   * Sets the strategy names to use in the remote branch of dynamic execution for a given action
+   * mnemonic.
+   *
+   * <p>During execution, each strategy is {@linkplain SpawnActionContext#canExec(Spawn,
+   * com.google.devtools.build.lib.actions.ActionExecutionContext) asked} whether it can execute a
+   * given Spawn. The first strategy in the list that says so will get the job.
+   */
+  public ExecutorBuilder addDynamicRemoteStrategiesByMnemonic(
+      String mnemonic, List<String> strategies) {
+    spawnActionContextMapsBuilder
+        .remoteDynamicStrategyByMnemonicMap()
+        .replaceValues(mnemonic, strategies);
+    return this;
+  }
+
+  /**
+   * Sets the strategy names to use in the local branch of dynamic execution for a given action
+   * mnemonic.
+   *
+   * <p>During execution, each strategy is {@linkplain SpawnActionContext#canExec(Spawn,
+   * com.google.devtools.build.lib.actions.ActionExecutionContext) asked} whether it can execute a
+   * given Spawn. The first strategy in the list that says so will get the job.
+   */
+  public ExecutorBuilder addDynamicLocalStrategiesByMnemonic(
+      String mnemonic, List<String> strategies) {
+    spawnActionContextMapsBuilder
+        .localDynamicStrategyByMnemonicMap()
+        .replaceValues(mnemonic, strategies);
+    return this;
+  }
+
+  /**
    * Adds an implementation with a specific strategy name.
    *
    * <p>Modules are free to provide different implementations of {@code ActionContext}. This can be
@@ -81,12 +115,12 @@ public class ExecutorBuilder {
    * different ways, while giving the user control over how exactly they are executed.
    *
    * <p>Example: a module requires {@code MyCustomActionContext} to be available, but doesn't
-   * associate it with any strategy. Call
-   * <code>addStrategyByContext(MyCustomActionContext.class, "")</code>.
+   * associate it with any strategy. Call <code>
+   * addStrategyByContext(MyCustomActionContext.class, "")</code>.
    *
-   * <p>Example: a module requires {@code MyLocalCustomActionContext} to be available, and wants
-   * it to always use the "local" strategy. Call
-   * <code>addStrategyByContext(MyCustomActionContext.class, "local")</code>.
+   * <p>Example: a module requires {@code MyLocalCustomActionContext} to be available, and wants it
+   * to always use the "local" strategy. Call <code>
+   * addStrategyByContext(MyCustomActionContext.class, "local")</code>.
    */
   public ExecutorBuilder addStrategyByContext(
       Class<? extends ActionContext> actionContext, String strategy) {

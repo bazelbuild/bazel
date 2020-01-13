@@ -45,5 +45,5 @@ public interface SpawnActionContext extends ActionContext {
   }
 
   /** Returns whether this SpawnActionContext supports executing the given Spawn. */
-  boolean canExec(Spawn spawn);
+  boolean canExec(Spawn spawn, ActionExecutionContext actionExecutionContext);
 }
