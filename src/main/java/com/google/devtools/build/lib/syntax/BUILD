@@ -95,7 +95,7 @@ java_library(
         "Callstack.java",
         "ClassObject.java",
         "Concatable.java",
-        "DebugFrame.java",
+        "Debug.java",
         "Debugger.java",
         "Depset.java",
         "Dict.java",

@@ -18,7 +18,6 @@ import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
@@ -32,7 +31,6 @@ import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.syntax.Mutability.Freezable;
 import com.google.devtools.build.lib.syntax.Mutability.MutabilityException;
 import com.google.devtools.build.lib.util.Fingerprint;
-import com.google.devtools.build.lib.util.Pair;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -275,12 +273,15 @@ public final class StarlarkThread implements Freezable {
   /** A CallFrame records information about an active function call. */
   // TODO(adonovan): merge LexicalFrame into CallFrame. Every function call should have a frame,
   // but only Starlark functions need local variables.
-  private static final class CallFrame {
+  private static final class CallFrame implements Debug.Frame {
     final StarlarkCallable fn; // the called function
 
     // Current PC location. Initially fn.getLocation(); for Starlark functions,
     // it is updated at key points when it may be observed: calls, breakpoints.
     Location loc;
+
+    // The lexicals of this frame (possibly equal to globals, for now).
+    Frame lexicals;
 
     // Note that the inherited design is off-by-one:
     // the following fields are logically facts about the _enclosing_ frame.
@@ -294,6 +295,27 @@ public final class StarlarkThread implements Freezable {
       this.fn = fn;
       this.savedLexicals = savedLexicals;
       this.savedModule = savedModule;
+    }
+
+    @Override
+    public StarlarkCallable getFunction() {
+      return fn;
+    }
+
+    @Override
+    public Location getLocation() {
+      return loc;
+    }
+
+    @Override
+    public ImmutableMap<String, Object> getLocals() {
+      // This is yet another hack related to the toplevel,
+      // for which the legacy behavior is to report no lexicals.
+      if (this.lexicals == this.savedModule) {
+        return ImmutableMap.of();
+      } else {
+        return ImmutableMap.copyOf(this.lexicals.getTransitiveBindings());
+      }
     }
 
     @Override
@@ -532,6 +554,7 @@ public final class StarlarkThread implements Freezable {
       taskKind = ProfilerTask.STARLARK_BUILTIN_FN;
     }
 
+    fr.lexicals = this.lexicalFrame;
     fr.loc = fn.getLocation();
 
     // start profile span
@@ -619,18 +642,6 @@ public final class StarlarkThread implements Freezable {
       }
     }
     return false;
-  }
-
-  /** Returns the call location and called function for the outermost call being evaluated. */
-  // TODO(adonovan): replace this by an API for walking the call stack, then move to lib.packages.
-  public Pair<Location, StarlarkCallable> getOutermostCall() {
-    // The stack must contain at least two entries:
-    // the outermost function (e.g. a BUILD file),
-    // and the function called by it (e.g. a "macro").
-    if (toplevel()) {
-      return null;
-    }
-    return new Pair<>(callstack.get(0).loc, callstack.get(1).fn);
   }
 
   /**
@@ -906,31 +917,44 @@ public final class StarlarkThread implements Freezable {
     return vars;
   }
 
-  /** Returns a copy of the current stack of call frames. (Debugger API) */
-  public ImmutableList<DebugFrame> listFrames() {
-    ImmutableList.Builder<DebugFrame> frameListBuilder = ImmutableList.builder();
+  // Implementation of Debug.getCallStack.
+  // Intentionally obscured to steer most users to the simpler getCallStack.
+  ImmutableList<Debug.Frame> getDebugCallStack() {
+    return ImmutableList.<Debug.Frame>copyOf(callstack);
+  }
 
-    Frame lex = this.lexicalFrame;
-    for (CallFrame fr : Lists.reverse(callstack)) { // most recent call first
+  /**
+   * A CallStackEntry describes the name and PC location of an active function call. See {@link
+   * #getCallStack}.
+   */
+  @Immutable
+  public static final class CallStackEntry {
+    public final String name;
+    public final Location location;
 
-      // This is yet another hack related to the toplevel,
-      // for which the legacy behavior is to report no lexicals.
-      ImmutableMap<String, Object> lexicals =
-          lex == fr.savedModule
-              ? ImmutableMap.of()
-              : ImmutableMap.copyOf(lex.getTransitiveBindings());
-
-      frameListBuilder.add(
-          DebugFrame.builder()
-              .setLexicalFrameBindings(lexicals)
-              // TODO(adonovan): getGlobals is wrong. It should be fr.fn.module.
-              .setGlobalBindings(ImmutableMap.copyOf(getGlobals().getTransitiveBindings()))
-              .setFunctionName(fr.fn.getName())
-              .setLocation(fr.loc)
-              .build());
-      lex = fr.savedLexicals;
+    public CallStackEntry(String name, Location location) {
+      this.location = location;
+      this.name = name;
     }
-    return frameListBuilder.build();
+
+    @Override
+    public String toString() {
+      return name + "@" + location;
+    }
+  }
+
+  /**
+   * Returns information about this thread's current stack of active function calls, outermost call
+   * first. For each function, it reports its name, and the location of its current program counter.
+   * The result is immutable and does not reference interpreter data structures, so it may retained
+   * indefinitely and safely shared with other threads.
+   */
+  public ImmutableList<CallStackEntry> getCallStack() {
+    ImmutableList.Builder<CallStackEntry> stack = ImmutableList.builder();
+    for (CallFrame fr : callstack) {
+      stack.add(new CallStackEntry(fr.fn.getName(), fr.loc));
+    }
+    return stack.build();
   }
 
   /**
@@ -943,6 +967,7 @@ public final class StarlarkThread implements Freezable {
    *
    * <p>A null return value indicates that no further pausing should occur.
    */
+  // TODO(adonovan): move to Debug.
   @Nullable
   public ReadyToPause stepControl(Stepping stepping) {
     final int depth = callstack.size();
@@ -962,12 +987,14 @@ public final class StarlarkThread implements Freezable {
   }
 
   /** See stepControl (Debugger API) */
+  // TODO(adonovan): move to Debug.
   public interface ReadyToPause extends Predicate<StarlarkThread> {}
 
   /**
    * Describes the stepping behavior that should occur when execution of a thread is continued.
    * (Debugger API)
    */
+  // TODO(adonovan): move to Debug.
   public enum Stepping {
     /** Continue execution without stepping. */
     NONE,

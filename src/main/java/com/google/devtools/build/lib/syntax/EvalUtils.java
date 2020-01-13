@@ -325,15 +325,6 @@ public final class EvalUtils {
     return x == null || x == Starlark.NONE;
   }
 
-  /**
-   * Installs a global hook that causes subsequently executed Starlark threads to notify the
-   * debugger of important events. Closes any previously set debugger. Call {@code
-   * setDebugger(null)} to disable debugging.
-   */
-  public static void setDebugger(Debugger dbg) {
-    Eval.setDebugger(dbg);
-  }
-
   /** Returns the named field or method of value {@code x}, or null if not found. */
   // TODO(adonovan): publish this method as Starlark.getattr(Semantics, Mutability, Object, String).
   static Object getAttr(StarlarkThread thread, Object x, String name)

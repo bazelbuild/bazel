@@ -46,13 +46,14 @@ public class StarlarkThreadDebuggingTest {
   @Test
   public void testListFramesEmptyStack() throws Exception {
     StarlarkThread thread = newStarlarkThread();
-    assertThat(thread.listFrames()).isEmpty();
+    assertThat(Debug.getCallStack(thread)).isEmpty();
+    assertThat(thread.getCallStack()).isEmpty();
   }
 
   @Test
   public void testListFramesFromBuiltin() throws Exception {
     // f is a built-in that captures the stack using the Debugger API.
-    Object[] result = {null};
+    Object[] result = {null, null};
     StarlarkCallable f =
         new StarlarkCallable() {
           @Override
@@ -63,7 +64,8 @@ public class StarlarkThreadDebuggingTest {
           @Override
           public Object fastcall(
               StarlarkThread thread, Location loc, Object[] positional, Object[] named) {
-            result[0] = thread.listFrames();
+            result[0] = Debug.getCallStack(thread);
+            result[1] = thread.getCallStack();
             return Starlark.NONE;
           }
 
@@ -94,29 +96,29 @@ public class StarlarkThreadDebuggingTest {
     EvalUtils.exec(input, thread);
 
     @SuppressWarnings("unchecked")
-    ImmutableList<DebugFrame> stack = (ImmutableList<DebugFrame>) result[0];
+    ImmutableList<Debug.Frame> stack = (ImmutableList<Debug.Frame>) result[0];
 
     // Check the stack captured by f.
     // We compare printed string forms, as it gives more informative assertion failures.
     StringBuilder buf = new StringBuilder();
-    for (DebugFrame fr : stack) {
+    for (Debug.Frame fr : stack) {
       buf.append(
           String.format(
-              "%s @ %s local=%s global=%s\n",
-              fr.functionName(), fr.location(), fr.lexicalFrameBindings(), fr.globalBindings()));
+              "%s @ %s local=%s\n", fr.getFunction().getName(), fr.getLocation(), fr.getLocals()));
     }
     assertThat(buf.toString())
         .isEqualTo(
-            // location is "current PC" in f.
-            // Observe that the globals (module) of g is still in force,
-            // even though logically a built-in such as f has no module.
-            "f @ builtin:12 local={} global={a=1, b=2, f=<debug function>, g=g(a, y, z)}\n"
-                // location is start of "f()" call:
-                + "g @ main.star:2:3 local={a=4, y=5, z=6} global={a=1, b=2, f=<debug function>,"
-                + " g=g(a, y, z)}\n"
+            ""
                 // location is start of g(4, 5, 6) call:
-                + "<toplevel> @ main.star:3:1 local={} global={a=1, b=2, f=<debug function>,"
-                + " g=g(a, y, z)}\n");
+                + "<toplevel> @ main.star:3:1 local={}\n"
+                // location is start of "f()" call:
+                + "g @ main.star:2:3 local={a=4, y=5, z=6}\n"
+                // location is "current PC" in f.
+                + "f @ builtin:12 local={}\n");
+
+    // Same, with "lite" stack API.
+    assertThat(result[1].toString()) // an ImmutableList<StarlarkThread.CallStackEntry>
+        .isEqualTo("[<toplevel>@main.star:3:1, g@main.star:2:3, f@builtin:12]");
 
     // TODO(adonovan): more tests:
     // - a stack containing functions defined in different modules.

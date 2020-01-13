@@ -23,10 +23,8 @@ import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.Attribute.SkylarkComputedDefaultTemplate.CannotPrecomputeDefaultsException;
 import com.google.devtools.build.lib.packages.Package.NameConflictException;
 import com.google.devtools.build.lib.packages.PackageFactory.PackageContext;
-import com.google.devtools.build.lib.syntax.StarlarkCallable;
-import com.google.devtools.build.lib.syntax.StarlarkFunction;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
-import com.google.devtools.build.lib.util.Pair;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import javax.annotation.Nullable;
@@ -107,6 +105,9 @@ public class RuleFactory {
       throw new RuleFactory.InvalidRuleException(
           ruleClass + " cannot be in the WORKSPACE file " + "(used by " + label + ")");
     }
+
+    // TODO(adonovan): record thread.getCallStack() in the rule,
+    // and make 'bazel query --output=build' display it (b/36593041).
 
     AttributesAndLocation generator =
         generatorAttributesForMacros(pkgBuilder, attributeValues, thread, location, label);
@@ -322,13 +323,17 @@ public class RuleFactory {
 
     // The "generator" of a rule is the function (sometimes called "macro")
     // outermost in the call stack.
-    Pair<Location, StarlarkCallable> topCall = thread.getOutermostCall();
-    if (topCall == null || !(topCall.second instanceof StarlarkFunction)) {
-      return new AttributesAndLocation(args, location);
+    // The stack must contain at least two entries:
+    // 0: the outermost function (e.g. a BUILD file),
+    // 1: the function called by it (e.g. a "macro" in a .bzl file).
+    List<StarlarkThread.CallStackEntry> stack = thread.getCallStack();
+    if (stack.size() < 2 || !stack.get(1).location.file().endsWith(".bzl")) {
+      return new AttributesAndLocation(args, location); // macro is not a Starlark function
     }
     // TODO(adonovan): is it correct that we clobber the location used by
     // BuildLangTypedAttributeValuesMap?
-    location = topCall.first;
+    location = stack.get(0).location;
+    String generatorFunction = stack.get(1).name;
     ImmutableMap.Builder<String, Object> builder = ImmutableMap.builder();
     for (Map.Entry<String, Object> attributeAccessor : args.getAttributeAccessors()) {
       String attributeName = args.getName(attributeAccessor);
@@ -339,7 +344,7 @@ public class RuleFactory {
       generatorName = (String) args.getAttributeValue("name");
     }
     builder.put("generator_name", generatorName);
-    builder.put("generator_function", topCall.second.getName());
+    builder.put("generator_function", generatorFunction);
     String relativePath = maybeGetRelativeLocation(location, label);
     if (relativePath != null) {
       builder.put("generator_location", relativePath);

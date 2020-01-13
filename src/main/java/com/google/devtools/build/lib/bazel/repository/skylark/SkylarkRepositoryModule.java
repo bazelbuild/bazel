@@ -20,6 +20,7 @@ import static com.google.devtools.build.lib.packages.Type.STRING;
 import static com.google.devtools.build.lib.packages.Type.STRING_LIST;
 import static com.google.devtools.build.lib.syntax.SkylarkType.castMap;
 
+import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.skylark.SkylarkAttr.Descriptor;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -39,7 +40,6 @@ import com.google.devtools.build.lib.packages.SkylarkExportable;
 import com.google.devtools.build.lib.packages.WorkspaceFactoryHelper;
 import com.google.devtools.build.lib.skylarkbuildapi.repository.RepositoryModuleApi;
 import com.google.devtools.build.lib.syntax.BaseFunction;
-import com.google.devtools.build.lib.syntax.DebugFrame;
 import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.FunctionSignature;
@@ -203,8 +203,8 @@ public class SkylarkRepositoryModule implements RepositoryModuleApi {
                 .append(" (rule definition at ")
                 .append(ruleClassDefinitionLocation.toString())
                 .append("):");
-        for (DebugFrame frame : thread.listFrames()) {
-          callStack.append("\n - ").append(frame.location().toString());
+        for (StarlarkThread.CallStackEntry frame : Lists.reverse(thread.getCallStack())) {
+          callStack.append("\n - ").append(frame.location);
         }
 
         WorkspaceFactoryHelper.addMainRepoEntry(

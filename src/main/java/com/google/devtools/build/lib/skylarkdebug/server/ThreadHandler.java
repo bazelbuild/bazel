@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.skylarkdebugging.SkylarkDebuggingProtos.Bre
 import com.google.devtools.build.lib.skylarkdebugging.SkylarkDebuggingProtos.Error;
 import com.google.devtools.build.lib.skylarkdebugging.SkylarkDebuggingProtos.PauseReason;
 import com.google.devtools.build.lib.skylarkdebugging.SkylarkDebuggingProtos.Value;
+import com.google.devtools.build.lib.syntax.Debug;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.ParserInput;
@@ -233,9 +234,10 @@ final class ThreadHandler {
         throw new DebugRequestException(
             String.format("Thread %s is not paused or does not exist.", threadId));
       }
-      return thread.thread.listFrames().stream()
+      return Debug.getCallStack(thread.thread).stream()
           .map(frame -> DebugEventHelper.getFrameProto(thread.objectMap, frame))
-          .collect(toImmutableList());
+          .collect(toImmutableList())
+          .reverse();
     }
   }
 
