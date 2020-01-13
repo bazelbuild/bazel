@@ -250,7 +250,7 @@ public final class TargetCompleteEvent
       }
     }
     return Iterables.filter(
-        builder.build(),
+        builder.build().toList(),
         (artifact) -> !artifact.isSourceArtifact() && !artifact.isMiddlemanArtifact());
   }
 
@@ -403,7 +403,7 @@ public final class TargetCompleteEvent
             builder,
             (artifact -> BASELINE_COVERAGE),
             converters,
-            baselineCoverageArtifacts);
+            baselineCoverageArtifacts.toList());
       }
     }
 

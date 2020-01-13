@@ -58,7 +58,9 @@ import com.google.devtools.build.lib.causes.LabelCause;
 import com.google.devtools.build.lib.causes.LoadingFailedCause;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
@@ -574,7 +576,7 @@ public final class SkyframeBuildView {
       ConfiguredTargetKey label = (ConfiguredTargetKey) errorKey.argument();
       Label topLevelLabel = label.getLabel();
 
-      Iterable<Cause> rootCauses;
+      NestedSet<Cause> rootCauses;
       if (cause instanceof ConfiguredValueCreationException) {
         ConfiguredValueCreationException ctCause = (ConfiguredValueCreationException) cause;
         // Previously, the nested set was de-duplicating loading root cause labels. Now that we
@@ -599,17 +601,19 @@ public final class SkyframeBuildView {
       } else if (!errorInfo.getCycleInfo().isEmpty()) {
         Label analysisRootCause = maybeGetConfiguredTargetCycleCulprit(
             topLevelLabel, errorInfo.getCycleInfo());
-        rootCauses = analysisRootCause != null
-            ? ImmutableList.of(new LabelCause(analysisRootCause, "Dependency cycle"))
-            // TODO(ulfjack): We need to report the dependency cycle here. How?
-            : ImmutableList.of();
+        rootCauses =
+            analysisRootCause != null
+                ? NestedSetBuilder.create(
+                    Order.STABLE_ORDER, new LabelCause(analysisRootCause, "Dependency cycle"))
+                // TODO(ulfjack): We need to report the dependency cycle here. How?
+                : NestedSetBuilder.emptySet(Order.STABLE_ORDER);
       } else if (cause instanceof ActionConflictException) {
         ((ActionConflictException) cause).reportTo(eventHandler);
         // TODO(ulfjack): Report the action conflict.
-        rootCauses = ImmutableList.of();
+        rootCauses = NestedSetBuilder.emptySet(Order.STABLE_ORDER);
       } else {
         // TODO(ulfjack): Report something!
-        rootCauses = ImmutableList.of();
+        rootCauses = NestedSetBuilder.emptySet(Order.STABLE_ORDER);
       }
       if (keepGoing) {
         eventHandler.handle(
