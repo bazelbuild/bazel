@@ -360,10 +360,10 @@ public enum CompileBuildVariables {
       List<VariablesExtension> variablesExtensions,
       Map<String, String> additionalBuildVariables,
       Iterable<Artifact> directModuleMaps,
-      Iterable<PathFragment> includeDirs,
-      Iterable<PathFragment> quoteIncludeDirs,
-      Iterable<PathFragment> systemIncludeDirs,
-      Iterable<PathFragment> frameworkIncludeDirs,
+      List<PathFragment> includeDirs,
+      List<PathFragment> quoteIncludeDirs,
+      List<PathFragment> systemIncludeDirs,
+      List<PathFragment> frameworkIncludeDirs,
       NestedSet<String> defines,
       Iterable<String> localDefines) {
     setupCommonVariablesInternal(
@@ -461,7 +461,12 @@ public enum CompileBuildVariables {
   }
 
   /** Get the safe path strings for a list of paths to use in the build variables. */
-  private static NestedSet<String> getSafePathStrings(Iterable<PathFragment> paths) {
+  private static NestedSet<String> getSafePathStrings(NestedSet<PathFragment> paths) {
+    return getSafePathStrings(paths.toList());
+  }
+
+  /** Get the safe path strings for a list of paths to use in the build variables. */
+  private static NestedSet<String> getSafePathStrings(List<PathFragment> paths) {
     // Using ImmutableSet first to remove duplicates, then NestedSet for smaller memory footprint.
     return NestedSetBuilder.wrap(
         Order.STABLE_ORDER,

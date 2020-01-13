@@ -566,6 +566,15 @@ public final class CcCompilationHelper {
    * Adds the given defines to the compiler command line of this target as well as its dependent
    * targets.
    */
+  public CcCompilationHelper addDefines(NestedSet<String> defines) {
+    this.defines.addAll(defines.toList());
+    return this;
+  }
+
+  /**
+   * Adds the given defines to the compiler command line of this target as well as its dependent
+   * targets.
+   */
   public CcCompilationHelper addDefines(Iterable<String> defines) {
     Iterables.addAll(this.defines, defines);
     return this;
@@ -599,6 +608,15 @@ public final class CcCompilationHelper {
    * Adds the given directories to the system include directories (they are passed with {@code
    * "-isystem"} to the compiler); these are also passed to dependent rules.
    */
+  public CcCompilationHelper addSystemIncludeDirs(NestedSet<PathFragment> systemIncludeDirs) {
+    this.systemIncludeDirs.addAll(systemIncludeDirs.toList());
+    return this;
+  }
+
+  /**
+   * Adds the given directories to the system include directories (they are passed with {@code
+   * "-isystem"} to the compiler); these are also passed to dependent rules.
+   */
   public CcCompilationHelper addSystemIncludeDirs(Iterable<PathFragment> systemIncludeDirs) {
     Iterables.addAll(this.systemIncludeDirs, systemIncludeDirs);
     return this;
@@ -608,8 +626,26 @@ public final class CcCompilationHelper {
    * Adds the given directories to the quote include directories (they are passed with {@code
    * "-iquote"} to the compiler); these are also passed to dependent rules.
    */
+  public CcCompilationHelper addQuoteIncludeDirs(NestedSet<PathFragment> quoteIncludeDirs) {
+    this.quoteIncludeDirs.addAll(quoteIncludeDirs.toList());
+    return this;
+  }
+
+  /**
+   * Adds the given directories to the quote include directories (they are passed with {@code
+   * "-iquote"} to the compiler); these are also passed to dependent rules.
+   */
   public CcCompilationHelper addQuoteIncludeDirs(Iterable<PathFragment> quoteIncludeDirs) {
     Iterables.addAll(this.quoteIncludeDirs, quoteIncludeDirs);
+    return this;
+  }
+
+  /**
+   * Adds the given directories to the include directories (they are passed with {@code "-I"} to the
+   * compiler); these are also passed to dependent rules.
+   */
+  public CcCompilationHelper addIncludeDirs(NestedSet<PathFragment> includeDirs) {
+    this.includeDirs.addAll(includeDirs.toList());
     return this;
   }
 

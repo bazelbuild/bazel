@@ -859,7 +859,7 @@ public class CppLinkActionBuilder {
 
     NestedSet<Artifact> expandedLinkerArtifacts =
         getArtifactsPossiblyLtoMapped(
-            collectedLibrariesToLink.getExpandedLinkerInputs(), ltoMapping);
+            collectedLibrariesToLink.getExpandedLinkerInputs().toList(), ltoMapping);
 
     CcToolchainVariables variables;
     try {
@@ -1065,7 +1065,7 @@ public class CppLinkActionBuilder {
     inputsBuilder.addTransitive(linkstampObjectArtifacts);
 
     ImmutableSet<Artifact> fakeLinkerInputArtifacts =
-        collectedLibrariesToLink.getExpandedLinkerInputs().stream()
+        collectedLibrariesToLink.getExpandedLinkerInputs().toList().stream()
             .filter(LinkerInput::isFake)
             .map(LinkerInput::getArtifact)
             .collect(ImmutableSet.toImmutableSet());
