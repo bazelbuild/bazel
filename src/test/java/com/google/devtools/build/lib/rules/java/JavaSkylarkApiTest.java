@@ -1603,7 +1603,7 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
             ActionsTestUtil.baseNamesOf(
                 FileType.filter(
                     getRunfilesSupport(target).getRunfilesSymlinkTargets(), JavaSemantics.JAR)))
-        .isEqualTo("libsomedep.jar plugin.jar");
+        .isEqualTo("plugin.jar libsomedep.jar");
   }
 
   @Test

@@ -513,8 +513,7 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
       NestedSet<Artifact> filesToBuild,
       Artifact launcher,
       NestedSet<Artifact> dynamicRuntimeActionInputs) {
-    // Convert to iterable: filesToBuild has a different order.
-    builder.addArtifacts(filesToBuild.toList());
+    builder.addTransitiveArtifactsWrappedInStableOrder(filesToBuild);
     builder.addArtifacts(javaArtifacts.getRuntimeJars());
     if (launcher != null) {
       final TransitiveInfoCollection defaultLauncher =
@@ -557,7 +556,7 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
     builder.addTargets(runtimeDeps, JavaRunfilesProvider.TO_RUNFILES);
     builder.addTargets(runtimeDeps, RunfilesProvider.DEFAULT_RUNFILES);
 
-    builder.addArtifacts(common.getRuntimeClasspath().toList());
+    builder.addTransitiveArtifactsWrappedInStableOrder(common.getRuntimeClasspath());
 
     // Add the JDK files if it comes from the source repository (see java_stub_template.txt).
     JavaRuntimeInfo javaRuntime = JavaRuntimeInfo.from(ruleContext);
