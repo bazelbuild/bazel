@@ -151,6 +151,15 @@ public class StarlarkSemanticsOptions extends OptionsBase implements Serializabl
   public boolean experimentalGoogleLegacyApi;
 
   @Option(
+      name = "experimental_ninja_actions",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
+      effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+      help = "If set to true, enables Ninja execution functionality.")
+  public boolean experimentalNinjaActions;
+
+  @Option(
       name = "experimental_platforms_api",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
