@@ -26,8 +26,10 @@ import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ExecutionTransitionFactory;
+import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.HostTransition;
 import com.google.devtools.build.lib.analysis.config.TransitionFactories;
+import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.SplitTransition;
 import com.google.devtools.build.lib.analysis.test.TestConfiguration.TestOptions;
 import com.google.devtools.build.lib.analysis.util.MockRule;
@@ -529,5 +531,46 @@ public class ConfiguredTargetQueryTest extends PostAnalysisQueryTest<ConfiguredT
     Set<ConfiguredTarget> result = eval("somepath(//test:buildme, //test:mydep)");
     assertThat(result.stream().map(ct -> ct.getLabel().toString()).collect(Collectors.toList()))
         .contains("//test:mydep");
+  }
+
+  /** Return an empty BuildOptions for testing fragment dropping. * */
+  public static class RemoveTestOptionsTransition implements PatchTransition {
+    @Override
+    public BuildOptions patch(BuildOptions options) {
+      BuildOptions.Builder builder = BuildOptions.builder();
+      for (FragmentOptions option : options.getNativeOptions()) {
+        if (!(option instanceof TestOptions)) {
+          builder.addFragmentOptions(option);
+        }
+      }
+      // This does not copy over Starlark options!!
+      return builder.build();
+    }
+  }
+
+  @Test
+  public void testQueryHandlesDroppingFragments() throws Exception {
+    MockRule ruleDropOptions =
+        () ->
+            MockRule.define(
+                "rule_drop_options",
+                attr("dep", LABEL)
+                    .allowedFileTypes(FileTypeSet.ANY_FILE)
+                    .cfg(TransitionFactories.of(new RemoveTestOptionsTransition())));
+    MockRule simpleRule =
+        () ->
+            MockRule.define(
+                "simple_rule", attr("deps", LABEL_LIST).allowedFileTypes(FileTypeSet.ANY_FILE));
+
+    helper.useRuleClassProvider(setRuleClassProviders(ruleDropOptions, simpleRule).build());
+    writeFile(
+        "test/BUILD",
+        "rule_drop_options(name = 'top', dep = ':foo')",
+        "simple_rule(name='foo', deps = [':bar'])",
+        "simple_rule(name='bar')");
+
+    Set<ConfiguredTarget> result =
+        eval("somepath(//test:top, filter(//test:bar, deps(//test:top)))");
+    assertThat(result).isNotEmpty();
   }
 }

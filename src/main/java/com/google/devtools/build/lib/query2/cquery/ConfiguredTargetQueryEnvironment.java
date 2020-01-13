@@ -182,6 +182,15 @@ public class ConfiguredTargetQueryEnvironment
     return ImmutableList.of(new ConfigFunction());
   }
 
+  private static BuildConfiguration mergeEqualBuildConfiguration(
+      BuildConfiguration left, BuildConfiguration right) {
+    if (!left.equals(right)) {
+      throw new IllegalArgumentException(
+          "Non-matching configurations " + left.checksum() + ", " + right.checksum());
+    }
+    return left;
+  }
+
   private static ImmutableMap<String, BuildConfiguration> getTransitiveConfigurations(
       Collection<SkyKey> transitiveConfigurationKeys, WalkableGraph graph)
       throws InterruptedException {
@@ -189,7 +198,11 @@ public class ConfiguredTargetQueryEnvironment
         .map(value -> (BuildConfigurationValue) value)
         .map(BuildConfigurationValue::getConfiguration)
         .sorted(Comparator.comparing(BuildConfiguration::checksum))
-        .collect(ImmutableMap.toImmutableMap(BuildConfiguration::checksum, Functions.identity()));
+        .collect(
+            ImmutableMap.toImmutableMap(
+                BuildConfiguration::checksum,
+                Functions.identity(),
+                ConfiguredTargetQueryEnvironment::mergeEqualBuildConfiguration));
   }
 
   @Override
