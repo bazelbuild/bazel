@@ -3075,8 +3075,6 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
 
   @Test
   public void testUnhashableInDictForbidden() throws Exception {
-    setSkylarkSemanticsOptions("--incompatible_disallow_dict_lookup_unhashable_keys=true");
-
     scratch.file("test/extension.bzl", "y = [] in {}");
 
     scratch.file("test/BUILD", "load('//test:extension.bzl', 'y')", "cc_library(name = 'r')");
@@ -3088,8 +3086,6 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
 
   @Test
   public void testDictGetUnhashableForbidden() throws Exception {
-    setSkylarkSemanticsOptions("--incompatible_disallow_dict_lookup_unhashable_keys=true");
-
     scratch.file("test/extension.bzl", "y = {}.get({})");
 
     scratch.file("test/BUILD", "load('//test:extension.bzl', 'y')", "cc_library(name = 'r')");
@@ -3097,17 +3093,6 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
     reporter.removeHandler(failFastHandler);
     getConfiguredTarget("//test:r");
     assertContainsEvent("unhashable type: 'dict'");
-  }
-
-  @Test
-  public void testUnhashableLookupDict() throws Exception {
-    setSkylarkSemanticsOptions("--incompatible_disallow_dict_lookup_unhashable_keys=false");
-
-    scratch.file("test/extension.bzl", "y = [[] in {}, {}.get({})]");
-
-    scratch.file("test/BUILD", "load('//test:extension.bzl', 'y')", "cc_library(name = 'r')");
-
-    getConfiguredTarget("//test:r");
   }
 
   @Test

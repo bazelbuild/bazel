@@ -523,9 +523,7 @@ public final class Dict<K, V>
   @Override
   public final boolean containsKey(Object key, Location loc, StarlarkThread thread)
       throws EvalException {
-    if (thread.getSemantics().incompatibleDisallowDictLookupUnhashableKeys()) {
-      EvalUtils.checkHashable(key);
-    }
+    EvalUtils.checkHashable(key);
     return this.containsKey(key);
   }
 
