@@ -262,6 +262,14 @@ public class NinjaParserStepTest {
         .containsExactly(PathFragment.create("input with space"), PathFragment.create("other"));
   }
 
+  @Test
+  public void testNinjaTargetWithScope() throws Exception {
+    NinjaTarget target = parseNinjaTarget("\n\nbuild output : command input\n  pool = abc\n");
+    assertThat(target.getRuleName()).isEqualTo("command");
+    assertThat(target.getOutputs()).containsExactly(PathFragment.create("output"));
+    assertThat(target.getUsualInputs()).containsExactly(PathFragment.create("input"));
+  }
+
   private static void testNinjaTargetParsingError(String text, String error) {
     GenericParsingException exception =
         assertThrows(GenericParsingException.class, () -> parseNinjaTarget(text));

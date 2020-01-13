@@ -252,6 +252,7 @@ public class NinjaParserStep {
   public NinjaTarget parseNinjaTarget(NinjaScope fileScope, int offset)
       throws GenericParsingException {
     NinjaTarget.Builder builder = NinjaTarget.builder();
+    skipStartingNewlines();
     parseExpected(NinjaToken.BUILD);
 
     Map<InputOutputKind, List<NinjaVariableValue>> pathValuesMap =
@@ -298,6 +299,7 @@ public class NinjaParserStep {
       int offset, NinjaScope fileScope, NinjaTarget.Builder builder)
       throws GenericParsingException {
     Map<String, List<Pair<Integer, String>>> expandedVariables = Maps.newHashMap();
+    lexer.interpretPoolAsVariable();
     while (lexer.hasNextToken()) {
       parseExpected(NinjaToken.INDENT);
 
@@ -421,5 +423,17 @@ public class NinjaParserStep {
           String.format("Expected %s, but got %s", asString(expectedToken.getBytes()), actual));
     }
     return lexer.getTokenBytes();
+  }
+
+  private void skipStartingNewlines() {
+    NinjaToken token = lexer.nextToken();
+    // Skip possible leading newlines in the fragment for parsing.
+    while (lexer.hasNextToken()) {
+      if (!NinjaToken.NEWLINE.equals(token)) {
+        lexer.undo();
+        return;
+      }
+      token = lexer.nextToken();
+    }
   }
 }

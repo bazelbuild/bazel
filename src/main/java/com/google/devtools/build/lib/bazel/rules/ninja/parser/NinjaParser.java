@@ -48,14 +48,18 @@ public class NinjaParser implements DeclarationConsumer {
     int offset = byteFragmentAtOffset.getRealStartOffset();
 
     NinjaLexer lexer = new NinjaLexer(fragment);
-    NinjaParserStep parser = new NinjaParserStep(lexer);
 
     if (!lexer.hasNextToken()) {
       throw new IllegalStateException("Empty fragment passed as declaration.");
     }
     NinjaToken token = lexer.nextToken();
+    // Skip possible leading newlines in the fragment for parsing.
+    while (lexer.hasNextToken() && NinjaToken.NEWLINE.equals(token)) {
+      token = lexer.nextToken();
+    }
     int declarationStart = offset + lexer.getLastStart();
     lexer.undo();
+    NinjaParserStep parser = new NinjaParserStep(lexer);
 
     switch (token) {
       case IDENTIFIER:
@@ -88,10 +92,11 @@ public class NinjaParser implements DeclarationConsumer {
         break;
       case DEFAULT:
       case POOL:
+      case NEWLINE:
         // Do nothing.
         break;
       default:
-        throw new UnsupportedOperationException("To be implemented.");
+        throw new UnsupportedOperationException("Unknown type of Ninja token.");
     }
   }
 }
