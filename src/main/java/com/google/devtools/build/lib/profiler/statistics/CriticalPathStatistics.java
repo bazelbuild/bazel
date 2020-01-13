@@ -13,11 +13,9 @@
 // limitations under the License.
 package com.google.devtools.build.lib.profiler.statistics;
 
-import com.google.devtools.build.lib.actions.MiddlemanAction;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.analysis.ProfileInfo;
 import com.google.devtools.build.lib.profiler.analysis.ProfileInfo.CriticalPathEntry;
-import com.google.devtools.build.lib.profiler.analysis.ProfileInfo.Task;
 import com.google.devtools.build.lib.util.Pair;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -25,7 +23,6 @@ import java.util.Collections;
 import java.util.EnumSet;
 import java.util.Iterator;
 import java.util.List;
-import javax.annotation.Nullable;
 
 /**
  * Keeps a predefined list of {@link CriticalPathEntry}'s cumulative durations and allows
@@ -115,10 +112,9 @@ public final class CriticalPathStatistics implements Iterable<Pair<String, Doubl
   /**
    * Constructs a filtered Iterable from a critical path.
    *
-   *  <p>Ignores all fake (task id < 0) path entries and
-   *  {@link com.google.devtools.build.lib.actions.MiddlemanAction}-related entries.
+   * <p>Ignores all fake (task id < 0) path entries.
    */
-  public Iterable<CriticalPathEntry> getMiddlemanFilteredPath(final CriticalPathEntry path) {
+  public Iterable<CriticalPathEntry> getFilteredPath(final CriticalPathEntry path) {
     return () ->
         new Iterator<CriticalPathEntry>() {
           private CriticalPathEntry nextEntry = path;
@@ -133,7 +129,7 @@ public final class CriticalPathStatistics implements Iterable<Pair<String, Doubl
             CriticalPathEntry current = nextEntry;
             do {
               nextEntry = nextEntry.next;
-            } while (nextEntry != null && (nextEntry.task.isFake() || isMiddleMan(nextEntry.task)));
+            } while (nextEntry != null && nextEntry.task.isFake());
             return current;
           }
 
@@ -202,53 +198,6 @@ public final class CriticalPathStatistics implements Iterable<Pair<String, Doubl
     EnumSet<ProfilerTask> filter = EnumSet.of(ProfilerTask.ACTION_LOCK, ProfilerTask.WAIT);
     Collections.addAll(filter, tasks);
     return Pair.of(description, filter);
-  }
-
-  /**
-   * @return Whether the task is {@link MiddlemanAction}-related.
-   */
-  private static boolean isMiddleMan(Task task) {
-    String description = task.getDescription();
-    return description.startsWith(MiddlemanAction.MIDDLEMAN_MNEMONIC + " ")
-        || description.startsWith("TargetCompletionMiddleman");
-  }
-
-  /**
-   * Aggregates statistics related to {@link MiddlemanAction}s on the critical path.
-   */
-  public static final class MiddleManStatistics {
-    public final int count;
-    public final long duration;
-    public final long criticalTime;
-
-    private MiddleManStatistics(int count, long duration, long criticalTime) {
-      this.count = count;
-      this.duration = duration;
-      this.criticalTime = criticalTime;
-    }
-
-    /**
-     * Summarizes middleman actions on the critical path.
-     * @return null if path is null, else the aggregate statistics
-     */
-    public static MiddleManStatistics create(@Nullable CriticalPathEntry path) {
-      if (path == null) {
-        return null;
-      }
-      int middleManCount = 0;
-      long middleManDuration = 0;
-      long middleManCritTime = 0;
-      for (CriticalPathEntry entry = path; entry != null; entry = entry.next) {
-        Task task = entry.task;
-        if (!task.isFake() && isMiddleMan(task)) {
-          // Aggregate middleman actions.
-          middleManCount++;
-          middleManDuration += entry.duration;
-          middleManCritTime += entry.getCriticalTime();
-        }
-      }
-      return new MiddleManStatistics(middleManCount, middleManDuration, middleManCritTime);
-    }
   }
 }
 
