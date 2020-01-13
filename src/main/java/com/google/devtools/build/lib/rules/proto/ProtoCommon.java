@@ -127,6 +127,19 @@ public class ProtoCommon {
     return result.build();
   }
 
+  private static NestedSet<Artifact> computeTransitiveOriginalProtoSources(
+      RuleContext ruleContext, ImmutableList<Artifact> originalProtoSources) {
+    NestedSetBuilder<Artifact> result = NestedSetBuilder.naiveLinkOrder();
+
+    result.addAll(originalProtoSources);
+
+    for (ProtoInfo dep : ruleContext.getPrerequisites("deps", Mode.TARGET, ProtoInfo.PROVIDER)) {
+      result.addTransitive(dep.getOriginalTransitiveProtoSources());
+    }
+
+    return result.build();
+  }
+
   static NestedSet<Artifact> computeDependenciesDescriptorSets(RuleContext ruleContext) {
     NestedSetBuilder<Artifact> result = NestedSetBuilder.stableOrder();
 
@@ -462,6 +475,8 @@ public class ProtoCommon {
 
     NestedSet<Artifact> transitiveProtoSources =
         computeTransitiveProtoSources(ruleContext, library.getSources());
+    NestedSet<Artifact> transitiveOriginalProtoSources =
+        computeTransitiveOriginalProtoSources(ruleContext, directProtoSources);
     NestedSet<String> transitiveProtoSourceRoots =
         computeTransitiveProtoSourceRoots(ruleContext, library.getSourceRoot());
 
@@ -491,8 +506,8 @@ public class ProtoCommon {
     ProtoInfo protoInfo =
         new ProtoInfo(
             library.getSources(),
-            directProtoSources,
             library.getSourceRoot(),
+            transitiveOriginalProtoSources,
             transitiveProtoSources,
             transitiveProtoSourceRoots,
             strictImportableProtosForDependents,
