@@ -13,10 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.profiler.analysis;
 
-import static com.google.devtools.build.lib.profiler.ProfilerTask.CRITICAL_PATH;
 import static com.google.devtools.build.lib.profiler.ProfilerTask.TASK_COUNT;
 
-import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
@@ -31,13 +29,11 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.UnsupportedEncodingException;
 import java.nio.ByteBuffer;
-import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
-import java.util.Deque;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -202,10 +198,6 @@ public class ProfileInfo {
       return !stats.isEmpty();
     }
 
-    public boolean isFake() {
-      return id < 0;
-    }
-
     public long getInheritedDuration() {
       return stats.getTotalTime();
     }
@@ -278,24 +270,6 @@ public class ProfileInfo {
   }
 
   /**
-   * Represents node on critical build path
-   */
-  public static final class CriticalPathEntry {
-    public final Task task;
-    public final long duration;
-    public final long cumulativeDuration;
-    public final CriticalPathEntry next;
-
-    public CriticalPathEntry(Task task, long duration, CriticalPathEntry next) {
-      this.task = task;
-      this.duration = duration;
-      this.next = next;
-      this.cumulativeDuration =
-          duration + (next != null ? next.cumulativeDuration : 0);
-    }
-  }
-
-  /**
    * Helper class to create space-efficient task multimap, used to associate
    * array of tasks with specific key.
    */
@@ -352,15 +326,12 @@ public class ProfileInfo {
   public List<Task> rootTasksById;  // Not final due to the late initialization.
   public final List<Task> phaseTasks;
 
-  public final Map<Task, Task[]> actionDependencyMap;
-
   private ProfileInfo(String comment) {
     this.comment = comment;
 
     descriptionList = Lists.newArrayListWithExpectedSize(10000);
     allTasksById = Lists.newArrayListWithExpectedSize(50000);
     phaseTasks = Lists.newArrayList();
-    actionDependencyMap = Maps.newHashMapWithExpectedSize(10000);
   }
 
   private void addTask(Task task) {
@@ -491,101 +462,6 @@ public class ProfileInfo {
     }
     Preconditions.checkState(duration >= 0);
     return duration;
-  }
-
-  /**
-   * Calculates critical path for the specific action excluding specified nested task types (e.g.
-   * VFS-related time) and not accounting for overhead related to the Blaze scheduler.
-   */
-  private CriticalPathEntry computeCriticalPathForAction(
-      Set<Task> ignoredTasks,
-      Task actionTask,
-      Map<Task, CriticalPathEntry> cache,
-      Deque<Task> stack) {
-
-    // Loop check is expensive for the Deque (and we don't want to use hash sets because adding
-    // and removing elements was shown to be very expensive). To avoid quadratic costs we're
-    // checking for infinite loop only when deque's size equal to the power of 2 and >= 32.
-    if ((stack.size() & 0x1F) == 0 && Integer.bitCount(stack.size()) == 1) {
-      if (stack.contains(actionTask)) {
-        // This situation will appear if build has ended with the
-        // IllegalStateException thrown by the
-        // ParallelBuilder.getNextCompletedAction(), warning user about
-        // possible cycle in the dependency graph. But the exception text
-        // is more friendly and will actually identify the loop.
-        // Do not use Preconditions class below due to the very expensive
-        // toString() calls used in the message.
-        throw new IllegalStateException ("Dependency graph contains loop:\n"
-            + actionTask + " in the\n" + Joiner.on('\n').join(stack));
-      }
-    }
-    stack.addLast(actionTask);
-    CriticalPathEntry entry;
-    try {
-      entry = cache.get(actionTask);
-      long entryDuration = 0;
-      if (entry == null) {
-        Task[] actionPrerequisites = actionDependencyMap.get(actionTask);
-        if (actionPrerequisites != null) {
-          for (Task task : actionPrerequisites) {
-            CriticalPathEntry candidate =
-                computeCriticalPathForAction(ignoredTasks, task, cache, stack);
-            if (entry == null || entryDuration < candidate.cumulativeDuration) {
-              entry = candidate;
-              entryDuration = candidate.cumulativeDuration;
-            }
-          }
-        }
-        if (actionTask.type == ProfilerTask.ACTION) {
-          long duration = actionTask.durationNanos;
-          if (ignoredTasks.contains(actionTask)) {
-            duration = 0L;
-          }
-
-          entry = new CriticalPathEntry(actionTask, duration, entry);
-          cache.put(actionTask, entry);
-        }
-      }
-    } finally {
-      stack.removeLast();
-    }
-    return entry;
-  }
-
-  /**
-   * Returns the critical path information from the {@code CriticalPathComputer} recorded stats.
-   * This code does not have the "Critical" column (Time difference if we removed this node from
-   * the critical path).
-   */
-  public CriticalPathEntry getCriticalPathNewVersion() {
-    for (Task task : rootTasksById) {
-      if (task.type == CRITICAL_PATH) {
-        CriticalPathEntry entry = null;
-        for (Task shared : task.subtasks) {
-          entry = new CriticalPathEntry(shared, shared.durationNanos, entry);
-        }
-        return entry;
-      }
-    }
-    return null;
-  }
-
-  /**
-   * Calculates critical path for the given action graph excluding specified tasks (usually ones
-   * that belong to the "real" critical path).
-   */
-  public CriticalPathEntry getCriticalPath() {
-    Task actionTask = getPhaseTask(ProfilePhase.EXECUTE);
-    if (actionTask == null) {
-      return null;
-    }
-    Map <Task, CriticalPathEntry> cache = Maps.newHashMapWithExpectedSize(1000);
-    CriticalPathEntry result =
-        computeCriticalPathForAction(new HashSet<>(), actionTask, cache, new ArrayDeque<>());
-    if (result != null) {
-      return result;
-    }
-    return getCriticalPathNewVersion();
   }
 
   /**
