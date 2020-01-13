@@ -132,7 +132,7 @@ public abstract class GenRuleBase implements RuleConfiguredTargetFactory {
 
     Pair<CommandType, String> cmdTypeAndAttr = determineCommandTypeAndAttribute(ruleContext);
 
-    ImmutableMap.Builder<Label, NestedSet<Artifact>> labelMap = ImmutableMap.builder();
+    ImmutableMap.Builder<Label, Iterable<Artifact>> labelMap = ImmutableMap.builder();
     for (TransitiveInfoCollection dep : ruleContext.getPrerequisites("srcs", Mode.TARGET)) {
       // This target provides specific types of files for genrules.
       GenRuleSourcesProvider provider = dep.getProvider(GenRuleSourcesProvider.class);
@@ -140,7 +140,9 @@ public abstract class GenRuleBase implements RuleConfiguredTargetFactory {
           ? provider.getGenruleFiles()
           : dep.getProvider(FileProvider.class).getFilesToBuild();
       resolvedSrcsBuilder.addTransitive(files);
-      labelMap.put(AliasProvider.getDependencyLabel(dep), files);
+      // The CommandHelper class makes an explicit copy of this in the constructor, so flattening
+      // here should be benign.
+      labelMap.put(AliasProvider.getDependencyLabel(dep), files.toList());
     }
     NestedSet<Artifact> resolvedSrcs = resolvedSrcsBuilder.build();
 
