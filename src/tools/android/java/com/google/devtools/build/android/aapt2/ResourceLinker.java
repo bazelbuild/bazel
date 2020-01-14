@@ -102,11 +102,8 @@ public class ResourceLinker {
   private static final ImmutableSet<String> PSEUDO_LOCALE_FILTERS =
       ImmutableSet.of("en_XA", "ar_XB");
 
-  private static final String OVERRIDE_STYLES_INSTEAD_OF_OVERLAYING_KEY =
-      ResourceProcessorBusyBox.PROPERTY_KEY_PREFIX + "override_styles_instead_of_overlaying";
-
   private static final boolean OVERRIDE_STYLES_INSTEAD_OF_OVERLAYING =
-      Boolean.parseBoolean(System.getProperty(OVERRIDE_STYLES_INSTEAD_OF_OVERLAYING_KEY, "false"));
+      ResourceProcessorBusyBox.getProperty("override_styles_instead_of_overlaying");
 
   /** Represents errors thrown during linking. */
   public static class LinkError extends Aapt2Exception {
