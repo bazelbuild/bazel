@@ -298,6 +298,7 @@ public class NinjaParserStep {
       int offset, NinjaScope fileScope, NinjaTarget.Builder builder)
       throws GenericParsingException {
     Map<String, List<Pair<Integer, String>>> expandedVariables = Maps.newHashMap();
+    lexer.interpretPoolAsVariable();
     while (lexer.hasNextToken()) {
       parseExpected(NinjaToken.INDENT);
 
