@@ -317,7 +317,7 @@ public abstract class StructImpl implements Info, ClassObject, StructApi {
     stringBuilder.append(escapeDoubleQuotesAndBackslashesAndNewlines(string)
         .replace("\r", "\\r")
         .replace("\t", "\\t"));
-    stringBuilder.append("\"");
+    stringBuilder.append("\":");
   }
 
   @Override
