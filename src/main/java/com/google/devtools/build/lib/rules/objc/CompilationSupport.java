@@ -207,9 +207,6 @@ public class CompilationSupport {
 
   private static final String XCODE_VERSION_FEATURE_NAME_PREFIX = "xcode_";
 
-  /** Enabled if this target has objc sources in its transitive closure. */
-  private static final String CONTAINS_OBJC = "contains_objc_sources";
-
   private static final ImmutableList<String> ACTIVATED_ACTIONS =
       ImmutableList.of(
           "objc-compile",
@@ -302,7 +299,7 @@ public class CompilationSupport {
                 ruleContext.getLabel(),
                 CppHelper.getGrepIncludes(ruleContext),
                 semantics,
-                getFeatureConfiguration(ruleContext, ccToolchain, buildConfiguration, objcProvider),
+                getFeatureConfiguration(ruleContext, ccToolchain, buildConfiguration),
                 CcCompilationHelper.SourceCategory.CC_AND_OBJC,
                 ccToolchain,
                 fdoContext,
@@ -431,7 +428,7 @@ public class CompilationSupport {
             /* generateModuleMap= */ false);
 
     FeatureConfiguration featureConfiguration =
-        getFeatureConfiguration(ruleContext, ccToolchain, buildConfiguration, objcProvider);
+        getFeatureConfiguration(ruleContext, ccToolchain, buildConfiguration);
     CcLinkingHelper resultLink =
         new CcLinkingHelper(
                 ruleContext,
@@ -534,10 +531,7 @@ public class CompilationSupport {
   }
 
   private FeatureConfiguration getFeatureConfiguration(
-      RuleContext ruleContext,
-      CcToolchainProvider ccToolchain,
-      BuildConfiguration configuration,
-      ObjcProvider objcProvider) {
+      RuleContext ruleContext, CcToolchainProvider ccToolchain, BuildConfiguration configuration) {
     boolean isTool = ruleContext.getConfiguration().isToolConfiguration();
     ImmutableSet.Builder<String> activatedCrosstoolSelectables =
         ImmutableSet.<String>builder()
@@ -586,9 +580,6 @@ public class CompilationSupport {
         configuration.getFragment(AppleConfiguration.class).getBitcodeMode();
     if (bitcodeMode != AppleBitcodeMode.NONE) {
       activatedCrosstoolSelectables.addAll(bitcodeMode.getFeatureNames());
-    }
-    if (objcProvider.is(Flag.USES_OBJC)) {
-      activatedCrosstoolSelectables.add(CONTAINS_OBJC);
     }
     // Add a feature identifying the Xcode version so CROSSTOOL authors can enable flags for
     // particular versions of Xcode. To ensure consistency across platforms, use exactly two
@@ -1166,7 +1157,7 @@ public class CompilationSupport {
                 ruleContext.getConfiguration(),
                 toolchain,
                 toolchain.getFdoContext(),
-                getFeatureConfiguration(ruleContext, toolchain, buildConfiguration, objcProvider),
+                getFeatureConfiguration(ruleContext, toolchain, buildConfiguration),
                 createObjcCppSemantics(
                     objcProvider, /* privateHdrs= */ ImmutableList.of(), /* pchHdr= */ null))
             .setGrepIncludes(CppHelper.getGrepIncludes(ruleContext))
@@ -1323,7 +1314,7 @@ public class CompilationSupport {
                 ruleContext.getConfiguration(),
                 toolchain,
                 toolchain.getFdoContext(),
-                getFeatureConfiguration(ruleContext, toolchain, buildConfiguration, objcProvider),
+                getFeatureConfiguration(ruleContext, toolchain, buildConfiguration),
                 createObjcCppSemantics(
                     objcProvider, /* privateHdrs= */ ImmutableList.of(), /* pchHdr= */ null))
             .setGrepIncludes(CppHelper.getGrepIncludes(ruleContext))

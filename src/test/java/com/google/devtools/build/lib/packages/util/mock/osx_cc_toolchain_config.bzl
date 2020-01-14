@@ -57,16 +57,6 @@ _default_feature = feature(
     ],
 )
 
-_contains_objc_sources_feature = feature(
-    name = "contains_objc_sources",
-    flag_sets = [
-        flag_set(
-            actions = [ACTION_NAMES.cpp_compile],
-            flag_groups = [flag_group(flags = ["DUMMY_FLAG"])],
-        ),
-    ],
-)
-
 _supports_interface_shared_libraries_feature = feature(
     name = "supports_interface_shared_libraries",
     enabled = True,
@@ -79,7 +69,6 @@ _supports_dynamic_linker_feature = feature(
 
 _feature_name_to_feature = {
     "default_feature": _default_feature,
-    "contains_objc_sources": _contains_objc_sources_feature,
     "supports_interface_shared_libraries": _supports_interface_shared_libraries_feature,
     "supports_dynamic_linker": _supports_dynamic_linker_feature,
 }
