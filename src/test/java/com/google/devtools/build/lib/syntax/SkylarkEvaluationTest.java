@@ -2195,14 +2195,14 @@ public final class SkylarkEvaluationTest extends EvaluationTest {
   }
 
   @Test
-  public void testListComprehensionsTemporarilyRebindGlobals() throws Exception {
-    // This test asserts the buggy behavior of https://github.com/bazelbuild/starlark/issues/92.
+  public void testComprehensionsAreLocal() throws Exception {
+    // Regression test for https://github.com/bazelbuild/starlark/issues/92.
     exec(
-        "x = 1", //
+        "x = 1", // this global binding is not affected (even temporarily) by the comprehension
         "def f():",
         "  return x",
         "y = [f() for x in [2]][0]");
-    assertThat(lookup("y")).isEqualTo(2); // TODO(adonovan): should be 1!
+    assertThat(lookup("y")).isEqualTo(1);
   }
 
   @Test

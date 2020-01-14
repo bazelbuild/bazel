@@ -143,7 +143,7 @@ final class Eval {
       defaults = Tuple.wrap(array);
     }
 
-    updateAndExport(
+    assignIdentifier(
         fr,
         node.getIdentifier(),
         new StarlarkFunction(
@@ -207,8 +207,10 @@ final class Eval {
       // loads bind file-locally. Either way, the resolver should designate
       // the proper scope of binding.getLocalName() and this should become
       // simply assign(binding.getLocalName(), value).
+      // Currently, we update the module but not module.exportedBindings;
+      // changing it to fr.locals.put breaks a test. TODO(adonovan): find out why.
       try {
-        fr.locals.put(binding.getLocalName().getName(), value);
+        fn(fr).getModule().put(binding.getLocalName().getName(), value);
       } catch (Mutability.MutabilityException ex) {
         throw new AssertionError(ex);
       }
@@ -287,33 +289,27 @@ final class Eval {
     }
   }
 
-  /** Binds a variable to the given value in the environment. */
-  private static void assignIdentifier(StarlarkThread.CallFrame fr, Identifier ident, Object value)
-      throws EvalException {
-    updateAndExport(fr, ident, value);
-  }
-
-  /** Updates a local or global binding. */
-  private static void updateAndExport(StarlarkThread.CallFrame fr, Identifier id, Object value)
+  private static void assignIdentifier(StarlarkThread.CallFrame fr, Identifier id, Object value)
       throws EvalException {
     ValidationEnvironment.Scope scope = id.getScope();
     // Legacy hack for incomplete identifier resolution.
-    // Comprehension variables at top level (outside any function)
-    // are resolves as Local, but they may not be resolved.
-    // In a <toplevel> function, assignments to unresolved identifiers update the module.
-    if (fn(fr).isToplevel) {
-      scope = ValidationEnvironment.Scope.Module;
-    } else if (scope == null) {
-      scope = ValidationEnvironment.Scope.Local;
+    // In a <toplevel> function, assignments to unresolved identifiers
+    // update the module, except for load statements and comprehensions,
+    // which should both be file-local.
+    // Load statements don't yet use assignIdentifier,
+    // so we need consider only comprehensions.
+    // In effect, we do the missing resolution using fr.compcount.
+    if (scope == null) {
+      scope =
+          fn(fr).isToplevel && fr.compcount == 0
+              ? ValidationEnvironment.Scope.Module //
+              : ValidationEnvironment.Scope.Local;
     }
+
     String name = id.getName();
     switch (scope) {
       case Local:
-        try {
-          fr.locals.put(name, value);
-        } catch (Mutability.MutabilityException ex) {
-          throw new AssertionError(ex);
-        }
+        fr.locals.put(name, value);
         break;
       case Module:
         // Updates a module binding and sets its 'exported' flag.
@@ -740,23 +736,22 @@ final class Eval {
     final Dict<Object, Object> dict = comp.isDict() ? Dict.of(fr.thread.mutability()) : null;
     final ArrayList<Object> list = comp.isDict() ? null : new ArrayList<>();
 
-    // Save values of all variables bound in a 'for' clause
+    // Save previous value (if any) of local variables bound in a 'for' clause
     // so we can restore them later.
     // TODO(adonovan): throw all this away when we implement flat environments.
-    // TODO(adonovan): functions called within the comp body observe this hack.
-    // See https://github.com/bazelbuild/starlark/issues/92.
     List<Object> saved = new ArrayList<>(); // alternating keys and values
     for (Comprehension.Clause clause : comp.getClauses()) {
       if (clause instanceof Comprehension.For) {
         for (Identifier ident :
             Identifier.boundIdentifiers(((Comprehension.For) clause).getVars())) {
           String name = ident.getName();
-          Object value = fr.locals.get(ident.getName());
+          Object value = fr.locals.get(ident.getName()); // may be null
           saved.add(name);
           saved.add(value);
         }
       }
     }
+    fr.compcount++;
 
     // The Lambda class serves as a recursive lambda closure.
     class Lambda {
@@ -814,20 +809,17 @@ final class Eval {
       }
     }
     new Lambda().execClauses(0);
+    fr.compcount--;
 
     // Restore outer scope variables.
     // This loop implicitly undefines comprehension variables.
     for (int i = 0; i != saved.size(); ) {
       String name = (String) saved.get(i++);
       Object value = saved.get(i++);
-      try {
-        if (value != null) {
-          fr.locals.put(name, value);
-        } else {
-          fr.locals.remove(name);
-        }
-      } catch (Mutability.MutabilityException ex) {
-        throw new IllegalStateException(ex);
+      if (value != null) {
+        fr.locals.put(name, value);
+      } else {
+        fr.locals.remove(name);
       }
     }
 
