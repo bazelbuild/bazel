@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.java;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.concat;
 import static com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider.ClasspathType.BOTH;
 import static com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider.ClasspathType.COMPILE_ONLY;
@@ -222,6 +223,7 @@ final class JavaInfoBuildHelper {
       Artifact outputSourceJar,
       List<String> javacOpts,
       List<JavaInfo> deps,
+      List<JavaInfo> experimentalLocalCompileTimeDeps,
       List<JavaInfo> exports,
       List<JavaInfo> plugins,
       List<JavaInfo> exportedPlugins,
@@ -275,6 +277,12 @@ final class JavaInfoBuildHelper {
     helper.setPlugins(createJavaPluginsProvider(concat(plugins, deps)));
     helper.setNeverlink(neverlink);
 
+    NestedSet<Artifact> localCompileTimeDeps =
+        JavaCompilationArgsProvider.merge(
+                streamProviders(experimentalLocalCompileTimeDeps, JavaCompilationArgsProvider.class)
+                    .collect(toImmutableList()))
+            .getTransitiveCompileTimeJars();
+
     JavaRuleOutputJarsProvider.Builder outputJarsBuilder = JavaRuleOutputJarsProvider.builder();
 
     if (outputSourceJar == null) {
@@ -294,7 +302,8 @@ final class JavaInfoBuildHelper {
             // Include JavaGenJarsProviders from both deps and exports in the JavaGenJarsProvider
             // added to javaInfoBuilder for this target.
             JavaInfo.fetchProvidersFromList(concat(deps, exports), JavaGenJarsProvider.class),
-            ImmutableList.copyOf(annotationProcessorAdditionalInputs));
+            ImmutableList.copyOf(annotationProcessorAdditionalInputs),
+            localCompileTimeDeps);
 
     JavaCompilationArgsProvider javaCompilationArgsProvider =
         helper.buildCompilationArgsProvider(artifacts, true, neverlink);

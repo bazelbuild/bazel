@@ -62,6 +62,7 @@ public class JavaSkylarkCommon
       Object outputSourceJar,
       Sequence<?> javacOpts, // <String> expected
       Sequence<?> deps, // <JavaInfo> expected
+      Sequence<?> experimentalLocalCompileTimeDeps, // <JavaInfo> expected
       Sequence<?> exports, // <JavaInfo> expected
       Sequence<?> plugins, // <JavaInfo> expected
       Sequence<?> exportedPlugins, // <JavaInfo> expected
@@ -86,6 +87,8 @@ public class JavaSkylarkCommon
             outputSourceJar == Starlark.NONE ? null : (Artifact) outputSourceJar,
             javacOpts.getContents(String.class, "javac_opts"),
             deps.getContents(JavaInfo.class, "deps"),
+            experimentalLocalCompileTimeDeps.getContents(
+                JavaInfo.class, "experimental_local_compile_time_deps"),
             exports.getContents(JavaInfo.class, "exports"),
             plugins.getContents(JavaInfo.class, "plugins"),
             exportedPlugins.getContents(JavaInfo.class, "exported_plugins"),

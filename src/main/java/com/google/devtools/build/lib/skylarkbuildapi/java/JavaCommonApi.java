@@ -113,6 +113,18 @@ public interface JavaCommonApi<
             defaultValue = "[]",
             doc = "A list of dependencies. Optional."),
         @Param(
+            name = "experimental_local_compile_time_deps",
+            positional = false,
+            named = true,
+            type = Sequence.class,
+            generic1 = JavaInfoApi.class,
+            defaultValue = "[]",
+            doc =
+                "Compile-time dependencies of the compilation that should be omitted from the"
+                    + " returned JavaInfo.",
+            enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_GOOGLE_LEGACY_API,
+            valueWhenDisabled = "[]"),
+        @Param(
             name = "exports",
             positional = false,
             named = true,
@@ -212,6 +224,7 @@ public interface JavaCommonApi<
       Object outputSourceJar,
       Sequence<?> javacOpts, // <String> expected.
       Sequence<?> deps, // <JavaInfoT> expected.
+      Sequence<?> experimentalLocalCompileTimeDeps, // <JavaInfoT> expected.
       Sequence<?> exports, // <JavaInfoT> expected.
       Sequence<?> plugins, // <JavaInfoT> expected.
       Sequence<?> exportedPlugins, // <JavaInfoT> expected.
