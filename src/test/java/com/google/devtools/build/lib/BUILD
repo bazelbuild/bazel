@@ -1301,7 +1301,6 @@ java_test(
     name = "standalone-tests",
     srcs = glob(["standalone/*.java"]),
     data = [":embedded_scripts"],
-    tags = ["no_windows"],
     test_class = "com.google.devtools.build.lib.AllTests",
     deps = [
         ":actions_testutil",

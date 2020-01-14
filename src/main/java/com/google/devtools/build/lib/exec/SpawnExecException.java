@@ -37,7 +37,7 @@ public class SpawnExecException extends ExecException {
     super(message, result.isCatastrophe());
     checkArgument(
         !Status.SUCCESS.equals(result.status()),
-        "Can't create exception with successful" + " spawn result.");
+        "Can't create exception with successful spawn result.");
     this.result = Preconditions.checkNotNull(result);
     this.forciblyRunRemotely = forciblyRunRemotely;
   }
@@ -71,7 +71,7 @@ public class SpawnExecException extends ExecException {
     String message =
         result.getDetailMessage(messagePrefix, getMessage(), isCatastrophic(), forciblyRunRemotely);
     if (verboseFailures) {
-      return new ActionExecutionException(message, this, action, isCatastrophic(), getExitCode());
+      return new ActionExecutionException(message + ": " + getMessage(), this, action, isCatastrophic(), getExitCode());
     } else {
       return new ActionExecutionException(message, action, isCatastrophic(), getExitCode());
     }

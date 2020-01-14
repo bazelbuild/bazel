@@ -24,6 +24,7 @@ import com.google.common.collect.Sets;
 import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionContext.LostInputsCheck;
+import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionInputPrefetcher;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -63,6 +64,7 @@ import com.google.devtools.common.options.Options;
 import com.google.devtools.common.options.OptionsParser;
 import java.io.IOException;
 import java.util.Collection;
+import java.util.HashSet;
 import java.util.List;
 import org.junit.Before;
 import org.junit.Test;
@@ -178,7 +180,9 @@ public class StandaloneSpawnStrategyTest {
     Spawn spawn = createSpawn(getTrueCommand());
     executor.getContext(SpawnActionContext.class).exec(spawn, createContext());
 
-    assertThat(out()).isEmpty();
+    if (OS.getCurrent() != OS.WINDOWS) {
+      assertThat(out()).isEmpty();
+    }
     assertThat(err()).isEmpty();
   }
 
@@ -205,34 +209,56 @@ public class StandaloneSpawnStrategyTest {
   }
 
   @Test
-  public void testBinFalseYieldsException() throws Exception {
+  public void testBinFalseYieldsException() {
     ExecException e = assertThrows(ExecException.class, () -> run(createSpawn(getFalseCommand())));
     assertWithMessage("got: " + e.getMessage())
-        .that(e.getMessage().startsWith("false failed: error executing command"))
+        .that(e.getMessage().contains("failed: error executing command"))
         .isTrue();
   }
 
   private static String getFalseCommand() {
+    if (OS.getCurrent() == OS.WINDOWS) {
+      // No false command on Windows, with use help.exe as an alternative,
+      // the caveat is that the command will have some output to stdout.
+      // Default exit code of help is 1
+      return "C:/windows/system32/help.exe";
+    }
     return OS.getCurrent() == OS.DARWIN ? "/usr/bin/false" : "/bin/false";
   }
 
   private static String getTrueCommand() {
+    if (OS.getCurrent() == OS.WINDOWS) {
+      // No false command on Windows, with use whoami.exe as an alternative,
+      // the caveat is that the command will have some output to stdout.
+      // Default exit code of help is 0
+      return "C:/windows/system32/whoami.exe";
+    }
     return OS.getCurrent() == OS.DARWIN ? "/usr/bin/true" : "/bin/true";
   }
 
   @Test
   public void testBinEchoPrintsArguments() throws Exception {
-    Spawn spawn = createSpawn("/bin/echo", "Hello,", "world.");
+    Spawn spawn;
+    if (OS.getCurrent() == OS.WINDOWS) {
+      spawn = createSpawn("C:/windows/system32/cmd.exe", "/c", "echo", "Hello,", "world.");
+    } else {
+      spawn = createSpawn("/bin/echo", "Hello,", "world.");
+    }
     run(spawn);
-    assertThat(out()).isEqualTo("Hello, world.\n");
+    assertThat(out()).isEqualTo("Hello, world." + System.lineSeparator());
     assertThat(err()).isEmpty();
   }
 
   @Test
   public void testCommandRunsInWorkingDir() throws Exception {
-    Spawn spawn = createSpawn("/bin/pwd");
+    Spawn spawn;
+    if (OS.getCurrent() == OS.WINDOWS) {
+      spawn = createSpawn("C:/windows/system32/cmd.exe", "/c", "cd");
+    } else {
+      spawn = createSpawn("/bin/pwd");
+    }
     run(spawn);
-    assertThat(out()).isEqualTo(executor.getExecRoot() + "\n");
+    assertThat(out().replace('\\', '/')).isEqualTo(executor.getExecRoot() + System.lineSeparator());
   }
 
   @Test
@@ -246,21 +272,48 @@ public class StandaloneSpawnStrategyTest {
     Spawn spawn =
         new SimpleSpawn(
             new ActionsTestUtil.NullAction(),
-            ImmutableList.of("/usr/bin/env"),
+            OS.getCurrent() == OS.WINDOWS ? ImmutableList.of("C:/windows/system32/cmd.exe", "/c", "set") : ImmutableList.of("/usr/bin/env"),
             /*environment=*/ ImmutableMap.of("foo", "bar", "baz", "boo"),
             /*executionInfo=*/ ImmutableMap.of(),
             /*inputs=*/ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
             /*outputs=*/ ImmutableSet.of(),
             ResourceSet.ZERO);
     run(spawn);
-    assertThat(Sets.newHashSet(out().split("\n"))).isEqualTo(Sets.newHashSet("foo=bar", "baz=boo"));
+    HashSet environment = Sets.newHashSet(out().split(System.lineSeparator()));
+    if (OS.getCurrent() == OS.WINDOWS) {
+      // On Windows, we have some other env vars (eg. SystemRoot) as default.
+      assertThat(environment).contains("foo=bar");
+      assertThat(environment).contains("baz=boo");
+    } else {
+      assertThat(environment).isEqualTo(Sets.newHashSet("foo=bar", "baz=boo"));
+    }
   }
 
   @Test
   public void testStandardError() throws Exception {
-    Spawn spawn = createSpawn("/bin/sh", "-c", "echo Oops! >&2");
+    Spawn spawn;
+    if (OS.getCurrent() == OS.WINDOWS) {
+      spawn = createSpawn("C:/windows/system32/cmd.exe", "/c", "echo Oops!>&2");
+    } else {
+      spawn = createSpawn("/bin/sh", "-c", "echo Oops! >&2");
+    }
     run(spawn);
-    assertThat(err()).isEqualTo("Oops!\n");
+    assertThat(err()).isEqualTo("Oops!" + System.lineSeparator());
     assertThat(out()).isEmpty();
+  }
+
+  @Test
+  /**
+   * Regression test for https://github.com/bazelbuild/bazel/issues/10572
+   * Make sure we do have the command line executed in the error message of ActionExecutionException
+   * when --verbose_failures is enabled.
+   */
+  public void testVerboseFailures() {
+    ExecException e = assertThrows(ExecException.class, () -> run(createSpawn(getFalseCommand())));
+    ActionExecutionException actionExecutionException =
+        e.toActionExecutionException("", /* verbose_failures= */ true, null);
+    assertWithMessage("got: " + actionExecutionException.getMessage())
+        .that(actionExecutionException.getMessage().contains("failed: error executing command"))
+        .isTrue();
   }
 }
