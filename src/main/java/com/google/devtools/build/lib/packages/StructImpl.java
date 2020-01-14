@@ -32,6 +32,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import javax.annotation.Nullable;
+import org.apache.commons.lang.StringEscapeUtils;
 
 /**
  * An abstract base class for Starlark values that have fields, have to_json and to_proto methods,
@@ -290,7 +291,7 @@ public abstract class StructImpl implements Info, ClassObject, StructApi {
               key != null ? " '" + key + "'" : "");
         }
         sb.append("\"");
-        sb.append(entry.getKey());
+        sb.append(StringEscapeUtils.escapeJava(String.valueOf(entry.getKey())));
         sb.append("\":");
         printJson(entry.getValue(), sb, "dict value", String.valueOf(entry.getKey()));
       }
