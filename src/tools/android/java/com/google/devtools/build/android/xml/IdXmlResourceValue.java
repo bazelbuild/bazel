@@ -13,11 +13,13 @@
 // limitations under the License.
 package com.google.devtools.build.android.xml;
 
+import com.android.aapt.Resources.Reference;
 import com.android.aapt.Resources.Value;
 import com.android.resources.ResourceType;
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.android.AndroidDataWritingVisitor;
 import com.google.devtools.build.android.AndroidDataWritingVisitor.StartTag;
 import com.google.devtools.build.android.AndroidResourceSymbolSink;
@@ -172,5 +174,15 @@ public class IdXmlResourceValue implements XmlResourceValue {
   @Override
   public String asConflictStringWith(DataSource source) {
     return source.asConflictString();
+  }
+
+  @Override
+  public Visibility getVisibility() {
+    return visibility;
+  }
+
+  @Override
+  public ImmutableList<Reference> getReferencedResources() {
+    return ImmutableList.of();
   }
 }

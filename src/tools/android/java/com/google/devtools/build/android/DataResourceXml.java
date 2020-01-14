@@ -17,10 +17,12 @@ import static com.android.resources.ResourceType.DECLARE_STYLEABLE;
 import static com.android.resources.ResourceType.ID;
 import static com.android.resources.ResourceType.PUBLIC;
 
+import com.android.aapt.Resources.Reference;
 import com.android.aapt.Resources.Value;
 import com.android.resources.ResourceType;
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.android.AndroidCompiledDataDeserializer.ReferenceResolver;
 import com.google.devtools.build.android.FullyQualifiedName.Factory;
@@ -451,5 +453,15 @@ public class DataResourceXml implements DataResource {
     }
     DataResourceXml other = (DataResourceXml) value;
     return xml.compareMergePriorityTo(other.xml);
+  }
+
+  @Override
+  public Visibility getVisibility() {
+    return xml.getVisibility();
+  }
+
+  @Override
+  public ImmutableList<Reference> getReferencedResources() {
+    return xml.getReferencedResources();
   }
 }

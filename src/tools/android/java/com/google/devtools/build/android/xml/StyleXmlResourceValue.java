@@ -13,10 +13,12 @@
 // limitations under the License.
 package com.google.devtools.build.android.xml;
 
+import com.android.aapt.Resources.Reference;
 import com.android.aapt.Resources.Style;
 import com.android.aapt.Resources.Value;
 import com.google.common.base.Function;
 import com.google.common.base.MoreObjects;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.android.AndroidDataWritingVisitor;
 import com.google.devtools.build.android.AndroidDataWritingVisitor.ValuesResourceDefinition;
@@ -66,11 +68,15 @@ public class StyleXmlResourceValue implements XmlResourceValue {
       };
 
   private final Visibility visibility;
+  private final Style style;
+  // TODO(b/112848607): remove parent/values in favor of "style" above, or replace the Strings with
+  // stronger types.
   private final String parent;
   private final ImmutableMap<String, String> values;
 
   public static StyleXmlResourceValue of(String parent, Map<String, String> values) {
-    return new StyleXmlResourceValue(Visibility.UNKNOWN, parent, ImmutableMap.copyOf(values));
+    return new StyleXmlResourceValue(
+        Visibility.UNKNOWN, Style.getDefaultInstance(), parent, ImmutableMap.copyOf(values));
   }
 
   @SuppressWarnings("deprecation")
@@ -92,12 +98,16 @@ public class StyleXmlResourceValue implements XmlResourceValue {
 
     Map<String, String> items = itemMapFromProto(style);
 
-    return new StyleXmlResourceValue(visibility, parent, ImmutableMap.copyOf(items));
+    return new StyleXmlResourceValue(visibility, style, parent, ImmutableMap.copyOf(items));
   }
 
   private StyleXmlResourceValue(
-      Visibility visibility, @Nullable String parent, ImmutableMap<String, String> values) {
+      Visibility visibility,
+      Style style,
+      @Nullable String parent,
+      ImmutableMap<String, String> values) {
     this.visibility = visibility;
+    this.style = style;
     this.parent = parent;
     this.values = values;
   }
@@ -188,6 +198,7 @@ public class StyleXmlResourceValue implements XmlResourceValue {
     StyleXmlResourceValue other = (StyleXmlResourceValue) obj;
     return Objects.equals(visibility, other.visibility)
         && Objects.equals(parent, other.parent)
+        // TODO(b/112848607): include the "style" proto in comparison; right now it's redundant.
         && Objects.equals(values, other.values);
   }
 
@@ -212,5 +223,25 @@ public class StyleXmlResourceValue implements XmlResourceValue {
   @Override
   public String asConflictStringWith(DataSource source) {
     return source.asConflictString();
+  }
+
+  @Override
+  public Visibility getVisibility() {
+    return visibility;
+  }
+
+  @Override
+  public ImmutableList<Reference> getReferencedResources() {
+    ImmutableList.Builder<Reference> result = ImmutableList.builder();
+    if (style.hasParent()) {
+      result.add(style.getParent());
+    }
+    for (Style.Entry entry : style.getEntryList()) {
+      result.add(entry.getKey());
+      if (entry.getItem().hasRef()) {
+        result.add(entry.getItem().getRef());
+      }
+    }
+    return result.build();
   }
 }

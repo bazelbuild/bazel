@@ -18,6 +18,7 @@ import static com.google.common.base.Predicates.not;
 
 import com.android.aapt.Resources.Attribute;
 import com.android.aapt.Resources.Attribute.Symbol;
+import com.android.aapt.Resources.Reference;
 import com.android.aapt.Resources.Value;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.MoreObjects;
@@ -816,5 +817,15 @@ public final class AttrXmlResourceValue implements XmlResourceValue {
     return String.format(
         "%s [format(s): %s], [weak: %s]",
         source.asConflictString(), String.join("|", this.formats.keySet()), weak);
+  }
+
+  @Override
+  public Visibility getVisibility() {
+    return visibility;
+  }
+
+  @Override
+  public ImmutableList<Reference> getReferencedResources() {
+    return ImmutableList.of();
   }
 }

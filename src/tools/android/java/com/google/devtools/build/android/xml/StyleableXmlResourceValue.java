@@ -13,11 +13,13 @@
 // limitations under the License.
 package com.google.devtools.build.android.xml;
 
+import com.android.aapt.Resources.Reference;
 import com.android.aapt.Resources.Styleable;
 import com.android.aapt.Resources.Value;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Function;
 import com.google.common.base.MoreObjects;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.android.AndroidCompiledDataDeserializer.ReferenceResolver;
@@ -83,11 +85,15 @@ public class StyleableXmlResourceValue implements XmlResourceValue {
           };
 
   private final Visibility visibility;
-  private final ImmutableMap<FullyQualifiedName, Boolean> attrs;
+  private final Styleable styleable;
+  // TODO(b/145837824,b/112848607): change to a set, if not removing this outright.  Per the Javadoc
+  // for this class, the "should inline" bit is used to mimic how AAPT1 assigns IDs.
+  private final ImmutableMap<FullyQualifiedName, /*shouldInline=*/ Boolean> attrs;
 
   private StyleableXmlResourceValue(
-      Visibility visibility, ImmutableMap<FullyQualifiedName, Boolean> attrs) {
+      Visibility visibility, Styleable styleable, ImmutableMap<FullyQualifiedName, Boolean> attrs) {
     this.visibility = visibility;
+    this.styleable = styleable;
     this.attrs = attrs;
   }
 
@@ -111,11 +117,13 @@ public class StyleableXmlResourceValue implements XmlResourceValue {
   }
 
   public static XmlResourceValue of(Map<FullyQualifiedName, Boolean> attrs) {
-    return new StyleableXmlResourceValue(Visibility.UNKNOWN, ImmutableMap.copyOf(attrs));
+    return new StyleableXmlResourceValue(
+        Visibility.UNKNOWN, Styleable.getDefaultInstance(), ImmutableMap.copyOf(attrs));
   }
 
   public static XmlResourceValue of(Visibility visibility, Map<FullyQualifiedName, Boolean> attrs) {
-    return new StyleableXmlResourceValue(visibility, ImmutableMap.copyOf(attrs));
+    return new StyleableXmlResourceValue(
+        visibility, Styleable.getDefaultInstance(), ImmutableMap.copyOf(attrs));
   }
 
   @Override
@@ -186,7 +194,7 @@ public class StyleableXmlResourceValue implements XmlResourceValue {
       }
     }
 
-    return of(visibility, ImmutableMap.copyOf(attributes));
+    return new StyleableXmlResourceValue(visibility, styleable, ImmutableMap.copyOf(attributes));
   }
 
   @Override
@@ -199,6 +207,7 @@ public class StyleableXmlResourceValue implements XmlResourceValue {
     if (!(obj instanceof StyleableXmlResourceValue)) {
       return false;
     }
+    // TODO(b/112848607): include the "styleable" proto in comparison; right now it's redundant.
     StyleableXmlResourceValue other = (StyleableXmlResourceValue) obj;
     return Objects.equals(visibility, other.visibility) && Objects.equals(attrs, other.attrs);
   }
@@ -226,10 +235,10 @@ public class StyleableXmlResourceValue implements XmlResourceValue {
     if (!(value instanceof StyleableXmlResourceValue)) {
       throw new IllegalArgumentException(value + "is not combinable with " + this);
     }
-    StyleableXmlResourceValue styleable = (StyleableXmlResourceValue) value;
+    StyleableXmlResourceValue other = (StyleableXmlResourceValue) value;
     Map<FullyQualifiedName, Boolean> combined = new LinkedHashMap<>();
     combined.putAll(attrs);
-    for (Map.Entry<FullyQualifiedName, Boolean> attr : styleable.attrs.entrySet()) {
+    for (Map.Entry<FullyQualifiedName, Boolean> attr : other.attrs.entrySet()) {
       if (combined.containsKey(attr.getKey())) {
         // if either attr is defined in the styleable, the attr will be defined in the styleable.
         if (attr.getValue() || combined.get(attr.getKey())) {
@@ -243,7 +252,9 @@ public class StyleableXmlResourceValue implements XmlResourceValue {
     }
     // TODO(b/26297204): test that this makes sense and works
     return new StyleableXmlResourceValue(
-        Visibility.merge(visibility, styleable.visibility), ImmutableMap.copyOf(combined));
+        Visibility.merge(visibility, other.visibility),
+        styleable.toBuilder().mergeFrom(other.styleable).build(),
+        ImmutableMap.copyOf(combined));
   }
 
   @Override
@@ -254,5 +265,17 @@ public class StyleableXmlResourceValue implements XmlResourceValue {
   @Override
   public String asConflictStringWith(DataSource source) {
     return source.asConflictString();
+  }
+
+  @Override
+  public Visibility getVisibility() {
+    return visibility;
+  }
+
+  @Override
+  public ImmutableList<Reference> getReferencedResources() {
+    return styleable.getEntryList().stream()
+        .map(entry -> entry.getAttr())
+        .collect(ImmutableList.toImmutableList());
   }
 }

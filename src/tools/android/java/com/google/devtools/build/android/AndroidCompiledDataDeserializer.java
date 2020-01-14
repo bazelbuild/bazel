@@ -32,6 +32,7 @@ import com.android.aapt.Resources.ConfigValue;
 import com.android.aapt.Resources.Package;
 import com.android.aapt.Resources.ResourceTable;
 import com.android.aapt.Resources.Value;
+import com.android.aapt.Resources.XmlNode;
 import com.android.ide.common.resources.configuration.CountryCodeQualifier;
 import com.android.ide.common.resources.configuration.DensityQualifier;
 import com.android.ide.common.resources.configuration.FolderConfiguration;
@@ -286,7 +287,11 @@ public class AndroidCompiledDataDeserializer implements AndroidDataDeserializer 
               // TODO(b/26297204): use visibility from ResourceTable instead of UNKNOWN
               DataResource dataResource =
                   resourceValue.getItem().hasFile()
-                      ? DataValueFile.of(Visibility.UNKNOWN, dataSource, /*fingerprint=*/ null)
+                      ? DataValueFile.of(
+                          Visibility.UNKNOWN,
+                          dataSource,
+                          /*fingerprint=*/ null,
+                          /*rootXmlNode=*/ null)
                       : DataResourceXml.from(
                           resourceValue,
                           Visibility.UNKNOWN,
@@ -528,7 +533,12 @@ public class AndroidCompiledDataDeserializer implements AndroidDataDeserializer 
 
     // TODO(b/26297204): use visibility from ResourceTable instead of UNKNOWN
     consumers.overwritingConsumer.accept(
-        fqn, DataValueFile.of(Visibility.UNKNOWN, dataSource, compiledFileWithData.fingerprint()));
+        fqn,
+        DataValueFile.of(
+            Visibility.UNKNOWN,
+            dataSource,
+            compiledFileWithData.fingerprint(),
+            compiledFileWithData.rootXmlNode()));
 
     for (CompiledFile.Symbol exportedSymbol : compiledFile.getExportedSymbolList()) {
       if (exportedSymbol.getResourceName().startsWith("android:")) {
@@ -628,6 +638,20 @@ public class AndroidCompiledDataDeserializer implements AndroidDataDeserializer 
     consumeResourceTable(dependencyInfo, consumers, resourceTable);
   }
 
+  public Map<DataKey, DataResource> read(DependencyInfo dependencyInfo, Path inPath) {
+    Map<DataKey, DataResource> resources = new LinkedHashMap<>();
+    read(
+        dependencyInfo,
+        inPath,
+        KeyValueConsumers.of(
+            resources::put,
+            resources::put,
+            (key, value) -> {
+              throw new IllegalStateException(String.format("Unexpected asset in %s", inPath));
+            }));
+    return resources;
+  }
+
   @Override
   public void read(DependencyInfo dependencyInfo, Path inPath, KeyValueConsumers consumers) {
     Stopwatch timer = Stopwatch.createStarted();
@@ -721,22 +745,27 @@ public class AndroidCompiledDataDeserializer implements AndroidDataDeserializer 
             long payloadSize = dataInputStream.readLong();
             byte[] headerBytes = readBytesAndSkipPadding(dataInputStream, headerSize);
 
+            CompiledFile compiledFile =
+                CompiledFile.parseFrom(headerBytes, ExtensionRegistry.getEmptyRegistry());
+
             HashCode fingerprint;
+            XmlNode rootXmlNode;
             if (includeFileContentsForValidation) {
               byte[] payloadBytes = readBytesAndSkipPadding(dataInputStream, (int) payloadSize);
               fingerprint = Hashing.goodFastHash(/*minimumBits=*/ 64).hashBytes(payloadBytes);
-              // TODO(b/26297204): verify that XML payloads reference accessible resources
+              rootXmlNode =
+                  compiledFile.getType() == Resources.FileReference.Type.PROTO_XML
+                      ? XmlNode.parseFrom(payloadBytes, ExtensionRegistry.getEmptyRegistry())
+                      : null;
             } else {
               ByteStreams.skipFully(
                   dataInputStream,
                   ((payloadSize + 1) / AAPT_FLAT_FILE_ALIGNMENT) * AAPT_FLAT_FILE_ALIGNMENT);
               fingerprint = null;
+              rootXmlNode = null;
             }
 
-            compiledFiles.add(
-                CompiledFileWithData.create(
-                    CompiledFile.parseFrom(headerBytes, ExtensionRegistry.getEmptyRegistry()),
-                    fingerprint));
+            compiledFiles.add(CompiledFileWithData.create(compiledFile, fingerprint, rootXmlNode));
           }
 
           break; // TODO(b/146528588): remove this line
@@ -832,9 +861,13 @@ public class AndroidCompiledDataDeserializer implements AndroidDataDeserializer 
     @Nullable
     abstract HashCode fingerprint();
 
-    static CompiledFileWithData create(CompiledFile compiledFile, @Nullable HashCode fingerprint) {
+    @Nullable
+    abstract XmlNode rootXmlNode();
+
+    static CompiledFileWithData create(
+        CompiledFile compiledFile, @Nullable HashCode fingerprint, @Nullable XmlNode xmlNode) {
       return new AutoValue_AndroidCompiledDataDeserializer_CompiledFileWithData(
-          compiledFile, fingerprint);
+          compiledFile, fingerprint, xmlNode);
     }
   }
 }
