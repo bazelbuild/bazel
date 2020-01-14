@@ -279,7 +279,8 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
     this.useHeaderModules = useHeaderModules;
     this.ccCompilationContext = ccCompilationContext;
     this.builtinIncludeFiles = builtinIncludeFiles;
-    this.additionalIncludeScanningRoots = ImmutableList.copyOf(additionalIncludeScanningRoots);
+    this.additionalIncludeScanningRoots =
+        Preconditions.checkNotNull(additionalIncludeScanningRoots);
     this.compileCommandLine =
         buildCommandLine(
             sourceFile, coptsFilter, actionName, dotdFile, featureConfiguration, variables);

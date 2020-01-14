@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.syntax;
 
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 
 /** Syntax node for a 'def' statement, which defines a function. */
@@ -25,13 +26,13 @@ public final class DefStatement extends Statement {
 
   DefStatement(
       Identifier identifier,
-      Iterable<Parameter> parameters,
+      ImmutableList<Parameter> parameters,
       FunctionSignature signature,
-      Iterable<Statement> statements) {
+      ImmutableList<Statement> statements) {
     this.identifier = identifier;
-    this.parameters = ImmutableList.copyOf(parameters);
+    this.parameters = Preconditions.checkNotNull(parameters);
     this.signature = signature;
-    this.statements = ImmutableList.copyOf(statements);
+    this.statements = Preconditions.checkNotNull(statements);
   }
 
   @Override

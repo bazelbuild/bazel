@@ -338,7 +338,7 @@ public final class CcCompilationHelper {
   public CcCompilationHelper fromCommon(CcCommon common, ImmutableList<String> additionalCopts) {
     Preconditions.checkNotNull(additionalCopts);
 
-    setCopts(Iterables.concat(common.getCopts(), additionalCopts));
+    setCopts(ImmutableList.copyOf(Iterables.concat(common.getCopts(), additionalCopts)));
     addDefines(common.getDefines());
     addNonTransitiveDefines(common.getNonTransitiveDefines());
     setLooseIncludeDirs(common.getLooseIncludeDirs());
@@ -552,8 +552,8 @@ public final class CcCompilationHelper {
     return ImmutableSet.copyOf(this.compilationUnitSources.values());
   }
 
-  public CcCompilationHelper setCopts(Iterable<String> copts) {
-    this.copts = ImmutableList.copyOf(copts);
+  public CcCompilationHelper setCopts(ImmutableList<String> copts) {
+    this.copts = Preconditions.checkNotNull(copts);
     return this;
   }
 

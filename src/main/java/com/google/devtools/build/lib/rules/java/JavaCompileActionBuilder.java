@@ -433,8 +433,8 @@ public final class JavaCompileActionBuilder {
     return this;
   }
 
-  public JavaCompileActionBuilder setJavacOpts(Iterable<String> copts) {
-    this.javacOpts = ImmutableList.copyOf(copts);
+  public JavaCompileActionBuilder setJavacOpts(ImmutableList<String> copts) {
+    this.javacOpts = Preconditions.checkNotNull(copts);
     return this;
   }
 
@@ -465,8 +465,8 @@ public final class JavaCompileActionBuilder {
     return this;
   }
 
-  public JavaCompileActionBuilder setSourcePathEntries(Iterable<Artifact> sourcePathEntries) {
-    this.sourcePathEntries = ImmutableList.copyOf(sourcePathEntries);
+  public JavaCompileActionBuilder setSourcePathEntries(ImmutableList<Artifact> sourcePathEntries) {
+    this.sourcePathEntries = Preconditions.checkNotNull(sourcePathEntries);
     return this;
   }
 

@@ -49,6 +49,7 @@ import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.exec.RunfilesTreeUpdater;
 import com.google.devtools.build.lib.exec.SingleBuildFileCache;
 import com.google.devtools.build.lib.exec.SpawnActionContextMaps;
+import com.google.devtools.build.lib.exec.local.LocalEnvProvider;
 import com.google.devtools.build.lib.exec.local.LocalExecutionOptions;
 import com.google.devtools.build.lib.exec.local.LocalSpawnRunner;
 import com.google.devtools.build.lib.integration.util.IntegrationMock;
@@ -64,6 +65,7 @@ import com.google.devtools.common.options.OptionsParser;
 import java.io.IOException;
 import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -147,7 +149,15 @@ public class StandaloneSpawnStrategyTest {
                                 execRoot,
                                 localExecutionOptions,
                                 resourceManager,
-                                (env, unusedBinTools, unusedFallbackTempDir) -> env,
+                                new LocalEnvProvider() {
+                                  @Override
+                                  public ImmutableMap<String, String> rewriteLocalEnv(
+                                      Map<String, String> env,
+                                      BinTools binTools,
+                                      String fallbackTmpDir) {
+                                    return ImmutableMap.copyOf(env);
+                                  }
+                                },
                                 BinTools.forIntegrationTesting(directories, ImmutableList.of()),
                                 Mockito.mock(RunfilesTreeUpdater.class)))))),
             ImmutableList.of());

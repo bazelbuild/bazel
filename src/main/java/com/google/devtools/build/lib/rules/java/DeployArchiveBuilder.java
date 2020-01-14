@@ -138,8 +138,8 @@ public class DeployArchiveBuilder {
   }
 
   /** Sets the list of extra lines to add to the archive's MANIFEST.MF file. */
-  public DeployArchiveBuilder setDeployManifestLines(Iterable<String> deployManifestLines) {
-    this.deployManifestLines = ImmutableList.copyOf(deployManifestLines);
+  public DeployArchiveBuilder setDeployManifestLines(ImmutableList<String> deployManifestLines) {
+    this.deployManifestLines = Preconditions.checkNotNull(deployManifestLines);
     return this;
   }
 

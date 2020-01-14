@@ -132,13 +132,13 @@ public final class JavaLibraryHelper {
   }
 
   /** Sets the compiler options. */
-  public JavaLibraryHelper setJavacOpts(Iterable<String> javacOpts) {
-    this.javacOpts = ImmutableList.copyOf(javacOpts);
+  public JavaLibraryHelper setJavacOpts(ImmutableList<String> javacOpts) {
+    this.javacOpts = Preconditions.checkNotNull(javacOpts);
     return this;
   }
 
-  public JavaLibraryHelper setSourcePathEntries(List<Artifact> sourcepathEntries) {
-    this.sourcePathEntries = ImmutableList.copyOf(sourcepathEntries);
+  public JavaLibraryHelper setSourcePathEntries(ImmutableList<Artifact> sourcePathEntries) {
+    this.sourcePathEntries = Preconditions.checkNotNull(sourcePathEntries);
     return this;
   }
 

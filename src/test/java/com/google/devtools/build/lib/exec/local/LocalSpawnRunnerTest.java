@@ -292,9 +292,9 @@ public class LocalSpawnRunnerTest {
 
   private Logger logger;
 
-  private static Map<String, String> keepLocalEnvUnchanged(
+  private static ImmutableMap<String, String> keepLocalEnvUnchanged(
       Map<String, String> env, BinTools binTools, String fallbackTmpDir) {
-    return env;
+    return ImmutableMap.copyOf(env);
   }
 
   @Before

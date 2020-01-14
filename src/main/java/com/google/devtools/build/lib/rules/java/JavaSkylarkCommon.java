@@ -96,7 +96,7 @@ public class JavaSkylarkCommon
             strictDepsMode,
             javaToolchain,
             hostJavabase,
-            sourcepathEntries.getContents(Artifact.class, "sourcepath"),
+            ImmutableList.copyOf(sourcepathEntries.getContents(Artifact.class, "sourcepath")),
             resources.getContents(Artifact.class, "resources"),
             neverlink,
             javaSemantics,

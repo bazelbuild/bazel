@@ -968,10 +968,10 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
     final ImmutableList<Artifact> shardDexZips;
 
     private DexingOutput(
-        Artifact classesDexZip, Artifact javaResourceJar, Iterable<Artifact> shardDexZips) {
+        Artifact classesDexZip, Artifact javaResourceJar, ImmutableList<Artifact> shardDexZips) {
       this.classesDexZip = classesDexZip;
       this.javaResourceJar = javaResourceJar;
-      this.shardDexZips = ImmutableList.copyOf(shardDexZips);
+      this.shardDexZips = Preconditions.checkNotNull(shardDexZips);
     }
   }
 

@@ -1242,7 +1242,7 @@ final class Parser {
     expect(TokenKind.DEF);
     Identifier ident = parseIdent();
     expect(TokenKind.LPAREN);
-    List<Parameter> params = parseParameters();
+    ImmutableList<Parameter> params = parseParameters();
 
     FunctionSignature signature;
     try {
@@ -1255,7 +1255,7 @@ final class Parser {
 
     expect(TokenKind.RPAREN);
     expect(TokenKind.COLON);
-    List<Statement> block = parseSuite();
+    ImmutableList<Statement> block = ImmutableList.copyOf(parseSuite());
     DefStatement stmt = new DefStatement(ident, params, signature, block);
     int end = block.isEmpty() ? token.left : Iterables.getLast(block).getEndOffset();
     return setLocation(stmt, start, end);

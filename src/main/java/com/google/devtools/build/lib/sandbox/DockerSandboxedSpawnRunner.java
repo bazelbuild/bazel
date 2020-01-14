@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.sandbox;
 import build.bazel.remote.execution.v2.Platform;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.MoreCollectors;
 import com.google.common.eventbus.Subscribe;
@@ -51,7 +52,6 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
@@ -213,7 +213,7 @@ final class DockerSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
     sandboxExecRoot.getParentDirectory().createDirectory();
     sandboxExecRoot.createDirectory();
 
-    Map<String, String> environment =
+    ImmutableMap<String, String> environment =
         localEnvProvider.rewriteLocalEnv(spawn.getEnvironment(), binTools, "/tmp");
 
     SandboxOutputs outputs = SandboxHelpers.getOutputs(spawn);

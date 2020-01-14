@@ -73,7 +73,6 @@ import com.google.devtools.build.lib.rules.java.JavaUtil;
 import com.google.devtools.build.lib.rules.java.proto.GeneratedExtensionRegistryProvider;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import java.util.Collection;
 import java.util.List;
 
 /**
@@ -823,7 +822,7 @@ public class AndroidCommon {
 
   static CcInfo getCcInfo(
       final Iterable<? extends TransitiveInfoCollection> deps,
-      final Collection<String> linkOpts,
+      final ImmutableList<String> linkOpts,
       Label label,
       SymbolGenerator<?> symbolGenerator) {
 

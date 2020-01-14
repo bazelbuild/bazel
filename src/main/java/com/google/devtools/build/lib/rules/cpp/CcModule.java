@@ -1681,7 +1681,9 @@ public abstract class CcModule
                     .collect(ImmutableList.toImmutableList()))
             .addDefines(defines.getContents(String.class, "defines"))
             .addNonTransitiveDefines(localDefines.getContents(String.class, "local_defines"))
-            .setCopts(userCompileFlags.getContents(String.class, "user_compile_flags"))
+            .setCopts(
+                ImmutableList.copyOf(
+                    userCompileFlags.getContents(String.class, "user_compile_flags")))
             .addAdditionalCompilationInputs(headersForClifDoNotUseThisParam)
             .addAdditionalCompilationInputs(
                 additionalInputs.getContents(Artifact.class, "additional_inputs"))

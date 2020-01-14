@@ -898,19 +898,19 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
    */
   @VisibleForTesting
   static class CommandLineOptions {
-    private final List<String> startupArgs;
-    private final List<String> otherArgs;
+    private final ImmutableList<String> startupArgs;
+    private final ImmutableList<String> otherArgs;
 
-    CommandLineOptions(List<String> startupArgs, List<String> otherArgs) {
-      this.startupArgs = ImmutableList.copyOf(startupArgs);
-      this.otherArgs = ImmutableList.copyOf(otherArgs);
+    CommandLineOptions(ImmutableList<String> startupArgs, ImmutableList<String> otherArgs) {
+      this.startupArgs = Preconditions.checkNotNull(startupArgs);
+      this.otherArgs = Preconditions.checkNotNull(otherArgs);
     }
 
-    public List<String> getStartupArgs() {
+    public ImmutableList<String> getStartupArgs() {
       return startupArgs;
     }
 
-    public List<String> getOtherArgs() {
+    public ImmutableList<String> getOtherArgs() {
       return otherArgs;
     }
   }
@@ -957,7 +957,8 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
         }
       }
     }
-    return new CommandLineOptions(startupArgs, otherArgs);
+    return new CommandLineOptions(
+        ImmutableList.copyOf(startupArgs), ImmutableList.copyOf(otherArgs));
   }
 
   private static InterruptSignalHandler captureSigint() {

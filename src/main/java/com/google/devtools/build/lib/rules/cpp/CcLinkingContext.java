@@ -52,8 +52,8 @@ public class CcLinkingContext implements CcLinkingContextApi<Artifact> {
     private final ImmutableList<String> linkOptions;
     private final Object symbolForEquality;
 
-    private LinkOptions(Iterable<String> linkOptions, Object symbolForEquality) {
-      this.linkOptions = ImmutableList.copyOf(linkOptions);
+    private LinkOptions(ImmutableList<String> linkOptions, Object symbolForEquality) {
+      this.linkOptions = Preconditions.checkNotNull(linkOptions);
       this.symbolForEquality = Preconditions.checkNotNull(symbolForEquality);
     }
 
@@ -61,7 +61,8 @@ public class CcLinkingContext implements CcLinkingContextApi<Artifact> {
       return linkOptions;
     }
 
-    public static LinkOptions of(Iterable<String> linkOptions, SymbolGenerator<?> symbolGenerator) {
+    public static LinkOptions of(
+        ImmutableList<String> linkOptions, SymbolGenerator<?> symbolGenerator) {
       return new LinkOptions(linkOptions, symbolGenerator.generate());
     }
 

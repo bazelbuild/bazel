@@ -230,7 +230,7 @@ final class JavaInfoBuildHelper {
       String strictDepsMode,
       JavaToolchainProvider javaToolchain,
       JavaRuntimeInfo hostJavabase,
-      List<Artifact> sourcepathEntries,
+      ImmutableList<Artifact> sourcepathEntries,
       List<Artifact> resources,
       Boolean neverlink,
       JavaSemantics javaSemantics,
