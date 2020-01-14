@@ -32,7 +32,6 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import javax.annotation.Nullable;
-import org.apache.commons.lang.StringEscapeUtils;
 
 /**
  * An abstract base class for Starlark values that have fields, have to_json and to_proto methods,
@@ -271,9 +270,7 @@ public abstract class StructImpl implements Info, ClassObject, StructApi {
       for (String field : ((ClassObject) value).getFieldNames()) {
         sb.append(join);
         join = ",";
-        sb.append("\"");
-        sb.append(field);
-        sb.append("\":");
+        jsonEscapeString(sb, field);
         printJson(((ClassObject) value).getValue(field), sb, "struct field", field);
       }
       sb.append("}");
@@ -290,9 +287,7 @@ public abstract class StructImpl implements Info, ClassObject, StructApi {
               container,
               key != null ? " '" + key + "'" : "");
         }
-        sb.append("\"");
-        sb.append(StringEscapeUtils.escapeJava(String.valueOf(entry.getKey())));
-        sb.append("\":");
+        jsonEscapeString(sb, (String) entry.getKey());
         printJson(entry.getValue(), sb, "dict value", String.valueOf(entry.getKey()));
       }
       sb.append("}");
@@ -306,9 +301,7 @@ public abstract class StructImpl implements Info, ClassObject, StructApi {
       }
       sb.append("]");
     } else if (value instanceof String) {
-      sb.append("\"");
-      sb.append(jsonEscapeString((String) value));
-      sb.append("\"");
+      jsonEscapeString(sb, (String) value);
     } else if (value instanceof Integer || value instanceof Boolean) {
       sb.append(value);
     } else {
@@ -319,10 +312,12 @@ public abstract class StructImpl implements Info, ClassObject, StructApi {
     }
   }
 
-  private static String jsonEscapeString(String string) {
-    return escapeDoubleQuotesAndBackslashesAndNewlines(string)
+  private void jsonEscapeString(StringBuilder stringBuilder, String string) {
+    stringBuilder.append("\"");
+    stringBuilder.append(escapeDoubleQuotesAndBackslashesAndNewlines(string)
         .replace("\r", "\\r")
-        .replace("\t", "\\t");
+        .replace("\t", "\\t"));
+    stringBuilder.append("\"");
   }
 
   @Override
