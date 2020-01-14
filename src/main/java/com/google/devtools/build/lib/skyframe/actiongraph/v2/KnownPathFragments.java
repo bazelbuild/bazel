@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.skyframe.actiongraph.v2;
 
 import com.google.devtools.build.lib.analysis.AnalysisProtosV2;
-import com.google.devtools.build.lib.analysis.AnalysisProtosV2.ActionGraphComponent;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
 
@@ -42,9 +41,7 @@ public class KnownPathFragments extends BaseCache<PathFragment, AnalysisProtosV2
 
   @Override
   void streamToOutput(AnalysisProtosV2.PathFragment pathFragmentProto) throws IOException {
-    ActionGraphComponent message =
-        ActionGraphComponent.newBuilder().setPathFragment(pathFragmentProto).build();
-    streamedOutputHandler.printActionGraphComponent(message);
+    streamedOutputHandler.printPathFragment(pathFragmentProto);
   }
 
   private static boolean hasParent(PathFragment pathFragment) {

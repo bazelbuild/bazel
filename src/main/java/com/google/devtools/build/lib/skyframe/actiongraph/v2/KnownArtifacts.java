@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.skyframe.actiongraph.v2;
 
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.AnalysisProtosV2;
-import com.google.devtools.build.lib.analysis.AnalysisProtosV2.ActionGraphComponent;
 import java.io.IOException;
 
 /** Cache for Artifacts in the action graph. */
@@ -41,8 +40,6 @@ public class KnownArtifacts extends BaseCache<Artifact, AnalysisProtosV2.Artifac
 
   @Override
   void streamToOutput(AnalysisProtosV2.Artifact artifactProto) throws IOException {
-    ActionGraphComponent message =
-        ActionGraphComponent.newBuilder().setArtifact(artifactProto).build();
-    streamedOutputHandler.printActionGraphComponent(message);
+    streamedOutputHandler.printArtifact(artifactProto);
   }
 }

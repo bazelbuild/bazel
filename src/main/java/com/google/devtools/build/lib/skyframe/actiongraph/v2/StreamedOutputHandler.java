@@ -13,9 +13,17 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe.actiongraph.v2;
 
-import com.google.devtools.build.lib.analysis.AnalysisProtosV2.ActionGraphComponent;
+import com.google.devtools.build.lib.analysis.AnalysisProtosV2.Action;
 import com.google.devtools.build.lib.analysis.AnalysisProtosV2.ActionGraphContainer;
+import com.google.devtools.build.lib.analysis.AnalysisProtosV2.Artifact;
+import com.google.devtools.build.lib.analysis.AnalysisProtosV2.AspectDescriptor;
+import com.google.devtools.build.lib.analysis.AnalysisProtosV2.Configuration;
+import com.google.devtools.build.lib.analysis.AnalysisProtosV2.DepSetOfFiles;
+import com.google.devtools.build.lib.analysis.AnalysisProtosV2.PathFragment;
+import com.google.devtools.build.lib.analysis.AnalysisProtosV2.RuleClass;
+import com.google.devtools.build.lib.analysis.AnalysisProtosV2.Target;
 import com.google.protobuf.CodedOutputStream;
+import com.google.protobuf.Message;
 import com.google.protobuf.util.JsonFormat;
 import java.io.IOException;
 import java.io.PrintStream;
@@ -51,29 +59,58 @@ public class StreamedOutputHandler {
     this.printStream = printStream;
   }
 
+  public void printArtifact(Artifact message) throws IOException {
+    printMessage(message, ActionGraphContainer.ARTIFACTS_FIELD_NUMBER, "artifacts");
+  }
+
+  public void printAction(Action message) throws IOException {
+    printMessage(message, ActionGraphContainer.ACTIONS_FIELD_NUMBER, "actions");
+  }
+
+  public void printTarget(Target message) throws IOException {
+    printMessage(message, ActionGraphContainer.TARGETS_FIELD_NUMBER, "targets");
+  }
+
+  public void printDepSetOfFiles(DepSetOfFiles message) throws IOException {
+    printMessage(message, ActionGraphContainer.DEP_SET_OF_FILES_FIELD_NUMBER, "dep_set_of_files");
+  }
+
+  public void printConfiguration(Configuration message) throws IOException {
+    printMessage(message, ActionGraphContainer.CONFIGURATION_FIELD_NUMBER, "configuration");
+  }
+
+  public void printAspectDescriptor(AspectDescriptor message) throws IOException {
+    printMessage(
+        message, ActionGraphContainer.ASPECT_DESCRIPTORS_FIELD_NUMBER, "aspect_descriptors");
+  }
+
+  public void printRuleClass(RuleClass message) throws IOException {
+    printMessage(message, ActionGraphContainer.RULE_CLASSES_FIELD_NUMBER, "rule_classes");
+  }
+
+  public void printPathFragment(PathFragment message) throws IOException {
+    printMessage(message, ActionGraphContainer.PATH_FRAGMENTS_FIELD_NUMBER, "path_fragments");
+  }
+
   /**
-   * Prints the ActionGraphComponent to the appropriate output channel.
+   * Prints the Message to the appropriate output channel.
    *
    * @param message The message to be printed.
    */
-  public void printActionGraphComponent(ActionGraphComponent message) throws IOException {
+  private void printMessage(Message message, int fieldNumber, String messageLabel)
+      throws IOException {
     switch (outputType) {
       case BINARY:
-        outputStream.writeMessage(
-            ActionGraphContainer.ACTION_GRAPH_COMPONENTS_FIELD_NUMBER, message);
+        outputStream.writeMessage(fieldNumber, message);
         break;
       case TEXT:
-        printStream.print(wrapperActionGraphComponent(message));
+        printStream.print(messageLabel + " {\n" + message + "}\n");
         break;
       case JSON:
         jsonPrinter.appendTo(message, printStream);
         printStream.println();
         break;
     }
-  }
-
-  private static String wrapperActionGraphComponent(ActionGraphComponent message) {
-    return "action_graph_components {\n" + message + "}\n";
   }
 
   /** Called at the end of the query process. */

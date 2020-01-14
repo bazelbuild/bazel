@@ -26,7 +26,6 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CommandAction;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.analysis.AnalysisProtosV2;
-import com.google.devtools.build.lib.analysis.AnalysisProtosV2.ActionGraphComponent;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.actions.ParameterFileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
@@ -237,8 +236,7 @@ public class ActionGraphDump {
   }
 
   private void printToOutput(AnalysisProtosV2.Action actionProto) throws IOException {
-    ActionGraphComponent message = ActionGraphComponent.newBuilder().setAction(actionProto).build();
-    streamedOutputHandler.printActionGraphComponent(message);
+    streamedOutputHandler.printAction(actionProto);
   }
 
   public void dumpAspect(AspectValue aspectValue, ConfiguredTargetValue configuredTargetValue)

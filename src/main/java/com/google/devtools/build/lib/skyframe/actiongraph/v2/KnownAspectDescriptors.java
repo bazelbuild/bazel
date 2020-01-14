@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.skyframe.actiongraph.v2;
 
 import com.google.devtools.build.lib.analysis.AnalysisProtosV2;
-import com.google.devtools.build.lib.analysis.AnalysisProtosV2.ActionGraphComponent;
 import com.google.devtools.build.lib.analysis.AnalysisProtosV2.KeyValuePair;
 import com.google.devtools.build.lib.packages.AspectDescriptor;
 import java.io.IOException;
@@ -46,8 +45,6 @@ public class KnownAspectDescriptors
 
   @Override
   void streamToOutput(AnalysisProtosV2.AspectDescriptor aspectDescriptorProto) throws IOException {
-    ActionGraphComponent message =
-        ActionGraphComponent.newBuilder().setAspectDescriptor(aspectDescriptorProto).build();
-    streamedOutputHandler.printActionGraphComponent(message);
+    streamedOutputHandler.printAspectDescriptor(aspectDescriptorProto);
   }
 }

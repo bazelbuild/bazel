@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.skyframe.actiongraph.v2;
 
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.analysis.AnalysisProtosV2.ActionGraphComponent;
 import com.google.devtools.build.lib.analysis.AnalysisProtosV2.DepSetOfFiles;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetView;
 import java.io.IOException;
@@ -52,8 +51,6 @@ public class KnownNestedSets extends BaseCache<Object, DepSetOfFiles> {
 
   @Override
   void streamToOutput(DepSetOfFiles depSetOfFilesProto) throws IOException {
-    ActionGraphComponent message =
-        ActionGraphComponent.newBuilder().setDepSetOfFiles(depSetOfFilesProto).build();
-    streamedOutputHandler.printActionGraphComponent(message);
+    streamedOutputHandler.printDepSetOfFiles(depSetOfFilesProto);
   }
 }

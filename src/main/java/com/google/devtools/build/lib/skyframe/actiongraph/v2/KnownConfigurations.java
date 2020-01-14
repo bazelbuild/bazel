@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe.actiongraph.v2;
 
-import com.google.devtools.build.lib.analysis.AnalysisProtosV2.ActionGraphComponent;
 import com.google.devtools.build.lib.analysis.AnalysisProtosV2.Configuration;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
@@ -40,8 +39,6 @@ public class KnownConfigurations extends BaseCache<BuildEvent, Configuration> {
 
   @Override
   void streamToOutput(Configuration configurationProto) throws IOException {
-    ActionGraphComponent message =
-        ActionGraphComponent.newBuilder().setConfiguration(configurationProto).build();
-    streamedOutputHandler.printActionGraphComponent(message);
+    streamedOutputHandler.printConfiguration(configurationProto);
   }
 }
