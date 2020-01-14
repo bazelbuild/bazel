@@ -49,7 +49,6 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
 import java.time.Duration;
-import java.util.List;
 import java.util.SortedMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import javax.annotation.Nullable;
@@ -85,18 +84,18 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnActionConte
   }
 
   @Override
-  public List<SpawnResult> exec(Spawn spawn, ActionExecutionContext actionExecutionContext)
-      throws ExecException, InterruptedException {
-    return exec(spawn, actionExecutionContext, null);
-  }
-
-  @Override
   public boolean canExec(Spawn spawn, ActionExecutionContext actionExecutionContext) {
     return spawnRunner.canExec(spawn);
   }
 
   @Override
-  public List<SpawnResult> exec(
+  public ImmutableList<SpawnResult> exec(Spawn spawn, ActionExecutionContext actionExecutionContext)
+      throws ExecException, InterruptedException {
+    return exec(spawn, actionExecutionContext, null);
+  }
+
+  @Override
+  public ImmutableList<SpawnResult> exec(
       Spawn spawn,
       ActionExecutionContext actionExecutionContext,
       @Nullable StopConcurrentSpawns stopConcurrentSpawns)

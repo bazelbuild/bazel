@@ -13,7 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.actions;
 
-import java.util.List;
+import com.google.common.collect.ImmutableList;
 
 /**
  * A context that allows execution of {@link Spawn} instances.
@@ -28,7 +28,7 @@ public interface SpawnActionContext extends ActionContext {
    * further entries for (unsuccessful) retries as well as tree artifact management (which may
    * require additional spawn executions).
    */
-  List<SpawnResult> exec(Spawn spawn, ActionExecutionContext actionExecutionContext)
+  ImmutableList<SpawnResult> exec(Spawn spawn, ActionExecutionContext actionExecutionContext)
       throws ExecException, InterruptedException;
 
   /**

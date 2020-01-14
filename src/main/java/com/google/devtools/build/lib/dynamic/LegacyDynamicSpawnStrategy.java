@@ -139,7 +139,7 @@ public class LegacyDynamicSpawnStrategy implements SpawnActionContext {
   }
 
   @Override
-  public List<SpawnResult> exec(
+  public ImmutableList<SpawnResult> exec(
       final Spawn spawn, final ActionExecutionContext actionExecutionContext)
       throws ExecException, InterruptedException {
     if (options.requireAvailabilityInfo) {
@@ -372,7 +372,7 @@ public class LegacyDynamicSpawnStrategy implements SpawnActionContext {
     }
   }
 
-  private List<SpawnResult> runLocally(
+  private static ImmutableList<SpawnResult> runLocally(
       Spawn spawn,
       ActionExecutionContext actionExecutionContext,
       @Nullable AtomicReference<Class<? extends SpawnActionContext>> outputWriteBarrier)
@@ -394,7 +394,7 @@ public class LegacyDynamicSpawnStrategy implements SpawnActionContext {
         "executorCreated not yet called or no default dynamic_local_strategy set");
   }
 
-  private List<SpawnResult> runRemotely(
+  private static ImmutableList<SpawnResult> runRemotely(
       Spawn spawn,
       ActionExecutionContext actionExecutionContext,
       @Nullable AtomicReference<Class<? extends SpawnActionContext>> outputWriteBarrier)

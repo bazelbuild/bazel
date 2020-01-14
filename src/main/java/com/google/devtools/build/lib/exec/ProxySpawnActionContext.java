@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.exec;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.Spawn;
@@ -41,7 +42,7 @@ public final class ProxySpawnActionContext implements SpawnActionContext {
   }
 
   @Override
-  public List<SpawnResult> exec(Spawn spawn, ActionExecutionContext actionExecutionContext)
+  public ImmutableList<SpawnResult> exec(Spawn spawn, ActionExecutionContext actionExecutionContext)
       throws ExecException, InterruptedException {
     return resolveOne(spawn, actionExecutionContext).exec(spawn, actionExecutionContext);
   }

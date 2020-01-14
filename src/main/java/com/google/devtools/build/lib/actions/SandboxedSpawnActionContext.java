@@ -14,7 +14,7 @@
 
 package com.google.devtools.build.lib.actions;
 
-import java.util.List;
+import com.google.common.collect.ImmutableList;
 import javax.annotation.Nullable;
 
 /**
@@ -49,7 +49,7 @@ public interface SandboxedSpawnActionContext extends SpawnActionContext {
    *     will typically contain one element, but could contain no elements if spawn execution did
    *     not complete, or contain multiple elements if multiple sub-spawns were executed
    */
-  List<SpawnResult> exec(
+  ImmutableList<SpawnResult> exec(
       Spawn spawn,
       ActionExecutionContext actionExecutionContext,
       // TODO(jmmv): Inject an empty lambda instead of allowing this to be null. Need to find a way

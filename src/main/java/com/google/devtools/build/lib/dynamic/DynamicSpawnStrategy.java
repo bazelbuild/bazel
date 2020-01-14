@@ -17,6 +17,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
 import com.google.common.base.Throwables;
+import com.google.common.collect.ImmutableList;
 import com.google.common.io.Files;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
@@ -35,7 +36,6 @@ import com.google.devtools.build.lib.exec.ExecutionPolicy;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.Path;
 import java.io.IOException;
-import java.util.List;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
@@ -120,7 +120,7 @@ public class DynamicSpawnStrategy implements SpawnActionContext {
    *     us
    */
   private static void stopBranch(
-      Future<List<SpawnResult>> branch,
+      Future<ImmutableList<SpawnResult>> branch,
       Semaphore branchDone,
       String cancellingStrategy,
       AtomicReference<String> strategyThatCancelled)
@@ -156,7 +156,7 @@ public class DynamicSpawnStrategy implements SpawnActionContext {
    * @throws InterruptedException if we get interrupted while waiting for completion
    */
   @Nullable
-  private static List<SpawnResult> waitBranch(Future<List<SpawnResult>> branch)
+  private static ImmutableList<SpawnResult> waitBranch(Future<ImmutableList<SpawnResult>> branch)
       throws ExecException, InterruptedException {
     try {
       return branch.get();
@@ -201,10 +201,10 @@ public class DynamicSpawnStrategy implements SpawnActionContext {
    * @throws ExecException the execution error of the spawn that terminated first
    * @throws InterruptedException if we get interrupted while waiting for completion
    */
-  private static List<SpawnResult> waitBranches(
-      Future<List<SpawnResult>> branch1, Future<List<SpawnResult>> branch2)
+  private static ImmutableList<SpawnResult> waitBranches(
+      Future<ImmutableList<SpawnResult>> branch1, Future<ImmutableList<SpawnResult>> branch2)
       throws ExecException, InterruptedException {
-    List<SpawnResult> result1;
+    ImmutableList<SpawnResult> result1;
     try {
       result1 = waitBranch(branch1);
     } catch (ExecException | InterruptedException | RuntimeException e) {
@@ -212,7 +212,7 @@ public class DynamicSpawnStrategy implements SpawnActionContext {
       throw e;
     }
 
-    List<SpawnResult> result2 = waitBranch(branch2);
+    ImmutableList<SpawnResult> result2 = waitBranch(branch2);
 
     if (result2 != null && result1 != null) {
       throw new AssertionError("One branch did not cancel the other one");
@@ -226,7 +226,7 @@ public class DynamicSpawnStrategy implements SpawnActionContext {
   }
 
   @Override
-  public List<SpawnResult> exec(
+  public ImmutableList<SpawnResult> exec(
       final Spawn spawn, final ActionExecutionContext actionExecutionContext)
       throws ExecException, InterruptedException {
     ExecutionPolicy executionPolicy = getExecutionPolicy.apply(spawn);
@@ -243,16 +243,16 @@ public class DynamicSpawnStrategy implements SpawnActionContext {
     Semaphore remoteDone = new Semaphore(0);
 
     AtomicReference<String> strategyThatCancelled = new AtomicReference<>(null);
-    SettableFuture<List<SpawnResult>> remoteBranch = SettableFuture.create();
+    SettableFuture<ImmutableList<SpawnResult>> remoteBranch = SettableFuture.create();
 
     AtomicBoolean localCanReportDone = new AtomicBoolean(false);
     AtomicBoolean remoteCanReportDone = new AtomicBoolean(false);
 
-    ListenableFuture<List<SpawnResult>> localBranch =
+    ListenableFuture<ImmutableList<SpawnResult>> localBranch =
         executorService.submit(
             new Branch("local", actionExecutionContext) {
               @Override
-              List<SpawnResult> callImpl(ActionExecutionContext context)
+              ImmutableList<SpawnResult> callImpl(ActionExecutionContext context)
                   throws InterruptedException, ExecException {
                 try {
                   if (!localCanReportDone.compareAndSet(false, true)) {
@@ -288,7 +288,7 @@ public class DynamicSpawnStrategy implements SpawnActionContext {
         executorService.submit(
             new Branch("remote", actionExecutionContext) {
               @Override
-              public List<SpawnResult> callImpl(ActionExecutionContext context)
+              public ImmutableList<SpawnResult> callImpl(ActionExecutionContext context)
                   throws InterruptedException, ExecException {
                 try {
                   if (!remoteCanReportDone.compareAndSet(false, true)) {
@@ -297,7 +297,7 @@ public class DynamicSpawnStrategy implements SpawnActionContext {
                     checkState(Thread.interrupted());
                     throw new InterruptedException();
                   }
-                  List<SpawnResult> spawnResults =
+                  ImmutableList<SpawnResult> spawnResults =
                       runRemotely(
                           spawn,
                           context,
@@ -359,7 +359,7 @@ public class DynamicSpawnStrategy implements SpawnActionContext {
         outDir.getChild(outBaseName + suffix), errDir.getChild(errBaseName + suffix));
   }
 
-  private List<SpawnResult> runLocally(
+  private static ImmutableList<SpawnResult> runLocally(
       Spawn spawn,
       ActionExecutionContext actionExecutionContext,
       @Nullable StopConcurrentSpawns stopConcurrentSpawns)
@@ -376,7 +376,7 @@ public class DynamicSpawnStrategy implements SpawnActionContext {
         "executorCreated not yet called or no default dynamic_local_strategy set");
   }
 
-  private List<SpawnResult> runRemotely(
+  private static ImmutableList<SpawnResult> runRemotely(
       Spawn spawn,
       ActionExecutionContext actionExecutionContext,
       @Nullable StopConcurrentSpawns stopConcurrentSpawns)
@@ -397,7 +397,7 @@ public class DynamicSpawnStrategy implements SpawnActionContext {
    * Wraps the execution of a function that is supposed to execute a spawn via a strategy and only
    * updates the stdout/stderr files if this spawn succeeds.
    */
-  private abstract static class Branch implements Callable<List<SpawnResult>> {
+  private abstract static class Branch implements Callable<ImmutableList<SpawnResult>> {
     private final String name;
     private final ActionExecutionContext context;
 
@@ -443,7 +443,7 @@ public class DynamicSpawnStrategy implements SpawnActionContext {
      * @throws InterruptedException if the branch was cancelled or an interrupt was caught
      * @throws ExecException if the spawn execution fails
      */
-    abstract List<SpawnResult> callImpl(ActionExecutionContext context)
+    abstract ImmutableList<SpawnResult> callImpl(ActionExecutionContext context)
         throws InterruptedException, ExecException;
 
     /**
@@ -454,10 +454,10 @@ public class DynamicSpawnStrategy implements SpawnActionContext {
      * @throws ExecException if the spawn execution fails
      */
     @Override
-    public final List<SpawnResult> call() throws InterruptedException, ExecException {
+    public final ImmutableList<SpawnResult> call() throws InterruptedException, ExecException {
       FileOutErr fileOutErr = getSuffixedFileOutErr(context.getFileOutErr(), "." + name);
 
-      List<SpawnResult> results = null;
+      ImmutableList<SpawnResult> results = null;
       ExecException exception = null;
       try {
         results = callImpl(context.withFileOutErr(fileOutErr));
