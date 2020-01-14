@@ -687,6 +687,10 @@ message BuildMetrics {
     // --bep_publish_used_heap_size_post_build is set,
     // since it forces a full GC.
     int64 used_heap_size_post_build = 1;
+
+    // Size of the peak JVM heap size in bytes post GC. Note that this reports 0
+    // if there was no major GC during the build.
+    int64 peak_post_gc_heap_size = 2;
   }
   MemoryMetrics memory_metrics = 2;
 

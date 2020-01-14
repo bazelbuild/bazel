@@ -36,6 +36,7 @@ import java.lang.management.GarbageCollectorMXBean;
 import java.lang.management.ManagementFactory;
 import java.lang.management.MemoryUsage;
 import java.util.Map;
+import java.util.Optional;
 import java.util.logging.Logger;
 import javax.management.Notification;
 import javax.management.NotificationEmitter;
@@ -69,7 +70,7 @@ public final class PostGCMemoryUseRecorder implements NotificationListener {
   private static final Logger logger = Logger.getLogger(PostGCMemoryUseRecorder.class.getName());
 
   // Protected by PostGCMemoryUseRecorder's lock.
-  private long peakPostGCHeapMemoryUsed = 0;
+  private Optional<Long> peakPostGCHeapMemoryUsed = Optional.empty();
 
   // Protected by PostGcMemoryUseRecorder's lock. Set to true iff a GarbageCollectionNotification
   // reported that we were using no memory.
@@ -87,7 +88,7 @@ public final class PostGCMemoryUseRecorder implements NotificationListener {
     }
   }
 
-  public synchronized long getPeakPostGCHeapMemoryUsed() {
+  public synchronized Optional<Long> getPeakPostGCHeapMemoryUsed() {
     return peakPostGCHeapMemoryUsed;
   }
 
@@ -96,12 +97,16 @@ public final class PostGCMemoryUseRecorder implements NotificationListener {
   }
 
   public synchronized void reset() {
-    peakPostGCHeapMemoryUsed = 0;
+    peakPostGCHeapMemoryUsed = Optional.empty();
     memoryUsageReportedZero = false;
   }
 
   private synchronized void updatePostGCHeapMemoryUsed(long used) {
-    peakPostGCHeapMemoryUsed = Math.max(used, peakPostGCHeapMemoryUsed);
+    if (peakPostGCHeapMemoryUsed.isPresent()) {
+      peakPostGCHeapMemoryUsed = Optional.of(Math.max(used, peakPostGCHeapMemoryUsed.get()));
+    } else {
+      peakPostGCHeapMemoryUsed = Optional.of(used);
+    }
   }
 
   private synchronized void updateMemoryUsageReportedZero(boolean value) {
@@ -179,9 +184,13 @@ public final class PostGCMemoryUseRecorder implements NotificationListener {
 
     @Override
     public byte[] get(Supplier<BuildConfiguration> configurationSupplier, CommandEnvironment env) {
-      return print(
-          StringUtilities.prettyPrintBytes(
-              PostGCMemoryUseRecorder.get().getPeakPostGCHeapMemoryUsed()));
+      if (PostGCMemoryUseRecorder.get().getPeakPostGCHeapMemoryUsed().isPresent()) {
+        return print(
+            StringUtilities.prettyPrintBytes(
+                PostGCMemoryUseRecorder.get().getPeakPostGCHeapMemoryUsed().get()));
+      } else {
+        return print("unknown");
+      }
     }
   }
 
@@ -221,7 +230,7 @@ public final class PostGCMemoryUseRecorder implements NotificationListener {
 
     @Override
     public void afterCommand() {
-      if (forceGc && PostGCMemoryUseRecorder.get().getPeakPostGCHeapMemoryUsed() == 0L) {
+      if (forceGc && !PostGCMemoryUseRecorder.get().getPeakPostGCHeapMemoryUsed().isPresent()) {
         System.gc();
       }
     }

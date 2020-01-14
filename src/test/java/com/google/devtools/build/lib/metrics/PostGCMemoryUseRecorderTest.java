@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.metrics;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.truth.Truth8.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -130,19 +131,17 @@ public class PostGCMemoryUseRecorderTest {
   }
 
   @Test
-  public void peakHeapStartsAtZero() {
-    PostGCMemoryUseRecorder rec =
-        new PostGCMemoryUseRecorder(new ArrayList<GarbageCollectorMXBean>());
-    assertThat(rec.getPeakPostGCHeapMemoryUsed()).isEqualTo(0L);
+  public void peakHeapStartsAbsent() {
+    PostGCMemoryUseRecorder rec = new PostGCMemoryUseRecorder(new ArrayList<>());
+    assertThat(rec.getPeakPostGCHeapMemoryUsed()).isEmpty();
   }
 
   @Test
-  public void peakHeapZeroAfterReset() {
-    PostGCMemoryUseRecorder rec =
-        new PostGCMemoryUseRecorder(new ArrayList<GarbageCollectorMXBean>());
+  public void peakHeapAbsentAfterReset() {
+    PostGCMemoryUseRecorder rec = new PostGCMemoryUseRecorder(new ArrayList<>());
     rec.handleNotification(createMajorGCNotification(1000L), null);
     rec.reset();
-    assertThat(rec.getPeakPostGCHeapMemoryUsed()).isEqualTo(0);
+    assertThat(rec.getPeakPostGCHeapMemoryUsed()).isEmpty();
   }
 
   @Test
@@ -157,63 +156,58 @@ public class PostGCMemoryUseRecorderTest {
 
     underTest.doHandleNotification(notificationWithNoGcCause, /*handback=*/ null);
 
-    assertThat(underTest.getPeakPostGCHeapMemoryUsed()).isEqualTo(100L);
+    assertThat(underTest.getPeakPostGCHeapMemoryUsed()).hasValue(100L);
   }
 
   @Test
   public void peakHeapIncreasesWhenBigger() {
-    PostGCMemoryUseRecorder rec =
-        new PostGCMemoryUseRecorder(new ArrayList<GarbageCollectorMXBean>());
+    PostGCMemoryUseRecorder rec = new PostGCMemoryUseRecorder(new ArrayList<>());
     rec.handleNotification(createMajorGCNotification(1000L), null);
-    assertThat(rec.getPeakPostGCHeapMemoryUsed()).isEqualTo(1000L);
+    assertThat(rec.getPeakPostGCHeapMemoryUsed()).hasValue(1000L);
     rec.handleNotification(createMajorGCNotification(1001L), null);
-    assertThat(rec.getPeakPostGCHeapMemoryUsed()).isEqualTo(1001L);
+    assertThat(rec.getPeakPostGCHeapMemoryUsed()).hasValue(1001L);
     rec.handleNotification(createMajorGCNotification(2001L), null);
-    assertThat(rec.getPeakPostGCHeapMemoryUsed()).isEqualTo(2001L);
+    assertThat(rec.getPeakPostGCHeapMemoryUsed()).hasValue(2001L);
   }
 
   @Test
   public void peakHeapDoesntDecrease() {
-    PostGCMemoryUseRecorder rec =
-        new PostGCMemoryUseRecorder(new ArrayList<GarbageCollectorMXBean>());
+    PostGCMemoryUseRecorder rec = new PostGCMemoryUseRecorder(new ArrayList<>());
     rec.handleNotification(createMajorGCNotification(1000L), null);
     rec.handleNotification(createMajorGCNotification(500L), null);
-    assertThat(rec.getPeakPostGCHeapMemoryUsed()).isEqualTo(1000L);
+    assertThat(rec.getPeakPostGCHeapMemoryUsed()).hasValue(1000L);
     rec.handleNotification(createMajorGCNotification(999L), null);
-    assertThat(rec.getPeakPostGCHeapMemoryUsed()).isEqualTo(1000L);
+    assertThat(rec.getPeakPostGCHeapMemoryUsed()).hasValue(1000L);
   }
 
   @Test
   public void ignoreNonGCNotification() {
-    PostGCMemoryUseRecorder rec =
-        new PostGCMemoryUseRecorder(new ArrayList<GarbageCollectorMXBean>());
+    PostGCMemoryUseRecorder rec = new PostGCMemoryUseRecorder(new ArrayList<>());
     rec.handleNotification(
         createMockNotification(
             "some other notification", "end of major GC", ImmutableMap.of("Foo", 1000L)),
         null);
-    assertThat(rec.getPeakPostGCHeapMemoryUsed()).isEqualTo(0L);
+    assertThat(rec.getPeakPostGCHeapMemoryUsed()).isEmpty();
   }
 
   @Test
   public void ignoreNonMajorGCNotification() {
-    PostGCMemoryUseRecorder rec =
-        new PostGCMemoryUseRecorder(new ArrayList<GarbageCollectorMXBean>());
+    PostGCMemoryUseRecorder rec = new PostGCMemoryUseRecorder(new ArrayList<>());
     rec.handleNotification(
         createMockNotification(
             GarbageCollectionNotificationInfo.GARBAGE_COLLECTION_NOTIFICATION,
             "end of minor GC",
             ImmutableMap.of("Foo", 1000L)),
         null);
-    assertThat(rec.getPeakPostGCHeapMemoryUsed()).isEqualTo(0L);
+    assertThat(rec.getPeakPostGCHeapMemoryUsed()).isEmpty();
   }
 
   @Test
   public void sumMemUsageInfo() {
-    PostGCMemoryUseRecorder rec =
-        new PostGCMemoryUseRecorder(new ArrayList<GarbageCollectorMXBean>());
+    PostGCMemoryUseRecorder rec = new PostGCMemoryUseRecorder(new ArrayList<>());
     rec.handleNotification(
         createMajorGCNotification(ImmutableMap.of("Foo", 111L, "Bar", 222L, "Qux", 333L)), null);
-    assertThat(rec.getPeakPostGCHeapMemoryUsed()).isEqualTo(666L);
+    assertThat(rec.getPeakPostGCHeapMemoryUsed()).hasValue(666L);
   }
 
   @Test
