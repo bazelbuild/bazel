@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.syntax;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.events.Location;
+import java.util.concurrent.atomic.AtomicReference;
 
 /** Debugger API. */
 // TODO(adonovan): move Debugger to Debug.Debugger.
@@ -24,13 +25,18 @@ public final class Debug {
 
   private Debug() {} // uninstantiable
 
+  static final AtomicReference<Debugger> debugger = new AtomicReference<>();
+
   /**
    * Installs a global hook that causes subsequently executed Starlark threads to notify the
    * debugger of important events. Closes any previously set debugger. Call {@code
    * setDebugger(null)} to disable debugging.
    */
   public static void setDebugger(Debugger dbg) {
-    Eval.setDebugger(dbg);
+    Debugger prev = debugger.getAndSet(dbg);
+    if (prev != null) {
+      prev.close();
+    }
   }
 
   /**

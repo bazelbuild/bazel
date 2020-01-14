@@ -56,7 +56,7 @@ public class StarlarkFileTest {
     //
     // input1.BUILD contains:
     // x = [1,2,'foo',4] + [1,2, "%s%d" % ('foo', 1)]
-    assertThat(thread.moduleLookup("x"))
+    assertThat(thread.getGlobals().lookup("x"))
         .isEqualTo(StarlarkList.of(/*mutability=*/ null, 1, 2, "foo", 4, 1, 2, "foo1"));
   }
 
