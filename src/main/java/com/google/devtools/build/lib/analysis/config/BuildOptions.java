@@ -538,6 +538,12 @@ public final class BuildOptions implements Cloneable, Serializable {
       return starlarkOptions.containsKey(key);
     }
 
+    /** Removes the value for the {@link FragmentOptions} with the given FragmentOptions class. */
+    public Builder removeFragmentOptions(Class<? extends FragmentOptions> key) {
+      fragmentOptions.remove(key);
+      return this;
+    }
+
     /** Removes the value for the Starlark option with the given key. */
     public Builder removeStarlarkOption(Label key) {
       starlarkOptions.remove(key);
