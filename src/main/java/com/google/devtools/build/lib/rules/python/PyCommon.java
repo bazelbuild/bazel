@@ -665,7 +665,9 @@ public final class PyCommon {
       return false;
     }
     String errorTemplate =
-        "This target is being built for Python %s but (transitively) includes Python %s-only "
+        ruleContext.getLabel()
+            + ": "
+            + "This target is being built for Python %s but (transitively) includes Python %s-only "
             + "sources. You can get diagnostic information about which dependencies introduce this "
             + "version requirement by running the `find_requirements` aspect. For more info see "
             + "the documentation for the `srcs_version` attribute: "

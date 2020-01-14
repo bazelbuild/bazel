@@ -66,6 +66,14 @@ public class PyBinaryConfiguredTargetTest extends PyExecutableConfiguredTargetTe
   }
 
   @Test
+  public void pythonWithIncompatibleSrcsNewSemanticsErrorMessageContainsLabel() throws Exception {
+    useConfiguration("--incompatible_allow_python_version_transitions=true");
+    declareBinDependingOnLibWithVersions("PY2", "PY3");
+    assertThat(getPyExecutableDeferredError("//pkg:bin"))
+        .startsWith("//pkg:bin: This target is being built for Python 2 but");
+  }
+
+  @Test
   public void python2WithPy3OnlySrcsVersionDependency_OldSemantics() throws Exception {
     reporter.removeHandler(failFastHandler); // expect errors
     useConfiguration("--incompatible_allow_python_version_transitions=false");
