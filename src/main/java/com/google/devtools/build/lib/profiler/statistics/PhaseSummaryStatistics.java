@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.profiler.statistics;
 
 import com.google.devtools.build.lib.profiler.ProfilePhase;
 import com.google.devtools.build.lib.profiler.analysis.ProfileInfo;
+import java.time.Duration;
 import java.util.EnumMap;
 import java.util.Iterator;
 import java.util.NoSuchElementException;
@@ -48,6 +49,12 @@ public final class PhaseSummaryStatistics implements Iterable<ProfilePhase> {
         durations.put(phase, phaseDuration);
       }
     }
+  }
+
+  /** Add a single profile phase. */
+  public void addProfilePhase(ProfilePhase phase, Duration duration) {
+    totalDurationNanos += duration.toNanos();
+    durations.put(phase, duration.toNanos());
   }
 
   /** @return whether the given {@link ProfilePhase} was executed */

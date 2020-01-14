@@ -36,4 +36,13 @@ public enum ProfilePhase {
     this.nick = nick;
     this.description = description;
   }
+
+  public static ProfilePhase getPhaseFromDescription(String description) {
+    for (ProfilePhase profilePhase : ProfilePhase.values()) {
+      if (profilePhase.description.equals(description)) {
+        return profilePhase;
+      }
+    }
+    return null;
+  }
 }

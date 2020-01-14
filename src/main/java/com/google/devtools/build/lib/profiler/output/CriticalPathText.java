@@ -13,7 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.profiler.output;
 
-import com.google.devtools.build.lib.profiler.analysis.ProfileInfo.Task;
+import com.google.devtools.build.lib.profiler.TraceEvent;
 import com.google.devtools.build.lib.profiler.statistics.CriticalPathStatistics;
 import com.google.devtools.build.lib.util.TimeUtilities;
 import java.io.PrintStream;
@@ -35,16 +35,15 @@ public final class CriticalPathText extends TextPrinter {
   public void printCriticalPaths() {
     long totalPathTimeNanos = criticalPathStats.getTotalDuration().toNanos();
     lnPrintf("%s (%s):", "Critical path", TimeUtilities.prettyTime(totalPathTimeNanos));
-    lnPrintf("%6s %11s %8s   %s", "Id", "Time", "Percentage", "Description");
+    lnPrintf("%11s %8s   %s", "Time", "Percentage", "Description");
 
-    for (Task pathEntry : criticalPathStats.getCriticalPathEntries()) {
-      String desc = pathEntry.getDescription().replace(':', ' ');
+    for (TraceEvent traceEvent : criticalPathStats.getCriticalPathEntries()) {
+      String description = traceEvent.name().replace(':', ' ');
       lnPrintf(
-          "%6d %11s %8s   %s",
-          pathEntry.id,
-          TimeUtilities.prettyTime(pathEntry.durationNanos),
-          prettyPercentage((double) pathEntry.durationNanos / totalPathTimeNanos),
-          desc);
+          "%11s %8s   %s",
+          TimeUtilities.prettyTime(traceEvent.duration().toNanos()),
+          prettyPercentage((double) traceEvent.duration().toNanos() / totalPathTimeNanos),
+          description);
     }
   }
 }

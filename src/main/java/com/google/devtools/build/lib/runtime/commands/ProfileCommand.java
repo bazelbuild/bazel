@@ -17,6 +17,8 @@ import com.google.common.base.Joiner;
 import com.google.common.base.Optional;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.events.Reporter;
+import com.google.devtools.build.lib.profiler.JsonProfile;
 import com.google.devtools.build.lib.profiler.ProfilePhase;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.analysis.ProfileInfo;
@@ -40,7 +42,10 @@ import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParsingResult;
 import java.io.BufferedOutputStream;
+import java.io.File;
+import java.io.FileInputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.PrintStream;
 import java.util.EnumMap;
 
@@ -92,51 +97,100 @@ public final class ProfileCommand implements BlazeCommand {
     };
   }
 
+  /**
+   * Note that this is just a basic check whether the file is zlib compressed.
+   *
+   * <p>Other checks (e.g. the magic bytes of the binary profile file) are done later.
+   */
+  private static boolean isOldBinaryProfile(File profile) {
+    try (InputStream inputStream = new FileInputStream(profile)) {
+      byte[] magicBytes = new byte[2];
+      int numBytesRead = inputStream.read(magicBytes);
+      if (numBytesRead == 2
+          && magicBytes[0] == (byte) 0x78
+          && (magicBytes[1] == (byte) 0x01
+              || magicBytes[1] == (byte) 0x9C
+              || magicBytes[1] == (byte) 0xDA)) {
+        return true;
+      }
+    } catch (Exception e) {
+      // silently ignore any exception
+    }
+    return false;
+  }
+
   @Override
   public BlazeCommandResult exec(final CommandEnvironment env, OptionsParsingResult options) {
-    ProfileOptions opts =
-        options.getOptions(ProfileOptions.class);
+    ProfileOptions profileOptions = options.getOptions(ProfileOptions.class);
+    String dumpMode = profileOptions.dumpMode;
 
     try (PrintStream out = getOutputStream(env)) {
-      env.getReporter()
-          .handle(
+      Reporter reporter = env.getReporter();
+      InfoListener infoListener = getInfoListener(env);
+
+      reporter.handle(
+          Event.warn(
+              "This information is intended for consumption by Bazel developers"
+                  + " only, and may change at any time. Script against it at your own risk"));
+      for (String name : options.getResidue()) {
+        Path profileFile = env.getWorkingDirectory().getRelative(name);
+        if (isOldBinaryProfile(profileFile.getPathFile())) {
+          BlazeCommandResult commandResult =
+              handleOldBinaryProfile(env, dumpMode, out, profileFile, infoListener);
+          if (commandResult != null) {
+            return commandResult;
+          }
+          reporter.handle(
               Event.warn(
-                  null,
-                  "This information is intended for consumption by Bazel developers"
-                      + " only, and may change at any time. Script against it at your own risk"));
-        for (String name : options.getResidue()) {
-          Path profileFile = env.getWorkingDirectory().getRelative(name);
+                  "The old binary profile format is deprecated."
+                      + " Use the JSON trace profile instead."));
+        } else {
           try {
-            ProfileInfo info = ProfileInfo.loadProfileVerbosely(profileFile, getInfoListener(env));
-
-          if (opts.dumpMode == null) {
-              ProfileInfo.aggregateProfile(info, getInfoListener(env));
-          } else {
-              dumpProfile(info, out, opts.dumpMode);
-              continue;
-            }
-
-            PhaseSummaryStatistics phaseSummaryStatistics = new PhaseSummaryStatistics(info);
-            EnumMap<ProfilePhase, PhaseStatistics> phaseStatistics =
-                new EnumMap<>(ProfilePhase.class);
-
-            for (ProfilePhase phase : ProfilePhase.values()) {
-            phaseStatistics.put(phase, new PhaseStatistics(phase, info));
-            }
-
-            CriticalPathStatistics critPathStats = new CriticalPathStatistics(info);
-          new PhaseText(out, phaseSummaryStatistics, phaseStatistics, Optional.of(critPathStats))
-              .print();
+            JsonProfile.parseProfileAndDumpStats(
+                env.getReporter(), dumpMode, out, profileFile.getPathFile(), infoListener);
           } catch (IOException e) {
-            System.out.println(e);
-            env
-                .getReporter()
-                .handle(Event.error("Failed to analyze profile file(s): " + e.getMessage()));
             return BlazeCommandResult.exitCode(ExitCode.PARSING_FAILURE);
           }
         }
       }
+    }
     return BlazeCommandResult.exitCode(ExitCode.SUCCESS);
+  }
+
+  private static BlazeCommandResult handleOldBinaryProfile(
+      CommandEnvironment env,
+      String dumpMode,
+      PrintStream out,
+      Path profileFile,
+      InfoListener infoListener) {
+    try {
+      ProfileInfo info = ProfileInfo.loadProfileVerbosely(profileFile, infoListener);
+
+      if (dumpMode != null) {
+        dumpProfile(info, out, dumpMode);
+        return null;
+      }
+
+      ProfileInfo.aggregateProfile(info, infoListener);
+      PhaseSummaryStatistics phaseSummaryStatistics = new PhaseSummaryStatistics(info);
+      EnumMap<ProfilePhase, PhaseStatistics> phaseStatistics = new EnumMap<>(ProfilePhase.class);
+
+      for (ProfilePhase phase : ProfilePhase.values()) {
+        phaseStatistics.put(phase, new PhaseStatistics(phase, info));
+      }
+
+      new PhaseText(
+              out,
+              phaseSummaryStatistics,
+              Optional.of(phaseStatistics),
+              Optional.of(new CriticalPathStatistics(info)))
+          .print();
+    } catch (IOException e) {
+      System.out.println(e);
+      env.getReporter().handle(Event.error("Failed to analyze profile file(s): " + e.getMessage()));
+      return BlazeCommandResult.exitCode(ExitCode.PARSING_FAILURE);
+    }
+    return null;
   }
 
   private static PrintStream getOutputStream(CommandEnvironment env) {
@@ -144,10 +198,8 @@ public final class ProfileCommand implements BlazeCommand {
         new BufferedOutputStream(env.getReporter().getOutErr().getOutputStream()), false);
   }
 
-  /**
-   * Dumps all tasks in the requested format.
-   */
-  private void dumpProfile(ProfileInfo info, PrintStream out, String dumpMode) {
+  /** Dumps all tasks in the requested format. */
+  private static void dumpProfile(ProfileInfo info, PrintStream out, String dumpMode) {
     if (dumpMode.contains("raw")) {
       for (ProfileInfo.Task task : info.allTasksById) {
         dumpRaw(task, out);
@@ -159,10 +211,8 @@ public final class ProfileCommand implements BlazeCommand {
     }
   }
 
-  /**
-   * Dumps the task information and all subtasks.
-   */
-  private void dumpTask(ProfileInfo.Task task, PrintStream out, int indent) {
+  /** Dumps the task information and all subtasks. */
+  private static void dumpTask(ProfileInfo.Task task, PrintStream out, int indent) {
     StringBuilder builder =
         new StringBuilder(
             String.format(
@@ -197,7 +247,7 @@ public final class ProfileCommand implements BlazeCommand {
     }
   }
 
-  private void dumpRaw(ProfileInfo.Task task, PrintStream out) {
+  private static void dumpRaw(ProfileInfo.Task task, PrintStream out) {
     StringBuilder aggregateString = new StringBuilder();
     ProfileInfo.AggregateAttr[] stats = task.getStatAttrArray();
     for (ProfilerTask type : ProfilerTask.values()) {

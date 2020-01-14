@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.profiler.output;
 
 import com.google.common.base.Optional;
+import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.profiler.ProfilePhase;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.statistics.CriticalPathStatistics;
@@ -29,13 +30,13 @@ import java.util.EnumMap;
 public final class PhaseText extends TextPrinter {
 
   private final PhaseSummaryStatistics phaseSummaryStats;
-  private final EnumMap<ProfilePhase, PhaseStatistics> phaseStatistics;
+  private final Optional<EnumMap<ProfilePhase, PhaseStatistics>> phaseStatistics;
   private final Optional<CriticalPathStatistics> criticalPathStatistics;
 
   public PhaseText(
       PrintStream out,
       PhaseSummaryStatistics phaseSummaryStats,
-      EnumMap<ProfilePhase, PhaseStatistics> phaseStatistics,
+      Optional<EnumMap<ProfilePhase, PhaseStatistics>> phaseStatistics,
       Optional<CriticalPathStatistics> critPathStats) {
     super(out);
     this.phaseSummaryStats = phaseSummaryStats;
@@ -46,14 +47,24 @@ public final class PhaseText extends TextPrinter {
   public void print() {
     printPhaseSummaryStatistics();
 
-    for (ProfilePhase phase :
-        Arrays.asList(ProfilePhase.INIT, ProfilePhase.LOAD, ProfilePhase.ANALYZE)) {
-      PhaseStatistics statistics = phaseStatistics.get(phase);
-      if (statistics.wasExecuted()) {
-        printPhaseStatistics(statistics);
+    if (phaseStatistics.isPresent()) {
+      for (ProfilePhase phase :
+          Arrays.asList(ProfilePhase.INIT, ProfilePhase.LOAD, ProfilePhase.ANALYZE)) {
+        PhaseStatistics statistics = phaseStatistics.get().get(phase);
+        if (statistics.wasExecuted()) {
+          printPhaseStatistics(statistics);
+        }
       }
+
+      printExecutionPhaseStatistics();
     }
-    printExecutionPhaseStatistics();
+
+    CriticalPathText criticalPaths = null;
+    if (criticalPathStatistics.isPresent()) {
+      criticalPaths = new CriticalPathText(out, criticalPathStatistics.get());
+      criticalPaths.printCriticalPaths();
+      printLn();
+    }
   }
 
   /**
@@ -100,9 +111,10 @@ public final class PhaseText extends TextPrinter {
   }
 
   private void printExecutionPhaseStatistics() {
-    PhaseStatistics prepPhase = phaseStatistics.get(ProfilePhase.PREPARE);
-    PhaseStatistics execPhase = phaseStatistics.get(ProfilePhase.EXECUTE);
-    PhaseStatistics finishPhase = phaseStatistics.get(ProfilePhase.FINISH);
+    Preconditions.checkArgument(phaseStatistics.isPresent());
+    PhaseStatistics prepPhase = phaseStatistics.get().get(ProfilePhase.PREPARE);
+    PhaseStatistics execPhase = phaseStatistics.get().get(ProfilePhase.EXECUTE);
+    PhaseStatistics finishPhase = phaseStatistics.get().get(ProfilePhase.FINISH);
     if (!execPhase.wasExecuted()) {
       return;
     }
@@ -129,19 +141,8 @@ public final class PhaseText extends TextPrinter {
     printLn();
     lnPrintf(TWO_COLUMN_FORMAT, "Actual execution time", TimeUtilities.prettyTime(execTime));
 
-    CriticalPathText criticalPaths = null;
-    if (criticalPathStatistics.isPresent()) {
-      criticalPaths = new CriticalPathText(out, criticalPathStatistics.get());
-      printLn();
-    }
-
     printTimingDistribution(execPhase);
     printLn();
-
-    if (criticalPathStatistics.isPresent()) {
-      criticalPaths.printCriticalPaths();
-      printLn();
-    }
   }
 
   /**
