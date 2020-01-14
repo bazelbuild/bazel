@@ -270,7 +270,7 @@ public abstract class StructImpl implements Info, ClassObject, StructApi {
       for (String field : ((ClassObject) value).getFieldNames()) {
         sb.append(join);
         join = ",";
-        jsonEscapeString(sb, field, true /* appendColon */);
+        appendJSONStringLiteral(sb, field, true /* appendColon */);
         printJson(((ClassObject) value).getValue(field), sb, "struct field", field);
       }
       sb.append("}");
@@ -287,7 +287,7 @@ public abstract class StructImpl implements Info, ClassObject, StructApi {
               container,
               key != null ? " '" + key + "'" : "");
         }
-        jsonEscapeString(sb, (String) entry.getKey(), true /* appendColon */);
+        appendJSONStringLiteral(sb, (String) entry.getKey(), true /* appendColon */);
         printJson(entry.getValue(), sb, "dict value", String.valueOf(entry.getKey()));
       }
       sb.append("}");
@@ -301,7 +301,7 @@ public abstract class StructImpl implements Info, ClassObject, StructApi {
       }
       sb.append("]");
     } else if (value instanceof String) {
-      jsonEscapeString(sb, (String) value, false /* appendColon */);
+      appendJSONStringLiteral(sb, (String) value, false /* appendColon */);
     } else if (value instanceof Integer || value instanceof Boolean) {
       sb.append(value);
     } else {
@@ -312,11 +312,15 @@ public abstract class StructImpl implements Info, ClassObject, StructApi {
     }
   }
 
-  private void jsonEscapeString(StringBuilder stringBuilder, String string, boolean appendColon) {
-    stringBuilder.append("\"");
-    stringBuilder.append(escapeDoubleQuotesAndBackslashesAndNewlines(string)
+  private void appendJSONStringLiteral(StringBuilder out, String s, boolean appendColon) {
+    out.append('\"');
+    out.append(escapeDoubleQuotesAndBackslashesAndNewlines(s)
         .replace("\r", "\\r")
         .replace("\t", "\\t"));
+    appendEndQuoteAndOptionalColon(out, appendColon);
+  }
+
+  private void appendEndQuoteAndOptionalColon(StringBuilder stringBuilder, boolean appendColon) {
     if (appendColon) {
       stringBuilder.append("\":");
     } else {
