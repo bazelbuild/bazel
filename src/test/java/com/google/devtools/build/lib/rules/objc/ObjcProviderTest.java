@@ -63,7 +63,7 @@ public class ObjcProviderTest {
   @Test
   public void emptyProvider() {
     ObjcProvider empty = objcProviderBuilder().build();
-    assertThat(empty.get(ObjcProvider.SDK_DYLIB)).isEmpty();
+    assertThat(empty.get(ObjcProvider.SDK_DYLIB).toList()).isEmpty();
   }
 
   @Test
@@ -153,7 +153,7 @@ public class ObjcProviderTest {
     ObjcProvider onlyPropagates = objcProviderBuilder()
         .add(ObjcProvider.SDK_DYLIB, "foo")
         .build();
-    assertThat(onlyPropagates.get(ObjcProvider.SDK_DYLIB)).containsExactly("foo");
+    assertThat(onlyPropagates.get(ObjcProvider.SDK_DYLIB).toList()).containsExactly("foo");
   }
 
   @Test
@@ -174,9 +174,9 @@ public class ObjcProviderTest {
             .build();
     ObjcProvider depender = objcProviderBuilder().addTransitiveAndPropagate(provider).build();
 
-    assertThat(provider.get(ObjcProvider.INCLUDE))
+    assertThat(provider.get(ObjcProvider.INCLUDE).toList())
         .containsExactly(strictInclude, propagatedInclude);
-    assertThat(depender.get(ObjcProvider.INCLUDE)).containsExactly(propagatedInclude);
+    assertThat(depender.get(ObjcProvider.INCLUDE).toList()).containsExactly(propagatedInclude);
   }
 
   @Test

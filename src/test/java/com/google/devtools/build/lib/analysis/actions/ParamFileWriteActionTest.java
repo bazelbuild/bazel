@@ -85,7 +85,7 @@ public class ParamFileWriteActionTest extends BuildViewTestCase {
         createParameterFileWriteAction(
             NestedSetBuilder.create(Order.STABLE_ORDER, treeArtifact),
             createTreeArtifactExpansionCommandLineDefault());
-    assertThat(Artifact.toExecPaths(action.getInputs()))
+    assertThat(Artifact.asExecPaths(action.getInputs()))
         .containsExactly("out/artifact/myTreeFileArtifact");
   }
 

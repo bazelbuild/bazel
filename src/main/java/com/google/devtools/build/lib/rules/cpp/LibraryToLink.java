@@ -21,6 +21,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.LibraryToLinkApi;
 import com.google.devtools.build.lib.syntax.Printer;
@@ -268,9 +269,9 @@ public abstract class LibraryToLink implements LibraryToLinkApi<Artifact> {
     return dynamicLibrariesForRuntimeBuilder.build();
   }
 
-  public static List<Artifact> getDynamicLibrariesForLinking(Iterable<LibraryToLink> libraries) {
+  public static List<Artifact> getDynamicLibrariesForLinking(NestedSet<LibraryToLink> libraries) {
     ImmutableList.Builder<Artifact> dynamicLibrariesForLinkingBuilder = ImmutableList.builder();
-    for (LibraryToLink libraryToLink : libraries) {
+    for (LibraryToLink libraryToLink : libraries.toList()) {
       if (libraryToLink.getInterfaceLibrary() != null) {
         dynamicLibrariesForLinkingBuilder.add(libraryToLink.getInterfaceLibrary());
       } else if (libraryToLink.getDynamicLibrary() != null) {

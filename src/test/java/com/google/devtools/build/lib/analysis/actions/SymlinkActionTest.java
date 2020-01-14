@@ -68,7 +68,7 @@ public class SymlinkActionTest extends BuildViewTestCase {
 
   @Test
   public void testInputArtifactIsInput() {
-    Iterable<Artifact> inputs = action.getInputs();
+    Iterable<Artifact> inputs = action.getInputs().toList();
     assertThat(inputs).containsExactly(inputArtifact);
   }
 

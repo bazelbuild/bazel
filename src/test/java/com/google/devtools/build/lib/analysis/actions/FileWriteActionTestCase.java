@@ -80,7 +80,7 @@ public abstract class FileWriteActionTestCase extends BuildViewTestCase {
   }
 
   protected void checkNoInputsByDefault() {
-    assertThat(action.getInputs()).isEmpty();
+    assertThat(action.getInputs().toList()).isEmpty();
     assertThat(action.getPrimaryInput()).isNull();
   }
 

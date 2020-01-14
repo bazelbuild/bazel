@@ -585,7 +585,7 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
       Iterable<? extends TransitiveInfoCollection> deps) {
     NestedSet<LibraryToLink> linkerInputs =
         new NativeLibraryNestedSetBuilder().addJavaTargets(deps).build();
-    return LibraryToLink.getDynamicLibrariesForLinking(linkerInputs.toList());
+    return LibraryToLink.getDynamicLibrariesForLinking(linkerInputs);
   }
 
   private static boolean isJavaTestRule(RuleContext ruleContext) {

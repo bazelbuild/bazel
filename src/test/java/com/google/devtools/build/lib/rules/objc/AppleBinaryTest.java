@@ -368,7 +368,7 @@ public class AppleBinaryTest extends ObjcRuleTestCase {
     SymlinkAction action = (SymlinkAction) lipoBinAction("//x:x");
     CommandAction linkAction = linkAction("//x:x");
 
-    assertThat(action.getInputs())
+    assertThat(action.getInputs().toList())
         .containsExactly(Iterables.getOnlyElement(linkAction.getOutputs()));
   }
 
@@ -1274,7 +1274,7 @@ public class AppleBinaryTest extends ObjcRuleTestCase {
     Action lipoAction = actionProducingArtifact("//examples:bin", "_lipobin");
     ArrayList<String> genfileRoots = new ArrayList<>();
 
-    for (Artifact archBinary : lipoAction.getInputs()) {
+    for (Artifact archBinary : lipoAction.getInputs().toList()) {
       if (archBinary.getExecPathString().endsWith("bin_bin")) {
         Artifact protoLib =
             getFirstArtifactEndingWith(
@@ -1658,7 +1658,7 @@ public class AppleBinaryTest extends ObjcRuleTestCase {
     assertThat(executableBinaryProvider).isNotNull();
 
     CommandAction testLinkAction = linkAction("//test:test");
-    assertThat(testLinkAction.getInputs())
+    assertThat(testLinkAction.getInputs().toList())
         .contains(executableBinaryProvider.getAppleExecutableBinary());
   }
 

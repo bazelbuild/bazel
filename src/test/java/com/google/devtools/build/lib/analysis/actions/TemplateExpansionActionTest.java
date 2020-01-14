@@ -101,7 +101,7 @@ public class TemplateExpansionActionTest extends FoundationTestCase {
 
   @Test
   public void testInputsIsEmpty() {
-    assertThat(create().getInputs()).isEmpty();
+    assertThat(create().getInputs().toList()).isEmpty();
   }
 
   @Test
@@ -219,7 +219,7 @@ public class TemplateExpansionActionTest extends FoundationTestCase {
 
   @Test
   public void testArtifactTemplateHasInput() {
-    assertThat(createWithArtifact().getInputs()).containsExactly(inputArtifact);
+    assertThat(createWithArtifact().getInputs().toList()).containsExactly(inputArtifact);
   }
 
   @Test

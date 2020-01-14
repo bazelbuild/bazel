@@ -443,7 +443,7 @@ public abstract class BuildIntegrationTestCase {
   protected Iterable<Artifact> getArtifacts(String target)
       throws LabelSyntaxException, NoSuchPackageException, NoSuchTargetException,
           InterruptedException, TransitionException, InvalidConfigurationException {
-    return getFilesToBuild(getConfiguredTarget(target));
+    return getFilesToBuild(getConfiguredTarget(target)).toList();
   }
 
   /**
@@ -729,14 +729,13 @@ public abstract class BuildIntegrationTestCase {
   }
 
   /**
-   * Given a collection of Artifacts, returns a corresponding set of strings of
-   * the form "<root> <relpath>", such as "bin x/libx.a".  Such strings make
-   * assertions easier to write.
+   * Given a collection of Artifacts, returns a corresponding set of strings of the form "<root>
+   * <relpath>", such as "bin x/libx.a". Such strings make assertions easier to write.
    *
    * <p>The returned set preserves the order of the input.
    */
-  protected Set<String> artifactsToStrings(Iterable<Artifact> artifacts) {
-    return AnalysisTestUtil.artifactsToStrings(getConfigurationCollection(), artifacts);
+  protected Set<String> artifactsToStrings(NestedSet<Artifact> artifacts) {
+    return AnalysisTestUtil.artifactsToStrings(getConfigurationCollection(), artifacts.toList());
   }
 
   protected ActionsTestUtil actionsTestUtil() {

@@ -107,7 +107,7 @@ public class PyBinaryConfiguredTargetTest extends PyExecutableConfiguredTargetTe
         "    srcs = ['foo.py'])");
     ConfiguredTarget target = getOkPyTarget("//pkg:foo");
     FileConfiguredTarget srcFile = getFileConfiguredTarget("//pkg:foo.py");
-    assertThat(getFilesToBuild(target))
+    assertThat(getFilesToBuild(target).toList())
         .containsExactly(getExecutable(target), srcFile.getArtifact());
     assertThat(getExecutable(target).getExecPath().getPathString())
         .containsMatch(TestConstants.PRODUCT_NAME + "-out/.*/bin/pkg/foo");

@@ -212,7 +212,7 @@ public class CcProtoLibraryTest extends BuildViewTestCase {
                 AspectParameters.EMPTY));
     CcCompilationContext ccCompilationContext =
         target.get(CcInfo.PROVIDER).getCcCompilationContext();
-    assertThat(ccCompilationContext.getDeclaredIncludeSrcs()).containsExactly(headerFile);
+    assertThat(ccCompilationContext.getDeclaredIncludeSrcs().toList()).containsExactly(headerFile);
   }
 
   @Test

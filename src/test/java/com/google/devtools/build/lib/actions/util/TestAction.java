@@ -54,12 +54,13 @@ public class TestAction extends AbstractAction {
     return artifact.getExecPath().getBaseName().endsWith(".optional");
   }
 
-  private static NestedSet<Artifact> mandatoryArtifacts(Iterable<Artifact> inputs) {
-    return NestedSetBuilder.wrap(Order.STABLE_ORDER, Iterables.filter(inputs, a -> !isOptional(a)));
+  private static NestedSet<Artifact> mandatoryArtifacts(NestedSet<Artifact> inputs) {
+    return NestedSetBuilder.wrap(
+        Order.STABLE_ORDER, Iterables.filter(inputs.toList(), a -> !isOptional(a)));
   }
 
-  private static ImmutableList<Artifact> optionalArtifacts(Iterable<Artifact> inputs) {
-    return ImmutableList.copyOf(Iterables.filter(inputs, a -> isOptional(a)));
+  private static ImmutableList<Artifact> optionalArtifacts(NestedSet<Artifact> inputs) {
+    return ImmutableList.copyOf(Iterables.filter(inputs.toList(), a -> isOptional(a)));
   }
 
   protected final Callable<Void> effect;
@@ -78,7 +79,7 @@ public class TestAction extends AbstractAction {
   public TestAction(
       Callable<Void> effect, NestedSet<Artifact> inputs, ImmutableSet<Artifact> outputs) {
     super(NULL_ACTION_OWNER, mandatoryArtifacts(inputs), outputs);
-    this.mandatoryInputs = (NestedSet<Artifact>) getInputs();
+    this.mandatoryInputs = getInputs();
     this.optionalInputs = optionalArtifacts(inputs);
     this.effect = effect;
   }
@@ -110,7 +111,7 @@ public class TestAction extends AbstractAction {
   @Override
   public ActionResult execute(ActionExecutionContext actionExecutionContext)
       throws ActionExecutionException {
-    for (Artifact artifact : getInputs()) {
+    for (Artifact artifact : getInputs().toList()) {
       // Do not check *.optional artifacts - artifacts with such extension are
       // used by tests to specify artifacts that may or may not be missing.
       // This is used, e.g., to test Blaze behavior when action has missing
@@ -144,7 +145,7 @@ public class TestAction extends AbstractAction {
   @Override
   protected void computeKey(ActionKeyContext actionKeyContext, Fingerprint fp) {
     fp.addPaths(Artifact.asSortedPathFragments(getOutputs()));
-    fp.addPaths(Artifact.asSortedPathFragments(getMandatoryInputs()));
+    fp.addPaths(Artifact.asSortedPathFragments(getMandatoryInputs().toList()));
   }
 
   @Override

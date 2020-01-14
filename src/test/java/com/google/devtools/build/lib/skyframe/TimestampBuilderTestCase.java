@@ -489,8 +489,7 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
       ActionResult actionResult = super.execute(actionExecutionContext);
       try {
         FileSystemUtils.copyFile(
-            Iterables.getOnlyElement(getInputs()).getPath(),
-            Iterables.getOnlyElement(getOutputs()).getPath());
+            getInputs().getSingleton().getPath(), Iterables.getOnlyElement(getOutputs()).getPath());
       } catch (IOException e) {
         throw new IllegalStateException(e);
       }
