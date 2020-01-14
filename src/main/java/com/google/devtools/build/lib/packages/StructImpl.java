@@ -270,7 +270,7 @@ public abstract class StructImpl implements Info, ClassObject, StructApi {
       for (String field : ((ClassObject) value).getFieldNames()) {
         sb.append(join);
         join = ",";
-        jsonEscapeString(sb, field);
+        jsonEscapeString(sb, field, true /* appendColon */);
         printJson(((ClassObject) value).getValue(field), sb, "struct field", field);
       }
       sb.append("}");
@@ -287,7 +287,7 @@ public abstract class StructImpl implements Info, ClassObject, StructApi {
               container,
               key != null ? " '" + key + "'" : "");
         }
-        jsonEscapeString(sb, (String) entry.getKey());
+        jsonEscapeString(sb, (String) entry.getKey(), true /* appendColon */);
         printJson(entry.getValue(), sb, "dict value", String.valueOf(entry.getKey()));
       }
       sb.append("}");
@@ -301,7 +301,7 @@ public abstract class StructImpl implements Info, ClassObject, StructApi {
       }
       sb.append("]");
     } else if (value instanceof String) {
-      jsonEscapeString(sb, (String) value);
+      jsonEscapeString(sb, (String) value, false /* appendColon */);
     } else if (value instanceof Integer || value instanceof Boolean) {
       sb.append(value);
     } else {
@@ -312,12 +312,16 @@ public abstract class StructImpl implements Info, ClassObject, StructApi {
     }
   }
 
-  private void jsonEscapeString(StringBuilder stringBuilder, String string) {
+  private void jsonEscapeString(StringBuilder stringBuilder, String string, boolean appendColon) {
     stringBuilder.append("\"");
     stringBuilder.append(escapeDoubleQuotesAndBackslashesAndNewlines(string)
         .replace("\r", "\\r")
         .replace("\t", "\\t"));
-    stringBuilder.append("\":");
+    if (appendColon) {
+      stringBuilder.append("\":");
+    } else {
+      stringBuilder.append("\"");
+    }
   }
 
   @Override
