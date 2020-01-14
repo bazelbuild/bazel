@@ -57,6 +57,10 @@ public class NinjaParser implements DeclarationConsumer {
     while (lexer.hasNextToken() && NinjaToken.NEWLINE.equals(token)) {
       token = lexer.nextToken();
     }
+    if (! lexer.hasNextToken()) {
+      // If fragment contained only newlines.
+      return;
+    }
     int declarationStart = offset + lexer.getLastStart();
     lexer.undo();
     NinjaParserStep parser = new NinjaParserStep(lexer);
@@ -88,11 +92,13 @@ public class NinjaParser implements DeclarationConsumer {
         parseResult.addSubNinjaScope(declarationStart, subNinjaFuture);
         break;
       case BUILD:
-        parseResult.addTarget(byteFragmentAtOffset);
+        ByteFragmentAtOffset targetFragment = declarationStart == offset
+            ? byteFragmentAtOffset
+            : new ByteFragmentAtOffset(declarationStart, fragment);
+        parseResult.addTarget(targetFragment);
         break;
       case DEFAULT:
       case POOL:
-      case NEWLINE:
         // Do nothing.
         break;
       default:

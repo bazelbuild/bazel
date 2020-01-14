@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.bazel.rules.ninja.file.ByteBufferFragment;
 import com.google.devtools.build.lib.bazel.rules.ninja.file.GenericParsingException;
 import com.google.devtools.build.lib.bazel.rules.ninja.lexer.NinjaLexer;
 import com.google.devtools.build.lib.bazel.rules.ninja.parser.NinjaFileParseResult;
+import com.google.devtools.build.lib.bazel.rules.ninja.parser.NinjaParser;
 import com.google.devtools.build.lib.bazel.rules.ninja.parser.NinjaParserStep;
 import com.google.devtools.build.lib.bazel.rules.ninja.parser.NinjaRule;
 import com.google.devtools.build.lib.bazel.rules.ninja.parser.NinjaRuleVariable;
@@ -264,7 +265,7 @@ public class NinjaParserStepTest {
 
   @Test
   public void testNinjaTargetWithScope() throws Exception {
-    NinjaTarget target = parseNinjaTarget("\n\nbuild output : command input\n  pool = abc\n");
+    NinjaTarget target = parseNinjaTarget("build output : command input\n  pool = abc\n");
     assertThat(target.getRuleName()).isEqualTo("command");
     assertThat(target.getOutputs()).containsExactly(PathFragment.create("output"));
     assertThat(target.getUsualInputs()).containsExactly(PathFragment.create("input"));
