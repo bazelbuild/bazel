@@ -839,14 +839,18 @@ function run_suite() {
 
       local testcase_tag=""
 
+      local red='\033[0;31m'
+      local green='\033[0;32m'
+      local no_color='\033[0m'
+
       if [[ "$TEST_passed" == "true" ]]; then
         if [[ "$TEST_verbose" == "true" ]]; then
-          echo "PASSED: $TEST_name" >&2
+          echo -e "${green}PASSED${no_color}: $TEST_name" >&2
         fi
         passed=$(($passed + 1))
         testcase_tag="<testcase name=\"$TEST_name\" status=\"run\" time=\"$run_time\" classname=\"\"></testcase>"
       else
-        echo "FAILED: $TEST_name" >&2
+        echo -e "${red}FAILED${no_color}: $TEST_name" >&2
         # end marker in CDATA cannot be escaped, we need to split the CDATA sections
         log=$(cat $TEST_TMPDIR/__log | sed 's/]]>/]]>]]&gt;<![CDATA[/g')
         fail_msg=$(cat $TEST_TMPDIR/__fail 2> /dev/null || echo "No failure message")
