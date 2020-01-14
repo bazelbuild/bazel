@@ -229,9 +229,10 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
             .getOutputGroup(OutputGroupInfo.HIDDEN_TOP_LEVEL);
     ConfiguredTarget myTarget = getConfiguredTarget("//test/skylark:my");
     Depset result = (Depset) getMyInfoFromTarget(myTarget).getValue("result");
-    assertThat(result.getSet(Artifact.class)).containsExactlyElementsIn(hiddenTopLevelArtifacts);
-    assertThat(OutputGroupInfo.get(myTarget).getOutputGroup("my_group"))
-        .containsExactlyElementsIn(hiddenTopLevelArtifacts);
+    assertThat(result.getSet(Artifact.class).toList())
+        .containsExactlyElementsIn(hiddenTopLevelArtifacts.toList());
+    assertThat(OutputGroupInfo.get(myTarget).getOutputGroup("my_group").toList())
+        .containsExactlyElementsIn(hiddenTopLevelArtifacts.toList());
   }
 
   @Test
@@ -255,9 +256,10 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
             .getOutputGroup(OutputGroupInfo.HIDDEN_TOP_LEVEL);
     ConfiguredTarget myTarget = getConfiguredTarget("//test/skylark:my");
     Depset result = (Depset) getMyInfoFromTarget(myTarget).getValue("result");
-    assertThat(result.getSet(Artifact.class)).containsExactlyElementsIn(hiddenTopLevelArtifacts);
-    assertThat(OutputGroupInfo.get(myTarget).getOutputGroup("my_group"))
-        .containsExactlyElementsIn(hiddenTopLevelArtifacts);
+    assertThat(result.getSet(Artifact.class).toList())
+        .containsExactlyElementsIn(hiddenTopLevelArtifacts.toList());
+    assertThat(OutputGroupInfo.get(myTarget).getOutputGroup("my_group").toList())
+        .containsExactlyElementsIn(hiddenTopLevelArtifacts.toList());
   }
 
 
@@ -289,9 +291,10 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
     ConfiguredTarget myTarget = getConfiguredTarget("//test/skylark:my");
     StructImpl myInfo = getMyInfoFromTarget(myTarget);
     Depset result = (Depset) myInfo.getValue("result");
-    assertThat(result.getSet(Artifact.class)).containsExactlyElementsIn(hiddenTopLevelArtifacts);
-    assertThat(OutputGroupInfo.get(myTarget).getOutputGroup("my_group"))
-        .containsExactlyElementsIn(hiddenTopLevelArtifacts);
+    assertThat(result.getSet(Artifact.class).toList())
+        .containsExactlyElementsIn(hiddenTopLevelArtifacts.toList());
+    assertThat(OutputGroupInfo.get(myTarget).getOutputGroup("my_group").toList())
+        .containsExactlyElementsIn(hiddenTopLevelArtifacts.toList());
     assertThat(myInfo.getValue("has_key1")).isEqualTo(Boolean.TRUE);
     assertThat(myInfo.getValue("has_key2")).isEqualTo(Boolean.FALSE);
     assertThat((Sequence) myInfo.getValue("all_keys"))
@@ -323,9 +326,10 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
             .getOutputGroup(OutputGroupInfo.HIDDEN_TOP_LEVEL);
     ConfiguredTarget myTarget = getConfiguredTarget("//test/skylark:my");
     Depset result = (Depset) getMyInfoFromTarget(myTarget).getValue("result");
-    assertThat(result.getSet(Artifact.class)).containsExactlyElementsIn(hiddenTopLevelArtifacts);
-    assertThat(OutputGroupInfo.get(myTarget).getOutputGroup("my_group"))
-        .containsExactlyElementsIn(hiddenTopLevelArtifacts);
+    assertThat(result.getSet(Artifact.class).toList())
+        .containsExactlyElementsIn(hiddenTopLevelArtifacts.toList());
+    assertThat(OutputGroupInfo.get(myTarget).getOutputGroup("my_group").toList())
+        .containsExactlyElementsIn(hiddenTopLevelArtifacts.toList());
   }
 
   @Test
@@ -352,11 +356,11 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
             .getOutputGroup(OutputGroupInfo.HIDDEN_TOP_LEVEL);
     ConfiguredTarget myTarget = getConfiguredTarget("//test/skylark:my");
     Depset result = (Depset) getMyInfoFromTarget(myTarget).getValue("result");
-    assertThat(result.getSet(Artifact.class)).containsExactlyElementsIn(hiddenTopLevelArtifacts);
-    assertThat(OutputGroupInfo.get(myTarget).getOutputGroup("my_group"))
-        .containsExactlyElementsIn(hiddenTopLevelArtifacts);
-    assertThat(OutputGroupInfo.get(myTarget).getOutputGroup("my_empty_group"))
-        .isEmpty();
+    assertThat(result.getSet(Artifact.class).toList())
+        .containsExactlyElementsIn(hiddenTopLevelArtifacts.toList());
+    assertThat(OutputGroupInfo.get(myTarget).getOutputGroup("my_group").toList())
+        .containsExactlyElementsIn(hiddenTopLevelArtifacts.toList());
+    assertThat(OutputGroupInfo.get(myTarget).getOutputGroup("my_empty_group").toList()).isEmpty();
   }
 
   @Test
@@ -381,11 +385,11 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
             .getOutputGroup(OutputGroupInfo.HIDDEN_TOP_LEVEL);
     ConfiguredTarget myTarget = getConfiguredTarget("//test/skylark:my");
     Depset result = (Depset) getMyInfoFromTarget(myTarget).getValue("result");
-    assertThat(result.getSet(Artifact.class)).containsExactlyElementsIn(hiddenTopLevelArtifacts);
-    assertThat(OutputGroupInfo.get(myTarget).getOutputGroup("my_group"))
-        .containsExactlyElementsIn(hiddenTopLevelArtifacts);
-    assertThat(OutputGroupInfo.get(myTarget).getOutputGroup("my_empty_group"))
-        .isEmpty();
+    assertThat(result.getSet(Artifact.class).toList())
+        .containsExactlyElementsIn(hiddenTopLevelArtifacts.toList());
+    assertThat(OutputGroupInfo.get(myTarget).getOutputGroup("my_group").toList())
+        .containsExactlyElementsIn(hiddenTopLevelArtifacts.toList());
+    assertThat(OutputGroupInfo.get(myTarget).getOutputGroup("my_empty_group").toList()).isEmpty();
   }
 
   @Test
@@ -3348,9 +3352,9 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
     ObjcProvider providerFromFoo = (ObjcProvider) target.get("foo");
 
     // The modern key and the canonical legacy key "objc" are set to the one available ObjcProvider.
-    assertThat(providerFromModernKey.define()).containsExactly("foo");
-    assertThat(providerFromObjc.define()).containsExactly("foo");
-    assertThat(providerFromFoo.define()).containsExactly("foo");
+    assertThat(providerFromModernKey.define().toList()).containsExactly("foo");
+    assertThat(providerFromObjc.define().toList()).containsExactly("foo");
+    assertThat(providerFromFoo.define().toList()).containsExactly("foo");
   }
 
   @Test
@@ -3377,9 +3381,9 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
     ObjcProvider providerFromObjc = (ObjcProvider) target.get("objc");
     ObjcProvider providerFromBah = (ObjcProvider) target.get("bah");
 
-    assertThat(providerFromModernKey.define()).containsExactly("prov");
-    assertThat(providerFromObjc.define()).containsExactly("objc");
-    assertThat(providerFromBah.define()).containsExactly("bah");
+    assertThat(providerFromModernKey.define().toList()).containsExactly("prov");
+    assertThat(providerFromObjc.define().toList()).containsExactly("objc");
+    assertThat(providerFromBah.define().toList()).containsExactly("bah");
   }
 
   @Test
@@ -3407,10 +3411,10 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
     ObjcProvider providerFromFoo = (ObjcProvider) target.get("foo");
     ObjcProvider providerFromBar = (ObjcProvider) target.get("bar");
 
-    assertThat(providerFromModernKey.define()).containsExactly("prov");
+    assertThat(providerFromModernKey.define().toList()).containsExactly("prov");
     // The first defined provider is set to the legacy "objc" key.
-    assertThat(providerFromObjc.define()).containsExactly("foo");
-    assertThat(providerFromFoo.define()).containsExactly("foo");
-    assertThat(providerFromBar.define()).containsExactly("bar");
+    assertThat(providerFromObjc.define().toList()).containsExactly("foo");
+    assertThat(providerFromFoo.define().toList()).containsExactly("foo");
+    assertThat(providerFromBar.define().toList()).containsExactly("bar");
   }
 }

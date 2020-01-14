@@ -48,7 +48,7 @@ public class PyRuntimeInfoTest extends SkylarkTestCase {
   private static void assertHasOrderAndContainsExactly(
       NestedSet<?> set, Order order, Object... values) {
     assertThat(set.getOrder()).isEqualTo(order);
-    assertThat(set).containsExactly(values);
+    assertThat(set.toList()).containsExactly(values);
   }
 
   @Test

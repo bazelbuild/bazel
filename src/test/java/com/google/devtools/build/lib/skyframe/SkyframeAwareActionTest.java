@@ -18,7 +18,6 @@ import static com.google.common.truth.Truth.assertThat;
 import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 import com.google.common.graph.ImmutableGraph;
 import com.google.common.util.concurrent.Callables;
@@ -199,7 +198,7 @@ public class SkyframeAwareActionTest extends TimestampBuilderTestCase {
       // tests we assume that the input file is short, maybe just 10 bytes long.
       byte[] input = new byte[10];
       int inputLen = 0;
-      try (InputStream in = Iterables.getOnlyElement(getInputs()).getPath().getInputStream()) {
+      try (InputStream in = getInputs().getSingleton().getPath().getInputStream()) {
         inputLen = in.read(input);
       } catch (IOException e) {
         throw new ActionExecutionException(e, this, false);

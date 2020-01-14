@@ -51,8 +51,8 @@ public class MiddlemanActionTest extends BuildViewTestCase {
                 "testing_dummy_rule(name='a', outs=['a.out'])");
     scratch.file("b/BUILD",
                 "testing_dummy_rule(name='b', outs=['b.out'])");
-    a = getFilesToBuild(getConfiguredTarget("//a")).iterator().next();
-    b = getFilesToBuild(getConfiguredTarget("//b")).iterator().next();
+    a = getFilesToBuild(getConfiguredTarget("//a")).toList().get(0);
+    b = getFilesToBuild(getConfiguredTarget("//b")).toList().get(0);
     analysisEnvironment =
         new AnalysisTestUtil.CollectingAnalysisEnvironment(
             AnalysisTestUtil.STUB_ANALYSIS_ENVIRONMENT);
@@ -74,7 +74,7 @@ public class MiddlemanActionTest extends BuildViewTestCase {
     assertWithMessage("Encountered instance of " + middleman.getClass())
         .that(middleman.getActionType().isMiddleman())
         .isTrue();
-    assertThat(middleman.getInputs()).containsExactly(a, b);
+    assertThat(middleman.getInputs().toList()).containsExactly(a, b);
     assertThat(middleman.getOutputs()).containsExactly(middle);
   }
 
@@ -83,9 +83,9 @@ public class MiddlemanActionTest extends BuildViewTestCase {
     scratch.file("c/BUILD",
                 "testing_dummy_rule(name='c', outs=['c.out', 'd.out', 'common.out'])");
 
-    Artifact c = getFilesToBuild(getConfiguredTarget("//c:c.out")).iterator().next();
-    Artifact d = getFilesToBuild(getConfiguredTarget("//c:d.out")).iterator().next();
-    Artifact common = getFilesToBuild(getConfiguredTarget("//c:common.out")).iterator().next();
+    Artifact c = getFilesToBuild(getConfiguredTarget("//c:c.out")).toList().get(0);
+    Artifact d = getFilesToBuild(getConfiguredTarget("//c:d.out")).toList().get(0);
+    Artifact common = getFilesToBuild(getConfiguredTarget("//c:common.out")).toList().get(0);
 
     analysisEnvironment.clear();
     Artifact middlemanForC =

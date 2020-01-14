@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.actions.extra.JavaCompileInfo;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.rules.android.databinding.UsesDataBindingProvider;
 import com.google.devtools.build.lib.rules.java.JavaCompileAction;
 import java.util.List;
@@ -170,7 +171,8 @@ public class AndroidDataBindingTest extends AndroidBuildViewTestCase {
                 getFirstArtifactEndingWith(allArtifacts, "lib_with_data_binding.jar"));
     assertThat(
             Iterables.filter(
-                libCompileAction.getInputs(), ActionsTestUtil.getArtifactSuffixMatcher(".bin")))
+                libCompileAction.getInputs().toList(),
+                ActionsTestUtil.getArtifactSuffixMatcher(".bin")))
         .isEmpty();
 
     // The binary's compilation includes the library's data binding results.
@@ -179,12 +181,14 @@ public class AndroidDataBindingTest extends AndroidBuildViewTestCase {
             getGeneratingAction(getFirstArtifactEndingWith(allArtifacts, "app.jar"));
     Iterable<Artifact> depMetadataInputs =
         Iterables.filter(
-            binCompileAction.getInputs(), ActionsTestUtil.getArtifactSuffixMatcher(".bin"));
+            binCompileAction.getInputs().toList(),
+            ActionsTestUtil.getArtifactSuffixMatcher(".bin"));
     final String depMetadataBaseDir =
         Iterables.getFirst(depMetadataInputs, null).getExecPath().getParentDirectory().toString();
     ActionsTestUtil.execPaths(
         Iterables.filter(
-            binCompileAction.getInputs(), ActionsTestUtil.getArtifactSuffixMatcher(".bin")));
+            binCompileAction.getInputs().toList(),
+            ActionsTestUtil.getArtifactSuffixMatcher(".bin")));
     assertThat(ActionsTestUtil.execPaths(depMetadataInputs))
         .containsExactly(
             depMetadataBaseDir + "/android.library-android.library-setter_store.bin",
@@ -270,7 +274,7 @@ public class AndroidDataBindingTest extends AndroidBuildViewTestCase {
     // the binary's compilation with unresolved symbol errors.
     writeDataBindingFilesWithNoResourcesDep();
     ConfiguredTarget ct = getConfiguredTarget("//java/android/lib_no_resource_files");
-    Iterable<Artifact> libArtifacts = getFilesToBuild(ct);
+    NestedSet<Artifact> libArtifacts = getFilesToBuild(ct);
 
     assertThat(getFirstArtifactEndingWith(libArtifacts, "_resources.jar")).isNull();
     assertThat(getFirstArtifactEndingWith(libArtifacts, "layout-info.zip")).isNull();

@@ -17,7 +17,6 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.testing.EqualsTester;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata.MiddlemanType;
@@ -205,7 +204,7 @@ public class ArtifactTest {
     for (Artifact artifact : original) {
       ActionAnalysisMetadata action = actionGraph.getGeneratingAction(artifact);
       if (artifact.isMiddlemanArtifact()) {
-        Iterables.addAll(manuallyExpanded, action.getInputs());
+        manuallyExpanded.addAll(action.getInputs().toList());
       } else {
         manuallyExpanded.add(artifact);
       }

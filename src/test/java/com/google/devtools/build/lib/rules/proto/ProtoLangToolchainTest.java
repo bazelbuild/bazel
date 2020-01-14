@@ -164,7 +164,7 @@ public class ProtoLangToolchainTest extends BuildViewTestCase {
 
     assertThat(toolchain.pluginExecutable()).isNull();
     assertThat(toolchain.runtime()).isNull();
-    assertThat(toolchain.blacklistedProtos()).isEmpty();
+    assertThat(toolchain.blacklistedProtos().toList()).isEmpty();
   }
 
   @Test

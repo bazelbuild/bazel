@@ -273,7 +273,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
         (SpawnAction)
             Iterables.getOnlyElement(
                 ruleContext.getRuleContext().getAnalysisEnvironment().getRegisteredActions());
-    assertArtifactFilenames(action.getInputs(), "a.txt", "b.img");
+    assertArtifactFilenames(action.getInputs().toList(), "a.txt", "b.img");
     assertArtifactFilenames(action.getOutputs(), "a.txt", "b.img");
     MoreAsserts.assertContainsSublist(
         action.getArguments(), "-c", "dummy_command", "", "--a", "--b");
@@ -296,7 +296,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
         (SpawnAction)
             Iterables.getOnlyElement(
                 ruleContext.getRuleContext().getAnalysisEnvironment().getRegisteredActions());
-    assertArtifactFilenames(action.getInputs(), "a.txt", "b.img", "t.exe");
+    assertArtifactFilenames(action.getInputs().toList(), "a.txt", "b.img", "t.exe");
     assertArtifactFilenames(action.getOutputs(), "a.txt", "b.img");
     MoreAsserts.assertContainsSublist(action.getArguments(), "foo/t.exe", "--a", "--b");
   }
@@ -316,7 +316,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
         (SpawnAction)
             Iterables.getOnlyElement(
                 ruleContext.getRuleContext().getAnalysisEnvironment().getRegisteredActions());
-    assertArtifactFilenames(action.getInputs(), "a.txt", "b.img", "t.exe");
+    assertArtifactFilenames(action.getInputs().toList(), "a.txt", "b.img", "t.exe");
     assertArtifactFilenames(action.getOutputs(), "a.txt", "b.img");
     MoreAsserts.assertContainsSublist(action.getArguments(), "foo/t.exe", "--a", "--b");
   }
@@ -458,7 +458,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
         ")");
     RuleConfiguredTarget target = (RuleConfiguredTarget) getConfiguredTarget("//bar:my_rule");
     SpawnAction action = (SpawnAction) Iterables.getOnlyElement(target.getActions());
-    assertThat(action.getTools()).isNotEmpty();
+    assertThat(action.getTools().toList()).isNotEmpty();
   }
 
   @Test
@@ -474,7 +474,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
         ")");
     RuleConfiguredTarget target = (RuleConfiguredTarget) getConfiguredTarget("//bar:my_rule");
     SpawnAction action = (SpawnAction) Iterables.getOnlyElement(target.getActions());
-    assertThat(action.getTools()).isNotEmpty();
+    assertThat(action.getTools().toList()).isNotEmpty();
   }
 
   @Test
@@ -490,7 +490,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
         ")");
     RuleConfiguredTarget target = (RuleConfiguredTarget) getConfiguredTarget("//bar:my_rule");
     SpawnAction action = (SpawnAction) Iterables.getOnlyElement(target.getActions());
-    assertThat(action.getTools()).isNotEmpty();
+    assertThat(action.getTools().toList()).isNotEmpty();
   }
 
   @Test
@@ -743,7 +743,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
         "    executable = 'dummy',",
         ")");
     assertArtifactFilenames(
-        ((Depset) lookup("inputs")).getSet(Artifact.class),
+        ((Depset) lookup("inputs")).getSet(Artifact.class).toList(),
         "mytool.sh",
         "mytool",
         "foo_Smytool" + OsUtils.executableExtension() + "-runfiles",
@@ -789,8 +789,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
 
     TemplateExpansionAction action = (TemplateExpansionAction) Iterables.getOnlyElement(
         ruleContext.getRuleContext().getAnalysisEnvironment().getRegisteredActions());
-    assertThat(Iterables.getOnlyElement(action.getInputs()).getExecPathString())
-        .isEqualTo("foo/a.txt");
+    assertThat(action.getInputs().getSingleton().getExecPathString()).isEqualTo("foo/a.txt");
     assertThat(Iterables.getOnlyElement(action.getOutputs()).getExecPathString())
         .isEqualTo("foo/b.img");
     assertThat(Iterables.getOnlyElement(action.getSubstitutions()).getKey()).isEqualTo("a");
@@ -940,7 +939,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
   }
 
   private static Iterable<Artifact> getRunfileArtifacts(Object runfiles) {
-    return ((Runfiles) runfiles).getAllArtifacts();
+    return ((Runfiles) runfiles).getAllArtifacts().toList();
   }
 
   @Test
@@ -1052,7 +1051,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
     assertThat(myInfo.getValue("rule_data_runfiles")).isInstanceOf(Runfiles.class);
     assertThat(
             Iterables.transform(
-                ((Runfiles) myInfo.getValue("rule_data_runfiles")).getAllArtifacts(),
+                ((Runfiles) myInfo.getValue("rule_data_runfiles")).getAllArtifacts().toList(),
                 String::valueOf))
         .containsExactly(
             "File:[/workspace[source]]test/run.file", "File:[/workspace[source]]test/run2.file");
@@ -1060,7 +1059,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
     assertThat(myInfo.getValue("rule_default_runfiles")).isInstanceOf(Runfiles.class);
     assertThat(
             Iterables.transform(
-                ((Runfiles) myInfo.getValue("rule_default_runfiles")).getAllArtifacts(),
+                ((Runfiles) myInfo.getValue("rule_default_runfiles")).getAllArtifacts().toList(),
                 String::valueOf))
         .containsExactly(
             "File:[/workspace[source]]test/run.file", "File:[/workspace[source]]test/run2.file");
@@ -1132,7 +1131,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
     assertThat(myInfo.getValue("rule_data_runfiles")).isInstanceOf(Runfiles.class);
     assertThat(
             Iterables.transform(
-                ((Runfiles) myInfo.getValue("rule_data_runfiles")).getAllArtifacts(),
+                ((Runfiles) myInfo.getValue("rule_data_runfiles")).getAllArtifacts().toList(),
                 String::valueOf))
         .containsExactly(
             "File:[/workspace[source]]test/run.file", "File:[/workspace[source]]test/run2.file");
@@ -1140,7 +1139,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
     assertThat(myInfo.getValue("rule_default_runfiles")).isInstanceOf(Runfiles.class);
     assertThat(
             Iterables.transform(
-                ((Runfiles) myInfo.getValue("rule_default_runfiles")).getAllArtifacts(),
+                ((Runfiles) myInfo.getValue("rule_default_runfiles")).getAllArtifacts().toList(),
                 String::valueOf))
         .containsExactly(
             "File:[/workspace[source]]test/run.file", "File:[/workspace[source]]test/run2.file");
@@ -1225,14 +1224,14 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
     assertThat(myInfo.getValue("file_data_runfiles")).isInstanceOf(Runfiles.class);
     assertThat(
             Iterables.transform(
-                ((Runfiles) myInfo.getValue("file_data_runfiles")).getAllArtifacts(),
+                ((Runfiles) myInfo.getValue("file_data_runfiles")).getAllArtifacts().toList(),
                 String::valueOf))
         .isEmpty();
 
     assertThat(myInfo.getValue("file_default_runfiles")).isInstanceOf(Runfiles.class);
     assertThat(
             Iterables.transform(
-                ((Runfiles) myInfo.getValue("file_default_runfiles")).getAllArtifacts(),
+                ((Runfiles) myInfo.getValue("file_default_runfiles")).getAllArtifacts().toList(),
                 String::valueOf))
         .isEmpty();
 
@@ -2728,8 +2727,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
 
     ConfiguredTarget r = getConfiguredTarget("//a:r");
     Action action =
-        getGeneratingAction(
-            Iterables.getOnlyElement(r.getProvider(FileProvider.class).getFilesToBuild()));
+        getGeneratingAction(r.getProvider(FileProvider.class).getFilesToBuild().getSingleton());
     assertThat(ActionsTestUtil.baseArtifactNames(action.getRunfilesSupplier().getArtifacts()))
         .containsAtLeast("tool", "tool.sh", "data");
   }
@@ -2756,8 +2754,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
 
     ConfiguredTarget r = getConfiguredTarget("//a:r");
     Action action =
-        getGeneratingAction(
-            Iterables.getOnlyElement(r.getProvider(FileProvider.class).getFilesToBuild()));
+        getGeneratingAction(r.getProvider(FileProvider.class).getFilesToBuild().getSingleton());
     assertThat(ActionsTestUtil.baseArtifactNames(action.getRunfilesSupplier().getArtifacts()))
         .containsAtLeast("tool", "tool.sh", "data");
   }
@@ -2974,6 +2971,6 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
     Artifact directory = (Artifact) result.get(1);
     ActionAnalysisMetadata action =
         ctx.getRuleContext().getAnalysisEnvironment().getLocalGeneratingAction(params);
-    assertThat(action.getInputs()).contains(directory);
+    assertThat(action.getInputs().toList()).contains(directory);
   }
 }

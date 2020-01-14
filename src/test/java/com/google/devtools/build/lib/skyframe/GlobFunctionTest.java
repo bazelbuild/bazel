@@ -435,7 +435,7 @@ public abstract class GlobFunctionTest {
     // directories.
     assertThat(
             Iterables.transform(
-                runGlob(excludeDirs, pattern).getMatches(), Functions.toStringFunction()))
+                runGlob(excludeDirs, pattern).getMatches().toList(), Functions.toStringFunction()))
         .containsExactlyElementsIn(ImmutableList.copyOf(expecteds))
         .inOrder();
   }

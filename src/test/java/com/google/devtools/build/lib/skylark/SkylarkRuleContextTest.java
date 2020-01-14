@@ -2095,14 +2095,17 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
     Artifact helper1 =
         Iterables.getOnlyElement(
             Iterables.filter(
-                spawnAction1.getInputs(), a -> a.getFilename().equals("undertest.run_shell_0.sh")));
+                spawnAction1.getInputs().toList(),
+                a -> a.getFilename().equals("undertest.run_shell_0.sh")));
     assertThat(
-            Iterables.filter(spawnAction2.getInputs(), a -> a.getFilename().contains("run_shell_")))
+            Iterables.filter(
+                spawnAction2.getInputs().toList(), a -> a.getFilename().contains("run_shell_")))
         .isEmpty();
     Artifact helper3 =
         Iterables.getOnlyElement(
             Iterables.filter(
-                spawnAction3.getInputs(), a -> a.getFilename().equals("undertest.run_shell_2.sh")));
+                spawnAction3.getInputs().toList(),
+                a -> a.getFilename().equals("undertest.run_shell_2.sh")));
     assertThat(map).containsKey(helper1);
     assertThat(map).containsKey(helper3);
     Object action4Unchecked = map.get(helper1);

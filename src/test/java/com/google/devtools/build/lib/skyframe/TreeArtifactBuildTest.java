@@ -1092,9 +1092,9 @@ public class TreeArtifactBuildTest extends TimestampBuilderTestCase {
     @Override
     public ActionResult execute(ActionExecutionContext actionExecutionContext)
         throws ActionExecutionException {
-      if (getInputs().iterator().hasNext()) {
+      if (!getInputs().isEmpty()) {
         // Sanity check--verify all inputs exist.
-        Artifact input = getSoleInput();
+        Artifact input = getInputs().getSingleton();
         if (!input.getPath().exists()) {
           throw new IllegalStateException("action's input Artifact does not exist: "
               + input.getPath());
@@ -1125,17 +1125,6 @@ public class TreeArtifactBuildTest extends TimestampBuilderTestCase {
 
     void executeTestBehavior(ActionExecutionContext c) throws ActionExecutionException {
       // Default: do nothing
-    }
-
-    /** Checks there's exactly one input, and returns it. */
-    // This prevents us from making testing mistakes, like
-    // assuming there's only one input when this isn't actually true.
-    Artifact getSoleInput() {
-      Iterator<Artifact> it = getInputs().iterator();
-      Artifact r = it.next();
-      Preconditions.checkNotNull(r);
-      Preconditions.checkState(!it.hasNext());
-      return r;
     }
 
     /** Checks there's exactly one output, and returns it. */
@@ -1211,7 +1200,7 @@ public class TreeArtifactBuildTest extends TimestampBuilderTestCase {
       try {
         for (Artifact file : outputFiles) {
           FileSystemUtils.createDirectoryAndParents(file.getPath().getParentDirectory());
-          FileSystemUtils.copyFile(getSoleInput().getPath(), file.getPath());
+          FileSystemUtils.copyFile(getInputs().getSingleton().getPath(), file.getPath());
         }
       } catch (IOException e) {
         throw new RuntimeException(e);

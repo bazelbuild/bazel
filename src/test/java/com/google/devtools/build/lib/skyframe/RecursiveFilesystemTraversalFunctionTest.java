@@ -338,7 +338,7 @@ public final class RecursiveFilesystemTraversalFunctionTest extends FoundationTe
       TraversalRequest params, ResolvedFile... expectedFilesIgnoringMetadata) throws Exception {
     RecursiveFilesystemTraversalValue result = evalTraversalRequest(params);
     Map<PathFragment, ResolvedFile> nameToActualResolvedFiles = new HashMap<>();
-    for (ResolvedFile act : result.getTransitiveFiles()) {
+    for (ResolvedFile act : result.getTransitiveFiles().toList()) {
       // We can't compare  directly, since metadata would be different, so we compare
       // by comparing the results of public method calls..
       nameToActualResolvedFiles.put(act.getNameInSymlinkTree(), act);
