@@ -37,6 +37,7 @@ import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.TestExecException;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.test.TestActionContext;
+import com.google.devtools.build.lib.analysis.test.TestConfiguration;
 import com.google.devtools.build.lib.analysis.test.TestResult;
 import com.google.devtools.build.lib.analysis.test.TestRunnerAction;
 import com.google.devtools.build.lib.analysis.test.TestRunnerAction.ResolvedPaths;
@@ -119,6 +120,9 @@ public class StandaloneTestStrategy extends TestStrategy {
       executionInfo.put(ExecutionRequirements.NO_CACHE, "");
     }
     executionInfo.put(ExecutionRequirements.TIMEOUT, "" + getTimeout(action).getSeconds());
+    if (action.getConfiguration().getFragment(TestConfiguration.class).isPersistentTestRunner()) {
+      executionInfo.put(ExecutionRequirements.SUPPORTS_WORKERS, "1");
+    }
 
     ResourceSet localResourceUsage =
         action
@@ -135,7 +139,9 @@ public class StandaloneTestStrategy extends TestStrategy {
             action.getRunfilesSupplier(),
             ImmutableMap.of(),
             /*inputs=*/ action.getInputs(),
-            /*tools=*/ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+            action.getConfiguration().getFragment(TestConfiguration.class).isPersistentTestRunner()
+                ? NestedSetBuilder.wrap(Order.STABLE_ORDER, action.getTools())
+                : NestedSetBuilder.emptySet(Order.STABLE_ORDER),
             ImmutableSet.copyOf(action.getSpawnOutputs()),
             localResourceUsage);
     return new StandaloneTestRunnerSpawn(

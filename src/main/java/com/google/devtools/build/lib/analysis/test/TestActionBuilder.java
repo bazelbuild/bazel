@@ -22,11 +22,13 @@ import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
+import com.google.devtools.build.lib.actions.RunfilesSupplier;
 import com.google.devtools.build.lib.analysis.AnalysisEnvironment;
 import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.PrerequisiteArtifacts;
 import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesSupplierImpl;
 import com.google.devtools.build.lib.analysis.RunfilesSupport;
 import com.google.devtools.build.lib.analysis.ShToolchain;
@@ -68,6 +70,7 @@ public final class TestActionBuilder {
 
   private final RuleContext ruleContext;
   private RunfilesSupport runfilesSupport;
+  private Runfiles persistentTestRunnerRunfiles;
   private Artifact executable;
   private ExecutionInfo executionRequirements;
   private InstrumentedFilesInfo instrumentedFiles;
@@ -117,6 +120,11 @@ public final class TestActionBuilder {
     Preconditions.checkNotNull(provider.getExecutable());
     this.runfilesSupport = provider.getRunfilesSupport();
     this.executable = provider.getExecutable();
+    return this;
+  }
+
+  public TestActionBuilder setPersistentTestRunnerRunfiles(Runfiles runfiles) {
+    this.persistentTestRunnerRunfiles = runfiles;
     return this;
   }
 
@@ -306,6 +314,7 @@ public final class TestActionBuilder {
               runfilesSupport,
               executable,
               instrumentedFileManifest,
+              /* persistentTestRunnerFlagFile= */ null,
               shards,
               runsPerTest);
       inputsBuilder.add(instrumentedFileManifest);
@@ -315,9 +324,16 @@ public final class TestActionBuilder {
         extraTestEnv.put(coverageEnvEntry.getFirst(), coverageEnvEntry.getSecond());
       }
     } else {
+      Artifact flagFile = null;
+      // The worker spawn runner expects a flag file containg the worker's flags.
+      if (testConfiguration.isPersistentTestRunner()) {
+        flagFile = ruleContext.getBinArtifact(ruleContext.getLabel().getName() + "_flag_file.txt");
+        inputsBuilder.add(flagFile);
+      }
+
       executionSettings =
           new TestTargetExecutionSettings(
-              ruleContext, runfilesSupport, executable, null, shards, runsPerTest);
+              ruleContext, runfilesSupport, executable, null, flagFile, shards, runsPerTest);
     }
 
     extraTestEnv.putAll(extraEnv);
@@ -369,11 +385,30 @@ public final class TestActionBuilder {
         boolean cancelConcurrentTests =
             testConfiguration.runsPerTestDetectsFlakes()
                 && testConfiguration.cancelConcurrentTests();
+        RunfilesSupplier testRunfilesSupplier;
+        if (testConfiguration.isPersistentTestRunner()) {
+          // Create a RunfilesSupplier from the persistent test runner's runfiles. Pass only the
+          // test runner's runfiles to avoid using a different worker for every test run.
+          testRunfilesSupplier =
+              new RunfilesSupplierImpl(
+                  /* runfilesDir= */ persistentTestRunnerRunfiles.getSuffix(),
+                  /* runfiles= */ persistentTestRunnerRunfiles,
+                  /* buildRunfileLinks= */ false,
+                  /* runfileLinksEnabled= */ false);
+        } else {
+          testRunfilesSupplier = RunfilesSupplierImpl.create(runfilesSupport);
+        }
+
+        ImmutableList.Builder<Artifact> tools = new ImmutableList.Builder<>();
+        if (testConfiguration.isPersistentTestRunner()) {
+          tools.add(testActionExecutable);
+          tools.add(executionSettings.getExecutable());
+        }
         TestRunnerAction testRunnerAction =
             new TestRunnerAction(
                 ruleContext.getActionOwner(),
                 inputs,
-                RunfilesSupplierImpl.create(runfilesSupport),
+                testRunfilesSupplier,
                 testActionExecutable,
                 isUsingTestWrapperInsteadOfTestSetupScript,
                 testXmlGeneratorExecutable,
@@ -392,7 +427,8 @@ public final class TestActionBuilder {
                         || executionSettings.needsShell(isExecutedOnWindows))
                     ? ShToolchain.getPathOrError(ruleContext)
                     : null,
-                cancelConcurrentTests);
+                cancelConcurrentTests,
+                tools.build());
 
         testOutputs.addAll(testRunnerAction.getSpawnOutputs());
         testOutputs.addAll(testRunnerAction.getOutputs());

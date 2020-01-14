@@ -28,13 +28,16 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.Runfiles.Builder;
+import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.Substitution.ComputedSubstitution;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
+import com.google.devtools.build.lib.analysis.test.TestConfiguration;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.Attribute.LabelLateBoundDefault;
 import com.google.devtools.build.lib.packages.Attribute.LabelListLateBoundDefault;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.SafeImplicitOutputsFunction;
@@ -83,6 +86,7 @@ public interface JavaSemantics {
       fromTemplates("%{name}_deploy-src.jar");
 
   SafeImplicitOutputsFunction JAVA_TEST_CLASSPATHS_FILE = fromTemplates("%{name}_classpaths_file");
+  String TEST_RUNTIME_CLASSPATH_FILE_PLACEHOLDER = "%test_runtime_classpath_file%";
 
   FileType JAVA_SOURCE = FileType.of(".java");
   FileType JAR = FileType.of(".jar");
@@ -317,6 +321,29 @@ public interface JavaSemantics {
    */
   boolean isJavaExecutableSubstitution();
 
+  static boolean isPersistentTestRunner(RuleContext ruleContext) {
+    return ruleContext.isTestTarget()
+        && ruleContext.getFragment(TestConfiguration.class).isPersistentTestRunner();
+  }
+
+  static Runfiles getTestSupportRunfiles(RuleContext ruleContext) {
+    TransitiveInfoCollection testSupport = getTestSupport(ruleContext);
+    if (testSupport == null) {
+      return Runfiles.EMPTY;
+    }
+
+    RunfilesProvider testSupportRunfilesProvider = testSupport.getProvider(RunfilesProvider.class);
+    return testSupportRunfilesProvider.getDefaultRunfiles();
+  }
+
+  static NestedSet<Artifact> getTestSupportRuntimeClasspath(RuleContext ruleContext) {
+    TransitiveInfoCollection testSupport = JavaSemantics.getTestSupport(ruleContext);
+    if (testSupport == null) {
+      return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
+    }
+    return JavaInfo.getProvider(JavaCompilationArgsProvider.class, testSupport).getRuntimeJars();
+  }
+
   static TransitiveInfoCollection getTestSupport(RuleContext ruleContext) {
     if (!isJavaBinaryOrJavaTest(ruleContext)) {
       return null;
@@ -334,14 +361,14 @@ public interface JavaSemantics {
     }
   }
 
-  static boolean isJavaBinaryOrJavaTest(RuleContext ruleContext) {
-    return ruleContext.getRule().getRuleClass().equals("java_binary")
-        || ruleContext.getRule().getRuleClass().equals("java_test");
-  }
-
   static boolean useLegacyJavaTest(RuleContext ruleContext) {
     return !ruleContext.attributes().isAttributeValueExplicitlySpecified("test_class")
         && ruleContext.getFragment(JavaConfiguration.class).useLegacyBazelJavaTest();
+  }
+
+  static boolean isJavaBinaryOrJavaTest(RuleContext ruleContext) {
+    return ruleContext.getRule().getRuleClass().equals("java_binary")
+        || ruleContext.getRule().getRuleClass().equals("java_test");
   }
 
   /** Adds extra runfiles for a {@code java_binary} rule. */

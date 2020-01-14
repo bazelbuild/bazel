@@ -84,6 +84,7 @@ public final class RuleConfiguredTargetBuilder {
 
   private NestedSetBuilder<Artifact> filesToRunBuilder = NestedSetBuilder.stableOrder();
   private RunfilesSupport runfilesSupport;
+  private Runfiles persistentTestRunnerRunfiles;
   private Artifact executable;
   private ImmutableSet<ActionAnalysisMetadata> actionsWithoutExtraAction = ImmutableSet.of();
 
@@ -419,9 +420,9 @@ public final class RuleConfiguredTargetBuilder {
     TestParams testParams =
         testActionBuilder
             .setFilesToRunProvider(filesToRunProvider)
+            .setPersistentTestRunnerRunfiles(persistentTestRunnerRunfiles)
             .setExecutionRequirements(
-                (ExecutionInfo) providersBuilder
-                    .getProvider(ExecutionInfo.PROVIDER.getKey()))
+                (ExecutionInfo) providersBuilder.getProvider(ExecutionInfo.PROVIDER.getKey()))
             .setShardCount(explicitShardCount)
             .build();
     ImmutableList<String> testTags = ImmutableList.copyOf(ruleContext.getRule().getRuleTags());
@@ -575,6 +576,11 @@ public final class RuleConfiguredTargetBuilder {
       RunfilesSupport runfilesSupport, Artifact executable) {
     this.runfilesSupport = runfilesSupport;
     this.executable = executable;
+    return this;
+  }
+
+  public RuleConfiguredTargetBuilder setPersistentTestRunnerRunfiles(Runfiles testSupportRunfiles) {
+    this.persistentTestRunnerRunfiles = testSupportRunfiles;
     return this;
   }
 

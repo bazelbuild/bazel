@@ -173,10 +173,11 @@ public class TestRunnerAction extends AbstractAction
       BuildConfiguration configuration,
       String workspaceName,
       @Nullable PathFragment shExecutable,
-      boolean cancelConcurrentTestsOnSuccess) {
+      boolean cancelConcurrentTestsOnSuccess,
+      Iterable<Artifact> tools) {
     super(
         owner,
-        /*tools=*/ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+        NestedSetBuilder.wrap(Order.STABLE_ORDER, tools),
         inputs,
         runfilesSupplier,
         nonNullAsSet(testLog, cacheStatus, coverageArtifact),
@@ -560,6 +561,11 @@ public class TestRunnerAction extends AbstractAction
     if (!isEnableRunfiles()) {
       // If runfiles are disabled, tell remote-runtest.sh/local-runtest.sh about that.
       env.put("RUNFILES_MANIFEST_ONLY", "1");
+    }
+
+    if (testConfiguration.isPersistentTestRunner()) {
+      // Let the test runner know it runs persistently within a worker.
+      env.put("PERSISTENT_TEST_RUNNER", "true");
     }
 
     if (isCoverageMode()) {
@@ -1138,3 +1144,4 @@ public class TestRunnerAction extends AbstractAction
     }
   }
 }
+
