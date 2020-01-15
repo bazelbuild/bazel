@@ -368,7 +368,6 @@ public final class JavaCompileActionBuilder {
     result.add("--experimental_fix_deps_tool", fixDepsTool);
 
     // Chose what artifact to pass to JavaBuilder, as input to jacoco instrumentation processor.
-    // metadata should be null when --experimental_java_coverage is true.
     if (coverageArtifact != null) {
       result.add("--post_processor");
       result.addExecPath(JACOCO_INSTRUMENTATION_PROCESSOR, coverageArtifact);
