@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.NoneType;
 import com.google.devtools.build.lib.syntax.Sequence;
+import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 
 /** A collection of global skylark build API functions that apply to WORKSPACE files. */
@@ -85,6 +86,33 @@ public interface WorkspaceGlobalsApi {
       Location loc,
       StarlarkThread thread)
       throws EvalException, InterruptedException;
+
+  @SkylarkCallable(
+      name = "experimental_do_not_use_dont_symlink_in_execroot",
+      doc = "Exclude directories under workspace from symlinking into execroot.\n"
+          + "Introduced for the Ninja execution actions to avoid symlinking directories "
+          + "with generated Ninja files, which in Ninja execution model "
+          + "contain both input and output files.\n\n"
+          + "Can be used only with the experimental flag \"--experimental_ninja_actions\".",
+      allowReturnNones = true,
+      parameters = {
+          @Param(
+            name = "paths",
+              type = Sequence.class,
+              generic1 = String.class,
+            doc = "",
+            named = true,
+            positional = false
+          )
+      },
+      useLocation = true,
+      useStarlarkThread = true,
+      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_NINJA_ACTIONS
+  )
+  NoneType experimentalDoNotUseDontSymlinkInExecroot(
+      Sequence<?> paths,
+      Location loc,
+      StarlarkThread thread) throws EvalException, InterruptedException;
 
   @SkylarkCallable(
       name = "register_execution_platforms",

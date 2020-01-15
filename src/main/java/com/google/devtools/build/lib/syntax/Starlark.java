@@ -11,6 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+//
 package com.google.devtools.build.lib.syntax;
 
 import com.google.common.collect.ImmutableMap;
@@ -377,15 +378,24 @@ public final class Starlark {
    * {@code SkylarkGlobalLibrary} annotation.
    */
   public static void addMethods(ImmutableMap.Builder<String, Object> env, Object v) {
+    // TODO(adonovan): logically this should be a parameter.
+    addMethods(env, v, StarlarkSemantics.DEFAULT_SEMANTICS);
+  }
+
+  /**
+   * Adds to the environment {@code env} all {@code StarlarkCallable}-annotated fields and methods
+   * of value {@code v}. The class of {@code v} must have or inherit a {@code SkylarkModule} or
+   * {@code SkylarkGlobalLibrary} annotation.
+   */
+  public static void addMethods(ImmutableMap.Builder<String, Object> env, Object v,
+      StarlarkSemantics starlarkSemantics) {
     Class<?> cls = v.getClass();
     if (!SkylarkInterfaceUtils.hasSkylarkGlobalLibrary(cls)
         && SkylarkInterfaceUtils.getSkylarkModule(cls) == null) {
       throw new IllegalArgumentException(
           cls.getName() + " is annotated with neither @SkylarkGlobalLibrary nor @SkylarkModule");
     }
-    // TODO(adonovan): logically this should be a parameter.
-    StarlarkSemantics semantics = StarlarkSemantics.DEFAULT_SEMANTICS;
-    for (String name : CallUtils.getMethodNames(semantics, v.getClass())) {
+    for (String name : CallUtils.getMethodNames(starlarkSemantics, v.getClass())) {
       // We use the 2-arg (desc=null) BuiltinCallable constructor instead of passing
       // the descriptor that CallUtils.getMethod would return,
       // because DEFAULT_SEMANTICS is probably incorrect for the call.

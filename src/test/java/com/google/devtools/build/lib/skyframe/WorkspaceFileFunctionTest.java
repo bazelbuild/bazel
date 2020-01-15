@@ -1,4 +1,4 @@
-// Copyright 2015 The Bazel Authors. All rights reserved.
+// Copyright 2019 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -11,6 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+//
 
 package com.google.devtools.build.lib.skyframe;
 
@@ -21,12 +22,12 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.FileStateValue;
 import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.NullEventHandler;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
@@ -55,8 +56,10 @@ import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.Objects;
 import java.util.Set;
+import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 import org.hamcrest.BaseMatcher;
 import org.hamcrest.Description;
@@ -438,7 +441,7 @@ public class WorkspaceFileFunctionTest extends BuildViewTestCase {
   }
 
   private WorkspaceFileValue createWorkspaceFileValueForTest()
-      throws IOException, InterruptedException, LabelSyntaxException {
+      throws Exception {
     WorkspaceFileValue workspaceFileValue =
         parseWorkspaceFileValue(
             "workspace(",
@@ -459,19 +462,34 @@ public class WorkspaceFileFunctionTest extends BuildViewTestCase {
 
   private void assertManagedDirectoriesParsingError(
       String managedDirectoriesValue, String expectedError)
-      throws IOException, InterruptedException {
-    WorkspaceFileValue workspaceFileValue =
-        parseWorkspaceFileValue(
-            "workspace(",
-            "  name = 'rr',",
-            "  managed_directories = " + managedDirectoriesValue,
-            ")");
+      throws Exception {
+    parseWorkspaceFileValueWithError(
+        expectedError,
+        "workspace(",
+        "  name = 'rr',",
+        "  managed_directories = " + managedDirectoriesValue,
+        ")");
+  }
+
+  private WorkspaceFileValue parseWorkspaceFileValue(String... lines) throws Exception {
+    WorkspaceFileValue workspaceFileValue = parseWorkspaceFileValueImpl(lines);
+    Package pkg = workspaceFileValue.getPackage();
+    if (pkg.containsErrors()) {
+      throw new RuntimeException(
+          Preconditions.checkNotNull(Iterables.getFirst(pkg.getEvents(), null)).getMessage());
+    }
+    return workspaceFileValue;
+  }
+
+  private void parseWorkspaceFileValueWithError(String expectedError, String... lines)
+      throws Exception {
+    WorkspaceFileValue workspaceFileValue = parseWorkspaceFileValueImpl(lines);
     Package pkg = workspaceFileValue.getPackage();
     assertThat(pkg.containsErrors()).isTrue();
     MoreAsserts.assertContainsEvent(pkg.getEvents(), expectedError);
   }
 
-  private WorkspaceFileValue parseWorkspaceFileValue(String... lines)
+  private WorkspaceFileValue parseWorkspaceFileValueImpl(String[] lines)
       throws IOException, InterruptedException {
     RootedPath workspaceFile = createWorkspaceFile(lines);
     WorkspaceFileKey key = WorkspaceFileValue.key(workspaceFile);
@@ -591,6 +609,57 @@ public class WorkspaceFileFunctionTest extends BuildViewTestCase {
     skyframeExecutor.handleDiffsForTesting(NullEventHandler.INSTANCE);
     assertThat(testManagedDirectoriesKnowledge.getLastWorkspaceName()).isEqualTo("changed");
     assertThat(testManagedDirectoriesKnowledge.getCnt()).isEqualTo(2);
+  }
+
+  @Test
+  public void testDoNotSymlinkInExecroot() throws Exception {
+    PrecomputedValue precomputedValue =
+        (PrecomputedValue)
+            getEnv().getValue(PrecomputedValue.STARLARK_SEMANTICS.getKeyForTesting());
+    StarlarkSemantics semantics =
+        (StarlarkSemantics) Preconditions.checkNotNull(precomputedValue).get();
+    Injectable injectable = getSkyframeExecutor().injectable();
+
+    try {
+      StarlarkSemantics semanticsWithNinjaActions =
+          StarlarkSemantics.builderWithDefaults()
+              .experimentalNinjaActions(true)
+              .build();
+      PrecomputedValue.STARLARK_SEMANTICS.set(injectable, semanticsWithNinjaActions);
+
+      doTestDoNotSymlinkInExecroot(null, "out");
+      doTestDoNotSymlinkInExecroot(null, "out", "one more with space");
+      doTestDoNotSymlinkInExecroot(null);
+
+      doTestDoNotSymlinkInExecroot("experimental_do_not_use_dont_symlink_in_execroot should not "
+          + "contain duplicate values: \"out\" is specified more then once.", "out", "out");
+      doTestDoNotSymlinkInExecroot(
+          "experimental_do_not_use_dont_symlink_in_execroot can only accept "
+              + "top level directories under workspace, \"out/subdir\" "
+              + "can not be specified as an attribute.", "out/subdir");
+      doTestDoNotSymlinkInExecroot("Empty path can not be passed to "
+          + "experimental_do_not_use_dont_symlink_in_execroot.", "");
+      doTestDoNotSymlinkInExecroot("experimental_do_not_use_dont_symlink_in_execroot can only "
+          + "accept top level directories under workspace, \"/usr/local/bin\" "
+          + "can not be specified as an attribute.", "/usr/local/bin");
+    } finally {
+      PrecomputedValue.STARLARK_SEMANTICS.set(injectable, semantics);
+    }
+  }
+
+  private void doTestDoNotSymlinkInExecroot(@Nullable String assertionText, String... dirs)
+      throws Exception {
+    String text = "experimental_do_not_use_dont_symlink_in_execroot(paths = [%s])";
+    String dirsText = Arrays.stream(dirs).map(s -> "\"" + s + "\"")
+        .collect(Collectors.joining(", "));
+    String workspaceFileText = String.format(text, dirsText);
+    if (assertionText != null) {
+      parseWorkspaceFileValueWithError(assertionText, workspaceFileText);
+    } else {
+      WorkspaceFileValue workspaceFileValue = parseWorkspaceFileValue(workspaceFileText);
+      assertThat(workspaceFileValue.getDoNotSymlinkInExecrootPaths())
+          .containsExactlyElementsIn(dirs);
+    }
   }
 
   private static class TestManagedDirectoriesKnowledge implements ManagedDirectoriesKnowledge {
