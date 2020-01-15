@@ -202,8 +202,7 @@ public final class TestActionBuilder {
     // not the host platform. Once Bazel can tell apart these platforms, fix the right side of this
     // initialization.
     final boolean isExecutedOnWindows = OS.getCurrent() == OS.WINDOWS;
-    final boolean isUsingTestWrapperInsteadOfTestSetupScript =
-        isExecutedOnWindows && testConfiguration.isUsingWindowsNativeTestWrapper();
+    final boolean isUsingTestWrapperInsteadOfTestSetupScript = isExecutedOnWindows;
 
     NestedSetBuilder<Artifact> inputsBuilder = NestedSetBuilder.stableOrder();
     inputsBuilder.addTransitive(
@@ -410,7 +409,6 @@ public final class TestActionBuilder {
                 inputs,
                 testRunfilesSupplier,
                 testActionExecutable,
-                isUsingTestWrapperInsteadOfTestSetupScript,
                 testXmlGeneratorExecutable,
                 collectCoverageScript,
                 testLog,

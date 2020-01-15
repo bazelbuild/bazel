@@ -18,7 +18,6 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Lists;
 import com.google.common.io.ByteStreams;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
@@ -47,7 +46,6 @@ import com.google.devtools.build.lib.buildeventstream.TestFileNameConstants;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.Reporter;
-import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.FileStatus;
@@ -372,29 +370,19 @@ public class StandaloneTestStrategy extends TestStrategy {
    * generate a test.xml file itself.
    */
   private Spawn createXmlGeneratingSpawn(TestRunnerAction action, SpawnResult result) {
-    List<String> args = Lists.newArrayList();
-    // TODO(ulfjack): This is incorrect for remote execution, where we need to consider the target
-    // configuration, not the machine Bazel happens to run on. Change this to something like:
-    // testAction.getConfiguration().getExecOS() == OS.WINDOWS
-    if (OS.getCurrent() == OS.WINDOWS && !action.isUsingTestWrapperInsteadOfTestSetupScript()) {
-      // TestActionBuilder constructs TestRunnerAction with a 'null' shell path only when we use the
-      // native test wrapper. Something clearly went wrong.
-      Preconditions.checkNotNull(action.getShExecutableMaybe(), "%s", action);
-      args.add(action.getShExecutableMaybe().getPathString());
-      args.add("-c");
-      args.add("$0 $*");
-    }
-    args.add(action.getTestXmlGeneratorScript().getExecPath().getCallablePathString());
-    args.add(action.getTestLog().getExecPathString());
-    args.add(action.getXmlOutputPath().getPathString());
-    args.add(Long.toString(result.getWallTime().orElse(Duration.ZERO).getSeconds()));
-    args.add(Integer.toString(result.exitCode()));
+    ImmutableList<String> args =
+        ImmutableList.of(
+            action.getTestXmlGeneratorScript().getExecPath().getCallablePathString(),
+            action.getTestLog().getExecPathString(),
+            action.getXmlOutputPath().getPathString(),
+            Long.toString(result.getWallTime().orElse(Duration.ZERO).getSeconds()),
+            Integer.toString(result.exitCode()));
 
     String testBinaryName =
         action.getExecutionSettings().getExecutable().getRootRelativePath().getCallablePathString();
     return new SimpleSpawn(
         action,
-        ImmutableList.copyOf(args),
+        args,
         ImmutableMap.of(
             "PATH", "/usr/bin:/bin",
             "TEST_SHARD_INDEX", Integer.toString(action.getShardNum()),

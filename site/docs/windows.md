@@ -38,23 +38,13 @@ details.
 <a name="bazel-build-without-bash"></a>
 ### `bazel build` without Bash
 
-With **Bazel 0.26.0** and the `--incompatible_windows_native_test_wrapper` flag,
-you can **build Python and all C++ rules without Bash**. Use the
-`--shell_executable=""` flag to tell Bazel not to look for Bash.
+Bazel versions before 1.0 used to require Bash to build some rules.
 
-With **Bazel 0.25.0** and the `--incompatible_windows_native_test_wrapper` flag,
-you can **build Java and `cc_binary` rules without Bash** (but not `cc_test`).
-Use the `--shell_executable=""` flag to tell Bazel not to look for Bash.
+Starting with Bazel 1.0, you can build any rule without Bash unless it is a:
 
-With **Bazel 0.24.x and older** you need Bash to build any rule.
-
-With every Bazel version, you **still need Bash** if a rule in your build or in
-some external repository:
-
-- is a `genrule`, because genrules execute Bash commands
-- is a `sh_binary` or `sh_test` rule, because these inherently need Bash
-- is a Starlark rule that uses `ctx.actions.run_shell()` or
-  `ctx.resolve_command()`
+- `genrule`, because genrules execute Bash commands
+- `sh_binary` or `sh_test` rule, because these inherently need Bash
+- Starlark rule that uses `ctx.actions.run_shell()` or `ctx.resolve_command()`
 
 However, `genrule` is often used for simple tasks like
 [copying a file](https://github.com/bazelbuild/bazel-skylib/blob/master/rules/copy_file.bzl)
@@ -67,28 +57,22 @@ When built on Windows, **these rules do not require Bash**.
 <a name="bazel-test-without-bash"></a>
 ### `bazel test` without Bash
 
-With **Bazel 0.25.0 or newer** and the
-`--incompatible_windows_native_test_wrapper` flag, you can `bazel test` rules
-without Bash, i.e.
-`bazel test --incompatible_windows_native_test_wrapper //foo:bar_test` works
-even if there's no MSYS2 installed.
+Bazel versions before 1.0 used to require Bash to `bazel test` anything.
 
-With **Bazel 0.24.x and older** you cannot use this flag, and need Bash (MSYS2)
-to run any `bazel test`.
+Starting with Bazel 1.0, you can test any rule without Bash, except when:
 
-In Bazel 0.25.0 and Bazel 0.26.0, the
-`--incompatible_windows_native_test_wrapper` flag is **off** be default. We plan
-to enable it by default starting with Bazel 0.27.0, and plan to remove support
-for the flag in Bazel 0.28.0. Follow issue
-[#6622](https://github.com/bazelbuild/bazel/pull/6622) for updates.
+- you use `--run_under`
+- the test rule itself requires Bash (because its executable is a shell script)
 
 <a name="bazel-run-without-bash"></a>
 ### `bazel run` without Bash
 
-With Bazel 0.25.0 you still need Bash (MSYS2) to `bazel run //foo:bin` anything.
+Bazel versions before 1.0 used to require Bash to `bazel run` anything.
 
-Removing this requirement is one of our top priorities. Follow issue
-[#8240](https://github.com/bazelbuild/bazel/pull/8240) for updates.
+Starting with Bazel 1.0, you can run any rule without Bash, except when:
+
+- you use `--run_under` or `--script_path`
+- the test rule itself requires Bash (because its executable is a shell script)
 
 <a name="sh-rules-without-bash"></a>
 ### `sh_binary` and `sh_*` rules, and `ctx.actions.run_shell()` without Bash
@@ -99,7 +83,7 @@ applies not only to rules in your project, but to rules in any of the external
 repositories your project depends on (even transitively).
 
 We may explore the option to use Windows Subsystem for Linux (WSL) to build
-these rules, but as of 2019-05-07 it is not a priority for the Bazel-on-Windows
+these rules, but as of 2020-01-15 it is not a priority for the Bazel-on-Windows
 subteam.
 
 ## Setting environment variables

@@ -194,16 +194,6 @@ public abstract class TestStrategy implements TestActionContext {
     // consider the target configuration, not the machine Bazel happens to run on. Change this to
     // something like: testAction.getConfiguration().getTargetOS() == OS.WINDOWS
     final boolean executedOnWindows = (OS.getCurrent() == OS.WINDOWS);
-    final boolean useTestWrapper = testAction.isUsingTestWrapperInsteadOfTestSetupScript();
-
-    if (executedOnWindows && !useTestWrapper) {
-      // TestActionBuilder constructs TestRunnerAction with a 'null' shell path only when we use the
-      // native test wrapper. Something clearly went wrong.
-      Preconditions.checkNotNull(testAction.getShExecutableMaybe(), "%s", testAction);
-      args.add(testAction.getShExecutableMaybe().getPathString());
-      args.add("-c");
-      args.add("$0 \"$@\"");
-    }
 
     Artifact testSetup = testAction.getTestSetupScript();
     args.add(testSetup.getExecPath().getCallablePathString());

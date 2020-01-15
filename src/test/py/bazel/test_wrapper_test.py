@@ -577,11 +577,8 @@ class TestWrapperTest(test_base.TestBase):
       xml_contents = [line.strip() for line in f.readlines()]
     self.assertListEqual(xml_contents, ['leave this'])
 
-  # Test that the native test wrapper can run tests from external repositories.
+  # Test that we can run tests from external repositories.
   # See https://github.com/bazelbuild/bazel/issues/8088
-  # Unfortunately as of 2019-04-18 the legacy test wrapper (test-setup.sh) also
-  # has this bug, but I (@laszlocsomor) work on enabling the native test wrapper
-  # by default so fixing the legacy one seems to make little sense.
   def testRunningTestFromExternalRepo(self):
     rule_definition = [
         'load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")',
@@ -600,7 +597,6 @@ class TestWrapperTest(test_base.TestBase):
         exit_code, _, stderr = self.RunBazel([
             'test',
             '-t-',
-            '--incompatible_windows_native_test_wrapper',
             '--shell_executable=',
             '--test_output=errors',
             '--verbose_failures',
@@ -611,9 +607,9 @@ class TestWrapperTest(test_base.TestBase):
             exit_code, 0,
             ['flag=%s' % flag, 'target=%s' % target] + stderr)
 
-  def _RunTests(self, flags):
+  def testTestExecutionWithTestWrapperExe(self):
     self._CreateMockWorkspace()
-    flags = ['--noincompatible_windows_native_test_wrapper']
+    flags = ['--shell_executable=']
     self._AssertPassingTest(flags)
     self._AssertFailingTest(flags)
     self._AssertPrintingTest(flags)
@@ -628,13 +624,6 @@ class TestWrapperTest(test_base.TestBase):
     self._AssertXmlGeneration(flags, split_xml=True)
     self._AssertXmlGeneratedByTestIsRetained(flags, split_xml=False)
     self._AssertXmlGeneratedByTestIsRetained(flags, split_xml=True)
-
-  def testTestExecutionWithTestSetupSh(self):
-    self._RunTests(['--noincompatible_windows_native_test_wrapper'])
-
-  def testTestExecutionWithTestWrapperExe(self):
-    self._RunTests(
-        ['--incompatible_windows_native_test_wrapper', '--shell_executable='])
 
 
 if __name__ == '__main__':
