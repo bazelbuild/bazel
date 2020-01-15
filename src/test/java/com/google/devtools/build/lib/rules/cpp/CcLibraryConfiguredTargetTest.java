@@ -1576,7 +1576,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
     checkError(
         "test",
         "test",
-        "The attribute 'linked_statically_by' can only be used",
+        "The attributes 'linked_statically_by' and 'linked_statically_by_all' can only be used",
         "cc_library(name = 'test', srcs = ['test.cc'], linked_statically_by=['bar'])");
   }
 
@@ -1592,5 +1592,16 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
         ")");
     getConfiguredTarget("//a:test");
     assertNoEvents();
+  }
+
+  @Test
+  public void checkBothLinkedStaticallyByAllAndLinkedStaticallyBySpecified() throws Exception {
+    setSkylarkSemanticsOptions("--experimental_cc_shared_library");
+    checkError(
+        "test",
+        "test",
+        "Cannot specify both",
+        "cc_library(name = 'test', srcs = ['test.cc'], linked_statically_by_all=1,"
+            + " linked_statically_by=['bar'])");
   }
 }

@@ -48,6 +48,7 @@ public final class BazelCcLibraryRule implements RuleDefinition {
         <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
         .add(attr("alwayslink", BOOLEAN))
         .add(attr("linked_statically_by", NODEP_LABEL_LIST))
+        .add(attr("linked_statically_by_all", BOOLEAN))
         .override(attr("linkstatic", BOOLEAN).value(false))
         .build();
   }

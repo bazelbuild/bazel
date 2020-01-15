@@ -23,26 +23,15 @@ import java.util.List;
 @Immutable
 public final class GraphNodeInfo implements TransitiveInfoProvider {
   private final Label label;
-  private final ImmutableList<String> linkedStaticallyBy;
   private final ImmutableList<GraphNodeInfo> children;
 
-  public GraphNodeInfo(Label label, List<Label> linkedStaticallyBy, List<GraphNodeInfo> children) {
+  public GraphNodeInfo(Label label, List<GraphNodeInfo> children) {
     this.label = label;
-    this.linkedStaticallyBy =
-        linkedStaticallyBy == null
-            ? null
-            : linkedStaticallyBy.stream()
-                .map(Label::toString)
-                .collect(ImmutableList.toImmutableList());
     this.children = children == null ? null : ImmutableList.copyOf(children);
   }
 
   public Label getLabel() {
     return label;
-  }
-
-  public List<String> getLinkedStaticallyBy() {
-    return linkedStaticallyBy;
   }
 
   public List<GraphNodeInfo> getChildren() {
