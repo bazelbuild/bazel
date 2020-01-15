@@ -304,25 +304,25 @@ public class LegacyDynamicSpawnStrategy implements SpawnActionContext {
   }
 
   @Override
-  public boolean canExec(Spawn spawn, ActionExecutionContext actionExecutionContext) {
+  public boolean canExec(Spawn spawn, ActionContextRegistry actionContextRegistry) {
     DynamicStrategyRegistry dynamicStrategyRegistry =
-        actionExecutionContext.getContext(DynamicStrategyRegistry.class);
+        actionContextRegistry.getContext(DynamicStrategyRegistry.class);
 
     for (SandboxedSpawnActionContext strategy :
         dynamicStrategyRegistry.getDynamicSpawnActionContexts(
             spawn, DynamicStrategyRegistry.DynamicMode.LOCAL)) {
-      if (strategy.canExec(spawn, actionExecutionContext)) {
+      if (strategy.canExec(spawn, actionContextRegistry)) {
         return true;
       }
     }
     for (SandboxedSpawnActionContext strategy :
         dynamicStrategyRegistry.getDynamicSpawnActionContexts(
             spawn, DynamicStrategyRegistry.DynamicMode.REMOTE)) {
-      if (strategy.canExec(spawn, actionExecutionContext)) {
+      if (strategy.canExec(spawn, actionContextRegistry)) {
         return true;
       }
     }
-    return workerStrategy.canExec(spawn, actionExecutionContext);
+    return workerStrategy.canExec(spawn, actionContextRegistry);
   }
 
   private void moveFileOutErr(ActionExecutionContext actionExecutionContext, FileOutErr outErr)

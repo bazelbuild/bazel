@@ -105,7 +105,7 @@ public class BlazeExecutorTest {
     }
 
     @Override
-    public boolean canExec(Spawn spawn, ActionExecutionContext actionExecutionContext) {
+    public boolean canExec(Spawn spawn, ActionContextRegistry actionContextRegistry) {
       return false;
     }
   }

@@ -135,7 +135,7 @@ public class SpawnActionContextMapsTest {
     }
 
     @Override
-    public boolean canExec(Spawn spawn, ActionExecutionContext actionExecutionContext) {
+    public boolean canExec(Spawn spawn, ActionContextRegistry actionContextRegistry) {
       return true;
     }
   }
@@ -149,7 +149,7 @@ public class SpawnActionContextMapsTest {
     }
 
     @Override
-    public boolean canExec(Spawn spawn, ActionExecutionContext actionExecutionContext) {
+    public boolean canExec(Spawn spawn, ActionContextRegistry actionContextRegistry) {
       return true;
     }
   }

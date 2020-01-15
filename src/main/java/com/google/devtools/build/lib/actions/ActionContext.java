@@ -13,9 +13,27 @@
 // limitations under the License.
 package com.google.devtools.build.lib.actions;
 
-/**
- * A marker interface for classes that provide services for actions during execution.
- *
- * <p>Interfaces extending this one should also be annotated with {@link ActionContextMarker}.
- */
-public interface ActionContext {}
+import javax.annotation.Nullable;
+
+/** A context that provides services for actions during execution. */
+public interface ActionContext {
+
+  /**
+   * A registry allowing the lookup of action contexts by identifying type during the execution
+   * phase.
+   */
+  interface ActionContextRegistry {
+
+    /**
+     * Returns context registered for the given type.
+     *
+     * <p>Note that multiple contexts could have been registered for the same identifying type. In
+     * this case the last such registered context will be returned here. Contexts of the same type
+     * can also be distinguished using command-line identifiers and some can be {@linkplain
+     * com.google.devtools.build.lib.exec.ExecutorBuilder#addStrategyByContext excluded} from the
+     * registry based on those identifiers.
+     */
+    @Nullable
+    <T extends ActionContext> T getContext(Class<T> identifyingType);
+  }
+}

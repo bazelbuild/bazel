@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.AbstractAction;
+import com.google.devtools.build.lib.actions.ActionContext;
 import com.google.devtools.build.lib.actions.ActionContinuationOrResult;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
@@ -154,8 +155,9 @@ public abstract class AbstractFileWriteAction extends AbstractAction {
     return true;
   }
 
-  private FileWriteActionContext getStrategy(ActionExecutionContext actionExecutionContext) {
-    return actionExecutionContext.getContext(FileWriteActionContext.class);
+  private FileWriteActionContext getStrategy(
+      ActionContext.ActionContextRegistry actionContextRegistry) {
+    return actionContextRegistry.getContext(FileWriteActionContext.class);
   }
 
   /**

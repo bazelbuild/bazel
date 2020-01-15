@@ -63,6 +63,7 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
+import javax.annotation.Nullable;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -117,7 +118,8 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
     }
 
     @Override
-    public <T extends ActionContext> T getContext(Class<? extends T> type) {
+    @Nullable
+    public <T extends ActionContext> T getContext(Class<T> type) {
       return SpawnActionContext.class.equals(type) ? type.cast(spawnActionContext) : null;
     }
 

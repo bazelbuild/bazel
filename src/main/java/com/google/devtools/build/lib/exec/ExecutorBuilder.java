@@ -85,8 +85,8 @@ public class ExecutorBuilder {
    * mnemonic.
    *
    * <p>During execution, each strategy is {@linkplain SpawnActionContext#canExec(Spawn,
-   * com.google.devtools.build.lib.actions.ActionExecutionContext) asked} whether it can execute a
-   * given Spawn. The first strategy in the list that says so will get the job.
+   * ActionContext.ActionContextRegistry) asked} whether it can execute a given Spawn. The first
+   * strategy in the list that says so will get the job.
    */
   public ExecutorBuilder addDynamicRemoteStrategiesByMnemonic(
       String mnemonic, List<String> strategies) {
@@ -101,8 +101,8 @@ public class ExecutorBuilder {
    * mnemonic.
    *
    * <p>During execution, each strategy is {@linkplain SpawnActionContext#canExec(Spawn,
-   * com.google.devtools.build.lib.actions.ActionExecutionContext) asked} whether it can execute a
-   * given Spawn. The first strategy in the list that says so will get the job.
+   * ActionContext.ActionContextRegistry) asked} whether it can execute a given Spawn. The first
+   * strategy in the list that says so will get the job.
    */
   public ExecutorBuilder addDynamicLocalStrategiesByMnemonic(
       String mnemonic, List<String> strategies) {

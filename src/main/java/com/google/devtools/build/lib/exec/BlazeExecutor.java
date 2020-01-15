@@ -23,7 +23,7 @@ import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.common.options.OptionsProvider;
-import java.util.Map;
+import javax.annotation.Nullable;
 
 /**
  * The Executor class provides a dynamic abstraction of the various actual primitive system
@@ -42,8 +42,7 @@ public final class BlazeExecutor implements Executor {
   private final Path execRoot;
   private final Clock clock;
   private final OptionsProvider options;
-
-  private final Map<Class<? extends ActionContext>, ActionContext> contextMap;
+  private final ActionContext.ActionContextRegistry actionContextRegistry;
 
   /**
    * Constructs an Executor, bound to a specified output base path, and which will use the specified
@@ -72,7 +71,7 @@ public final class BlazeExecutor implements Executor {
     this.execRoot = execRoot;
     this.clock = clock;
     this.options = options;
-    this.contextMap = spawnActionContextMaps.contextMap();
+    this.actionContextRegistry = spawnActionContextMaps;
 
     if (executionOptions.debugPrintActionContexts) {
       spawnActionContextMaps.debugPrintSpawnActionContextMaps(reporter);
@@ -104,8 +103,9 @@ public final class BlazeExecutor implements Executor {
   }
 
   @Override
-  public <T extends ActionContext> T getContext(Class<? extends T> type) {
-    return type.cast(contextMap.get(type));
+  @Nullable
+  public <T extends ActionContext> T getContext(Class<T> type) {
+    return actionContextRegistry.getContext(type);
   }
 
   /** Returns true iff the --verbose_failures option was enabled. */

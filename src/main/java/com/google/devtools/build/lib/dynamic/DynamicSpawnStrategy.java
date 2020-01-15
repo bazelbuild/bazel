@@ -327,20 +327,20 @@ public class DynamicSpawnStrategy implements SpawnActionContext {
   }
 
   @Override
-  public boolean canExec(Spawn spawn, ActionExecutionContext actionExecutionContext) {
+  public boolean canExec(Spawn spawn, ActionContextRegistry actionContextRegistry) {
     DynamicStrategyRegistry dynamicStrategyRegistry =
-        actionExecutionContext.getContext(DynamicStrategyRegistry.class);
+        actionContextRegistry.getContext(DynamicStrategyRegistry.class);
     for (SandboxedSpawnActionContext strategy :
         dynamicStrategyRegistry.getDynamicSpawnActionContexts(
             spawn, DynamicStrategyRegistry.DynamicMode.LOCAL)) {
-      if (strategy.canExec(spawn, actionExecutionContext)) {
+      if (strategy.canExec(spawn, actionContextRegistry)) {
         return true;
       }
     }
     for (SandboxedSpawnActionContext strategy :
         dynamicStrategyRegistry.getDynamicSpawnActionContexts(
             spawn, DynamicStrategyRegistry.DynamicMode.REMOTE)) {
-      if (strategy.canExec(spawn, actionExecutionContext)) {
+      if (strategy.canExec(spawn, actionContextRegistry)) {
         return true;
       }
     }

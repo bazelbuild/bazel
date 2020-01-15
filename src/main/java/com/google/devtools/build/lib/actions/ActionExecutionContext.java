@@ -35,10 +35,8 @@ import java.io.IOException;
 import java.util.Map;
 import javax.annotation.Nullable;
 
-/**
- * A class that groups services in the scope of the action. Like the FileOutErr object.
- */
-public class ActionExecutionContext implements Closeable {
+/** A class that groups services in the scope of the action. Like the FileOutErr object. */
+public class ActionExecutionContext implements Closeable, ActionContext.ActionContextRegistry {
 
   /** Enum for --subcommands flag */
   public enum ShowSubcommands {
@@ -262,10 +260,9 @@ public class ActionExecutionContext implements Closeable {
     this.outputSymlinks = outputSymlinks;
   }
 
-  /**
-   * Looks up and returns an action context implementation of the given interface type.
-   */
-  public <T extends ActionContext> T getContext(Class<? extends T> type) {
+  @Override
+  @Nullable
+  public <T extends ActionContext> T getContext(Class<T> type) {
     return executor.getContext(type);
   }
 

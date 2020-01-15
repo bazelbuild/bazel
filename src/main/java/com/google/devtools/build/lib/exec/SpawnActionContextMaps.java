@@ -64,7 +64,9 @@ import javax.annotation.Nullable;
  * the context for each action.
  */
 public final class SpawnActionContextMaps
-    implements DynamicStrategyRegistry, RemoteLocalFallbackRegistry {
+    implements DynamicStrategyRegistry,
+        RemoteLocalFallbackRegistry,
+        ActionContext.ActionContextRegistry {
 
   /** A stored entry for a {@link RegexFilter} to {@link SpawnActionContext} mapping. */
   @AutoValue
@@ -81,6 +83,7 @@ public final class SpawnActionContextMaps
       mnemonicToRemoteDynamicStrategies;
   private final ImmutableMultimap<String, SandboxedSpawnActionContext>
       mnemonicToLocalDynamicStrategies;
+  private final ImmutableMap<Class<? extends ActionContext>, ActionContext> contextMap;
   @Nullable private final AbstractSpawnStrategy remoteLocalFallbackStrategy;
 
   private SpawnActionContextMaps(
@@ -96,6 +99,7 @@ public final class SpawnActionContextMaps
     this.mnemonicToRemoteDynamicStrategies = mnemonicToRemoteDynamicStrategies;
     this.mnemonicToLocalDynamicStrategies = mnemonicToLocalDynamicStrategies;
     this.remoteLocalFallbackStrategy = remoteLocalFallbackStrategy;
+    contextMap = createContextMap();
   }
 
   /**
@@ -147,9 +151,7 @@ public final class SpawnActionContextMaps
     return remoteLocalFallbackStrategy;
   }
 
-  /** Returns a map from action context class to its instantiated context object. */
-  @VisibleForTesting
-  public ImmutableMap<Class<? extends ActionContext>, ActionContext> contextMap() {
+  private ImmutableMap<Class<? extends ActionContext>, ActionContext> createContextMap() {
     Map<Class<? extends ActionContext>, ActionContext> contextMap = new HashMap<>();
     for (Map.Entry<Class<? extends ActionContext>, ActionContext> typeToStrategy :
         strategies.entrySet()) {
@@ -161,6 +163,12 @@ public final class SpawnActionContextMaps
     contextMap.put(DynamicStrategyRegistry.class, this);
     contextMap.put(RemoteLocalFallbackRegistry.class, this);
     return ImmutableMap.copyOf(contextMap);
+  }
+
+  @Nullable
+  @Override
+  public <T extends ActionContext> T getContext(Class<T> identifyingType) {
+    return identifyingType.cast(contextMap.get(identifyingType));
   }
 
   /** Returns a list of all referenced {@link ActionContext} instances. */
@@ -192,7 +200,7 @@ public final class SpawnActionContextMaps
                   entry.getKey(), Joiner.on(", ").join(strategyNames))));
     }
 
-    ImmutableMap<Class<? extends ActionContext>, ActionContext> contextMap = contextMap();
+    ImmutableMap<Class<? extends ActionContext>, ActionContext> contextMap = createContextMap();
     TreeMap<String, String> sortedContextMapWithSimpleNames = new TreeMap<>();
     for (Map.Entry<Class<? extends ActionContext>, ActionContext> entry : contextMap.entrySet()) {
       sortedContextMapWithSimpleNames.put(

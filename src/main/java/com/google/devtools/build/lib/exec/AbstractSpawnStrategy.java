@@ -84,7 +84,7 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnActionConte
   }
 
   @Override
-  public boolean canExec(Spawn spawn, ActionExecutionContext actionExecutionContext) {
+  public boolean canExec(Spawn spawn, ActionContextRegistry actionContextRegistry) {
     return spawnRunner.canExec(spawn);
   }
 
