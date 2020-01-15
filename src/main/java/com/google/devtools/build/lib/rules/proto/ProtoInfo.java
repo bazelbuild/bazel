@@ -57,6 +57,7 @@ public final class ProtoInfo extends NativeInfo implements ProtoInfoApi<Artifact
   private final ImmutableList<Artifact> originalDirectProtoSources;
   private final String directProtoSourceRoot;
   private final NestedSet<Artifact> transitiveProtoSources;
+  private final NestedSet<Artifact> originalTransitiveProtoSources;
   private final NestedSet<String> transitiveProtoSourceRoots;
   private final NestedSet<Artifact> strictImportableProtoSourcesForDependents;
   private final NestedSet<Pair<Artifact, String>> strictImportableProtoSourcesImportPaths;
@@ -74,6 +75,7 @@ public final class ProtoInfo extends NativeInfo implements ProtoInfoApi<Artifact
       ImmutableList<Artifact> originalDirectProtoSources,
       String directProtoSourceRoot,
       NestedSet<Artifact> transitiveProtoSources,
+      NestedSet<Artifact> originalTransitiveProtoSources,
       NestedSet<String> transitiveProtoSourceRoots,
       NestedSet<Artifact> strictImportableProtoSourcesForDependents,
       NestedSet<Pair<Artifact, String>> strictImportableProtoSourcesImportPaths,
@@ -89,6 +91,7 @@ public final class ProtoInfo extends NativeInfo implements ProtoInfoApi<Artifact
     this.originalDirectProtoSources = originalDirectProtoSources;
     this.directProtoSourceRoot = directProtoSourceRoot;
     this.transitiveProtoSources = transitiveProtoSources;
+    this.originalTransitiveProtoSources = originalTransitiveProtoSources;
     this.transitiveProtoSourceRoots = transitiveProtoSourceRoots;
     this.strictImportableProtoSourcesForDependents = strictImportableProtoSourcesForDependents;
     this.strictImportableProtoSourcesImportPaths = strictImportableProtoSourcesImportPaths;
@@ -103,15 +106,18 @@ public final class ProtoInfo extends NativeInfo implements ProtoInfoApi<Artifact
 
   /**
    * The proto source files that are used in compiling this {@code proto_library}.
-   *
-   * <p>Different from {@link #getOriginalDirectProtoSources()} when a virtual import root is used.
    */
   @Override
   public ImmutableList<Artifact> getDirectProtoSources() {
     return directProtoSources;
   }
 
-  /** The proto sources of the {@code proto_library} declaring this provider. */
+  /**
+   * The non-virtual proto sources of the {@code proto_library} declaring this provider.
+   *
+   * <p>Different from {@link #getDirectProtoSources()} if a transitive dependency has {@code
+   * import_prefix} or the like.
+   */
   public ImmutableList<Artifact> getOriginalDirectProtoSources() {
     return originalDirectProtoSources;
   }
@@ -130,6 +136,16 @@ public final class ProtoInfo extends NativeInfo implements ProtoInfoApi<Artifact
 
   public NestedSet<Artifact> getTransitiveProtoSources() {
     return transitiveProtoSources;
+  }
+
+  /**
+   * The non-virtual transitive proto source files.
+   *
+   * <p>Different from {@link #getTransitiveProtoSources()} if a transitive dependency has {@code
+   * import_prefix} or the like.
+   */
+  public NestedSet<Artifact> getOriginalTransitiveProtoSources() {
+    return originalTransitiveProtoSources;
   }
 
   /**
