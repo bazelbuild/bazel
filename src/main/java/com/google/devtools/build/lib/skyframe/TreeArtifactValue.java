@@ -19,11 +19,10 @@ import com.google.common.base.MoreObjects;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedMap;
-import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.HasDigest;
-import com.google.devtools.build.lib.actions.cache.DigestUtils;
+import com.google.devtools.build.lib.actions.cache.OrderIndependentHasher;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.Dirent.Type;
@@ -47,9 +46,7 @@ public class TreeArtifactValue implements HasDigest, SkyValue {
 
   private static final TreeArtifactValue EMPTY =
       new TreeArtifactValue(
-          DigestUtils.fromMetadata(ImmutableMap.of()),
-          ImmutableSortedMap.of(),
-          /* remote= */ false);
+          new OrderIndependentHasher().finish(), ImmutableSortedMap.of(), /* remote= */ false);
 
   private final byte[] digest;
   private final ImmutableSortedMap<TreeFileArtifact, FileArtifactValue> childData;
@@ -73,20 +70,17 @@ public class TreeArtifactValue implements HasDigest, SkyValue {
     if (childFileValues.isEmpty()) {
       return EMPTY;
     }
-    Map<String, FileArtifactValue> digestBuilder =
-        Maps.newHashMapWithExpectedSize(childFileValues.size());
+    OrderIndependentHasher hasher = new OrderIndependentHasher();
     boolean remote = true;
     for (Map.Entry<TreeFileArtifact, FileArtifactValue> e : childFileValues.entrySet()) {
       FileArtifactValue value = e.getValue();
       // TODO(buchgr): Enforce that all children in a tree artifact are either remote or local
       // once b/70354083 is fixed.
       remote = remote && value.isRemote();
-      digestBuilder.put(e.getKey().getParentRelativePath().getPathString(), value);
+      hasher.addArtifact(e.getKey().getParentRelativePath().getPathString(), value);
     }
     return new TreeArtifactValue(
-        DigestUtils.fromMetadata(digestBuilder),
-        ImmutableSortedMap.copyOf(childFileValues),
-        remote);
+        hasher.finish(), ImmutableSortedMap.copyOf(childFileValues), remote);
   }
 
   FileArtifactValue getSelfData() {
