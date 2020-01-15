@@ -54,6 +54,7 @@ public abstract class StarlarkSemantics {
         StarlarkSemantics::experimentalEnableAndroidMigrationApis),
     EXPERIMENTAL_BUILD_SETTING_API(StarlarkSemantics::experimentalBuildSettingApi),
     EXPERIMENTAL_GOOGLE_LEGACY_API(StarlarkSemantics::experimentalGoogleLegacyApi),
+    EXPERIMENTAL_NINJA_ACTIONS(StarlarkSemantics::experimentalNinjaActions),
     EXPERIMENTAL_PLATFORM_API(StarlarkSemantics::experimentalPlatformsApi),
     EXPERIMENTAL_STARLARK_CONFIG_TRANSITION(
         StarlarkSemantics::experimentalStarlarkConfigTransitions),
@@ -146,6 +147,8 @@ public abstract class StarlarkSemantics {
   public abstract boolean experimentalEnableAndroidMigrationApis();
 
   public abstract boolean experimentalGoogleLegacyApi();
+
+  public abstract boolean experimentalNinjaActions();
 
   public abstract boolean experimentalPlatformsApi();
 
@@ -255,6 +258,7 @@ public abstract class StarlarkSemantics {
           .experimentalAllowIncrementalRepositoryUpdates(true)
           .experimentalEnableAndroidMigrationApis(false)
           .experimentalGoogleLegacyApi(false)
+          .experimentalNinjaActions(false)
           .experimentalPlatformsApi(false)
           .experimentalStarlarkConfigTransitions(true)
           .experimentalStarlarkUnusedInputsList(true)
@@ -311,6 +315,8 @@ public abstract class StarlarkSemantics {
     public abstract Builder experimentalEnableAndroidMigrationApis(boolean value);
 
     public abstract Builder experimentalGoogleLegacyApi(boolean value);
+
+    public abstract Builder experimentalNinjaActions(boolean value);
 
     public abstract Builder experimentalPlatformsApi(boolean value);
 
