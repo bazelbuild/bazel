@@ -64,7 +64,7 @@ public class ActionGraphDump {
   private final boolean includeActionCmdLine;
   private final boolean includeArtifacts;
   private final boolean includeParamFiles;
-  private final StreamedOutputHandler streamedOutputHandler;
+  private final AqueryOutputHandler aqueryOutputHandler;
 
   private Map<String, Iterable<String>> paramFileNameToContentMap;
 
@@ -73,14 +73,14 @@ public class ActionGraphDump {
       boolean includeArtifacts,
       AqueryActionFilter actionFilters,
       boolean includeParamFiles,
-      StreamedOutputHandler streamedOutputHandler) {
+      AqueryOutputHandler aqueryOutputHandler) {
     this(
         /* actionGraphTargets= */ ImmutableList.of("..."),
         includeActionCmdLine,
         includeArtifacts,
         actionFilters,
         includeParamFiles,
-        streamedOutputHandler);
+        aqueryOutputHandler);
   }
 
   public ActionGraphDump(
@@ -89,21 +89,21 @@ public class ActionGraphDump {
       boolean includeArtifacts,
       AqueryActionFilter actionFilters,
       boolean includeParamFiles,
-      StreamedOutputHandler streamedOutputHandler) {
+      AqueryOutputHandler aqueryOutputHandler) {
     this.actionGraphTargets = ImmutableSet.copyOf(actionGraphTargets);
     this.includeActionCmdLine = includeActionCmdLine;
     this.includeArtifacts = includeArtifacts;
     this.actionFilters = actionFilters;
     this.includeParamFiles = includeParamFiles;
-    this.streamedOutputHandler = streamedOutputHandler;
+    this.aqueryOutputHandler = aqueryOutputHandler;
 
-    knownRuleClassStrings = new KnownRuleClassStrings(streamedOutputHandler);
-    knownArtifacts = new KnownArtifacts(streamedOutputHandler);
-    knownConfigurations = new KnownConfigurations(streamedOutputHandler);
-    knownNestedSets = new KnownNestedSets(streamedOutputHandler, knownArtifacts);
-    knownAspectDescriptors = new KnownAspectDescriptors(streamedOutputHandler);
+    knownRuleClassStrings = new KnownRuleClassStrings(aqueryOutputHandler);
+    knownArtifacts = new KnownArtifacts(aqueryOutputHandler);
+    knownConfigurations = new KnownConfigurations(aqueryOutputHandler);
+    knownNestedSets = new KnownNestedSets(aqueryOutputHandler, knownArtifacts);
+    knownAspectDescriptors = new KnownAspectDescriptors(aqueryOutputHandler);
     knownRuleConfiguredTargets =
-        new KnownRuleConfiguredTargets(streamedOutputHandler, knownRuleClassStrings);
+        new KnownRuleConfiguredTargets(aqueryOutputHandler, knownRuleClassStrings);
   }
 
   public ActionKeyContext getActionKeyContext() {
@@ -232,11 +232,7 @@ public class ActionGraphDump {
       }
     }
 
-    printToOutput(actionBuilder.build());
-  }
-
-  private void printToOutput(AnalysisProtosV2.Action actionProto) throws IOException {
-    streamedOutputHandler.printAction(actionProto);
+    aqueryOutputHandler.outputAction(actionBuilder.build());
   }
 
   public void dumpAspect(AspectValue aspectValue, ConfiguredTargetValue configuredTargetValue)

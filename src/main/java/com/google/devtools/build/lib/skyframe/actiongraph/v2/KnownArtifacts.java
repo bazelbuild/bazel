@@ -22,9 +22,9 @@ public class KnownArtifacts extends BaseCache<Artifact, AnalysisProtosV2.Artifac
 
   private final KnownPathFragments knownPathFragments;
 
-  KnownArtifacts(StreamedOutputHandler streamedOutputHandler) {
-    super(streamedOutputHandler);
-    knownPathFragments = new KnownPathFragments(streamedOutputHandler);
+  KnownArtifacts(AqueryOutputHandler aqueryOutputHandler) {
+    super(aqueryOutputHandler);
+    knownPathFragments = new KnownPathFragments(aqueryOutputHandler);
   }
 
   @Override
@@ -39,7 +39,7 @@ public class KnownArtifacts extends BaseCache<Artifact, AnalysisProtosV2.Artifac
   }
 
   @Override
-  void streamToOutput(AnalysisProtosV2.Artifact artifactProto) throws IOException {
-    streamedOutputHandler.printArtifact(artifactProto);
+  void toOutput(AnalysisProtosV2.Artifact artifactProto) throws IOException {
+    aqueryOutputHandler.outputArtifact(artifactProto);
   }
 }

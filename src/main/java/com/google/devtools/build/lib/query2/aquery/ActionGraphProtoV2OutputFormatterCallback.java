@@ -21,8 +21,10 @@ import com.google.devtools.build.lib.skyframe.AspectValue;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetValue;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.actiongraph.v2.ActionGraphDump;
+import com.google.devtools.build.lib.skyframe.actiongraph.v2.AqueryOutputHandler;
+import com.google.devtools.build.lib.skyframe.actiongraph.v2.AqueryOutputHandler.OutputType;
+import com.google.devtools.build.lib.skyframe.actiongraph.v2.MonolithicOutputHandler;
 import com.google.devtools.build.lib.skyframe.actiongraph.v2.StreamedOutputHandler;
-import com.google.devtools.build.lib.skyframe.actiongraph.v2.StreamedOutputHandler.OutputType;
 import com.google.protobuf.CodedOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
@@ -33,7 +35,7 @@ public class ActionGraphProtoV2OutputFormatterCallback extends AqueryThreadsafeC
   private final OutputType outputType;
   private final ActionGraphDump actionGraphDump;
   private final AqueryActionFilter actionFilters;
-  private StreamedOutputHandler streamedOutputHandler;
+  private AqueryOutputHandler aqueryOutputHandler;
 
   /**
    * Pseudo-arbitrarily chosen buffer size for output. Chosen to be large enough to fit a handful of
@@ -52,20 +54,28 @@ public class ActionGraphProtoV2OutputFormatterCallback extends AqueryThreadsafeC
     super(eventHandler, options, out, skyframeExecutor, accessor);
     this.outputType = outputType;
     this.actionFilters = actionFilters;
-    if (out != null) {
-      this.streamedOutputHandler =
-          new StreamedOutputHandler(
-              this.outputType,
-              CodedOutputStream.newInstance(out, OUTPUT_BUFFER_SIZE),
-              this.printStream);
+
+    switch (outputType) {
+      case BINARY:
+      case TEXT:
+        this.aqueryOutputHandler =
+            new StreamedOutputHandler(
+                this.outputType,
+                CodedOutputStream.newInstance(out, OUTPUT_BUFFER_SIZE),
+                this.printStream);
+        break;
+      case JSON:
+        this.aqueryOutputHandler = new MonolithicOutputHandler(this.printStream);
+        break;
     }
+
     this.actionGraphDump =
         new ActionGraphDump(
             options.includeCommandline,
             options.includeArtifacts,
             this.actionFilters,
             options.includeParamFiles,
-            streamedOutputHandler);
+            aqueryOutputHandler);
   }
 
   @Override
@@ -98,7 +108,7 @@ public class ActionGraphProtoV2OutputFormatterCallback extends AqueryThreadsafeC
   @Override
   public void close(boolean failFast) throws IOException {
     if (!failFast) {
-      streamedOutputHandler.close();
+      aqueryOutputHandler.close();
     }
   }
 }

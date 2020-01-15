@@ -22,8 +22,8 @@ import java.io.IOException;
 public class KnownNestedSets extends BaseCache<Object, DepSetOfFiles> {
   private final KnownArtifacts knownArtifacts;
 
-  KnownNestedSets(StreamedOutputHandler streamedOutputHandler, KnownArtifacts knownArtifacts) {
-    super(streamedOutputHandler);
+  KnownNestedSets(AqueryOutputHandler aqueryOutputHandler, KnownArtifacts knownArtifacts) {
+    super(aqueryOutputHandler);
     this.knownArtifacts = knownArtifacts;
   }
 
@@ -50,7 +50,7 @@ public class KnownNestedSets extends BaseCache<Object, DepSetOfFiles> {
   }
 
   @Override
-  void streamToOutput(DepSetOfFiles depSetOfFilesProto) throws IOException {
-    streamedOutputHandler.printDepSetOfFiles(depSetOfFilesProto);
+  void toOutput(DepSetOfFiles depSetOfFilesProto) throws IOException {
+    aqueryOutputHandler.outputDepSetOfFiles(depSetOfFilesProto);
   }
 }

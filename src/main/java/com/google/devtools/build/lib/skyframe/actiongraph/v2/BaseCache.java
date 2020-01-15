@@ -22,10 +22,10 @@ import java.util.Map;
  */
 abstract class BaseCache<K, P> {
   private final Map<K, Integer> cache = new HashMap<>();
-  protected final StreamedOutputHandler streamedOutputHandler;
+  protected final AqueryOutputHandler aqueryOutputHandler;
 
-  BaseCache(StreamedOutputHandler streamedOutputHandler) {
-    this.streamedOutputHandler = streamedOutputHandler;
+  BaseCache(AqueryOutputHandler aqueryOutputHandler) {
+    this.aqueryOutputHandler = aqueryOutputHandler;
   }
 
   private int generateNextId() {
@@ -55,12 +55,12 @@ abstract class BaseCache<K, P> {
       id = generateNextId();
       cache.put(key, id);
       P proto = createProto(data, id);
-      streamToOutput(proto);
+      toOutput(proto);
     }
     return id;
   }
 
   abstract P createProto(K key, int id) throws IOException;
 
-  abstract void streamToOutput(P proto) throws IOException;
+  abstract void toOutput(P proto) throws IOException;
 }

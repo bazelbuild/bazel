@@ -23,8 +23,8 @@ import java.util.Map;
 public class KnownAspectDescriptors
     extends BaseCache<AspectDescriptor, AnalysisProtosV2.AspectDescriptor> {
 
-  KnownAspectDescriptors(StreamedOutputHandler streamedOutputHandler) {
-    super(streamedOutputHandler);
+  KnownAspectDescriptors(AqueryOutputHandler aqueryOutputHandler) {
+    super(aqueryOutputHandler);
   }
 
   @Override
@@ -44,7 +44,7 @@ public class KnownAspectDescriptors
   }
 
   @Override
-  void streamToOutput(AnalysisProtosV2.AspectDescriptor aspectDescriptorProto) throws IOException {
-    streamedOutputHandler.printAspectDescriptor(aspectDescriptorProto);
+  void toOutput(AnalysisProtosV2.AspectDescriptor aspectDescriptorProto) throws IOException {
+    aqueryOutputHandler.outputAspectDescriptor(aspectDescriptorProto);
   }
 }

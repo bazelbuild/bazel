@@ -21,8 +21,8 @@ import java.io.IOException;
 /** Cache for BuildConfigurations in the action graph. */
 public class KnownConfigurations extends BaseCache<BuildEvent, Configuration> {
 
-  KnownConfigurations(StreamedOutputHandler streamedOutputHandler) {
-    super(streamedOutputHandler);
+  KnownConfigurations(AqueryOutputHandler aqueryOutputHandler) {
+    super(aqueryOutputHandler);
   }
 
   @Override
@@ -38,7 +38,7 @@ public class KnownConfigurations extends BaseCache<BuildEvent, Configuration> {
   }
 
   @Override
-  void streamToOutput(Configuration configurationProto) throws IOException {
-    streamedOutputHandler.printConfiguration(configurationProto);
+  void toOutput(Configuration configurationProto) throws IOException {
+    aqueryOutputHandler.outputConfiguration(configurationProto);
   }
 }

@@ -19,8 +19,8 @@ import java.io.IOException;
 /** Cache for RuleClassStrings in the action graph. */
 public class KnownRuleClassStrings extends BaseCache<String, RuleClass> {
 
-  KnownRuleClassStrings(StreamedOutputHandler streamedOutputHandler) {
-    super(streamedOutputHandler);
+  KnownRuleClassStrings(AqueryOutputHandler aqueryOutputHandler) {
+    super(aqueryOutputHandler);
   }
 
   @Override
@@ -29,7 +29,7 @@ public class KnownRuleClassStrings extends BaseCache<String, RuleClass> {
   }
 
   @Override
-  void streamToOutput(RuleClass ruleClassProto) throws IOException {
-    streamedOutputHandler.printRuleClass(ruleClassProto);
+  void toOutput(RuleClass ruleClassProto) throws IOException {
+    aqueryOutputHandler.outputRuleClass(ruleClassProto);
   }
 }

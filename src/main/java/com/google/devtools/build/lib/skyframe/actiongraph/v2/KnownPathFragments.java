@@ -19,8 +19,8 @@ import java.io.IOException;
 
 /** Cache for {@link PathFragment} in the action graph. */
 public class KnownPathFragments extends BaseCache<PathFragment, AnalysisProtosV2.PathFragment> {
-  KnownPathFragments(StreamedOutputHandler streamedOutputHandler) {
-    super(streamedOutputHandler);
+  KnownPathFragments(AqueryOutputHandler aqueryOutputHandler) {
+    super(aqueryOutputHandler);
   }
 
   @Override
@@ -40,8 +40,8 @@ public class KnownPathFragments extends BaseCache<PathFragment, AnalysisProtosV2
   }
 
   @Override
-  void streamToOutput(AnalysisProtosV2.PathFragment pathFragmentProto) throws IOException {
-    streamedOutputHandler.printPathFragment(pathFragmentProto);
+  void toOutput(AnalysisProtosV2.PathFragment pathFragmentProto) throws IOException {
+    aqueryOutputHandler.outputPathFragment(pathFragmentProto);
   }
 
   private static boolean hasParent(PathFragment pathFragment) {

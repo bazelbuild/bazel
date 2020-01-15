@@ -24,8 +24,8 @@ public class KnownRuleConfiguredTargets extends BaseCache<RuleConfiguredTarget, 
   private final KnownRuleClassStrings knownRuleClassStrings;
 
   KnownRuleConfiguredTargets(
-      StreamedOutputHandler streamedOutputHandler, KnownRuleClassStrings knownRuleClassStrings) {
-    super(streamedOutputHandler);
+      AqueryOutputHandler aqueryOutputHandler, KnownRuleClassStrings knownRuleClassStrings) {
+    super(aqueryOutputHandler);
     this.knownRuleClassStrings = knownRuleClassStrings;
   }
 
@@ -42,7 +42,7 @@ public class KnownRuleConfiguredTargets extends BaseCache<RuleConfiguredTarget, 
   }
 
   @Override
-  void streamToOutput(Target targetProto) throws IOException {
-    streamedOutputHandler.printTarget(targetProto);
+  void toOutput(Target targetProto) throws IOException {
+    aqueryOutputHandler.outputTarget(targetProto);
   }
 }
