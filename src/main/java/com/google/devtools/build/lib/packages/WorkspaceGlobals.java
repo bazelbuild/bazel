@@ -90,12 +90,10 @@ public class WorkspaceGlobals implements WorkspaceGlobalsApi {
       }
       // Add entry in repository map from "@name" --> "@" to avoid issue where bazel
       // treats references to @name as a separate external repo
-      if (thread.getSemantics().incompatibleRemapMainRepo()) {
-        builder.addRepositoryMappingEntry(
-            RepositoryName.MAIN,
-            RepositoryName.createFromValidStrippedName(name),
-            RepositoryName.MAIN);
-      }
+      builder.addRepositoryMappingEntry(
+          RepositoryName.MAIN,
+          RepositoryName.createFromValidStrippedName(name),
+          RepositoryName.MAIN);
       parseManagedDirectories(
           managedDirectories.getContents(String.class, Object.class, "managed_directories"), loc);
       return NONE;

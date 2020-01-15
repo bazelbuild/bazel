@@ -194,8 +194,6 @@ public abstract class StarlarkSemantics {
 
   public abstract boolean incompatibleNoTargetOutputGroup();
 
-  public abstract boolean incompatibleRemapMainRepo();
-
   public abstract boolean incompatibleRemoveEnabledToolchainTypes();
 
   public abstract boolean incompatibleRestrictNamedParams();
@@ -281,7 +279,6 @@ public abstract class StarlarkSemantics {
           .incompatibleNoRuleOutputsParam(false)
           .incompatibleNoSupportToolsInActionInputs(true)
           .incompatibleNoTargetOutputGroup(true)
-          .incompatibleRemapMainRepo(true)
           .incompatibleRemoveEnabledToolchainTypes(false)
           .incompatibleRunShellCommandString(false)
           .incompatibleRestrictNamedParams(true)
@@ -361,8 +358,6 @@ public abstract class StarlarkSemantics {
     public abstract Builder incompatibleNoSupportToolsInActionInputs(boolean value);
 
     public abstract Builder incompatibleNoTargetOutputGroup(boolean value);
-
-    public abstract Builder incompatibleRemapMainRepo(boolean value);
 
     public abstract Builder incompatibleRemoveEnabledToolchainTypes(boolean value);
 

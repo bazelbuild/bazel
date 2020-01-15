@@ -784,7 +784,7 @@ a = 1
 EOF
 
   cd mainrepo
-  bazel query --incompatible_remap_main_repo //... &>"$TEST_log" \
+  bazel query //... &>"$TEST_log" \
       || fail "Expected query to succeed"
   expect_log "def.bzl loaded"
   expect_not_log "external"
@@ -812,7 +812,7 @@ EOF
   # the bzl file should be loaded from the main workspace and
   # not as an external repository
   cd mainrepo
-  bazel query --incompatible_remap_main_repo @a//... &>"$TEST_log" \
+  bazel query @a//... &>"$TEST_log" \
       || fail "Expected query to succeed"
   expect_log "def.bzl loaded"
   expect_not_log "external"
@@ -830,8 +830,7 @@ EOF
   # now that @mainrepo doesn't exist within workspace "a",
   # the query should fail
   cd mainrepo
-  bazel query --incompatible_remap_main_repo \
-      @a//... &>"$TEST_log" \
+  bazel query @a//... &>"$TEST_log" \
       && fail "Failure expected" || true
 }
 
@@ -926,7 +925,7 @@ EOF
     chmod u+x code/foo.sh
 
 
-    bazel build --incompatible_remap_main_repo=true //code/... \
+    bazel build //code/... \
           > "${TEST_log}" 2>&1 || fail "expected success"
 }
 
@@ -981,17 +980,7 @@ testrule(
 )
 EOF
 
-    bazel build --incompatible_remap_main_repo=true //toolchains/... \
-          || fail "expected success"
-
-    echo; echo Without remapping of main repo; echo
-    # Regression test for invalidation of `--incompabtile_remap_main_repo`
-    # (https://github.com/bazelbuild/bazel/issues/8937). As
-    # building without remapping works on a clean checkout, it should also work
-    # on a running bazel.
-    bazel build --incompatible_remap_main_repo=false //toolchains/... \
-          || fail "expected success"
-
+    bazel build //toolchains/... || fail "expected success"
 }
 
 test_remap_toolchains_from_qualified_load() {
@@ -1042,16 +1031,7 @@ testrule(
 )
 EOF
 
-    bazel build --incompatible_remap_main_repo=true @my_ws//toolchains/... \
-          || fail "expected success"
-
-    # Additionally check, that nothing goes wrong flipping the remapping
-    # off and on again.
-    bazel build --incompatible_remap_main_repo=false @my_ws//toolchains/... \
-          || fail "expected success"
-
-    bazel build --incompatible_remap_main_repo=true @my_ws//toolchains/... \
-          || fail "expected success"
+    bazel build @my_ws//toolchains/... || fail "expected success"
 }
 
 
@@ -1153,13 +1133,8 @@ genrule(
   outs = ["y.txt"],
 )
 EOF
-    echo; echo not remapping main repo; echo
-    bazel build --incompatible_remap_main_repo=false @foo//:y \
-          || fail "Expected success"
-
     echo; echo remapping main repo; echo
-    bazel build --incompatible_remap_main_repo=true @foo//:y \
-        || fail "Expected success"
+    bazel build @foo//:y || fail "Expected success"
 
 }
 
@@ -1215,13 +1190,8 @@ EOF
 load("//:datarule.bzl", "data")
 data(name="it")
 EOF
-    echo; echo not remapping main repo; echo
-    bazel build --incompatible_remap_main_repo=false @foo//:it \
-          || fail "Expected success"
-
     echo; echo remapping main repo; echo
-    bazel build --incompatible_remap_main_repo=true @foo//:it \
-        || fail "Expected success"
+    bazel build @foo//:it || fail "Expected success"
 
 }
 run_suite "workspace tests"

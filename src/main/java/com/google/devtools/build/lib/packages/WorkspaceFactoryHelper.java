@@ -110,13 +110,11 @@ public class WorkspaceFactoryHelper {
    */
   public static void addMainRepoEntry(
       Package.Builder builder, String externalRepoName, StarlarkSemantics semantics) {
-    if (semantics.incompatibleRemapMainRepo()) {
-      if (!Strings.isNullOrEmpty(builder.getPackageWorkspaceName())) {
-        builder.addRepositoryMappingEntry(
-            RepositoryName.createFromValidStrippedName(externalRepoName),
-            RepositoryName.createFromValidStrippedName(builder.getPackageWorkspaceName()),
-            RepositoryName.MAIN);
-      }
+    if (!Strings.isNullOrEmpty(builder.getPackageWorkspaceName())) {
+      builder.addRepositoryMappingEntry(
+          RepositoryName.createFromValidStrippedName(externalRepoName),
+          RepositoryName.createFromValidStrippedName(builder.getPackageWorkspaceName()),
+          RepositoryName.MAIN);
     }
   }
 
