@@ -84,6 +84,8 @@ public class StandaloneSpawnStrategyTest {
           output.add(artifact);
         }
       };
+  private static final String WINDOWS_SYSTEM_DRIVE = "C:";
+  private static final String CMD_EXE = getWinSystemBinary("cmd.exe");
 
   private Reporter reporter =
       new Reporter(new EventBus(), PrintingEventHandler.ERRORS_AND_WARNINGS_TO_STDERR);
@@ -101,6 +103,13 @@ public class StandaloneSpawnStrategyTest {
       throw e;
     }
     return testRoot;
+  }
+
+  /**
+   * We assume Windows is installed on C: and all system binaries exist under C:\Windows\System32\
+   */
+  private static String getWinSystemBinary(String binary) {
+    return WINDOWS_SYSTEM_DRIVE + "\\Windows\\System32\\" + binary;
   }
 
   @Before
@@ -218,20 +227,20 @@ public class StandaloneSpawnStrategyTest {
 
   private static String getFalseCommand() {
     if (OS.getCurrent() == OS.WINDOWS) {
-      // No false command on Windows, with use help.exe as an alternative,
+      // No false command on Windows, we use help.exe as an alternative,
       // the caveat is that the command will have some output to stdout.
       // Default exit code of help is 1
-      return "C:/windows/system32/help.exe";
+      return getWinSystemBinary("help.exe");
     }
     return OS.getCurrent() == OS.DARWIN ? "/usr/bin/false" : "/bin/false";
   }
 
   private static String getTrueCommand() {
     if (OS.getCurrent() == OS.WINDOWS) {
-      // No false command on Windows, with use whoami.exe as an alternative,
+      // No true command on Windows, we use whoami.exe as an alternative,
       // the caveat is that the command will have some output to stdout.
       // Default exit code of help is 0
-      return "C:/windows/system32/whoami.exe";
+      return getWinSystemBinary("whoami.exe");
     }
     return OS.getCurrent() == OS.DARWIN ? "/usr/bin/true" : "/bin/true";
   }
@@ -240,7 +249,7 @@ public class StandaloneSpawnStrategyTest {
   public void testBinEchoPrintsArguments() throws Exception {
     Spawn spawn;
     if (OS.getCurrent() == OS.WINDOWS) {
-      spawn = createSpawn("C:/windows/system32/cmd.exe", "/c", "echo", "Hello,", "world.");
+      spawn = createSpawn(CMD_EXE, "/c", "echo", "Hello,", "world.");
     } else {
       spawn = createSpawn("/bin/echo", "Hello,", "world.");
     }
@@ -253,7 +262,7 @@ public class StandaloneSpawnStrategyTest {
   public void testCommandRunsInWorkingDir() throws Exception {
     Spawn spawn;
     if (OS.getCurrent() == OS.WINDOWS) {
-      spawn = createSpawn("C:/windows/system32/cmd.exe", "/c", "cd");
+      spawn = createSpawn(CMD_EXE, "/c", "cd");
     } else {
       spawn = createSpawn("/bin/pwd");
     }
@@ -263,16 +272,10 @@ public class StandaloneSpawnStrategyTest {
 
   @Test
   public void testCommandHonorsEnvironment() throws Exception {
-    if (OS.getCurrent() == OS.DARWIN) {
-      // // TODO(#)3795: For some reason, we get __CF_USER_TEXT_ENCODING into the env in some
-      // configurations of MacOS machines. I have been unable to reproduce on my Mac, or to track
-      // down where that env var is coming from.
-      return;
-    }
     Spawn spawn =
         new SimpleSpawn(
             new ActionsTestUtil.NullAction(),
-            OS.getCurrent() == OS.WINDOWS ? ImmutableList.of("C:/windows/system32/cmd.exe", "/c", "set") : ImmutableList.of("/usr/bin/env"),
+            OS.getCurrent() == OS.WINDOWS ? ImmutableList.of(CMD_EXE, "/c", "set") : ImmutableList.of("/usr/bin/env"),
             /*environment=*/ ImmutableMap.of("foo", "bar", "baz", "boo"),
             /*executionInfo=*/ ImmutableMap.of(),
             /*inputs=*/ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
@@ -280,8 +283,9 @@ public class StandaloneSpawnStrategyTest {
             ResourceSet.ZERO);
     run(spawn);
     HashSet environment = Sets.newHashSet(out().split(System.lineSeparator()));
-    if (OS.getCurrent() == OS.WINDOWS) {
-      // On Windows, we have some other env vars (eg. SystemRoot) as default.
+    if (OS.getCurrent() == OS.WINDOWS || OS.getCurrent() == OS.DARWIN) {
+      // On Windows and macOS, we may have some other env vars
+      // (eg. SystemRoot or __CF_USER_TEXT_ENCODING).
       assertThat(environment).contains("foo=bar");
       assertThat(environment).contains("baz=boo");
     } else {
@@ -293,7 +297,7 @@ public class StandaloneSpawnStrategyTest {
   public void testStandardError() throws Exception {
     Spawn spawn;
     if (OS.getCurrent() == OS.WINDOWS) {
-      spawn = createSpawn("C:/windows/system32/cmd.exe", "/c", "echo Oops!>&2");
+      spawn = createSpawn(CMD_EXE, "/c", "echo Oops!>&2");
     } else {
       spawn = createSpawn("/bin/sh", "-c", "echo Oops! >&2");
     }
