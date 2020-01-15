@@ -44,10 +44,8 @@ public class ProtoLangToolchain implements RuleConfiguredTargetFactory {
       ProtoInfo protoInfo = protos.get(ProtoInfo.PROVIDER);
       // TODO(cushon): it would be nice to make this mandatory and stop adding files to build too
       if (protoInfo != null) {
-        blacklistedProtos.addTransitive(protoInfo.getOriginalTransitiveProtoSources());
+        blacklistedProtos.addTransitive(protoInfo.getTransitiveProtoSources());
       } else {
-        // Only add files from FileProvider if |protos| is not a proto_library to avoid adding
-        // the descriptor_set of proto_library to the list of blacklisted files.
         blacklistedProtos.addTransitive(protos.getProvider(FileProvider.class).getFilesToBuild());
       }
     }
