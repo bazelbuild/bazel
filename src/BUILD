@@ -332,6 +332,13 @@ filegroup(
     "_nojdk",
 ]]
 
+config_setting(
+    name = "fastbuild",
+    values = {
+        "compilation_mode": "fastbuild",
+    },
+)
+
 [genrule(
     name = "package-zip" + suffix,
     srcs = ([":embedded_tools" + suffix + ".zip"] if embed else []) + [
@@ -354,7 +361,12 @@ filegroup(
         ],
     }),
     outs = ["package" + suffix + ".zip"],
-    cmd = "$(location :package-bazel.sh) $@ " + ("" if embed else "''") + " $(SRCS)",
+    cmd = "$(location :package-bazel.sh) $@" +
+          select({
+              ":fastbuild": " fastbuild ",
+              "//conditions:default": " opt ",
+          }) +
+          ("" if embed else "''") + " $(SRCS)",
     tools = ["package-bazel.sh"],
 ) for suffix, embed in [
     ("_jdk_allmodules", True),
