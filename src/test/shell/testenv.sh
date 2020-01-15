@@ -505,18 +505,14 @@ EOF
 }
 
 function create_workspace_with_default_repos() {
-  touch "$1"
-  add_rules_cc_to_workspace "$1"
-  add_rules_java_to_workspace "$1"
-  add_rules_pkg_to_workspace "$1"
-  add_rules_proto_to_workspace "$1"
+  write_workspace_file "${1:-WORKSPACE}" "${2:-main}"
   echo "$1"
 }
 
 # Write the default WORKSPACE file, wiping out any custom WORKSPACE setup.
 function write_workspace_file() {
-  cat > WORKSPACE << EOF
-workspace(name = '$WORKSPACE_NAME')
+  cat > "$1" << EOF
+workspace(name = "$2")
 EOF
   add_rules_cc_to_workspace "WORKSPACE"
   add_rules_java_to_workspace "WORKSPACE"
@@ -561,7 +557,7 @@ function create_new_workspace() {
   [ -e third_party/java/jdk/langtools/javac-9+181-r4173-1.jar ] \
     || ln -s "${langtools_path}"  third_party/java/jdk/langtools/javac-9+181-r4173-1.jar
 
-  write_workspace_file
+  write_workspace_file "WORKSPACE" "$WORKSPACE_NAME"
 
   maybe_setup_python_windows_tools
 }
@@ -594,7 +590,7 @@ function cleanup_workspace() {
         try_with_timeout rm -fr "$i"
       fi
     done
-    write_workspace_file
+    write_workspace_file "WORKSPACE" "$WORKSPACE_NAME"
   fi
   for i in "${workspaces[@]}"; do
     if [ "$i" != "${WORKSPACE_DIR:-}" ]; then

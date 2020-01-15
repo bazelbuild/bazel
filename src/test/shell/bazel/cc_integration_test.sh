@@ -603,7 +603,7 @@ function test_incompatible_validate_top_level_header_inclusions() {
   local workspace="${FUNCNAME[0]}"
   mkdir -p "${workspace}"
 
-  touch "${workspace}/WORKSPACE"
+  create_workspace_with_default_repos "${workspace}/WORKSPACE"
   cat >> "${workspace}/BUILD" << EOF
 cc_library(
     name = "foo",

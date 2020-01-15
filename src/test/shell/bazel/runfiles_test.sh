@@ -25,12 +25,8 @@ source "${CURRENT_DIR}/../integration_test_setup.sh" \
 # Make sure runfiles are created under a custom-named subdirectory when
 # workspace() is specified in the WORKSPACE file.
 function test_runfiles() {
-
-  name=blorp_malorp
-  cat > WORKSPACE <<EOF
-workspace(name = "$name")
-EOF
-  create_workspace_with_default_repos WORKSPACE
+  name="blorp_malorp"
+  create_workspace_with_default_repos WORKSPACE "$name"
 
   mkdir foo
   cat > foo/BUILD <<EOF
@@ -55,16 +51,14 @@ EOF
 }
 
 function test_legacy_runfiles_change() {
-  cat > WORKSPACE <<EOF
-workspace(name = "foo")
-
+  create_workspace_with_default_repos WORKSPACE foo
+  cat >> WORKSPACE <<EOF
 new_local_repository(
     name = "bar",
     path = ".",
     build_file = "BUILD",
 )
 EOF
-  create_workspace_with_default_repos WORKSPACE
   cat > BUILD <<EOF
 exports_files(glob(["*"]))
 
@@ -97,11 +91,9 @@ EOF
 # is specified.
 function test_nobuild_runfile_links() {
   mkdir data && echo "hello" > data/hello && echo "world" > data/world
-    cat > WORKSPACE <<EOF
-workspace(name = "foo")
-EOF
+  create_workspace_with_default_repos WORKSPACE foo
 
-  cat > test.sh <<'EOF'
+cat > test.sh <<'EOF'
 #!/bin/bash
 set -e
 [[ -f ${RUNFILES_DIR}/foo/data/hello ]]
