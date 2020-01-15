@@ -312,19 +312,18 @@ public abstract class StructImpl implements Info, ClassObject, StructApi {
     }
   }
 
-  private void appendJSONStringLiteral(StringBuilder out, String s, boolean appendColon) {
-    out.append('\"');
+  private static void appendJSONStringLiteral(StringBuilder out, String s, boolean appendColon) {
+    out.append('"');
     out.append(escapeDoubleQuotesAndBackslashesAndNewlines(s)
         .replace("\r", "\\r")
         .replace("\t", "\\t"));
-    appendEndQuoteAndOptionalColon(out, appendColon);
+    out.append('"');
+    appendOptionalColon(out, appendColon);
   }
 
-  private void appendEndQuoteAndOptionalColon(StringBuilder stringBuilder, boolean appendColon) {
+  private static void appendOptionalColon(StringBuilder stringBuilder, boolean appendColon) {
     if (appendColon) {
-      stringBuilder.append("\":");
-    } else {
-      stringBuilder.append("\"");
+      stringBuilder.append(':');
     }
   }
 
