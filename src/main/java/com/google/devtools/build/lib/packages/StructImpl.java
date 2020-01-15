@@ -270,7 +270,8 @@ public abstract class StructImpl implements Info, ClassObject, StructApi {
       for (String field : ((ClassObject) value).getFieldNames()) {
         sb.append(join);
         join = ",";
-        appendJSONStringLiteral(sb, field, true /* appendColon */);
+        appendJSONStringLiteral(sb, field);
+        sb.append(':');
         printJson(((ClassObject) value).getValue(field), sb, "struct field", field);
       }
       sb.append("}");
@@ -287,7 +288,8 @@ public abstract class StructImpl implements Info, ClassObject, StructApi {
               container,
               key != null ? " '" + key + "'" : "");
         }
-        appendJSONStringLiteral(sb, (String) entry.getKey(), true /* appendColon */);
+        appendJSONStringLiteral(sb, (String) entry.getKey());
+        sb.append(':');
         printJson(entry.getValue(), sb, "dict value", String.valueOf(entry.getKey()));
       }
       sb.append("}");
@@ -301,7 +303,7 @@ public abstract class StructImpl implements Info, ClassObject, StructApi {
       }
       sb.append("]");
     } else if (value instanceof String) {
-      appendJSONStringLiteral(sb, (String) value, false /* appendColon */);
+      appendJSONStringLiteral(sb, (String) value);
     } else if (value instanceof Integer || value instanceof Boolean) {
       sb.append(value);
     } else {
@@ -312,19 +314,12 @@ public abstract class StructImpl implements Info, ClassObject, StructApi {
     }
   }
 
-  private static void appendJSONStringLiteral(StringBuilder out, String s, boolean appendColon) {
+  private static void appendJSONStringLiteral(StringBuilder out, String s) {
     out.append('"');
     out.append(escapeDoubleQuotesAndBackslashesAndNewlines(s)
         .replace("\r", "\\r")
         .replace("\t", "\\t"));
     out.append('"');
-    appendOptionalColon(out, appendColon);
-  }
-
-  private static void appendOptionalColon(StringBuilder stringBuilder, boolean appendColon) {
-    if (appendColon) {
-      stringBuilder.append(':');
-    }
   }
 
   @Override
