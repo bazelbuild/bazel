@@ -83,7 +83,6 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
-import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingResult;
@@ -127,23 +126,6 @@ public class RunCommand implements BlazeCommand  {
               + "and the executable is connected to the terminal's stdin."
     )
     public PathFragment scriptPath;
-
-    @Option(
-        name = "incompatible_windows_bashless_run_command",
-        documentationCategory = OptionDocumentationCategory.TESTING,
-        effectTags = {
-          OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS,
-        },
-        metadataTags = {
-          OptionMetadataTag.INCOMPATIBLE_CHANGE,
-          OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES,
-        },
-        defaultValue = "true",
-        help =
-            "On Windows: if true, the \"run\" command runs the binary directly instead of running "
-                + "through Bash; when false, then the binary is ran through Bash. On other "
-                + "platforms: no-op.")
-    public boolean bashlessRun;
   }
 
   // Thrown when a method needs Bash but ShToolchain.getPath yields none.
@@ -517,7 +499,7 @@ public class RunCommand implements BlazeCommand  {
         .setWorkingDirectory(
             ByteString.copyFrom(workingDir.getPathString(), StandardCharsets.ISO_8859_1));
 
-    if (OS.getCurrent() == OS.WINDOWS && runOptions.bashlessRun) {
+    if (OS.getCurrent() == OS.WINDOWS) {
       for (String arg : cmdLine) {
         execDescription.addArgv(
             ByteString.copyFrom(ShellUtils.windowsEscapeArg(arg), StandardCharsets.ISO_8859_1));

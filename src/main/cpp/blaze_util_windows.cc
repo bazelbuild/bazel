@@ -791,13 +791,9 @@ void ExecuteRunRequest(const blaze_util::Path& exe,
                        const std::vector<string>& run_request_args) {
   std::vector<std::wstring> wargs;
   wargs.reserve(run_request_args.size());
-  std::wstringstream joined;
   for (const string& a : run_request_args) {
-    std::wstring wa = blaze_util::CstringToWstring(a);
-    // The arguments are already escaped (Bash-style or Windows-style, depending
-    // on --[no]incompatible_windows_bashless_run_command).
-    wargs.push_back(wa);
-    joined << L' ' << wa;
+    // The arguments are already escaped, don't escape further.
+    wargs.push_back(blaze_util::CstringToWstring(a));
   }
 
   ExecuteProgram(exe, wargs);
