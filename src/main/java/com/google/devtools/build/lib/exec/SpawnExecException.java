@@ -67,7 +67,7 @@ public class SpawnExecException extends ExecException {
     }
     String message =
         result.getDetailMessage(messagePrefix, getMessage(), verboseFailures, isCatastrophic(), forciblyRunRemotely);
-    return new ActionExecutionException(message + ": " + getMessage(), this, action, isCatastrophic(), getExitCode());
+    return new ActionExecutionException(message, this, action, isCatastrophic(), getExitCode());
   }
 
   /** Return exit code depending on the spawn result. */
