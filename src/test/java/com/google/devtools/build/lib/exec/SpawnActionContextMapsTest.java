@@ -21,7 +21,6 @@ import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.ExecException;
-import com.google.devtools.build.lib.actions.ExecutionStrategy;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnActionContext;
 import com.google.devtools.build.lib.actions.SpawnResult;
@@ -127,7 +126,6 @@ public class SpawnActionContextMapsTest {
     return mockSpawn;
   }
 
-  @ExecutionStrategy(contextType = SpawnActionContext.class, name = "ac1")
   private static class AC1 implements SpawnActionContext {
     @Override
     public ImmutableList<SpawnResult> exec(
@@ -142,7 +140,6 @@ public class SpawnActionContextMapsTest {
     }
   }
 
-  @ExecutionStrategy(contextType = SpawnActionContext.class, name = "ac2")
   private static class AC2 implements SpawnActionContext {
     @Override
     public ImmutableList<SpawnResult> exec(

@@ -26,7 +26,6 @@ import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.ActionResult;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.ExecutionStrategy;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.BuildInfo;
 import com.google.devtools.build.lib.analysis.BuildInfoEvent;
@@ -280,7 +279,6 @@ public class BazelWorkspaceStatusModule extends BlazeModule {
     }
   }
 
-  @ExecutionStrategy(contextType = WorkspaceStatusAction.Context.class)
   private static final class BazelWorkspaceStatusActionContext
       implements WorkspaceStatusAction.Context {
     private final CommandEnvironment env;

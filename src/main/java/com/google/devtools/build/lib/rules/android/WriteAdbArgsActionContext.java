@@ -14,11 +14,9 @@
 package com.google.devtools.build.lib.rules.android;
 
 import com.google.devtools.build.lib.actions.ActionContext;
-import com.google.devtools.build.lib.actions.ExecutionStrategy;
 import javax.annotation.Nullable;
 
 /** {@link ActionContext} for {@link WriteAdbArgsAction}. */
-@ExecutionStrategy(contextType = WriteAdbArgsActionContext.class)
 public final class WriteAdbArgsActionContext implements ActionContext {
 
   private final String userHomeDirectory;

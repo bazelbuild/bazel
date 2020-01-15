@@ -26,7 +26,6 @@ import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
-import com.google.devtools.build.lib.actions.ExecutionStrategy;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.SimpleSpawn;
 import com.google.devtools.build.lib.actions.Spawn;
@@ -35,7 +34,6 @@ import com.google.devtools.build.lib.actions.SpawnContinuation;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.TestExecException;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
-import com.google.devtools.build.lib.analysis.test.TestActionContext;
 import com.google.devtools.build.lib.analysis.test.TestConfiguration;
 import com.google.devtools.build.lib.analysis.test.TestResult;
 import com.google.devtools.build.lib.analysis.test.TestRunnerAction;
@@ -68,10 +66,6 @@ import javax.annotation.Nullable;
 
 /** Runs TestRunnerAction actions. */
 // TODO(bazel-team): add tests for this strategy.
-@ExecutionStrategy(
-  contextType = TestActionContext.class,
-  name = {"standalone"}
-)
 public class StandaloneTestStrategy extends TestStrategy {
   private static final ImmutableMap<String, String> ENV_VARS =
       ImmutableMap.<String, String>builder()

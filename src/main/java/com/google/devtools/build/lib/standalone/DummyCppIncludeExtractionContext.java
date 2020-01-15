@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.standalone;
 
 import com.google.devtools.build.lib.actions.ArtifactResolver;
-import com.google.devtools.build.lib.actions.ExecutionStrategy;
 import com.google.devtools.build.lib.rules.cpp.CppIncludeExtractionContext;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 
@@ -22,7 +21,6 @@ import com.google.devtools.build.lib.runtime.CommandEnvironment;
  * An IncludeExtractionContext that does nothing. Since local execution does not need to discover
  * inclusion in advance, we do not need include scanning.
  */
-@ExecutionStrategy(contextType = CppIncludeExtractionContext.class)
 class DummyCppIncludeExtractionContext implements CppIncludeExtractionContext {
   private final CommandEnvironment env;
 

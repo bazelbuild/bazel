@@ -22,7 +22,6 @@ import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
-import com.google.devtools.build.lib.actions.ExecutionStrategy;
 import com.google.devtools.build.lib.actions.RunningActionEvent;
 import com.google.devtools.build.lib.analysis.actions.SymlinkTreeAction;
 import com.google.devtools.build.lib.analysis.actions.SymlinkTreeActionContext;
@@ -41,7 +40,6 @@ import java.util.logging.Logger;
  * Implements SymlinkTreeAction by using the output service or by running an embedded script to
  * create the symlink tree.
  */
-@ExecutionStrategy(contextType = SymlinkTreeActionContext.class)
 public final class SymlinkTreeStrategy implements SymlinkTreeActionContext {
   private static final Logger logger = Logger.getLogger(SymlinkTreeStrategy.class.getName());
 

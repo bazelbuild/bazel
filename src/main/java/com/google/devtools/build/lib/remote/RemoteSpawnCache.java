@@ -28,7 +28,6 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ExecException;
-import com.google.devtools.build.lib.actions.ExecutionStrategy;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnResult;
@@ -67,9 +66,6 @@ import javax.annotation.Nullable;
 
 /** A remote {@link SpawnCache} implementation. */
 @ThreadSafe // If the RemoteActionCache implementation is thread-safe.
-@ExecutionStrategy(
-    name = {"remote-cache"},
-    contextType = SpawnCache.class)
 final class RemoteSpawnCache implements SpawnCache {
 
   private final Path execRoot;

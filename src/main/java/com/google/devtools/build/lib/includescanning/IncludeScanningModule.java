@@ -29,7 +29,6 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactFactory;
 import com.google.devtools.build.lib.actions.ArtifactResolver;
 import com.google.devtools.build.lib.actions.ExecException;
-import com.google.devtools.build.lib.actions.ExecutionStrategy;
 import com.google.devtools.build.lib.actions.ExecutorInitException;
 import com.google.devtools.build.lib.analysis.ArtifactsToOwnerLabels;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
@@ -127,7 +126,6 @@ public class IncludeScanningModule extends BlazeModule {
   /**
    * Implementation of {@link CppIncludeExtractionContext}.
    */
-  @ExecutionStrategy(contextType = CppIncludeExtractionContext.class)
   public static final class CppIncludeExtractionContextImpl implements CppIncludeExtractionContext {
     private final CommandEnvironment env;
 
@@ -144,7 +142,6 @@ public class IncludeScanningModule extends BlazeModule {
   /**
    * SwigIncludeScanningContextImpl implements SwigIncludeScanningContext.
    */
-  @ExecutionStrategy(contextType = SwigIncludeScanningContext.class)
   public static final class SwigIncludeScanningContextImpl implements SwigIncludeScanningContext {
     private final CommandEnvironment env;
     private final Supplier<SpawnIncludeScanner> spawnScannerSupplier;
