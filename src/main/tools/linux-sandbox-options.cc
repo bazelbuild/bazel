@@ -262,6 +262,8 @@ void ParseOptions(int argc, char *argv[]) {
   }
 
   if (opt.working_dir.empty()) {
-    opt.working_dir = getcwd(nullptr, 0);
+    char *working_dir = getcwd(nullptr, 0);
+    opt.working_dir = working_dir;
+    free(working_dir);
   }
 }
