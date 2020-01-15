@@ -453,10 +453,8 @@ public class TestSummaryTest {
         .addChild(newDetail("cherry", TestCase.Status.ERROR, 1000L))
         .build();
 
-    TestSummary summary = getTemplateBuilder()
-        .collectFailedTests(rootCase)
-        .setStatus(BlazeTestStatus.FAILED)
-        .build();
+    TestSummary summary =
+        getTemplateBuilder().collectTestCases(rootCase).setStatus(BlazeTestStatus.FAILED).build();
 
     AnsiTerminalPrinter printer = Mockito.mock(AnsiTerminalPrinter.class);
     TestSummaryPrinter.print(summary, printer, Path::getPathString, true, true);
@@ -477,12 +475,18 @@ public class TestSummaryTest {
             .build();
 
     TestSummary summary =
-        getTemplateBuilder()
-            .countTotalTestCases(rootCase)
-            .setStatus(BlazeTestStatus.FAILED)
-            .build();
+        getTemplateBuilder().collectTestCases(rootCase).setStatus(BlazeTestStatus.FAILED).build();
 
     assertThat(summary.getTotalTestCases()).isEqualTo(3);
+  }
+
+  @Test
+  public void countUnknownTestCases() throws Exception {
+    TestSummary summary =
+        getTemplateBuilder().collectTestCases(null).setStatus(BlazeTestStatus.FAILED).build();
+
+    assertThat(summary.getTotalTestCases()).isEqualTo(1);
+    assertThat(summary.getUnkownTestCases()).isEqualTo(1);
   }
 
   @Test
@@ -508,10 +512,7 @@ public class TestSummaryTest {
         TestCase.newBuilder().setName("tests").addChild(aCase).addChild(anotherCase).build();
 
     TestSummary summary =
-        getTemplateBuilder()
-            .countTotalTestCases(rootCase)
-            .setStatus(BlazeTestStatus.FAILED)
-            .build();
+        getTemplateBuilder().collectTestCases(rootCase).setStatus(BlazeTestStatus.FAILED).build();
 
     assertThat(summary.getTotalTestCases()).isEqualTo(6);
   }

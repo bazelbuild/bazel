@@ -282,8 +282,7 @@ final class TestResultAggregator {
         .mergeTiming(
             result.getData().getStartTimeMillisEpoch(), result.getData().getRunDurationMillis())
         .addWarnings(result.getData().getWarningList())
-        .collectFailedTests(result.getData().getTestCase())
-        .countTotalTestCases(result.getData().getTestCase())
+        .collectTestCases(result.getData().hasTestCase() ? result.getData().getTestCase() : null)
         .setRanRemotely(result.getData().getIsRemoteStrategy());
 
     List<String> warnings = new ArrayList<>();
