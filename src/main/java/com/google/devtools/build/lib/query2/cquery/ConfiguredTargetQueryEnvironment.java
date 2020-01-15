@@ -220,6 +220,8 @@ public class ConfiguredTargetQueryEnvironment
     return ImmutableList.of(
         new LabelAndConfigurationOutputFormatterCallback(
             eventHandler, cqueryOptions, out, skyframeExecutor, accessor),
+        new LabelKindAndConfigurationOutputFormatterCallback(
+            eventHandler, cqueryOptions, out, skyframeExecutor, accessor, getAccessor()),
         new TransitionsOutputFormatterCallback(
             eventHandler,
             cqueryOptions,
