@@ -426,13 +426,18 @@ public class ExecutionTool {
 
   private void createActionLogDirectory() throws ExecutorInitException {
     Path directory = env.getActionTempsDirectory();
-    try {
-      if (directory.exists()) {
+    if (directory.exists()) {
+      try {
         directory.deleteTree();
+      } catch (IOException e) {
+        throw new ExecutorInitException("Couldn't delete action output directory", e);
       }
+    }
+
+    try {
       FileSystemUtils.createDirectoryAndParents(directory);
     } catch (IOException e) {
-      throw new ExecutorInitException("Couldn't delete action output directory", e);
+      throw new ExecutorInitException("Couldn't create action output directory", e);
     }
   }
 
