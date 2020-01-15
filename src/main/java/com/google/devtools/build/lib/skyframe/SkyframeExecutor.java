@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.skyframe;
 import static com.google.devtools.build.lib.concurrent.Uninterruptibles.callUninterruptibly;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
@@ -1261,23 +1260,20 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
 
   protected Differencer.Diff getDiff(
       TimestampGranularityMonitor tsgm,
-      Iterable<PathFragment> modifiedSourceFiles,
+      Collection<PathFragment> modifiedSourceFiles,
       final Root pathEntry)
       throws InterruptedException {
-    if (Iterables.isEmpty(modifiedSourceFiles)) {
+    if (modifiedSourceFiles.isEmpty()) {
       return new ImmutableDiff(ImmutableList.<SkyKey>of(), ImmutableMap.<SkyKey, SkyValue>of());
     }
     // TODO(bazel-team): change ModifiedFileSet to work with RootedPaths instead of PathFragments.
-    Iterable<SkyKey> dirtyFileStateSkyKeys =
-        Iterables.transform(
+    Collection<SkyKey> dirtyFileStateSkyKeys =
+        Collections2.transform(
             modifiedSourceFiles,
-            new Function<PathFragment, SkyKey>() {
-              @Override
-              public SkyKey apply(PathFragment pathFragment) {
-                Preconditions.checkState(
-                    !pathFragment.isAbsolute(), "found absolute PathFragment: %s", pathFragment);
-                return FileStateValue.key(RootedPath.toRootedPath(pathEntry, pathFragment));
-              }
+            (pathFragment) -> {
+              Preconditions.checkState(
+                  !pathFragment.isAbsolute(), "found absolute PathFragment: %s", pathFragment);
+              return FileStateValue.key(RootedPath.toRootedPath(pathEntry, pathFragment));
             });
     // We only need to invalidate directory values when a file has been created or deleted or
     // changes type, not when it has merely been modified. Unfortunately we do not have that
