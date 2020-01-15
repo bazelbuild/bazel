@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.actions.ActionLookupValue.ActionLookupKey;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
@@ -200,12 +201,11 @@ public final class ActionInputHelper {
    *
    * <p>Non-middleman artifacts are returned untouched.
    */
-  public static List<ActionInput> expandArtifacts(Iterable<? extends ActionInput> inputs,
-      ArtifactExpander artifactExpander) {
-
+  public static List<ActionInput> expandArtifacts(
+      NestedSet<? extends ActionInput> inputs, ArtifactExpander artifactExpander) {
     List<ActionInput> result = new ArrayList<>();
     List<Artifact> containedArtifacts = new ArrayList<>();
-    for (ActionInput input : inputs) {
+    for (ActionInput input : inputs.toList()) {
       if (!(input instanceof Artifact)) {
         result.add(input);
         continue;

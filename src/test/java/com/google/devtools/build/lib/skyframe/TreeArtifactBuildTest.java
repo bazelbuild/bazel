@@ -390,21 +390,23 @@ public class TreeArtifactBuildTest extends TimestampBuilderTestCase {
   public void testActionExpansion() throws Exception {
     WriteInputToFilesAction action = new WriteInputToFilesAction(in, outOneFileOne, outOneFileTwo);
 
-    CopyTreeAction actionTwo = new CopyTreeAction(
-        ImmutableList.of(outOneFileOne, outOneFileTwo),
-        ImmutableList.of(outTwoFileOne, outTwoFileTwo)) {
-      @Override
-      public void executeTestBehavior(ActionExecutionContext actionExecutionContext)
-          throws ActionExecutionException {
-        super.executeTestBehavior(actionExecutionContext);
+    CopyTreeAction actionTwo =
+        new CopyTreeAction(
+            ImmutableList.of(outOneFileOne, outOneFileTwo),
+            ImmutableList.of(outTwoFileOne, outTwoFileTwo)) {
+          @Override
+          public void executeTestBehavior(ActionExecutionContext actionExecutionContext)
+              throws ActionExecutionException {
+            super.executeTestBehavior(actionExecutionContext);
 
-        Collection<ActionInput> expanded =
-            ActionInputHelper.expandArtifacts(ImmutableList.of(outOne),
-                actionExecutionContext.getArtifactExpander());
-        // Only files registered should show up here.
-        assertThat(expanded).containsExactly(outOneFileOne, outOneFileTwo);
-      }
-    };
+            Collection<ActionInput> expanded =
+                ActionInputHelper.expandArtifacts(
+                    NestedSetBuilder.create(Order.STABLE_ORDER, outOne),
+                    actionExecutionContext.getArtifactExpander());
+            // Only files registered should show up here.
+            assertThat(expanded).containsExactly(outOneFileOne, outOneFileTwo);
+          }
+        };
 
     registerAction(action);
     registerAction(actionTwo);

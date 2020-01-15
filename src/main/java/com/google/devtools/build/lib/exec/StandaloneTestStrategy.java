@@ -140,7 +140,7 @@ public class StandaloneTestStrategy extends TestStrategy {
             ImmutableMap.of(),
             /*inputs=*/ action.getInputs(),
             action.getConfiguration().getFragment(TestConfiguration.class).isPersistentTestRunner()
-                ? NestedSetBuilder.wrap(Order.STABLE_ORDER, action.getTools())
+                ? action.getTools()
                 : NestedSetBuilder.emptySet(Order.STABLE_ORDER),
             ImmutableSet.copyOf(action.getSpawnOutputs()),
             localResourceUsage);
