@@ -64,7 +64,7 @@ fi
 #   exit 1
 # fi
 
-export APT_GPG_KEY_ID=$(gsutil cat gs://bazel-trusted-encrypted-secrets/release-key.gpg.id)
+export APT_GPG_KEY_ID=$(gsutil cat gs://bazel-testing/bazel-release-test.id)
 
 # Generate a string from a template and a list of substitutions.
 # The first parameter is the template name and each subsequent parameter
@@ -142,10 +142,9 @@ function release_to_github() {
   local rc=$(get_release_candidate)
 
   if [ -n "${release_name}" ] && [ -z "${rc}" ]; then
-    local github_token="$(gsutil cat gs://bazel-trusted-encrypted-secrets/github-trusted-token.enc | \
-        gcloud kms decrypt --project bazel-public --location global --keyring buildkite --key github-trusted-token --ciphertext-file - --plaintext-file -)"
+    local github_token="$(gsutil cat gs://bazel-testing/meteorcloudy-github-token-kokoro-test.token)"
 
-    GITHUB_TOKEN="${github_token}" github-release "bazelbuild/bazel" "${release_name}" "" "$(get_release_page)" "${artifact_dir}/*"
+    GITHUB_TOKEN="${github_token}" github-release "meteorcloudy/bazel" "${release_name}" "" "$(get_release_page)" "${artifact_dir}/*"
   fi
 }
 
@@ -185,7 +184,7 @@ function release_to_gcs() {
       release_path="${release_name}/rc${rc}"
     fi
     create_index_html "${artifact_dir}" > "${artifact_dir}/index.html"
-    gsutil -m cp "${artifact_dir}/**" "gs://bazel/${release_path}"
+    gsutil -m cp "${artifact_dir}/**" "gs://bazel-testing/${release_path}"
   fi
 }
 
@@ -193,8 +192,7 @@ function ensure_gpg_secret_key_imported() {
   if ! gpg --list-secret-keys | grep "${APT_GPG_KEY_ID}" > /dev/null; then
     keyfile=$(mktemp --tmpdir)
     chmod 0600 "${keyfile}"
-    gsutil cat "gs://bazel-trusted-encrypted-secrets/release-key.gpg.enc" | \
-        gcloud kms decrypt --location "global" --keyring "buildkite" --key "bazel-release-key" --ciphertext-file "-" --plaintext-file "${keyfile}"
+    gsutil cat "gs://bazel-testing/bazel-release-test.asc" > "${keyfile}"
     gpg --allow-secret-key-import --import "${keyfile}"
     rm -f "${keyfile}"
   fi
@@ -245,7 +243,7 @@ function merge_previous_dists() {
   local distribution="$1"
   # Download the metadata info from previous distribution
   mkdir -p previous
-  gsutil -m cp -r "gs://bazel-apt/dists" "./previous"
+  gsutil -m cp -r "gs://bazel-apt-testing/dists" "./previous"
 
   # Merge Packages and Packages.gz file
   cat "previous/dists/${distribution}/jdk1.8/binary-amd64/Packages" >> "dists/${distribution}/jdk1.8/binary-amd64/Packages"
@@ -264,7 +262,7 @@ function merge_previous_dists() {
 
   # Generate new signatures for Release file
   rm -f "dists/${distribution}/InRelease" "dists/${distribution}/Release.gpg"
-  gpg --output "dists/${distribution}/InRelease" --clear-sign "dists/${distribution}/Release"
+  gpg --output "dists/${distribution}/InRelease" --clearsign "dists/${distribution}/Release"
   gpg --output "dists/${distribution}/Release.gpg" --detach-sign "dists/${distribution}/Release"
 }
 
@@ -350,7 +348,7 @@ EOF
 
   merge_previous_dists "${distribution}"
 
-  gsutil -m cp -r dists pool "gs://bazel-apt"
+  gsutil -m cp -r dists pool "gs://bazel-apt-testing"
 }
 
 function release_to_apt() {
