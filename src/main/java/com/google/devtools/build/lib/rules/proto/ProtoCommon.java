@@ -506,9 +506,10 @@ public class ProtoCommon {
     ProtoInfo protoInfo =
         new ProtoInfo(
             library.getSources(),
+            directProtoSources,
             library.getSourceRoot(),
-            transitiveOriginalProtoSources,
             transitiveProtoSources,
+            transitiveOriginalProtoSources,
             transitiveProtoSourceRoots,
             strictImportableProtosForDependents,
             strictImportableProtos,

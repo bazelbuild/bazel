@@ -54,9 +54,10 @@ public final class ProtoInfo extends NativeInfo implements ProtoInfoApi<Artifact
   public static final String LEGACY_SKYLARK_NAME = "proto";
 
   private final ImmutableList<Artifact> directProtoSources;
-  private final NestedSet<Artifact> originalTransitiveProtoSources;
+  private final ImmutableList<Artifact> originalDirectProtoSources;
   private final String directProtoSourceRoot;
   private final NestedSet<Artifact> transitiveProtoSources;
+  private final NestedSet<Artifact> originalTransitiveProtoSources;
   private final NestedSet<String> transitiveProtoSourceRoots;
   private final NestedSet<Artifact> strictImportableProtoSourcesForDependents;
   private final NestedSet<Pair<Artifact, String>> strictImportableProtoSourcesImportPaths;
@@ -71,9 +72,10 @@ public final class ProtoInfo extends NativeInfo implements ProtoInfoApi<Artifact
   @AutoCodec.Instantiator
   public ProtoInfo(
       ImmutableList<Artifact> directProtoSources,
+      ImmutableList<Artifact> originalDirectProtoSources,
       String directProtoSourceRoot,
-      NestedSet<Artifact> originalTransitiveProtoSources,
       NestedSet<Artifact> transitiveProtoSources,
+      NestedSet<Artifact> originalTransitiveProtoSources,
       NestedSet<String> transitiveProtoSourceRoots,
       NestedSet<Artifact> strictImportableProtoSourcesForDependents,
       NestedSet<Pair<Artifact, String>> strictImportableProtoSourcesImportPaths,
@@ -86,9 +88,10 @@ public final class ProtoInfo extends NativeInfo implements ProtoInfoApi<Artifact
       Location location) {
     super(PROVIDER, location);
     this.directProtoSources = directProtoSources;
-    this.originalTransitiveProtoSources = originalTransitiveProtoSources;
+    this.originalDirectProtoSources = originalDirectProtoSources;
     this.directProtoSourceRoot = directProtoSourceRoot;
     this.transitiveProtoSources = transitiveProtoSources;
+    this.originalTransitiveProtoSources = originalTransitiveProtoSources;
     this.transitiveProtoSourceRoots = transitiveProtoSourceRoots;
     this.strictImportableProtoSourcesForDependents = strictImportableProtoSourcesForDependents;
     this.strictImportableProtoSourcesImportPaths = strictImportableProtoSourcesImportPaths;
@@ -110,11 +113,13 @@ public final class ProtoInfo extends NativeInfo implements ProtoInfoApi<Artifact
   }
 
   /**
-   * The non-virtual transitive proto source files. Different from {@link
-   * #getTransitiveProtoSources()} if a transitive dependency has {@code import_prefix} or the like.
+   * The non-virtual proto sources of the {@code proto_library} declaring this provider.
+   *
+   * <p> Different from {@link #getDirectProtoSources()} if a transitive dependency has
+   * {@code import_prefix} or the like.
    */
-  public NestedSet<Artifact> getOriginalTransitiveProtoSources() {
-    return originalTransitiveProtoSources;
+  public ImmutableList<Artifact> getOriginalDirectProtoSources() {
+    return originalDirectProtoSources;
   }
 
   /** The source root of the current library. */
@@ -132,6 +137,17 @@ public final class ProtoInfo extends NativeInfo implements ProtoInfoApi<Artifact
   public NestedSet<Artifact> getTransitiveProtoSources() {
     return transitiveProtoSources;
   }
+
+  /**
+   * The non-virtual transitive proto source files.
+   *
+   * <p> Different from {@link #getTransitiveProtoSources()} if a transitive dependency has
+   * {@code import_prefix} or the like.
+   */
+  public NestedSet<Artifact> getOriginalTransitiveProtoSources() {
+    return originalTransitiveProtoSources;
+  }
+
 
   /**
    * The proto source roots of the transitive closure of this rule. These flags will be passed to

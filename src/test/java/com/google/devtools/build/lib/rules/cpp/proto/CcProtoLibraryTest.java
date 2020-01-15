@@ -52,12 +52,17 @@ public class CcProtoLibraryTest extends BuildViewTestCase {
     scratch.overwriteFile(
         "protobuf/BUILD",
         TestConstants.LOAD_PROTO_LANG_TOOLCHAIN,
+        TestConstants.LOAD_PROTO_LIBRARY,
         "package(default_visibility=['//visibility:public'])",
         "exports_files(['protoc'])",
+        "proto_library(",
+        "    name = 'any_proto',",
+        "    srcs = ['any.proto'],",
+        ")",
         "proto_lang_toolchain(",
         "    name = 'cc_toolchain',",
         "    command_line = '--cpp_out=$(OUT)',",
-        "    blacklisted_protos = [],",
+        "    blacklisted_protos = [':any_proto'],",
         ")");
     scratch.appendFile(
         "WORKSPACE",
@@ -133,6 +138,36 @@ public class CcProtoLibraryTest extends BuildViewTestCase {
         "cc_proto_library(name = 'foo_cc_proto', deps = ['alias_proto'])",
         "proto_library(name = 'alias_proto', deps = [':foo_proto'])",
         "proto_library(name = 'foo_proto', srcs = ['foo.proto'])");
+
+    CcCompilationContext ccCompilationContext =
+        getConfiguredTarget("//x:foo_cc_proto").get(CcInfo.PROVIDER).getCcCompilationContext();
+    assertThat(prettyArtifactNames(ccCompilationContext.getDeclaredIncludeSrcs()))
+        .containsExactly("x/foo.pb.h");
+  }
+
+  @Test
+  public void blacklistedProtos() throws Exception {
+    scratch.file(
+        "x/BUILD",
+        TestConstants.LOAD_PROTO_LIBRARY,
+        "cc_proto_library(name = 'any_cc_proto', deps = ['@com_google_protobuf//:any_proto'])");
+
+    CcCompilationContext ccCompilationContext =
+        getConfiguredTarget("//x:any_cc_proto").get(CcInfo.PROVIDER).getCcCompilationContext();
+    assertThat(prettyArtifactNames(ccCompilationContext.getDeclaredIncludeSrcs())).isEmpty();
+  }
+
+  @Test
+  public void blacklistedProtosInTransitiveDeps() throws Exception {
+    scratch.file(
+        "x/BUILD",
+        TestConstants.LOAD_PROTO_LIBRARY,
+        "cc_proto_library(name = 'foo_cc_proto', deps = ['foo_proto'])",
+        "proto_library(",
+        "    name = 'foo_proto',",
+        "    srcs = ['foo.proto'],",
+        "    deps = ['@com_google_protobuf//:any_proto'],",
+        ")");
 
     CcCompilationContext ccCompilationContext =
         getConfiguredTarget("//x:foo_cc_proto").get(CcInfo.PROVIDER).getCcCompilationContext();
