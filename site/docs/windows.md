@@ -19,11 +19,18 @@ label. [You can see the open issues here.](https://github.com/bazelbuild/bazel/i
 <a name="running-bazel-shells"></a>
 ## Running Bazel: MSYS2 shell vs. Command Prompt vs. PowerShell
 
-It's best to run Bazel from the Command Prompt (`cmd.exe`) or from PowerShell.
+We recommend running Bazel from the Command Prompt (`cmd.exe`) or from
+PowerShell.
 
-You can also run Bazel from the MSYS2 shell, but you need to disable MSYS2's
-automatic path conversion. See [this StackOverflow
-answer](https://stackoverflow.com/a/49004265/7778502) for details.
+As of 2020-01-15, we **do not recommend** running Bazel from `bash` -- either
+from MSYS2 shell, or Git Bash, or Cygwin, or any other Bash variant. While Bazel
+may work for most use cases, some things are broken, like
+[interrupting the build with Ctrl+C from MSYS2](https://github.com/bazelbuild/bazel/issues/10573)).
+Also, if you choose to run under MSYS2, you need to disable MSYS2's
+automatic path conversion, otherwise MSYS will convert command line arguments
+that _look like_ Unix paths (e.g. `//foo:bar`) into Windows paths. See
+[this StackOverflow answer](https://stackoverflow.com/a/49004265/7778502) for
+details.
 
 <a name="using-bazel-without-bash"></a>
 ## Using Bazel without Bash (MSYS2)
