@@ -65,16 +65,9 @@ public class SpawnExecException extends ExecException {
     if (messagePrefix == null) {
       messagePrefix = action.describe();
     }
-    // Note: we intentionally do not include the ExecException here, unless verboseFailures is true,
-    // because it creates unwieldy and useless messages. If users need more info, they can run with
-    // --verbose_failures.
     String message =
-        result.getDetailMessage(messagePrefix, getMessage(), isCatastrophic(), forciblyRunRemotely);
-    if (verboseFailures) {
-      return new ActionExecutionException(message + ": " + getMessage(), this, action, isCatastrophic(), getExitCode());
-    } else {
-      return new ActionExecutionException(message, action, isCatastrophic(), getExitCode());
-    }
+        result.getDetailMessage(messagePrefix, getMessage(), verboseFailures, isCatastrophic(), forciblyRunRemotely);
+    return new ActionExecutionException(message + ": " + getMessage(), this, action, isCatastrophic(), getExitCode());
   }
 
   /** Return exit code depending on the spawn result. */
