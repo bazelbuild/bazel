@@ -46,7 +46,7 @@ import javax.annotation.Nullable;
  */
 @SuppressWarnings("unchecked")
 @AutoCodec
-public final class NestedSet<E> implements Iterable<E> {
+public final class NestedSet<E> {
   private static final Logger logger = Logger.getLogger(NestedSet.class.getName());
 
   /**
@@ -408,12 +408,6 @@ public final class NestedSet<E> implements Iterable<E> {
     } else {
       return children.toString();
     }
-  }
-
-  @Override
-  public Iterator<E> iterator() {
-    // TODO: would it help to have a proper lazy iterator?  seems like it might reduce garbage.
-    return toList().iterator();
   }
 
   /**

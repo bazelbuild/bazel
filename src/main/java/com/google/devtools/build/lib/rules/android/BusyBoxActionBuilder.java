@@ -96,10 +96,6 @@ public final class BusyBoxActionBuilder {
    */
   public BusyBoxActionBuilder addInput(
       @CompileTimeConstant String arg, String value, Iterable<Artifact> valueArtifacts) {
-    Preconditions.checkState(
-        !(valueArtifacts instanceof NestedSet),
-        "NestedSet values should not be added here, since they will be inefficiently collapsed in"
-            + " analysis time. Use one of the transitive input methods instead.");
     commandLine.add(arg, value);
     inputs.addAll(valueArtifacts);
     return this;

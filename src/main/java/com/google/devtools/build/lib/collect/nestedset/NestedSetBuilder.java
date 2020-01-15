@@ -93,14 +93,6 @@ public final class NestedSetBuilder<E> {
    */
   public NestedSetBuilder<E> addAll(Iterable<? extends E> elements) {
     Preconditions.checkNotNull(elements);
-    if (elements instanceof NestedSet) {
-      if (order.equals(Order.STABLE_ORDER)) {
-        // If direct/transitive order doesn't matter, add the nested set as a transitive member to
-        // avoid copying its elements.
-        return addTransitive((NestedSet<? extends E>) elements);
-      }
-      throw new IllegalArgumentException("NestedSet should be added as a transitive member");
-    }
     if (items == null) {
       int n = Iterables.size(elements);
       if (n == 0) {
@@ -234,7 +226,6 @@ public final class NestedSetBuilder<E> {
   /**
    * Creates a nested set with the given list of items as its elements.
    */
-  @SuppressWarnings("unchecked")
   public static <E> NestedSet<E> create(Order order, E... elems) {
     return wrap(order, ImmutableList.copyOf(elems));
   }
