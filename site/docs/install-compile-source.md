@@ -16,7 +16,9 @@ To build Bazel from source, you can do one of the following:
 
 TL;DR:
 
-1.  [Get the latest Bazel release](https://github.com/bazelbuild/bazel/releases)
+1.  Get the latest Bazel release from the
+    [GitHub release page](https://github.com/bazelbuild/bazel/releases) or with 
+    [Bazelisk](https://github.com/bazelbuild/bazelisk).
 
 2.  [Download Bazel's sources from GitHub](https://github.com/bazelbuild/bazel/archive/master.zip)
     and extract somewhere.
@@ -26,10 +28,11 @@ TL;DR:
     [for Unix-like systems](#bootstrap-unix-prereq) or
     [for Windows](#bootstrap-windows-prereq))
 
-4.  Build Bazel using Bazel: `bazel build //src:bazel`
-    (or `bazel build //src:bazel-dev.exe` on Windows)
+4.  Build a development build of Bazel using Bazel: 
+     `bazel build //src:bazel-dev` (or `bazel build //src:bazel-dev.exe` on
+    Windows)
 
-5.  The resulting binary is at `bazel-bin/src/bazel`
+5.  The resulting binary is at `bazel-bin/src/bazel-dev`
     (or `bazel-bin\src\bazel-dev.exe` on Windows). You can copy it wherever you
     like and use immediately without further installation.
 
@@ -88,7 +91,7 @@ Unix-like systems</h3>
 
 ([Scroll down](#build-bazel-on-windows) for instructions for Windows.)
 
-**Goal**: Run Bazel to build a custom Bazel binary (`bazel-bin/src/bazel`).
+**Goal**: Run Bazel to build a custom Bazel binary (`bazel-bin/src/bazel-dev`).
 
 **Instructions**:
 
@@ -102,9 +105,12 @@ Unix-like systems</h3>
 
 3.  Build Bazel from source:
 
-        bazel build //src:bazel
+        bazel build //src:bazel-dev
+        
+    Alternatively you can run `bazel build //src:bazel --compilation_mode=opt` 
+    to yield a smaller binary but it's slower to build.
 
-4.  The output will be at `bazel-bin/src/bazel`
+4.  The output will be at `bazel-bin/src/bazel-dev` (or `bazel-bin/src/bazel`).
 
 <h3 id="build-bazel-on-windows">4. Build Bazel on Windows</h3>
 
@@ -128,10 +134,11 @@ Unix-like systems.)
 
         bazel build //src:bazel-dev.exe
 
-    Alternatively you can build `//src:bazel.exe` -- that yields a smaller
-    binary but it's slower to build.
+    Alternatively you can run `bazel build //src:bazel.exe 
+    --compilation_mode=opt` to yield a smaller binary but it's slower to build.
 
-4.  The output will be at `bazel-bin\src\bazel-dev.exe`
+4.  The output will be at `bazel-bin\src\bazel-dev.exe` (or 
+    `bazel-bin\src\bazel.exe`).
 
 <h3 id="build-bazel-install">5. Install the built binary</h3>
 

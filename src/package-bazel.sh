@@ -21,12 +21,11 @@ set -euo pipefail
 
 WORKDIR=$(pwd)
 OUT=$1
-COMPILATION_MODE=$2
-EMBEDDED_TOOLS=$3
-DEPLOY_JAR=$4
-INSTALL_BASE_KEY=$5
-PLATFORMS_ARCHIVE=$6
-shift 6
+EMBEDDED_TOOLS=$2
+DEPLOY_JAR=$3
+INSTALL_BASE_KEY=$4
+PLATFORMS_ARCHIVE=$5
+shift 5
 
 if [[ "$OUT" == *jdk_allmodules.zip ]]; then
   DEV_BUILD=1
@@ -101,12 +100,13 @@ cp $INSTALL_BASE_KEY $PACKAGE_DIR/install_base_key
 # Zero timestamps.
 (cd $PACKAGE_DIR; xargs touch -t 198001010000.00) < files.list
 
-if [ "$COMPILATION_MODE" = "opt" ]; then
-  # Create output zip with highest compression, but slow.
-  (cd $PACKAGE_DIR; zip -q9DX@ $WORKDIR/$OUT) < files.list
-else
+if [[ "$DEV_BUILD" -eq 1 ]]; then
   # Create output zip with lowest compression, but fast.
-  (cd $PACKAGE_DIR; zip -q1DX@ $WORKDIR/$OUT) < files.list
+  ZIP_ARGS="-q1DX@"
+else
+  # Create output zip with highest compression, but slow.
+  ZIP_ARGS="-q9DX@"
 fi
+(cd $PACKAGE_DIR; zip $ZIP_ARGS $WORKDIR/$OUT) < files.list
 
 
