@@ -41,6 +41,7 @@ import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
+import com.google.devtools.build.lib.analysis.WorkspaceStatusAction;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationCollection;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
@@ -305,7 +306,8 @@ public abstract class BuildIntegrationTestCase {
       @Override
       public void executorInit(
           CommandEnvironment env, BuildRequest request, ExecutorBuilder builder) {
-        builder.addActionContext(new DummyWorkspaceStatusActionContext());
+        builder.addActionContext(
+            WorkspaceStatusAction.Context.class, new DummyWorkspaceStatusActionContext());
       }
     };
   }

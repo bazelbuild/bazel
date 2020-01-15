@@ -24,6 +24,6 @@ public final class NoSpawnCacheModule extends BlazeModule {
 
   @Override
   public void executorInit(CommandEnvironment env, BuildRequest request, ExecutorBuilder builder) {
-    builder.addActionContext(SpawnCache.NO_CACHE);
+    builder.addActionContext(SpawnCache.class, SpawnCache.NO_CACHE, "no-cache");
   }
 }

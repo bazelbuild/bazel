@@ -19,6 +19,7 @@ import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
 import com.google.common.collect.HashBasedTable;
+import com.google.common.collect.ImmutableClassToInstanceMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
@@ -30,7 +31,6 @@ import com.google.common.collect.Table;
 import com.google.devtools.build.lib.actions.ActionContext;
 import com.google.devtools.build.lib.actions.ActionContextMarker;
 import com.google.devtools.build.lib.actions.DynamicStrategyRegistry;
-import com.google.devtools.build.lib.actions.ExecutionStrategy;
 import com.google.devtools.build.lib.actions.ExecutorInitException;
 import com.google.devtools.build.lib.actions.SandboxedSpawnActionContext;
 import com.google.devtools.build.lib.actions.Spawn;
@@ -75,7 +75,7 @@ public final class SpawnActionContextMaps
   }
 
   private final ImmutableSortedMap<String, List<SpawnActionContext>> mnemonicToSpawnStrategiesMap;
-  private final ImmutableList<ActionContext> strategies;
+  private final ImmutableClassToInstanceMap<ActionContext> strategies;
   private final ImmutableList<RegexFilterSpawnActionContext> spawnStrategyRegexList;
   private final ImmutableMultimap<String, SandboxedSpawnActionContext>
       mnemonicToRemoteDynamicStrategies;
@@ -85,7 +85,7 @@ public final class SpawnActionContextMaps
 
   private SpawnActionContextMaps(
       ImmutableSortedMap<String, List<SpawnActionContext>> mnemonicToSpawnStrategiesMap,
-      ImmutableList<ActionContext> strategies,
+      ImmutableClassToInstanceMap<ActionContext> strategies,
       ImmutableList<RegexFilterSpawnActionContext> spawnStrategyRegexList,
       ImmutableMultimap<String, SandboxedSpawnActionContext> mnemonicToRemoteDynamicStrategies,
       ImmutableMultimap<String, SandboxedSpawnActionContext> mnemonicToLocalDynamicStrategies,
@@ -151,12 +151,11 @@ public final class SpawnActionContextMaps
   @VisibleForTesting
   public ImmutableMap<Class<? extends ActionContext>, ActionContext> contextMap() {
     Map<Class<? extends ActionContext>, ActionContext> contextMap = new HashMap<>();
-    for (ActionContext context : strategies) {
-      ExecutionStrategy annotation = context.getClass().getAnnotation(ExecutionStrategy.class);
-      if (annotation != null) {
-        contextMap.put(annotation.contextType(), context);
-      }
-      contextMap.put(context.getClass(), context);
+    for (Map.Entry<Class<? extends ActionContext>, ActionContext> typeToStrategy :
+        strategies.entrySet()) {
+      ActionContext strategy = typeToStrategy.getValue();
+      contextMap.put(typeToStrategy.getKey(), strategy);
+      contextMap.put(strategy.getClass(), strategy);
     }
     contextMap.put(SpawnActionContext.class, new ProxySpawnActionContext(this));
     contextMap.put(DynamicStrategyRegistry.class, this);
@@ -169,8 +168,7 @@ public final class SpawnActionContextMaps
   public ImmutableList<ActionContext> allContexts() {
     // We need to keep only the last occurrences of the entries in contextImplementations
     // (so we respect insertion order but also instantiate them only once).
-    LinkedHashSet<ActionContext> allContexts = new LinkedHashSet<>();
-    allContexts.addAll(strategies);
+    LinkedHashSet<ActionContext> allContexts = new LinkedHashSet<>(strategies.values());
     mnemonicToSpawnStrategiesMap.values().forEach(allContexts::addAll);
     spawnStrategyRegexList.forEach(x -> allContexts.addAll(x.spawnActionContext()));
     return ImmutableList.copyOf(allContexts);
@@ -220,11 +218,11 @@ public final class SpawnActionContextMaps
 
   @VisibleForTesting
   public static SpawnActionContextMaps createStub(
-      List<ActionContext> strategies,
+      Map<Class<? extends ActionContext>, ActionContext> strategies,
       Map<String, List<SpawnActionContext>> spawnStrategyMnemonicMap) {
     return new SpawnActionContextMaps(
         ImmutableSortedMap.copyOf(spawnStrategyMnemonicMap, String.CASE_INSENSITIVE_ORDER),
-        ImmutableList.copyOf(strategies),
+        ImmutableClassToInstanceMap.copyOf(strategies),
         ImmutableList.of(),
         ImmutableMultimap.of(),
         ImmutableMultimap.of(),
@@ -333,7 +331,7 @@ public final class SpawnActionContextMaps
 
       ImmutableSortedMap.Builder<String, List<SpawnActionContext>> spawnStrategyMap =
           ImmutableSortedMap.orderedBy(String.CASE_INSENSITIVE_ORDER);
-      ImmutableList.Builder<ActionContext> strategies = ImmutableList.builder();
+      HashMap<Class<? extends ActionContext>, ActionContext> strategies = new HashMap<>();
       ImmutableList.Builder<RegexFilterSpawnActionContext> spawnStrategyRegexList =
           ImmutableList.builder();
 
@@ -369,7 +367,7 @@ public final class SpawnActionContextMaps
           continue;
         }
         seenContext.add(context);
-        strategies.add(context);
+        strategies.put(entry.getKey(), context);
       }
 
       for (RegexFilterStrategy entry : strategyByRegexpBuilder.build()) {
@@ -408,7 +406,7 @@ public final class SpawnActionContextMaps
 
       return new SpawnActionContextMaps(
           spawnStrategyMap.build(),
-          strategies.build(),
+          ImmutableClassToInstanceMap.copyOf(strategies),
           spawnStrategyRegexList.build(),
           toActionContexts(strategyConverter, remoteDynamicStrategyByMnemonicMap),
           toActionContexts(strategyConverter, localDynamicStrategyByMnemonicMap),
@@ -462,18 +460,15 @@ public final class SpawnActionContextMaps
     private Map<Class<? extends ActionContext>, ActionContext> defaultClassMap = new HashMap<>();
 
     /** Aggregates all {@link ActionContext}s that are in {@code contextProviders}. */
-    @SuppressWarnings("unchecked")
     private StrategyConverter(Iterable<ActionContextProvider> contextProviders) {
       for (ActionContextProvider provider : contextProviders) {
-        for (ActionContext strategy : provider.getActionContexts()) {
-          ExecutionStrategy annotation = strategy.getClass().getAnnotation(ExecutionStrategy.class);
-          // TODO(ulfjack): Don't silently ignore action contexts without annotation.
-          if (annotation != null) {
-            defaultClassMap.put(annotation.contextType(), strategy);
+        ActionContextCollector collector = new ActionContextCollector();
+        provider.registerActionContexts(collector);
+        for (ActionContextInformation<?> contextInformation : collector.getContextInformation()) {
+          defaultClassMap.put(contextInformation.identifyingType(), contextInformation.context());
 
-            for (String name : annotation.name()) {
-              classMap.put(annotation.contextType(), name, strategy);
-            }
+          for (String name : contextInformation.commandLineIdentifiers()) {
+            classMap.put(contextInformation.identifyingType(), name, contextInformation.context());
           }
         }
       }
@@ -495,6 +490,48 @@ public final class SpawnActionContextMaps
     private String getUserFriendlyName(Class<? extends ActionContext> context) {
       ActionContextMarker marker = context.getAnnotation(ActionContextMarker.class);
       return marker != null ? marker.name() : context.getSimpleName();
+    }
+  }
+
+  @AutoValue
+  abstract static class ActionContextInformation<T extends ActionContext> {
+    abstract T context();
+
+    abstract Class<T> identifyingType();
+
+    abstract ImmutableList<String> commandLineIdentifiers();
+  }
+
+  private static class ActionContextCollector
+      implements ActionContextProvider.ActionContextCollector {
+
+    private final ImmutableList.Builder<ActionContextInformation<?>> contextInformation =
+        ImmutableList.builder();
+
+    private class TypeCollector<T extends ActionContext>
+        implements ActionContextProvider.ActionContextCollector.TypeCollector<T> {
+      private final Class<T> type;
+
+      private TypeCollector(Class<T> type) {
+        this.type = type;
+      }
+
+      @Override
+      public TypeCollector<T> registerContext(T context, String... commandlineIdentifiers) {
+        contextInformation.add(
+            new AutoValue_SpawnActionContextMaps_ActionContextInformation<T>(
+                context, type, ImmutableList.copyOf(commandlineIdentifiers)));
+        return this;
+      }
+    }
+
+    @Override
+    public <T extends ActionContext> TypeCollector<T> forType(Class<T> type) {
+      return new TypeCollector<>(type);
+    }
+
+    private ImmutableList<ActionContextInformation<?>> getContextInformation() {
+      return contextInformation.build();
     }
   }
 }

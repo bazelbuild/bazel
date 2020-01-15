@@ -13,8 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.dynamic;
 
-import static com.google.common.base.Preconditions.checkNotNull;
-
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -22,7 +20,6 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
-import com.google.devtools.build.lib.actions.ExecutionStrategy;
 import com.google.devtools.build.lib.actions.ExecutorInitException;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnActionContext;
@@ -44,6 +41,10 @@ import java.util.concurrent.Executors;
  * {@link BlazeModule} providing support for dynamic spawn execution and scheduling.
  */
 public class DynamicExecutionModule extends BlazeModule {
+
+  /** Strings that can be used to select this strategy in flags. */
+  private static final String[] COMMANDLINE_IDENTIFIERS = {"dynamic", "dynamic_worker"};
+
   private ExecutorService executorService;
 
   public DynamicExecutionModule() {}
@@ -113,10 +114,14 @@ public class DynamicExecutionModule extends BlazeModule {
 
     if (options.legacySpawnScheduler) {
       builder.addActionContext(
-          new LegacyDynamicSpawnStrategy(executorService, options, this::getExecutionPolicy));
+          SpawnActionContext.class,
+          new LegacyDynamicSpawnStrategy(executorService, options, this::getExecutionPolicy),
+          COMMANDLINE_IDENTIFIERS);
     } else {
       builder.addActionContext(
-          new DynamicSpawnStrategy(executorService, options, this::getExecutionPolicy));
+          SpawnActionContext.class,
+          new DynamicSpawnStrategy(executorService, options, this::getExecutionPolicy),
+          COMMANDLINE_IDENTIFIERS);
     }
     builder.addStrategyByContext(SpawnActionContext.class, "dynamic");
 
@@ -140,14 +145,11 @@ public class DynamicExecutionModule extends BlazeModule {
 
   private void throwIfContainsDynamic(List<String> strategies, String flagName)
       throws ExecutorInitException {
-    ExecutionStrategy strategy = DynamicSpawnStrategy.class.getAnnotation(ExecutionStrategy.class);
-    checkNotNull(strategy, "DynamicSpawnStrategy lacks expected ExecutionStrategy annotation");
-
-    if (!Sets.intersection(ImmutableSet.of(strategy.name()), ImmutableSet.copyOf(strategies))
-        .isEmpty()) {
+    ImmutableSet<String> identifiers = ImmutableSet.copyOf(COMMANDLINE_IDENTIFIERS);
+    if (!Sets.intersection(identifiers, ImmutableSet.copyOf(strategies)).isEmpty()) {
       throw new ExecutorInitException(
           "Cannot use strategy "
-              + strategy
+              + identifiers
               + " in flag "
               + flagName
               + " as it would create a cycle during execution");

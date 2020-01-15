@@ -157,7 +157,10 @@ public class WorkerModule extends BlazeModule {
             env.getLocalResourceManager(),
             // TODO(buchgr): Replace singleton by a command-scoped RunfilesTreeUpdater
             RunfilesTreeUpdater.INSTANCE);
-    builder.addActionContext(new WorkerSpawnStrategy(env.getExecRoot(), spawnRunner));
+    builder.addActionContext(
+        SpawnActionContext.class,
+        new WorkerSpawnStrategy(env.getExecRoot(), spawnRunner),
+        "worker");
 
     builder.addStrategyByContext(SpawnActionContext.class, "standalone");
     builder.addStrategyByContext(SpawnActionContext.class, "worker");

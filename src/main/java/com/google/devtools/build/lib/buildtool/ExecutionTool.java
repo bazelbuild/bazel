@@ -142,6 +142,7 @@ public class ExecutionTool {
       }
     }
     builder.addActionContext(
+        SymlinkTreeActionContext.class,
         new SymlinkTreeStrategy(env.getOutputService(), env.getBlazeWorkspace().getBinTools()));
     // TODO(philwo) - the ExecutionTool should not add arbitrary dependencies on its own, instead
     // these dependencies should be added to the ActionContextConsumer of the module that actually

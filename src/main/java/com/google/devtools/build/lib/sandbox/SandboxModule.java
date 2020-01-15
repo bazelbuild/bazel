@@ -276,7 +276,10 @@ public final class SandboxModule extends BlazeModule {
                   treeDeleter));
       spawnRunners.add(spawnRunner);
       builder.addActionContext(
-          new ProcessWrapperSandboxedStrategy(cmdEnv.getExecRoot(), spawnRunner));
+          SpawnActionContext.class,
+          new ProcessWrapperSandboxedStrategy(cmdEnv.getExecRoot(), spawnRunner),
+          "sandboxed",
+          "processwrapper-sandbox");
     }
 
     if (options.enableDockerSandbox) {
@@ -301,7 +304,9 @@ public final class SandboxModule extends BlazeModule {
                     treeDeleter));
         spawnRunners.add(spawnRunner);
         builder.addActionContext(
-            new DockerSandboxedStrategy(cmdEnv.getExecRoot(), spawnRunner));
+            SpawnActionContext.class,
+            new DockerSandboxedStrategy(cmdEnv.getExecRoot(), spawnRunner),
+            "docker");
       }
     } else if (options.dockerVerbose) {
       cmdEnv.getReporter().handle(Event.info(
@@ -322,7 +327,11 @@ public final class SandboxModule extends BlazeModule {
                   options.sandboxfsMapSymlinkTargets,
                   treeDeleter));
       spawnRunners.add(spawnRunner);
-      builder.addActionContext(new LinuxSandboxedStrategy(cmdEnv.getExecRoot(), spawnRunner));
+      builder.addActionContext(
+          SpawnActionContext.class,
+          new LinuxSandboxedStrategy(cmdEnv.getExecRoot(), spawnRunner),
+          "sandboxed",
+          "linux-sandbox");
     }
 
     // This is the preferred sandboxing strategy on macOS.
@@ -338,7 +347,11 @@ public final class SandboxModule extends BlazeModule {
                   options.sandboxfsMapSymlinkTargets,
                   treeDeleter));
       spawnRunners.add(spawnRunner);
-      builder.addActionContext(new DarwinSandboxedStrategy(cmdEnv.getExecRoot(), spawnRunner));
+      builder.addActionContext(
+          SpawnActionContext.class,
+          new DarwinSandboxedStrategy(cmdEnv.getExecRoot(), spawnRunner),
+          "sandboxed",
+          "darwin-sandbox");
     }
 
     if (windowsSandboxSupported) {
@@ -347,7 +360,11 @@ public final class SandboxModule extends BlazeModule {
               cmdEnv,
               new WindowsSandboxedSpawnRunner(cmdEnv, timeoutKillDelay, windowsSandboxPath));
       spawnRunners.add(spawnRunner);
-      builder.addActionContext(new WindowsSandboxedStrategy(cmdEnv.getExecRoot(), spawnRunner));
+      builder.addActionContext(
+          SpawnActionContext.class,
+          new WindowsSandboxedStrategy(cmdEnv.getExecRoot(), spawnRunner),
+          "sandboxed",
+          "windows-sandbox");
     }
 
     if (processWrapperSupported

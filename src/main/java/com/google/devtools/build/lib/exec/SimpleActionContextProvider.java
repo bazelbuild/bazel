@@ -13,20 +13,30 @@
 // limitations under the License.
 package com.google.devtools.build.lib.exec;
 
-import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.ActionContext;
-import java.util.List;
 
 /** An {@link ActionContextProvider} that just provides the {@link ActionContext}s it's given. */
-public final class SimpleActionContextProvider extends ActionContextProvider {
-  private final List<ActionContext> actionContexts;
+public final class SimpleActionContextProvider<T extends ActionContext, C extends T>
+    extends ActionContextProvider {
+  private final C context;
+  private final Class<T> identifyingType;
+  private final String[] commandLineIdentifiers;
 
-  public SimpleActionContextProvider(ActionContext... contexts) {
-    actionContexts = ImmutableList.<ActionContext>copyOf(contexts);
+  /**
+   * Creates a provider which will register the given context with the passed identifying type and
+   * commandline identifiers.
+   *
+   * @see ActionContextCollector
+   */
+  public SimpleActionContextProvider(
+      Class<T> identifyingType, C context, String... commandLineIdentifiers) {
+    this.context = context;
+    this.identifyingType = identifyingType;
+    this.commandLineIdentifiers = commandLineIdentifiers;
   }
 
   @Override
-  public Iterable<? extends ActionContext> getActionContexts() {
-    return actionContexts;
+  public void registerActionContexts(ActionContextCollector collector) {
+    collector.forType(identifyingType).registerContext(context, commandLineIdentifiers);
   }
 }

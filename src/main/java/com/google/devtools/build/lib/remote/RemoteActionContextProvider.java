@@ -16,13 +16,13 @@ package com.google.devtools.build.lib.remote;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.google.common.base.Preconditions;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.ListeningScheduledExecutorService;
-import com.google.devtools.build.lib.actions.ActionContext;
 import com.google.devtools.build.lib.actions.ActionInput;
+import com.google.devtools.build.lib.actions.SpawnActionContext;
 import com.google.devtools.build.lib.exec.ActionContextProvider;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
+import com.google.devtools.build.lib.exec.SpawnCache;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
@@ -77,7 +77,7 @@ final class RemoteActionContextProvider extends ActionContextProvider {
   }
 
   @Override
-  public Iterable<? extends ActionContext> getActionContexts() {
+  public void registerActionContexts(ActionContextCollector collector) {
     ExecutionOptions executionOptions =
         checkNotNull(env.getOptions().getOptions(ExecutionOptions.class));
     RemoteOptions remoteOptions = checkNotNull(env.getOptions().getOptions(RemoteOptions.class));
@@ -95,7 +95,7 @@ final class RemoteActionContextProvider extends ActionContextProvider {
               env.getReporter(),
               digestUtil,
               filesToDownload);
-      return ImmutableList.of(spawnCache);
+      collector.forType(SpawnCache.class).registerContext(spawnCache, "remote-cache");
     } else {
       RemoteSpawnRunner spawnRunner =
           new RemoteSpawnRunner(
@@ -112,7 +112,9 @@ final class RemoteActionContextProvider extends ActionContextProvider {
               digestUtil,
               logDir,
               filesToDownload);
-      return ImmutableList.of(new RemoteSpawnStrategy(env.getExecRoot(), spawnRunner));
+      collector
+          .forType(SpawnActionContext.class)
+          .registerContext(new RemoteSpawnStrategy(env.getExecRoot(), spawnRunner), "remote");
     }
   }
 

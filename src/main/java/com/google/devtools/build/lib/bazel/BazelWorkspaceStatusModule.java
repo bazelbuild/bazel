@@ -354,7 +354,8 @@ public class BazelWorkspaceStatusModule extends BlazeModule {
 
   @Override
   public void executorInit(CommandEnvironment env, BuildRequest request, ExecutorBuilder builder) {
-    builder.addActionContext(new BazelWorkspaceStatusActionContext(env));
+    builder.addActionContext(
+        WorkspaceStatusAction.Context.class, new BazelWorkspaceStatusActionContext(env));
   }
 
 }

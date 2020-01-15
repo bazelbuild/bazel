@@ -200,7 +200,7 @@ public class LegacyDynamicSpawnStrategy implements SpawnActionContext {
     Phaser bothTasksFinished = new Phaser(/*parties=*/ 1);
 
     try {
-      final AtomicReference<Class<? extends SpawnActionContext>> outputsHaveBeenWritten =
+      final AtomicReference<SpawnActionContext> outputsHaveBeenWritten =
           new AtomicReference<>(null);
       dynamicExecutionResult =
           executorService.invokeAny(
@@ -358,8 +358,8 @@ public class LegacyDynamicSpawnStrategy implements SpawnActionContext {
   }
 
   private static StopConcurrentSpawns lockOutputFiles(
-      Class<? extends SpawnActionContext> token,
-      @Nullable AtomicReference<Class<? extends SpawnActionContext>> outputWriteBarrier) {
+      SandboxedSpawnActionContext token,
+      @Nullable AtomicReference<SpawnActionContext> outputWriteBarrier) {
     if (outputWriteBarrier == null) {
       return null;
     } else {
@@ -375,7 +375,7 @@ public class LegacyDynamicSpawnStrategy implements SpawnActionContext {
   private static ImmutableList<SpawnResult> runLocally(
       Spawn spawn,
       ActionExecutionContext actionExecutionContext,
-      @Nullable AtomicReference<Class<? extends SpawnActionContext>> outputWriteBarrier)
+      @Nullable AtomicReference<SpawnActionContext> outputWriteBarrier)
       throws ExecException, InterruptedException {
     DynamicStrategyRegistry dynamicStrategyRegistry =
         actionExecutionContext.getContext(DynamicStrategyRegistry.class);
@@ -385,9 +385,7 @@ public class LegacyDynamicSpawnStrategy implements SpawnActionContext {
             spawn, DynamicStrategyRegistry.DynamicMode.LOCAL)) {
       if (!strategy.toString().contains("worker") || supportsWorkers(spawn)) {
         return strategy.exec(
-            spawn,
-            actionExecutionContext,
-            lockOutputFiles(strategy.getClass(), outputWriteBarrier));
+            spawn, actionExecutionContext, lockOutputFiles(strategy, outputWriteBarrier));
       }
     }
     throw new RuntimeException(
@@ -397,7 +395,7 @@ public class LegacyDynamicSpawnStrategy implements SpawnActionContext {
   private static ImmutableList<SpawnResult> runRemotely(
       Spawn spawn,
       ActionExecutionContext actionExecutionContext,
-      @Nullable AtomicReference<Class<? extends SpawnActionContext>> outputWriteBarrier)
+      @Nullable AtomicReference<SpawnActionContext> outputWriteBarrier)
       throws ExecException, InterruptedException {
     DynamicStrategyRegistry dynamicStrategyRegistry =
         actionExecutionContext.getContext(DynamicStrategyRegistry.class);
@@ -406,7 +404,7 @@ public class LegacyDynamicSpawnStrategy implements SpawnActionContext {
         dynamicStrategyRegistry.getDynamicSpawnActionContexts(
             spawn, DynamicStrategyRegistry.DynamicMode.REMOTE)) {
       return strategy.exec(
-          spawn, actionExecutionContext, lockOutputFiles(strategy.getClass(), outputWriteBarrier));
+          spawn, actionExecutionContext, lockOutputFiles(strategy, outputWriteBarrier));
     }
     throw new RuntimeException(
         "executorCreated not yet called or no default dynamic_remote_strategy set");

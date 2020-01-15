@@ -150,7 +150,7 @@ public class StandaloneSpawnStrategyTest {
             BlazeClock.instance(),
             optionsParser,
             SpawnActionContextMaps.createStub(
-                ImmutableList.of(),
+                ImmutableMap.of(),
                 ImmutableMap.of(
                     "",
                     ImmutableList.of(

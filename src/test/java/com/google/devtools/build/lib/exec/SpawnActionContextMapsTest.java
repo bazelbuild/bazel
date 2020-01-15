@@ -18,7 +18,6 @@ import static org.mockito.Mockito.when;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.eventbus.EventBus;
-import com.google.devtools.build.lib.actions.ActionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.ExecException;
@@ -54,8 +53,11 @@ public class SpawnActionContextMapsTest {
       ImmutableList.of(
           new ActionContextProvider() {
             @Override
-            public Iterable<? extends ActionContext> getActionContexts() {
-              return ImmutableList.of(ac1, ac2);
+            public void registerActionContexts(ActionContextCollector collector) {
+              collector
+                  .forType(SpawnActionContext.class)
+                  .registerContext(ac1, "ac1")
+                  .registerContext(ac2, "ac2");
             }
           });
 

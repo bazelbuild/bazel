@@ -59,9 +59,14 @@ public class ExecutorBuilder {
   /**
    * Adds the specified action context to the executor, by wrapping it in a simple action context
    * provider implementation.
+   *
+   * <p>If two action contexts are registered that share an identifying type and commandline
+   * identifier the last registered will take precedence.
    */
-  public ExecutorBuilder addActionContext(ActionContext context) {
-    return addActionContextProvider(new SimpleActionContextProvider(context));
+  public <T extends ActionContext> ExecutorBuilder addActionContext(
+      Class<T> identifyingType, T context, String... commandlineIdentifiers) {
+    return addActionContextProvider(
+        new SimpleActionContextProvider<>(identifyingType, context, commandlineIdentifiers));
   }
 
   /**
