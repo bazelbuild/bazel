@@ -19,7 +19,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.platform.ConstraintCollection.DuplicateConstraintException;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.packages.NativeProvider;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
@@ -65,9 +64,8 @@ public class PlatformInfo extends NativeInfo
       Label label,
       ConstraintCollection constraints,
       String remoteExecutionProperties,
-      ImmutableMap<String, String> execProperties,
-      Location location) {
-    super(PROVIDER, location);
+      ImmutableMap<String, String> execProperties) {
+    super(PROVIDER);
 
     this.label = label;
     this.constraints = constraints;
@@ -121,7 +119,6 @@ public class PlatformInfo extends NativeInfo
     private final ConstraintCollection.Builder constraints = ConstraintCollection.builder();
     private String remoteExecutionProperties = null;
     @Nullable private ImmutableMap<String, String> execProperties;
-    private Location location = Location.BUILTIN;
 
     /**
      * Sets the parent {@link PlatformInfo} that this platform inherits from. Constraint values set
@@ -226,17 +223,6 @@ public class PlatformInfo extends NativeInfo
       return this;
     }
 
-    /**
-     * Sets the {@link Location} where this {@link PlatformInfo} was created.
-     *
-     * @param location the location where the instance was created
-     * @return the {@link Builder} instance for method chaining
-     */
-    public Builder setLocation(Location location) {
-      this.location = location;
-      return this;
-    }
-
     private void checkRemoteExecutionProperties() throws ExecPropertiesException {
       if (execProperties != null && !Strings.isNullOrEmpty(remoteExecutionProperties)) {
         throw new ExecPropertiesException(
@@ -282,7 +268,7 @@ public class PlatformInfo extends NativeInfo
       }
 
       return new PlatformInfo(
-          label, constraints.build(), remoteExecutionProperties, execProperties, location);
+          label, constraints.build(), remoteExecutionProperties, execProperties);
     }
 
     private static String mergeRemoteExecutionProperties(

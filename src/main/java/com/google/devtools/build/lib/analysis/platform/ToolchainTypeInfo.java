@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.analysis.platform;
 
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.packages.NativeProvider;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
@@ -39,17 +38,13 @@ public class ToolchainTypeInfo extends NativeInfo implements ToolchainTypeInfoAp
 
   private final Label typeLabel;
 
-  public static ToolchainTypeInfo create(Label typeLabel, Location location) {
-    return new ToolchainTypeInfo(typeLabel, location);
-  }
-
   public static ToolchainTypeInfo create(Label typeLabel) {
-    return create(typeLabel, Location.BUILTIN);
+    return new ToolchainTypeInfo(typeLabel);
   }
 
   @VisibleForSerialization
-  ToolchainTypeInfo(Label typeLabel, Location location) {
-    super(PROVIDER, location);
+  ToolchainTypeInfo(Label typeLabel) {
+    super(PROVIDER);
     this.typeLabel = typeLabel;
   }
 
