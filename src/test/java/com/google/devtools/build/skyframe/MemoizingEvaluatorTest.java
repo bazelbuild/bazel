@@ -388,9 +388,9 @@ public class MemoizingEvaluatorTest {
                 ImmutableList.<SkyKey>of()));
 
     // When it is interrupted during evaluation (here, caused by the failure of the throwing
-    // SkyFunction during a no-keep-going evaluation), then the Evaluator#evaluate call throws a
-    // RuntimeException e where e.getCause() is the
-    // RuntimeException thrown by that SkyFunction.
+    // SkyFunction during a no-keep-going evaluation), then the ParallelEvaluator#evaluate call
+    // throws a RuntimeException e where e.getCause() is the RuntimeException thrown by that
+    // SkyFunction.
     RuntimeException e =
         assertThrows(
             RuntimeException.class,
@@ -439,8 +439,8 @@ public class MemoizingEvaluatorTest {
     // during a no-keep-going evaluation),
     EvaluationResult<StringValue> result =
         tester.eval(/*keepGoing=*/ false, interruptedKey, failKey);
-    // Then the Evaluator#evaluate call returns an EvaluationResult that has no error for the
-    // interrupted SkyFunction.
+    // Then the ParallelEvaluator#evaluate call returns an EvaluationResult that has no error for
+    // the interrupted SkyFunction.
     assertWithMessage(result.toString()).that(result.hasError()).isTrue();
     assertWithMessage(result.toString()).that(result.getError(failKey)).isNotNull();
     assertWithMessage(result.toString()).that(result.getError(interruptedKey)).isNull();
