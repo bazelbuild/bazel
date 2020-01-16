@@ -1,4 +1,4 @@
-// Copyright 2014 The Bazel Authors. All rights reserved.
+// Copyright 2019 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -11,6 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+//
 package com.google.devtools.build.lib.skyframe;
 
 import static com.google.devtools.build.lib.concurrent.Uninterruptibles.callUninterruptibly;
@@ -131,6 +132,7 @@ import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.options.RemoteOutputsMode;
+import com.google.devtools.build.lib.repository.ExternalPackageUtil;
 import com.google.devtools.build.lib.rules.repository.ManagedDirectoriesKnowledge;
 import com.google.devtools.build.lib.rules.repository.ResolvedFileFunction;
 import com.google.devtools.build.lib.rules.repository.ResolvedHashesFunction;
@@ -2910,6 +2912,14 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     }
     eventHandler.post(new TargetParsingPhaseTimeEvent(timer.stop().elapsed().toMillis()));
     return evalResult.get(key);
+  }
+
+  public ImmutableSortedSet<String> getNotSymlinkedInExecrootDirectories(
+      ExtendedEventHandler eventHandler) throws InterruptedException {
+    return ExternalPackageUtil.getNotSymlinkedInExecrootDirectories(key -> {
+      EvaluationResult<SkyValue> result = evaluateSkyKeys(eventHandler, ImmutableList.of(key));
+      return result.get(key);
+    });
   }
 
   public PrepareAnalysisPhaseValue prepareAnalysisPhase(

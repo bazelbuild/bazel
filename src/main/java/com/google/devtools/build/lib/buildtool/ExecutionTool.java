@@ -1,4 +1,4 @@
-// Copyright 2014 The Bazel Authors. All rights reserved.
+// Copyright 2019 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -11,6 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+//
 package com.google.devtools.build.lib.buildtool;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
@@ -22,6 +23,7 @@ import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableSortedSet;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionCacheChecker;
 import com.google.devtools.build.lib.actions.ActionGraph;
@@ -119,15 +121,18 @@ public class ExecutionTool {
   private final CommandEnvironment env;
   private final BlazeRuntime runtime;
   private final BuildRequest request;
+  private final ImmutableSortedSet<String> notSymlinkedInExecrootDirectories;
   private BlazeExecutor executor;
   private final ActionInputPrefetcher prefetcher;
   private final ImmutableList<ActionContextProvider> actionContextProviders;
   private SpawnActionContextMaps spawnActionContextMaps;
 
-  ExecutionTool(CommandEnvironment env, BuildRequest request) throws ExecutorInitException {
+  ExecutionTool(CommandEnvironment env, BuildRequest request,
+      ImmutableSortedSet<String> notSymlinkedInExecrootDirectories) throws ExecutorInitException {
     this.env = env;
     this.runtime = env.getRuntime();
     this.request = request;
+    this.notSymlinkedInExecrootDirectories = notSymlinkedInExecrootDirectories;
 
     try {
       env.getExecRoot().createDirectoryAndParents();
@@ -405,7 +410,7 @@ public class ExecutionTool {
   }
 
   private void prepare(PackageRoots packageRoots)
-      throws ExecutorInitException, InterruptedException {
+      throws AbruptExitException, InterruptedException {
     Optional<ImmutableMap<PackageIdentifier, Root>> packageRootMap =
         packageRoots.getPackageRootsMap();
     if (packageRootMap.isPresent()) {
@@ -414,8 +419,9 @@ public class ExecutionTool {
 
       // Plant the symlink forest.
       try (SilentCloseable c = Profiler.instance().profile("plantSymlinkForest")) {
-        new SymlinkForest(packageRootMap.get(), getExecRoot(), runtime.getProductName())
-            .plantSymlinkForest();
+        SymlinkForest symlinkForest = new SymlinkForest(packageRootMap.get(), getExecRoot(),
+            runtime.getProductName(), this.notSymlinkedInExecrootDirectories);
+        symlinkForest.plantSymlinkForest();
       } catch (IOException e) {
         throw new ExecutorInitException("Source forest creation failed", e);
       }

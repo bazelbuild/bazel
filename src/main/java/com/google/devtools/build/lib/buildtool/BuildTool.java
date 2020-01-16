@@ -1,4 +1,4 @@
-// Copyright 2014 The Bazel Authors. All rights reserved.
+// Copyright 2019 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -11,6 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+//
 package com.google.devtools.build.lib.buildtool;
 
 import static com.google.devtools.build.lib.platform.SuspendCounter.suspendCount;
@@ -19,6 +20,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSortedSet;
 import com.google.devtools.build.lib.actions.BuildFailedException;
 import com.google.devtools.build.lib.actions.TestExecException;
 import com.google.devtools.build.lib.analysis.AnalysisResult;
@@ -141,11 +143,14 @@ public class BuildTool {
       AnalysisResult analysisResult =
           AnalysisPhaseRunner.execute(env, request, buildOptions, validator);
 
+      ImmutableSortedSet<String> notSymlinkedInExecrootDirectories = env.getSkyframeExecutor()
+          .getNotSymlinkedInExecrootDirectories(env.getReporter());
+
       // We cannot move the executionTool down to the execution phase part since it does set up the
       // symlinks for tools.
       // TODO(twerth): Extract embedded tool setup from execution tool and move object creation to
       // execution phase.
-      executionTool = new ExecutionTool(env, request);
+      executionTool = new ExecutionTool(env, request, notSymlinkedInExecrootDirectories);
       if (request.getBuildOptions().performAnalysisPhase) {
         result.setBuildConfigurationCollection(analysisResult.getConfigurationCollection());
         result.setActualTargets(analysisResult.getTargetsToBuild());
