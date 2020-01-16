@@ -25,7 +25,8 @@ public enum ProfilePhase {
   LICENSE("license checking", "Analyze licenses"),
   PREPARE("preparation", "Prepare for build"),
   EXECUTE("execution", "Build artifacts"),
-  FINISH("finish", "Complete build");
+  FINISH("finish", "Complete build"),
+  UNKNOWN("unknown", "unknown");
 
   /** Short name for the phase */
   public final String nick;
@@ -43,6 +44,6 @@ public enum ProfilePhase {
         return profilePhase;
       }
     }
-    return null;
+    return UNKNOWN;
   }
 }

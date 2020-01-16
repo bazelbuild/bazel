@@ -146,9 +146,32 @@ public final class ProfileCommand implements BlazeCommand {
                       + " Use the JSON trace profile instead."));
         } else {
           try {
-            JsonProfile.parseProfileAndDumpStats(
-                env.getReporter(), dumpMode, out, profileFile.getPathFile(), infoListener);
+            if (dumpMode != null) {
+              reporter.handle(
+                  Event.warn(
+                      "--dump has not been implemented yet for the JSON profile, ignoring."));
+            }
+            JsonProfile jsonProfile = new JsonProfile(profileFile.getPathFile());
+
+            JsonProfile.BuildMetadata buildMetadata = jsonProfile.getBuildMetadata();
+            if (buildMetadata != null) {
+              infoListener.info(
+                  "Profile created on "
+                      + buildMetadata.date()
+                      + ", build ID: "
+                      + buildMetadata.buildId()
+                      + ", output base: "
+                      + buildMetadata.outputBase());
+            }
+
+            new PhaseText(
+                    out,
+                    jsonProfile.getPhaseSummaryStatistics(),
+                    /* phaseStatistics= */ Optional.absent(),
+                    Optional.of(new CriticalPathStatistics(jsonProfile.getTraceEvents())))
+                .print();
           } catch (IOException e) {
+            reporter.handle(Event.error("Failed to analyze profile file(s): " + e.getMessage()));
             return BlazeCommandResult.exitCode(ExitCode.PARSING_FAILURE);
           }
         }

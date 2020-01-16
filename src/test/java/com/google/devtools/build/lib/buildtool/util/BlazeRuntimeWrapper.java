@@ -281,7 +281,6 @@ public class BlazeRuntimeWrapper {
               ImmutableSet.of(),
               /* stream= */ null,
               /* format= */ null,
-              "BlazeRuntimeWrapper",
               /* outputBase= */ null,
               /* buildID= */ null,
               /* recordAllDurations= */ false,

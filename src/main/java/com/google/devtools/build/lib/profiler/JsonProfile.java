@@ -14,13 +14,8 @@
 
 package com.google.devtools.build.lib.profiler;
 
-import com.google.common.base.Optional;
+import com.google.auto.value.AutoValue;
 import com.google.common.collect.Iterables;
-import com.google.devtools.build.lib.events.Event;
-import com.google.devtools.build.lib.events.Reporter;
-import com.google.devtools.build.lib.profiler.analysis.ProfileInfo.InfoListener;
-import com.google.devtools.build.lib.profiler.output.PhaseText;
-import com.google.devtools.build.lib.profiler.statistics.CriticalPathStatistics;
 import com.google.devtools.build.lib.profiler.statistics.PhaseSummaryStatistics;
 import com.google.gson.stream.JsonReader;
 import com.google.gson.stream.JsonToken;
@@ -30,10 +25,10 @@ import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
-import java.io.PrintStream;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.zip.GZIPInputStream;
+import javax.annotation.Nullable;
 
 /**
  * Utility class to handle parsing the JSON trace profiles.
@@ -42,36 +37,15 @@ import java.util.zip.GZIPInputStream;
  * https://docs.google.com/document/d/1CvAClvFfyA5R-PhYUmn5OOQtYMH4h6I0nSsKchNAySU/preview
  */
 public final class JsonProfile {
-  private JsonProfile() {}
+  private BuildMetadata buildMetadata;
+  private PhaseSummaryStatistics phaseSummaryStatistics;
+  private List<TraceEvent> traceEvents;
 
-  public static void parseProfileAndDumpStats(
-      Reporter reporter,
-      String dumpMode,
-      PrintStream out,
-      File profileFile,
-      InfoListener infoListener)
-      throws IOException {
-    boolean gzipped = profileFile.getName().endsWith(".gz");
-    InputStream inputStream = new FileInputStream(profileFile);
-    if (gzipped) {
-      inputStream = new GZIPInputStream(inputStream);
-    }
-
-    parseProfileAndDumpStats(reporter, dumpMode, out, inputStream, infoListener);
+  public JsonProfile(File profileFile) throws IOException {
+    this(getInputStream(profileFile));
   }
 
-  public static void parseProfileAndDumpStats(
-      Reporter reporter,
-      String dumpMode,
-      PrintStream out,
-      InputStream inputStream,
-      InfoListener infoListener)
-      throws IOException {
-    if (dumpMode != null) {
-      reporter.handle(
-          Event.warn("--dump has not been implemented yet for the JSON profile, ignoring."));
-    }
-
+  public JsonProfile(InputStream inputStream) throws IOException {
     try (JsonReader reader =
         new JsonReader(
             new BufferedReader(new InputStreamReader(inputStream, StandardCharsets.UTF_8)))) {
@@ -80,10 +54,10 @@ public final class JsonProfile {
         while (reader.hasNext()) {
           String objectKey = reader.nextName();
           if ("otherData".equals(objectKey)) {
-            parseAndAnnounceBuildMetadata(infoListener, reader);
+            buildMetadata = parseBuildMetadata(reader);
           } else if ("traceEvents".equals(objectKey)) {
-            List<TraceEvent> traceEvents = TraceEvent.parseTraceEvents(reader);
-            PhaseSummaryStatistics phaseSummaryStatistics = new PhaseSummaryStatistics();
+            traceEvents = TraceEvent.parseTraceEvents(reader);
+            phaseSummaryStatistics = new PhaseSummaryStatistics();
             TraceEvent lastPhaseEvent = null;
             for (TraceEvent traceEvent : traceEvents) {
               if (ProfilerTask.PHASE.description.equals(traceEvent.category())) {
@@ -102,25 +76,23 @@ public final class JsonProfile {
                   lastEvent.timestamp().minus(lastPhaseEvent.timestamp()));
             }
 
-            new PhaseText(
-                    out,
-                    phaseSummaryStatistics,
-                    /* phaseStatistics= */ Optional.absent(),
-                    Optional.of(new CriticalPathStatistics(traceEvents)))
-                .print();
           } else {
             reader.skipValue();
           }
         }
       }
-    } catch (IOException e) {
-      reporter.handle(Event.error("Failed to analyze profile file(s): " + e.getMessage()));
-      throw e;
     }
   }
 
-  private static void parseAndAnnounceBuildMetadata(InfoListener infoListener, JsonReader reader)
-      throws IOException {
+  private static InputStream getInputStream(File profileFile) throws IOException {
+    InputStream inputStream = new FileInputStream(profileFile);
+    if (profileFile.getName().endsWith(".gz")) {
+      inputStream = new GZIPInputStream(inputStream);
+    }
+    return inputStream;
+  }
+
+  private static BuildMetadata parseBuildMetadata(JsonReader reader) throws IOException {
     reader.beginObject();
     String buildId = null;
     String date = null;
@@ -142,7 +114,37 @@ public final class JsonProfile {
     }
     reader.endObject();
 
-    infoListener.info(
-        "Profile created on " + date + ", build ID: " + buildId + ", output base: " + outputBase);
+    return BuildMetadata.create(buildId, date, outputBase);
+  }
+
+  public PhaseSummaryStatistics getPhaseSummaryStatistics() {
+    return phaseSummaryStatistics;
+  }
+
+  public List<TraceEvent> getTraceEvents() {
+    return traceEvents;
+  }
+
+  @Nullable
+  public BuildMetadata getBuildMetadata() {
+    return buildMetadata;
+  }
+
+  /** Value class to hold build metadata (id, date, output base) if available. */
+  @AutoValue
+  public abstract static class BuildMetadata {
+    public static BuildMetadata create(
+        @Nullable String buildId, @Nullable String date, @Nullable String outputBase) {
+      return new AutoValue_JsonProfile_BuildMetadata(buildId, date, outputBase);
+    }
+
+    @Nullable
+    public abstract String buildId();
+
+    @Nullable
+    public abstract String date();
+
+    @Nullable
+    public abstract String outputBase();
   }
 }
