@@ -22,6 +22,7 @@ import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.LinkedHashMultimap;
 import com.google.common.collect.Multimap;
+import java.io.IOException;
 import java.lang.annotation.Annotation;
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
@@ -37,6 +38,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.zip.ZipEntry;
 import javax.inject.Inject;
+import javax.tools.ToolProvider;
 import org.junit.runner.RunWith;
 import org.objectweb.asm.tree.ClassNode;
 import org.objectweb.asm.tree.FieldNode;
@@ -57,6 +59,8 @@ public class DesugarRuleBuilder {
   private String workingJavaPackage = "";
   private int maxNumOfTransformations = 1;
   private final List<Path> inputs = new ArrayList<>();
+  private final List<Path> sourceInputs = new ArrayList<>();
+  private final List<String> javacOptions = new ArrayList<>();
   private final List<Path> classPathEntries = new ArrayList<>();
   private final List<Path> bootClassPathEntries = new ArrayList<>();
   private final Multimap<String, String> customCommandOptions = LinkedHashMultimap.create();
@@ -131,6 +135,36 @@ public class DesugarRuleBuilder {
     return this;
   }
 
+  /** Add Java source files subject to be compiled during test execution. */
+  public DesugarRuleBuilder addSourceInputs(Path... inputSourceFiles) {
+    for (Path path : inputSourceFiles) {
+      if (!path.toString().endsWith(".java")) {
+        errorMessenger.addError("Expected a Java source file (*.java): Actual (%s)", path);
+      }
+      if (!Files.exists(path)) {
+        errorMessenger.addError("File does not exist: %s", path);
+      }
+      sourceInputs.add(path);
+    }
+    return this;
+  }
+
+  /**
+   * Add javac options used for compilation, with the same support of `javacopts` attribute in
+   * java_binary rule.
+   */
+  public DesugarRuleBuilder addJavacOptions(String... javacOptions) {
+    for (String javacOption : javacOptions) {
+      if (!javacOption.startsWith("-")) {
+        errorMessenger.addError(
+            "Expected javac options, e.g. `-source 11`, `-target 11`, `-parameters`, Run `javac"
+                + " -help` from terminal for all supported options.");
+      }
+      this.javacOptions.add(javacOption);
+    }
+    return this;
+  }
+
   public DesugarRuleBuilder addClasspathEntries(Path... inputJars) {
     Collections.addAll(classPathEntries, inputJars);
     return this;
@@ -179,6 +213,23 @@ public class DesugarRuleBuilder {
 
     addClasspathEntries(jacocoAgentJar);
 
+    ImmutableList.Builder<SourceCompilationUnit> sourceCompilationUnits = ImmutableList.builder();
+    if (!sourceInputs.isEmpty()) {
+      try {
+        Path runtimeCompiledJar = Files.createTempFile("runtime_compiled_", ".jar");
+        sourceCompilationUnits.add(
+            new SourceCompilationUnit(
+                ToolProvider.getSystemJavaCompiler(),
+                ImmutableList.copyOf(javacOptions),
+                ImmutableList.copyOf(sourceInputs),
+                runtimeCompiledJar));
+        addInputs(runtimeCompiledJar);
+      } catch (IOException e) {
+        errorMessenger.addError(
+            "Failed to access the output jar location for compilation: %s\n%s", sourceInputs, e);
+      }
+    }
+
     RuntimeEntityResolver runtimeEntityResolver =
         new RuntimeEntityResolver(
             testInstanceLookup,
@@ -188,11 +239,6 @@ public class DesugarRuleBuilder {
             ImmutableList.copyOf(classPathEntries),
             ImmutableList.copyOf(bootClassPathEntries),
             ImmutableListMultimap.copyOf(customCommandOptions));
-    try {
-      runtimeEntityResolver.executeTransformation();
-    } catch (Throwable throwable) {
-      errorMessenger.addError("Desugar Transformation Exception: %s", throwable);
-    }
 
     if (errorMessenger.containsAnyError()) {
       throw new IllegalStateException(
@@ -210,6 +256,7 @@ public class DesugarRuleBuilder {
             .addAll(injectableMethodHandles)
             .addAll(injectableZipFileEntries)
             .build(),
+        sourceCompilationUnits.build(),
         runtimeEntityResolver);
   }
 

@@ -129,13 +129,9 @@ final class RuntimeEntityResolver {
     this.jarTransformationRecords = new ArrayList<>(maxNumOfTransformations);
   }
 
-  ImmutableSet<Integer> getInputClassFileMajorVersions() throws Throwable {
-    return ImmutableSet.copyOf(getInputClassFileMajorVersionMap(inputs).values());
-  }
-
-  void executeTransformation() throws Throwable {
+  void executeTransformation() throws Exception {
     inputClassLoader = getInputClassLoader();
-    ImmutableList<Path> transInputs = ImmutableList.copyOf(inputs);
+    ImmutableList<Path> transInputs = inputs;
     for (int round = 1; round <= maxNumOfTransformations; round++) {
       ImmutableList<Path> transOutputs =
           getRuntimeOutputPaths(
@@ -150,7 +146,6 @@ final class RuntimeEntityResolver {
               ImmutableList.copyOf(bootClassPathEntries),
               ImmutableListMultimap.copyOf(customCommandOptions));
       Desugar.main(transformationRecord.getDesugarFlags().toArray(new String[0]));
-
       jarTransformationRecords.add(transformationRecord);
       transInputs = transOutputs;
     }
@@ -172,11 +167,7 @@ final class RuntimeEntityResolver {
     AsmNode asmNodeRequest = element.getDeclaredAnnotation(AsmNode.class);
     if (asmNodeRequest != null) {
       return getAsmNode(
-          asmNodeRequest,
-          elementType,
-          jarTransformationRecords,
-          ImmutableList.copyOf(inputs),
-          workingJavaPackage);
+          asmNodeRequest, elementType, jarTransformationRecords, inputs, workingJavaPackage);
     }
     RuntimeMethodHandle runtimeMethodHandleRequest =
         element.getDeclaredAnnotation(RuntimeMethodHandle.class);
@@ -194,11 +185,7 @@ final class RuntimeEntityResolver {
     RuntimeZipEntry runtimeZipEntry = element.getDeclaredAnnotation(RuntimeZipEntry.class);
     if (runtimeZipEntry != null) {
       return elementType.cast(
-          getZipEntry(
-              runtimeZipEntry,
-              jarTransformationRecords,
-              ImmutableList.copyOf(inputs),
-              workingJavaPackage));
+          getZipEntry(runtimeZipEntry, jarTransformationRecords, inputs, workingJavaPackage));
     }
     throw new UnsupportedOperationException(
         "Expected one of the supported types for injection: " + SUPPORTED_QUALIFIERS);
@@ -524,8 +511,12 @@ final class RuntimeEntityResolver {
     return outputRuntimePathsBuilder.build();
   }
 
-  private static ImmutableMap<String, Integer> getInputClassFileMajorVersionMap(
-      Collection<Path> jars) throws IOException {
+  ImmutableMap<String, Integer> getInputClassFileMajorVersions() throws IOException {
+    return getInputClassFileMajorVersions(inputs);
+  }
+
+  private static ImmutableMap<String, Integer> getInputClassFileMajorVersions(Collection<Path> jars)
+      throws IOException {
     ImmutableMap.Builder<String, Integer> majorVersions = ImmutableMap.builder();
     for (Path jar : jars) {
       ZipFile zipFile = new ZipFile(jar.toFile());

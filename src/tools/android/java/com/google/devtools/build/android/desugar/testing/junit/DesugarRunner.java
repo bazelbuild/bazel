@@ -19,9 +19,12 @@ package com.google.devtools.build.android.desugar.testing.junit;
 import static java.util.Collections.max;
 import static java.util.Collections.min;
 
-import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableCollection;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.flogger.GoogleLogger;
+import com.google.devtools.build.android.desugar.testing.junit.SourceCompilationUnit.SourceCompilationException;
+import java.io.IOException;
 import java.lang.annotation.Annotation;
 import java.lang.reflect.Parameter;
 import java.util.Arrays;
@@ -101,27 +104,39 @@ public final class DesugarRunner extends BlockJUnit4ClassRunner {
     DesugarRule desugarRule =
         Iterables.getOnlyElement(
             getTestClass().getAnnotatedFieldValues(test, Rule.class, DesugarRule.class));
-    ImmutableSet<Integer> inputClassFileMajorVersions =
-        desugarRule.getInputClassFileMajorVersions();
 
-    JdkSuppress jdkSuppress = getJdkSuppress(method);
-    if (jdkSuppress != null
-        && (min(inputClassFileMajorVersions) < jdkSuppress.minJdkVersion()
-            || max(inputClassFileMajorVersions) > jdkSuppress.maxJdkVersion())) {
-      return new VacuousSuccess(
-          String.format(
-              "@Test method (%s) passed vacuously without execution: All or part of the input"
-                  + " class file versions (%s) does not meet the declared prerequisite version"
-                  + " range (%s) for testing.",
-              method, inputClassFileMajorVersions, jdkSuppress));
+    // Compile source Java files before desugar transformation.
+    try {
+      desugarRule.compileSourceInputs();
+    } catch (IOException | SourceCompilationException e) {
+      throw new IllegalStateException(e);
     }
 
-    return new InvokeMethodWithParams(
-        method,
-        test,
-        Arrays.stream(method.getMethod().getParameters())
-            .map(param -> desugarRule.resolve(param, param.getType()))
-            .toArray());
+    JdkSuppress jdkSuppress = getJdkSuppress(method);
+    if (jdkSuppress != null) {
+      ImmutableMap<String, Integer> inputClassFileMajorVersions =
+          desugarRule.getInputClassFileMajorVersionMap();
+      ImmutableCollection<Integer> classFileVersions = inputClassFileMajorVersions.values();
+      if (min(classFileVersions) < jdkSuppress.minJdkVersion()
+          || max(classFileVersions) > jdkSuppress.maxJdkVersion()) {
+        return new VacuousSuccess(
+            String.format(
+                "@Test method (%s) passed vacuously without execution: All or part of the input"
+                    + " class file versions (%s) does not meet the declared prerequisite version"
+                    + " range (%s) for testing.",
+                method, inputClassFileMajorVersions, jdkSuppress));
+      }
+    }
+
+    try {
+      desugarRule.executeDesugarTransformation();
+      desugarRule.injectTestInstanceFields();
+      Object[] resolvedParameterValues =
+          desugarRule.resolveParameters(method.getMethod().getParameters());
+      return new InvokeMethodWithParams(method, test, resolvedParameterValues);
+    } catch (Throwable throwable) {
+      throw new IllegalStateException(throwable);
+    }
   }
 
   /**
@@ -162,6 +177,11 @@ public final class DesugarRunner extends BlockJUnit4ClassRunner {
     @Override
     public void evaluate() throws Throwable {
       logger.atWarning().log(reason);
+    }
+
+    @Override
+    public String toString() {
+      return getClass().getSimpleName() + ":" + reason;
     }
   }
 }

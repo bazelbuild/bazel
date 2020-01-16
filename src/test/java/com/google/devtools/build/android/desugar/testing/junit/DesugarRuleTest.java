@@ -36,6 +36,7 @@ import org.objectweb.asm.tree.FieldNode;
 import org.objectweb.asm.tree.MethodNode;
 
 /** The test for {@link DesugarRule}. */
+@JdkSuppress(minJdkVersion = JdkVersion.V11)
 @RunWith(DesugarRunner.class)
 public final class DesugarRuleTest {
 
@@ -43,6 +44,8 @@ public final class DesugarRuleTest {
   public final DesugarRule desugarRule =
       DesugarRule.builder(this, MethodHandles.lookup())
           .addInputs(Paths.get(System.getProperty("input_jar")))
+          .addSourceInputs(Paths.get(System.getProperty("input_srcs")))
+          .addJavacOptions("-source 11", "-target 11")
           .enableIterativeTransformation(3)
           .setWorkingJavaPackage("com.google.devtools.build.android.desugar.testing.junit")
           .build();
@@ -122,7 +125,6 @@ public final class DesugarRuleTest {
       memberName = "multiplier",
       usage = MemberUseContext.FIELD_SETTER)
   private MethodHandle alphaMultiplierSetter;
-  
 
   @Test
   public void staticMethodsAreMovedFromOriginatingClass() {
@@ -217,5 +219,14 @@ public final class DesugarRuleTest {
 
     long result = (long) alphaMultiplierGetter.invoke(alpha);
     assertThat(result).isEqualTo(1111);
+  }
+
+  @Test
+  public void invokeRuntimeCompiledTarget(
+      @RuntimeMethodHandle(className = "DesugarRuleTestSourceTarget", memberName = "twoSum")
+          MethodHandle twoSum)
+      throws Throwable {
+    int result = (int) twoSum.invokeExact(1, 2);
+    assertThat(result).isEqualTo(3);
   }
 }
