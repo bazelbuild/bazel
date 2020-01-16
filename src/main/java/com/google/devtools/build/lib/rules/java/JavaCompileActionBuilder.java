@@ -171,6 +171,8 @@ public final class JavaCompileActionBuilder {
   @Nullable private String injectingRuleKind;
   private Artifact genSourceOutput;
   private JavaCompileOutputs<Artifact> outputs;
+  private JavaClasspathMode classpathMode;
+  private Artifact manifestOutput;
 
   public JavaCompileActionBuilder(
       ActionOwner owner, BuildConfiguration configuration, JavaToolchainProvider toolchain) {
@@ -193,8 +195,6 @@ public final class JavaCompileActionBuilder {
     }
 
     // Invariant: if java_classpath is set to 'off', dependencyArtifacts are ignored
-    JavaConfiguration javaConfiguration = configuration.getFragment(JavaConfiguration.class);
-    JavaClasspathMode classpathMode = javaConfiguration.getReduceJavaClasspath();
     if (!Collections.disjoint(
         plugins.processorClasses().toSet(),
         toolchain.getReducedClasspathIncompatibleProcessors())) {
@@ -264,6 +264,7 @@ public final class JavaCompileActionBuilder {
     }
 
     if (outputs.depsProto() != null) {
+      JavaConfiguration javaConfiguration = configuration.getFragment(JavaConfiguration.class);
       if (javaConfiguration.inmemoryJdepsFiles()) {
         executionInfo =
             ImmutableMap.<String, String>builderWithExpectedSize(this.executionInfo.size() + 1)
@@ -307,9 +308,8 @@ public final class JavaCompileActionBuilder {
     ImmutableSet.Builder<Artifact> result =
         ImmutableSet.<Artifact>builder()
             .add(outputs.output())
-            .add(outputs.manifestProto())
             .addAll(additionalOutputs);
-    Stream.of(outputs.depsProto(), outputs.nativeHeader(), genSourceOutput)
+    Stream.of(outputs.depsProto(), outputs.nativeHeader(), genSourceOutput, manifestOutput)
         .filter(x -> x != null)
         .forEachOrdered(result::add);
     return result.build();
@@ -327,7 +327,7 @@ public final class JavaCompileActionBuilder {
     result.addExecPath("--native_header_output", outputs.nativeHeader());
     result.addPath("--sourcegendir", sourceGenDirectory);
     result.addExecPath("--generated_sources_output", genSourceOutput);
-    result.addExecPath("--output_manifest_proto", outputs.manifestProto());
+    result.addExecPath("--output_manifest_proto", manifestOutput);
     if (compressJar) {
       result.add("--compress_jar");
     }
@@ -543,5 +543,13 @@ public final class JavaCompileActionBuilder {
 
   public void setOutputs(JavaCompileOutputs<Artifact> outputs) {
     this.outputs = outputs;
+  }
+
+  public void setClasspathMode(JavaClasspathMode classpathMode) {
+    this.classpathMode = classpathMode;
+  }
+
+  public void setManifestOutput(Artifact manifestOutput) {
+    this.manifestOutput = manifestOutput;
   }
 }
