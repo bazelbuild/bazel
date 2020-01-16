@@ -215,6 +215,17 @@ public class StarlarkSemanticsOptions extends OptionsBase implements Serializabl
   public boolean experimentalRepoRemoteExec;
 
   @Option(
+      name = "experimental_allow_external_directory",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
+      effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS, OptionEffectTag.LOADING_AND_ANALYSIS},
+      metadataTags = {
+          OptionMetadataTag.EXPERIMENTAL,
+      },
+      help = "If set to true, repository_rule gains some remote execution capabilities.")
+  public boolean experimentalAllowExternalDirectory;
+
+  @Option(
       name = "incompatible_bzl_disallow_load_after_statement",
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
@@ -633,6 +644,7 @@ public class StarlarkSemanticsOptions extends OptionsBase implements Serializabl
             .experimentalStarlarkUnusedInputsList(experimentalStarlarkUnusedInputsList)
             .experimentalCcSharedLibrary(experimentalCcSharedLibrary)
             .experimentalRepoRemoteExec(experimentalRepoRemoteExec)
+            .experimentalAllowExternalDirectory(experimentalAllowExternalDirectory)
             .incompatibleApplicableLicenses(incompatibleApplicableLicenses)
             .incompatibleBzlDisallowLoadAfterStatement(incompatibleBzlDisallowLoadAfterStatement)
             .incompatibleDepsetUnion(incompatibleDepsetUnion)

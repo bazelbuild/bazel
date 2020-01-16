@@ -53,6 +53,8 @@ public abstract class StarlarkSemantics {
     public static final String EXPERIMENTAL_ACTION_ARGS = "experimental_action_args";
     public static final String EXPERIMENTAL_ALLOW_INCREMENTAL_REPOSITORY_UPDATES =
         "experimental_allow_incremental_repository_updates";
+    public static final String EXPERIMENTAL_ALLOW_EXTERNAL_DIRECTORY =
+        "experimental_allow_external_directory";
     public static final String EXPERIMENTAL_ASPECT_OUTPUT_PROPAGATION =
         "experimental_aspect_output_propagation";
     public static final String EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS =
@@ -94,6 +96,8 @@ public abstract class StarlarkSemantics {
         return experimentalActionArgs();
       case FlagIdentifier.EXPERIMENTAL_ALLOW_INCREMENTAL_REPOSITORY_UPDATES:
         return experimentalAllowIncrementalRepositoryUpdates();
+      case FlagIdentifier.EXPERIMENTAL_ALLOW_EXTERNAL_DIRECTORY:
+        return experimentalAllowExternalDirectory();
       case FlagIdentifier.EXPERIMENTAL_ASPECT_OUTPUT_PROPAGATION:
         return experimentalAspectOutputPropagation();
       case FlagIdentifier.EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS:
@@ -199,6 +203,8 @@ public abstract class StarlarkSemantics {
 
   public abstract boolean experimentalRepoRemoteExec();
 
+  public abstract boolean experimentalAllowExternalDirectory();
+
   public abstract boolean incompatibleAlwaysCheckDepsetElements();
 
   public abstract boolean incompatibleApplicableLicenses();
@@ -301,6 +307,7 @@ public abstract class StarlarkSemantics {
           .experimentalStarlarkUnusedInputsList(true)
           .experimentalCcSharedLibrary(false)
           .experimentalRepoRemoteExec(false)
+          .experimentalAllowExternalDirectory(false)
           .incompatibleAlwaysCheckDepsetElements(false)
           .incompatibleApplicableLicenses(false)
           .incompatibleBzlDisallowLoadAfterStatement(true)
@@ -363,6 +370,8 @@ public abstract class StarlarkSemantics {
     public abstract Builder experimentalCcSharedLibrary(boolean value);
 
     public abstract Builder experimentalRepoRemoteExec(boolean value);
+
+    public abstract Builder experimentalAllowExternalDirectory(boolean value);
 
     public abstract Builder incompatibleAlwaysCheckDepsetElements(boolean value);
 

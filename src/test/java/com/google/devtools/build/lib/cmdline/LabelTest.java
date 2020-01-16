@@ -465,6 +465,7 @@ public class LabelTest {
   @Test
   public void testGetWorkspaceRoot() throws Exception {
     Label label = Label.parseAbsolute("//bar/baz", ImmutableMap.of());
+    // TODO(jin-external): add a mock StarlarkSemantics instead
     assertThat(label.getWorkspaceRoot()).isEmpty();
     label = Label.parseAbsolute("@repo//bar/baz", ImmutableMap.of());
     assertThat(label.getWorkspaceRoot()).isEqualTo("external/repo");

@@ -258,7 +258,7 @@ public class ProtoCommon {
   private static Library createLibraryWithVirtualSourceRootMaybe(
       RuleContext ruleContext,
       ImmutableList<Artifact> protoSources,
-      boolean generatedProtosInVirtualImports) {
+      boolean generatedProtosInVirtualImports) throws InterruptedException {
     PathFragment importPrefixAttribute = getPathFragmentAttribute(ruleContext, "import_prefix");
     PathFragment stripImportPrefixAttribute =
         getPathFragmentAttribute(ruleContext, "strip_import_prefix");
@@ -285,7 +285,10 @@ public class ProtoCommon {
 
     if (stripImportPrefixAttribute != null || importPrefixAttribute != null) {
       if (stripImportPrefixAttribute == null) {
-        stripImportPrefix = PathFragment.create(ruleContext.getLabel().getWorkspaceRoot());
+        stripImportPrefix =
+            PathFragment.create(
+                ruleContext.getLabel().getWorkspaceRoot(
+                    ruleContext.getAnalysisEnvironment().getSkylarkSemantics()));
       } else if (stripImportPrefixAttribute.isAbsolute()) {
         stripImportPrefix =
             ruleContext
@@ -458,7 +461,8 @@ public class ProtoCommon {
    * ruleContext}.
    */
   public static ProtoInfo createProtoInfo(
-      RuleContext ruleContext, boolean generatedProtosInVirtualImports) {
+      RuleContext ruleContext, boolean generatedProtosInVirtualImports)
+      throws InterruptedException {
     checkSourceFilesAreInSamePackage(ruleContext);
     ImmutableList<Artifact> directProtoSources =
         ruleContext.getPrerequisiteArtifacts("srcs", Mode.TARGET).list();
