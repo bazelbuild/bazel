@@ -38,6 +38,8 @@ import io.grpc.CallCredentials;
 import io.grpc.CallOptions;
 import io.grpc.Channel;
 import io.grpc.ClientCall;
+import io.grpc.ClientInterceptor;
+import io.grpc.ClientInterceptors;
 import io.grpc.Context;
 import io.grpc.Metadata;
 import io.grpc.Status;
@@ -87,6 +89,7 @@ class ByteStreamUploader extends AbstractReferenceCounted {
 
   @GuardedBy("lock")
   private final Map<HashCode, ListenableFuture<Void>> uploadsInProgress = new HashMap<>();
+  private final ClientInterceptor[] interceptors;
 
   @GuardedBy("lock")
   private boolean isShutdown;
@@ -108,7 +111,8 @@ class ByteStreamUploader extends AbstractReferenceCounted {
       ReferenceCountedChannel channel,
       @Nullable CallCredentials callCredentials,
       long callTimeoutSecs,
-      RemoteRetrier retrier) {
+      RemoteRetrier retrier,
+      ClientInterceptor... interceptors) {
     checkArgument(callTimeoutSecs > 0, "callTimeoutSecs must be gt 0.");
 
     this.instanceName = instanceName;
@@ -116,6 +120,7 @@ class ByteStreamUploader extends AbstractReferenceCounted {
     this.callCredentials = callCredentials;
     this.callTimeoutSecs = callTimeoutSecs;
     this.retrier = retrier;
+    this.interceptors = interceptors;
   }
 
   /**
@@ -288,7 +293,7 @@ class ByteStreamUploader extends AbstractReferenceCounted {
     UUID uploadId = UUID.randomUUID();
     String resourceName = uploadResourceName(instanceName, uploadId, hash, chunker.getSize());
     AsyncUpload newUpload =
-        new AsyncUpload(channel, callCredentials, callTimeoutSecs, retrier, resourceName, chunker);
+        new AsyncUpload(ClientInterceptors.intercept(channel, interceptors), callCredentials, callTimeoutSecs, retrier, resourceName, chunker);
     ListenableFuture<Void> currUpload = newUpload.start();
     currUpload.addListener(
         () -> {

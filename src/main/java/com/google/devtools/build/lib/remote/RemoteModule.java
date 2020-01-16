@@ -218,7 +218,10 @@ public final class RemoteModule extends BlazeModule {
               (execChannel != null ? execChannel : cacheChannel),
               credentials,
               remoteOptions.remoteTimeout,
-              retrier);
+              retrier,
+              (execChannel != null ?
+                  TracingMetadataUtils.newExecHeadersInterceptor(remoteOptions) :
+                  TracingMetadataUtils.newCacheHeadersInterceptor(remoteOptions)));
       ServerCapabilities capabilities = null;
       try {
         capabilities = rsc.get(buildRequestId, invocationId);
@@ -240,7 +243,8 @@ public final class RemoteModule extends BlazeModule {
               cacheChannel.retain(),
               credentials,
               remoteOptions.remoteTimeout,
-              retrier);
+              retrier,
+              TracingMetadataUtils.newCacheHeadersInterceptor(remoteOptions));
       cacheChannel.release();
       RemoteCacheClient cacheClient =
           new GrpcCacheClient(

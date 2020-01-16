@@ -25,6 +25,8 @@ import build.bazel.remote.execution.v2.PriorityCapabilities;
 import build.bazel.remote.execution.v2.PriorityCapabilities.PriorityRange;
 import build.bazel.remote.execution.v2.RequestMetadata;
 import build.bazel.remote.execution.v2.ServerCapabilities;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Maps;
 import com.google.common.util.concurrent.ListeningScheduledExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.devtools.build.lib.analysis.BlazeVersionInfo;
@@ -103,6 +105,10 @@ public class RemoteServerCapabilitiesTest {
       assertThat(meta.getToolDetails().getToolName()).isEqualTo("bazel");
       assertThat(meta.getToolDetails().getToolVersion())
           .isEqualTo(BlazeVersionInfo.instance().getVersion());
+      assertThat(headers.get(Metadata.Key.of("Key1", Metadata.ASCII_STRING_MARSHALLER)))
+          .isEqualTo("Value1");
+      assertThat(headers.get(Metadata.Key.of("Key2", Metadata.ASCII_STRING_MARSHALLER)))
+          .isEqualTo("Value2");
       return next.startCall(call, headers);
     }
   }
@@ -137,6 +143,11 @@ public class RemoteServerCapabilitiesTest {
             new RequestHeadersValidator()));
 
     RemoteOptions remoteOptions = Options.getDefaults(RemoteOptions.class);
+    remoteOptions.remoteHeaders =
+        ImmutableList.of(
+            Maps.immutableEntry("Key1", "Value1"),
+            Maps.immutableEntry("Key2", "Value2"));
+
     RemoteRetrier retrier =
         TestUtils.newRemoteRetrier(
             () -> new ExponentialBackoff(remoteOptions),
@@ -148,7 +159,8 @@ public class RemoteServerCapabilitiesTest {
     CallCredentials creds =
         GoogleAuthUtils.newCallCredentials(Options.getDefaults(AuthAndTLSOptions.class));
     RemoteServerCapabilities client =
-        new RemoteServerCapabilities("instance", channel.retain(), creds, 3, retrier);
+        new RemoteServerCapabilities("instance", channel.retain(), creds, 3, retrier,
+            TracingMetadataUtils.newExecHeadersInterceptor(remoteOptions));
 
     assertThat(client.get("build-req-id", "command-id")).isEqualTo(caps);
   }
