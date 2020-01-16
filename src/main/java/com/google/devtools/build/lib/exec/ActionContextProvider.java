@@ -26,11 +26,8 @@ import com.google.devtools.build.lib.analysis.ArtifactsToOwnerLabels;
  */
 public abstract class ActionContextProvider {
 
-  /**
-   * Called when the executor is constructed. The parameter contains all the contexts that were
-   * selected for this execution phase.
-   */
-  public void executorCreated(Iterable<ActionContext> usedContexts) throws ExecutorInitException {}
+  /** Called when the executor is constructed. */
+  public void executorCreated() throws ExecutorInitException {}
 
   /** Called when the execution phase is started. */
   public void executionPhaseStarting(

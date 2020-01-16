@@ -31,4 +31,12 @@ public interface DynamicStrategyRegistry extends ActionContext {
    */
   List<SandboxedSpawnActionContext> getDynamicSpawnActionContexts(
       Spawn spawn, DynamicMode dynamicMode);
+
+  /**
+   * Notifies all strategies applying to at least one mnemonic (including the empty all-catch one)
+   * in this registry that they are {@link ActionContext#usedContext used}.
+   *
+   * @param actionContextRegistry a complete registry containing all available action contexts
+   */
+  void notifyUsedDynamic(ActionContextRegistry actionContextRegistry);
 }

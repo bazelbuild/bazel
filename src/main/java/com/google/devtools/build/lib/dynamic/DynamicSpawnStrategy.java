@@ -347,6 +347,13 @@ public class DynamicSpawnStrategy implements SpawnActionContext {
     return false;
   }
 
+  @Override
+  public void usedContext(ActionContextRegistry actionExecutionContext) {
+    actionExecutionContext
+        .getContext(DynamicStrategyRegistry.class)
+        .notifyUsedDynamic(actionExecutionContext);
+  }
+
   private static FileOutErr getSuffixedFileOutErr(FileOutErr fileOutErr, String suffix) {
     Path outDir = checkNotNull(fileOutErr.getOutputPath().getParentDirectory());
     String outBaseName = fileOutErr.getOutputPath().getBaseName();

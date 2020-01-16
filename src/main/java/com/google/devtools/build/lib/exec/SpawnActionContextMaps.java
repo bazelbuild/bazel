@@ -183,6 +183,27 @@ public final class SpawnActionContextMaps
   }
 
   /**
+   * Notifies all (non-dynamic) contexts stored in this context map that they are {@link
+   * ActionContext#usedContext used}.
+   */
+  public void notifyUsed() {
+    for (ActionContext context : allContexts()) {
+      context.usedContext(this);
+    }
+  }
+
+  @Override
+  public void notifyUsedDynamic(ActionContextRegistry actionContextRegistry) {
+    for (SandboxedSpawnActionContext context : mnemonicToRemoteDynamicStrategies.values()) {
+      context.usedContext(actionContextRegistry);
+    }
+
+    for (SandboxedSpawnActionContext context : mnemonicToLocalDynamicStrategies.values()) {
+      context.usedContext(actionContextRegistry);
+    }
+  }
+
+  /**
    * Print a sorted list of our (Spawn)ActionContext maps.
    *
    * <p>Prints out debug information about the mappings.

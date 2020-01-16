@@ -19,6 +19,16 @@ import javax.annotation.Nullable;
 public interface ActionContext {
 
   /**
+   * Performs any actions conditional on this context not only being registered but triggered as
+   * used because its identifier was requested and it was not overridden.
+   *
+   * @param actionContextRegistry a complete registry containing all used contexts (including this)
+   */
+  // TODO(schmitt): Remove once contexts are only instantiated if used, the callback can then be
+  //  done upon construction.
+  default void usedContext(ActionContextRegistry actionContextRegistry) {}
+
+  /**
    * A registry allowing the lookup of action contexts by identifying type during the execution
    * phase.
    */
