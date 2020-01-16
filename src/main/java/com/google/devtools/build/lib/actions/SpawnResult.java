@@ -83,11 +83,11 @@ public interface SpawnResult {
 
     private final boolean isUserError;
 
-    private Status(boolean isUserError) {
+    Status(boolean isUserError) {
       this.isUserError = isUserError;
     }
 
-    private Status() {
+    Status() {
       this(false);
     }
 
@@ -199,8 +199,6 @@ public interface SpawnResult {
    * SpawnResults can optionally support returning outputs in-memory. Such outputs can be obtained
    * from this method if so. This behavior is optional, and can be triggered with
    * {@link ExecutionRequirements#REMOTE_EXECUTION_INLINE_OUTPUTS}.
-   *
-   * @param output
    */
   @Nullable
   default InputStream getInMemoryOutput(ActionInput output) {

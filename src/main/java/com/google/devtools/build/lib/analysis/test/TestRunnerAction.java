@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.analysis.test;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
+import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -63,6 +64,7 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.test.TestStatus.TestResultData;
 import com.google.devtools.common.options.TriState;
+import com.google.protobuf.ExtensionRegistry;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -328,8 +330,7 @@ public class TestRunnerAction extends AbstractAction
       throws CommandLineExpansionException {
     fp.addString(GUID);
     fp.addStrings(executionSettings.getArgs().arguments());
-    fp.addString(
-        executionSettings.getTestFilter() == null ? "" : executionSettings.getTestFilter());
+    fp.addString(Strings.nullToEmpty(executionSettings.getTestFilter()));
     RunUnder runUnder = executionSettings.getRunUnder();
     fp.addString(runUnder == null ? "" : runUnder.getValue());
     fp.addStringMap(extraTestEnv);
@@ -378,7 +379,7 @@ public class TestRunnerAction extends AbstractAction
   @Nullable
   private TestResultData readCacheStatus() {
     try (InputStream in = cacheStatus.getPath().getInputStream()) {
-      return TestResultData.parseFrom(in);
+      return TestResultData.parseFrom(in, ExtensionRegistry.getEmptyRegistry());
     } catch (IOException expected) {
       return null;
     }
@@ -485,7 +486,8 @@ public class TestRunnerAction extends AbstractAction
     deleteTestAttemptsDirMaybe(execRoot.getRelative(baseDir), "test");
   }
 
-  private void deleteTestAttemptsDirMaybe(Path outputDir, String namePrefix) throws IOException {
+  private static void deleteTestAttemptsDirMaybe(Path outputDir, String namePrefix)
+      throws IOException {
     Path testAttemptsDir = outputDir.getChild(namePrefix + "_attempts");
     if (testAttemptsDir.exists()) {
       // Normally we should have used deleteTree(testAttemptsDir). However, if test output is
@@ -642,12 +644,12 @@ public class TestRunnerAction extends AbstractAction
     return undeclaredOutputsDir;
   }
 
-  /** @return path to the optional zip file of undeclared test outputs. */
+  /** Returns path to the optional zip file of undeclared test outputs. */
   public PathFragment getUndeclaredOutputsZipPath() {
     return undeclaredOutputsZipPath;
   }
 
-  /** @return path to the undeclared output manifest file. */
+  /** Returns path to the undeclared output manifest file. */
   public PathFragment getUndeclaredOutputsManifestPath() {
     return undeclaredOutputsManifestPath;
   }
@@ -656,7 +658,7 @@ public class TestRunnerAction extends AbstractAction
     return undeclaredOutputsAnnotationsDir;
   }
 
-  /** @return path to the undeclared output annotations file. */
+  /** Returns path to the undeclared output annotations file. */
   public PathFragment getUndeclaredOutputsAnnotationsPath() {
     return undeclaredOutputsAnnotationsPath;
   }
@@ -673,12 +675,12 @@ public class TestRunnerAction extends AbstractAction
     return testInfrastructureFailure;
   }
 
-  /** @return path to the optionally created XML output file created by the test. */
+  /** Returns path to the optionally created XML output file created by the test. */
   public PathFragment getXmlOutputPath() {
     return xmlOutputPath;
   }
 
-  /** @return coverage data artifact or null if code coverage was not requested. */
+  /** Returns coverage data artifact or null if code coverage was not requested. */
   @Nullable
   public Artifact getCoverageData() {
     return coverageData;
@@ -727,19 +729,19 @@ public class TestRunnerAction extends AbstractAction
   }
 
   /**
-   * @return the shard number for this action. If getTotalShards() > 0, must be >= 0 and <
-   *     getTotalShards(). Otherwise, must be 0.
+   * Returns the shard number for this action. If getTotalShards() > 0, must be >= 0 and <
+   * getTotalShards(). Otherwise, must be 0.
    */
   public int getShardNum() {
     return shardNum;
   }
 
-  /** @return run number. */
+  /** Returns run number. */
   public int getRunNumber() {
     return runNumber;
   }
 
-  /** @return the workspace name. */
+  /** Returns the workspace name. */
   public String getRunfilesPrefix() {
     return workspaceName;
   }
@@ -923,32 +925,32 @@ public class TestRunnerAction extends AbstractAction
       return getPath(unusedRunfilesLogPath);
     }
 
-    /** @return path to the directory containing the split logs (raw and proto file). */
+    /** Returns path to the directory containing the split logs (raw and proto file). */
     public Path getSplitLogsDir() {
       return getPath(splitLogsDir);
     }
 
-    /** @return path to the optional zip file of undeclared test outputs. */
+    /** Returns path to the optional zip file of undeclared test outputs. */
     public Path getUndeclaredOutputsZipPath() {
       return getPath(undeclaredOutputsZipPath);
     }
 
-    /** @return path to the directory to hold undeclared test outputs. */
+    /** Returns path to the directory to hold undeclared test outputs. */
     public Path getUndeclaredOutputsDir() {
       return getPath(undeclaredOutputsDir);
     }
 
-    /** @return path to the directory to hold undeclared output annotations parts. */
+    /** Returns path to the directory to hold undeclared output annotations parts. */
     public Path getUndeclaredOutputsAnnotationsDir() {
       return getPath(undeclaredOutputsAnnotationsDir);
     }
 
-    /** @return path to the undeclared output manifest file. */
+    /** Returns path to the undeclared output manifest file. */
     public Path getUndeclaredOutputsManifestPath() {
       return getPath(undeclaredOutputsManifestPath);
     }
 
-    /** @return path to the undeclared output annotations file. */
+    /** Returns path to the undeclared output annotations file. */
     public Path getUndeclaredOutputsAnnotationsPath() {
       return getPath(undeclaredOutputsAnnotationsPath);
     }
@@ -966,7 +968,7 @@ public class TestRunnerAction extends AbstractAction
       return getPath(testInfrastructureFailure);
     }
 
-    /** @return path to the optionally created XML output file created by the test. */
+    /** Returns path to the optionally created XML output file created by the test. */
     public Path getXmlOutputPath() {
       return getPath(xmlOutputPath);
     }
