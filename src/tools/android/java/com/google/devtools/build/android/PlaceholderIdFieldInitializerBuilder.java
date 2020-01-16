@@ -343,7 +343,9 @@ class PlaceholderIdFieldInitializerBuilder {
       // Make sure that if we have android: framework attributes, their IDs are listed first.
       ImmutableMap<String, Integer> arrayInitMap =
           arrayInitValues.orderEntriesByValue(Ordering.<Integer>natural()).build();
-      initList.add(IntArrayFieldInitializer.of(dependencyInfo, field, arrayInitMap.values()));
+      initList.add(
+          IntArrayFieldInitializer.of(
+              dependencyInfo, field, ImmutableList.copyOf(arrayInitMap.values())));
       int index = 0;
       for (String attr : arrayInitMap.keySet()) {
         initList.add(IntFieldInitializer.of(dependencyInfo, field + "_" + attr, index));
