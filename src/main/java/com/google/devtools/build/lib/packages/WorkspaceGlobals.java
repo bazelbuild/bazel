@@ -112,7 +112,7 @@ public class WorkspaceGlobals implements WorkspaceGlobalsApi {
   }
 
   @Override
-  public NoneType experimentalDoNotUseDontSymlinkInExecroot(
+  public NoneType dontSymlinkDirectoriesInExecroot(
       Sequence<?> paths, Location location,
       StarlarkThread thread) throws EvalException, InterruptedException {
     List<String> pathsList = paths.getContents(String.class, "paths");
@@ -121,23 +121,23 @@ public class WorkspaceGlobals implements WorkspaceGlobalsApi {
       PathFragment pathFragment = PathFragment.create(path);
       if (pathFragment.isEmpty()) {
         throw new EvalException(location,
-            "Empty path can not be passed to experimental_do_not_use_dont_symlink_in_execroot.");
+            "Empty path can not be passed to dont_symlink_directories_in_execroot.");
       }
-      if (pathFragment.segmentCount() > 1) {
+      if (pathFragment.containsUplevelReferences() || pathFragment.segmentCount() > 1) {
         throw new EvalException(location,
-            String.format("experimental_do_not_use_dont_symlink_in_execroot can only accept "
+            String.format("dont_symlink_directories_in_execroot can only accept "
                 + "top level directories under workspace, "
                 + "\"%s\" can not be specified as an attribute.", path));
       }
       if (pathFragment.isAbsolute()) {
         throw new EvalException(location,
-            String.format("experimental_do_not_use_dont_symlink_in_execroot can only accept "
+            String.format("dont_symlink_directories_in_execroot can only accept "
                 + "top level directories under workspace, "
                 + "absolute path \"%s\" can not be specified as an attribute.", path));
       }
       if (!set.add(pathFragment.getBaseName())) {
         throw new EvalException(location,
-            String.format("experimental_do_not_use_dont_symlink_in_execroot should not "
+            String.format("dont_symlink_directories_in_execroot should not "
                 + "contain duplicate values: \"%s\" is specified more then once.", path));
       }
     }

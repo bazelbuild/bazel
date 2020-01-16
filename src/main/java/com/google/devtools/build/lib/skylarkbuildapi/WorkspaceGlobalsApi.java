@@ -88,7 +88,7 @@ public interface WorkspaceGlobalsApi {
       throws EvalException, InterruptedException;
 
   @SkylarkCallable(
-      name = "experimental_do_not_use_dont_symlink_in_execroot",
+      name = "dont_symlink_directories_in_execroot",
       doc = "Exclude directories under workspace from symlinking into execroot.\n"
           + "<p>Normally, source directories are symlinked to the execroot, so that the actions can "
           + "access the input (source) files.<p/>"
@@ -117,7 +117,7 @@ public interface WorkspaceGlobalsApi {
       useStarlarkThread = true,
       enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_NINJA_ACTIONS
   )
-  NoneType experimentalDoNotUseDontSymlinkInExecroot(
+  NoneType dontSymlinkDirectoriesInExecroot(
       Sequence<?> paths,
       Location loc,
       StarlarkThread thread) throws EvalException, InterruptedException;

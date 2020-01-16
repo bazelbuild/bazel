@@ -631,15 +631,15 @@ public class WorkspaceFileFunctionTest extends BuildViewTestCase {
       doTestDoNotSymlinkInExecroot(null, "out", "one more with space");
       doTestDoNotSymlinkInExecroot(null);
 
-      doTestDoNotSymlinkInExecroot("experimental_do_not_use_dont_symlink_in_execroot should not "
+      doTestDoNotSymlinkInExecroot("dont_symlink_directories_in_execroot should not "
           + "contain duplicate values: \"out\" is specified more then once.", "out", "out");
       doTestDoNotSymlinkInExecroot(
-          "experimental_do_not_use_dont_symlink_in_execroot can only accept "
+          "dont_symlink_directories_in_execroot can only accept "
               + "top level directories under workspace, \"out/subdir\" "
               + "can not be specified as an attribute.", "out/subdir");
       doTestDoNotSymlinkInExecroot("Empty path can not be passed to "
-          + "experimental_do_not_use_dont_symlink_in_execroot.", "");
-      doTestDoNotSymlinkInExecroot("experimental_do_not_use_dont_symlink_in_execroot can only "
+          + "dont_symlink_directories_in_execroot.", "");
+      doTestDoNotSymlinkInExecroot("dont_symlink_directories_in_execroot can only "
           + "accept top level directories under workspace, \"/usr/local/bin\" "
           + "can not be specified as an attribute.", "/usr/local/bin");
     } finally {
@@ -649,7 +649,7 @@ public class WorkspaceFileFunctionTest extends BuildViewTestCase {
 
   private void doTestDoNotSymlinkInExecroot(@Nullable String assertionText, String... dirs)
       throws Exception {
-    String text = "experimental_do_not_use_dont_symlink_in_execroot(paths = [%s])";
+    String text = "dont_symlink_directories_in_execroot(paths = [%s])";
     String dirsText = Arrays.stream(dirs).map(s -> "\"" + s + "\"")
         .collect(Collectors.joining(", "));
     String workspaceFileText = String.format(text, dirsText);

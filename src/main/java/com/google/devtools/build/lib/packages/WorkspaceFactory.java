@@ -392,7 +392,8 @@ public class WorkspaceFactory {
   static ClassObject newNativeModule(RuleClassProvider ruleClassProvider, String version) {
     RuleFactory ruleFactory = new RuleFactory(ruleClassProvider);
     WorkspaceGlobals workspaceGlobals = new WorkspaceGlobals(false, ruleFactory);
-    // TODO(ichern) StarlarkSemantics should be a parameter here.
+    // TODO(ichern): StarlarkSemantics should be a parameter here, as native module can be
+    //  configured by flags.
     return WorkspaceFactory.newNativeModule(
         WorkspaceFactory.createWorkspaceFunctions(false, ruleFactory, workspaceGlobals,
             StarlarkSemantics.DEFAULT_SEMANTICS), version);
