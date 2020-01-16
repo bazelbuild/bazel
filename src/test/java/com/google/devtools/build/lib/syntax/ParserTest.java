@@ -273,7 +273,7 @@ public final class ParserTest {
   @Test
   public void testStringLiteralOptimizationValue() throws Exception {
     StringLiteral l = (StringLiteral) parseExpression("'abc' + 'def'");
-    assertThat(l.value).isEqualTo("abcdef");
+    assertThat(l.getValue()).isEqualTo("abcdef");
   }
 
   @Test

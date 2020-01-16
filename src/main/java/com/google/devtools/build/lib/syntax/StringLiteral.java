@@ -23,14 +23,16 @@ import java.io.IOException;
 
 /** Syntax node for a string literal. */
 public final class StringLiteral extends Expression {
-  String value;
 
-  public String getValue() {
-    return value;
-  }
+  private final String value;
 
   StringLiteral(String value) {
     this.value = value;
+  }
+
+  /** Returns the value denoted by the string literal */
+  public String getValue() {
+    return value;
   }
 
   @Override

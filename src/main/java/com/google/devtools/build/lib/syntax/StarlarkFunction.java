@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.syntax;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.events.Location;
+import javax.annotation.Nullable;
 
 /** A StarlarkFunction is the function value created by a Starlark {@code def} statement. */
 public final class StarlarkFunction extends BaseFunction {
@@ -69,11 +70,21 @@ public final class StarlarkFunction extends BaseFunction {
     return name;
   }
 
-  /** @deprecated Do not assume function values are represented as syntax trees. */
-  // TODO(adonovan): the only non-test use is to obtain the function's doc string. Add API for that.
-  @Deprecated
-  public ImmutableList<Statement> getStatements() {
-    return statements;
+  /** Returns the value denoted by the function's doc string literal, or null if absent. */
+  @Nullable
+  public String getDocumentation() {
+    if (statements.isEmpty()) {
+      return null;
+    }
+    Statement first = statements.get(0);
+    if (!(first instanceof ExpressionStatement)) {
+      return null;
+    }
+    Expression expr = ((ExpressionStatement) first).getExpression();
+    if (!(expr instanceof StringLiteral)) {
+      return null;
+    }
+    return ((StringLiteral) expr).getValue();
   }
 
   public Module getModule() {

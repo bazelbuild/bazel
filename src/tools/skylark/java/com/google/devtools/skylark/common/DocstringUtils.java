@@ -15,123 +15,20 @@
 package com.google.devtools.skylark.common;
 
 import com.google.common.base.Preconditions;
+import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.syntax.AssignmentStatement;
-import com.google.devtools.build.lib.syntax.DefStatement;
-import com.google.devtools.build.lib.syntax.Expression;
-import com.google.devtools.build.lib.syntax.ExpressionStatement;
-import com.google.devtools.build.lib.syntax.Identifier;
-import com.google.devtools.build.lib.syntax.StarlarkFile;
-import com.google.devtools.build.lib.syntax.Statement;
-import com.google.devtools.build.lib.syntax.StringLiteral;
 import com.google.devtools.skylark.common.LocationRange.Location;
-import java.util.AbstractMap;
-import java.util.AbstractMap.SimpleEntry;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
-import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import javax.annotation.Nullable;
 
 /** Utilities to extract and parse docstrings. */
 public final class DocstringUtils {
-  private DocstringUtils() {}
 
-  /**
-   * Collect all docstrings in the AST and store them in a map: name -> docstring.
-   *
-   * <p>Note that local variables can't have docstrings.
-   *
-   * @param ast the AST to traverse
-   * @return a map from identifier names to their docstring; if there is a file-level docstring, its
-   *     key is "".
-   */
-  public static ImmutableMap<String, StringLiteral> collectDocstringLiterals(StarlarkFile ast) {
-    ImmutableMap.Builder<String, StringLiteral> nameToDocstringLiteral = ImmutableMap.builder();
-    Statement previousStatement = null;
-    for (Statement currentStatement : ast.getStatements()) {
-      Map.Entry<String, StringLiteral> entry =
-          getNameAndDocstring(previousStatement, currentStatement);
-      if (entry != null) {
-        nameToDocstringLiteral.put(entry);
-      }
-      previousStatement = currentStatement;
-    }
-    return nameToDocstringLiteral.build();
-  }
-
-  @Nullable
-  private static Map.Entry<String, StringLiteral> getNameAndDocstring(
-      @Nullable Statement previousStatement, Statement currentStatement) {
-    // function docstring:
-    if (currentStatement instanceof DefStatement) {
-      StringLiteral docstring = extractDocstring(((DefStatement) currentStatement).getStatements());
-      if (docstring != null) {
-        return new AbstractMap.SimpleEntry<>(
-            ((DefStatement) currentStatement).getIdentifier().getName(), docstring);
-      }
-    } else {
-      StringLiteral docstring = getStringLiteral(currentStatement);
-      if (docstring != null) {
-        if (previousStatement == null) {
-          // file docstring:
-          return new SimpleEntry<>("", docstring);
-        } else {
-          // variable docstring:
-          String variable = getAssignedVariableName(previousStatement);
-          if (variable != null) {
-            return new SimpleEntry<>(variable, docstring);
-          }
-        }
-      }
-    }
-    return null;
-  }
-
-  /** If the statement is an assignment to one variable, returns its name, or otherwise null. */
-  @Nullable
-  public static String getAssignedVariableName(@Nullable Statement stmt) {
-    if (stmt instanceof AssignmentStatement) {
-      AssignmentStatement assign = (AssignmentStatement) stmt;
-      Expression lhs = assign.getLHS();
-      if (lhs instanceof Identifier && !assign.isAugmented()) {
-        return ((Identifier) lhs).getName();
-      }
-    }
-    return null;
-  }
-
-  /** If the statement is a string literal, returns it, or otherwise null. */
-  @Nullable
-  public static StringLiteral getStringLiteral(Statement stmt) {
-    if (stmt instanceof ExpressionStatement) {
-      Expression expr = ((ExpressionStatement) stmt).getExpression();
-      if (expr instanceof StringLiteral) {
-        return (StringLiteral) expr;
-      }
-    }
-    return null;
-  }
-
-  /** Takes a function body and returns the docstring literal, if present. */
-  @Nullable
-  public static StringLiteral extractDocstring(List<Statement> statements) {
-    if (statements.isEmpty()) {
-      return null;
-    }
-    return getStringLiteral(statements.get(0));
-  }
-
-  /** Parses a docstring from a string literal and appends any new errors to the given list. */
-  public static DocstringInfo parseDocstring(
-      StringLiteral docstring, List<DocstringParseError> errors) {
-    int indentation = docstring.getStartLocation().column() - 1;
-    return parseDocstring(docstring.getValue(), indentation, errors);
-  }
+  private DocstringUtils() {} // uninstantiable
 
   /**
    * Parses a docstring.
@@ -163,13 +60,11 @@ public final class DocstringUtils {
    * }</pre>
    *
    * @param docstring a docstring of the format described above
-   * @param indentation the indentation level (number of spaces) of the docstring
    * @param parseErrors a list to which parsing error messages are written
    * @return the parsed docstring information
    */
-  public static DocstringInfo parseDocstring(
-      String docstring, int indentation, List<DocstringParseError> parseErrors) {
-    DocstringParser parser = new DocstringParser(docstring, indentation);
+  public static DocstringInfo parseDocstring(String doc, List<DocstringParseError> parseErrors) {
+    DocstringParser parser = new DocstringParser(doc);
     DocstringInfo result = parser.parse();
     parseErrors.addAll(parser.errors);
     return result;
@@ -289,7 +184,7 @@ public final class DocstringUtils {
     /** Current line number within the docstring. */
     private int lineNumber = 0;
     /**
-     * The indentation of the doctring literal in the source file.
+     * The indentation of the docstring literal in the source file.
      *
      * <p>Every line except the first one must be indented by at least that many spaces.
      */
@@ -311,8 +206,31 @@ public final class DocstringUtils {
     /** Errors that occurred so far. */
     private final List<DocstringParseError> errors = new ArrayList<>();
 
-    DocstringParser(String docstring, int indentation) {
+    private DocstringParser(String docstring) {
       this.docstring = docstring;
+
+      // Infer the indentation level:
+      // the smallest amount of leading whitespace
+      // common to all non-blank lines except the first.
+      int indentation = Integer.MAX_VALUE;
+      boolean first = true;
+      for (String line : Splitter.on("\n").split(docstring)) {
+        // ignore first line
+        if (first) {
+          first = false;
+          continue;
+        }
+        // count leading spaces
+        int i;
+        for (i = 0; i < line.length() && line.charAt(i) == ' '; i++) {}
+        if (i != line.length()) {
+          indentation = Math.min(indentation, i);
+        }
+      }
+      if (indentation == Integer.MAX_VALUE) {
+        indentation = 0;
+      }
+
       nextLine();
       // the indentation is only relevant for the following lines, not the first one:
       this.baselineIndentation = indentation;
