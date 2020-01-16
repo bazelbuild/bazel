@@ -16,25 +16,40 @@ package com.google.devtools.build.android.desugar.nest;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assume.assumeTrue;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.android.desugar.io.FileContentProvider;
 import com.google.devtools.build.android.desugar.langmodel.ClassMemberRecord;
+import com.google.devtools.build.android.desugar.testing.junit.DesugarRule;
+import com.google.devtools.build.android.desugar.testing.junit.DesugarRunner;
+import com.google.devtools.build.android.desugar.testing.junit.JarEntryRecord;
 import com.google.devtools.build.android.desugar.testing.junit.JdkSuppress;
 import com.google.devtools.build.android.desugar.testing.junit.JdkVersion;
+import com.google.devtools.build.android.desugar.testing.junit.RuntimeJarEntry;
 import java.io.IOException;
 import java.io.InputStream;
+import java.lang.invoke.MethodHandles;
 import java.nio.file.Paths;
-import java.util.zip.ZipEntry;
-import java.util.zip.ZipFile;
+import java.util.jar.JarEntry;
+import java.util.jar.JarFile;
+import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
 
 /** The tests for {@link NestAnalyzer}. */
-@RunWith(JUnit4.class)
+@RunWith(DesugarRunner.class)
+@JdkSuppress(minJdkVersion = JdkVersion.V11)
 public final class NestAnalyzerTest {
+
+  @Rule
+  public final DesugarRule desugarRule =
+      DesugarRule.builder(this, MethodHandles.lookup())
+          .addSourceInputs(Paths.get(System.getProperty("input_srcs")))
+          .addJavacOptions("-source 11", "-target 11")
+          .setWorkingJavaPackage(
+              "com.google.devtools.build.android.desugar.nest.testsrc.nestanalyzer")
+          .enableIterativeTransformation(0)
+          .build();
 
   private final ClassMemberRecord classMemberRecord = ClassMemberRecord.create();
   private final NestCompanions nestCompanions = NestCompanions.create(classMemberRecord);
@@ -48,18 +63,21 @@ public final class NestAnalyzerTest {
   }
 
   @Test
-  @JdkSuppress(minJdkVersion = JdkVersion.V11)
-  public void companionClassGeneration() throws IOException {
-    assumeTrue(JdkVersion.getJavaRuntimeVersion() >= JdkVersion.V11);
+  public void companionClassGeneration(
+      @RuntimeJarEntry(
+              value = "AnalyzedTarget.class",
+              round = 0) // Without desugaring at zero-th round.
+          JarEntryRecord analyzedTarget)
+      throws IOException {
 
-    ZipFile jarFile = new ZipFile(Paths.get(System.getProperty("input_jar")).toFile());
+    JarFile jarFile = analyzedTarget.jarFile();
     NestAnalyzer nestAnalyzer =
         new NestAnalyzer(
             jarFile.stream()
                 .map(
                     entry ->
                         new FileContentProvider<>(
-                            entry.getName(), () -> getZipEntryInputStream(jarFile, entry)))
+                            entry.getName(), () -> getJarEntryInputStream(jarFile, entry)))
                 .collect(toImmutableList()),
             nestCompanions,
             classMemberRecord);
@@ -71,7 +89,7 @@ public final class NestAnalyzerTest {
             "com/google/devtools/build/android/desugar/nest/testsrc/nestanalyzer/AnalyzedTarget$NestCC");
   }
 
-  private static InputStream getZipEntryInputStream(ZipFile jarFile, ZipEntry entry) {
+  private static InputStream getJarEntryInputStream(JarFile jarFile, JarEntry entry) {
     try {
       return jarFile.getInputStream(entry);
     } catch (IOException e) {

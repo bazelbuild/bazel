@@ -27,10 +27,10 @@ import java.nio.charset.Charset;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.jar.JarEntry;
 import java.util.jar.JarOutputStream;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
-import java.util.zip.ZipEntry;
 import javax.tools.JavaCompiler;
 
 /** Represents a compilation unit with a single jar output. */
@@ -96,8 +96,8 @@ public final class SourceCompilationUnit {
         for (Path compiledFile : compiledFiles) {
           try (InputStream inputStream = Files.newInputStream(compiledFile)) {
             Path inArchivalPath = compiledRootDir.relativize(compiledFile);
-            ZipEntry zipEntry = new ZipEntry(inArchivalPath.toString());
-            jarOutputStream.putNextEntry(zipEntry);
+            JarEntry jarEntry = new JarEntry(inArchivalPath.toString());
+            jarOutputStream.putNextEntry(jarEntry);
             if (!Files.isDirectory(compiledFile)) {
               ByteStreams.copy(inputStream, jarOutputStream);
             }

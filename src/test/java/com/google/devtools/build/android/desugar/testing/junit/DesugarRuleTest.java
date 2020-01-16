@@ -26,7 +26,6 @@ import java.lang.invoke.MethodHandles;
 import java.lang.reflect.Method;
 import java.nio.file.Paths;
 import java.util.Arrays;
-import java.util.zip.ZipEntry;
 import javax.inject.Inject;
 import org.junit.Rule;
 import org.junit.Test;
@@ -74,14 +73,6 @@ public final class DesugarRuleTest {
   @Inject
   @DynamicClassLiteral(value = "DesugarRuleTestTarget$InterfaceSubjectToDesugar$$CC", round = 2)
   private Class<?> interfaceSubjectToDesugarCompanionClassRound2;
-
-  @Inject
-  @RuntimeZipEntry(value = "DesugarRuleTestTarget$InterfaceSubjectToDesugar$$CC.class", round = 1)
-  private ZipEntry interfaceSubjectToDesugarZipEntryRound1;
-
-  @Inject
-  @RuntimeZipEntry(value = "DesugarRuleTestTarget$InterfaceSubjectToDesugar$$CC.class", round = 2)
-  private ZipEntry interfaceSubjectToDesugarZipEntryRound2;
 
   @Inject
   @AsmNode(className = "DesugarRuleTestTarget")
@@ -157,9 +148,17 @@ public final class DesugarRuleTest {
   }
 
   @Test
-  public void idempotencyOperation() {
-    assertThat(interfaceSubjectToDesugarZipEntryRound1.getCrc())
-        .isEqualTo(interfaceSubjectToDesugarZipEntryRound2.getCrc());
+  public void idempotencyOperation(
+      @RuntimeJarEntry(
+              value = "DesugarRuleTestTarget$InterfaceSubjectToDesugar$$CC.class",
+              round = 1)
+          JarEntryRecord interfaceSubjectToDesugarJarEntryRound1,
+      @RuntimeJarEntry(
+              value = "DesugarRuleTestTarget$InterfaceSubjectToDesugar$$CC.class",
+              round = 2)
+          JarEntryRecord interfaceSubjectToDesugarJarEntryRound2) {
+    assertThat(interfaceSubjectToDesugarJarEntryRound1.jarEntry().getCrc())
+        .isEqualTo(interfaceSubjectToDesugarJarEntryRound2.jarEntry().getCrc());
   }
 
   @Test

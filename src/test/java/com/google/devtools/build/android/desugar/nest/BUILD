@@ -10,6 +10,28 @@ package(
 licenses(["notice"])  # Apache 2.0
 
 java_test(
+    name = "NestAnalyzerTest",
+    size = "medium",
+    srcs = ["NestAnalyzerTest.java"],
+    data = [
+        "//src/test/java/com/google/devtools/build/android/desugar/nest/testsrc/nestanalyzer:analyzed_target",
+    ],
+    jvm_flags = [
+        "-Dinput_srcs=$(location //src/test/java/com/google/devtools/build/android/desugar/nest/testsrc/nestanalyzer:analyzed_target)",
+    ],
+    test_class = "com.google.devtools.build.android.desugar.nest.NestAnalyzerTest",
+    deps = [
+        "//src/tools/android/java/com/google/devtools/build/android/desugar/io",
+        "//src/tools/android/java/com/google/devtools/build/android/desugar/langmodel",
+        "//src/tools/android/java/com/google/devtools/build/android/desugar/nest",
+        "//src/tools/android/java/com/google/devtools/build/android/desugar/testing/junit:desugar_rule",
+        "//third_party:guava",
+        "//third_party:junit4",
+        "//third_party:truth",
+    ],
+)
+
+java_test(
     name = "NestCompanionsTest",
     size = "small",
     srcs = ["NestCompanionsTest.java"],
@@ -144,7 +166,6 @@ java_test(
         "-Dinput_srcs='$(locations //src/test/java/com/google/devtools/build/android/desugar/nest/testsrc/complexcase)'",
         # Required by Desugar#verifyLambdaDumpDirectoryRegistered
         "-Djdk.internal.lambda.dumpProxyClasses=$$(mktemp -d)",
-        "-Djava.lang.invoke.stringConcat=MH_INLINE_SIZED_EXACT",
         "-Dandroid_runtime_jar=$(location //src/tools/android/java/com/google/devtools/build/android/desugar/testing/junit:android_jar_for_testing)",
         "-Djacoco_agent_jar=$(location //src/tools/android/java/com/google/devtools/build/android/desugar/testing/junit:jacoco_agent_jar)",
     ],

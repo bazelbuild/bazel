@@ -59,9 +59,9 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.jar.JarEntry;
+import java.util.jar.JarFile;
 import java.util.stream.Collectors;
-import java.util.zip.ZipEntry;
-import java.util.zip.ZipFile;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
@@ -77,7 +77,7 @@ final class RuntimeEntityResolver {
           DynamicClassLiteral.class,
           AsmNode.class,
           RuntimeMethodHandle.class,
-          RuntimeZipEntry.class);
+          RuntimeJarEntry.class);
   private static final String DEFAULT_OUTPUT_ROOT_PREFIX = "desugared_dump";
 
   private final MethodHandles.Lookup testInstanceLookup;
@@ -182,10 +182,10 @@ final class RuntimeEntityResolver {
               descriptorLookupRepo,
               workingJavaPackage));
     }
-    RuntimeZipEntry runtimeZipEntry = element.getDeclaredAnnotation(RuntimeZipEntry.class);
-    if (runtimeZipEntry != null) {
+    RuntimeJarEntry runtimeJarEntry = element.getDeclaredAnnotation(RuntimeJarEntry.class);
+    if (runtimeJarEntry != null) {
       return elementType.cast(
-          getZipEntry(runtimeZipEntry, jarTransformationRecords, inputs, workingJavaPackage));
+          getJarEntry(runtimeJarEntry, jarTransformationRecords, inputs, workingJavaPackage));
     }
     throw new UnsupportedOperationException(
         "Expected one of the supported types for injection: " + SUPPORTED_QUALIFIERS);
@@ -441,38 +441,38 @@ final class RuntimeEntityResolver {
     return Iterables.getOnlyElement(matchedMethods);
   }
 
-  private static ZipEntry getZipEntry(
-      RuntimeZipEntry zipEntryRequest,
+  private static JarEntryRecord getJarEntry(
+      RuntimeJarEntry jarEntryRequest,
       List<JarTransformationRecord> jarTransformationRecords,
       ImmutableList<Path> initialInputs,
       String workingJavaPackage)
       throws IOException {
-    String requestedClassFile = zipEntryRequest.value();
-    String zipEntryPathName =
+    String requestedClassFile = jarEntryRequest.value();
+    String jarEntryPathName =
         workingJavaPackage.isEmpty() || requestedClassFile.contains("/")
             ? requestedClassFile
             : workingJavaPackage.replace('.', '/') + '/' + requestedClassFile;
-    int round = zipEntryRequest.round();
+    int round = jarEntryRequest.round();
     ImmutableList<Path> jars =
         round == 0 ? initialInputs : jarTransformationRecords.get(round - 1).outputJars();
     for (Path jar : jars) {
-      ZipFile zipFile = new ZipFile(jar.toFile());
-      ZipEntry zipEntry = zipFile.getEntry(zipEntryPathName);
-      if (zipEntry != null) {
-        return zipEntry;
+      JarFile jarFile = new JarFile(jar.toFile());
+      JarEntry jarEntry = jarFile.getJarEntry(jarEntryPathName);
+      if (jarEntry != null) {
+        return JarEntryRecord.create(jarFile, jarEntry);
       }
     }
     throw new IllegalStateException(
-        String.format("Expected zip entry of (%s) present.", zipEntryPathName));
+        String.format("Expected zip entry of (%s) present.", jarEntryPathName));
   }
 
-  private static ClassNode findClassNode(String zipEntryPathName, ImmutableList<Path> jars)
+  private static ClassNode findClassNode(String jarEntryPathName, ImmutableList<Path> jars)
       throws IOException, ClassNotFoundException {
     for (Path jar : jars) {
-      ZipFile zipFile = new ZipFile(jar.toFile());
-      ZipEntry zipEntry = zipFile.getEntry(zipEntryPathName);
-      if (zipEntry != null) {
-        try (InputStream inputStream = zipFile.getInputStream(zipEntry)) {
+      JarFile jarFile = new JarFile(jar.toFile());
+      JarEntry jarEntry = jarFile.getJarEntry(jarEntryPathName);
+      if (jarEntry != null) {
+        try (InputStream inputStream = jarFile.getInputStream(jarEntry)) {
           ClassReader cr = new ClassReader(inputStream);
           ClassNode classNode = new ClassNode(Opcodes.ASM7);
           cr.accept(classNode, 0);
@@ -480,7 +480,7 @@ final class RuntimeEntityResolver {
         }
       }
     }
-    throw new ClassNotFoundException(zipEntryPathName);
+    throw new ClassNotFoundException(jarEntryPathName);
   }
 
   private ClassLoader getInputClassLoader() throws MalformedURLException {
@@ -519,13 +519,13 @@ final class RuntimeEntityResolver {
       throws IOException {
     ImmutableMap.Builder<String, Integer> majorVersions = ImmutableMap.builder();
     for (Path jar : jars) {
-      ZipFile zipFile = new ZipFile(jar.toFile());
-      List<ZipEntry> classFileZipEntries =
-          zipFile.stream()
-              .filter(zipEntry -> zipEntry.getName().endsWith(".class"))
+      JarFile jarFile = new JarFile(jar.toFile());
+      List<JarEntry> classFileJarEntries =
+          jarFile.stream()
+              .filter(jarEntry -> jarEntry.getName().endsWith(".class"))
               .collect(Collectors.toList());
-      for (ZipEntry zipEntry : classFileZipEntries) {
-        try (InputStream inputStream = zipFile.getInputStream(zipEntry)) {
+      for (JarEntry jarEntry : classFileJarEntries) {
+        try (InputStream inputStream = jarFile.getInputStream(jarEntry)) {
           ClassReader cr = new ClassReader(inputStream);
           ClassNode classNode = new ClassNode(Opcodes.ASM7);
           cr.accept(classNode, SKIP_CODE | SKIP_DEBUG | SKIP_FRAMES);
