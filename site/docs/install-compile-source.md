@@ -29,7 +29,7 @@ TL;DR:
     [for Windows](#bootstrap-windows-prereq))
 
 4.  Build a development build of Bazel using Bazel: 
-     `bazel build //src:bazel-dev` (or `bazel build //src:bazel-dev.exe` on
+    `bazel build //src:bazel-dev` (or `bazel build //src:bazel-dev.exe` on
     Windows)
 
 5.  The resulting binary is at `bazel-bin/src/bazel-dev`
