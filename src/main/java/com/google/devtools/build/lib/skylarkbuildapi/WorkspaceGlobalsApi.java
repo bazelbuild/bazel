@@ -90,10 +90,18 @@ public interface WorkspaceGlobalsApi {
   @SkylarkCallable(
       name = "experimental_do_not_use_dont_symlink_in_execroot",
       doc = "Exclude directories under workspace from symlinking into execroot.\n"
-          + "Introduced for the Ninja execution actions to avoid symlinking directories "
-          + "with generated Ninja files, which in Ninja execution model "
-          + "contain both input and output files.\n\n"
-          + "Can be used only with the experimental flag \"--experimental_ninja_actions\".",
+          + "<p>Normally, source directories are symlinked to the execroot, so that the actions can "
+          + "access the input (source) files.<p/>"
+          + "<p>In the case of Ninja execution (enabled with --experimental_ninja_actions flag), "
+          + "it is typical that the directory with build-related files contains source files for "
+          + "the build, and Ninja prescribes creation of the outputs in that same directory.</p>"
+          + "Since commands in the Ninja file use relative paths to address source files and "
+          + "directories, we must still allow the execution in the same-named directory under "
+          + "the execroot. But we must avoid populating the underlying source directory with "
+          + "output files.</p>"
+          + "<p>This method can be used to specify that Ninja build configuration directories "
+          + "should not be symlinked to the execroot. It is not expected that there could be other"
+          + " use cases for using this method.</p>",
       allowReturnNones = true,
       parameters = {
           @Param(
