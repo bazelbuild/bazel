@@ -48,7 +48,8 @@ public final class NestDesugaringInterfaceMethodAccessTest {
   @Rule
   public final DesugarRule desugarRule =
       DesugarRule.builder(this, MethodHandles.lookup())
-          .addInputs(Paths.get(System.getProperty("input_jar")))
+          .addSourceInputs(Paths.get(System.getProperty("input_srcs")))
+          .addJavacOptions("-source 11", "-target 11")
           .setWorkingJavaPackage(
               "com.google.devtools.build.android.desugar.nest.testsrc.simpleunit.interfacemethod")
           .addCommandOptions("desugar_nest_based_private_access", "true")
@@ -70,7 +71,6 @@ public final class NestDesugaringInterfaceMethodAccessTest {
   }
 
   @Test
-  @JdkSuppress(minJdkVersion = JdkVersion.V11)
   public void inputClassFileMajorVersions(
       @AsmNode(className = "InterfaceNest", round = 0) ClassNode beforeDesugarClassNode,
       @AsmNode(className = "InterfaceNest", round = 1) ClassNode afterDesugarClassNode) {

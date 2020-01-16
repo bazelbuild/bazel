@@ -41,14 +41,16 @@ import org.objectweb.asm.tree.ClassNode;
 
 /** Tests for accessing private fields from another class within a nest. */
 @RunWith(DesugarRunner.class)
+@JdkSuppress(minJdkVersion = JdkVersion.V11)
 public final class NestDesugaringFieldAccessTest {
 
   @Rule
   public final DesugarRule desugarRule =
       DesugarRule.builder(this, MethodHandles.lookup())
-          .addInputs(Paths.get(System.getProperty("input_jar")))
+          .addSourceInputs(Paths.get(System.getProperty("input_srcs")))
           .setWorkingJavaPackage(
               "com.google.devtools.build.android.desugar.nest.testsrc.simpleunit.field")
+          .addJavacOptions("-source 11", "-target 11")
           .addCommandOptions("desugar_nest_based_private_access", "true")
           .build();
 
@@ -64,7 +66,6 @@ public final class NestDesugaringFieldAccessTest {
   }
 
   @Test
-  @JdkSuppress(minJdkVersion = JdkVersion.V11)
   public void inputClassFileMajorVersions(
       @AsmNode(className = "FieldNest", round = 0) ClassNode beforeDesugarClassNode,
       @AsmNode(className = "FieldNest", round = 1) ClassNode afterDesugarClassNode) {
@@ -73,7 +74,6 @@ public final class NestDesugaringFieldAccessTest {
   }
 
   @Test
-  @JdkSuppress(minJdkVersion = JdkVersion.V11)
   public void bridgeMethodGeneration() {
     List<String> bridgeMethodNames =
         Arrays.stream(mate.getDeclaredMethods())

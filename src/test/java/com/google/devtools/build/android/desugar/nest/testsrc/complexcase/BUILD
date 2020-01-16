@@ -5,9 +5,9 @@ package(
 
 licenses(["notice"])  # Apache 2.0
 
-java_import(
+filegroup(
     name = "complexcase",
-    jars = ["libcomplexcase.jar"],
+    srcs = glob(["*.java"]),
 )
 
 filegroup(
