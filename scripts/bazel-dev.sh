@@ -37,7 +37,7 @@ BAZEL_DIR=${BAZEL_DIR:-$HOME/os-bazel}
 BAZEL_BINARY=${BAZEL_BINARY:-$(which bazel)}
 
 # The location of the resulting binary.
-BAZEL_DEV="$BAZEL_DIR/bazel-bin/src/bazel"
+BAZEL_DEV="$BAZEL_DIR/bazel-bin/src/bazel-dev"
 
 # First, check whether a rebuild is needed.
 REBUILD=0
@@ -56,7 +56,7 @@ if [ "$REBUILD" == 1 ]; then
   (
     cd "$BAZEL_DIR"
     result=0
-    ${BAZEL_BINARY} build //src:bazel || result=$?
+    ${BAZEL_BINARY} build //src:bazel-dev || result=$?
     if [[ $result != 0 ]]; then
       echo -e "\033[31mError building dev version of bazel.\033[0m"
       exit $result
