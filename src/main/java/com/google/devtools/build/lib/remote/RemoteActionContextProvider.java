@@ -16,12 +16,17 @@ package com.google.devtools.build.lib.remote;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.google.common.base.Preconditions;
+import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.ListeningScheduledExecutorService;
+import com.google.devtools.build.lib.actions.ActionGraph;
 import com.google.devtools.build.lib.actions.ActionInput;
+import com.google.devtools.build.lib.actions.ExecutorInitException;
 import com.google.devtools.build.lib.actions.SpawnActionContext;
+import com.google.devtools.build.lib.analysis.ArtifactsToOwnerLabels;
 import com.google.devtools.build.lib.exec.ActionContextProvider;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
+import com.google.devtools.build.lib.exec.ExecutorLifecycleListener;
 import com.google.devtools.build.lib.exec.SpawnCache;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
@@ -29,10 +34,9 @@ import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.vfs.Path;
 import javax.annotation.Nullable;
 
-/**
- * Provide a remote execution context.
- */
-final class RemoteActionContextProvider extends ActionContextProvider {
+/** Provide a remote execution context. */
+final class RemoteActionContextProvider extends ActionContextProvider
+    implements ExecutorLifecycleListener {
   private final CommandEnvironment env;
   private final RemoteCache cache;
   @Nullable private final GrpcRemoteExecutor executor;
@@ -126,6 +130,14 @@ final class RemoteActionContextProvider extends ActionContextProvider {
   void setFilesToDownload(ImmutableSet<ActionInput> topLevelOutputs) {
     this.filesToDownload = Preconditions.checkNotNull(topLevelOutputs, "filesToDownload");
   }
+
+  @Override
+  public void executorCreated() throws ExecutorInitException {}
+
+  @Override
+  public void executionPhaseStarting(
+      ActionGraph actionGraph, Supplier<ArtifactsToOwnerLabels> topLevelArtifactsToOwnerLabels)
+      throws ExecutorInitException, InterruptedException {}
 
   @Override
   public void executionPhaseEnding() {

@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.exec;
 import com.google.devtools.build.lib.actions.ActionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionContext.ShowSubcommands;
 import com.google.devtools.build.lib.actions.Executor;
-import com.google.devtools.build.lib.actions.ExecutorInitException;
 import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.events.Reporter;
@@ -61,9 +60,7 @@ public final class BlazeExecutor implements Executor {
       Reporter reporter,
       Clock clock,
       OptionsProvider options,
-      SpawnActionContextMaps spawnActionContextMaps,
-      Iterable<ActionContextProvider> contextProviders)
-      throws ExecutorInitException {
+      SpawnActionContextMaps spawnActionContextMaps) {
     ExecutionOptions executionOptions = options.getOptions(ExecutionOptions.class);
     this.verboseFailures = executionOptions.verboseFailures;
     this.showSubcommands = executionOptions.showSubcommands;
@@ -78,10 +75,6 @@ public final class BlazeExecutor implements Executor {
     }
 
     spawnActionContextMaps.notifyUsed();
-
-    for (ActionContextProvider factory : contextProviders) {
-      factory.executorCreated();
-    }
   }
 
   @Override

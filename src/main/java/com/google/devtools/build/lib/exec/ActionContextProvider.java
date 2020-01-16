@@ -13,11 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.exec;
 
-import com.google.common.base.Supplier;
 import com.google.devtools.build.lib.actions.ActionContext;
-import com.google.devtools.build.lib.actions.ActionGraph;
-import com.google.devtools.build.lib.actions.ExecutorInitException;
-import com.google.devtools.build.lib.analysis.ArtifactsToOwnerLabels;
 
 /**
  * An object that provides execution strategies to {@link BlazeExecutor}.
@@ -25,19 +21,6 @@ import com.google.devtools.build.lib.analysis.ArtifactsToOwnerLabels;
  * <p>For more information, see {@link ExecutorBuilder}.
  */
 public abstract class ActionContextProvider {
-
-  /** Called when the executor is constructed. */
-  public void executorCreated() throws ExecutorInitException {}
-
-  /** Called when the execution phase is started. */
-  public void executionPhaseStarting(
-      ActionGraph actionGraph, Supplier<ArtifactsToOwnerLabels> topLevelArtifactsToOwnerLabels)
-      throws ExecutorInitException, InterruptedException {}
-
-  /**
-   * Called when the execution phase is finished.
-   */
-  public void executionPhaseEnding() {}
 
   /** Registers any action contexts originating with this provider with the given collector. */
   public abstract void registerActionContexts(ActionContextCollector collector);

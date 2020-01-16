@@ -170,8 +170,7 @@ public class StandaloneSpawnStrategyTest {
                                   }
                                 },
                                 BinTools.forIntegrationTesting(directories, ImmutableList.of()),
-                                Mockito.mock(RunfilesTreeUpdater.class)))))),
-            ImmutableList.of());
+                                Mockito.mock(RunfilesTreeUpdater.class)))))));
 
     executor.getExecRoot().createDirectoryAndParents();
   }

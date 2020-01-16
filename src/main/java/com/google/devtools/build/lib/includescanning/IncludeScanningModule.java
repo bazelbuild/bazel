@@ -36,6 +36,7 @@ import com.google.devtools.build.lib.concurrent.ExecutorUtil;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadHostile;
 import com.google.devtools.build.lib.exec.ActionContextProvider;
 import com.google.devtools.build.lib.exec.ExecutorBuilder;
+import com.google.devtools.build.lib.exec.ExecutorLifecycleListener;
 import com.google.devtools.build.lib.includescanning.IncludeParser.Inclusion;
 import com.google.devtools.build.lib.rules.cpp.CppIncludeExtractionContext;
 import com.google.devtools.build.lib.rules.cpp.CppIncludeScanningContext;
@@ -82,8 +83,10 @@ public class IncludeScanningModule extends BlazeModule {
   @Override
   @ThreadHostile
   public void executorInit(CommandEnvironment env, BuildRequest request, ExecutorBuilder builder) {
-    builder.addActionContextProvider(
-        new IncludeScanningActionContextProvider(env, request, spawnIncludeScannerSupplier));
+    IncludeScanningActionContextProvider provider =
+        new IncludeScanningActionContextProvider(env, request, spawnIncludeScannerSupplier);
+    builder.addActionContextProvider(provider);
+    builder.addExecutorLifecycleListener(provider);
     builder
         .addStrategyByContext(CppIncludeExtractionContext.class, "")
         .addStrategyByContext(SwigIncludeScanningContext.class, "")
@@ -212,10 +215,9 @@ public class IncludeScanningModule extends BlazeModule {
     }
   }
 
-  /**
-   * Factory for execution strategies related to include scanning.
-   */
-  public static class IncludeScanningActionContextProvider extends ActionContextProvider {
+  /** Factory for execution strategies related to include scanning. */
+  public static class IncludeScanningActionContextProvider extends ActionContextProvider
+      implements ExecutorLifecycleListener {
     private final CommandEnvironment env;
     private final BuildRequest buildRequest;
 
@@ -274,6 +276,9 @@ public class IncludeScanningModule extends BlazeModule {
         throw new ExecutorInitException("could not initialize include hints", e);
       }
     }
+
+    @Override
+    public void executionPhaseEnding() {}
 
     @Override
     public void executorCreated() throws ExecutorInitException {

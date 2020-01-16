@@ -58,11 +58,11 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.Reporter;
-import com.google.devtools.build.lib.exec.ActionContextProvider;
 import com.google.devtools.build.lib.exec.BlazeExecutor;
 import com.google.devtools.build.lib.exec.CheckUpToDateFilter;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.exec.ExecutorBuilder;
+import com.google.devtools.build.lib.exec.ExecutorLifecycleListener;
 import com.google.devtools.build.lib.exec.SpawnActionContextMaps;
 import com.google.devtools.build.lib.exec.SymlinkTreeStrategy;
 import com.google.devtools.build.lib.profiler.AutoProfiler;
@@ -121,8 +121,8 @@ public class ExecutionTool {
   private final BuildRequest request;
   private BlazeExecutor executor;
   private final ActionInputPrefetcher prefetcher;
-  private final ImmutableList<ActionContextProvider> actionContextProviders;
-  private SpawnActionContextMaps spawnActionContextMaps;
+  private final ImmutableSet<ExecutorLifecycleListener> executorLifecycleListeners;
+  private final SpawnActionContextMaps spawnActionContextMaps;
 
   ExecutionTool(CommandEnvironment env, BuildRequest request) throws ExecutorInitException {
     this.env = env;
@@ -152,7 +152,7 @@ public class ExecutionTool {
         .addStrategyByContext(SymlinkTreeActionContext.class, "");
 
     this.prefetcher = builder.getActionInputPrefetcher();
-    this.actionContextProviders = builder.getActionContextProviders();
+    this.executorLifecycleListeners = builder.getExecutorLifecycleListeners();
 
     // There are many different SpawnActions, and we want to control the action context they use
     // independently from each other, for example, to run genrules locally and Java compile action
@@ -162,7 +162,7 @@ public class ExecutionTool {
     // TODO(jmmv): This should live in some testing-related Blaze module, not here.
     builder.addStrategyByContext(TestActionContext.class, options.testStrategy);
     spawnActionContextMaps =
-        builder.getSpawnActionContextMapsBuilder().build(actionContextProviders);
+        builder.getSpawnActionContextMapsBuilder().build(builder.getActionContextProviders());
 
     if (options.availableResources != null && options.removeLocalResources) {
       throw new ExecutorInitException(
@@ -174,6 +174,9 @@ public class ExecutionTool {
   Executor getExecutor() throws ExecutorInitException {
     if (executor == null) {
       executor = createExecutor();
+      for (ExecutorLifecycleListener executorLifecycleListener : executorLifecycleListeners) {
+        executorLifecycleListener.executorCreated();
+      }
     }
     return executor;
   }
@@ -186,8 +189,7 @@ public class ExecutionTool {
         getReporter(),
         runtime.getClock(),
         request,
-        spawnActionContextMaps,
-        actionContextProviders);
+        spawnActionContextMaps);
   }
 
   void init() throws ExecutorInitException {
@@ -195,8 +197,8 @@ public class ExecutionTool {
   }
 
   void shutdown() {
-    for (ActionContextProvider actionContextProvider : actionContextProviders) {
-      actionContextProvider.executionPhaseEnding();
+    for (ExecutorLifecycleListener executorLifecycleListener : executorLifecycleListeners) {
+      executorLifecycleListener.executionPhaseEnding();
     }
   }
 
@@ -294,10 +296,10 @@ public class ExecutionTool {
         }
       }
 
-      for (ActionContextProvider actionContextProvider : actionContextProviders) {
+      for (ExecutorLifecycleListener executorLifecycleListener : executorLifecycleListeners) {
         try (SilentCloseable c =
-            Profiler.instance().profile(actionContextProvider + ".executionPhaseStarting")) {
-          actionContextProvider.executionPhaseStarting(
+            Profiler.instance().profile(executorLifecycleListener + ".executionPhaseStarting")) {
+          executorLifecycleListener.executionPhaseStarting(
               actionGraph,
               // If this supplier is ever consumed by more than one ActionContextProvider, it can be
               // pulled out of the loop and made a memoizing supplier.
@@ -335,8 +337,8 @@ public class ExecutionTool {
       catastrophe = e;
     } finally {
       // These may flush logs, which may help if there is a catastrophic failure.
-      for (ActionContextProvider actionContextProvider : actionContextProviders) {
-        actionContextProvider.executionPhaseEnding();
+      for (ExecutorLifecycleListener executorLifecycleListener : executorLifecycleListeners) {
+        executorLifecycleListener.executionPhaseEnding();
       }
 
       // Handlers process these events and others (e.g. CommandCompleteEvent), even in the event of

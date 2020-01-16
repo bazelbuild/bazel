@@ -493,6 +493,7 @@ public final class RemoteModule extends BlazeModule {
       return;
     }
     builder.addActionContextProvider(actionContextProvider);
+    builder.addExecutorLifecycleListener(actionContextProvider);
     RemoteOptions remoteOptions =
         Preconditions.checkNotNull(
             env.getOptions().getOptions(RemoteOptions.class), "RemoteOptions");

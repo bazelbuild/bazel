@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.exec;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.ActionContext;
 import com.google.devtools.build.lib.actions.ActionInputPrefetcher;
 import com.google.devtools.build.lib.actions.Executor;
@@ -22,7 +23,9 @@ import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnActionContext;
 import com.google.devtools.build.lib.util.RegexFilter;
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 
 /**
  * Builder class to create an {@link Executor} instance. This class is part of the module API,
@@ -32,6 +35,7 @@ public class ExecutorBuilder {
   private final List<ActionContextProvider> actionContextProviders = new ArrayList<>();
   private final SpawnActionContextMaps.Builder spawnActionContextMapsBuilder =
       new SpawnActionContextMaps.Builder();
+  private final Set<ExecutorLifecycleListener> executorLifecycleListeners = new LinkedHashSet<>();
   private ActionInputPrefetcher prefetcher;
 
   // These methods shouldn't be public, but they have to be right now as ExecutionTool is in another
@@ -42,6 +46,11 @@ public class ExecutorBuilder {
 
   public SpawnActionContextMaps.Builder getSpawnActionContextMapsBuilder() {
     return spawnActionContextMapsBuilder;
+  }
+
+  /** Returns all executor lifecycle listeners registered with this builder so far. */
+  public ImmutableSet<ExecutorLifecycleListener> getExecutorLifecycleListeners() {
+    return ImmutableSet.copyOf(executorLifecycleListeners);
   }
 
   public ActionInputPrefetcher getActionInputPrefetcher() {
@@ -155,6 +164,17 @@ public class ExecutorBuilder {
   public ExecutorBuilder setActionInputPrefetcher(ActionInputPrefetcher prefetcher) {
     Preconditions.checkState(this.prefetcher == null);
     this.prefetcher = Preconditions.checkNotNull(prefetcher);
+    return this;
+  }
+
+  /**
+   * Registers an executor lifecycle listener which will receive notifications throughout the
+   * execution phase (if one occurs).
+   *
+   * @see ExecutorLifecycleListener for events that can be listened to
+   */
+  public ExecutorBuilder addExecutorLifecycleListener(ExecutorLifecycleListener listener) {
+    executorLifecycleListeners.add(listener);
     return this;
   }
 }

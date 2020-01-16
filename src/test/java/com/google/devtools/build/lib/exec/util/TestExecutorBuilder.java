@@ -107,7 +107,6 @@ public class TestExecutorBuilder {
         reporter,
         BlazeClock.instance(),
         optionsParser,
-        spawnActionContextMaps,
-        ImmutableList.of());
+        spawnActionContextMaps);
   }
 }

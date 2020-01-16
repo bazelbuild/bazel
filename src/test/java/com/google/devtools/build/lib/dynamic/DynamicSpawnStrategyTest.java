@@ -347,8 +347,7 @@ public class DynamicSpawnStrategyTest {
             OptionsParser.builder()
                 .optionsClasses(ImmutableList.of(ExecutionOptions.class))
                 .build(),
-            spawnActionContextMaps,
-            executorBuilder.getActionContextProviders());
+            spawnActionContextMaps);
 
     ActionExecutionContext actionExecutionContext =
         ActionsTestUtil.createContext(
