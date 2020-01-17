@@ -22,6 +22,7 @@
 #include <memory>  // unique_ptr
 #include <sstream>
 #include <vector>
+#include <string>
 
 #include "src/main/cpp/util/errors.h"
 #include "src/main/cpp/util/exit_code.h"
@@ -534,7 +535,10 @@ bool CanAccessDirectory(const Path& path) {
 
   // The only easy way to know if a directory is writable is by attempting to
   // open a file for writing in it.
-  Path dummy_path = path.GetRelative("bazel_directory_access_test");
+  std::string dummy_name = "bazel_directory_access_test_";
+  dummy_name += std::to_string(::GetCurrentThreadId());
+
+  Path dummy_path = path.GetRelative(dummy_name);
 
   // Attempt to open the dummy file for read/write access.
   // If the file happens to exist, no big deal, we won't overwrite it thanks to
@@ -548,9 +552,9 @@ bool CanAccessDirectory(const Path& path) {
       /* dwFlagsAndAttributes */ FILE_ATTRIBUTE_NORMAL,
       /* hTemplateFile */ NULL);
   DWORD err = GetLastError();
-  if (handle == INVALID_HANDLE_VALUE && err != ERROR_ALREADY_EXISTS) {
+  if (handle == INVALID_HANDLE_VALUE) {
     // We couldn't open the file, and not because the dummy file already exists.
-    // Consequently it is because `wpath` doesn't exist.
+    // Consequently it is because `path` doesn't exist.
     return false;
   }
   // The fact that we could open the file, regardless of it existing beforehand
