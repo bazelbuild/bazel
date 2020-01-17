@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.NoneType;
 import com.google.devtools.build.lib.syntax.Sequence;
+import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 
 /** A collection of global skylark build API functions that apply to WORKSPACE files. */
@@ -84,6 +85,37 @@ public interface WorkspaceGlobalsApi {
       Dict<?, ?> managedDirectories, // <String, Sequence<String>>
       Location loc,
       StarlarkThread thread)
+      throws EvalException, InterruptedException;
+
+  @SkylarkCallable(
+      name = "dont_symlink_directories_in_execroot",
+      doc =
+          "Exclude directories under workspace from symlinking into execroot.\n"
+              + "<p>Normally, source directories are symlinked to the execroot, so that the"
+              + " actions can access the input (source) files.<p/><p>In the case of Ninja"
+              + " execution (enabled with --experimental_ninja_actions flag), it is typical that"
+              + " the directory with build-related files contains source files for the build, and"
+              + " Ninja prescribes creation of the outputs in that same directory.</p><p>Since"
+              + " commands in the Ninja file use relative paths to address source files and"
+              + " directories, we must still allow the execution in the same-named directory under"
+              + " the execroot. But we must avoid populating the underlying source directory with"
+              + " output files.</p><p>This method can be used to specify that Ninja build"
+              + " configuration directories should not be symlinked to the execroot. It is not"
+              + " expected that there could be other use cases for using this method.</p>",
+      allowReturnNones = true,
+      parameters = {
+        @Param(
+            name = "paths",
+            type = Sequence.class,
+            generic1 = String.class,
+            doc = "",
+            named = true,
+            positional = false)
+      },
+      useLocation = true,
+      useStarlarkThread = true,
+      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_NINJA_ACTIONS)
+  NoneType dontSymlinkDirectoriesInExecroot(Sequence<?> paths, Location loc, StarlarkThread thread)
       throws EvalException, InterruptedException;
 
   @SkylarkCallable(

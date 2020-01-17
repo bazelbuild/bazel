@@ -18,8 +18,10 @@ import static com.google.devtools.build.lib.syntax.Starlark.NONE;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
+import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.LabelValidator;
@@ -37,6 +39,7 @@ import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.TreeMap;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -53,6 +56,8 @@ public class WorkspaceGlobals implements WorkspaceGlobalsApi {
   // Mapping of the relative paths of the incrementally updated managed directories
   // to the managing external repositories
   private final TreeMap<PathFragment, RepositoryName> managedDirectoriesMap;
+  // Directories to be excluded from symlinking to the execroot.
+  private ImmutableSortedSet<String> doNotSymlinkInExecrootPaths;
 
   public WorkspaceGlobals(boolean allowOverride, RuleFactory ruleFactory) {
     this.allowOverride = allowOverride;
@@ -101,6 +106,49 @@ public class WorkspaceGlobals implements WorkspaceGlobalsApi {
       throw new EvalException(
           loc, "workspace() function should be used only at the top of the WORKSPACE file");
     }
+  }
+
+  @Override
+  public NoneType dontSymlinkDirectoriesInExecroot(
+      Sequence<?> paths, Location location, StarlarkThread thread)
+      throws EvalException, InterruptedException {
+    List<String> pathsList = paths.getContents(String.class, "paths");
+    Set<String> set = Sets.newHashSet();
+    for (String path : pathsList) {
+      PathFragment pathFragment = PathFragment.create(path);
+      if (pathFragment.isEmpty()) {
+        throw new EvalException(
+            location, "Empty path can not be passed to dont_symlink_directories_in_execroot.");
+      }
+      if (pathFragment.containsUplevelReferences() || pathFragment.segmentCount() > 1) {
+        throw new EvalException(
+            location,
+            String.format(
+                "dont_symlink_directories_in_execroot can only accept "
+                    + "top level directories under workspace, "
+                    + "\"%s\" can not be specified as an attribute.",
+                path));
+      }
+      if (pathFragment.isAbsolute()) {
+        throw new EvalException(
+            location,
+            String.format(
+                "dont_symlink_directories_in_execroot can only accept "
+                    + "top level directories under workspace, "
+                    + "absolute path \"%s\" can not be specified as an attribute.",
+                path));
+      }
+      if (!set.add(pathFragment.getBaseName())) {
+        throw new EvalException(
+            location,
+            String.format(
+                "dont_symlink_directories_in_execroot should not "
+                    + "contain duplicate values: \"%s\" is specified more then once.",
+                path));
+      }
+    }
+    doNotSymlinkInExecrootPaths = ImmutableSortedSet.copyOf(set);
+    return NONE;
   }
 
   private void parseManagedDirectories(
@@ -196,6 +244,10 @@ public class WorkspaceGlobals implements WorkspaceGlobalsApi {
 
   public Map<PathFragment, RepositoryName> getManagedDirectories() {
     return managedDirectoriesMap;
+  }
+
+  public ImmutableSortedSet<String> getDoNotSymlinkInExecrootPaths() {
+    return doNotSymlinkInExecrootPaths;
   }
 
   private static RepositoryName getRepositoryName(@Nullable Label label) {

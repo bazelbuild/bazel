@@ -18,6 +18,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSortedSet;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
@@ -68,6 +69,7 @@ public class WorkspaceFactory {
   private final RuleFactory ruleFactory;
 
   private final WorkspaceGlobals workspaceGlobals;
+  private final StarlarkSemantics starlarkSemantics;
   private final ImmutableMap<String, Object> workspaceFunctions;
   private final ImmutableList<EnvironmentExtension> environmentExtensions;
 
@@ -93,7 +95,8 @@ public class WorkspaceFactory {
       boolean allowOverride,
       @Nullable Path installDir,
       @Nullable Path workspaceDir,
-      @Nullable Path defaultSystemJavabaseDir) {
+      @Nullable Path defaultSystemJavabaseDir,
+      StarlarkSemantics starlarkSemantics) {
     this.builder = builder;
     this.mutability = mutability;
     this.installDir = installDir;
@@ -102,15 +105,15 @@ public class WorkspaceFactory {
     this.environmentExtensions = environmentExtensions;
     this.ruleFactory = new RuleFactory(ruleClassProvider);
     this.workspaceGlobals = new WorkspaceGlobals(allowOverride, ruleFactory);
+    this.starlarkSemantics = starlarkSemantics;
     this.workspaceFunctions =
         WorkspaceFactory.createWorkspaceFunctions(
-            allowOverride, ruleFactory, this.workspaceGlobals);
+            allowOverride, ruleFactory, this.workspaceGlobals, starlarkSemantics);
   }
 
   @VisibleForTesting
   void parseForTesting(
       ParserInput source,
-      StarlarkSemantics starlarkSemantics,
       @Nullable StoredEventHandler localReporter)
       throws BuildFileContainsErrorsException, InterruptedException {
     if (localReporter == null) {
@@ -125,7 +128,6 @@ public class WorkspaceFactory {
     execute(
         file,
         /*importedExtensions=*/ ImmutableMap.of(),
-        starlarkSemantics,
         localReporter,
         WorkspaceFileValue.key(
             RootedPath.toRootedPath(
@@ -139,19 +141,16 @@ public class WorkspaceFactory {
   public void execute(
       StarlarkFile file,
       Map<String, Extension> importedExtensions,
-      StarlarkSemantics starlarkSemantics,
       WorkspaceFileValue.WorkspaceFileKey workspaceFileKey)
       throws InterruptedException {
     Preconditions.checkNotNull(file);
     Preconditions.checkNotNull(importedExtensions);
-    execute(
-        file, importedExtensions, starlarkSemantics, new StoredEventHandler(), workspaceFileKey);
+    execute(file, importedExtensions, new StoredEventHandler(), workspaceFileKey);
   }
 
   private void execute(
       StarlarkFile file,
       Map<String, Extension> importedExtensions,
-      StarlarkSemantics starlarkSemantics,
       StoredEventHandler localReporter,
       WorkspaceFileValue.WorkspaceFileKey workspaceFileKey)
       throws InterruptedException {
@@ -163,8 +162,8 @@ public class WorkspaceFactory {
     env.putAll(bindings); // (may shadow bindings in default environment)
 
     StarlarkThread thread =
-        StarlarkThread.builder(mutability)
-            .setSemantics(starlarkSemantics)
+        StarlarkThread.builder(this.mutability)
+            .setSemantics(this.starlarkSemantics)
             .setGlobals(Module.createForBuiltins(env))
             .setImportedExtensions(importMap)
             .build();
@@ -188,7 +187,7 @@ public class WorkspaceFactory {
 
     // Validate the file, apply BUILD dialect checks, then execute.
     ValidationEnvironment.validateFile(
-        file, thread.getGlobals(), starlarkSemantics, /*isBuildFile=*/ true);
+        file, thread.getGlobals(), this.starlarkSemantics, /*isBuildFile=*/ true);
     List<String> globs = new ArrayList<>(); // unused
     if (!file.ok()) {
       Event.replayEventsOn(localReporter, file.errors());
@@ -327,9 +326,12 @@ public class WorkspaceFactory {
   }
 
   private static ImmutableMap<String, Object> createWorkspaceFunctions(
-      boolean allowOverride, RuleFactory ruleFactory, WorkspaceGlobals workspaceGlobals) {
+      boolean allowOverride,
+      RuleFactory ruleFactory,
+      WorkspaceGlobals workspaceGlobals,
+      StarlarkSemantics starlarkSemantics) {
     ImmutableMap.Builder<String, Object> env = ImmutableMap.builder();
-    Starlark.addMethods(env, workspaceGlobals);
+    Starlark.addMethods(env, workspaceGlobals, starlarkSemantics);
 
     for (String ruleClass : ruleFactory.getRuleClassNames()) {
       // There is both a "bind" WORKSPACE function and a "bind" rule. In workspace files,
@@ -392,8 +394,12 @@ public class WorkspaceFactory {
   static ClassObject newNativeModule(RuleClassProvider ruleClassProvider, String version) {
     RuleFactory ruleFactory = new RuleFactory(ruleClassProvider);
     WorkspaceGlobals workspaceGlobals = new WorkspaceGlobals(false, ruleFactory);
+    // TODO(ichern): StarlarkSemantics should be a parameter here, as native module can be
+    //  configured by flags.
     return WorkspaceFactory.newNativeModule(
-        WorkspaceFactory.createWorkspaceFunctions(false, ruleFactory, workspaceGlobals), version);
+        WorkspaceFactory.createWorkspaceFunctions(
+            false, ruleFactory, workspaceGlobals, StarlarkSemantics.DEFAULT_SEMANTICS),
+        version);
   }
 
   public Map<String, Extension> getImportMap() {
@@ -406,5 +412,9 @@ public class WorkspaceFactory {
 
   public Map<PathFragment, RepositoryName> getManagedDirectories() {
     return workspaceGlobals.getManagedDirectories();
+  }
+
+  public ImmutableSortedSet<String> getDoNotSymlinkInExecrootPaths() {
+    return workspaceGlobals.getDoNotSymlinkInExecrootPaths();
   }
 }
