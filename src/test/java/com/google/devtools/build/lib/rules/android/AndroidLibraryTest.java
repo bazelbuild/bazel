@@ -31,7 +31,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
-import com.google.common.truth.Truth;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
@@ -911,17 +910,6 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
         .isNull();
   }
 
-  private List<String> getDependentAssetDirs(String flag, List<String> actualArgs) {
-    assertThat(actualArgs).contains(flag);
-    String actualFlagValue = actualArgs.get(actualArgs.indexOf(flag) + 1);
-    ImmutableList.Builder<String> actualPaths = ImmutableList.builder();
-    for (String resourceDependency : Splitter.on(',').split(actualFlagValue)) {
-      assertThat(actualFlagValue).matches("[^;]*;[^;]*;[^;]*;.*");
-      actualPaths.add(resourceDependency.split(";")[1].split("#"));
-    }
-    return actualPaths.build();
-  }
-
   @Test
   public void testResourcesMultipleDirectoriesFromPackage() throws Exception {
     scratch.file(
@@ -935,11 +923,12 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
         "    ],",
         ")");
     scratch.file(
-        "c/b/m/a/b_/res", "<resources><string name = 'hello'>Hello Android!</string></resources>");
+        "c/b/m/a/b_/res/values/strings.xml",
+        "<resources><string name = 'hello'>Hello Android!</string></resources>");
     ConfiguredTarget resource = getConfiguredTarget("//c/b/m/a:r");
 
-    List<String> args = getGeneratingSpawnActionArgs(getResourceArtifact(resource));
-    assertPrimaryResourceDirs(ImmutableList.of("c/b/m/a/b_/res"), args);
+    assertThat(getResourceCompilationInputFiles(resource))
+        .contains("c/b/m/a/b_/res/values/strings.xml");
   }
 
   @Test
@@ -956,8 +945,11 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
         "<resources><string name = 'hello'>Hello Android!</string></resources>");
     ConfiguredTarget resource = getConfiguredTarget("//java/android:r");
 
-    List<String> args = getGeneratingSpawnActionArgs(getResourceArtifact(resource));
-    assertPrimaryResourceDirs(ImmutableList.of("java/android/res"), args);
+    assertThat(getResourceCompilationInputFiles(resource))
+        .contains("java/android/res/values/strings.xml");
+    List<String> args = getResourceMergingArgs(resource);
+    assertThat(getDependencyResourceLabels(args, "--primaryData"))
+        .containsExactly("//java/android:r");
   }
 
   @Test
@@ -977,8 +969,9 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
         "<resources><string name = 'hello'>Hello Android!</string></resources>");
     ConfiguredTarget resource = getConfiguredTarget("//java/android:r");
 
-    List<String> args = getGeneratingSpawnActionArgs(getResourceArtifact(resource));
-    assertPrimaryResourceDirs(ImmutableList.of("java/android/res"), args);
+    assertThat(getResourceCompilationInputFiles(resource))
+        .containsAtLeast(
+            "java/android/res/values/strings.xml", "java/android/res/values-en/strings.xml");
   }
 
   @Test
@@ -993,8 +986,8 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
     scratch.file("java/other/BUILD", "exports_files(['res/values/strings.xml'])");
     ConfiguredTarget resource = getConfiguredTarget("//java/android:r");
 
-    List<String> args = getGeneratingSpawnActionArgs(getResourceArtifact(resource));
-    assertPrimaryResourceDirs(ImmutableList.of("java/other/res"), args);
+    assertThat(getResourceCompilationInputFiles(resource))
+        .contains("java/other/res/values/strings.xml");
     assertNoEvents();
   }
 
@@ -1015,8 +1008,8 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
         ")");
     ConfiguredTarget resource = getConfiguredTarget("//java/android:r");
 
-    List<String> args = getGeneratingSpawnActionArgs(getResourceArtifact(resource));
-    assertPrimaryResourceDirs(ImmutableList.of("java/other/res"), args);
+    assertThat(getResourceCompilationInputFiles(resource))
+        .contains("java/other/res/values/strings.xml");
     assertNoEvents();
   }
 
@@ -1037,8 +1030,8 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
     scratch.file("java/other/BUILD", "exports_files(['res/values/strings.xml'])");
     ConfiguredTarget resource = getConfiguredTarget("//java/android:r");
 
-    List<String> args = getGeneratingSpawnActionArgs(getResourceArtifact(resource));
-    assertPrimaryResourceDirs(ImmutableList.of("java/other/res"), args);
+    assertThat(getResourceCompilationInputFiles(resource))
+        .contains("java/other/res/values/strings.xml");
     assertNoEvents();
   }
 
@@ -1064,8 +1057,8 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
         ")");
     ConfiguredTarget resource = getConfiguredTarget("//java/android:r");
 
-    List<String> args = getGeneratingSpawnActionArgs(getResourceArtifact(resource));
-    assertPrimaryResourceDirs(ImmutableList.of("java/other/res"), args);
+    assertThat(getResourceCompilationInputFiles(resource))
+        .contains("java/other/res/values/strings.xml");
     assertNoEvents();
   }
 
@@ -1230,8 +1223,8 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
         ")");
     ConfiguredTarget r = getConfiguredTarget("//a/r:r");
     assertNoEvents();
-    List<String> args = getGeneratingSpawnActionArgs(getResourceArtifact(r));
-    assertContainsSublist(args, ImmutableList.of("--packageForR", "com.google.android.bar"));
+    assertContainsSublist(
+        getResourceMergingArgs(r), ImmutableList.of("--packageForR", "com.google.android.bar"));
   }
 
   @Test
@@ -1640,12 +1633,17 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
         "    resource_files = ['d2-res/values/strings.xml'],",
         ")");
     ConfiguredTarget resource = getConfiguredTarget("//java/android/resources/d1:d1");
-    List<String> args = getGeneratingSpawnActionArgs(getResourceArtifact(resource));
-    assertPrimaryResourceDirs(ImmutableList.of("java/android/resources/d1/d1-res"), args);
-    assertThat(getDirectDependentResourceDirs(args)).contains("java/android/resources/d2/d2-res");
+    assertThat(getResourceCompilationInputFiles(resource))
+        .contains("java/android/resources/d1/d1-res/values/strings.xml");
+    List<String> args = getResourceMergingArgs(resource);
+    assertThat(getDependencyResourceLabels(args, "--primaryData"))
+        .containsExactly("//java/android/resources/d1:d1");
+    assertThat(getDependencyResourceLabels(args, "--directData"))
+        .containsExactly("//java/android/resources/d2:d2");
+    assertThat(args).doesNotContain("--data");
 
     List<String> assetArgs = getGeneratingSpawnActionArgs(getDecoupledAssetArtifact(resource));
-    assertThat(getDependentAssetDirs("--directData", assetArgs))
+    assertThat(getDependencyAssetDirs(assetArgs, "--directData"))
         .contains("java/android/resources/d2/assets-d2");
 
     assertNoEvents();
@@ -1684,17 +1682,20 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
         ")");
 
     ConfiguredTarget resource = getConfiguredTarget("//java/android/resources/d1:d1");
-    List<String> args = getGeneratingSpawnActionArgs(getResourceArtifact(resource));
-    assertPrimaryResourceDirs(ImmutableList.of("java/android/resources/d1/d1-res"), args);
-    Truth.assertThat(getDirectDependentResourceDirs(args))
-        .contains("java/android/resources/d2/d2-res");
-    Truth.assertThat(getTransitiveDependentResourceDirs(args))
-        .contains("java/android/resources/d3/d3-res");
+    assertThat(getResourceCompilationInputFiles(resource))
+        .contains("java/android/resources/d1/d1-res/values/strings.xml");
+    List<String> args = getResourceMergingArgs(resource);
+    assertThat(getDependencyResourceLabels(args, "--primaryData"))
+        .containsExactly("//java/android/resources/d1:d1");
+    assertThat(getDependencyResourceLabels(args, "--directData"))
+        .containsExactly("//java/android/resources/d2:d2");
+    assertThat(getDependencyResourceLabels(args, "--data"))
+        .containsExactly("//java/android/resources/d3:d3");
 
     List<String> assetArgs = getGeneratingSpawnActionArgs(getDecoupledAssetArtifact(resource));
-    Truth.assertThat(getDependentAssetDirs("--directData", assetArgs))
+    assertThat(getDependencyAssetDirs(assetArgs, "--directData"))
         .contains("java/android/resources/d2/assets-d2");
-    Truth.assertThat(getDependentAssetDirs("--data", assetArgs))
+    assertThat(getDependencyAssetDirs(assetArgs, "--data"))
         .contains("java/android/resources/d3/assets-d3");
 
     assertNoEvents();
@@ -2602,6 +2603,43 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
       result.add(dependency.split(";", -1)[2]);
     }
     return result.build();
+  }
+
+  /** Returns names of files being sent to the AndroidResourceCompiler action. */
+  private ImmutableList<String> getResourceCompilationInputFiles(ConfiguredTarget androidLibrary) {
+    SpawnAction action =
+        getGeneratingSpawnAction(
+            androidLibrary
+                .get(AndroidResourcesInfo.PROVIDER)
+                .getDirectAndroidResources()
+                .getSingleton()
+                .getCompiledSymbols());
+    return action.getInputs().toList().stream()
+        .map(Artifact::getRootRelativePathString)
+        .collect(ImmutableList.toImmutableList());
+  }
+
+  /** Returns command-line arguments used in the AndroidCompiledResourceMerger action. */
+  private List<String> getResourceMergingArgs(ConfiguredTarget androidLibrary) throws Exception {
+    return getGeneratingSpawnActionArgs(
+        androidLibrary
+            .get(AndroidResourcesInfo.PROVIDER)
+            .getDirectAndroidResources()
+            .getSingleton()
+            .getJavaClassJar());
+  }
+
+  /**
+   * Decodes arguments provided as {@link com.google.devtools.build.android.SerializedAndroidData}.
+   */
+  private static List<String> getDependencyAssetDirs(List<String> actualArgs, String flag) {
+    String actualFlagValue = getFlagValue(actualArgs, flag);
+    ImmutableList.Builder<String> actualPaths = ImmutableList.builder();
+    for (String resourceDependency : Splitter.on(',').split(actualFlagValue)) {
+      assertThat(actualFlagValue).matches("[^;]*;[^;]*;[^;]*;.*");
+      actualPaths.add(resourceDependency.split(";", -1)[1].split("#"));
+    }
+    return actualPaths.build();
   }
 
   private static String getFlagValue(List<String> argv, String flag) {
