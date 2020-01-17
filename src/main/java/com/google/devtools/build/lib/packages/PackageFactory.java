@@ -73,7 +73,6 @@ import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.lib.vfs.UnixGlob;
 import java.io.IOException;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -265,11 +264,9 @@ public final class PackageFactory {
   /** {@link Globber} that uses the legacy GlobCache. */
   public static class LegacyGlobber implements Globber {
     private final GlobCache globCache;
-    private final boolean sort;
 
-    private LegacyGlobber(GlobCache globCache, boolean sort) {
+    private LegacyGlobber(GlobCache globCache) {
       this.globCache = globCache;
-      this.sort = sort;
     }
 
     private static class Token extends Globber.Token {
@@ -299,7 +296,7 @@ public final class PackageFactory {
     }
 
     @Override
-    public List<String> fetch(Globber.Token token)
+    public List<String> fetchUnsorted(Globber.Token token)
         throws BadGlobException, IOException, InterruptedException {
       List<String> result;
       Token legacyToken = (Token) token;
@@ -309,9 +306,6 @@ public final class PackageFactory {
               legacyToken.excludes,
               legacyToken.excludeDirs,
               legacyToken.allowEmpty);
-      if (sort) {
-        Collections.sort(result);
-      }
       return result;
     }
 
@@ -792,7 +786,7 @@ public final class PackageFactory {
 
   /** Returns a new {@link LegacyGlobber}. */
   public static LegacyGlobber createLegacyGlobber(GlobCache globCache) {
-    return new LegacyGlobber(globCache, /*sort=*/ true);
+    return new LegacyGlobber(globCache);
   }
 
   @Nullable
