@@ -20,7 +20,6 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CompletionContext;
 import com.google.devtools.build.lib.actions.EventReportingArtifacts;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactHelper.ArtifactsInOutputGroup;
-import com.google.devtools.build.lib.analysis.TopLevelArtifactHelper.ArtifactsToBuild;
 import com.google.devtools.build.lib.buildeventstream.ArtifactGroupNamer;
 import com.google.devtools.build.lib.buildeventstream.BuildEventContext;
 import com.google.devtools.build.lib.buildeventstream.BuildEventId;
@@ -44,14 +43,14 @@ public class AspectCompleteEvent
   private final NestedSet<Cause> rootCauses;
   private final Collection<BuildEventId> postedAfter;
   private final CompletionContext completionContext;
-  private final ArtifactsToBuild artifacts;
+  private final NestedSet<ArtifactsInOutputGroup> artifactOutputGroups;
   private final BuildEventId configurationEventId;
 
   private AspectCompleteEvent(
       AspectValue aspectValue,
       NestedSet<Cause> rootCauses,
       CompletionContext completionContext,
-      ArtifactsToBuild artifacts,
+      NestedSet<ArtifactsInOutputGroup> artifactOutputGroups,
       BuildEventId configurationEventId) {
     this.aspectValue = aspectValue;
     this.rootCauses =
@@ -62,7 +61,7 @@ public class AspectCompleteEvent
     }
     this.postedAfter = postedAfterBuilder.build();
     this.completionContext = completionContext;
-    this.artifacts = artifacts;
+    this.artifactOutputGroups = artifactOutputGroups;
     this.configurationEventId = configurationEventId;
   }
 
@@ -70,7 +69,7 @@ public class AspectCompleteEvent
   public static AspectCompleteEvent createSuccessful(
       AspectValue value,
       CompletionContext completionContext,
-      ArtifactsToBuild artifacts,
+      NestedSet<ArtifactsInOutputGroup> artifacts,
       BuildEventId configurationEventId) {
     return new AspectCompleteEvent(value, null, completionContext, artifacts, configurationEventId);
   }
@@ -79,10 +78,13 @@ public class AspectCompleteEvent
    * Construct a target completion event for a failed target, with the given non-empty root causes.
    */
   public static AspectCompleteEvent createFailed(
-      AspectValue value, NestedSet<Cause> rootCauses, BuildEventId configurationEventId) {
+      AspectValue value,
+      NestedSet<Cause> rootCauses,
+      BuildEventId configurationEventId,
+      NestedSet<ArtifactsInOutputGroup> outputs) {
     Preconditions.checkArgument(!rootCauses.isEmpty());
     return new AspectCompleteEvent(
-        value, rootCauses, CompletionContext.FAILED_COMPLETION_CTX, null, configurationEventId);
+        value, rootCauses, CompletionContext.FAILED_COMPLETION_CTX, outputs, configurationEventId);
   }
 
   /**
@@ -125,9 +127,8 @@ public class AspectCompleteEvent
   @Override
   public ReportedArtifacts reportedArtifacts() {
     ImmutableSet.Builder<NestedSet<Artifact>> builder = ImmutableSet.builder();
-    if (artifacts != null) {
-      for (ArtifactsInOutputGroup artifactsInGroup :
-          artifacts.getAllArtifactsByOutputGroup().toList()) {
+    if (artifactOutputGroups != null) {
+      for (ArtifactsInOutputGroup artifactsInGroup : artifactOutputGroups.toList()) {
         builder.add(artifactsInGroup.getArtifacts());
       }
     }
@@ -141,9 +142,8 @@ public class AspectCompleteEvent
     BuildEventStreamProtos.TargetComplete.Builder builder =
         BuildEventStreamProtos.TargetComplete.newBuilder();
     builder.setSuccess(!failed());
-    if (artifacts != null) {
-      for (ArtifactsInOutputGroup artifactsInGroup :
-          artifacts.getAllArtifactsByOutputGroup().toList()) {
+    if (artifactOutputGroups != null) {
+      for (ArtifactsInOutputGroup artifactsInGroup : artifactOutputGroups.toList()) {
         OutputGroup.Builder groupBuilder = OutputGroup.newBuilder();
         groupBuilder.setName(artifactsInGroup.getOutputGroup());
         groupBuilder.addFileSets(
