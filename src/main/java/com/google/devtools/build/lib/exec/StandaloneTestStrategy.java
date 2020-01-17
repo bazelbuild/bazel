@@ -29,9 +29,9 @@ import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.SimpleSpawn;
 import com.google.devtools.build.lib.actions.Spawn;
-import com.google.devtools.build.lib.actions.SpawnActionContext;
 import com.google.devtools.build.lib.actions.SpawnContinuation;
 import com.google.devtools.build.lib.actions.SpawnResult;
+import com.google.devtools.build.lib.actions.SpawnStrategy;
 import com.google.devtools.build.lib.actions.TestExecException;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.test.TestConfiguration;
@@ -305,7 +305,7 @@ public class StandaloneTestStrategy extends TestStrategy {
     long startTimeMillis = actionExecutionContext.getClock().currentTimeMillis();
     SpawnContinuation spawnContinuation =
         actionExecutionContext
-            .getContext(SpawnActionContext.class)
+            .getContext(SpawnStrategy.class)
             .beginExecution(spawn, actionExecutionContext.withFileOutErr(testOutErr));
     return new BazelTestAttemptContinuation(
         testAction,
@@ -604,14 +604,13 @@ public class StandaloneTestStrategy extends TestStrategy {
           && fileOutErr.getOutputPath().exists()
           && !xmlOutputPath.exists()) {
         Spawn xmlGeneratingSpawn = createXmlGeneratingSpawn(testAction, primaryResult);
-        SpawnActionContext spawnActionContext =
-            actionExecutionContext.getContext(SpawnActionContext.class);
+        SpawnStrategy strategy = actionExecutionContext.getContext(SpawnStrategy.class);
         // We treat all failures to generate the test.xml here as catastrophic, and won't rerun
         // the test if this fails. We redirect the output to a temporary file.
         FileOutErr xmlSpawnOutErr = actionExecutionContext.getFileOutErr().childOutErr();
         try {
           SpawnContinuation xmlContinuation =
-              spawnActionContext.beginExecution(
+              strategy.beginExecution(
                   xmlGeneratingSpawn, actionExecutionContext.withFileOutErr(xmlSpawnOutErr));
           return new BazelXmlCreationContinuation(
               resolvedPaths, xmlSpawnOutErr, builder, spawnResults, xmlContinuation);

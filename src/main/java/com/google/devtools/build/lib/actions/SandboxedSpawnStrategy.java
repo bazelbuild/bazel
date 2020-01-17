@@ -18,12 +18,12 @@ import com.google.common.collect.ImmutableList;
 import javax.annotation.Nullable;
 
 /**
- * A context that allows execution of {@link Spawn} instances similar to {@link SpawnActionContext},
- * but with the additional restriction that during execution the {@link Spawn} must not be allowed
- * to modify the current execution root of the build. Instead, the {@link Spawn} should be executed
- * in a sandbox or on a remote system and its output files only be moved to the execution root.
+ * A context that allows execution of {@link Spawn} instances similar to {@link SpawnStrategy}, but
+ * with the additional restriction that during execution the {@link Spawn} must not be allowed to
+ * modify the current execution root of the build. Instead, the {@link Spawn} should be executed in
+ * a sandbox or on a remote system and its output files only be moved to the execution root.
  */
-public interface SandboxedSpawnActionContext extends SpawnActionContext {
+public interface SandboxedSpawnStrategy extends SpawnStrategy {
 
   /** Lambda interface to stop other instances of the same spawn before writing outputs. */
   @FunctionalInterface
@@ -40,10 +40,9 @@ public interface SandboxedSpawnActionContext extends SpawnActionContext {
   /**
    * Executes the given spawn.
    *
-   * <p>When the {@link SpawnActionContext} is about to write output files into the execroot, it
-   * first asks any other concurrent instances of this same spawn (handled by other spawn runners
-   * when dynamic scheduling is enabled) to stop by invoking the {@code stopConcurrentSpawns}
-   * lambda.
+   * <p>When the {@link SpawnStrategy} is about to write output files into the execroot, it first
+   * asks any other concurrent instances of this same spawn (handled by other spawn runners when
+   * dynamic scheduling is enabled) to stop by invoking the {@code stopConcurrentSpawns} lambda.
    *
    * @return a List of {@link SpawnResult}s containing metadata about the Spawn's execution. This
    *     will typically contain one element, but could contain no elements if spawn execution did

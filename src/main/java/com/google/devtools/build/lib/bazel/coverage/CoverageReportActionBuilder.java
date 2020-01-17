@@ -35,8 +35,8 @@ import com.google.devtools.build.lib.actions.NotifyOnActionCacheHit;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.RunfilesSupplier;
 import com.google.devtools.build.lib.actions.Spawn;
-import com.google.devtools.build.lib.actions.SpawnActionContext;
 import com.google.devtools.build.lib.actions.SpawnResult;
+import com.google.devtools.build.lib.actions.SpawnStrategy;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
@@ -131,7 +131,8 @@ public final class CoverageReportActionBuilder {
             this,
             LOCAL_RESOURCES);
         List<SpawnResult> spawnResults =
-            actionExecutionContext.getContext(SpawnActionContext.class)
+            actionExecutionContext
+                .getContext(SpawnStrategy.class)
                 .exec(spawn, actionExecutionContext);
         actionExecutionContext.getEventHandler().handle(Event.info(locationMessage));
         return ActionResult.create(spawnResults);

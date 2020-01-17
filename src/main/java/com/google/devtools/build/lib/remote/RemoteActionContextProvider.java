@@ -22,7 +22,7 @@ import com.google.common.util.concurrent.ListeningScheduledExecutorService;
 import com.google.devtools.build.lib.actions.ActionGraph;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ExecutorInitException;
-import com.google.devtools.build.lib.actions.SpawnActionContext;
+import com.google.devtools.build.lib.actions.SpawnStrategy;
 import com.google.devtools.build.lib.analysis.ArtifactsToOwnerLabels;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.exec.ExecutorBuilder;
@@ -117,9 +117,7 @@ final class RemoteActionContextProvider implements ExecutorLifecycleListener {
               logDir,
               filesToDownload);
       executorBuilder.addActionContext(
-          SpawnActionContext.class,
-          new RemoteSpawnStrategy(env.getExecRoot(), spawnRunner),
-          "remote");
+          SpawnStrategy.class, new RemoteSpawnStrategy(env.getExecRoot(), spawnRunner), "remote");
     }
   }
 

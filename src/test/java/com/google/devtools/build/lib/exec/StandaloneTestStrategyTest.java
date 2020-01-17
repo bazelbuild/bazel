@@ -33,10 +33,10 @@ import com.google.devtools.build.lib.actions.ActionInputPrefetcher;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Spawn;
-import com.google.devtools.build.lib.actions.SpawnActionContext;
 import com.google.devtools.build.lib.actions.SpawnContinuation;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.SpawnResult.Status;
+import com.google.devtools.build.lib.actions.SpawnStrategy;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.test.TestActionContext;
 import com.google.devtools.build.lib.analysis.test.TestProvider;
@@ -91,10 +91,9 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
   }
 
   private class FakeActionExecutionContext extends ActionExecutionContext {
-    private final SpawnActionContext spawnActionContext;
+    private final SpawnStrategy spawnActionContext;
 
-    public FakeActionExecutionContext(
-        FileOutErr fileOutErr, SpawnActionContext spawnActionContext) {
+    public FakeActionExecutionContext(FileOutErr fileOutErr, SpawnStrategy spawnActionContext) {
       super(
           /*executor=*/ null,
           /*actionInputFileCache=*/ null,
@@ -120,7 +119,7 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
     @Override
     @Nullable
     public <T extends ActionContext> T getContext(Class<T> type) {
-      return SpawnActionContext.class.equals(type) ? type.cast(spawnActionContext) : null;
+      return SpawnStrategy.class.equals(type) ? type.cast(spawnActionContext) : null;
     }
 
     @Override
@@ -139,7 +138,7 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
     }
   }
 
-  @Mock private SpawnActionContext spawnActionContext;
+  @Mock private SpawnStrategy spawnActionContext;
 
   private StoredEventHandler storedEvents = new StoredEventHandler();
 

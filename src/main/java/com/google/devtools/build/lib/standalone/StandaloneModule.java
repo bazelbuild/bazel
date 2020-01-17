@@ -14,7 +14,7 @@
 package com.google.devtools.build.lib.standalone;
 
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.actions.SpawnActionContext;
+import com.google.devtools.build.lib.actions.SpawnStrategy;
 import com.google.devtools.build.lib.analysis.actions.FileWriteActionContext;
 import com.google.devtools.build.lib.analysis.actions.LocalTemplateExpansionStrategy;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionContext;
@@ -94,7 +94,7 @@ public class StandaloneModule extends BlazeModule {
     // could potentially be used and a spawnActionContext doesn't specify which one it wants, the
     // last one from strategies list will be used
     builder.addActionContext(
-        SpawnActionContext.class,
+        SpawnStrategy.class,
         new StandaloneSpawnStrategy(env.getExecRoot(), localSpawnRunner),
         "standalone",
         "local");
@@ -111,6 +111,6 @@ public class StandaloneModule extends BlazeModule {
 
     // This makes the "standalone" strategy available via --spawn_strategy=standalone, but it is not
     // necessarily the default.
-    builder.addStrategyByContext(SpawnActionContext.class, "standalone");
+    builder.addStrategyByContext(SpawnStrategy.class, "standalone");
   }
 }

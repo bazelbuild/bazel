@@ -20,7 +20,7 @@ import com.google.devtools.build.lib.actions.ActionInputPrefetcher;
 import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.actions.ExecutorInitException;
 import com.google.devtools.build.lib.actions.Spawn;
-import com.google.devtools.build.lib.actions.SpawnActionContext;
+import com.google.devtools.build.lib.actions.SpawnStrategy;
 import com.google.devtools.build.lib.util.RegexFilter;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -77,7 +77,7 @@ public class ExecutorBuilder {
    * Sets the strategy names to use in the remote branch of dynamic execution for a given action
    * mnemonic.
    *
-   * <p>During execution, each strategy is {@linkplain SpawnActionContext#canExec(Spawn,
+   * <p>During execution, each strategy is {@linkplain SpawnStrategy#canExec(Spawn,
    * ActionContext.ActionContextRegistry) asked} whether it can execute a given Spawn. The first
    * strategy in the list that says so will get the job.
    */
@@ -93,7 +93,7 @@ public class ExecutorBuilder {
    * Sets the strategy names to use in the local branch of dynamic execution for a given action
    * mnemonic.
    *
-   * <p>During execution, each strategy is {@linkplain SpawnActionContext#canExec(Spawn,
+   * <p>During execution, each strategy is {@linkplain SpawnStrategy#canExec(Spawn,
    * ActionContext.ActionContextRegistry) asked} whether it can execute a given Spawn. The first
    * strategy in the list that says so will get the job.
    */

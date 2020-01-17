@@ -22,7 +22,7 @@ import com.google.common.collect.Sets;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.google.devtools.build.lib.actions.ExecutorInitException;
 import com.google.devtools.build.lib.actions.Spawn;
-import com.google.devtools.build.lib.actions.SpawnActionContext;
+import com.google.devtools.build.lib.actions.SpawnStrategy;
 import com.google.devtools.build.lib.actions.Spawns;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
 import com.google.devtools.build.lib.concurrent.ExecutorUtil;
@@ -114,16 +114,16 @@ public class DynamicExecutionModule extends BlazeModule {
 
     if (options.legacySpawnScheduler) {
       builder.addActionContext(
-          SpawnActionContext.class,
+          SpawnStrategy.class,
           new LegacyDynamicSpawnStrategy(executorService, options, this::getExecutionPolicy),
           COMMANDLINE_IDENTIFIERS);
     } else {
       builder.addActionContext(
-          SpawnActionContext.class,
+          SpawnStrategy.class,
           new DynamicSpawnStrategy(executorService, options, this::getExecutionPolicy),
           COMMANDLINE_IDENTIFIERS);
     }
-    builder.addStrategyByContext(SpawnActionContext.class, "dynamic");
+    builder.addStrategyByContext(SpawnStrategy.class, "dynamic");
 
     for (Map.Entry<String, List<String>> mnemonicToStrategies : getLocalStrategies(options)) {
       throwIfContainsDynamic(mnemonicToStrategies.getValue(), "--dynamic_local_strategy");

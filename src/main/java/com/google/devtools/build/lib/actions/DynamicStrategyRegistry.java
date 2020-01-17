@@ -26,11 +26,10 @@ public interface DynamicStrategyRegistry extends ActionContext {
   }
 
   /**
-   * Returns the spawn strategy implementations that {@linkplain SpawnActionContext#canExec can
-   * execute} the given spawn in the order that they were registered for the provided dynamic mode.
+   * Returns the spawn strategy implementations that {@linkplain SpawnStrategy#canExec can execute}
+   * the given spawn in the order that they were registered for the provided dynamic mode.
    */
-  List<SandboxedSpawnActionContext> getDynamicSpawnActionContexts(
-      Spawn spawn, DynamicMode dynamicMode);
+  List<SandboxedSpawnStrategy> getDynamicSpawnActionContexts(Spawn spawn, DynamicMode dynamicMode);
 
   /**
    * Notifies all strategies applying to at least one mnemonic (including the empty all-catch one)

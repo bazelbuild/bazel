@@ -25,11 +25,11 @@ import com.google.devtools.build.lib.actions.DynamicStrategyRegistry;
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
-import com.google.devtools.build.lib.actions.SandboxedSpawnActionContext;
-import com.google.devtools.build.lib.actions.SandboxedSpawnActionContext.StopConcurrentSpawns;
+import com.google.devtools.build.lib.actions.SandboxedSpawnStrategy;
+import com.google.devtools.build.lib.actions.SandboxedSpawnStrategy.StopConcurrentSpawns;
 import com.google.devtools.build.lib.actions.Spawn;
-import com.google.devtools.build.lib.actions.SpawnActionContext;
 import com.google.devtools.build.lib.actions.SpawnResult;
+import com.google.devtools.build.lib.actions.SpawnStrategy;
 import com.google.devtools.build.lib.actions.Spawns;
 import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.events.Event;
@@ -62,7 +62,7 @@ import javax.annotation.Nullable;
  * save 0.5s of time, when it then takes us 5 seconds to upload the results to remote executors for
  * another action that's scheduled to run there.
  */
-public class LegacyDynamicSpawnStrategy implements SpawnActionContext {
+public class LegacyDynamicSpawnStrategy implements SpawnStrategy {
   private static final Logger logger = Logger.getLogger(DynamicSpawnStrategy.class.getName());
 
   enum StrategyIdentifier {
@@ -118,7 +118,7 @@ public class LegacyDynamicSpawnStrategy implements SpawnActionContext {
   private final AtomicBoolean delayLocalExecution = new AtomicBoolean(false);
 
   // TODO(steinman): This field is never assigned and canExec() would throw if trying to access it.
-  private @Nullable SandboxedSpawnActionContext workerStrategy;
+  @Nullable private SandboxedSpawnStrategy workerStrategy;
 
   /**
    * Constructs a {@code DynamicSpawnStrategy}.
@@ -196,8 +196,7 @@ public class LegacyDynamicSpawnStrategy implements SpawnActionContext {
     Phaser bothTasksFinished = new Phaser(/*parties=*/ 1);
 
     try {
-      final AtomicReference<SpawnActionContext> outputsHaveBeenWritten =
-          new AtomicReference<>(null);
+      final AtomicReference<SpawnStrategy> outputsHaveBeenWritten = new AtomicReference<>(null);
       dynamicExecutionResult =
           executorService.invokeAny(
               ImmutableList.of(
@@ -308,14 +307,14 @@ public class LegacyDynamicSpawnStrategy implements SpawnActionContext {
     DynamicStrategyRegistry dynamicStrategyRegistry =
         actionContextRegistry.getContext(DynamicStrategyRegistry.class);
 
-    for (SandboxedSpawnActionContext strategy :
+    for (SandboxedSpawnStrategy strategy :
         dynamicStrategyRegistry.getDynamicSpawnActionContexts(
             spawn, DynamicStrategyRegistry.DynamicMode.LOCAL)) {
       if (strategy.canExec(spawn, actionContextRegistry)) {
         return true;
       }
     }
-    for (SandboxedSpawnActionContext strategy :
+    for (SandboxedSpawnStrategy strategy :
         dynamicStrategyRegistry.getDynamicSpawnActionContexts(
             spawn, DynamicStrategyRegistry.DynamicMode.REMOTE)) {
       if (strategy.canExec(spawn, actionContextRegistry)) {
@@ -354,8 +353,7 @@ public class LegacyDynamicSpawnStrategy implements SpawnActionContext {
   }
 
   private static StopConcurrentSpawns lockOutputFiles(
-      SandboxedSpawnActionContext token,
-      @Nullable AtomicReference<SpawnActionContext> outputWriteBarrier) {
+      SandboxedSpawnStrategy token, @Nullable AtomicReference<SpawnStrategy> outputWriteBarrier) {
     if (outputWriteBarrier == null) {
       return null;
     } else {
@@ -371,12 +369,12 @@ public class LegacyDynamicSpawnStrategy implements SpawnActionContext {
   private static ImmutableList<SpawnResult> runLocally(
       Spawn spawn,
       ActionExecutionContext actionExecutionContext,
-      @Nullable AtomicReference<SpawnActionContext> outputWriteBarrier)
+      @Nullable AtomicReference<SpawnStrategy> outputWriteBarrier)
       throws ExecException, InterruptedException {
     DynamicStrategyRegistry dynamicStrategyRegistry =
         actionExecutionContext.getContext(DynamicStrategyRegistry.class);
 
-    for (SandboxedSpawnActionContext strategy :
+    for (SandboxedSpawnStrategy strategy :
         dynamicStrategyRegistry.getDynamicSpawnActionContexts(
             spawn, DynamicStrategyRegistry.DynamicMode.LOCAL)) {
       if (!strategy.toString().contains("worker") || supportsWorkers(spawn)) {
@@ -391,12 +389,12 @@ public class LegacyDynamicSpawnStrategy implements SpawnActionContext {
   private static ImmutableList<SpawnResult> runRemotely(
       Spawn spawn,
       ActionExecutionContext actionExecutionContext,
-      @Nullable AtomicReference<SpawnActionContext> outputWriteBarrier)
+      @Nullable AtomicReference<SpawnStrategy> outputWriteBarrier)
       throws ExecException, InterruptedException {
     DynamicStrategyRegistry dynamicStrategyRegistry =
         actionExecutionContext.getContext(DynamicStrategyRegistry.class);
 
-    for (SandboxedSpawnActionContext strategy :
+    for (SandboxedSpawnStrategy strategy :
         dynamicStrategyRegistry.getDynamicSpawnActionContexts(
             spawn, DynamicStrategyRegistry.DynamicMode.REMOTE)) {
       return strategy.exec(

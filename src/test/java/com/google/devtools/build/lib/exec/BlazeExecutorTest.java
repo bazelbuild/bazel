@@ -21,8 +21,8 @@ import com.google.common.collect.Iterables;
 import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.Spawn;
-import com.google.devtools.build.lib.actions.SpawnActionContext;
 import com.google.devtools.build.lib.actions.SpawnResult;
+import com.google.devtools.build.lib.actions.SpawnStrategy;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.events.Event;
@@ -79,7 +79,7 @@ public class BlazeExecutorTest {
         .setReporter(reporter)
         .setOptionsParser(parser)
         .setExecution("fake", "fake")
-        .addStrategy(SpawnActionContext.class, new FakeSpawnStrategy(), "fake")
+        .addStrategy(SpawnStrategy.class, new FakeSpawnStrategy(), "fake")
         .build();
 
     Event event =
@@ -96,7 +96,7 @@ public class BlazeExecutorTest {
         .contains("\"fake\" = [" + strategy.getClass().getSimpleName() + "]");
   }
 
-  private static class FakeSpawnStrategy implements SpawnActionContext {
+  private static class FakeSpawnStrategy implements SpawnStrategy {
 
     @Override
     public ImmutableList<SpawnResult> exec(

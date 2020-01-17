@@ -29,7 +29,7 @@ import com.google.devtools.build.lib.actions.LostInputsActionExecutionException;
 import com.google.devtools.build.lib.actions.LostInputsExecException;
 import com.google.devtools.build.lib.actions.MetadataProvider;
 import com.google.devtools.build.lib.actions.RunningActionEvent;
-import com.google.devtools.build.lib.actions.SandboxedSpawnActionContext;
+import com.google.devtools.build.lib.actions.SandboxedSpawnStrategy;
 import com.google.devtools.build.lib.actions.SchedulingActionEvent;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnResult;
@@ -54,7 +54,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import javax.annotation.Nullable;
 
 /** Abstract common ancestor for spawn strategies implementing the common parts. */
-public abstract class AbstractSpawnStrategy implements SandboxedSpawnActionContext {
+public abstract class AbstractSpawnStrategy implements SandboxedSpawnStrategy {
 
   /**
    * Last unique identifier assigned to a spawn by this strategy.

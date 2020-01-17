@@ -31,8 +31,8 @@ import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.Spawn;
-import com.google.devtools.build.lib.actions.SpawnActionContext;
 import com.google.devtools.build.lib.actions.SpawnResult;
+import com.google.devtools.build.lib.actions.SpawnStrategy;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
@@ -137,8 +137,8 @@ public class FakeCppCompileAction extends CppCompileAction {
     byte[] dotDContents = null;
     try {
       Spawn spawn = createSpawn(actionExecutionContext.getClientEnv());
-      SpawnActionContext context = actionExecutionContext.getContext(SpawnActionContext.class);
-      spawnResults = context.exec(spawn, actionExecutionContext);
+      SpawnStrategy strategy = actionExecutionContext.getContext(SpawnStrategy.class);
+      spawnResults = strategy.exec(spawn, actionExecutionContext);
       // The SpawnActionContext guarantees that the first list entry is the successful one.
       dotDContents = getDotDContents(spawnResults.get(0));
     } catch (ExecException e) {

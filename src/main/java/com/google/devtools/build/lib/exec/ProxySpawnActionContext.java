@@ -18,16 +18,16 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.Spawn;
-import com.google.devtools.build.lib.actions.SpawnActionContext;
 import com.google.devtools.build.lib.actions.SpawnContinuation;
 import com.google.devtools.build.lib.actions.SpawnResult;
+import com.google.devtools.build.lib.actions.SpawnStrategy;
 import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.events.NullEventHandler;
 import java.util.List;
 import java.util.stream.Collectors;
 
 /** Proxy that looks up the right SpawnActionContext for a spawn during {@link #exec}. */
-public final class ProxySpawnActionContext implements SpawnActionContext {
+public final class ProxySpawnActionContext implements SpawnStrategy {
 
   private final SpawnActionContextMaps spawnActionContextMaps;
 
@@ -35,7 +35,7 @@ public final class ProxySpawnActionContext implements SpawnActionContext {
    * Creates a new {@link ProxySpawnActionContext}.
    *
    * @param spawnActionContextMaps The {@link SpawnActionContextMaps} to use to decide which {@link
-   *     SpawnActionContext} should execute a given {@link Spawn} during {@link #exec}.
+   *     SpawnStrategy} should execute a given {@link Spawn} during {@link #exec}.
    */
   public ProxySpawnActionContext(SpawnActionContextMaps spawnActionContextMaps) {
     this.spawnActionContextMaps = spawnActionContextMaps;
@@ -50,18 +50,18 @@ public final class ProxySpawnActionContext implements SpawnActionContext {
   @Override
   public SpawnContinuation beginExecution(
       Spawn spawn, ActionExecutionContext actionExecutionContext) throws InterruptedException {
-    SpawnActionContext resolvedContext;
+    SpawnStrategy resolvedStrategy;
     try {
-      resolvedContext = resolveOne(spawn, actionExecutionContext);
+      resolvedStrategy = resolveOne(spawn, actionExecutionContext);
     } catch (ExecException e) {
       return SpawnContinuation.failedWithExecException(e);
     }
-    return resolvedContext.beginExecution(spawn, actionExecutionContext);
+    return resolvedStrategy.beginExecution(spawn, actionExecutionContext);
   }
 
-  private SpawnActionContext resolveOne(Spawn spawn, ActionExecutionContext actionExecutionContext)
+  private SpawnStrategy resolveOne(Spawn spawn, ActionExecutionContext actionExecutionContext)
       throws UserExecException {
-    List<SpawnActionContext> strategies = resolve(spawn, actionExecutionContext);
+    List<SpawnStrategy> strategies = resolve(spawn, actionExecutionContext);
 
     // Because the strategies are ordered by preference, we can execute the spawn with the best
     // possible one by simply filtering out the ones that can't execute it and then picking the
@@ -70,16 +70,16 @@ public final class ProxySpawnActionContext implements SpawnActionContext {
   }
 
   /**
-   * Returns the list of {@link SpawnActionContext}s that should be used to execute the given spawn.
+   * Returns the list of {@link SpawnStrategy}s that should be used to execute the given spawn.
    *
-   * @param spawn The spawn for which the correct {@link SpawnActionContext} should be determined.
+   * @param spawn The spawn for which the correct {@link SpawnStrategy} should be determined.
    * @param eventHandler An event handler that can be used to print messages while resolving the
-   *     correct {@link SpawnActionContext} for the given spawn.
+   *     correct {@link SpawnStrategy} for the given spawn.
    */
   @VisibleForTesting
-  public List<SpawnActionContext> resolve(
-      Spawn spawn, ActionExecutionContext actionExecutionContext) throws UserExecException {
-    List<SpawnActionContext> strategies =
+  public List<SpawnStrategy> resolve(Spawn spawn, ActionExecutionContext actionExecutionContext)
+      throws UserExecException {
+    List<SpawnStrategy> strategies =
         spawnActionContextMaps.getSpawnActionContexts(
             spawn, actionExecutionContext.getEventHandler());
 

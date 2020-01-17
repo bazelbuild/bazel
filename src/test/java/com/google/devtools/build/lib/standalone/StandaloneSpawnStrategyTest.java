@@ -34,8 +34,8 @@ import com.google.devtools.build.lib.actions.ResourceManager;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.SimpleSpawn;
 import com.google.devtools.build.lib.actions.Spawn;
-import com.google.devtools.build.lib.actions.SpawnActionContext;
 import com.google.devtools.build.lib.actions.SpawnResult;
+import com.google.devtools.build.lib.actions.SpawnStrategy;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
@@ -196,7 +196,7 @@ public class StandaloneSpawnStrategyTest {
   @Test
   public void testBinTrueExecutesFine() throws Exception {
     Spawn spawn = createSpawn(getTrueCommand());
-    executor.getContext(SpawnActionContext.class).exec(spawn, createContext());
+    executor.getContext(SpawnStrategy.class).exec(spawn, createContext());
 
     if (OS.getCurrent() != OS.WINDOWS) {
       assertThat(out()).isEmpty();
@@ -205,7 +205,7 @@ public class StandaloneSpawnStrategyTest {
   }
 
   private List<SpawnResult> run(Spawn spawn) throws Exception {
-    return executor.getContext(SpawnActionContext.class).exec(spawn, createContext());
+    return executor.getContext(SpawnStrategy.class).exec(spawn, createContext());
   }
 
   private ActionExecutionContext createContext() {

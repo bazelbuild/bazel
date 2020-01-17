@@ -47,9 +47,9 @@ import com.google.devtools.build.lib.actions.ParameterFile;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.RunfilesSupplier;
 import com.google.devtools.build.lib.actions.Spawn;
-import com.google.devtools.build.lib.actions.SpawnActionContext;
 import com.google.devtools.build.lib.actions.SpawnContinuation;
 import com.google.devtools.build.lib.actions.SpawnResult;
+import com.google.devtools.build.lib.actions.SpawnStrategy;
 import com.google.devtools.build.lib.actions.extra.ExtraActionInfo;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
@@ -339,7 +339,7 @@ public class JavaCompileAction extends AbstractAction implements CommandAction {
     }
     SpawnContinuation spawnContinuation =
         actionExecutionContext
-            .getContext(SpawnActionContext.class)
+            .getContext(SpawnStrategy.class)
             .beginExecution(spawn, actionExecutionContext);
     return new JavaActionContinuation(actionExecutionContext, reducedClasspath, spawnContinuation);
   }
@@ -604,7 +604,7 @@ public class JavaCompileAction extends AbstractAction implements CommandAction {
         }
         SpawnContinuation fallbackContinuation =
             actionExecutionContext
-                .getContext(SpawnActionContext.class)
+                .getContext(SpawnStrategy.class)
                 .beginExecution(spawn, actionExecutionContext);
         return new JavaFallbackActionContinuation(
             actionExecutionContext, results, fallbackContinuation);

@@ -18,7 +18,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.eventbus.Subscribe;
-import com.google.devtools.build.lib.actions.SpawnActionContext;
+import com.google.devtools.build.lib.actions.SpawnStrategy;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildCompleteEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildInterruptedEvent;
@@ -158,12 +158,10 @@ public class WorkerModule extends BlazeModule {
             // TODO(buchgr): Replace singleton by a command-scoped RunfilesTreeUpdater
             RunfilesTreeUpdater.INSTANCE);
     builder.addActionContext(
-        SpawnActionContext.class,
-        new WorkerSpawnStrategy(env.getExecRoot(), spawnRunner),
-        "worker");
+        SpawnStrategy.class, new WorkerSpawnStrategy(env.getExecRoot(), spawnRunner), "worker");
 
-    builder.addStrategyByContext(SpawnActionContext.class, "standalone");
-    builder.addStrategyByContext(SpawnActionContext.class, "worker");
+    builder.addStrategyByContext(SpawnStrategy.class, "standalone");
+    builder.addStrategyByContext(SpawnStrategy.class, "worker");
   }
 
   private static SpawnRunner createFallbackRunner(

@@ -47,9 +47,9 @@ import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.SimpleSpawn;
 import com.google.devtools.build.lib.actions.Spawn;
-import com.google.devtools.build.lib.actions.SpawnActionContext;
 import com.google.devtools.build.lib.actions.SpawnContinuation;
 import com.google.devtools.build.lib.actions.SpawnResult;
+import com.google.devtools.build.lib.actions.SpawnStrategy;
 import com.google.devtools.build.lib.actions.extra.CppCompileInfo;
 import com.google.devtools.build.lib.actions.extra.EnvironmentVariable;
 import com.google.devtools.build.lib.actions.extra.ExtraActionInfo;
@@ -1379,9 +1379,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
     }
 
     SpawnContinuation spawnContinuation =
-        actionExecutionContext
-            .getContext(SpawnActionContext.class)
-            .beginExecution(spawn, spawnContext);
+        actionExecutionContext.getContext(SpawnStrategy.class).beginExecution(spawn, spawnContext);
     return new CppCompileActionContinuation(
         actionExecutionContext,
         spawnContext,

@@ -15,11 +15,9 @@ package com.google.devtools.build.lib.actions;
 
 import com.google.common.collect.ImmutableList;
 
-/**
- * A context that allows execution of {@link Spawn} instances.
- */
+/** A context that allows execution of {@link Spawn} instances. */
 @ActionContextMarker(name = "spawn")
-public interface SpawnActionContext extends ActionContext {
+public interface SpawnStrategy extends ActionContext {
 
   /**
    * Executes the given spawn and returns metadata about the execution. Implementations must

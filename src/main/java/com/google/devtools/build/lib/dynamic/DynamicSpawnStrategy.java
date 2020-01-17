@@ -26,11 +26,11 @@ import com.google.common.util.concurrent.SettableFuture;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.DynamicStrategyRegistry;
 import com.google.devtools.build.lib.actions.ExecException;
-import com.google.devtools.build.lib.actions.SandboxedSpawnActionContext;
-import com.google.devtools.build.lib.actions.SandboxedSpawnActionContext.StopConcurrentSpawns;
+import com.google.devtools.build.lib.actions.SandboxedSpawnStrategy;
+import com.google.devtools.build.lib.actions.SandboxedSpawnStrategy.StopConcurrentSpawns;
 import com.google.devtools.build.lib.actions.Spawn;
-import com.google.devtools.build.lib.actions.SpawnActionContext;
 import com.google.devtools.build.lib.actions.SpawnResult;
+import com.google.devtools.build.lib.actions.SpawnStrategy;
 import com.google.devtools.build.lib.exec.ExecutionPolicy;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.Path;
@@ -62,7 +62,7 @@ import javax.annotation.Nullable;
  * save 0.5s of time, when it then takes us 5 seconds to upload the results to remote executors for
  * another action that's scheduled to run there.
  */
-public class DynamicSpawnStrategy implements SpawnActionContext {
+public class DynamicSpawnStrategy implements SpawnStrategy {
 
   private static final Logger logger = Logger.getLogger(DynamicSpawnStrategy.class.getName());
 
@@ -330,14 +330,14 @@ public class DynamicSpawnStrategy implements SpawnActionContext {
   public boolean canExec(Spawn spawn, ActionContextRegistry actionContextRegistry) {
     DynamicStrategyRegistry dynamicStrategyRegistry =
         actionContextRegistry.getContext(DynamicStrategyRegistry.class);
-    for (SandboxedSpawnActionContext strategy :
+    for (SandboxedSpawnStrategy strategy :
         dynamicStrategyRegistry.getDynamicSpawnActionContexts(
             spawn, DynamicStrategyRegistry.DynamicMode.LOCAL)) {
       if (strategy.canExec(spawn, actionContextRegistry)) {
         return true;
       }
     }
-    for (SandboxedSpawnActionContext strategy :
+    for (SandboxedSpawnStrategy strategy :
         dynamicStrategyRegistry.getDynamicSpawnActionContexts(
             spawn, DynamicStrategyRegistry.DynamicMode.REMOTE)) {
       if (strategy.canExec(spawn, actionContextRegistry)) {
@@ -371,7 +371,7 @@ public class DynamicSpawnStrategy implements SpawnActionContext {
     DynamicStrategyRegistry dynamicStrategyRegistry =
         actionExecutionContext.getContext(DynamicStrategyRegistry.class);
 
-    for (SandboxedSpawnActionContext strategy :
+    for (SandboxedSpawnStrategy strategy :
         dynamicStrategyRegistry.getDynamicSpawnActionContexts(
             spawn, DynamicStrategyRegistry.DynamicMode.LOCAL)) {
       return strategy.exec(spawn, actionExecutionContext, stopConcurrentSpawns);
@@ -388,7 +388,7 @@ public class DynamicSpawnStrategy implements SpawnActionContext {
     DynamicStrategyRegistry dynamicStrategyRegistry =
         actionExecutionContext.getContext(DynamicStrategyRegistry.class);
 
-    for (SandboxedSpawnActionContext strategy :
+    for (SandboxedSpawnStrategy strategy :
         dynamicStrategyRegistry.getDynamicSpawnActionContexts(
             spawn, DynamicStrategyRegistry.DynamicMode.REMOTE)) {
       return strategy.exec(spawn, actionExecutionContext, stopConcurrentSpawns);

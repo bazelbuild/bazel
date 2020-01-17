@@ -22,8 +22,8 @@ import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.Spawn;
-import com.google.devtools.build.lib.actions.SpawnActionContext;
 import com.google.devtools.build.lib.actions.SpawnResult;
+import com.google.devtools.build.lib.actions.SpawnStrategy;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.testutil.Suite;
 import com.google.devtools.build.lib.testutil.TestSpec;
@@ -52,8 +52,8 @@ public class SpawnActionContextMapsTest {
   public void setUp() {
     builder =
         new SpawnActionContextMaps.Builder()
-            .addContext(SpawnActionContext.class, ac1, "ac1")
-            .addContext(SpawnActionContext.class, ac2, "ac2");
+            .addContext(SpawnStrategy.class, ac1, "ac1")
+            .addContext(SpawnStrategy.class, ac2, "ac2");
   }
 
   @Test
@@ -61,8 +61,7 @@ public class SpawnActionContextMapsTest {
     builder.strategyByMnemonicMap().put("Spawn1", "ac1");
     builder.strategyByMnemonicMap().put("Spawn1", "ac2");
     SpawnActionContextMaps maps = builder.build();
-    List<SpawnActionContext> result =
-        maps.getSpawnActionContexts(mockSpawn("Spawn1", null), reporter);
+    List<SpawnStrategy> result = maps.getSpawnActionContexts(mockSpawn("Spawn1", null), reporter);
     assertThat(result).containsExactly(ac1, ac2);
   }
 
@@ -71,8 +70,7 @@ public class SpawnActionContextMapsTest {
     builder.strategyByMnemonicMap().put("Spawn1", "");
     builder.strategyByMnemonicMap().put("", "ac2");
     SpawnActionContextMaps maps = builder.build();
-    List<SpawnActionContext> result =
-        maps.getSpawnActionContexts(mockSpawn("Spawn1", null), reporter);
+    List<SpawnStrategy> result = maps.getSpawnActionContexts(mockSpawn("Spawn1", null), reporter);
     assertThat(result).containsExactly(ac2);
   }
 
@@ -82,7 +80,7 @@ public class SpawnActionContextMapsTest {
     builder.addStrategyByRegexp(converter.convert("foo/bar"), ImmutableList.of("ac2"));
     SpawnActionContextMaps maps = builder.build();
 
-    List<SpawnActionContext> result =
+    List<SpawnStrategy> result =
         maps.getSpawnActionContexts(mockSpawn(null, "Doing something with foo/bar/baz"), reporter);
 
     assertThat(result).containsExactly(ac1);
@@ -94,7 +92,7 @@ public class SpawnActionContextMapsTest {
     builder.addStrategyByRegexp(converter.convert("foo/bar"), ImmutableList.of("ac2"));
     SpawnActionContextMaps maps = builder.build();
 
-    List<SpawnActionContext> result =
+    List<SpawnStrategy> result =
         maps.getSpawnActionContexts(
             mockSpawn("Spawn1", "Doing something with foo/bar/baz"), reporter);
 
@@ -117,7 +115,7 @@ public class SpawnActionContextMapsTest {
     return mockSpawn;
   }
 
-  private static class AC1 implements SpawnActionContext {
+  private static class AC1 implements SpawnStrategy {
     @Override
     public ImmutableList<SpawnResult> exec(
         Spawn spawn, ActionExecutionContext actionExecutionContext)
@@ -131,7 +129,7 @@ public class SpawnActionContextMapsTest {
     }
   }
 
-  private static class AC2 implements SpawnActionContext {
+  private static class AC2 implements SpawnStrategy {
     @Override
     public ImmutableList<SpawnResult> exec(
         Spawn spawn, ActionExecutionContext actionExecutionContext)

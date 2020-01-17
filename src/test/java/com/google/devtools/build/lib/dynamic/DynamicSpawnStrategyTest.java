@@ -37,10 +37,10 @@ import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.actions.ExecutorInitException;
 import com.google.devtools.build.lib.actions.ResourceSet;
-import com.google.devtools.build.lib.actions.SandboxedSpawnActionContext;
+import com.google.devtools.build.lib.actions.SandboxedSpawnStrategy;
 import com.google.devtools.build.lib.actions.Spawn;
-import com.google.devtools.build.lib.actions.SpawnActionContext;
 import com.google.devtools.build.lib.actions.SpawnResult;
+import com.google.devtools.build.lib.actions.SpawnStrategy;
 import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil.NullAction;
@@ -116,7 +116,7 @@ public class DynamicSpawnStrategyTest {
    * <p>All the logic in here must be applicable to all tests. If any test needs to special-case
    * some aspect of this logic, then it must extend this subclass as necessary.
    */
-  private class MockSpawnStrategy implements SandboxedSpawnActionContext {
+  private class MockSpawnStrategy implements SandboxedSpawnStrategy {
     /** Identifier of this class for error reporting purposes. */
     private final String name;
 
@@ -318,12 +318,11 @@ public class DynamicSpawnStrategyTest {
 
     ExecutorBuilder executorBuilder =
         new ExecutorBuilder()
-            .addActionContext(SpawnActionContext.class, localStrategy, "mock-local")
-            .addActionContext(SpawnActionContext.class, remoteStrategy, "mock-remote");
+            .addActionContext(SpawnStrategy.class, localStrategy, "mock-local")
+            .addActionContext(SpawnStrategy.class, remoteStrategy, "mock-remote");
 
     if (sandboxedStrategy != null) {
-      executorBuilder.addActionContext(
-          SpawnActionContext.class, sandboxedStrategy, "mock-sandboxed");
+      executorBuilder.addActionContext(SpawnStrategy.class, sandboxedStrategy, "mock-sandboxed");
     }
 
     new DynamicExecutionModule(executorService).initStrategies(executorBuilder, options);
@@ -358,7 +357,7 @@ public class DynamicSpawnStrategyTest {
     checkState(optionalContext.isPresent(), "Expected module to register a dynamic strategy");
 
     return new AutoValue_DynamicSpawnStrategyTest_StrategyAndContext(
-        (SpawnActionContext) optionalContext.get(), actionExecutionContext);
+        (SpawnStrategy) optionalContext.get(), actionExecutionContext);
   }
 
   private static class NullActionWithMnemonic extends NullAction {
@@ -1019,7 +1018,7 @@ public class DynamicSpawnStrategyTest {
 
   @AutoValue
   abstract static class StrategyAndContext {
-    abstract SpawnActionContext strategy();
+    abstract SpawnStrategy strategy();
 
     abstract ActionExecutionContext context();
 
