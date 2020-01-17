@@ -253,6 +253,12 @@ public final class RepositoryName implements Serializable {
         : LabelConstants.EXTERNAL_PATH_PREFIX.getRelative(strippedName());
   }
 
+  public PathFragment getPathAboveExecRoot() {
+    return isDefault() || isMain()
+        ? PathFragment.EMPTY_FRAGMENT
+        : LabelConstants.EXPERIMENTAL_EXTERNAL_PATH_PREFIX.getRelative(strippedName());
+  }
+
   /**
    * Returns the runfiles path relative to the x.runfiles/main-repo directory.
    */

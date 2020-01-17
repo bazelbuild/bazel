@@ -960,7 +960,8 @@ public final class CcCompilationHelper {
     // before the genfilesFragment to preferably pick up source files. Otherwise
     // we might pick up stale generated files.
     PathFragment repositoryPath =
-        label.getPackageIdentifier().getRepository().getPathUnderExecRoot();
+        // label.getPackageIdentifier().getRepository().getPathUnderExecRoot();
+        label.getPackageIdentifier().getRepository().getPathAboveExecRoot();
     ccCompilationContextBuilder.addQuoteIncludeDir(repositoryPath);
     ccCompilationContextBuilder.addQuoteIncludeDir(
         configuration.getGenfilesFragment().getRelative(repositoryPath));

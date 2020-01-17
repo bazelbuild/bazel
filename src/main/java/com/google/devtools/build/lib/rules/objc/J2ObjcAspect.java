@@ -773,7 +773,8 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
         .getConfiguration()
         .getGenfilesFragment()
         .getRelative(
-            ruleContext.getLabel().getPackageIdentifier().getRepository().getPathUnderExecRoot());
+            // ruleContext.getLabel().getPackageIdentifier().getRepository().getPathUnderExecRoot());
+            ruleContext.getLabel().getPackageIdentifier().getRepository().getPathAboveExecRoot());
   }
 
   private static boolean isProtoRule(ConfiguredTarget base) {

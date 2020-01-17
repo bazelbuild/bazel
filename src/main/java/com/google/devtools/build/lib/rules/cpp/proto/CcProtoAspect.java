@@ -337,7 +337,8 @@ public abstract class CcProtoAspect extends NativeAspectClass implements Configu
         protoRootFragment = protoRootFragment.relativeTo(binOrGenfiles);
       }
       PathFragment repositoryPath =
-          ruleContext.getLabel().getPackageIdentifier().getRepository().getPathUnderExecRoot();
+          // ruleContext.getLabel().getPackageIdentifier().getRepository().getPathUnderExecRoot();
+          ruleContext.getLabel().getPackageIdentifier().getRepository().getPathAboveExecRoot();
       if (protoRootFragment.startsWith(repositoryPath)) {
         protoRootFragment = protoRootFragment.relativeTo(repositoryPath);
       }

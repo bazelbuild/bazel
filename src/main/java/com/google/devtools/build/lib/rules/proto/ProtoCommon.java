@@ -220,7 +220,8 @@ public class ProtoCommon {
             .getLabel()
             .getPackageIdentifier()
             .getRepository()
-            .getPathUnderExecRoot()
+            // .getPathUnderExecRoot()
+            .getPathAboveExecRoot()
             .getPathString();
 
     ImmutableList.Builder<Pair<Artifact, String>> builder = ImmutableList.builder();
@@ -315,7 +316,8 @@ public class ProtoCommon {
     } else {
       // Has generated sources, but neither strip_import_prefix nor import_prefix
       stripImportPrefix =
-          ruleContext.getLabel().getPackageIdentifier().getRepository().getPathUnderExecRoot();
+          // ruleContext.getLabel().getPackageIdentifier().getRepository().getPathUnderExecRoot();
+          ruleContext.getLabel().getPackageIdentifier().getRepository().getPathAboveExecRoot();
 
       importPrefix = PathFragment.EMPTY_FRAGMENT;
     }
