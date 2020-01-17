@@ -11,7 +11,6 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-//
 
 package com.google.devtools.build.lib.repository;
 
@@ -31,9 +30,13 @@ import com.google.devtools.build.skyframe.SkyValue;
 import java.util.function.Predicate;
 import javax.annotation.Nullable;
 
-/** Utility class to centralize looking up rules from the external package. */
+/** Utility class to centralize looking up data from the external package. */
 public class ExternalPackageUtil {
-
+  /**
+   * Returns directories, that should not be symlinked under the execroot.
+   *
+   * Searches for dont_symlink_directories_in_execroot calls in the WORKSPACE file,
+   * and gathers values of all "paths" attributes. */
   public static ImmutableSortedSet<String> getNotSymlinkedInExecrootDirectories(
       SkyValueComputer env) throws InterruptedException {
     ImmutableSortedSet.Builder<String> builder = ImmutableSortedSet.naturalOrder();

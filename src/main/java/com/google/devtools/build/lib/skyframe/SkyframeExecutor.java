@@ -11,7 +11,6 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-//
 package com.google.devtools.build.lib.skyframe;
 
 import static com.google.devtools.build.lib.concurrent.Uninterruptibles.callUninterruptibly;
@@ -2914,6 +2913,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     return evalResult.get(key);
   }
 
+  /** Returns directories, that should not be symlinked under the execroot. */
   public ImmutableSortedSet<String> getNotSymlinkedInExecrootDirectories(
       ExtendedEventHandler eventHandler) throws InterruptedException {
     return ExternalPackageUtil.getNotSymlinkedInExecrootDirectories(key -> {

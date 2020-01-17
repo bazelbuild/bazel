@@ -11,7 +11,6 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-//
 
 package com.google.devtools.build.lib.buildtool;
 
@@ -25,6 +24,9 @@ import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.concurrent.ThreadSafety;
+import com.google.devtools.build.lib.events.Location;
+import com.google.devtools.build.lib.syntax.Sequence;
+import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.vfs.Path;
@@ -57,7 +59,8 @@ public class SymlinkForest {
    *  @param packageRoots source package roots to which to create symlinks
    * @param execroot path where to plant the symlink forest
    * @param productName {@code BlazeRuntime#getProductName()}
-   * @param notSymlinkedInExecrootDirectories
+   * @param notSymlinkedInExecrootDirectories directories to not symlink in exec root.
+   * {@link com.google.devtools.build.lib.packages.WorkspaceGlobals#dontSymlinkDirectoriesInExecroot(Sequence, Location, StarlarkThread)}
    */
   public SymlinkForest(
       ImmutableMap<PackageIdentifier, Root> packageRoots, Path execroot, String productName,
