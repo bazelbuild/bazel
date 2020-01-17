@@ -40,6 +40,7 @@ import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.RegexFilter;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
@@ -278,6 +279,7 @@ public final class SpawnActionContextMaps
         LinkedHashMultimap.create();
     private final LinkedHashMultimap<String, String> localDynamicStrategyByMnemonicMap =
         LinkedHashMultimap.create();
+    private final List<ActionContextInformation<?>> actionContexts = new ArrayList<>();
     @Nullable private String remoteLocalFallbackStrategyName;
 
     /**
@@ -353,10 +355,25 @@ public final class SpawnActionContextMaps
               regexFilter, ImmutableList.copyOf(strategy)));
     }
 
+    /**
+     * Adds a context implementation to this map with the given identifying type and command-line
+     * identifiers.
+     *
+     * <p>If two contexts are added for the same identifying type and they are not distinguished by
+     * a restriction to a different command-line identifier then the last registered implementation
+     * is used.
+     */
+    public <T extends ActionContext> Builder addContext(
+        Class<T> identifyingType, T context, String... commandLineIdentifiers) {
+      actionContexts.add(
+          new AutoValue_SpawnActionContextMaps_ActionContextInformation<>(
+              context, identifyingType, ImmutableList.copyOf(commandLineIdentifiers)));
+      return this;
+    }
+
     /** Builds a {@link SpawnActionContextMaps} instance. */
-    public SpawnActionContextMaps build(ImmutableList<ActionContextProvider> actionContextProviders)
-        throws ExecutorInitException {
-      StrategyConverter strategyConverter = new StrategyConverter(actionContextProviders);
+    public SpawnActionContextMaps build() throws ExecutorInitException {
+      StrategyConverter strategyConverter = new StrategyConverter(actionContexts);
 
       ImmutableSortedMap.Builder<String, List<SpawnActionContext>> spawnStrategyMap =
           ImmutableSortedMap.orderedBy(String.CASE_INSENSITIVE_ORDER);
@@ -489,16 +506,12 @@ public final class SpawnActionContextMaps
     private Map<Class<? extends ActionContext>, ActionContext> defaultClassMap = new HashMap<>();
 
     /** Aggregates all {@link ActionContext}s that are in {@code contextProviders}. */
-    private StrategyConverter(Iterable<ActionContextProvider> contextProviders) {
-      for (ActionContextProvider provider : contextProviders) {
-        ActionContextCollector collector = new ActionContextCollector();
-        provider.registerActionContexts(collector);
-        for (ActionContextInformation<?> contextInformation : collector.getContextInformation()) {
-          defaultClassMap.put(contextInformation.identifyingType(), contextInformation.context());
+    private StrategyConverter(List<ActionContextInformation<?>> actionContexts) {
+      for (ActionContextInformation<?> contextInformation : actionContexts) {
+        defaultClassMap.put(contextInformation.identifyingType(), contextInformation.context());
 
-          for (String name : contextInformation.commandLineIdentifiers()) {
-            classMap.put(contextInformation.identifyingType(), name, contextInformation.context());
-          }
+        for (String name : contextInformation.commandLineIdentifiers()) {
+          classMap.put(contextInformation.identifyingType(), name, contextInformation.context());
         }
       }
     }
@@ -529,38 +542,5 @@ public final class SpawnActionContextMaps
     abstract Class<T> identifyingType();
 
     abstract ImmutableList<String> commandLineIdentifiers();
-  }
-
-  private static class ActionContextCollector
-      implements ActionContextProvider.ActionContextCollector {
-
-    private final ImmutableList.Builder<ActionContextInformation<?>> contextInformation =
-        ImmutableList.builder();
-
-    private class TypeCollector<T extends ActionContext>
-        implements ActionContextProvider.ActionContextCollector.TypeCollector<T> {
-      private final Class<T> type;
-
-      private TypeCollector(Class<T> type) {
-        this.type = type;
-      }
-
-      @Override
-      public TypeCollector<T> registerContext(T context, String... commandlineIdentifiers) {
-        contextInformation.add(
-            new AutoValue_SpawnActionContextMaps_ActionContextInformation<T>(
-                context, type, ImmutableList.copyOf(commandlineIdentifiers)));
-        return this;
-      }
-    }
-
-    @Override
-    public <T extends ActionContext> TypeCollector<T> forType(Class<T> type) {
-      return new TypeCollector<>(type);
-    }
-
-    private ImmutableList<ActionContextInformation<?>> getContextInformation() {
-      return contextInformation.build();
-    }
   }
 }

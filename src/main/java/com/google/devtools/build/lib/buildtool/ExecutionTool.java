@@ -161,8 +161,7 @@ public class ExecutionTool {
     ExecutionOptions options = request.getOptions(ExecutionOptions.class);
     // TODO(jmmv): This should live in some testing-related Blaze module, not here.
     builder.addStrategyByContext(TestActionContext.class, options.testStrategy);
-    spawnActionContextMaps =
-        builder.getSpawnActionContextMapsBuilder().build(builder.getActionContextProviders());
+    spawnActionContextMaps = builder.getSpawnActionContextMaps();
 
     if (options.availableResources != null && options.removeLocalResources) {
       throw new ExecutorInitException(

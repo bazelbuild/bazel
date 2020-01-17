@@ -47,7 +47,6 @@ import com.google.devtools.build.lib.actions.util.ActionsTestUtil.NullAction;
 import com.google.devtools.build.lib.exec.BlazeExecutor;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.exec.ExecutorBuilder;
-import com.google.devtools.build.lib.exec.SimpleActionContextProvider;
 import com.google.devtools.build.lib.exec.SpawnActionContextMaps;
 import com.google.devtools.build.lib.testutil.TestThread;
 import com.google.devtools.build.lib.testutil.TestUtils;
@@ -319,24 +318,16 @@ public class DynamicSpawnStrategyTest {
 
     ExecutorBuilder executorBuilder =
         new ExecutorBuilder()
-            .addActionContextProvider(
-                new SimpleActionContextProvider<>(
-                    SpawnActionContext.class, localStrategy, "mock-local"))
-            .addActionContextProvider(
-                new SimpleActionContextProvider<>(
-                    SpawnActionContext.class, remoteStrategy, "mock-remote"));
+            .addActionContext(SpawnActionContext.class, localStrategy, "mock-local")
+            .addActionContext(SpawnActionContext.class, remoteStrategy, "mock-remote");
 
     if (sandboxedStrategy != null) {
-      executorBuilder.addActionContextProvider(
-          new SimpleActionContextProvider<>(
-              SpawnActionContext.class, sandboxedStrategy, "mock-sandboxed"));
+      executorBuilder.addActionContext(
+          SpawnActionContext.class, sandboxedStrategy, "mock-sandboxed");
     }
 
     new DynamicExecutionModule(executorService).initStrategies(executorBuilder, options);
-    SpawnActionContextMaps spawnActionContextMaps =
-        executorBuilder
-            .getSpawnActionContextMapsBuilder()
-            .build(executorBuilder.getActionContextProviders());
+    SpawnActionContextMaps spawnActionContextMaps = executorBuilder.getSpawnActionContextMaps();
 
     Executor executor =
         new BlazeExecutor(

@@ -14,15 +14,14 @@
 package com.google.devtools.build.lib.exec;
 
 import com.google.common.base.Preconditions;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.ActionContext;
 import com.google.devtools.build.lib.actions.ActionInputPrefetcher;
 import com.google.devtools.build.lib.actions.Executor;
+import com.google.devtools.build.lib.actions.ExecutorInitException;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnActionContext;
 import com.google.devtools.build.lib.util.RegexFilter;
-import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
@@ -32,20 +31,13 @@ import java.util.Set;
  * which allows modules to affect how the executor is initialized.
  */
 public class ExecutorBuilder {
-  private final List<ActionContextProvider> actionContextProviders = new ArrayList<>();
   private final SpawnActionContextMaps.Builder spawnActionContextMapsBuilder =
       new SpawnActionContextMaps.Builder();
   private final Set<ExecutorLifecycleListener> executorLifecycleListeners = new LinkedHashSet<>();
   private ActionInputPrefetcher prefetcher;
 
-  // These methods shouldn't be public, but they have to be right now as ExecutionTool is in another
-  // package.
-  public ImmutableList<ActionContextProvider> getActionContextProviders() {
-    return ImmutableList.copyOf(actionContextProviders);
-  }
-
-  public SpawnActionContextMaps.Builder getSpawnActionContextMapsBuilder() {
-    return spawnActionContextMapsBuilder;
+  public SpawnActionContextMaps getSpawnActionContextMaps() throws ExecutorInitException {
+    return spawnActionContextMapsBuilder.build();
   }
 
   /** Returns all executor lifecycle listeners registered with this builder so far. */
@@ -58,14 +50,6 @@ public class ExecutorBuilder {
   }
 
   /**
-   * Adds the specified action context providers to the executor.
-   */
-  public ExecutorBuilder addActionContextProvider(ActionContextProvider provider) {
-    this.actionContextProviders.add(provider);
-    return this;
-  }
-
-  /**
    * Adds the specified action context to the executor, by wrapping it in a simple action context
    * provider implementation.
    *
@@ -74,8 +58,8 @@ public class ExecutorBuilder {
    */
   public <T extends ActionContext> ExecutorBuilder addActionContext(
       Class<T> identifyingType, T context, String... commandlineIdentifiers) {
-    return addActionContextProvider(
-        new SimpleActionContextProvider<>(identifyingType, context, commandlineIdentifiers));
+    spawnActionContextMapsBuilder.addContext(identifyingType, context, commandlineIdentifiers);
+    return this;
   }
 
   /**

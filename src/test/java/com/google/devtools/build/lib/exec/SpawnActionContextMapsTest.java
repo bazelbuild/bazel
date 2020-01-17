@@ -48,28 +48,19 @@ public class SpawnActionContextMapsTest {
   private static final AC1 ac1 = new AC1();
   private static final AC2 ac2 = new AC2();
 
-  private static final ImmutableList<ActionContextProvider> PROVIDERS =
-      ImmutableList.of(
-          new ActionContextProvider() {
-            @Override
-            public void registerActionContexts(ActionContextCollector collector) {
-              collector
-                  .forType(SpawnActionContext.class)
-                  .registerContext(ac1, "ac1")
-                  .registerContext(ac2, "ac2");
-            }
-          });
-
   @Before
   public void setUp() {
-    builder = new SpawnActionContextMaps.Builder();
+    builder =
+        new SpawnActionContextMaps.Builder()
+            .addContext(SpawnActionContext.class, ac1, "ac1")
+            .addContext(SpawnActionContext.class, ac2, "ac2");
   }
 
   @Test
   public void duplicateMnemonics_bothGetStored() throws Exception {
     builder.strategyByMnemonicMap().put("Spawn1", "ac1");
     builder.strategyByMnemonicMap().put("Spawn1", "ac2");
-    SpawnActionContextMaps maps = builder.build(PROVIDERS);
+    SpawnActionContextMaps maps = builder.build();
     List<SpawnActionContext> result =
         maps.getSpawnActionContexts(mockSpawn("Spawn1", null), reporter);
     assertThat(result).containsExactly(ac1, ac2);
@@ -79,7 +70,7 @@ public class SpawnActionContextMapsTest {
   public void emptyStrategyFallsBackToEmptyMnemonicNotToDefault() throws Exception {
     builder.strategyByMnemonicMap().put("Spawn1", "");
     builder.strategyByMnemonicMap().put("", "ac2");
-    SpawnActionContextMaps maps = builder.build(PROVIDERS);
+    SpawnActionContextMaps maps = builder.build();
     List<SpawnActionContext> result =
         maps.getSpawnActionContexts(mockSpawn("Spawn1", null), reporter);
     assertThat(result).containsExactly(ac2);
@@ -89,7 +80,7 @@ public class SpawnActionContextMapsTest {
   public void multipleRegexps_firstMatchWins() throws Exception {
     builder.addStrategyByRegexp(converter.convert("foo"), ImmutableList.of("ac1"));
     builder.addStrategyByRegexp(converter.convert("foo/bar"), ImmutableList.of("ac2"));
-    SpawnActionContextMaps maps = builder.build(PROVIDERS);
+    SpawnActionContextMaps maps = builder.build();
 
     List<SpawnActionContext> result =
         maps.getSpawnActionContexts(mockSpawn(null, "Doing something with foo/bar/baz"), reporter);
@@ -101,7 +92,7 @@ public class SpawnActionContextMapsTest {
   public void regexpAndMnemonic_regexpWins() throws Exception {
     builder.strategyByMnemonicMap().put("Spawn1", "ac1");
     builder.addStrategyByRegexp(converter.convert("foo/bar"), ImmutableList.of("ac2"));
-    SpawnActionContextMaps maps = builder.build(PROVIDERS);
+    SpawnActionContextMaps maps = builder.build();
 
     List<SpawnActionContext> result =
         maps.getSpawnActionContexts(

@@ -24,8 +24,8 @@ import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ExecutorInitException;
 import com.google.devtools.build.lib.actions.SpawnActionContext;
 import com.google.devtools.build.lib.analysis.ArtifactsToOwnerLabels;
-import com.google.devtools.build.lib.exec.ActionContextProvider;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
+import com.google.devtools.build.lib.exec.ExecutorBuilder;
 import com.google.devtools.build.lib.exec.ExecutorLifecycleListener;
 import com.google.devtools.build.lib.exec.SpawnCache;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
@@ -35,8 +35,8 @@ import com.google.devtools.build.lib.vfs.Path;
 import javax.annotation.Nullable;
 
 /** Provide a remote execution context. */
-final class RemoteActionContextProvider extends ActionContextProvider
-    implements ExecutorLifecycleListener {
+final class RemoteActionContextProvider implements ExecutorLifecycleListener {
+
   private final CommandEnvironment env;
   private final RemoteCache cache;
   @Nullable private final GrpcRemoteExecutor executor;
@@ -80,8 +80,8 @@ final class RemoteActionContextProvider extends ActionContextProvider
         env, cache, executor, retryScheduler, digestUtil, logDir);
   }
 
-  @Override
-  public void registerActionContexts(ActionContextCollector collector) {
+  /** Registers the action contexts whose lifecycle this class manages. */
+  public void registerActionContexts(ExecutorBuilder executorBuilder) {
     ExecutionOptions executionOptions =
         checkNotNull(env.getOptions().getOptions(ExecutionOptions.class));
     RemoteOptions remoteOptions = checkNotNull(env.getOptions().getOptions(RemoteOptions.class));
@@ -99,7 +99,7 @@ final class RemoteActionContextProvider extends ActionContextProvider
               env.getReporter(),
               digestUtil,
               filesToDownload);
-      collector.forType(SpawnCache.class).registerContext(spawnCache, "remote-cache");
+      executorBuilder.addActionContext(SpawnCache.class, spawnCache, "remote-cache");
     } else {
       RemoteSpawnRunner spawnRunner =
           new RemoteSpawnRunner(
@@ -116,9 +116,10 @@ final class RemoteActionContextProvider extends ActionContextProvider
               digestUtil,
               logDir,
               filesToDownload);
-      collector
-          .forType(SpawnActionContext.class)
-          .registerContext(new RemoteSpawnStrategy(env.getExecRoot(), spawnRunner), "remote");
+      executorBuilder.addActionContext(
+          SpawnActionContext.class,
+          new RemoteSpawnStrategy(env.getExecRoot(), spawnRunner),
+          "remote");
     }
   }
 

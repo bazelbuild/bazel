@@ -492,7 +492,7 @@ public final class RemoteModule extends BlazeModule {
     if (actionContextProvider == null) {
       return;
     }
-    builder.addActionContextProvider(actionContextProvider);
+    actionContextProvider.registerActionContexts(builder);
     builder.addExecutorLifecycleListener(actionContextProvider);
     RemoteOptions remoteOptions =
         Preconditions.checkNotNull(

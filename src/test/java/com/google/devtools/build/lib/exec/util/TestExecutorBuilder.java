@@ -24,12 +24,10 @@ import com.google.devtools.build.lib.analysis.actions.SymlinkTreeActionContext;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionContext;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.events.Reporter;
-import com.google.devtools.build.lib.exec.ActionContextProvider;
 import com.google.devtools.build.lib.exec.BinTools;
 import com.google.devtools.build.lib.exec.BlazeExecutor;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.exec.FileWriteStrategy;
-import com.google.devtools.build.lib.exec.SimpleActionContextProvider;
 import com.google.devtools.build.lib.exec.SpawnActionContextMaps;
 import com.google.devtools.build.lib.exec.SymlinkTreeStrategy;
 import com.google.devtools.build.lib.runtime.CommonCommandOptions;
@@ -50,8 +48,6 @@ public class TestExecutorBuilder {
   private Reporter reporter = new Reporter(new EventBus());
   private OptionsParser optionsParser =
       OptionsParser.builder().optionsClasses(DEFAULT_OPTIONS).build();
-  private final ImmutableList.Builder<ActionContextProvider> actionContextProviders =
-      ImmutableList.builder();
   private final SpawnActionContextMaps.Builder spawnMapsBuilder =
       new SpawnActionContextMaps.Builder();
 
@@ -88,8 +84,7 @@ public class TestExecutorBuilder {
   public <T extends ActionContext> TestExecutorBuilder addStrategy(
       Class<T> identifyingType, T strategy, String... commandlineIdentifiers) {
     spawnMapsBuilder.strategyByContextMap().put(identifyingType, "");
-    actionContextProviders.add(
-        new SimpleActionContextProvider<>(identifyingType, strategy, commandlineIdentifiers));
+    spawnMapsBuilder.addContext(identifyingType, strategy, commandlineIdentifiers);
     return this;
   }
 
@@ -99,8 +94,7 @@ public class TestExecutorBuilder {
   }
 
   public BlazeExecutor build() throws ExecutorInitException {
-    SpawnActionContextMaps spawnActionContextMaps =
-        spawnMapsBuilder.build(actionContextProviders.build());
+    SpawnActionContextMaps spawnActionContextMaps = spawnMapsBuilder.build();
     return new BlazeExecutor(
         fileSystem,
         directories.getExecRoot(TestConstants.WORKSPACE_NAME),
