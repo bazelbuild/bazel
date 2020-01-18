@@ -29,7 +29,6 @@ import com.google.devtools.build.lib.actions.ActionResult;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
-import com.google.devtools.build.lib.actions.ExecutionStrategy;
 import com.google.devtools.build.lib.actions.MiddlemanFactory;
 import com.google.devtools.build.lib.actions.MutableActionGraph;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
@@ -44,6 +43,8 @@ import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoFactory.BuildIn
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationCollection;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.shell.Command;
@@ -221,8 +222,8 @@ public final class AnalysisTestUtil {
     public DummyWorkspaceStatusAction(Artifact stableStatus, Artifact volatileStatus) {
       super(
           ActionOwner.SYSTEM_ACTION_OWNER,
-          ImmutableList.<Artifact>of(),
-          ImmutableList.of(stableStatus, volatileStatus));
+          NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+          ImmutableSet.of(stableStatus, volatileStatus));
       this.stableStatus = stableStatus;
       this.volatileStatus = volatileStatus;
     }
@@ -261,7 +262,6 @@ public final class AnalysisTestUtil {
   }
 
   /** A WorkspaceStatusAction.Context that has no stable keys and no volatile keys. */
-  @ExecutionStrategy(contextType = WorkspaceStatusAction.Context.class)
   public static class DummyWorkspaceStatusActionContext implements WorkspaceStatusAction.Context {
     @Override
     public ImmutableMap<String, Key> getStableKeys() {

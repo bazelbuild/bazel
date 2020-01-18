@@ -25,6 +25,27 @@ source "${CURRENT_DIR}/../integration_test_setup.sh" \
 
 set -e
 
+test_ignores_comment_lines() {
+    rm -rf work && mkdir work && cd work
+    create_workspace_with_default_repos WORKSPACE
+    mkdir -p ignoreme
+    echo Not a valid BUILD file > ignoreme/BUILD
+    mkdir -p '#foo/bar'
+    cat > '#foo/bar/BUILD' <<'EOI'
+genrule(
+  name = "out",
+  outs = ["out.txt"],
+  cmd = "echo Hello World > $@",
+)
+EOI
+    cat > .bazelignore <<'EOI'
+# Some comment
+#foo/bar
+ignoreme
+EOI
+    bazel build '//#foo/bar/...' || fail "Could not build valid target"
+}
+
 test_does_not_glob_into_ignored_directory() {
     rm -rf work && mkdir work && cd work
     create_workspace_with_default_repos WORKSPACE

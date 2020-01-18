@@ -30,7 +30,6 @@ import com.google.common.base.Stopwatch;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ExecException;
-import com.google.devtools.build.lib.actions.ExecutionStrategy;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnMetrics;
@@ -72,9 +71,6 @@ import javax.annotation.Nullable;
 
 /** A remote {@link SpawnCache} implementation. */
 @ThreadSafe // If the RemoteActionCache implementation is thread-safe.
-@ExecutionStrategy(
-    name = {"remote-cache"},
-    contextType = SpawnCache.class)
 final class RemoteSpawnCache implements SpawnCache {
 
   private final Path execRoot;
@@ -119,15 +115,10 @@ final class RemoteSpawnCache implements SpawnCache {
   public CacheHandle lookup(Spawn spawn, SpawnExecutionContext context)
       throws InterruptedException, IOException, ExecException {
     if (!Spawns.mayBeCached(spawn)
-        || (!Spawns.mayBeCachedRemotely(spawn) && isRemoteCache(options))) {
+        || (!Spawns.mayBeCachedRemotely(spawn) && useRemoteCache(options))) {
       // returning SpawnCache.NO_RESULT_NO_STORE in case the caching is disabled or in case
       // the remote caching is disabled and the only configured cache is remote.
       return SpawnCache.NO_RESULT_NO_STORE;
-    }
-    boolean checkCache = options.remoteAcceptCached;
-
-    if (checkCache) {
-      context.report(ProgressStatus.CHECKING_CACHE, "remote-cache");
     }
 
     NetworkTime networkTime = new NetworkTime();
@@ -162,7 +153,9 @@ final class RemoteSpawnCache implements SpawnCache {
             .withValue(NetworkTime.CONTEXT_KEY, networkTime);
 
     Profiler prof = Profiler.instance();
-    if (checkCache) {
+    if (options.remoteAcceptCached
+        || (options.incompatibleRemoteResultsIgnoreDisk && useDiskCache(options))) {
+      context.report(ProgressStatus.CHECKING_CACHE, "remote-cache");
       // Metadata will be available in context.current() until we detach.
       // This is done via a thread-local variable.
       Context previous = withMetadata.attach();
@@ -230,7 +223,8 @@ final class RemoteSpawnCache implements SpawnCache {
 
     context.prefetchInputs();
 
-    if (options.remoteUploadLocalResults) {
+    if (options.remoteUploadLocalResults
+        || (options.incompatibleRemoteResultsIgnoreDisk && useDiskCache(options))) {
       return new CacheHandle() {
         @Override
         public boolean hasResult() {
@@ -316,7 +310,11 @@ final class RemoteSpawnCache implements SpawnCache {
     }
   }
 
-  private static boolean isRemoteCache(RemoteOptions options) {
+  private static boolean useRemoteCache(RemoteOptions options) {
     return !isNullOrEmpty(options.remoteCache);
+  }
+
+  private static boolean useDiskCache(RemoteOptions options) {
+    return options.diskCache != null && !options.diskCache.isEmpty();
   }
 }

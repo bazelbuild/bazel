@@ -482,7 +482,12 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
 
   private Map<SkyKey, Collection<Target>> getRawReverseDeps(
       Iterable<SkyKey> transitiveTraversalKeys) throws InterruptedException {
-    return targetifyValues(graph.getReverseDeps(transitiveTraversalKeys));
+    return targetifyValues(getReverseDepLabelsOfLabels(transitiveTraversalKeys));
+  }
+
+  protected Map<SkyKey, Iterable<SkyKey>> getReverseDepLabelsOfLabels(
+      Iterable<? extends SkyKey> labels) throws InterruptedException {
+    return graph.getReverseDeps(labels);
   }
 
   private Set<Label> getAllowedDeps(Rule rule) throws InterruptedException {
@@ -549,14 +554,13 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
   public Collection<Target> getReverseDeps(
       Iterable<Target> targets, QueryExpressionContext<Target> context)
       throws InterruptedException {
-    return getReverseDepsOfLabels(Iterables.transform(targets, Target::getLabel));
+    return processRawReverseDeps(
+        getReverseDepsOfLabels(Iterables.transform(targets, Target::getLabel)));
   }
 
-  protected Collection<Target> getReverseDepsOfLabels(Iterable<Label> targetLabels)
+  protected Map<SkyKey, Collection<Target>> getReverseDepsOfLabels(Iterable<Label> targetLabels)
       throws InterruptedException {
-    Map<SkyKey, Collection<Target>> rawReverseDeps =
-        getRawReverseDeps(Iterables.transform(targetLabels, label -> label));
-    return processRawReverseDeps(rawReverseDeps);
+    return getRawReverseDeps(Iterables.transform(targetLabels, label -> label));
   }
 
   /** Targetify SkyKeys of reverse deps and filter out targets whose deps are not allowed. */

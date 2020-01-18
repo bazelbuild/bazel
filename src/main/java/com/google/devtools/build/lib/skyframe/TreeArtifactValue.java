@@ -19,13 +19,11 @@ import com.google.common.base.MoreObjects;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedMap;
-import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.HasDigest;
-import com.google.devtools.build.lib.actions.cache.DigestUtils;
+import com.google.devtools.build.lib.actions.cache.OrderIndependentHasher;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.util.BigIntegerFingerprint;
 import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.Dirent.Type;
 import com.google.devtools.build.lib.vfs.Path;
@@ -33,7 +31,6 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.io.IOException;
-import java.math.BigInteger;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Map;
@@ -49,13 +46,10 @@ public class TreeArtifactValue implements HasDigest, SkyValue {
 
   private static final TreeArtifactValue EMPTY =
       new TreeArtifactValue(
-          DigestUtils.fromMetadata(ImmutableMap.of()),
-          ImmutableSortedMap.of(),
-          /* remote= */ false);
+          new OrderIndependentHasher().finish(), ImmutableSortedMap.of(), /* remote= */ false);
 
   private final byte[] digest;
   private final ImmutableSortedMap<TreeFileArtifact, FileArtifactValue> childData;
-  private BigInteger valueFingerprint;
   private final boolean remote;
 
   @AutoCodec.VisibleForSerialization
@@ -76,20 +70,17 @@ public class TreeArtifactValue implements HasDigest, SkyValue {
     if (childFileValues.isEmpty()) {
       return EMPTY;
     }
-    Map<String, FileArtifactValue> digestBuilder =
-        Maps.newHashMapWithExpectedSize(childFileValues.size());
+    OrderIndependentHasher hasher = new OrderIndependentHasher();
     boolean remote = true;
     for (Map.Entry<TreeFileArtifact, FileArtifactValue> e : childFileValues.entrySet()) {
       FileArtifactValue value = e.getValue();
       // TODO(buchgr): Enforce that all children in a tree artifact are either remote or local
       // once b/70354083 is fixed.
       remote = remote && value.isRemote();
-      digestBuilder.put(e.getKey().getParentRelativePath().getPathString(), value);
+      hasher.addArtifact(e.getKey().getParentRelativePath().getPathString(), value);
     }
     return new TreeArtifactValue(
-        DigestUtils.fromMetadata(digestBuilder),
-        ImmutableSortedMap.copyOf(childFileValues),
-        remote);
+        hasher.finish(), ImmutableSortedMap.copyOf(childFileValues), remote);
   }
 
   FileArtifactValue getSelfData() {
@@ -123,16 +114,6 @@ public class TreeArtifactValue implements HasDigest, SkyValue {
   /** Returns true if the {@link TreeFileArtifact}s are only stored remotely. */
   public boolean isRemote() {
     return remote;
-  }
-
-  @Override
-  public BigInteger getValueFingerprint() {
-    if (valueFingerprint == null) {
-      BigIntegerFingerprint fp = new BigIntegerFingerprint();
-      fp.addDigestedBytes(digest);
-      valueFingerprint = fp.getFingerprint();
-    }
-    return valueFingerprint;
   }
 
   @Override

@@ -694,7 +694,7 @@ public final class ConfigurationResolver {
       SkyframeExecutor skyframeExecutor)
       throws InvalidConfigurationException {
 
-    Map<Label, Target> labelsToTargets = new LinkedHashMap<>();
+    Map<Label, Target> labelsToTargets = new HashMap<>();
     for (TargetAndConfiguration targetAndConfig : defaultContext) {
       labelsToTargets.put(targetAndConfig.getLabel(), targetAndConfig.getTarget());
     }

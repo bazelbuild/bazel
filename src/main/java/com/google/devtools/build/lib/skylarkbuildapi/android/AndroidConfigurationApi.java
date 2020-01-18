@@ -69,7 +69,7 @@ public interface AndroidConfigurationApi extends StarlarkValue {
   boolean apkSigningMethodV1();
 
   @SkylarkCallable(name = "apk_signing_method_v2", structField = true, doc = "", documented = false)
-  boolean apkSigningMethodV2();;
+  boolean apkSigningMethodV2();
 
   @SkylarkCallable(
       name = "assume_min_sdk_version",

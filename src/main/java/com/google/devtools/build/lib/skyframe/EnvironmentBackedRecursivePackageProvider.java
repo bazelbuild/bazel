@@ -202,7 +202,7 @@ public final class EnvironmentBackedRecursivePackageProvider
         encounteredPackageErrors.set(true);
       }
 
-      for (String packageName : lookup.getPackages()) {
+      for (String packageName : lookup.getPackages().toList()) {
         // TODO(bazel-team): Make RecursivePkgValue return NestedSet<PathFragment> so this transform
         // is unnecessary.
         PathFragment packageNamePathFragment = PathFragment.create(packageName);

@@ -38,7 +38,6 @@ import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.devtools.build.lib.syntax.NoneType;
 import com.google.devtools.build.lib.syntax.Sequence;
-import com.google.devtools.build.lib.syntax.SkylarkUtils;
 import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.syntax.StarlarkList;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
@@ -82,8 +81,7 @@ public class SkylarkNativeModule implements SkylarkNativeModuleApi {
       Location loc,
       StarlarkThread thread)
       throws EvalException, ConversionException, InterruptedException {
-    SkylarkUtils.checkLoadingPhase(thread, "native.glob", loc);
-
+    BazelStarlarkContext.from(thread).checkLoadingPhase("native.glob");
     PackageContext context = getContext(thread, loc);
 
     List<String> includes = Type.STRING_LIST.convert(include, "'glob' argument");
@@ -126,7 +124,7 @@ public class SkylarkNativeModule implements SkylarkNativeModuleApi {
   @Override
   public Object existingRule(String name, Location loc, StarlarkThread thread)
       throws EvalException, InterruptedException {
-    SkylarkUtils.checkLoadingOrWorkspacePhase(thread, "native.existing_rule", loc);
+    BazelStarlarkContext.from(thread).checkLoadingOrWorkspacePhase("native.existing_rule");
     PackageContext context = getContext(thread, loc);
     Target target = context.pkgBuilder.getTarget(name);
     Dict<String, Object> rule = targetDict(target, loc, thread.mutability());
@@ -140,7 +138,7 @@ public class SkylarkNativeModule implements SkylarkNativeModuleApi {
   @Override
   public Dict<String, Dict<String, Object>> existingRules(Location loc, StarlarkThread thread)
       throws EvalException, InterruptedException {
-    SkylarkUtils.checkLoadingOrWorkspacePhase(thread, "native.existing_rules", loc);
+    BazelStarlarkContext.from(thread).checkLoadingOrWorkspacePhase("native.existing_rules");
     PackageContext context = getContext(thread, loc);
     Collection<Target> targets = context.pkgBuilder.getTargets();
     Mutability mu = thread.mutability();
@@ -164,7 +162,7 @@ public class SkylarkNativeModule implements SkylarkNativeModuleApi {
       Location loc,
       StarlarkThread thread)
       throws EvalException {
-    SkylarkUtils.checkLoadingPhase(thread, "native.package_group", loc);
+    BazelStarlarkContext.from(thread).checkLoadingPhase("native.package_group");
     PackageContext context = getContext(thread, loc);
 
     List<String> packages =
@@ -188,7 +186,7 @@ public class SkylarkNativeModule implements SkylarkNativeModuleApi {
   public NoneType exportsFiles(
       Sequence<?> srcs, Object visibilityO, Object licensesO, Location loc, StarlarkThread thread)
       throws EvalException {
-    SkylarkUtils.checkLoadingPhase(thread, "native.exports_files", loc);
+    BazelStarlarkContext.from(thread).checkLoadingPhase("native.exports_files");
     Package.Builder pkgBuilder = getContext(thread, loc).pkgBuilder;
     List<String> files = Type.STRING_LIST.convert(srcs, "'exports_files' operand");
 
@@ -262,7 +260,7 @@ public class SkylarkNativeModule implements SkylarkNativeModuleApi {
 
   @Override
   public String packageName(Location loc, StarlarkThread thread) throws EvalException {
-    SkylarkUtils.checkLoadingPhase(thread, "native.package_name", loc);
+    BazelStarlarkContext.from(thread).checkLoadingPhase("native.package_name");
     PackageIdentifier packageId =
         PackageFactory.getContext(thread, loc).getBuilder().getPackageIdentifier();
     return packageId.getPackageFragment().getPathString();
@@ -270,7 +268,7 @@ public class SkylarkNativeModule implements SkylarkNativeModuleApi {
 
   @Override
   public String repositoryName(Location location, StarlarkThread thread) throws EvalException {
-    SkylarkUtils.checkLoadingPhase(thread, "native.repository_name", location);
+    BazelStarlarkContext.from(thread).checkLoadingPhase("native.repository_name");
     PackageIdentifier packageId =
         PackageFactory.getContext(thread, location).getBuilder().getPackageIdentifier();
     return packageId.getRepository().toString();

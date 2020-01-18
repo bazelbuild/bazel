@@ -166,7 +166,18 @@ genrule(
   cmd = "touch $@",
 )
 
+sh_test(
+  name = "test_with_rule_with_validation_in_deps",
+  srcs = ["test_with_rule_with_validation_in_deps.sh"],
+  data = [":some_implicit_dep"],
+)
+
 EOF
+
+cat > validation_actions/test_with_rule_with_validation_in_deps.sh <<'EOF'
+exit 0
+EOF
+chmod +x validation_actions/test_with_rule_with_validation_in_deps.sh
 
 }
 
@@ -266,6 +277,16 @@ function test_failing_validation_action_for_tool_dep_does_not_fail_build() {
   # builds and tests that should surface any failing validations.
   bazel build --experimental_run_validations //validation_actions:genrule_with_exec_tool_deps >& "$TEST_log" || fail "Expected build to succeed"
   expect_not_log "validation failed!"
+}
+
+function test_failing_validation_action_for_dep_from_test_fails_build() {
+  setup_test_project
+  setup_failing_validation_action
+
+  # Validation actions in the the deps of the test should fail the build when
+  # run with bazel test.
+  bazel test --experimental_run_validations //validation_actions:test_with_rule_with_validation_in_deps >& "$TEST_log" && fail "Expected build to fail"
+  expect_log "validation failed!"
 }
 
 run_suite "Validation actions integration tests"

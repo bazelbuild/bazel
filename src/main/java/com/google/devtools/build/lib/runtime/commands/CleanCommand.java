@@ -35,7 +35,6 @@ import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionsBase;
-import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingResult;
 import java.io.FileDescriptor;
 import java.io.FileOutputStream;
@@ -267,7 +266,4 @@ public final class CleanCommand implements BlazeCommand {
     System.gc();
     return BlazeCommandResult.exitCode(ExitCode.SUCCESS);
   }
-
-  @Override
-  public void editOptions(OptionsParser optionsParser) {}
 }

@@ -18,7 +18,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.RuleDefinitionContext;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
-import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.ThirdPartyLicenseExistencePolicy;
 import com.google.devtools.build.lib.syntax.ClassObject;
 import com.google.devtools.build.lib.syntax.Mutability;
@@ -61,7 +60,7 @@ public interface RuleClassProvider extends RuleDefinitionContext {
    * @param label the label of the .bzl file
    * @param mutability the Mutability for the .bzl module globals
    * @param starlarkSemantics the semantics options that modify the interpreter
-   * @param eventHandler the EventHandler for Starlark print statements
+   * @param printHandler defines the behavior of Starlark print statements
    * @param astFileContentHashCode the hash code identifying this environment.
    * @param importMap map from import string to Extension
    * @param nativeModule the appropriate {@code native} module for this environment.
@@ -72,7 +71,7 @@ public interface RuleClassProvider extends RuleDefinitionContext {
       Label label,
       Mutability mutability,
       StarlarkSemantics starlarkSemantics,
-      EventHandler eventHandler,
+      StarlarkThread.PrintHandler printHandler,
       @Nullable String astFileContentHashCode,
       @Nullable Map<String, Extension> importMap,
       ClassObject nativeModule,

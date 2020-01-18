@@ -99,7 +99,8 @@ public abstract class ImplicitOutputsFunction {
         // since we don't yet have a build configuration.
         if (!map.isConfigurable(attrName)) {
           Object value = map.get(attrName, attrType);
-          attrValues.put(attrName, value == null ? Starlark.NONE : value);
+          attrValues.put(
+              Attribute.getSkylarkName(attrName), Starlark.fromJava(value, /*mutability=*/ null));
         }
       }
       ClassObject attrs =

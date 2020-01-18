@@ -107,6 +107,7 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
   private final boolean disallowResourceJars;
   private final boolean loadJavaRulesFromBzl;
   private final boolean disallowLegacyJavaToolchainFlags;
+  private final boolean experimentalTurbineAnnotationProcessing;
 
   // TODO(dmarting): remove once we have a proper solution for #2539
   private final boolean useLegacyBazelJavaTest;
@@ -174,6 +175,8 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
     this.requireJavaToolchainHeaderCompilerDirect =
         javaOptions.requireJavaToolchainHeaderCompilerDirect;
     this.disallowLegacyJavaToolchainFlags = javaOptions.disallowLegacyJavaToolchainFlags;
+    this.experimentalTurbineAnnotationProcessing =
+        javaOptions.experimentalTurbineAnnotationProcessing;
 
     if (javaOptions.disallowLegacyJavaToolchainFlags) {
       if (!javaOptions.javaBase.equals(javaOptions.defaultJavaBase())) {
@@ -415,5 +418,9 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
 
   public boolean loadJavaRulesFromBzl() {
     return loadJavaRulesFromBzl;
+  }
+
+  public boolean experimentalTurbineAnnotationProcessing() {
+    return experimentalTurbineAnnotationProcessing;
   }
 }

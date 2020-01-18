@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe.actiongraph.v2;
 
-import com.google.devtools.build.lib.analysis.AnalysisProtosV2.ActionGraphComponent;
 import com.google.devtools.build.lib.analysis.AnalysisProtosV2.Target;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -25,8 +24,8 @@ public class KnownRuleConfiguredTargets extends BaseCache<RuleConfiguredTarget, 
   private final KnownRuleClassStrings knownRuleClassStrings;
 
   KnownRuleConfiguredTargets(
-      StreamedOutputHandler streamedOutputHandler, KnownRuleClassStrings knownRuleClassStrings) {
-    super(streamedOutputHandler);
+      AqueryOutputHandler aqueryOutputHandler, KnownRuleClassStrings knownRuleClassStrings) {
+    super(aqueryOutputHandler);
     this.knownRuleClassStrings = knownRuleClassStrings;
   }
 
@@ -43,9 +42,7 @@ public class KnownRuleConfiguredTargets extends BaseCache<RuleConfiguredTarget, 
   }
 
   @Override
-  void streamToOutput(Target targetProto) throws IOException {
-    ActionGraphComponent message =
-        ActionGraphComponent.newBuilder().setConfiguredTarget(targetProto).build();
-    streamedOutputHandler.printActionGraphComponent(message);
+  void toOutput(Target targetProto) throws IOException {
+    aqueryOutputHandler.outputTarget(targetProto);
   }
 }

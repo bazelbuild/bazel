@@ -34,29 +34,26 @@ import javax.annotation.Nullable;
 public interface JavaAnnotationProcessingApi<FileTypeT extends FileApi> extends StarlarkValue {
 
   @SkylarkCallable(
-    name = "enabled",
-    structField = true,
-    doc = "Returns true if the Java rule uses annotation processing."
-  )
-  public boolean usesAnnotationProcessing();
+      name = "enabled",
+      structField = true,
+      doc = "Returns true if the Java rule uses annotation processing.")
+  boolean usesAnnotationProcessing();
 
   @SkylarkCallable(
-    name = "class_jar",
-    structField = true,
-    allowReturnNones = true,
-    doc = "Returns a jar File that is a result of annotation processing for this rule."
-  )
+      name = "class_jar",
+      structField = true,
+      allowReturnNones = true,
+      doc = "Returns a jar File that is a result of annotation processing for this rule.")
   @Nullable
-  public FileTypeT getGenClassJar();
+  FileTypeT getGenClassJar();
 
   @SkylarkCallable(
-    name = "source_jar",
-    structField = true,
-    allowReturnNones = true,
-    doc = "Returns a source archive resulting from annotation processing of this rule."
-  )
+      name = "source_jar",
+      structField = true,
+      allowReturnNones = true,
+      doc = "Returns a source archive resulting from annotation processing of this rule.")
   @Nullable
-  public FileTypeT getGenSourceJar();
+  FileTypeT getGenSourceJar();
 
   @SkylarkCallable(
       name = "transitive_class_jars",
@@ -64,7 +61,7 @@ public interface JavaAnnotationProcessingApi<FileTypeT extends FileApi> extends 
       doc =
           "Returns a transitive set of class file jars resulting from annotation "
               + "processing of this rule and its dependencies.")
-  public Depset /*<FileTypeT>*/ getTransitiveGenClassJarsForStarlark();
+  Depset /*<FileTypeT>*/ getTransitiveGenClassJarsForStarlark();
 
   @SkylarkCallable(
       name = "transitive_source_jars",
@@ -72,19 +69,17 @@ public interface JavaAnnotationProcessingApi<FileTypeT extends FileApi> extends 
       doc =
           "Returns a transitive set of source archives resulting from annotation processing "
               + "of this rule and its dependencies.")
-  public Depset /*<FileTypeT>*/ getTransitiveGenSourceJarsForStarlark();
+  Depset /*<FileTypeT>*/ getTransitiveGenSourceJarsForStarlark();
 
   @SkylarkCallable(
       name = "processor_classpath",
       structField = true,
       doc = "Returns a classpath of annotation processors applied to this rule.")
-  public Depset /*<FileTypeT>*/ getProcessorClasspathForStarlark();
+  Depset /*<FileTypeT>*/ getProcessorClasspathForStarlark();
 
   @SkylarkCallable(
-    name = "processor_classnames",
-    structField = true,
-    doc =
-      "Returns class names of annotation processors applied to this rule."
-  )
-  public ImmutableList<String> getProcessorClassNames();
+      name = "processor_classnames",
+      structField = true,
+      doc = "Returns class names of annotation processors applied to this rule.")
+  ImmutableList<String> getProcessorClassNames();
 }

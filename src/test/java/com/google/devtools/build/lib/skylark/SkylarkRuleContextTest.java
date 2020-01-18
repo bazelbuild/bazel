@@ -2095,14 +2095,17 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
     Artifact helper1 =
         Iterables.getOnlyElement(
             Iterables.filter(
-                spawnAction1.getInputs(), a -> a.getFilename().equals("undertest.run_shell_0.sh")));
+                spawnAction1.getInputs().toList(),
+                a -> a.getFilename().equals("undertest.run_shell_0.sh")));
     assertThat(
-            Iterables.filter(spawnAction2.getInputs(), a -> a.getFilename().contains("run_shell_")))
+            Iterables.filter(
+                spawnAction2.getInputs().toList(), a -> a.getFilename().contains("run_shell_")))
         .isEmpty();
     Artifact helper3 =
         Iterables.getOnlyElement(
             Iterables.filter(
-                spawnAction3.getInputs(), a -> a.getFilename().equals("undertest.run_shell_2.sh")));
+                spawnAction3.getInputs().toList(),
+                a -> a.getFilename().equals("undertest.run_shell_2.sh")));
     assertThat(map).containsKey(helper1);
     assertThat(map).containsKey(helper3);
     Object action4Unchecked = map.get(helper1);
@@ -2515,5 +2518,169 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
     getConfiguredTarget("//test:my_non_build_setting");
     assertContainsEvent("attempting to access 'build_setting_value' of non-build setting "
         + "//test:my_non_build_setting");
+  }
+
+  private void createToolchains() throws Exception {
+    scratch.file(
+        "rule/test_toolchain.bzl",
+        "def _impl(ctx):",
+        "    value = ctx.attr.value",
+        "    toolchain = platform_common.ToolchainInfo(value = value)",
+        "    return [toolchain]",
+        "test_toolchain = rule(",
+        "    implementation = _impl,",
+        "    attrs = {'value': attr.string()},",
+        ")");
+    scratch.file(
+        "rule/test_rule.bzl",
+        "result = provider()",
+        "def _impl(ctx):",
+        "    toolchain = ctx.toolchains['//rule:toolchain_type']",
+        "    return [result(",
+        "        value_from_toolchain = toolchain.value,",
+        "    )]",
+        "test_rule = rule(",
+        "    implementation = _impl,",
+        "    toolchains = ['//rule:toolchain_type'],",
+        ")");
+    scratch.file(
+        "rule/BUILD",
+        "exports_files(['test_toolchain/bzl', 'test_rule.bzl'])",
+        "toolchain_type(name = 'toolchain_type')");
+    scratch.file(
+        "toolchain/BUILD",
+        "load('//rule:test_toolchain.bzl', 'test_toolchain')",
+        "test_toolchain(",
+        "    name = 'foo',",
+        "    value = 'foo',",
+        ")",
+        "toolchain(",
+        "    name = 'foo_toolchain',",
+        "    toolchain_type = '//rule:toolchain_type',",
+        "    target_compatible_with = ['//platform:constraint_1'],",
+        "    toolchain = ':foo',",
+        ")",
+        "test_toolchain(",
+        "    name = 'bar',",
+        "    value = 'bar',",
+        ")",
+        "toolchain(",
+        "    name = 'bar_toolchain',",
+        "    toolchain_type = '//rule:toolchain_type',",
+        "    target_compatible_with = ['//platform:constraint_2'],",
+        "    toolchain = ':bar',",
+        ")");
+  }
+
+  private void createPlatforms() throws Exception {
+    scratch.file(
+        "platform/BUILD",
+        "constraint_setting(name = 'setting')",
+        "constraint_value(",
+        "    name = 'constraint_1',",
+        "    constraint_setting = ':setting',",
+        ")",
+        "constraint_value(",
+        "    name = 'constraint_2',",
+        "    constraint_setting = ':setting',",
+        ")",
+        "platform(",
+        "    name = 'platform_1',",
+        "    constraint_values = [':constraint_1'],",
+        ")",
+        "platform(",
+        "    name = 'platform_2',",
+        "    constraint_values = [':constraint_2'],",
+        ")");
+  }
+
+  private String getToolchainResult(String targetName) throws Exception {
+    ConfiguredTarget myRuleTarget = getConfiguredTarget(targetName);
+    StructImpl info =
+        (StructImpl)
+            myRuleTarget.get(
+                new SkylarkKey(
+                    Label.parseAbsolute("//rule:test_rule.bzl", ImmutableMap.of()), "result"));
+
+    assertThat(info).isNotNull();
+    return (String) info.getValue("value_from_toolchain");
+  }
+
+  @Test
+  public void testToolchains() throws Exception {
+    createToolchains();
+    createPlatforms();
+    scratch.file(
+        "demo/BUILD",
+        "load('//rule:test_rule.bzl', 'test_rule')",
+        "test_rule(",
+        "    name = 'demo',",
+        ")");
+
+    useConfiguration(
+        "--extra_toolchains=//toolchain:foo_toolchain,//toolchain:bar_toolchain",
+        "--platforms=//platform:platform_1");
+    String value = getToolchainResult("//demo");
+    assertThat(value).isEqualTo("foo");
+
+    // Re-test with the other platform.
+    useConfiguration(
+        "--extra_toolchains=//toolchain:foo_toolchain,//toolchain:bar_toolchain",
+        "--platforms=//platform:platform_2");
+    value = getToolchainResult("//demo");
+    assertThat(value).isEqualTo("bar");
+  }
+
+  @Test
+  public void testTargetPlatformHasConstraint() throws Exception {
+    createPlatforms();
+
+    scratch.file(
+        "demo/test_rule.bzl",
+        "result = provider()",
+        "def _impl(ctx):",
+        "    constraint = ctx.attr._constraint[platform_common.ConstraintValueInfo]",
+        "    has_constraint = ctx.target_platform_has_constraint(constraint)",
+        "    return [result(",
+        "        has_constraint = has_constraint,",
+        "    )]",
+        "test_rule = rule(",
+        "    implementation = _impl,",
+        "    attrs = {",
+        "        '_constraint': attr.label(default = '//platform:constraint_1'),",
+        "    },",
+        ")");
+    scratch.file(
+        "demo/BUILD",
+        "load(':test_rule.bzl', 'test_rule')",
+        "test_rule(",
+        "    name = 'demo',",
+        ")");
+
+    useConfiguration("--platforms=//platform:platform_1");
+
+    ConfiguredTarget myRuleTarget = getConfiguredTarget("//demo");
+    StructImpl info =
+        (StructImpl)
+            myRuleTarget.get(
+                new SkylarkKey(
+                    Label.parseAbsolute("//demo:test_rule.bzl", ImmutableMap.of()), "result"));
+
+    assertThat(info).isNotNull();
+    boolean hasConstraint = (boolean) info.getValue("has_constraint");
+    assertThat(hasConstraint).isTrue();
+
+    // Re-test with the other platform.
+    useConfiguration("--platforms=//platform:platform_2");
+    myRuleTarget = getConfiguredTarget("//demo");
+    info =
+        (StructImpl)
+            myRuleTarget.get(
+                new SkylarkKey(
+                    Label.parseAbsolute("//demo:test_rule.bzl", ImmutableMap.of()), "result"));
+
+    assertThat(info).isNotNull();
+    hasConstraint = (boolean) info.getValue("has_constraint");
+    assertThat(hasConstraint).isFalse();
   }
 }

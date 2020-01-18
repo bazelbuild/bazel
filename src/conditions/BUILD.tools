@@ -5,6 +5,12 @@ config_setting(
 )
 
 config_setting(
+    name = "openbsd",
+    values = {"cpu": "openbsd"},
+    visibility = ["//visibility:public"],
+)
+
+config_setting(
     name = "darwin",
     values = {"cpu": "darwin"},
     visibility = ["//visibility:public"],

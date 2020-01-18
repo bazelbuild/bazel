@@ -74,11 +74,9 @@ import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.ValueOrException;
-import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.function.Supplier;
 import javax.annotation.Nullable;
 
 /**
@@ -111,22 +109,18 @@ public final class AspectFunction implements SkyFunction {
    */
   private final boolean storeTransitivePackagesForPackageRootResolution;
 
-  private final Supplier<BigInteger> nonceVersion;
-
   AspectFunction(
       BuildViewProvider buildViewProvider,
       RuleClassProvider ruleClassProvider,
       @Nullable SkylarkImportLookupFunction skylarkImportLookupFunctionForInlining,
       boolean storeTransitivePackagesForPackageRootResolution,
-      BuildOptions defaultBuildOptions,
-      Supplier<BigInteger> nonceVersion) {
+      BuildOptions defaultBuildOptions) {
     this.buildViewProvider = buildViewProvider;
     this.ruleClassProvider = ruleClassProvider;
     this.skylarkImportLookupFunctionForInlining = skylarkImportLookupFunctionForInlining;
     this.storeTransitivePackagesForPackageRootResolution =
         storeTransitivePackagesForPackageRootResolution;
     this.defaultBuildOptions = defaultBuildOptions;
-    this.nonceVersion = nonceVersion;
   }
 
   /**
@@ -616,8 +610,7 @@ public final class AspectFunction implements SkyFunction {
         originalTarget.getLabel(),
         originalTarget.getLocation(),
         ConfiguredAspect.forAlias(real.getConfiguredAspect()),
-        transitivePackagesForPackageRootResolution,
-        nonceVersion.get());
+        transitivePackagesForPackageRootResolution);
   }
 
   @Nullable
@@ -703,8 +696,7 @@ public final class AspectFunction implements SkyFunction {
         configuredAspect,
         transitivePackagesForPackageRootResolution == null
             ? null
-            : transitivePackagesForPackageRootResolution.build(),
-        nonceVersion.get());
+            : transitivePackagesForPackageRootResolution.build());
   }
 
   @Override

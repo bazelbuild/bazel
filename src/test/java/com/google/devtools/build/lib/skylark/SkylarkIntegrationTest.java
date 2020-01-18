@@ -165,7 +165,7 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
     AttributeContainer withMacro = getContainerForTarget("macro_target");
     assertThat(withMacro.getAttr("generator_name")).isEqualTo("macro_target");
     assertThat(withMacro.getAttr("generator_function")).isEqualTo("macro");
-    assertThat(withMacro.getAttr("generator_location")).isEqualTo("test/skylark/BUILD:3");
+    assertThat(withMacro.getAttr("generator_location")).isEqualTo("test/skylark/BUILD:3:1");
 
     // Attributes are only set when the rule was created by a macro
     AttributeContainer noMacro = getContainerForTarget("no_macro_target");
@@ -176,7 +176,7 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
     AttributeContainer nativeMacro = getContainerForTarget("native_macro_target_suffix");
     assertThat(nativeMacro.getAttr("generator_name")).isEqualTo("native_macro_target");
     assertThat(nativeMacro.getAttr("generator_function")).isEqualTo("native_macro");
-    assertThat(nativeMacro.getAttr("generator_location")).isEqualTo("test/skylark/BUILD:5");
+    assertThat(nativeMacro.getAttr("generator_location")).isEqualTo("test/skylark/BUILD:5:1");
 
     AttributeContainer ccTarget = getContainerForTarget("cc_target");
     assertThat(ccTarget.getAttr("generator_name")).isEqualTo("");
@@ -229,9 +229,10 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
             .getOutputGroup(OutputGroupInfo.HIDDEN_TOP_LEVEL);
     ConfiguredTarget myTarget = getConfiguredTarget("//test/skylark:my");
     Depset result = (Depset) getMyInfoFromTarget(myTarget).getValue("result");
-    assertThat(result.getSet(Artifact.class)).containsExactlyElementsIn(hiddenTopLevelArtifacts);
-    assertThat(OutputGroupInfo.get(myTarget).getOutputGroup("my_group"))
-        .containsExactlyElementsIn(hiddenTopLevelArtifacts);
+    assertThat(result.getSet(Artifact.class).toList())
+        .containsExactlyElementsIn(hiddenTopLevelArtifacts.toList());
+    assertThat(OutputGroupInfo.get(myTarget).getOutputGroup("my_group").toList())
+        .containsExactlyElementsIn(hiddenTopLevelArtifacts.toList());
   }
 
   @Test
@@ -255,9 +256,10 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
             .getOutputGroup(OutputGroupInfo.HIDDEN_TOP_LEVEL);
     ConfiguredTarget myTarget = getConfiguredTarget("//test/skylark:my");
     Depset result = (Depset) getMyInfoFromTarget(myTarget).getValue("result");
-    assertThat(result.getSet(Artifact.class)).containsExactlyElementsIn(hiddenTopLevelArtifacts);
-    assertThat(OutputGroupInfo.get(myTarget).getOutputGroup("my_group"))
-        .containsExactlyElementsIn(hiddenTopLevelArtifacts);
+    assertThat(result.getSet(Artifact.class).toList())
+        .containsExactlyElementsIn(hiddenTopLevelArtifacts.toList());
+    assertThat(OutputGroupInfo.get(myTarget).getOutputGroup("my_group").toList())
+        .containsExactlyElementsIn(hiddenTopLevelArtifacts.toList());
   }
 
 
@@ -289,9 +291,10 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
     ConfiguredTarget myTarget = getConfiguredTarget("//test/skylark:my");
     StructImpl myInfo = getMyInfoFromTarget(myTarget);
     Depset result = (Depset) myInfo.getValue("result");
-    assertThat(result.getSet(Artifact.class)).containsExactlyElementsIn(hiddenTopLevelArtifacts);
-    assertThat(OutputGroupInfo.get(myTarget).getOutputGroup("my_group"))
-        .containsExactlyElementsIn(hiddenTopLevelArtifacts);
+    assertThat(result.getSet(Artifact.class).toList())
+        .containsExactlyElementsIn(hiddenTopLevelArtifacts.toList());
+    assertThat(OutputGroupInfo.get(myTarget).getOutputGroup("my_group").toList())
+        .containsExactlyElementsIn(hiddenTopLevelArtifacts.toList());
     assertThat(myInfo.getValue("has_key1")).isEqualTo(Boolean.TRUE);
     assertThat(myInfo.getValue("has_key2")).isEqualTo(Boolean.FALSE);
     assertThat((Sequence) myInfo.getValue("all_keys"))
@@ -323,9 +326,10 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
             .getOutputGroup(OutputGroupInfo.HIDDEN_TOP_LEVEL);
     ConfiguredTarget myTarget = getConfiguredTarget("//test/skylark:my");
     Depset result = (Depset) getMyInfoFromTarget(myTarget).getValue("result");
-    assertThat(result.getSet(Artifact.class)).containsExactlyElementsIn(hiddenTopLevelArtifacts);
-    assertThat(OutputGroupInfo.get(myTarget).getOutputGroup("my_group"))
-        .containsExactlyElementsIn(hiddenTopLevelArtifacts);
+    assertThat(result.getSet(Artifact.class).toList())
+        .containsExactlyElementsIn(hiddenTopLevelArtifacts.toList());
+    assertThat(OutputGroupInfo.get(myTarget).getOutputGroup("my_group").toList())
+        .containsExactlyElementsIn(hiddenTopLevelArtifacts.toList());
   }
 
   @Test
@@ -352,11 +356,11 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
             .getOutputGroup(OutputGroupInfo.HIDDEN_TOP_LEVEL);
     ConfiguredTarget myTarget = getConfiguredTarget("//test/skylark:my");
     Depset result = (Depset) getMyInfoFromTarget(myTarget).getValue("result");
-    assertThat(result.getSet(Artifact.class)).containsExactlyElementsIn(hiddenTopLevelArtifacts);
-    assertThat(OutputGroupInfo.get(myTarget).getOutputGroup("my_group"))
-        .containsExactlyElementsIn(hiddenTopLevelArtifacts);
-    assertThat(OutputGroupInfo.get(myTarget).getOutputGroup("my_empty_group"))
-        .isEmpty();
+    assertThat(result.getSet(Artifact.class).toList())
+        .containsExactlyElementsIn(hiddenTopLevelArtifacts.toList());
+    assertThat(OutputGroupInfo.get(myTarget).getOutputGroup("my_group").toList())
+        .containsExactlyElementsIn(hiddenTopLevelArtifacts.toList());
+    assertThat(OutputGroupInfo.get(myTarget).getOutputGroup("my_empty_group").toList()).isEmpty();
   }
 
   @Test
@@ -381,11 +385,11 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
             .getOutputGroup(OutputGroupInfo.HIDDEN_TOP_LEVEL);
     ConfiguredTarget myTarget = getConfiguredTarget("//test/skylark:my");
     Depset result = (Depset) getMyInfoFromTarget(myTarget).getValue("result");
-    assertThat(result.getSet(Artifact.class)).containsExactlyElementsIn(hiddenTopLevelArtifacts);
-    assertThat(OutputGroupInfo.get(myTarget).getOutputGroup("my_group"))
-        .containsExactlyElementsIn(hiddenTopLevelArtifacts);
-    assertThat(OutputGroupInfo.get(myTarget).getOutputGroup("my_empty_group"))
-        .isEmpty();
+    assertThat(result.getSet(Artifact.class).toList())
+        .containsExactlyElementsIn(hiddenTopLevelArtifacts.toList());
+    assertThat(OutputGroupInfo.get(myTarget).getOutputGroup("my_group").toList())
+        .containsExactlyElementsIn(hiddenTopLevelArtifacts.toList());
+    assertThat(OutputGroupInfo.get(myTarget).getOutputGroup("my_empty_group").toList()).isEmpty();
   }
 
   @Test
@@ -394,15 +398,16 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
         "str",
         "\t\tstr.index(1)"
             + System.lineSeparator()
-            + "expected value of type 'string' for parameter 'sub', for call to method "
-            + "index(sub, start = 0, end = None) of 'string'");
+            + "in call to index(), parameter 'sub' got value of type 'int', want 'string'");
   }
 
   @Test
   public void testStackTraceMissingMethod() throws Exception {
     runStackTraceTest(
         "None",
-        "\t\tNone.index(1)" + System.lineSeparator() + "type 'NoneType' has no method index()");
+        "\t\tNone.index"
+            + System.lineSeparator()
+            + "'NoneType' value has no field or method 'index'");
   }
 
   protected void runStackTraceTest(String object, String errorMessage) throws Exception {
@@ -1459,7 +1464,7 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
         "empty(name = 'test_target')");
 
     getConfiguredTarget("//test/skylark:test_target");
-    assertContainsEvent("Recursion was detected when calling '_impl' from '_impl'");
+    assertContainsEvent("function '_impl' called recursively");
   }
 
   @Test
@@ -1988,7 +1993,7 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
     checkError(
         "test/skylark",
         "r",
-        "type 'Target' has no method output_group()",
+        "<target //test/skylark:lib> (rule 'cc_binary') doesn't have provider 'output_group'",
         "load('//test/skylark:extension.bzl',  'my_rule')",
         "cc_binary(name = 'lib', data = ['a.txt'])",
         "my_rule(name='r', dep = ':lib')");
@@ -3074,8 +3079,6 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
 
   @Test
   public void testUnhashableInDictForbidden() throws Exception {
-    setSkylarkSemanticsOptions("--incompatible_disallow_dict_lookup_unhashable_keys=true");
-
     scratch.file("test/extension.bzl", "y = [] in {}");
 
     scratch.file("test/BUILD", "load('//test:extension.bzl', 'y')", "cc_library(name = 'r')");
@@ -3087,8 +3090,6 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
 
   @Test
   public void testDictGetUnhashableForbidden() throws Exception {
-    setSkylarkSemanticsOptions("--incompatible_disallow_dict_lookup_unhashable_keys=true");
-
     scratch.file("test/extension.bzl", "y = {}.get({})");
 
     scratch.file("test/BUILD", "load('//test:extension.bzl', 'y')", "cc_library(name = 'r')");
@@ -3096,17 +3097,6 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
     reporter.removeHandler(failFastHandler);
     getConfiguredTarget("//test:r");
     assertContainsEvent("unhashable type: 'dict'");
-  }
-
-  @Test
-  public void testUnhashableLookupDict() throws Exception {
-    setSkylarkSemanticsOptions("--incompatible_disallow_dict_lookup_unhashable_keys=false");
-
-    scratch.file("test/extension.bzl", "y = [[] in {}, {}.get({})]");
-
-    scratch.file("test/BUILD", "load('//test:extension.bzl', 'y')", "cc_library(name = 'r')");
-
-    getConfiguredTarget("//test:r");
   }
 
   @Test
@@ -3362,9 +3352,9 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
     ObjcProvider providerFromFoo = (ObjcProvider) target.get("foo");
 
     // The modern key and the canonical legacy key "objc" are set to the one available ObjcProvider.
-    assertThat(providerFromModernKey.define()).containsExactly("foo");
-    assertThat(providerFromObjc.define()).containsExactly("foo");
-    assertThat(providerFromFoo.define()).containsExactly("foo");
+    assertThat(providerFromModernKey.define().toList()).containsExactly("foo");
+    assertThat(providerFromObjc.define().toList()).containsExactly("foo");
+    assertThat(providerFromFoo.define().toList()).containsExactly("foo");
   }
 
   @Test
@@ -3391,9 +3381,9 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
     ObjcProvider providerFromObjc = (ObjcProvider) target.get("objc");
     ObjcProvider providerFromBah = (ObjcProvider) target.get("bah");
 
-    assertThat(providerFromModernKey.define()).containsExactly("prov");
-    assertThat(providerFromObjc.define()).containsExactly("objc");
-    assertThat(providerFromBah.define()).containsExactly("bah");
+    assertThat(providerFromModernKey.define().toList()).containsExactly("prov");
+    assertThat(providerFromObjc.define().toList()).containsExactly("objc");
+    assertThat(providerFromBah.define().toList()).containsExactly("bah");
   }
 
   @Test
@@ -3421,10 +3411,10 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
     ObjcProvider providerFromFoo = (ObjcProvider) target.get("foo");
     ObjcProvider providerFromBar = (ObjcProvider) target.get("bar");
 
-    assertThat(providerFromModernKey.define()).containsExactly("prov");
+    assertThat(providerFromModernKey.define().toList()).containsExactly("prov");
     // The first defined provider is set to the legacy "objc" key.
-    assertThat(providerFromObjc.define()).containsExactly("foo");
-    assertThat(providerFromFoo.define()).containsExactly("foo");
-    assertThat(providerFromBar.define()).containsExactly("bar");
+    assertThat(providerFromObjc.define().toList()).containsExactly("foo");
+    assertThat(providerFromFoo.define().toList()).containsExactly("foo");
+    assertThat(providerFromBar.define().toList()).containsExactly("bar");
   }
 }

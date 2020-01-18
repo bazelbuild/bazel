@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.android;
 
-import com.google.devtools.build.android.AndroidResourceMerger.MergingException;
 import com.google.devtools.build.android.aapt2.Aapt2Exception;
 import com.google.devtools.build.android.resources.JavaIdentifierValidator.InvalidJavaIdentifier;
 import com.google.devtools.build.lib.worker.WorkerProtocol.WorkRequest;
@@ -28,9 +27,11 @@ import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
 import com.google.devtools.common.options.ShellQuotedParamsFilePreProcessor;
 import java.io.IOException;
+import java.io.InputStream;
 import java.nio.file.FileSystems;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Properties;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -44,7 +45,7 @@ import java.util.logging.Logger;
  * <pre>
  * Example Usage:
  *   java/com/google/devtools/build/android/ResourceProcessorBusyBox\
- *      --tool PACKAGE\
+ *      --tool AAPT2_PACKAGE\
  *      --sdkRoot path/to/sdk\
  *      --aapt path/to/sdk/aapt\
  *      --adb path/to/sdk/adb\
@@ -60,18 +61,6 @@ import java.util.logging.Logger;
  */
 public class ResourceProcessorBusyBox {
   static enum Tool {
-    PACKAGE() {
-      @Override
-      void call(String[] args) throws Exception {
-        AndroidResourceProcessingAction.main(args);
-      }
-    },
-    VALIDATE() {
-      @Override
-      void call(String[] args) throws Exception {
-        AndroidResourceValidatorAction.main(args);
-      }
-    },
     GENERATE_BINARY_R() {
       @Override
       void call(String[] args) throws Exception {
@@ -84,12 +73,6 @@ public class ResourceProcessorBusyBox {
         AndroidResourceParsingAction.main(args);
       }
     },
-    MERGE() {
-      @Override
-      void call(String[] args) throws Exception {
-        AndroidResourceMergingAction.main(args);
-      }
-    },
     MERGE_COMPILED() {
       @Override
       void call(String[] args) throws Exception {
@@ -100,12 +83,6 @@ public class ResourceProcessorBusyBox {
       @Override
       void call(String[] args) throws Exception {
         AarGeneratorAction.main(args);
-      }
-    },
-    SHRINK() {
-      @Override
-      void call(String[] args) throws Exception {
-        ResourceShrinkerAction.main(args);
       }
     },
     MERGE_MANIFEST() {
@@ -160,8 +137,8 @@ public class ResourceProcessorBusyBox {
     abstract void call(String[] args) throws Exception;
   }
 
-  public static final String PROPERTY_KEY_PREFIX = "rpbb.";
   private static final Logger logger = Logger.getLogger(ResourceProcessorBusyBox.class.getName());
+  private static final Properties properties = loadSiteCustomizations();
 
   /** Converter for the Tool enum. */
   public static final class ToolConverter extends EnumConverter<Tool> {
@@ -182,8 +159,8 @@ public class ResourceProcessorBusyBox {
         effectTags = {OptionEffectTag.UNKNOWN},
         help =
             "The processing tool to execute. "
-                + "Valid tools: PACKAGE, VALIDATE, GENERATE_BINARY_R, PARSE, "
-                + "MERGE, GENERATE_AAR, SHRINK, MERGE_MANIFEST, COMPILE_LIBRARY_RESOURCES, "
+                + "Valid tools: GENERATE_BINARY_R, PARSE, "
+                + "GENERATE_AAR, MERGE_MANIFEST, COMPILE_LIBRARY_RESOURCES, "
                 + "LINK_STATIC_LIBRARY, AAPT2_PACKAGE, SHRINK_AAPT2, MERGE_COMPILED.")
     public Tool tool;
   }
@@ -235,15 +212,16 @@ public class ResourceProcessorBusyBox {
       optionsParser.parse(args);
       options = optionsParser.getOptions(Options.class);
       options.tool.call(optionsParser.getResidue().toArray(new String[0]));
-    } catch (
-        OptionsParsingException
-        | MergingException
-        | IOException
-        | Aapt2Exception
-        | InvalidJavaIdentifier e) {
+    } catch (UserException e) {
+      // UserException is for exceptions that shouldn't have stack traces recorded, including
+      // AndroidDataMerger.MergeConflictException.
+      logger.log(Level.SEVERE, e.getMessage());
+      return 1;
+    } catch (OptionsParsingException | IOException | Aapt2Exception | InvalidJavaIdentifier e) {
       logSuppressed(e);
       throw e;
     } catch (Exception e) {
+      // TODO(jingwen): consider just removing this block.
       logger.log(Level.SEVERE, "Error during processing", e);
       throw e;
     }
@@ -252,5 +230,23 @@ public class ResourceProcessorBusyBox {
 
   private static void logSuppressed(Throwable e) {
     Arrays.stream(e.getSuppressed()).map(Throwable::getMessage).forEach(logger::severe);
+  }
+
+  /** Returns a flag from {@code rpbb.properties}. */
+  public static boolean getProperty(String name) {
+    return Boolean.parseBoolean(properties.getProperty(name, "false"));
+  }
+
+  private static Properties loadSiteCustomizations() {
+    Properties properties = new Properties();
+    try (InputStream propertiesInput =
+        ResourceProcessorBusyBox.class.getResourceAsStream("rpbb.properties")) {
+      if (propertiesInput != null) {
+        properties.load(propertiesInput);
+      }
+    } catch (IOException e) {
+      logger.log(Level.SEVERE, "Error loading site customizations", e);
+    }
+    return properties;
   }
 }

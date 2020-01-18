@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.rules.java;
 
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.rules.cpp.CcInfo;
@@ -24,16 +23,19 @@ import com.google.devtools.build.lib.syntax.EvalException;
 
 /** A target that provides C++ libraries to be linked into Java targets. */
 @Immutable
-public final class JavaCcLinkParamsProvider extends Info
-    implements JavaCcLinkParamsProviderApi<CcInfo> {
+public final class JavaCcLinkParamsProvider implements Info, JavaCcLinkParamsProviderApi<CcInfo> {
   public static final String PROVIDER_NAME = "JavaCcLinkParamsInfo";
   public static final Provider PROVIDER = new Provider();
 
   private final CcInfo ccInfo;
 
   public JavaCcLinkParamsProvider(CcInfo ccInfo) {
-    super(PROVIDER, Location.BUILTIN);
     this.ccInfo = CcInfo.builder().setCcLinkingContext(ccInfo.getCcLinkingContext()).build();
+  }
+
+  @Override
+  public Provider getProvider() {
+    return PROVIDER;
   }
 
   @Override

@@ -115,10 +115,10 @@ public final class ActionTemplateExpansionFunctionTest extends FoundationTestCas
     int i = 0;
     for (Action action : actions) {
       String childName = "child" + i;
-      assertThat(Artifact.toExecPaths(action.getInputs())).contains(
-          "out/inputTreeArtifact/" + childName);
-      assertThat(Artifact.toExecPaths(action.getOutputs())).containsExactly(
-          "out/outputTreeArtifact/" + childName);
+      assertThat(Artifact.asExecPaths(action.getInputs()))
+          .contains("out/inputTreeArtifact/" + childName);
+      assertThat(Artifact.asExecPaths(action.getOutputs()))
+          .containsExactly("out/outputTreeArtifact/" + childName);
       assertThat(Iterables.getOnlyElement(action.getOutputs()).getArtifactOwner()).isEqualTo(owner);
       ++i;
     }
@@ -213,8 +213,7 @@ public final class ActionTemplateExpansionFunctionTest extends FoundationTestCas
     return new NonRuleConfiguredTargetValue(
         Mockito.mock(ConfiguredTarget.class),
         Actions.GeneratingActions.fromSingleAction(actionTemplate, CTKEY),
-        NestedSetBuilder.<Package>stableOrder().build(),
-        /*nonceVersion=*/ null);
+        NestedSetBuilder.<Package>stableOrder().build());
   }
 
   private SpecialArtifact createTreeArtifact(String path) {

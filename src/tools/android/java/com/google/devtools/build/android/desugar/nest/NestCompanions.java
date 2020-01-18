@@ -19,6 +19,11 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.android.desugar.io.FileContentProvider;
+import com.google.devtools.build.android.desugar.langmodel.ClassMemberKey;
+import com.google.devtools.build.android.desugar.langmodel.ClassMemberRecord;
+import com.google.devtools.build.android.desugar.langmodel.LangModelHelper;
+import java.io.ByteArrayInputStream;
 import javax.annotation.Nullable;
 import org.objectweb.asm.ClassWriter;
 
@@ -62,14 +67,26 @@ public class NestCompanions {
    * com/google/a/b/Delta$Echo, it returns the class visitor of com/google/a/b/Delta$NestCC
    */
   @Nullable
-  ClassWriter getCompanionClassWriter(String classInternalName) {
-    return companionWriters.get(NestDesugarHelper.nestHost(classInternalName));
+  public ClassWriter getCompanionClassWriter(String classInternalName) {
+    return companionWriters.get(LangModelHelper.nestHost(classInternalName));
   }
 
   /** Gets all nest companion classes required to be generated. */
-  ImmutableList<String> getAllCompanionClasses() {
+  public ImmutableList<String> getAllCompanionClasses() {
     return companionWriters.keySet().stream()
-        .map(NestDesugarHelper::nestCompanion)
+        .map(LangModelHelper::nestCompanion)
+        .collect(toImmutableList());
+  }
+
+  /** Gets all nest companion files required to be generated. */
+  public ImmutableList<FileContentProvider<ByteArrayInputStream>> getCompanionFileProviders() {
+    return getAllCompanionClasses().stream()
+        .map(
+            companion ->
+                new FileContentProvider<>(
+                    companion + ".class",
+                    () ->
+                        new ByteArrayInputStream(getCompanionClassWriter(companion).toByteArray())))
         .collect(toImmutableList());
   }
 }

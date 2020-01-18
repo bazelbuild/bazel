@@ -33,7 +33,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Streams;
 import com.google.common.truth.Truth;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -246,7 +245,7 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
             "classes.dex.zip",
             "shard1.dex.zip",
             "shard1.jar.dex.zip");
-    Iterable<Artifact> shardInputs = getGeneratingAction(jarShard).getInputs();
+    NestedSet<Artifact> shardInputs = getGeneratingAction(jarShard).getInputs();
     assertThat(getFirstArtifactEndingWith(shardInputs, ".txt")).isNull();
   }
 
@@ -298,12 +297,12 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
     ConfiguredTarget app = getConfiguredTarget("//java/a:a");
 
     Artifact copiedLib = getOnlyElement(getNativeLibrariesInApk(app));
-    Artifact linkedLib = getOnlyElement(getGeneratingAction(copiedLib).getInputs());
+    Artifact linkedLib = getGeneratingAction(copiedLib).getInputs().getSingleton();
     CppLinkAction action = (CppLinkAction) getGeneratingAction(linkedLib);
 
     assertThat(action.getArguments()).containsAtLeast("-first_flag", "-second_flag");
 
-    Iterable<Artifact> linkInputs = action.getInputs();
+    NestedSet<Artifact> linkInputs = action.getInputs();
     assertThat(ActionsTestUtil.baseArtifactNames(linkInputs)).contains("cc_info.a");
   }
 
@@ -360,12 +359,12 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
     ConfiguredTarget app = getConfiguredTarget("//java/a:a");
 
     Artifact copiedLib = getOnlyElement(getNativeLibrariesInApk(app));
-    Artifact linkedLib = getOnlyElement(getGeneratingAction(copiedLib).getInputs());
+    Artifact linkedLib = getGeneratingAction(copiedLib).getInputs().getSingleton();
     CppLinkAction action = (CppLinkAction) getGeneratingAction(linkedLib);
 
     assertThat(action.getArguments()).containsAtLeast("-first_flag", "-second_flag");
 
-    Iterable<Artifact> linkInputs = action.getInputs();
+    NestedSet<Artifact> linkInputs = action.getInputs();
     assertThat(ActionsTestUtil.baseArtifactNames(linkInputs)).contains("cc_info.a");
   }
 
@@ -519,7 +518,7 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
 
     // 2. Make sure all APK outputs depend on the deploy Jar.
     int found = 0;
-    for (Artifact built : getFilesToBuild(binary)) {
+    for (Artifact built : getFilesToBuild(binary).toList()) {
       if (built.getExtension().equals("apk")) {
         // If this assertion breaks then APK artifacts have stopped depending on deploy jars.
         // If that's desired then we'll need to make sure dependency checking is done in another
@@ -734,8 +733,8 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
 
     ConfiguredTarget app = getConfiguredTarget("//java/android/app:app");
     Artifact copiedLib = getOnlyElement(getNativeLibrariesInApk(app));
-    Artifact linkedLib = getOnlyElement(getGeneratingAction(copiedLib).getInputs());
-    Iterable<Artifact> linkInputs = getGeneratingAction(linkedLib).getInputs();
+    Artifact linkedLib = getGeneratingAction(copiedLib).getInputs().getSingleton();
+    NestedSet<Artifact> linkInputs = getGeneratingAction(linkedLib).getInputs();
     assertThat(ActionsTestUtil.baseArtifactNames(linkInputs)).contains("jni.lds");
   }
 
@@ -1032,7 +1031,7 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
         (SpawnAction)
             actionsTestUtil().getActionForArtifactEndingWith(artifacts, "/hello_unsigned.apk");
     assertThat(
-            Streams.stream(unsignedApkAction.getInputs())
+            unsignedApkAction.getInputs().toList().stream()
                 .map(Artifact::getFilename)
                 .anyMatch(filename -> Ascii.toLowerCase(filename).contains("singlejar")))
         .isTrue();
@@ -1041,7 +1040,7 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
             actionsTestUtil()
                 .getActionForArtifactEndingWith(artifacts, "compressed_hello_unsigned.apk");
     assertThat(
-            Streams.stream(compressedUnsignedApkAction.getInputs())
+            compressedUnsignedApkAction.getInputs().toList().stream()
                 .map(Artifact::getFilename)
                 .anyMatch(filename -> Ascii.toLowerCase(filename).contains("singlejar")))
         .isTrue();
@@ -1706,7 +1705,7 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
    *     within the given directory, relative to that directory.
    */
   private List<String> resourceInputPaths(String dir, ValidatedAndroidResources resource) {
-    return pathsToArtifacts(dir, resourceGeneratingAction(resource).getInputs());
+    return pathsToArtifacts(dir, resourceGeneratingAction(resource).getInputs().toList());
   }
 
   /**
@@ -1874,7 +1873,7 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
 
     AndroidResourcesInfo resourcesInfo =
         binary.getConfiguredTarget().get(AndroidResourcesInfo.PROVIDER);
-    assertThat(resourcesInfo.getTransitiveAndroidResources()).hasSize(2);
+    assertThat(resourcesInfo.getTransitiveAndroidResources().toList()).hasSize(2);
     ValidatedAndroidResources firstDep =
         resourcesInfo.getTransitiveAndroidResources().toList().get(0);
     ValidatedAndroidResources secondDep =
@@ -1938,7 +1937,7 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
         libResources.getAapt2ValidationArtifact().getExecPathString()
             + ","
             + libResources.getManifest().getExecPathString());
-    assertThat(topLevelResourceClassAction.getInputs())
+    assertThat(topLevelResourceClassAction.getInputs().toList())
         .contains(libResources.getAapt2ValidationArtifact());
   }
 
@@ -2173,7 +2172,7 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
         getGeneratingAction(getFirstArtifactEndingWith(apkAction.getInputs(), "classes.dex.zip"));
     Iterable<Artifact> dexShards =
         Iterables.filter(
-            mergeAction.getInputs(), ActionsTestUtil.getArtifactSuffixMatcher(".dex.zip"));
+            mergeAction.getInputs().toList(), ActionsTestUtil.getArtifactSuffixMatcher(".dex.zip"));
     assertThat(ActionsTestUtil.baseArtifactNames(dexShards))
         .containsExactly("shard1.dex.zip", "shard2.dex.zip");
   }
@@ -2981,7 +2980,7 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
 
     Artifact artifact = artifactByPath(getFilesToBuild(ct), "_proguard.jar");
     Action generatingAction = getGeneratingAction(artifact);
-    assertThat(Artifact.toExecPaths(generatingAction.getInputs()))
+    assertThat(Artifact.asExecPaths(generatingAction.getInputs()))
         .contains("java/com/google/android/proguard.map");
     // Cannot use assertThat().containsAllOf().inOrder() as that does not assert that the elements
     // are consecutive.
@@ -3023,7 +3022,7 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
 
     Artifact artifact = artifactByPath(getFilesToBuild(ct), "_proguard.jar");
     Action generatingAction = getGeneratingAction(artifact);
-    assertThat(Artifact.toExecPaths(generatingAction.getInputs()))
+    assertThat(Artifact.asExecPaths(generatingAction.getInputs()))
         .contains("java/com/google/android/dictionary.txt");
     // Cannot use assertThat().containsAllOf().inOrder() as that does not assert that the elements
     // are consecutive.
@@ -3547,11 +3546,11 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
             "--tool",
             "AAPT2_PACKAGE");
 
-    assertThat(apkAction.getInputs())
+    assertThat(apkAction.getInputs().toList())
         .contains(getImplicitOutputArtifact(b, AndroidRuleClasses.ANDROID_COMPILED_SYMBOLS));
 
     SpawnAction classAction = getGeneratingSpawnAction(classJar);
-    assertThat(classAction.getInputs())
+    assertThat(classAction.getInputs().toList())
         .containsAtLeast(
             getImplicitOutputArtifact(a, AndroidRuleClasses.ANDROID_R_TXT),
             getImplicitOutputArtifact(b, AndroidRuleClasses.ANDROID_R_TXT));
@@ -4579,7 +4578,8 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
     // Assert that the injected resource apk is the only resource apk being merged into the final
     // apk.
     Action singleJarAction = getGeneratingAction(getFinalUnsignedApk(app));
-    List<Artifact> resourceApks = getArtifactsEndingWith(singleJarAction.getInputs(), ".ap_");
+    List<Artifact> resourceApks =
+        getArtifactsEndingWith(singleJarAction.getInputs().toList(), ".ap_");
     assertThat(resourceApks).hasSize(1);
     assertThat(resourceApks.get(0).getExecPathString())
         .endsWith("java/com/app/application_resources/injected_resource.ap_");

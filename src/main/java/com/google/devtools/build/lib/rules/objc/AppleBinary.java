@@ -302,7 +302,7 @@ public class AppleBinary implements RuleConfiguredTargetFactory {
     return new ExtraLinkArgs(extraLinkArgs.build());
   }
 
-  private static Iterable<TransitiveInfoCollection> getDylibProviderTargets(
+  private static ImmutableList<TransitiveInfoCollection> getDylibProviderTargets(
       RuleContext ruleContext) {
     return ImmutableList.<TransitiveInfoCollection>builder()
         .addAll(ruleContext.getPrerequisites(DYLIBS_ATTR_NAME, Mode.TARGET))

@@ -123,25 +123,37 @@ public class TestSummaryTest {
     terminalPrinter.print(find(expectedString));
   }
 
-  private void assertShouldNotPrint(BlazeTestStatus status) throws Exception {
+  private void assertShouldNotPrint(BlazeTestStatus status, boolean verboseSummary) {
     AnsiTerminalPrinter terminalPrinter = Mockito.mock(AnsiTerminalPrinter.class);
     TestSummaryPrinter.print(
         createTestSummary(stubTarget, status, NOT_CACHED),
         terminalPrinter,
         Path::getPathString,
-        true,
+        verboseSummary,
         false);
     verify(terminalPrinter, never()).print(anyString());
   }
 
   @Test
-  public void testShouldNotPrintFailedToBuildStatus() throws Exception {
-    assertShouldNotPrint(BlazeTestStatus.FAILED_TO_BUILD);
+  public void testShouldPrintFailedToBuildStatus() {
+    String expectedString = ANY_STRING + "INFO" + ANY_STRING + BlazeTestStatus.FAILED_TO_BUILD;
+    AnsiTerminalPrinter terminalPrinter = Mockito.mock(AnsiTerminalPrinter.class);
+
+    TestSummary summary = createTestSummary(BlazeTestStatus.FAILED_TO_BUILD, NOT_CACHED);
+
+    TestSummaryPrinter.print(summary, terminalPrinter, Path::getPathString, true, false);
+
+    terminalPrinter.print(find(expectedString));
   }
 
   @Test
-  public void testShouldNotPrintHaltedStatus() throws Exception {
-    assertShouldNotPrint(BlazeTestStatus.BLAZE_HALTED_BEFORE_TESTING);
+  public void testShouldNotPrintFailedToBuildStatus() {
+    assertShouldNotPrint(BlazeTestStatus.FAILED_TO_BUILD, false);
+  }
+
+  @Test
+  public void testShouldNotPrintHaltedStatus() {
+    assertShouldNotPrint(BlazeTestStatus.BLAZE_HALTED_BEFORE_TESTING, true);
   }
 
   @Test
@@ -441,10 +453,8 @@ public class TestSummaryTest {
         .addChild(newDetail("cherry", TestCase.Status.ERROR, 1000L))
         .build();
 
-    TestSummary summary = getTemplateBuilder()
-        .collectFailedTests(rootCase)
-        .setStatus(BlazeTestStatus.FAILED)
-        .build();
+    TestSummary summary =
+        getTemplateBuilder().collectTestCases(rootCase).setStatus(BlazeTestStatus.FAILED).build();
 
     AnsiTerminalPrinter printer = Mockito.mock(AnsiTerminalPrinter.class);
     TestSummaryPrinter.print(summary, printer, Path::getPathString, true, true);
@@ -465,12 +475,18 @@ public class TestSummaryTest {
             .build();
 
     TestSummary summary =
-        getTemplateBuilder()
-            .countTotalTestCases(rootCase)
-            .setStatus(BlazeTestStatus.FAILED)
-            .build();
+        getTemplateBuilder().collectTestCases(rootCase).setStatus(BlazeTestStatus.FAILED).build();
 
     assertThat(summary.getTotalTestCases()).isEqualTo(3);
+  }
+
+  @Test
+  public void countUnknownTestCases() throws Exception {
+    TestSummary summary =
+        getTemplateBuilder().collectTestCases(null).setStatus(BlazeTestStatus.FAILED).build();
+
+    assertThat(summary.getTotalTestCases()).isEqualTo(1);
+    assertThat(summary.getUnkownTestCases()).isEqualTo(1);
   }
 
   @Test
@@ -496,10 +512,7 @@ public class TestSummaryTest {
         TestCase.newBuilder().setName("tests").addChild(aCase).addChild(anotherCase).build();
 
     TestSummary summary =
-        getTemplateBuilder()
-            .countTotalTestCases(rootCase)
-            .setStatus(BlazeTestStatus.FAILED)
-            .build();
+        getTemplateBuilder().collectTestCases(rootCase).setStatus(BlazeTestStatus.FAILED).build();
 
     assertThat(summary.getTotalTestCases()).isEqualTo(6);
   }

@@ -666,10 +666,6 @@ public final class Attribute implements Comparable<Attribute> {
       return defaultValue(defaultValue, null, null);
     }
 
-    public boolean isValueSet() {
-      return valueSet;
-    }
-
     /**
      * Sets the attribute default value to a computed default value - use this when the default
      * value is a function of other attributes of the Rule. The type of the computed default value
@@ -1480,7 +1476,9 @@ public final class Attribute implements Comparable<Attribute> {
         if (!attr.hasComputedDefault()) {
           Object value = rule.get(attrName, attr.getType());
           if (!EvalUtils.isNullOrNone(value)) {
-            attrValues.put(attr.getName(), value);
+            // Some attribute values are not valid Starlark values:
+            // visibility is an ImmutableList, for example.
+            attrValues.put(attr.getName(), Starlark.fromJava(value, /*mutability=*/ null));
           }
         }
       }
@@ -2159,16 +2157,6 @@ public final class Attribute implements Comparable<Attribute> {
    */
   public Predicate<RuleClass> getAllowedRuleClassesPredicate() {
     return allowedRuleClassesForLabels.asPredicateOfRuleClass();
-  }
-
-  /**
-   * Returns a predicate that evaluates to true for rule classes that are allowed labels in this
-   * attribute. If this is not a label or label-list attribute, the returned predicate always
-   * evaluates to true.
-   */
-  // TODO(b/69917891): Remove these methods once checkbuilddeps no longer depends on them.
-  public Predicate<String> getAllowedRuleClassNamesPredicate() {
-    return allowedRuleClassesForLabels.asPredicateOfRuleClassName();
   }
 
   /**

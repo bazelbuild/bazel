@@ -649,6 +649,18 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
    * Returns the value of the libc top-level directory (--grte_top) as specified on the command line
    */
   public Label getTargetLibcTopLabel() {
+    if (!isToolConfigurationDoNotUseWillBeRemovedFor129045294()) {
+      // This isn't for a platform-enabled C++ toolchain (legacy C++ toolchains evaluate in the
+      // target configuration while platform-enabled toolchains evaluate in the host/exec
+      // configuration). targetLibcTopLabel is only intended for platform-enabled toolchains and can
+      // cause errors otherwise.
+      //
+      // For example: if a legacy-configured toolchain inherits a --grte_top pointing to an Android
+      // runtime alias that select()s on a target Android CPU and an iOS dep changes the CPU to an
+      // iOS CPU, the alias resolution fails. Legacy toolchains should read --grte_top through
+      // libcTopLabel (which changes along with the iOS CPU change), not this.
+      return null;
+    }
     return cppOptions.targetLibcTopLabel;
   }
 

@@ -93,7 +93,7 @@ public class BuildOutputFormatter extends AbstractUnorderedFormatter {
     /** Outputs a given rule in BUILD-style syntax. */
     private void outputRule(Rule rule, AttributeReader attrReader, Writer writer)
         throws IOException {
-      writer.append("# ").append(rule.getLocation().print()).append(lineTerm);
+      writer.append("# ").append(rule.getLocation().toString()).append(lineTerm);
       writer.append(rule.getRuleClass()).append("(").append(lineTerm);
       writer.append("  name = \"").append(rule.getName()).append("\",").append(lineTerm);
 

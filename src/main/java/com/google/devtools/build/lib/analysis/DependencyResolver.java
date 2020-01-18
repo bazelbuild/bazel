@@ -213,7 +213,7 @@ public abstract class DependencyResolver {
             rootCauses,
             trimmingTransitionFactory);
     if (!rootCauses.isEmpty()) {
-      throw new IllegalStateException(rootCauses.build().iterator().next().toString());
+      throw new IllegalStateException(rootCauses.build().toList().iterator().next().toString());
     }
     return outgoingEdges;
   }

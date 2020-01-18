@@ -41,6 +41,8 @@ import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.NullEventHandler;
 import com.google.devtools.build.lib.packages.WorkspaceFileValue;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
@@ -414,12 +416,14 @@ public class FilesystemValueCheckerTest {
             actionKey1,
                 actionValue(
                     new TestAction(
-                        Runnables.doNothing(), ImmutableSet.<Artifact>of(), ImmutableSet.of(out1))),
+                        Runnables.doNothing(),
+                        NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+                        ImmutableSet.of(out1))),
             actionKey2,
                 actionValue(
                     new TestAction(
                         Runnables.doNothing(),
-                        ImmutableSet.<Artifact>of(),
+                        NestedSetBuilder.emptySet(Order.STABLE_ORDER),
                         ImmutableSet.of(out2)))));
     assertThat(driver.evaluate(ImmutableList.<SkyKey>of(), evaluationContext).hasError()).isFalse();
     assertThat(

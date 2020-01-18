@@ -194,7 +194,7 @@ public interface CommandLineArgsApi extends StarlarkValue {
                     + "of <code>add_all</code> or <code>add_joined</code> instead.")
       },
       useLocation = true)
-  public CommandLineArgsApi addArgument(
+  CommandLineArgsApi addArgument(
       Object argNameOrValue,
       Object value,
       Object format,
@@ -350,7 +350,7 @@ public interface CommandLineArgsApi extends StarlarkValue {
                     + "its items are filtered)."),
       },
       useLocation = true)
-  public CommandLineArgsApi addAll(
+  CommandLineArgsApi addAll(
       Object argNameOrValue,
       Object values,
       Object mapEach,
@@ -466,7 +466,7 @@ public interface CommandLineArgsApi extends StarlarkValue {
             doc = "Same as for <a href='#add_all.expand_directories'><code>add_all</code></a>.")
       },
       useLocation = true)
-  public CommandLineArgsApi addJoined(
+  CommandLineArgsApi addJoined(
       Object argNameOrValue,
       Object values,
       String joinWith,
@@ -509,8 +509,7 @@ public interface CommandLineArgsApi extends StarlarkValue {
                     + "bazel will decide whether the arguments need to be spilled "
                     + "based on your system and arg length.")
       })
-  public CommandLineArgsApi useParamsFile(String paramFileArg, Boolean useAlways)
-      throws EvalException;
+  CommandLineArgsApi useParamsFile(String paramFileArg, Boolean useAlways) throws EvalException;
 
   @SkylarkCallable(
       name = "set_param_file_format",
@@ -528,5 +527,5 @@ public interface CommandLineArgsApi extends StarlarkValue {
                     + "characters</li></ul>"
                     + "<p>The format defaults to \"shell\" if not called.")
       })
-  public CommandLineArgsApi setParamFileFormat(String format) throws EvalException;
+  CommandLineArgsApi setParamFileFormat(String format) throws EvalException;
 }

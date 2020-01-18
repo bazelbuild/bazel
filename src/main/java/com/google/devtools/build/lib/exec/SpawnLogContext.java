@@ -19,7 +19,6 @@ import com.google.common.hash.HashCode;
 import com.google.devtools.build.lib.actions.ActionContext;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ExecException;
-import com.google.devtools.build.lib.actions.ExecutionStrategy;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.MetadataProvider;
 import com.google.devtools.build.lib.actions.Spawn;
@@ -56,10 +55,6 @@ import javax.annotation.Nullable;
 /**
  * A logging utility for spawns.
  */
-@ExecutionStrategy(
-    name = {"spawn-log"},
-    contextType = SpawnLogContext.class
-)
 public class SpawnLogContext implements ActionContext {
 
   private static final Logger logger = Logger.getLogger(SpawnLogContext.class.getName());

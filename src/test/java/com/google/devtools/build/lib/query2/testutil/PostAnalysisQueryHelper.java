@@ -40,6 +40,7 @@ import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.WalkableGraph;
 import java.io.IOException;
 import java.lang.annotation.Annotation;
@@ -179,7 +180,7 @@ public abstract class PostAnalysisQueryHelper<T> extends AbstractQueryHelper<T> 
   }
 
   public PostAnalysisQueryEnvironment<T> getPostAnalysisQueryEnvironment(
-      Collection<String> universe) throws QueryException {
+      Collection<String> universe) throws QueryException, InterruptedException {
     if (universe.equals(Collections.singletonList(PostAnalysisQueryTest.DEFAULT_UNIVERSE))) {
       throw new QueryException(
           "Tests must set universe scope by either having parsable labels in each query expression "
@@ -195,11 +196,26 @@ public abstract class PostAnalysisQueryHelper<T> extends AbstractQueryHelper<T> 
         SkyframeExecutorWrappingWalkableGraph.of(analysisHelper.getSkyframeExecutor());
 
     return getPostAnalysisQueryEnvironment(
-        walkableGraph, new TopLevelConfigurations(analysisResult.getTopLevelTargetsWithConfigs()));
+        walkableGraph,
+        new TopLevelConfigurations(analysisResult.getTopLevelTargetsWithConfigs()),
+        analysisHelper.getSkyframeExecutor().getTransitiveConfigurationKeys());
   }
 
+  /**
+   * Returns a {@link PostAnalysisQueryEnvironment} suitable for tests.
+   *
+   * @param walkableGraph the Skyframe graph containing all configured targets that queries can
+   *     search over
+   * @param topLevelConfigurations the configurations used to build the top-level targets in a
+   *     query's universe scope
+   * @param transitiveConfigurationKeys all configurations available in the build graph (including
+   *     those produced by configuration transitions in the top-level targets' transitive deps)
+   */
   protected abstract PostAnalysisQueryEnvironment<T> getPostAnalysisQueryEnvironment(
-      WalkableGraph walkableGraph, TopLevelConfigurations topLevelConfigurations);
+      WalkableGraph walkableGraph,
+      TopLevelConfigurations topLevelConfigurations,
+      Collection<SkyKey> transitiveConfigurationKeys)
+      throws InterruptedException;
 
   @Override
   public ResultAndTargets<T> evaluateQuery(String query)

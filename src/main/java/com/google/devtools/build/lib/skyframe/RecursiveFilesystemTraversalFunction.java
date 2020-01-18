@@ -580,14 +580,14 @@ public final class RecursiveFilesystemTraversalFunction implements SkyFunction {
   }
 
   private static HasDigest hashDirectorySymlink(
-      Iterable<ResolvedFile> children, HasDigest metadata) {
+      NestedSet<ResolvedFile> children, HasDigest metadata) {
     // If the root is a directory symlink, the associated FileStateValue does not change when the
     // linked directory's contents change, so we can't use the FileStateValue as metadata like we
     // do with other ResolvedFile kinds. Instead we compute a metadata hash from the child
     // elements and return that as the ResolvedFile's metadata hash.
     Fingerprint fp = new Fingerprint();
     fp.addBytes(metadata.getDigest());
-    for (ResolvedFile file : children) {
+    for (ResolvedFile file : children.toList()) {
       fp.addPath(file.getNameInSymlinkTree());
       fp.addBytes(file.getMetadata().getDigest());
     }

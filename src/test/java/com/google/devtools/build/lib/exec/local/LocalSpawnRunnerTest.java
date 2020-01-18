@@ -29,6 +29,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.io.ByteStreams;
 import com.google.common.io.Files;
+import com.google.devtools.build.lib.actions.ActionContext;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.actions.CommandLines.ParamFileActionInput;
@@ -276,6 +277,14 @@ public class LocalSpawnRunnerTest {
     public MetadataInjector getMetadataInjector() {
       throw new UnsupportedOperationException();
     }
+
+    @Override
+    public void checkForLostInputs() {}
+
+    @Override
+    public <T extends ActionContext> T getContext(Class<T> identifyingType) {
+      throw new UnsupportedOperationException();
+    }
   }
 
   private final MetadataProvider mockFileCache = mock(MetadataProvider.class);
@@ -283,9 +292,9 @@ public class LocalSpawnRunnerTest {
 
   private Logger logger;
 
-  private static Map<String, String> keepLocalEnvUnchanged(
+  private static ImmutableMap<String, String> keepLocalEnvUnchanged(
       Map<String, String> env, BinTools binTools, String fallbackTmpDir) {
-    return env;
+    return ImmutableMap.copyOf(env);
   }
 
   @Before

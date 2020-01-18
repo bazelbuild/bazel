@@ -14,8 +14,8 @@
 package com.google.devtools.build.lib.skylarkbuildapi.android;
 
 import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
-import com.google.devtools.build.lib.skylarkbuildapi.ProviderApi;
-import com.google.devtools.build.lib.skylarkbuildapi.StructApi;
+import com.google.devtools.build.lib.skylarkbuildapi.core.ProviderApi;
+import com.google.devtools.build.lib.skylarkbuildapi.core.StructApi;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkConstructor;
@@ -47,7 +47,7 @@ public interface ProguardMappingProviderApi<FileT extends FileApi> extends Struc
           "Do not use this module. It is intended for migration purposes only. If you depend on "
               + "it, you will be broken when it is removed.",
       documented = false)
-  public interface Provider<FileT extends FileApi> extends ProviderApi {
+  interface Provider<FileT extends FileApi> extends ProviderApi {
 
     @SkylarkCallable(
         name = NAME,
@@ -63,6 +63,6 @@ public interface ProguardMappingProviderApi<FileT extends FileApi> extends Struc
         },
         selfCall = true)
     @SkylarkConstructor(objectType = ProguardMappingProviderApi.class, receiverNameForDoc = NAME)
-    public ProguardMappingProviderApi<FileT> createInfo(FileT proguardMapping) throws EvalException;
+    ProguardMappingProviderApi<FileT> createInfo(FileT proguardMapping) throws EvalException;
   }
 }

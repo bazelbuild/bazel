@@ -93,7 +93,8 @@ public class ApkInfo extends NativeInfo implements ApkInfoApi<Artifact> {
     }
 
     @Override
-    public ApkInfoApi<?> createInfo(Dict<?, ?> kwargs, Location loc) throws EvalException {
+    public ApkInfoApi<?> createInfo(Dict<String, Object> kwargs, Location loc)
+        throws EvalException {
       return throwUnsupportedConstructorException(loc);
     }
   }

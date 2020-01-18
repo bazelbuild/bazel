@@ -14,13 +14,14 @@
 
 package com.google.devtools.build.lib.skylarkbuildapi.apple;
 
-import com.google.devtools.build.lib.skylarkbuildapi.ProviderApi;
-import com.google.devtools.build.lib.skylarkbuildapi.StructApi;
+import com.google.devtools.build.lib.skylarkbuildapi.core.ProviderApi;
+import com.google.devtools.build.lib.skylarkbuildapi.core.StructApi;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkConstructor;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
 
 /**
@@ -42,7 +43,7 @@ public interface XcodeConfigInfoApi<
           "Returns the Xcode version that is being used to build.<p>"
               + "This will return <code>None</code> if no Xcode versions are available.",
       allowReturnNones = true)
-  public DottedVersionApi<?> getXcodeVersion();
+  DottedVersionApi<?> getXcodeVersion();
 
   @SkylarkCallable(
       name = "minimum_os_for_platform_type",
@@ -57,7 +58,7 @@ public interface XcodeConfigInfoApi<
             type = ApplePlatformTypeApi.class,
             doc = "The apple platform type."),
       })
-  public DottedVersionApi<?> getMinimumOsForPlatformType(ApplePlatformTypeApiT platformType);
+  DottedVersionApi<?> getMinimumOsForPlatformType(ApplePlatformTypeApiT platformType);
 
   @SkylarkCallable(
       name = "sdk_version_for_platform",
@@ -72,7 +73,21 @@ public interface XcodeConfigInfoApi<
             type = ApplePlatformApi.class,
             doc = "The apple platform."),
       })
-  public DottedVersionApi<?> getSdkVersionForPlatform(ApplePlatformApiT platform);
+  DottedVersionApi<?> getSdkVersionForPlatform(ApplePlatformApiT platform);
+
+  @SkylarkCallable(
+      name = "availability",
+      doc =
+          "Returns the availability of this Xcode version, 'remote' if the version is only"
+              + " available remotely, 'local' if the version is only available locally, 'both' if"
+              + " the version is available both locally and remotely, or 'unknown' if the"
+              + " availability could not be determined.")
+  public String getAvailabilityString();
+
+  @SkylarkCallable(
+      name = "execution_info",
+      doc = "Returns the execution requirements for actions that use this Xcode config.")
+  public Dict<String, String> getExecutionRequirementsDict();
 
   /** An interface for the provider of {@link XcodeConfigInfoApi}. */
   @SkylarkModule(
@@ -80,7 +95,7 @@ public interface XcodeConfigInfoApi<
       category = SkylarkModuleCategory.PROVIDER,
       documented = false,
       doc = "")
-  public interface XcodeConfigProviderApi extends ProviderApi {
+  interface XcodeConfigProviderApi extends ProviderApi {
 
     @SkylarkCallable(
         name = "XcodeVersionConfig",
@@ -136,7 +151,7 @@ public interface XcodeConfigInfoApi<
     @SkylarkConstructor(
         objectType = XcodeConfigInfoApi.class,
         receiverNameForDoc = "XcodeConfigInfo")
-    public XcodeConfigInfoApi<?, ?> xcodeConfigInfo(
+    XcodeConfigInfoApi<?, ?> xcodeConfigInfo(
         String iosSdkVersion,
         String iosMinimumOsVersion,
         String watchosSdkVersion,

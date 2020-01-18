@@ -25,20 +25,18 @@ import javax.annotation.Nullable;
 public interface FilesToRunProviderApi<FileT extends FileApi> extends StarlarkValue {
 
   @SkylarkCallable(
-    name = "executable",
-    doc = "The main executable or None if it does not exist.",
-    structField = true,
-    allowReturnNones = true
-  )
+      name = "executable",
+      doc = "The main executable or None if it does not exist.",
+      structField = true,
+      allowReturnNones = true)
   @Nullable
-  public FileT getExecutable();
+  FileT getExecutable();
 
   @SkylarkCallable(
-    name = "runfiles_manifest",
-    doc = "The runfiles manifest or None if it does not exist.",
-    structField = true,
-    allowReturnNones = true
-  )
+      name = "runfiles_manifest",
+      doc = "The runfiles manifest or None if it does not exist.",
+      structField = true,
+      allowReturnNones = true)
   @Nullable
-  public FileT getRunfilesManifest();
+  FileT getRunfilesManifest();
 }

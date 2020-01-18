@@ -96,9 +96,13 @@ final class TestResultAggregator {
         ConfiguredTargetKey.of(testOwner.getLabel(), result.getTestAction().getConfiguration());
     Preconditions.checkArgument(targetLabel.equals(asKey(testTarget)));
 
-    Preconditions.checkState(
-        statusMap.put(result.getTestStatusArtifact(), result) == null,
-        "Duplicate result reported for an individual test shard");
+    TestResult previousResult = statusMap.put(result.getTestStatusArtifact(), result);
+    if (previousResult != null) {
+      throw new IllegalStateException(
+          String.format(
+              "Duplicate result reported for an individual test shard %s.\nNew: %s\nPrevious: %s",
+              result.getTestStatusArtifact(), result.getData(), previousResult.getData()));
+    }
 
     // If a test result was cached, then post the cached attempts to the event bus.
     if (result.isCached()) {
@@ -278,8 +282,7 @@ final class TestResultAggregator {
         .mergeTiming(
             result.getData().getStartTimeMillisEpoch(), result.getData().getRunDurationMillis())
         .addWarnings(result.getData().getWarningList())
-        .collectFailedTests(result.getData().getTestCase())
-        .countTotalTestCases(result.getData().getTestCase())
+        .collectTestCases(result.getData().hasTestCase() ? result.getData().getTestCase() : null)
         .setRanRemotely(result.getData().getIsRemoteStrategy());
 
     List<String> warnings = new ArrayList<>();

@@ -48,7 +48,6 @@ import com.google.devtools.build.lib.skyframe.AspectValue;
 import com.google.devtools.build.lib.syntax.Depset;
 import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
-import java.util.Arrays;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -427,11 +426,11 @@ public class SkylarkDefinedAspectsTest extends AnalysisTestCase {
 
     assertThat(outputGroupInfo).isNotNull();
     NestedSet<Artifact> names = outputGroupInfo.getOutputGroup("my_result");
-    assertThat(names).isNotEmpty();
+    assertThat(names.toList()).isNotEmpty();
     NestedSet<Artifact> expectedSet =
         OutputGroupInfo.get(getConfiguredTarget("//test:xxx"))
             .getOutputGroup(OutputGroupInfo.HIDDEN_TOP_LEVEL);
-    assertThat(names).containsExactlyElementsIn(expectedSet);
+    assertThat(names.toList()).containsExactlyElementsIn(expectedSet.toList());
   }
 
   @Test
@@ -457,11 +456,11 @@ public class SkylarkDefinedAspectsTest extends AnalysisTestCase {
 
     assertThat(outputGroupInfo).isNotNull();
     NestedSet<Artifact> names = outputGroupInfo.getOutputGroup("my_result");
-    assertThat(names).isNotEmpty();
+    assertThat(names.toList()).isNotEmpty();
     NestedSet<Artifact> expectedSet =
         OutputGroupInfo.get(getConfiguredTarget("//test:xxx"))
             .getOutputGroup(OutputGroupInfo.HIDDEN_TOP_LEVEL);
-    assertThat(names).containsExactlyElementsIn(expectedSet);
+    assertThat(names.toList()).containsExactlyElementsIn(expectedSet.toList());
   }
 
   @Test
@@ -486,11 +485,11 @@ public class SkylarkDefinedAspectsTest extends AnalysisTestCase {
 
     assertThat(outputGroupInfo).isNotNull();
     NestedSet<Artifact> names = outputGroupInfo.getOutputGroup("my_result");
-    assertThat(names).isNotEmpty();
+    assertThat(names.toList()).isNotEmpty();
     NestedSet<Artifact> expectedSet =
         OutputGroupInfo.get(getConfiguredTarget("//test:xxx"))
             .getOutputGroup(OutputGroupInfo.HIDDEN_TOP_LEVEL);
-    assertThat(names).containsExactlyElementsIn(expectedSet);
+    assertThat(names.toList()).containsExactlyElementsIn(expectedSet.toList());
   }
 
   @Test
@@ -520,11 +519,11 @@ public class SkylarkDefinedAspectsTest extends AnalysisTestCase {
     OutputGroupInfo outputGroupInfo = OutputGroupInfo.get(aspectValue.getConfiguredAspect());
     assertThat(outputGroupInfo).isNotNull();
     NestedSet<Artifact> names = outputGroupInfo.getOutputGroup("my_result");
-    assertThat(names).isNotEmpty();
+    assertThat(names.toList()).isNotEmpty();
     NestedSet<Artifact> expectedSet =
         OutputGroupInfo.get(getConfiguredTarget("//test:xxx"))
             .getOutputGroup(OutputGroupInfo.HIDDEN_TOP_LEVEL);
-    assertThat(names).containsExactlyElementsIn(expectedSet);
+    assertThat(names.toList()).containsExactlyElementsIn(expectedSet.toList());
   }
 
   @Test
@@ -552,11 +551,11 @@ public class SkylarkDefinedAspectsTest extends AnalysisTestCase {
     OutputGroupInfo outputGroupInfo = OutputGroupInfo.get(aspectValue.getConfiguredAspect());
     assertThat(outputGroupInfo).isNotNull();
     NestedSet<Artifact> names = outputGroupInfo.getOutputGroup("my_result");
-    assertThat(names).isNotEmpty();
+    assertThat(names.toList()).isNotEmpty();
     NestedSet<Artifact> expectedSet =
         OutputGroupInfo.get(getConfiguredTarget("//test:xxx"))
             .getOutputGroup(OutputGroupInfo.HIDDEN_TOP_LEVEL);
-    assertThat(names).containsExactlyElementsIn(expectedSet);
+    assertThat(names.toList()).containsExactlyElementsIn(expectedSet.toList());
   }
 
   @Test
@@ -1177,7 +1176,7 @@ public class SkylarkDefinedAspectsTest extends AnalysisTestCase {
   private static Iterable<String> getOutputGroupContents(
       OutputGroupInfo outputGroupInfo, String groupName) {
     return Iterables.transform(
-        outputGroupInfo.getOutputGroup(groupName), Artifact::getRootRelativePathString);
+        outputGroupInfo.getOutputGroup(groupName).toList(), Artifact::getRootRelativePathString);
   }
 
   @Test
@@ -1643,8 +1642,8 @@ public class SkylarkDefinedAspectsTest extends AnalysisTestCase {
     AnalysisResult result = update(ImmutableList.<String>of(), "//test:r2");
     ConfiguredTarget configuredTarget = result.getTargetsToBuild().iterator().next();
     Depset ruleInfoValue = (Depset) configuredTarget.get("rule_info");
-    assertThat(ruleInfoValue.getSet(String.class))
-        .containsExactlyElementsIn(Arrays.asList(expectedLabels));
+    assertThat(ruleInfoValue.getSet(String.class).toList())
+        .containsExactlyElementsIn(expectedLabels);
   }
 
   private String[] aspectBzlFile(String attrAspects) {
@@ -1715,9 +1714,9 @@ public class SkylarkDefinedAspectsTest extends AnalysisTestCase {
     AnalysisResult analysisResult = update(ImmutableList.<String>of(), "//foo:main");
     ConfiguredTarget target = analysisResult.getTargetsToBuild().iterator().next();
     NestedSet<Artifact> aspectFiles = ((Depset) target.get("aspect_files")).getSet(Artifact.class);
-    assertThat(transform(aspectFiles, Artifact::getFilename))
+    assertThat(transform(aspectFiles.toList(), Artifact::getFilename))
         .containsExactly("aspect-output-rbin", "aspect-output-rgen");
-    for (Artifact aspectFile : aspectFiles) {
+    for (Artifact aspectFile : aspectFiles.toList()) {
       String rootPath = aspectFile.getRoot().getExecPath().toString();
       assertWithMessage("Artifact %s should not be in genfiles", aspectFile)
           .that(rootPath)

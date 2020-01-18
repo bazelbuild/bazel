@@ -25,10 +25,10 @@ import java.util.Map;
 import javax.annotation.Nullable;
 
 /**
- * The result of a Skyframe {@link Evaluator#eval} call. Will contain all the
- * successfully evaluated values, retrievable through {@link #get}. As well, the {@link ErrorInfo}
- * for the first value that failed to evaluate (in the non-keep-going case), or any remaining values
- * that failed to evaluate (in the keep-going case) will be retrievable.
+ * The result of a Skyframe {@link ParallelEvaluator#eval} call. Will contain all the successfully
+ * evaluated values, retrievable through {@link #get}. As well, the {@link ErrorInfo} for the first
+ * value that failed to evaluate (in the non-keep-going case), or any remaining values that failed
+ * to evaluate (in the keep-going case) will be retrievable.
  *
  * <p>A node can never be successfully evaluated and fail to evaluate. Thus, if {@link #get} returns
  * non-null for some key, there is no stored error for that key, and vice versa.

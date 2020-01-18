@@ -334,9 +334,13 @@ public class GlobTest {
     for (String dir : ImmutableList.of(".hidden", "..also.hidden", "not.hidden")) {
       FileSystemUtils.createDirectoryAndParents(tmpPath.getRelative(dir));
     }
+
     // Note that these are not in the result: ".", ".."
     assertGlobMatches("*", "not.hidden", "foo", "fool", "food", ".hidden", "..also.hidden");
+
     assertGlobMatches("*.hidden", "not.hidden");
+
+    assertGlobMatches(".*also*", "..also.hidden");
   }
 
   @Test

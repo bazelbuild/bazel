@@ -19,7 +19,6 @@ import static com.google.devtools.build.lib.rules.objc.ObjcProvider.DEFINE;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.FLAG;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.FORCE_LOAD_LIBRARY;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.Flag.USES_CPP;
-import static com.google.devtools.build.lib.rules.objc.ObjcProvider.Flag.USES_OBJC;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.HEADER;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.IMPORTED_LIBRARY;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.INCLUDE;
@@ -49,6 +48,7 @@ import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.Info;
@@ -56,13 +56,11 @@ import com.google.devtools.build.lib.rules.apple.AppleToolchain;
 import com.google.devtools.build.lib.rules.cpp.CcCompilationContext;
 import com.google.devtools.build.lib.rules.cpp.CcInfo;
 import com.google.devtools.build.lib.rules.cpp.CcLinkingContext;
-import com.google.devtools.build.lib.rules.cpp.CppFileTypes;
 import com.google.devtools.build.lib.rules.cpp.CppModuleMap;
 import com.google.devtools.build.lib.rules.cpp.LibraryToLink;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.util.FileType;
-import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.HashSet;
 import java.util.List;
@@ -88,6 +86,11 @@ public final class ObjcCommon {
     return inputs.build();
   }
 
+  /** Filters fileset artifacts out of a group of artifacts. */
+  public static ImmutableList<Artifact> filterFileset(NestedSet<Artifact> artifacts) {
+    return filterFileset(artifacts.toList());
+  }
+
   static class Builder {
     private final RuleContext context;
     private final StarlarkSemantics semantics;
@@ -97,7 +100,6 @@ public final class ObjcCommon {
     private ImmutableSet.Builder<Artifact> textualHeaders = ImmutableSet.builder();
     private Iterable<ObjcProvider> depObjcProviders = ImmutableList.of();
     private Iterable<ObjcProvider> runtimeDepObjcProviders = ImmutableList.of();
-    private Iterable<ObjcProvider> repropagatedModuleMapObjcProviders = ImmutableList.of();
     private Iterable<String> defines = ImmutableList.of();
     private Iterable<PathFragment> includes = ImmutableList.of();
     private IntermediateArtifacts intermediateArtifacts;
@@ -214,6 +216,14 @@ public final class ObjcCommon {
     }
 
     /** Adds includes to be passed into compile actions with {@code -I}. */
+    public Builder addIncludes(NestedSet<PathFragment> includes) {
+      // The includes are copied to a new list in the .build() method, so flattening here should be
+      // benign.
+      this.includes = Iterables.concat(this.includes, includes.toList());
+      return this;
+    }
+
+    /** Adds includes to be passed into compile actions with {@code -I}. */
     public Builder addIncludes(Iterable<PathFragment> includes) {
       this.includes = Iterables.concat(this.includes, includes);
       return this;
@@ -242,22 +252,6 @@ public final class ObjcCommon {
      */
     Builder setHasModuleMap() {
       this.hasModuleMap = true;
-      return this;
-    }
-
-    /**
-     * Adds Objc providers whose module maps should be repropagated as if they are directly
-     * associated with the target propagating the provider being built.
-     *
-     * <p>This supports a small number of specialized use cases, like J2Objc, where the module maps
-     * associated with the {@code java_library} (via an aspect) need to be repropagated by the
-     * {@code j2objc_library} that depends on them so that Swift code can access those module maps
-     * for the purposes of strict module map propagation (without propagating the module maps
-     * _fully_ transitively).
-     */
-    Builder addRepropagatedModuleMapObjcProviders(Iterable<ObjcProvider> objcProviders) {
-      this.repropagatedModuleMapObjcProviders =
-          Iterables.concat(this.repropagatedModuleMapObjcProviders, objcProviders);
       return this;
     }
 
@@ -330,12 +324,10 @@ public final class ObjcCommon {
 
       if (compilationAttributes.isPresent()) {
         CompilationAttributes attributes = compilationAttributes.get();
+        PathFragment usrIncludeDir = PathFragment.create(AppleToolchain.sdkDir() + "/usr/include/");
         Iterable<PathFragment> sdkIncludes =
             Iterables.transform(
-                Interspersing.prependEach(
-                    AppleToolchain.sdkDir() + "/usr/include/",
-                    Iterables.transform(attributes.sdkIncludes(), PathFragment::getSafePathString)),
-                PathFragment::create);
+                attributes.sdkIncludes().toList(), (p) -> usrIncludeDir.getRelative(p));
         objcProvider
             .addAll(HEADER, filterFileset(attributes.hdrs()))
             .addAll(HEADER, filterFileset(attributes.textualHdrs()))
@@ -364,21 +356,12 @@ public final class ObjcCommon {
         }
 
         boolean usesCpp = false;
-        boolean usesObjc = false;
         for (Artifact sourceFile :
             Iterables.concat(artifacts.getSrcs(), artifacts.getNonArcSrcs())) {
           usesCpp = usesCpp || ObjcRuleClasses.CPP_SOURCES.matches(sourceFile.getExecPath());
-          usesObjc =
-              usesObjc
-                  || FileTypeSet.of(CppFileTypes.OBJC_SOURCE, CppFileTypes.OBJCPP_SOURCE)
-                      .matches(sourceFile.getExecPath().getPathString());
         }
-
         if (usesCpp) {
           objcProvider.add(FLAG, USES_CPP);
-        }
-        if (usesObjc) {
-          objcProvider.add(FLAG, USES_OBJC);
         }
       }
 
@@ -393,39 +376,19 @@ public final class ObjcCommon {
         }
       }
 
-      if (useStrictObjcModuleMaps(context)) {
-        for (ObjcProvider provider : repropagatedModuleMapObjcProviders) {
-          objcProvider.addAllForDirectDependents(MODULE_MAP, provider.get(ObjcProvider.MODULE_MAP));
-          objcProvider.addAllForDirectDependents(
-              TOP_LEVEL_MODULE_MAP, provider.get(ObjcProvider.TOP_LEVEL_MODULE_MAP));
-        }
-      }
-
       if (hasModuleMap) {
         CppModuleMap moduleMap = intermediateArtifacts.moduleMap();
         Optional<Artifact> umbrellaHeader = moduleMap.getUmbrellaHeader();
         if (umbrellaHeader.isPresent()) {
           objcProvider.add(UMBRELLA_HEADER, umbrellaHeader.get());
         }
-        if (useStrictObjcModuleMaps(context)) {
-          objcProvider.addForDirectDependents(MODULE_MAP, moduleMap.getArtifact());
-          objcProvider.addForDirectDependents(TOP_LEVEL_MODULE_MAP, moduleMap);
-        } else {
-          objcProvider.add(MODULE_MAP, moduleMap.getArtifact());
-          objcProvider.add(TOP_LEVEL_MODULE_MAP, moduleMap);
-        }
+        objcProvider.add(MODULE_MAP, moduleMap.getArtifact());
+        objcProvider.add(TOP_LEVEL_MODULE_MAP, moduleMap);
       }
 
       objcProvider.addAll(LINKED_BINARY, linkedBinary.asSet());
 
       return new ObjcCommon(objcProvider.build(), compilationArtifacts, textualHeaders.build());
-    }
-
-    private static boolean useStrictObjcModuleMaps(RuleContext context) {
-      // We need to check isLegalFragment first because some non-compilation rules don't declare
-      // this fragment.
-      return context.isLegalFragment(ObjcConfiguration.class)
-          && context.getFragment(ObjcConfiguration.class).useStrictObjcModuleMaps();
     }
 
     private static boolean isCcLibrary(ConfiguredTargetAndData info) {

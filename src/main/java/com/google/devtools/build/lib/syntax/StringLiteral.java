@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.syntax;
 
-import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skyframe.serialization.DeserializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationContext;
@@ -24,14 +23,16 @@ import java.io.IOException;
 
 /** Syntax node for a string literal. */
 public final class StringLiteral extends Expression {
-  String value;
 
-  public String getValue() {
-    return value;
-  }
+  private final String value;
 
   StringLiteral(String value) {
     this.value = value;
+  }
+
+  /** Returns the value denoted by the string literal */
+  public String getValue() {
+    return value;
   }
 
   @Override
@@ -58,7 +59,7 @@ public final class StringLiteral extends Expression {
       // memoization is guaranteed to be profitable.
       context.serializeWithAdHocMemoizationStrategy(
           stringLiteral.getValue(), MemoizationStrategy.MEMOIZE_AFTER, codedOut);
-      context.serialize(stringLiteral.getLocation(), codedOut);
+      context.serialize(stringLiteral.getStartLocation(), codedOut);
     }
 
     @Override
@@ -67,7 +68,7 @@ public final class StringLiteral extends Expression {
       String value =
           context.deserializeWithAdHocMemoizationStrategy(
               codedIn, MemoizationStrategy.MEMOIZE_AFTER);
-      Location location = context.deserialize(codedIn);
+      Lexer.LexerLocation location = context.deserialize(codedIn);
       StringLiteral stringLiteral = new StringLiteral(value);
       stringLiteral.setLocation(location);
       return stringLiteral;

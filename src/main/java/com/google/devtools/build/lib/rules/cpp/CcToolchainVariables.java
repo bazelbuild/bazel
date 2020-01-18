@@ -966,6 +966,66 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
   }
 
   /**
+   * A sequence of simple string values. Exists as a memory optimization - a typical build can
+   * contain millions of feature values, so getting rid of the overhead of {@code StringValue}
+   * objects significantly reduces memory overhead.
+   */
+  @Immutable
+  @AutoCodec
+  static final class StringSetSequence extends VariableValueAdapter {
+    private final NestedSet<String> values;
+    private int hash = 0;
+
+    public StringSetSequence(NestedSet<String> values) {
+      Preconditions.checkNotNull(values);
+      this.values = values;
+    }
+
+    @Override
+    public Iterable<? extends VariableValue> getSequenceValue(String variableName) {
+      final ImmutableList.Builder<VariableValue> sequences = ImmutableList.builder();
+      for (String value : values.toList()) {
+        sequences.add(new StringValue(value));
+      }
+      return sequences.build();
+    }
+
+    @Override
+    public String getVariableTypeName() {
+      return Sequence.SEQUENCE_VARIABLE_TYPE_NAME;
+    }
+
+    @Override
+    public boolean isTruthy() {
+      return !values.isEmpty();
+    }
+
+    @Override
+    public boolean equals(Object other) {
+      if (!(other instanceof StringSetSequence)) {
+        return false;
+      }
+      if (this == other) {
+        return true;
+      }
+      return values.equals(((StringSetSequence) other).values);
+    }
+
+    @Override
+    public int hashCode() {
+      int h = hash;
+      if (h == 0) {
+        h = 1;
+        for (String s : values.toList()) {
+          h = 31 * h + (s == null ? 0 : s.hashCode());
+        }
+        hash = h;
+      }
+      return h;
+    }
+  }
+
+  /**
    * Single structure value. Be careful not to create sequences of single structures, as the memory
    * overhead is prohibitively big. Use optimized {@link StructureSequence} instead.
    */
@@ -1177,7 +1237,7 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
     public Builder addStringSequenceVariable(String name, NestedSet<String> values) {
       checkVariableNotPresentAlready(name);
       Preconditions.checkNotNull(values, "Cannot set null as a value for variable '%s'", name);
-      variablesMap.put(name, new StringSequence(values));
+      variablesMap.put(name, new StringSetSequence(values));
       return this;
     }
 

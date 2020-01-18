@@ -22,7 +22,6 @@ import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.ResourceFileLoader;
 import com.google.devtools.build.lib.util.io.OutErr;
-import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingResult;
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -112,7 +111,4 @@ public class LicenseCommand implements BlazeCommand {
           e);
     }
   }
-
-  @Override
-  public void editOptions(OptionsParser optionsParser) {}
 }

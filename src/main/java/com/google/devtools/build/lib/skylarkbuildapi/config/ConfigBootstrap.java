@@ -15,8 +15,8 @@
 package com.google.devtools.build.lib.skylarkbuildapi.config;
 
 import com.google.common.collect.ImmutableMap.Builder;
-import com.google.devtools.build.lib.skylarkbuildapi.Bootstrap;
 import com.google.devtools.build.lib.skylarkbuildapi.StarlarkConfigApi;
+import com.google.devtools.build.lib.skylarkbuildapi.core.Bootstrap;
 import com.google.devtools.build.lib.syntax.Starlark;
 
 /**

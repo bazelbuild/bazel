@@ -40,14 +40,11 @@ public class MergedAndroidResources extends ParsedAndroidResources {
   public static MergedAndroidResources mergeFrom(
       AndroidDataContext dataContext,
       ParsedAndroidResources parsed,
-      ResourceDependencies resourceDeps,
-      AndroidAaptVersion aaptVersion)
+      ResourceDependencies resourceDeps)
       throws InterruptedException {
 
-    boolean useCompiledMerge = aaptVersion == AndroidAaptVersion.AAPT2;
-
-    Preconditions.checkState(
-        !useCompiledMerge || parsed.getCompiledSymbols() != null,
+    Preconditions.checkNotNull(
+        parsed.getCompiledSymbols(),
         "Should not use compiled merge if no compiled symbols are available!");
 
     AndroidResourceMergingActionBuilder builder =
@@ -55,7 +52,6 @@ public class MergedAndroidResources extends ParsedAndroidResources {
             .setJavaPackage(parsed.getJavaPackage())
             .withDependencies(resourceDeps)
             .setThrowOnResourceConflict(dataContext.throwOnResourceConflict())
-            .setUseCompiledMerge(useCompiledMerge)
             .setAnnotateRFieldsFromTransitiveDeps(dataContext.annotateRFieldsFromTransitiveDeps())
             .setOmitTransitiveDependenciesFromAndroidRClasses(
                 dataContext.omitTransitiveResourcesFromAndroidRClasses());
@@ -70,8 +66,6 @@ public class MergedAndroidResources extends ParsedAndroidResources {
     return builder
         .setManifestOut(
             dataContext.createOutputArtifact(AndroidRuleClasses.ANDROID_PROCESSED_MANIFEST))
-        .setMergedResourcesOut(
-            dataContext.createOutputArtifact(AndroidRuleClasses.ANDROID_RESOURCES_ZIP))
         .setClassJarOut(
             dataContext.createOutputArtifact(AndroidRuleClasses.ANDROID_RESOURCES_CLASS_JAR))
         .build(dataContext, parsed);
@@ -175,9 +169,9 @@ public class MergedAndroidResources extends ParsedAndroidResources {
    * MergedAndroidResources, AndroidAaptVersion)}. This method is a convenience method for calling
    * that one.
    */
-  public ValidatedAndroidResources validate(
-      AndroidDataContext dataContext, AndroidAaptVersion aaptVersion) throws InterruptedException {
-    return ValidatedAndroidResources.validateFrom(dataContext, this, aaptVersion);
+  public ValidatedAndroidResources validate(AndroidDataContext dataContext)
+      throws InterruptedException {
+    return ValidatedAndroidResources.validateFrom(dataContext, this);
   }
 
   @Override
@@ -204,7 +198,7 @@ public class MergedAndroidResources extends ParsedAndroidResources {
     }
 
     MergedAndroidResources other = (MergedAndroidResources) object;
-    return mergedResources.equals(other.mergedResources)
+    return Objects.equals(mergedResources, other.mergedResources)
         && classJar.equals(other.classJar)
         && Objects.equals(aapt2RTxt, other.aapt2RTxt)
         && Objects.equals(dataBindingInfoZip, other.dataBindingInfoZip)

@@ -51,22 +51,42 @@ public abstract class Node {
   //   1.0% Comprehension
   //   6  % all others
 
-  private Location location;
+  // TODO(adonovan): instead of creating Locations during parsing.
+  // record the LineNumberTable and the offsets of key tokens,
+  // then create Locations on demand for the node start and end
+  // and for key tokens.
+  private Lexer.LexerLocation location;
 
   Node() {}
 
-  final void setLocation(Location location) {
+  final void setLocation(Lexer.LexerLocation location) {
     this.location = location;
   }
 
   /** @return the same node with its location set, in a slightly more fluent style */
-  static <NodeT extends Node> NodeT setLocation(Location location, NodeT node) {
+  static <NodeT extends Node> NodeT setLocation(Lexer.LexerLocation location, NodeT node) {
     node.setLocation(location);
     return node;
   }
 
-  public final Location getLocation() {
+  /** Returns the location of the start of this node. */
+  public final Location getStartLocation() {
     return location;
+  }
+
+  /** Returns the char offset of the start of this node within its file. */
+  public final int getStartOffset() {
+    return location.startOffset;
+  }
+
+  /** Returns the char offset of the end of this node within its file. */
+  public final int getEndOffset() {
+    return location.endOffset;
+  }
+
+  /** Returns the Location of the end of this node. */
+  public final Location getEndLocation() {
+    return location.getEndLocation();
   }
 
   /**

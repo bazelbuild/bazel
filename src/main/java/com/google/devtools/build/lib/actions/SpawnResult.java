@@ -83,11 +83,11 @@ public interface SpawnResult {
 
     private final boolean isUserError;
 
-    private Status(boolean isUserError) {
+    Status(boolean isUserError) {
       this.isUserError = isUserError;
     }
 
-    private Status() {
+    Status() {
       this(false);
     }
 
@@ -199,8 +199,6 @@ public interface SpawnResult {
    * SpawnResults can optionally support returning outputs in-memory. Such outputs can be obtained
    * from this method if so. This behavior is optional, and can be triggered with
    * {@link ExecutionRequirements#REMOTE_EXECUTION_INLINE_OUTPUTS}.
-   *
-   * @param output
    */
   @Nullable
   default InputStream getInMemoryOutput(ActionInput output) {
@@ -208,7 +206,11 @@ public interface SpawnResult {
   }
 
   String getDetailMessage(
-      String messagePrefix, String message, boolean catastrophe, boolean forciblyRunRemotely);
+      String messagePrefix,
+      String message,
+      boolean verboseFailures,
+      boolean catastrophe,
+      boolean forciblyRunRemotely);
 
   /** Returns a file path to the action metadata log. */
   Optional<MetadataLog> getActionMetadataLog();
@@ -341,11 +343,17 @@ public interface SpawnResult {
 
     @Override
     public String getDetailMessage(
-        String messagePrefix, String message, boolean catastrophe, boolean forciblyRunRemotely) {
+        String messagePrefix,
+        String message,
+        boolean verboseFailures,
+        boolean catastrophe,
+        boolean forciblyRunRemotely) {
       TerminationStatus status = new TerminationStatus(
           exitCode(), status() == Status.TIMEOUT);
       String reason = " (" + status.toShortString() + ")"; // e.g " (Exit 1)"
-      String explanation = status.exited() ? "" : ": " + message;
+      // Include the command line as error message if --verbose_failures is enabled or
+      // the command line didn't exit normally.
+      String explanation = verboseFailures || !status.exited() ? ": " + message : "";
 
       if (!status().isConsideredUserError()) {
         String errorDetail = status().name().toLowerCase(Locale.US)

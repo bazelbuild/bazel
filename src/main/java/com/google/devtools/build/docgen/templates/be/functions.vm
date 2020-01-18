@@ -372,8 +372,11 @@ There are several important limitations and caveats:
     no matter which wildcards they use.
   </li>
   <li>
-    A hidden file with filename starting with <code>.</code> is matched by
-    both the <code>**</code> and the <code>*</code> wildcards.
+    A hidden file with filename starting with <code>.</code> is completely matched by
+    both the <code>**</code> and the <code>*</code> wildcards. If you want to match a hidden file
+    with a compound pattern, your pattern needs to begin with a <code>.</code>. For example,
+    <code>*</code> and <code>.*.txt</code> will match <code>.foo.txt</code>, but <code>*.txt</code>
+    will not.
   </li>
   <li>
     If a rule and a source file with the same name both exist in the package, the glob will

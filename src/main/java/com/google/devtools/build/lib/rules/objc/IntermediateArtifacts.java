@@ -191,16 +191,6 @@ public final class IntermediateArtifacts {
         "lib%s%s.a", basename, archiveFileNameSuffix)));
   }
 
-  /** The artifact for the .headers file output by the header thinning action for this source. */
-  public Artifact headersListFile(Artifact objectFile) {
-    PathFragment headersListArtifactPath =
-        FileSystemUtils.replaceExtension(objectFile.getRootRelativePath(), ".headers_list");
-    return ruleContext.getUniqueDirectoryArtifact(
-        "_header_lists",
-        headersListArtifactPath,
-        buildConfiguration.getBinDirectory(ruleContext.getRule().getRepository()));
-  }
-
   /**
    * Debug symbol file generated for a stripped linked binary.
    *

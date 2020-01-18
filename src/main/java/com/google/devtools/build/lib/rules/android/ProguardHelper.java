@@ -31,7 +31,9 @@ import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.BuildType;
@@ -221,7 +223,7 @@ public final class ProguardHelper {
             .addAll(localProguardSpecs)
             .addAll(specsToInclude);
     for (ProguardSpecProvider dep : proguardDeps) {
-      builder.addAll(dep.getTransitiveProguardSpecs());
+      builder.addAll(dep.getTransitiveProguardSpecs().toList());
     }
 
     return builder.build().asList();
@@ -301,7 +303,7 @@ public final class ProguardHelper {
       @Nullable Artifact proguardUsage,
       @Nullable Artifact proguardMapping,
       @Nullable Artifact proguardDictionary,
-      Iterable<Artifact> libraryJars,
+      NestedSet<Artifact> libraryJars,
       Artifact proguardOutputJar,
       JavaSemantics semantics,
       @Nullable Integer optimizationPasses,
@@ -318,7 +320,7 @@ public final class ProguardHelper {
             semantics,
             proguardOutputMap);
 
-    if (Iterables.size(libraryJars) > 1) {
+    if (!libraryJars.isEmpty() && !libraryJars.isSingleton()) {
       JavaTargetAttributes attributes = new JavaTargetAttributes.Builder(semantics).build();
       Artifact combinedLibraryJar =
           getProguardTempArtifact(ruleContext, "combined_library_jars.jar");
@@ -327,14 +329,15 @@ public final class ProguardHelper {
           .setAttributes(attributes)
           .addRuntimeJars(libraryJars)
           .build();
-      libraryJars = ImmutableList.of(combinedLibraryJar);
+      libraryJars = NestedSetBuilder.create(Order.STABLE_ORDER, combinedLibraryJar);
     }
 
     boolean filterLibraryJarWithProgramJar =
         ruleContext.getFragment(AndroidConfiguration.class).filterLibraryJarWithProgramJar();
 
     if (filterLibraryJarWithProgramJar) {
-      Artifact libraryJar = Iterables.getOnlyElement(libraryJars);
+      Preconditions.checkState(libraryJars.isSingleton());
+      Artifact libraryJar = libraryJars.getSingleton();
 
       Artifact filteredLibraryJar =
           getProguardTempArtifact(ruleContext, "combined_library_jars_filtered.jar");
@@ -346,7 +349,7 @@ public final class ProguardHelper {
           .setCheckHashMismatchMode(ZipFilterBuilder.CheckHashMismatchMode.NONE)
           .build();
 
-      libraryJars = ImmutableList.of(filteredLibraryJar);
+      libraryJars = NestedSetBuilder.create(Order.STABLE_ORDER, filteredLibraryJar);
     }
 
     if (optimizationPasses == null) {
@@ -370,7 +373,7 @@ public final class ProguardHelper {
           output.getConstantStringObfuscatedMapping(),
           output.getConfig());
       proguardAction
-          .setProgressMessage("Trimming binary with Proguard")
+          .setProgressMessage("Trimming binary with Proguard: %s", ruleContext.getLabel())
           .addOutput(proguardOutputJar);
       proguardAction.addCommandLine(commandLine.build());
       ruleContext.registerAction(proguardAction.build(ruleContext));
@@ -497,7 +500,7 @@ public final class ProguardHelper {
       ImmutableList<Artifact> proguardSpecs,
       @Nullable Artifact proguardMapping,
       @Nullable Artifact proguardDictionary,
-      Iterable<Artifact> libraryJars,
+      NestedSet<Artifact> libraryJars,
       Artifact proguardOutputJar,
       @Nullable Artifact proguardOutputMap,
       @Nullable Artifact proguardOutputProtoMap,
@@ -507,7 +510,7 @@ public final class ProguardHelper {
       @Nullable Artifact proguardConfigOutput) {
 
     builder
-        .addInputs(libraryJars)
+        .addTransitiveInputs(libraryJars)
         .addInputs(proguardSpecs)
         .setExecutable(executable)
         .setMnemonic("Proguard")
@@ -524,7 +527,7 @@ public final class ProguardHelper {
         // the final proguard action will declare the output jar as an output.
         .addExecPath(proguardOutputJar);
 
-    for (Artifact libraryJar : libraryJars) {
+    for (Artifact libraryJar : libraryJars.toList()) {
       commandLine.addExecPath("-libraryjars", libraryJar);
     }
 

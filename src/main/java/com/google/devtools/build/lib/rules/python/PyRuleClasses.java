@@ -103,22 +103,22 @@ public class PyRuleClasses {
   public static final TransitionFactory<Rule> VERSION_TRANSITION =
       makeVersionTransition(PythonVersionTransition.toDefault());
 
-  /** The py2-bin and py3-bin symlinks. */
-  public enum PyBinSymlink implements SymlinkDefinition {
+  /** The py2 and py3 symlinks. */
+  public enum PySymlink implements SymlinkDefinition {
     PY2(PythonVersion.PY2),
     PY3(PythonVersion.PY3);
 
     private final String versionString;
     private final PythonVersionTransition transition;
 
-    private PyBinSymlink(PythonVersion version) {
+    private PySymlink(PythonVersion version) {
       this.versionString = Ascii.toLowerCase(version.toString());
       this.transition = PythonVersionTransition.toConstant(version);
     }
 
     @Override
     public String getLinkName(String symlinkPrefix, String productName, String workspaceBaseName) {
-      return symlinkPrefix + versionString + "-bin";
+      return symlinkPrefix + versionString;
     }
 
     @Override
@@ -129,12 +129,12 @@ public class PyRuleClasses {
         RepositoryName repositoryName,
         Path outputPath,
         Path execRoot) {
-      if (!buildRequestOptions.experimentalCreatePyBinSymlinks) {
+      if (!buildRequestOptions.experimentalCreatePySymlinks) {
         return ImmutableSet.of();
       }
       return targetConfigs.stream()
           .map(config -> configGetter.apply(transition.patch(config.getOptions())))
-          .map(config -> config.getBinDirectory(repositoryName).getRoot().asPath())
+          .map(config -> config.getOutputDirectory(repositoryName).getRoot().asPath())
           .distinct()
           .collect(toImmutableSet());
     }

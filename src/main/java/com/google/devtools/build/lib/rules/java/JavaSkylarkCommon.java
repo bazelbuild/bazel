@@ -16,20 +16,20 @@ package com.google.devtools.build.lib.rules.java;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.PlatformOptions;
+import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.analysis.skylark.SkylarkActionFactory;
 import com.google.devtools.build.lib.analysis.skylark.SkylarkRuleContext;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.Provider;
-import com.google.devtools.build.lib.skylarkbuildapi.ProviderApi;
+import com.google.devtools.build.lib.skylarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.skylarkbuildapi.java.JavaCommonApi;
 import com.google.devtools.build.lib.skylarkbuildapi.java.JavaToolchainSkylarkApiProviderApi;
 import com.google.devtools.build.lib.syntax.Depset;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.Starlark;
-import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 
 /** A module that contains Skylark utilities for Java support. */
@@ -39,6 +39,7 @@ public class JavaSkylarkCommon
         JavaInfo,
         JavaToolchainProvider,
         JavaRuntimeInfo,
+        ConstraintValueInfo,
         SkylarkRuleContext,
         SkylarkActionFactory> {
   private final JavaSemantics javaSemantics;
@@ -61,6 +62,7 @@ public class JavaSkylarkCommon
       Object outputSourceJar,
       Sequence<?> javacOpts, // <String> expected
       Sequence<?> deps, // <JavaInfo> expected
+      Sequence<?> experimentalLocalCompileTimeDeps, // <JavaInfo> expected
       Sequence<?> exports, // <JavaInfo> expected
       Sequence<?> plugins, // <JavaInfo> expected
       Sequence<?> exportedPlugins, // <JavaInfo> expected
@@ -85,6 +87,8 @@ public class JavaSkylarkCommon
             outputSourceJar == Starlark.NONE ? null : (Artifact) outputSourceJar,
             javacOpts.getContents(String.class, "javac_opts"),
             deps.getContents(JavaInfo.class, "deps"),
+            experimentalLocalCompileTimeDeps.getContents(
+                JavaInfo.class, "experimental_local_compile_time_deps"),
             exports.getContents(JavaInfo.class, "exports"),
             plugins.getContents(JavaInfo.class, "plugins"),
             exportedPlugins.getContents(JavaInfo.class, "exported_plugins"),
@@ -95,7 +99,7 @@ public class JavaSkylarkCommon
             strictDepsMode,
             javaToolchain,
             hostJavabase,
-            sourcepathEntries.getContents(Artifact.class, "sourcepath"),
+            ImmutableList.copyOf(sourcepathEntries.getContents(Artifact.class, "sourcepath")),
             resources.getContents(Artifact.class, "resources"),
             neverlink,
             javaSemantics,
@@ -109,8 +113,7 @@ public class JavaSkylarkCommon
       Artifact jar,
       Object targetLabel,
       JavaToolchainProvider javaToolchain,
-      Location location,
-      StarlarkSemantics semantics)
+      Location location)
       throws EvalException {
     return JavaInfoBuildHelper.getInstance()
         .buildIjar(
@@ -127,8 +130,7 @@ public class JavaSkylarkCommon
       Artifact jar,
       Label targetLabel,
       JavaToolchainProvider javaToolchain,
-      Location location,
-      StarlarkSemantics semantics)
+      Location location)
       throws EvalException {
     return JavaInfoBuildHelper.getInstance()
         .stampJar(actions, jar, targetLabel, javaToolchain, location);
@@ -142,8 +144,7 @@ public class JavaSkylarkCommon
       Sequence<?> sourceJars, // <Artifact> expected.
       JavaToolchainProvider javaToolchain,
       JavaRuntimeInfo hostJavabase,
-      Location location,
-      StarlarkSemantics semantics)
+      Location location)
       throws EvalException {
     return JavaInfoBuildHelper.getInstance()
         .packSourceFiles(

@@ -50,19 +50,19 @@ public class PlatformTest extends BuildViewTestCase {
         "constraint_setting(name = 'os')",
         "constraint_value(name = 'linux', constraint_setting = ':os')",
         "constraint_value(name = 'another_os', constraint_setting = ':os')",
-        "platform(name = 'host_platform',",
+        "platform(name = 'host',",
         "    host_platform = True,",
         "    cpu_constraints = [':x86_32', 'x86_64', ':another_cpu'],",
         "    os_constraints = [':linux', ':another_os'],",
         ")",
-        "platform(name = 'target_platform',",
+        "platform(name = 'target',",
         "    target_platform = True,",
         "    cpu_constraints = [':x86_32', 'x86_64', ':another_cpu'],",
         "    os_constraints = [':linux', ':another_os'],",
         ")");
 
     // Check the host platform.
-    ConfiguredTarget hostPlatform = getConfiguredTarget("//autoconfig:host_platform");
+    ConfiguredTarget hostPlatform = getConfiguredTarget("//autoconfig:host");
     assertThat(hostPlatform).isNotNull();
 
     PlatformInfo hostPlatformProvider = PlatformProviderUtils.platform(hostPlatform);
@@ -78,7 +78,7 @@ public class PlatformTest extends BuildViewTestCase {
         .isEqualTo(ConstraintValueInfo.create(osConstraint, makeLabel("//autoconfig:linux")));
 
     // Check the target platform.
-    ConfiguredTarget targetPlatform = getConfiguredTarget("//autoconfig:target_platform");
+    ConfiguredTarget targetPlatform = getConfiguredTarget("//autoconfig:target");
     assertThat(targetPlatform).isNotNull();
 
     PlatformInfo targetPlatformProvider = PlatformProviderUtils.platform(targetPlatform);

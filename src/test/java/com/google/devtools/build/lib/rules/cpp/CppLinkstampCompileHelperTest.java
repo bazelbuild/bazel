@@ -123,7 +123,7 @@ public class CppLinkstampCompileHelperTest extends BuildViewTestCase {
     CppLinkAction generatingAction = (CppLinkAction) getGeneratingAction(executable);
     Artifact compiledLinkstamp =
         ActionsTestUtil.getFirstArtifactEndingWith(generatingAction.getInputs(), "ls.o");
-    assertThat(generatingAction.getInputs()).contains(compiledLinkstamp);
+    assertThat(generatingAction.getInputs().toList()).contains(compiledLinkstamp);
 
     CppCompileAction linkstampCompileAction =
         (CppCompileAction) getGeneratingAction(compiledLinkstamp);
@@ -167,7 +167,7 @@ public class CppLinkstampCompileHelperTest extends BuildViewTestCase {
     CppLinkAction generatingAction = (CppLinkAction) getGeneratingAction(executable);
     Artifact compiledLinkstamp =
         ActionsTestUtil.getFirstArtifactEndingWith(generatingAction.getInputs(), "ls.o");
-    assertThat(generatingAction.getInputs()).contains(compiledLinkstamp);
+    assertThat(generatingAction.getInputs().toList()).contains(compiledLinkstamp);
 
     CppCompileAction linkstampCompileAction =
         (CppCompileAction) getGeneratingAction(compiledLinkstamp);
@@ -193,7 +193,7 @@ public class CppLinkstampCompileHelperTest extends BuildViewTestCase {
     CppLinkAction generatingAction = (CppLinkAction) getGeneratingAction(executable);
     Artifact compiledLinkstamp =
         ActionsTestUtil.getFirstArtifactEndingWith(generatingAction.getInputs(), "ls.o");
-    assertThat(generatingAction.getInputs()).contains(compiledLinkstamp);
+    assertThat(generatingAction.getInputs().toList()).contains(compiledLinkstamp);
 
     CppCompileAction linkstampCompileAction =
         (CppCompileAction) getGeneratingAction(compiledLinkstamp);
@@ -248,13 +248,11 @@ public class CppLinkstampCompileHelperTest extends BuildViewTestCase {
         ActionsTestUtil.getFirstArtifactEndingWith(
             generatingAction.getInputs(), usePic ? "main.pic.o" : "main.o");
     Artifact bar =
-        ImmutableList.copyOf(generatingAction.getInputs())
-            .stream()
+        generatingAction.getInputs().toList().stream()
             .filter(a -> a.getExecPath().getBaseName().contains("bar"))
             .findFirst()
             .get();
-    ImmutableList<Artifact> linkstampInputs =
-        ImmutableList.copyOf(linkstampCompileAction.getInputs());
+    ImmutableList<Artifact> linkstampInputs = linkstampCompileAction.getInputs().toList();
     assertThat(linkstampInputs).containsAtLeast(mainObject, bar);
   }
 
@@ -278,7 +276,7 @@ public class CppLinkstampCompileHelperTest extends BuildViewTestCase {
     CppLinkAction generatingAction = (CppLinkAction) getGeneratingAction(executable);
     Artifact compiledLinkstamp =
         ActionsTestUtil.getFirstArtifactEndingWith(generatingAction.getInputs(), "ls.o");
-    assertThat(generatingAction.getInputs()).contains(compiledLinkstamp);
+    assertThat(generatingAction.getInputs().toList()).contains(compiledLinkstamp);
 
     CppCompileAction linkstampCompileAction =
         (CppCompileAction) getGeneratingAction(compiledLinkstamp);
@@ -306,7 +304,7 @@ public class CppLinkstampCompileHelperTest extends BuildViewTestCase {
     CppLinkAction generatingAction = (CppLinkAction) getGeneratingAction(executable);
     Artifact compiledLinkstamp =
         ActionsTestUtil.getFirstArtifactEndingWith(generatingAction.getInputs(), "ls.o");
-    assertThat(generatingAction.getInputs()).contains(compiledLinkstamp);
+    assertThat(generatingAction.getInputs().toList()).contains(compiledLinkstamp);
 
     CppCompileAction linkstampCompileAction =
         (CppCompileAction) getGeneratingAction(compiledLinkstamp);

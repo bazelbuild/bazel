@@ -15,7 +15,7 @@
 package com.google.devtools.build.lib.analysis.actions;
 
 import com.google.common.base.Preconditions;
-import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
@@ -24,6 +24,8 @@ import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.ActionResult;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.util.Fingerprint;
@@ -96,8 +98,10 @@ public final class SymlinkAction extends AbstractAction {
       TargetType targetType) {
     super(
         owner,
-        primaryInput != null ? ImmutableList.of(primaryInput) : Artifact.NO_ARTIFACTS,
-        ImmutableList.of(primaryOutput));
+        primaryInput != null
+            ? NestedSetBuilder.create(Order.STABLE_ORDER, primaryInput)
+            : NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+        ImmutableSet.of(primaryOutput));
     this.inputPath = inputPath;
     this.progressMessage = progressMessage;
     this.targetType = targetType;
@@ -202,16 +206,14 @@ public final class SymlinkAction extends AbstractAction {
       // Validate that input path is a file with the executable bit is set.
       if (!inputPath.isFile()) {
         throw new ActionExecutionException(
-            "'" + Iterables.getOnlyElement(getInputs()).prettyPrint() + "' is not a file",
-            this,
-            false);
+            "'" + getInputs().getSingleton().prettyPrint() + "' is not a file", this, false);
       }
       if (!inputPath.isExecutable()) {
         throw new ActionExecutionException(
             "failed to create symbolic link '"
                 + Iterables.getOnlyElement(getOutputs()).prettyPrint()
                 + "': file '"
-                + Iterables.getOnlyElement(getInputs()).prettyPrint()
+                + getInputs().getSingleton().prettyPrint()
                 + "' is not executable",
             this,
             false);
@@ -221,7 +223,7 @@ public final class SymlinkAction extends AbstractAction {
           "failed to create symbolic link '"
               + Iterables.getOnlyElement(getOutputs()).prettyPrint()
               + "' to the '"
-              + Iterables.getOnlyElement(getInputs()).prettyPrint()
+              + getInputs().getSingleton().prettyPrint()
               + "' due to I/O error: "
               + e.getMessage(),
           e,
@@ -250,18 +252,24 @@ public final class SymlinkAction extends AbstractAction {
         actionExecutionContext.getExecRoot().getRelative(getInputPath()).createDirectory();
       }
     } catch (IOException e) {
-      throw new ActionExecutionException("failed to touch symbolic link '"
-          + Iterables.getOnlyElement(getOutputs()).prettyPrint()
-          + "' to the '" + Iterables.getOnlyElement(getInputs()).prettyPrint()
-          + "' due to I/O error: " + e.getMessage(), e, this, false);
+      throw new ActionExecutionException(
+          "failed to touch symbolic link '"
+              + Iterables.getOnlyElement(getOutputs()).prettyPrint()
+              + "' to the '"
+              + getInputs().getSingleton().prettyPrint()
+              + "' due to I/O error: "
+              + e.getMessage(),
+          e,
+          this,
+          false);
     }
   }
 
   private String printInputs() {
-    if (Iterables.isEmpty(getInputs())) {
+    if (getInputs().isEmpty()) {
       return inputPath.getPathString();
-    } else if (Iterables.size(getInputs()) == 1){
-      return Iterables.getOnlyElement(getInputs()).prettyPrint();
+    } else if (getInputs().isSingleton()) {
+      return getInputs().getSingleton().prettyPrint();
     } else {
       throw new IllegalStateException(
           "Inputs unexpectedly contains more than 1 element: " + getInputs());

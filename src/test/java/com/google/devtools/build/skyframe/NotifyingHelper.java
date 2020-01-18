@@ -175,7 +175,8 @@ public class NotifyingHelper {
     IS_DIRTY,
     IS_READY,
     CHECK_IF_DONE,
-    GET_ALL_DIRECT_DEPS_FOR_INCOMPLETE_NODE
+    GET_ALL_DIRECT_DEPS_FOR_INCOMPLETE_NODE,
+    RESET_FOR_RESTART_FROM_SCRATCH,
   }
 
   /**
@@ -274,11 +275,9 @@ public class NotifyingHelper {
     }
 
     @Override
-    public Set<SkyKey> setValue(
-        SkyValue value, Version version, DepFingerprintList depFingerprintList)
-        throws InterruptedException {
+    public Set<SkyKey> setValue(SkyValue value, Version version) throws InterruptedException {
       graphListener.accept(myKey, EventType.SET_VALUE, Order.BEFORE, value);
-      Set<SkyKey> result = super.setValue(value, version, depFingerprintList);
+      Set<SkyKey> result = super.setValue(value, version);
       graphListener.accept(myKey, EventType.SET_VALUE, Order.AFTER, value);
       return result;
     }
@@ -341,6 +340,12 @@ public class NotifyingHelper {
       graphListener.accept(
           myKey, EventType.GET_ALL_DIRECT_DEPS_FOR_INCOMPLETE_NODE, Order.BEFORE, this);
       return super.getAllDirectDepsForIncompleteNode();
+    }
+
+    @Override
+    public void resetForRestartFromScratch() {
+      getDelegate().resetForRestartFromScratch();
+      graphListener.accept(myKey, EventType.RESET_FOR_RESTART_FROM_SCRATCH, Order.AFTER, this);
     }
 
     @Override

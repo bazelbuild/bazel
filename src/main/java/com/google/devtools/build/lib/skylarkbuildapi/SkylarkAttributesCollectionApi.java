@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.skylarkbuildapi;
 
+import com.google.devtools.build.lib.skylarkbuildapi.core.StructApi;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
@@ -28,24 +29,23 @@ import com.google.devtools.build.lib.syntax.StarlarkValue;
 public interface SkylarkAttributesCollectionApi extends StarlarkValue {
 
   @SkylarkCallable(name = "attr", structField = true, doc = SkylarkRuleContextApi.ATTR_DOC)
-  public StructApi getAttr() throws EvalException;
+  StructApi getAttr() throws EvalException;
 
   @SkylarkCallable(
       name = "executable",
       structField = true,
       doc = SkylarkRuleContextApi.EXECUTABLE_DOC)
-  public StructApi getExecutable() throws EvalException;
+  StructApi getExecutable() throws EvalException;
 
   @SkylarkCallable(name = "file", structField = true, doc = SkylarkRuleContextApi.FILE_DOC)
-  public StructApi getFile() throws EvalException;
+  StructApi getFile() throws EvalException;
 
   @SkylarkCallable(name = "files", structField = true, doc = SkylarkRuleContextApi.FILES_DOC)
-  public StructApi getFiles() throws EvalException;
+  StructApi getFiles() throws EvalException;
 
   @SkylarkCallable(
-    name = "kind",
-    structField = true,
-    doc = "The kind of a rule, such as 'cc_library'"
-  )
-  public String getRuleClassName() throws EvalException;
+      name = "kind",
+      structField = true,
+      doc = "The kind of a rule, such as 'cc_library'")
+  String getRuleClassName() throws EvalException;
 }

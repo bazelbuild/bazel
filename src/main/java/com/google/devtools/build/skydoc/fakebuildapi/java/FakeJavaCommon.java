@@ -18,15 +18,15 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
-import com.google.devtools.build.lib.skylarkbuildapi.ProviderApi;
 import com.google.devtools.build.lib.skylarkbuildapi.SkylarkActionFactoryApi;
 import com.google.devtools.build.lib.skylarkbuildapi.SkylarkRuleContextApi;
+import com.google.devtools.build.lib.skylarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.skylarkbuildapi.java.JavaCommonApi;
 import com.google.devtools.build.lib.skylarkbuildapi.java.JavaToolchainSkylarkApiProviderApi;
+import com.google.devtools.build.lib.skylarkbuildapi.platform.ConstraintValueInfoApi;
 import com.google.devtools.build.lib.syntax.Depset;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Sequence;
-import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.skydoc.fakebuildapi.FakeProviderApi;
 
@@ -37,7 +37,8 @@ public class FakeJavaCommon
         FakeJavaInfo,
         FakeJavaToolchainSkylarkApiProviderApi,
         FakeJavaRuntimeInfoApi,
-        SkylarkRuleContextApi,
+        ConstraintValueInfoApi,
+        SkylarkRuleContextApi<ConstraintValueInfoApi>,
         SkylarkActionFactoryApi> {
 
   @Override
@@ -47,13 +48,14 @@ public class FakeJavaCommon
 
   @Override
   public FakeJavaInfo createJavaCompileAction(
-      SkylarkRuleContextApi skylarkRuleContext,
+      SkylarkRuleContextApi<ConstraintValueInfoApi> skylarkRuleContext,
       Sequence<?> sourceJars,
       Sequence<?> sourceFiles,
       FileApi outputJar,
       Object outputSourceJar,
       Sequence<?> javacOpts,
       Sequence<?> deps,
+      Sequence<?> experimentalLocalCompileTimeDeps,
       Sequence<?> exports,
       Sequence<?> plugins,
       Sequence<?> exportedPlugins,
@@ -77,8 +79,7 @@ public class FakeJavaCommon
       FileApi jar,
       Object targetLabel,
       FakeJavaToolchainSkylarkApiProviderApi javaToolchain,
-      Location location,
-      StarlarkSemantics semantics)
+      Location location)
       throws EvalException {
     return null;
   }
@@ -89,8 +90,7 @@ public class FakeJavaCommon
       FileApi jar,
       Label targetLabel,
       FakeJavaToolchainSkylarkApiProviderApi javaToolchain,
-      Location location,
-      StarlarkSemantics semantics)
+      Location location)
       throws EvalException {
     return null;
   }
@@ -103,8 +103,7 @@ public class FakeJavaCommon
       Sequence<?> sourceJars,
       FakeJavaToolchainSkylarkApiProviderApi javaToolchain,
       FakeJavaRuntimeInfoApi hostJavabase,
-      Location location,
-      StarlarkSemantics semantics)
+      Location location)
       throws EvalException {
     return null;
   }
@@ -136,7 +135,8 @@ public class FakeJavaCommon
   }
 
   @Override
-  public boolean isJavaToolchainResolutionEnabled(SkylarkRuleContextApi ruleContext) {
+  public boolean isJavaToolchainResolutionEnabled(
+      SkylarkRuleContextApi<ConstraintValueInfoApi> ruleContext) {
     return false;
   }
 

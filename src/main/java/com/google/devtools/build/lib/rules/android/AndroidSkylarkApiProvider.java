@@ -125,7 +125,8 @@ public class AndroidSkylarkApiProvider extends SkylarkApiProvider
         Order.STABLE_ORDER,
         Iterables.concat(
             Iterables.transform(
-                resourceInfo.getDirectAndroidResources(), data -> artifactFunction.apply(data))));
+                resourceInfo.getDirectAndroidResources().toList(),
+                data -> artifactFunction.apply(data))));
   }
 
   /** Helper class to provide information about IDLs related to this rule. */

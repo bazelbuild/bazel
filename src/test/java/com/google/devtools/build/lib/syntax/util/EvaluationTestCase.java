@@ -33,6 +33,8 @@ import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.lib.syntax.SyntaxError;
 import com.google.devtools.build.lib.syntax.ValidationEnvironment;
 import com.google.devtools.build.lib.testutil.TestMode;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
@@ -77,7 +79,8 @@ public class EvaluationTestCase {
           "TestMode is null. Please set a Testmode via setMode() or set the "
               + "StarlarkThread manually by overriding newStarlarkThread()");
     }
-    return testMode.createStarlarkThread(getEventHandler(), builtins, skylarkOptions);
+    return testMode.createStarlarkThread(
+        StarlarkThread.makeDebugPrintHandler(getEventHandler()), builtins, skylarkOptions);
   }
 
   /**
@@ -117,6 +120,7 @@ public class EvaluationTestCase {
   public StarlarkThread getStarlarkThread() {
     return thread;
   }
+
   // TODO(adonovan): don't let subclasses inherit vaguely specified "helpers".
   // Separate all the tests clearly into tests of the scanner, parser, resolver,
   // and evaluation.
@@ -126,13 +130,15 @@ public class EvaluationTestCase {
     return Expression.parse(ParserInput.fromLines(lines));
   }
 
+  /** Updates a binding in the module associated with the thread. */
   public EvaluationTestCase update(String varname, Object value) throws Exception {
-    thread.update(varname, value);
+    thread.getGlobals().put(varname, value);
     return this;
   }
 
+  /** Returns the value of a binding in the module associated with the thread. */
   public Object lookup(String varname) throws Exception {
-    return thread.moduleLookup(varname);
+    return thread.getGlobals().lookup(varname);
   }
 
   /** Joins the lines, parses them as an expression, and evaluates it. */
@@ -161,7 +167,8 @@ public class EvaluationTestCase {
       // For BUILD mode, validation events are reported but don't (yet)
       // prevent execution. We also apply BUILD dialect syntax checks.
       Event.replayEventsOn(getEventHandler(), file.errors());
-      PackageFactory.checkBuildSyntax(file, getEventHandler());
+      List<String> globs = new ArrayList<>(); // unused
+      PackageFactory.checkBuildSyntax(file, globs, globs, new HashMap<>(), getEventHandler());
     }
     EvalUtils.exec(file, thread);
   }
@@ -424,7 +431,7 @@ public class EvaluationTestCase {
     }
 
     /**
-     * Registers a variable that has to be updated before a test
+     * Registers an update to a module variable to be bound before a test
      *
      * @param name
      * @param value

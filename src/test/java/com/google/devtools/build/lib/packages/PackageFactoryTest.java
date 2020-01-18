@@ -25,7 +25,6 @@ import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.events.Reporter;
-import com.google.devtools.build.lib.packages.PackageFactory.GlobPatternExtractor;
 import com.google.devtools.build.lib.packages.util.PackageFactoryApparatus;
 import com.google.devtools.build.lib.packages.util.PackageFactoryTestBase;
 import com.google.devtools.build.lib.syntax.ParserInput;
@@ -36,6 +35,7 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
@@ -142,16 +142,16 @@ public class PackageFactoryTest extends PackageFactoryTestBase {
   @Test
   public void testExportsFilesVisibilityMustBeSequence() throws Exception {
     expectEvalError(
-        "expected value of type 'sequence or NoneType' for parameter 'visibility', "
-            + "for call to method exports_files",
+        "in call to exports_files(), parameter 'visibility' got value of type 'depset', want"
+            + " 'sequence or NoneType'",
         "exports_files(srcs=[], visibility=depset(['notice']))");
   }
 
   @Test
   public void testExportsFilesLicensesMustBeSequence() throws Exception {
     expectEvalError(
-        "expected value of type 'sequence of strings or NoneType' for parameter 'licenses', "
-            + "for call to method exports_files",
+        "in call to exports_files(), parameter 'licenses' got value of type 'depset', want"
+            + " 'sequence of strings or NoneType'",
         "exports_files(srcs=[], licenses=depset(['notice']))");
   }
 
@@ -647,7 +647,7 @@ public class PackageFactoryTest extends PackageFactoryTestBase {
     events.setFailFast(false);
     assertGlobFails(
         "glob(['incl'],['excl'],3,True,'extraarg')",
-        "expected no more than 4 positional arguments, but got 5, for call to method glob");
+        "glob() accepts no more than 4 positional arguments but got 5");
   }
 
   @Test
@@ -655,8 +655,8 @@ public class PackageFactoryTest extends PackageFactoryTestBase {
     events.setFailFast(false);
     assertGlobFails(
         "glob(1, exclude=2)",
-        "expected value of type 'sequence of strings' for parameter 'include', "
-            + "for call to method glob");
+        "in call to glob(), parameter 'include' got value of type 'int', want 'sequence of"
+            + " strings'");
   }
 
   @Test
@@ -820,8 +820,7 @@ public class PackageFactoryTest extends PackageFactoryTestBase {
   @Test
   public void testPackageGroupNamedArguments() throws Exception {
     expectEvalError(
-        "expected no more than 0 positional arguments, but got 1,",
-        "package_group('skin', name = 'x')");
+        "package_group() got unexpected positional argument", "package_group('skin', name = 'x')");
   }
 
   @Test
@@ -1042,7 +1041,7 @@ public class PackageFactoryTest extends PackageFactoryTestBase {
   @Test
   public void testIncompleteEnvironmentGroup() throws Exception {
     expectEvalError(
-        "parameter 'defaults' has no default value, for call to function environment_group",
+        "environment_group() missing 1 required named argument: defaults",
         "environment(name = 'foo')",
         "environment_group(name='group', environments = [':foo'])");
   }
@@ -1171,8 +1170,7 @@ public class PackageFactoryTest extends PackageFactoryTestBase {
 
   @Test
   public void testGlobPatternExtractor() {
-    GlobPatternExtractor globPatternExtractor = new GlobPatternExtractor();
-    globPatternExtractor.visit(
+    StarlarkFile file =
         StarlarkFile.parse(
             ParserInput.fromLines(
                 "pattern = '*'",
@@ -1182,9 +1180,12 @@ public class PackageFactoryTest extends PackageFactoryTestBase {
                 "  pattern,",
                 "])",
                 "other_variable = glob(include = ['a'], exclude = ['b'])",
-                "third_variable = glob(['c'], exclude_directories = 0)")));
-    assertThat(globPatternExtractor.getExcludeDirectoriesPatterns())
-        .containsExactly("ab", "a", "**/*");
-    assertThat(globPatternExtractor.getIncludeDirectoriesPatterns()).containsExactly("c");
+                "third_variable = glob(['c'], exclude_directories = 0)"));
+    List<String> globs = new ArrayList<>();
+    List<String> globsWithDirs = new ArrayList<>();
+    PackageFactory.checkBuildSyntax(
+        file, globs, globsWithDirs, new HashMap<>(), /*eventHandler=*/ null);
+    assertThat(globs).containsExactly("ab", "a", "**/*");
+    assertThat(globsWithDirs).containsExactly("c");
   }
 }

@@ -60,8 +60,8 @@ EOF
 }
 
 test_unused_invalid_label_arg() {
-  # Verify that we preserve the behavior of allowing to pass label that
-  # do referring to an existing path, if they are never resolved as such.
+  # Verify that we preserve the behavior of allowing to pass labels that
+  # do referring to an non-existing path, if they are never used.
   WRKDIR=`pwd`
   rm -rf repo
   mkdir repo
@@ -69,7 +69,6 @@ test_unused_invalid_label_arg() {
   touch BUILD
   cat > rule.bzl <<'EOF'
 def _impl(ctx):
-  # Access the build file late
   ctx.file("WORKSPACE", "workspace(name = \"%s\")\n" % ctx.name)
   ctx.file("BUILD",
            "genrule(name=\"foo\", outs=[\"foo.txt\"], cmd = \"echo foo > $@\")")
@@ -98,7 +97,6 @@ test_label_list_arg() {
   touch BUILD
   cat > rule.bzl <<EOF
 def _impl(ctx):
-  # Access the build file late
   ctx.execute(["/bin/sh", "-c", "date +%s >> ${WRKDIR}/log"])
   ctx.file("WORKSPACE", "workspace(name = \"%s\")\n" % ctx.name)
   ctx.file("BUILD",  """
@@ -130,7 +128,7 @@ EOF
 
 test_unused_invalid_label_list_arg() {
   # Verify that we preserve the behavior of allowing to pass labels that
-  # do referring to an existing path, if they are never resolved as such.
+  # do referring to an non-existing path, if they are never used.
   # Here, test it if such labels are passed in a label list.
   WRKDIR=`pwd`
   rm -rf repo
@@ -139,7 +137,6 @@ test_unused_invalid_label_list_arg() {
   touch BUILD
   cat > rule.bzl <<'EOF'
 def _impl(ctx):
-  # Access the build file late
   ctx.file("WORKSPACE", "workspace(name = \"%s\")\n" % ctx.name)
   ctx.file("BUILD",
            "genrule(name=\"foo\", outs=[\"foo.txt\"], cmd = \"echo foo > $@\")")
@@ -153,6 +150,79 @@ EOF
 load("//:rule.bzl", "myrule")
 myrule(name="ext", unused_list=["//does/not/exist:file1",
                                 "//does/not/exists:file2"])
+EOF
+  bazel build @ext//:foo || fail "expected success"
+}
+
+# Regression test for https://github.com/bazelbuild/bazel/issues/10515
+test_label_keyed_string_dict_arg() {
+  # Verify that Bazel preloads Labels from label_keyed_string_dict, and as a
+  # result, it runs the repository's implementation only once (i.e. it won't
+  # restart the corresponding SkyFunction).
+  WRKDIR=`pwd`
+  rm -rf repo
+  rm -rf log
+  mkdir repo
+  cd repo
+  touch BUILD
+  cat > rule.bzl <<EOF
+def _impl(ctx):
+    ctx.execute(["/bin/sh", "-c", "date +%s >> ${WRKDIR}/log"])
+    ctx.file("WORKSPACE", "workspace(name = \"%s\")\n" % ctx.name)
+    ctx.file("BUILD", """
+genrule(
+    name = "foo",
+    srcs = ["src.txt"],
+    outs = ["foo.txt"],
+    cmd = "cp \$< \$@",
+)
+""")
+    for f in ctx.attr.data:
+        # ctx.path(f) shouldn't trigger a restart since we've prefetched the value.
+        ctx.execute(["/bin/sh", "-c", "cat %s >> src.txt" % ctx.path(f)])
+
+myrule = repository_rule(
+    implementation = _impl,
+    attrs = {
+        "data": attr.label_keyed_string_dict(),
+    },
+)
+EOF
+  cat > WORKSPACE <<'EOF'
+load("//:rule.bzl", "myrule")
+myrule(name="ext", data = {"//:a.txt": "a", "//:b.txt": "b"})
+EOF
+  echo Hello > a.txt
+  echo World > b.txt
+  bazel build @ext//:foo || fail "expected success"
+  [ `cat "${WRKDIR}/log" | wc -l` -eq 1 ] \
+      || fail "did not find precisely one invocation of the action"
+}
+
+test_unused_invalid_label_keyed_string_dict_arg() {
+  # Verify that we preserve the behavior of allowing to pass labels that
+  # do referring to an non-existing path, if they are never used.
+  # Here, test it if such labels are passed in a label_keyed_string_dict.
+  WRKDIR=`pwd`
+  rm -rf repo
+  mkdir repo
+  cd repo
+  touch BUILD
+  cat > rule.bzl <<'EOF'
+def _impl(ctx):
+  ctx.file("WORKSPACE", "workspace(name = \"%s\")\n" % ctx.name)
+  ctx.file("BUILD",
+           "genrule(name=\"foo\", outs=[\"foo.txt\"], cmd = \"echo foo > $@\")")
+
+myrule=repository_rule(implementation=_impl,
+ attrs={
+   "unused_dict" : attr.label_keyed_string_dict(),
+ })
+EOF
+  cat > WORKSPACE <<'EOF'
+load("//:rule.bzl", "myrule")
+myrule(name="ext", unused_dict={"//does/not/exist:file1": "file1",
+                                "//does/not/exists:file2": "file2"})
 EOF
   bazel build @ext//:foo || fail "expected success"
 }

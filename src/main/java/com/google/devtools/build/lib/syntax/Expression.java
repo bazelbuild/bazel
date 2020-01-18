@@ -35,7 +35,7 @@ public abstract class Expression extends Node {
     CONDITIONAL,
     DICT_EXPR,
     DOT,
-    FUNCALL,
+    CALL,
     IDENTIFIER,
     INDEX,
     INTEGER_LITERAL,

@@ -18,6 +18,7 @@ import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
 import com.google.devtools.build.lib.skylarkbuildapi.SkylarkActionFactoryApi;
 import com.google.devtools.build.lib.skylarkbuildapi.SkylarkRuleContextApi;
+import com.google.devtools.build.lib.skylarkbuildapi.platform.ConstraintValueInfoApi;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.ParamType;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
@@ -36,7 +37,8 @@ import com.google.devtools.build.lib.syntax.Tuple;
 public interface BazelCcModuleApi<
         SkylarkActionFactoryT extends SkylarkActionFactoryApi,
         FileT extends FileApi,
-        SkylarkRuleContextT extends SkylarkRuleContextApi,
+        ConstraintValueT extends ConstraintValueInfoApi,
+        SkylarkRuleContextT extends SkylarkRuleContextApi<ConstraintValueT>,
         CcToolchainProviderT extends CcToolchainProviderApi<FeatureConfigurationT>,
         FeatureConfigurationT extends FeatureConfigurationApi,
         CompilationContextT extends CcCompilationContextApi,
@@ -57,6 +59,7 @@ public interface BazelCcModuleApi<
         LinkingContextT,
         LibraryToLinkT,
         CcToolchainVariablesT,
+        ConstraintValueT,
         SkylarkRuleContextT,
         CcToolchainConfigInfoT,
         CompilationOutputsT> {
@@ -136,7 +139,7 @@ public interface BazelCcModuleApi<
             name = "system_includes",
             doc =
                 "Search paths for header files referenced by angle brackets, e.g. #include"
-                    + " <foo/bar/header.h>. They can be either relative to the exec root or"
+                    + " &lt;foo/bar/header.h&gt;. They can be either relative to the exec root or"
                     + " absolute. Usually passed with -isystem. Propagated to dependents "
                     + "transitively.",
             positional = false,

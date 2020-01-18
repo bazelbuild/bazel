@@ -38,11 +38,9 @@ cd "${TEST_TMPDIR}/TEMP_TEMP_TEMP"
 # could inadvertently modify below.
 cp -rL ${testdata_path}/bazel_toolchain_test_data/* .
 
-# Rename WORKSPACE.linaro file to WORKSPACE
-# (Did not include the file WORKSPACE in the test because source tree under
-# directories that contain this file is not parsed)
-mv WORKSPACE.linaro WORKSPACE
+# Add WORKSPACE.linaro file to WORKSPACE.
 create_workspace_with_default_repos WORKSPACE
+cat WORKSPACE.linaro >> WORKSPACE
 
 # Rename BUILD.linaro files
 for i in $(find . -name BUILD.linaro); do

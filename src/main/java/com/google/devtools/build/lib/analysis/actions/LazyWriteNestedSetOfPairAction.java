@@ -16,12 +16,13 @@ package com.google.devtools.build.lib.analysis.actions;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 
-import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.Pair;
 import java.io.IOException;
@@ -40,7 +41,8 @@ public final class LazyWriteNestedSetOfPairAction extends AbstractFileWriteActio
 
   public LazyWriteNestedSetOfPairAction(
       ActionOwner owner, Artifact output, NestedSet<Pair<String, String>> pairsToWrite) {
-    super(owner, ImmutableList.of(), output, /* makeExecutable= */ false);
+    super(
+        owner, NestedSetBuilder.emptySet(Order.STABLE_ORDER), output, /* makeExecutable= */ false);
     this.pairsToWrite = pairsToWrite;
   }
 
@@ -63,7 +65,7 @@ public final class LazyWriteNestedSetOfPairAction extends AbstractFileWriteActio
   private String getContents() {
     if (fileContents == null) {
       StringBuilder stringBuilder = new StringBuilder();
-      for (Pair<String, String> pair : pairsToWrite) {
+      for (Pair<String, String> pair : pairsToWrite.toList()) {
         stringBuilder
             .append(pair.first)
             .append(":")

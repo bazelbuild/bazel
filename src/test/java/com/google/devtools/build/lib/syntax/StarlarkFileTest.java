@@ -18,7 +18,6 @@ import static com.google.common.truth.Truth.assertThat;
 import com.google.common.base.Joiner;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.testutil.MoreAsserts;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -39,7 +38,7 @@ public class StarlarkFileTest {
    */
   private static StarlarkFile parseFile(String... lines) {
     String src = Joiner.on("\n").join(lines);
-    ParserInput input = ParserInput.create(src, PathFragment.create("foo.star"));
+    ParserInput input = ParserInput.create(src, "foo.star");
     return StarlarkFile.parse(input);
   }
 
@@ -57,7 +56,7 @@ public class StarlarkFileTest {
     //
     // input1.BUILD contains:
     // x = [1,2,'foo',4] + [1,2, "%s%d" % ('foo', 1)]
-    assertThat(thread.moduleLookup("x"))
+    assertThat(thread.getGlobals().lookup("x"))
         .isEqualTo(StarlarkList.of(/*mutability=*/ null, 1, 2, "foo", 4, 1, 2, "foo1"));
   }
 
@@ -70,8 +69,8 @@ public class StarlarkFileTest {
       EvalUtils.exec(file, thread);
       throw new AssertionError("execution succeeded unexpectedly");
     } catch (EvalException ex) {
-      assertThat(ex.getMessage()).contains("unsupported operand type(s) for +: 'int' and 'list'");
-      assertThat(ex.getLocation().getStartLineAndColumn().getLine()).isEqualTo(4);
+      assertThat(ex.getMessage()).contains("unsupported binary operation: int + list");
+      assertThat(ex.getLocation().line()).isEqualTo(4);
     }
   }
 

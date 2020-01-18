@@ -69,6 +69,10 @@ public final class CqueryCommand implements BlazeCommand {
           PriorityCategory.COMPUTED_DEFAULT,
           "Options required by cquery",
           ImmutableList.of("--nobuild"));
+      optionsParser.parse(
+          PriorityCategory.COMPUTED_DEFAULT,
+          "cquery should include 'tags = [\"manual\"]' targets by default",
+          ImmutableList.of("--build_manual_tests"));
       if (cqueryOptions.showRequiredConfigFragments != IncludeConfigFragmentsEnum.OFF) {
         optionsParser.parse(
             PriorityCategory.COMPUTED_DEFAULT,

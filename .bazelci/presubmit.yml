@@ -96,8 +96,6 @@ platforms:
       - "-//src/test/shell/bazel/android:android_ndk_integration_test"
       # Some prebuilt jars don't run with Java 11
       - "-//src/test/shell/bazel:external_integration_test"
-      # Re-enable once bootstrap works with Java 11
-      - "-//src/test/shell/bazel:bazel_bootstrap_distfile_test"
       # Re-enable once fixed: https://github.com/bazelbuild/bazel/issues/8162
       - "-//src/java_tools/import_deps_checker/..."
       # TODO(katre): Re-enable after 0.29.0: https://github.com/bazelbuild/bazel/issues/9148

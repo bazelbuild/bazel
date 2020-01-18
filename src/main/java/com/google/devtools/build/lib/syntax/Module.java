@@ -52,11 +52,10 @@ import javax.annotation.Nullable;
 // TODO(adonovan):
 // - make fields private where possible.
 // - remove references to this from StarlarkThread.
-// - eliminate Frame interface and the methods it forces upon Module.
 // - separate the universal predeclared environment and make it implicit.
 // - eliminate initialize(). The only constructor we need is:
-//   (Mutability mu, Map<String, Object> predeclared, Object label).
-public final class Module implements StarlarkThread.Frame, ValidationEnvironment.Module {
+//   (String name, Mutability mu, Map<String, Object> predeclared, Object label).
+public final class Module implements ValidationEnvironment.Module, Mutability.Freezable {
 
   /**
    * Final, except that it may be initialized after instantiation. Null mutability indicates that
@@ -255,6 +254,8 @@ public final class Module implements StarlarkThread.Frame, ValidationEnvironment
    * Returns a map of bindings that are exported (i.e. symbols declared using `=` and `def`, but not
    * `load`).
    */
+  // TODO(adonovan): whether bindings are exported should be decided by the resolver;
+  // non-exported bindings should never be added to the module.
   public Map<String, Object> getExportedBindings() {
     checkInitialized();
     ImmutableMap.Builder<String, Object> result = new ImmutableMap.Builder<>();
@@ -277,7 +278,8 @@ public final class Module implements StarlarkThread.Frame, ValidationEnvironment
     return v == null ? null : v.getErrorFromAttemptingAccess(semantics, name);
   }
 
-  @Override
+  /** Returns an environment containing both module and predeclared bindings. */
+  // TODO(adonovan): eliminate in favor of explicit module vs. predeclared operations.
   public Map<String, Object> getTransitiveBindings() {
     checkInitialized();
     // Can't use ImmutableMap.Builder because it doesn't allow duplicates.
@@ -289,13 +291,23 @@ public final class Module implements StarlarkThread.Frame, ValidationEnvironment
     return collectedBindings;
   }
 
-  public Object getDirectBindings(String varname) {
+  /**
+   * Returns the value of the specified module variable, or null if not bound. Does not look in the
+   * predeclared environment.
+   */
+  public Object lookup(String varname) {
     checkInitialized();
     return bindings.get(varname);
   }
 
-  @Override
+  /**
+   * Returns the value of the named variable in the module environment, or if not bound there, in
+   * the predeclared environment, or if not bound there, null.
+   */
   public Object get(String varname) {
+    // TODO(adonovan): delete this whole function, and getTransitiveBindings.
+    // With proper resolution, the interpreter will know whether
+    // to look in the module or the predeclared/universal environment.
     checkInitialized();
     Object val = bindings.get(varname);
     if (val != null) {
@@ -307,22 +319,17 @@ public final class Module implements StarlarkThread.Frame, ValidationEnvironment
     return null;
   }
 
-  @Override
+  /** Updates a binding in the module environment. */
   public void put(String varname, Object value) throws MutabilityException {
+    Preconditions.checkNotNull(value, "Module.put(%s, null)", varname);
     checkInitialized();
     Mutability.checkMutable(this, mutability());
     bindings.put(varname, value);
   }
 
   @Override
-  public void remove(String varname) throws MutabilityException {
-    checkInitialized();
-    Mutability.checkMutable(this, mutability());
-    bindings.remove(varname);
-  }
-
-  @Override
   public String toString() {
+    // TODO(adonovan): use the file name of the module (not visible to Starlark programs).
     if (mutability == null) {
       return "<Uninitialized Module>";
     } else {

@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.runtime;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.eventbus.EventBus;
+import com.google.devtools.build.lib.actions.MetadataProvider;
 import com.google.devtools.build.lib.actions.ResourceManager;
 import com.google.devtools.build.lib.actions.cache.ActionCache;
 import com.google.devtools.build.lib.analysis.AnalysisOptions;
@@ -25,6 +26,7 @@ import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Reporter;
+import com.google.devtools.build.lib.exec.SingleBuildFileCache;
 import com.google.devtools.build.lib.packages.StarlarkSemanticsOptions;
 import com.google.devtools.build.lib.pkgcache.PackageCacheOptions;
 import com.google.devtools.build.lib.pkgcache.PackageManager;
@@ -58,6 +60,7 @@ import java.util.TreeSet;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicReference;
 import javax.annotation.Nullable;
+import javax.annotation.concurrent.GuardedBy;
 
 /**
  * Encapsulates the state needed for a single command. The environment is dropped when the current
@@ -93,8 +96,12 @@ public final class CommandEnvironment {
   private Path workingDirectory;
   private String workspaceName;
   private boolean haveSetupPackageCache = false;
-
   private AtomicReference<AbruptExitException> pendingException = new AtomicReference<>();
+
+  private final Object fileCacheLock = new Object();
+
+  @GuardedBy("fileCacheLock")
+  private MetadataProvider fileCache;
 
   private class BlazeModuleEnvironment implements BlazeModule.ModuleEnvironment {
     @Override
@@ -746,5 +753,16 @@ public final class CommandEnvironment {
   /** Returns the client environment with all settings from --action_env and --repo_env. */
   public Map<String, String> getRepoEnv() {
     return Collections.unmodifiableMap(repoEnv);
+  }
+
+  /** Returns the file cache to use during this build. */
+  public MetadataProvider getFileCache() {
+    synchronized (fileCacheLock) {
+      if (fileCache == null) {
+        fileCache =
+            new SingleBuildFileCache(getExecRoot().getPathString(), getRuntime().getFileSystem());
+      }
+      return fileCache;
+    }
   }
 }

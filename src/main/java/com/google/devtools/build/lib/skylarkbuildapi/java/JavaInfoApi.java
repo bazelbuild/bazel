@@ -16,8 +16,8 @@ package com.google.devtools.build.lib.skylarkbuildapi.java;
 
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
-import com.google.devtools.build.lib.skylarkbuildapi.ProviderApi;
-import com.google.devtools.build.lib.skylarkbuildapi.StructApi;
+import com.google.devtools.build.lib.skylarkbuildapi.core.ProviderApi;
+import com.google.devtools.build.lib.skylarkbuildapi.core.StructApi;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkConstructor;
@@ -43,7 +43,7 @@ public interface JavaInfoApi<FileT extends FileApi> extends StructApi {
               + " href=\"JavaInfo.html#transitive_runtime_deps\">JavaInfo.transitive_runtime_deps"
               + "</a></code> for legacy reasons.",
       structField = true)
-  public Depset getTransitiveRuntimeJars();
+  Depset getTransitiveRuntimeJars();
 
   @SkylarkCallable(
       name = "transitive_compile_time_jars",
@@ -53,7 +53,7 @@ public interface JavaInfoApi<FileT extends FileApi> extends StructApi {
               + " href=\"JavaInfo.html#transitive_deps\">JavaInfo.transitive_deps</a></code> for"
               + " legacy reasons.",
       structField = true)
-  public Depset getTransitiveCompileTimeJars();
+  Depset getTransitiveCompileTimeJars();
 
   @SkylarkCallable(
       name = "compile_jars",
@@ -62,7 +62,7 @@ public interface JavaInfoApi<FileT extends FileApi> extends StructApi {
               + " interface jars (ijar or hjar), regular jars or both, depending on whether rule"
               + " implementations chose to create interface jars or not.",
       structField = true)
-  public Depset getCompileTimeJars();
+  Depset getCompileTimeJars();
 
   @SkylarkCallable(
       name = "full_compile_jars",
@@ -81,7 +81,7 @@ public interface JavaInfoApi<FileT extends FileApi> extends StructApi {
               + " <code><a class=\"anchor\""
               + " href=\"JavaInfo.html#compile_jars\">JavaInfo.compile_jars</a></code></li>",
       structField = true)
-  public Depset getFullCompileTimeJars();
+  Depset getFullCompileTimeJars();
 
   @SkylarkCallable(
       name = "source_jars",
@@ -90,34 +90,34 @@ public interface JavaInfoApi<FileT extends FileApi> extends StructApi {
               + " annotations) of the target  itself, i.e. NOT including the sources of the"
               + " transitive dependencies.",
       structField = true)
-  public Sequence<FileT> getSourceJars();
+  Sequence<FileT> getSourceJars();
 
   @SkylarkCallable(
       name = "outputs",
       doc = "Returns information about outputs of this Java/Java-like target.",
       structField = true,
       allowReturnNones = true)
-  public JavaRuleOutputJarsProviderApi<?> getOutputJars();
+  JavaRuleOutputJarsProviderApi<?> getOutputJars();
 
   @SkylarkCallable(
       name = "annotation_processing",
       structField = true,
       allowReturnNones = true,
       doc = "Returns information about annotation processing for this Java/Java-like target.")
-  public JavaAnnotationProcessingApi<?> getGenJarsProvider();
+  JavaAnnotationProcessingApi<?> getGenJarsProvider();
 
   @SkylarkCallable(
       name = "compilation_info",
       structField = true,
       allowReturnNones = true,
       doc = "Returns compilation information for this Java/Java-like target.")
-  public JavaCompilationInfoProviderApi<?> getCompilationInfoProvider();
+  JavaCompilationInfoProviderApi<?> getCompilationInfoProvider();
 
   @SkylarkCallable(
       name = "runtime_output_jars",
       doc = "Returns a list of runtime Jars created by this Java/Java-like target.",
       structField = true)
-  public Sequence<FileT> getRuntimeOutputJars();
+  Sequence<FileT> getRuntimeOutputJars();
 
   @SkylarkCallable(
       name = "transitive_deps",
@@ -127,7 +127,7 @@ public interface JavaInfoApi<FileT extends FileApi> extends StructApi {
               + " href=\"JavaInfo.html#transitive_compile_time_jars\">JavaInfo.transitive_compile_time_jars</a></code>"
               + " for legacy reasons.",
       structField = true)
-  public Depset /*<FileT>*/ getTransitiveDeps();
+  Depset /*<FileT>*/ getTransitiveDeps();
 
   @SkylarkCallable(
       name = "transitive_runtime_deps",
@@ -137,7 +137,7 @@ public interface JavaInfoApi<FileT extends FileApi> extends StructApi {
               + " href=\"JavaInfo.html#transitive_runtime_jars\">JavaInfo.transitive_runtime_jars"
               + "</a></code> for legacy reasons.",
       structField = true)
-  public Depset /*<FileT>*/ getTransitiveRuntimeDeps();
+  Depset /*<FileT>*/ getTransitiveRuntimeDeps();
 
   @SkylarkCallable(
       name = "transitive_source_jars",
@@ -145,17 +145,17 @@ public interface JavaInfoApi<FileT extends FileApi> extends StructApi {
           "Returns the Jars containing source files of the current target and all of its"
               + " transitive dependencies.",
       structField = true)
-  public Depset /*<FileT>*/ getTransitiveSourceJars();
+  Depset /*<FileT>*/ getTransitiveSourceJars();
 
   @SkylarkCallable(
       name = "transitive_exports",
       structField = true,
       doc = "Returns a set of labels that are being exported from this rule transitively.")
-  public Depset /*<Label>*/ getTransitiveExports();
+  Depset /*<Label>*/ getTransitiveExports();
 
   /** Provider class for {@link JavaInfoApi} objects. */
   @SkylarkModule(name = "Provider", documented = false, doc = "")
-  public interface JavaInfoProviderApi extends ProviderApi {
+  interface JavaInfoProviderApi extends ProviderApi {
 
     @SkylarkCallable(
         name = "JavaInfo",
@@ -239,7 +239,7 @@ public interface JavaInfoApi<FileT extends FileApi> extends StructApi {
         useLocation = true,
         useStarlarkThread = true)
     @SkylarkConstructor(objectType = JavaInfoApi.class, receiverNameForDoc = "JavaInfo")
-    public JavaInfoApi<?> javaInfo(
+    JavaInfoApi<?> javaInfo(
         FileApi outputJarApi,
         Object compileJarApi,
         Object sourceJarApi,

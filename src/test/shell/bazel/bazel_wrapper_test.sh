@@ -45,13 +45,19 @@ set -e
 wrapper=$(rlocation io_bazel/scripts/packages/bazel.sh)
 
 mock_bazel() {
-  cat > "$1" <<'EOF'
+  {
+    cat <<'EOF'
 #!/bin/bash
 set -euo pipefail
-echo "Hello from $(basename $0)!"
-echo "My args: $@"
+if [[ ${1:-""} == "--version" ]]; then
+  echo "bazel BAZEL_VERSION"
+else
+  echo "Hello from $(basename $0)!"
+  echo "My args: $@"
+fi
 exit 0
 EOF
+  } | sed "s/BAZEL_VERSION/$2/" > "$1"
   chmod +x "$1"
 }
 
@@ -65,9 +71,9 @@ setup_mock() {
   mkdir bin
   cp "$wrapper" "bin/bazel"
   chmod +x "bin/bazel"
-  mock_bazel "bin/bazel-0.29.1"
-  mock_bazel "bin/bazel-1.0.1"
-  mock_bazel "bin/bazel-real"
+  mock_bazel "bin/bazel-0.29.1" "0.29.1"
+  mock_bazel "bin/bazel-1.0.1" "1.0.1"
+  mock_bazel "bin/bazel-real" "1.1.0"
 
   # We don't want USE_BAZEL_VERSION passed by --test_env to affect this test.
   unset USE_BAZEL_VERSION
@@ -77,9 +83,9 @@ setup_mock() {
 test_use_bazel_version_envvar() {
   setup_mock
 
-  USE_BAZEL_VERSION="0.29.1" ../bin/bazel version &> "$TEST_log"
+  USE_BAZEL_VERSION="0.29.1" ../bin/bazel build &> "$TEST_log"
   expect_log "Hello from bazel-0.29.1"
-  expect_log "My args: version"
+  expect_log "My args: build"
 }
 
 test_bazelversion_file() {
@@ -204,6 +210,15 @@ EOF
   expect_log "Hello from the wrapper tools/bazel!"
   expect_log "BAZEL_REAL = .*/bin/bazel-0.29.1"
   expect_log "My args: build //src:bazel"
+}
+
+test_wrapper_detects_version_of_bazel_real() {
+  setup_mock
+
+  echo "1.1.0" > .bazelversion
+  ../bin/bazel &> "$TEST_log"
+  expect_log "Hello from bazel-real"
+  expect_log "My args:"
 }
 
 run_suite "Integration tests for scripts/packages/bazel.sh."

@@ -23,8 +23,8 @@ import javax.annotation.Nullable;
 /**
  * Base class for declared providers {@see Provider} defined in native code.
  *
- * <p>Every subclass of {@link BuiltinProvider} corresponds to a single declared
- * provider. This is enforced by final {@link #equals(Object)} and {@link #hashCode()}.
+ * <p>Every subclass of {@link BuiltinProvider} corresponds to a single declared provider. This is
+ * enforced by final {@link #equals(Object)} and {@link #hashCode()}.
  *
  * <p>Implementations of native declared providers should subclass this class, and define a method
  * in the subclass definition to create instances of its corresponding Info object. The method
@@ -32,7 +32,7 @@ import javax.annotation.Nullable;
  * true, and with {@link SkylarkConstructor} for the info type it constructs.
  */
 @Immutable
-public abstract class BuiltinProvider<T extends InfoInterface> implements Provider {
+public abstract class BuiltinProvider<T extends Info> implements Provider {
   private final NativeKey key;
   private final String name;
   private final Class<T> valueClass;

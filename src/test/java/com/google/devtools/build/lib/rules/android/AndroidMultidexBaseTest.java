@@ -76,7 +76,7 @@ public class AndroidMultidexBaseTest extends BuildViewTestCase {
       SpawnAction stripAction = getGeneratingSpawnAction(strippedJar);
       assertThat(stripAction.getCommandFilename())
           .isEqualTo(sdk.getProguard().getExecutable().getExecPathString());
-      assertThat(stripAction.getInputs()).contains(mainDexProguardSpec);
+      assertThat(stripAction.getInputs().toList()).contains(mainDexProguardSpec);
 
       // Second action: The dexer consumes the stripped jar to create the main dex class list.
       assertThat(mainDexList).isNotNull();

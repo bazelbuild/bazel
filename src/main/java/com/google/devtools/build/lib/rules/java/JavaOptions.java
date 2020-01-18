@@ -614,6 +614,14 @@ public class JavaOptions extends FragmentOptions {
       help = "If enabled, header compilation actions support --java_classpath=bazel")
   public boolean experimentalJavaHeaderInputPruning;
 
+  @Option(
+      name = "experimental_turbine_annotation_processing",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "If enabled, turbine is used for all annotation processing")
+  public boolean experimentalTurbineAnnotationProcessing;
+
   Label defaultJavaBase() {
     return Label.parseAbsoluteUnchecked(DEFAULT_JAVABASE);
   }
@@ -681,6 +689,8 @@ public class JavaOptions extends FragmentOptions {
     host.hostJavacOpts = hostJavacOpts;
     host.hostJavaLauncher = hostJavaLauncher;
     host.hostJavaToolchain = hostJavaToolchain;
+
+    host.experimentalTurbineAnnotationProcessing = experimentalTurbineAnnotationProcessing;
 
     return host;
   }

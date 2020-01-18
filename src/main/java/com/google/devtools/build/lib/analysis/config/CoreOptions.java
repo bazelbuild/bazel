@@ -817,6 +817,16 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
               + "if --experimental_enable_runfiles is set to false.")
   public boolean skipRunfilesManifests;
 
+  @Option(
+      name = "experimental_remotable_source_manifests",
+      defaultValue = "false",
+      converter = BooleanConverter.class,
+      documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
+      metadataTags = OptionMetadataTag.EXPERIMENTAL,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS, OptionEffectTag.EXECUTION},
+      help = "Whether to make source manifest actions remotable")
+  public boolean remotableSourceManifestActions;
+
   /** Ways configured targets may provide the {@link BuildConfiguration.Fragment}s they require. */
   public enum IncludeConfigFragmentsEnum {
     // Don't offer the provider at all. This is best for most builds, which don't use this

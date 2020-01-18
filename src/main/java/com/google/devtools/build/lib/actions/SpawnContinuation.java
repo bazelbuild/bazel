@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.actions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
-import java.util.List;
 
 /**
  * A representation of a (potentially) multi-step spawn execution, which can return multiple
@@ -43,8 +42,8 @@ public abstract class SpawnContinuation {
     return new Finished(ImmutableList.copyOf(spawnResults));
   }
 
-  public static SpawnContinuation immediate(List<SpawnResult> spawnResults) {
-    return new Finished(ImmutableList.copyOf(spawnResults));
+  public static SpawnContinuation immediate(ImmutableList<SpawnResult> spawnResults) {
+    return new Finished(spawnResults);
   }
 
   public static SpawnContinuation failedWithExecException(ExecException e) {
@@ -60,7 +59,7 @@ public abstract class SpawnContinuation {
    * blocking obtains a continuation and needs the result before it can return. Over time, this
    * method should become less common as more actions are rewritten to support async execution.
    */
-  public static List<SpawnResult> completeBlocking(SpawnContinuation continuation)
+  public static ImmutableList<SpawnResult> completeBlocking(SpawnContinuation continuation)
       throws ExecException, InterruptedException {
     while (!continuation.isDone()) {
       continuation = continuation.execute();
@@ -76,17 +75,18 @@ public abstract class SpawnContinuation {
 
   public abstract SpawnContinuation execute() throws ExecException, InterruptedException;
 
-  public List<SpawnResult> get() {
+  public ImmutableList<SpawnResult> get() {
     throw new IllegalStateException();
   }
 
   private static final class Finished extends SpawnContinuation {
-    private final List<SpawnResult> spawnResults;
+    private final ImmutableList<SpawnResult> spawnResults;
 
-    Finished(List<SpawnResult> spawnResults) {
+    Finished(ImmutableList<SpawnResult> spawnResults) {
       this.spawnResults = spawnResults;
     }
 
+    @Override
     public boolean isDone() {
       return true;
     }
@@ -101,7 +101,8 @@ public abstract class SpawnContinuation {
       return this;
     }
 
-    public List<SpawnResult> get() {
+    @Override
+    public ImmutableList<SpawnResult> get() {
       return spawnResults;
     }
   }

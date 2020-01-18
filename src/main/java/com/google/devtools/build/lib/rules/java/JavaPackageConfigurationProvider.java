@@ -55,7 +55,7 @@ public abstract class JavaPackageConfigurationProvider implements TransitiveInfo
   public boolean matches(Label label) {
     // Do not use streams here as they create excessive garbage.
     for (PackageSpecificationProvider provider : packageSpecifications()) {
-      for (PackageGroupContents specifications : provider.getPackageSpecifications()) {
+      for (PackageGroupContents specifications : provider.getPackageSpecifications().toList()) {
         if (specifications.containsPackage(label.getPackageIdentifier())) {
           return true;
         }

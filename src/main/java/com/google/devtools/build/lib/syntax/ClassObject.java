@@ -17,23 +17,32 @@ package com.google.devtools.build.lib.syntax;
 import com.google.common.collect.ImmutableCollection;
 import javax.annotation.Nullable;
 
-/** An interface for Skylark objects (such as structs) that have fields. */
-public interface ClassObject {
+/** An interface for Skylark values (such as structs) that have fields. */
+// TODO(adonovan): rename "HasFields".
+public interface ClassObject extends StarlarkValue {
 
   /**
    * Returns the value of the field with the given name, or null if the field does not exist.
    *
+   * <p>The set of names for which {@code getValue} returns non-null should match {@code
+   * getFieldNames} if possible.
+   *
    * @throws EvalException if a user-visible error occurs (other than non-existent field).
    */
+  // TODO(adonovan): rename "getField".
   @Nullable
   Object getValue(String name) throws EvalException;
 
   /**
-   * Returns the names of the fields of this struct, in some canonical order.
+   * Returns the names of this value's fields, in some undefined but stable order.
    *
-   * @throws EvalException if a user-visible error occurs
+   * <p>A call to {@code getValue} for each of these names should return non-null, though this is
+   * not enforced.
+   *
+   * <p>The Starlark expression {@code dir(x)} reports the union of {@code getFieldNames()} and any
+   * SkylarkCallable-annotated fields and methods of this value.
    */
-  ImmutableCollection<String> getFieldNames() throws EvalException;
+  ImmutableCollection<String> getFieldNames();
 
   /**
    * Returns the error message to print for an attempt to access an undefined field.

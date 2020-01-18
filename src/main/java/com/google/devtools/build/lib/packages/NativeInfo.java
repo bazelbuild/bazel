@@ -14,23 +14,24 @@
 package com.google.devtools.build.lib.packages;
 
 import com.google.common.collect.ImmutableCollection;
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.ImmutableSortedMap;
 import com.google.devtools.build.lib.events.Location;
-import com.google.devtools.build.lib.syntax.BuiltinCallable;
 import com.google.devtools.build.lib.syntax.CallUtils;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
-import java.util.Map;
 
-/** Base class for native implementations of {@link StructImpl}. */
-// todo(vladmos,dslomov): make abstract once DefaultInfo stops instantiating it.
-public class NativeInfo extends StructImpl {
-  protected final ImmutableSortedMap<String, Object> values;
+/**
+ * Abstract base class for implementations of {@link StructImpl} that expose
+ * StarlarkCallable-annotated fields (not just methods) to Starlark code.
+ */
+public abstract class NativeInfo extends StructImpl {
 
-  // Initialized lazily.
-  private ImmutableSet<String> fieldNames;
+  protected NativeInfo(Provider provider) {
+    this(provider, Location.BUILTIN);
+  }
+
+  protected NativeInfo(Provider provider, Location loc) {
+    super(provider, loc);
+  }
 
   // TODO(adonovan): logically this should be a parameter of getValue
   // and getFieldNames or an instance field of this object.
@@ -38,10 +39,8 @@ public class NativeInfo extends StructImpl {
 
   @Override
   public Object getValue(String name) throws EvalException {
-    Object x = values.get(name);
-    if (x != null) {
-      return x;
-    } else if (hasField(name)) {
+    // @SkylarkCallable(structField=true) -- Java field
+    if (getFieldNames().contains(name)) {
       try {
         return CallUtils.getField(SEMANTICS, this, name);
       } catch (InterruptedException exception) {
@@ -49,49 +48,17 @@ public class NativeInfo extends StructImpl {
         // exceptions, as they should be logicless field accessors. If this occurs, it's
         // indicative of a bad NativeInfo implementation.
         throw new IllegalStateException(
-            String.format("Access of field %s was unexpectedly interrupted, but should be "
-                + "uninterruptible. This is indicative of a bad provider implementation.", name));
+            String.format(
+                "Access of field %s was unexpectedly interrupted, but should be "
+                    + "uninterruptible. This is indicative of a bad provider implementation.",
+                name));
       }
-    } else if (name.equals("to_json") || name.equals("to_proto")) {
-      // to_json and to_proto should not be methods of struct or provider instances.
-      // However, they are, for now, and it is important that they be consistently
-      // returned by attribute lookup operations regardless of whether a field or method
-      // is desired. TODO(adonovan): eliminate this hack.
-      return new BuiltinCallable(this, name);
-    } else {
-      return null;
     }
-  }
-
-  @Override
-  public boolean hasField(String name) {
-    return getFieldNames().contains(name);
+    return null;
   }
 
   @Override
   public ImmutableCollection<String> getFieldNames() {
-    if (fieldNames == null) {
-      fieldNames =
-          ImmutableSet.<String>builder()
-              .addAll(values.keySet())
-              .addAll(CallUtils.getFieldNames(SEMANTICS, this))
-              .build();
-    }
-    return fieldNames;
-  }
-
-  public NativeInfo(Provider provider) {
-    this(provider, Location.BUILTIN);
-  }
-
-  public NativeInfo(Provider provider, Location loc) {
-    this(provider, ImmutableMap.of(), loc);
-  }
-
-  // TODO(cparsons): Remove this constructor once ToolchainInfo stops using it.
-  @Deprecated
-  public NativeInfo(Provider provider, Map<String, Object> values, Location loc) {
-    super(provider, loc);
-    this.values = copyValues(values);
+    return CallUtils.getFieldNames(SEMANTICS, this);
   }
 }

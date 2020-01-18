@@ -16,16 +16,25 @@ package com.google.devtools.build.android;
 import static com.google.common.collect.Streams.concat;
 import static java.util.stream.Collectors.toList;
 
+import com.android.builder.core.VariantType;
 import com.android.utils.StdLogger;
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.android.AndroidResourceProcessingAction.Options;
+import com.google.devtools.build.android.Converters.DependencyAndroidDataListConverter;
+import com.google.devtools.build.android.Converters.PathConverter;
+import com.google.devtools.build.android.Converters.SerializedAndroidDataListConverter;
+import com.google.devtools.build.android.Converters.UnvalidatedAndroidDataConverter;
+import com.google.devtools.build.android.Converters.VariantTypeConverter;
 import com.google.devtools.build.android.aapt2.Aapt2ConfigOptions;
 import com.google.devtools.build.android.aapt2.CompiledResources;
 import com.google.devtools.build.android.aapt2.PackagedResources;
 import com.google.devtools.build.android.aapt2.ResourceCompiler;
 import com.google.devtools.build.android.aapt2.ResourceLinker;
 import com.google.devtools.build.android.aapt2.StaticLibrary;
+import com.google.devtools.common.options.Converters.CommaSeparatedOptionListConverter;
+import com.google.devtools.common.options.Option;
+import com.google.devtools.common.options.OptionDocumentationCategory;
+import com.google.devtools.common.options.OptionEffectTag;
+import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.ShellQuotedParamsFilePreProcessor;
 import com.google.devtools.common.options.TriState;
@@ -61,6 +70,253 @@ public class Aapt2ResourcePackagingAction {
   private static Aapt2ConfigOptions aaptConfigOptions;
   private static Options options;
 
+  /** Flag specifications for this action. */
+  public static final class Options extends OptionsBase {
+    @Option(
+        name = "primaryData",
+        defaultValue = "null",
+        converter = UnvalidatedAndroidDataConverter.class,
+        category = "input",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        help =
+            "The directory containing the primary resource directory. The contents will override "
+                + "the contents of any other resource directories during merging. The expected "
+                + "format is "
+                + UnvalidatedAndroidData.EXPECTED_FORMAT)
+    public UnvalidatedAndroidData primaryData;
+
+    @Option(
+        name = "data",
+        defaultValue = "",
+        converter = DependencyAndroidDataListConverter.class,
+        category = "input",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        help =
+            "Transitive Data dependencies. These values will be used if not defined in the "
+                + "primary resources. The expected format is "
+                + DependencyAndroidData.EXPECTED_FORMAT
+                + "[,...]")
+    public List<DependencyAndroidData> transitiveData;
+
+    @Option(
+        name = "directData",
+        defaultValue = "",
+        converter = DependencyAndroidDataListConverter.class,
+        category = "input",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        help =
+            "Direct Data dependencies. These values will be used if not defined in the "
+                + "primary resources. The expected format is "
+                + DependencyAndroidData.EXPECTED_FORMAT
+                + "[,...]")
+    public List<DependencyAndroidData> directData;
+
+    @Option(
+        name = "assets",
+        defaultValue = "",
+        converter = SerializedAndroidDataListConverter.class,
+        category = "input",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        help =
+            "Transitive asset dependencies. These can also be specified together with resources"
+                + " using --data. Expected format: "
+                + SerializedAndroidData.EXPECTED_FORMAT
+                + "[,...]")
+    public List<SerializedAndroidData> transitiveAssets;
+
+    @Option(
+        name = "directAssets",
+        defaultValue = "",
+        converter = SerializedAndroidDataListConverter.class,
+        category = "input",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        help =
+            "Direct asset dependencies. These can also be specified together with resources using "
+                + "--directData. Expected format: "
+                + SerializedAndroidData.EXPECTED_FORMAT
+                + "[,...]")
+    public List<SerializedAndroidData> directAssets;
+
+    @Option(
+        name = "rOutput",
+        defaultValue = "null",
+        converter = PathConverter.class,
+        category = "output",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        help = "Path to where the R.txt should be written.")
+    public Path rOutput;
+
+    @Option(
+        name = "symbolsOut",
+        oldName = "symbolsTxtOut",
+        defaultValue = "null",
+        converter = PathConverter.class,
+        category = "output",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        help = "Path to where the symbols should be written.")
+    public Path symbolsOut;
+
+    @Option(
+        name = "dataBindingInfoOut",
+        defaultValue = "null",
+        converter = PathConverter.class,
+        category = "output",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        help = "Path to where data binding's layout info output should be written.")
+    public Path dataBindingInfoOut;
+
+    @Option(
+        name = "packagePath",
+        defaultValue = "null",
+        converter = PathConverter.class,
+        category = "output",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        help = "Path to the write the archive.")
+    public Path packagePath;
+
+    @Option(
+        name = "resourcesOutput",
+        defaultValue = "null",
+        converter = PathConverter.class,
+        category = "output",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        help = "Path to the write merged resources archive.")
+    public Path resourcesOutput;
+
+    @Option(
+        name = "proguardOutput",
+        defaultValue = "null",
+        converter = PathConverter.class,
+        category = "output",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        help = "Path for the proguard file.")
+    public Path proguardOutput;
+
+    @Option(
+        name = "mainDexProguardOutput",
+        defaultValue = "null",
+        converter = PathConverter.class,
+        category = "output",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        help = "Path for the main dex proguard file.")
+    public Path mainDexProguardOutput;
+
+    @Option(
+        name = "manifestOutput",
+        defaultValue = "null",
+        converter = PathConverter.class,
+        category = "output",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        help = "Path for the modified manifest.")
+    public Path manifestOutput;
+
+    @Option(
+        name = "srcJarOutput",
+        defaultValue = "null",
+        converter = PathConverter.class,
+        category = "output",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        help = "Path for the generated java source jar.")
+    public Path srcJarOutput;
+
+    @Option(
+        name = "packageType",
+        defaultValue = "DEFAULT",
+        converter = VariantTypeConverter.class,
+        category = "config",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        help =
+            "Variant configuration type for packaging the resources."
+                + " Acceptable values DEFAULT, LIBRARY, ANDROID_TEST, UNIT_TEST")
+    public VariantType packageType;
+
+    @Option(
+        name = "densities",
+        defaultValue = "",
+        converter = CommaSeparatedOptionListConverter.class,
+        category = "config",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        help = "A list of densities to filter the resource drawables by.")
+    public List<String> densities;
+
+    @Option(
+        name = "packageForR",
+        defaultValue = "null",
+        category = "config",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        help = "Custom java package to generate the R symbols files.")
+    public String packageForR;
+
+    @Option(
+        name = "applicationId",
+        defaultValue = "null",
+        category = "config",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        help = "Custom application id (package manifest) for the packaged manifest.")
+    public String applicationId;
+
+    @Option(
+        name = "versionName",
+        defaultValue = "null",
+        category = "config",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        help = "Version name to stamp into the packaged manifest.")
+    public String versionName;
+
+    @Option(
+        name = "versionCode",
+        defaultValue = "-1",
+        category = "config",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        help = "Version code to stamp into the packaged manifest.")
+    public int versionCode;
+
+    @Option(
+        name = "throwOnResourceConflict",
+        defaultValue = "false",
+        category = "config",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        help = "If passed, resource merge conflicts will be treated as errors instead of warnings")
+    public boolean throwOnResourceConflict;
+
+    @Option(
+        name = "packageUnderTest",
+        defaultValue = "null",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.NO_OP},
+        help = "Unused/deprecated option.")
+    public String packageUnderTest;
+
+    @Option(
+        name = "isTestWithResources",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.NO_OP},
+        help = "Unused/deprecated option.")
+    public boolean isTestWithResources;
+  }
+
   public static void main(String[] args) throws Exception {
     Profiler profiler = InMemoryProfiler.createAndStart("setup");
     OptionsParser optionsParser =
@@ -71,9 +327,6 @@ public class Aapt2ResourcePackagingAction {
     optionsParser.parseAndExitUponError(args);
     aaptConfigOptions = optionsParser.getOptions(Aapt2ConfigOptions.class);
     options = optionsParser.getOptions(Options.class);
-
-    // legacy option inherited from Options.class
-    Preconditions.checkArgument(options.prefilteredResources.isEmpty());
 
     try (ScopedTemporaryDirectory scopedTmp =
             new ScopedTemporaryDirectory("android_resources_tmp");
@@ -86,7 +339,8 @@ public class Aapt2ResourcePackagingAction {
           Files.createDirectories(tmp.resolve("android_data_binding_resources"));
       final Path compiledResources = Files.createDirectories(tmp.resolve("compiled"));
       final Path linkedOut = Files.createDirectories(tmp.resolve("linked"));
-      final AndroidDataDeserializer dataDeserializer = AndroidCompiledDataDeserializer.create();
+      final AndroidCompiledDataDeserializer dataDeserializer =
+          AndroidCompiledDataDeserializer.create(/*includeFileContentsForValidation=*/ true);
       final ResourceCompiler compiler =
           ResourceCompiler.create(
               executorService,

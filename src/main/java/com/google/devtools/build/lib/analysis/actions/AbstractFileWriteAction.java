@@ -14,10 +14,11 @@
 
 package com.google.devtools.build.lib.analysis.actions;
 
-import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.AbstractAction;
+import com.google.devtools.build.lib.actions.ActionContext;
 import com.google.devtools.build.lib.actions.ActionContinuationOrResult;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
@@ -28,6 +29,7 @@ import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.SpawnContinuation;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.protobuf.ByteString;
 import java.io.IOException;
 import java.io.OutputStream;
@@ -46,13 +48,12 @@ public abstract class AbstractFileWriteAction extends AbstractAction {
    * @param owner the action owner.
    * @param inputs the Artifacts that this Action depends on
    * @param output the Artifact that will be created by executing this Action.
-   * @param makeExecutable iff true will change the output file to be
-   *   executable.
+   * @param makeExecutable iff true will change the output file to be executable.
    */
-  public AbstractFileWriteAction(ActionOwner owner,
-      Iterable<Artifact> inputs, Artifact output, boolean makeExecutable) {
+  public AbstractFileWriteAction(
+      ActionOwner owner, NestedSet<Artifact> inputs, Artifact output, boolean makeExecutable) {
     // There is only one output, and it is primary.
-    super(owner, inputs, ImmutableList.of(output));
+    super(owner, inputs, ImmutableSet.of(output));
     this.makeExecutable = makeExecutable;
   }
 
@@ -126,7 +127,7 @@ public abstract class AbstractFileWriteAction extends AbstractAction {
    */
   public abstract DeterministicWriter newDeterministicWriter(ActionExecutionContext ctx)
       throws IOException, InterruptedException, ExecException;
-  
+
   /**
    * This hook is called after the File has been successfully written to disk.
    *
@@ -154,8 +155,9 @@ public abstract class AbstractFileWriteAction extends AbstractAction {
     return true;
   }
 
-  private FileWriteActionContext getStrategy(ActionExecutionContext actionExecutionContext) {
-    return actionExecutionContext.getContext(FileWriteActionContext.class);
+  private FileWriteActionContext getStrategy(
+      ActionContext.ActionContextRegistry actionContextRegistry) {
+    return actionContextRegistry.getContext(FileWriteActionContext.class);
   }
 
   /**

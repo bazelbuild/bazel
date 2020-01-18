@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.analysis.test;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
+import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -37,7 +38,6 @@ import com.google.devtools.build.lib.actions.CommandAction;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
-import com.google.devtools.build.lib.actions.ExecutionInfoSpecifier;
 import com.google.devtools.build.lib.actions.NotifyOnActionCacheHit;
 import com.google.devtools.build.lib.actions.RunfilesSupplier;
 import com.google.devtools.build.lib.actions.SpawnExecutedEvent;
@@ -52,6 +52,9 @@ import com.google.devtools.build.lib.analysis.test.TestActionContext.TestRunnerS
 import com.google.devtools.build.lib.buildeventstream.TestFileNameConstants;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.ImmutableIterable;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.exec.TestStrategy;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.LoggingUtil;
@@ -61,6 +64,7 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.test.TestStatus.TestResultData;
 import com.google.devtools.common.options.TriState;
+import com.google.protobuf.ExtensionRegistry;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -78,7 +82,7 @@ import javax.annotation.Nullable;
  */
 // Not final so that we can mock it in tests.
 public class TestRunnerAction extends AbstractAction
-    implements NotifyOnActionCacheHit, ExecutionInfoSpecifier, CommandAction {
+    implements NotifyOnActionCacheHit, CommandAction {
   public static final PathFragment COVERAGE_TMP_ROOT = PathFragment.create("_coverage");
 
   // Used for selecting subset of testcase / testmethods.
@@ -117,9 +121,6 @@ public class TestRunnerAction extends AbstractAction
   private final int runNumber;
   private final String workspaceName;
 
-  // Takes the value of the `--windows_native_test_wrapper` flag.
-  private final boolean useTestWrapperInsteadOfTestSetupSh;
-
   // Mutable state related to test caching. Lazily initialized: null indicates unknown.
   private Boolean unconditionalExecution;
 
@@ -134,8 +135,8 @@ public class TestRunnerAction extends AbstractAction
 
   private final boolean cancelConcurrentTestsOnSuccess;
 
-  private static ImmutableList<Artifact> list(Artifact... artifacts) {
-    ImmutableList.Builder<Artifact> builder = ImmutableList.builder();
+  private static ImmutableSet<Artifact> nonNullAsSet(Artifact... artifacts) {
+    ImmutableSet.Builder<Artifact> builder = ImmutableSet.builder();
     for (Artifact artifact : artifacts) {
       if (artifact != null) {
         builder.add(artifact);
@@ -154,10 +155,9 @@ public class TestRunnerAction extends AbstractAction
    */
   TestRunnerAction(
       ActionOwner owner,
-      Iterable<Artifact> inputs,
+      NestedSet<Artifact> inputs,
       RunfilesSupplier runfilesSupplier,
       Artifact testSetupScript, // Must be in inputs
-      boolean useTestWrapperInsteadOfTestSetupSh,
       Artifact testXmlGeneratorScript, // Must be in inputs
       @Nullable Artifact collectCoverageScript, // Must be in inputs, if not null
       Artifact testLog,
@@ -171,17 +171,17 @@ public class TestRunnerAction extends AbstractAction
       BuildConfiguration configuration,
       String workspaceName,
       @Nullable PathFragment shExecutable,
-      boolean cancelConcurrentTestsOnSuccess) {
+      boolean cancelConcurrentTestsOnSuccess,
+      Iterable<Artifact> tools) {
     super(
         owner,
-        /*tools=*/ ImmutableList.of(),
+        NestedSetBuilder.wrap(Order.STABLE_ORDER, tools),
         inputs,
         runfilesSupplier,
-        list(testLog, cacheStatus, coverageArtifact),
+        nonNullAsSet(testLog, cacheStatus, coverageArtifact),
         configuration.getActionEnvironment());
     Preconditions.checkState((collectCoverageScript == null) == (coverageArtifact == null));
     this.testSetupScript = testSetupScript;
-    this.useTestWrapperInsteadOfTestSetupSh = useTestWrapperInsteadOfTestSetupSh;
     this.testXmlGeneratorScript = testXmlGeneratorScript;
     this.collectCoverageScript = collectCoverageScript;
     this.configuration = Preconditions.checkNotNull(configuration);
@@ -330,8 +330,7 @@ public class TestRunnerAction extends AbstractAction
       throws CommandLineExpansionException {
     fp.addString(GUID);
     fp.addStrings(executionSettings.getArgs().arguments());
-    fp.addString(
-        executionSettings.getTestFilter() == null ? "" : executionSettings.getTestFilter());
+    fp.addString(Strings.nullToEmpty(executionSettings.getTestFilter()));
     RunUnder runUnder = executionSettings.getRunUnder();
     fp.addString(runUnder == null ? "" : runUnder.getValue());
     fp.addStringMap(extraTestEnv);
@@ -380,7 +379,7 @@ public class TestRunnerAction extends AbstractAction
   @Nullable
   private TestResultData readCacheStatus() {
     try (InputStream in = cacheStatus.getPath().getInputStream()) {
-      return TestResultData.parseFrom(in);
+      return TestResultData.parseFrom(in, ExtensionRegistry.getEmptyRegistry());
     } catch (IOException expected) {
       return null;
     }
@@ -487,7 +486,8 @@ public class TestRunnerAction extends AbstractAction
     deleteTestAttemptsDirMaybe(execRoot.getRelative(baseDir), "test");
   }
 
-  private void deleteTestAttemptsDirMaybe(Path outputDir, String namePrefix) throws IOException {
+  private static void deleteTestAttemptsDirMaybe(Path outputDir, String namePrefix)
+      throws IOException {
     Path testAttemptsDir = outputDir.getChild(namePrefix + "_attempts");
     if (testAttemptsDir.exists()) {
       // Normally we should have used deleteTree(testAttemptsDir). However, if test output is
@@ -558,6 +558,11 @@ public class TestRunnerAction extends AbstractAction
     if (!isEnableRunfiles()) {
       // If runfiles are disabled, tell remote-runtest.sh/local-runtest.sh about that.
       env.put("RUNFILES_MANIFEST_ONLY", "1");
+    }
+
+    if (testConfiguration.isPersistentTestRunner()) {
+      // Let the test runner know it runs persistently within a worker.
+      env.put("PERSISTENT_TEST_RUNNER", "true");
     }
 
     if (isCoverageMode()) {
@@ -639,12 +644,12 @@ public class TestRunnerAction extends AbstractAction
     return undeclaredOutputsDir;
   }
 
-  /** @return path to the optional zip file of undeclared test outputs. */
+  /** Returns path to the optional zip file of undeclared test outputs. */
   public PathFragment getUndeclaredOutputsZipPath() {
     return undeclaredOutputsZipPath;
   }
 
-  /** @return path to the undeclared output manifest file. */
+  /** Returns path to the undeclared output manifest file. */
   public PathFragment getUndeclaredOutputsManifestPath() {
     return undeclaredOutputsManifestPath;
   }
@@ -653,7 +658,7 @@ public class TestRunnerAction extends AbstractAction
     return undeclaredOutputsAnnotationsDir;
   }
 
-  /** @return path to the undeclared output annotations file. */
+  /** Returns path to the undeclared output annotations file. */
   public PathFragment getUndeclaredOutputsAnnotationsPath() {
     return undeclaredOutputsAnnotationsPath;
   }
@@ -670,12 +675,12 @@ public class TestRunnerAction extends AbstractAction
     return testInfrastructureFailure;
   }
 
-  /** @return path to the optionally created XML output file created by the test. */
+  /** Returns path to the optionally created XML output file created by the test. */
   public PathFragment getXmlOutputPath() {
     return xmlOutputPath;
   }
 
-  /** @return coverage data artifact or null if code coverage was not requested. */
+  /** Returns coverage data artifact or null if code coverage was not requested. */
   @Nullable
   public Artifact getCoverageData() {
     return coverageData;
@@ -724,19 +729,19 @@ public class TestRunnerAction extends AbstractAction
   }
 
   /**
-   * @return the shard number for this action. If getTotalShards() > 0, must be >= 0 and <
-   *     getTotalShards(). Otherwise, must be 0.
+   * Returns the shard number for this action. If getTotalShards() > 0, must be >= 0 and <
+   * getTotalShards(). Otherwise, must be 0.
    */
   public int getShardNum() {
     return shardNum;
   }
 
-  /** @return run number. */
+  /** Returns run number. */
   public int getRunNumber() {
     return runNumber;
   }
 
-  /** @return the workspace name. */
+  /** Returns the workspace name. */
   public String getRunfilesPrefix() {
     return workspaceName;
   }
@@ -846,10 +851,6 @@ public class TestRunnerAction extends AbstractAction
     return testSetupScript;
   }
 
-  public boolean isUsingTestWrapperInsteadOfTestSetupScript() {
-    return useTestWrapperInsteadOfTestSetupSh;
-  }
-
   public Artifact getTestXmlGeneratorScript() {
     return testXmlGeneratorScript;
   }
@@ -884,7 +885,7 @@ public class TestRunnerAction extends AbstractAction
   }
 
   @Override
-  public Iterable<Artifact> getPossibleInputsForTesting() {
+  public NestedSet<Artifact> getPossibleInputsForTesting() {
     return getInputs();
   }
 
@@ -924,32 +925,32 @@ public class TestRunnerAction extends AbstractAction
       return getPath(unusedRunfilesLogPath);
     }
 
-    /** @return path to the directory containing the split logs (raw and proto file). */
+    /** Returns path to the directory containing the split logs (raw and proto file). */
     public Path getSplitLogsDir() {
       return getPath(splitLogsDir);
     }
 
-    /** @return path to the optional zip file of undeclared test outputs. */
+    /** Returns path to the optional zip file of undeclared test outputs. */
     public Path getUndeclaredOutputsZipPath() {
       return getPath(undeclaredOutputsZipPath);
     }
 
-    /** @return path to the directory to hold undeclared test outputs. */
+    /** Returns path to the directory to hold undeclared test outputs. */
     public Path getUndeclaredOutputsDir() {
       return getPath(undeclaredOutputsDir);
     }
 
-    /** @return path to the directory to hold undeclared output annotations parts. */
+    /** Returns path to the directory to hold undeclared output annotations parts. */
     public Path getUndeclaredOutputsAnnotationsDir() {
       return getPath(undeclaredOutputsAnnotationsDir);
     }
 
-    /** @return path to the undeclared output manifest file. */
+    /** Returns path to the undeclared output manifest file. */
     public Path getUndeclaredOutputsManifestPath() {
       return getPath(undeclaredOutputsManifestPath);
     }
 
-    /** @return path to the undeclared output annotations file. */
+    /** Returns path to the undeclared output annotations file. */
     public Path getUndeclaredOutputsAnnotationsPath() {
       return getPath(undeclaredOutputsAnnotationsPath);
     }
@@ -967,7 +968,7 @@ public class TestRunnerAction extends AbstractAction
       return getPath(testInfrastructureFailure);
     }
 
-    /** @return path to the optionally created XML output file created by the test. */
+    /** Returns path to the optionally created XML output file created by the test. */
     public Path getXmlOutputPath() {
       return getPath(xmlOutputPath);
     }
@@ -1136,3 +1137,4 @@ public class TestRunnerAction extends AbstractAction
     }
   }
 }
+

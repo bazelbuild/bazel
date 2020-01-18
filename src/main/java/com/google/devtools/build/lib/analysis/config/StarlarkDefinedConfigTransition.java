@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.devtools.build.lib.syntax.Printer;
 import com.google.devtools.build.lib.syntax.Sequence;
+import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 import java.util.List;
@@ -279,10 +280,10 @@ public abstract class StarlarkDefinedConfigTransition implements ConfigurationTr
         StarlarkThread thread =
             StarlarkThread.builder(mutability)
                 .setSemantics(semantics)
-                .setEventHandler(getEventHandler())
                 .build();
+        thread.setPrintHandler(StarlarkThread.makeDebugPrintHandler(getEventHandler()));
         starlarkContext.storeInThread(thread);
-        return function.call(args, ImmutableMap.of(), null, thread);
+        return Starlark.call(thread, function, args, /*kwargs=*/ ImmutableMap.of());
       }
     }
 

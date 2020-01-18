@@ -247,8 +247,12 @@ public class AndroidDataContext implements AndroidDataContextApi {
       return false;
     }
 
-    return ruleContext.attributes().get("shrink_resources", BuildType.TRISTATE) == TriState.YES
-        || getAndroidConfig().useAndroidResourceShrinking();
+    TriState state = ruleContext.attributes().get("shrink_resources", BuildType.TRISTATE);
+    if (state == TriState.AUTO) {
+      state = getAndroidConfig().useAndroidResourceShrinking() ? TriState.YES : TriState.NO;
+    }
+
+    return state == TriState.YES;
   }
 
   boolean useResourcePathShortening() {

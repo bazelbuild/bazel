@@ -13,7 +13,13 @@
 // limitations under the License.
 package com.google.devtools.build.android.xml;
 
+import com.android.aapt.Resources.Reference;
+import com.android.aapt.Resources.Value;
+import com.android.resources.ResourceType;
 import com.google.common.base.MoreObjects;
+import com.google.common.base.Preconditions;
+import com.google.common.base.Strings;
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.android.AndroidDataWritingVisitor;
 import com.google.devtools.build.android.AndroidDataWritingVisitor.StartTag;
 import com.google.devtools.build.android.AndroidResourceSymbolSink;
@@ -25,6 +31,7 @@ import com.google.devtools.build.android.XmlResourceValues;
 import com.google.devtools.build.android.proto.SerializeFormat;
 import com.google.devtools.build.android.proto.SerializeFormat.DataValueXml;
 import com.google.devtools.build.android.proto.SerializeFormat.DataValueXml.XmlType;
+import com.google.devtools.build.android.resources.Visibility;
 import com.google.protobuf.CodedOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
@@ -45,21 +52,29 @@ import javax.annotation.concurrent.Immutable;
 @Immutable
 public class IdXmlResourceValue implements XmlResourceValue {
 
-  static final IdXmlResourceValue SINGLETON = new IdXmlResourceValue(null);
-  private String value;
+  static final IdXmlResourceValue SINGLETON = new IdXmlResourceValue(Visibility.UNKNOWN, null);
+
+  private final Visibility visibility;
+  @Nullable private final String value;
 
   public static XmlResourceValue of() {
     return SINGLETON;
   }
-  
+
   public static XmlResourceValue of(@Nullable String value) {
     if (value == null) {
       return of();
     }
-    return new IdXmlResourceValue(value);
+    return new IdXmlResourceValue(Visibility.UNKNOWN, value);
   }
 
-  private IdXmlResourceValue(String value) {
+  public static IdXmlResourceValue from(Value proto, Visibility visibility) {
+    String ref = proto.getItem().getRef().getName();
+    return new IdXmlResourceValue(visibility, Strings.emptyToNull(ref));
+  }
+
+  private IdXmlResourceValue(Visibility visibility, String value) {
+    this.visibility = visibility;
     this.value = value;
   }
 
@@ -92,7 +107,8 @@ public class IdXmlResourceValue implements XmlResourceValue {
   @Override
   public void writeResourceToClass(
       DependencyInfo dependencyInfo, FullyQualifiedName key, AndroidResourceSymbolSink sink) {
-    sink.acceptSimpleResource(dependencyInfo, key.type(), key.name());
+    Preconditions.checkArgument(key.type() == ResourceType.ID);
+    sink.acceptSimpleResource(dependencyInfo, Visibility.UNKNOWN, ResourceType.ID, key.name());
   }
 
   @Override
@@ -138,11 +154,13 @@ public class IdXmlResourceValue implements XmlResourceValue {
     }
     if (resourceValue instanceof IdXmlResourceValue) {
       IdXmlResourceValue otherId = (IdXmlResourceValue) resourceValue;
+      Visibility mergedVisibility = Visibility.merge(visibility, otherId.visibility);
+      // TODO(b/26297204): add integration tests for these scenarios
       if (value == null && otherId.value != null) {
-        return otherId;
+        return new IdXmlResourceValue(mergedVisibility, otherId.value);
       }
       if (value != null && otherId.value == null) {
-        return this;
+        return new IdXmlResourceValue(mergedVisibility, value);
       }
     }
     throw new IllegalArgumentException(resourceValue + "is not combinable with " + this);
@@ -156,5 +174,15 @@ public class IdXmlResourceValue implements XmlResourceValue {
   @Override
   public String asConflictStringWith(DataSource source) {
     return source.asConflictString();
+  }
+
+  @Override
+  public Visibility getVisibility() {
+    return visibility;
+  }
+
+  @Override
+  public ImmutableList<Reference> getReferencedResources() {
+    return ImmutableList.of();
   }
 }

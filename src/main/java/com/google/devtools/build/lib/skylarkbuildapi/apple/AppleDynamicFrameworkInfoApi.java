@@ -15,7 +15,7 @@
 package com.google.devtools.build.lib.skylarkbuildapi.apple;
 
 import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
-import com.google.devtools.build.lib.skylarkbuildapi.StructApi;
+import com.google.devtools.build.lib.skylarkbuildapi.core.StructApi;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
@@ -41,7 +41,7 @@ public interface AppleDynamicFrameworkInfoApi<FileApiT extends FileApi> extends 
       doc =
           "The framework path names used as link inputs in order to link against the dynamic "
               + "framework.")
-  public Depset /*<String>*/ getDynamicFrameworkDirs();
+  Depset /*<String>*/ getDynamicFrameworkDirs();
 
   /**
    * Returns the full set of artifacts that should be included as inputs to link against the dynamic
@@ -53,29 +53,31 @@ public interface AppleDynamicFrameworkInfoApi<FileApiT extends FileApi> extends 
       doc =
           "The full set of files that should be included as inputs to link against the "
               + "dynamic framework.")
-  public Depset /*<FileApiT>*/ getDynamicFrameworkFiles();
+  Depset /*<FileApiT>*/ getDynamicFrameworkFiles();
 
   /**
-   * Returns the multi-architecture dylib binary of the dynamic framework. May return null if
-   * the rule providing the framework only specified framework imports.
+   * Returns the multi-architecture dylib binary of the dynamic framework. May return null if the
+   * rule providing the framework only specified framework imports.
    */
   @Nullable
-  @SkylarkCallable(name = "binary",
+  @SkylarkCallable(
+      name = "binary",
       allowReturnNones = true,
       structField = true,
-      doc = "The multi-architecture dylib binary of the dynamic framework. May be None if "
-          + "the rule providing the framework only specified framework imports."
-  )
-  public FileApi getAppleDylibBinary();
+      doc =
+          "The multi-architecture dylib binary of the dynamic framework. May be None if "
+              + "the rule providing the framework only specified framework imports.")
+  FileApi getAppleDylibBinary();
 
   /**
    * Returns the {@link ObjcProviderApi} which contains information about the transitive
    * dependencies linked into the dylib.
    */
-  @SkylarkCallable(name = "objc",
+  @SkylarkCallable(
+      name = "objc",
       structField = true,
-      doc = "A provider which contains information about the transitive dependencies linked into "
-          + "the dynamic framework."
-  )
-  public ObjcProviderApi<FileApiT> getDepsObjcProvider();
+      doc =
+          "A provider which contains information about the transitive dependencies linked into "
+              + "the dynamic framework.")
+  ObjcProviderApi<FileApiT> getDepsObjcProvider();
 }

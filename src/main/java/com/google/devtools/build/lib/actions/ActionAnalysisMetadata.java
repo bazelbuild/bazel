@@ -16,6 +16,8 @@ package com.google.devtools.build.lib.actions;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import java.util.Map;
 import javax.annotation.Nullable;
 
 /**
@@ -103,11 +105,11 @@ public interface ActionAnalysisMetadata {
    * <p>This may be used by spawn strategies to determine whether an external tool has not changed
    * since the last time it was used and could thus be reused, or whether it has to be restarted.
    *
-   * <p>See {@link AbstractAction#getTools()} for an explanation of why it's important that this
-   * set contains exactly the right set of artifacts in order for the build to stay correct and the
+   * <p>See {@link AbstractAction#getTools()} for an explanation of why it's important that this set
+   * contains exactly the right set of artifacts in order for the build to stay correct and the
    * worker strategy to work.
    */
-  Iterable<Artifact> getTools();
+  NestedSet<Artifact> getTools();
 
   /**
    * Returns the input Artifacts that this Action depends upon. May be empty.
@@ -120,7 +122,7 @@ public interface ActionAnalysisMetadata {
    * AbstractAction, since AbstractAction's implementation of getInputs() returns an immutable
    * iterable.
    */
-  Iterable<Artifact> getInputs();
+  NestedSet<Artifact> getInputs();
 
   /**
    * Returns the environment variables from the client environment that this action depends on. May
@@ -143,16 +145,15 @@ public interface ActionAnalysisMetadata {
    * Returns input files that need to be present to allow extra_action rules to shadow this action
    * correctly when run remotely. This is at least the normal inputs of the action, but may include
    * other files as well. For example C(++) compilation may perform include file header scanning.
-   * This needs to be mirrored by the extra_action rule. Called by
-   * {@link com.google.devtools.build.lib.analysis.extra.ExtraAction} at execution time for actions
-   * that return true for {link #discoversInputs()}.
+   * This needs to be mirrored by the extra_action rule. Called by {@link
+   * com.google.devtools.build.lib.analysis.extra.ExtraAction} at execution time for actions that
+   * return true for {link #discoversInputs()}.
    *
    * @param actionExecutionContext Services in the scope of the action, like the Out/Err streams.
-   * @throws ActionExecutionException only when code called from this method
-   *     throws that exception.
+   * @throws ActionExecutionException only when code called from this method throws that exception.
    * @throws InterruptedException if interrupted
    */
-  Iterable<Artifact> getInputFilesForExtraAction(ActionExecutionContext actionExecutionContext)
+  NestedSet<Artifact> getInputFilesForExtraAction(ActionExecutionContext actionExecutionContext)
       throws ActionExecutionException, InterruptedException;
 
   /**
@@ -192,7 +193,7 @@ public interface ActionAnalysisMetadata {
    * mandatory for action execution to succeed (e.g. header files retrieved from *.d file from the
    * previous build).
    */
-  Iterable<Artifact> getMandatoryInputs();
+  NestedSet<Artifact> getMandatoryInputs();
 
   /**
    * @return true iff path prefix conflict (conflict where two actions generate
@@ -260,4 +261,13 @@ public interface ActionAnalysisMetadata {
    */
   @Nullable
   PlatformInfo getExecutionPlatform();
+
+  /**
+   * Returns the execution requirements for this action, or null if the action type does not have
+   * access to execution requirements.
+   */
+  @Nullable
+  default Map<String, String> getExecutionInfo() {
+    return null;
+  }
 }

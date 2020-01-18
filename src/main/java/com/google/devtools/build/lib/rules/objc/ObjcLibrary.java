@@ -90,6 +90,7 @@ public class ObjcLibrary implements RuleConfiguredTargetFactory {
     J2ObjcEntryClassProvider j2ObjcEntryClassProvider = new J2ObjcEntryClassProvider.Builder()
       .addTransitive(ruleContext.getPrerequisites("deps", Mode.TARGET,
           J2ObjcEntryClassProvider.class)).build();
+    ObjcProvider objcProvider = common.getObjcProvider();
     CcCompilationContext ccCompilationContext =
         CcCompilationContext.builder(
                 ruleContext, ruleContext.getConfiguration(), ruleContext.getLabel())
@@ -97,12 +98,16 @@ public class ObjcLibrary implements RuleConfiguredTargetFactory {
                 CompilationAttributes.Builder.fromRuleContext(ruleContext).build().hdrs().toList())
             .addTextualHdrs(common.getTextualHdrs())
             .addDeclaredIncludeSrcs(common.getTextualHdrs())
+            .setPurpose(
+                compilationSupport
+                    .createObjcCppSemantics(
+                        objcProvider, /* privateHdrs= */ ImmutableList.of(), /* pchHdr= */ null)
+                    .getPurpose())
             .build();
 
     CcLinkingContext ccLinkingContext =
         buildCcLinkingContext(ruleContext.getLabel(), common, ruleContext.getSymbolGenerator());
 
-    ObjcProvider objcProvider = common.getObjcProvider();
     return ObjcRuleClasses.ruleConfiguredTarget(ruleContext, filesToBuild.build())
         .addNativeDeclaredProvider(objcProvider)
         .addSkylarkTransitiveInfo(ObjcProvider.SKYLARK_NAME, objcProvider)
@@ -123,7 +128,7 @@ public class ObjcLibrary implements RuleConfiguredTargetFactory {
       Label label, ObjcCommon common, SymbolGenerator<?> symbolGenerator) {
     ImmutableSet.Builder<LibraryToLink> libraries = new ImmutableSet.Builder<>();
     ObjcProvider objcProvider = common.getObjcProvider();
-    for (Artifact library : objcProvider.get(ObjcProvider.LIBRARY)) {
+    for (Artifact library : objcProvider.get(ObjcProvider.LIBRARY).toList()) {
       libraries.add(
           LibraryToLink.builder()
               .setStaticLibrary(library)
@@ -132,7 +137,8 @@ public class ObjcLibrary implements RuleConfiguredTargetFactory {
               .build());
     }
 
-    libraries.addAll(convertLibrariesToStaticLibraries(objcProvider.get(ObjcProvider.CC_LIBRARY)));
+    libraries.addAll(
+        convertLibrariesToStaticLibraries(objcProvider.get(ObjcProvider.CC_LIBRARY).toList()));
 
     CcLinkingContext.Builder ccLinkingContext =
         CcLinkingContext.builder()
@@ -140,7 +146,7 @@ public class ObjcLibrary implements RuleConfiguredTargetFactory {
             .addLibraries(ImmutableList.copyOf(libraries.build()));
 
     ImmutableList.Builder<LinkOptions> userLinkFlags = ImmutableList.builder();
-    for (SdkFramework sdkFramework : objcProvider.get(ObjcProvider.SDK_FRAMEWORK)) {
+    for (SdkFramework sdkFramework : objcProvider.get(ObjcProvider.SDK_FRAMEWORK).toList()) {
       userLinkFlags.add(
           LinkOptions.of(ImmutableList.of("-framework", sdkFramework.getName()), symbolGenerator));
     }

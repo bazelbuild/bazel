@@ -30,8 +30,8 @@ public interface SymlinkEntryApi extends StarlarkValue {
       name = "path",
       doc = "The path of the symlink in the runfiles tree",
       structField = true)
-  public String getPathString();
+  String getPathString();
 
   @SkylarkCallable(name = "target_file", doc = "Target file of the symlink", structField = true)
-  public FileApi getArtifact();
+  FileApi getArtifact();
 }

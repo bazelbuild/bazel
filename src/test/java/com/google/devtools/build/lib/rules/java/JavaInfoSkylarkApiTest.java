@@ -410,7 +410,7 @@ public class JavaInfoSkylarkApiTest extends BuildViewTestCase {
 
     JavaExportsProvider exportsProvider = fetchJavaInfo().getProvider(JavaExportsProvider.class);
 
-    assertThat(exportsProvider.getTransitiveExports()).isEmpty();
+    assertThat(exportsProvider.getTransitiveExports().toList()).isEmpty();
   }
 
   /** Test exports adds dependencies to JavaCompilationArgsProvider. */
@@ -431,7 +431,7 @@ public class JavaInfoSkylarkApiTest extends BuildViewTestCase {
 
     JavaExportsProvider exportsProvider = javaInfo.getProvider(JavaExportsProvider.class);
 
-    assertThat(exportsProvider.getTransitiveExports()).isEmpty();
+    assertThat(exportsProvider.getTransitiveExports().toList()).isEmpty();
 
     JavaSourceJarsProvider javaSourceJarsProvider =
         javaInfo.getProvider(JavaSourceJarsProvider.class);
@@ -477,7 +477,7 @@ public class JavaInfoSkylarkApiTest extends BuildViewTestCase {
 
     JavaExportsProvider exportsProvider = javaInfo.getProvider(JavaExportsProvider.class);
 
-    assertThat(exportsProvider.getTransitiveExports())
+    assertThat(exportsProvider.getTransitiveExports().toList())
         .containsExactly(Label.parseAbsolute("//foo:my_java_lib_b", ImmutableMap.of()));
 
     JavaCompilationArgsProvider javaCompilationArgsProvider =
@@ -540,7 +540,7 @@ public class JavaInfoSkylarkApiTest extends BuildViewTestCase {
 
     JavaExportsProvider exportsProvider = javaInfo.getProvider(JavaExportsProvider.class);
 
-    assertThat(exportsProvider.getTransitiveExports())
+    assertThat(exportsProvider.getTransitiveExports().toList())
         .containsExactly(Label.parseAbsolute("//foo:my_java_lib_b", ImmutableMap.of()));
 
     JavaCompilationArgsProvider javaCompilationArgsProvider =
@@ -604,7 +604,11 @@ public class JavaInfoSkylarkApiTest extends BuildViewTestCase {
     assertNoEvents();
 
     assertThat(
-            fetchJavaInfo().getProvider(JavaPluginInfoProvider.class).plugins().processorClasses())
+            fetchJavaInfo()
+                .getProvider(JavaPluginInfoProvider.class)
+                .plugins()
+                .processorClasses()
+                .toList())
         .containsExactly("com.google.process.stuff");
   }
 

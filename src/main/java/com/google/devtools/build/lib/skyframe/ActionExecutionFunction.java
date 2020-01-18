@@ -225,11 +225,10 @@ public class ActionExecutionFunction implements SkyFunction {
     CheckInputResults checkedInputs = null;
     @Nullable
     ImmutableSet<Artifact> mandatoryInputs =
-        action.discoversInputs() ? ImmutableSet.copyOf(action.getMandatoryInputs()) : null;
+        action.discoversInputs() ? action.getMandatoryInputs().toSet() : null;
 
     int nestedSetSizeThreshold = ArtifactNestedSetFunction.getSizeThreshold();
-    Iterable<Artifact> allInputs =
-        state.allInputs.getAllInputs(/* maybeAsNestedSet= */ nestedSetSizeThreshold > 0);
+    NestedSet<Artifact> allInputs = state.allInputs.getAllInputs();
 
     Map<SkyKey, ValueOrException2<IOException, ActionExecutionException>> inputDeps =
         getInputDeps(env, nestedSetSizeThreshold, allInputs, state);
@@ -264,7 +263,13 @@ public class ActionExecutionFunction implements SkyFunction {
       stateMap.remove(action);
       throw new ActionExecutionFunctionException(
           skyframeActionExecutor.processAndGetExceptionToThrow(
-              env.getListener(), null, action, e, new FileOutErr(), ErrorTiming.BEFORE_EXECUTION));
+              env.getListener(),
+              /*primaryOutputPath=*/ null,
+              action,
+              actionLookupData,
+              e,
+              new FileOutErr(),
+              ErrorTiming.BEFORE_EXECUTION));
     }
     if (env.valuesMissing()) {
       return null;
@@ -337,7 +342,7 @@ public class ActionExecutionFunction implements SkyFunction {
   private static Map<SkyKey, ValueOrException2<IOException, ActionExecutionException>> getInputDeps(
       Environment env,
       int nestedSetSizeThreshold,
-      Iterable<Artifact> allInputs,
+      NestedSet<Artifact> allInputs,
       ContinuationState state)
       throws InterruptedException {
     if (evalInputsAsNestedSet(nestedSetSizeThreshold, allInputs)) {
@@ -376,7 +381,7 @@ public class ActionExecutionFunction implements SkyFunction {
     }
 
     return env.getValuesOrThrow(
-        Artifact.keys(allInputs), IOException.class, ActionExecutionException.class);
+        Artifact.keys(allInputs.toList()), IOException.class, ActionExecutionException.class);
   }
 
   /**
@@ -385,10 +390,9 @@ public class ActionExecutionFunction implements SkyFunction {
    * this path.
    */
   private static boolean evalInputsAsNestedSet(
-      int nestedSetSizeThreshold, Iterable<Artifact> inputs) {
-    return inputs instanceof NestedSet
-        && nestedSetSizeThreshold > 0
-        && (((NestedSet<Artifact>) inputs).memoizedFlattenAndGetSize() >= nestedSetSizeThreshold);
+      int nestedSetSizeThreshold, NestedSet<Artifact> inputs) {
+    return nestedSetSizeThreshold > 0
+        && (inputs.memoizedFlattenAndGetSize() >= nestedSetSizeThreshold);
   }
 
   private Environment getProgressEventSuppressingEnvironmentIfPreviouslyCompleted(
@@ -443,12 +447,13 @@ public class ActionExecutionFunction implements SkyFunction {
       long actionStartTime,
       Environment env,
       Map<SkyKey, ValueOrException2<IOException, ActionExecutionException>> inputDeps,
-      Iterable<Artifact> allInputs,
+      NestedSet<Artifact> allInputs,
       ContinuationState state)
       throws InterruptedException, ActionExecutionFunctionException {
     // Remove action from state map in case it's there (won't be unless it discovers inputs).
     stateMap.remove(action);
 
+    boolean isPrimaryAction = e.isPrimaryAction(actionLookupData);
     RewindPlan rewindPlan = null;
     try {
       ActionInputDepOwners inputDepOwners =
@@ -471,7 +476,8 @@ public class ActionExecutionFunction implements SkyFunction {
       } else if (state.discoveredInputs != null) {
         failedActionDeps =
             Iterables.concat(
-                inputDeps.keySet(), Iterables.transform(state.discoveredInputs, Artifact::key));
+                inputDeps.keySet(),
+                Iterables.transform(state.discoveredInputs.toList(), Artifact::key));
       } else {
         failedActionDeps = inputDeps.keySet();
       }
@@ -489,21 +495,26 @@ public class ActionExecutionFunction implements SkyFunction {
                     env.getListener(),
                     e.getPrimaryOutputPath(),
                     action,
+                    actionLookupData,
                     rewindingFailedException,
                     e.getFileOutErr(),
                     ActionExecutedEvent.ErrorTiming.AFTER_EXECUTION)));
       }
 
-      if (e.isActionStartedEventAlreadyEmitted()) {
-        env.getListener().post(new ActionRewoundEvent(actionStartTime, action));
-      }
-      skyframeActionExecutor.resetFailedActionExecution(action, lostDiscoveredInputs);
-      for (Action actionToRestart : rewindPlan.getAdditionalActionsToRestart()) {
-        skyframeActionExecutor.resetPreviouslyCompletedActionExecution(actionToRestart);
+      if (isPrimaryAction) {
+        // This action is the "winner" amongst its set of shared actions. Only it must post events
+        // and clean up state associated with its shared action set.
+        if (e.isActionStartedEventAlreadyEmitted()) {
+          env.getListener().post(new ActionRewoundEvent(actionStartTime, action));
+        }
+        skyframeActionExecutor.resetFailedActionExecution(action, lostDiscoveredInputs);
+        for (Action actionToRestart : rewindPlan.getAdditionalActionsToRestart()) {
+          skyframeActionExecutor.resetPreviouslyCompletedActionExecution(actionToRestart);
+        }
       }
       return rewindPlan.getNodesToRestart();
     } finally {
-      if (rewindPlan == null && e.isActionStartedEventAlreadyEmitted()) {
+      if (rewindPlan == null && isPrimaryAction && e.isActionStartedEventAlreadyEmitted()) {
         // Rewinding was unsuccessful. SkyframeActionExecutor's ActionRunner didn't emit an
         // ActionCompletionEvent because it hoped rewinding would fix things. Because it won't, this
         // must emit one to compensate.
@@ -526,7 +537,7 @@ public class ActionExecutionFunction implements SkyFunction {
       Action action,
       Environment env,
       Map<SkyKey, ValueOrException2<IOException, ActionExecutionException>> inputDeps,
-      Iterable<Artifact> allInputs)
+      NestedSet<Artifact> allInputs)
       throws InterruptedException {
 
     Set<ActionInput> lostInputsAndOwnersSoFar = new HashSet<>();
@@ -544,7 +555,7 @@ public class ActionExecutionFunction implements SkyFunction {
               action,
               inputDeps,
               allInputs,
-              action.discoversInputs() ? ImmutableSet.copyOf(action.getMandatoryInputs()) : null,
+              action.discoversInputs() ? action.getMandatoryInputs().toSet() : null,
               lostInputsAndOwnersSoFar);
     } catch (ActionExecutionException unexpected) {
       // getInputDepOwners should not be able to throw, because it does the same work as
@@ -582,14 +593,14 @@ public class ActionExecutionFunction implements SkyFunction {
    */
   @Nullable
   private AllInputs collectInputs(Action action, Environment env) throws InterruptedException {
-    Iterable<Artifact> allKnownInputs = action.getInputs();
+    NestedSet<Artifact> allKnownInputs = action.getInputs();
     if (action.inputsDiscovered()) {
       return new AllInputs(allKnownInputs);
     }
 
     Preconditions.checkState(action.discoversInputs(), action);
     PackageRootResolverWithEnvironment resolver = new PackageRootResolverWithEnvironment(env);
-    Iterable<Artifact> actionCacheInputs =
+    List<Artifact> actionCacheInputs =
         skyframeActionExecutor.getActionCachedInputs(action, resolver);
     if (actionCacheInputs == null) {
       Preconditions.checkState(env.valuesMissing(), action);
@@ -599,45 +610,34 @@ public class ActionExecutionFunction implements SkyFunction {
   }
 
   private static class AllInputs {
-    final Iterable<Artifact> defaultInputs;
-    @Nullable final Iterable<Artifact> actionCacheInputs;
+    final NestedSet<Artifact> defaultInputs;
+    @Nullable final List<Artifact> actionCacheInputs;
     @Nullable final List<SkyKey> keysRequested;
 
-    AllInputs(Iterable<Artifact> defaultInputs) {
+    AllInputs(NestedSet<Artifact> defaultInputs) {
       this.defaultInputs = Preconditions.checkNotNull(defaultInputs);
       this.actionCacheInputs = null;
       this.keysRequested = null;
     }
 
     AllInputs(
-        Iterable<Artifact> defaultInputs,
-        Iterable<Artifact> actionCacheInputs,
+        NestedSet<Artifact> defaultInputs,
+        List<Artifact> actionCacheInputs,
         List<SkyKey> keysRequested) {
       this.defaultInputs = Preconditions.checkNotNull(defaultInputs);
       this.actionCacheInputs = Preconditions.checkNotNull(actionCacheInputs);
       this.keysRequested = keysRequested;
     }
 
-    Iterable<Artifact> getAllInputs(boolean maybeAsNestedSet) {
-      if (maybeAsNestedSet && defaultInputs instanceof NestedSet) {
-        return getAllInputsAsNestedSet();
-      }
-      return actionCacheInputs == null
-          ? defaultInputs
-          : Iterables.concat(defaultInputs, actionCacheInputs);
-    }
-
-    private NestedSet<Artifact> getAllInputsAsNestedSet() {
-      Preconditions.checkState(defaultInputs instanceof NestedSet);
+    NestedSet<Artifact> getAllInputs() {
       if (actionCacheInputs == null) {
-        return (NestedSet<Artifact>) defaultInputs;
+        return defaultInputs;
       }
 
       NestedSetBuilder<Artifact> builder = new NestedSetBuilder<>(Order.STABLE_ORDER);
       // actionCacheInputs is never a NestedSet.
       builder.addAll(actionCacheInputs);
-      builder.addTransitive((NestedSet<Artifact>) defaultInputs);
-
+      builder.addTransitive(defaultInputs);
       return builder.build();
     }
   }
@@ -810,6 +810,7 @@ public class ActionExecutionFunction implements SkyFunction {
             state.discoveredInputs =
                 skyframeActionExecutor.discoverInputs(
                     action,
+                    actionLookupData,
                     metadataHandler,
                     metadataHandler,
                     skyframeActionExecutor.probeCompletedAndReset(action)
@@ -842,7 +843,7 @@ public class ActionExecutionFunction implements SkyFunction {
       switch (addDiscoveredInputs(
           state.inputArtifactData,
           state.expandedArtifacts,
-          filterKnownInputs(state.discoveredInputs, state.inputArtifactData),
+          state.filterKnownDiscoveredInputs(),
           env)) {
         case VALUES_MISSING:
           return null;
@@ -886,6 +887,7 @@ public class ActionExecutionFunction implements SkyFunction {
 
     ActionExecutionContext actionExecutionContext =
         skyframeActionExecutor.getContext(
+            action,
             metadataHandler,
             metadataHandler,
             skyframeActionExecutor.probeCompletedAndReset(action)
@@ -954,11 +956,12 @@ public class ActionExecutionFunction implements SkyFunction {
         Map<String, String> clientEnv)
         throws InterruptedException, ActionExecutionException {
       if (action.discoversInputs()) {
-        Iterable<Artifact> newInputs =
-            filterKnownInputs(action.getInputs(), state.inputArtifactData);
-        state.discoveredInputs = newInputs;
+        state.discoveredInputs = action.getInputs();
         switch (addDiscoveredInputs(
-            state.inputArtifactData, state.expandedArtifacts, newInputs, env)) {
+            state.inputArtifactData,
+            state.expandedArtifacts,
+            state.filterKnownDiscoveredInputs(),
+            env)) {
           case VALUES_MISSING:
             return;
           case NO_DISCOVERED_DATA:
@@ -1110,7 +1113,7 @@ public class ActionExecutionFunction implements SkyFunction {
       Environment env,
       Action action,
       Map<SkyKey, ValueOrException2<IOException, ActionExecutionException>> inputDeps,
-      Iterable<Artifact> allInputs,
+      NestedSet<Artifact> allInputs,
       ImmutableSet<Artifact> mandatoryInputs)
       throws ActionExecutionException, InterruptedException {
     return accumulateInputs(
@@ -1130,7 +1133,7 @@ public class ActionExecutionFunction implements SkyFunction {
       Environment env,
       Action action,
       Map<SkyKey, ValueOrException2<IOException, ActionExecutionException>> inputDeps,
-      Iterable<Artifact> allInputs,
+      NestedSet<Artifact> allInputs,
       ImmutableSet<Artifact> mandatoryInputs,
       Collection<ActionInput> lostInputs)
       throws ActionExecutionException, InterruptedException {
@@ -1149,7 +1152,7 @@ public class ActionExecutionFunction implements SkyFunction {
       Environment env,
       Action action,
       Map<SkyKey, ValueOrException2<IOException, ActionExecutionException>> inputDeps,
-      Iterable<Artifact> allInputs,
+      NestedSet<Artifact> allInputs,
       ImmutableSet<Artifact> mandatoryInputs,
       IntFunction<S> actionInputMapSinkFactory,
       AccumulateInputResultsFactory<S, R> accumulateInputResultsFactory)
@@ -1169,7 +1172,7 @@ public class ActionExecutionFunction implements SkyFunction {
     Map<Artifact, ImmutableList<FilesetOutputSymlink>> topLevelFilesets = new HashMap<>();
 
     ActionExecutionException firstActionExecutionException = null;
-    for (Artifact input : allInputs) {
+    for (Artifact input : allInputs.toList()) {
       ValueOrException2<IOException, ActionExecutionException> valueOrException =
           inputDeps.get(Artifact.key(input));
       if (valueOrException == null) {
@@ -1262,7 +1265,7 @@ public class ActionExecutionFunction implements SkyFunction {
     }
 
     if (missingCount > 0) {
-      for (Cause missingInput : rootCauses.build()) {
+      for (Cause missingInput : rootCauses.build().toList()) {
         env.getListener()
             .handle(
                 Event.error(
@@ -1279,11 +1282,6 @@ public class ActionExecutionFunction implements SkyFunction {
     }
     return accumulateInputResultsFactory.create(
         inputArtifactData, expandedArtifacts, filesetsInsideRunfiles, topLevelFilesets);
-  }
-
-  private static Iterable<Artifact> filterKnownInputs(
-      Iterable<Artifact> newInputs, ActionInputMap inputArtifactData) {
-    return Iterables.filter(newInputs, input -> inputArtifactData.getMetadata(input) == null);
   }
 
   static boolean actionDependsOnBuildId(Action action) {
@@ -1347,7 +1345,7 @@ public class ActionExecutionFunction implements SkyFunction {
     Map<Artifact, ImmutableList<FilesetOutputSymlink>> filesetsInsideRunfiles = null;
     Map<Artifact, ImmutableList<FilesetOutputSymlink>> topLevelFilesets = null;
     Token token = null;
-    Iterable<Artifact> discoveredInputs = null;
+    NestedSet<Artifact> discoveredInputs = null;
     FileSystem actionFileSystem = null;
     Duration discoveredInputsDuration = Duration.ZERO;
 
@@ -1385,6 +1383,11 @@ public class ActionExecutionFunction implements SkyFunction {
         executor.updateActionFileSystemContext(
             actionFileSystem, env, metadataHandler.getOutputStore()::injectOutputData, filesets);
       }
+    }
+
+    Iterable<Artifact> filterKnownDiscoveredInputs() {
+      return Iterables.filter(
+          discoveredInputs.toList(), input -> inputArtifactData.getMetadata(input) == null);
     }
 
     @Override

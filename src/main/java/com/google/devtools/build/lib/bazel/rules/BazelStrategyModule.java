@@ -47,7 +47,9 @@ public class BazelStrategyModule extends BlazeModule {
 
   @Override
   public void executorInit(CommandEnvironment env, BuildRequest request, ExecutorBuilder builder) {
-    builder.addActionContext(new WriteAdbArgsActionContext(env.getClientEnv().get("HOME")));
+    builder.addActionContext(
+        WriteAdbArgsActionContext.class,
+        new WriteAdbArgsActionContext(env.getClientEnv().get("HOME")));
     ExecutionOptions options = env.getOptions().getOptions(ExecutionOptions.class);
     RemoteOptions remoteOptions = env.getOptions().getOptions(RemoteOptions.class);
 

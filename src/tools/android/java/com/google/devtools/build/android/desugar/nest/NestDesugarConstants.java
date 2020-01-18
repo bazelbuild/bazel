@@ -17,13 +17,9 @@ package com.google.devtools.build.android.desugar.nest;
 import org.objectweb.asm.Opcodes;
 
 /** Shared constants of Nest-accessed desugar. */
-class NestDesugarConstants {
+final class NestDesugarConstants {
 
   static final int MIN_VERSION = Opcodes.V1_8;
-  static final String CONSTRUCTOR_NAME = "<init>";
-  static final String NEST_COMPANION_CLASS_SIMPLE_NAME = "NestCC";
-  static final int NEST_COMPANION_CLASS_ACCESS_CODE =
-      Opcodes.ACC_SYNTHETIC | Opcodes.ACC_ABSTRACT | Opcodes.ACC_STATIC;
 
   private NestDesugarConstants() {}
 }

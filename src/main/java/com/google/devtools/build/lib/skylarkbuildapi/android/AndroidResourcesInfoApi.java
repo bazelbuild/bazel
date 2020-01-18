@@ -15,8 +15,8 @@ package com.google.devtools.build.lib.skylarkbuildapi.android;
 
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
-import com.google.devtools.build.lib.skylarkbuildapi.ProviderApi;
-import com.google.devtools.build.lib.skylarkbuildapi.StructApi;
+import com.google.devtools.build.lib.skylarkbuildapi.core.ProviderApi;
+import com.google.devtools.build.lib.skylarkbuildapi.core.StructApi;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkConstructor;
@@ -40,10 +40,8 @@ public interface AndroidResourcesInfoApi<
         AndroidManifestInfoT extends AndroidManifestInfoApi<FileT>>
     extends StructApi {
 
-  /**
-   * Name of this info object.
-   */
-  public static String NAME = "AndroidResourcesInfo";
+  /** Name of this info object. */
+  String NAME = "AndroidResourcesInfo";
 
   /** Returns the label that is associated with this piece of information. */
   @SkylarkCallable(
@@ -127,7 +125,7 @@ public interface AndroidResourcesInfoApi<
           "Do not use this module. It is intended for migration purposes only. If you depend on "
               + "it, you will be broken when it is removed.",
       documented = false)
-  public interface AndroidResourcesInfoApiProvider<
+  interface AndroidResourcesInfoApiProvider<
           FileT extends FileApi,
           ValidatedAndroidDataT extends ValidatedAndroidDataApi<?, ?>,
           AndroidManifestInfoT extends AndroidManifestInfoApi<FileT>>

@@ -15,7 +15,7 @@
 package com.google.devtools.build.lib.analysis;
 
 import com.google.devtools.build.lib.packages.BuiltinProvider;
-import com.google.devtools.build.lib.packages.InfoInterface;
+import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.NativeProvider;
 import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.SkylarkProviderIdentifier;
@@ -46,7 +46,7 @@ public interface ProviderCollection {
    * <p>Use {@link #get(NativeProvider)} for native providers.
    */
   @Nullable
-  InfoInterface get(Provider.Key providerKey);
+  Info get(Provider.Key providerKey);
 
   /**
    * Returns the native declared provider requested, or null, if the information is not found.
@@ -54,7 +54,7 @@ public interface ProviderCollection {
    * <p>Type-safe version of {@link #get(Provider.Key)} for native providers.
    */
   @Nullable
-  default <T extends InfoInterface> T get(NativeProvider<T> provider) {
+  default <T extends Info> T get(NativeProvider<T> provider) {
     return provider.getValueClass().cast(get(provider.getKey()));
   }
 
@@ -64,7 +64,7 @@ public interface ProviderCollection {
    * <p>Type-safe version of {@link #get(Provider.Key)} for native providers.
    */
   @Nullable
-  default <T extends InfoInterface> T get(BuiltinProvider<T> provider) {
+  default <T extends Info> T get(BuiltinProvider<T> provider) {
     return provider.getValueClass().cast(get(provider.getKey()));
   }
 

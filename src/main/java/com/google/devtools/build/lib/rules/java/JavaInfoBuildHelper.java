@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.java;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.concat;
 import static com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider.ClasspathType.BOTH;
 import static com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider.ClasspathType.COMPILE_ONLY;
@@ -41,7 +42,6 @@ import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider.Clas
 import com.google.devtools.build.lib.shell.ShellUtils;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Sequence;
-import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import java.util.ArrayList;
@@ -215,61 +215,6 @@ final class JavaInfoBuildHelper {
         JavaInfo.fetchProvidersFromList(javaInfos, JavaPluginInfoProvider.class));
   }
 
-  @Deprecated
-  public JavaInfo create(
-      @Nullable Object actions,
-      NestedSet<Artifact> compileTimeJars,
-      NestedSet<Artifact> runtimeJars,
-      Boolean useIjar,
-      @Nullable JavaToolchainProvider javaToolchain,
-      NestedSet<Artifact> transitiveCompileTimeJars,
-      NestedSet<Artifact> transitiveRuntimeJars,
-      NestedSet<Artifact> sourceJars,
-      StarlarkSemantics semantics,
-      Location location)
-      throws EvalException {
-
-    JavaCompilationArgsProvider.Builder javaCompilationArgsBuilder =
-        JavaCompilationArgsProvider.builder();
-    if (useIjar && !compileTimeJars.isEmpty()) {
-      if (!(actions instanceof SkylarkActionFactory)) {
-        throw new EvalException(
-            location,
-            "The value of use_ijar is True. Make sure the ctx.actions argument is valid.");
-      }
-      if (javaToolchain == null) {
-        throw new EvalException(
-            location,
-            "The value of use_ijar is True. Make sure the java_toolchain argument is valid.");
-      }
-      NestedSetBuilder<Artifact> builder = NestedSetBuilder.naiveLinkOrder();
-      for (Artifact compileJar : compileTimeJars) {
-        builder.add(
-            buildIjar((SkylarkActionFactory) actions, compileJar, null, javaToolchain, location));
-      }
-      javaCompilationArgsBuilder.addDirectCompileTimeJars(
-          /* interfaceJars = */ builder.build(), /* fullJars= */ compileTimeJars);
-    } else {
-      javaCompilationArgsBuilder.addDirectCompileTimeJars(
-          /* interfaceJars = */ compileTimeJars, /* fullJars= */ compileTimeJars);
-    }
-    javaCompilationArgsBuilder
-        .addTransitiveCompileTimeJars(transitiveCompileTimeJars)
-        .addRuntimeJars(runtimeJars)
-        .addRuntimeJars(transitiveRuntimeJars);
-
-    JavaInfo javaInfo =
-        JavaInfo.Builder.create()
-            .addProvider(JavaCompilationArgsProvider.class, javaCompilationArgsBuilder.build())
-            .addProvider(
-                JavaSourceJarsProvider.class,
-                JavaSourceJarsProvider.create(
-                    NestedSetBuilder.emptySet(Order.STABLE_ORDER), sourceJars))
-            .setRuntimeJars(ImmutableList.copyOf(runtimeJars))
-            .build();
-    return javaInfo;
-  }
-
   public JavaInfo createJavaCompileAction(
       SkylarkRuleContext skylarkRuleContext,
       List<Artifact> sourceJars,
@@ -278,6 +223,7 @@ final class JavaInfoBuildHelper {
       Artifact outputSourceJar,
       List<String> javacOpts,
       List<JavaInfo> deps,
+      List<JavaInfo> experimentalLocalCompileTimeDeps,
       List<JavaInfo> exports,
       List<JavaInfo> plugins,
       List<JavaInfo> exportedPlugins,
@@ -286,7 +232,7 @@ final class JavaInfoBuildHelper {
       String strictDepsMode,
       JavaToolchainProvider javaToolchain,
       JavaRuntimeInfo hostJavabase,
-      List<Artifact> sourcepathEntries,
+      ImmutableList<Artifact> sourcepathEntries,
       List<Artifact> resources,
       Boolean neverlink,
       JavaSemantics javaSemantics,
@@ -331,6 +277,12 @@ final class JavaInfoBuildHelper {
     helper.setPlugins(createJavaPluginsProvider(concat(plugins, deps)));
     helper.setNeverlink(neverlink);
 
+    NestedSet<Artifact> localCompileTimeDeps =
+        JavaCompilationArgsProvider.merge(
+                streamProviders(experimentalLocalCompileTimeDeps, JavaCompilationArgsProvider.class)
+                    .collect(toImmutableList()))
+            .getTransitiveCompileTimeJars();
+
     JavaRuleOutputJarsProvider.Builder outputJarsBuilder = JavaRuleOutputJarsProvider.builder();
 
     if (outputSourceJar == null) {
@@ -349,10 +301,9 @@ final class JavaInfoBuildHelper {
             javaInfoBuilder,
             // Include JavaGenJarsProviders from both deps and exports in the JavaGenJarsProvider
             // added to javaInfoBuilder for this target.
-            NestedSetBuilder.wrap(
-                Order.STABLE_ORDER,
-                JavaInfo.fetchProvidersFromList(concat(deps, exports), JavaGenJarsProvider.class)),
-            ImmutableList.copyOf(annotationProcessorAdditionalInputs));
+            JavaInfo.fetchProvidersFromList(concat(deps, exports), JavaGenJarsProvider.class),
+            ImmutableList.copyOf(annotationProcessorAdditionalInputs),
+            localCompileTimeDeps);
 
     JavaCompilationArgsProvider javaCompilationArgsProvider =
         helper.buildCompilationArgsProvider(artifacts, true, neverlink);

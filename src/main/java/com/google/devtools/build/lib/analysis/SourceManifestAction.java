@@ -16,13 +16,14 @@ package com.google.devtools.build.lib.analysis;
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.analysis.actions.AbstractFileWriteAction;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
@@ -34,7 +35,6 @@ import java.io.OutputStream;
 import java.io.OutputStreamWriter;
 import java.io.Writer;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
@@ -102,6 +102,8 @@ public final class SourceManifestAction extends AbstractFileWriteAction {
    */
   private final Runfiles runfiles;
 
+  private final boolean remotableSourceManifestActions;
+
   /**
    * Creates a new AbstractSourceManifestAction instance using latin1 encoding to write the manifest
    * file and with a specified root path for manifest entries.
@@ -111,16 +113,32 @@ public final class SourceManifestAction extends AbstractFileWriteAction {
    * @param primaryOutput the file to which to write the manifest
    * @param runfiles runfiles
    */
-  public SourceManifestAction(
+  @VisibleForTesting
+  SourceManifestAction(
       ManifestWriter manifestWriter, ActionOwner owner, Artifact primaryOutput, Runfiles runfiles) {
+    this(manifestWriter, owner, primaryOutput, runfiles, /*remotableSourceManifestActions=*/ false);
+  }
+
+  /**
+   * Creates a new AbstractSourceManifestAction instance using latin1 encoding to write the manifest
+   * file and with a specified root path for manifest entries.
+   *
+   * @param manifestWriter the strategy to use to write manifest entries
+   * @param owner the action owner
+   * @param primaryOutput the file to which to write the manifest
+   * @param runfiles runfiles
+   */
+  @AutoCodec.Instantiator
+  public SourceManifestAction(
+      ManifestWriter manifestWriter,
+      ActionOwner owner,
+      Artifact primaryOutput,
+      Runfiles runfiles,
+      boolean remotableSourceManifestActions) {
     super(owner, getDependencies(runfiles), primaryOutput, false);
     this.manifestWriter = manifestWriter;
     this.runfiles = runfiles;
-  }
-
-  /** The {@link Runfiles} for which this action creates the symlink tree. */
-  public Runfiles getGeneratedRunfiles() {
-    return runfiles;
+    this.remotableSourceManifestActions = remotableSourceManifestActions;
   }
 
   @VisibleForTesting
@@ -144,18 +162,18 @@ public final class SourceManifestAction extends AbstractFileWriteAction {
 
   @Override
   public boolean isRemotable() {
-    return manifestWriter.isRemotable();
+    return remotableSourceManifestActions || manifestWriter.isRemotable();
   }
 
   /**
-   * Returns the input dependencies for this action. Note we don't need to create the symlink
-   * target Artifacts before we write the output manifest, so this Action does not have to
-   * depend on them. The only necessary dependencies are pruning manifests, which must be read
-   * to properly prune the tree.
+   * Returns the input dependencies for this action. Note we don't need to create the symlink target
+   * Artifacts before we write the output manifest, so this Action does not have to depend on them.
+   * The only necessary dependencies are pruning manifests, which must be read to properly prune the
+   * tree.
    */
-  public static Collection<Artifact> getDependencies(Runfiles runfiles) {
-    ImmutableList.Builder<Artifact> builder = ImmutableList.builder();
-    for (Runfiles.PruningManifest manifest : runfiles.getPruningManifests()) {
+  public static NestedSet<Artifact> getDependencies(Runfiles runfiles) {
+    NestedSetBuilder<Artifact> builder = NestedSetBuilder.stableOrder();
+    for (Runfiles.PruningManifest manifest : runfiles.getPruningManifests().toList()) {
       builder.add(manifest.getManifestFile());
     }
     return builder.build();
@@ -194,6 +212,7 @@ public final class SourceManifestAction extends AbstractFileWriteAction {
   @Override
   protected void computeKey(ActionKeyContext actionKeyContext, Fingerprint fp) {
     fp.addString(GUID);
+    fp.addBoolean(remotableSourceManifestActions);
     runfiles.fingerprint(fp);
   }
 

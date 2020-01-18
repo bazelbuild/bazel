@@ -15,7 +15,6 @@ java_library(
     ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib:io",
-        "//src/main/java/com/google/devtools/common/options",
         "//src/main/protobuf:spawn_java_proto",
         "//third_party:guava",
     ],

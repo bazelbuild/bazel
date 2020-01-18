@@ -66,7 +66,7 @@ public final class AndroidSdkProvider extends NativeInfo
       FilesToRunProvider mainDexListCreator,
       FilesToRunProvider aidl,
       FilesToRunProvider aapt,
-      @Nullable FilesToRunProvider aapt2,
+      FilesToRunProvider aapt2,
       @Nullable FilesToRunProvider apkBuilder,
       FilesToRunProvider apkSigner,
       FilesToRunProvider proguard,
@@ -170,7 +170,6 @@ public final class AndroidSdkProvider extends NativeInfo
   }
 
   @Override
-  @Nullable
   public FilesToRunProvider getAapt2() {
     return aapt2;
   }
@@ -219,7 +218,7 @@ public final class AndroidSdkProvider extends NativeInfo
         FilesToRunProvider mainDexListCreator,
         FilesToRunProvider aidl,
         FilesToRunProvider aapt,
-        Object aapt2,
+        FilesToRunProvider aapt2,
         Object apkBuilder,
         FilesToRunProvider apkSigner,
         FilesToRunProvider proguard,
@@ -238,7 +237,7 @@ public final class AndroidSdkProvider extends NativeInfo
           mainDexListCreator,
           aidl,
           aapt,
-          fromNoneable(aapt2, FilesToRunProvider.class),
+          aapt2,
           fromNoneable(apkBuilder, FilesToRunProvider.class),
           apkSigner,
           proguard,

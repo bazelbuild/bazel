@@ -92,7 +92,7 @@ public class PyProviderUtils {
     } else {
       NestedSet<Artifact> files = target.getProvider(FileProvider.class).getFilesToBuild();
       return NestedSetBuilder.<Artifact>compileOrder()
-          .addAll(FileType.filter(files, PyRuleClasses.PYTHON_SOURCE))
+          .addAll(FileType.filter(files.toList(), PyRuleClasses.PYTHON_SOURCE))
           .build();
     }
   }
@@ -114,7 +114,7 @@ public class PyProviderUtils {
       return PyStructUtils.getUsesSharedLibraries(getLegacyProvider(target));
     } else {
       NestedSet<Artifact> files = target.getProvider(FileProvider.class).getFilesToBuild();
-      return FileType.contains(files, CppFileTypes.SHARED_LIBRARY);
+      return FileType.contains(files.toList(), CppFileTypes.SHARED_LIBRARY);
     }
   }
 

@@ -19,11 +19,18 @@ label. [You can see the open issues here.](https://github.com/bazelbuild/bazel/i
 <a name="running-bazel-shells"></a>
 ## Running Bazel: MSYS2 shell vs. Command Prompt vs. PowerShell
 
-It's best to run Bazel from the Command Prompt (`cmd.exe`) or from PowerShell.
+We recommend running Bazel from the Command Prompt (`cmd.exe`) or from
+PowerShell.
 
-You can also run Bazel from the MSYS2 shell, but you need to disable MSYS2's
-automatic path conversion. See [this StackOverflow
-answer](https://stackoverflow.com/a/49004265/7778502) for details.
+As of 2020-01-15, we **do not recommend** running Bazel from `bash` -- either
+from MSYS2 shell, or Git Bash, or Cygwin, or any other Bash variant. While Bazel
+may work for most use cases, some things are broken, like
+[interrupting the build with Ctrl+C from MSYS2](https://github.com/bazelbuild/bazel/issues/10573)).
+Also, if you choose to run under MSYS2, you need to disable MSYS2's
+automatic path conversion, otherwise MSYS will convert command line arguments
+that _look like_ Unix paths (e.g. `//foo:bar`) into Windows paths. See
+[this StackOverflow answer](https://stackoverflow.com/a/49004265/7778502) for
+details.
 
 <a name="using-bazel-without-bash"></a>
 ## Using Bazel without Bash (MSYS2)
@@ -31,23 +38,13 @@ answer](https://stackoverflow.com/a/49004265/7778502) for details.
 <a name="bazel-build-without-bash"></a>
 ### `bazel build` without Bash
 
-With **Bazel 0.26.0** and the `--incompatible_windows_native_test_wrapper` flag,
-you can **build Python and all C++ rules without Bash**. Use the
-`--shell_executable=""` flag to tell Bazel not to look for Bash.
+Bazel versions before 1.0 used to require Bash to build some rules.
 
-With **Bazel 0.25.0** and the `--incompatible_windows_native_test_wrapper` flag,
-you can **build Java and `cc_binary` rules without Bash** (but not `cc_test`).
-Use the `--shell_executable=""` flag to tell Bazel not to look for Bash.
+Starting with Bazel 1.0, you can build any rule without Bash unless it is a:
 
-With **Bazel 0.24.x and older** you need Bash to build any rule.
-
-With every Bazel version, you **still need Bash** if a rule in your build or in
-some external repository:
-
-- is a `genrule`, because genrules execute Bash commands
-- is a `sh_binary` or `sh_test` rule, because these inherently need Bash
-- is a Starlark rule that uses `ctx.actions.run_shell()` or
-  `ctx.resolve_command()`
+- `genrule`, because genrules execute Bash commands
+- `sh_binary` or `sh_test` rule, because these inherently need Bash
+- Starlark rule that uses `ctx.actions.run_shell()` or `ctx.resolve_command()`
 
 However, `genrule` is often used for simple tasks like
 [copying a file](https://github.com/bazelbuild/bazel-skylib/blob/master/rules/copy_file.bzl)
@@ -60,28 +57,22 @@ When built on Windows, **these rules do not require Bash**.
 <a name="bazel-test-without-bash"></a>
 ### `bazel test` without Bash
 
-With **Bazel 0.25.0 or newer** and the
-`--incompatible_windows_native_test_wrapper` flag, you can `bazel test` rules
-without Bash, i.e.
-`bazel test --incompatible_windows_native_test_wrapper //foo:bar_test` works
-even if there's no MSYS2 installed.
+Bazel versions before 1.0 used to require Bash to `bazel test` anything.
 
-With **Bazel 0.24.x and older** you cannot use this flag, and need Bash (MSYS2)
-to run any `bazel test`.
+Starting with Bazel 1.0, you can test any rule without Bash, except when:
 
-In Bazel 0.25.0 and Bazel 0.26.0, the
-`--incompatible_windows_native_test_wrapper` flag is **off** be default. We plan
-to enable it by default starting with Bazel 0.27.0, and plan to remove support
-for the flag in Bazel 0.28.0. Follow issue
-[#6622](https://github.com/bazelbuild/bazel/pull/6622) for updates.
+- you use `--run_under`
+- the test rule itself requires Bash (because its executable is a shell script)
 
 <a name="bazel-run-without-bash"></a>
 ### `bazel run` without Bash
 
-With Bazel 0.25.0 you still need Bash (MSYS2) to `bazel run //foo:bin` anything.
+Bazel versions before 1.0 used to require Bash to `bazel run` anything.
 
-Removing this requirement is one of our top priorities. Follow issue
-[#8240](https://github.com/bazelbuild/bazel/pull/8240) for updates.
+Starting with Bazel 1.0, you can run any rule without Bash, except when:
+
+- you use `--run_under` or `--script_path`
+- the test rule itself requires Bash (because its executable is a shell script)
 
 <a name="sh-rules-without-bash"></a>
 ### `sh_binary` and `sh_*` rules, and `ctx.actions.run_shell()` without Bash
@@ -92,7 +83,7 @@ applies not only to rules in your project, but to rules in any of the external
 repositories your project depends on (even transitively).
 
 We may explore the option to use Windows Subsystem for Linux (WSL) to build
-these rules, but as of 2019-05-07 it is not a priority for the Bazel-on-Windows
+these rules, but as of 2020-01-15 it is not a priority for the Bazel-on-Windows
 subteam.
 
 ## Setting environment variables
@@ -233,10 +224,11 @@ To enable the Clang toolchain for building C++, there are several situations.
 
 * In bazel 0.28 and older: Clang is not supported.
 
-* In Bazel 0.29.0: You can enable the Clang toolchain by a build flag `--compiler=clang-cl`.
-  This is deprecated and will be removed in Bazel 1.0.
+* Without `--incompatible_enable_cc_toolchain_resolution`:
+  You can enable the Clang toolchain by a build flag `--compiler=clang-cl`.
 
-* From Bazel 1.0: You have to add a platform target to your build file (eg. the top level BUILD file):
+* With `--incompatible_enable_cc_toolchain_resolution`:
+  You have to add a platform target to your BUILD file (eg. the top level BUILD file):
     ```
     platform(
         name = "x64_windows-clang-cl",
@@ -266,7 +258,9 @@ To enable the Clang toolchain for building C++, there are several situations.
     )
     ```
 
-    The reason we have those two ways is because [\-\-incompatible_enable_cc_toolchain_resolution](https://github.com/bazelbuild/bazel/issues/7260) flag.
+    The [\-\-incompatible_enable_cc_toolchain_resolution](https://github.com/bazelbuild/bazel/issues/7260)
+    flag is planned to be enabled by default in future Bazel release. Therefore,
+    it is recommended to enable Clang support with the second approach.
 
 ### Build Java
 

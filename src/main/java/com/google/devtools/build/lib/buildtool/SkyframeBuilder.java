@@ -304,7 +304,7 @@ public class SkyframeBuilder implements Builder {
       // Sometimes ActionExecutionExceptions are caused by Actions with no owner.
       String message =
           (actionExecutionCause.getLocation() != null)
-              ? (actionExecutionCause.getLocation().print() + " " + cause.getMessage())
+              ? (actionExecutionCause.getLocation() + " " + cause.getMessage())
               : cause.getMessage();
       throw new BuildFailedException(
           message,

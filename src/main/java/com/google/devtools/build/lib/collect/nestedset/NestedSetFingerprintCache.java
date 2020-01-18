@@ -59,7 +59,7 @@ public class NestedSetFingerprintCache {
 
   private <T> void addNestedSetToFingerprintSlow(
       MapFn<? super T> mapFn, Fingerprint fingerprint, NestedSet<T> nestedSet) {
-    for (T object : nestedSet) {
+    for (T object : nestedSet.toList()) {
       mapFn.expandToCommandLine(object, fingerprint);
     }
   }

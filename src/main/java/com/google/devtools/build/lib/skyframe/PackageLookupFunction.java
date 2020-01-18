@@ -90,17 +90,15 @@ public class PackageLookupFunction implements SkyFunction {
       return computeWorkspacePackageLookupValue(env, pkgLocator.getPathEntries());
     }
 
+    // Check .bazelignore file under main repository.
     BlacklistedPackagePrefixesValue blacklistedPatternsValue =
         (BlacklistedPackagePrefixesValue) env.getValue(BlacklistedPackagePrefixesValue.key());
     if (blacklistedPatternsValue == null) {
       return null;
     }
 
-    PathFragment buildFileFragment = packageKey.getPackageFragment();
-    for (PathFragment pattern : blacklistedPatternsValue.getPatterns()) {
-      if (buildFileFragment.startsWith(pattern)) {
-        return PackageLookupValue.DELETED_PACKAGE_VALUE;
-      }
+    if (isPackageIgnored(packageKey, blacklistedPatternsValue)) {
+      return PackageLookupValue.DELETED_PACKAGE_VALUE;
     }
 
     return findPackageByBuildFile(env, pkgLocator, packageKey);
@@ -292,6 +290,17 @@ public class PackageLookupFunction implements SkyFunction {
     return PackageLookupValue.NO_BUILD_FILE_VALUE;
   }
 
+  private static boolean isPackageIgnored(
+      PackageIdentifier id, BlacklistedPackagePrefixesValue blacklistedPatternsValue) {
+    PathFragment packageFragment = id.getPackageFragment();
+    for (PathFragment pattern : blacklistedPatternsValue.getPatterns()) {
+      if (packageFragment.startsWith(pattern)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   private PackageLookupValue computeWorkspacePackageLookupValue(
       Environment env, ImmutableList<Root> packagePathEntries)
       throws PackageLookupFunctionException, InterruptedException {
@@ -367,6 +376,18 @@ public class PackageLookupFunction implements SkyFunction {
     if (!repositoryValue.repositoryExists()) {
       // TODO(ulfjack): Maybe propagate the error message from the repository delegator function?
       return new PackageLookupValue.NoRepositoryPackageLookupValue(id.getRepository().getName());
+    }
+
+    // Check .bazelignore file after fetching the external repository.
+    BlacklistedPackagePrefixesValue blacklistedPatternsValue =
+        (BlacklistedPackagePrefixesValue)
+            env.getValue(BlacklistedPackagePrefixesValue.key(id.getRepository()));
+    if (blacklistedPatternsValue == null) {
+      return null;
+    }
+
+    if (isPackageIgnored(id, blacklistedPatternsValue)) {
+      return PackageLookupValue.DELETED_PACKAGE_VALUE;
     }
 
     // This checks for the build file names in the correct precedence order.

@@ -17,34 +17,33 @@ package com.google.devtools.build.lib.exec;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Lists;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.io.ByteStreams;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
-import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
-import com.google.devtools.build.lib.actions.ExecutionStrategy;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.SimpleSpawn;
 import com.google.devtools.build.lib.actions.Spawn;
-import com.google.devtools.build.lib.actions.SpawnActionContext;
 import com.google.devtools.build.lib.actions.SpawnContinuation;
 import com.google.devtools.build.lib.actions.SpawnResult;
+import com.google.devtools.build.lib.actions.SpawnStrategy;
 import com.google.devtools.build.lib.actions.TestExecException;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
-import com.google.devtools.build.lib.analysis.test.TestActionContext;
+import com.google.devtools.build.lib.analysis.test.TestConfiguration;
 import com.google.devtools.build.lib.analysis.test.TestResult;
 import com.google.devtools.build.lib.analysis.test.TestRunnerAction;
 import com.google.devtools.build.lib.analysis.test.TestRunnerAction.ResolvedPaths;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.TestResult.ExecutionInfo;
 import com.google.devtools.build.lib.buildeventstream.TestFileNameConstants;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.Reporter;
-import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.FileStatus;
@@ -67,10 +66,6 @@ import javax.annotation.Nullable;
 
 /** Runs TestRunnerAction actions. */
 // TODO(bazel-team): add tests for this strategy.
-@ExecutionStrategy(
-  contextType = TestActionContext.class,
-  name = {"standalone"}
-)
 public class StandaloneTestStrategy extends TestStrategy {
   private static final ImmutableMap<String, String> ENV_VARS =
       ImmutableMap.<String, String>builder()
@@ -117,6 +112,9 @@ public class StandaloneTestStrategy extends TestStrategy {
       executionInfo.put(ExecutionRequirements.NO_CACHE, "");
     }
     executionInfo.put(ExecutionRequirements.TIMEOUT, "" + getTimeout(action).getSeconds());
+    if (action.getConfiguration().getFragment(TestConfiguration.class).isPersistentTestRunner()) {
+      executionInfo.put(ExecutionRequirements.SUPPORTS_WORKERS, "1");
+    }
 
     ResourceSet localResourceUsage =
         action
@@ -132,9 +130,11 @@ public class StandaloneTestStrategy extends TestStrategy {
             ImmutableMap.copyOf(executionInfo),
             action.getRunfilesSupplier(),
             ImmutableMap.of(),
-            /*inputs=*/ ImmutableList.copyOf(action.getInputs()),
-            /*tools=*/ ImmutableList.<Artifact>of(),
-            ImmutableList.copyOf(action.getSpawnOutputs()),
+            /*inputs=*/ action.getInputs(),
+            action.getConfiguration().getFragment(TestConfiguration.class).isPersistentTestRunner()
+                ? action.getTools()
+                : NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+            ImmutableSet.copyOf(action.getSpawnOutputs()),
             localResourceUsage);
     return new StandaloneTestRunnerSpawn(
         action, actionExecutionContext, spawn, tmpDir, workingDirectory, execRoot);
@@ -305,7 +305,7 @@ public class StandaloneTestStrategy extends TestStrategy {
     long startTimeMillis = actionExecutionContext.getClock().currentTimeMillis();
     SpawnContinuation spawnContinuation =
         actionExecutionContext
-            .getContext(SpawnActionContext.class)
+            .getContext(SpawnStrategy.class)
             .beginExecution(spawn, actionExecutionContext.withFileOutErr(testOutErr));
     return new BazelTestAttemptContinuation(
         testAction,
@@ -364,29 +364,19 @@ public class StandaloneTestStrategy extends TestStrategy {
    * generate a test.xml file itself.
    */
   private Spawn createXmlGeneratingSpawn(TestRunnerAction action, SpawnResult result) {
-    List<String> args = Lists.newArrayList();
-    // TODO(ulfjack): This is incorrect for remote execution, where we need to consider the target
-    // configuration, not the machine Bazel happens to run on. Change this to something like:
-    // testAction.getConfiguration().getExecOS() == OS.WINDOWS
-    if (OS.getCurrent() == OS.WINDOWS && !action.isUsingTestWrapperInsteadOfTestSetupScript()) {
-      // TestActionBuilder constructs TestRunnerAction with a 'null' shell path only when we use the
-      // native test wrapper. Something clearly went wrong.
-      Preconditions.checkNotNull(action.getShExecutableMaybe(), "%s", action);
-      args.add(action.getShExecutableMaybe().getPathString());
-      args.add("-c");
-      args.add("$0 $*");
-    }
-    args.add(action.getTestXmlGeneratorScript().getExecPath().getCallablePathString());
-    args.add(action.getTestLog().getExecPathString());
-    args.add(action.getXmlOutputPath().getPathString());
-    args.add(Long.toString(result.getWallTime().orElse(Duration.ZERO).getSeconds()));
-    args.add(Integer.toString(result.exitCode()));
+    ImmutableList<String> args =
+        ImmutableList.of(
+            action.getTestXmlGeneratorScript().getExecPath().getCallablePathString(),
+            action.getTestLog().getExecPathString(),
+            action.getXmlOutputPath().getPathString(),
+            Long.toString(result.getWallTime().orElse(Duration.ZERO).getSeconds()),
+            Integer.toString(result.exitCode()));
 
     String testBinaryName =
         action.getExecutionSettings().getExecutable().getRootRelativePath().getCallablePathString();
     return new SimpleSpawn(
         action,
-        ImmutableList.copyOf(args),
+        args,
         ImmutableMap.of(
             "PATH", "/usr/bin:/bin",
             "TEST_SHARD_INDEX", Integer.toString(action.getShardNum()),
@@ -398,9 +388,10 @@ public class StandaloneTestStrategy extends TestStrategy {
         ImmutableMap.copyOf(action.getExecutionInfo()),
         null,
         ImmutableMap.of(),
-        /*inputs=*/ ImmutableList.of(action.getTestXmlGeneratorScript(), action.getTestLog()),
-        /*tools=*/ ImmutableList.<Artifact>of(),
-        /*outputs=*/ ImmutableList.of(ActionInputHelper.fromPath(action.getXmlOutputPath())),
+        /*inputs=*/ NestedSetBuilder.create(
+            Order.STABLE_ORDER, action.getTestXmlGeneratorScript(), action.getTestLog()),
+        /*tools=*/ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+        /*outputs=*/ ImmutableSet.of(ActionInputHelper.fromPath(action.getXmlOutputPath())),
         SpawnAction.DEFAULT_RESOURCE_SET);
   }
 
@@ -613,14 +604,13 @@ public class StandaloneTestStrategy extends TestStrategy {
           && fileOutErr.getOutputPath().exists()
           && !xmlOutputPath.exists()) {
         Spawn xmlGeneratingSpawn = createXmlGeneratingSpawn(testAction, primaryResult);
-        SpawnActionContext spawnActionContext =
-            actionExecutionContext.getContext(SpawnActionContext.class);
+        SpawnStrategy strategy = actionExecutionContext.getContext(SpawnStrategy.class);
         // We treat all failures to generate the test.xml here as catastrophic, and won't rerun
         // the test if this fails. We redirect the output to a temporary file.
         FileOutErr xmlSpawnOutErr = actionExecutionContext.getFileOutErr().childOutErr();
         try {
           SpawnContinuation xmlContinuation =
-              spawnActionContext.beginExecution(
+              strategy.beginExecution(
                   xmlGeneratingSpawn, actionExecutionContext.withFileOutErr(xmlSpawnOutErr));
           return new BazelXmlCreationContinuation(
               resolvedPaths, xmlSpawnOutErr, builder, spawnResults, xmlContinuation);

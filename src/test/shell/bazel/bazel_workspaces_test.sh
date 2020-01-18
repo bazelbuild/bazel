@@ -238,8 +238,8 @@ function test_download_integrity_sha256() {
 
   # Use Python for hashing and encoding due to cross-platform differences in
   # presence + behavior of `shasum` and `base64`.
-  sha256_py='import base64, hashlib, sys; print(base64.b64encode(hashlib.sha256(sys.stdin.read()).digest()))'
-  file_integrity="sha256-$(cat "${file}" | python -c "${sha256_py}")"
+  sha256_py='import base64, hashlib, sys; print(base64.b64encode(hashlib.sha256(sys.stdin.buffer.read()).digest()).decode("ascii"))'
+  file_integrity="sha256-$(cat "${file}" | python3 -c "${sha256_py}")"
 
   # Start HTTP server with Python
   startup_server "${server_dir}"
@@ -267,8 +267,8 @@ function test_download_integrity_sha512() {
 
   # Use Python for hashing and encoding due to cross-platform differences in
   # presence + behavior of `shasum` and `base64`.
-  sha512_py='import base64, hashlib, sys; print(base64.b64encode(hashlib.sha512(sys.stdin.read()).digest()))'
-  file_integrity="sha512-$(cat "${file}" | python -c "${sha512_py}")"
+  sha512_py='import base64, hashlib, sys; print(base64.b64encode(hashlib.sha512(sys.stdin.buffer.read()).digest()).decode("ascii"))'
+  file_integrity="sha512-$(cat "${file}" | python3 -c "${sha512_py}")"
 
 
   # Start HTTP server with Python
@@ -512,7 +512,8 @@ function test_os() {
 
   build_and_process_log --exclude_rule "//external:local_config_cc"
 
-  ensure_contains_exactly 'location: .*repos.bzl:2:9' 1
+  # This assertion matches the location of the rule's implementation function.
+  ensure_contains_exactly 'location: .*repos.bzl:1:5' 1
   ensure_contains_atleast 'rule: "//external:repo"' 1
   ensure_contains_exactly 'os_event' 1
 }
@@ -566,4 +567,3 @@ function tear_down() {
 }
 
 run_suite "workspaces_tests"
-

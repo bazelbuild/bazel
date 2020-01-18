@@ -765,8 +765,7 @@ public class BuildViewTest extends BuildViewTestBase {
     ConfiguredTarget target = Iterables.getOnlyElement(getAnalysisResult().getTargetsToBuild());
     assertThat(target.getLabel().toString()).isEqualTo(aoutLabel);
 
-    Artifact aout = Iterables.getOnlyElement(
-        target.getProvider(FileProvider.class).getFilesToBuild());
+    Artifact aout = target.getProvider(FileProvider.class).getFilesToBuild().getSingleton();
     Action action = getGeneratingAction(aout);
     assertThat(action.getClass()).isSameInstanceAs(FailAction.class);
   }
@@ -783,8 +782,7 @@ public class BuildViewTest extends BuildViewTestBase {
         "cc_binary(name = 'foo', srcs = ['foo.cc'])");
     ConfiguredTarget foo =
         Iterables.getOnlyElement(update("//actions_not_registered:foo").getTargetsToBuild());
-    Artifact fooOut =
-        Iterables.getOnlyElement(foo.getProvider(FileProvider.class).getFilesToBuild());
+    Artifact fooOut = foo.getProvider(FileProvider.class).getFilesToBuild().getSingleton();
     assertThat(getActionGraph().getGeneratingAction(fooOut)).isNotNull();
     clearAnalysisResult();
 
@@ -828,8 +826,7 @@ public class BuildViewTest extends BuildViewTestBase {
     ConfiguredTarget target = Iterables.getOnlyElement(getAnalysisResult().getTargetsToBuild());
     assertThat(target.getLabel().toString()).isEqualTo(aoutLabel);
 
-    Artifact aout = Iterables.getOnlyElement(
-        target.getProvider(FileProvider.class).getFilesToBuild());
+    Artifact aout = target.getProvider(FileProvider.class).getFilesToBuild().getSingleton();
     Action action = getGeneratingAction(aout);
     assertThat(action.getClass()).isSameInstanceAs(FailAction.class);
   }

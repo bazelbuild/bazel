@@ -211,7 +211,7 @@ public class MultiArchBinarySupport {
       Map<BuildConfiguration, CcToolchainProvider> childConfigurationsAndToolchains,
       ImmutableListMultimap<String, TransitiveInfoCollection> cpuToDepsCollectionMap,
       ImmutableListMultimap<String, ConfiguredTargetAndData> cpuToCTATDepsCollectionMap,
-      Iterable<TransitiveInfoCollection> dylibProviders)
+      ImmutableList<TransitiveInfoCollection> dylibProviders)
       throws RuleErrorException, InterruptedException {
     Iterable<ObjcProvider> dylibObjcProviders = getDylibObjcProviders(dylibProviders);
     Iterable<ObjcProtoProvider> dylibProtoProviders =
@@ -222,7 +222,7 @@ public class MultiArchBinarySupport {
     for (BuildConfiguration childToolchainConfig : childConfigurationsAndToolchains.keySet()) {
       String childCpu = childToolchainConfig.getCpu();
       Iterable<TransitiveInfoCollection> infoCollections = cpuToDepsCollectionMap.get(childCpu);
-      Iterable<ObjcProtoProvider> depProtoProviders =
+      ImmutableList<ObjcProtoProvider> depProtoProviders =
           getTypedProviders(infoCollections, ObjcProtoProvider.SKYLARK_CONSTRUCTOR);
       Optional<ObjcProvider> protosObjcProvider;
       if (ObjcRuleClasses.objcConfiguration(ruleContext).enableAppleBinaryNativeProtos()) {
@@ -272,21 +272,23 @@ public class MultiArchBinarySupport {
   }
 
   private static Iterable<ObjcProvider> getDylibObjcProviders(
-      Iterable<TransitiveInfoCollection> transitiveInfoCollections) {
+      ImmutableList<TransitiveInfoCollection> transitiveInfoCollections) {
     // Dylibs.
-    Iterable<ObjcProvider> frameworkObjcProviders =
-        Streams.stream(getTypedProviders(transitiveInfoCollections,
-            AppleDynamicFrameworkInfo.SKYLARK_CONSTRUCTOR))
-        .map(frameworkProvider -> frameworkProvider.getDepsObjcProvider())
-        .collect(ImmutableList.toImmutableList());
+    ImmutableList<ObjcProvider> frameworkObjcProviders =
+        getTypedProviders(transitiveInfoCollections, AppleDynamicFrameworkInfo.SKYLARK_CONSTRUCTOR)
+            .stream()
+            .map(frameworkProvider -> frameworkProvider.getDepsObjcProvider())
+            .collect(ImmutableList.toImmutableList());
     // Bundle Loaders.
-    Iterable<ObjcProvider> executableObjcProviders =
-        Streams.stream(getTypedProviders(transitiveInfoCollections,
-            AppleExecutableBinaryInfo.SKYLARK_CONSTRUCTOR))
-        .map(frameworkProvider -> frameworkProvider.getDepsObjcProvider())
-        .collect(ImmutableList.toImmutableList());
+    ImmutableList<ObjcProvider> executableObjcProviders =
+        getTypedProviders(transitiveInfoCollections, AppleExecutableBinaryInfo.SKYLARK_CONSTRUCTOR)
+            .stream()
+            .map(frameworkProvider -> frameworkProvider.getDepsObjcProvider())
+            .collect(ImmutableList.toImmutableList());
 
-    return Iterables.concat(frameworkObjcProviders, executableObjcProviders,
+    return Iterables.concat(
+        frameworkObjcProviders,
+        executableObjcProviders,
         getTypedProviders(transitiveInfoCollections, ObjcProvider.SKYLARK_CONSTRUCTOR));
   }
 
@@ -324,27 +326,24 @@ public class MultiArchBinarySupport {
   }
 
   @Deprecated // Use BuiltinProvider instead.
-  private static <T extends Info> Iterable<T> getTypedProviders(
-      Iterable<TransitiveInfoCollection> infoCollections,
-      NativeProvider<T> providerClass) {
+  private static <T extends Info> ImmutableList<T> getTypedProviders(
+      Iterable<TransitiveInfoCollection> infoCollections, NativeProvider<T> providerClass) {
     return Streams.stream(infoCollections)
         .filter(infoCollection -> infoCollection.get(providerClass) != null)
         .map(infoCollection -> infoCollection.get(providerClass))
         .collect(ImmutableList.toImmutableList());
   }
 
-  private static <T extends Info> Iterable<T> getTypedProviders(
-      Iterable<TransitiveInfoCollection> infoCollections,
-      BuiltinProvider<T> providerClass) {
+  private static <T extends Info> ImmutableList<T> getTypedProviders(
+      Iterable<TransitiveInfoCollection> infoCollections, BuiltinProvider<T> providerClass) {
     return Streams.stream(infoCollections)
         .filter(infoCollection -> infoCollection.get(providerClass) != null)
         .map(infoCollection -> infoCollection.get(providerClass))
         .collect(ImmutableList.toImmutableList());
   }
 
-  private static <T extends TransitiveInfoProvider> Iterable<T> getTypedProviders(
-      Iterable<TransitiveInfoCollection> infoCollections,
-      Class<T> providerClass) {
+  private static <T extends TransitiveInfoProvider> ImmutableList<T> getTypedProviders(
+      Iterable<TransitiveInfoCollection> infoCollections, Class<T> providerClass) {
     return Streams.stream(infoCollections)
         .filter(infoCollection -> infoCollection.getProvider(providerClass) != null)
         .map(infoCollection -> infoCollection.getProvider(providerClass))

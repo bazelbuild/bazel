@@ -45,5 +45,5 @@ public interface SkylarkCommandLineApi extends StarlarkValue {
             generic1 = FileApi.class,
             doc = "the files to concatenate.")
       })
-  public String joinPaths(String separator, Depset files) throws EvalException;
+  String joinPaths(String separator, Depset files) throws EvalException;
 }

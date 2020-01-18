@@ -14,8 +14,10 @@
 package com.google.devtools.build.lib.standalone;
 
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.actions.SpawnActionContext;
+import com.google.devtools.build.lib.actions.SpawnStrategy;
+import com.google.devtools.build.lib.analysis.actions.FileWriteActionContext;
 import com.google.devtools.build.lib.analysis.actions.LocalTemplateExpansionStrategy;
+import com.google.devtools.build.lib.analysis.actions.TemplateExpansionContext;
 import com.google.devtools.build.lib.analysis.test.TestActionContext;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
 import com.google.devtools.build.lib.dynamic.DynamicExecutionOptions;
@@ -29,6 +31,8 @@ import com.google.devtools.build.lib.exec.TestStrategy;
 import com.google.devtools.build.lib.exec.local.LocalEnvProvider;
 import com.google.devtools.build.lib.exec.local.LocalExecutionOptions;
 import com.google.devtools.build.lib.exec.local.LocalSpawnRunner;
+import com.google.devtools.build.lib.rules.cpp.CppIncludeExtractionContext;
+import com.google.devtools.build.lib.rules.cpp.CppIncludeScanningContext;
 import com.google.devtools.build.lib.rules.test.ExclusiveTestStrategy;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
@@ -63,8 +67,9 @@ public class StandaloneModule extends BlazeModule {
   @Override
   public void executorInit(CommandEnvironment env, BuildRequest request, ExecutorBuilder builder) {
     // TODO(ulfjack): Move this to another module.
-    builder.addActionContext(new DummyCppIncludeExtractionContext(env));
-    builder.addActionContext(new DummyCppIncludeScanningContext());
+    builder.addActionContext(
+        CppIncludeExtractionContext.class, new DummyCppIncludeExtractionContext(env));
+    builder.addActionContext(CppIncludeScanningContext.class, new DummyCppIncludeScanningContext());
 
     ExecutionOptions executionOptions = env.getOptions().getOptions(ExecutionOptions.class);
     Path testTmpRoot =
@@ -88,11 +93,17 @@ public class StandaloneModule extends BlazeModule {
     // Order of strategies passed to builder is significant - when there are many strategies that
     // could potentially be used and a spawnActionContext doesn't specify which one it wants, the
     // last one from strategies list will be used
-    builder.addActionContext(new StandaloneSpawnStrategy(env.getExecRoot(), localSpawnRunner));
-    builder.addActionContext(testStrategy);
-    builder.addActionContext(new ExclusiveTestStrategy(testStrategy));
-    builder.addActionContext(new FileWriteStrategy());
-    builder.addActionContext(new LocalTemplateExpansionStrategy());
+    builder.addActionContext(
+        SpawnStrategy.class,
+        new StandaloneSpawnStrategy(env.getExecRoot(), localSpawnRunner),
+        "standalone",
+        "local");
+    builder.addActionContext(TestActionContext.class, testStrategy, "standalone");
+    builder.addActionContext(
+        TestActionContext.class, new ExclusiveTestStrategy(testStrategy), "exclusive");
+    builder.addActionContext(FileWriteActionContext.class, new FileWriteStrategy(), "local");
+    builder.addActionContext(
+        TemplateExpansionContext.class, new LocalTemplateExpansionStrategy(), "local");
 
     // This makes the "sandboxed" strategy the default Spawn strategy, unless it is overridden by a
     // later BlazeModule.
@@ -100,6 +111,6 @@ public class StandaloneModule extends BlazeModule {
 
     // This makes the "standalone" strategy available via --spawn_strategy=standalone, but it is not
     // necessarily the default.
-    builder.addStrategyByContext(SpawnActionContext.class, "standalone");
+    builder.addStrategyByContext(SpawnStrategy.class, "standalone");
   }
 }

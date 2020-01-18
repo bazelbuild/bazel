@@ -180,7 +180,4 @@ public final class CanonicalizeCommand implements BlazeCommand {
     }
     return BlazeCommandResult.exitCode(ExitCode.SUCCESS);
   }
-
-  @Override
-  public void editOptions(OptionsParser optionsParser) {}
 }

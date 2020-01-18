@@ -97,7 +97,7 @@ public class MethodLibraryTest extends EvaluationTestCase {
                 + LINE_SEPARATOR
                 + "\t\ts += \"2\""
                 + LINE_SEPARATOR
-                + "unsupported operand type(s) for +: 'int' and 'string'",
+                + "unsupported binary operation: int + string",
             "def foo():",
             "  s = 1",
             "  s += '2'",
@@ -110,8 +110,7 @@ public class MethodLibraryTest extends EvaluationTestCase {
     // only one built-in function.
     new BothModesTest()
         .testIfExactError(
-            "expected value of type 'string' for parameter 'sub', "
-                + "for call to method index(sub, start = 0, end = None) of 'string'",
+            "in call to index(), parameter 'sub' got value of type 'int', want 'string'",
             "'test'.index(1)");
   }
 
@@ -135,8 +134,7 @@ public class MethodLibraryTest extends EvaluationTestCase {
                 + LINE_SEPARATOR
                 + "\t\t\"test\".index(x)"
                 + LINE_SEPARATOR
-                + "expected value of type 'string' for parameter 'sub', "
-                + "for call to method index(sub, start = 0, end = None) of 'string'",
+                + "in call to index(), parameter 'sub' got value of type 'int', want 'string'",
             "def foo():",
             "  bar(1)",
             "def bar(x):",
@@ -150,8 +148,8 @@ public class MethodLibraryTest extends EvaluationTestCase {
     new BothModesTest()
         .testIfErrorContains("substring \"z\" not found in \"abc\"", "'abc'.index('z')")
         .testIfErrorContains(
-            "expected value of type 'string or tuple of strings' for parameter 'sub', "
-                + "for call to method startswith(sub, start = 0, end = None) of 'string'",
+            "in call to startswith(), parameter 'sub' got value of type 'int', want 'string or"
+                + " tuple of strings'",
             "'test'.startswith(1)")
         .testIfErrorContains("in dict, got string, want iterable", "dict('a')");
   }
@@ -169,8 +167,7 @@ public class MethodLibraryTest extends EvaluationTestCase {
   public void testGetAttrMissingField() throws Exception {
     new SkylarkTest()
         .testIfExactError(
-            "object of type 'string' has no attribute 'not_there'",
-            "getattr('a string', 'not_there')")
+            "'string' value has no field or method 'not_there'", "getattr('a string', 'not_there')")
         .testExpression("getattr('a string', 'not_there', 'use this')", "use this")
         .testExpression("getattr('a string', 'not there', None)", Starlark.NONE);
   }
@@ -203,13 +200,13 @@ public class MethodLibraryTest extends EvaluationTestCase {
     new SkylarkTest()
         .update("s", new AStruct())
         .testIfExactError(
-            "object of type 'AStruct' has no attribute 'feild' (did you mean 'field'?)",
+            "'AStruct' value has no field or method 'feild' (did you mean 'field'?)",
             "getattr(s, 'feild')");
   }
 
   @Test
   public void testGetAttrWithMethods() throws Exception {
-    String msg = "object of type 'string' has no attribute 'cnt'";
+    String msg = "'string' value has no field or method 'cnt'";
     new SkylarkTest()
         .testIfExactError(msg, "getattr('a string', 'cnt')")
         .testExpression("getattr('a string', 'cnt', 'default')", "default");
@@ -232,7 +229,7 @@ public class MethodLibraryTest extends EvaluationTestCase {
   @Test
   public void testBooleanUnsupportedOperationFails() throws Exception {
     new BothModesTest()
-        .testIfErrorContains("unsupported operand type(s) for +: 'bool' and 'bool'", "True + True");
+        .testIfErrorContains("unsupported binary operation: bool + bool", "True + True");
   }
 
   @Test
@@ -335,7 +332,8 @@ public class MethodLibraryTest extends EvaluationTestCase {
             "in dict, dictionary update sequence element #0 is not iterable (string)",
             "dict([('a')])")
         .testIfErrorContains(
-            "expected no more than 1 positional arguments, but got 3", "dict((3,4), (3,2), (1,2))")
+            "dict() accepts no more than 1 positional argument but got 3",
+            "dict((3,4), (3,2), (1,2))")
         .testIfErrorContains(
             "item #0 has length 3, but exactly two elements are required",
             "dict([('a', 'b', 'c')])");
@@ -462,8 +460,7 @@ public class MethodLibraryTest extends EvaluationTestCase {
         .testExpression("hash('skylark')", "skylark".hashCode())
         .testExpression("hash('google')", "google".hashCode())
         .testIfErrorContains(
-            "expected value of type 'string' for parameter 'value', "
-                + "for call to function hash(value)",
+            "in call to hash(), parameter 'value' got value of type 'NoneType', want 'string'",
             "hash(None)");
   }
 
@@ -477,8 +474,8 @@ public class MethodLibraryTest extends EvaluationTestCase {
         .testExpression("repr(a)", "range(0, 3)")
         .testExpression("repr(range(1,2,3))", "range(1, 2, 3)")
         .testExpression("type(a)", "range")
-        .testIfErrorContains("unsupported operand type(s) for +: 'range' and 'range'", "a + a")
-        .testIfErrorContains("type 'range' has no method append()", "a.append(3)")
+        .testIfErrorContains("unsupported binary operation: range + range", "a + a")
+        .testIfErrorContains("'range' value has no field or method 'append'", "a.append(3)")
         .testExpression("str(list(range(5)))", "[0, 1, 2, 3, 4]")
         .testExpression("str(list(range(0)))", "[]")
         .testExpression("str(list(range(1)))", "[0]")
@@ -507,7 +504,7 @@ public class MethodLibraryTest extends EvaluationTestCase {
         .testExpression("str(range(0, 10, 2)[::-2])", "range(8, -2, -4)")
         .testExpression("str(range(5)[1::-1])", "range(1, -1, -1)")
         .testIfErrorContains("step cannot be 0", "range(2, 3, 0)")
-        .testIfErrorContains("unsupported operand type(s) for *: 'range' and 'int'", "range(3) * 3")
+        .testIfErrorContains("unsupported binary operation: range * int", "range(3) * 3")
         .testIfErrorContains("Cannot compare range objects", "range(3) < range(5)")
         .testIfErrorContains("Cannot compare range objects", "range(4) > [1]")
         .testExpression("4 in range(1, 10)", true)
@@ -586,7 +583,7 @@ public class MethodLibraryTest extends EvaluationTestCase {
   public void testIndexOnFunction() throws Exception {
     new BothModesTest()
         .testIfErrorContains("type 'function' has no operator [](int)", "len[1]")
-        .testIfErrorContains("type 'function' has no operator [:](int, int, NoneType)", "len[1:4]");
+        .testIfErrorContains("invalid slice operand: function", "len[1:4]");
   }
 
   @Test
@@ -760,8 +757,7 @@ public class MethodLibraryTest extends EvaluationTestCase {
   public void testExperimentalStarlarkConfig() throws Exception {
     new SkylarkTest("--incompatible_restrict_named_params")
         .testIfErrorContains(
-            "parameter 'elements' may not be specified by name, "
-                + "for call to method join(elements) of 'string'",
+            "join() got named argument for positional-only parameter 'elements'",
             "','.join(elements=['foo', 'bar'])");
   }
 
@@ -797,7 +793,7 @@ public class MethodLibraryTest extends EvaluationTestCase {
             "parameter 'direct' cannot be specified both positionally and by keyword",
             "depset([0, 1], 'default', direct=[0,1])")
         .testIfErrorContains(
-            "parameter 'items' is deprecated and will be removed soon. "
+            "in call to depset(), parameter 'items' is deprecated and will be removed soon. "
                 + "It may be temporarily re-enabled by setting "
                 + "--incompatible_disable_depset_inputs=false",
             "depset(items=[0,1])");

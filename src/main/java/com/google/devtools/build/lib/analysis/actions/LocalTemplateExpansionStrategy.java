@@ -17,7 +17,6 @@ package com.google.devtools.build.lib.analysis.actions;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
-import com.google.devtools.build.lib.actions.ExecutionStrategy;
 import com.google.devtools.build.lib.actions.SpawnContinuation;
 import com.google.devtools.build.lib.analysis.actions.AbstractFileWriteAction.DeterministicWriter;
 import com.google.devtools.build.lib.util.StringUtilities;
@@ -26,9 +25,6 @@ import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
 
 /** Strategy to perform tempate expansion locally */
-@ExecutionStrategy(
-    name = {"local"},
-    contextType = TemplateExpansionContext.class)
 public class LocalTemplateExpansionStrategy implements TemplateExpansionContext {
   public static final Class<LocalTemplateExpansionStrategy> TYPE =
       LocalTemplateExpansionStrategy.class;

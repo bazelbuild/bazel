@@ -9,6 +9,11 @@ bind(
 )
 
 bind(
+    name = "android/d8_jar_import",
+    actual = "@bazel_tools//tools/android:no_android_sdk_repository_error",
+)
+
+bind(
     name = "android/crosstool",
     actual = "@bazel_tools//tools/cpp:toolchain",
 )

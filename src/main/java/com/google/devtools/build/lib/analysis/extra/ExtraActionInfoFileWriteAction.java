@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.analysis.extra;
 
 import com.google.common.base.Preconditions;
-import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
@@ -25,6 +24,8 @@ import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.analysis.actions.AbstractFileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.ProtoDeterministicWriter;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.util.Fingerprint;
@@ -44,7 +45,9 @@ public final class ExtraActionInfoFileWriteAction extends AbstractFileWriteActio
   ExtraActionInfoFileWriteAction(ActionOwner owner, Artifact primaryOutput, Action shadowedAction) {
     super(
         owner,
-        shadowedAction.discoversInputs() ? shadowedAction.getOutputs() : ImmutableList.of(),
+        shadowedAction.discoversInputs()
+            ? NestedSetBuilder.<Artifact>stableOrder().addAll(shadowedAction.getOutputs()).build()
+            : NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER),
         primaryOutput,
         /*makeExecutable=*/ false);
 

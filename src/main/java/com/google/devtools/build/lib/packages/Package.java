@@ -862,6 +862,12 @@ public class Package {
 
     private final Interner<ImmutableList<?>> listInterner = new ThreadCompatibleInterner<>();
 
+    private final Map<Location, String> generatorNameByLocation = new HashMap<>();
+
+    Map<Location, String> getGeneratorNameByLocation() {
+      return generatorNameByLocation;
+    }
+
     @ThreadCompatible
     private static class ThreadCompatibleInterner<T> implements Interner<T> {
       private final Map<T, T> interns = new HashMap<>();
@@ -973,7 +979,7 @@ public class Package {
       this.filename = filename;
       try {
         buildFileLabel = createLabel(filename.getRootRelativePath().getBaseName());
-        addInputFile(buildFileLabel, Location.fromPathFragment(filename.asPath().asFragment()));
+        addInputFile(buildFileLabel, Location.fromFile(filename.asPath().toString()));
       } catch (LabelSyntaxException e) {
         // This can't actually happen.
         throw new AssertionError("Package BUILD file has an illegal name: " + filename);
@@ -1461,11 +1467,8 @@ public class Package {
       // current instance here.
       buildFile = (InputFile) Preconditions.checkNotNull(targets.get(buildFileLabel.getName()));
 
-      // The Iterable returned by getTargets is sorted, so when we build up the list of tests by
-      // processing it in order below, that list will be sorted too.
-
-      List<Label> sortedTests = new ArrayList<>();
-      List<Rule> implicitTestSuites = new ArrayList<>();
+      List<Label> labelsOfTestTargets = new ArrayList<>();
+      List<Rule> implicitTestSuiteRuleInstances = new ArrayList<>();
       Map<Label, InputFile> newInputFiles = new HashMap<>();
       for (final Rule rule : getTargets(Rule.class)) {
         if (discoverAssumedInputFiles) {
@@ -1485,13 +1488,13 @@ public class Package {
         // since clearly this information isn't available at Rule construction
         // time, as forward references are permitted.
         if (TargetUtils.isTestRule(rule) && !TargetUtils.hasManualTag(rule)) {
-          sortedTests.add(rule.getLabel());
+          labelsOfTestTargets.add(rule.getLabel());
         }
 
         AttributeMap attributes = NonconfigurableAttributeMapper.of(rule);
         if (rule.getRuleClass().equals("test_suite")
             && attributes.get("tests", BuildType.LABEL_LIST).isEmpty()) {
-          implicitTestSuites.add(rule);
+          implicitTestSuiteRuleInstances.add(rule);
         }
       }
 
@@ -1499,8 +1502,11 @@ public class Package {
         addInputFile(inputFile);
       }
 
-      for (Rule rule : implicitTestSuites) {
-        rule.setAttributeValueByName("$implicit_tests", sortedTests);
+      if (!implicitTestSuiteRuleInstances.isEmpty()) {
+        Collections.sort(labelsOfTestTargets);
+        for (Rule rule : implicitTestSuiteRuleInstances) {
+          rule.setAttributeValueByName("$implicit_tests", labelsOfTestTargets);
+        }
       }
       return this;
     }

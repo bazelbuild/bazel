@@ -124,11 +124,13 @@ public class ConstraintCollectionApiTest extends PlatformTestCase {
         "  value_from_get = constraint_collection.get(constraint_setting)",
         "  used_constraints = constraint_collection.constraint_settings",
         "  has_constraint = constraint_collection.has(constraint_setting)",
+        "  has_constraint_value = constraint_collection.has_constraint_value(value_from_get)",
         "  return [result(",
         "    value_from_index = value_from_index,",
         "    value_from_get = value_from_get,",
         "    used_constraints = used_constraints,",
         "    has_constraint = has_constraint,",
+        "    has_constraint_value = has_constraint_value,",
         "  )]",
         "verify = rule(",
         "  implementation = _impl,",
@@ -178,6 +180,9 @@ public class ConstraintCollectionApiTest extends PlatformTestCase {
 
     boolean hasConstraint = (boolean) info.getValue("has_constraint");
     assertThat(hasConstraint).isTrue();
+
+    boolean hasConstraintValue = (boolean) info.getValue("has_constraint_value");
+    assertThat(hasConstraintValue).isTrue();
   }
 
   @Test

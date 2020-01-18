@@ -25,6 +25,7 @@ import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.jimfs.Jimfs;
 import com.google.common.truth.Subject;
+import com.google.devtools.build.android.resources.Visibility;
 import com.google.devtools.build.android.xml.AttrXmlResourceValue;
 import com.google.devtools.build.android.xml.AttrXmlResourceValue.ReferenceResourceXmlAttrValue;
 import com.google.devtools.build.android.xml.AttrXmlResourceValue.StringResourceXmlAttrValue;
@@ -458,7 +459,8 @@ public final class AttributeResourcesAndroidDataMergerTest {
                                             Attribute.newBuilder()
                                                 .setFormatFlags(testParameters.formatFlags1())))
                                 .setWeak(testParameters.strength1() == Strength.WEAK)
-                                .build())))
+                                .build(),
+                            Visibility.UNKNOWN)))
             .overwritable(
                 xml("attr/ambiguousName")
                     .root(transitiveRoot2)
@@ -472,7 +474,8 @@ public final class AttributeResourcesAndroidDataMergerTest {
                                             Attribute.newBuilder()
                                                 .setFormatFlags(testParameters.formatFlags2())))
                                 .setWeak(testParameters.strength2() == Strength.WEAK)
-                                .build())))
+                                .build(),
+                            Visibility.UNKNOWN)))
             .build();
 
     ParsedAndroidData directDependency = ParsedAndroidDataBuilder.empty();

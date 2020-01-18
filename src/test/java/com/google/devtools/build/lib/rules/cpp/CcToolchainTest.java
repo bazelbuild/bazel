@@ -722,32 +722,34 @@ public class CcToolchainTest extends BuildViewTestCase {
         getOutputGroup(libTarget, "archive").toList().stream()
             .collect(MoreCollectors.onlyElement());
     ActionAnalysisMetadata staticAction = getGeneratingAction(staticLib);
-    assertThat(staticAction.getInputs()).containsAtLeastElementsIn(toolchainProvider.getArFiles());
+    assertThat(staticAction.getInputs().toList())
+        .containsAtLeastElementsIn(toolchainProvider.getArFiles().toList());
     Artifact dynamicLib =
         getOutputGroup(libTarget, "dynamic_library").toList().stream()
             .collect(MoreCollectors.onlyElement());
     ActionAnalysisMetadata dynamicAction = getGeneratingAction(dynamicLib);
-    assertThat(dynamicAction.getInputs())
-        .containsAtLeastElementsIn(toolchainProvider.getLinkerFiles());
+    assertThat(dynamicAction.getInputs().toList())
+        .containsAtLeastElementsIn(toolchainProvider.getLinkerFiles().toList());
     ActionAnalysisMetadata cCompileAction =
         libTarget.getActions().stream()
             .filter((a) -> a.getMnemonic().equals("CppCompile"))
             .collect(MoreCollectors.onlyElement());
-    assertThat(cCompileAction.getInputs())
-        .containsAtLeastElementsIn(toolchainProvider.getCompilerFiles());
+    assertThat(cCompileAction.getInputs().toList())
+        .containsAtLeastElementsIn(toolchainProvider.getCompilerFiles().toList());
     ActionAnalysisMetadata asmAction =
         ((RuleConfiguredTarget) getConfiguredTarget("//a:asm"))
             .getActions().stream()
                 .filter((a) -> a.getMnemonic().equals("CppCompile"))
                 .collect(MoreCollectors.onlyElement());
-    assertThat(asmAction.getInputs()).containsAtLeastElementsIn(toolchainProvider.getAsFiles());
+    assertThat(asmAction.getInputs().toList())
+        .containsAtLeastElementsIn(toolchainProvider.getAsFiles().toList());
     ActionAnalysisMetadata preprocessedAsmAction =
         ((RuleConfiguredTarget) getConfiguredTarget("//a:preprocessed-asm"))
             .getActions().stream()
                 .filter((a) -> a.getMnemonic().equals("CppCompile"))
                 .collect(MoreCollectors.onlyElement());
-    assertThat(preprocessedAsmAction.getInputs())
-        .containsAtLeastElementsIn(toolchainProvider.getCompilerFiles());
+    assertThat(preprocessedAsmAction.getInputs().toList())
+        .containsAtLeastElementsIn(toolchainProvider.getCompilerFiles().toList());
   }
 
   @Test

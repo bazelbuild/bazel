@@ -46,6 +46,8 @@ public class NinjaLexer {
   /** Flag to give a hint how letters should be interpreted (as text, identifier, path). */
   private TextKind expectedTextKind = TextKind.IDENTIFIER;
 
+  private boolean interpretPoolAsVariable = false;
+
   /** @param fragment fragment to do the lexing on */
   public NinjaLexer(ByteBufferFragment fragment) {
     this.fragment = fragment;
@@ -141,7 +143,9 @@ public class NinjaLexer {
               if (step.getError() == null) {
                 byte[] bytes = step.getBytes();
                 NinjaToken keywordToken = KEYWORD_MAP.get(bytes[0]);
-                if (keywordToken != null && Arrays.equals(keywordToken.getBytes(), bytes)) {
+                if (keywordToken != null
+                    && !(interpretPoolAsVariable && NinjaToken.POOL.equals(keywordToken))
+                    && Arrays.equals(keywordToken.getBytes(), bytes)) {
                   return push(keywordToken);
                 }
               }
@@ -201,6 +205,11 @@ public class NinjaLexer {
   /** Give a hint how letters should be interpreted (as text, identifier, path). */
   public void setExpectedTextKind(TextKind expectedTextKind) {
     this.expectedTextKind = expectedTextKind;
+  }
+
+  /** When the keyword 'pool' is met, interpret it as identifier, not as a keyword. */
+  public void interpretPoolAsVariable() {
+    this.interpretPoolAsVariable = true;
   }
 
   /** Undo the previously read token. */

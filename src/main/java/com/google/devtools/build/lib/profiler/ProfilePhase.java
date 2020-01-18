@@ -18,25 +18,32 @@ package com.google.devtools.build.lib.profiler;
  * Build phase markers. Used as a separators between different build phases.
  */
 public enum ProfilePhase {
-  LAUNCH("launch", "Launch Blaze", 0x3F9FCF9F),                // 9C9
-  INIT("init", "Initialize command", 0x3F9F9FCF),              // 99C
-  LOAD("loading", "Load packages", 0x3FCFFFCF),                // CFC
-  ANALYZE("analysis", "Analyze dependencies", 0x3FCFCFFF),     // CCF
-  LICENSE("license checking", "Analyze licenses", 0x3FCFFFFF), // CFF
-  PREPARE("preparation", "Prepare for build", 0x3FFFFFCF),     // FFC
-  EXECUTE("execution", "Build artifacts", 0x3FFFCFCF),         // FCC
-  FINISH("finish", "Complete build",0x3FFFCFFF);               // FCF
+  LAUNCH("launch", "Launch Blaze"),
+  INIT("init", "Initialize command"),
+  LOAD("loading", "Load packages"),
+  ANALYZE("analysis", "Analyze dependencies"),
+  LICENSE("license checking", "Analyze licenses"),
+  PREPARE("preparation", "Prepare for build"),
+  EXECUTE("execution", "Build artifacts"),
+  FINISH("finish", "Complete build"),
+  UNKNOWN("unknown", "unknown");
 
   /** Short name for the phase */
   public final String nick;
   /** Human readable description for the phase. */
   public final String description;
-  /** Default color of the task, when rendered in a chart. */
-  public final int color;
 
-  ProfilePhase(String nick, String description, int color) {
+  ProfilePhase(String nick, String description) {
     this.nick = nick;
     this.description = description;
-    this.color = color;
+  }
+
+  public static ProfilePhase getPhaseFromDescription(String description) {
+    for (ProfilePhase profilePhase : ProfilePhase.values()) {
+      if (profilePhase.description.equals(description)) {
+        return profilePhase;
+      }
+    }
+    return UNKNOWN;
   }
 }

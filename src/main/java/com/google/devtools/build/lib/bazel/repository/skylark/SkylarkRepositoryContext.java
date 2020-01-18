@@ -30,7 +30,7 @@ import com.google.devtools.build.lib.bazel.repository.PatchUtil;
 import com.google.devtools.build.lib.bazel.repository.cache.RepositoryCache;
 import com.google.devtools.build.lib.bazel.repository.cache.RepositoryCache.KeyType;
 import com.google.devtools.build.lib.bazel.repository.downloader.Checksum;
-import com.google.devtools.build.lib.bazel.repository.downloader.HttpDownloader;
+import com.google.devtools.build.lib.bazel.repository.downloader.DownloadManager;
 import com.google.devtools.build.lib.bazel.repository.downloader.HttpUtils;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.ExtendedEventHandler.FetchProgress;
@@ -99,7 +99,7 @@ public class SkylarkRepositoryContext
   private final SkylarkOS osObject;
   private final ImmutableSet<PathFragment> blacklistedPatterns;
   private final Environment env;
-  private final HttpDownloader httpDownloader;
+  private final DownloadManager downloadManager;
   private final double timeoutScaling;
   private final Map<String, String> markerData;
   private final StarlarkSemantics starlarkSemantics;
@@ -116,7 +116,7 @@ public class SkylarkRepositoryContext
       ImmutableSet<PathFragment> blacklistedPatterns,
       Environment environment,
       Map<String, String> env,
-      HttpDownloader httpDownloader,
+      DownloadManager downloadManager,
       Path embeddedBinariesRoot,
       double timeoutScaling,
       Map<String, String> markerData,
@@ -130,7 +130,7 @@ public class SkylarkRepositoryContext
     this.blacklistedPatterns = blacklistedPatterns;
     this.env = environment;
     this.osObject = new SkylarkOS(env);
-    this.httpDownloader = httpDownloader;
+    this.downloadManager = downloadManager;
     this.timeoutScaling = timeoutScaling;
     this.markerData = markerData;
     WorkspaceAttributeMapper attrs = WorkspaceAttributeMapper.of(rule);
@@ -253,7 +253,7 @@ public class SkylarkRepositoryContext
     if (!path.getPath().getPathString().startsWith(outputDirectory.getPathString())) {
       throw new RepositoryFunctionException(
           new EvalException(
-              Location.fromFile(path.getPath()),
+              Location.fromFile(path.toString()),
               "Cannot " + operation + " outside of the repository directory for path " + path),
           Transience.PERSISTENT);
     }
@@ -353,8 +353,15 @@ public class SkylarkRepositoryContext
   }
 
   @Override
-  public SkylarkOS getOS(Location location) {
-    WorkspaceRuleEvent w = WorkspaceRuleEvent.newOsEvent(rule.getLabel().toString(), location);
+  public SkylarkOS getOS() {
+    // Historically this event reported the location of the ctx.os expression,
+    // but that's no longer available in the interpreter API. Now we report the
+    // location of the rule's implementation function, and the user must inspect
+    // that code manually (or in a debugger) to find the offending ctx.os expression.
+    WorkspaceRuleEvent w =
+        WorkspaceRuleEvent.newOsEvent(
+            rule.getLabel().toString(),
+            rule.getRuleClassObject().getConfiguredTargetFunction().getLocation());
     env.getListener().post(w);
     return osObject;
   }
@@ -657,7 +664,7 @@ public class SkylarkRepositoryContext
       checkInOutputDirectory("write", outputPath);
       makeDirectories(outputPath.getPath());
       downloadedPath =
-          httpDownloader.download(
+          downloadManager.download(
               urls,
               authHeaders,
               checksum,
@@ -696,7 +703,7 @@ public class SkylarkRepositoryContext
     if (!archivePath.exists()) {
       throw new RepositoryFunctionException(
           new EvalException(
-              Location.fromFile(archivePath.getPath()),
+              Location.fromFile(archivePath.toString()),
               String.format("Archive path '%s' does not exist.", archivePath.toString())),
           Transience.TRANSIENT);
     }
@@ -713,6 +720,10 @@ public class SkylarkRepositoryContext
             location);
     env.getListener().post(w);
 
+    env.getListener()
+        .post(
+            new ExtractProgress(
+                outputPath.getPath().toString(), "Extracting " + archivePath.getPath()));
     DecompressorValue.decompress(
         DecompressorDescriptor.builder()
             .setTargetKind(rule.getTargetKind())
@@ -721,6 +732,7 @@ public class SkylarkRepositoryContext
             .setRepositoryPath(outputPath.getPath())
             .setPrefix(stripPrefix)
             .build());
+    env.getListener().post(new ExtractProgress(outputPath.getPath().toString()));
   }
 
   @Override
@@ -774,7 +786,7 @@ public class SkylarkRepositoryContext
     try (SilentCloseable c =
         Profiler.instance().profile("fetching: " + rule.getLabel().toString())) {
       downloadedPath =
-          httpDownloader.download(
+          downloadManager.download(
               urls,
               authHeaders,
               checksum,
@@ -803,6 +815,9 @@ public class SkylarkRepositoryContext
     env.getListener().post(w);
     try (SilentCloseable c =
         Profiler.instance().profile("extracting: " + rule.getLabel().toString())) {
+      env.getListener()
+          .post(
+              new ExtractProgress(outputPath.getPath().toString(), "Extracting " + downloadedPath));
       DecompressorValue.decompress(
           DecompressorDescriptor.builder()
               .setTargetKind(rule.getTargetKind())
@@ -811,6 +826,7 @@ public class SkylarkRepositoryContext
               .setRepositoryPath(outputPath.getPath())
               .setPrefix(stripPrefix)
               .build());
+      env.getListener().post(new ExtractProgress(outputPath.getPath().toString()));
     }
 
     StructImpl downloadResult = calculateDownloadResult(checksum, downloadedPath);
@@ -960,7 +976,7 @@ public class SkylarkRepositoryContext
       throw new RepositoryFunctionException(
           new IOException(
               "No URLs left after removing plain http URLs due to missing checksum."
-                  + " Please provde either a checksum or an https download location."),
+                  + " Please provide either a checksum or an https download location."),
           Transience.PERSISTENT);
     }
     return urls;
@@ -1019,7 +1035,8 @@ public class SkylarkRepositoryContext
   }
 
   /**
-   * Try to compute the paths of all attibutes that are labels, including labels in list arguments.
+   * Try to compute the paths of all attributes that are labels, including labels in list and dict
+   * arguments.
    *
    * <p>The value is ignored, but any missing information from the environment is detected (and an
    * exception thrown). In this way, we can enforce that all arguments are evaluated before we start
@@ -1034,6 +1051,13 @@ public class SkylarkRepositoryContext
       }
       if (value instanceof Sequence) {
         for (Object entry : (Sequence) value) {
+          if (entry instanceof Label) {
+            getPathFromLabel((Label) entry);
+          }
+        }
+      }
+      if (value instanceof Dict) {
+        for (Object entry : ((Dict) value).keySet()) {
           if (entry instanceof Label) {
             getPathFromLabel((Label) entry);
           }
@@ -1084,5 +1108,38 @@ public class SkylarkRepositoryContext
       }
     }
     return headers.build();
+  }
+
+  private static class ExtractProgress implements FetchProgress {
+    private final String repositoryPath;
+    private final String progress;
+    private final boolean isFinished;
+
+    ExtractProgress(String repositoryPath, String progress) {
+      this.repositoryPath = repositoryPath;
+      this.progress = progress;
+      this.isFinished = false;
+    }
+
+    ExtractProgress(String repositoryPath) {
+      this.repositoryPath = repositoryPath;
+      this.progress = "";
+      this.isFinished = true;
+    }
+
+    @Override
+    public String getResourceIdentifier() {
+      return repositoryPath;
+    }
+
+    @Override
+    public String getProgress() {
+      return progress;
+    }
+
+    @Override
+    public boolean isFinished() {
+      return isFinished;
+    }
   }
 }

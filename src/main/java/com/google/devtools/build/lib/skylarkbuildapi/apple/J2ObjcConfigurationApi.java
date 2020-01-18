@@ -30,7 +30,6 @@ public interface J2ObjcConfigurationApi extends StarlarkValue {
   @SkylarkCallable(
       name = "translation_flags",
       structField = true,
-      doc = "The list of flags to be used when the j2objc compiler is invoked. "
-  )
-  public ImmutableList<String> getTranslationFlags();
+      doc = "The list of flags to be used when the j2objc compiler is invoked. ")
+  ImmutableList<String> getTranslationFlags();
 }

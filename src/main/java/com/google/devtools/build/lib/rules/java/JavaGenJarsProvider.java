@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skylarkbuildapi.java.JavaAnnotationProcessingApi;
 import com.google.devtools.build.lib.syntax.Depset;
+import java.util.List;
 import javax.annotation.Nullable;
 
 /** The collection of gen jars from the transitive closure. */
@@ -36,7 +37,7 @@ public final class JavaGenJarsProvider
   @Nullable private final Artifact genSourceJar;
 
   private final NestedSet<Artifact> processorClasspath;
-  private final ImmutableList<String> processorClassNames;
+  private final NestedSet<String> processorClassNames;
 
   private final NestedSet<Artifact> transitiveGenClassJars;
   private final NestedSet<Artifact> transitiveGenSourceJars;
@@ -46,7 +47,7 @@ public final class JavaGenJarsProvider
       @Nullable Artifact genClassJar,
       @Nullable Artifact genSourceJar,
       JavaPluginInfoProvider plugins,
-      Iterable<JavaGenJarsProvider> transitiveJavaGenJars) {
+      List<JavaGenJarsProvider> transitiveJavaGenJars) {
     NestedSetBuilder<Artifact> classJarsBuilder = NestedSetBuilder.stableOrder();
     NestedSetBuilder<Artifact> sourceJarsBuilder = NestedSetBuilder.stableOrder();
 
@@ -65,7 +66,7 @@ public final class JavaGenJarsProvider
         genClassJar,
         genSourceJar,
         plugins.plugins().processorClasspath(),
-        plugins.plugins().processorClasses().toList(),
+        plugins.plugins().processorClasses(),
         classJarsBuilder.build(),
         sourceJarsBuilder.build());
   }
@@ -76,7 +77,7 @@ public final class JavaGenJarsProvider
       @Nullable Artifact genClassJar,
       @Nullable Artifact genSourceJar,
       NestedSet<Artifact> processorClasspath,
-      ImmutableList<String> processorClassNames,
+      NestedSet<String> processorClassNames,
       NestedSet<Artifact> transitiveGenClassJars,
       NestedSet<Artifact> transitiveGenSourceJars) {
     this.usesAnnotationProcessing = usesAnnotationProcessing;
@@ -134,6 +135,6 @@ public final class JavaGenJarsProvider
 
   @Override
   public ImmutableList<String> getProcessorClassNames() {
-    return processorClassNames;
+    return processorClassNames.toList();
   }
 }

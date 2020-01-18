@@ -178,6 +178,14 @@ public class ActionGraphQueryEnvironment
                 accessor,
                 StreamedOutputHandler.OutputType.TEXT,
                 actionFilters),
+            new ActionGraphProtoV2OutputFormatterCallback(
+                eventHandler,
+                aqueryOptions,
+                out,
+                skyframeExecutor,
+                accessor,
+                StreamedOutputHandler.OutputType.JSON,
+                actionFilters),
             new ActionGraphTextOutputFormatterCallback(
                 eventHandler, aqueryOptions, out, skyframeExecutor, accessor, actionFilters))
         : ImmutableList.of(
@@ -196,6 +204,14 @@ public class ActionGraphQueryEnvironment
                 skyframeExecutor,
                 accessor,
                 OutputType.TEXT,
+                actionFilters),
+            new ActionGraphProtoOutputFormatterCallback(
+                eventHandler,
+                aqueryOptions,
+                out,
+                skyframeExecutor,
+                accessor,
+                OutputType.JSON,
                 actionFilters),
             new ActionGraphTextOutputFormatterCallback(
                 eventHandler, aqueryOptions, out, skyframeExecutor, accessor, actionFilters));

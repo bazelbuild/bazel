@@ -1220,11 +1220,11 @@ static ATTRIBUTE_NORETURN void RunClientServerMode(
     }
 
     // Check for the case when the workspace directory deleted and then gets
-    // recreated while the server is running
+    // recreated while the server is running.
 
-    blaze_util::Path server_cwd =
+    std::unique_ptr<blaze_util::Path> server_cwd =
         GetProcessCWD(server->ProcessInfo().server_pid_);
-    // If server_cwd is empty, GetProcessCWD failed. This notably occurs when
+    // If server_cwd is nullptr, GetProcessCWD failed. This notably occurs when
     // running under Docker because then readlink(/proc/[pid]/cwd) returns
     // EPERM.
     // Docker issue #6687 (https://github.com/docker/docker/issues/6687) fixed
@@ -1235,14 +1235,14 @@ static ATTRIBUTE_NORETURN void RunClientServerMode(
     // cases, it's better to assume that everything is alright if we can't get
     // the cwd.
 
-    if (!server_cwd.IsEmpty() &&
-        (server_cwd != blaze_util::Path(workspace) ||  // changed
-         server_cwd.Contains(" (deleted)"))) {         // deleted.
+    if (server_cwd != nullptr &&
+        (*server_cwd != blaze_util::Path(workspace) ||  // changed
+         server_cwd->Contains(" (deleted)"))) {         // deleted.
       // There's a distant possibility that the two paths look the same yet are
       // actually different because the two processes have different mount
       // tables.
       BAZEL_LOG(INFO) << "Server's cwd moved or deleted ("
-                      << server_cwd.AsPrintablePath() << ").";
+                      << server_cwd->AsPrintablePath() << ").";
       server->KillRunningServer();
     } else {
       break;
@@ -1519,20 +1519,34 @@ static void RunLauncher(const string &self_path,
 
   const blaze_util::Path jvm_path = startup_options.GetJvm();
   const string server_jar_path = GetServerJarPath(archive_contents);
-  const vector<string> server_exe_args = GetServerExeArgs(
-      jvm_path,
-      server_jar_path,
-      archive_contents,
-      install_md5,
-      workspace_layout,
-      workspace,
-      startup_options);
-
-  KillRunningServerIfDifferentStartupOptions(
-      startup_options, server_exe_args, logging_info, blaze_server);
 
   const blaze_util::Path server_exe =
       startup_options.GetExe(jvm_path, server_jar_path);
+
+  vector<string> server_exe_args =
+      GetServerExeArgs(jvm_path, server_jar_path, archive_contents, install_md5,
+                       workspace_layout, workspace, startup_options);
+#if defined(__OpenBSD__)
+  // When spawning the server's JVM process, we normally set argv[0] to
+  // "bazel(workspace)". On OpenBSD, doing so causes the JVM process to fail
+  // during startup; ld.so fails to find a shared library that exists in
+  // /usr/local/jdk-1.8.0/jre/lib/amd64. Setting LD_LIBRARY_PATH does not help,
+  // but setting argv[0] to the JVM binary's path
+  // (/usr/local/jdk-1.8.0/bin/java) allows the JVM process to run. The JVM
+  // process apparently tries to compute a path to where the shared libraries
+  // should be, via a relative path from the JVM executable's path -- but
+  // OpenBSD does not provide a way for a process to determine a path to its
+  // own executable, and so the JVM falls back to searching the PATH for
+  // argv[0], which of course fails when argv[0] looks like "bazel(workspace)".
+  //
+  // TODO(aldersondrive): This hack is unnecessary on FreeBSD, but the relevant
+  // OpenJDK code doesn't seem to include anything FreeBSD-specific.
+  // Investigate why and possibly remove this.
+  server_exe_args[0] = server_exe.AsNativePath();
+#endif
+
+  KillRunningServerIfDifferentStartupOptions(
+      startup_options, server_exe_args, logging_info, blaze_server);
 
   const blaze_util::Path server_dir =
       blaze_util::Path(startup_options.output_base).GetRelative("server");
@@ -1558,7 +1572,7 @@ int Main(int argc, const char *const *argv, WorkspaceLayout *workspace_layout,
       new blaze_util::BazelLogHandler());
   blaze_util::SetLogHandler(std::move(default_handler));
 
-  const string self_path = GetSelfPath();
+  const string self_path = GetSelfPath(argv[0]);
 
   if (argc == 2 && strcmp(argv[1], "--version") == 0) {
     PrintVersionInfo(self_path, option_processor->GetLowercaseProductName());

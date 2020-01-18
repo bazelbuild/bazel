@@ -45,7 +45,7 @@ public interface TestingModuleApi extends StarlarkValue {
                     + " executor of the test action as parameters to configure the execution"
                     + " environment.")
       })
-  public ExecutionInfoApi executionInfo(Dict<?, ?> requirements // <String, String> expected
+  ExecutionInfoApi executionInfo(Dict<?, ?> requirements // <String, String> expected
       ) throws EvalException;
 
   // TODO(bazel-team): Change this function to be the actual TestEnvironmentInfo.PROVIDER.
@@ -64,6 +64,6 @@ public interface TestingModuleApi extends StarlarkValue {
                 "A map of string keys and values that represent environment variables and their"
                     + " values. These will be made available during the test execution.")
       })
-  public TestEnvironmentInfoApi testEnvironment(Dict<?, ?> environment // <String, String> expected
+  TestEnvironmentInfoApi testEnvironment(Dict<?, ?> environment // <String, String> expected
       ) throws EvalException;
 }

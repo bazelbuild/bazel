@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.rules.android;
 import static com.google.devtools.build.lib.rules.android.AndroidSkylarkData.fromNoneable;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -157,7 +156,7 @@ public final class AndroidAssetsInfo extends NativeInfo
 
   private Optional<ParsedAndroidAssets> getLocalParsedAndroidAssets() {
     return hasLocalAssets && getDirectParsedAssets().isSingleton()
-        ? Optional.of(Iterables.getOnlyElement(getDirectParsedAssets()))
+        ? Optional.of(getDirectParsedAssets().getSingleton())
         : Optional.empty();
   }
 

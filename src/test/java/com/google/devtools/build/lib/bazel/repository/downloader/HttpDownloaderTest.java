@@ -58,7 +58,9 @@ public class HttpDownloaderTest {
   @Rule public final Timeout timeout = new Timeout(30, SECONDS);
 
   private final RepositoryCache repositoryCache = mock(RepositoryCache.class);
-  private final HttpDownloader httpDownloader = new HttpDownloader(repositoryCache);
+  private final HttpDownloader httpDownloader = new HttpDownloader();
+  private final DownloadManager downloadManager =
+      new DownloadManager(repositoryCache, httpDownloader);
 
   private final ExecutorService executor = Executors.newFixedThreadPool(2);
   private final ExtendedEventHandler eventHandler = mock(ExtendedEventHandler.class);
@@ -104,7 +106,7 @@ public class HttpDownloaderTest {
               });
 
       Path resultingFile =
-          httpDownloader.download(
+          downloadManager.download(
               Collections.singletonList(
                   new URL(String.format("http://localhost:%d/foo", server.getLocalPort()))),
               Collections.emptyMap(),
@@ -169,7 +171,7 @@ public class HttpDownloaderTest {
       urls.add(new URL(String.format("http://localhost:%d/foo", server2.getLocalPort())));
 
       Path resultingFile =
-          httpDownloader.download(
+          downloadManager.download(
               urls,
               Collections.emptyMap(),
               Optional.absent(),
@@ -235,7 +237,7 @@ public class HttpDownloaderTest {
       urls.add(new URL(String.format("http://localhost:%d/foo", server2.getLocalPort())));
 
       Path resultingFile =
-          httpDownloader.download(
+          downloadManager.download(
               urls,
               Collections.emptyMap(),
               Optional.absent(),
@@ -303,7 +305,7 @@ public class HttpDownloaderTest {
 
       Path outputFile = fs.getPath(workingDir.newFile().getAbsolutePath());
       try {
-        httpDownloader.download(
+        downloadManager.download(
             urls,
             Collections.emptyMap(),
             Optional.absent(),

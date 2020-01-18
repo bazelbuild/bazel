@@ -17,7 +17,6 @@ java_library(
         "MetricData.java",
         "PredicateBasedStatRecorder.java",
         "ProfilePhase.java",
-        "ProfilePhaseStatistics.java",
         "Profiler.java",
         "ProfilerTask.java",
         "SilentCloseable.java",
@@ -50,17 +49,25 @@ java_library(
 # Profiler chart library.
 java_library(
     name = "profiler-output",
-    srcs = glob([
-        "analysis/*.java",
-        "chart/*.java",
-        "output/*.java",
-        "statistics/*.java",
-    ]),
+    srcs =
+        [
+            "JsonProfile.java",
+            "TraceEvent.java",
+        ] + glob([
+            "analysis/*.java",
+            "chart/*.java",
+            "output/*.java",
+            "statistics/*.java",
+        ]),
     deps = [
         ":profiler",
+        "//src/main/java/com/google/devtools/build/lib:base-util",
+        "//src/main/java/com/google/devtools/build/lib:events",
         "//src/main/java/com/google/devtools/build/lib:util",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//third_party:auto_value",
+        "//third_party:gson",
         "//third_party:guava",
         "//third_party:jsr305",
     ],

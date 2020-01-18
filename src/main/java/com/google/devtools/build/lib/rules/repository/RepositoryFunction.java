@@ -203,7 +203,13 @@ public abstract class RepositoryFunction {
   public boolean verifyMarkerData(Rule rule, Map<String, String> markerData, Environment env)
       throws InterruptedException, RepositoryFunctionException {
     return verifyEnvironMarkerData(markerData, env, getEnviron(rule))
-        && verifyMarkerDataForFiles(rule, markerData, env);
+        && verifyMarkerDataForFiles(rule, markerData, env)
+        && verifySemanticsMarkerData(markerData, env);
+  }
+
+  protected boolean verifySemanticsMarkerData(Map<String, String> markerData, Environment env)
+      throws InterruptedException {
+    return true;
   }
 
   private static boolean verifyLabelMarkerData(Rule rule, String key, String value, Environment env)

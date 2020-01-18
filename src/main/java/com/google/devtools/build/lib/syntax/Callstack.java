@@ -20,7 +20,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Holds the Skylark callstack in thread-local storage. Contains all Expressions and BaseFunctions
+ * Holds the Skylark callstack in thread-local storage. Contains all Expressions and functions
  * currently being evaluated.
  *
  * <p>This is needed for memory tracking, since the evaluator is not available in the context of
@@ -41,8 +41,8 @@ public class Callstack {
     callstack.get().add(node);
   }
 
-  public static void push(BaseFunction function) {
-    callstack.get().add(function);
+  public static void push(StarlarkCallable fn) {
+    callstack.get().add(fn);
   }
 
   public static void pop() {

@@ -51,7 +51,6 @@ def workspace_and_buildfile(ctx):
         ctx.delete("WORKSPACE")
         ctx.symlink(ctx.attr.workspace_file, "WORKSPACE")
     elif ctx.attr.workspace_file_content:
-        ctx.delete("WORKSPACE")
         ctx.file("WORKSPACE", ctx.attr.workspace_file_content)
     else:
         ctx.file("WORKSPACE", "workspace(name = \"{name}\")\n".format(name = ctx.name))
@@ -60,7 +59,6 @@ def workspace_and_buildfile(ctx):
         ctx.delete("BUILD.bazel")
         ctx.symlink(ctx.attr.build_file, "BUILD.bazel")
     elif ctx.attr.build_file_content:
-        ctx.delete("BUILD.bazel")
         ctx.file("BUILD.bazel", ctx.attr.build_file_content)
 
 def _is_windows(ctx):

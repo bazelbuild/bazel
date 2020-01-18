@@ -16,10 +16,12 @@ package com.google.devtools.build.lib.analysis;
 
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.ActionContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.util.OptionsUtils;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -195,9 +197,8 @@ public abstract class WorkspaceStatusAction extends AbstractAction {
     Map<String, String> createDummyWorkspaceStatus(DummyEnvironment env);
   }
 
-  protected WorkspaceStatusAction(ActionOwner owner,
-      Iterable<Artifact> inputs,
-      Iterable<Artifact> outputs) {
+  protected WorkspaceStatusAction(
+      ActionOwner owner, NestedSet<Artifact> inputs, ImmutableSet<Artifact> outputs) {
     super(owner, inputs, outputs);
   }
 

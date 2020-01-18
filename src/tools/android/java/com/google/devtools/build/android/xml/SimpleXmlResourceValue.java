@@ -15,11 +15,13 @@ package com.google.devtools.build.android.xml;
 
 import com.android.aapt.Resources.Item;
 import com.android.aapt.Resources.Primitive;
+import com.android.aapt.Resources.Reference;
 import com.android.aapt.Resources.StyledString;
 import com.android.aapt.Resources.StyledString.Span;
 import com.android.aapt.Resources.Value;
 import com.android.resources.ResourceType;
 import com.google.common.base.MoreObjects;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.xml.XmlEscapers;
 import com.google.devtools.build.android.AndroidDataWritingVisitor;
@@ -32,6 +34,7 @@ import com.google.devtools.build.android.XmlResourceValue;
 import com.google.devtools.build.android.XmlResourceValues;
 import com.google.devtools.build.android.proto.SerializeFormat;
 import com.google.devtools.build.android.proto.SerializeFormat.DataValueXml;
+import com.google.devtools.build.android.resources.Visibility;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.util.Arrays;
@@ -54,9 +57,6 @@ import javax.xml.namespace.QName;
  */
 @Immutable
 public class SimpleXmlResourceValue implements XmlResourceValue {
-
-  // TODO(b/143918417): change to false, and remove
-  static final boolean USE_BROKEN_DESERIALIZATION = true;
 
   static final QName TAG_BOOL = QName.valueOf("bool");
   static final QName TAG_COLOR = QName.valueOf("color");
@@ -111,7 +111,10 @@ public class SimpleXmlResourceValue implements XmlResourceValue {
     }
   }
 
+  private final Visibility visibility;
+  private final Item item;
   private final ImmutableMap<String, String> attributes;
+  // TODO(b/112848607): remove untyped "value" String in favor of "item" above.
   @Nullable private final String value;
   private final Type valueType;
 
@@ -139,12 +142,19 @@ public class SimpleXmlResourceValue implements XmlResourceValue {
 
   public static XmlResourceValue of(
       Type valueType, ImmutableMap<String, String> attributes, @Nullable String value) {
-    return new SimpleXmlResourceValue(valueType, attributes, value);
+    return new SimpleXmlResourceValue(
+        Visibility.UNKNOWN, valueType, Item.getDefaultInstance(), attributes, value);
   }
 
   private SimpleXmlResourceValue(
-      Type valueType, ImmutableMap<String, String> attributes, String value) {
+      Visibility visibility,
+      Type valueType,
+      Item item,
+      ImmutableMap<String, String> attributes,
+      String value) {
+    this.visibility = visibility;
     this.valueType = valueType;
+    this.item = item;
     this.value = value;
     this.attributes = attributes;
   }
@@ -176,7 +186,8 @@ public class SimpleXmlResourceValue implements XmlResourceValue {
         proto.hasValue() ? proto.getValue() : null);
   }
 
-  public static XmlResourceValue from(Value proto, ResourceType resourceType) {
+  public static XmlResourceValue from(
+      Value proto, Visibility visibility, ResourceType resourceType) {
     Item item = proto.getItem();
     String stringValue = null;
     ImmutableMap.Builder<String, String> attributes = ImmutableMap.builder();
@@ -196,28 +207,16 @@ public class SimpleXmlResourceValue implements XmlResourceValue {
       }
       stringValue = stringBuilder.toString();
     } else if (item.hasPrim()) {
-      if (!USE_BROKEN_DESERIALIZATION) {
-        stringValue = convertPrimitiveToString(item.getPrim());
-      } else {
-        if (resourceType == ResourceType.COLOR || resourceType == ResourceType.DRAWABLE) {
-          stringValue = String.format("#%1$8s", Integer.toHexString(0)).replace(' ', '0');
-        } else if (resourceType == ResourceType.INTEGER) {
-          stringValue = Integer.toString(0);
-        } else if (resourceType == ResourceType.BOOL) {
-          stringValue = "false";
-        } else if (resourceType == ResourceType.FRACTION
-            || resourceType == ResourceType.DIMEN
-            || resourceType == ResourceType.STRING) {
-          stringValue = Integer.toString(0);
-        }
-      }
+      stringValue = convertPrimitiveToString(item.getPrim());
     } else {
       throw new IllegalArgumentException(
           String.format("'%s' with value %s is not a simple resource type.", resourceType, proto));
     }
 
-    return of(
+    return new SimpleXmlResourceValue(
+        visibility,
         Type.valueOf(resourceType.toString().toUpperCase(Locale.ENGLISH)),
+        item,
         attributes.build(),
         stringValue);
   }
@@ -298,7 +297,7 @@ public class SimpleXmlResourceValue implements XmlResourceValue {
   @Override
   public void writeResourceToClass(
       DependencyInfo dependencyInfo, FullyQualifiedName key, AndroidResourceSymbolSink sink) {
-    sink.acceptSimpleResource(dependencyInfo, key.type(), key.name());
+    sink.acceptSimpleResource(dependencyInfo, visibility, key.type(), key.name());
   }
 
   @Override
@@ -323,7 +322,7 @@ public class SimpleXmlResourceValue implements XmlResourceValue {
 
   @Override
   public int hashCode() {
-    return Objects.hash(valueType, attributes, value);
+    return Objects.hash(visibility, valueType, attributes, value);
   }
 
   @Override
@@ -332,8 +331,10 @@ public class SimpleXmlResourceValue implements XmlResourceValue {
       return false;
     }
     SimpleXmlResourceValue other = (SimpleXmlResourceValue) obj;
-    return Objects.equals(valueType, other.valueType)
+    return Objects.equals(visibility, other.visibility)
+        && Objects.equals(valueType, other.valueType)
         && Objects.equals(attributes, other.attributes)
+        // TODO(b/112848607): include the "item" proto in comparison; right now it's redundant.
         && Objects.equals(value, other.value);
   }
 
@@ -362,5 +363,15 @@ public class SimpleXmlResourceValue implements XmlResourceValue {
       return String.format(" %s (with value %s)", source.asConflictString(), value);
     }
     return source.asConflictString();
+  }
+
+  @Override
+  public Visibility getVisibility() {
+    return visibility;
+  }
+
+  @Override
+  public ImmutableList<Reference> getReferencedResources() {
+    return item.hasRef() ? ImmutableList.of(item.getRef()) : ImmutableList.of();
   }
 }

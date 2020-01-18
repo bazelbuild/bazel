@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.skylarkinterface.processor.testsources;
 
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.StarlarkValue;
 
@@ -33,7 +32,7 @@ public class SpecifiedGenericType implements StarlarkValue {
       parameters = {
         @Param(name = "one", type = Sequence.class, named = true),
       })
-  public String specifiedGenericType(Dict<?, String> one) {
+  public String specifiedGenericType(Sequence<String> one) {
     return "bar";
   }
 }

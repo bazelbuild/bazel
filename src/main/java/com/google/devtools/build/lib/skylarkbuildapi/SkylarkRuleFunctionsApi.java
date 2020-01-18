@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.skylarkbuildapi;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkbuildapi.StarlarkConfigApi.BuildSettingApi;
+import com.google.devtools.build.lib.skylarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.ParamType;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
@@ -25,7 +26,6 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkGlobalLibrary;
 import com.google.devtools.build.lib.syntax.BaseFunction;
 import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.FuncallExpression;
 import com.google.devtools.build.lib.syntax.NoneType;
 import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.StarlarkFunction;
@@ -38,7 +38,7 @@ import com.google.devtools.build.lib.syntax.StarlarkThread;
 @SkylarkGlobalLibrary
 public interface SkylarkRuleFunctionsApi<FileApiT extends FileApi> {
 
-  static final String PROVIDES_DOC =
+  String PROVIDES_DOC =
       "A list of providers that the implementation function must return."
           + ""
           + "<p>It is an error if the implementation function omits any of the types of providers "
@@ -86,7 +86,7 @@ public interface SkylarkRuleFunctionsApi<FileApiT extends FileApi> {
             defaultValue = "None")
       },
       useLocation = true)
-  public ProviderApi provider(String doc, Object fields, Location location) throws EvalException;
+  ProviderApi provider(String doc, Object fields, Location location) throws EvalException;
 
   @SkylarkCallable(
       name = "rule",
@@ -330,9 +330,9 @@ public interface SkylarkRuleFunctionsApi<FileApiT extends FileApi> {
                 "If set, points to the configuration transition the rule will "
                     + "apply to its own configuration before analysis.")
       },
-      useAst = true,
+      useLocation = true,
       useStarlarkThread = true)
-  public BaseFunction rule(
+  BaseFunction rule(
       StarlarkFunction implementation,
       Boolean test,
       Object attrs,
@@ -349,7 +349,7 @@ public interface SkylarkRuleFunctionsApi<FileApiT extends FileApi> {
       Object analysisTest,
       Object buildSetting,
       Object cfg,
-      FuncallExpression ast,
+      Location loc,
       StarlarkThread thread)
       throws EvalException;
 
@@ -489,8 +489,8 @@ public interface SkylarkRuleFunctionsApi<FileApiT extends FileApi> {
                     + "aspect will propagate only to `alpha`. </p><p>False by default.</p>")
       },
       useStarlarkThread = true,
-      useAst = true)
-  public SkylarkAspectApi aspect(
+      useLocation = true)
+  SkylarkAspectApi aspect(
       StarlarkFunction implementation,
       Sequence<?> attributeAspects,
       Object attrs,
@@ -501,7 +501,7 @@ public interface SkylarkRuleFunctionsApi<FileApiT extends FileApi> {
       Sequence<?> toolchains,
       String doc,
       Boolean applyToGeneratingRules,
-      FuncallExpression ast,
+      Location loc,
       StarlarkThread thread)
       throws EvalException;
 
@@ -536,7 +536,7 @@ public interface SkylarkRuleFunctionsApi<FileApiT extends FileApi> {
       useLocation = true,
       useStarlarkThread = true)
   @SkylarkConstructor(objectType = Label.class)
-  public Label label(
+  Label label(
       String labelString, Boolean relativeToCallerRepository, Location loc, StarlarkThread thread)
       throws EvalException;
 }

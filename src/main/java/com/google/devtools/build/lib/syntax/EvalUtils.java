@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.syntax;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Ordering;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Location;
@@ -102,7 +101,7 @@ public final class EvalUtils {
             return ((Comparable<Object>) o1).compareTo(o2);
           } catch (ClassCastException e) {
             throw new ComparisonException(
-                "Cannot compare " + getDataTypeName(o1) + " with " + getDataTypeName(o2));
+                "Cannot compare " + Starlark.type(o1) + " with " + Starlark.type(o2));
           }
         }
       };
@@ -117,8 +116,7 @@ public final class EvalUtils {
       // Object.hashCode within a try/catch, and requiring all
       // unhashable Starlark values to throw a particular unchecked exception
       // with a helpful error message.
-      throw new EvalException(
-          null, Starlark.format("unhashable type: '%s'", EvalUtils.getDataTypeName(x)));
+      throw Starlark.errorf("unhashable type: '%s'", Starlark.type(x));
     }
   }
 
@@ -288,125 +286,38 @@ public final class EvalUtils {
 
   /**
    * Resolves a positive or negative index to an index in the range [0, length), or throws
-   * EvalException if it is out-of-range. If the index is negative, it counts backward from
-   * length.
+   * EvalException if it is out of range. If the index is negative, it counts backward from length.
    */
-  public static int getSequenceIndex(int index, int length, Location loc)
-      throws EvalException {
+  static int getSequenceIndex(int index, int length) throws EvalException {
     int actualIndex = index;
     if (actualIndex < 0) {
       actualIndex += length;
     }
     if (actualIndex < 0 || actualIndex >= length) {
-      throw new EvalException(
-          loc,
-          "index out of range (index is " + index + ", but sequence has " + length + " elements)");
+      throw Starlark.errorf(
+          "index out of range (index is %d, but sequence has %d elements)", index, length);
     }
     return actualIndex;
   }
 
   /**
-   * Performs index resolution after verifying that the given object has index type.
+   * Returns the effective index denoted by a user-supplied integer. First, if the integer is
+   * negative, the length of the sequence is added to it, so an index of -1 represents the last
+   * element of the sequence. Then, the integer is "clamped" into the inclusive interval [0,
+   * length].
    */
-  public static int getSequenceIndex(Object index, int length, Location loc)
-      throws EvalException {
-    if (!(index instanceof Integer)) {
-      throw new EvalException(loc, "indices must be integers, not " + getDataTypeName(index));
-    }
-    return getSequenceIndex(((Integer) index).intValue(), length, loc);
-  }
-
-  /**
-   * Resolves a positive or negative index to an integer that can denote the left or right boundary
-   * of a slice. If reverse is false, the slice has positive stride (i.e., its elements are in their
-   * normal order) and the result is guaranteed to be in range [0, length + 1). If reverse is true,
-   * the slice has negative stride and the result is in range [-1, length). In either case, if the
-   * index is negative, it counts backward from length. Note that an input index of -1 represents
-   * the last element's position, while an output integer of -1 represents the imaginary position
-   * to the left of the first element.
-   */
-  public static int clampRangeEndpoint(int index, int length, boolean reverse) {
+  static int toIndex(int index, int length) {
     if (index < 0) {
       index += length;
     }
-    if (!reverse) {
-      return Math.max(Math.min(index, length), 0);
+
+    if (index < 0) {
+      return 0;
+    } else if (index > length) {
+      return length;
     } else {
-      return Math.max(Math.min(index, length - 1), -1);
+      return index;
     }
-  }
-
-  /**
-   * Resolves a positive or negative index to an integer that can denote the boundary for a
-   * slice with positive stride.
-   */
-  public static int clampRangeEndpoint(int index, int length) {
-    return clampRangeEndpoint(index, length, false);
-  }
-
-  /**
-   * Calculates the indices of the elements that should be included in the slice [start:end:step]
-   * of a sequence with the given length. Each of start, end, and step must be supplied, and step
-   * may not be 0.
-   */
-  public static List<Integer> getSliceIndices(int start, int end, int step, int length) {
-    if (step == 0) {
-      throw new IllegalArgumentException("Slice step cannot be zero");
-    }
-    start = clampRangeEndpoint(start, length, step < 0);
-    end = clampRangeEndpoint(end, length, step < 0);
-    // precise computation is slightly more involved, but since it can overshoot only by a single
-    // element it's fine
-    final int expectedMaxSize = Math.abs(start - end) / Math.abs(step) + 1;
-    ImmutableList.Builder<Integer> indices = ImmutableList.builderWithExpectedSize(expectedMaxSize);
-    for (int current = start; step > 0 ? current < end : current > end; current += step) {
-      indices.add(current);
-    }
-    return indices.build();
-  }
-
-  /**
-   * Calculates the indices of the elements in a slice, after validating the arguments and replacing
-   * Starlark.NONE with default values. Throws an EvalException if a bad argument is given.
-   */
-  public static List<Integer> getSliceIndices(
-      Object startObj, Object endObj, Object stepObj, int length, Location loc)
-      throws EvalException {
-    int start;
-    int end;
-    int step;
-
-    if (stepObj == Starlark.NONE) {
-      step = 1;
-    } else if (stepObj instanceof Integer) {
-      step = ((Integer) stepObj).intValue();
-    } else {
-      throw new EvalException(
-          loc, String.format("slice step must be an integer, not '%s'", stepObj));
-    }
-    if (step == 0) {
-      throw new EvalException(loc, "slice step cannot be zero");
-    }
-
-    if (startObj == Starlark.NONE) {
-      start = (step > 0) ? 0 : length - 1;
-    } else if (startObj instanceof Integer) {
-      start = ((Integer) startObj).intValue();
-    } else {
-      throw new EvalException(
-          loc, String.format("slice start must be an integer, not '%s'", startObj));
-    }
-    if (endObj == Starlark.NONE) {
-      // If step is negative, can't use -1 for end since that would be converted
-      // to the rightmost element's position.
-      end = (step > 0) ? length : -length - 1;
-    } else if (endObj instanceof Integer) {
-      end = ((Integer) endObj).intValue();
-    } else {
-      throw new EvalException(loc, String.format("slice end must be an integer, not '%s'", endObj));
-    }
-
-    return getSliceIndices(start, end, step, length);
   }
 
   /** @return true if x is Java null or Skylark None */
@@ -414,159 +325,93 @@ public final class EvalUtils {
     return x == null || x == Starlark.NONE;
   }
 
-  /**
-   * Build a Dict of kwarg arguments from a list, removing null-s or None-s.
-   *
-   * @param thread the StarlarkThread in which this map can be mutated.
-   * @param init a series of key, value pairs (as consecutive arguments) as in {@code optionMap(k1,
-   *     v1, k2, v2, k3, v3)} where each key is a String, each value is an arbitrary Objet.
-   * @return a {@code Map<String, Object>} that has all the specified entries, where key, value
-   *     pairs appearing earlier have precedence, i.e. {@code k1, v1} may override {@code k3, v3}.
-   *     <p>Ignore any entry where the value is null or None. Keys cannot be null.
-   */
-  @SuppressWarnings("unchecked")
-  public static <K, V> Dict<K, V> optionMap(StarlarkThread thread, Object... init) {
-    ImmutableMap.Builder<K, V> b = new ImmutableMap.Builder<>();
-    Preconditions.checkState(init.length % 2 == 0);
-    for (int i = init.length - 2; i >= 0; i -= 2) {
-      K key = (K) Preconditions.checkNotNull(init[i]);
-      V value = (V) init[i + 1];
-      if (!isNullOrNone(value)) {
-        b.put(key, value);
-      }
-    }
-    return Dict.copyOf(thread.mutability(), b.build());
-  }
-
-  /**
-   * Installs a global hook that causes subsequently executed Starlark threads to notify the
-   * debugger of important events. Closes any previously set debugger. Call {@code
-   * setDebugger(null)} to disable debugging.
-   */
-  public static void setDebugger(Debugger dbg) {
-    Eval.setDebugger(dbg);
-  }
-
-  /** Returns the named field or method of the specified object. */
-  static Object getAttr(StarlarkThread thread, Location loc, Object object, String name)
+  /** Returns the named field or method of value {@code x}, or null if not found. */
+  // TODO(adonovan): publish this method as Starlark.getattr(Semantics, Mutability, Object, String).
+  static Object getAttr(StarlarkThread thread, Object x, String name)
       throws EvalException, InterruptedException {
-    MethodDescriptor method =
-        object instanceof Class<?>
-            ? CallUtils.getMethod(thread.getSemantics(), (Class<?>) object, name)
-            : CallUtils.getMethod(thread.getSemantics(), object.getClass(), name);
-    if (method != null && method.isStructField()) {
-      return method.call(
-          object,
-          CallUtils.extraInterpreterArgs(method, /*ast=*/ null, loc, thread).toArray(),
-          loc,
-          thread);
-    }
+    StarlarkSemantics semantics = thread.getSemantics();
+    Mutability mu = thread.mutability();
 
-    if (object instanceof SkylarkClassObject) {
-      try {
-        return ((SkylarkClassObject) object).getValue(loc, thread.getSemantics(), name);
-      } catch (IllegalArgumentException ex) { // TODO(adonovan): why necessary?
-        throw new EvalException(loc, ex);
-      }
-    }
-
-    if (object instanceof ClassObject) {
-      Object result = null;
-      try {
-        result = ((ClassObject) object).getValue(name);
-      } catch (IllegalArgumentException ex) {
-        throw new EvalException(loc, ex);
-      }
-      // ClassObjects may have fields that are annotated with @SkylarkCallable.
-      // Since getValue() does not know about those, we cannot expect that result is a valid object.
-      if (result != null) {
-        return Starlark.fromJava(result, thread.mutability());
-      }
-    }
+    // @SkylarkCallable-annotated field or method?
+    MethodDescriptor method = CallUtils.getMethod(semantics, x.getClass(), name);
     if (method != null) {
-      return new BuiltinCallable(object, name);
+      if (method.isStructField()) {
+        return method.callField(x, semantics, mu);
+      } else {
+        return new BuiltinCallable(x, name, method);
+      }
     }
+
+    // user-defined field?
+    if (x instanceof ClassObject) {
+      // TODO(adonovan): merge SkylarkClassObject and ClassObject, using a default implementation.
+      Object field =
+          x instanceof SkylarkClassObject
+              ? ((SkylarkClassObject) x).getValue(semantics, name)
+              : ((ClassObject) x).getValue(name);
+      if (field != null) {
+        return Starlark.checkValid(field);
+      }
+    }
+
     return null;
   }
 
-  static EvalException getMissingFieldException(
-      Object object, String name, Location loc, StarlarkSemantics semantics, String accessName) {
+  static EvalException getMissingAttrException(
+      Object object, String name, StarlarkSemantics semantics) {
     String suffix = "";
-    EvalException toSuppress = null;
     if (object instanceof ClassObject) {
       String customErrorMessage = ((ClassObject) object).getErrorMessageForUnknownField(name);
       if (customErrorMessage != null) {
-        return new EvalException(loc, customErrorMessage);
+        return Starlark.errorf("%s", customErrorMessage);
       }
-      try {
-        suffix = SpellChecker.didYouMean(name, ((ClassObject) object).getFieldNames());
-      } catch (EvalException ee) {
-        toSuppress = ee;
-      }
+      suffix = SpellChecker.didYouMean(name, ((ClassObject) object).getFieldNames());
     } else {
       suffix = SpellChecker.didYouMean(name, CallUtils.getFieldNames(semantics, object));
     }
-    if (suffix.isEmpty() && hasMethod(semantics, object, name)) {
-      // If looking up the field failed, then we know that this method must have struct_field=false
-      suffix = ", however, a method of that name exists";
-    }
-    EvalException ee =
-        new EvalException(
-            loc,
-            String.format(
-                "object of type '%s' has no %s '%s'%s",
-                getDataTypeName(object), accessName, name, suffix));
-    if (toSuppress != null) {
-      ee.addSuppressed(toSuppress);
-    }
-    return ee;
-  }
-
-  /** Returns whether the given object has a method with the given name. */
-  static boolean hasMethod(StarlarkSemantics semantics, Object object, String name) {
-    return CallUtils.getMethodNames(semantics, object.getClass()).contains(name);
+    return Starlark.errorf(
+        "'%s' value has no field or method '%s'%s", Starlark.type(object), name, suffix);
   }
 
   /** Evaluates an eager binary operation, {@code x op y}. (Excludes AND and OR.) */
   static Object binaryOp(TokenKind op, Object x, Object y, StarlarkThread thread, Location location)
-      throws EvalException, InterruptedException {
+      throws EvalException {
     try {
       switch (op) {
         case PLUS:
           return plus(x, y, thread, location);
 
         case PIPE:
-          return pipe(x, y, thread, location);
+          return pipe(thread.getSemantics(), x, y);
 
         case AMPERSAND:
-          return and(x, y, location);
+          return and(x, y);
 
         case CARET:
-          return xor(x, y, location);
+          return xor(x, y);
 
         case GREATER_GREATER:
-          return rightShift(x, y, location);
+          return rightShift(x, y);
 
         case LESS_LESS:
-          return leftShift(x, y, location);
+          return leftShift(x, y);
 
         case MINUS:
-          return minus(x, y, location);
+          return minus(x, y);
 
         case STAR:
-          return mult(x, y, thread, location);
+          return star(thread.mutability(), x, y);
 
         case SLASH:
-          throw new EvalException(
-              location,
-              "The `/` operator is not allowed. Please use the `//` operator for integer "
-                  + "division.");
+          throw Starlark.errorf(
+              "The `/` operator is not allowed. Please use the `//` operator for integer"
+                  + " division.");
 
         case SLASH_SLASH:
-          return divide(x, y, location);
+          return slash(x, y);
 
         case PERCENT:
-          return percent(x, y, location);
+          return percent(x, y);
 
         case EQUALS_EQUALS:
           return x.equals(y);
@@ -575,41 +420,43 @@ public final class EvalUtils {
           return !x.equals(y);
 
         case LESS:
-          return compare(x, y, location) < 0;
+          return compare(x, y) < 0;
 
         case LESS_EQUALS:
-          return compare(x, y, location) <= 0;
+          return compare(x, y) <= 0;
 
         case GREATER:
-          return compare(x, y, location) > 0;
+          return compare(x, y) > 0;
 
         case GREATER_EQUALS:
-          return compare(x, y, location) >= 0;
+          return compare(x, y) >= 0;
 
         case IN:
-          return in(x, y, thread, location);
+          return in(thread.getSemantics(), x, y);
 
         case NOT_IN:
-          return !in(x, y, thread, location);
+          return !in(thread.getSemantics(), x, y);
 
         default:
           throw new AssertionError("Unsupported binary operator: " + op);
       }
-    } catch (ArithmeticException e) {
-      throw new EvalException(location, e.getMessage());
+    } catch (ArithmeticException ex) {
+      throw new EvalException(null, ex.getMessage());
     }
   }
 
   /** Implements comparison operators. */
-  private static int compare(Object x, Object y, Location location) throws EvalException {
+  private static int compare(Object x, Object y) throws EvalException {
     try {
       return SKYLARK_COMPARATOR.compare(x, y);
     } catch (ComparisonException e) {
-      throw new EvalException(location, e);
+      throw new EvalException(null, e.getMessage());
     }
   }
 
   /** Implements 'x + y'. */
+  // StarlarkThread is needed for Mutability and Semantics.
+  // Location is exposed to Selector{List,Value} and Concatter.
   static Object plus(Object x, Object y, StarlarkThread thread, Location location)
       throws EvalException {
     // int + int
@@ -644,7 +491,7 @@ public final class EvalUtils {
       if (concatter != null && concatter.equals(robj.getConcatter())) {
         return concatter.concat(lobj, robj, location);
       } else {
-        throw unknownBinaryOperator(x, y, TokenKind.PLUS, location);
+        throw unknownBinaryOperator(x, y, TokenKind.PLUS);
       }
     }
 
@@ -660,18 +507,16 @@ public final class EvalUtils {
       }
       return Depset.unionOf((Depset) x, y);
     }
-    throw unknownBinaryOperator(x, y, TokenKind.PLUS, location);
+    throw unknownBinaryOperator(x, y, TokenKind.PLUS);
   }
 
   /** Implements 'x | y'. */
-  private static Object pipe(Object x, Object y, StarlarkThread thread, Location location)
-      throws EvalException {
+  private static Object pipe(StarlarkSemantics semantics, Object x, Object y) throws EvalException {
     if (x instanceof Integer && y instanceof Integer) {
       return ((Integer) x) | ((Integer) y);
     } else if (x instanceof Depset) {
-      if (thread.getSemantics().incompatibleDepsetUnion()) {
-        throw new EvalException(
-            location,
+      if (semantics.incompatibleDepsetUnion()) {
+        throw Starlark.errorf(
             "`|` operator on a depset is forbidden. See "
                 + "https://docs.bazel.build/versions/master/skylark/depsets.html for "
                 + "recommendations. Use --incompatible_depset_union=false "
@@ -679,20 +524,19 @@ public final class EvalUtils {
       }
       return Depset.unionOf((Depset) x, y);
     }
-    throw unknownBinaryOperator(x, y, TokenKind.PIPE, location);
+    throw unknownBinaryOperator(x, y, TokenKind.PIPE);
   }
 
   /** Implements 'x - y'. */
-  private static Object minus(Object x, Object y, Location location) throws EvalException {
+  private static Object minus(Object x, Object y) throws EvalException {
     if (x instanceof Integer && y instanceof Integer) {
       return Math.subtractExact((Integer) x, (Integer) y);
     }
-    throw unknownBinaryOperator(x, y, TokenKind.MINUS, location);
+    throw unknownBinaryOperator(x, y, TokenKind.MINUS);
   }
 
   /** Implements 'x * y'. */
-  private static Object mult(Object x, Object y, StarlarkThread thread, Location location)
-      throws EvalException {
+  private static Object star(Mutability mu, Object x, Object y) throws EvalException {
     Integer number = null;
     Object otherFactor = null;
 
@@ -710,20 +554,20 @@ public final class EvalUtils {
       } else if (otherFactor instanceof String) {
         return Strings.repeat((String) otherFactor, Math.max(0, number));
       } else if (otherFactor instanceof Tuple) {
-        return ((Tuple<?>) otherFactor).repeat(number, thread.mutability());
+        return ((Tuple<?>) otherFactor).repeat(number, mu);
       } else if (otherFactor instanceof StarlarkList) {
-        return ((StarlarkList<?>) otherFactor).repeat(number, thread.mutability());
+        return ((StarlarkList<?>) otherFactor).repeat(number, mu);
       }
     }
-    throw unknownBinaryOperator(x, y, TokenKind.STAR, location);
+    throw unknownBinaryOperator(x, y, TokenKind.STAR);
   }
 
   /** Implements 'x // y'. */
-  private static Object divide(Object x, Object y, Location location) throws EvalException {
+  private static Object slash(Object x, Object y) throws EvalException {
     // int / int
     if (x instanceof Integer && y instanceof Integer) {
       if (y.equals(0)) {
-        throw new EvalException(location, "integer division by zero");
+        throw Starlark.errorf("integer division by zero");
       }
       // Integer division doesn't give the same result in Java and in Python 2 with
       // negative numbers.
@@ -732,15 +576,15 @@ public final class EvalUtils {
       // We want to follow Python semantics, so we use float division and round down.
       return (int) Math.floor(Double.valueOf((Integer) x) / (Integer) y);
     }
-    throw unknownBinaryOperator(x, y, TokenKind.SLASH_SLASH, location);
+    throw unknownBinaryOperator(x, y, TokenKind.SLASH_SLASH);
   }
 
   /** Implements 'x % y'. */
-  private static Object percent(Object x, Object y, Location location) throws EvalException {
+  private static Object percent(Object x, Object y) throws EvalException {
     // int % int
     if (x instanceof Integer && y instanceof Integer) {
       if (y.equals(0)) {
-        throw new EvalException(location, "integer modulo by zero");
+        throw Starlark.errorf("integer modulo by zero");
       }
       // Python and Java implement division differently, wrt negative numbers.
       // In Python, sign of the result is the sign of the divisor.
@@ -762,96 +606,84 @@ public final class EvalUtils {
           return Starlark.formatWithList(pattern, (Tuple) y);
         }
         return Starlark.format(pattern, y);
-      } catch (IllegalFormatException e) {
-        throw new EvalException(location, e.getMessage());
+      } catch (IllegalFormatException ex) {
+        throw new EvalException(null, ex.getMessage());
       }
     }
-    throw unknownBinaryOperator(x, y, TokenKind.PERCENT, location);
+    throw unknownBinaryOperator(x, y, TokenKind.PERCENT);
   }
 
   /** Implements 'x & y'. */
-  private static Object and(Object x, Object y, Location location) throws EvalException {
+  private static Object and(Object x, Object y) throws EvalException {
     if (x instanceof Integer && y instanceof Integer) {
       return (Integer) x & (Integer) y;
     }
-    throw unknownBinaryOperator(x, y, TokenKind.AMPERSAND, location);
+    throw unknownBinaryOperator(x, y, TokenKind.AMPERSAND);
   }
 
   /** Implements 'x ^ y'. */
-  private static Object xor(Object x, Object y, Location location) throws EvalException {
+  private static Object xor(Object x, Object y) throws EvalException {
     if (x instanceof Integer && y instanceof Integer) {
       return (Integer) x ^ (Integer) y;
     }
-    throw unknownBinaryOperator(x, y, TokenKind.CARET, location);
+    throw unknownBinaryOperator(x, y, TokenKind.CARET);
   }
 
   /** Implements 'x >> y'. */
-  private static Object rightShift(Object x, Object y, Location location) throws EvalException {
+  private static Object rightShift(Object x, Object y) throws EvalException {
     if (x instanceof Integer && y instanceof Integer) {
       if ((Integer) y < 0) {
-        throw new EvalException(location, "negative shift count: " + y);
+        throw Starlark.errorf("negative shift count: %s", y);
       } else if ((Integer) y >= Integer.SIZE) {
         return ((Integer) x < 0) ? -1 : 0;
       }
       return (Integer) x >> (Integer) y;
     }
-    throw unknownBinaryOperator(x, y, TokenKind.GREATER_GREATER, location);
+    throw unknownBinaryOperator(x, y, TokenKind.GREATER_GREATER);
   }
 
   /** Implements 'x << y'. */
-  private static Object leftShift(Object x, Object y, Location location) throws EvalException {
+  private static Object leftShift(Object x, Object y) throws EvalException {
     if (x instanceof Integer && y instanceof Integer) {
       if ((Integer) y < 0) {
-        throw new EvalException(location, "negative shift count: " + y);
+        throw Starlark.errorf("negative shift count: %s", y);
       }
       Integer result = (Integer) x << (Integer) y;
-      if (!rightShift(result, y, location).equals(x)) {
+      if (!rightShift(result, y).equals(x)) {
         throw new ArithmeticException("integer overflow");
       }
       return result;
     }
-    throw unknownBinaryOperator(x, y, TokenKind.LESS_LESS, location);
+    throw unknownBinaryOperator(x, y, TokenKind.LESS_LESS);
   }
 
   /** Implements 'x in y'. */
-  private static boolean in(Object x, Object y, StarlarkThread thread, Location location)
-      throws EvalException {
+  private static boolean in(StarlarkSemantics semantics, Object x, Object y) throws EvalException {
     if (y instanceof SkylarkQueryable) {
-      return ((SkylarkQueryable) y).containsKey(x, location, thread);
+      return ((SkylarkQueryable) y).containsKey(semantics, x);
     } else if (y instanceof String) {
       if (x instanceof String) {
         return ((String) y).contains((String) x);
       } else {
-        throw new EvalException(
-            location,
-            "'in <string>' requires string as left operand, not '" + getDataTypeName(x) + "'");
+        throw Starlark.errorf(
+            "'in <string>' requires string as left operand, not '%s'", Starlark.type(x));
       }
     } else {
-      throw new EvalException(
-          location,
-          "argument of type '"
-              + getDataTypeName(y)
-              + "' is not iterable. "
-              + "in operator only works on lists, tuples, dicts and strings.");
+      throw Starlark.errorf(
+          "unsupported binary operation: %s in %s (right operand must be string, sequence, or"
+              + " dict)",
+          Starlark.type(x), Starlark.type(y));
     }
   }
 
   /** Returns an exception signifying incorrect types for the given operator. */
-  private static EvalException unknownBinaryOperator(
-      Object x, Object y, TokenKind op, Location location) {
-    // NB: this message format is identical to that used by CPython 2.7.6 or 3.4.0,
-    // though python raises a TypeError.
-    // TODO(adonovan): make error more concise: "unsupported binary op: list + int".
-    return new EvalException(
-        location,
-        String.format(
-            "unsupported operand type(s) for %s: '%s' and '%s'",
-            op, getDataTypeName(x), getDataTypeName(y)));
+  private static EvalException unknownBinaryOperator(Object x, Object y, TokenKind op) {
+    return Starlark.errorf(
+        "unsupported binary operation: %s %s %s", Starlark.type(x), op, Starlark.type(y));
   }
 
   /** Evaluates a unary operation. */
-  static Object unaryOp(TokenKind op, Object x, Location loc)
-      throws EvalException, InterruptedException {
+  static Object unaryOp(TokenKind op, Object x) throws EvalException {
     switch (op) {
       case NOT:
         return !Starlark.truth(x);
@@ -862,7 +694,7 @@ public final class EvalUtils {
             return Math.negateExact((Integer) x);
           } catch (ArithmeticException e) {
             // Fails for -MIN_INT.
-            throw new EvalException(loc, e.getMessage());
+            throw new EvalException(null, e.getMessage());
           }
         }
         break;
@@ -882,8 +714,7 @@ public final class EvalUtils {
       default:
         /* fall through */
     }
-    throw new EvalException(
-        loc, String.format("unsupported unary operation: %s%s", op, getDataTypeName(x)));
+    throw Starlark.errorf("unsupported unary operation: %s%s", op, Starlark.type(x));
   }
 
   /**
@@ -891,23 +722,22 @@ public final class EvalUtils {
    *
    * @throws EvalException if {@code object} is not a sequence or mapping.
    */
-  public static Object index(Object object, Object key, StarlarkThread thread, Location loc)
-      throws EvalException, InterruptedException {
+  static Object index(Mutability mu, StarlarkSemantics semantics, Object object, Object key)
+      throws EvalException {
     if (object instanceof SkylarkIndexable) {
-      Object result = ((SkylarkIndexable) object).getIndex(key, loc);
+      Object result = ((SkylarkIndexable) object).getIndex(semantics, key);
       // TODO(bazel-team): We shouldn't have this fromJava call here. If it's needed at all,
       // it should go in the implementations of SkylarkIndexable#getIndex that produce non-Skylark
       // values.
-      return result == null ? null : Starlark.fromJava(result, thread.mutability());
+      return result == null ? null : Starlark.fromJava(result, mu);
     } else if (object instanceof String) {
       String string = (String) object;
-      int index = getSequenceIndex(key, string.length(), loc);
+      int index = Starlark.toInt(key, "string index");
+      index = getSequenceIndex(index, string.length());
       return string.substring(index, index + 1);
     } else {
-      throw new EvalException(
-          loc,
-          String.format(
-              "type '%s' has no operator [](%s)", getDataTypeName(object), getDataTypeName(key)));
+      throw Starlark.errorf(
+          "type '%s' has no operator [](%s)", Starlark.type(object), Starlark.type(key));
     }
   }
 
@@ -916,8 +746,8 @@ public final class EvalUtils {
    * options defined by {@code thread.getSemantics}, and returns the syntax tree. It uses Starlark
    * (not BUILD) validation semantics.
    *
-   * <p>The thread is primarily used for its GlobalFrame. Scan/parse/validate errors are recorded in
-   * the StarlarkFile. It is the caller's responsibility to inspect them.
+   * <p>The thread is primarily used for its Module. Scan/parse/validate errors are recorded in the
+   * StarlarkFile. It is the caller's responsibility to inspect them.
    */
   public static StarlarkFile parseAndValidateSkylark(ParserInput input, StarlarkThread thread) {
     StarlarkFile file = StarlarkFile.parse(input);
@@ -937,15 +767,24 @@ public final class EvalUtils {
     if (!file.ok()) {
       throw new SyntaxError(file.errors());
     }
-    // TODO(adonovan): turn toplevel statements into a StarlarkFunction, and call it.
-    // This ensures we have an entry in the call stack even for the toplevel.
     exec(file, thread);
   }
 
   /** Executes a parsed, validated Starlark file in a given StarlarkThread. */
   public static void exec(StarlarkFile file, StarlarkThread thread)
       throws EvalException, InterruptedException {
-    Eval.execFile(thread, file);
+    StarlarkFunction toplevel =
+        new StarlarkFunction(
+            "<toplevel>",
+            file.getStartLocation(),
+            FunctionSignature.NOARGS,
+            /*defaultValues=*/ Tuple.empty(),
+            file.getStatements(),
+            thread.getGlobals());
+    // Hack: assume unresolved identifiers are globals.
+    toplevel.isToplevel = true;
+
+    Starlark.fastcall(thread, toplevel, NOARGS, NOARGS);
   }
 
   /**
@@ -957,9 +796,18 @@ public final class EvalUtils {
       throws SyntaxError, EvalException, InterruptedException {
     Expression expr = Expression.parse(input);
     ValidationEnvironment.validateExpr(expr, thread.getGlobals(), thread.getSemantics());
-    // TODO(adonovan): turn expr into a StarlarkFunction, and call it.
-    // This ensures we have an entry in the call stack even for the toplevel.
-    return Eval.eval(thread, expr);
+
+    // Turn expression into a no-arg StarlarkFunction and call it.
+    StarlarkFunction fn =
+        new StarlarkFunction(
+            "<expr>",
+            expr.getStartLocation(),
+            FunctionSignature.NOARGS,
+            /*defaultValues=*/ Tuple.empty(),
+            ImmutableList.<Statement>of(new ReturnStatement(expr)),
+            thread.getGlobals());
+
+    return Starlark.fastcall(thread, fn, NOARGS, NOARGS);
   }
 
   /**
@@ -976,19 +824,38 @@ public final class EvalUtils {
   public static Object execAndEvalOptionalFinalExpression(ParserInput input, StarlarkThread thread)
       throws SyntaxError, EvalException, InterruptedException {
     StarlarkFile file = StarlarkFile.parse(input);
-    List<Statement> stmts = file.getStatements();
-    Expression expr = null;
-    int n = stmts.size();
-    if (n > 0 && stmts.get(n - 1) instanceof ExpressionStatement) {
-      expr = ((ExpressionStatement) stmts.get(n - 1)).getExpression();
-      stmts = stmts.subList(0, n - 1);
-    }
     ValidationEnvironment.validateFile(
         file, thread.getGlobals(), thread.getSemantics(), /*isBuildFile=*/ false);
     if (!file.ok()) {
       throw new SyntaxError(file.errors());
     }
-    Eval.execStatements(thread, stmts);
-    return expr != null ? Eval.eval(thread, expr) : null;
+
+    // If the final statement is an expression, synthesize a return statement.
+    ImmutableList<Statement> stmts = file.getStatements();
+    int n = stmts.size();
+    if (n > 0 && stmts.get(n - 1) instanceof ExpressionStatement) {
+      Expression expr = ((ExpressionStatement) stmts.get(n - 1)).getExpression();
+      stmts =
+          ImmutableList.<Statement>builder()
+              .addAll(stmts.subList(0, n - 1))
+              .add(new ReturnStatement(expr))
+              .build();
+    }
+
+    // Turn the file into a no-arg function and call it.
+    StarlarkFunction toplevel =
+        new StarlarkFunction(
+            "<toplevel>",
+            file.getStartLocation(),
+            FunctionSignature.NOARGS,
+            /*defaultValues=*/ Tuple.empty(),
+            stmts,
+            thread.getGlobals());
+    // Hack: assume unresolved identifiers are globals.
+    toplevel.isToplevel = true;
+
+    return Starlark.fastcall(thread, toplevel, NOARGS, NOARGS);
   }
+
+  private static final Object[] NOARGS = {};
 }

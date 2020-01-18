@@ -32,7 +32,6 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.events.Location;
-import com.google.devtools.build.lib.events.NullEventHandler;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
 import com.google.devtools.build.lib.skylarkbuildapi.FileRootApi;
@@ -794,9 +793,9 @@ public class SkylarkCustomCommandLine extends CommandLine {
       StarlarkThread thread =
           StarlarkThread.builder(mutability)
               .setSemantics(starlarkSemantics)
-              .setEventHandler(NullEventHandler.INSTANCE)
               .build();
-      return mapFn.call(args, ImmutableMap.of(), null, thread);
+      thread.setPrintHandler((th, msg) -> {}); // why does this code discard prints?
+      return Starlark.call(thread, mapFn, args, /*kwargs=*/ ImmutableMap.of());
     } catch (EvalException e) {
       throw new CommandLineExpansionException(errorMessage(e.getMessage(), location, e.getCause()));
     } catch (InterruptedException e) {
@@ -810,21 +809,24 @@ public class SkylarkCustomCommandLine extends CommandLine {
       BaseFunction mapFn,
       List<Object> originalValues,
       Consumer<String> consumer,
-      Location location,
+      Location loc,
       StarlarkSemantics starlarkSemantics)
       throws CommandLineExpansionException {
     try (Mutability mutability = Mutability.create("map_each")) {
       StarlarkThread thread =
           StarlarkThread.builder(mutability)
               .setSemantics(starlarkSemantics)
-              // TODO(b/77140311): Error if we issue print statements
-              .setEventHandler(NullEventHandler.INSTANCE)
               .build();
-      Object[] args = new Object[1];
+      // TODO(b/77140311): Error if we issue print statements
+      thread.setPrintHandler((th, msg) -> {});
       int count = originalValues.size();
       for (int i = 0; i < count; ++i) {
-        args[0] = originalValues.get(i);
-        Object ret = mapFn.callWithArgArray(args, null, thread, location);
+        Object ret =
+            Starlark.call(
+                thread,
+                mapFn,
+                originalValues.subList(i, i + 1),
+                /*kwargs=*/ ImmutableMap.of());
         if (ret instanceof String) {
           consumer.accept((String) ret);
         } else if (ret instanceof Sequence) {
@@ -844,11 +846,10 @@ public class SkylarkCustomCommandLine extends CommandLine {
         }
       }
     } catch (EvalException e) {
-      throw new CommandLineExpansionException(errorMessage(e.getMessage(), location, e.getCause()));
+      throw new CommandLineExpansionException(errorMessage(e.getMessage(), loc, e.getCause()));
     } catch (InterruptedException e) {
       Thread.currentThread().interrupt();
-      throw new CommandLineExpansionException(
-          errorMessage("Thread was interrupted", location, null));
+      throw new CommandLineExpansionException(errorMessage("Thread was interrupted", loc, null));
     }
   }
 

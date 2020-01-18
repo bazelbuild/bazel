@@ -90,11 +90,11 @@ example, assuming `x.cc` is a source file:
 cc_library(
     name = "lib",
     srcs = ["x.cc"],
-    hdrs = [":gen-header"],
+    hdrs = [":gen_header"],
 )
 
 genrule(
-    name = "gen-header",
+    name = "gen_header",
     srcs = [],
     outs = ["x.h"],
     cmd = "echo 'int x();' > $@",

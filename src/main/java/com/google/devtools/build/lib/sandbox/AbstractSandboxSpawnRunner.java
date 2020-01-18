@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.sandbox;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.ExecException;
@@ -31,6 +32,8 @@ import com.google.devtools.build.lib.exec.BinTools;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.exec.SpawnRunner;
 import com.google.devtools.build.lib.exec.TreeDeleter;
+import com.google.devtools.build.lib.profiler.Profiler;
+import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.shell.ExecutionStatistics;
 import com.google.devtools.build.lib.shell.Subprocess;
@@ -97,14 +100,21 @@ abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
       Spawn originalSpawn, SandboxedSpawn sandbox, SpawnExecutionContext context)
       throws IOException, InterruptedException {
     try {
-      sandbox.createFileSystem();
+      try (SilentCloseable c = Profiler.instance().profile("sandbox.createFileSystem")) {
+        sandbox.createFileSystem();
+      }
       FileOutErr outErr = context.getFileOutErr();
-      context.prefetchInputs();
+      try (SilentCloseable c = Profiler.instance().profile("context.prefetchInputs")) {
+        context.prefetchInputs();
+      }
 
-      SpawnResult result = run(originalSpawn, sandbox, context.getTimeout(), outErr);
+      SpawnResult result;
+      try (SilentCloseable c = Profiler.instance().profile("subprocess.run")) {
+        result = run(originalSpawn, sandbox, context.getTimeout(), outErr);
+      }
 
       context.lockOutputFiles();
-      try {
+      try (SilentCloseable c = Profiler.instance().profile("sandbox.copyOutputs")) {
         // We copy the outputs even when the command failed.
         sandbox.copyOutputs(execRoot);
       } catch (IOException e) {
@@ -113,40 +123,41 @@ abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
       return result;
     } finally {
       if (!sandboxOptions.sandboxDebug) {
-        sandbox.delete();
+        try (SilentCloseable c = Profiler.instance().profile("sandbox.delete")) {
+          sandbox.delete();
+        }
       }
+    }
+  }
+
+  private String makeFailureMessage(Spawn originalSpawn, SandboxedSpawn sandbox) {
+    if (sandboxOptions.sandboxDebug) {
+      return CommandFailureUtils.describeCommandFailure(
+          true,
+          sandbox.getArguments(),
+          sandbox.getEnvironment(),
+          sandbox.getSandboxExecRoot().getPathString(),
+          null);
+    } else {
+      return CommandFailureUtils.describeCommandFailure(
+              verboseFailures,
+              originalSpawn.getArguments(),
+              originalSpawn.getEnvironment(),
+              sandbox.getSandboxExecRoot().getPathString(),
+              originalSpawn.getExecutionPlatform())
+          + SANDBOX_DEBUG_SUGGESTION;
     }
   }
 
   private final SpawnResult run(
       Spawn originalSpawn, SandboxedSpawn sandbox, Duration timeout, FileOutErr outErr)
       throws IOException, InterruptedException {
-    String failureMessage;
-    if (sandboxOptions.sandboxDebug) {
-      failureMessage =
-          CommandFailureUtils.describeCommandFailure(
-              true,
-              sandbox.getArguments(),
-              sandbox.getEnvironment(),
-              sandbox.getSandboxExecRoot().getPathString(),
-              null);
-    } else {
-      failureMessage =
-          CommandFailureUtils.describeCommandFailure(
-                  verboseFailures,
-                  originalSpawn.getArguments(),
-                  originalSpawn.getEnvironment(),
-                  sandbox.getSandboxExecRoot().getPathString(),
-                  originalSpawn.getExecutionPlatform())
-              + SANDBOX_DEBUG_SUGGESTION;
-    }
-
     SubprocessBuilder subprocessBuilder = new SubprocessBuilder();
     subprocessBuilder.setWorkingDirectory(sandbox.getSandboxExecRoot().getPathFile());
     subprocessBuilder.setStdout(outErr.getOutputPath().getPathFile());
     subprocessBuilder.setStderr(outErr.getErrorPath().getPathFile());
     subprocessBuilder.setEnv(sandbox.getEnvironment());
-    subprocessBuilder.setArgv(sandbox.getArguments());
+    subprocessBuilder.setArgv(ImmutableList.copyOf(sandbox.getArguments()));
     boolean useSubprocessTimeout = sandbox.useSubprocessTimeout();
     if (useSubprocessTimeout) {
       subprocessBuilder.setTimeoutMillis(timeout.toMillis());
@@ -173,7 +184,7 @@ abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
           .setRunnerName(getName())
           .setStatus(Status.EXECUTION_FAILED)
           .setExitCode(LOCAL_EXEC_ERROR)
-          .setFailureMessage(failureMessage)
+          .setFailureMessage(makeFailureMessage(originalSpawn, sandbox))
           .build();
     }
 
@@ -194,7 +205,10 @@ abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
             .setStatus(status)
             .setExitCode(exitCode)
             .setWallTime(wallTime)
-            .setFailureMessage(status != Status.SUCCESS || exitCode != 0 ? failureMessage : "");
+            .setFailureMessage(
+                status != Status.SUCCESS || exitCode != 0
+                    ? makeFailureMessage(originalSpawn, sandbox)
+                    : "");
 
     Path statisticsPath = sandbox.getStatisticsPath();
     if (statisticsPath != null) {

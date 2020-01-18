@@ -42,9 +42,8 @@ class SystemOutEventHandler implements EventHandler {
   }
 
   private String messageWithLocation(Event event) {
-    String location = event.getLocation() == null
-        ? "<no location>"
-        : event.getLocation().print();
+    String location =
+        event.getLocation() == null ? "<no location>" : event.getLocation().toString();
     return location + ": " + event.getMessage();
   }
 }

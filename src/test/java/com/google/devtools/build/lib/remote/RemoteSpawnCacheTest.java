@@ -33,6 +33,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.eventbus.EventBus;
+import com.google.devtools.build.lib.actions.ActionContext;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -48,6 +49,8 @@ import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.SpawnResult.Status;
 import com.google.devtools.build.lib.actions.cache.MetadataInjector;
 import com.google.devtools.build.lib.clock.JavaClock;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.Reporter;
@@ -204,6 +207,14 @@ public class RemoteSpawnCacheTest {
             }
           };
         }
+
+        @Override
+        public void checkForLostInputs() {}
+
+        @Override
+        public <T extends ActionContext> T getContext(Class<T> identifyingType) {
+          throw new UnsupportedOperationException();
+        }
       };
 
   private static SimpleSpawn simpleSpawnWithExecutionInfo(
@@ -213,8 +224,9 @@ public class RemoteSpawnCacheTest {
         ImmutableList.of("/bin/echo", "Hi!"),
         ImmutableMap.of("VARIABLE", "value"),
         executionInfo,
-        /* inputs= */ ImmutableList.of(ActionInputHelper.fromPath("input")),
-        /* outputs= */ ImmutableList.of(ActionInputHelper.fromPath("/random/file")),
+        /* inputs= */ NestedSetBuilder.create(
+            Order.STABLE_ORDER, ActionInputHelper.fromPath("input")),
+        /* outputs= */ ImmutableSet.of(ActionInputHelper.fromPath("/random/file")),
         ResourceSet.ZERO);
   }
 
@@ -251,7 +263,7 @@ public class RemoteSpawnCacheTest {
     reporter.addHandler(eventHandler);
     cache = remoteSpawnCacheWithOptions(options);
 
-    fakeFileCache.createScratchInput(simpleSpawn.getInputFiles().get(0), "xyz");
+    fakeFileCache.createScratchInput(simpleSpawn.getInputFiles().getSingleton(), "xyz");
   }
 
   @SuppressWarnings("unchecked")

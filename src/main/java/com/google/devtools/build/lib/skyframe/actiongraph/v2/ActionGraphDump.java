@@ -25,18 +25,14 @@ import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CommandAction;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
-import com.google.devtools.build.lib.actions.ExecutionInfoSpecifier;
 import com.google.devtools.build.lib.analysis.AnalysisProtosV2;
-import com.google.devtools.build.lib.analysis.AnalysisProtosV2.ActionGraphComponent;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.actions.ParameterFileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
-import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetView;
-import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.AspectDescriptor;
 import com.google.devtools.build.lib.query2.aquery.AqueryActionFilter;
 import com.google.devtools.build.lib.query2.aquery.AqueryUtils;
@@ -68,7 +64,7 @@ public class ActionGraphDump {
   private final boolean includeActionCmdLine;
   private final boolean includeArtifacts;
   private final boolean includeParamFiles;
-  private final StreamedOutputHandler streamedOutputHandler;
+  private final AqueryOutputHandler aqueryOutputHandler;
 
   private Map<String, Iterable<String>> paramFileNameToContentMap;
 
@@ -77,14 +73,14 @@ public class ActionGraphDump {
       boolean includeArtifacts,
       AqueryActionFilter actionFilters,
       boolean includeParamFiles,
-      StreamedOutputHandler streamedOutputHandler) {
+      AqueryOutputHandler aqueryOutputHandler) {
     this(
         /* actionGraphTargets= */ ImmutableList.of("..."),
         includeActionCmdLine,
         includeArtifacts,
         actionFilters,
         includeParamFiles,
-        streamedOutputHandler);
+        aqueryOutputHandler);
   }
 
   public ActionGraphDump(
@@ -93,21 +89,21 @@ public class ActionGraphDump {
       boolean includeArtifacts,
       AqueryActionFilter actionFilters,
       boolean includeParamFiles,
-      StreamedOutputHandler streamedOutputHandler) {
+      AqueryOutputHandler aqueryOutputHandler) {
     this.actionGraphTargets = ImmutableSet.copyOf(actionGraphTargets);
     this.includeActionCmdLine = includeActionCmdLine;
     this.includeArtifacts = includeArtifacts;
     this.actionFilters = actionFilters;
     this.includeParamFiles = includeParamFiles;
-    this.streamedOutputHandler = streamedOutputHandler;
+    this.aqueryOutputHandler = aqueryOutputHandler;
 
-    knownRuleClassStrings = new KnownRuleClassStrings(streamedOutputHandler);
-    knownArtifacts = new KnownArtifacts(streamedOutputHandler);
-    knownConfigurations = new KnownConfigurations(streamedOutputHandler);
-    knownNestedSets = new KnownNestedSets(streamedOutputHandler, knownArtifacts);
-    knownAspectDescriptors = new KnownAspectDescriptors(streamedOutputHandler);
+    knownRuleClassStrings = new KnownRuleClassStrings(aqueryOutputHandler);
+    knownArtifacts = new KnownArtifacts(aqueryOutputHandler);
+    knownConfigurations = new KnownConfigurations(aqueryOutputHandler);
+    knownNestedSets = new KnownNestedSets(aqueryOutputHandler, knownArtifacts);
+    knownAspectDescriptors = new KnownAspectDescriptors(aqueryOutputHandler);
     knownRuleConfiguredTargets =
-        new KnownRuleConfiguredTargets(streamedOutputHandler, knownRuleClassStrings);
+        new KnownRuleConfiguredTargets(aqueryOutputHandler, knownRuleClassStrings);
   }
 
   public ActionKeyContext getActionKeyContext() {
@@ -182,7 +178,7 @@ public class ActionGraphDump {
     if (includeParamFiles) {
       // Assumption: if an Action takes a params file as an input, it will be used
       // to provide params to the command.
-      for (Artifact input : action.getInputs()) {
+      for (Artifact input : action.getInputs().toList()) {
         String inputFileExecPath = input.getExecPathString();
         if (getParamFileNameToContentMap().containsKey(inputFileExecPath)) {
           AnalysisProtosV2.ParamFile paramFile =
@@ -194,10 +190,9 @@ public class ActionGraphDump {
         }
       }
     }
-
-    if (action instanceof ExecutionInfoSpecifier) {
-      ExecutionInfoSpecifier executionInfoSpecifier = (ExecutionInfoSpecifier) action;
-      for (Map.Entry<String, String> info : executionInfoSpecifier.getExecutionInfo().entrySet()) {
+    Map<String, String> executionInfo = action.getExecutionInfo();
+    if (executionInfo != null) {
+      for (Map.Entry<String, String> info : executionInfo.entrySet()) {
         actionBuilder.addExecutionInfo(
             AnalysisProtosV2.KeyValuePair.newBuilder()
                 .setKey(info.getKey())
@@ -223,11 +218,8 @@ public class ActionGraphDump {
 
     if (includeArtifacts) {
       // Store inputs
-      Iterable<Artifact> inputs = action.getInputs();
-      if (!(inputs instanceof NestedSet)) {
-        inputs = NestedSetBuilder.wrap(Order.STABLE_ORDER, inputs);
-      }
-      NestedSetView<Artifact> nestedSetView = new NestedSetView<>((NestedSet<Artifact>) inputs);
+      NestedSet<Artifact> inputs = action.getInputs();
+      NestedSetView<Artifact> nestedSetView = new NestedSetView<>(inputs);
 
       if (nestedSetView.directs().size() > 0 || nestedSetView.transitives().size() > 0) {
         actionBuilder.addInputDepSetIds(
@@ -240,12 +232,7 @@ public class ActionGraphDump {
       }
     }
 
-    printToOutput(actionBuilder.build());
-  }
-
-  private void printToOutput(AnalysisProtosV2.Action actionProto) throws IOException {
-    ActionGraphComponent message = ActionGraphComponent.newBuilder().setAction(actionProto).build();
-    streamedOutputHandler.printActionGraphComponent(message);
+    aqueryOutputHandler.outputAction(actionBuilder.build());
   }
 
   public void dumpAspect(AspectValue aspectValue, ConfiguredTargetValue configuredTargetValue)

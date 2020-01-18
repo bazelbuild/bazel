@@ -17,9 +17,10 @@ filegroup(
 
 java_test(
     name = "RepositoryTests",
-    srcs = glob(["*.java"]) + [
-        "skylark/SkylarkRepositoryContextTest.java",
-    ],
+    srcs = glob([
+        "*.java",
+        "skylark/*.java",
+    ]),
     data = [
         "test_decompress_archive.tar.gz",
         "test_decompress_archive.zip",

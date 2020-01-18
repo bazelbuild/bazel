@@ -277,7 +277,7 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
 
     reporter.removeHandler(failFastHandler);
     getConfiguredTarget("//a:r");
-    assertContainsEvent("expected value of type 'JavaRuntimeInfo' for parameter 'host_javabase'");
+    assertContainsEvent("got value of type 'Target', want 'JavaRuntimeInfo'");
   }
 
   @Test
@@ -980,6 +980,10 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
     assertThat(artifactFilesNames(javaAction.getOutputs())).contains("custom_additional_output");
   }
 
+  private static Collection<String> artifactFilesNames(NestedSet<Artifact> artifacts) {
+    return artifactFilesNames(artifacts.toList());
+  }
+
   private static Collection<String> artifactFilesNames(Iterable<Artifact> artifacts) {
     List<String> result = new ArrayList<>();
     for (Artifact artifact : artifacts) {
@@ -1476,7 +1480,7 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
 
     Depset exports = (Depset) info.getValue("property");
 
-    assertThat(exports.getSet(Label.class))
+    assertThat(exports.getSet(Label.class).toList())
         .containsExactly(Label.parseAbsolute("//foo:my_java_lib_b", ImmutableMap.of()));
   }
 
@@ -1603,7 +1607,7 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
             ActionsTestUtil.baseNamesOf(
                 FileType.filter(
                     getRunfilesSupport(target).getRunfilesSymlinkTargets(), JavaSemantics.JAR)))
-        .isEqualTo("libsomedep.jar plugin.jar");
+        .isEqualTo("plugin.jar libsomedep.jar");
   }
 
   @Test
@@ -1854,8 +1858,8 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
 
   private static boolean nestedSetsOfArtifactHaveTheSameParent(
       NestedSet<Artifact> artifacts, NestedSet<Artifact> otherArtifacts) {
-    Iterator<Artifact> iterator = artifacts.iterator();
-    Iterator<Artifact> otherIterator = otherArtifacts.iterator();
+    Iterator<Artifact> iterator = artifacts.toList().iterator();
+    Iterator<Artifact> otherIterator = otherArtifacts.toList().iterator();
     while (iterator.hasNext() && otherIterator.hasNext()) {
       Artifact artifact = iterator.next();
       Artifact otherArtifact = otherIterator.next();
@@ -2096,7 +2100,7 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
 
     reporter.removeHandler(failFastHandler);
     getConfiguredTarget("//a:r");
-    assertContainsEvent("expected value of type 'JavaRuntimeInfo' for parameter 'host_javabase'");
+    assertContainsEvent("got value of type 'Target', want 'JavaRuntimeInfo'");
   }
 
   @Test
@@ -2135,8 +2139,7 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
 
     reporter.removeHandler(failFastHandler);
     getConfiguredTarget("//a:r");
-    assertContainsEvent(
-        "expected value of type 'JavaToolchainInfo' for parameter 'java_toolchain'");
+    assertContainsEvent("got value of type 'Target', want 'JavaToolchainInfo'");
   }
 
   @Test

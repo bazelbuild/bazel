@@ -41,7 +41,8 @@ public class ValidationTest {
   }
 
   private StarlarkThread newStarlarkThread(String... options) throws Exception {
-    return TestMode.SKYLARK.createStarlarkThread(events.reporter(), ImmutableMap.of(), options);
+    return TestMode.SKYLARK.createStarlarkThread(
+        StarlarkThread.makeDebugPrintHandler(events.reporter()), ImmutableMap.of(), options);
   }
 
   private void parseFile(String... lines) {

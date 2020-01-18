@@ -33,9 +33,14 @@ filegroup(
     srcs = ["collect_coverage.sh"],
 )
 
-filegroup(
+alias(
     name = "coverage_report_generator",
-    srcs = ["@bazel_tools//tools/test/CoverageOutputGenerator/java/com/google/devtools/coverageoutputgenerator:Main"],
+    actual = "@remote_coverage_tools//:coverage_report_generator",
+)
+
+alias(
+    name = "lcov_merger",
+    actual = "@remote_coverage_tools//:lcov_merger",
 )
 
 filegroup(

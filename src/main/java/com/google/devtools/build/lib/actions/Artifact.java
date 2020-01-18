@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.actions.ActionLookupValue.ActionLookupKey;
 import com.google.devtools.build.lib.actions.ArtifactResolver.ArtifactResolverSupplier;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.concurrent.ThreadSafety;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
@@ -963,6 +964,14 @@ public abstract class Artifact
    * Lazily converts artifacts into root-relative path strings. Middleman artifacts are ignored by
    * this method.
    */
+  public static Iterable<String> toRootRelativePaths(NestedSet<Artifact> artifacts) {
+    return toRootRelativePaths(artifacts.toList());
+  }
+
+  /**
+   * Lazily converts artifacts into root-relative path strings. Middleman artifacts are ignored by
+   * this method.
+   */
   public static Iterable<String> toRootRelativePaths(Iterable<Artifact> artifacts) {
     return Iterables.transform(
         Iterables.filter(artifacts, MIDDLEMAN_FILTER),
@@ -975,6 +984,17 @@ public abstract class Artifact
    */
   public static Iterable<String> toExecPaths(Iterable<Artifact> artifacts) {
     return ActionInputHelper.toExecPaths(Iterables.filter(artifacts, MIDDLEMAN_FILTER));
+  }
+
+  /**
+   * Converts a collection of artifacts into execution-time path strings, and returns those as an
+   * immutable list. Middleman artifacts are ignored by this method.
+   *
+   * <p>Avoid this method in production code - it flattens the given nested set unconditionally.
+   */
+  @VisibleForTesting
+  public static List<String> asExecPaths(NestedSet<Artifact> artifacts) {
+    return asExecPaths(artifacts.toList());
   }
 
   /**

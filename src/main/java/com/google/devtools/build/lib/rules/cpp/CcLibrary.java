@@ -24,6 +24,8 @@ import com.google.devtools.build.lib.actions.FailAction;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.analysis.AnalysisUtils;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.analysis.FileProvider;
+import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.MakeVariableSupplier.MapBackedMakeVariableSupplier;
 import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
@@ -115,17 +117,27 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
       boolean addDynamicRuntimeInputArtifactsToRunfiles)
       throws RuleErrorException, InterruptedException {
     CcCommon.checkRuleLoadedThroughMacro(ruleContext);
-    if (ruleContext.attributes().isAttributeValueExplicitlySpecified("linked_statically_by")
+    boolean linkedStaticallyBySpecified =
+        ruleContext.attributes().isAttributeValueExplicitlySpecified("linked_statically_by");
+    boolean linkedStaticallyByAllSpecified =
+        ruleContext.attributes().isAttributeValueExplicitlySpecified("linked_statically_by_all");
+
+    if ((linkedStaticallyBySpecified || linkedStaticallyByAllSpecified)
         && !ruleContext
             .getAnalysisEnvironment()
             .getSkylarkSemantics()
             .experimentalCcSharedLibrary()) {
       ruleContext.ruleError(
-          "The attribute 'linked_statically_by' can only be used with the flag"
-              + " --experimental_cc_shared_library.");
+          "The attributes 'linked_statically_by' and 'linked_statically_by_all' can only be used "
+              + "with the flag --experimental_cc_shared_library.");
+    }
+    if (linkedStaticallyBySpecified && linkedStaticallyByAllSpecified) {
+      ruleContext.ruleError(
+          "Cannot specify both 'linked_statically_by' and 'linked_statically_by_all'");
     }
     semantics.validateDeps(ruleContext);
     if (ruleContext.hasErrors()) {
+      addEmptyRequiredProviders(targetBuilder);
       return;
     }
 
@@ -148,6 +160,7 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
 
     semantics.validateAttributes(ruleContext);
     if (ruleContext.hasErrors()) {
+      addEmptyRequiredProviders(targetBuilder);
       return;
     }
 
@@ -155,6 +168,7 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
         ImmutableList.copyOf(ruleContext.getPrerequisites("deps", Mode.TARGET));
     CppHelper.checkProtoLibrariesInDeps(ruleContext, deps);
     if (ruleContext.hasErrors()) {
+      addEmptyRequiredProviders(targetBuilder);
       return;
     }
     Iterable<CcInfo> ccInfosFromDeps = AnalysisUtils.getProviders(deps, CcInfo.PROVIDER);
@@ -225,9 +239,6 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
       }
     }
 
-    if (ruleContext.getRule().isAttrDefined("srcs", BuildType.LABEL_LIST)) {
-      ruleContext.checkSrcsSamePackage(true);
-    }
     if (ruleContext.getRule().isAttrDefined("textual_hdrs", BuildType.LABEL_LIST)) {
       compilationHelper.addPublicTextualHeaders(
           ruleContext.getPrerequisiteArtifacts("textual_hdrs", Mode.TARGET).list());
@@ -786,8 +797,6 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
     return librariesToLink.build();
   }
 
-
-
   private static void checkIfLinkOutputsCollidingWithPrecompiledFiles(
       RuleContext ruleContext,
       CcLinkingOutputs ccLinkingOutputs,
@@ -805,5 +814,11 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
                 + ") which also contains other code or objects to link");
       }
     }
+  }
+
+  private static void addEmptyRequiredProviders(RuleConfiguredTargetBuilder builder) {
+    builder.addProvider(RunfilesProvider.EMPTY);
+    builder.addProvider(FileProvider.EMPTY);
+    builder.addProvider(FilesToRunProvider.EMPTY);
   }
 }

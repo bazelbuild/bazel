@@ -24,7 +24,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.io.CharStreams;
-import com.google.devtools.build.lib.bazel.repository.downloader.HttpDownloader;
+import com.google.devtools.build.lib.bazel.repository.downloader.DownloadManager;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.Attribute;
@@ -39,14 +39,12 @@ import com.google.devtools.build.lib.rules.repository.RepositoryFunction.Reposit
 import com.google.devtools.build.lib.runtime.RepositoryRemoteExecutor;
 import com.google.devtools.build.lib.runtime.RepositoryRemoteExecutor.ExecutionResult;
 import com.google.devtools.build.lib.skyframe.BazelSkyframeExecutorConstants;
-import com.google.devtools.build.lib.syntax.BuiltinFunction;
 import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.Expression;
-import com.google.devtools.build.lib.syntax.FuncallExpression;
-import com.google.devtools.build.lib.syntax.FunctionSignature;
+import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.devtools.build.lib.syntax.ParserInput;
+import com.google.devtools.build.lib.syntax.StarlarkFunction;
 import com.google.devtools.build.lib.syntax.StarlarkList;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
@@ -61,7 +59,6 @@ import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import javax.annotation.Nullable;
 import org.junit.Before;
@@ -70,11 +67,9 @@ import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 import org.mockito.Mockito;
 
-/**
- * Unit tests for complex function of SkylarkRepositoryContext.
- */
+/** Unit tests for complex function of SkylarkRepositoryContext. */
 @RunWith(JUnit4.class)
-public class SkylarkRepositoryContextTest {
+public final class SkylarkRepositoryContextTest {
 
   private Scratch scratch;
   private Path outputDirectory;
@@ -100,16 +95,17 @@ public class SkylarkRepositoryContextTest {
     }
     ruleClassBuilder.setWorkspaceOnly();
     ruleClassBuilder.setConfiguredTargetFunction(
-        new BuiltinFunction(FunctionSignature.ANY) {
-          @Override
-          public String getName() {
-            return "test";
-          }
-
-          public void invoke(
-              List<Object> args, Map<String, Object> kwargs, StarlarkThread thread) {}
-        });
+        (StarlarkFunction) execAndEval("def test(ctx): pass", "test"));
     return ruleClassBuilder.build();
+  }
+
+  private static Object execAndEval(String... lines) {
+    try (Mutability mu = Mutability.create("impl")) {
+      return EvalUtils.execAndEvalOptionalFinalExpression(
+          ParserInput.fromLines(lines), StarlarkThread.builder(mu).useDefaultSemantics().build());
+    } catch (Exception ex) { // SyntaxError | EvalException | InterruptedException
+      throw new AssertionError("exec failed", ex);
+    }
   }
 
   protected void setUpContextForRule(
@@ -126,12 +122,10 @@ public class SkylarkRepositoryContextTest {
             "runfiles",
             starlarkSemantics);
     ExtendedEventHandler listener = Mockito.mock(ExtendedEventHandler.class);
-    ParserInput input = ParserInput.fromLines("test()");
-    FuncallExpression ast = (FuncallExpression) Expression.parse(input);
     Rule rule =
         WorkspaceFactoryHelper.createAndAddRepositoryRule(
-            packageBuilder, buildRuleClass(attributes), null, kwargs, ast.getLocation());
-    HttpDownloader downloader = Mockito.mock(HttpDownloader.class);
+            packageBuilder, buildRuleClass(attributes), null, kwargs, Location.BUILTIN);
+    DownloadManager downloader = Mockito.mock(DownloadManager.class);
     SkyFunction.Environment environment = Mockito.mock(SkyFunction.Environment.class);
     when(environment.getListener()).thenReturn(listener);
     PathPackageLocator packageLocator =

@@ -643,7 +643,7 @@ public class ConstraintSemantics {
     // words, the removed environment is no good, but some subset of it may be.
     for (EnvironmentWithGroup depEnv :
         depEnvironments.getRefinedEnvironments().getGroupedEnvironments()) {
-      for (Label fulfiller : depEnv.group().getFulfillers(depEnv.environment())) {
+      for (Label fulfiller : depEnv.group().getFulfillers(depEnv.environment()).toList()) {
         if (prunedEnvironmentsFromThisDep.contains(fulfiller)) {
           refinedEnvironmentsSoFar.add(depEnv);
         }
@@ -792,7 +792,7 @@ public class ConstraintSemantics {
         // If the actual environments include members from the expected environment's group, we
         // need to either find the environment itself or another one that transitively fulfills it.
         if (actualEnvironmentLabels.contains(environment)
-            || intersect(actualEnvironmentLabels, group.getFulfillers(environment))) {
+            || intersect(actualEnvironmentLabels, group.getFulfillers(environment).toList())) {
           isSatisfied = true;
         }
       } else {
@@ -800,7 +800,7 @@ public class ConstraintSemantics {
         // the group's defaults are implicitly included. So we need to check those defaults for
         // either the expected environment or another environment that transitively fulfills it.
         if (group.isDefault(environment)
-            || intersect(group.getFulfillers(environment), group.getDefaults())) {
+            || intersect(group.getFulfillers(environment).toList(), group.getDefaults())) {
           isSatisfied = true;
         }
       }
@@ -816,7 +816,8 @@ public class ConstraintSemantics {
       if (!expectedEnvironments.getGroups().contains(group)) {
         for (Label expectedDefault : group.getDefaults()) {
           if (!actualEnvironmentLabels.contains(expectedDefault)
-              && !intersect(actualEnvironmentLabels, group.getFulfillers(expectedDefault))) {
+              && !intersect(
+                  actualEnvironmentLabels, group.getFulfillers(expectedDefault).toList())) {
             missingEnvironments.add(expectedDefault);
           }
         }

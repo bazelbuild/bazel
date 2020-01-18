@@ -13,30 +13,23 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.cpp;
 
-import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.util.Fingerprint;
-import com.google.devtools.build.lib.vfs.PathFragment;
-import java.util.Map;
 import javax.annotation.Nullable;
 
 /** Wrapper around a map of bitcode files for purposes of caching its fingerprint. */
 final class BitcodeFiles {
 
-  private final ImmutableMap<PathFragment, Artifact> files;
+  private final NestedSet<Artifact> files;
   @Nullable private volatile byte[] fingerprint = null;
 
-  BitcodeFiles(Map<PathFragment, Artifact> files) {
-    this.files = ImmutableMap.copyOf(files);
+  BitcodeFiles(NestedSet<Artifact> files) {
+    this.files = files;
   }
 
-  @Nullable
-  Artifact lookup(PathFragment path) {
-    return files.get(path);
-  }
-
-  Iterable<Artifact> getFiles() {
-    return files.values();
+  NestedSet<Artifact> getFiles() {
+    return files;
   }
 
   void addToFingerprint(Fingerprint fp) {
@@ -52,8 +45,8 @@ final class BitcodeFiles {
 
   private byte[] computeFingerprint() {
     Fingerprint fp = new Fingerprint();
-    for (PathFragment path : files.keySet()) {
-      fp.addPath(path);
+    for (Artifact path : files.toList()) {
+      fp.addPath(path.getExecPath());
     }
     return fp.digestAndReset();
   }

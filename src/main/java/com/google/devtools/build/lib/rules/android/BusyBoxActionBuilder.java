@@ -25,7 +25,6 @@ import com.google.devtools.build.lib.analysis.actions.CustomCommandLine.VectorAr
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.rules.android.AndroidConfiguration.AndroidAaptVersion;
 import com.google.devtools.build.lib.util.OS;
 import com.google.errorprone.annotations.CompileTimeConstant;
 import java.util.Collection;
@@ -97,10 +96,6 @@ public final class BusyBoxActionBuilder {
    */
   public BusyBoxActionBuilder addInput(
       @CompileTimeConstant String arg, String value, Iterable<Artifact> valueArtifacts) {
-    Preconditions.checkState(
-        !(valueArtifacts instanceof NestedSet),
-        "NestedSet values should not be added here, since they will be inefficiently collapsed in"
-            + " analysis time. Use one of the transitive input methods instead.");
     commandLine.add(arg, value);
     inputs.addAll(valueArtifacts);
     return this;
@@ -315,18 +310,10 @@ public final class BusyBoxActionBuilder {
   }
 
   /** Adds aapt to the command line and inputs. */
-  public BusyBoxActionBuilder addAapt(AndroidAaptVersion aaptVersion) {
-    FilesToRunProvider aapt;
-    if (aaptVersion == AndroidAaptVersion.AAPT2) {
-      aapt = dataContext.getSdk().getAapt2();
-      commandLine.addExecPath("--aapt2", aapt.getExecutable());
-    } else {
-      aapt = dataContext.getSdk().getAapt();
-      commandLine.addExecPath("--aapt", aapt.getExecutable());
-    }
-
-    spawnActionBuilder.addTool(aapt);
-
+  public BusyBoxActionBuilder addAapt() {
+    FilesToRunProvider aapt2 = dataContext.getSdk().getAapt2();
+    commandLine.addExecPath("--aapt2", aapt2.getExecutable());
+    spawnActionBuilder.addTool(aapt2);
     return this;
   }
 

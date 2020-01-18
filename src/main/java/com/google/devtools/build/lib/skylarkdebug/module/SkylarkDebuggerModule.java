@@ -21,7 +21,7 @@ import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.skylarkdebug.server.SkylarkDebugServer;
-import com.google.devtools.build.lib.syntax.EvalUtils;
+import com.google.devtools.build.lib.syntax.Debug;
 import com.google.devtools.common.options.OptionsBase;
 import java.io.IOException;
 
@@ -66,13 +66,13 @@ public final class SkylarkDebuggerModule extends BlazeModule {
     try {
       SkylarkDebugServer server =
           SkylarkDebugServer.createAndWaitForConnection(reporter, debugPort, verboseLogs);
-      EvalUtils.setDebugger(server);
+      Debug.setDebugger(server);
     } catch (IOException e) {
       reporter.handle(Event.error("Error while setting up the debug server: " + e.getMessage()));
     }
   }
 
   private static void disableDebugging() {
-    EvalUtils.setDebugger(null);
+    Debug.setDebugger(null);
   }
 }

@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.rules.genrule;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CommandLines;
@@ -122,7 +121,8 @@ public abstract class GenRuleBase implements RuleConfiguredTargetFactory {
       ruleContext.attributeError("outs", "Genrules without outputs don't make sense");
     }
     if (ruleContext.attributes().get("executable", Type.BOOLEAN)
-        && Iterables.size(filesToBuild) > 1) {
+        && !filesToBuild.isEmpty()
+        && !filesToBuild.isSingleton()) {
       ruleContext.attributeError(
           "executable",
           "if genrules produce executables, they are allowed only one output. "
@@ -132,7 +132,7 @@ public abstract class GenRuleBase implements RuleConfiguredTargetFactory {
 
     Pair<CommandType, String> cmdTypeAndAttr = determineCommandTypeAndAttribute(ruleContext);
 
-    ImmutableMap.Builder<Label, NestedSet<Artifact>> labelMap = ImmutableMap.builder();
+    ImmutableMap.Builder<Label, Iterable<Artifact>> labelMap = ImmutableMap.builder();
     for (TransitiveInfoCollection dep : ruleContext.getPrerequisites("srcs", Mode.TARGET)) {
       // This target provides specific types of files for genrules.
       GenRuleSourcesProvider provider = dep.getProvider(GenRuleSourcesProvider.class);
@@ -140,7 +140,9 @@ public abstract class GenRuleBase implements RuleConfiguredTargetFactory {
           ? provider.getGenruleFiles()
           : dep.getProvider(FileProvider.class).getFilesToBuild();
       resolvedSrcsBuilder.addTransitive(files);
-      labelMap.put(AliasProvider.getDependencyLabel(dep), files);
+      // The CommandHelper class makes an explicit copy of this in the constructor, so flattening
+      // here should be benign.
+      labelMap.put(AliasProvider.getDependencyLabel(dep), files.toList());
     }
     NestedSet<Artifact> resolvedSrcs = resolvedSrcsBuilder.build();
 
@@ -244,9 +246,9 @@ public abstract class GenRuleBase implements RuleConfiguredTargetFactory {
     ruleContext.registerAction(
         new GenRuleAction(
             ruleContext.getActionOwner(),
-            ImmutableList.copyOf(commandHelper.getResolvedTools()),
+            commandHelper.getResolvedTools(),
             inputs.build(),
-            filesToBuild,
+            filesToBuild.toSet(),
             CommandLines.of(argv),
             ruleContext.getConfiguration().getActionEnvironment(),
             ImmutableMap.copyOf(executionInfo),
@@ -290,10 +292,7 @@ public abstract class GenRuleBase implements RuleConfiguredTargetFactory {
     if (!ruleContext.attributes().get("executable", Type.BOOLEAN)) {
       return null;
     }
-    if (Iterables.size(filesToBuild) == 1) {
-      return Iterables.getOnlyElement(filesToBuild);
-    }
-    return null;
+    return filesToBuild.isSingleton() ? filesToBuild.getSingleton() : null;
   }
 
   /**
@@ -339,7 +338,7 @@ public abstract class GenRuleBase implements RuleConfiguredTargetFactory {
 
     private String lookupVariableImpl(String variableName) throws ExpansionException {
       if (variableName.equals("SRCS")) {
-        return Artifact.joinExecPaths(" ", resolvedSrcs);
+        return Artifact.joinExecPaths(" ", resolvedSrcs.toList());
       }
 
       if (variableName.equals("<")) {
@@ -347,7 +346,7 @@ public abstract class GenRuleBase implements RuleConfiguredTargetFactory {
       }
 
       if (variableName.equals("OUTS")) {
-        return Artifact.joinExecPaths(" ", filesToBuild);
+        return Artifact.joinExecPaths(" ", filesToBuild.toList());
       }
 
       if (variableName.equals("@")) {
@@ -374,8 +373,8 @@ public abstract class GenRuleBase implements RuleConfiguredTargetFactory {
         // multiple filenames, this variable instead expands to the
         // package's root directory in the genfiles tree, even if all the
         // generated files belong to the same subdirectory!
-        if (Iterables.size(filesToBuild) == 1) {
-          Artifact outputFile = Iterables.getOnlyElement(filesToBuild);
+        if (filesToBuild.isSingleton()) {
+          Artifact outputFile = filesToBuild.getSingleton();
           PathFragment relativeOutputFile = outputFile.getExecPath();
           if (relativeOutputFile.segmentCount() <= 1) {
             // This should never happen, since the path should contain at
@@ -396,18 +395,17 @@ public abstract class GenRuleBase implements RuleConfiguredTargetFactory {
      * Returns the path of the sole element "artifacts", generating an exception with an informative
      * error message iff the set is not a singleton. Used to expand "$<", "$@".
      */
-    private final String expandSingletonArtifact(Iterable<Artifact> artifacts,
-        String variable,
-        String artifactName)
+    private static final String expandSingletonArtifact(
+        NestedSet<Artifact> artifacts, String variable, String artifactName)
         throws ExpansionException {
-      if (Iterables.isEmpty(artifacts)) {
+      if (artifacts.isEmpty()) {
         throw new ExpansionException("variable '" + variable
             + "' : no " + artifactName);
-      } else if (Iterables.size(artifacts) > 1) {
+      } else if (!artifacts.isSingleton()) {
         throw new ExpansionException("variable '" + variable
             + "' : more than one " + artifactName);
       }
-      return Iterables.getOnlyElement(artifacts).getExecPathString();
+      return artifacts.getSingleton().getExecPathString();
     }
   }
 }

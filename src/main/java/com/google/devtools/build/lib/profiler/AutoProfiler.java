@@ -61,8 +61,8 @@ import javax.annotation.Nullable;
 public class AutoProfiler implements SilentCloseable {
   private static final AtomicReference<Clock> CLOCK_REF = new AtomicReference<>(null);
   private static final AtomicReference<LoggingElapsedTimeReceiverFactory>
-      LOGGING_ELAPSED_TIME_RECEIVER_FACTORY_REF = new AtomicReference<>(
-          LoggingElapsedTimeReceiver.FACTORY);
+      LOGGING_ELAPSED_TIME_RECEIVER_FACTORY_REF =
+          new AtomicReference<>(LoggingElapsedTimeReceiver::new);
 
   private final ElapsedTimeReceiver elapsedTimeReceiver;
   private final long startTimeNanos;
@@ -185,14 +185,6 @@ public class AutoProfiler implements SilentCloseable {
   }
 
   /**
-   * Returns an {@link AutoProfiler} that doesn't do anything when closed and so is only useful for
-   * {@link #completeAndGetElapsedTimeNanos()}.
-   */
-  public static AutoProfiler timed() {
-    return create(NULL_RECEIVER);
-  }
-
-  /**
    * Returns an {@link AutoProfiler} that, when closed, invokes the given
    * {@link ElapsedTimeReceiver}.
    *
@@ -238,12 +230,6 @@ public class AutoProfiler implements SilentCloseable {
     Preconditions.checkState(closed.compareAndSet(false, true));
     elapsedTimeReceiver.accept(elapsedTimeNanos);
   }
-
-  private static final ElapsedTimeReceiver NULL_RECEIVER = new ElapsedTimeReceiver() {
-    @Override
-    public void accept(long elapsedTimeNanos) {
-    }
-  };
 
   private static class SequencedElapsedTimeReceiver implements ElapsedTimeReceiver {
     private final ElapsedTimeReceiver firstReceiver;
@@ -307,16 +293,6 @@ public class AutoProfiler implements SilentCloseable {
    * least a given threshold.
    */
   public static class LoggingElapsedTimeReceiver extends FilteringElapsedTimeReceiver {
-    private static final LoggingElapsedTimeReceiverFactory FACTORY =
-        new LoggingElapsedTimeReceiverFactory() {
-          @Override
-          public ElapsedTimeReceiver create(
-              String taskDescription, Logger logger, long minTimeForLogging, TimeUnit timeUnit) {
-            return new LoggingElapsedTimeReceiver(
-                taskDescription, logger, minTimeForLogging, timeUnit);
-          }
-        };
-
     protected final Logger logger;
 
     protected LoggingElapsedTimeReceiver(

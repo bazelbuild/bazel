@@ -54,6 +54,7 @@ public abstract class StarlarkSemantics {
         StarlarkSemantics::experimentalEnableAndroidMigrationApis),
     EXPERIMENTAL_BUILD_SETTING_API(StarlarkSemantics::experimentalBuildSettingApi),
     EXPERIMENTAL_GOOGLE_LEGACY_API(StarlarkSemantics::experimentalGoogleLegacyApi),
+    EXPERIMENTAL_NINJA_ACTIONS(StarlarkSemantics::experimentalNinjaActions),
     EXPERIMENTAL_PLATFORM_API(StarlarkSemantics::experimentalPlatformsApi),
     EXPERIMENTAL_STARLARK_CONFIG_TRANSITION(
         StarlarkSemantics::experimentalStarlarkConfigTransitions),
@@ -147,6 +148,8 @@ public abstract class StarlarkSemantics {
 
   public abstract boolean experimentalGoogleLegacyApi();
 
+  public abstract boolean experimentalNinjaActions();
+
   public abstract boolean experimentalPlatformsApi();
 
   public abstract boolean experimentalStarlarkConfigTransitions();
@@ -191,8 +194,6 @@ public abstract class StarlarkSemantics {
 
   public abstract boolean incompatibleNoTargetOutputGroup();
 
-  public abstract boolean incompatibleRemapMainRepo();
-
   public abstract boolean incompatibleRemoveEnabledToolchainTypes();
 
   public abstract boolean incompatibleRestrictNamedParams();
@@ -208,8 +209,6 @@ public abstract class StarlarkSemantics {
   public abstract boolean incompatibleDepsetForLibrariesToLinkGetter();
 
   public abstract boolean incompatibleRestrictStringEscapes();
-
-  public abstract boolean incompatibleDisallowDictLookupUnhashableKeys();
 
   public abstract boolean experimentalAllowTagsPropagation();
 
@@ -257,6 +256,7 @@ public abstract class StarlarkSemantics {
           .experimentalAllowIncrementalRepositoryUpdates(true)
           .experimentalEnableAndroidMigrationApis(false)
           .experimentalGoogleLegacyApi(false)
+          .experimentalNinjaActions(false)
           .experimentalPlatformsApi(false)
           .experimentalStarlarkConfigTransitions(true)
           .experimentalStarlarkUnusedInputsList(true)
@@ -279,7 +279,6 @@ public abstract class StarlarkSemantics {
           .incompatibleNoRuleOutputsParam(false)
           .incompatibleNoSupportToolsInActionInputs(true)
           .incompatibleNoTargetOutputGroup(true)
-          .incompatibleRemapMainRepo(true)
           .incompatibleRemoveEnabledToolchainTypes(false)
           .incompatibleRunShellCommandString(false)
           .incompatibleRestrictNamedParams(true)
@@ -288,9 +287,7 @@ public abstract class StarlarkSemantics {
           .incompatibleDoNotSplitLinkingCmdline(true)
           .incompatibleDepsetForLibrariesToLinkGetter(true)
           .incompatibleRestrictStringEscapes(false)
-          .incompatibleDisallowDictLookupUnhashableKeys(false)
           .incompatibleUseCcConfigureFromRulesCc(false)
-          .incompatibleDisallowDictLookupUnhashableKeys(true)
           .build();
 
   /** Builder for {@link StarlarkSemantics}. All fields are mandatory. */
@@ -315,6 +312,8 @@ public abstract class StarlarkSemantics {
     public abstract Builder experimentalEnableAndroidMigrationApis(boolean value);
 
     public abstract Builder experimentalGoogleLegacyApi(boolean value);
+
+    public abstract Builder experimentalNinjaActions(boolean value);
 
     public abstract Builder experimentalPlatformsApi(boolean value);
 
@@ -360,8 +359,6 @@ public abstract class StarlarkSemantics {
 
     public abstract Builder incompatibleNoTargetOutputGroup(boolean value);
 
-    public abstract Builder incompatibleRemapMainRepo(boolean value);
-
     public abstract Builder incompatibleRemoveEnabledToolchainTypes(boolean value);
 
     public abstract Builder incompatibleRestrictNamedParams(boolean value);
@@ -377,8 +374,6 @@ public abstract class StarlarkSemantics {
     public abstract Builder incompatibleDepsetForLibrariesToLinkGetter(boolean value);
 
     public abstract Builder incompatibleRestrictStringEscapes(boolean value);
-
-    public abstract Builder incompatibleDisallowDictLookupUnhashableKeys(boolean value);
 
     public abstract Builder incompatibleUseCcConfigureFromRulesCc(boolean value);
 

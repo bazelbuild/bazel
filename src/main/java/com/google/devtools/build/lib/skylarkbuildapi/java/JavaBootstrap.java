@@ -15,7 +15,7 @@
 package com.google.devtools.build.lib.skylarkbuildapi.java;
 
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.skylarkbuildapi.Bootstrap;
+import com.google.devtools.build.lib.skylarkbuildapi.core.Bootstrap;
 import com.google.devtools.build.lib.skylarkbuildapi.java.JavaInfoApi.JavaInfoProviderApi;
 
 /**
@@ -23,15 +23,15 @@ import com.google.devtools.build.lib.skylarkbuildapi.java.JavaInfoApi.JavaInfoPr
  */
 public class JavaBootstrap implements Bootstrap {
 
-  private final JavaCommonApi<?, ?, ?, ?, ?, ?> javaCommonApi;
+  private final JavaCommonApi<?, ?, ?, ?, ?, ?, ?> javaCommonApi;
   private final JavaInfoProviderApi javaInfoProviderApi;
-  private final JavaProtoCommonApi<?, ?, ?> javaProtoCommonApi;
+  private final JavaProtoCommonApi<?, ?, ?, ?> javaProtoCommonApi;
   private final JavaCcLinkParamsProviderApi.Provider<?> javaCcLinkParamsProviderApiProvider;
 
   public JavaBootstrap(
-      JavaCommonApi<?, ?, ?, ?, ?, ?> javaCommonApi,
+      JavaCommonApi<?, ?, ?, ?, ?, ?, ?> javaCommonApi,
       JavaInfoProviderApi javaInfoProviderApi,
-      JavaProtoCommonApi<?, ?, ?> javaProtoCommonApi,
+      JavaProtoCommonApi<?, ?, ?, ?> javaProtoCommonApi,
       JavaCcLinkParamsProviderApi.Provider<?> javaCcLinkParamsProviderApiProvider) {
     this.javaCommonApi = javaCommonApi;
     this.javaInfoProviderApi = javaInfoProviderApi;

@@ -16,7 +16,8 @@ package com.google.devtools.build.lib.skylarkbuildapi.java;
 
 import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
 import com.google.devtools.build.lib.skylarkbuildapi.SkylarkRuleContextApi;
-import com.google.devtools.build.lib.skylarkbuildapi.TransitiveInfoCollectionApi;
+import com.google.devtools.build.lib.skylarkbuildapi.core.TransitiveInfoCollectionApi;
+import com.google.devtools.build.lib.skylarkbuildapi.platform.ConstraintValueInfoApi;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
@@ -27,7 +28,8 @@ import com.google.devtools.build.lib.syntax.StarlarkValue;
 @SkylarkModule(name = "java_proto_common", doc = "Helper class for Java proto compilation.")
 public interface JavaProtoCommonApi<
         FileT extends FileApi,
-        SkylarkRuleContextT extends SkylarkRuleContextApi,
+        ConstraintValueT extends ConstraintValueInfoApi,
+        SkylarkRuleContextT extends SkylarkRuleContextApi<ConstraintValueT>,
         TransitiveInfoCollectionT extends TransitiveInfoCollectionApi>
     extends StarlarkValue {
 
@@ -61,7 +63,7 @@ public interface JavaProtoCommonApi<
             type = String.class,
             defaultValue = "'java'")
       })
-  public void createProtoCompileAction(
+  void createProtoCompileAction(
       SkylarkRuleContextT skylarkRuleContext,
       TransitiveInfoCollectionT target,
       FileT sourceJar,
@@ -71,36 +73,33 @@ public interface JavaProtoCommonApi<
 
   @SkylarkCallable(
       name = "has_proto_sources",
-      doc = "Returns whether the given proto_library target contains proto sources. If there are no"
-          + " sources it means that the proto_library is an alias library, which exports its"
-          + " dependencies.",
+      doc =
+          "Returns whether the given proto_library target contains proto sources. If there are no"
+              + " sources it means that the proto_library is an alias library, which exports its"
+              + " dependencies.",
       parameters = {
         @Param(
             name = "target",
             positional = true,
             named = false,
             type = TransitiveInfoCollectionApi.class,
-            doc = "The proto_library target."
-        ),
-      }
-  )
-  public boolean hasProtoSources(TransitiveInfoCollectionT target);
+            doc = "The proto_library target."),
+      })
+  boolean hasProtoSources(TransitiveInfoCollectionT target);
 
   @SkylarkCallable(
-    name = "toolchain_deps",
-    // This function is experimental for now.
-    documented = false,
-    parameters = {
-      @Param(
-          name = "ctx",
-          positional = true,
-          named = false,
-          type = SkylarkRuleContextApi.class,
-          doc = "The rule context."
-      ),
-      @Param(name = "proto_toolchain_attr", positional = false, named = true, type = String.class)
-    }
-  )
-  public JavaInfoApi<FileT> getRuntimeToolchainProvider(
+      name = "toolchain_deps",
+      // This function is experimental for now.
+      documented = false,
+      parameters = {
+        @Param(
+            name = "ctx",
+            positional = true,
+            named = false,
+            type = SkylarkRuleContextApi.class,
+            doc = "The rule context."),
+        @Param(name = "proto_toolchain_attr", positional = false, named = true, type = String.class)
+      })
+  JavaInfoApi<FileT> getRuntimeToolchainProvider(
       SkylarkRuleContextT skylarkRuleContext, String protoToolchainAttr) throws EvalException;
 }

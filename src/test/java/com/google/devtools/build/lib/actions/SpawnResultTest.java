@@ -41,7 +41,7 @@ public final class SpawnResultTest {
             .setExitCode(1)
             .setRunnerName("test")
             .build();
-    assertThat(r.getDetailMessage("", "", false, false))
+    assertThat(r.getDetailMessage("", "", false, false, false))
         .contains("(failed due to timeout after 5.00 seconds.)");
   }
 
@@ -53,7 +53,7 @@ public final class SpawnResultTest {
             .setExitCode(1)
             .setRunnerName("test")
             .build();
-    assertThat(r.getDetailMessage("", "", false, false))
+    assertThat(r.getDetailMessage("", "", false, false, false))
         .contains("(failed due to timeout.)");
   }
 

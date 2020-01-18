@@ -847,7 +847,7 @@ DEBUG: /myworkspace/myproject/defs.bzl:15:3: My name is sad_macro_less_sad with 
 ## <a name="boolean-select"></a>Why does select() always return true?
 Because *macros* (but not rules) by definition
 [can't evaluate select(s)](#macros-select), any attempt to do so
-usually produces a an error:
+usually produces an error:
 
 ```sh
 ERROR: /myworkspace/myproject/BUILD:17:1: Traceback

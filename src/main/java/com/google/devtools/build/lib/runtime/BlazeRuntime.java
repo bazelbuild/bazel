@@ -298,12 +298,12 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
     OutputStream out = null;
     boolean recordFullProfilerData = options.recordFullProfilerData;
     ImmutableSet.Builder<ProfilerTask> profiledTasksBuilder = ImmutableSet.builder();
-    Profiler.Format format = Profiler.Format.BINARY_BAZEL_FORMAT;
+    Profiler.Format format = Format.JSON_TRACE_FILE_FORMAT;
     Path profilePath = null;
     String profileName = null;
     UploadContext streamingContext = null;
     try {
-      if (options.enableTracer || (options.removeBinaryProfile && options.profilePath != null)) {
+      if (options.enableTracer || options.profilePath != null) {
         if (options.enableTracerCompression == TriState.YES
             || (options.enableTracerCompression == TriState.AUTO
                 && (options.profilePath == null
@@ -347,14 +347,6 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
         if (options.recordFullProfilerData) {
           profiledTasksBuilder.addAll(EnumSet.allOf(ProfilerTask.class));
         }
-      } else if (options.profilePath != null) {
-        profilePath = workspace.getWorkspace().getRelative(options.profilePath);
-
-        out = profilePath.getOutputStream();
-        eventHandler.handle(Event.info("Writing profile data to '" + profilePath + "'"));
-        for (ProfilerTask profilerTask : ProfilerTask.values()) {
-          profiledTasksBuilder.add(profilerTask);
-        }
       } else if (options.alwaysProfileSlowOperations) {
         recordFullProfilerData = false;
         out = null;
@@ -371,7 +363,6 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
             profiledTasks,
             out,
             format,
-            getProductName(),
             workspace.getOutputBase().toString(),
             env.getCommandId(),
             recordFullProfilerData,
@@ -804,10 +795,12 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
    * handler is registered.
    */
   public static final class RemoteExceptionHandler implements SubscriberExceptionHandler {
+    static final String FAILURE_MSG = "Failure in EventBus subscriber";
+
     @Override
     public void handleException(Throwable exception, SubscriberExceptionContext context) {
-      logger.log(Level.SEVERE, "Failure in EventBus subscriber", exception);
-      LoggingUtil.logToRemote(Level.SEVERE, "Failure in EventBus subscriber.", exception);
+      logger.log(Level.SEVERE, FAILURE_MSG, exception);
+      LoggingUtil.logToRemote(Level.SEVERE, FAILURE_MSG, exception);
     }
   }
 
@@ -896,19 +889,19 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
    */
   @VisibleForTesting
   static class CommandLineOptions {
-    private final List<String> startupArgs;
-    private final List<String> otherArgs;
+    private final ImmutableList<String> startupArgs;
+    private final ImmutableList<String> otherArgs;
 
-    CommandLineOptions(List<String> startupArgs, List<String> otherArgs) {
-      this.startupArgs = ImmutableList.copyOf(startupArgs);
-      this.otherArgs = ImmutableList.copyOf(otherArgs);
+    CommandLineOptions(ImmutableList<String> startupArgs, ImmutableList<String> otherArgs) {
+      this.startupArgs = Preconditions.checkNotNull(startupArgs);
+      this.otherArgs = Preconditions.checkNotNull(otherArgs);
     }
 
-    public List<String> getStartupArgs() {
+    public ImmutableList<String> getStartupArgs() {
       return startupArgs;
     }
 
-    public List<String> getOtherArgs() {
+    public ImmutableList<String> getOtherArgs() {
       return otherArgs;
     }
   }
@@ -955,7 +948,8 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
         }
       }
     }
-    return new CommandLineOptions(startupArgs, otherArgs);
+    return new CommandLineOptions(
+        ImmutableList.copyOf(startupArgs), ImmutableList.copyOf(otherArgs));
   }
 
   private static InterruptSignalHandler captureSigint() {

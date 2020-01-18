@@ -58,6 +58,8 @@ import com.google.devtools.build.lib.skylarkbuildapi.test.TestingBootstrap;
 import com.google.devtools.build.lib.syntax.BaseFunction;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
+import com.google.devtools.build.lib.syntax.Expression;
+import com.google.devtools.build.lib.syntax.ExpressionStatement;
 import com.google.devtools.build.lib.syntax.LoadStatement;
 import com.google.devtools.build.lib.syntax.Module;
 import com.google.devtools.build.lib.syntax.Mutability;
@@ -122,7 +124,6 @@ import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.Aspe
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.ProviderInfo;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.RuleInfo;
 import com.google.devtools.common.options.OptionsParser;
-import com.google.devtools.skylark.common.DocstringUtils;
 import java.io.BufferedOutputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -395,10 +396,12 @@ public class SkydocMain {
   private static String getModuleDoc(StarlarkFile buildFileAST) {
     ImmutableList<Statement> fileStatements = buildFileAST.getStatements();
     if (!fileStatements.isEmpty()) {
-      Statement moduleComment = fileStatements.get(0);
-      StringLiteral moduleDocLiteral = DocstringUtils.getStringLiteral(moduleComment);
-      if (moduleDocLiteral != null) {
-        return moduleDocLiteral.getValue();
+      Statement stmt = fileStatements.get(0);
+      if (stmt instanceof ExpressionStatement) {
+        Expression expr = ((ExpressionStatement) stmt).getExpression();
+        if (expr instanceof StringLiteral) {
+          return ((StringLiteral) expr).getValue();
+        }
       }
     }
     return "";
@@ -505,7 +508,6 @@ public class SkydocMain {
     StarlarkThread thread =
         createStarlarkThread(
             semantics,
-            eventHandler,
             globalFrame(ruleInfoList, providerInfoList, aspectInfoList),
             imports);
 
@@ -649,14 +651,13 @@ public class SkydocMain {
 
   private static StarlarkThread createStarlarkThread(
       StarlarkSemantics semantics,
-      EventHandler eventHandler,
       Module globals,
       Map<String, Extension> imports) {
+    // We use the default print handler, which writes to stderr.
     return StarlarkThread.builder(Mutability.create("Skydoc"))
         .setSemantics(semantics)
         .setGlobals(globals)
         .setImportedExtensions(imports)
-        .setEventHandler(eventHandler)
         .build();
   }
 

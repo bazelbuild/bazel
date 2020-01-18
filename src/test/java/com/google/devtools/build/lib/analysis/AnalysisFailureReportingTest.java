@@ -203,7 +203,7 @@ public class AnalysisFailureReportingTest extends AnalysisTestCase {
 
     @Subscribe
     public void failureEvent(AnalysisFailureEvent event) {
-      events.putAll(event.getFailedTarget().getLabel(), event.getRootCauses());
+      events.putAll(event.getFailedTarget().getLabel(), event.getRootCauses().toList());
     }
   }
 }

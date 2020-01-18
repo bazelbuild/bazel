@@ -14,14 +14,15 @@
 package com.google.devtools.build.lib.syntax;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.events.EventCollector;
+import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.syntax.util.EvaluationTestCase;
 import com.google.devtools.build.lib.testutil.TestMode;
 import java.util.Collections;
 import java.util.List;
-import java.util.Map;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -50,28 +51,127 @@ public class EvaluationTest extends EvaluationTestCase {
 
   @Test
   public void testExecutionStopsAtFirstError() throws Exception {
-    EventCollector printEvents = new EventCollector(); // for print events
+    EventCollector printEvents = new EventCollector();
+    StarlarkThread thread =
+        createStarlarkThread(mutability, StarlarkThread.makeDebugPrintHandler(printEvents));
+    ParserInput input = ParserInput.fromLines("print('hello'); x = 1//0; print('goodbye')");
+
+    assertThrows(EvalException.class, () -> EvalUtils.exec(input, thread));
+
+    // Only expect hello, should have been an error before goodbye.
+    assertThat(printEvents).hasSize(1);
+    assertThat(printEvents.iterator().next().getMessage()).isEqualTo("hello");
+  }
+
+  @Test
+  public void testExecutionNotStartedOnInterrupt() throws Exception {
+    EventCollector printEvents = new EventCollector();
+    StarlarkThread thread =
+        createStarlarkThread(mutability, StarlarkThread.makeDebugPrintHandler(printEvents));
+    ParserInput input = ParserInput.fromLines("print('hello');");
+
+    try {
+      Thread.currentThread().interrupt();
+      assertThrows(InterruptedException.class, () -> EvalUtils.exec(input, thread));
+    } finally {
+      // Reset interrupt bit in case the test failed to do so.
+      Thread.interrupted();
+    }
+
+    assertThat(printEvents).isEmpty();
+  }
+
+  @Test
+  public void testForLoopAbortedOnInterrupt() throws Exception {
+    StarlarkThread thread = createStarlarkThread(mutability, (th, msg) -> {});
+    InterruptFunction interruptFunction = new InterruptFunction();
+    thread.getGlobals().put("interrupt", interruptFunction);
+
+    ParserInput input =
+        ParserInput.fromLines(
+            "def foo():", // Can't declare for loops at top level, so wrap with a function.
+            "  for i in range(100):",
+            "    interrupt(i == 5)",
+            "foo()");
+
+    try {
+      assertThrows(InterruptedException.class, () -> EvalUtils.exec(input, thread));
+    } finally {
+      // Reset interrupt bit in case the test failed to do so.
+      Thread.interrupted();
+    }
+
+    assertThat(interruptFunction.callCount).isEqualTo(6);
+  }
+
+  @Test
+  public void testForComprehensionAbortedOnInterrupt() throws Exception {
+    StarlarkThread thread = createStarlarkThread(mutability, (th, msg) -> {});
+    InterruptFunction interruptFunction = new InterruptFunction();
+    thread.getGlobals().put("interrupt", interruptFunction);
+
+    ParserInput input = ParserInput.fromLines("[interrupt(i == 5) for i in range(100)]");
+
+    try {
+      assertThrows(InterruptedException.class, () -> EvalUtils.exec(input, thread));
+    } finally {
+      // Reset interrupt bit in case the test failed to do so.
+      Thread.interrupted();
+    }
+
+    assertThat(interruptFunction.callCount).isEqualTo(6);
+  }
+
+  @Test
+  public void testFunctionCallsNotStartedOnInterrupt() throws Exception {
+    StarlarkThread thread = createStarlarkThread(mutability, (th, msg) -> {});
+    InterruptFunction interruptFunction = new InterruptFunction();
+    thread.getGlobals().put("interrupt", interruptFunction);
+
+    ParserInput input =
+        ParserInput.fromLines("interrupt(False); interrupt(True); interrupt(False);");
+
+    try {
+      assertThrows(InterruptedException.class, () -> EvalUtils.exec(input, thread));
+    } finally {
+      // Reset interrupt bit in case the test failed to do so.
+      Thread.interrupted();
+    }
+
+    // Third call shouldn't happen.
+    assertThat(interruptFunction.callCount).isEqualTo(2);
+  }
+
+  private static class InterruptFunction implements StarlarkCallable {
+
+    private int callCount = 0;
+
+    @Override
+    public String getName() {
+      return "interrupt";
+    }
+
+    @Override
+    public Object fastcall(
+        StarlarkThread thread, Location loc, Object[] positional, Object[] named) {
+      callCount++;
+      if (positional.length > 0 && Starlark.truth(positional[0])) {
+        Thread.currentThread().interrupt();
+      }
+      return Starlark.NONE;
+    }
+  }
+
+  private static StarlarkThread createStarlarkThread(
+      Mutability mutability, StarlarkThread.PrintHandler printHandler) {
     StarlarkThread thread =
         StarlarkThread.builder(mutability)
             .useDefaultSemantics()
-            .setGlobals(
-                Module.createForBuiltins(
-                    Starlark.UNIVERSE)) // for print... this should not be necessary
-            .setEventHandler(printEvents)
+            // Provide the UNIVERSE for print... this should not be necessary
+            .setGlobals(Module.createForBuiltins(Starlark.UNIVERSE))
             .build();
-    ParserInput input = ParserInput.fromLines("print('hello'); x = 1//0; print('goodbye')");
-    try {
-      EvalUtils.exec(input, thread);
-      throw new AssertionError("execution succeeded unexpectedly");
-    } catch (EvalException ex) {
-      // ok, division by zero
-    }
-    if (!printEvents.toString().contains("hello")) {
-      throw new AssertionError("first print statement not executed: " + printEvents);
-    }
-    if (printEvents.toString().contains("goodbye")) {
-      throw new AssertionError("first print statement unexpected executed: " + printEvents);
-    }
+    thread.setPrintHandler(printHandler);
+    return thread;
   }
 
   @Test
@@ -83,7 +183,7 @@ public class EvaluationTest extends EvaluationTestCase {
         .testExpression("123 + 456", 579)
         .testExpression("456 - 123", 333)
         .testExpression("8 % 3", 2)
-        .testIfErrorContains("unsupported operand type(s) for %: 'int' and 'string'", "3 % 'foo'")
+        .testIfErrorContains("unsupported binary operation: int % string", "3 % 'foo'")
         .testExpression("-5", -5)
         .testIfErrorContains("unsupported unary operation: -string", "-'foo'");
   }
@@ -133,21 +233,18 @@ public class EvaluationTest extends EvaluationTestCase {
 
   @Test
   public void testSumFunction() throws Exception {
-    BaseFunction sum =
-        new BaseFunction(FunctionSignature.ANY) {
+    StarlarkCallable sum =
+        new StarlarkCallable() {
           @Override
           public String getName() {
             return "sum";
           }
 
           @Override
-          public Object call(
-              List<Object> args,
-              Map<String, Object> kwargs,
-              FuncallExpression ast,
-              StarlarkThread thread) {
+          public Object fastcall(
+              StarlarkThread thread, Location loc, Object[] positional, Object[] named) {
             int sum = 0;
-            for (Object arg : args) {
+            for (Object arg : positional) {
               sum += (Integer) arg;
             }
             return sum;
@@ -178,10 +275,9 @@ public class EvaluationTest extends EvaluationTestCase {
 
   @Test
   public void testKeywordArgs() throws Exception {
-
     // This function returns the map of keyword arguments passed to it.
-    BaseFunction kwargs =
-        new BaseFunction(FunctionSignature.KWARGS) {
+    StarlarkCallable kwargs =
+        new StarlarkCallable() {
           @Override
           public String getName() {
             return "kwargs";
@@ -189,11 +285,11 @@ public class EvaluationTest extends EvaluationTestCase {
 
           @Override
           public Object call(
-              List<Object> args,
-              final Map<String, Object> kwargs,
-              FuncallExpression ast,
-              StarlarkThread thread) {
-            return Dict.copyOf(thread.mutability(), kwargs);
+              StarlarkThread thread,
+              Location loc,
+              Tuple<Object> args,
+              Dict<String, Object> kwargs) {
+            return kwargs;
           }
         };
 
@@ -245,7 +341,7 @@ public class EvaluationTest extends EvaluationTestCase {
         .testExpression("-7 // 2", -4)
         .testExpression("-7 // -2", 3)
         .testExpression("2147483647 // 2", 1073741823)
-        .testIfErrorContains("unsupported operand type(s) for //: 'string' and 'int'", "'str' // 2")
+        .testIfErrorContains("unsupported binary operation: string // int", "'str' // 2")
         .testIfExactError("integer division by zero", "5 // 0");
   }
 
@@ -289,8 +385,7 @@ public class EvaluationTest extends EvaluationTestCase {
     assertThat(x).isEqualTo(Tuple.of(1, 2, 3, 4));
     assertThat(EvalUtils.isImmutable(x)).isTrue();
 
-    checkEvalError("unsupported operand type(s) for +: 'tuple' and 'list'",
-        "(1,2) + [3,4]"); // list + tuple
+    checkEvalError("unsupported binary operation: tuple + list", "(1,2) + [3,4]");
   }
 
   @Test
@@ -476,10 +571,8 @@ public class EvaluationTest extends EvaluationTestCase {
     newTest()
         .testExpression("[1, 2] + [3, 4]", StarlarkList.of(thread.mutability(), 1, 2, 3, 4))
         .testExpression("(1, 2) + (3, 4)", Tuple.of(1, 2, 3, 4))
-        .testIfExactError(
-            "unsupported operand type(s) for +: 'list' and 'tuple'", "[1, 2] + (3, 4)")
-        .testIfExactError(
-            "unsupported operand type(s) for +: 'tuple' and 'list'", "(1, 2) + [3, 4]");
+        .testIfExactError("unsupported binary operation: list + tuple", "[1, 2] + (3, 4)")
+        .testIfExactError("unsupported binary operation: tuple + list", "(1, 2) + [3, 4]");
   }
 
   @Test
@@ -648,7 +741,8 @@ public class EvaluationTest extends EvaluationTestCase {
     newTest()
         .testIfErrorContains(
             "'in <string>' requires string as left operand, not 'int'", "1 in '123'")
-        .testIfErrorContains("'int' is not iterable. in operator only works on ", "'a' in 1");
+        .testIfErrorContains(
+            "unsupported binary operation: string in int (right operand must be", "'a' in 1");
   }
 
   @Test
@@ -704,34 +798,32 @@ public class EvaluationTest extends EvaluationTestCase {
 
   @Test
   public void testDictKeysTooManyArgs() throws Exception {
-    newTest()
-        .testIfExactError(
-            "expected no more than 0 positional arguments, but got 1, "
-                + "for call to method keys() of 'dict'",
-            "{'a': 1}.keys('abc')");
+    newTest().testIfExactError("keys() got unexpected positional argument", "{'a': 1}.keys('abc')");
   }
 
   @Test
   public void testDictKeysTooManyKeyArgs() throws Exception {
     newTest()
         .testIfExactError(
-            "unexpected keyword 'arg', for call to method keys() of 'dict'",
-            "{'a': 1}.keys(arg='abc')");
+            "keys() got unexpected keyword argument 'arg'", "{'a': 1}.keys(arg='abc')");
   }
 
   @Test
   public void testDictKeysDuplicateKeyArgs() throws Exception {
-    newTest().testIfExactError("duplicate keywords 'arg', 'k' in call to {\"a\": 1}.keys",
-        "{'a': 1}.keys(arg='abc', arg='def', k=1, k=2)");
+    // TODO(adonovan): when the duplication is literal, this should be caught by a static check.
+    newTest()
+        .testIfExactError(
+            "int() got multiple values for argument 'base'", "int('1', base=10, base=16)");
+    new SkylarkTest()
+        .testIfExactError(
+            "int() got multiple values for argument 'base'", "int('1', base=10, **dict(base=16))");
   }
 
   @Test
   public void testArgBothPosKey() throws Exception {
     newTest()
         .testIfErrorContains(
-            "got multiple values for keyword argument 'base', "
-                + "for call to function int(x, base = unbound)",
-            "int('2', 3, base=3)");
+            "int() got multiple values for argument 'base'", "int('2', 3, base=3)");
   }
 
   @Test

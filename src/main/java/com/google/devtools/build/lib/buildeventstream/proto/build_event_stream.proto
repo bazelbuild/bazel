@@ -190,6 +190,9 @@ message BuildEventId {
   // of the build.
   message BuildMetricsId {}
 
+  // Identifier of an event providing convenience symlinks information.
+  message ConvenienceSymlinksIdentifiedId {}
+
   oneof id {
     UnknownBuildEventId unknown = 1;
     ProgressId progress = 2;
@@ -215,6 +218,7 @@ message BuildEventId {
     BuildMetricsId build_metrics = 22;
     WorkspaceConfigId workspace = 23;
     BuildMetadataId build_metadata = 24;
+    ConvenienceSymlinksIdentifiedId convenience_symlinks_identified = 25;
   }
 }
 
@@ -683,6 +687,10 @@ message BuildMetrics {
     // --bep_publish_used_heap_size_post_build is set,
     // since it forces a full GC.
     int64 used_heap_size_post_build = 1;
+
+    // Size of the peak JVM heap size in bytes post GC. Note that this reports 0
+    // if there was no major GC during the build.
+    int64 peak_post_gc_heap_size = 2;
   }
   MemoryMetrics memory_metrics = 2;
 
@@ -702,11 +710,60 @@ message BuildMetrics {
     int64 packages_loaded = 1;
   }
   PackageMetrics package_metrics = 4;
+
+  message TimingMetrics {
+    // The CPU time in milliseconds consumed during this build.
+    int64 cpu_time_in_ms = 1;
+    // The elapsed wall time in milliseconds during this build.
+    int64 wall_time_in_ms = 2;
+  }
+  TimingMetrics timing_metrics = 5;
 }
 
 // Event providing additional statistics/logs after completion of the build.
 message BuildToolLogs {
   repeated File log = 1;
+}
+
+// Event describing all convenience symlinks (i.e., workspace symlinks) to be
+// created or deleted once the execution phase has begun. Note that this event
+// does not say anything about whether or not the build tool actually executed
+// these filesystem operations; it only says what logical operations should be
+// performed. This event is emitted exactly once per build; if no symlinks are
+// to be modified, the event is still emitted with empty contents.
+message ConvenienceSymlinksIdentified {
+  repeated ConvenienceSymlink convenience_symlinks = 1;
+}
+
+// The message that contains what type of action to perform on a given path and
+// target of a symlink.
+message ConvenienceSymlink {
+  enum Action {
+    UNKNOWN = 0;
+
+    // Indicates a symlink should be created, or overwritten if it already
+    // exists.
+    CREATE = 1;
+
+    // Indicates a symlink should be deleted if it already exists.
+    DELETE = 2;
+  }
+
+  // The path of the symlink to be created or deleted, absolute or relative to
+  // the workspace, creating any directories necessary. If a symlink already
+  // exists at that location, then it should be replaced by a symlink pointing
+  // to the new target.
+  string path = 1;
+
+  // The operation we are performing on the symlink.
+  Action action = 2;
+
+  // If action is CREATE, this is the target path that the symlink should point
+  // to. If the path points underneath the output base, it is relative to the
+  // output base; otherwise it is absolute.
+  //
+  // If action is DELETE, this field is not set.
+  string target = 3;
 }
 
 // Message describing a build event. Events will have an identifier that
@@ -741,5 +798,6 @@ message BuildEvent {
     BuildMetrics build_metrics = 24;
     WorkspaceConfig workspace_info = 25;
     BuildMetadata build_metadata = 26;
+    ConvenienceSymlinksIdentified convenience_symlinks_identified = 27;
   }
 }

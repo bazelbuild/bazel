@@ -16,7 +16,6 @@ package com.google.devtools.build.android.resources;
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Splitter;
-import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.android.DependencyInfo;
 import java.io.IOException;
@@ -35,10 +34,10 @@ public final class IntArrayFieldInitializer implements FieldInitializer {
 
   private final DependencyInfo dependencyInfo;
   private final String fieldName;
-  private final ImmutableCollection<Integer> values;
+  private final ImmutableList<Integer> values;
 
   private IntArrayFieldInitializer(
-      DependencyInfo dependencyInfo, String fieldName, ImmutableCollection<Integer> values) {
+      DependencyInfo dependencyInfo, String fieldName, ImmutableList<Integer> values) {
     this.dependencyInfo = dependencyInfo;
     this.fieldName = fieldName;
     this.values = values;
@@ -49,7 +48,7 @@ public final class IntArrayFieldInitializer implements FieldInitializer {
     Preconditions.checkArgument(value.endsWith(" }"), "Expected list ending with } ");
     // Check for an empty list, which is "{ }".
     if (value.length() < 4) {
-      return of(dependencyInfo, fieldName, ImmutableList.<Integer>of());
+      return of(dependencyInfo, fieldName, ImmutableList.of());
     }
     ImmutableList.Builder<Integer> intValues = ImmutableList.builder();
     String trimmedValue = value.substring(2, value.length() - 2);
@@ -61,7 +60,7 @@ public final class IntArrayFieldInitializer implements FieldInitializer {
   }
 
   public static IntArrayFieldInitializer of(
-      DependencyInfo dependencyInfo, String fieldName, ImmutableCollection<Integer> values) {
+      DependencyInfo dependencyInfo, String fieldName, ImmutableList<Integer> values) {
     return new IntArrayFieldInitializer(dependencyInfo, fieldName, values);
   }
 
@@ -137,7 +136,9 @@ public final class IntArrayFieldInitializer implements FieldInitializer {
   public boolean equals(Object obj) {
     if (obj instanceof IntArrayFieldInitializer) {
       IntArrayFieldInitializer other = (IntArrayFieldInitializer) obj;
-      return Objects.equals(values, other.values);
+      return Objects.equals(dependencyInfo, other.dependencyInfo)
+          && Objects.equals(fieldName, other.fieldName)
+          && Objects.equals(values, other.values);
     }
     return false;
   }

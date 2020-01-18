@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.bazel.BazelRepositoryModule;
 import com.google.devtools.build.lib.bazel.repository.cache.RepositoryCache;
+import com.google.devtools.build.lib.bazel.repository.downloader.DownloadManager;
 import com.google.devtools.build.lib.bazel.repository.downloader.HttpDownloader;
 import com.google.devtools.build.lib.bazel.repository.skylark.SkylarkRepositoryFunction;
 import com.google.devtools.build.lib.bazel.rules.BazelRulesModule;
@@ -92,7 +93,8 @@ public class BazelPackageLoader extends AbstractPackageLoader {
     public BazelPackageLoader buildImpl() {
       // Set up SkyFunctions and PrecomputedValues needed to make local repositories work correctly.
       RepositoryCache repositoryCache = new RepositoryCache();
-      HttpDownloader httpDownloader = new HttpDownloader(repositoryCache);
+      HttpDownloader httpDownloader = new HttpDownloader();
+      DownloadManager downloadManager = new DownloadManager(repositoryCache, httpDownloader);
       addExtraSkyFunctions(
           ImmutableMap.<SkyFunctionName, SkyFunction>builder()
               .put(
@@ -109,7 +111,7 @@ public class BazelPackageLoader extends AbstractPackageLoader {
                   SkyFunctions.REPOSITORY_DIRECTORY,
                   new RepositoryDelegatorFunction(
                       BazelRepositoryModule.repositoryRules(),
-                      new SkylarkRepositoryFunction(httpDownloader),
+                      new SkylarkRepositoryFunction(downloadManager),
                       isFetch,
                       ImmutableMap::of,
                       directories,

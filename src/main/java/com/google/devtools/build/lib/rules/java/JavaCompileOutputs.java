@@ -16,9 +16,6 @@ package com.google.devtools.build.lib.rules.java;
 
 import com.google.auto.value.AutoValue;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.collect.nestedset.NestedSet;
-import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import java.util.stream.Stream;
 import javax.annotation.Nullable;
 
 /** The outputs of a {@link JavaCompileAction}. */
@@ -57,15 +54,6 @@ public abstract class JavaCompileOutputs<T extends Artifact> {
 
   public JavaCompileOutputs<T> withOutput(T output) {
     return toBuilder().output(output).build();
-  }
-
-  public NestedSet<T> toNestedSet() {
-    NestedSetBuilder<T> result = NestedSetBuilder.<T>stableOrder();
-    // 'genClass' is created by a separate action
-    Stream.of(output(), manifestProto(), depsProto(), genSource(), nativeHeader())
-        .filter(x -> x != null)
-        .forEachOrdered(result::add);
-    return result.build();
   }
 
   @AutoValue.Builder

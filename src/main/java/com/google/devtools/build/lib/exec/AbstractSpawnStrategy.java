@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.exec;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.actions.ActionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.ActionInput;
@@ -24,9 +25,11 @@ import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
+import com.google.devtools.build.lib.actions.LostInputsActionExecutionException;
+import com.google.devtools.build.lib.actions.LostInputsExecException;
 import com.google.devtools.build.lib.actions.MetadataProvider;
 import com.google.devtools.build.lib.actions.RunningActionEvent;
-import com.google.devtools.build.lib.actions.SandboxedSpawnActionContext;
+import com.google.devtools.build.lib.actions.SandboxedSpawnStrategy;
 import com.google.devtools.build.lib.actions.SchedulingActionEvent;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnExecutedEvent;
@@ -47,13 +50,12 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
 import java.time.Duration;
-import java.util.List;
 import java.util.SortedMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import javax.annotation.Nullable;
 
 /** Abstract common ancestor for spawn strategies implementing the common parts. */
-public abstract class AbstractSpawnStrategy implements SandboxedSpawnActionContext {
+public abstract class AbstractSpawnStrategy implements SandboxedSpawnStrategy {
 
   /**
    * Last unique identifier assigned to a spawn by this strategy.
@@ -83,18 +85,18 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnActionConte
   }
 
   @Override
-  public List<SpawnResult> exec(Spawn spawn, ActionExecutionContext actionExecutionContext)
+  public boolean canExec(Spawn spawn, ActionContextRegistry actionContextRegistry) {
+    return spawnRunner.canExec(spawn);
+  }
+
+  @Override
+  public ImmutableList<SpawnResult> exec(Spawn spawn, ActionExecutionContext actionExecutionContext)
       throws ExecException, InterruptedException {
     return exec(spawn, actionExecutionContext, null);
   }
 
   @Override
-  public boolean canExec(Spawn spawn) {
-    return spawnRunner.canExec(spawn);
-  }
-
-  @Override
-  public List<SpawnResult> exec(
+  public ImmutableList<SpawnResult> exec(
       Spawn spawn,
       ActionExecutionContext actionExecutionContext,
       @Nullable StopConcurrentSpawns stopConcurrentSpawns)
@@ -184,7 +186,7 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnActionConte
     // TODO(ulfjack): Guard against client modification of this map.
     private SortedMap<PathFragment, ActionInput> lazyInputMapping;
 
-    public SpawnExecutionContextImpl(
+    SpawnExecutionContextImpl(
         Spawn spawn,
         ActionExecutionContext actionExecutionContext,
         @Nullable StopConcurrentSpawns stopConcurrentSpawns,
@@ -217,6 +219,11 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnActionConte
     @Override
     public MetadataHandler getMetadataInjector() {
       return actionExecutionContext.getMetadataHandler();
+    }
+
+    @Override
+    public <T extends ActionContext> T getContext(Class<T> identifyingType) {
+      return actionExecutionContext.getContext(identifyingType);
     }
 
     @Override
@@ -294,6 +301,15 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnActionConte
           break;
         default:
           break;
+      }
+    }
+
+    @Override
+    public void checkForLostInputs() throws LostInputsExecException {
+      try {
+        actionExecutionContext.checkForLostInputs();
+      } catch (LostInputsActionExecutionException e) {
+        throw e.toExecException();
       }
     }
   }

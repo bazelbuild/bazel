@@ -38,6 +38,7 @@ import com.google.devtools.build.lib.skylarkdebugging.SkylarkDebuggingProtos.Sta
 import com.google.devtools.build.lib.skylarkdebugging.SkylarkDebuggingProtos.StartDebuggingResponse;
 import com.google.devtools.build.lib.skylarkdebugging.SkylarkDebuggingProtos.Stepping;
 import com.google.devtools.build.lib.skylarkdebugging.SkylarkDebuggingProtos.Value;
+import com.google.devtools.build.lib.syntax.Debug;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.Mutability;
@@ -107,7 +108,7 @@ public class SkylarkDebugServerTest {
 
     server = future.get(10, TimeUnit.SECONDS);
     assertThat(server).isNotNull();
-    EvalUtils.setDebugger(server);
+    Debug.setDebugger(server);
   }
 
   @After
@@ -149,7 +150,7 @@ public class SkylarkDebugServerTest {
     DebugEvent event = client.waitForEvent(DebugEvent::hasThreadPaused, Duration.ofSeconds(5));
 
     Location expectedLocation =
-        DebugEventHelper.getLocationProto(buildFile.getStatements().get(0).getLocation());
+        DebugEventHelper.getLocationProto(buildFile.getStatements().get(0).getStartLocation());
 
     assertThat(event)
         .isEqualTo(
@@ -361,7 +362,7 @@ public class SkylarkDebugServerTest {
     assertFramesEqualIgnoringValueIdentifiers(
         frames.getFrame(0),
         Frame.newBuilder()
-            .setFunctionName("<top level>")
+            .setFunctionName("<toplevel>")
             .setLocation(breakpoint.toBuilder().setColumnNumber(1))
             .addScope(
                 Scope.newBuilder()
@@ -442,13 +443,13 @@ public class SkylarkDebugServerTest {
                 Scope.newBuilder()
                     .setName("global")
                     .addBinding(getValueProto("c", 3))
-                    .addBinding(getValueProto("fn", thread.moduleLookup("fn"))))
+                    .addBinding(getValueProto("fn", thread.getGlobals().lookup("fn"))))
             .build());
 
     assertFramesEqualIgnoringValueIdentifiers(
         frames.getFrame(1),
         Frame.newBuilder()
-            .setFunctionName("<top level>")
+            .setFunctionName("<toplevel>")
             .setLocation(
                 Location.newBuilder()
                     .setPath("/a/build/file/test.bzl")
@@ -459,7 +460,7 @@ public class SkylarkDebugServerTest {
                     .setName("global")
                     .addBinding(getValueProto("a", 1))
                     .addBinding(getValueProto("c", 3))
-                    .addBinding(getValueProto("fn", thread.moduleLookup("fn"))))
+                    .addBinding(getValueProto("fn", thread.getGlobals().lookup("fn"))))
             .build());
   }
 
@@ -767,7 +768,7 @@ public class SkylarkDebugServerTest {
   private StarlarkFile parseBuildFile(String filename, String... lines) throws IOException {
     Path path = scratch.file(filename, lines);
     byte[] bytes = FileSystemUtils.readWithKnownFileSize(path, path.getFileSize());
-    ParserInput input = ParserInput.create(bytes, path.asFragment());
+    ParserInput input = ParserInput.create(bytes, filename);
     StarlarkFile file = StarlarkFile.parse(input);
     Event.replayEventsOn(events.reporter(), file.errors());
     return file;
