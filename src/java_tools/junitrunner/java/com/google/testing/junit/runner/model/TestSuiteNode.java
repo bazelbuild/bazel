@@ -21,6 +21,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Map;
 import org.junit.runner.Description;
 
 /**
@@ -28,9 +29,15 @@ import org.junit.runner.Description;
  */
 class TestSuiteNode extends TestNode {
   private final List<TestNode> children = new ArrayList<>();
+  private final Map<String, String> properties;
 
   TestSuiteNode(Description description) {
+    this(description, Collections.emptyMap());
+  }
+
+  TestSuiteNode(Description description, Map<String, String> properties) {
     super(description);
+    this.properties = properties;
   }
 
   // VisibleForTesting
@@ -109,7 +116,7 @@ class TestSuiteNode extends TestNode {
     return new TestResult.Builder()
         .name(getDescription().getDisplayName())
         .className("")
-        .properties(Collections.<String, String>emptyMap())
+        .properties(properties)
         .failures(Collections.<Throwable>emptyList())
         .runTimeInterval(runTime)
         .status(Status.SKIPPED)
