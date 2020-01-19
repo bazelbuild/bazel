@@ -1229,7 +1229,7 @@ public class CompilationSupport {
       }
     }
 
-    if (attributes.enableModules() && !getCustomModuleMap(ruleContext).isPresent()) {
+    if (attributes.enableModules()) {
       copts.add("-fmodules");
     }
     if (copts.contains("-fmodules")) {
