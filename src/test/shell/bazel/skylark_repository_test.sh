@@ -1413,6 +1413,55 @@ EOF
       || fail "expected success after successful sync"
 }
 
+function test_sync_only() {
+  # Set up two repositories that count how often they are fetched
+  cat >environ.bzl <<'EOF'
+def environ(r_ctx, var):
+  return r_ctx.os.environ[var] if var in r_ctx.os.environ else "undefined"
+EOF
+  cat <<'EOF' >bar.tpl
+FOO=%{FOO} BAR=%{BAR} BAZ=%{BAZ}
+EOF
+  write_environ_skylark "${TEST_TMPDIR}/executionFOO" ""
+  mv test.bzl testfoo.bzl
+  write_environ_skylark "${TEST_TMPDIR}/executionBAR" ""
+  mv test.bzl testbar.bzl
+  cat > WORKSPACE <<'EOF'
+load("//:testfoo.bzl", foorepo="repo")
+load("//:testbar.bzl", barrepo="repo")
+foorepo(name="foo")
+barrepo(name="bar")
+EOF
+  touch BUILD
+  bazel clean --expunge
+  echo 0 > "${TEST_TMPDIR}/executionFOO"
+  echo 0 > "${TEST_TMPDIR}/executionBAR"
+
+  # Normal sync should hit both repositories
+  echo; echo bazel sync; echo
+  bazel sync
+  assert_equals 1 $(cat "${TEST_TMPDIR}/executionFOO")
+  assert_equals 1 $(cat "${TEST_TMPDIR}/executionBAR")
+
+  # Only foo
+  echo; echo bazel sync --only foo; echo
+  bazel sync --only foo
+  assert_equals 2 $(cat "${TEST_TMPDIR}/executionFOO")
+  assert_equals 1 $(cat "${TEST_TMPDIR}/executionBAR")
+
+  # Only bar
+  echo; echo bazel sync --only bar; echo
+  bazel sync --only bar
+  assert_equals 2 $(cat "${TEST_TMPDIR}/executionFOO")
+  assert_equals 2 $(cat "${TEST_TMPDIR}/executionBAR")
+
+  # Only bar
+  echo; echo bazel sync --only bar; echo
+  bazel sync --only bar
+  assert_equals 2 $(cat "${TEST_TMPDIR}/executionFOO")
+  assert_equals 3 $(cat "${TEST_TMPDIR}/executionBAR")
+}
+
 function test_download_failure_message() {
   # Regression test for #7850
   # Verify that the for a failed downlaod, it is clearly indicated
