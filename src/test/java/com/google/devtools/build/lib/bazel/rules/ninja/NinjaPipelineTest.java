@@ -11,13 +11,14 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-//
 
 package com.google.devtools.build.lib.bazel.rules.ninja;
 
 import static com.google.common.truth.Truth.assertThat;
 import static junit.framework.TestCase.fail;
 
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
@@ -33,7 +34,6 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
-import java.util.List;
 import java.util.concurrent.Executors;
 import org.junit.After;
 import org.junit.Before;
@@ -107,8 +107,9 @@ public class NinjaPipelineTest {
             "  command = c $in $out",
             "build t1: r1 in1 in2",
             "build t2: r1 in3");
-    NinjaPipeline pipeline = new NinjaPipeline(vfsPath.getParentDirectory(), tester.getService());
-    List<NinjaTarget> targets = pipeline.pipeline(vfsPath).getSecond();
+    NinjaPipeline pipeline = new NinjaPipeline(vfsPath.getParentDirectory(), tester.getService(),
+        ImmutableList.of(), "ninja_target");
+    ImmutableSortedMap<PathFragment, NinjaTarget> targets = pipeline.pipeline(vfsPath).getSecond();
     checkTargets(targets);
   }
 
@@ -117,9 +118,10 @@ public class NinjaPipelineTest {
     Path vfsPath =
         tester.writeTmpFile(
             "test.ninja", "rule r1", "  command = c $in $out", "include child.ninja");
-    tester.writeTmpFile("child.ninja", "build t1: r1 in1 in2", "build t2: r1 in3");
-    NinjaPipeline pipeline = new NinjaPipeline(vfsPath.getParentDirectory(), tester.getService());
-    List<NinjaTarget> targets = pipeline.pipeline(vfsPath).getSecond();
+    Path childFile = tester.writeTmpFile("child.ninja", "build t1: r1 in1 in2", "build t2: r1 in3");
+    NinjaPipeline pipeline = new NinjaPipeline(vfsPath.getParentDirectory(), tester.getService(),
+        ImmutableList.of(childFile), "ninja_target");
+    ImmutableSortedMap<PathFragment, NinjaTarget> targets = pipeline.pipeline(vfsPath).getSecond();
     checkTargets(targets);
   }
 
@@ -132,9 +134,10 @@ public class NinjaPipelineTest {
             "rule r1",
             "  command = c $in $out",
             "include ${subfile}.ninja");
-    tester.writeTmpFile("child.ninja", "build t1: r1 in1 in2", "build t2: r1 in3");
-    NinjaPipeline pipeline = new NinjaPipeline(vfsPath.getParentDirectory(), tester.getService());
-    List<NinjaTarget> targets = pipeline.pipeline(vfsPath).getSecond();
+    Path childFile = tester.writeTmpFile("child.ninja", "build t1: r1 in1 in2", "build t2: r1 in3");
+    NinjaPipeline pipeline = new NinjaPipeline(vfsPath.getParentDirectory(), tester.getService(),
+        ImmutableList.of(childFile), "ninja_target");
+    ImmutableSortedMap<PathFragment, NinjaTarget> targets = pipeline.pipeline(vfsPath).getSecond();
     checkTargets(targets);
   }
 
@@ -149,25 +152,27 @@ public class NinjaPipelineTest {
             "  command = c $in $out",
             "include ${subfile}.ninja",
             "build t1: r1 ${top_scope_var} in2");
-    tester.writeTmpFile(
+    Path childFile = tester.writeTmpFile(
         "child.ninja", "top_scope_var=in1", "var_for_sub=in3", "subninja ${subninja_file}.ninja");
-    tester.writeTmpFile("sub.ninja", "build t2: r1 ${var_for_sub}");
-    NinjaPipeline pipeline = new NinjaPipeline(vfsPath.getParentDirectory(), tester.getService());
-    List<NinjaTarget> targets = pipeline.pipeline(vfsPath).getSecond();
+    Path subFile = tester.writeTmpFile("sub.ninja", "build t2: r1 ${var_for_sub}");
+    NinjaPipeline pipeline = new NinjaPipeline(vfsPath.getParentDirectory(), tester.getService(),
+        ImmutableList.of(childFile, subFile), "ninja_target");
+    ImmutableSortedMap<PathFragment, NinjaTarget> targets = pipeline.pipeline(vfsPath).getSecond();
     checkTargets(targets);
   }
 
   @Test
   public void testEmptyFile() throws Exception {
     Path vfsPath = tester.writeTmpFile("test.ninja");
-    NinjaPipeline pipeline = new NinjaPipeline(vfsPath.getParentDirectory(), tester.getService());
-    List<NinjaTarget> targets = pipeline.pipeline(vfsPath).getSecond();
+    NinjaPipeline pipeline = new NinjaPipeline(vfsPath.getParentDirectory(), tester.getService(),
+        ImmutableList.of(), "ninja_target");
+    ImmutableSortedMap<PathFragment, NinjaTarget> targets = pipeline.pipeline(vfsPath).getSecond();
     assertThat(targets).isEmpty();
   }
 
-  private static void checkTargets(List<NinjaTarget> targets) {
+  private static void checkTargets(ImmutableSortedMap<PathFragment, NinjaTarget> targets) {
     assertThat(targets).hasSize(2);
-    for (NinjaTarget target : targets) {
+    for (NinjaTarget target : targets.values()) {
       if (target.getAllOutputs().contains(PathFragment.create("t1"))) {
         assertThat(target.getAllInputs())
             .containsExactly(PathFragment.create("in1"), PathFragment.create("in2"));

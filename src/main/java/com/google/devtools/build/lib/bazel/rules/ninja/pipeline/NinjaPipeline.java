@@ -11,13 +11,13 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-//
 
 package com.google.devtools.build.lib.bazel.rules.ninja.pipeline;
 
 import static com.google.devtools.build.lib.concurrent.MoreFutures.waitForFutureAndGetWithCheckedException;
 
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -38,9 +38,12 @@ import com.google.devtools.build.lib.bazel.rules.ninja.parser.NinjaTarget;
 import com.google.devtools.build.lib.bazel.rules.ninja.parser.NinjaVariableValue;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.nio.channels.ReadableByteChannel;
 import java.util.ArrayDeque;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 
@@ -53,14 +56,23 @@ import java.util.Map;
 public class NinjaPipeline {
   private final Path basePath;
   private final ListeningExecutorService service;
+  private final Collection<Path> childNinjaFiles;
+  private final String ownerTargetName;
 
   /**
    * @param basePath base path for resolving include and subninja paths.
    * @param service service to use for scheduling tasks in parallel.
+   * @param childNinjaFiles Ninja files expected in include/subninja statements
+   * @param ownerTargetName name of the owner ninja_graph target
    */
-  public NinjaPipeline(Path basePath, ListeningExecutorService service) {
+  public NinjaPipeline(Path basePath,
+      ListeningExecutorService service,
+      Collection<Path> childNinjaFiles,
+      String ownerTargetName) {
     this.basePath = basePath;
     this.service = service;
+    this.childNinjaFiles = childNinjaFiles;
+    this.ownerTargetName = ownerTargetName;
   }
 
   /**
@@ -69,7 +81,7 @@ public class NinjaPipeline {
    * @return {@link Pair} of {@link NinjaScope} with rules and expanded variables (and child
    *     scopes), and list of {@link NinjaTarget}.
    */
-  public Pair<NinjaScope, List<NinjaTarget>> pipeline(Path mainFile)
+  public Pair<NinjaScope, ImmutableSortedMap<PathFragment, NinjaTarget>> pipeline(Path mainFile)
       throws GenericParsingException, InterruptedException, IOException {
     NinjaFileParseResult result =
         waitForFutureAndGetWithCheckedException(
@@ -87,7 +99,7 @@ public class NinjaPipeline {
    * variables in targets are immediately expanded.) We are iterating main and all transitively
    * included scopes, and parsing corresponding targets.
    */
-  private List<NinjaTarget> iterateScopesScheduleTargetsParsing(
+  private ImmutableSortedMap<PathFragment, NinjaTarget> iterateScopesScheduleTargetsParsing(
       NinjaScope scope, Map<NinjaScope, List<ByteFragmentAtOffset>> rawTargets)
       throws GenericParsingException, InterruptedException {
     ArrayDeque<NinjaScope> queue = new ArrayDeque<>();
@@ -108,7 +120,11 @@ public class NinjaPipeline {
       queue.addAll(currentScope.getIncludedScopes());
       queue.addAll(currentScope.getSubNinjaScopes());
     }
-    return future.getResult();
+    ImmutableSortedMap.Builder<PathFragment, NinjaTarget> builder =
+        ImmutableSortedMap.naturalOrder();
+    List<NinjaTarget> result = future.getResult();
+    result.forEach(t -> t.getAllOutputs().forEach(pf -> builder.put(pf, t)));
+    return builder.build();
   }
 
   /**
@@ -129,7 +145,7 @@ public class NinjaPipeline {
     if (value.isPlainText()) {
       // If the value of the path is already known, we can immediately schedule parsing
       // of the child Ninja file.
-      Path path = basePath.getRelative(value.getRawText());
+      Path path = getChildNinjaPath(value.getRawText());
       ListenableFuture<NinjaFileParseResult> parsingFuture = scheduleParsing(path);
       return (scope) ->
           waitForFutureAndGetWithCheckedException(
@@ -142,11 +158,21 @@ public class NinjaPipeline {
         if (expandedValue.isEmpty()) {
           throw new GenericParsingException("Expected non-empty path.");
         }
-        Path path = basePath.getRelative(expandedValue);
+        Path path = getChildNinjaPath(expandedValue);
         return waitForFutureAndGetWithCheckedException(
             scheduleParsing(path), GenericParsingException.class, IOException.class);
       };
     }
+  }
+
+  private Path getChildNinjaPath(String rawText) throws FileNotFoundException {
+    Path childPath = basePath.getRelative(rawText);
+    if (!this.childNinjaFiles.contains(childPath)) {
+      throw new FileNotFoundException(String.format("Child Ninja file requested from '%s' "
+          + "not declared in 'srcs' attribute of '%s'.", this.basePath.asFragment().getPathString(),
+          this.ownerTargetName));
+    }
+    return childPath;
   }
 
   /**
