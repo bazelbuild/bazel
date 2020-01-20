@@ -426,11 +426,7 @@ public final class SkyframeBuildView {
               .addAll(ctKeys)
               .addAll(aspectKeys)
               .build();
-      if (someConfiguredTargetEvaluated
-          || anyConfiguredTargetDeleted
-          || !dirtiedConfiguredTargetKeys.isEmpty()
-          || !largestTopLevelKeySetCheckedForConflicts.containsAll(newKeys)
-          || !skyframeActionExecutor.badActions().isEmpty()) {
+      if (checkForConflicts(newKeys)) {
         largestTopLevelKeySetCheckedForConflicts = newKeys;
         // This operation is somewhat expensive, so we only do it if the graph might have changed in
         // some way -- either we analyzed a new target or we invalidated an old one or are building
@@ -521,6 +517,66 @@ public final class SkyframeBuildView {
         result.getWalkableGraph(),
         ImmutableList.copyOf(aspects),
         packageRoots);
+  }
+
+  private boolean checkForConflicts(ImmutableSet<SkyKey> newKeys) {
+    if (someConfiguredTargetEvaluated) {
+      // A top-level target was added and may introduce a conflict, or a top-level target was
+      // recomputed and may introduce or resolve a conflict.
+      return true;
+    }
+
+    if (anyConfiguredTargetDeleted) {
+      // No target was (re)computed, but some were deleted, which may resolve a conflict.
+      // TODO(laszlocsomor): get to understand this condition and give an example for it.
+      return true;
+    }
+
+    if (!dirtiedConfiguredTargetKeys.isEmpty()) {
+      // No target was (re)computed and none was deleted, but at least one was dirtied.
+      // Example: (//:x //foo:y) are built, and in conflict (//:x creates foo/C and //foo:y
+      // creates C). Then y is removed from foo/BUILD and only //:x is built, so //foo:y is
+      // dirtied but not recomputed, and no other nodes are recomputed (and none are deleted).
+      // Still we must do the conflict checking because previously there was a conflict but now
+      // there isn't.
+      return true;
+    }
+
+    if (!skyframeActionExecutor.badActions().isEmpty()) {
+      // Example sequence:
+      // 1.  Build (x y z), and there is a conflict. We store (x y z) as the largest checked key
+      //     set, and record the fact that there were bad actions.
+      // 2.  Null-build (x z), so we don't evaluate or dirty or delete anything, but because we know
+      //     there was some conflict last time but don't know exactly which targets conflicted, it
+      //     could have been (x z), so we now check again.
+      return true;
+    }
+
+    if (!largestTopLevelKeySetCheckedForConflicts.containsAll(newKeys)) {
+      // Example sequence:
+      // 1.  Build (x y z), and there is a conflict. We store (x y z) as the largest checked key
+      //     set, and record the fact that there were bad actions.
+      // 2.  Null-build (x z), so we don't evaluate or dirty or delete anything, but because we know
+      //     there was some conflict last time but don't know exactly which targets conflicted, it
+      //     could have been (x z), so we now check again, and store (x z) as the largest checked
+      //     key set.
+      // 3.  Null-build (y z), so again we don't evaluate or dirty or delete anything, and the
+      //     previous build had no conflicts, so no other condition is true. But because (y z) is no
+      //     subset of (x z) and we only keep the most recent largest checked key set, we don't know
+      //     if (y z) are conflict free, so we check.
+      return true;
+    }
+
+    // We believe the conditions above are correct in the sense that we always check for conflicts
+    // when we have to. But they are incomplete, so we sometimes check for conflicts even if we
+    // wouldn't have to. For example:
+    // - if no target was evaluated (nor dirtied, nor deleted), and build sequence is (x y)
+    //   [no conflict], (z), where z is in the transitive closure of (x y), then we shouldn't check.
+    // - if no target was evaluated (nor dirtied, nor deleted), and build sequence is (x y)
+    //   [no conflict], (z), (x), then the last build shouldn't conflict-check because (x y) was
+    //   checked earlier. But it does, since after the second build we store (z) as the largest
+    //   checked set of which (x) is no subset.
+    return false;
   }
 
   /**
