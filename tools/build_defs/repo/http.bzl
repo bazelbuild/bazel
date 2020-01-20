@@ -115,6 +115,7 @@ def _http_file_impl(ctx):
         "file/" + downloaded_file_path,
         ctx.attr.sha256,
         ctx.attr.executable,
+        canonical_id = ctx.attr.canonical_id,
         auth = auth,
     )
     ctx.file("WORKSPACE", "workspace(name = \"{name}\")".format(name = ctx.name))
@@ -153,6 +154,7 @@ def _http_jar_impl(ctx):
         all_urls,
         "jar/downloaded.jar",
         ctx.attr.sha256,
+        canonical_id = ctx.attr.canonical_id,
         auth = auth,
     )
     ctx.file("WORKSPACE", "workspace(name = \"{name}\")".format(name = ctx.name))
@@ -193,8 +195,8 @@ easier but should be set before shipping.""",
     "canonical_id": attr.string(
         doc = """A canonical id of the archive downloaded.
 
-If specified and non-empty, bazel will not take a the archive from cache,
-unless is was added to the cache by a request with the same canonical id.
+If specified and non-empty, bazel will not take the archive from cache,
+unless it was added to the cache by a request with the same canonical id.
 """,
     ),
     "strip_prefix": attr.string(
@@ -359,6 +361,13 @@ to omit the SHA-256 as remote files can change._ At best omitting this
 field will make your build non-hermetic. It is optional to make development
 easier but should be set before shipping.""",
     ),
+    "canonical_id": attr.string(
+        doc = """A canonical id of the archive downloaded.
+
+If specified and non-empty, bazel will not take the archive from cache,
+unless it was added to the cache by a request with the same canonical id.
+""",
+    ),
     "urls": attr.string_list(
         mandatory = True,
         doc = """A list of URLs to a file that will be made available to Bazel.
@@ -400,6 +409,13 @@ Examples:
 _http_jar_attrs = {
     "sha256": attr.string(
         doc = "The expected SHA-256 of the file downloaded.",
+    ),
+    "canonical_id": attr.string(
+        doc = """A canonical id of the archive downloaded.
+
+If specified and non-empty, bazel will not take the archive from cache,
+unless it was added to the cache by a request with the same canonical id.
+""",
     ),
     "url": attr.string(
         doc =
