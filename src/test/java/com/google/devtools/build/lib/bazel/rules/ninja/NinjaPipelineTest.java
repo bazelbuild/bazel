@@ -15,10 +15,10 @@
 package com.google.devtools.build.lib.bazel.rules.ninja;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 import static junit.framework.TestCase.fail;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
@@ -31,10 +31,13 @@ import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.JavaIoFileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.util.List;
 import java.util.concurrent.Executors;
+import java.util.regex.Pattern;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -109,7 +112,7 @@ public class NinjaPipelineTest {
             "build t2: r1 in3");
     NinjaPipeline pipeline = new NinjaPipeline(vfsPath.getParentDirectory(), tester.getService(),
         ImmutableList.of(), "ninja_target");
-    ImmutableSortedMap<PathFragment, NinjaTarget> targets = pipeline.pipeline(vfsPath).getSecond();
+    List<NinjaTarget> targets = pipeline.pipeline(vfsPath).getSecond();
     checkTargets(targets);
   }
 
@@ -121,7 +124,7 @@ public class NinjaPipelineTest {
     Path childFile = tester.writeTmpFile("child.ninja", "build t1: r1 in1 in2", "build t2: r1 in3");
     NinjaPipeline pipeline = new NinjaPipeline(vfsPath.getParentDirectory(), tester.getService(),
         ImmutableList.of(childFile), "ninja_target");
-    ImmutableSortedMap<PathFragment, NinjaTarget> targets = pipeline.pipeline(vfsPath).getSecond();
+    List<NinjaTarget> targets = pipeline.pipeline(vfsPath).getSecond();
     checkTargets(targets);
   }
 
@@ -137,7 +140,7 @@ public class NinjaPipelineTest {
     Path childFile = tester.writeTmpFile("child.ninja", "build t1: r1 in1 in2", "build t2: r1 in3");
     NinjaPipeline pipeline = new NinjaPipeline(vfsPath.getParentDirectory(), tester.getService(),
         ImmutableList.of(childFile), "ninja_target");
-    ImmutableSortedMap<PathFragment, NinjaTarget> targets = pipeline.pipeline(vfsPath).getSecond();
+    List<NinjaTarget> targets = pipeline.pipeline(vfsPath).getSecond();
     checkTargets(targets);
   }
 
@@ -157,7 +160,7 @@ public class NinjaPipelineTest {
     Path subFile = tester.writeTmpFile("sub.ninja", "build t2: r1 ${var_for_sub}");
     NinjaPipeline pipeline = new NinjaPipeline(vfsPath.getParentDirectory(), tester.getService(),
         ImmutableList.of(childFile, subFile), "ninja_target");
-    ImmutableSortedMap<PathFragment, NinjaTarget> targets = pipeline.pipeline(vfsPath).getSecond();
+    List<NinjaTarget> targets = pipeline.pipeline(vfsPath).getSecond();
     checkTargets(targets);
   }
 
@@ -166,13 +169,23 @@ public class NinjaPipelineTest {
     Path vfsPath = tester.writeTmpFile("test.ninja");
     NinjaPipeline pipeline = new NinjaPipeline(vfsPath.getParentDirectory(), tester.getService(),
         ImmutableList.of(), "ninja_target");
-    ImmutableSortedMap<PathFragment, NinjaTarget> targets = pipeline.pipeline(vfsPath).getSecond();
+    List<NinjaTarget> targets = pipeline.pipeline(vfsPath).getSecond();
     assertThat(targets).isEmpty();
   }
 
-  private static void checkTargets(ImmutableSortedMap<PathFragment, NinjaTarget> targets) {
+  @Test
+  public void testIncludedNinjaFileIsNotDeclared() throws Exception {
+    Path vfsPath = tester.writeTmpFile("test.ninja", "include subfile.ninja");
+    FileNotFoundException exception = assertThrows(FileNotFoundException.class, () ->
+        new NinjaPipeline(vfsPath.getParentDirectory(), tester.getService(),
+            ImmutableList.of(), "ninja_target").pipeline(vfsPath));
+    assertThat(exception).hasMessageThat().isEqualTo("Ninja file requested from 'test.ninja' "
+        + "not declared in 'srcs' attribute of 'ninja_target'.");
+  }
+
+  private static void checkTargets(List<NinjaTarget> targets) {
     assertThat(targets).hasSize(2);
-    for (NinjaTarget target : targets.values()) {
+    for (NinjaTarget target : targets) {
       if (target.getAllOutputs().contains(PathFragment.create("t1"))) {
         assertThat(target.getAllInputs())
             .containsExactly(PathFragment.create("in1"), PathFragment.create("in2"));
