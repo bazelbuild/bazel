@@ -17,8 +17,8 @@ package com.google.devtools.build.lib.analysis.platform;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Location;
+import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeInfo;
-import com.google.devtools.build.lib.packages.NativeProvider;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.skylarkbuildapi.platform.ConstraintValueInfoApi;
@@ -33,9 +33,9 @@ public class ConstraintValueInfo extends NativeInfo implements ConstraintValueIn
   /** Name used in Skylark for accessing this provider. */
   public static final String SKYLARK_NAME = "ConstraintValueInfo";
 
-  /** Skylark constructor and identifier for this provider. */
-  public static final NativeProvider<ConstraintValueInfo> PROVIDER =
-      new NativeProvider<ConstraintValueInfo>(ConstraintValueInfo.class, SKYLARK_NAME) {};
+  /** Provider singleton constant. */
+  public static final BuiltinProvider<ConstraintValueInfo> PROVIDER =
+      new BuiltinProvider<ConstraintValueInfo>(SKYLARK_NAME, ConstraintValueInfo.class) {};
 
   private final ConstraintSettingInfo constraint;
   private final Label label;
