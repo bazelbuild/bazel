@@ -199,7 +199,7 @@ public final class NestedSetBuilder<E> {
   }
 
   private static final ConcurrentMap<ImmutableList<?>, NestedSet<?>> immutableListCache =
-      new MapMaker().weakKeys().makeMap();
+      new MapMaker().concurrencyLevel(16).weakKeys().makeMap();
 
   /**
    * Creates a nested set from a given list of items.
