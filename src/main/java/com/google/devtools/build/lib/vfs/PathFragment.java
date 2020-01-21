@@ -1,4 +1,4 @@
-// Copyright 2017 The Bazel Authors. All rights reserved.
+// Copyright 2019 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -196,8 +196,29 @@ public final class PathFragment
     return new PathFragment(newPath, driveStrLength);
   }
 
+  public PathFragment getDescendant(PathFragment descendant) {
+    if (descendant.containsUplevelReferences()) {
+      throw new IllegalArgumentException("Descendant can not contain uplevel references.");
+    }
+    if (descendant.isAbsolute()) {
+      throw new IllegalArgumentException("Descendant can not be an absolute path.");
+    }
+    if (descendant.isEmpty()) {
+      throw new IllegalArgumentException("Descendant can not be empty.");
+    }
+    PathFragment current = this;
+    for (int i = 0; i < descendant.segmentCount(); i++) {
+      current = getChildImpl(descendant.getSegment(i));
+    }
+    return current;
+  }
+
   public PathFragment getChild(String baseName) {
     checkBaseName(baseName);
+    return getChildImpl(baseName);
+  }
+
+  private PathFragment getChildImpl(String baseName) {
     String newPath;
     if (normalizedPath.length() == driveStrLength) {
       newPath = normalizedPath + baseName;
