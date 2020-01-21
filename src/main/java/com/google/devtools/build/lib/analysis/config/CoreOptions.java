@@ -851,6 +851,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
     CoreOptions host = (CoreOptions) getDefault();
 
     host.outputDirectoryName = "host";
+    host.transitionDirectoryNameFragment = transitionDirectoryNameFragment;
     host.compilationMode = hostCompilationMode;
     host.isHost = true;
     host.isExec = false;
