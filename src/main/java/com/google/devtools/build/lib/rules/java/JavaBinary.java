@@ -427,6 +427,7 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
               ruleContext.getActionOwner(),
               runtimeClasspathArtifact,
               common.getRuntimeClasspath(),
+              /* filesToIgnore= */ ImmutableSet.of(),
               true));
       filesBuilder.add(runtimeClasspathArtifact);
 

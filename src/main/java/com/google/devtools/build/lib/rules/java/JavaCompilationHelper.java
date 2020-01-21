@@ -318,7 +318,11 @@ public final class JavaCompilationHelper {
     if (coverageArtifact != null) {
       ruleContext.registerAction(
           new LazyWritePathsFileAction(
-              ruleContext.getActionOwner(), coverageArtifact, sourceFiles, false));
+              ruleContext.getActionOwner(),
+              coverageArtifact,
+              sourceFiles,
+              /* filesToIgnore= */ ImmutableSet.of(),
+              false));
     }
 
     JavaCompileAction javaCompileAction = builder.build();

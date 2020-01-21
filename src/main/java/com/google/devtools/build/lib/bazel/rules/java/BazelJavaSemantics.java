@@ -19,6 +19,7 @@ import static com.google.common.base.Strings.isNullOrEmpty;
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -325,6 +326,7 @@ public class BazelJavaSemantics implements JavaSemantics {
               ruleContext.getActionOwner(),
               testRuntimeClasspathArtifact,
               javaCommon.getRuntimeClasspath(),
+              /* filesToIgnore= */ ImmutableSet.of(),
               true));
       filesBuilder.add(testRuntimeClasspathArtifact);
 
@@ -355,6 +357,7 @@ public class BazelJavaSemantics implements JavaSemantics {
                 ruleContext.getActionOwner(),
                 runtimeClassPathArtifact,
                 javaCommon.getRuntimeClasspath(),
+                /* filesToIgnore= */ ImmutableSet.of(),
                 true));
         filesBuilder.add(runtimeClassPathArtifact);
         arguments.add(
