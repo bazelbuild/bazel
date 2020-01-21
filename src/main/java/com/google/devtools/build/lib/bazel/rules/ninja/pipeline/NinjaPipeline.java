@@ -11,7 +11,6 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-//
 
 package com.google.devtools.build.lib.bazel.rules.ninja.pipeline;
 
@@ -41,6 +40,7 @@ import com.google.devtools.build.lib.vfs.Path;
 import java.io.IOException;
 import java.nio.channels.ReadableByteChannel;
 import java.util.ArrayDeque;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 
@@ -53,14 +53,24 @@ import java.util.Map;
 public class NinjaPipeline {
   private final Path basePath;
   private final ListeningExecutorService service;
+  private final Collection<Path> includedOrSubninjaFiles;
+  private final String ownerTargetName;
 
   /**
    * @param basePath base path for resolving include and subninja paths.
    * @param service service to use for scheduling tasks in parallel.
+   * @param includedOrSubninjaFiles Ninja files expected in include/subninja statements
+   * @param ownerTargetName name of the owner ninja_graph target
    */
-  public NinjaPipeline(Path basePath, ListeningExecutorService service) {
+  public NinjaPipeline(
+      Path basePath,
+      ListeningExecutorService service,
+      Collection<Path> includedOrSubninjaFiles,
+      String ownerTargetName) {
     this.basePath = basePath;
     this.service = service;
+    this.includedOrSubninjaFiles = includedOrSubninjaFiles;
+    this.ownerTargetName = ownerTargetName;
   }
 
   /**
@@ -125,11 +135,12 @@ public class NinjaPipeline {
    * parsing result in the parent file {@link NinjaFileParseResult} structure.
    */
   public NinjaPromise<NinjaFileParseResult> createChildFileParsingPromise(
-      NinjaVariableValue value, Integer offset) throws IOException {
+      NinjaVariableValue value, Integer offset, String parentNinjaFileName)
+      throws GenericParsingException, IOException {
     if (value.isPlainText()) {
       // If the value of the path is already known, we can immediately schedule parsing
       // of the child Ninja file.
-      Path path = basePath.getRelative(value.getRawText());
+      Path path = getChildNinjaPath(value.getRawText(), parentNinjaFileName);
       ListenableFuture<NinjaFileParseResult> parsingFuture = scheduleParsing(path);
       return (scope) ->
           waitForFutureAndGetWithCheckedException(
@@ -142,11 +153,23 @@ public class NinjaPipeline {
         if (expandedValue.isEmpty()) {
           throw new GenericParsingException("Expected non-empty path.");
         }
-        Path path = basePath.getRelative(expandedValue);
+        Path path = getChildNinjaPath(expandedValue, parentNinjaFileName);
         return waitForFutureAndGetWithCheckedException(
             scheduleParsing(path), GenericParsingException.class, IOException.class);
       };
     }
+  }
+
+  private Path getChildNinjaPath(String rawText, String parentNinjaFileName)
+      throws GenericParsingException {
+    Path childPath = basePath.getRelative(rawText);
+    if (!this.includedOrSubninjaFiles.contains(childPath)) {
+      throw new GenericParsingException(
+          String.format(
+              "Ninja file requested from '%s' " + "not declared in 'srcs' attribute of '%s'.",
+              parentNinjaFileName, this.ownerTargetName));
+    }
+    return childPath;
   }
 
   /**
@@ -165,7 +188,7 @@ public class NinjaPipeline {
                 () -> {
                   NinjaFileParseResult parseResult = new NinjaFileParseResult();
                   pieces.add(parseResult);
-                  return new NinjaParser(NinjaPipeline.this, parseResult);
+                  return new NinjaParser(NinjaPipeline.this, parseResult, path.getBaseName());
                 },
                 service,
                 NinjaSeparatorFinder.INSTANCE);
