@@ -11,7 +11,6 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-//
 
 package com.google.devtools.build.lib.bazel.rules.ninja.parser;
 
@@ -251,7 +250,7 @@ public class NinjaParserStep {
    */
   public NinjaTarget parseNinjaTarget(NinjaScope fileScope, int offset)
       throws GenericParsingException {
-    NinjaTarget.Builder builder = NinjaTarget.builder();
+    NinjaTarget.Builder builder = NinjaTarget.builder(fileScope.getNinjaScopeId(), offset);
     parseExpected(NinjaToken.BUILD);
 
     Map<InputOutputKind, List<NinjaVariableValue>> pathValuesMap =
