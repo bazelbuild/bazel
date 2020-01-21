@@ -7,6 +7,7 @@ title: Cquery (configurable query)
 <ul class="toc">
   <li><a href="#overview">Overview</a></li>
   <li><a href="#basic-syntax">Basic Syntax</a></li>
+  <li><a href="#target-pattern-evaluation">Target Pattern Evaluation</a></li>
   <li><a href="#functions">Functions</a></li>
   <li><a href="#options">Options</a></li>
   <li><a href="#compare">cquery vs. query</a></li>
@@ -77,10 +78,10 @@ $ bazel cquery "deps(//tree:ash)" --define species=excelsior --noimplicit_deps
 <p>
   Each result includes information about the configuration in which the target
   was built.  For most targets, this is an (opaque) hash of the build options
-  and values in that configuration. Targets configured in the host configuration
-  are marked with HOST. Input files, like  those found in the <code>srcs</code>
-  attribute of many library rules, have no need for configuration and are marked
-  with null.
+  and values in that configuration. Host-configured targets are marked
+  <code>(HOST)</code>. Non-generated source files, like those commonly
+  found in <code>srcs</code>, have no need for configuration and are
+  marked <code>(null)</code>.
 </p>
 
 <p>
@@ -122,54 +123,64 @@ $ bazel cquery "deps(//tree:ash)" --define species=excelsior --noimplicit_deps
   for querying dependencies of top-level build targets.
 </p>
 
+<h2 id='target-pattern-evaluation'>Target Pattern Evaluation</h2>
+
+<p>
+  <code>//foo</code> has a different meaning for <code>cquery</code> than
+  for <code>query</code>. This is because <code>cquery</code>
+  evaluates <i>configured</i> targets and the build graph may have multiple
+  configured versions of <code>//foo</code>.
+</p>
+
+<p>
+  For <code>cquery</code>, a target pattern in the query expression evaluates
+  to every configured target with a label that matches that pattern. Output is
+  deterministic, but <code>cquery</code> makes no ordering guarantee beyond the
+  <a href="query.html#graph-order">core query ordering contract</a>.
+</p>
+
+<p>
+  This produces subtler results for query expressions than with <code>query</code>.
+  For example, the following can produce multiple results:
+
+  <pre>
+# Analyzes //foo in the target configuration, but also analyzes
+# //genrule_with_foo_as_tool which depends on a host-configured
+# //foo. So there are two configured target instances of //foo in
+# the build graph.
+$ bazel cquery //foo --universe_scope=//foo,//genrule_with_foo_as_tool
+//foo (9f87702f17541d32a56488e3b8be8a98e52b06945f7)
+//foo (HOST)
+  </pre>
+
+</p>
+
+<p>
+  If you want to precisely declare which instance to query over, use
+  the <a href="#config"><code>config</code></a> function.
+</p>
+
+
+<p>
+  See <code>query</code>'s <a href="query.html#target-patterns">target pattern
+  documentation</a> for more information on target patterns.
+</p>
+
 <h2 id='functions'>Functions</h2>
 
 <p>
   Of the <a href="query.html#functions" title="list of query functions">set of functions</a>
-  supported by the traditional <code>query</code>, <code>cquery</code> supports
+  supported by <code>query</code>, <code>cquery</code> supports
   all
-  but <a href="query.html#siblings">siblings</a>, <a href="query.html#buildfiles">buildfiles</a>,
-  and <a href="query.html#tests">tests</a>.
-</p>
-
-<h3><code>query</code> functions with <code>cquery</code>-specific notes:</h3>
-
-<h4 id="somepath">somepath</h4>
-
-<p><code>expr ::= somepath(expr, expr)</code></p>
-
-<p>
-  <code>cquery</code>'s <code>somepath</code> works conceptually exactly
-  like <code>query</code>'s: it computes paths between two sets of targets. But
-  since <code>cquery</code> evaluates <i>configured</i> targets, <code>//foo</code>
-  and <code>//bar</code> are ambiguous. What if a
-  top level-configured <code>//foo</code> depends on a
-  top level-configured <code>//bar</code> and a custom-configured <code>//foo</code>
-  depends on a host-configured <code>//bar</code>? Which ones
-  should <code>cquery</code> choose?
+  but <a href="query.html#siblings"><code>siblings</code></a>, <a href="query.html#buildfiles"><code>buildfiles</code></a>,
+  and <a href="query.html#tests"><code>tests</code></a>.
 </p>
 
 <p>
-  When multiple choices exist, <code>cquery</code> chooses an arbitrary one. This
-  choice is deterministic but no guarantee is made which one will be chosen.
-  This might mean <code>cquery</code> searches a version of <code>//bar</code>
-  that <i>isn't</i> in <code>foo</code>'s deps, even if some other version is.
+  <code>cquery</code> also introduces the following new functions:
 </p>
 
-<p>
-  If <code>somepath</code> isn't returning any paths, try grepping for
-  your <i>to</i> target from <code>deps(//from-target)</code>, i.e. <code>bazel
-  cquery 'deps(//from-target)' | grep
-  '//to-target'</code>. If <code>//to-target</code> appears in the results,
-  re-run <code>somepath</code> with
-  <a href="#config"><code>config()</code></a> to clarify which version you want,
-  e.g.: <code>bazel cquery 'somepath(//from-target, config(//to-target,
-  host))'</code>).
-</p>
-
-<h3><code>cquery</code>-unique functions:</h3>
-
-<h4 id="config">config</h4>
+<h3 id="config">config</h3>
 
 <p><code>expr ::= config(expr, word)</code></p>
 

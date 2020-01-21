@@ -13,13 +13,13 @@
 // limitations under the License.
 package com.google.devtools.build.lib.query2.testutil;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 import static com.google.devtools.build.lib.testutil.TestConstants.GENRULE_SETUP;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.Assert.fail;
 
-import com.google.common.base.Function;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -175,16 +175,11 @@ public abstract class AbstractQueryTest<T> {
   }
 
   protected ImmutableList<String> resultSetToListOfStrings(Set<T> results) {
-    return Ordering.natural()
-        .immutableSortedCopy(
-            Iterables.transform(
-                results,
-                new Function<T, String>() {
-                  @Override
-                  public String apply(T node) {
-                    return helper.getLabel(node);
-                  }
-                }));
+    return results.stream()
+        .map(node -> helper.getLabel(node))
+        .distinct()
+        .sorted(Ordering.natural())
+        .collect(toImmutableList());
   }
 
   protected void assertContains(Set<T> x, Set<T> y) throws Exception {

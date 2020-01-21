@@ -296,11 +296,7 @@ public class ConfiguredTargetQueryEnvironment
                       partialResult -> {
                         List<ConfiguredTarget> transformedResult = new ArrayList<>();
                         for (Target target : partialResult) {
-                          ConfiguredTarget configuredTarget =
-                              getConfiguredTarget(target.getLabel());
-                          if (configuredTarget != null) {
-                            transformedResult.add(configuredTarget);
-                          }
+                          transformedResult.addAll(getConfiguredTargets(target.getLabel()));
                         }
                         callback.process(transformedResult);
                       },
@@ -311,39 +307,6 @@ public class ConfiguredTargetQueryEnvironment
     } catch (InterruptedException e) {
       return immediateCancelledFuture();
     }
-  }
-
-  private ConfiguredTarget getConfiguredTarget(Label label) throws InterruptedException {
-    // Try with target configuration.
-    ConfiguredTarget configuredTarget = getTargetConfiguredTarget(label);
-    if (configuredTarget != null) {
-      return configuredTarget;
-    }
-    // Try with host configuration (even when --notool_deps is set in the case that top-level
-    // targets are configured in the host configuration so we are doing a host-configuration-only
-    // query).
-    configuredTarget = getHostConfiguredTarget(label);
-    if (configuredTarget != null) {
-      return configuredTarget;
-    }
-
-    // Try as a source file.
-    configuredTarget = getNullConfiguredTarget(label);
-    if (configuredTarget != null) {
-      return configuredTarget;
-    }
-
-    // Finally, try every other configuration in the build (e.g. configurations that are the result
-    // of transitions and therefore not top-level).
-    for (BuildConfiguration configuration : transitiveConfigurations.values()) {
-      configuredTarget = getConfiguredTarget(label, configuration);
-      if (configuredTarget != null) {
-        return configuredTarget;
-      }
-    }
-
-    // No matches: give up.
-    return null;
   }
 
   /**
@@ -364,6 +327,26 @@ public class ConfiguredTargetQueryEnvironment
   }
 
   /**
+   * Returns all configured targets in Skyframe with the given label.
+   *
+   * <p>If there are no matches, returns an empty list.
+   */
+  private List<ConfiguredTarget> getConfiguredTargets(Label label) throws InterruptedException {
+    ImmutableList.Builder<ConfiguredTarget> ans = ImmutableList.builder();
+    for (BuildConfiguration config : transitiveConfigurations.values()) {
+      ConfiguredTarget ct = getConfiguredTarget(label, config);
+      if (ct != null) {
+        ans.add(ct);
+      }
+    }
+    ConfiguredTarget nullConfiguredTarget = getNullConfiguredTarget(label);
+    if (nullConfiguredTarget != null) {
+      ans.add(nullConfiguredTarget);
+    }
+    return ans.build();
+  }
+
+  /**
    * Processes the targets in {@code targets} with the requested {@code configuration}
    *
    * @param pattern the original pattern that {@code targets} were parsed from. Used for error
@@ -379,53 +362,50 @@ public class ConfiguredTargetQueryEnvironment
       ThreadSafeMutableSet<ConfiguredTarget> targets,
       String configuration,
       Callback<ConfiguredTarget> callback) {
-    return new QueryTaskCallable<Void>() {
-      @Override
-      public Void call() throws QueryException, InterruptedException {
-        List<ConfiguredTarget> transformedResult = new ArrayList<>();
-        boolean userFriendlyConfigName = true;
-        for (ConfiguredTarget target : targets) {
-          Label label = getCorrectLabel(target);
-          ConfiguredTarget configuredTarget;
-          switch (configuration) {
-            case "host":
-              configuredTarget = getHostConfiguredTarget(label);
+    return () -> {
+      List<ConfiguredTarget> transformedResult = new ArrayList<>();
+      boolean userFriendlyConfigName = true;
+      for (ConfiguredTarget target : targets) {
+        Label label = getCorrectLabel(target);
+        ConfiguredTarget configuredTarget;
+        switch (configuration) {
+          case "host":
+            configuredTarget = getHostConfiguredTarget(label);
+            break;
+          case "target":
+            configuredTarget = getTargetConfiguredTarget(label);
+            break;
+          case "null":
+            configuredTarget = getNullConfiguredTarget(label);
+            break;
+          default:
+            BuildConfiguration config = transitiveConfigurations.get(configuration);
+            if (config != null) {
+              configuredTarget = getConfiguredTarget(label, config);
+              userFriendlyConfigName = false;
               break;
-            case "target":
-              configuredTarget = getTargetConfiguredTarget(label);
-              break;
-            case "null":
-              configuredTarget = getNullConfiguredTarget(label);
-              break;
-            default:
-              BuildConfiguration config = transitiveConfigurations.get(configuration);
-              if (config != null) {
-                configuredTarget = getConfiguredTarget(label, config);
-                userFriendlyConfigName = false;
-                break;
-              }
-              throw new QueryException(
-                  "Unknown value '"
-                      + configuration
-                      + "'. The second argument of config() must be 'target', 'host', 'null', or a"
-                      + " valid configuration hash (i.e. one of the outputs of 'blaze config')");
-          }
-          if (configuredTarget != null) {
-            transformedResult.add(configuredTarget);
-          }
+            }
+            throw new QueryException(
+                "Unknown value '"
+                    + configuration
+                    + "'. The second argument of config() must be 'target', 'host', 'null', or a"
+                    + " valid configuration hash (i.e. one of the outputs of 'blaze config')");
         }
-        if (transformedResult.isEmpty()) {
-          throw new QueryException(
-              String.format(
-                  "No target (in) %s could be found in the %s",
-                  pattern,
-                  userFriendlyConfigName
-                      ? "'" + configuration + "' configuration"
-                      : "configuration with checksum '" + configuration + "'"));
+        if (configuredTarget != null) {
+          transformedResult.add(configuredTarget);
         }
-        callback.process(transformedResult);
-        return null;
       }
+      if (transformedResult.isEmpty()) {
+        throw new QueryException(
+            String.format(
+                "No target (in) %s could be found in the %s",
+                pattern,
+                userFriendlyConfigName
+                    ? "'" + configuration + "' configuration"
+                    : "configuration with checksum '" + configuration + "'"));
+      }
+      callback.process(transformedResult);
+      return null;
     };
   }
 
