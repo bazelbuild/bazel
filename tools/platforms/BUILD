@@ -74,6 +74,11 @@ alias(
 )
 
 alias(
+    name = "openbsd",
+    actual = "@platforms//os:openbsd",
+)
+
+alias(
     name = "android",
     actual = "@platforms//os:android",
 )
@@ -109,6 +114,7 @@ platform(
     os_constraints = [
         "@platforms//os:osx",
         "@platforms//os:freebsd",
+        "@platforms//os:openbsd",
         "@platforms//os:linux",
         "@platforms//os:windows",
     ],
@@ -129,6 +135,7 @@ platform(
     os_constraints = [
         "@platforms//os:osx",
         "@platforms//os:freebsd",
+        "@platforms//os:openbsd",
         "@platforms//os:linux",
         "@platforms//os:windows",
     ],

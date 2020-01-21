@@ -21,7 +21,7 @@
 // The process-wrapper implementation that was used until and including Bazel
 // 0.4.5. Waits for the wrapped process to exit and then kills its process
 // group. Works on all POSIX operating systems (tested on Linux, macOS,
-// FreeBSD).
+// FreeBSD, and OpenBSD).
 //
 // Caveats:
 // - Killing just the process group of the spawned child means that daemons or

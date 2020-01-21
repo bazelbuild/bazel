@@ -45,6 +45,11 @@ bind(
 )
 
 bind(
+    name = "jni_md_header-openbsd",
+    actual = "@local_jdk//:jni_md_header-openbsd",
+)
+
+bind(
     name = "java",
     actual = "@local_jdk//:java",
 )
