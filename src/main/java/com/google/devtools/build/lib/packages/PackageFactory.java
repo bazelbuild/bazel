@@ -108,8 +108,9 @@ public final class PackageFactory {
       return name;
     }
 
-    private void convertAndProcess(
-        Package.Builder pkgBuilder, Location location, Object value)
+    // The location is used not just for exceptions (for which null would do),
+    // but also for reporting events.
+    private void convertAndProcess(Package.Builder pkgBuilder, Location location, Object value)
         throws EvalException {
       T typedValue = type.convert(value, "'package' argument", pkgBuilder.getBuildFileLabel());
       process(pkgBuilder, location, typedValue);
@@ -515,13 +516,12 @@ public final class PackageFactory {
       }
 
       @Override
-      public Object call(
-          StarlarkThread thread, Location loc, Tuple<Object> args, Dict<String, Object> kwargs)
+      public Object call(StarlarkThread thread, Tuple<Object> args, Dict<String, Object> kwargs)
           throws EvalException {
         if (!args.isEmpty()) {
           throw new EvalException(null, "unexpected positional arguments");
         }
-        Package.Builder pkgBuilder = getContext(thread, loc).pkgBuilder;
+        Package.Builder pkgBuilder = getContext(thread).pkgBuilder;
 
         // Validate parameter list
         if (pkgBuilder.isPackageFunctionUsed()) {
@@ -534,6 +534,7 @@ public final class PackageFactory {
           throw new EvalException(
               null, "at least one argument must be given to the 'package' function");
         }
+        Location loc = thread.getCallerLocation();
         for (Map.Entry<String, Object> kwarg : kwargs.entrySet()) {
           String name = kwarg.getKey();
           PackageArgument<?> pkgarg = packageArguments.get(name);
@@ -548,14 +549,12 @@ public final class PackageFactory {
   }
 
   /** Get the PackageContext by looking up in the environment. */
-  public static PackageContext getContext(StarlarkThread thread, Location location)
-      throws EvalException {
+  public static PackageContext getContext(StarlarkThread thread) throws EvalException {
     PackageContext value = thread.getThreadLocal(PackageContext.class);
     if (value == null) {
       // if PackageContext is missing, we're not called from a BUILD file. This happens if someone
       // uses native.some_func() in the wrong place.
-      throw new EvalException(
-          location,
+      throw Starlark.errorf(
           "The native module can be accessed only from a BUILD thread. "
               + "Wrap the function in a macro and call it from a BUILD file");
     }
@@ -592,29 +591,32 @@ public final class PackageFactory {
     }
 
     @Override
-    public NoneType call(
-        StarlarkThread thread, Location loc, Tuple<Object> args, Dict<String, Object> kwargs)
+    public NoneType call(StarlarkThread thread, Tuple<Object> args, Dict<String, Object> kwargs)
         throws EvalException, InterruptedException {
       if (!args.isEmpty()) {
-        throw new EvalException(null, "unexpected positional arguments");
+        throw Starlark.errorf("unexpected positional arguments");
       }
       BazelStarlarkContext.from(thread).checkLoadingOrWorkspacePhase(ruleClass.getName());
       try {
-        addRule(getContext(thread, loc), kwargs, loc, thread);
+        addRule(getContext(thread), kwargs, thread);
       } catch (RuleFactory.InvalidRuleException | Package.NameConflictException e) {
-        throw new EvalException(loc, e.getMessage());
+        throw new EvalException(null, e.getMessage());
       }
       return Starlark.NONE;
     }
 
-    private void addRule(
-        PackageContext context, Map<String, Object> kwargs, Location loc, StarlarkThread thread)
+    private void addRule(PackageContext context, Map<String, Object> kwargs, StarlarkThread thread)
         throws RuleFactory.InvalidRuleException, Package.NameConflictException,
             InterruptedException {
       BuildLangTypedAttributeValuesMap attributeValues =
           new BuildLangTypedAttributeValuesMap(kwargs);
       RuleFactory.createAndAddRule(
-          context, ruleClass, attributeValues, loc, thread, new AttributeContainer(ruleClass));
+          context,
+          ruleClass,
+          attributeValues,
+          thread.getCallerLocation(),
+          thread,
+          new AttributeContainer(ruleClass));
     }
 
     @Override

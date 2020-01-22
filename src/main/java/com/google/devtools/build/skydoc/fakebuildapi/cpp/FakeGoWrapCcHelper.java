@@ -117,7 +117,7 @@ public class FakeGoWrapCcHelper
 
   @Override
   public Depset /*<FileApi>*/ getGopackageFilesForStarlark(
-      SkylarkRuleContextApi skylarkRuleContext, FileApi skylarkGopkg) {
+      SkylarkRuleContextApi<ConstraintValueInfoApi> skylarkRuleContext, FileApi skylarkGopkg) {
     return null;
   }
 
@@ -129,7 +129,8 @@ public class FakeGoWrapCcHelper
   }
 
   @Override
-  public Depset skylarkCollectTransitiveSwigIncludes(SkylarkRuleContextApi skylarkRuleContext) {
+  public Depset skylarkCollectTransitiveSwigIncludes(
+      SkylarkRuleContextApi<ConstraintValueInfoApi> skylarkRuleContext) {
     return null;
   }
 
@@ -146,13 +147,14 @@ public class FakeGoWrapCcHelper
   }
 
   @Override
-  public String skylarkGetMangledTargetName(SkylarkRuleContextApi skylarkRuleContext) {
+  public String skylarkGetMangledTargetName(
+      SkylarkRuleContextApi<ConstraintValueInfoApi> skylarkRuleContext) {
     return null;
   }
 
   @Override
   public WrapCcIncludeProviderApi getWrapCcIncludeProvider(
-      SkylarkRuleContextApi skylarkRuleContext, Depset swigIncludes) {
+      SkylarkRuleContextApi<ConstraintValueInfoApi> skylarkRuleContext, Depset swigIncludes) {
     return null;
   }
 

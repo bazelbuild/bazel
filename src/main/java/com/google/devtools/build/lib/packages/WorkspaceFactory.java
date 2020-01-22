@@ -274,14 +274,13 @@ public class WorkspaceFactory {
       }
 
       @Override
-      public Object call(
-          StarlarkThread thread, Location loc, Tuple<Object> args, Dict<String, Object> kwargs)
+      public Object call(StarlarkThread thread, Tuple<Object> args, Dict<String, Object> kwargs)
           throws EvalException, InterruptedException {
         if (!args.isEmpty()) {
           throw new EvalException(null, "unexpected positional arguments");
         }
         try {
-          Package.Builder builder = PackageFactory.getContext(thread, loc).pkgBuilder;
+          Package.Builder builder = PackageFactory.getContext(thread).pkgBuilder;
           // TODO(adonovan): this doesn't look safe!
           String externalRepoName = (String) kwargs.get("name");
           if (!allowOverride
@@ -298,6 +297,7 @@ public class WorkspaceFactory {
           // @<mainRepoName> as a separate repository. This will be overridden if the main
           // repository has a repo_mapping entry from <mainRepoName> to something.
           WorkspaceFactoryHelper.addMainRepoEntry(builder, externalRepoName, thread.getSemantics());
+          Location loc = thread.getCallerLocation();
           WorkspaceFactoryHelper.addRepoMappings(builder, kwargs, externalRepoName, loc);
           RuleClass ruleClass = ruleFactory.getRuleClass(ruleClassName);
           RuleClass bindRuleClass = ruleFactory.getRuleClass("bind");

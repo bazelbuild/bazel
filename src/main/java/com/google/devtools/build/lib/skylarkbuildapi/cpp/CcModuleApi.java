@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.skylarkbuildapi.cpp;
 
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
 import com.google.devtools.build.lib.skylarkbuildapi.SkylarkActionFactoryApi;
 import com.google.devtools.build.lib.skylarkbuildapi.SkylarkRuleContextApi;
@@ -507,7 +506,6 @@ public interface CcModuleApi<
   @SkylarkCallable(
       name = "create_library_to_link",
       doc = "Creates <code>LibraryToLink</code>",
-      useLocation = true,
       useStarlarkThread = true,
       parameters = {
         @Param(
@@ -598,14 +596,12 @@ public interface CcModuleApi<
       boolean alwayslink,
       String dynamicLibraryPath,
       String interfaceLibraryPath,
-      Location location,
       StarlarkThread thread)
       throws EvalException, InterruptedException;
 
   @SkylarkCallable(
       name = "create_linker_input",
       doc = "Creates a <code>LinkingContext</code>.",
-      useLocation = true,
       useStarlarkThread = true,
       enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_CC_SHARED_LIBRARY,
       parameters = {
@@ -645,14 +641,12 @@ public interface CcModuleApi<
       Object librariesToLinkObject,
       Object userLinkFlagsObject,
       Object nonCodeInputs,
-      Location location,
       StarlarkThread thread)
       throws EvalException, InterruptedException;
 
   @SkylarkCallable(
       name = "create_linking_context",
       doc = "Creates a <code>LinkingContext</code>.",
-      useLocation = true,
       useStarlarkThread = true,
       parameters = {
         @Param(
@@ -693,7 +687,6 @@ public interface CcModuleApi<
       Object librariesToLinkObject,
       Object userLinkFlagsObject,
       Object nonCodeInputs, // <FileT> expected
-      Location location,
       StarlarkThread thread)
       throws EvalException, InterruptedException;
 
@@ -985,7 +978,6 @@ public interface CcModuleApi<
           "Should be used for creating library rules that can propagate information downstream in"
               + " order to be linked later by a top level rule that does transitive linking to"
               + " create an executable or dynamic library.",
-      useLocation = true,
       useStarlarkThread = true,
       parameters = {
         @Param(
@@ -1093,7 +1085,6 @@ public interface CcModuleApi<
       boolean disallowStaticLibraries,
       boolean disallowDynamicLibraries,
       Object grepIncludes,
-      Location location,
       StarlarkThread thread)
       throws InterruptedException, EvalException;
 }

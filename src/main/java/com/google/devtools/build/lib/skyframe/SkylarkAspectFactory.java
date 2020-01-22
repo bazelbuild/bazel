@@ -23,7 +23,6 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.SkylarkProviderValidationUtil;
 import com.google.devtools.build.lib.analysis.skylark.SkylarkRuleConfiguredTargetUtil;
 import com.google.devtools.build.lib.analysis.skylark.SkylarkRuleContext;
-import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.AspectDescriptor;
 import com.google.devtools.build.lib.packages.AspectParameters;
 import com.google.devtools.build.lib.packages.BazelStarlarkContext;
@@ -135,26 +134,25 @@ public class SkylarkAspectFactory implements ConfiguredAspectFactory {
     } else {
       // Either an old-style struct or a single declared provider (not in a list)
       Info info = (Info) aspectSkylarkObject;
-      Location loc = info.getCreationLoc();
       if (info.getProvider().getKey().equals(StructProvider.STRUCT.getKey())) {
         // Old-style struct, that may contain declared providers.
         StructImpl struct = (StructImpl) aspectSkylarkObject;
         for (String field : struct.getFieldNames()) {
           if (field.equals("output_groups")) {
-            addOutputGroups(struct.getValue(field), loc, builder);
+            addOutputGroups(struct.getValue(field), builder);
           } else if (field.equals("providers")) {
             Object value = struct.getValue(field);
             Iterable<?> providers =
                 SkylarkType.cast(
                     value,
                     Iterable.class,
-                    loc,
+                    null,
                     "The value for \"providers\" should be a list of declared providers, "
                         + "got %s instead",
                     EvalUtils.getDataTypeName(value, false));
             addDeclaredProviders(builder, providers);
           } else {
-            builder.addSkylarkTransitiveInfo(field, struct.getValue(field), loc);
+            builder.addSkylarkTransitiveInfo(field, struct.getValue(field));
           }
         }
       } else {
@@ -171,12 +169,11 @@ public class SkylarkAspectFactory implements ConfiguredAspectFactory {
       ConfiguredAspect.Builder builder, Iterable<?> aspectSkylarkObject) throws EvalException {
     int i = 0;
     for (Object o : aspectSkylarkObject) {
-      Location loc = skylarkAspect.getImplementation().getLocation();
       Info declaredProvider =
           SkylarkType.cast(
               o,
               Info.class,
-              loc,
+              null,
               "A return value of an aspect implementation function should be "
                   + "a sequence of declared providers, instead got a %s at index %d",
               o.getClass(),
@@ -186,7 +183,7 @@ public class SkylarkAspectFactory implements ConfiguredAspectFactory {
     }
   }
 
-  private static void addOutputGroups(Object value, Location loc, ConfiguredAspect.Builder builder)
+  private static void addOutputGroups(Object value, ConfiguredAspect.Builder builder)
       throws EvalException {
     Map<String, StarlarkValue> outputGroups =
         SkylarkType.castMap(value, String.class, StarlarkValue.class, "output_groups");
@@ -196,7 +193,7 @@ public class SkylarkAspectFactory implements ConfiguredAspectFactory {
 
       builder.addOutputGroup(
           outputGroup,
-          SkylarkRuleConfiguredTargetUtil.convertToOutputGroupValue(loc, outputGroup, objects));
+          SkylarkRuleConfiguredTargetUtil.convertToOutputGroupValue(outputGroup, objects));
     }
   }
 

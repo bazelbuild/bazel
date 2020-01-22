@@ -14,13 +14,13 @@
 
 package com.google.devtools.build.skydoc.fakebuildapi;
 
-import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkbuildapi.DefaultInfoApi;
 import com.google.devtools.build.lib.skylarkbuildapi.DefaultInfoApi.DefaultInfoApiProvider;
 import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
 import com.google.devtools.build.lib.skylarkbuildapi.RunfilesApi;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Printer;
+import com.google.devtools.build.lib.syntax.StarlarkThread;
 
 /**
  * Fake implementation of {@link DefaultInfoApiProvider}.
@@ -28,8 +28,14 @@ import com.google.devtools.build.lib.syntax.Printer;
 public class FakeDefaultInfoProvider implements DefaultInfoApiProvider<RunfilesApi, FileApi> {
 
   @Override
-  public DefaultInfoApi constructor(Object files, Object runfiles, Object dataRunfiles,
-      Object defaultRunfiles, Object executable, Location loc) throws EvalException {
+  public DefaultInfoApi constructor(
+      Object files,
+      Object runfiles,
+      Object dataRunfiles,
+      Object defaultRunfiles,
+      Object executable,
+      StarlarkThread thread)
+      throws EvalException {
     return null;
   }
 

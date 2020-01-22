@@ -92,7 +92,7 @@ public final class StarlarkFunction extends BaseFunction {
   }
 
   @Override
-  public Object fastcall(StarlarkThread thread, Location loc, Object[] positional, Object[] named)
+  public Object fastcall(StarlarkThread thread, Object[] positional, Object[] named)
       throws EvalException, InterruptedException {
     if (thread.mutability().isFrozen()) {
       throw Starlark.errorf("Trying to call in frozen environment");

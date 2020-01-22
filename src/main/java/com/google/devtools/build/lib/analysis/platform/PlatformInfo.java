@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Printer;
 import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.Starlark;
+import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.StringUtilities;
 import java.util.HashMap;
@@ -70,7 +71,7 @@ public class PlatformInfo extends NativeInfo
         Object parentUnchecked,
         Sequence<?> constraintValuesUnchecked,
         Object execPropertiesUnchecked,
-        Location location)
+        StarlarkThread thread)
         throws EvalException {
       PlatformInfo.Builder builder = PlatformInfo.builder();
       builder.setLabel(label);
@@ -87,12 +88,12 @@ public class PlatformInfo extends NativeInfo
                 execPropertiesUnchecked, String.class, String.class, "exec_properties");
         builder.setExecProperties(ImmutableMap.copyOf(execProperties));
       }
-      builder.setLocation(location);
+      builder.setLocation(thread.getCallerLocation());
 
       try {
         return builder.build();
       } catch (DuplicateConstraintException | ExecPropertiesException e) {
-        throw new EvalException(location, e);
+        throw new EvalException(null, e);
       }
     }
   }

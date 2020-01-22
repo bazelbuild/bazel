@@ -289,7 +289,7 @@ public final class OutputGroupInfo extends StructImpl
     }
 
     @Override
-    public OutputGroupInfoApi constructor(Dict<?, ?> kwargs, Location loc) throws EvalException {
+    public OutputGroupInfoApi constructor(Dict<?, ?> kwargs) throws EvalException {
       Map<String, Object> kwargsMap = kwargs.getContents(String.class, Object.class, "kwargs");
 
       ImmutableMap.Builder<String, NestedSet<Artifact>> builder = ImmutableMap.builder();
@@ -297,7 +297,7 @@ public final class OutputGroupInfo extends StructImpl
         builder.put(
             entry.getKey(),
             SkylarkRuleConfiguredTargetUtil.convertToOutputGroupValue(
-                loc, entry.getKey(), entry.getValue()));
+                entry.getKey(), entry.getValue()));
       }
       return new OutputGroupInfo(builder.build());
     }

@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.skylarkbuildapi.cpp;
 
-import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
@@ -38,13 +37,11 @@ public interface CcCompilationOutputsApi<FileT extends FileApi> extends Starlark
       name = "object_files",
       doc = "Do not use. Use eiher 'objects' or 'pic_objects'.",
       useStarlarkThread = true,
-      useLocation = true,
       parameters = {
         @Param(name = "use_pic", doc = "use_pic", positional = false, named = true),
       })
   @Deprecated
-  Sequence<FileT> getSkylarkObjectFiles(boolean usePic, Location location, StarlarkThread thread)
-      throws EvalException;
+  Sequence<FileT> getSkylarkObjectFiles(boolean usePic, StarlarkThread thread) throws EvalException;
 
   @SkylarkCallable(name = "objects", documented = false, structField = true)
   Sequence<FileT> getSkylarkObjects() throws EvalException;

@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.skylarkbuildapi.core;
 
-import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkConstructor;
@@ -22,6 +21,7 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
+import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.lib.syntax.StarlarkValue;
 
 /** Interface for the "struct" object in the build API. */
@@ -62,9 +62,8 @@ public interface StructApi extends StarlarkValue {
               + "#   key: 2\n"
               + "#   value: 1\n"
               + "# }\n"
-              + "</pre>",
-      useLocation = true)
-  String toProto(Location loc) throws EvalException;
+              + "</pre>")
+  String toProto() throws EvalException;
 
   @SkylarkCallable(
       name = "to_json",
@@ -83,9 +82,8 @@ public interface StructApi extends StarlarkValue {
               + "struct(key=[struct(inner_key=1), struct(inner_key=2)]).to_json()\n"
               + "# {\"key\":[{\"inner_key\":1},{\"inner_key\":2}]}\n\n"
               + "struct(key=struct(inner_key=struct(inner_inner_key='text'))).to_json()\n"
-              + "# {\"key\":{\"inner_key\":{\"inner_inner_key\":\"text\"}}}\n</pre>",
-      useLocation = true)
-  String toJson(Location loc) throws EvalException;
+              + "# {\"key\":{\"inner_key\":{\"inner_inner_key\":\"text\"}}}\n</pre>")
+  String toJson() throws EvalException;
 
   /** Callable Provider for new struct objects. */
   @SkylarkModule(name = "Provider", documented = false, doc = "")
@@ -104,9 +102,9 @@ public interface StructApi extends StarlarkValue {
                 type = Dict.class,
                 defaultValue = "{}",
                 doc = "Dictionary of arguments."),
-        useLocation = true,
+        useStarlarkThread = true,
         selfCall = true)
     @SkylarkConstructor(objectType = StructApi.class, receiverNameForDoc = "struct")
-    StructApi createStruct(Dict<?, ?> kwargs, Location loc) throws EvalException;
+    StructApi createStruct(Dict<String, Object> kwargs, StarlarkThread thread) throws EvalException;
   }
 }

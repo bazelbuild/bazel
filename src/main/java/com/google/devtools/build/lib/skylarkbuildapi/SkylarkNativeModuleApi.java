@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.skylarkbuildapi;
 
-import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
@@ -83,14 +82,12 @@ public interface SkylarkNativeModuleApi extends StarlarkValue {
                     + " result must be non-empty (after the matches of the `exclude` patterns are"
                     + " excluded).")
       },
-      useLocation = true,
       useStarlarkThread = true)
   Sequence<?> glob(
       Sequence<?> include,
       Sequence<?> exclude,
       Integer excludeDirectories,
       Object allowEmpty,
-      Location loc,
       StarlarkThread thread)
       throws EvalException, InterruptedException;
 
@@ -127,9 +124,8 @@ public interface SkylarkNativeModuleApi extends StarlarkValue {
             legacyNamed = true,
             doc = "The name of the target.")
       },
-      useLocation = true,
       useStarlarkThread = true)
-  Object existingRule(String name, Location loc, StarlarkThread thread)
+  Object existingRule(String name, StarlarkThread thread)
       throws EvalException, InterruptedException;
 
   @SkylarkCallable(
@@ -140,9 +136,8 @@ public interface SkylarkNativeModuleApi extends StarlarkValue {
               + " would be returned by <code>existing_rule(name)</code>.<p><i>Note: If possible,"
               + " avoid using this function. It makes BUILD files brittle and order-dependent, and"
               + " it may be expensive especially if called within a loop.</i>",
-      useLocation = true,
       useStarlarkThread = true)
-  Dict<String, Dict<String, Object>> existingRules(Location loc, StarlarkThread thread)
+  Dict<String, Dict<String, Object>> existingRules(StarlarkThread thread)
       throws EvalException, InterruptedException;
 
   @SkylarkCallable(
@@ -174,10 +169,9 @@ public interface SkylarkNativeModuleApi extends StarlarkValue {
             positional = false,
             doc = "Other package groups that are included in this one.")
       },
-      useLocation = true,
       useStarlarkThread = true)
   NoneType packageGroup(
-      String name, Sequence<?> packages, Sequence<?> includes, Location loc, StarlarkThread thread)
+      String name, Sequence<?> packages, Sequence<?> includes, StarlarkThread thread)
       throws EvalException;
 
   @SkylarkCallable(
@@ -212,10 +206,8 @@ public interface SkylarkNativeModuleApi extends StarlarkValue {
             defaultValue = "None",
             doc = "Licenses to be specified.")
       },
-      useLocation = true,
       useStarlarkThread = true)
-  NoneType exportsFiles(
-      Sequence<?> srcs, Object visibility, Object licenses, Location loc, StarlarkThread thread)
+  NoneType exportsFiles(Sequence<?> srcs, Object visibility, Object licenses, StarlarkThread thread)
       throws EvalException;
 
   @SkylarkCallable(
@@ -227,10 +219,8 @@ public interface SkylarkNativeModuleApi extends StarlarkValue {
               + "If the BUILD file calls a function defined in a .bzl file, "
               + "<code>package_name()</code> will match the caller BUILD file package. "
               + "This function is equivalent to the deprecated variable <code>PACKAGE_NAME</code>.",
-      parameters = {},
-      useLocation = true,
       useStarlarkThread = true)
-  String packageName(Location loc, StarlarkThread thread) throws EvalException;
+  String packageName(StarlarkThread thread) throws EvalException;
 
   @SkylarkCallable(
       name = "repository_name",
@@ -241,8 +231,6 @@ public interface SkylarkNativeModuleApi extends StarlarkValue {
               + "<code>@local</code>. In packages in the main repository, it will be set to "
               + "<code>@</code>. This function is equivalent to the deprecated variable "
               + "<code>REPOSITORY_NAME</code>.",
-      parameters = {},
-      useLocation = true,
       useStarlarkThread = true)
-  String repositoryName(Location location, StarlarkThread thread) throws EvalException;
+  String repositoryName(StarlarkThread thread) throws EvalException;
 }

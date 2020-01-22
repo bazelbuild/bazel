@@ -237,15 +237,14 @@ public final class SkylarkRuleConfiguredTargetUtil {
     }
   }
 
-  private static void addOutputGroups(Object value, Location loc,
-      RuleConfiguredTargetBuilder builder)
+  private static void addOutputGroups(Object value, RuleConfiguredTargetBuilder builder)
       throws EvalException {
     Map<String, StarlarkValue> outputGroups =
         SkylarkType.castMap(value, String.class, StarlarkValue.class, "output_groups");
 
     for (String outputGroup : outputGroups.keySet()) {
       StarlarkValue objects = outputGroups.get(outputGroup);
-      NestedSet<Artifact> artifacts = convertToOutputGroupValue(loc, outputGroup, objects);
+      NestedSet<Artifact> artifacts = convertToOutputGroupValue(outputGroup, objects);
       builder.addOutputGroup(outputGroup, artifacts);
     }
   }
@@ -270,7 +269,6 @@ public final class SkylarkRuleConfiguredTargetUtil {
     }
     InstrumentedFilesInfo instrumentedFilesProvider =
         CoverageCommon.createInstrumentedFilesInfo(
-            insStruct.getCreationLoc(),
             ruleContext,
             sourceAttributes,
             dependencyAttributes,
@@ -278,8 +276,8 @@ public final class SkylarkRuleConfiguredTargetUtil {
     builder.addNativeDeclaredProvider(instrumentedFilesProvider);
   }
 
-  public static NestedSet<Artifact> convertToOutputGroupValue(Location loc, String outputGroup,
-      Object objects) throws EvalException {
+  public static NestedSet<Artifact> convertToOutputGroupValue(String outputGroup, Object objects)
+      throws EvalException {
     String typeErrorMessage =
         "Output group '%s' is of unexpected type. "
             + "Should be list or set of Files, but got '%s' instead.";
@@ -290,12 +288,10 @@ public final class SkylarkRuleConfiguredTargetUtil {
         if (o instanceof Artifact) {
           nestedSetBuilder.add((Artifact) o);
         } else {
-          throw new EvalException(
-              loc,
-              String.format(
-                  typeErrorMessage,
-                  outputGroup,
-                  "list with an element of " + EvalUtils.getDataTypeNameFromClass(o.getClass())));
+          throw Starlark.errorf(
+              typeErrorMessage,
+              outputGroup,
+              "list with an element of " + EvalUtils.getDataTypeNameFromClass(o.getClass()));
         }
       }
       return nestedSetBuilder.build();
@@ -305,7 +301,7 @@ public final class SkylarkRuleConfiguredTargetUtil {
               objects,
               Depset.class,
               Artifact.class,
-              loc,
+              null,
               typeErrorMessage,
               outputGroup,
               EvalUtils.getDataTypeName(objects, true));
@@ -313,7 +309,7 @@ public final class SkylarkRuleConfiguredTargetUtil {
         return artifactsSet.getSet(Artifact.class);
       } catch (Depset.TypeException exception) {
         throw new EvalException(
-            loc,
+            null,
             String.format(
                 typeErrorMessage,
                 outputGroup,
@@ -420,7 +416,7 @@ public final class SkylarkRuleConfiguredTargetUtil {
                   + "' should be specified in DefaultInfo if it's provided explicitly.");
         }
       } else if (field.equals("output_groups")) {
-        addOutputGroups(oldStyleProviders.getValue(field), loc, builder);
+        addOutputGroups(oldStyleProviders.getValue(field), builder);
       } else if (field.equals("instrumented_files")) {
         StructImpl insStruct = cast("instrumented_files", oldStyleProviders, StructImpl.class, loc);
         addInstrumentedFiles(insStruct, context.getRuleContext(), builder);
@@ -536,7 +532,7 @@ public final class SkylarkRuleConfiguredTargetUtil {
       executable = defaultInfo.getExecutable();
 
     } else {
-      // Rule implementations aren't reqiured to return default-info fields via a DefaultInfo
+      // Rule implementations aren't required to return default-info fields via a DefaultInfo
       // provider. They can return them as fields on the returned struct. For example,
       // 'return struct(executable = foo)' instead of 'return DefaultInfo(executable = foo)'.
       // TODO(cparsons): Look into deprecating this option.

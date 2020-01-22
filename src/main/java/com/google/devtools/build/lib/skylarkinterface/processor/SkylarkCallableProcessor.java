@@ -215,13 +215,6 @@ public final class SkylarkCallableProcessor extends AbstractProcessor {
           "a SkylarkCallable-annotated method with structField=true may not also specify"
               + " useStarlarkThread");
     }
-    if (annot.useLocation()) {
-      errorf(
-          method,
-          "a SkylarkCallable-annotated method with structField=true may not also specify"
-              + " useLocation");
-    }
-
     if (!annot.extraPositionals().name().isEmpty()) {
       errorf(
           method,
@@ -510,18 +503,6 @@ public final class SkylarkCallableProcessor extends AbstractProcessor {
       }
     }
 
-    if (annot.useLocation()) {
-      VariableElement param = params.get(index++);
-      TypeMirror locationType = getType("com.google.devtools.build.lib.events.Location");
-      if (!types.isSameType(locationType, param.asType())) {
-        errorf(
-            param,
-            "for useLocation special parameter '%s', got type %s, want Location",
-            param.getSimpleName(),
-            param.asType());
-      }
-    }
-
     if (annot.useStarlarkThread()) {
       VariableElement param = params.get(index++);
       TypeMirror threadType = getType("com.google.devtools.build.lib.syntax.StarlarkThread");
@@ -563,7 +544,6 @@ public final class SkylarkCallableProcessor extends AbstractProcessor {
     int n = 0;
     n += annot.extraPositionals().name().isEmpty() ? 0 : 1;
     n += annot.extraKeywords().name().isEmpty() ? 0 : 1;
-    n += annot.useLocation() ? 1 : 0;
     n += annot.useStarlarkThread() ? 1 : 0;
     n += annot.useStarlarkSemantics() ? 1 : 0;
     return n;

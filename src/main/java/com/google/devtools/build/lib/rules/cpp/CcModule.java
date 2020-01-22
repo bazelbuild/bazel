@@ -136,8 +136,7 @@ public abstract class CcModule
     if (ruleContext == null
         && toolchain
             .requireCtxInConfigureFeatures()) {
-      throw new EvalException(
-          Location.BUILTIN,
+      throw Starlark.errorf(
           "Incompatible flag --incompatible_require_ctx_in_configure_features has been flipped, "
               + "and the mandatory parameter 'ctx' of cc_common.configure_features is missing. "
               + "Please add 'ctx' as a named parameter. See "
@@ -354,7 +353,7 @@ public abstract class CcModule
     } else if (o instanceof NoneType) {
       return ImmutableList.of();
     } else {
-      throw new EvalException(Location.BUILTIN, "Only list is allowed.");
+      throw Starlark.errorf("Only list is allowed.");
     }
   }
 
@@ -387,7 +386,6 @@ public abstract class CcModule
       boolean alwayslink,
       String dynamicLibraryPath,
       String interfaceLibraryPath,
-      Location location,
       StarlarkThread thread)
       throws EvalException, InterruptedException {
     SkylarkActionFactory skylarkActionFactory =
@@ -408,7 +406,6 @@ public abstract class CcModule
     if (!Strings.isNullOrEmpty(dynamicLibraryPath)) {
       dynamicLibraryPathFragment = PathFragment.create(dynamicLibraryPath);
       validateSymlinkPath(
-          location,
           "dynamic_library_symlink_path",
           dynamicLibraryPathFragment,
           Link.ONLY_SHARED_LIBRARY_FILETYPES,
@@ -419,7 +416,6 @@ public abstract class CcModule
     if (!Strings.isNullOrEmpty(interfaceLibraryPath)) {
       interfaceLibraryPathFragment = PathFragment.create(interfaceLibraryPath);
       validateSymlinkPath(
-          location,
           "interface_library_symlink_path",
           interfaceLibraryPathFragment,
           Link.ONLY_INTERFACE_LIBRARY_FILETYPES,
@@ -477,11 +473,11 @@ public abstract class CcModule
       notNullArtifactForIdentifier = interfaceLibrary;
     }
     if (notNullArtifactForIdentifier == null) {
-      throw new EvalException(location, "Must pass at least one artifact");
+      throw Starlark.errorf("Must pass at least one artifact");
     }
     String extensionErrors = extensionErrorsBuilder.toString();
     if (!extensionErrors.isEmpty()) {
-      throw new EvalException(location, extensionErrors);
+      throw Starlark.errorf("%s", extensionErrors);
     }
 
     Artifact resolvedSymlinkDynamicLibrary = null;
@@ -491,15 +487,13 @@ public abstract class CcModule
         resolvedSymlinkDynamicLibrary = dynamicLibrary;
         if (dynamicLibraryPathFragment != null) {
           if (dynamicLibrary.getRootRelativePath().getSegment(0).startsWith("_solib_")) {
-            throw new EvalException(
-                location,
-                String.format(
-                    "dynamic_library must not be a symbolic link in the solib directory. Got '%s'",
-                    dynamicLibrary.getRootRelativePath()));
+            throw Starlark.errorf(
+                "dynamic_library must not be a symbolic link in the solib directory. Got '%s'",
+                dynamicLibrary.getRootRelativePath());
           }
           dynamicLibrary =
               SolibSymlinkAction.getDynamicLibrarySymlink(
-                  skylarkActionFactory.asActionRegistry(location, skylarkActionFactory),
+                  skylarkActionFactory.asActionRegistry(skylarkActionFactory),
                   skylarkActionFactory.getActionConstructionContext(),
                   ccToolchainProvider.getSolibDirectory(),
                   dynamicLibrary,
@@ -507,7 +501,7 @@ public abstract class CcModule
         } else {
           dynamicLibrary =
               SolibSymlinkAction.getDynamicLibrarySymlink(
-                  skylarkActionFactory.asActionRegistry(location, skylarkActionFactory),
+                  skylarkActionFactory.asActionRegistry(skylarkActionFactory),
                   skylarkActionFactory.getActionConstructionContext(),
                   ccToolchainProvider.getSolibDirectory(),
                   dynamicLibrary,
@@ -519,17 +513,13 @@ public abstract class CcModule
         resolvedSymlinkInterfaceLibrary = interfaceLibrary;
         if (interfaceLibraryPathFragment != null) {
           if (interfaceLibrary.getRootRelativePath().getSegment(0).startsWith("_solib_")) {
-            throw new EvalException(
-                location,
-                String.format(
-                    "interface_library must not be a symbolic link in the solib directory. Got"
-                        + " '%s'",
-                    interfaceLibrary.getRootRelativePath()));
+            throw Starlark.errorf(
+                "interface_library must not be a symbolic link in the solib directory. Got '%s'",
+                interfaceLibrary.getRootRelativePath());
           }
           interfaceLibrary =
               SolibSymlinkAction.getDynamicLibrarySymlink(
-                  /* actionRegistry= */ skylarkActionFactory.asActionRegistry(
-                      location, skylarkActionFactory),
+                  /* actionRegistry= */ skylarkActionFactory.asActionRegistry(skylarkActionFactory),
                   /* actionConstructionContext= */ skylarkActionFactory
                       .getActionConstructionContext(),
                   ccToolchainProvider.getSolibDirectory(),
@@ -538,8 +528,7 @@ public abstract class CcModule
         } else {
           interfaceLibrary =
               SolibSymlinkAction.getDynamicLibrarySymlink(
-                  /* actionRegistry= */ skylarkActionFactory.asActionRegistry(
-                      location, skylarkActionFactory),
+                  /* actionRegistry= */ skylarkActionFactory.asActionRegistry(skylarkActionFactory),
                   /* actionConstructionContext= */ skylarkActionFactory
                       .getActionConstructionContext(),
                   ccToolchainProvider.getSolibDirectory(),
@@ -553,8 +542,7 @@ public abstract class CcModule
         && picStaticLibrary == null
         && dynamicLibrary == null
         && interfaceLibrary == null) {
-      throw new EvalException(
-          location,
+      throw Starlark.errorf(
           "Must pass at least one of the following parameters: static_library, pic_static_library, "
               + "dynamic_library and interface_library.");
     }
@@ -571,7 +559,6 @@ public abstract class CcModule
   }
 
   private static void validateSymlinkPath(
-      Location location,
       String attrName,
       PathFragment symlinkPath,
       FileTypeSet filetypes,
@@ -580,9 +567,7 @@ public abstract class CcModule
     if (symlinkPath.isEmpty()
         || symlinkPath.isAbsolute()
         || symlinkPath.containsUplevelReferences()) {
-      throw new EvalException(
-          location,
-          String.format("%s must be a relative file path. Got '%s'", attrName, symlinkPath));
+      throw Starlark.errorf("%s must be a relative file path. Got '%s'", attrName, symlinkPath);
     }
     if (!filetypes.matches(symlinkPath.getBaseName())) {
       errorsBuilder.append(
@@ -660,10 +645,8 @@ public abstract class CcModule
       Object librariesToLinkObject,
       Object userLinkFlagsObject,
       Object nonCodeInputs, // <FileT> expected
-      Location location,
       StarlarkThread thread)
       throws EvalException, InterruptedException {
-
     LinkOptions options =
         LinkOptions.of(
             Depset.getSetFromNoneableParam(userLinkFlagsObject, String.class, "user_link_flags")
@@ -688,7 +671,6 @@ public abstract class CcModule
       Object librariesToLinkObject,
       Object userLinkFlagsObject,
       Object nonCodeInputsObject,
-      Location location,
       StarlarkThread thread)
       throws EvalException {
     if (EvalUtils.isNullOrNone(linkerInputs)) {
@@ -720,7 +702,7 @@ public abstract class CcModule
         return ccLinkingContextBuilder.build();
       }
 
-      throw new EvalException(location, "Must pass libraries_to_link, user_link_flags or both.");
+      throw Starlark.errorf("Must pass libraries_to_link, user_link_flags or both.");
     } else {
       CcLinkingContext.Builder ccLinkingContextBuilder = CcLinkingContext.builder();
       ccLinkingContextBuilder.addTransitiveLinkerInputs(
@@ -735,8 +717,7 @@ public abstract class CcModule
       Sequence<String> nonCodeInputs = nullIfNone(nonCodeInputsObject, Sequence.class);
 
       if (librariesToLink != null || userLinkFlags != null || nonCodeInputs != null) {
-        throw new EvalException(
-            location,
+        throw Starlark.errorf(
             "If you pass linker_inputs you are using the new API. "
                 + "Just pass linker_inputs. Do not mix old and new API parameters.");
       }
@@ -956,14 +937,12 @@ public abstract class CcModule
   private static void checkRightSkylarkInfoProvider(
       Object o, String parameterName, String expectedProvider) throws EvalException {
     if (!(o instanceof SkylarkInfo)) {
-      throw new EvalException(
-          Location.BUILTIN,
-          String.format(
-              "'%s' parameter of cc_common.create_cc_toolchain_config_info() contains an element"
-                  + " of type '%s' instead of a '%s' provider. Use the methods provided in"
-                  + " https://source.bazel.build/bazel/+/master:tools/cpp/cc_toolchain_config_lib.bzl"
-                  + " for obtaining the right providers.",
-              parameterName, EvalUtils.getDataTypeName(o), expectedProvider));
+      throw Starlark.errorf(
+          "'%s' parameter of cc_common.create_cc_toolchain_config_info() contains an element"
+              + " of type '%s' instead of a '%s' provider. Use the methods provided in"
+              + " https://source.bazel.build/bazel/+/master:tools/cpp/cc_toolchain_config_lib.bzl"
+              + " for obtaining the right providers.",
+          parameterName, EvalUtils.getDataTypeName(o), expectedProvider);
     }
   }
 
@@ -1475,15 +1454,14 @@ public abstract class CcModule
       boolean disallowStaticLibraries,
       boolean disallowDynamicLibraries,
       Object grepIncludes,
-      Location location,
       StarlarkThread thread)
       throws InterruptedException, EvalException {
-    validateLanguage(location, language);
+    validateLanguage(language);
     SkylarkActionFactory actions = skylarkActionFactoryApi;
     CcToolchainProvider ccToolchainProvider = convertFromNoneable(skylarkCcToolchainProvider, null);
     FeatureConfigurationForStarlark featureConfiguration =
         convertFromNoneable(skylarkFeatureConfiguration, null);
-    Label label = getCallerLabel(location, actions, name);
+    Label label = getCallerLabel(actions, name);
     FdoContext fdoContext = ccToolchainProvider.getFdoContext();
     LinkTargetType staticLinkTargetType = null;
     if (language.equals(Language.CPP.getRepresentation())) {
@@ -1498,7 +1476,7 @@ public abstract class CcModule
         new CcLinkingHelper(
                 actions.getActionConstructionContext().getRuleErrorConsumer(),
                 label,
-                actions.asActionRegistry(location, actions),
+                actions.asActionRegistry(actions),
                 actions.getActionConstructionContext(),
                 getSemantics(),
                 featureConfiguration.getFeatureConfiguration(),
@@ -1549,41 +1527,33 @@ public abstract class CcModule
                   .build()),
           ccLinkingOutputs);
     } catch (RuleErrorException e) {
-      throw new EvalException(location, e);
+      throw Starlark.errorf("%s", e.getMessage());
     }
   }
 
-  protected void validateLanguage(Location location, String language) throws EvalException {
+  protected void validateLanguage(String language) throws EvalException {
     if (!Arrays.stream(Language.values())
         .map(Language::getRepresentation)
         .collect(ImmutableList.toImmutableList())
         .contains(language)) {
-      throw new EvalException(location, "Language '" + language + "' is not supported");
+      throw Starlark.errorf("Language '%s' is not supported", language);
     }
   }
 
-  protected void validateOutputType(Location location, String outputType) throws EvalException {
+  protected void validateOutputType(String outputType) throws EvalException {
     if (!SUPPORTED_OUTPUT_TYPES.contains(outputType)) {
-      throw new EvalException(location, "Output type '" + outputType + "' is not supported");
+      throw Starlark.errorf("Output type '%s' is not supported", outputType);
     }
   }
 
-  protected Label getCallerLabel(Location location, SkylarkActionFactory actions, String name)
-      throws EvalException {
-    Label label;
+  protected Label getCallerLabel(SkylarkActionFactory actions, String name) throws EvalException {
     try {
-      label =
-          Label.create(
-              actions
-                  .getActionConstructionContext()
-                  .getActionOwner()
-                  .getLabel()
-                  .getPackageIdentifier(),
-              name);
+      return Label.create(
+          actions.getActionConstructionContext().getActionOwner().getLabel().getPackageIdentifier(),
+          name);
     } catch (LabelSyntaxException e) {
-      throw new EvalException(location, e);
+      throw Starlark.errorf("%s", e.getMessage());
     }
-    return label;
   }
 
   protected Tuple<Object> compile(
@@ -1607,8 +1577,7 @@ public abstract class CcModule
       Artifact grepIncludes,
       List<Artifact> headersForClifDoNotUseThisParam,
       Sequence<?> additionalInputs,
-      Location location,
-      @Nullable StarlarkThread thread)
+      StarlarkThread thread)
       throws EvalException, InterruptedException {
     List<Artifact> sources = sourcesUnchecked.getContents(Artifact.class, "srcs");
     List<Artifact> publicHeaders = publicHeadersUnchecked.getContents(Artifact.class, "srcs");
@@ -1618,35 +1587,32 @@ public abstract class CcModule
     CcToolchainProvider ccToolchainProvider = convertFromNoneable(skylarkCcToolchainProvider, null);
     FeatureConfigurationForStarlark featureConfiguration =
         convertFromNoneable(skylarkFeatureConfiguration, null);
-    Label label = getCallerLabel(location, actions, name);
+    Label label = getCallerLabel(actions, name);
     FdoContext fdoContext = ccToolchainProvider.getFdoContext();
     validateExtensions(
-        location,
         "srcs",
         sources,
         CppFileTypes.ALL_C_CLASS_SOURCE,
         FileTypeSet.of(CppFileTypes.CPP_SOURCE, CppFileTypes.C_SOURCE));
     validateExtensions(
-        location,
         "public_hdrs",
         publicHeaders,
         FileTypeSet.of(CppFileTypes.CPP_HEADER),
         FileTypeSet.of(CppFileTypes.CPP_HEADER));
     validateExtensions(
-        location,
         "private_hdrs",
         privateHeaders,
         FileTypeSet.of(CppFileTypes.CPP_HEADER),
         FileTypeSet.of(CppFileTypes.CPP_HEADER));
 
     if (disallowNopicOutputs && disallowPicOutputs) {
-      throw new EvalException(location, "Either PIC or no PIC actions have to be created.");
+      throw Starlark.errorf("Either PIC or no PIC actions have to be created.");
     }
 
     CcCommon common = new CcCommon(actions.getRuleContext());
     CcCompilationHelper helper =
         new CcCompilationHelper(
-                actions.asActionRegistry(location, actions),
+                actions.asActionRegistry(actions),
                 actions.getActionConstructionContext(),
                 label,
                 grepIncludes,
@@ -1701,7 +1667,7 @@ public abstract class CcModule
       return Tuple.of(
           compilationInfo.getCcCompilationContext(), compilationInfo.getCcCompilationOutputs());
     } catch (RuleErrorException e) {
-      throw new EvalException(location, e);
+      throw Starlark.errorf("%s", e.getMessage());
     }
   }
 
@@ -1718,15 +1684,14 @@ public abstract class CcModule
       boolean linkDepsStatically,
       Sequence<?> additionalInputs,
       Object grepIncludes,
-      Location location,
       StarlarkThread thread)
       throws InterruptedException, EvalException {
-    validateLanguage(location, language);
-    validateOutputType(location, outputType);
+    validateLanguage(language);
+    validateOutputType(outputType);
     CcToolchainProvider ccToolchainProvider = convertFromNoneable(skylarkCcToolchainProvider, null);
     FeatureConfigurationForStarlark featureConfiguration =
         convertFromNoneable(skylarkFeatureConfiguration, null);
-    Label label = getCallerLabel(location, actions, name);
+    Label label = getCallerLabel(actions, name);
     FdoContext fdoContext = ccToolchainProvider.getFdoContext();
     LinkTargetType dynamicLinkTargetType = null;
     if (language.equals(Language.CPP.getRepresentation())) {
@@ -1742,8 +1707,7 @@ public abstract class CcModule
         && outputType.equals("executable")) {
       dynamicLinkTargetType = LinkTargetType.OBJCPP_EXECUTABLE;
     } else {
-      throw new EvalException(
-          location, "Language '" + language + "' does not support " + outputType);
+      throw Starlark.errorf("Language '%s' does not support %s", language, outputType);
     }
     FeatureConfiguration actualFeatureConfiguration =
         featureConfiguration.getFeatureConfiguration();
@@ -1756,7 +1720,7 @@ public abstract class CcModule
         new CcLinkingHelper(
                 actions.getActionConstructionContext().getRuleErrorConsumer(),
                 label,
-                actions.asActionRegistry(location, actions),
+                actions.asActionRegistry(actions),
                 actions.getActionConstructionContext(),
                 getSemantics(),
                 actualFeatureConfiguration,
@@ -1786,27 +1750,25 @@ public abstract class CcModule
       return helper.link(
           compilationOutputs != null ? compilationOutputs : CcCompilationOutputs.EMPTY);
     } catch (RuleErrorException e) {
-      throw new EvalException(location, e);
+      throw Starlark.errorf("%s", e.getMessage());
     }
   }
 
   protected CcCompilationOutputs createCompilationOutputsFromSkylark(
-      Object objectsObject, Object picObjectsObject, Location location) throws EvalException {
+      Object objectsObject, Object picObjectsObject) throws EvalException {
     CcCompilationOutputs.Builder ccCompilationOutputsBuilder = CcCompilationOutputs.builder();
     NestedSet<Artifact> objects = convertToNestedSet(objectsObject, Artifact.class, "objects");
-    validateExtensions(
-        location, "objects", objects.toList(), Link.OBJECT_FILETYPES, Link.OBJECT_FILETYPES);
+    validateExtensions("objects", objects.toList(), Link.OBJECT_FILETYPES, Link.OBJECT_FILETYPES);
     NestedSet<Artifact> picObjects =
         convertToNestedSet(picObjectsObject, Artifact.class, "pic_objects");
     validateExtensions(
-        location, "pic_objects", picObjects.toList(), Link.OBJECT_FILETYPES, Link.OBJECT_FILETYPES);
+        "pic_objects", picObjects.toList(), Link.OBJECT_FILETYPES, Link.OBJECT_FILETYPES);
     ccCompilationOutputsBuilder.addObjectFiles(objects.toList());
     ccCompilationOutputsBuilder.addPicObjectFiles(picObjects.toList());
     return ccCompilationOutputsBuilder.build();
   }
 
   private void validateExtensions(
-      Location location,
       String paramName,
       List<Artifact> files,
       FileTypeSet validFileTypeSet,
@@ -1814,14 +1776,11 @@ public abstract class CcModule
       throws EvalException {
     for (Artifact file : files) {
       if (!validFileTypeSet.matches(file.getFilename())) {
-        throw new EvalException(
-            location,
-            String.format(
-                "'%s' has wrong extension. The list of possible extensions for '"
-                    + paramName
-                    + "' are: %s",
-                file.getExecPathString(),
-                Joiner.on(",").join(fileTypeForErrorMessage.getExtensions())));
+        throw Starlark.errorf(
+            "'%s' has wrong extension. The list of possible extensions for '%s' is: %s",
+            file.getExecPathString(),
+            paramName,
+            Joiner.on(",").join(fileTypeForErrorMessage.getExtensions()));
       }
     }
   }

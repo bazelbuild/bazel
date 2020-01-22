@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.skydoc.fakebuildapi.java;
 
-import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkbuildapi.java.JavaRuntimeInfoApi;
 import com.google.devtools.build.lib.syntax.Depset;
 import com.google.devtools.build.lib.syntax.EvalException;
@@ -48,12 +47,12 @@ final class FakeJavaRuntimeInfoApi implements JavaRuntimeInfoApi {
   }
 
   @Override
-  public String toProto(Location loc) throws EvalException {
+  public String toProto() throws EvalException {
     return "";
   }
 
   @Override
-  public String toJson(Location loc) throws EvalException {
+  public String toJson() throws EvalException {
     return "";
   }
 

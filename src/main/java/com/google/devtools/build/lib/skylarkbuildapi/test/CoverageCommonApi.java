@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.skylarkbuildapi.test;
 
-import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkbuildapi.SkylarkRuleContextApi;
 import com.google.devtools.build.lib.skylarkbuildapi.platform.ConstraintValueInfoApi;
 import com.google.devtools.build.lib.skylarkinterface.Param;
@@ -75,13 +74,11 @@ public interface CoverageCommonApi<
             noneable = true,
             defaultValue = "None",
             type = Sequence.class),
-      },
-      useLocation = true)
+      })
   InstrumentedFilesInfoApi instrumentedFilesInfo(
       RuleContextT skylarkRuleContext,
       Sequence<?> sourceAttributes, // <String> expected
       Sequence<?> dependencyAttributes, // <String> expected
-      Object extensions,
-      Location location)
+      Object extensions)
       throws EvalException;
 }

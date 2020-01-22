@@ -85,7 +85,8 @@ public class FakeSkylarkRuleFunctionsApi implements SkylarkRuleFunctionsApi<File
   }
 
   @Override
-  public ProviderApi provider(String doc, Object fields, Location location) throws EvalException {
+  public ProviderApi provider(String doc, Object fields, StarlarkThread thread)
+      throws EvalException {
     FakeProviderApi fakeProvider = new FakeProviderApi();
     // Field documentation will be output preserving the order in which the fields are listed.
     ImmutableList.Builder<ProviderFieldInfo> providerFieldInfos = ImmutableList.builder();
@@ -97,7 +98,7 @@ public class FakeSkylarkRuleFunctionsApi implements SkylarkRuleFunctionsApi<File
                   fields,
                   Sequence.class,
                   String.class,
-                  location,
+                  null,
                   "Expected list of strings or dictionary of string -> string for 'fields'");
       for (String fieldName : fieldNames) {
         providerFieldInfos.add(asProviderFieldInfo(fieldName, "(Undocumented)"));
@@ -146,8 +147,7 @@ public class FakeSkylarkRuleFunctionsApi implements SkylarkRuleFunctionsApi<File
       Object analysisTest,
       Object buildSetting,
       Object cfg,
-      Location loc,
-      StarlarkThread funcallThread)
+      StarlarkThread thread)
       throws EvalException {
     ImmutableMap.Builder<String, FakeDescriptor> attrsMapBuilder = ImmutableMap.builder();
     if (attrs != null && attrs != Starlark.NONE) {
@@ -168,14 +168,14 @@ public class FakeSkylarkRuleFunctionsApi implements SkylarkRuleFunctionsApi<File
     // Only the Builder is passed to RuleInfoWrapper as the rule name is not yet available.
     RuleInfo.Builder ruleInfo = RuleInfo.newBuilder().setDocString(doc).addAllAttribute(attrInfos);
 
+    Location loc = thread.getCallerLocation();
     ruleInfoList.add(new RuleInfoWrapper(functionIdentifier, loc, ruleInfo));
 
     return functionIdentifier;
   }
 
   @Override
-  public Label label(
-      String labelString, Boolean relativeToCallerRepository, Location loc, StarlarkThread thread)
+  public Label label(String labelString, Boolean relativeToCallerRepository, StarlarkThread thread)
       throws EvalException {
     try {
       return Label.parseAbsolute(
@@ -183,7 +183,7 @@ public class FakeSkylarkRuleFunctionsApi implements SkylarkRuleFunctionsApi<File
           /* defaultToMain= */ false,
           /* repositoryMapping= */ ImmutableMap.of());
     } catch (LabelSyntaxException e) {
-      throw new EvalException(loc, "Illegal absolute label syntax: " + labelString);
+      throw Starlark.errorf("Illegal absolute label syntax: %s", labelString);
     }
   }
 
@@ -199,8 +199,7 @@ public class FakeSkylarkRuleFunctionsApi implements SkylarkRuleFunctionsApi<File
       Sequence<?> toolchains,
       String doc,
       Boolean applyToFiles,
-      Location loc,
-      StarlarkThread funcallThread)
+      StarlarkThread thread)
       throws EvalException {
     FakeSkylarkAspect fakeAspect = new FakeSkylarkAspect();
     ImmutableMap.Builder<String, FakeDescriptor> attrsMapBuilder = ImmutableMap.builder();
@@ -232,7 +231,7 @@ public class FakeSkylarkRuleFunctionsApi implements SkylarkRuleFunctionsApi<File
             .addAllAttribute(attrInfos)
             .addAllAspectAttribute(aspectAttrs);
 
-    aspectInfoList.add(new AspectInfoWrapper(fakeAspect, loc, aspectInfo));
+    aspectInfoList.add(new AspectInfoWrapper(fakeAspect, thread.getCallerLocation(), aspectInfo));
 
     return fakeAspect;
   }

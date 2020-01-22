@@ -137,43 +137,19 @@ public final class SkylarkCallableProcessorTest {
   }
 
   @Test
-  public void testLocationMissing() throws Exception {
-    assertAbout(javaSource())
-        .that(getFile("LocationMissing.java"))
-        .processedWith(new SkylarkCallableProcessor())
-        .failsToCompile()
-        .withErrorContaining(
-            "for useLocation special parameter 'shouldBeLoc', got type java.lang.String, want"
-                + " Location");
-  }
-
-  @Test
   public void testSkylarkInfoBeforeParams() throws Exception {
     assertAbout(javaSource())
         .that(getFile("SkylarkInfoBeforeParams.java"))
         .processedWith(new SkylarkCallableProcessor())
         .failsToCompile()
         .withErrorContaining(
-            "for useLocation special parameter 'two', got type java.lang.Integer, want Location");
+            "for useStarlarkThread special parameter 'three', got type java.lang.String, want"
+                + " StarlarkThread");
     // Also reports:
     // - annotated type java.lang.String of parameter 'one' is not assignable
-    //   to variable of type com.google.devtools.build.lib.events.Location
+    //   to variable of type com.google.devtools.build.lib.events.StarlarkThread
     // - annotated type java.lang.Integer of parameter 'two' is not assignable
-    //   to variable of type com.google.devtools.build.lib.syntax.StarlarkThread
-    // - for useStarlarkThread special parameter 'three',
-    //   got type java.lang.String, want StarlarkThread
-  }
-
-  @Test
-  public void testSkylarkInfoParamsWrongOrder() throws Exception {
-    assertAbout(javaSource())
-        .that(getFile("SkylarkInfoParamsWrongOrder.java"))
-        .processedWith(new SkylarkCallableProcessor())
-        .failsToCompile()
-        .withErrorContaining(
-            "for useLocation special parameter 'thread', got type"
-                + " com.google.devtools.build.lib.syntax.StarlarkThread, want Location");
-    // It also reports the converse error with location and thread swapped.
+    //   to variable of type java.lang.String
   }
 
   @Test
@@ -267,8 +243,8 @@ public final class SkylarkCallableProcessorTest {
         .processedWith(new SkylarkCallableProcessor())
         .failsToCompile()
         .withErrorContaining(
-            "method threeArgMethod is annotated with 1 Params plus 3 special parameters, but has"
-                + " only 3 parameter variables");
+            "method threeArgMethod is annotated with 1 Params plus 2 special parameters, but has"
+                + " only 2 parameter variables");
   }
 
   @Test

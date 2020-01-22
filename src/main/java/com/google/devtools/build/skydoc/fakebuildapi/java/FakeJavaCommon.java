@@ -16,7 +16,6 @@ package com.google.devtools.build.skydoc.fakebuildapi.java;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
 import com.google.devtools.build.lib.skylarkbuildapi.SkylarkActionFactoryApi;
 import com.google.devtools.build.lib.skylarkbuildapi.SkylarkRuleContextApi;
@@ -67,9 +66,7 @@ public class FakeJavaCommon
       Sequence<?> sourcepathEntries,
       Sequence<?> resources,
       Boolean neverlink,
-      Location loc,
-      StarlarkThread thread)
-      throws EvalException, InterruptedException {
+      StarlarkThread thread) {
     return new FakeJavaInfo();
   }
 
@@ -78,9 +75,7 @@ public class FakeJavaCommon
       SkylarkActionFactoryApi actions,
       FileApi jar,
       Object targetLabel,
-      FakeJavaToolchainSkylarkApiProviderApi javaToolchain,
-      Location location)
-      throws EvalException {
+      FakeJavaToolchainSkylarkApiProviderApi javaToolchain) {
     return null;
   }
 
@@ -89,9 +84,7 @@ public class FakeJavaCommon
       SkylarkActionFactoryApi actions,
       FileApi jar,
       Label targetLabel,
-      FakeJavaToolchainSkylarkApiProviderApi javaToolchain,
-      Location location)
-      throws EvalException {
+      FakeJavaToolchainSkylarkApiProviderApi javaToolchain) {
     return null;
   }
 
@@ -102,15 +95,13 @@ public class FakeJavaCommon
       Sequence<?> sourceFiles,
       Sequence<?> sourceJars,
       FakeJavaToolchainSkylarkApiProviderApi javaToolchain,
-      FakeJavaRuntimeInfoApi hostJavabase,
-      Location location)
-      throws EvalException {
+      FakeJavaRuntimeInfoApi hostJavabase) {
     return null;
   }
 
   @Override
   public ImmutableList<String> getDefaultJavacOpts(
-      FakeJavaToolchainSkylarkApiProviderApi javaToolchain, Location loc) throws EvalException {
+      FakeJavaToolchainSkylarkApiProviderApi javaToolchain) throws EvalException {
     return ImmutableList.of();
   }
 
@@ -167,8 +158,8 @@ public class FakeJavaCommon
   }
 
   @Override
-  public Label getJavaToolchainLabel(
-      JavaToolchainSkylarkApiProviderApi toolchain, Location location) throws EvalException {
+  public Label getJavaToolchainLabel(JavaToolchainSkylarkApiProviderApi toolchain)
+      throws EvalException {
     return null;
   }
 }

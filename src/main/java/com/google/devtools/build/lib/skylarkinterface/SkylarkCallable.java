@@ -56,7 +56,6 @@ import java.lang.annotation.Target;
  *             {@code extraPositionals};
  *         <li>a {@code Dict<String, Object>} of extra keyword arguments ({@code **kwargs}), if
  *             {@code extraKeywords};
- *         <li>a {@code Location}, if {@code useLocation};
  *         <li>a {@code StarlarkThread}, if {@code useStarlarkThread};
  *         <li>a {@code StarlarkSemantics}, if {@code useStarlarkSemantics}.
  *       </ol>
@@ -169,15 +168,6 @@ public @interface SkylarkCallable {
    * <code>None</code>). If not set and the Java method returns null, an error will be raised.
    */
   boolean allowReturnNones() default false;
-
-  /**
-   * If true, the location of the call site will be passed as an argument of the annotated function.
-   * (Thus, the annotated method signature must contain Location as a parameter. See the
-   * interface-level javadoc for details.)
-   *
-   * <p>This is incompatible with structField=true. If structField is true, this must be false.
-   */
-  boolean useLocation() default false;
 
   /**
    * If true, the StarlarkThread will be passed as an argument of the annotated function. (Thus, the

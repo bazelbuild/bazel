@@ -526,7 +526,7 @@ final class Eval {
             }
             return result;
           } catch (EvalException ex) {
-            throw ex.ensureLocation(dot.getStartLocation());
+            throw ex.ensureLocation(dot.getStartLocation()); // TODO(adonovan): use dot token
           }
         }
 

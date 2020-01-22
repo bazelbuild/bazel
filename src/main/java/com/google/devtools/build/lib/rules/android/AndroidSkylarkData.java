@@ -90,12 +90,10 @@ public abstract class AndroidSkylarkData
       Sequence<?> deps, // <AndroidResourcesInfo>
       Sequence<?> assets, // <AndroidAssetsInfo>
       boolean neverlink,
-      String customPackage,
-      Location location,
-      StarlarkThread thread)
+      String customPackage)
       throws InterruptedException, EvalException {
     try (SkylarkErrorReporter errorReporter =
-        SkylarkErrorReporter.from(ctx.getRuleErrorConsumer(), location)) {
+        SkylarkErrorReporter.from(ctx.getRuleErrorConsumer())) {
       return ResourceApk.processFromTransitiveLibraryData(
               ctx,
               DataBinding.getDisabledDataBindingContext(ctx),
@@ -113,16 +111,11 @@ public abstract class AndroidSkylarkData
 
   @Override
   public AndroidManifestInfo stampAndroidManifest(
-      AndroidDataContext ctx,
-      Object manifest,
-      Object customPackage,
-      boolean exported,
-      Location location,
-      StarlarkThread thread)
+      AndroidDataContext ctx, Object manifest, Object customPackage, boolean exported)
       throws InterruptedException, EvalException {
     String pkg = fromNoneable(customPackage, String.class);
     try (SkylarkErrorReporter errorReporter =
-        SkylarkErrorReporter.from(ctx.getRuleErrorConsumer(), location)) {
+        SkylarkErrorReporter.from(ctx.getRuleErrorConsumer())) {
       return AndroidManifest.from(
               ctx,
               errorReporter,
@@ -141,12 +134,9 @@ public abstract class AndroidSkylarkData
       Object assets,
       Object assetsDir,
       Sequence<?> deps, // <AndroidAssetsInfo>
-      boolean neverlink,
-      Location location,
-      StarlarkThread thread)
+      boolean neverlink)
       throws EvalException, InterruptedException {
-    SkylarkErrorReporter errorReporter =
-        SkylarkErrorReporter.from(ctx.getRuleErrorConsumer(), location);
+    SkylarkErrorReporter errorReporter = SkylarkErrorReporter.from(ctx.getRuleErrorConsumer());
     try {
       return AndroidAssets.from(
               errorReporter,
@@ -169,12 +159,9 @@ public abstract class AndroidSkylarkData
       Sequence<?> resources, // <ConfiguredTarget>
       Sequence<?> deps, // <AndroidResourcesInfo>
       boolean neverlink,
-      boolean enableDataBinding,
-      Location location,
-      StarlarkThread thread)
+      boolean enableDataBinding)
       throws EvalException, InterruptedException {
-    SkylarkErrorReporter errorReporter =
-        SkylarkErrorReporter.from(ctx.getRuleErrorConsumer(), location);
+    SkylarkErrorReporter errorReporter = SkylarkErrorReporter.from(ctx.getRuleErrorConsumer());
     try {
       return AndroidResources.from(
               errorReporter,
@@ -199,12 +186,10 @@ public abstract class AndroidSkylarkData
       Sequence<?> resources, // <ConfiguredTarget>
       Sequence<?> deps, // <AndroidResourcesInfo>
       boolean neverlink,
-      boolean enableDataBinding,
-      Location location,
-      StarlarkThread thread)
+      boolean enableDataBinding)
       throws EvalException, InterruptedException {
     ValidatedAndroidResources validated =
-        mergeRes(ctx, manifest, resources, deps, neverlink, enableDataBinding, location, thread);
+        mergeRes(ctx, manifest, resources, deps, neverlink, enableDataBinding);
     JavaInfo javaInfo =
         getJavaInfoForRClassJar(validated.getClassJar(), validated.getJavaSourceJar());
     return Dict.of(
@@ -313,12 +298,9 @@ public abstract class AndroidSkylarkData
       String aaptVersionString,
       Dict<?, ?> manifestValues, // <String, String>
       Sequence<?> deps, // <ConfiguredTarget>
-      Sequence<?> noCompressExtensions, // <String>
-      Location location,
-      StarlarkThread thread)
+      Sequence<?> noCompressExtensions) // <String>
       throws InterruptedException, EvalException {
-    SkylarkErrorReporter errorReporter =
-        SkylarkErrorReporter.from(ctx.getRuleErrorConsumer(), location);
+    SkylarkErrorReporter errorReporter = SkylarkErrorReporter.from(ctx.getRuleErrorConsumer());
     List<ConfiguredTarget> depsTargets = deps.getContents(ConfiguredTarget.class, "deps");
 
     try {
@@ -386,9 +368,7 @@ public abstract class AndroidSkylarkData
       Object shrinkResources,
       Sequence<?> resourceConfigurationFilters, // <String>
       Sequence<?> densities, // <String>
-      Sequence<?> noCompressExtensions, // <String>
-      Location location,
-      StarlarkThread thread)
+      Sequence<?> noCompressExtensions) // <String>
       throws EvalException {
     return new BinaryDataSettings(
         fromNoneableOrDefault(
@@ -410,16 +390,10 @@ public abstract class AndroidSkylarkData
    * Helper method to get default {@link
    * com.google.devtools.build.lib.rules.android.AndroidSkylarkData.BinaryDataSettings}.
    */
-  private BinaryDataSettings defaultBinaryDataSettings(
-      AndroidDataContext ctx, Location location, StarlarkThread thread) throws EvalException {
+  private BinaryDataSettings defaultBinaryDataSettings(AndroidDataContext ctx)
+      throws EvalException {
     return makeBinarySettings(
-        ctx,
-        Starlark.NONE,
-        StarlarkList.empty(),
-        StarlarkList.empty(),
-        StarlarkList.empty(),
-        location,
-        thread);
+        ctx, Starlark.NONE, StarlarkList.empty(), StarlarkList.empty(), StarlarkList.empty());
   }
 
   private static class BinaryDataSettings implements AndroidBinaryDataSettingsApi {
@@ -450,12 +424,9 @@ public abstract class AndroidSkylarkData
       String manifestMerger,
       Object maybeSettings,
       boolean crunchPng,
-      boolean dataBindingEnabled,
-      Location location,
-      StarlarkThread thread)
+      boolean dataBindingEnabled)
       throws InterruptedException, EvalException {
-    SkylarkErrorReporter errorReporter =
-        SkylarkErrorReporter.from(ctx.getRuleErrorConsumer(), location);
+    SkylarkErrorReporter errorReporter = SkylarkErrorReporter.from(ctx.getRuleErrorConsumer());
     List<ConfiguredTarget> depsTargets = deps.getContents(ConfiguredTarget.class, "deps");
     Map<String, String> manifestValueMap =
         manifestValues.getContents(String.class, String.class, "manifest_values");
@@ -463,9 +434,7 @@ public abstract class AndroidSkylarkData
     try {
       BinaryDataSettings settings =
           fromNoneableOrDefault(
-              maybeSettings,
-              BinaryDataSettings.class,
-              defaultBinaryDataSettings(ctx, location, thread));
+              maybeSettings, BinaryDataSettings.class, defaultBinaryDataSettings(ctx));
 
       AndroidManifest rawManifest =
           AndroidManifest.from(
@@ -542,15 +511,11 @@ public abstract class AndroidSkylarkData
       Object maybeSettings,
       Sequence<?> deps, // <ConfiguredTarget>
       Sequence<?> localProguardSpecs, // <ConfiguredTarget>
-      Sequence<?> extraProguardSpecs, // <ConfiguredTarget>
-      Location location,
-      StarlarkThread thread)
+      Sequence<?> extraProguardSpecs) // <ConfiguredTarget>
       throws EvalException, InterruptedException {
     BinaryDataSettings settings =
         fromNoneableOrDefault(
-            maybeSettings,
-            BinaryDataSettings.class,
-            defaultBinaryDataSettings(ctx, location, thread));
+            maybeSettings, BinaryDataSettings.class, defaultBinaryDataSettings(ctx));
     List<ConfiguredTarget> depsTargets = deps.getContents(ConfiguredTarget.class, "deps");
 
     if (!settings.shrinkResources) {

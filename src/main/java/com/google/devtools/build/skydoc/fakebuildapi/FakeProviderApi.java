@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.skydoc.fakebuildapi;
 
-import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.syntax.BaseFunction;
 import com.google.devtools.build.lib.syntax.Dict;
@@ -34,8 +33,7 @@ public class FakeProviderApi extends BaseFunction implements ProviderApi {
   private final String name = "ProviderIdentifier" + idCounter++;
 
   @Override
-  public Object call(
-      StarlarkThread thread, Location loc, Tuple<Object> args, Dict<String, Object> kwargs) {
+  public Object call(StarlarkThread thread, Tuple<Object> args, Dict<String, Object> kwargs) {
     return new FakeStructApi();
   }
 

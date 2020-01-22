@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.skydoc.fakebuildapi.test;
 
-import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkbuildapi.SkylarkRuleContextApi;
 import com.google.devtools.build.lib.skylarkbuildapi.platform.ConstraintValueInfoApi;
 import com.google.devtools.build.lib.skylarkbuildapi.test.CoverageCommonApi;
@@ -32,8 +31,7 @@ public class FakeCoverageCommon
       SkylarkRuleContextApi<ConstraintValueInfoApi> skylarkRuleContext,
       Sequence<?> sourceAttributes,
       Sequence<?> dependencyAttributes,
-      Object extensions,
-      Location location) {
+      Object extensions) {
     return null;
   }
 

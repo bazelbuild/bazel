@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.syntax;
 
 import static com.google.common.truth.Truth.assertThat;
 
-import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.syntax.util.EvaluationTestCase;
 import com.google.devtools.build.lib.testutil.MoreAsserts;
 import java.util.ArrayList;
@@ -76,7 +75,7 @@ public class FunctionTest extends EvaluationTestCase {
 
           @Override
           public NoneType call(
-              StarlarkThread thread, Location loc, Tuple<Object> args, Dict<String, Object> kwargs)
+              StarlarkThread thread, Tuple<Object> args, Dict<String, Object> kwargs)
               throws EvalException {
             params.addAll(args);
             return Starlark.NONE;

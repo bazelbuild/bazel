@@ -14,12 +14,12 @@
 
 package com.google.devtools.build.skydoc.fakebuildapi.python;
 
-import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
 import com.google.devtools.build.lib.skylarkbuildapi.python.PyInfoApi;
 import com.google.devtools.build.lib.syntax.Depset;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Printer;
+import com.google.devtools.build.lib.syntax.StarlarkThread;
 
 /** Fake implementation of {@link PyInfoApi}. */
 public class FakePyInfo implements PyInfoApi<FileApi> {
@@ -62,7 +62,7 @@ public class FakePyInfo implements PyInfoApi<FileApi> {
         Object importsUncast,
         boolean hasPy2OnlySources,
         boolean hasPy3OnlySources,
-        Location loc)
+        StarlarkThread thread)
         throws EvalException {
       return new FakePyInfo();
     }

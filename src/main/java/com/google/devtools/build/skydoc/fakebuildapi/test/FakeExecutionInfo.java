@@ -15,7 +15,6 @@
 package com.google.devtools.build.skydoc.fakebuildapi.test;
 
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkbuildapi.test.ExecutionInfoApi;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Printer;
@@ -31,12 +30,12 @@ public class FakeExecutionInfo implements ExecutionInfoApi {
   }
 
   @Override
-  public String toProto(Location loc) throws EvalException {
+  public String toProto() throws EvalException {
     return "";
   }
 
   @Override
-  public String toJson(Location loc) throws EvalException {
+  public String toJson() throws EvalException {
     return "";
   }
 

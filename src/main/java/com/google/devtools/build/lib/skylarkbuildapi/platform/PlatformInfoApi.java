@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.skylarkbuildapi.platform;
 
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.skylarkbuildapi.core.StructApi;
 import com.google.devtools.build.lib.skylarkinterface.Param;
@@ -27,6 +26,7 @@ import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
+import com.google.devtools.build.lib.syntax.StarlarkThread;
 import java.util.Map;
 
 /** Info object representing data about a specific platform. */
@@ -120,7 +120,7 @@ public interface PlatformInfoApi<
               doc = "The exec properties for the platform.")
         },
         selfCall = true,
-        useLocation = true,
+        useStarlarkThread = true,
         enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_PLATFORM_API)
     @SkylarkConstructor(objectType = PlatformInfoApi.class, receiverNameForDoc = "PlatformInfo")
     PlatformInfoT platformInfo(
@@ -128,7 +128,7 @@ public interface PlatformInfoApi<
         Object parent,
         Sequence<?> constraintValues,
         Object execProperties,
-        Location location)
+        StarlarkThread thread)
         throws EvalException;
   }
 }

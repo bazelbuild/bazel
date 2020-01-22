@@ -42,7 +42,6 @@ final class MethodDescriptor {
   private final boolean extraKeywords;
   private final boolean selfCall;
   private final boolean allowReturnNones;
-  private final boolean useLocation;
   private final boolean useStarlarkThread;
   private final boolean useStarlarkSemantics;
 
@@ -58,7 +57,6 @@ final class MethodDescriptor {
       boolean extraKeywords,
       boolean selfCall,
       boolean allowReturnNones,
-      boolean useLocation,
       boolean useStarlarkThread,
       boolean useStarlarkSemantics) {
     this.method = method;
@@ -72,7 +70,6 @@ final class MethodDescriptor {
     this.extraKeywords = extraKeywords;
     this.selfCall = selfCall;
     this.allowReturnNones = allowReturnNones;
-    this.useLocation = useLocation;
     this.useStarlarkThread = useStarlarkThread;
     this.useStarlarkSemantics = useStarlarkSemantics;
   }
@@ -102,7 +99,6 @@ final class MethodDescriptor {
         !annotation.extraKeywords().name().isEmpty(),
         annotation.selfCall(),
         annotation.allowReturnNones(),
-        annotation.useLocation(),
         annotation.useStarlarkThread(),
         annotation.useStarlarkSemantics());
   }
@@ -192,11 +188,6 @@ final class MethodDescriptor {
   /** @see SkylarkCallable#useStarlarkSemantics() */
   boolean isUseStarlarkSemantics() {
     return useStarlarkSemantics;
-  }
-
-  /** @see SkylarkCallable#useLocation() */
-  boolean isUseLocation() {
-    return useLocation;
   }
 
   /** @see SkylarkCallable#allowReturnNones() */

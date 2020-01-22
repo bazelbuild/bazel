@@ -354,7 +354,7 @@ public final class Starlark {
 
     thread.push(callable);
     try {
-      return callable.fastcall(thread, thread.getCallerLocation(), positional, named);
+      return callable.fastcall(thread, positional, named);
     } finally {
       thread.pop();
     }

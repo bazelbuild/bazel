@@ -2061,8 +2061,7 @@ public final class SkylarkEvaluationTest extends EvaluationTest {
           }
 
           @Override
-          public Object fastcall(
-              StarlarkThread thread, Location loc, Object[] positional, Object[] named) {
+          public Object fastcall(StarlarkThread thread, Object[] positional, Object[] named) {
             return "fromValues";
           }
         };

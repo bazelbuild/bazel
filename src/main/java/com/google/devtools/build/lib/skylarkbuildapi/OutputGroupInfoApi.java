@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.skylarkbuildapi;
 
-import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.skylarkbuildapi.core.StructApi;
 import com.google.devtools.build.lib.skylarkinterface.Param;
@@ -55,11 +54,10 @@ public interface OutputGroupInfoApi extends StructApi {
                 type = Dict.class,
                 defaultValue = "{}",
                 doc = "Dictionary of arguments."),
-        useLocation = true,
         selfCall = true)
     @SkylarkConstructor(
         objectType = OutputGroupInfoApi.class,
         receiverNameForDoc = "OutputGroupInfo")
-    OutputGroupInfoApi constructor(Dict<?, ?> kwargs, Location loc) throws EvalException;
+    OutputGroupInfoApi constructor(Dict<?, ?> kwargs) throws EvalException;
   }
 }

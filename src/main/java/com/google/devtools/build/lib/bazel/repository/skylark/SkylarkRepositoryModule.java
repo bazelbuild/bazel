@@ -66,7 +66,6 @@ public class SkylarkRepositoryModule implements RepositoryModuleApi {
       Boolean configure,
       Boolean remotable,
       String doc,
-      Location loc,
       StarlarkThread thread)
       throws EvalException {
     BazelStarlarkContext.from(thread).checkLoadingOrWorkspacePhase("repository_rule");
@@ -104,7 +103,7 @@ public class SkylarkRepositoryModule implements RepositoryModuleApi {
     builder.setRuleDefinitionEnvironmentLabelAndHashCode(
         (Label) thread.getGlobals().getLabel(), thread.getTransitiveContentHashCode());
     builder.setWorkspaceOnly();
-    return new RepositoryRuleFunction(builder, loc, implementation);
+    return new RepositoryRuleFunction(builder, thread.getCallerLocation(), implementation);
   }
 
   // RepositoryRuleFunction is the result of repository_rule(...).
@@ -157,8 +156,7 @@ public class SkylarkRepositoryModule implements RepositoryModuleApi {
     }
 
     @Override
-    public Object call(
-        StarlarkThread thread, Location loc, Tuple<Object> args, Dict<String, Object> kwargs)
+    public Object call(StarlarkThread thread, Tuple<Object> args, Dict<String, Object> kwargs)
         throws EvalException, InterruptedException {
       if (!args.isEmpty()) {
         throw new EvalException(null, "unexpected positional arguments");
@@ -189,7 +187,7 @@ public class SkylarkRepositoryModule implements RepositoryModuleApi {
       }
       try {
         RuleClass ruleClass = builder.build(ruleClassName, ruleClassName);
-        PackageContext context = PackageFactory.getContext(thread, loc);
+        PackageContext context = PackageFactory.getContext(thread);
         Package.Builder packageBuilder = context.getBuilder();
 
         // TODO(adonovan): is this safe? Check.
@@ -210,6 +208,7 @@ public class SkylarkRepositoryModule implements RepositoryModuleApi {
         WorkspaceFactoryHelper.addMainRepoEntry(
             packageBuilder, externalRepoName, thread.getSemantics());
 
+        Location loc = thread.getCallerLocation();
         WorkspaceFactoryHelper.addRepoMappings(packageBuilder, kwargs, externalRepoName, loc);
 
         Rule rule =
@@ -222,17 +221,16 @@ public class SkylarkRepositoryModule implements RepositoryModuleApi {
                 callStack.toString());
         return rule;
       } catch (InvalidRuleException | NameConflictException | LabelSyntaxException e) {
-        throw new EvalException(loc, e.getMessage());
+        throw Starlark.errorf("%s", e.getMessage());
       }
     }
   }
 
   @Override
-  public void failWithIncompatibleUseCcConfigureFromRulesCc(
-      Location location, StarlarkThread thread) throws EvalException {
+  public void failWithIncompatibleUseCcConfigureFromRulesCc(StarlarkThread thread)
+      throws EvalException {
     if (thread.getSemantics().incompatibleUseCcConfigureFromRulesCc()) {
-      throw new EvalException(
-          location,
+      throw Starlark.errorf(
           "Incompatible flag "
               + "--incompatible_use_cc_configure_from_rules_cc has been flipped. Please use "
               + "cc_configure and related logic from https://github.com/bazelbuild/rules_cc. "

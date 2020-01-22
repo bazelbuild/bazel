@@ -419,7 +419,6 @@ public final class JavaInfo extends NativeInfo implements JavaInfoApi<Artifact> 
         Sequence<?> runtimeDeps,
         Sequence<?> exports,
         Object jdepsApi,
-        Location loc,
         StarlarkThread thread)
         throws EvalException {
       Artifact outputJar = (Artifact) outputJarApi;
@@ -427,7 +426,7 @@ public final class JavaInfo extends NativeInfo implements JavaInfoApi<Artifact> 
       @Nullable Artifact sourceJar = nullIfNone(sourceJarApi, Artifact.class);
       @Nullable Artifact jdeps = nullIfNone(jdepsApi, Artifact.class);
       if (compileJar == null) {
-        throw new EvalException(loc, "Expected 'File' for 'compile_jar', found 'None'");
+        throw Starlark.errorf("Expected 'File' for 'compile_jar', found 'None'");
       }
       return JavaInfoBuildHelper.getInstance()
           .createJavaInfo(
@@ -439,7 +438,7 @@ public final class JavaInfo extends NativeInfo implements JavaInfoApi<Artifact> 
               (Sequence<JavaInfo>) runtimeDeps,
               (Sequence<JavaInfo>) exports,
               jdeps,
-              loc);
+              thread.getCallerLocation());
     }
   }
 

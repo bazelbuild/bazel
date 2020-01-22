@@ -15,7 +15,6 @@
 package com.google.devtools.build.skydoc.fakebuildapi.android;
 
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
 import com.google.devtools.build.lib.skylarkbuildapi.android.AndroidManifestInfoApi;
 import com.google.devtools.build.lib.skylarkbuildapi.android.AndroidResourcesInfoApi;
@@ -102,12 +101,12 @@ public class FakeAndroidResourcesInfo
   }
 
   @Override
-  public String toProto(Location loc) throws EvalException {
+  public String toProto() throws EvalException {
     return "";
   }
 
   @Override
-  public String toJson(Location loc) throws EvalException {
+  public String toJson() throws EvalException {
     return "";
   }
 
@@ -213,12 +212,12 @@ public class FakeAndroidResourcesInfo
     }
 
     @Override
-    public String toProto(Location loc) throws EvalException {
+    public String toProto() throws EvalException {
       return "";
     }
 
     @Override
-    public String toJson(Location loc) throws EvalException {
+    public String toJson() throws EvalException {
       return "";
     }
 

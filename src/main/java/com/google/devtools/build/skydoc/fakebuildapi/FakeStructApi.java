@@ -19,12 +19,12 @@ import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Ordering;
-import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkbuildapi.core.StructApi;
 import com.google.devtools.build.lib.syntax.ClassObject;
 import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Printer;
+import com.google.devtools.build.lib.syntax.StarlarkThread;
 import java.util.Map;
 import javax.annotation.Nullable;
 
@@ -44,12 +44,12 @@ public class FakeStructApi implements StructApi, ClassObject {
   }
 
   @Override
-  public String toProto(Location loc) throws EvalException {
+  public String toProto() throws EvalException {
     return "";
   }
 
   @Override
-  public String toJson(Location loc) throws EvalException {
+  public String toJson() throws EvalException {
     return "";
   }
 
@@ -107,8 +107,8 @@ public class FakeStructApi implements StructApi, ClassObject {
   public static class FakeStructProviderApi implements StructProviderApi {
 
     @Override
-    public StructApi createStruct(Dict<?, ?> kwargs, Location loc) throws EvalException {
-      return new FakeStructApi(kwargs.getContents(String.class, Object.class, "kwargs"));
+    public StructApi createStruct(Dict<String, Object> kwargs, StarlarkThread thread) {
+      return new FakeStructApi(kwargs);
     }
 
     @Override

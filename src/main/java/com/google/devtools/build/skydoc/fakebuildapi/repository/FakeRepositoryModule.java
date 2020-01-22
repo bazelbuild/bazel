@@ -58,7 +58,6 @@ public class FakeRepositoryModule implements RepositoryModuleApi {
       Boolean configure,
       Boolean remotable,
       String doc,
-      Location loc,
       StarlarkThread thread)
       throws EvalException {
     List<AttributeInfo> attrInfos;
@@ -82,6 +81,7 @@ public class FakeRepositoryModule implements RepositoryModuleApi {
     // Only the Builder is passed to RuleInfoWrapper as the rule name is not yet available.
     RuleInfo.Builder ruleInfo = RuleInfo.newBuilder().setDocString(doc).addAllAttribute(attrInfos);
 
+    Location loc = thread.getCallerLocation();
     ruleInfoList.add(new RuleInfoWrapper(functionIdentifier, loc, ruleInfo));
     return functionIdentifier;
   }
@@ -110,8 +110,8 @@ public class FakeRepositoryModule implements RepositoryModuleApi {
   }
 
   @Override
-  public void failWithIncompatibleUseCcConfigureFromRulesCc(
-      Location location, StarlarkThread thread) throws EvalException {
+  public void failWithIncompatibleUseCcConfigureFromRulesCc(StarlarkThread thread)
+      throws EvalException {
     // Noop until --incompatible_use_cc_configure_from_rules_cc is implemented.
   }
 }
