@@ -24,19 +24,21 @@ import java.io.OutputStream;
 
 /** Default Output callback for cquery. Prints a label and configuration pair per result. */
 public class LabelAndConfigurationOutputFormatterCallback extends CqueryThreadsafeCallback {
-
+  private final boolean showKind;
   public LabelAndConfigurationOutputFormatterCallback(
       ExtendedEventHandler eventHandler,
       CqueryOptions options,
       OutputStream out,
       SkyframeExecutor skyframeExecutor,
-      TargetAccessor<ConfiguredTarget> accessor) {
-    super(eventHandler, options, out, skyframeExecutor, accessor);
+      TargetAccessor<ConfiguredTarget> accessor,
+      boolean showKind) {
+    super(eventHandler, options, out, skyframeExecutor, accessor, showKind);
   }
+
 
   @Override
   public String getName() {
-    return "label_kind";
+    return showKind ? "label_kind" : "label";
   }
 
   @Override
@@ -44,13 +46,23 @@ public class LabelAndConfigurationOutputFormatterCallback extends CqueryThreadsa
     for (ConfiguredTarget configuredTarget : partialResult) {
       BuildConfiguration config =
           skyframeExecutor.getConfiguration(eventHandler, configuredTarget.getConfigurationKey());
-
-      StringBuilder output =
-          new StringBuilder()
-              .append(configuredTarget.getLabel())
-              .append(" (")
-              .append(config != null && config.isHostConfiguration() ? "HOST" : config)
-              .append(")");
+      StringBuilder output;
+      if(showKind){
+            output =
+            new StringBuilder()
+                .append(configuredTarget.getTargetKind())
+                .append(" (")
+                .append(config != null && config.isHostConfiguration() ? "HOST" : config)
+                .append(")");
+      }
+      else if(!showKind){
+            output =
+            new StringBuilder()
+                .append(configuredTarget.getLabel())
+                .append(" (")
+                .append(config != null && config.isHostConfiguration() ? "HOST" : config)
+                .append(")");
+      }
 
       if (options.showRequiredConfigFragments != IncludeConfigFragmentsEnum.OFF) {
         RequiredConfigFragmentsProvider configFragmentsProvider =
