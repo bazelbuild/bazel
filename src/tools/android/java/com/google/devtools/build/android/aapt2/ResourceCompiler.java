@@ -29,6 +29,7 @@ import com.google.devtools.build.android.FullyQualifiedName;
 import com.google.devtools.build.android.FullyQualifiedName.Factory;
 import com.google.devtools.build.android.FullyQualifiedName.Qualifiers;
 import com.google.devtools.build.android.FullyQualifiedName.VirtualType;
+import com.google.devtools.build.android.ResourceProcessorBusyBox;
 import com.google.devtools.build.android.XmlResourceValues;
 import com.google.devtools.build.android.xml.Namespaces;
 import com.google.devtools.build.android.xml.ResourcesAttribute;
@@ -114,6 +115,10 @@ public class ResourceCompiler {
   }
 
   private static final Logger logger = Logger.getLogger(ResourceCompiler.class.getName());
+
+  // https://android-review.googlesource.com/c/platform/frameworks/base/+/1202901
+  public static final boolean USE_VISIBILITY_FROM_AAPT2 =
+      ResourceProcessorBusyBox.getProperty("use_visibility_from_aapt2");
 
   private final CompilingVisitor compilingVisitor;
 
@@ -219,6 +224,8 @@ public class ResourceCompiler {
                 .add("compile")
                 .add("-v")
                 .add("--legacy")
+                .when(USE_VISIBILITY_FROM_AAPT2)
+                .thenAdd("--preserve-visibility-of-styleables")
                 .when(generatePseudoLocale)
                 .thenAdd("--pseudo-localize")
                 .add("-o", destination.toString())
