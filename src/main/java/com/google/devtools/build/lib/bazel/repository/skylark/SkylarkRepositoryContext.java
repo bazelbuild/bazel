@@ -79,10 +79,8 @@ import java.net.URISyntaxException;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
-import java.util.ArrayList;
-import java.util.Base64;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 
@@ -1080,6 +1078,33 @@ public class SkylarkRepositoryContext
                     "Basic "
                         + Base64.getEncoder()
                             .encodeToString(credentials.getBytes(StandardCharsets.UTF_8))));
+          } else if ("pattern".equals(authMap.get("type"))) {
+            if (!authMap.containsKey("pattern")) {
+              throw new EvalException(
+                      null,
+                      "Found request to do pattern auth for "
+                              + entry.getKey()
+                              + " without a pattern being provided");
+            }
+
+            String pattern = (String) authMap.get("pattern");
+            String result = "";
+
+            for (String component : Arrays.asList("password", "login")) {
+              String demarcatedComponent = "<" + component + ">";
+
+              if (pattern.contains(demarcatedComponent) && !authMap.containsKey(component)) {
+                throw new EvalException(null, "Auth pattern contains " + demarcatedComponent + " but it was not provided in auth dict.");
+              }
+
+              result = pattern.replaceAll(demarcatedComponent, (String)authMap.get(component));
+            }
+
+            headers.put(
+                    url.toURI(),
+                    ImmutableMap.<String, String>of(
+                            "Authorization",
+                            result));
           }
         }
       } catch (MalformedURLException e) {
