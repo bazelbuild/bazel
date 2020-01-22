@@ -90,10 +90,6 @@ public final class DesugarRuleTest {
   private FieldNode multiplier;
 
   @Inject
-  @RuntimeMethodHandle(className = "DesugarRuleTestTarget$Alpha", memberName = "twoIntSum")
-  private MethodHandle twoIntSumMH;
-
-  @Inject
   @RuntimeMethodHandle(className = "DesugarRuleTestTarget$Alpha", memberName = "<init>")
   private MethodHandle alphaConstructor;
 
@@ -193,9 +189,17 @@ public final class DesugarRuleTest {
   }
 
   @Test
-  public void invokeStaticMethodHandle() throws Throwable {
-    int result = (int) twoIntSumMH.invoke(1, 2);
-    assertThat(result).isEqualTo(3);
+  @ParameterValueSource({"1", "2", "3"})
+  @ParameterValueSource({"100", "400", "500"})
+  public void invokeStaticMethodHandle(
+      @RuntimeMethodHandle(className = "DesugarRuleTestTarget$Alpha", memberName = "twoIntSum")
+          MethodHandle twoIntSum,
+      @FromParameterValueSource int x,
+      @FromParameterValueSource int y,
+      @FromParameterValueSource int expectedResult)
+      throws Throwable {
+    int result = (int) twoIntSum.invoke(x, y);
+    assertThat(result).isEqualTo(expectedResult);
   }
 
   @Test

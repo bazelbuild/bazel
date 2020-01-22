@@ -22,8 +22,10 @@ import static com.google.common.truth.Truth8.assertThat;
 import com.google.devtools.build.android.desugar.testing.junit.AsmNode;
 import com.google.devtools.build.android.desugar.testing.junit.DesugarRule;
 import com.google.devtools.build.android.desugar.testing.junit.DesugarRunner;
+import com.google.devtools.build.android.desugar.testing.junit.FromParameterValueSource;
 import com.google.devtools.build.android.desugar.testing.junit.JdkSuppress;
 import com.google.devtools.build.android.desugar.testing.junit.JdkVersion;
+import com.google.devtools.build.android.desugar.testing.junit.ParameterValueSource;
 import com.google.devtools.build.android.desugar.testing.junit.RuntimeMethodHandle;
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
@@ -72,15 +74,23 @@ public final class IndyStringConcatDesugaringlTest {
   }
 
   @Test
+  @ParameterValueSource({"", "", ""})
+  @ParameterValueSource({"", "b", "b"})
+  @ParameterValueSource({"a", "", "a"})
+  @ParameterValueSource({"a", "b", "ab"})
+  @ParameterValueSource({"ab", "cd", "abcd"})
   public void twoConcat(
       @RuntimeMethodHandle(
               className = "StringConcatTestCases",
               memberName = "twoConcat",
               memberDescriptor = "(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;")
-          MethodHandle twoConcat)
+          MethodHandle twoConcat,
+      @FromParameterValueSource String x,
+      @FromParameterValueSource String y,
+      @FromParameterValueSource String expectedResult)
       throws Throwable {
-    String result = (String) twoConcat.invoke("ab", "cd");
-    assertThat(result).isEqualTo("abcd");
+    String result = (String) twoConcat.invoke(x, y);
+    assertThat(result).isEqualTo(expectedResult);
   }
 
   @Test
@@ -137,39 +147,72 @@ public final class IndyStringConcatDesugaringlTest {
   }
 
   @Test
+  @ParameterValueSource({"a", "0", "a0"})
+  @ParameterValueSource({"a", "1", "a1"})
+  @ParameterValueSource({"b", "3", "b3"})
+  @ParameterValueSource({"c", "7", "c7"})
+  @ParameterValueSource({"a", "15", "a15"})
+  @ParameterValueSource({"d", "2147483647", "d2147483647"}) // Integer.MAX_VALUE
+  @ParameterValueSource({"d", "-2147483648", "d-2147483648"}) // Integer.MIN_VALUE
   public void twoConcatWithPrimitives_StringAndInt(
       @RuntimeMethodHandle(
               className = "StringConcatTestCases",
               memberName = "twoConcatWithPrimitives",
               memberDescriptor = "(Ljava/lang/String;I)Ljava/lang/String;")
-          MethodHandle twoConcat)
+          MethodHandle twoConcat,
+      @FromParameterValueSource String x,
+      @FromParameterValueSource int y,
+      @FromParameterValueSource String expectedResult)
       throws Throwable {
-    String result = (String) twoConcat.invoke("ab", 123);
-    assertThat(result).isEqualTo("ab123");
+    String result = (String) twoConcat.invoke(x, y);
+    assertThat(result).isEqualTo(expectedResult);
   }
 
   @Test
+  @ParameterValueSource({"a", "1", "a1"})
+  @ParameterValueSource({"b", "3", "b3"})
+  @ParameterValueSource({"c", "7", "c7"})
+  @ParameterValueSource({"a", "15", "a15"})
+  @ParameterValueSource({"d", "9223372036854775807", "d9223372036854775807"}) // Long.MAX_VALUE
+  @ParameterValueSource({"e", "-9223372036854775808", "e-9223372036854775808"}) // Long.MIN_VALUE
   public void twoConcatWithPrimitives_StringAndLong(
       @RuntimeMethodHandle(
               className = "StringConcatTestCases",
               memberName = "twoConcatWithPrimitives",
               memberDescriptor = "(Ljava/lang/String;J)Ljava/lang/String;")
-          MethodHandle twoConcat)
+          MethodHandle twoConcat,
+      @FromParameterValueSource String x,
+      @FromParameterValueSource long y,
+      @FromParameterValueSource String expectedResult)
       throws Throwable {
-    String result = (String) twoConcat.invoke("ab", 123L);
-    assertThat(result).isEqualTo("ab123");
+    String result = (String) twoConcat.invoke(x, y);
+    assertThat(result).isEqualTo(expectedResult);
   }
 
   @Test
+  @ParameterValueSource({"a", "123.125", "a123.125"})
+  @ParameterValueSource({
+    "max-double-",
+    "1.7976931348623157E+308",
+    "max-double-1.7976931348623157E308"
+  })
+  @ParameterValueSource({
+    "min-double-",
+    "2.2250738585072014E-308",
+    "min-double-2.2250738585072014E-308"
+  })
   public void twoConcatWithPrimitives_StringAndDouble(
       @RuntimeMethodHandle(
               className = "StringConcatTestCases",
               memberName = "twoConcatWithPrimitives",
               memberDescriptor = "(Ljava/lang/String;D)Ljava/lang/String;")
-          MethodHandle twoConcat)
+          MethodHandle twoConcat,
+      @FromParameterValueSource String x,
+      @FromParameterValueSource double y,
+      @FromParameterValueSource String expectedResult)
       throws Throwable {
-    String result = (String) twoConcat.invoke("ab", 123.125);
-    assertThat(result).isEqualTo("ab123.125");
+    String result = (String) twoConcat.invoke(x, y);
+    assertThat(result).isEqualTo(expectedResult);
   }
 
   @Test
@@ -209,24 +252,70 @@ public final class IndyStringConcatDesugaringlTest {
   }
 
   @Test
+  @ParameterValueSource({
+    "head", // string value
+    "1", // int value
+    "true", // boolean value
+    "2", // byte value
+    "c", // char value
+    "4", // short value
+    "5.25", // double value
+    "6.5F", // float value
+    "7", // long value
+    "head/1/true/2/c/4/5.25/6.5/7" // expectedResult
+  })
+  @ParameterValueSource({
+    "min:", // string value
+    "-2147483648", // int value
+    "false", // boolean value
+    "-128", // byte value
+    "~", // char value
+    "-32768", // short value
+    "1.7976931348623157E+308", // double value
+    "1.4E-45F", // float value
+    "-9223372036854775808", // long value
+    "min:/-2147483648/false/-128/~/-32768/1.7976931348623157E308/1.4E-45/-9223372036854775808"
+  })
+  @ParameterValueSource({
+    "max:", // string value
+    "2147483647", // int value
+    "true", // boolean value
+    "127", // byte value
+    "~", // char value
+    "32767", // short value
+    "2.2250738585072014E-308", // double value
+    "3.4028235E+38F", // float value
+    "9223372036854775807", // long value
+    "max:/2147483647/true/127/~/32767/2.2250738585072014E-308/3.4028235E38/9223372036854775807"
+  })
   public void concatWithAllPrimitiveTypes(
       @RuntimeMethodHandle(
               className = "StringConcatTestCases",
               memberName = "concatWithAllPrimitiveTypes")
-          MethodHandle concatWithAllPrimitiveTypes)
+          MethodHandle concatWithAllPrimitiveTypes,
+      @FromParameterValueSource String stringValue,
+      @FromParameterValueSource int intValue,
+      @FromParameterValueSource boolean booleanValue,
+      @FromParameterValueSource byte byteValue,
+      @FromParameterValueSource char charValue,
+      @FromParameterValueSource short shortValue,
+      @FromParameterValueSource double doubleValue,
+      @FromParameterValueSource float floatValue,
+      @FromParameterValueSource long longValue,
+      @FromParameterValueSource String expectedResult)
       throws Throwable {
     String result =
         (String)
             concatWithAllPrimitiveTypes.invoke(
-                "head", // string value
-                1, // int value
-                true, // boolean value
-                (byte) 2, // byte value
-                'c', // char value
-                (short) 4, // short value
-                5.25D, // double value
-                6.5F, // float value
-                7L); // long value
-    assertThat(result).isEqualTo("head-1-true-2-c-4-5.25-6.5-7");
+                stringValue,
+                intValue,
+                booleanValue,
+                byteValue,
+                charValue,
+                shortValue,
+                doubleValue,
+                floatValue,
+                longValue);
+    assertThat(result).isEqualTo(expectedResult);
   }
 }
