@@ -36,7 +36,7 @@ public class LabelAndConfigurationOutputFormatterCallback extends CqueryThreadsa
 
   @Override
   public String getName() {
-    return "label";
+    return "label_kind";
   }
 
   @Override
