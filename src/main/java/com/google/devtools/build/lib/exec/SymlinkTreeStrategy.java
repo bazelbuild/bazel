@@ -73,14 +73,7 @@ public final class SymlinkTreeStrategy implements SymlinkTreeActionContext {
           if (action.getRunfiles() != null) {
             try {
               symlinks =
-                  Maps.transformValues(
-                      action
-                          .getRunfiles()
-                          .getRunfilesInputs(
-                              actionExecutionContext.getEventHandler(),
-                              action.getOwner().getLocation(),
-                              actionExecutionContext.getPathResolver()),
-                      TO_PATH);
+                  Maps.transformValues(runfilesToMap(action, actionExecutionContext), TO_PATH);
             } catch (IOException e) {
               throw new EnvironmentalExecException(e);
             }
@@ -99,47 +92,25 @@ public final class SymlinkTreeStrategy implements SymlinkTreeActionContext {
               symlinks,
               action.getOutputManifest().getExecPath().getParentDirectory());
 
-          Path outputManifest = actionExecutionContext.getInputPath(action.getOutputManifest());
-          if (inputManifest == null) {
-            // If we don't have an input manifest, then create a file containing a fingerprint of
-            // the runfiles object.
-            Fingerprint fp = new Fingerprint();
-            action.getRunfiles().fingerprint(fp);
-            String hexDigest = fp.hexDigestAndReset();
-            try {
-              FileSystemUtils.writeContentAsLatin1(outputManifest, hexDigest);
-            } catch (IOException e) {
-              throw new EnvironmentalExecException(
-                  "Failed to link output manifest '" + outputManifest.getPathString() + "'", e);
-            }
-          } else {
-            // Link output manifest on success. We avoid a file copy as these manifests may be
-            // large. Note that this step has to come last because the OutputService may delete any
-            // pre-existing symlink tree before creating a new one.
-            try {
-              outputManifest.createSymbolicLink(inputManifest);
-            } catch (IOException e) {
-              throw new EnvironmentalExecException(
-                  "Failed to link output manifest '" + outputManifest.getPathString() + "'", e);
-            }
-          }
+          createOutput(action, actionExecutionContext, inputManifest);
         } else if (!action.isRunfilesEnabled()) {
           createSymlinkTreeHelper(action, actionExecutionContext).copyManifest();
         } else if (action.getInputManifest() == null
             || (action.inprocessSymlinkCreation() && !action.isFilesetTree())) {
           try {
+            Map<PathFragment, Artifact> runfiles = runfilesToMap(action, actionExecutionContext);
             createSymlinkTreeHelper(action, actionExecutionContext)
                 .createSymlinksDirectly(
-                    action.getOutputManifest().getPath().getParentDirectory(),
-                    action
-                        .getRunfiles()
-                        .getRunfilesInputs(
-                            actionExecutionContext.getEventHandler(),
-                            action.getOwner().getLocation(),
-                            actionExecutionContext.getPathResolver()));
+                    action.getOutputManifest().getPath().getParentDirectory(), runfiles);
           } catch (IOException e) {
             throw new EnvironmentalExecException(e).toActionExecutionException(action);
           }
+
+          Path inputManifest =
+              action.getInputManifest() == null
+                  ? null
+                  : actionExecutionContext.getInputPath(action.getInputManifest());
+          createOutput(action, actionExecutionContext, inputManifest);
         } else {
           Map<String, String> resolvedEnv = new LinkedHashMap<>();
           action.getEnvironment().resolve(resolvedEnv, actionExecutionContext.getClientEnv());
@@ -153,6 +124,49 @@ public final class SymlinkTreeStrategy implements SymlinkTreeActionContext {
       } catch (ExecException e) {
         throw e.toActionExecutionException(
             action.getProgressMessage(), actionExecutionContext.getVerboseFailures(), action);
+      }
+    }
+  }
+
+  private static Map<PathFragment, Artifact> runfilesToMap(
+      SymlinkTreeAction action, ActionExecutionContext actionExecutionContext) throws IOException {
+    // This call outputs warnings about overlapping symlinks. However, this is already called by the
+    // SourceManifestAction, so it can happen that we generate the warning twice. If the input
+    // manifest is null, then we print the warning. Otherwise we assume that the
+    // SourceManifestAction already printed it.
+    return action
+        .getRunfiles()
+        .getRunfilesInputs(
+            action.getInputManifest() == null ? actionExecutionContext.getEventHandler() : null,
+            action.getOwner().getLocation(),
+            actionExecutionContext.getPathResolver());
+  }
+
+  private static void createOutput(
+      SymlinkTreeAction action, ActionExecutionContext actionExecutionContext, Path inputManifest)
+      throws EnvironmentalExecException {
+    Path outputManifest = actionExecutionContext.getInputPath(action.getOutputManifest());
+    if (inputManifest == null) {
+      // If we don't have an input manifest, then create a file containing a fingerprint of
+      // the runfiles object.
+      Fingerprint fp = new Fingerprint();
+      action.getRunfiles().fingerprint(fp);
+      String hexDigest = fp.hexDigestAndReset();
+      try {
+        FileSystemUtils.writeContentAsLatin1(outputManifest, hexDigest);
+      } catch (IOException e) {
+        throw new EnvironmentalExecException(
+            "Failed to link output manifest '" + outputManifest.getPathString() + "'", e);
+      }
+    } else {
+      // Link output manifest on success. We avoid a file copy as these manifests may be
+      // large. Note that this step has to come last because the OutputService may delete any
+      // pre-existing symlink tree before creating a new one.
+      try {
+        outputManifest.createSymbolicLink(inputManifest);
+      } catch (IOException e) {
+        throw new EnvironmentalExecException(
+            "Failed to link output manifest '" + outputManifest.getPathString() + "'", e);
       }
     }
   }
