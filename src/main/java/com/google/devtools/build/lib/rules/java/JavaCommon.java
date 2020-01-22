@@ -940,6 +940,27 @@ public class JavaCommon {
   }
 
   /**
+   * Returns a list of the current target's runtime jars and the first two levels of its direct
+   * dependencies.
+   *
+   * <p>This method is meant to aid the persistent test runner, which aims at avoiding loading all
+   * classes on the classpath for each test run. To that extent this method computes a small jars
+   * set of the most likely to be changed classes when writing code for a test. Their classes should
+   * be loaded in a separate classloader by the persistent test runner.
+   */
+  public ImmutableSet<Artifact> getDirectRuntimeClasspath() {
+    ImmutableSet.Builder<Artifact> directDeps = new ImmutableSet.Builder<>();
+    directDeps.addAll(javaArtifacts.getRuntimeJars());
+    for (TransitiveInfoCollection dep : targetsTreatedAsDeps(ClasspathType.RUNTIME_ONLY)) {
+      JavaInfo javaInfo = JavaInfo.getJavaInfo(dep);
+      if (javaInfo != null) {
+        directDeps.addAll(javaInfo.getDirectRuntimeJars());
+      }
+    }
+    return directDeps.build();
+  }
+
+  /**
    * Returns true if and only if this target has the neverlink attribute set to 1, or false if the
    * neverlink attribute does not exist (for example, on *_binary targets)
    *

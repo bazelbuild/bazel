@@ -38,11 +38,13 @@ java_binary(
     name = "persistent_test_runner",
     srcs = [
         "PersistentTestRunner.java",
+        "PersistentTestRunnerClassLoader.java",
         "SuiteTestRunner.java",
     ],
     deps = [
         "//src/main/protobuf:worker_protocol_java_proto",
         "//third_party:guava",
+        "//third_party:jsr305",
     ],
 )
 
