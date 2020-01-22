@@ -66,4 +66,4 @@ public class LabelAndConfigurationOutputFormatterCallback extends CqueryThreadsa
       addResult(output.toString());
     }
   }
-
+}
