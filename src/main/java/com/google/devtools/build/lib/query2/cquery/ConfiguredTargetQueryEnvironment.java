@@ -209,7 +209,6 @@ public class ConfiguredTargetQueryEnvironment
   public ImmutableList<NamedThreadSafeOutputFormatterCallback<ConfiguredTarget>>
       getDefaultOutputFormatters(
           TargetAccessor<ConfiguredTarget> accessor,
-          ConfiguredTargetAccessor confiredTargetAccessor,
           ExtendedEventHandler eventHandler,
           OutputStream out,
           SkyframeExecutor skyframeExecutor,
@@ -220,9 +219,9 @@ public class ConfiguredTargetQueryEnvironment
         cqueryOptions.aspectDeps.createResolver(packageManager, eventHandler);
     return ImmutableList.of(
         new LabelAndConfigurationOutputFormatterCallback(
-            eventHandler, cqueryOptions, out, skyframeExecutor, accessor, confiredTargetAccessor, true),
+            eventHandler, cqueryOptions, out, skyframeExecutor, accessor, true),
         new LabelAndConfigurationOutputFormatterCallback(
-            eventHandler, cqueryOptions, out, skyframeExecutor, accessor, confiredTargetAccessor, false),
+            eventHandler, cqueryOptions, out, skyframeExecutor, accessor, false),
         new TransitionsOutputFormatterCallback(
             eventHandler,
             cqueryOptions,

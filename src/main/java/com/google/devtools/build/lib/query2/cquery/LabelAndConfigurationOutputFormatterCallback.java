@@ -18,6 +18,7 @@ import com.google.devtools.build.lib.analysis.RequiredConfigFragmentsProvider;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.CoreOptions.IncludeConfigFragmentsEnum;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
+import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.TargetAccessor;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import java.io.OutputStream;
@@ -31,9 +32,8 @@ public class LabelAndConfigurationOutputFormatterCallback extends CqueryThreadsa
       OutputStream out,
       SkyframeExecutor skyframeExecutor,
       TargetAccessor<ConfiguredTarget> accessor,
-      ConfiguredTargetAccessor configuredTargetAccessor,
       boolean showKind) {
-    super(eventHandler, options, out, skyframeExecutor, accessor, configuredTargetAccessor, showKind);
+    super(eventHandler, options, out, skyframeExecutor, accessor, showKind);
   }
 
 
@@ -49,9 +49,10 @@ public class LabelAndConfigurationOutputFormatterCallback extends CqueryThreadsa
           skyframeExecutor.getConfiguration(eventHandler, configuredTarget.getConfigurationKey());
       StringBuilder output;
       if(showKind){
+            Target actualTarget = accessor.getTargetFromConfiguredTarget(configuredTarget);
             output =
             new StringBuilder()
-                .append(configuredTargetAccessor.getTargetFromConfiguredTarget(configuredTarget))
+                .append(actualTarget.getTargetKind())
                 .append(" (")
                 .append(config != null && config.isHostConfiguration() ? "HOST" : config)
                 .append(")");
