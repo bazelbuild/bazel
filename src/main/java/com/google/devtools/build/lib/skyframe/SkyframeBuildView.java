@@ -122,7 +122,6 @@ public final class SkyframeBuildView {
   // We keep the set of invalidated configuration target keys so that we can know if something
   // has been invalidated after graph pruning has been executed.
   private Set<SkyKey> dirtiedConfiguredTargetKeys = Sets.newConcurrentHashSet();
-  private volatile boolean anyConfiguredTargetDeleted = false;
 
   private final ConfiguredRuleClassProvider ruleClassProvider;
 
@@ -526,14 +525,8 @@ public final class SkyframeBuildView {
       return true;
     }
 
-    if (anyConfiguredTargetDeleted) {
-      // No target was (re)computed, but some were deleted, which may resolve a conflict.
-      // TODO(laszlocsomor): get to understand this condition and give an example for it.
-      return true;
-    }
-
     if (!dirtiedConfiguredTargetKeys.isEmpty()) {
-      // No target was (re)computed and none was deleted, but at least one was dirtied.
+      // No target was (re)computed but at least one was dirtied.
       // Example: (//:x //foo:y) are built, and in conflict (//:x creates foo/C and //foo:y
       // creates C). Then y is removed from foo/BUILD and only //:x is built, so //foo:y is
       // dirtied but not recomputed, and no other nodes are recomputed (and none are deleted).
@@ -546,9 +539,9 @@ public final class SkyframeBuildView {
       // Example sequence:
       // 1.  Build (x y z), and there is a conflict. We store (x y z) as the largest checked key
       //     set, and record the fact that there were bad actions.
-      // 2.  Null-build (x z), so we don't evaluate or dirty or delete anything, but because we know
-      //     there was some conflict last time but don't know exactly which targets conflicted, it
-      //     could have been (x z), so we now check again.
+      // 2.  Null-build (x z), so we don't evaluate or dirty anything, but because we know there was
+      //     some conflict last time but don't know exactly which targets conflicted, it could have
+      //     been (x z), so we now check again.
       return true;
     }
 
@@ -556,26 +549,39 @@ public final class SkyframeBuildView {
       // Example sequence:
       // 1.  Build (x y z), and there is a conflict. We store (x y z) as the largest checked key
       //     set, and record the fact that there were bad actions.
-      // 2.  Null-build (x z), so we don't evaluate or dirty or delete anything, but because we know
-      //     there was some conflict last time but don't know exactly which targets conflicted, it
-      //     could have been (x z), so we now check again, and store (x z) as the largest checked
-      //     key set.
-      // 3.  Null-build (y z), so again we don't evaluate or dirty or delete anything, and the
-      //     previous build had no conflicts, so no other condition is true. But because (y z) is no
-      //     subset of (x z) and we only keep the most recent largest checked key set, we don't know
-      //     if (y z) are conflict free, so we check.
+      // 2.  Null-build (x z), so we don't evaluate or dirty anything, but because we know there was
+      //     some conflict last time but don't know exactly which targets conflicted, it could have
+      //     been (x z), so we now check again, and store (x z) as the largest checked key set.
+      // 3.  Null-build (y z), so again we don't evaluate or dirty anything, and the previous build
+      //     had no conflicts, so no other condition is true. But because (y z) is not a subset of
+      //     (x z) and we only keep the most recent largest checked key set, we don't know if (y z)
+      //     are conflict free, so we check.
       return true;
     }
 
     // We believe the conditions above are correct in the sense that we always check for conflicts
     // when we have to. But they are incomplete, so we sometimes check for conflicts even if we
     // wouldn't have to. For example:
-    // - if no target was evaluated (nor dirtied, nor deleted), and build sequence is (x y)
-    //   [no conflict], (z), where z is in the transitive closure of (x y), then we shouldn't check.
-    // - if no target was evaluated (nor dirtied, nor deleted), and build sequence is (x y)
-    //   [no conflict], (z), (x), then the last build shouldn't conflict-check because (x y) was
-    //   checked earlier. But it does, since after the second build we store (z) as the largest
-    //   checked set of which (x) is no subset.
+    // - if no target was evaluated nor dirtied and build sequence is (x y) [no conflict], (z),
+    //   where z is in the transitive closure of (x y), then we shouldn't check.
+    // - if no target was evaluated nor dirtied and build sequence is (x y) [no conflict], (w), (x),
+    //   then the last build shouldn't conflict-check because (x y) was checked earlier. But it
+    //   does, because after the second build we store (w) as the largest checked set, and (x) is
+    //   not a subset of that.
+
+    // Case when we DON'T need to re-check:
+    // - a configured target is deleted. Deletion can only resolve conflicts, not introduce any, and
+    //   if the previuos build had a conflict then skyframeActionExecutor.badActions() would not be
+    //   empty, and if the previous build had no conflict then deleting a CT won't change that.
+    //   Example that triggers this scenario:
+    //   1.  genrule(name='x', srcs=['A'], ...)
+    //       genrule(name='y', outs=['A'], ...)
+    //   2.  Build (x y)
+    //   3.  Rename 'x' to 'y', and 'y' to 'z'
+    //   4.  Build (y z)
+    //   5.  Null-build (y z) again
+    // We only delete the old 'x' value in (5), and we don't evaluate nor dirty anything, nor was
+    // (4) bad. So there's no reason to re-check just because we deleted something.
     return false;
   }
 
@@ -912,7 +918,6 @@ public final class SkyframeBuildView {
   /** Clear the invalidated configured targets detected during loading and analysis phases. */
   public void clearInvalidatedConfiguredTargets() {
     dirtiedConfiguredTargetKeys = Sets.newConcurrentHashSet();
-    anyConfiguredTargetDeleted = false;
   }
 
   /**
@@ -936,16 +941,13 @@ public final class SkyframeBuildView {
 
     @Override
     public void invalidated(SkyKey skyKey, InvalidationState state) {
-      if (skyKey.functionName().equals(SkyFunctions.CONFIGURED_TARGET)) {
-        if (state == InvalidationState.DELETED) {
-          anyConfiguredTargetDeleted = true;
-        } else {
-          // If the value was just dirtied and not deleted, then it may not be truly invalid, since
-          // it may later get re-validated. Therefore adding the key to dirtiedConfiguredTargetKeys
-          // is provisional--if the key is later evaluated and the value found to be clean, then we
-          // remove it from the set.
-          dirtiedConfiguredTargetKeys.add(skyKey);
-        }
+      if (skyKey.functionName().equals(SkyFunctions.CONFIGURED_TARGET)
+          && state != InvalidationState.DELETED) {
+        // If the value was just dirtied and not deleted, then it may not be truly invalid, since
+        // it may later get re-validated. Therefore adding the key to dirtiedConfiguredTargetKeys
+        // is provisional--if the key is later evaluated and the value found to be clean, then we
+        // remove it from the set.
+        dirtiedConfiguredTargetKeys.add(skyKey);
       }
     }
 
