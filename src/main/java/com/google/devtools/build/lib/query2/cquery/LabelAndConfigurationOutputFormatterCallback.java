@@ -32,8 +32,10 @@ public class LabelAndConfigurationOutputFormatterCallback extends CqueryThreadsa
       OutputStream out,
       SkyframeExecutor skyframeExecutor,
       TargetAccessor<ConfiguredTarget> accessor,
-      boolean showKind) {
-    super(eventHandler, options, out, skyframeExecutor, accessor, showKind);
+      boolean showKind
+      ) {
+    super(eventHandler, options, out, skyframeExecutor, accessor);
+    this.showKind = showKind;
   }
 
 
@@ -47,11 +49,11 @@ public class LabelAndConfigurationOutputFormatterCallback extends CqueryThreadsa
     for (ConfiguredTarget configuredTarget : partialResult) {
       BuildConfiguration config =
           skyframeExecutor.getConfiguration(eventHandler, configuredTarget.getConfigurationKey());
-      StringBuilder output;
+      StringBuilder output = new StringBuilder();
       if(showKind){
             Target actualTarget = accessor.getTargetFromConfiguredTarget(configuredTarget);
             output =
-            new StringBuilder()
+                output
                 .append(actualTarget.getTargetKind())
                 .append(" (")
                 .append(config != null && config.isHostConfiguration() ? "HOST" : config)
@@ -59,7 +61,7 @@ public class LabelAndConfigurationOutputFormatterCallback extends CqueryThreadsa
       }
       else if(!showKind){
             output =
-            new StringBuilder()
+                output
                 .append(configuredTarget.getLabel())
                 .append(" (")
                 .append(config != null && config.isHostConfiguration() ? "HOST" : config)
