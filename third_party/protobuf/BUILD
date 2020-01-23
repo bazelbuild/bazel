@@ -18,8 +18,6 @@ proto_alias("protoc", PROTOBUF_VERSION)
 
 proto_alias("protobuf_java", PROTOBUF_VERSION)
 
-proto_alias("protobuf-jars", PROTOBUF_VERSION)
-
 proto_alias("protobuf_java_util", PROTOBUF_VERSION)
 
 proto_alias("protobuf_python", PROTOBUF_VERSION)
