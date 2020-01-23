@@ -40,6 +40,9 @@ public class ConservativeAspectResolver implements AspectResolver {
       return ImmutableMultimap.of();
     }
     Rule rule = (Rule) target;
+    if (!rule.hasAspects()) {
+      return ImmutableMultimap.of();
+    }
 
     Multimap<Attribute, Label> result = LinkedHashMultimap.create();
     for (Attribute attribute : rule.getAttributes()) {
