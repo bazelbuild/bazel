@@ -139,7 +139,7 @@ public class StandaloneTestStrategy extends TestStrategy {
         action, actionExecutionContext, spawn, tmpDir, workingDirectory, execRoot);
   }
 
-  private ImmutableList<Pair<String, Path>> renameOutputs(
+  private static ImmutableList<Pair<String, Path>> renameOutputs(
       ActionExecutionContext actionExecutionContext,
       TestRunnerAction action,
       ImmutableList<Pair<String, Path>> testOutputs,
@@ -362,7 +362,7 @@ public class StandaloneTestStrategy extends TestStrategy {
    * A spawn to generate a test.xml file from the test log. This is only used if the test does not
    * generate a test.xml file itself.
    */
-  private Spawn createXmlGeneratingSpawn(TestRunnerAction action, SpawnResult result) {
+  private static Spawn createXmlGeneratingSpawn(TestRunnerAction action, SpawnResult result) {
     ImmutableList<String> args =
         ImmutableList.of(
             action.getTestXmlGeneratorScript().getExecPath().getCallablePathString(),
@@ -400,7 +400,7 @@ public class StandaloneTestStrategy extends TestStrategy {
     return new TestResult(action, data, /*cached*/ true, execRoot);
   }
 
-  private final class StandaloneFailedAttemptResult implements FailedAttemptResult {
+  private static final class StandaloneFailedAttemptResult implements FailedAttemptResult {
     private final TestResultData testResultData;
 
     StandaloneFailedAttemptResult(TestResultData testResultData) {
