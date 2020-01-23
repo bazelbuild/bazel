@@ -248,6 +248,8 @@ public class TestConfiguration extends Fragment {
       // configuration.
       hostOptions.coverageSupport = this.coverageSupport;
       hostOptions.coverageReportGenerator = this.coverageReportGenerator;
+      // trimTestConfiguration is a global analysis option and should be platform-agnostic
+      hostOptions.trimTestConfiguration = this.trimTestConfiguration;
       return hostOptions;
     }
   }
