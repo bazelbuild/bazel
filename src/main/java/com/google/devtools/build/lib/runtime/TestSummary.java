@@ -193,6 +193,10 @@ public class TestSummary implements Comparable<TestSummary>, BuildEventWithOrder
       }
 
       // This is a leaf result.
+      if (!testCase.getRun()) {
+        // Don't count test cases that were not run.
+        return 0;
+      }
       if (testCase.getStatus() != TestCase.Status.PASSED) {
         this.summary.failedTestCases.add(testCase);
       }
