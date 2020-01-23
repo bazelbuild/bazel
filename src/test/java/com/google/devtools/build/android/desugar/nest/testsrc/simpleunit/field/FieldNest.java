@@ -28,6 +28,8 @@ public class FieldNest {
 
     private int privateInstanceField = 40;
 
+    private long privateInstanceWideField = 45L;
+
     private static long privateStaticFieldReadOnly = 50L;
 
     private int privateInstanceFieldReadOnly = 60;
@@ -71,6 +73,10 @@ public class FieldNest {
 
   public static synchronized int setPrivateInstanceField(FieldOwnerMate mate, int x) {
     return mate.privateInstanceField = x;
+  }
+
+  public static synchronized long setPrivateInstanceWideField(FieldOwnerMate mate, long x) {
+    return mate.privateInstanceWideField = x;
   }
 
   public static synchronized long getPrivateStaticArrayFieldElement(int index) {

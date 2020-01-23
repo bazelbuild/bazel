@@ -16,6 +16,7 @@
 package com.google.devtools.build.android.desugar.nest;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.truth.Truth8.assertThat;
 
 import com.google.devtools.build.android.desugar.testing.junit.AsmNode;
 import com.google.devtools.build.android.desugar.testing.junit.DesugarRule;
@@ -37,7 +38,10 @@ import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.objectweb.asm.Opcodes;
+import org.objectweb.asm.tree.AbstractInsnNode;
 import org.objectweb.asm.tree.ClassNode;
+import org.objectweb.asm.tree.MethodNode;
 
 /** Tests for accessing private fields from another class within a nest. */
 @RunWith(DesugarRunner.class)
@@ -86,6 +90,7 @@ public final class NestDesugaringFieldAccessTest {
             "privateStaticField$bridge_setter",
             "privateInstanceField$bridge_getter",
             "privateInstanceField$bridge_setter",
+            "privateInstanceWideField$bridge_setter",
             "getPrivateStaticFieldInBoundary",
             "getPrivateInstanceFieldInBoundary",
             "privateStaticFieldReadOnly$bridge_getter",
@@ -154,6 +159,36 @@ public final class NestDesugaringFieldAccessTest {
     Field privateInstanceField = mate.getDeclaredField("privateInstanceField");
     privateInstanceField.setAccessible(true);
     assertThat(privateInstanceField.get(mateInstance)).isEqualTo(45);
+  }
+
+  @Test
+  public void setPrivateInstanceWideField(
+      @RuntimeMethodHandle(className = "FieldNest", memberName = "setPrivateInstanceWideField")
+          MethodHandle setPrivateInstanceWideField)
+      throws Throwable {
+    long result = (long) setPrivateInstanceWideField.invoke(mateInstance, 47L);
+    assertThat(result).isEqualTo(47L);
+
+    Field privateInstanceField = mate.getDeclaredField("privateInstanceWideField");
+    privateInstanceField.setAccessible(true);
+    assertThat(privateInstanceField.get(mateInstance)).isEqualTo(47L);
+  }
+
+  @Test
+  public void setPrivateInstanceWideField_opcodes(
+      @AsmNode(className = "FieldNest", memberName = "setPrivateInstanceWideField")
+          MethodNode setPrivateInstanceWideField)
+      throws Throwable {
+    AbstractInsnNode[] instructions = setPrivateInstanceWideField.instructions.toArray();
+    assertThat(Arrays.stream(instructions).map(AbstractInsnNode::getOpcode))
+        .containsAtLeast(
+            Opcodes.ALOAD,
+            Opcodes.LLOAD,
+            Opcodes.DUP2_X1,
+            Opcodes.INVOKESTATIC,
+            Opcodes.POP2,
+            Opcodes.LRETURN)
+        .inOrder();
   }
 
   @Test

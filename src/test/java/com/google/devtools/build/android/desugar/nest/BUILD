@@ -91,10 +91,12 @@ java_test(
     test_class = "com.google.devtools.build.android.desugar.nest.NestDesugaringFieldAccessTest",
     deps = [
         "//src/tools/android/java/com/google/devtools/build/android/desugar/testing/junit:desugar_rule",
+        "//third_party:asm",
         "//third_party:asm-tree",
         "//third_party:jsr330_inject",
         "//third_party:junit4",
         "//third_party:truth",
+        "//third_party:truth8",
     ],
 )
 
