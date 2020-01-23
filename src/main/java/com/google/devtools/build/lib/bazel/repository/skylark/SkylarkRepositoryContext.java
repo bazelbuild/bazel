@@ -79,8 +79,11 @@ import java.net.URISyntaxException;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
-import java.util.*;
-import java.util.function.Function;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Base64;
+import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 
@@ -1087,17 +1090,21 @@ public class SkylarkRepositoryContext
                               + " without a pattern being provided");
             }
 
-            String pattern = (String) authMap.get("pattern");
-            String result = "";
+            String result = (String) authMap.get("pattern");
 
             for (String component : Arrays.asList("password", "login")) {
               String demarcatedComponent = "<" + component + ">";
 
-              if (pattern.contains(demarcatedComponent) && !authMap.containsKey(component)) {
-                throw new EvalException(null, "Auth pattern contains " + demarcatedComponent + " but it was not provided in auth dict.");
+              if (result.contains(demarcatedComponent)) {
+                if (!authMap.containsKey(component)) {
+                  throw new EvalException(null, "Auth pattern contains " + demarcatedComponent + " but it was not provided in auth dict.");
+                }
+              } else {
+                // component isn't in the pattern, ignore it
+                continue;
               }
 
-              result = pattern.replaceAll(demarcatedComponent, (String)authMap.get(component));
+              result = result.replaceAll(demarcatedComponent, (String)authMap.get(component));
             }
 
             headers.put(
