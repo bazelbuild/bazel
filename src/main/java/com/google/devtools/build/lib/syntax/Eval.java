@@ -34,7 +34,7 @@ final class Eval {
   // Called from StarlarkFunction.fastcall.
   static Object execFunctionBody(StarlarkThread.CallFrame fr, List<Statement> statements)
       throws EvalException, InterruptedException {
-    checkInterrupt();
+    fr.thread.checkInterrupt();
     execStatements(fr, statements, /*indented=*/ false);
     return fr.result;
   }
@@ -101,7 +101,7 @@ final class Eval {
           case PASS:
           case CONTINUE:
             // Stay in loop.
-            checkInterrupt();
+            fr.thread.checkInterrupt();
             continue;
           case BREAK:
             // Finish loop, execute next statement after loop.
@@ -532,7 +532,7 @@ final class Eval {
 
       case CALL:
         {
-          checkInterrupt();
+          fr.thread.checkInterrupt();
 
           CallExpression call = (CallExpression) expr;
           Object fn = eval(fr, call.getFunction());
@@ -758,7 +758,7 @@ final class Eval {
       // execClauses(index) recursively executes the clauses starting at index,
       // and finally evaluates the body and adds its value to the result.
       void execClauses(int index) throws EvalException, InterruptedException {
-        checkInterrupt();
+        fr.thread.checkInterrupt();
 
         // recursive case: one or more clauses
         if (index < comp.getClauses().size()) {
@@ -847,12 +847,6 @@ final class Eval {
       return new EvalExceptionWithStackTrace(original, node);
     } else {
       return original;
-    }
-  }
-
-  private static void checkInterrupt() throws InterruptedException {
-    if (Thread.interrupted()) {
-      throw new InterruptedException();
     }
   }
 }

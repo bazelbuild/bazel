@@ -70,6 +70,24 @@ public final class StarlarkThread {
 
   private final Map<Class<?>, Object> threadLocals = new HashMap<>();
 
+  private boolean interruptible = true;
+
+  /**
+   * Disables polling of the {@link java.lang.Thread#interrupted} flag during Starlark evaluation.
+   */
+  // TODO(adonovan): expose a public API for this if we can establish a stronger semantics. (There
+  // are other ways besides polling for evaluation to be interrupted, such as calling certain
+  // built-in functions.)
+  void ignoreThreadInterrupts() {
+    interruptible = false;
+  }
+
+  void checkInterrupt() throws InterruptedException {
+    if (interruptible && Thread.interrupted()) {
+      throw new InterruptedException();
+    }
+  }
+
   /**
    * setThreadLocal saves {@code value} as a thread-local variable of this Starlark thread, keyed by
    * {@code key}, so that it can later be retrieved by {@code getThreadLocal(key)}.
