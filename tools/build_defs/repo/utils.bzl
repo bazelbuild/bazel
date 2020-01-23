@@ -48,16 +48,14 @@ def workspace_and_buildfile(ctx):
         ctx.fail("Only one of workspace_file and workspace_file_content can be provided.")
 
     if ctx.attr.workspace_file:
-        ctx.delete("WORKSPACE")
-        ctx.symlink(ctx.attr.workspace_file, "WORKSPACE")
+        ctx.file("WORKSPACE", ctx.read(ctx.attr.workspace_file))
     elif ctx.attr.workspace_file_content:
         ctx.file("WORKSPACE", ctx.attr.workspace_file_content)
     else:
         ctx.file("WORKSPACE", "workspace(name = \"{name}\")\n".format(name = ctx.name))
 
     if ctx.attr.build_file:
-        ctx.delete("BUILD.bazel")
-        ctx.symlink(ctx.attr.build_file, "BUILD.bazel")
+        ctx.file("BUILD.bazel", ctx.read(ctx.attr.build_file))
     elif ctx.attr.build_file_content:
         ctx.file("BUILD.bazel", ctx.attr.build_file_content)
 
