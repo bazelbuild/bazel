@@ -151,7 +151,8 @@ public class BuildEventStreamerTest extends FoundationTestCase {
           /* stdout= */ null,
           /* stderr= */ null,
           /* actionMetadataLogs= */ ImmutableList.of(),
-          ErrorTiming.NO_ERROR);
+          ErrorTiming.NO_ERROR,
+          /* isInMemoryFs= */ false);
 
   private static class RecordingBuildEventTransport implements BuildEventTransport {
     private final List<BuildEvent> events = new ArrayList<>();
@@ -1151,7 +1152,8 @@ public class BuildEventStreamerTest extends FoundationTestCase {
             /* stdout= */ null,
             /* stderr= */ null,
             /* actionMetadataLogs= */ ImmutableList.of(),
-            ErrorTiming.BEFORE_EXECUTION);
+            ErrorTiming.BEFORE_EXECUTION,
+            /* isInMemoryFs= */ false);
 
     streamer.buildEvent(SUCCESSFUL_ACTION_EXECUTED_EVENT);
     streamer.buildEvent(failedActionExecutedEvent);
@@ -1186,7 +1188,8 @@ public class BuildEventStreamerTest extends FoundationTestCase {
             /* stdout= */ null,
             /* stderr= */ null,
             /* actionMetadataLogs= */ ImmutableList.of(),
-            ErrorTiming.BEFORE_EXECUTION);
+            ErrorTiming.BEFORE_EXECUTION,
+            /* isInMemoryFs= */ false);
 
     streamer.buildEvent(SUCCESSFUL_ACTION_EXECUTED_EVENT);
     streamer.buildEvent(failedActionExecutedEvent);
@@ -1344,7 +1347,8 @@ public class BuildEventStreamerTest extends FoundationTestCase {
         /* stdout= */ null,
         /* stderr= */ null,
         metadataLogs,
-        ErrorTiming.NO_ERROR);
+        ErrorTiming.NO_ERROR,
+        /* isInMemoryFs= */ false);
   }
 
   @Test
