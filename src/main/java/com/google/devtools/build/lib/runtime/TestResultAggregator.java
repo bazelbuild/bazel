@@ -252,17 +252,33 @@ final class TestResultAggregator {
       List<BlazeTestStatus> singleShardStatuses =
           summary.addShardStatus(shardNumber, result.getData().getStatus());
       if (singleShardStatuses.size() == runsPerTestForLabel) {
+        // Aggregation is based on the order of status enums where larger values take precedence
+        // over smaller ones (NO_STATUS = 0, PASSED = 1, etc.). However, there are some special
+        // cases:
+        // 1. Tests that have some passing, some not passing shard are marked as flaky
+        // 2. The INCOMPLETE status is ignored - it is used for tests runs that are cancelled by
+        //    Bazel if --cancel_concurrent_tests is set, otherwise INCOMPLETE is not used
+        // 3. Individual test shards can be FLAKY if the test is marked flaky and
+        //    --flaky_test_attempts is not zero for this test
         BlazeTestStatus shardStatus = BlazeTestStatus.NO_STATUS;
         int passes = 0;
+        int cancelled = 0;
         for (BlazeTestStatus runStatusForShard : singleShardStatuses) {
-          shardStatus = aggregateStatus(shardStatus, runStatusForShard);
-          if (TestResult.isBlazeTestStatusPassed(runStatusForShard)) {
-            passes++;
+          if (runStatusForShard == BlazeTestStatus.INCOMPLETE) {
+            // If runs_per_test_detects_flakes is enabled, then INCOMPLETE status indicates
+            // cancelled test runs. We count them separately so that they don't result in a
+            // flaky status below.
+            cancelled++;
+          } else {
+            shardStatus = aggregateStatus(shardStatus, runStatusForShard);
+            if (TestResult.isBlazeTestStatusPassed(runStatusForShard)) {
+              passes++;
+            }
           }
         }
-        // Under the RunsPerTestDetectsFlakes option, return flaky if 1 <= p < n shards pass.
-        // If all results pass or fail, aggregate the passing/failing shardStatus.
-        if (passes == 0 || passes == runsPerTestForLabel) {
+        // Under the RunsPerTestDetectsFlakes option, return flaky if 0 < p < (n-cancelled) shards
+        // pass. Otherwise, we aggregate the shardStatus.
+        if (passes == 0 || (passes + cancelled) == runsPerTestForLabel) {
           status = aggregateStatus(status, shardStatus);
         } else {
           status = aggregateStatus(status, BlazeTestStatus.FLAKY);
