@@ -44,26 +44,35 @@ filegroup(
     visibility = ["//visibility:public"],
 )
 
-java_import(
-    name = "protobuf_java_util",
-    jars = ["libprotobuf_java_util.jar"],
+java_library(
+    name = "protobuf_java",
+    srcs = glob([
+        "java/core/src/main/java/com/google/protobuf/*.java",
+    ]) + [
+        ":gen_well_known_protos_java",
+    ],
+    javacopts = [
+        "-source 7",
+        "-target 7",
+    ],
     visibility = ["//visibility:public"],
-    exports = [
+)
+
+java_library(
+    name = "protobuf_java_util",
+    srcs = glob([
+        "java/util/src/main/java/com/google/protobuf/util/*.java",
+    ]),
+    javacopts = [
+        "-source 7",
+        "-target 7",
+    ],
+    visibility = ["//visibility:public"],
+    deps = [
+        ":protobuf_java",
+        "@io_bazel//third_party:guava",
         "@io_bazel//third_party:gson",
     ],
-)
-
-java_import(
-    name = "protobuf_java",
-    jars = ["libprotobuf_java.jar"],
-    visibility = ["//visibility:public"],
-)
-
-# For bootstrapping JavaBuilder
-filegroup(
-    name = "protobuf-jars",
-    srcs = ["libprotobuf_java.jar"],
-    visibility = ["//visibility:public"],
 )
 
 create_compiler_config_setting(
@@ -640,6 +649,9 @@ cc_test(
 ################################################################################
 # Java support -- deleted rules in favour of "Modifications made by Bazel" section
 ################################################################################
+internal_gen_well_known_protos_java(
+    srcs = WELL_KNOWN_PROTOS,
+)
 
 ################################################################################
 # Python support
