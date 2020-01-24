@@ -1,6 +1,6 @@
-package(default_visibility = ["//visibility:private"])
-
 load("@rules_cc//cc:defs.bzl", "cc_binary")
+
+package(default_visibility = ["//visibility:private"])
 
 filegroup(
     name = "srcs",
@@ -191,7 +191,7 @@ sh_test(
     srcs = ["run_test.sh"],
     data = [":test-deps"],
     shard_count = 3,
-    tags = ["no_windows"],
+    deps = ["@bazel_tools//tools/bash/runfiles"],
 )
 
 sh_test(
