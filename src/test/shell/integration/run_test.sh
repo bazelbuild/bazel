@@ -16,11 +16,35 @@
 #
 # Integration tests for "bazel run"
 
+# --- begin runfiles.bash initialization v2 ---
+# Copy-pasted from the Bazel Bash runfiles library v2.
+set -uo pipefail; f=bazel_tools/tools/bash/runfiles/runfiles.bash
+source "${RUNFILES_DIR:-/dev/null}/$f" 2>/dev/null || \
+  source "$(grep -sm1 "^$f " "${RUNFILES_MANIFEST_FILE:-/dev/null}" | cut -f2- -d' ')" 2>/dev/null || \
+  source "$0.runfiles/$f" 2>/dev/null || \
+  source "$(grep -sm1 "^$f " "$0.runfiles_manifest" | cut -f2- -d' ')" 2>/dev/null || \
+  source "$(grep -sm1 "^$f " "$0.exe.runfiles_manifest" | cut -f2- -d' ')" 2>/dev/null || \
+  { echo>&2 "ERROR: cannot find $f"; exit 1; }; f=; set -e
+# --- end runfiles.bash initialization v2 ---
+
 NO_SIGNAL_OVERRIDE=1
-# Load the test setup defined in the parent directory
-CURRENT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-source "${CURRENT_DIR}/../integration_test_setup.sh" \
+
+source "$(rlocation "io_bazel/src/test/shell/integration_test_setup.sh")" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
+
+case "$(uname -s | tr [:upper:] [:lower:])" in
+msys*|mingw*|cygwin*)
+  declare -r is_windows=true
+  ;;
+*)
+  declare -r is_windows=false
+  ;;
+esac
+
+if "$is_windows"; then
+  export MSYS_NO_PATHCONV=1
+  export MSYS2_ARG_CONV_EXCL="*"
+fi
 
 add_to_bazelrc "test --notest_loasd"
 
@@ -79,12 +103,20 @@ function test_run_py_binary() {
 }
 
 function test_run_py_test() {
+  if "$is_windows"; then
+    # TODO(laszlocsomor): fix this test on Windows, and enable it.
+    return
+  fi
   write_py_files
   bazel run //py:test >& $TEST_log || fail "Expected success"
   expect_log_once 'Hello, Python World'
 }
 
 function test_runfiles_present_cc_binary() {
+  if "$is_windows"; then
+    # TODO(laszlocsomor): fix this test on Windows, and enable it.
+    return
+  fi
   write_cc_source_files
 
   cat > cc/hello_kitty.txt <<EOF
@@ -101,6 +133,10 @@ EOF
 }
 
 function test_runfiles_updated_correctly_with_nobuild_runfile_links {
+  if "$is_windows"; then
+    # TODO(laszlocsomor): fix this test on Windows, and enable it.
+    return
+  fi
   write_cc_source_files
 
   cat > cc/hello_kitty.txt <<EOF
@@ -129,6 +165,10 @@ function test_run_with_no_build_runfile_manifests {
 }
 
 function test_script_file_generation {
+  if "$is_windows"; then
+    # TODO(laszlocsomor): fix this test on Windows, and enable it.
+    return
+  fi
   mkdir -p fubar || fail "mkdir fubar failed"
   echo 'sh_binary(name = "fubar", srcs = ["fubar.sh"])' > fubar/BUILD
   echo 'for t in "$@"; do echo "arg: $t"; done' > fubar/fubar.sh
@@ -189,7 +229,11 @@ EOF
   bazel run //x:x &>$TEST_log --color=no && fail "expected failure"
   cat $TEST_log
   # Verify that the failure is a build failure.
-  expect_log "expected ';'"
+  if $is_windows; then
+    expect_log "missing ';'"
+  else
+    expect_log "expected ';'"
+  fi
   # Hack to make up for grep -P not being supported.
   grep $(echo -e '\x1b') $TEST_log && fail "Expected colorless output"
   true
@@ -197,6 +241,10 @@ EOF
 
 
 function test_no_ansi_stripping_in_stdout_or_stderr() {
+  if $is_windows; then
+    # TODO(laszlocsomor): fix this test on Windows, and enable it.
+    return
+  fi
   mkdir -p x || fail "mkdir failed"
   echo "cc_binary(name = 'x', srcs = ['x.cc'])" > x/BUILD
   cat > x/x.cc <<EOF
@@ -292,7 +340,7 @@ EOF
 
   # Arguments are only provided through bazel run, we cannot test it
   # with bazel-bin/some/testing/testing
-  bazel run //some/testing >$TEST_log || fail "Expected success"
+  bazel run --enable_runfiles=yes //some/testing >$TEST_log || fail "Expected success"
   expect_log "Got .*some/testing/data.*some/testing/generated.txt"
 }
 
@@ -316,18 +364,26 @@ EOF
 
 function test_run_for_custom_executable() {
   mkdir -p a
+  if "$is_windows"; then
+    local -r IsWindows=True
+  else
+    local -r IsWindows=False
+  fi
   cat > a/x.bzl <<EOF
 def _impl(ctx):
-  f = ctx.actions.declare_file("x.sh")
-  ctx.actions.write(f,
-      "#!/bin/sh\n"
-      + "if [ -z \$1 ]; then\\n"
-      + "   echo Run Forest run\\n"
-      + "else\\n"
-      + "   echo Run Forest run > \$1\\n"
-      + "fi",
-      is_executable=True)
-  return [DefaultInfo(executable=f)]
+    if $IsWindows:
+        f = ctx.actions.declare_file("x.bat")
+        content = "@if '%1' equ '' (echo Run Forest run) else (echo>%1 Run Forest run)"
+    else:
+        f = ctx.actions.declare_file("x.sh")
+        content = ("#!/bin/sh\n" +
+                   "if [ -z \$1 ]; then\\n" +
+                   "   echo Run Forest run\\n" +
+                   "else\\n" +
+                   "   echo Run Forest run > \$1\\n" +
+                   "fi")
+    ctx.actions.write(f, content, is_executable = True)
+    return [DefaultInfo(executable = f)]
 
 my_rule = rule(_impl, executable = True)
 
@@ -358,6 +414,10 @@ EOF
 # (when running browser-based tests) and to support debugging tests.
 # See also test_a_test_rule_with_input_from_stdin() in //src/test/shell/integration:test_test
 function test_run_a_test_and_a_binary_rule_with_input_from_stdin() {
+  if "$is_windows"; then
+    # TODO(laszlocsomor): fix this test on Windows, and enable it.
+    return
+  fi
   mkdir -p a
   cat > a/BUILD <<'eof'
 sh_test(name = "x", srcs = ["x.sh"])
