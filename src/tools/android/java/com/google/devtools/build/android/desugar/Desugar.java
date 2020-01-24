@@ -1061,7 +1061,7 @@ public class Desugar {
       }
     }
 
-    if (options.desugarNestBasedPrivateAccess && classMemberRecord.hasAnyReason()) {
+    if (options.desugarNestBasedPrivateAccess) {
       visitor = new NestDesugaring(visitor, nestCompanions, classMemberRecord);
     }
 

@@ -10,6 +10,35 @@ package(
 licenses(["notice"])  # Apache 2.0
 
 java_test(
+    name = "ClassFileFormatTest",
+    size = "medium",
+    srcs = ["ClassFileFormatTest.java"],
+    data = [
+        "//src/test/java/com/google/devtools/build/android/desugar/nest/testsrc/simpleunit/classfileformat",
+        "//src/tools/android/java/com/google/devtools/build/android/desugar/testing/junit:android_jar_for_testing",
+        "//src/tools/android/java/com/google/devtools/build/android/desugar/testing/junit:jacoco_agent_jar",
+    ],
+    jvm_flags = [
+        "-Dinput_srcs='$(locations //src/test/java/com/google/devtools/build/android/desugar/nest/testsrc/simpleunit/classfileformat)'",
+        "-Djdk.internal.lambda.dumpProxyClasses=$$(mktemp -d)",
+        "-Dandroid_runtime_jar=$(location //src/tools/android/java/com/google/devtools/build/android/desugar/testing/junit:android_jar_for_testing)",
+        "-Djacoco_agent_jar=$(location //src/tools/android/java/com/google/devtools/build/android/desugar/testing/junit:jacoco_agent_jar)",
+    ],
+    test_class = "com.google.devtools.build.android.desugar.nest.ClassFileFormatTest",
+    deps = [
+        "//src/tools/android/java/com/google/devtools/build/android/desugar/testing/junit:desugar_rule",
+        "//third_party:asm",
+        "//third_party:asm-tree",
+        "//third_party:guava",
+        "//third_party:guava-testlib",
+        "//third_party:jsr330_inject",
+        "//third_party:junit4",
+        "//third_party:truth",
+        "//third_party:truth8",
+    ],
+)
+
+java_test(
     name = "NestAnalyzerTest",
     size = "medium",
     srcs = ["NestAnalyzerTest.java"],
@@ -188,6 +217,7 @@ filegroup(
         "//src/test/java/com/google/devtools/build/android/desugar/nest/testsrc/complexcase:srcs",
         "//src/test/java/com/google/devtools/build/android/desugar/nest/testsrc/nestanalyzer:srcs",
         "//src/test/java/com/google/devtools/build/android/desugar/nest/testsrc/simpleunit/constructor:srcs",
+        "//src/test/java/com/google/devtools/build/android/desugar/nest/testsrc/simpleunit/classfileformat:srcs",
         "//src/test/java/com/google/devtools/build/android/desugar/nest/testsrc/simpleunit/field:srcs",
         "//src/test/java/com/google/devtools/build/android/desugar/nest/testsrc/simpleunit/interfacemethod:srcs",
         "//src/test/java/com/google/devtools/build/android/desugar/nest/testsrc/simpleunit/method:srcs",
