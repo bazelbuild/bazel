@@ -1,4 +1,4 @@
-// Copyright 2019 The Bazel Authors. All rights reserved.
+// Copyright 2020 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -11,7 +11,6 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-//
 
 package com.google.devtools.build.lib.bazel.rules.ninja.parser;
 
@@ -249,24 +248,25 @@ public class NinjaParserStep {
    * Parses Ninja target using {@link NinjaScope} of the file, where it is defined, to expand
    * variables.
    */
-  public NinjaTarget parseNinjaTarget(NinjaScope fileScope, int offset)
+  public NinjaTarget parseNinjaTarget(
+      NinjaScopeRegister register,
+      NinjaScope fileScope, int offset)
       throws GenericParsingException {
-    NinjaTarget.Builder builder = NinjaTarget.builder();
+    NinjaTarget.Builder builder = NinjaTarget.builder(fileScope.getScopeId(), offset);
     parseExpected(NinjaToken.BUILD);
 
     Map<InputOutputKind, List<NinjaVariableValue>> pathValuesMap =
         parseTargetDependenciesPart(builder);
 
-    NinjaScope targetScope = parseTargetVariables(offset, fileScope, builder);
+    NinjaScope targetScope = parseTargetVariables(register, offset, fileScope, builder);
 
     // Variables from the build statement can be used in the input and output paths, so
     // we are using targetScope to resolve paths values.
     for (Map.Entry<InputOutputKind, List<NinjaVariableValue>> entry : pathValuesMap.entrySet()) {
       List<PathFragment> paths =
           entry.getValue().stream()
-              .map(
-                  value ->
-                      PathFragment.create(targetScope.getExpandedValue(Integer.MAX_VALUE, value)))
+              .map(value ->
+                      PathFragment.create(targetScope.getExpandedValue(register, Integer.MAX_VALUE, value)))
               .collect(Collectors.toList());
       InputOutputKind inputOutputKind = entry.getKey();
       if (inputOutputKind instanceof InputKind) {
@@ -295,6 +295,7 @@ public class NinjaParserStep {
    * @return Ninja scope for expanding input and output paths of that statement
    */
   private NinjaScope parseTargetVariables(
+      NinjaScopeRegister register,
       int offset, NinjaScope fileScope, NinjaTarget.Builder builder)
       throws GenericParsingException {
     Map<String, List<Pair<Integer, String>>> expandedVariables = Maps.newHashMap();
@@ -305,7 +306,7 @@ public class NinjaParserStep {
       Pair<String, NinjaVariableValue> pair = parseVariable();
       String name = Preconditions.checkNotNull(pair.getFirst());
       NinjaVariableValue value = Preconditions.checkNotNull(pair.getSecond());
-      String expandedValue = fileScope.getExpandedValue(offset, value);
+      String expandedValue = fileScope.getExpandedValue(register, offset, value);
       expandedVariables
           .computeIfAbsent(name, k -> Lists.newArrayList())
           .add(Pair.of(0, expandedValue));
@@ -315,7 +316,7 @@ public class NinjaParserStep {
         parseExpected(NinjaToken.NEWLINE);
       }
     }
-    return fileScope.createTargetsScope(ImmutableSortedMap.copyOf(expandedVariables));
+    return fileScope.createTargetsScope(register, ImmutableSortedMap.copyOf(expandedVariables));
   }
 
   /**

@@ -1,4 +1,4 @@
-// Copyright 2019 The Bazel Authors. All rights reserved.
+// Copyright 2020 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.bazel.rules.ninja.parser.NinjaFileParseResu
 import com.google.devtools.build.lib.bazel.rules.ninja.parser.NinjaParser;
 import com.google.devtools.build.lib.bazel.rules.ninja.parser.NinjaParserStep;
 import com.google.devtools.build.lib.bazel.rules.ninja.parser.NinjaScope;
+import com.google.devtools.build.lib.bazel.rules.ninja.parser.NinjaScopeRegister;
 import com.google.devtools.build.lib.bazel.rules.ninja.parser.NinjaTarget;
 import com.google.devtools.build.lib.bazel.rules.ninja.parser.NinjaVariableValue;
 import com.google.devtools.build.lib.util.Pair;
@@ -55,6 +56,7 @@ public class NinjaPipeline {
   private final ListeningExecutorService service;
   private final Collection<Path> includedOrSubninjaFiles;
   private final String ownerTargetName;
+  private final NinjaScopeRegister register;
 
   /**
    * @param basePath base path for resolving include and subninja paths.
@@ -71,6 +73,7 @@ public class NinjaPipeline {
     this.service = service;
     this.includedOrSubninjaFiles = includedOrSubninjaFiles;
     this.ownerTargetName = ownerTargetName;
+    this.register = NinjaScopeRegister.create();
   }
 
   /**
@@ -86,9 +89,9 @@ public class NinjaPipeline {
             scheduleParsing(mainFile), GenericParsingException.class, IOException.class);
 
     Map<NinjaScope, List<ByteFragmentAtOffset>> rawTargets = Maps.newHashMap();
-    NinjaScope scope = new NinjaScope();
+    NinjaScope scope = register.getMainScope();
     // This will cause additional parsing of included/subninja scopes, and their recursive expand.
-    result.expandIntoScope(scope, rawTargets);
+    result.expandIntoScope(register, scope, rawTargets);
     return Pair.of(scope, iterateScopesScheduleTargetsParsing(scope, rawTargets));
   }
 
@@ -113,10 +116,10 @@ public class NinjaPipeline {
             service.submit(
                 () ->
                     new NinjaParserStep(new NinjaLexer(fragment.getFragment()))
-                        .parseNinjaTarget(currentScope, fragment.getRealStartOffset())));
+                        .parseNinjaTarget(register, currentScope, fragment.getRealStartOffset())));
       }
-      queue.addAll(currentScope.getIncludedScopes());
-      queue.addAll(currentScope.getSubNinjaScopes());
+      queue.addAll(currentScope.getIncludedScopes(this.register));
+      queue.addAll(currentScope.getSubNinjaScopes(this.register));
     }
     return future.getResult();
   }
@@ -149,7 +152,7 @@ public class NinjaPipeline {
       // If the value of the child path refers some variables in the parent scope, resolve it,
       // when the lambda is called, schedule the parsing and wait for it's completion.
       return (scope) -> {
-        String expandedValue = scope.getExpandedValue(offset, value);
+        String expandedValue = scope.getExpandedValue(this.register, offset, value);
         if (expandedValue.isEmpty()) {
           throw new GenericParsingException("Expected non-empty path.");
         }

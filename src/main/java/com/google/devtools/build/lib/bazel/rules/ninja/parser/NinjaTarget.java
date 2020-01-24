@@ -1,4 +1,4 @@
-// Copyright 2019 The Bazel Authors. All rights reserved.
+// Copyright 2020 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -11,7 +11,6 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-//
 
 package com.google.devtools.build.lib.bazel.rules.ninja.parser;
 
@@ -27,13 +26,16 @@ import java.util.List;
 public final class NinjaTarget {
   /** Builder for {@link NinjaTarget}. */
   public static class Builder {
+    private final int scopeId;
+    private final int offset;
     private String ruleName;
     private final ImmutableSortedKeyListMultimap.Builder<InputKind, PathFragment> inputsBuilder;
     private final ImmutableSortedKeyListMultimap.Builder<OutputKind, PathFragment> outputsBuilder;
-
     private final ImmutableSortedMap.Builder<String, String> variablesBuilder;
 
-    private Builder() {
+    private Builder(int scopeId, int offset) {
+      this.scopeId = scopeId;
+      this.offset = offset;
       inputsBuilder = ImmutableSortedKeyListMultimap.builder();
       outputsBuilder = ImmutableSortedKeyListMultimap.builder();
       variablesBuilder = ImmutableSortedMap.naturalOrder();
@@ -61,8 +63,8 @@ public final class NinjaTarget {
 
     public NinjaTarget build() {
       Preconditions.checkNotNull(ruleName);
-      return new NinjaTarget(
-          ruleName, inputsBuilder.build(), outputsBuilder.build(), variablesBuilder.build());
+      return new NinjaTarget(scopeId, offset, ruleName, inputsBuilder.build(),
+          outputsBuilder.build(), variablesBuilder.build());
     }
   }
 
@@ -88,20 +90,32 @@ public final class NinjaTarget {
   @Immutable
   public interface InputOutputKind {}
 
+  private final int scopeId;
+  private final int offset;
   private final String ruleName;
   private final ImmutableSortedKeyListMultimap<InputKind, PathFragment> inputs;
   private final ImmutableSortedKeyListMultimap<OutputKind, PathFragment> outputs;
   private final ImmutableSortedMap<String, String> variables;
 
   public NinjaTarget(
-      String ruleName,
+      int scopeId, int offset, String ruleName,
       ImmutableSortedKeyListMultimap<InputKind, PathFragment> inputs,
       ImmutableSortedKeyListMultimap<OutputKind, PathFragment> outputs,
       ImmutableSortedMap<String, String> variables) {
+    this.scopeId = scopeId;
+    this.offset = offset;
     this.ruleName = ruleName;
     this.inputs = inputs;
     this.outputs = outputs;
     this.variables = variables;
+  }
+
+  public int getScopeId() {
+    return scopeId;
+  }
+
+  public int getOffset() {
+    return offset;
   }
 
   public String getRuleName() {
@@ -144,7 +158,7 @@ public final class NinjaTarget {
     return inputs.get(InputKind.ORDER_ONLY);
   }
 
-  public static Builder builder() {
-    return new Builder();
+  public static Builder builder(int scopeId, int offset) {
+    return new Builder(scopeId, offset);
   }
 }

@@ -1,4 +1,4 @@
-// Copyright 2019 The Bazel Authors. All rights reserved.
+// Copyright 2020 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -11,7 +11,6 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-//
 
 package com.google.devtools.build.lib.bazel.rules.ninja;
 
@@ -29,6 +28,7 @@ import com.google.devtools.build.lib.bazel.rules.ninja.parser.NinjaParserStep;
 import com.google.devtools.build.lib.bazel.rules.ninja.parser.NinjaRule;
 import com.google.devtools.build.lib.bazel.rules.ninja.parser.NinjaRuleVariable;
 import com.google.devtools.build.lib.bazel.rules.ninja.parser.NinjaScope;
+import com.google.devtools.build.lib.bazel.rules.ninja.parser.NinjaScopeRegister;
 import com.google.devtools.build.lib.bazel.rules.ninja.parser.NinjaTarget;
 import com.google.devtools.build.lib.bazel.rules.ninja.parser.NinjaVariableValue;
 import com.google.devtools.build.lib.util.Pair;
@@ -221,8 +221,9 @@ public class NinjaParserStepTest {
     parseResult.addVariable("output", 1, NinjaVariableValue.createPlainText("out123"));
     parseResult.addVariable("input", 2, NinjaVariableValue.createPlainText("in123"));
 
-    NinjaScope scope = new NinjaScope();
-    parseResult.expandIntoScope(scope, Maps.newHashMap());
+    NinjaScopeRegister register = NinjaScopeRegister.create();
+    NinjaScope scope = register.getMainScope();
+    parseResult.expandIntoScope(register, scope, Maps.newHashMap());
 
     // Variables, defined inside build statement, are used for input and output paths,
     // but not for the values of the other variables.
@@ -231,7 +232,7 @@ public class NinjaParserStepTest {
         createParser(
                 "build $output : command $input $dir/abcde\n"
                     + "  dir = def$input\n  empty = '$dir'")
-            .parseNinjaTarget(scope, 5);
+            .parseNinjaTarget(register, scope, 5);
     assertThat(target.getRuleName()).isEqualTo("command");
     assertThat(target.getOutputs()).containsExactly(PathFragment.create("out123"));
     assertThat(target.getUsualInputs())
@@ -247,10 +248,11 @@ public class NinjaParserStepTest {
         "output", 1, NinjaVariableValue.builder().addText("'out'").addVariable("input").build());
     parseResult.addVariable(
         "input", 2, NinjaVariableValue.builder().addText("'in'").addVariable("output").build());
-    NinjaScope scope = new NinjaScope();
-    parseResult.expandIntoScope(scope, Maps.newHashMap());
-    assertThat(scope.findExpandedVariable(3, "input")).isEqualTo("'in''out'");
-    assertThat(scope.findExpandedVariable(3, "output")).isEqualTo("'out'");
+    NinjaScopeRegister register = NinjaScopeRegister.create();
+    NinjaScope scope = register.getMainScope();
+    parseResult.expandIntoScope(register, scope, Maps.newHashMap());
+    assertThat(scope.findExpandedVariable(register, 3, "input")).isEqualTo("'in''out'");
+    assertThat(scope.findExpandedVariable(register, 3, "output")).isEqualTo("'out'");
   }
 
   @Test
@@ -277,8 +279,11 @@ public class NinjaParserStepTest {
   }
 
   private static NinjaTarget parseNinjaTarget(String text) throws Exception {
-    NinjaScope fileScope = new NinjaScope();
-    return createParser(text).parseNinjaTarget(fileScope, 0);
+    NinjaScopeRegister register = NinjaScopeRegister.create();
+    NinjaScope fileScope = register.getMainScope();
+    NinjaTarget ninjaTarget = createParser(text).parseNinjaTarget(register, fileScope, 0);
+    assertThat(ninjaTarget.getScopeId()).isEqualTo(fileScope.getScopeId());
+    return ninjaTarget;
   }
 
   private static void doTestNinjaRuleParsingException(String text, String message) {

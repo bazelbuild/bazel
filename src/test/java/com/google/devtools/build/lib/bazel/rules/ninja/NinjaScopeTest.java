@@ -1,4 +1,4 @@
-// Copyright 2019 The Bazel Authors. All rights reserved.
+// Copyright 2020 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -11,7 +11,6 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-//
 
 package com.google.devtools.build.lib.bazel.rules.ninja;
 
@@ -28,10 +27,12 @@ import com.google.devtools.build.lib.bazel.rules.ninja.parser.NinjaParserStep;
 import com.google.devtools.build.lib.bazel.rules.ninja.parser.NinjaRule;
 import com.google.devtools.build.lib.bazel.rules.ninja.parser.NinjaRuleVariable;
 import com.google.devtools.build.lib.bazel.rules.ninja.parser.NinjaScope;
+import com.google.devtools.build.lib.bazel.rules.ninja.parser.NinjaScopeRegister;
 import com.google.devtools.build.lib.bazel.rules.ninja.parser.NinjaVariableValue;
 import com.google.devtools.build.lib.util.Pair;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
+import java.util.Collection;
 import java.util.List;
 import java.util.stream.Collectors;
 import org.junit.Test;
@@ -117,15 +118,16 @@ public class NinjaScopeTest {
     parseResult.addVariable("abc", 14, NinjaVariableValue.createPlainText("cba2"));
 
     parseResult.sortResults();
-    NinjaScope scope = new NinjaScope();
-    parseResult.expandIntoScope(scope, Maps.newHashMap());
+    NinjaScopeRegister register = NinjaScopeRegister.create();
+    NinjaScope scope = register.getMainScope();
+    parseResult.expandIntoScope(register, scope, Maps.newHashMap());
 
-    assertThat(scope.findExpandedVariable(1, "not_there")).isNull();
-    assertThat(scope.findExpandedVariable(1, "abc")).isNull();
-    assertThat(scope.findExpandedVariable(6, "abc")).isEqualTo("cba1");
+    assertThat(scope.findExpandedVariable(register, 1, "not_there")).isNull();
+    assertThat(scope.findExpandedVariable(register, 1, "abc")).isNull();
+    assertThat(scope.findExpandedVariable(register, 6, "abc")).isEqualTo("cba1");
 
-    assertThat(scope.findExpandedVariable(13, "abc")).isEqualTo("cba");
-    assertThat(scope.findExpandedVariable(130, "abc")).isEqualTo("cba2");
+    assertThat(scope.findExpandedVariable(register, 13, "abc")).isEqualTo("cba");
+    assertThat(scope.findExpandedVariable(register, 130, "abc")).isEqualTo("cba2");
   }
 
   @Test
@@ -136,11 +138,12 @@ public class NinjaScopeTest {
     parseResult.addVariable("abc", 14, NinjaVariableValue.createPlainText("cba2"));
 
     parseResult.sortResults();
-    NinjaScope scope = new NinjaScope();
-    parseResult.expandIntoScope(scope, Maps.newHashMap());
+    NinjaScopeRegister register = NinjaScopeRegister.create();
+    NinjaScope scope = register.getMainScope();
+    parseResult.expandIntoScope(register, scope, Maps.newHashMap());
 
     IllegalStateException exception =
-        assertThrows(IllegalStateException.class, () -> scope.findExpandedVariable(5, "abc"));
+        assertThrows(IllegalStateException.class, () -> scope.findExpandedVariable(register, 5, "abc"));
     assertThat(exception)
         .hasMessageThat()
         .isEqualTo("Trying to interpret declaration as reference.");
@@ -154,17 +157,18 @@ public class NinjaScopeTest {
     parseResult.addRule(5, rule("rule1", "5"));
 
     parseResult.sortResults();
-    NinjaScope scope = new NinjaScope();
-    parseResult.expandIntoScope(scope, Maps.newHashMap());
+    NinjaScopeRegister register = NinjaScopeRegister.create();
+    NinjaScope scope = register.getMainScope();
+    parseResult.expandIntoScope(register, scope, Maps.newHashMap());
 
-    assertThat(scope.findRule(1, "non-existent")).isNull();
-    assertThat(scope.findRule(1, "rule1")).isNull();
+    assertThat(scope.findRule(register, 1, "non-existent")).isNull();
+    assertThat(scope.findRule(register, 1, "rule1")).isNull();
 
-    NinjaRule rule1 = scope.findRule(6, "rule1");
+    NinjaRule rule1 = scope.findRule(register, 6, "rule1");
     assertThat(rule1).isNotNull();
     assertThat(rule1.getVariables().get(NinjaRuleVariable.COMMAND).getRawText()).isEqualTo("5");
 
-    rule1 = scope.findRule(15, "rule1");
+    rule1 = scope.findRule(register, 15, "rule1");
     assertThat(rule1).isNotNull();
     assertThat(rule1.getVariables().get(NinjaRuleVariable.COMMAND).getRawText()).isEqualTo("10");
   }
@@ -183,15 +187,16 @@ public class NinjaScopeTest {
     childParseResult.addVariable("edf", 1, NinjaVariableValue.createPlainText("11111"));
 
     parentParseResult.sortResults();
-    NinjaScope scope = new NinjaScope();
-    parentParseResult.expandIntoScope(scope, Maps.newHashMap());
+    NinjaScopeRegister register = NinjaScopeRegister.create();
+    NinjaScope scope = register.getMainScope();
+    parentParseResult.expandIntoScope(register, scope, Maps.newHashMap());
 
-    assertThat(scope.getSubNinjaScopes()).hasSize(1);
-    NinjaScope child = scope.getSubNinjaScopes().iterator().next();
+    assertThat(scope.getSubNinjaScopes(register)).hasSize(1);
+    NinjaScope child = scope.getSubNinjaScopes(register).iterator().next();
 
-    assertThat(child.findExpandedVariable(2, "abc")).isEqualTo("abc");
-    assertThat(child.findExpandedVariable(2, "edf")).isEqualTo("11111");
-    assertThat(child.findExpandedVariable(2, "xyz")).isNull();
+    assertThat(child.findExpandedVariable(register, 2, "abc")).isEqualTo("abc");
+    assertThat(child.findExpandedVariable(register, 2, "edf")).isEqualTo("11111");
+    assertThat(child.findExpandedVariable(register, 2, "xyz")).isNull();
   }
 
   @Test
@@ -212,13 +217,14 @@ public class NinjaScopeTest {
     childParseResult2.addVariable("edf", 1, NinjaVariableValue.createPlainText("22222"));
 
     parentParseResult.sortResults();
-    NinjaScope scope = new NinjaScope();
-    parentParseResult.expandIntoScope(scope, Maps.newHashMap());
+    NinjaScopeRegister register = NinjaScopeRegister.create();
+    NinjaScope scope = register.getMainScope();
+    parentParseResult.expandIntoScope(register, scope, Maps.newHashMap());
 
-    assertThat(scope.findExpandedVariable(160, "edf")).isEqualTo("11111");
-    assertThat(scope.findExpandedVariable(220, "edf")).isEqualTo("22222");
-    assertThat(scope.findExpandedVariable(125, "edf")).isEqualTo("edf");
-    assertThat(scope.findExpandedVariable(145, "child")).isEqualTo("child");
+    assertThat(scope.findExpandedVariable(register, 160, "edf")).isEqualTo("11111");
+    assertThat(scope.findExpandedVariable(register, 220, "edf")).isEqualTo("22222");
+    assertThat(scope.findExpandedVariable(register, 125, "edf")).isEqualTo("edf");
+    assertThat(scope.findExpandedVariable(register, 145, "child")).isEqualTo("child");
   }
 
   @Test
@@ -239,10 +245,11 @@ public class NinjaScopeTest {
     childParseResult2.addVariable("edf", 1, NinjaVariableValue.createPlainText("22222"));
 
     parentParseResult.sortResults();
-    NinjaScope scope = new NinjaScope();
-    parentParseResult.expandIntoScope(scope, Maps.newHashMap());
+    NinjaScopeRegister register = NinjaScopeRegister.create();
+    NinjaScope scope = register.getMainScope();
+    parentParseResult.expandIntoScope(register, scope, Maps.newHashMap());
 
-    assertThat(scope.findExpandedVariable(220, "edf")).isEqualTo("22222");
+    assertThat(scope.findExpandedVariable(register, 220, "edf")).isEqualTo("22222");
   }
 
   @Test
@@ -254,13 +261,14 @@ public class NinjaScopeTest {
     parseResult.addVariable("edf", 180, parseValue("now$: $abc!"));
 
     parseResult.sortResults();
-    NinjaScope scope = new NinjaScope();
-    parseResult.expandIntoScope(scope, Maps.newHashMap());
+    NinjaScopeRegister register = NinjaScopeRegister.create();
+    NinjaScope scope = register.getMainScope();
+    parseResult.expandIntoScope(register, scope, Maps.newHashMap());
 
-    assertThat(scope.findExpandedVariable(15, "abc")).isEqualTo("abc");
-    assertThat(scope.findExpandedVariable(150, "edf")).isEqualTo("=> abc = ?");
-    assertThat(scope.findExpandedVariable(140, "abc")).isEqualTo("redefined");
-    assertThat(scope.findExpandedVariable(181, "edf")).isEqualTo("now: redefined!");
+    assertThat(scope.findExpandedVariable(register, 15, "abc")).isEqualTo("abc");
+    assertThat(scope.findExpandedVariable(register, 150, "edf")).isEqualTo("=> abc = ?");
+    assertThat(scope.findExpandedVariable(register, 140, "abc")).isEqualTo("redefined");
+    assertThat(scope.findExpandedVariable(register, 181, "edf")).isEqualTo("now: redefined!");
   }
 
   @Test
@@ -278,18 +286,21 @@ public class NinjaScopeTest {
     childParseResult.addVariable("subninja", 2, parseValue("$edf = ${ included }*"));
 
     parentParseResult.sortResults();
-    NinjaScope parentScope = new NinjaScope();
-    parentParseResult.expandIntoScope(parentScope, Maps.newHashMap());
+    NinjaScopeRegister register = NinjaScopeRegister.create();
+    NinjaScope parentScope = register.getMainScope();
+    parentParseResult.expandIntoScope(register, parentScope, Maps.newHashMap());
 
-    assertThat(parentScope.getIncludedScopes()).hasSize(1);
-    NinjaScope includeScope = parentScope.getIncludedScopes().iterator().next();
-    assertThat(parentScope.getSubNinjaScopes()).hasSize(1);
-    NinjaScope childScope = parentScope.getSubNinjaScopes().iterator().next();
+    Collection<NinjaScope> includedScopes = parentScope.getIncludedScopes(register);
+    assertThat(includedScopes).hasSize(1);
+    NinjaScope includeScope = includedScopes.iterator().next();
+    Collection<NinjaScope> subNinjaScopes = parentScope.getSubNinjaScopes(register);
+    assertThat(subNinjaScopes).hasSize(1);
+    NinjaScope childScope = subNinjaScopes.iterator().next();
 
-    assertThat(includeScope.findExpandedVariable(2, "included")).isEqualTo("<abc and abc === abc>");
-    assertThat(childScope.findExpandedVariable(3, "subninja"))
+    assertThat(includeScope.findExpandedVariable(register, 2, "included")).isEqualTo("<abc and abc === abc>");
+    assertThat(childScope.findExpandedVariable(register, 3, "subninja"))
         .isEqualTo("abc === abc = <abc and abc === abc>*");
-    assertThat(parentScope.findExpandedVariable(150, "included"))
+    assertThat(parentScope.findExpandedVariable(register, 150, "included"))
         .isEqualTo("<abc and abc === abc>");
   }
 

@@ -1,4 +1,4 @@
-// Copyright 2019 The Bazel Authors. All rights reserved.
+// Copyright 2020 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -11,7 +11,6 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-//
 
 package com.google.devtools.build.lib.bazel.rules.ninja.parser;
 
@@ -140,7 +139,9 @@ public class NinjaFileParseResult {
    * </code> - map of NinjaScope to list of fragments with unparsed Ninja targets.
    */
   public void expandIntoScope(
-      NinjaScope scope, Map<NinjaScope, List<ByteFragmentAtOffset>> rawTargets)
+      NinjaScopeRegister register,
+      NinjaScope scope,
+      Map<NinjaScope, List<ByteFragmentAtOffset>> rawTargets)
       throws InterruptedException, GenericParsingException, IOException {
     scope.setRules(rules);
     rawTargets.put(scope, targets);
@@ -155,7 +156,7 @@ public class NinjaFileParseResult {
             offset,
             () ->
                 scope.addExpandedVariable(
-                    offset, name, scope.getExpandedValue(offset, variableValue)));
+                    offset, name, scope.getExpandedValue(register, offset, variableValue)));
       }
     }
     for (Map.Entry<Integer, NinjaPromise<NinjaFileParseResult>> entry :
@@ -165,8 +166,8 @@ public class NinjaFileParseResult {
           offset,
           () -> {
             NinjaFileParseResult fileParseResult = entry.getValue().compute(scope);
-            NinjaScope includedScope = scope.addIncluded(offset);
-            fileParseResult.expandIntoScope(includedScope, rawTargets);
+            NinjaScope includedScope = scope.addIncluded(register, offset);
+            fileParseResult.expandIntoScope(register, includedScope, rawTargets);
           });
     }
     for (Map.Entry<Integer, NinjaPromise<NinjaFileParseResult>> entry :
@@ -176,8 +177,8 @@ public class NinjaFileParseResult {
           offset,
           () -> {
             NinjaFileParseResult fileParseResult = entry.getValue().compute(scope);
-            NinjaScope subNinjaScope = scope.addSubNinja(entry.getKey());
-            fileParseResult.expandIntoScope(subNinjaScope, rawTargets);
+            NinjaScope subNinjaScope = scope.addSubNinja(register, entry.getKey());
+            fileParseResult.expandIntoScope(register, subNinjaScope, rawTargets);
           });
     }
 
