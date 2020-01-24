@@ -115,10 +115,6 @@ function test_run_py_binary() {
 }
 
 function test_run_py_test() {
-  if "$is_windows"; then
-    # TODO(laszlocsomor): fix this test on Windows, and enable it.
-    return
-  fi
   write_py_files
   bazel run //py:test >& $TEST_log || fail "Expected success"
   expect_log_once 'Hello, Python World'
@@ -445,6 +441,44 @@ eof
   expect_log "foo=(hello)"
   echo hallowelt | bazel run //a:x > "$TEST_log" || fail "Expected success"
   expect_log "foo=(hallo)"
+}
+
+# Regression test for https://github.com/bazelbuild/bazel/issues/10621
+function test_running_test_target_with_runfiles_disabled() {
+  mkdir a
+  cat >a/BUILD <<eof
+load(":my_test.bzl", "my_test")
+my_test(name = "x")
+eof
+  if "$is_windows"; then
+    local -r IsWindows=True
+  else
+    local -r IsWindows=False
+  fi
+  cat >a/my_test.bzl <<eof
+def _impl(ctx):
+    # Extension needs to be ".bat" on Windows, so that Bazel can run the test's binary (the script)
+    # as a direct child process.
+    # Extension doesn't matter on other platforms.
+    out = ctx.actions.declare_file("%s.bat" % ctx.label.name)
+    ctx.actions.write(
+        output = out,
+        content = "@echo." if $IsWindows else "#!/bin/bash",
+        is_executable = True,
+    )
+    return [DefaultInfo(
+        executable = out,
+        files = depset([out]),
+        runfiles = ctx.runfiles(files = [out]),
+    )]
+
+my_test = rule(
+    implementation = _impl,
+    test = True,
+)
+eof
+  bazel run --enable_runfiles=no a:x || fail "expected success"
+  bazel run --enable_runfiles=yes a:x || fail "expected success"
 }
 
 run_suite "'${PRODUCT_NAME} run' integration tests"
