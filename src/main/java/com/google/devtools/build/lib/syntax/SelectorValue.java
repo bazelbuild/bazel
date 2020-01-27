@@ -37,10 +37,11 @@ import java.util.Map;
     doc = "A selector between configuration-dependent entities.",
     documented = false)
 @AutoCodec
-public final class SelectorValue implements StarlarkValue {
-  // TODO(bazel-team): Selectors are currently split between .packages and .syntax . They should
-  // really all be in .packages, but then we'd need to figure out a way how to extend binary
-  // operators, which is a non-trivial problem.
+public final class SelectorValue implements StarlarkValue, HasBinary {
+
+  // TODO(adonovan): move to lib.packages.
+  // TODO(adonovan): combine Selector{List,Value}. There's no need for two data types.
+
   private final ImmutableMap<?, ?> dictionary;
   private final Class<?> type;
   private final String noMatchError;
@@ -71,6 +72,14 @@ public final class SelectorValue implements StarlarkValue {
   @Override
   public String toString() {
     return Starlark.repr(this);
+  }
+
+  @Override
+  public SelectorList binaryOp(TokenKind op, Object that, boolean thisLeft) throws EvalException {
+    if (op == TokenKind.PLUS) {
+      return thisLeft ? SelectorList.concat(this, that) : SelectorList.concat(that, this);
+    }
+    return null;
   }
 
   @Override

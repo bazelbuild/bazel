@@ -568,7 +568,7 @@ public final class BuildType {
         selectorValueList.add(new SelectorValue(element.getEntries(), element.getNoMatchError()));
       }
       try {
-        printer.repr(com.google.devtools.build.lib.syntax.SelectorList.of(null, selectorValueList));
+        printer.repr(com.google.devtools.build.lib.syntax.SelectorList.of(selectorValueList));
       } catch (EvalException e) {
         throw new IllegalStateException("this list should have been validated on creation");
       }

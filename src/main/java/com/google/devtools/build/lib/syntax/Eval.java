@@ -390,15 +390,13 @@ final class Eval {
     Expression lhs = stmt.getLHS();
     TokenKind op = stmt.getOperator();
     Expression rhs = stmt.getRHS();
-    // TODO(adonovan): don't materialize Locations before an error has occurred.
-    // (Requires syntax tree to record offsets and defer Location conversion.)
-    Location loc = stmt.getStartLocation(); // TODO(adonovan): use operator location
 
     if (lhs instanceof Identifier) {
       Object x = eval(fr, lhs);
       Object y = eval(fr, rhs);
-      Object z = inplaceBinaryOp(fr, op, x, y, loc);
+      Object z = inplaceBinaryOp(fr, op, x, y);
       assignIdentifier(fr, (Identifier) lhs, z);
+
     } else if (lhs instanceof IndexExpression) {
       // object[index] op= y
       // The object and key should be evaluated only once, so we don't use lhs.eval().
@@ -408,23 +406,27 @@ final class Eval {
       Object x = EvalUtils.index(fr.thread.mutability(), fr.thread.getSemantics(), object, key);
       // Evaluate rhs after lhs.
       Object y = eval(fr, rhs);
-      Object z = inplaceBinaryOp(fr, op, x, y, loc);
+      Object z = inplaceBinaryOp(fr, op, x, y);
       try {
         assignItem(object, key, z);
       } catch (EvalException ex) {
+        Location loc = stmt.getStartLocation(); // TODO(adonovan): use operator location
         throw ex.ensureLocation(loc);
       }
+
     } else if (lhs instanceof ListExpression) {
+      Location loc = stmt.getStartLocation(); // TODO(adonovan): use operator location
       throw new EvalException(loc, "cannot perform augmented assignment on a list literal");
+
     } else {
       // Not possible for validated ASTs.
+      Location loc = stmt.getStartLocation(); // TODO(adonovan): use operator location
       throw new EvalException(loc, "cannot perform augmented assignment on '" + lhs + "'");
     }
   }
 
   private static Object inplaceBinaryOp(
-      StarlarkThread.CallFrame fr, TokenKind op, Object x, Object y, Location location)
-      throws EvalException {
+      StarlarkThread.CallFrame fr, TokenKind op, Object x, Object y) throws EvalException {
     // list += iterable  behaves like  list.extend(iterable)
     // TODO(b/141263526): following Python, allow list+=iterable (but not list+iterable).
     if (op == TokenKind.PLUS && x instanceof StarlarkList && y instanceof StarlarkList) {
@@ -432,7 +434,7 @@ final class Eval {
       list.extend(y);
       return list;
     }
-    return EvalUtils.binaryOp(op, x, y, fr.thread, location);
+    return EvalUtils.binaryOp(op, x, y, fr.thread.getSemantics(), fr.thread.mutability());
   }
 
   // ---- expressions ----
@@ -474,9 +476,14 @@ final class Eval {
               return Starlark.truth(x) ? x : eval(fr, binop.getY());
             default:
               Object y = eval(fr, binop.getY());
-              // TODO(adonovan): use operator location
-              return EvalUtils.binaryOp(
-                  binop.getOperator(), x, y, fr.thread, binop.getStartLocation());
+              try {
+                return EvalUtils.binaryOp(
+                    binop.getOperator(), x, y, fr.thread.getSemantics(), fr.thread.mutability());
+              } catch (EvalException ex) {
+                // TODO(adonovan): use operator location
+                ex.ensureLocation(binop.getStartLocation());
+                throw ex;
+              }
           }
         }
 

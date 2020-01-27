@@ -16,9 +16,9 @@ package com.google.devtools.build.lib.syntax;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
-import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 
@@ -44,10 +44,11 @@ import java.util.Objects;
     doc = "A selector between configuration-dependent entities.",
     documented = false)
 @AutoCodec
-public final class SelectorList implements StarlarkValue {
-  // TODO(build-team): Selectors are currently split between .packages and .syntax . They should
-  // really all be in .packages, but then we'd need to figure out a way how to extend binary
-  // operators, which is a non-trivial problem.
+public final class SelectorList implements StarlarkValue, HasBinary {
+
+  // TODO(adonovan): move to lib.packages.
+  // TODO(adonovan): combine Selector{List,Value}. There's no need for two data types.
+
   private final Class<?> type;
   private final List<Object> elements;
 
@@ -80,14 +81,21 @@ public final class SelectorList implements StarlarkValue {
   }
 
   /**
-   * Creates a list that concatenates two values, where each value may be a native
-   * type, a select over that type, or a selector list over that type.
+   * Creates a list that concatenates two values, where each value may be a native type, a select
+   * over that type, or a selector list over that type.
    *
    * @throws EvalException if the values don't have the same underlying type
    */
-  public static SelectorList concat(Location location, Object value1, Object value2)
-      throws EvalException {
-    return of(location, value1, value2);
+  public static SelectorList concat(Object x, Object y) throws EvalException {
+    return of(Arrays.asList(x, y));
+  }
+
+  @Override
+  public SelectorList binaryOp(TokenKind op, Object that, boolean thisLeft) throws EvalException {
+    if (op == TokenKind.PLUS) {
+      return thisLeft ? concat(this, that) : concat(that, this);
+    }
+    return null;
   }
 
   /**
@@ -96,17 +104,7 @@ public final class SelectorList implements StarlarkValue {
    *
    * @throws EvalException if all values don't have the same underlying type
    */
-  public static SelectorList of(Location location, Object... values) throws EvalException {
-    return SelectorList.of(location, ImmutableList.copyOf(values));
-  }
-
-  /**
-   * Creates a list from the given sequence of values, which must be non-empty. Each value may be a
-   * native type, a select over that type, or a selector list over that type.
-   *
-   * @throws EvalException if all values don't have the same underlying type
-   */
-  public static SelectorList of(Location location, Iterable<?> values) throws EvalException {
+  public static SelectorList of(Iterable<?> values) throws EvalException {
     Preconditions.checkArgument(!Iterables.isEmpty(values));
     ImmutableList.Builder<Object> elements = ImmutableList.builder();
     Object firstValue = null;
@@ -121,11 +119,9 @@ public final class SelectorList implements StarlarkValue {
         firstValue = value;
       }
       if (!canConcatenate(getNativeType(firstValue), getNativeType(value))) {
-        throw new EvalException(
-            location,
-            String.format(
-                "'+' operator applied to incompatible types (%s, %s)",
-                getTypeName(firstValue), getTypeName(value)));
+        throw Starlark.errorf(
+            "'+' operator applied to incompatible types (%s, %s)",
+            getTypeName(firstValue), getTypeName(value));
       }
     }
 

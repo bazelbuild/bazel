@@ -23,7 +23,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
-import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.BuildType.LabelConversionContext;
 import com.google.devtools.build.lib.packages.BuildType.Selector;
 import com.google.devtools.build.lib.packages.Type.ConversionException;
@@ -461,7 +460,7 @@ public class BuildTypeTest {
     List<String> list = ImmutableList.of("//a:a", "//b:b");
 
     // Creating a SelectorList from a SelectorList and a list should work properly.
-    SelectorList result = SelectorList.of(Location.BUILTIN, selectorList, list);
+    SelectorList result = SelectorList.concat(selectorList, list);
     assertThat(result).isNotNull();
     assertThat(result.getType()).isAssignableTo(List.class);
   }
@@ -473,7 +472,7 @@ public class BuildTypeTest {
     List<String> list = ImmutableList.of("//a:a", "//b:b");
 
     // Creating a SelectorList from a SelectorValue and a list should work properly.
-    SelectorList result = SelectorList.of(Location.BUILTIN, selectorValue, list);
+    SelectorList result = SelectorList.concat(selectorValue, list);
     assertThat(result).isNotNull();
     assertThat(result.getType()).isAssignableTo(List.class);
   }
@@ -485,7 +484,7 @@ public class BuildTypeTest {
     arrayList.add("//a:a");
 
     // Creating a SelectorList from two lists of different types should work properly.
-    SelectorList result = SelectorList.of(Location.BUILTIN, list, arrayList);
+    SelectorList result = SelectorList.concat(list, arrayList);
     assertThat(result).isNotNull();
     assertThat(result.getType()).isAssignableTo(List.class);
   }
@@ -495,7 +494,7 @@ public class BuildTypeTest {
     List<String> list = ImmutableList.of("//a:a", "//b:b");
 
     // Creating a SelectorList from a list and a non-list should fail.
-    assertThrows(EvalException.class, () -> SelectorList.of(Location.BUILTIN, list, "A string"));
+    assertThrows(EvalException.class, () -> SelectorList.concat(list, "A string"));
   }
 
   /**

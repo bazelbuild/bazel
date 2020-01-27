@@ -737,8 +737,7 @@ public class EvaluationTest extends EvaluationTestCase {
     newTest()
         .testIfErrorContains(
             "'in <string>' requires string as left operand, not 'int'", "1 in '123'")
-        .testIfErrorContains(
-            "unsupported binary operation: string in int (right operand must be", "'a' in 1");
+        .testIfErrorContains("unsupported binary operation: string in int", "'a' in 1");
   }
 
   @Test
