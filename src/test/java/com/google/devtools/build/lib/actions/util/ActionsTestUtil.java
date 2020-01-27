@@ -413,6 +413,48 @@ public final class ActionsTestUtil {
   }
 
   /**
+   * A mocked action containing the inputs and outputs of the action and determines whether or not
+   * the action is a middleman. Used for tests that do not need to execute the action.
+   */
+  public static class MockAction extends AbstractAction {
+
+    private final boolean middleman;
+
+    public MockAction(Iterable<Artifact> inputs, ImmutableSet<Artifact> outputs) {
+      this(inputs, outputs, /*middleman=*/ false);
+    }
+
+    public MockAction(
+        Iterable<Artifact> inputs, ImmutableSet<Artifact> outputs, boolean middleman) {
+      super(
+          NULL_ACTION_OWNER,
+          NestedSetBuilder.<Artifact>stableOrder().addAll(inputs).build(),
+          outputs);
+      this.middleman = middleman;
+    }
+
+    @Override
+    public MiddlemanType getActionType() {
+      return middleman ? MiddlemanType.AGGREGATING_MIDDLEMAN : super.getActionType();
+    }
+
+    @Override
+    public String getMnemonic() {
+      return "Mock action";
+    }
+
+    @Override
+    protected void computeKey(ActionKeyContext actionKeyContext, Fingerprint fp) {
+      fp.addString("Mock Action " + getPrimaryOutput());
+    }
+
+    @Override
+    public ActionResult execute(ActionExecutionContext actionExecutionContext) {
+      throw new UnsupportedOperationException();
+    }
+  }
+
+  /**
    * For a bunch of actions, gets the basenames of the paths and accumulates them in a space
    * separated string, like <code>foo.o bar.o baz.a</code>.
    */
