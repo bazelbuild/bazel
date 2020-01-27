@@ -126,8 +126,7 @@ public abstract class PyExecutable implements RuleConfiguredTargetFactory {
    *
    * <p>See {@link PythonUtils#getInitPyFiles} for details about how the files are created.
    */
-  private static void maybeCreateInitFiles(
-      RuleContext ruleContext, Runfiles.Builder builder, PythonSemantics semantics) {
+  private static void maybeCreateInitFiles(RuleContext ruleContext, Runfiles.Builder builder) {
     boolean createFiles;
     if (!ruleContext.attributes().has("legacy_create_init", BuildType.TRISTATE)) {
       createFiles = true;
@@ -140,7 +139,7 @@ public abstract class PyExecutable implements RuleConfiguredTargetFactory {
       }
     }
     if (createFiles) {
-      builder.setEmptyFilesSupplier(semantics.getEmptyRunfilesSupplier());
+      builder.setEmptyFilesSupplier(PythonUtils.GET_INIT_PY_FILES);
     }
   }
 
@@ -158,7 +157,7 @@ public abstract class PyExecutable implements RuleConfiguredTargetFactory {
     semantics.collectDefaultRunfiles(ruleContext, builder);
     builder.add(ruleContext, PythonRunfilesProvider.TO_RUNFILES);
 
-    maybeCreateInitFiles(ruleContext, builder, semantics);
+    maybeCreateInitFiles(ruleContext, builder);
 
     semantics.collectRunfilesForBinary(ruleContext, builder, common, ccInfo);
     return builder.build();
