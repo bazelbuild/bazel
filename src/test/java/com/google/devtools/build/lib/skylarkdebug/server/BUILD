@@ -63,7 +63,7 @@ java_test(
 
 java_test(
     name = "DebuggerSerializationTest",
-    srcs = glob(["DebuggerSerializationTest.java"]),
+    srcs = ["DebuggerSerializationTest.java"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib:skylarkinterface",
         "//src/main/java/com/google/devtools/build/lib:syntax",

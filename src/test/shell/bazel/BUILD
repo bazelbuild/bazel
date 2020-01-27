@@ -352,7 +352,7 @@ sh_test(
 [
     sh_test(
         name = "bazel_java_tools_javac" + java_version + "_test",
-        size = "small",
+        size = "medium",
         srcs = ["bazel_java_tools_test.sh"],
         args = ["java" + java_version],
         data = [
@@ -669,7 +669,10 @@ sh_test(
     srcs = ["external_integration_test.sh"],
     data = [":test-deps"],
     shard_count = 15,
-    tags = ["no_windows"],
+    tags = [
+        "no_windows",
+        "requires-network",
+    ],
 )
 
 sh_test(
@@ -770,7 +773,10 @@ sh_test(
         "@bazel_tools//tools/bash/runfiles",
     ],
     shard_count = 6,
-    tags = ["no_windows"],
+    tags = [
+        "no_windows",
+        "requires-network",
+    ],
 )
 
 sh_test(
@@ -924,6 +930,7 @@ sh_test(
     tags = [
         "no-sandbox",
         "no_windows",
+        "requires-network",
     ],
 )
 
@@ -971,7 +978,10 @@ sh_test(
     srcs = ["bazel_repository_cache_test.sh"],
     data = [":test-deps"],
     shard_count = 6,
-    tags = ["no_windows"],
+    tags = [
+        "no_windows",
+        "requires-network",
+    ],
 )
 
 sh_test(
@@ -1132,12 +1142,15 @@ sh_test(
         ":test-deps",
         "//src/tools/workspacelog:parser",
     ],
-    tags = ["no_windows"],
+    tags = [
+        "no_windows",
+        "requires-network",
+    ],
 )
 
 sh_test(
     name = "jdeps_test",
-    size = "medium",
+    size = "large",
     srcs = ["jdeps_test.sh"],
     data = [
         ":jdeps_class_blacklist.txt",
@@ -1197,6 +1210,9 @@ sh_test(
     name = "archive_contents_test",
     srcs = ["archive_contents_test.sh"],
     data = [":test-deps"],
+    tags = [
+        "requires-network",
+    ],
     deps = ["@bazel_tools//tools/bash/runfiles"],
 )
 

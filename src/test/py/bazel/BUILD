@@ -70,6 +70,9 @@ py_test(
     size = "medium",
     srcs = ["bazel_external_repository_test.py"],
     data = glob(["testdata/bazel_external_repository_test/**"]),
+    tags = [
+        "requires-network",
+    ],
     deps = [":test_base"],
 )
 
