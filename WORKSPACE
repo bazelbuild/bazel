@@ -134,9 +134,9 @@ distdir_tar(
         # bazelbuild/rules_cc
         "8bd6cd75d03c01bb82561a96d9c1f9f7157b13d0.zip",
         # bazelbuild/bazel-toolchains
-        "0.28.3.tar.gz",
+        "2.0.2.tar.gz",
         # bazelbuild/rules_pkg
-        "rules_pkg-0.2.0.tar.gz",
+        "rules_pkg-0.2.4.tar.gz",
         # bazelbuild/rules_proto
         "97d8af4dc474595af3900dd85cb3a29ad28cc313.tar.gz",
     ],
@@ -151,7 +151,7 @@ distdir_tar(
         "c7bbde2950769aac9a99364b0926230060a3ce04.tar.gz": "e6a76586b264f30679688f65f7e71ac112d1446681010a13bf22d9ca071f34b7",
         "8ccf4f1c351928b55d5dddf3672e3667f6978d60.tar.gz": "d868ce50d592ef4aad7dec4dd32ae68d2151261913450fac8390b3fd474bb898",
         "0.16.2.zip": "9b72bb0aea72d7cbcfc82a01b1e25bf3d85f791e790ddec16c65e2d906382ee0",
-        "android_tools_pkg-0.14.tar.gz": "a3a951838448483e7af25afd10671b266cc6283104b4a2a427d31cac12cf0912", # built at 6c63d70ef9c11a662b8323c0ae4f6d3ac53b1a60
+        "android_tools_pkg-0.14.tar.gz": "a3a951838448483e7af25afd10671b266cc6283104b4a2a427d31cac12cf0912",  # built at 6c63d70ef9c11a662b8323c0ae4f6d3ac53b1a60
         # bazelbuild/platforms
         "46993efdd33b73649796c5fc5c9efb193ae19d51.zip": "66184688debeeefcc2a16a2f80b03f514deac8346fe888fb7e691a52c023dd88",
         # bazelbuild/rules_java
@@ -159,9 +159,9 @@ distdir_tar(
         # bazelbuild/rules_cc
         "8bd6cd75d03c01bb82561a96d9c1f9f7157b13d0.zip": "1d4dbbd1e1e9b57d40bb0ade51c9e882da7658d5bfbf22bbd15b68e7879d761f",
         # bazelbuild/bazel-toolchains
-        "0.28.3.tar.gz": "d8c2f20deb2f6143bac792d210db1a4872102d81529fe0ea3476c1696addd7ff",
+        "2.0.2.tar.gz": "a653c9d318e42b14c0ccd7ac50c4a2a276c0db1e39743ab88b5aa2f0bc9cf607",
         # bazelbuild/rules_pkg
-        "rules_pkg-0.2.0.tar.gz": "5bdc04987af79bd27bc5b00fe30f59a858f77ffa0bd2d8143d5b31ad8b1bd71c",
+        "rules_pkg-0.2.4.tar.gz": "4ba8f4ab0ff85f2484287ab06c0d871dcb31cc54d439457d28fd4ae14b18450a",
         # bazelbuild/rules_proto
         "97d8af4dc474595af3900dd85cb3a29ad28cc313.tar.gz": "602e7161d9195e50246177e7c55b2f39950a9cf7366f74ed5f22fd45750cd208",
     },
@@ -217,14 +217,14 @@ distdir_tar(
             "https://github.com/bazelbuild/rules_cc/archive/8bd6cd75d03c01bb82561a96d9c1f9f7157b13d0.zip",
         ],
         # bazelbuild/bazel-toolchains
-        "0.28.3.tar.gz": [
-            "https://mirror.bazel.build/github.com/bazelbuild/bazel-toolchains/archive/0.28.3.tar.gz",
-            "https://github.com/bazelbuild/bazel-toolchains/archive/0.28.3.tar.gz",
+        "2.0.2.tar.gz": [
+            "https://mirror.bazel.build/github.com/bazelbuild/bazel-toolchains/archive/2.0.2.tar.gz",
+            "https://github.com/bazelbuild/bazel-toolchains/releases/download/2.0.2/bazel-toolchains-2.0.2.tar.gz",
         ],
         # bazelbuild/rules_pkg
-        "rules_pkg-0.2.0.tar.gz": [
-            "https://mirror.bazel.build/github.com/bazelbuild/rules_pkg/rules_pkg-0.2.0.tar.gz",
-            "https://github.com/bazelbuild/rules_pkg/releases/download/0.2.0/rules_pkg-0.2.0.tar.gz",
+        "rules_pkg-0.2.4.tar.gz": [
+            "https://mirror.bazel.build/github.com/bazelbuild/rules_pkg/releases/download/0.2.4/rules_pkg-0.2.4.tar.gz",
+            "https://github.com/bazelbuild/rules_pkg/releases/download/0.2.4/rules_pkg-0.2.4.tar.gz",
         ],
         # bazelbuild/rules_proto
         "97d8af4dc474595af3900dd85cb3a29ad28cc313.tar.gz": [
@@ -386,11 +386,11 @@ http_archive(
 
 http_archive(
     name = "bazel_toolchains",
-    sha256 = "d8c2f20deb2f6143bac792d210db1a4872102d81529fe0ea3476c1696addd7ff",
-    strip_prefix = "bazel-toolchains-0.28.3",
+    sha256 = "a653c9d318e42b14c0ccd7ac50c4a2a276c0db1e39743ab88b5aa2f0bc9cf607",
+    strip_prefix = "bazel-toolchains-2.0.2",
     urls = [
-        "https://mirror.bazel.build/github.com/bazelbuild/bazel-toolchains/archive/0.28.3.tar.gz",
-        "https://github.com/bazelbuild/bazel-toolchains/archive/0.28.3.tar.gz",
+        "https://mirror.bazel.build/github.com/bazelbuild/bazel-toolchains/archive/2.0.2.tar.gz",
+        "https://github.com/bazelbuild/bazel-toolchains/releases/download/2.0.2/bazel-toolchains-2.0.2.tar.gz",
     ],
 )
 
@@ -537,7 +537,7 @@ distdir_tar(
         "zulu11.29.3-ca-jdk11.0.2-linux_x64.tar.gz": "f3f44b6235508e87b760bf37a49e186cc1fa4e9cd28384c4dbf5a33991921e08",
         "zulu11.29.3-ca-jdk11.0.2-macosx_x64.zip": "059f8e3484bf07b63a8f2820d5f528f473eff1befdb1896ee4f8ff06be3b8d8f",
         "zulu11.29.3-ca-jdk11.0.2-win_x64.zip": "e1f5b4ce1b9148140fae2fcfb8a96d1c9b7eac5b8df0e13fbcad9b8561284880",
-        "android_tools_pkg-0.14.tar.gz": "a3a951838448483e7af25afd10671b266cc6283104b4a2a427d31cac12cf0912", # built at 6c63d70ef9c11a662b8323c0ae4f6d3ac53b1a60
+        "android_tools_pkg-0.14.tar.gz": "a3a951838448483e7af25afd10671b266cc6283104b4a2a427d31cac12cf0912",  # built at 6c63d70ef9c11a662b8323c0ae4f6d3ac53b1a60
         # bazelbuild/platforms
         "46993efdd33b73649796c5fc5c9efb193ae19d51.zip": "66184688debeeefcc2a16a2f80b03f514deac8346fe888fb7e691a52c023dd88",
         # bazelbuild/rules_java
@@ -689,10 +689,10 @@ register_execution_platforms("//:default_host_platform")  # buildozer: disable=p
 # Tools for building deb, rpm and tar files.
 http_archive(
     name = "rules_pkg",
-    sha256 = "5bdc04987af79bd27bc5b00fe30f59a858f77ffa0bd2d8143d5b31ad8b1bd71c",
+    sha256 = "4ba8f4ab0ff85f2484287ab06c0d871dcb31cc54d439457d28fd4ae14b18450a",
     urls = [
-        "https://mirror.bazel.build/github.com/bazelbuild/rules_pkg/rules_pkg-0.2.0.tar.gz",
-        "https://github.com/bazelbuild/rules_pkg/releases/download/0.2.0/rules_pkg-0.2.0.tar.gz",
+        "https://mirror.bazel.build/github.com/bazelbuild/rules_pkg/releases/download/0.2.4/rules_pkg-0.2.4.tar.gz",
+        "https://github.com/bazelbuild/rules_pkg/releases/download/0.2.4/rules_pkg-0.2.4.tar.gz",
     ],
 )
 
