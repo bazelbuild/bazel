@@ -478,7 +478,6 @@ filegroup(
         "//src/tools/execlog:srcs",
         "//src/tools/workspacelog:srcs",
         "//src/tools/launcher:srcs",
-        "//src/tools/package_printer/java/com/google/devtools/build/packageprinter:srcs",
         "//src/tools/skylark/java/com/google/devtools/skylark/common:srcs",
         "//src/tools/xcode/realpath:srcs",
         "//src/tools/singlejar:srcs",

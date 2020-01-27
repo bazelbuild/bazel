@@ -30,7 +30,6 @@ filegroup(
     ],
     visibility = [
         "//src/test/shell:__subpackages__",
-        "//src/tools/package_printer/java/com/google/devtools/build/packageprinter:__pkg__",
     ],
 )
 
