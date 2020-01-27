@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.Action;
+import com.google.devtools.build.lib.actions.ActionEnvironment;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
@@ -47,6 +48,7 @@ import com.google.devtools.build.lib.analysis.test.TestProvider.TestParams;
 import com.google.devtools.build.lib.analysis.test.TestRunnerAction;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
@@ -109,7 +111,13 @@ public final class CoverageReportActionBuilder {
         String locationMessage,
         boolean remotable,
         RunfilesSupplier runfilesSupplier) {
-      super(owner, inputs, outputs);
+      super(
+          owner,
+          /*tools = */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+          inputs,
+          runfilesSupplier,
+          outputs,
+          ActionEnvironment.EMPTY);
       this.command = command;
       this.remotable = remotable;
       this.locationMessage = locationMessage;
