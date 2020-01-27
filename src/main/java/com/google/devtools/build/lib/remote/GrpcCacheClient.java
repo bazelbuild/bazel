@@ -191,7 +191,7 @@ public class GrpcCacheClient implements RemoteCacheClient, MissingDigestsFinder 
       getMissingDigestCalls.add(getMissingDigests(requestBuilder.build()));
     }
 
-    return Futures.whenAllSucceed(getMissingDigestCalls)
+    ListenableFuture<ImmutableSet<Digest>> success = Futures.whenAllSucceed(getMissingDigestCalls)
         .call(
             () -> {
               ImmutableSet.Builder<Digest> result = ImmutableSet.builder();
@@ -201,6 +201,17 @@ public class GrpcCacheClient implements RemoteCacheClient, MissingDigestsFinder 
               return result.build();
             },
             MoreExecutors.directExecutor());
+    return Futures.catchingAsync(
+        success,
+        Exception.class,
+        (e) -> Futures.immediateFailedFuture(
+            new IOException(
+                String.format(
+                    "findMissingBlobs(%d) for %s",
+                    requestBuilder.getBlobDigestsCount(),
+                    TracingMetadataUtils.fromCurrentContext().getActionId()),
+                e)),
+        MoreExecutors.directExecutor());
   }
 
   private ListenableFuture<FindMissingBlobsResponse> getMissingDigests(
