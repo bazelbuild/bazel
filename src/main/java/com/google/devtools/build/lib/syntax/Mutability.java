@@ -333,6 +333,23 @@ public final class Mutability implements AutoCloseable {
                 + "allowsUnsafeShallowFreeze() == false");
       }
     }
+
+    /**
+     * Throws an exception if this object is not mutable.
+     *
+     * <p>This method is essentially a mix-in. Subclasses should not override it.
+     *
+     * @throws EvalException if the object is not mutable. This may be because the {@code
+     *     this.mutability()} is frozen, or because it is temporarily locked by an active loop
+     *     iteration.
+     */
+    default void checkMutable() throws EvalException {
+      try {
+        Mutability.checkMutable(this, mutability());
+      } catch (MutabilityException ex) {
+        throw new EvalException(null, ex);
+      }
+    }
   }
 
   /**

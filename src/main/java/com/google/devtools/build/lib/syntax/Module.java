@@ -55,7 +55,7 @@ import javax.annotation.Nullable;
 // - separate the universal predeclared environment and make it implicit.
 // - eliminate initialize(). The only constructor we need is:
 //   (String name, Mutability mu, Map<String, Object> predeclared, Object label).
-public final class Module implements ValidationEnvironment.Module, Mutability.Freezable {
+public final class Module implements ValidationEnvironment.Module {
 
   /**
    * Final, except that it may be initialized after instantiation. Null mutability indicates that
@@ -209,7 +209,6 @@ public final class Module implements ValidationEnvironment.Module, Mutability.Fr
   }
 
   /** Returns the {@link Mutability} of this {@link Module}. */
-  @Override
   public Mutability mutability() {
     checkInitialized();
     return mutability;
@@ -323,7 +322,9 @@ public final class Module implements ValidationEnvironment.Module, Mutability.Fr
   public void put(String varname, Object value) throws MutabilityException {
     Preconditions.checkNotNull(value, "Module.put(%s, null)", varname);
     checkInitialized();
-    Mutability.checkMutable(this, mutability());
+    if (mutability.isFrozen()) {
+      throw new MutabilityException("trying to mutate a frozen module");
+    }
     bindings.put(varname, value);
   }
 

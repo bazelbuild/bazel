@@ -36,9 +36,9 @@ import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.devtools.build.lib.syntax.Printer;
 import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.Starlark;
-import com.google.devtools.build.lib.syntax.StarlarkMutable;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
+import com.google.devtools.build.lib.syntax.StarlarkValue;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -230,7 +230,7 @@ public abstract class Args implements CommandLineArgsApi {
   }
 
   /** Args module. */
-  private static class MutableArgs extends Args implements StarlarkMutable {
+  private static class MutableArgs extends Args implements StarlarkValue, Mutability.Freezable {
     private final Mutability mutability;
     private final SkylarkCustomCommandLine.Builder commandLine;
     private final List<NestedSet<?>> potentialDirectoryArtifacts = new ArrayList<>();

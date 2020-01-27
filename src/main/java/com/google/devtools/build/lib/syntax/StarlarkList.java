@@ -44,7 +44,8 @@ import javax.annotation.Nullable;
             + "['a', 'b', 'c', 'd'][::2]  # ['a', 'c']\n"
             + "['a', 'b', 'c', 'd'][3:0:-1]  # ['d', 'c', 'b']</pre>"
             + "Lists are mutable, as in Python.")
-public final class StarlarkList<E> extends AbstractList<E> implements Sequence<E>, StarlarkMutable {
+public final class StarlarkList<E> extends AbstractList<E>
+    implements Sequence<E>, StarlarkValue, Mutability.Freezable {
 
   // The implementation strategy is similar to ArrayList,
   // but without the extra indirection of using ArrayList.

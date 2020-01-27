@@ -77,7 +77,11 @@ import javax.annotation.Nullable;
 // Unchecked warnings should be treated as errors.
 // Ditto Sequence.
 public final class Dict<K, V>
-    implements Map<K, V>, StarlarkMutable, SkylarkIndexable, StarlarkIterable<K> {
+    implements Map<K, V>,
+        StarlarkValue,
+        Mutability.Freezable,
+        SkylarkIndexable,
+        StarlarkIterable<K> {
 
   private final LinkedHashMap<K, V> contents;
 
