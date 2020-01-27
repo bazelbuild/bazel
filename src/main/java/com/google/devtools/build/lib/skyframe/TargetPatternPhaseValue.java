@@ -17,6 +17,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableSortedSet;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
@@ -51,18 +52,21 @@ public final class TargetPatternPhaseValue implements SkyValue {
   private final boolean hasError;
   private final boolean hasPostExpansionError;
   private final String workspaceName;
+  private final ImmutableSortedSet<String> notSymlinkedInExecrootDirectories;
 
   TargetPatternPhaseValue(
       ImmutableSet<Label> targetLabels,
       ImmutableSet<Label> testsToRunLabels,
       boolean hasError,
       boolean hasPostExpansionError,
-      String workspaceName) {
+      String workspaceName,
+      ImmutableSortedSet<String> notSymlinkedInExecrootDirectories) {
     this.targetLabels = targetLabels;
     this.testsToRunLabels = testsToRunLabels;
     this.hasError = hasError;
     this.hasPostExpansionError = hasPostExpansionError;
     this.workspaceName = workspaceName;
+    this.notSymlinkedInExecrootDirectories = notSymlinkedInExecrootDirectories;
   }
 
   private static ImmutableSet<Target> getTargetsFromLabels(
@@ -116,6 +120,10 @@ public final class TargetPatternPhaseValue implements SkyValue {
     return workspaceName;
   }
 
+  public ImmutableSortedSet<String> getNotSymlinkedInExecrootDirectories() {
+    return notSymlinkedInExecrootDirectories;
+  }
+
   @Override
   public boolean equals(Object obj) {
     if (this == obj) {
@@ -128,6 +136,8 @@ public final class TargetPatternPhaseValue implements SkyValue {
     return Objects.equals(this.targetLabels, that.targetLabels)
         && Objects.equals(this.testsToRunLabels, that.testsToRunLabels)
         && Objects.equals(this.workspaceName, that.workspaceName)
+        && Objects.equals(
+            this.notSymlinkedInExecrootDirectories, that.notSymlinkedInExecrootDirectories)
         && this.hasError == that.hasError
         && this.hasPostExpansionError == that.hasPostExpansionError;
   }
@@ -139,7 +149,8 @@ public final class TargetPatternPhaseValue implements SkyValue {
         this.testsToRunLabels,
         this.workspaceName,
         this.hasError,
-        this.hasPostExpansionError);
+        this.hasPostExpansionError,
+        this.notSymlinkedInExecrootDirectories);
   }
 
   /** Create a target pattern phase value key. */

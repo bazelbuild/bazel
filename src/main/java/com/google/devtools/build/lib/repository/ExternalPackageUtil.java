@@ -1,4 +1,4 @@
-// Copyright 2017 The Bazel Authors. All rights reserved.
+// Copyright 2019 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,11 +14,7 @@
 
 package com.google.devtools.build.lib.repository;
 
-import com.google.common.base.Function;
-import com.google.common.base.Preconditions;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterables;
-import com.google.common.collect.Lists;
+import com.google.common.collect.ImmutableSortedSet;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.BuildFileContainsErrorsException;
@@ -30,58 +26,32 @@ import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyKey;
-import java.util.List;
 import javax.annotation.Nullable;
 
-/** Utility class to centralize looking up rules from the external package. */
+/** Utility class to centralize looking up data from the external package. */
 public class ExternalPackageUtil {
-
   /**
-   * Loads the external package and then calls the selector to find matching rules.
+   * Returns directories, that should not be symlinked under the execroot.
    *
-   * @param env the environment to use for lookups
-   * @param returnFirst whether to return only the first rule found
-   * @param selector the function to call to load rules
+   * <p>Searches for dont_symlink_directories_in_execroot calls in the WORKSPACE file, and gathers
+   * values of all "paths" attributes.
    */
-  @Nullable
-  private static List<Rule> getRules(
-      Environment env, boolean returnFirst, Function<Package, List<Rule>> selector)
-      throws ExternalPackageException, InterruptedException {
-    SkyKey packageLookupKey = PackageLookupValue.key(LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER);
-    PackageLookupValue packageLookupValue = (PackageLookupValue) env.getValue(packageLookupKey);
-    if (packageLookupValue == null) {
+  public static ImmutableSortedSet<String> getNotSymlinkedInExecrootDirectories(Environment env)
+      throws InterruptedException {
+    ImmutableSortedSet.Builder<String> builder = ImmutableSortedSet.naturalOrder();
+    WorkspaceFileValueProcessor gatherer =
+        workspaceFileValue -> {
+          ImmutableSortedSet<String> paths = workspaceFileValue.getDoNotSymlinkInExecrootPaths();
+          if (paths != null) {
+            builder.addAll(paths);
+          }
+          // Continue to read all the fragments.
+          return true;
+        };
+    if (!iterateWorkspaceFragments(env, gatherer)) {
       return null;
     }
-    RootedPath workspacePath =
-        packageLookupValue.getRootedPath(LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER);
-
-    List<Rule> rules = returnFirst ? ImmutableList.of() : Lists.newArrayList();
-    SkyKey workspaceKey = WorkspaceFileValue.key(workspacePath);
-    do {
-      WorkspaceFileValue value = (WorkspaceFileValue) env.getValue(workspaceKey);
-      if (value == null) {
-        return null;
-      }
-      Package externalPackage = value.getPackage();
-      if (externalPackage.containsErrors()) {
-        Event.replayEventsOn(env.getListener(), externalPackage.getEvents());
-        throw new ExternalPackageException(
-            new BuildFileContainsErrorsException(
-                LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER, "Could not load //external package"),
-            Transience.PERSISTENT);
-      }
-      List<Rule> results = selector.apply(externalPackage);
-      if (results != null && !results.isEmpty()) {
-        if (returnFirst) {
-          // assert expected non null value explicitly for possible future callers
-          return ImmutableList.of(Preconditions.checkNotNull(results.get(0)));
-        }
-        rules.addAll(results);
-      }
-      workspaceKey = value.next();
-    } while (workspaceKey != null);
-
-    return rules;
+    return builder.build();
   }
 
   /** Uses a rule name to fetch the corresponding Rule from the external package. */
@@ -89,28 +59,79 @@ public class ExternalPackageUtil {
   public static Rule getRuleByName(final String ruleName, Environment env)
       throws ExternalPackageException, InterruptedException {
 
-    List<Rule> rules =
-        getRules(
-            env,
-            true,
-            new Function<Package, List<Rule>>() {
-              @Nullable
-              @Override
-              public List<Rule> apply(Package externalPackage) {
-                Rule rule = externalPackage.getRule(ruleName);
-                if (rule == null) {
-                  return null;
-                }
-                return ImmutableList.of(rule);
-              }
-            });
-
-    if (env.valuesMissing()) {
+    ExternalPackageRuleExtractor extractor = new ExternalPackageRuleExtractor(env, ruleName);
+    if (!iterateWorkspaceFragments(env, extractor)) {
+      // Values missing
       return null;
     }
-    if (rules == null || rules.isEmpty()) {
-      throw new ExternalRuleNotFoundException(ruleName);
+
+    return extractor.getRule();
+  }
+
+  /** Returns false if some SkyValues were missing. */
+  private static boolean iterateWorkspaceFragments(
+      Environment env, WorkspaceFileValueProcessor processor) throws InterruptedException {
+    SkyKey packageLookupKey = PackageLookupValue.key(LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER);
+    PackageLookupValue packageLookupValue = (PackageLookupValue) env.getValue(packageLookupKey);
+    if (packageLookupValue == null) {
+      return false;
     }
-    return Iterables.getFirst(rules, null);
+    RootedPath workspacePath =
+        packageLookupValue.getRootedPath(LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER);
+
+    SkyKey workspaceKey = WorkspaceFileValue.key(workspacePath);
+    WorkspaceFileValue value;
+    do {
+      value = (WorkspaceFileValue) env.getValue(workspaceKey);
+      if (value == null) {
+        return false;
+      }
+    } while (processor.processAndShouldContinue(value) && (workspaceKey = value.next()) != null);
+    return true;
+  }
+
+  private static class ExternalPackageRuleExtractor implements WorkspaceFileValueProcessor {
+    private final Environment env;
+    private final String ruleName;
+    private ExternalPackageException exception;
+    private Rule rule;
+
+    private ExternalPackageRuleExtractor(Environment env, String ruleName) {
+      this.env = env;
+      this.ruleName = ruleName;
+    }
+
+    @Override
+    public boolean processAndShouldContinue(WorkspaceFileValue workspaceFileValue) {
+      Package externalPackage = workspaceFileValue.getPackage();
+      if (externalPackage.containsErrors()) {
+        Event.replayEventsOn(env.getListener(), externalPackage.getEvents());
+        exception =
+            new ExternalPackageException(
+                new BuildFileContainsErrorsException(
+                    LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER,
+                    "Could not load //external package"),
+                Transience.PERSISTENT);
+        // Stop iteration when encountered errors.
+        return false;
+      }
+      rule = externalPackage.getRule(ruleName);
+      // Stop if the rule is found = continue while it is null.
+      return rule == null;
+    }
+
+    public Rule getRule() throws ExternalPackageException {
+      if (exception != null) {
+        throw exception;
+      }
+      if (rule == null) {
+        throw new ExternalRuleNotFoundException(ruleName);
+      }
+      return rule;
+    }
+  }
+
+  private interface WorkspaceFileValueProcessor {
+    boolean processAndShouldContinue(WorkspaceFileValue value);
   }
 }
