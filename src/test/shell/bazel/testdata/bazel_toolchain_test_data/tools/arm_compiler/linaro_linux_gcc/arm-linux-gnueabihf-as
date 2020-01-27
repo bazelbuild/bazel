@@ -1,5 +1,0 @@
-#!/bin/bash --norc
-
-exec -a arm-linux-gnueabihf-as \
-    external/org_linaro_components_toolchain_gcc_5_3_1/bin/arm-linux-gnueabihf-as \
-    "$@"
