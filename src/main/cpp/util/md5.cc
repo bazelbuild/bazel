@@ -1,4 +1,4 @@
-// Copyright 2014 Google Inc. All rights reserved.
+// Copyright 2014 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -37,27 +37,28 @@
   documentation and/or software.
 */
 
+#include "src/main/cpp/util/md5.h"
 
-#include "util/md5.h"
-
+#include <stddef.h>  // for offsetof
 #include <string.h>  // for memcpy
-#include <stddef.h>  // for ofsetof
 
-#include "util/numbers.h"
+#include <cinttypes>
 
 #if !_STRING_ARCH_unaligned
-# ifdef _LP64
-#  define UNALIGNED_P(p) (reinterpret_cast<uint64>(p) % \
-                          __alignof__(uint32) != 0)  // NOLINT
+#if defined(_LP64) || defined(_WIN64)
+#  define UNALIGNED_P(p) (reinterpret_cast<uint64_t>(p) % \
+                          __alignof__(uint32_t) != 0)  // NOLINT
 # else
-#  define UNALIGNED_P(p) (reinterpret_cast<uint32>(p) % \
-                          __alignof__(uint32) != 0)  // NOLINT
+#  define UNALIGNED_P(p) (reinterpret_cast<uint32_t>(p) % \
+                          __alignof__(uint32_t) != 0)  // NOLINT
 # endif
 #else
 #  define UNALIGNED_P(p) (0)
 #endif
 
 namespace blaze_util {
+
+using std::string;
 
 static const unsigned int k8Bytes = 64;
 static const unsigned int k8ByteMask = 63;
@@ -158,15 +159,14 @@ void Md5Digest::Finish(unsigned char digest[16]) {
 
   /* Put the 64-bit file length in *bits* at the end of the buffer.  */
   unsigned int size = (ctx_buffer_len < 56 ? 64 : 128);
-  *(reinterpret_cast<uint32*>(ctx_buffer + size - 8)) = count[0] << 3;
-  *(reinterpret_cast<uint32*>(ctx_buffer + size - 4)) =
-      (count[1] << 3) | (count[0] >> 29);
+  uint32_t words[2] = { count[0] << 3, (count[1] << 3) | (count[0] >> 29) };
+  memcpy(ctx_buffer + size - 8, words, 8);
 
   memcpy(ctx_buffer + ctx_buffer_len, kPadding, size - 8 - ctx_buffer_len);
 
   Transform(ctx_buffer, size);
 
-  uint32* r = reinterpret_cast<uint32*>(digest);
+  uint32_t* r = reinterpret_cast<uint32_t*>(digest);
   r[0] = state[0];
   r[1] = state[1];
   r[2] = state[2];
@@ -210,23 +210,23 @@ void Md5Digest::Transform(
   // Rotation is separate from addition to prevent recomputation.
 #define FF(a, b, c, d, s, ac) { \
       (a) += F((b), (c), (d)) + ((*x_pos++ = *cur_word++)) + \
-          static_cast<uint32>(ac); \
+          static_cast<uint32_t>(ac); \
       (a) = ROTATE_LEFT((a), (s)); \
       (a) += (b); \
     }
 
 #define GG(a, b, c, d, x, s, ac) { \
-      (a) += G((b), (c), (d)) + (x) + static_cast<uint32>(ac); \
+      (a) += G((b), (c), (d)) + (x) + static_cast<uint32_t>(ac); \
       (a) = ROTATE_LEFT((a), (s)); \
       (a) += (b); \
      }
 #define HH(a, b, c, d, x, s, ac) { \
-      (a) += H((b), (c), (d)) + (x) + static_cast<uint32>(ac); \
+      (a) += H((b), (c), (d)) + (x) + static_cast<uint32_t>(ac); \
       (a) = ROTATE_LEFT((a), (s)); \
       (a) += (b); \
      }
 #define II(a, b, c, d, x, s, ac) { \
-      (a) += I((b), (c), (d)) + (x) + static_cast<uint32>(ac); \
+      (a) += I((b), (c), (d)) + (x) + static_cast<uint32_t>(ac); \
       (a) = ROTATE_LEFT((a), (s)); \
       (a) += (b); \
      }
@@ -236,21 +236,21 @@ void Md5Digest::Transform(
     ++count[1];
   }
 
-  uint32 a = state[0];
-  uint32 b = state[1];
-  uint32 c = state[2];
-  uint32 d = state[3];
-  uint32 x[16];
+  uint32_t a = state[0];
+  uint32_t b = state[1];
+  uint32_t c = state[2];
+  uint32_t d = state[3];
+  uint32_t x[16];
 
-  const uint32 *cur_word = reinterpret_cast<const uint32*>(buffer);
-  const uint32 *end_word = cur_word + (len / sizeof(uint32));
+  const uint32_t *cur_word = reinterpret_cast<const uint32_t*>(buffer);
+  const uint32_t *end_word = cur_word + (len / sizeof(uint32_t));
 
   while (cur_word < end_word) {
-    uint32 *x_pos = x;
-    uint32 prev_a = a;
-    uint32 prev_b = b;
-    uint32 prev_c = c;
-    uint32 prev_d = d;
+    uint32_t *x_pos = x;
+    uint32_t prev_a = a;
+    uint32_t prev_b = b;
+    uint32_t prev_c = c;
+    uint32_t prev_d = d;
 
     // Round 1
     FF(a, b, c, d, S11, 0xd76aa478);  // 1
@@ -338,7 +338,7 @@ void Md5Digest::Transform(
 
 string Md5Digest::String() const {
   string result;
-  b2a_hex(reinterpret_cast<const uint8*>(state), &result, 16);
+  b2a_hex(reinterpret_cast<const uint8_t*>(state), &result, 16);
   return result;
 }
 

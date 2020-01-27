@@ -1,4 +1,4 @@
-// Copyright 2014 Google Inc. All rights reserved.
+// Copyright 2014 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,67 +15,82 @@
 package com.google.devtools.build.buildjar.javac;
 
 import com.google.devtools.build.buildjar.javac.plugins.BlazeJavaCompilerPlugin;
-
+import com.google.devtools.build.buildjar.javac.statistics.BlazeJavacStatistics;
 import com.sun.tools.javac.comp.AttrContext;
 import com.sun.tools.javac.comp.CompileStates.CompileState;
 import com.sun.tools.javac.comp.Env;
 import com.sun.tools.javac.main.JavaCompiler;
 import com.sun.tools.javac.util.Context;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Queue;
 
 /**
- * An extended version of the javac compiler, providing support for 
- * composable static analyses via a plugin mechanism. BlazeJavaCompiler
- * keeps a list of plugins and calls callback methods in those plugins
- * after certain compiler phases. The plugins perform the actual static
- * analyses. 
+ * An extended version of the javac compiler, providing support for composable static analyses via a
+ * plugin mechanism. BlazeJavaCompiler keeps a list of plugins and calls callback methods in those
+ * plugins after certain compiler phases. The plugins perform the actual static analyses.
  */
 public class BlazeJavaCompiler extends JavaCompiler {
 
-  /**
-   * A list of plugins to run at particular points in the compile
-   */
+  private int skippedFlowEvents = 0;
+  private int flowEvents = 0;
+
+  /** A list of plugins to run at particular points in the compile */
   private final List<BlazeJavaCompilerPlugin> plugins = new ArrayList<>();
 
-  public BlazeJavaCompiler(Context context, Iterable<BlazeJavaCompilerPlugin> plugins) {
+  private BlazeJavaCompiler(Context context, Iterable<BlazeJavaCompilerPlugin> plugins) {
     super(context);
 
+    BlazeJavacStatistics.Builder statisticsBuilder =
+        context.get(BlazeJavacStatistics.Builder.class);
     // initialize all plugins
     for (BlazeJavaCompilerPlugin plugin : plugins) {
-      plugin.init(context, log, this);
+      plugin.init(context, log, this, statisticsBuilder);
       this.plugins.add(plugin);
     }
   }
 
   /**
-   * Adds an initialization hook to the Context, such that each subsequent
-   * request for a JavaCompiler (i.e., a lookup for 'compilerKey' of our
-   * superclass, JavaCompiler) will actually construct and return our version
-   * of BlazeJavaCompiler. It's necessary since many new JavaCompilers may
-   * be requested for later stages of the compilation (annotation processing),
-   * within the same Context. And it's the preferred way for extending behavior
-   * within javac, per the documentation in {@link Context}.
+   * Adds an initialization hook to the Context, such that requests for a JavaCompiler (i.e., a
+   * lookup for 'compilerKey' of our superclass, JavaCompiler) will actually construct and return
+   * BlazeJavaCompiler.
+   *
+   * <p>This is the preferred way for extending behavior within javac, per the documentation in
+   * {@link Context}.
+   *
+   * <p>Prior to JDK-8038455 additional JavaCompilers were created for annotation processing rounds,
+   * but we now expect a single compiler instance per compilation. The factory is still seems to be
+   * necessary to avoid context-ordering issues, but we assert that the factory is only called once,
+   * and save the output after its call for introspection.
    */
-  public static void preRegister(final Context context,
-      final Iterable<BlazeJavaCompilerPlugin> plugins) {
-    context.put(compilerKey, new Context.Factory<JavaCompiler>() {
-      @Override
-      public JavaCompiler make(Context c) {
-        return new BlazeJavaCompiler(c, plugins);
-      }
-    });
+  public static void preRegister(
+      final Context context, final Iterable<BlazeJavaCompilerPlugin> plugins) {
+    context.put(
+        compilerKey,
+        new Context.Factory<JavaCompiler>() {
+          boolean first = true;
+
+          @Override
+          public JavaCompiler make(Context c) {
+            if (!first) {
+              throw new AssertionError("Expected a single creation of BlazeJavaCompiler.");
+            }
+            first = false;
+            return new BlazeJavaCompiler(c, plugins);
+          }
+        });
   }
 
   @Override
   public Env<AttrContext> attribute(Env<AttrContext> env) {
     Env<AttrContext> result = super.attribute(env);
-
+    // don't run plugins if there were compilation errors
+    boolean errors = errorCount() > 0;
     // Iterate over all plugins, calling their postAttribute methods
     for (BlazeJavaCompilerPlugin plugin : plugins) {
-      plugin.postAttribute(result);
+      if (!errors || plugin.runOnAttributionErrors()) {
+        plugin.postAttribute(result);
+      }
     }
 
     return result;
@@ -83,11 +98,18 @@ public class BlazeJavaCompiler extends JavaCompiler {
 
   @Override
   protected void flow(Env<AttrContext> env, Queue<Env<AttrContext>> results) {
-    if (compileStates.isDone(env, CompileState.FLOW)) {
-      super.flow(env, results);
+    boolean isDone = compileStates.isDone(env, CompileState.FLOW);
+    super.flow(env, results);
+    if (isDone) {
       return;
     }
-    super.flow(env, results);
+    // don't run plugins if there were compilation errors
+    if (errorCount() > 0) {
+      skippedFlowEvents++;
+      return;
+    }
+    flowEvents++;
+
     // Iterate over all plugins, calling their postFlow methods
     for (BlazeJavaCompilerPlugin plugin : plugins) {
       plugin.postFlow(env);
@@ -103,9 +125,19 @@ public class BlazeJavaCompiler extends JavaCompiler {
     super.close();
   }
 
+  /** The number of flow events that were skipped. */
+  public int skippedFlowEvents() {
+    return skippedFlowEvents;
+  }
+
+  /** The number of error-free flow events that were passed to plugins. */
+  public int flowEvents() {
+    return flowEvents;
+  }
+
   /**
-   * Testing purposes only.  Returns true if the collection of plugins in
-   * this instance contains one of the provided type.
+   * Testing purposes only. Returns true if the collection of plugins in this instance contains one
+   * of the provided type.
    */
   boolean pluginsContain(Class<? extends BlazeJavaCompilerPlugin> klass) {
     for (BlazeJavaCompilerPlugin plugin : plugins) {

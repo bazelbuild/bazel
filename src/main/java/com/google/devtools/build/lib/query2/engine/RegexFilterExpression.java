@@ -1,4 +1,4 @@
-// Copyright 2014 Google Inc. All rights reserved.
+// Copyright 2014 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -13,46 +13,69 @@
 // limitations under the License.
 package com.google.devtools.build.lib.query2.engine;
 
+import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.Argument;
-import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryFunction;
-
-import java.util.LinkedHashSet;
+import com.google.devtools.build.lib.query2.engine.QueryEnvironment.FilteringQueryFunction;
+import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryTaskFuture;
 import java.util.List;
-import java.util.Set;
 import java.util.regex.Pattern;
+import java.util.regex.PatternSyntaxException;
 
 /**
- * An abstract class that provides generic regex filter expression. Actual
- * expression are implemented by the subclasses.
+ * An abstract class that provides generic regex filter expression. Actual expression are
+ * implemented by the subclasses.
  */
-abstract class RegexFilterExpression implements QueryFunction {
-  protected RegexFilterExpression() {
+public abstract class RegexFilterExpression extends FilteringQueryFunction {
+  protected final boolean invert;
+
+  protected RegexFilterExpression(boolean invert) {
+    this.invert = invert;
   }
 
   @Override
-  public <T> Set<T> eval(QueryEnvironment<T> env, QueryExpression expression, List<Argument> args)
-      throws QueryException {
-    Pattern compiledPattern;
+  public <T> QueryTaskFuture<Void> eval(
+      final QueryEnvironment<T> env,
+      QueryExpressionContext<T> context,
+      QueryExpression expression,
+      final List<Argument> args,
+      Callback<T> callback) {
+    String rawPattern = getPattern(args);
+    final Pattern compiledPattern;
     try {
-      compiledPattern = Pattern.compile(getPattern(args));
-    } catch (IllegalArgumentException e) {
-      throw new QueryException(expression, "illegal pattern regexp in '" + this + "': "
-                               + e.getMessage());
+      compiledPattern = Pattern.compile(rawPattern);
+    } catch (PatternSyntaxException e) {
+      return env.immediateFailedFuture(new QueryException(
+          expression,
+          String.format(
+              "illegal '%s' pattern regexp '%s': %s",
+              getName(),
+              rawPattern,
+              e.getMessage())));
     }
 
-    QueryExpression argument = args.get(args.size() - 1).getExpression();
+    // Note that Patttern#matcher is thread-safe and so this Predicate can safely be used
+    // concurrently.
+    final Predicate<T> matchFilter =
+        target -> {
+          for (String str : getFilterStrings(env, args, target)) {
+            if ((str != null) && compiledPattern.matcher(str).find()) {
+              return !invert;
+            }
+          }
+          return invert;
+        };
 
-    Set<T> result = new LinkedHashSet<>();
-    for (T target : argument.eval(env)) {
-      for (String str : getFilterStrings(env, args, target)) {
-        if ((str != null) && compiledPattern.matcher(str).find()) {
-          result.add(target);
-          break;
-        }
-      }
-    }
-    return result;
+    return env.eval(
+        args.get(getExpressionToFilterIndex()).getExpression(),
+        context,
+        new FilteredCallback<>(callback, matchFilter));
+  }
+
+  @Override
+  public final int getExpressionToFilterIndex() {
+    return getMandatoryArguments() - 1;
   }
 
   /**
@@ -80,4 +103,27 @@ abstract class RegexFilterExpression implements QueryFunction {
   }
 
   protected abstract String getPattern(List<Argument> args);
+
+  private static class FilteredCallback<T> implements Callback<T> {
+    private final Callback<T> parentCallback;
+    private final Predicate<T> retainIfTrue;
+
+    private FilteredCallback(Callback<T> parentCallback, Predicate<T> retainIfTrue) {
+      this.parentCallback = parentCallback;
+      this.retainIfTrue = retainIfTrue;
+    }
+
+    @Override
+    public void process(Iterable<T> partialResult) throws QueryException, InterruptedException {
+      Iterable<T> filter = Iterables.filter(partialResult, retainIfTrue);
+      if (!Iterables.isEmpty(filter)) {
+        parentCallback.process(filter);
+      }
+    }
+
+    @Override
+    public String toString() {
+      return "filtered parentCallback of : " + retainIfTrue;
+    }
+  }
 }

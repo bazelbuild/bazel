@@ -1,4 +1,4 @@
-// Copyright 2014 Google Inc. All rights reserved.
+// Copyright 2014 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,10 +14,11 @@
 package com.google.devtools.build.lib.analysis.buildinfo;
 
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.Root;
+import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.vfs.PathFragment;
-
 import java.io.Serializable;
 
 /**
@@ -29,7 +30,7 @@ public interface BuildInfoFactory extends Serializable {
   /**
    * Type of the build-data artifact.
    */
-  public enum BuildInfoType {
+  enum BuildInfoType {
     /**
      * Ignore changes to this file for the purposes of determining whether an action needs to be
      * re-executed. I.e., the action is only re-executed if at least one other input has changed.
@@ -45,16 +46,17 @@ public interface BuildInfoFactory extends Serializable {
   /**
    * Context for the creation of build-info artifacts.
    */
-  public interface BuildInfoContext {
-    Artifact getBuildInfoArtifact(PathFragment rootRelativePath, Root root, BuildInfoType type);
-    Root getBuildDataDirectory();
+  interface BuildInfoContext {
+    Artifact getBuildInfoArtifact(
+        PathFragment rootRelativePath, ArtifactRoot root, BuildInfoType type);
   }
 
   /**
    * Build-info key for lookup from the {@link
    * com.google.devtools.build.lib.analysis.AnalysisEnvironment}.
    */
-  public static final class BuildInfoKey implements Serializable {
+  @AutoCodec
+  final class BuildInfoKey {
     private final String name;
 
     public BuildInfoKey(String name) {
@@ -84,7 +86,7 @@ public interface BuildInfoFactory extends Serializable {
    * Create actions and artifacts for language-specific build-info files.
    */
   BuildInfoCollection create(BuildInfoContext context, BuildConfiguration config,
-      Artifact buildInfo, Artifact buildChangelist);
+      Artifact buildInfo, Artifact buildChangelist, RepositoryName repositoryName);
 
   /**
    * Returns the key for the information created by this factory.

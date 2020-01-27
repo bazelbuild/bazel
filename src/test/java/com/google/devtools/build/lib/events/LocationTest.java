@@ -1,4 +1,4 @@
-// Copyright 2014 Google Inc. All rights reserved.
+// Copyright 2014 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -13,11 +13,9 @@
 // limitations under the License.
 package com.google.devtools.build.lib.events;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNull;
+import static com.google.common.truth.Truth.assertThat;
 
-import com.google.devtools.build.lib.vfs.PathFragment;
-
+import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationTester;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -27,25 +25,19 @@ public class LocationTest extends EventTestTemplate {
 
   @Test
   public void fromFile() throws Exception {
-    Location location = Location.fromFile(path);
-    assertEquals(path.asFragment(), location.getPath());
-    assertEquals(0, location.getStartOffset());
-    assertEquals(0, location.getEndOffset());
-    assertNull(location.getStartLineAndColumn());
-    assertNull(location.getEndLineAndColumn());
-    assertEquals(path + ":1", location.print());
+    Location location = Location.fromFile(file);
+    assertThat(location.file()).isEqualTo(file);
+    assertThat(location.line()).isEqualTo(0);
+    assertThat(location.column()).isEqualTo(0);
+    assertThat(location.toString()).isEqualTo(file);
   }
-  
+
   @Test
-  public void testPrintRelative() throws Exception {
-    Location location = Location.fromFile(path);
-    assertEquals("/path/to/workspace/my/sample/path.txt:1",
-        location.print(new PathFragment("/some/other/path"), new PathFragment("baz")));
-    assertEquals("new/sample/path.txt:1",
-        location.print(new PathFragment("/path/to/workspace/my"), new PathFragment("new")));
-    assertEquals("new/path.txt:1",
-        location.print(new PathFragment("/path/to/workspace/my/sample"), new PathFragment("new")));
-    assertEquals("new:1", location.print(new PathFragment("/path/to/workspace/my/sample/path.txt"),
-        new PathFragment("new")));
+  public void testCodec() throws Exception {
+    new SerializationTester(
+            Location.fromFile(file), //
+            Location.fromFileLineColumn(file, 20, 25),
+            Location.BUILTIN)
+        .runTests();
   }
 }

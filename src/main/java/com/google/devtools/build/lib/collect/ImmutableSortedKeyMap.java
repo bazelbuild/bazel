@@ -1,4 +1,4 @@
-// Copyright 2014 Google Inc. All rights reserved.
+// Copyright 2014 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -13,10 +13,12 @@
 // limitations under the License.
 package com.google.devtools.build.lib.collect;
 
-import com.google.common.base.Preconditions;
-import com.google.common.collect.AbstractIterator;
-import com.google.common.collect.ImmutableSet;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static java.util.stream.Collectors.joining;
 
+import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Streams;
 import java.util.AbstractCollection;
 import java.util.AbstractMap.SimpleImmutableEntry;
 import java.util.Arrays;
@@ -25,8 +27,9 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
+import java.util.NoSuchElementException;
 import java.util.Set;
-
+import java.util.stream.Stream;
 import javax.annotation.Nullable;
 
 /**
@@ -120,9 +123,7 @@ public final class ImmutableSortedKeyMap<K extends Comparable<K>, V> implements 
     }
 
     public Builder<K, V> putAll(Map<? extends K, ? extends V> map) {
-      for (Map.Entry<? extends K, ? extends V> entry : map.entrySet()) {
-        put(entry.getKey(), entry.getValue());
-      }
+      map.forEach((key, value) -> put(key, value));
       return this;
     }
   }
@@ -152,13 +153,18 @@ public final class ImmutableSortedKeyMap<K extends Comparable<K>, V> implements 
       if (isEmpty()) {
         return Collections.emptyIterator();
       }
-      return new AbstractIterator<V>() {
+      return new Iterator<V>() {
         private int currentIndex = 0;
 
         @Override
-        protected V computeNext() {
+        public boolean hasNext() {
+          return currentIndex < values.length;
+        }
+
+        @Override
+        public V next() {
           if (currentIndex >= values.length) {
-            return endOfData();
+            throw new NoSuchElementException();
           }
           return values[currentIndex++];
         }
@@ -215,15 +221,7 @@ public final class ImmutableSortedKeyMap<K extends Comparable<K>, V> implements 
 
   @Override
   public boolean containsValue(@Nullable Object value) {
-    if (value == null) {
-      return false;
-    }
-    for (V v : values) {
-      if (v.equals(value)) {
-        return true;
-      }
-    }
-    return false;
+    return value != null && Arrays.stream(values).anyMatch(v -> v.equals(value));
   }
 
   @Override
@@ -267,34 +265,18 @@ public final class ImmutableSortedKeyMap<K extends Comparable<K>, V> implements 
 
   @Override
   public Set<Entry<K, V>> entrySet() {
-    ImmutableSet.Builder<Entry<K, V>> builder = ImmutableSet.builder();
-    for (int i = 0; i < sortedKeys.length; i++) {
-      builder.add(new SimpleImmutableEntry<K, V>(sortedKeys[i], values[i]));
-    }
-    return builder.build();
+    return entryStream().collect(toImmutableSet());
   }
 
   @Override
   public String toString() {
-    StringBuilder result = new StringBuilder();
-    result.append('{');
-    for (int i = 0; i < sortedKeys.length; i++) {
-      if (i != 0) {
-        result.append(", ");
-      }
-      result.append(sortedKeys[i]).append('=').append(values[i]);
-    }
-    result.append('}');
-    return result.toString();
+    return Streams.zip(Arrays.stream(sortedKeys), Arrays.stream(values), (k, v) -> k + "=" + v)
+        .collect(joining(", ", "{", "}"));
   }
 
   @Override
   public int hashCode() {
-    int h = 0;
-    for (Entry<K, V> entry : entrySet()) {
-      h += entry.hashCode();
-    }
-    return h;
+    return entryStream().mapToInt(Entry::hashCode).sum();
   }
 
   @Override
@@ -306,5 +288,9 @@ public final class ImmutableSortedKeyMap<K extends Comparable<K>, V> implements 
       throw new UnsupportedOperationException();
     }
     return false;
+  }
+
+  private Stream<Entry<K, V>> entryStream() {
+    return Streams.zip(Arrays.stream(sortedKeys), Arrays.stream(values), SimpleImmutableEntry::new);
   }
 }

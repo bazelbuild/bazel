@@ -1,4 +1,4 @@
-// Copyright 2014 Google Inc. All rights reserved.
+// Copyright 2014 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,8 +15,15 @@ package com.google.devtools.build.skyframe;
 
 import java.io.Serializable;
 
-/**
- * A return value of a {@code SkyFunction}.
- */
+/** A return value of a {@code SkyFunction}. */
 public interface SkyValue extends Serializable {
+
+  /**
+   * Returns true for values that can be reused across builds. Some values are inherently "flaky",
+   * like test statuses or stamping information, and in certain circumstances, those values cannot
+   * be shared across builds/servers.
+   */
+  default boolean dataIsShareable() {
+    return true;
+  }
 }

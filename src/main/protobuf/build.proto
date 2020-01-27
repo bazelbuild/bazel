@@ -1,4 +1,4 @@
-// Copyright 2014 Google Inc. All rights reserved.
+// Copyright 2014 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -19,6 +19,8 @@ syntax = "proto2";
 
 package blaze_query;
 
+// option cc_api_version = 2;
+// option java_api_version = 1;
 
 option java_package = "com.google.devtools.build.lib.query2.proto.proto2api";
 
@@ -32,7 +34,7 @@ message StringDictEntry {
   required string value = 2;
 }
 
-message StringDictUnaryEntry {
+message LabelDictUnaryEntry {
   required string key = 1;
   required string value = 2;
 }
@@ -40,6 +42,11 @@ message StringDictUnaryEntry {
 message LabelListDictEntry {
   required string key = 1;
   repeated string value = 2;
+}
+
+message LabelKeyedStringDictEntry {
+  required string key = 1;
+  required string value = 2;
 }
 
 message StringListDictEntry {
@@ -85,12 +92,28 @@ message FilesetEntry {
   optional string strip_prefix = 6;
 }
 
-// A rule attribute.  Each attribute must have a type and can only have one of
-// the various value fields populated.  By checking the type, the appropriate
-// value can be extracted - see the comments on each type for the associated
-// value.  The order of lists comes from the blaze parsing and if an attribute
-// is of a list type, the associated list should never be empty.
+// A rule attribute. Each attribute must have a type and one of the various
+// value fields populated - for the most part.
+//
+// Attributes of BOOLEAN and TRISTATE type may set all of the int, bool, and
+// string values for backwards compatibility with clients that expect them to
+// be set.
+//
+// Attributes of INTEGER, STRING, LABEL, LICENSE, BOOLEAN, and TRISTATE type
+// may set *none* of the values. This can happen if the Attribute message is
+// prepared for a client that doesn't support SELECTOR_LIST, but the rule has
+// a selector list value for the attribute. (Selector lists for attributes of
+// other types--the collection types--are handled differently when prepared
+// for such a client. The possible collection values are gathered together
+// and flattened.)
+//
+// By checking the type, the appropriate value can be extracted - see the
+// comments on each type for the associated value.  The order of lists comes
+// from the blaze parsing. If an attribute is of a list type, the associated
+// list should never be empty.
 message Attribute {
+  reserved 12, 16;
+
   // Indicates the type of attribute.
   enum Discriminator {
     INTEGER = 1;             // int_value
@@ -109,8 +132,13 @@ message Attribute {
     BOOLEAN = 14;            // int, bool and string value
     TRISTATE = 15;           // tristate, int and string value
     INTEGER_LIST = 16;       // int_list_value
-    STRING_DICT_UNARY = 17;  // string_dict_unary_value
     UNKNOWN = 18;            // unknown type, use only for build extensions
+    LABEL_DICT_UNARY = 19;   // label_dict_unary_value
+    SELECTOR_LIST = 20;      // selector_list
+    LABEL_KEYED_STRING_DICT = 21; // label_keyed_string_dict
+
+    DEPRECATED_STRING_DICT_UNARY = 17;
+
   }
 
   // Values for the TriState field type.
@@ -120,14 +148,76 @@ message Attribute {
     AUTO = 2;
   }
 
+  message SelectorEntry {
+    reserved 12;
+
+    // The key of the selector entry. At this time, this is the label of a
+    // config_setting rule, or the pseudo-label "//conditions:default".
+    optional string label = 1;
+
+    // True if the entry's value is the default value for the type as a
+    // result of the condition value being specified as None (ie:
+    // {"//condition": None}).
+    optional bool is_default_value = 16;
+
+    // Exactly one of the following fields (except for glob_criteria) must be
+    // populated - note that the BOOLEAN and TRISTATE caveat in Attribute's
+    // comment does not apply here. The type field in the SelectorList
+    // containing this entry indicates which of these fields is populated,
+    // in accordance with the comments on Discriminator enum values above.
+    // (To be explicit: BOOLEAN populates the boolean_value field and TRISTATE
+    // populates the tristate_value field.)
+    optional int32 int_value = 2;
+    optional string string_value = 3;
+    optional bool boolean_value = 4;
+    optional Tristate tristate_value = 5;
+    repeated string string_list_value = 6;
+    optional License license = 7;
+    repeated StringDictEntry string_dict_value = 8;
+    repeated FilesetEntry fileset_list_value = 9;
+    repeated LabelListDictEntry label_list_dict_value = 10;
+    repeated StringListDictEntry string_list_dict_value = 11;
+    repeated int32 int_list_value = 13;
+    repeated LabelDictUnaryEntry label_dict_unary_value = 15;
+    repeated LabelKeyedStringDictEntry label_keyed_string_dict_value = 17;
+
+    repeated bytes DEPRECATED_string_dict_unary_value = 14;
+  }
+
+  message Selector {
+    // The list of (label, value) pairs in the map that defines the selector.
+    // At this time, this cannot be empty, i.e. a selector has at least one
+    // entry.
+    repeated SelectorEntry entries = 1;
+
+    // Whether or not this has any default values.
+    optional bool has_default_value = 2;
+
+    // The error message when no condition matches.
+    optional string no_match_error = 3;
+  }
+
+  message SelectorList {
+    // The type that this selector list evaluates to, and the type that each
+    // selector in the list evaluates to. At this time, this cannot be
+    // SELECTOR_LIST, i.e. selector lists do not nest.
+    optional Discriminator type = 1;
+
+    // The list of selector elements in this selector list. At this time, this
+    // cannot be empty, i.e. a selector list is never empty.
+    repeated Selector elements = 2;
+  }
+
   // The name of the attribute
   required string name = 1;
 
-  // The location of the target in the BUILD file in a machine-parseable form.
-  optional Location parseable_location = 12;
-
   // Whether the attribute was explicitly specified
   optional bool explicitly_specified = 13;
+
+  // If this attribute has a string value or a string list value, then this
+  // may be set to indicate that the value may be treated as a label that
+  // isn't a dependency of this attribute's rule.
+  optional bool nodep = 20;
 
   // The type of attribute.  This message is used for all of the different
   // attribute types so the discriminator helps for figuring out what is
@@ -144,7 +234,7 @@ message Attribute {
   // be LABEL or something else other than STRING.
   optional string string_value = 5;
 
-  // If the attribute has a boolean value this will be populated
+  // If the attribute has a boolean value this will be populated.
   optional bool boolean_value = 14;
 
   // If the attribute is a Tristate value, this will be populated.
@@ -170,52 +260,63 @@ message Attribute {
   // If this is a string list dict, each entry will be stored here.
   repeated StringListDictEntry string_list_dict_value = 11;
 
-  // The glob criteria. This is non-empty if
-  // 1. This attribute is a list of strings or labels
-  // 2. It contained a glob() expression
-  repeated GlobCriteria glob_criteria = 16;
-
   // The value of the attribute has a list of int32 values
   repeated int32 int_list_value = 17;
 
-  // If this is a string dict unary, each entry will be stored here.
-  repeated StringDictUnaryEntry string_dict_unary_value = 18;
+  // If this is a label dict unary, each entry will be stored here.
+  repeated LabelDictUnaryEntry label_dict_unary_value = 19;
+
+  // If this is a label-keyed string dict, each entry will be stored here.
+  repeated LabelKeyedStringDictEntry label_keyed_string_dict_value = 22;
+
+  // If this attribute's value is an expression containing one or more select
+  // expressions, then its type is SELECTOR_LIST and a SelectorList will be
+  // stored here.
+  optional SelectorList selector_list = 21;
+
+  repeated bytes DEPRECATED_string_dict_unary_value = 18;
 }
 
-// A rule from a BUILD file (e.g., cc_library, java_binary).  The rule class
-// is the actual name of the rule (e.g., cc_library) and the name is the full
-// label of the rule (e.g., //foo/bar:baz).
+// A rule instance (e.g., cc_library foo, java_binary bar).
 message Rule {
-  // The name of the rule
+  reserved 8, 11;
+
+  // The name of the rule (formatted as an absolute label, e.g. //foo/bar:baz).
   required string name = 1;
 
   // The rule class (e.g., java_library)
   required string rule_class = 2;
 
-  // The BUILD file and line number of the rule.
+  // The BUILD file and line number of the location (formatted as
+  // <absolute_path>:<line_number>) in the rule's package's BUILD file where the
+  // rule instance was instantiated. The line number will be that of a rule
+  // invocation or macro call (that in turn invoked a rule). See
+  // https://docs.bazel.build/versions/master/skylark/macros.html#macro-creation
   optional string location = 3;
 
   // All of the attributes that describe the rule.
   repeated Attribute attribute = 4;
 
-  // All of the inputs to the rule.  These are predecessors in the dependency
-  // graph.  A rule_input for a rule should always be described as a
-  // source_file in some package (either the rule's package or some other one).
+  // All of the inputs to the rule (formatted as absolute labels). These are
+  // predecessors in the dependency graph.
   repeated string rule_input = 5;
 
-  // All of the outputs of the rule.  These are the successors in the
-  // dependency graph.
+  // All of the outputs of the rule (formatted as absolute labels). These are
+  // successors in the dependency graph.
   repeated string rule_output = 6;
 
-  // The set of all default settings affecting this rule. The name of a default
-  // setting is "<setting type>_<setting name>". There currently defined setting
-  // types are:
-  //
-  // - 'blaze': settings implemented in Blaze itself
+  // The set of all "features" inherited from the rule's package declaration.
   repeated string default_setting = 7;
 
-  // The location of the target in the BUILD file in a machine-parseable form.
-  optional Location parseable_location = 8;
+  // The rule's class's public by default value.
+  optional bool public_by_default = 9;
+
+  // If this rule is of a skylark-defined RuleClass.
+  optional bool is_skylark = 10;
+
+  // Hash encapsulating the behavior of this Skylark rule. Any change to this
+  // rule's definition that could change its behavior will be reflected here.
+  optional string skylark_environment_hash_code = 12;
 }
 
 // Summary of all transitive dependencies of 'rule,' where each dependent
@@ -231,6 +332,8 @@ message RuleSummary {
 // A package group. Aside from the name, it contains the list of packages
 // present in the group (as specified in the BUILD file).
 message PackageGroup {
+  reserved 4;
+
   // The name of the package group
   required string name = 1;
 
@@ -241,14 +344,26 @@ message PackageGroup {
 
   // The list of sub package groups included in this one.
   repeated string included_package_group = 3;
+}
 
-  // The location of the target in the BUILD file in a machine-parseable form.
-  optional Location parseable_location = 4;
+// An environment group.
+message EnvironmentGroup {
+  // The name of the environment group.
+  required string name = 1;
+
+  // The environments that belong to this group (as labels).
+  repeated string environment = 2;
+
+  // The member environments that rules implicitly support if not otherwise
+  // specified.
+  repeated string default = 3;
 }
 
 // A file that is an input into the build system.
-// Next-Id: 8
+// Next-Id: 10
 message SourceFile {
+  reserved 7;
+
   // The name of the source file (a label).
   required string name = 1;
 
@@ -256,14 +371,10 @@ message SourceFile {
   // a label in the build system.
   optional string location = 2;
 
-  // The location of the corresponding label in the BUILD file in a
-  // machine-parseable form.
-  optional Location parseable_location = 7;
-
-  // Labels of files that are transitively subincluded in this BUILD file. This
-  // is present only when the SourceFile represents a BUILD file that
-  // subincludes other files. The subincluded file can be either a Python
-  // preprocessed build extension or a Skylark file.
+  // Labels of .bzl (Skylark) files that are transitively loaded in this BUILD
+  // file. This is present only when the SourceFile represents a BUILD file that
+  // loaded .bzl files.
+  // TODO(bazel-team): Rename this field.
   repeated string subinclude = 3;
 
   // Labels of package groups that are mentioned in the visibility declaration
@@ -280,6 +391,10 @@ message SourceFile {
 
   // License attribute for the file.
   optional License license = 8;
+
+  // True if the package contains an error. Only present if the SourceFile
+  // represents a BUILD file.
+  optional bool package_contains_errors = 9;
 }
 
 // A file that is the output of a build rule.
@@ -296,14 +411,14 @@ message GeneratedFile {
 
 // A target from a blaze query execution.  Similar to the Attribute message,
 // the Discriminator is used to determine which field contains information.
-// For any given type, only one of rule, input_file or output_file can be
-// populated in a single Target.
+// For any given type, only one of these can be populated in a single Target.
 message Target {
   enum Discriminator {
     RULE = 1;
     SOURCE_FILE = 2;
     GENERATED_FILE = 3;
     PACKAGE_GROUP = 4;
+    ENVIRONMENT_GROUP = 5;
   }
 
   // The type of target contained in the message.
@@ -313,14 +428,17 @@ message Target {
   optional Rule rule = 2;
 
   // A file that is not generated by the build system (version controlled
-  // or created by the test harness)
+  // or created by the test harness).
   optional SourceFile source_file = 3;
 
-  // A generated file that is the output of a rule
+  // A generated file that is the output of a rule.
   optional GeneratedFile generated_file = 4;
 
-  // A package group
+  // A package group.
   optional PackageGroup package_group = 5;
+
+  // An environment group.
+  optional EnvironmentGroup environment_group = 6;
 }
 
 // Container for all of the blaze query results.
@@ -350,17 +468,38 @@ message AllowedRuleClassInfo {
 }
 
 // This message represents a single attribute of a single rule.
+// See docs.bazel.build/versions/master/skylark/lib/attr.html.
 message AttributeDefinition {
-
-  // Rule name, e.g. "cc_library"
-  required string name = 1;
+  required string name = 1; // e.g. "name", "srcs"
   required Attribute.Discriminator type = 2;
-  required bool mandatory = 3;
-
-  // Only present for attributes of type LABEL and LABEL_LIST.
-  optional AllowedRuleClassInfo allowed_rule_classes = 4;
-
+  optional bool mandatory = 3;
+  optional AllowedRuleClassInfo allowed_rule_classes = 4; // type=label*
   optional string documentation = 5;
+  optional bool allow_empty = 6;       // type=*_list|*_dict
+  optional bool allow_single_file = 7; // type=label
+  optional AttributeValue default = 9; // simple (not computed/late-bound) values only
+  optional bool executable = 10;       // type=label
+  optional bool configurable = 11;
+  optional bool nodep = 12;            // label-valued edge does not establish a dependency
+  optional bool cfg_is_host = 13;      // edge entails a transition to "host" configuration
+}
+
+// An AttributeValue represents the value of an attribute.
+// A single field, determined by the attribute type, is populated.
+//
+// It is used only for AttributeDefinition.default. Attribute and
+// SelectorEntry do their own thing for unfortunate historical reasons.
+message AttributeValue {
+  optional int32 int = 1;           // type=int|tristate
+  optional string string = 2;       // type=string|label|output
+  optional bool bool = 3;           // type=bool
+  repeated AttributeValue list = 4; // type=*_list|distrib
+  repeated DictEntry dict = 5;      // type=*_dict
+
+  message DictEntry {
+    required string key = 1;
+    required AttributeValue value = 2;
+  }
 }
 
 message RuleDefinition {
@@ -375,93 +514,4 @@ message RuleDefinition {
 message BuildLanguage {
   // Only contains documented rule definitions
   repeated RuleDefinition rule = 1;
-}
-
-message Location {
-  optional int32 start_offset = 1;
-  optional int32 start_line = 2;
-  optional int32 start_column = 3;
-  optional int32 end_offset = 4;
-  optional int32 end_line = 5;
-  optional int32 end_column = 6;
-}
-
-message MakeVarBinding {
-  required string value = 1;
-  required string platform_set_regexp = 2;
-}
-
-message MakeVar {
-  required string name = 1;
-  repeated MakeVarBinding binding = 2;
-}
-
-message GlobCriteria {
-  // List of includes (or items if this criteria did not come from a glob)
-  repeated string include = 1;
-
-  // List of exclude expressions
-  repeated string exclude = 2;
-
-  // Whether this message came from a glob
-  optional bool glob = 3;
-}
-
-message Event {
-  enum EventKind {
-    ERROR = 1;
-    WARNING = 2;
-    INFO = 3;
-    PROGRESS = 4;
-  }
-
-  required EventKind kind = 1;
-  optional Location location = 2;
-  optional string message = 3;
-}
-
-message Package {
-  enum State {
-    PRESENT = 1;    // The package is present and has changed at this CL
-    TOMBSTONE = 2;  // The package got deleted at this CL
-    UNKNOWN = 3;    // The database does not contain enough information to know
-  }
-
-  required string name = 1;
-  optional string repository = 2;
-  optional string build_file_path = 3;
-
-  // Default values
-  repeated string default_visibility_label = 1001;
-  optional bool default_obsolete = 1002;
-  optional bool default_testonly = 1003;
-  optional string default_deprecation = 1004;
-  optional string default_strict_java_deps = 1005;
-  repeated string default_copt = 1006;
-  optional string default_hdrs_check = 1007;
-  optional License default_license = 1008;
-  repeated string default_distrib = 1009;
-  optional bool default_visibility_set = 1010;
-
-  // Package-level data
-  repeated string default_setting = 2002;
-  repeated string subinclude_label = 2003;
-  repeated MakeVar make_variable = 2004;
-  repeated string file_system_dep = 2005;
-  optional bool depends_on_external_files = 2006;
-  optional bool dependencies_recorded = 2007;
-  optional bool contains_errors = 2008;
-  optional bool contains_temporary_errors = 2009;
-  repeated string skylark_label = 2010;
-
-  // Targets
-  repeated SourceFile source_file = 3001;
-  repeated PackageGroup package_group = 3002;
-  repeated Rule rule = 3003;
-
-  // Metadata
-  // Reason why the package could not be serialized.
-  optional string failure_reason = 4001;
-  optional State state = 4002;
-  repeated Event event = 4003;
 }

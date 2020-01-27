@@ -1,4 +1,4 @@
-// Copyright 2014 Google Inc. All rights reserved.
+// Copyright 2014 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,13 +14,24 @@
 
 package com.google.devtools.build.lib.packages;
 
+import static com.google.devtools.build.lib.packages.BuildType.TRISTATE;
+import static com.google.devtools.build.lib.packages.Type.BOOLEAN;
+
+import com.google.common.base.Preconditions;
+import com.google.common.base.Predicate;
+import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Maps;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Location;
-import com.google.devtools.build.lib.syntax.Label;
-
+import com.google.devtools.build.lib.syntax.Dict;
+import com.google.devtools.build.lib.syntax.EvalException;
+import com.google.devtools.build.lib.util.Pair;
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
-
 import javax.annotation.Nullable;
 
 /**
@@ -31,6 +42,20 @@ public final class TargetUtils {
 
   // *_test / test_suite attribute that used to specify constraint keywords.
   private static final String CONSTRAINTS_ATTR = "tags";
+
+  // We don't want to pollute the execution info with random things, and we also need to reserve
+  // some internal tags that we don't allow to be set on targets. We also don't want to
+  // exhaustively enumerate all the legal values here. Right now, only a ~small set of tags is
+  // recognized by Bazel.
+  private static boolean legalExecInfoKeys(String tag) {
+    return tag.startsWith("block-")
+        || tag.startsWith("requires-")
+        || tag.startsWith("no-")
+        || tag.startsWith("supports-")
+        || tag.startsWith("disable-")
+        || tag.equals("local")
+        || tag.startsWith("cpu:");
+  }
 
   private TargetUtils() {} // Uninstantiable.
 
@@ -54,8 +79,17 @@ public final class TargetUtils {
    * Returns true iff {@code target} is a {@code test_suite} rule.
    */
   public static boolean isTestSuiteRule(Target target) {
-    return target instanceof Rule &&
-        isTestSuiteRuleName(((Rule) target).getRuleClass());
+    return target instanceof Rule && isTestSuiteRuleName(((Rule) target).getRuleClass());
+  }
+
+  /** Returns true iff {@code target} is an {@code alias} rule. */
+  public static boolean isAlias(Target target) {
+    if (!(target instanceof Rule)) {
+      return false;
+    }
+
+    Rule rule = (Rule) target;
+    return !rule.getRuleClassObject().isSkylark() && rule.getRuleClass().equals("alias");
   }
 
   /**
@@ -103,8 +137,7 @@ public final class TargetUtils {
    * Wraps the above calls into one generic check safely applicable to any rule.
    */
   public static boolean isTestRuleAndRunsLocally(Rule rule) {
-    return isTestOrTestSuiteRule(rule) &&
-        (isLocalTestRule(rule) || isExclusiveTestRule(rule));
+    return isTestOrTestSuiteRule(rule) && (isLocalTestRule(rule) || isExclusiveTestRule(rule));
   }
 
   /**
@@ -119,6 +152,54 @@ public final class TargetUtils {
     return hasConstraint(rule, "external");
   }
 
+  public static List<String> getStringListAttr(Target target, String attrName) {
+    Preconditions.checkArgument(target instanceof Rule);
+    return NonconfigurableAttributeMapper.of((Rule) target).get(attrName, Type.STRING_LIST);
+  }
+
+  public static String getStringAttr(Target target, String attrName) {
+    Preconditions.checkArgument(target instanceof Rule);
+    return NonconfigurableAttributeMapper.of((Rule) target).get(attrName, Type.STRING);
+  }
+
+  public static Iterable<String> getAttrAsString(Target target, String attrName) {
+    Preconditions.checkArgument(target instanceof Rule);
+    List<String> values = new ArrayList<>(); // May hold null values.
+    Attribute attribute = ((Rule) target).getAttributeDefinition(attrName);
+    if (attribute != null) {
+      Type<?> attributeType = attribute.getType();
+      for (Object attrValue :
+          AggregatingAttributeMapper.of((Rule) target)
+              .visitAttribute(attribute.getName(), attributeType)) {
+
+        // Ugly hack to maintain backward 'attr' query compatibility for BOOLEAN and TRISTATE
+        // attributes. These are internally stored as actual Boolean or TriState objects but were
+        // historically queried as integers. To maintain compatibility, we inspect their actual
+        // value and return the integer equivalent represented as a String. This code is the
+        // opposite of the code in BooleanType and TriStateType respectively.
+        if (attributeType == BOOLEAN) {
+          values.add(Type.BOOLEAN.cast(attrValue) ? "1" : "0");
+        } else if (attributeType == TRISTATE) {
+          switch (BuildType.TRISTATE.cast(attrValue)) {
+            case AUTO:
+              values.add("-1");
+              break;
+            case NO:
+              values.add("0");
+              break;
+            case YES:
+              values.add("1");
+              break;
+            default:
+              throw new AssertionError("This can't happen!");
+          }
+        } else {
+          values.add(attrValue == null ? null : attrValue.toString());
+        }
+      }
+    }
+    return values;
+  }
 
   /**
    * If the given target is a rule, returns its <code>deprecation<code/> value, or null if unset.
@@ -147,19 +228,82 @@ public final class TargetUtils {
   }
 
   /**
-   * Returns the execution info. These include execution requirement
-   * tags ('requires-*' as well as "local") as keys with empty values.
+   * Returns the execution info from the tags declared on the target. These include only some tags
+   * {@link #legalExecInfoKeys} as keys with empty values.
    */
   public static Map<String, String> getExecutionInfo(Rule rule) {
     // tags may contain duplicate values.
     Map<String, String> map = new HashMap<>();
     for (String tag :
         NonconfigurableAttributeMapper.of(rule).get(CONSTRAINTS_ATTR, Type.STRING_LIST)) {
-      if (tag.startsWith("requires-") || tag.equals("local")) {
+      if (legalExecInfoKeys(tag)) {
         map.put(tag, "");
       }
     }
     return ImmutableMap.copyOf(map);
+  }
+
+  /**
+   * Returns the execution info from the tags declared on the target. These include only some tags
+   * {@link #legalExecInfoKeys} as keys with empty values.
+   *
+   * @param rule a rule instance to get tags from
+   * @param allowTagsPropagation if set to true, tags will be propagated from a target to the
+   *     actions' execution requirements, for more details {@see
+   *     SkylarkSematicOptions#experimentalAllowTagsPropagation}
+   */
+  public static ImmutableMap<String, String> getExecutionInfo(
+      Rule rule, boolean allowTagsPropagation) {
+    if (allowTagsPropagation) {
+      return ImmutableMap.copyOf(getExecutionInfo(rule));
+    } else {
+      return ImmutableMap.of();
+    }
+  }
+
+  /**
+   * Returns the execution info, obtained from the rule's tags and the execution requirements
+   * provided. Only supported tags are included into the execution info, see {@link
+   * #legalExecInfoKeys}.
+   *
+   * @param executionRequirementsUnchecked execution_requirements of a rule, expected to be of a
+   *     {@code Dict<String, String>} type, null or {@link
+   *     com.google.devtools.build.lib.syntax.Runtime#NONE}
+   * @param rule a rule instance to get tags from
+   * @param allowTagsPropagation if set to true, tags will be propagated from a target to the
+   *     actions' execution requirements, for more details {@see
+   *     SkylarkSematicOptions#experimentalAllowTagsPropagation}
+   */
+  public static ImmutableMap<String, String> getFilteredExecutionInfo(
+      Object executionRequirementsUnchecked, Rule rule, boolean allowTagsPropagation)
+      throws EvalException {
+    Map<String, String> checkedExecutionRequirements =
+        TargetUtils.filter(
+            Dict.castSkylarkDictOrNoneToDict(
+                executionRequirementsUnchecked,
+                String.class,
+                String.class,
+                "execution_requirements"));
+
+    Map<String, String> executionInfoBuilder = new HashMap<>();
+    // adding filtered execution requirements to the execution info map
+    executionInfoBuilder.putAll(checkedExecutionRequirements);
+
+    if (allowTagsPropagation) {
+      Map<String, String> checkedTags = getExecutionInfo(rule);
+      // merging filtered tags to the execution info map avoiding duplicates
+      checkedTags.forEach(executionInfoBuilder::putIfAbsent);
+    }
+
+    return ImmutableMap.copyOf(executionInfoBuilder);
+  }
+
+  /**
+   * Returns the execution info. These include execution requirement tags ('block-*', 'requires-*',
+   * 'no-*', 'supports-*', 'disable-*', 'local', and 'cpu:*') as keys with empty values.
+   */
+  public static Map<String, String> filter(Map<String, String> executionInfo) {
+    return Maps.filterKeys(executionInfo, TargetUtils::legalExecInfoKeys);
   }
 
   /**
@@ -189,33 +333,39 @@ public final class TargetUtils {
       return true;
     }
 
-    ExplicitEdgeVisitor visitor = new ExplicitEdgeVisitor(rule, label);
-    AggregatingAttributeMapper.of(rule).visitLabels(visitor);
-    return visitor.isExplicit();
-  }
-
-  private static class ExplicitEdgeVisitor implements AttributeMap.AcceptsLabelAttribute {
-    private final Label expectedLabel;
-    private final Rule rule;
-    private boolean isExplicit = false;
-
-    public ExplicitEdgeVisitor(Rule rule, Label expected) {
-      this.rule = rule;
-      this.expectedLabel = expected;
-    }
-
-    @Override
-    public void acceptLabelAttribute(Label label, Attribute attr) {
-      if (isExplicit || !rule.isAttributeValueExplicitlySpecified(attr)) {
-        // Nothing to do here.
-      } else if (expectedLabel.equals(label)) {
-        isExplicit = true;
+    for (AttributeMap.DepEdge depEdge : AggregatingAttributeMapper.of(rule).visitLabels()) {
+      if (rule.isAttributeValueExplicitlySpecified(depEdge.getAttribute())
+          && label.equals(depEdge.getLabel())) {
+        return true;
       }
     }
+    return false;
+  }
 
-    public boolean isExplicit() {
-      return isExplicit;
-    }
+  /**
+   * Returns a predicate to be used for test tag filtering, i.e., that only accepts tests that match
+   * all of the required tags and none of the excluded tags.
+   */
+  public static Predicate<Target> tagFilter(List<String> tagFilterList) {
+    Pair<Collection<String>, Collection<String>> tagLists =
+        TestTargetUtils.sortTagsBySense(tagFilterList);
+    final Collection<String> requiredTags = tagLists.first;
+    final Collection<String> excludedTags = tagLists.second;
+    return input -> {
+      if (requiredTags.isEmpty() && excludedTags.isEmpty()) {
+        return true;
+      }
+
+      if (!(input instanceof Rule)) {
+        return requiredTags.isEmpty();
+      }
+      // Note that test_tags are those originating from the XX_test rule, whereas the requiredTags
+      // and excludedTags originate from the command line or test_suite rule.
+      // TODO(ulfjack): getRuleTags is inconsistent with TestFunction and other places that use
+      // tags + size, but consistent with TestSuite.
+      return TestTargetUtils.testMatchesFilters(
+          ((Rule) input).getRuleTags(), requiredTags, excludedTags, false);
+    };
   }
 
   /**
@@ -226,28 +376,46 @@ public final class TargetUtils {
   }
 
   /**
-   * Return nicely formatted error message that {@link Label} label that was pointed to by
-   * {@link Target} target did not exist, due to {@link NoSuchThingException} e.
+   * Return nicely formatted error message that {@link Label} label that was pointed to by {@link
+   * Target} target did not exist, due to {@link NoSuchThingException} e.
    */
-  public static String formatMissingEdge(@Nullable Target target, Label label,
-      NoSuchThingException e) {
+  public static String formatMissingEdge(
+      @Nullable Target target, Label label, NoSuchThingException e, @Nullable Attribute attr) {
     // instanceof returns false if target is null (which is exploited here)
     if (target instanceof Rule) {
       Rule rule = (Rule) target;
-      return !isExplicitDependency(rule, label)
-          ? ("every rule of type " + rule.getRuleClass() + " implicitly depends upon the target '"
-              + label + "',  but this target could not be found. "
-              + "If this is an integration test, maybe you forgot to add a mock for your new tool?")
-              : e.getMessage() + " and referenced by '" + target.getLabel() + "'";
+      if (isExplicitDependency(rule, label)) {
+        return String.format("%s and referenced by '%s'", e.getMessage(), target.getLabel());
+      } else {
+        String additionalInfo = "";
+        if (attr != null && !Strings.isNullOrEmpty(attr.getDoc())) {
+          additionalInfo =
+              String.format(
+                  "\nDocumentation for implicit attribute %s of rules of type %s:\n%s",
+                  attr.getPublicName(), rule.getRuleClass(), attr.getDoc());
+        }
+        // N.B. If you see this error message in one of our integration tests during development of
+        // a change that adds a new implicit dependency when running Blaze, maybe you forgot to add
+        // a new mock target to the integration test's setup.
+        return String.format(
+            "every rule of type %s implicitly depends upon the target '%s', but "
+                + "this target could not be found because of: %s%s",
+            rule.getRuleClass(), label, e.getMessage(), additionalInfo);
+      }
     } else if (target instanceof InputFile) {
       return e.getMessage() + " (this is usually caused by a missing package group in the"
           + " package-level visibility declaration)";
     } else {
       if (target != null) {
-        return "in target '" + target.getLabel() + "', no such label '" + label + "': "
-            + e.getMessage();
+        return String.format("in target '%s', no such label '%s': %s", target.getLabel(), label,
+            e.getMessage());
       }
       return e.getMessage();
     }
+  }
+
+  public static String formatMissingEdge(
+      @Nullable Target target, Label label, NoSuchThingException e) {
+    return formatMissingEdge(target, label, e, null);
   }
 }

@@ -1,4 +1,4 @@
-// Copyright 2014 Google Inc. All rights reserved.
+// Copyright 2014 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,20 +14,16 @@
 
 package com.google.devtools.build.lib.util;
 
-/**
- * Various utility methods operating on time values.
- */
-public class TimeUtilities {
-
-  private TimeUtilities() {
-  }
+/** Various utility methods operating on time values. */
+public abstract class TimeUtilities {
+  private TimeUtilities() {}
 
   /**
    * Converts time to the user-friendly string representation.
    *
    * @param timeInNs The length of time in nanoseconds.
    */
-  public static String prettyTime(long timeInNs) {
+  public static String prettyTime(double timeInNs) {
     double ms = timeInNs / 1000000.0;
     if (ms < 10.0) {
       return String.format("%.2f ms", ms);

@@ -1,4 +1,4 @@
-// Copyright 2014 Google Inc. All rights reserved.
+// Copyright 2014 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,45 +14,38 @@
 
 package com.google.devtools.build.lib.packages;
 
-import javax.annotation.Nullable;
+import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 
 /**
  * Exception indicating an attempt to access a package which is not found, does
  * not exist, or can't be parsed into a package.
+ *
+ * <p>Prefer using more-specific subclasses, when appropriate.
  */
-public abstract class NoSuchPackageException extends NoSuchThingException {
+public class NoSuchPackageException extends NoSuchThingException {
 
-  private final String packageName;
+  private final PackageIdentifier packageId;
 
-  public NoSuchPackageException(String packageName, String message) {
-    this(packageName, "no such package", message);
+  public NoSuchPackageException(PackageIdentifier packageId, String message) {
+    super(message);
+    this.packageId = packageId;
   }
 
-  public NoSuchPackageException(String packageName, String message,
-      Throwable cause) {
-    this(packageName, "no such package", message, cause);
+  public NoSuchPackageException(PackageIdentifier packageId, String message, Exception cause) {
+    super(message, cause);
+    this.packageId = packageId;
   }
 
-  protected NoSuchPackageException(String packageName, String messagePrefix, String message) {
-    super(messagePrefix + " '" + packageName + "': " + message);
-    this.packageName = packageName;
+  public PackageIdentifier getPackageId() {
+    return packageId;
   }
 
-  protected NoSuchPackageException(String packageName, String messagePrefix, String message,
-      Throwable cause) {
-    super(messagePrefix + " '" + packageName + "': " + message, cause);
-    this.packageName = packageName;
+  public String getRawMessage() {
+    return super.getMessage();
   }
 
-  public String getPackageName() {
-    return packageName;
-  }
-
-  /**
-   * Return the package if parsing completed enough to construct it. May return null.
-   */
-  @Nullable
-  public Package getPackage() {
-    return null;
+  @Override
+  public String getMessage() {
+    return String.format("%s '%s': %s", "no such package", packageId, getRawMessage());
   }
 }

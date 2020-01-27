@@ -1,4 +1,4 @@
-// Copyright 2014 Google Inc. All rights reserved.
+// Copyright 2014 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -13,13 +13,14 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import com.google.common.collect.ImmutableSet;
 import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.actions.ChangedFilesMessage;
+import com.google.devtools.build.lib.actions.FileStateValue;
 import com.google.devtools.build.lib.concurrent.ThreadSafety;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.SkyKey;
-
 import java.util.HashSet;
 import java.util.Set;
 
@@ -30,14 +31,16 @@ import java.util.Set;
  */
 @ThreadSafety.ThreadCompatible
 class SkyframeIncrementalBuildMonitor {
-  private Set<PathFragment> files = new HashSet<>();
   private static final int MAX_FILES = 100;
+
+  private Set<PathFragment> files = new HashSet<>();
+  private int fileCount;
 
   public void accrue(Iterable<SkyKey> invalidatedValues) {
     for (SkyKey skyKey : invalidatedValues) {
-      if (skyKey.functionName() == SkyFunctions.FILE_STATE) {
+      if (skyKey.functionName().equals(FileStateValue.FILE_STATE)) {
         RootedPath file = (RootedPath) skyKey.argument();
-        maybeAddFile(file.getRelativePath());
+        maybeAddFile(file.getRootRelativePath());
       }
     }
   }
@@ -49,11 +52,12 @@ class SkyframeIncrementalBuildMonitor {
         files = null;
       }
     }
+
+    fileCount++;
   }
 
   public void alertListeners(EventBus eventBus) {
-    if (files != null) {
-      eventBus.post(new ChangedFilesMessage(files));
-    }
+    Set<PathFragment> changedFiles = (files != null) ? files : ImmutableSet.<PathFragment>of();
+    eventBus.post(new ChangedFilesMessage(changedFiles, fileCount));
   }
 }

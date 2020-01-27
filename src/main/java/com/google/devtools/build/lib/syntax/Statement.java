@@ -1,4 +1,4 @@
-// Copyright 2014 Google Inc. All rights reserved.
+// Copyright 2014 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -13,32 +13,27 @@
 // limitations under the License.
 package com.google.devtools.build.lib.syntax;
 
-/**
- * Base class for all statements nodes in the AST.
- */
-public abstract class Statement extends ASTNode {
+/** Base class for all statements nodes in the AST. */
+public abstract class Statement extends Node {
 
   /**
-   * Executes the statement in the specified build environment, which may be
-   * modified.
-   *
-   * @throws EvalException if execution of the statement could not be completed.
+   * Kind of the statement. This is similar to using instanceof, except that it's more efficient and
+   * can be used in a switch/case.
    */
-  abstract void exec(Environment env) throws EvalException, InterruptedException;
+  public enum Kind {
+    ASSIGNMENT,
+    EXPRESSION,
+    FLOW,
+    FOR,
+    DEF,
+    IF,
+    LOAD,
+    RETURN,
+  }
 
   /**
-   * Checks the semantics of the Statement using the SkylarkEnvironment according to
-   * the rules of the Skylark language. The SkylarkEnvironment can be used e.g. to check
-   * variable type collision, read only variables, detecting recursion, existence of
-   * built-in variables, functions, etc.
-   *
-   * <p>The semantical check should be performed after the Skylark extension is loaded
-   * (i.e. is syntactically correct) and before is executed. The point of the semantical check
-   * is to make sure (as much as possible) that no error can occur during execution (Skylark
-   * programmers get a "compile time" error). It should also check execution branches (e.g. in
-   * if statements) that otherwise might never get executed.
-   *
-   * @throws EvalException if the Statement has a semantical error.
+   * Kind of the statement. This is similar to using instanceof, except that it's more efficient and
+   * can be used in a switch/case.
    */
-  abstract void validate(ValidationEnvironment env) throws EvalException;
+  public abstract Kind kind();
 }

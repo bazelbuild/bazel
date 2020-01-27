@@ -1,70 +1,37 @@
+# Copyright 2018 The Bazel Authors. All rights reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 package(default_visibility = ["//visibility:public"])
 
-# TODO(bazel-team): The MacOS tools give an error if there is no object file on
-# the command line to libtool, so we use an empty .cc file here. We should find
-# a better way to handle this case.
-cc_library(
-    name = "malloc",
-    srcs = ["empty.cc"],
-)
-
-cc_library(
-    name = "stl",
-    srcs = ["empty.cc"],
-)
+licenses(["notice"])  # Apache 2.0
 
 filegroup(
-    name = "empty",
-    srcs = [],
-)
-
-filegroup(
-    name = "toolchain",
-    srcs = [
-        ":cc-compiler-darwin",
-        ":cc-compiler-local",
-        ":empty",
+    name = "srcs",
+    srcs = glob(["**"]) + [
+        "//tools/cpp/runfiles:srcs",
     ],
 )
 
-cc_toolchain(
-    name = "cc-compiler-local",
-    all_files = ":empty",
-    compiler_files = ":empty",
-    cpu = "local",
-    dwp_files = ":empty",
-    dynamic_runtime_libs = [":empty"],
-    linker_files = ":empty",
-    objcopy_files = ":empty",
-    static_runtime_libs = [":empty"],
-    strip_files = ":empty",
-    supports_param_files = 0,
+filegroup(
+    name = "embedded_tools",
+    srcs = glob(["**"]) + [
+        "//tools/cpp/runfiles:embedded_tools",
+    ],
 )
 
-cc_toolchain(
-    name = "cc-compiler-k8",
-    all_files = ":empty",
-    compiler_files = ":empty",
-    cpu = "local",
-    dwp_files = ":empty",
-    dynamic_runtime_libs = [":empty"],
-    linker_files = ":empty",
-    objcopy_files = ":empty",
-    static_runtime_libs = [":empty"],
-    strip_files = ":empty",
-    supports_param_files = 0,
-)
-
-cc_toolchain(
-    name = "cc-compiler-darwin",
-    all_files = ":empty",
-    compiler_files = ":empty",
-    cpu = "darwin",
-    dwp_files = ":empty",
-    dynamic_runtime_libs = [":empty"],
-    linker_files = ":empty",
-    objcopy_files = ":empty",
-    static_runtime_libs = [":empty"],
-    strip_files = ":empty",
-    supports_param_files = 0,
+filegroup(
+    name = "bzl_srcs",
+    srcs = glob(["*.bzl"]),
+    visibility = ["//tools:__pkg__"],
 )

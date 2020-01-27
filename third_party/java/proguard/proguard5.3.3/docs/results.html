@@ -1,0 +1,170 @@
+<!doctype html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<html>
+<head>
+<meta http-equiv="content-type" content="text/html; charset=iso-8859-1">
+<meta http-equiv="content-style-type" content="text/css">
+<link rel="stylesheet" type="text/css" href="style.css">
+<title>ProGuard Results</title>
+</head>
+<body>
+
+<script type="text/javascript" language="JavaScript">
+<!--
+if (window.self==window.top)
+  document.write('<a class="largebutton" target="_top" href="index.html#results.html">ProGuard index</a> <a class="largebutton" target="_top" href="http://www.guardsquare.com/dexguard">DexGuard</a> <a class="largebutton" target="_top" href="http://www.guardsquare.com/">GuardSquare</a> <a class="largebutton" target="other" href="http://sourceforge.net/projects/proguard/">Sourceforge</a>')
+//-->
+</script>
+<noscript>
+<a class="largebutton" target="_top"  href="index.html#results.html">ProGuard index</a>
+<a class="largebutton" target="_top"  href="http://www.guardsquare.com/dexguard">DexGuard</a>
+<a class="largebutton" target="_top"  href="http://www.guardsquare.com/">GuardSquare</a>
+<a class="largebutton" target="other" href="http://sourceforge.net/projects/proguard/">Sourceforge</a>
+</noscript>
+
+<h2>Results</h2>
+
+<b>ProGuard</b> successfully processes any Java bytecode, ranging from small
+Android applications to entire run-time libraries. It primarily reduces the
+size of the processed code, with some potential increase in efficiency as an
+added bonus. The improvements obviously depend on the original code. The table
+below presents some typical results:
+<p>
+
+<table>
+
+<tr>
+<th width="28%">Input Program</th>
+<th width="12%">Original size</th>
+<th width="12%">After shrinking</th>
+<th width="12%">After optim.</th>
+<th width="12%">After obfusc.</th>
+<th width="12%">Total reduction</th>
+<th width="12%">Time</th>
+<th width="12%">Memory usage</th>
+</tr>
+
+<tr>
+<td><a target="other" href="http://www.oracle.com/technetwork/java/javame/index.html">Worm</a>, a sample midlet from Oracle's JME</td>
+<td align="center">10.3 K</td>
+<td align="center">9.8 K</td>
+<td align="center">9.6 K</td>
+<td align="center">8.5 K</td>
+<td align="center">18 %</td>
+<td align="center">2 s</td>
+<td align="center">19 M</td>
+</tr>
+
+<tr>
+<td><a target="other" href="http://www.javadocking.com/">Javadocking</a>, a docking library</td>
+<td align="center">290 K</td>
+<td align="center">281 K</td>
+<td align="center">270 K</td>
+<td align="center">201 K</td>
+<td align="center">30 %</td>
+<td align="center">12 s</td>
+<td align="center">32 M</td>
+</tr>
+
+<tr>
+<td><b>ProGuard</b> itself</td>
+<td align="center">648 K</td>
+<td align="center">579 K</td>
+<td align="center">557 K</td>
+<td align="center">348 K</td>
+<td align="center">46 %</td>
+<td align="center">28 s</td>
+<td align="center">66 M</td>
+</tr>
+
+<tr>
+<td><a target="other" href="http://www.clarkware.com/software/JDepend.html">JDepend</a>, a Java quality metrics tool</td>
+<td align="center">57 K</td>
+<td align="center">36 K</td>
+<td align="center">33 K</td>
+<td align="center">28 K</td>
+<td align="center">51 %</td>
+<td align="center">6 s</td>
+<td align="center">24 M</td>
+</tr>
+
+<tr>
+<td><a target="other" href="ihttp://www.oracle.com/technetwork/java/javase/overview/index.html">the run-time classes</a> from Oracle's Java 6</td>
+<td align="center">53 M</td>
+<td align="center">23 M</td>
+<td align="center">22 M</td>
+<td align="center">18 M</td>
+<td align="center">66 %</td>
+<td align="center">16 min</td>
+<td align="center">270 M</td>
+</tr>
+
+<tr>
+<td><a target="other" href="http://tomcat.apache.org/">Tomcat</a>, the Apache servlet container</td>
+<td align="center">1.1 M</td>
+<td align="center">466 K</td>
+<td align="center">426 K</td>
+<td align="center">295 K</td>
+<td align="center">74 %</td>
+<td align="center">17 s</td>
+<td align="center">44 M</td>
+</tr>
+
+<tr>
+<td><a target="other" href="http://javancss.codehaus.org/">JavaNCSS</a>, a Java source metrics tool</td>
+<td align="center">632 K</td>
+<td align="center">242 K</td>
+<td align="center">212 K</td>
+<td align="center">152 K</td>
+<td align="center">75 %</td>
+<td align="center">20 s</td>
+<td align="center">36 M</td>
+</tr>
+
+<tr>
+<td><a target="other" href="http://ant.apache.org/">Ant</a>, the Apache build tool</td>
+<td align="center">2.4 M</td>
+<td align="center">401 K</td>
+<td align="center">325 K</td>
+<td align="center">242 K</td>
+<td align="center">90 %</td>
+<td align="center">23 s</td>
+<td align="center">61 M</td>
+</tr>
+
+</table>
+<p>
+Results were measured with ProGuard 4.0 on a 2.6 GHz Pentium 4 with 512 MB
+of memory, using Sun JDK 1.5.0 in Fedora Core 3 Linux. All of this technology
+and software has evolved since, but the gist of the results remains the same.
+<p>
+The program sizes include companion libraries. The shrinking step produces the
+best results for programs that use only small parts of their libraries. The
+obfuscation step can significantly shrink large programs even further, since
+the identifiers of their many internal references can be replaced by short
+identifiers.
+<p>
+The Java 6 run-time classes are the most complex example. The classes perform
+a lot of introspection, interacting with the native code of the virtual
+machine. The 1500+ lines of configuration were largely composed by automated
+analysis, complemented by a great deal of trial and error. The configuration
+is probably not complete, but the resulting library successfully serves as a
+run-time environment for running applications like ProGuard and the ProGuard
+GUI.
+<p>
+For small inputs, timings are governed by the reading and parsing of the jars.
+For large inputs, the optimization step becomes more important. For instance,
+processing the Java 6 run-time classes without optimization only takes 2
+minutes.
+<p>
+Memory usage (the amount of physical memory used by ProGuard while processing)
+is governed by the basic java virtual machine and by the total size of the
+library jars and program jars.
+
+<hr />
+<address>
+Copyright &copy; 2002-2017
+<a target="other" href="http://www.lafortune.eu/">Eric Lafortune</a> @ <a target="top" href="http://www.guardsquare.com/">GuardSquare</a>.
+</address>
+
+</body>
+</html>

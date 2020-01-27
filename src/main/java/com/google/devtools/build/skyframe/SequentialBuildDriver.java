@@ -1,4 +1,4 @@
-// Copyright 2014 Google Inc. All rights reserved.
+// Copyright 2014 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,7 +14,9 @@
 package com.google.devtools.build.skyframe;
 
 import com.google.common.base.Preconditions;
-import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.concurrent.AbstractQueueVisitor;
+import com.google.devtools.common.options.OptionsProvider;
+import javax.annotation.Nullable;
 
 /**
  * A driver for auto-updating graphs which operate over monotonically increasing integer versions.
@@ -25,22 +27,59 @@ public class SequentialBuildDriver implements BuildDriver {
 
   public SequentialBuildDriver(MemoizingEvaluator evaluator) {
     this.memoizingEvaluator = Preconditions.checkNotNull(evaluator);
-    this.curVersion = new IntVersion(0);
+    this.curVersion = IntVersion.of(0);
   }
 
   @Override
   public <T extends SkyValue> EvaluationResult<T> evaluate(
-      Iterable<SkyKey> roots, boolean keepGoing, int numThreads, EventHandler reporter)
+      Iterable<? extends SkyKey> roots, EvaluationContext evaluationContext)
       throws InterruptedException {
     try {
-      return memoizingEvaluator.evaluate(roots, curVersion, keepGoing, numThreads, reporter);
+      return memoizingEvaluator.evaluate(
+          roots,
+          curVersion,
+          evaluationContext.getExecutorServiceSupplier().isPresent()
+              ? evaluationContext
+              : EvaluationContext.newBuilder()
+                  .copyFrom(evaluationContext)
+                  .setNumThreads(evaluationContext.getParallelism())
+                  .setExecutorServiceSupplier(
+                      () ->
+                          AbstractQueueVisitor.createExecutorService(
+                              evaluationContext.getParallelism(),
+                              "skyframe-evaluator",
+                              evaluationContext.getUseForkJoinPool()))
+                  .build());
     } finally {
       curVersion = curVersion.next();
     }
   }
 
   @Override
+  public String meta(Iterable<SkyKey> of, OptionsProvider options) {
+    return "";
+  }
+
+  @Override
   public MemoizingEvaluator getGraphForTesting() {
     return memoizingEvaluator;
+  }
+
+  @Nullable
+  @Override
+  public SkyValue getExistingValueForTesting(SkyKey key) throws InterruptedException {
+    return memoizingEvaluator.getExistingValue(key);
+  }
+
+  @Nullable
+  @Override
+  public ErrorInfo getExistingErrorForTesting(SkyKey key) throws InterruptedException {
+    return memoizingEvaluator.getExistingErrorForTesting(key);
+  }
+
+  @Nullable
+  @Override
+  public NodeEntry getEntryForTesting(SkyKey key) throws InterruptedException {
+    return memoizingEvaluator.getExistingEntryAtLatestVersion(key);
   }
 }

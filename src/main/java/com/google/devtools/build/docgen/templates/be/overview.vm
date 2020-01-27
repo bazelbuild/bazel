@@ -1,0 +1,96 @@
+---
+layout: documentation
+title: Build Encyclopedia
+---
+
+<h1>Bazel BUILD Encyclopedia of Functions</h1>
+<h2>Concepts and terminology</h2>
+
+<ul>
+  <li>
+    <a href="$expander.expandRef("common-definitions")">Common definitions</a>
+    <ul>
+      <li><a href="$expander.expandRef("common-definitions#sh-tokenization")">Bourne shell tokenization</a></li>
+      <li><a href="$expander.expandRef("common-definitions#label-expansion")">Label expansion</a></li>
+      <li><a href="$expander.expandRef("common-definitions#common-attributes")">Common attributes</a></li>
+      <li><a href="$expander.expandRef("common-definitions#common-attributes-tests")">Common attributes for tests</a></li>
+      <li><a href="$expander.expandRef("common-definitions#common-attributes-binaries")">Common attributes for binaries</a></li>
+      <li><a href="$expander.expandRef("common-definitions#configurable-attributes")">Configurable attributes</a></li>
+      <li><a href="$expander.expandRef("common-definitions#implicit-outputs")">Implicit output targets</a></li>
+    </ul>
+  </li>
+  <li>
+    <a href="$expander.expandRef("make-variables")">"Make" variables</a>
+    <ul class="be-toc">
+      <li><a href="$expander.expandRef("make-variables#make-var-substitution")">"Make" variable substitution</a></li>
+
+    </ul>
+  </li>
+</ul>
+
+<h2>Functions</h2>
+
+<ul class="be-toc">
+  <li><a href="$expander.expandRef("package")">package</a></li>
+  <li><a href="$expander.expandRef("package_group")">package_group</a></li>
+
+  <li><a href="$expander.expandRef("licenses")">licenses</a></li>
+  <li><a href="$expander.expandRef("exports_files")">exports_files</a></li>
+  <li><a href="$expander.expandRef("glob")">glob</a></li>
+  <li><a href="$expander.expandRef("select")">select</a></li>
+  <li><a href="$expander.expandRef("workspace")">workspace</a></li>
+</ul>
+
+<h2>Rules</h2>
+
+Native rules ship with the Bazel binary and do not require a <code>load</code> statement.
+Native rules are available globally in BUILD files. In .bzl files, you can find them in
+the <code>native</code> module.
+
+<h3>Language-specific native rules</h3>
+
+#macro(summaryLink $page $heading)
+  #if ($singlePage)#${heading}#else${page}.html#${heading}#end
+#end
+
+#macro(summaryTable $ruleFamilies)
+  <tbody>
+  #foreach($ruleFamily in $ruleFamilies)
+    #if($ruleFamily.size() > 0)
+      <tr>
+        <td class="lang">${ruleFamily.name}</td>
+      #set( $ruleTypes = [$ruleFamily.binaryRules, $ruleFamily.libraryRules, $ruleFamily.testRules, $ruleFamily.otherRules1, $ruleFamily.otherRules2] )
+      #foreach($ruleType in $ruleTypes)
+        <td>
+        #foreach($ruleDoc in $ruleType)
+          <a href="#summaryLink(${ruleFamily.id}, ${ruleDoc.ruleName})"#if($ruleDoc.isDeprecated()) class="deprecated"#end>${ruleDoc.ruleName}</a>
+          <br />
+        #end
+        </td>
+      #end
+      </tr>
+    #end
+  #end
+  </tbody>
+#end
+
+<table class="table table-condensed table-striped" summary="Table of rules sorted by language">
+  <colgroup span="6" width="20%"></colgroup>
+  <thead>
+    <tr>
+      <th>Language</th>
+      <th>Binary rules</th>
+      <th>Library rules</th>
+      <th>Test rules</th>
+      <th>Other rules</th>
+      <th></th>
+    </tr>
+  </thead>
+#summaryTable($langSpecificRuleFamilies)
+
+</table>
+<table class="table table-condensed table-striped" summary="Table of rules not specific to a programming language">
+  <colgroup span="6" width="20%"></colgroup>
+#summaryTable($genericRuleFamilies)
+
+</table>

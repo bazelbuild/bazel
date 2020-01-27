@@ -1,4 +1,4 @@
-// Copyright 2015 Google Inc. All rights reserved.
+// Copyright 2015 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,20 +14,17 @@
 
 package com.google.devtools.build.singlejar;
 
+import static com.google.common.truth.Truth.assertThat;
 import static java.nio.charset.StandardCharsets.UTF_8;
-import static org.junit.Assert.assertEquals;
-
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
-/**
- * Unit tests for {@link ConcatenateStrategy}.
- */
+/** Unit tests for {@link ConcatenateStrategy}. */
 @RunWith(JUnit4.class)
 public class ConcatenateStrategyTest {
 
@@ -51,25 +48,25 @@ public class ConcatenateStrategyTest {
 
   @Test
   public void testSingleInput() throws IOException {
-    assertEquals("a", merge("a"));
-    assertEquals("a", mergeNoNewLine("a"));
+    assertThat(merge("a")).isEqualTo("a");
+    assertThat(mergeNoNewLine("a")).isEqualTo("a");
   }
 
   @Test
   public void testTwoInputs() throws IOException {
-    assertEquals("a\nb", merge("a\n", "b"));
-    assertEquals("a\nb", mergeNoNewLine("a\n", "b"));
+    assertThat(merge("a\n", "b")).isEqualTo("a\nb");
+    assertThat(mergeNoNewLine("a\n", "b")).isEqualTo("a\nb");
   }
 
   @Test
   public void testAutomaticNewline() throws IOException {
-    assertEquals("a\nb", merge("a", "b"));
-    assertEquals("ab", mergeNoNewLine("a", "b"));
+    assertThat(merge("a", "b")).isEqualTo("a\nb");
+    assertThat(mergeNoNewLine("a", "b")).isEqualTo("ab");
   }
 
   @Test
   public void testAutomaticNewlineAndEmptyFile() throws IOException {
-    assertEquals("a\nb", merge("a", "", "b"));
-    assertEquals("ab", mergeNoNewLine("a", "", "b"));
+    assertThat(merge("a", "", "b")).isEqualTo("a\nb");
+    assertThat(mergeNoNewLine("a", "", "b")).isEqualTo("ab");
   }
 }

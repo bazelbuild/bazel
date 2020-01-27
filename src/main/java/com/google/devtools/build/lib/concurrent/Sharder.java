@@ -1,4 +1,4 @@
-// Copyright 2014 Google Inc. All rights reserved.
+// Copyright 2014 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,10 +14,8 @@
 package com.google.devtools.build.lib.concurrent;
 
 import com.google.common.base.Preconditions;
-import com.google.common.base.Predicate;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
-
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
@@ -61,11 +59,6 @@ public final class Sharder<T> implements Iterable<List<T>> {
 
   @Override
   public Iterator<List<T>> iterator() {
-    return Iterables.filter(shards, new Predicate<List<T>>() {
-      @Override
-      public boolean apply(List<T> list) {
-        return !list.isEmpty();
-      }
-    }).iterator();
+    return Iterables.filter(shards, list -> !list.isEmpty()).iterator();
   }
 }

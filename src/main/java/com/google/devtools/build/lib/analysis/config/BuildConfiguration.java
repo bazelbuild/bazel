@@ -1,4 +1,4 @@
-// Copyright 2014 Google Inc. All rights reserved.
+// Copyright 2014 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,867 +14,133 @@
 
 package com.google.devtools.build.lib.analysis.config;
 
+import static java.util.Comparator.comparing;
+import static java.util.stream.Collectors.joining;
+
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Function;
-import com.google.common.base.Joiner;
-import com.google.common.base.Preconditions;
+import com.google.common.base.Suppliers;
 import com.google.common.collect.ArrayListMultimap;
+import com.google.common.collect.ClassToInstanceMap;
+import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
-import com.google.common.collect.ListMultimap;
-import com.google.common.collect.Maps;
+import com.google.common.collect.ImmutableSortedMap;
+import com.google.common.collect.Interner;
 import com.google.common.collect.Multimap;
-import com.google.devtools.build.lib.actions.ArtifactFactory;
-import com.google.devtools.build.lib.actions.PackageRootResolver;
-import com.google.devtools.build.lib.actions.Root;
+import com.google.common.collect.MutableClassToInstanceMap;
+import com.google.devtools.build.lib.actions.ActionEnvironment;
+import com.google.devtools.build.lib.actions.ArtifactRoot;
+import com.google.devtools.build.lib.actions.BuildConfigurationEvent;
+import com.google.devtools.build.lib.actions.CommandLines.CommandLineLimits;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
-import com.google.devtools.build.lib.analysis.ViewCreationFailedException;
-import com.google.devtools.build.lib.analysis.config.BuildConfigurationCollection.Transitions;
+import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
+import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
+import com.google.devtools.build.lib.buildeventstream.BuildEventId;
+import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
+import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
-import com.google.devtools.build.lib.packages.Attribute;
-import com.google.devtools.build.lib.packages.Attribute.Configurator;
-import com.google.devtools.build.lib.packages.Attribute.SplitTransition;
-import com.google.devtools.build.lib.packages.Attribute.Transition;
-import com.google.devtools.build.lib.packages.InputFile;
-import com.google.devtools.build.lib.packages.PackageGroup;
-import com.google.devtools.build.lib.packages.Rule;
-import com.google.devtools.build.lib.packages.RuleClass;
-import com.google.devtools.build.lib.packages.Target;
-import com.google.devtools.build.lib.rules.test.TestActionBuilder;
-import com.google.devtools.build.lib.syntax.Label;
-import com.google.devtools.build.lib.syntax.Label.SyntaxException;
-import com.google.devtools.build.lib.syntax.SkylarkCallable;
-import com.google.devtools.build.lib.syntax.SkylarkModule;
-import com.google.devtools.build.lib.util.Fingerprint;
+import com.google.devtools.build.lib.packages.RuleClassProvider;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.skylarkbuildapi.BuildConfigurationApi;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkInterfaceUtils;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
+import com.google.devtools.build.lib.syntax.StarlarkValue;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.RegexFilter;
-import com.google.devtools.build.lib.util.StringUtilities;
-import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import com.google.devtools.build.skyframe.SkyFunction;
-import com.google.devtools.build.skyframe.SkyFunction.Environment;
-import com.google.devtools.common.options.Converter;
-import com.google.devtools.common.options.Converters;
-import com.google.devtools.common.options.EnumConverter;
-import com.google.devtools.common.options.Option;
-import com.google.devtools.common.options.OptionsBase;
-import com.google.devtools.common.options.OptionsParsingException;
-import com.google.devtools.common.options.TriState;
-
-import java.io.IOException;
-import java.io.Serializable;
-import java.lang.reflect.Field;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.LinkedHashSet;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
-import java.util.Queue;
+import java.util.Objects;
 import java.util.Set;
-
+import java.util.TreeMap;
+import java.util.function.Supplier;
 import javax.annotation.Nullable;
 
 /**
- * Instances of BuildConfiguration represent a collection of context
- * information which may affect a build (for example: the target platform for
- * compilation, or whether or not debug tables are required).  In fact, all
- * "environmental" information (e.g. from the tool's command-line, as opposed
- * to the BUILD file) that can affect the output of any build tool should be
- * explicitly represented in the BuildConfiguration instance.
+ * Instances of BuildConfiguration represent a collection of context information which may affect a
+ * build (for example: the target platform for compilation, or whether or not debug tables are
+ * required). In fact, all "environmental" information (e.g. from the tool's command-line, as
+ * opposed to the BUILD file) that can affect the output of any build tool should be explicitly
+ * represented in the BuildConfiguration instance.
  *
- * <p>A single build may require building tools to run on a variety of
- * platforms: when compiling a server application for production, we must build
- * the build tools (like compilers) to run on the host platform, but cross-compile
- * the application for the production environment.
+ * <p>A single build may require building tools to run on a variety of platforms: when compiling a
+ * server application for production, we must build the build tools (like compilers) to run on the
+ * host platform, but cross-compile the application for the production environment.
  *
- * <p>There is always at least one BuildConfiguration instance in any build:
- * the one representing the host platform. Additional instances may be created,
- * in a cross-compilation build, for example.
+ * <p>There is always at least one BuildConfiguration instance in any build: the one representing
+ * the host platform. Additional instances may be created, in a cross-compilation build, for
+ * example.
  *
  * <p>Instances of BuildConfiguration are canonical:
+ *
  * <pre>c1.equals(c2) <=> c1==c2.</pre>
  */
-@SkylarkModule(name = "configuration",
-    doc = "Data required for the analysis of a target that comes from targets that "
-        + "depend on it and not targets that it depends on.")
-public final class BuildConfiguration implements Serializable {
+// TODO(janakr): If overhead of fragments class names is too high, add constructor that just takes
+// fragments and gets names from them.
+@AutoCodec
+public class BuildConfiguration implements BuildConfigurationApi {
+  /**
+   * Sorts fragments by class name. This produces a stable order which, e.g., facilitates consistent
+   * output from buildMnemonic.
+   */
+  @AutoCodec
+  public static final Comparator<Class<? extends Fragment>> lexicalFragmentSorter =
+      Comparator.comparing(Class::getName);
+
+  private static final Interner<ImmutableSortedMap<Class<? extends Fragment>, Fragment>>
+      fragmentsInterner = BlazeInterners.newWeakInterner();
+
+  private static final Interner<ImmutableSortedMap<String, String>> executionInfoInterner =
+      BlazeInterners.newWeakInterner();
+
+  /** Compute the default shell environment for actions from the command line options. */
+  public interface ActionEnvironmentProvider {
+    ActionEnvironment getActionEnvironment(BuildOptions options);
+  }
 
   /**
    * An interface for language-specific configurations.
+   *
+   * <p>All implementations must be immutable and communicate this as clearly as possible (e.g.
+   * declare {@link ImmutableList} signatures on their interfaces vs. {@link List}). This is because
+   * fragment instances may be shared across configurations.
+   *
+   * <p>Fragments are Starlark values, as returned by {@code ctx.fragments.android}, for example.
    */
-  public abstract static class Fragment implements Serializable {
+  public abstract static class Fragment implements StarlarkValue {
     /**
-     * Returns a human-readable name of the configuration fragment.
-     */
-    public abstract String getName();
-
-    /**
-     * Validates the options for this Fragment. Issues warnings for the
-     * use of deprecated options, and warnings or errors for any option settings
-     * that conflict.
+     * Validates the options for this Fragment. Issues warnings for the use of deprecated options,
+     * and warnings or errors for any option settings that conflict.
      */
     @SuppressWarnings("unused")
-    public void reportInvalidOptions(EventHandler reporter, BuildOptions buildOptions) {
-    }
+    public void reportInvalidOptions(EventHandler reporter, BuildOptions buildOptions) {}
 
     /**
-     * Adds mapping of names to values of "Make" variables defined by this configuration.
-     */
-    @SuppressWarnings("unused")
-    public void addGlobalMakeVariables(ImmutableMap.Builder<String, String> globalMakeEnvBuilder) {
-    }
-
-    /**
-     * Collects all labels that should be implicitly loaded from labels that were specified as
-     * options, keyed by the name to be displayed to the user if something goes wrong.
-     * The resulting set only contains labels that were derived from command-line options; the
-     * intention is that it can be used to sanity-check that the command-line options actually
-     * contain these in their transitive closure.
-     */
-    @SuppressWarnings("unused")
-    public void addImplicitLabels(Multimap<String, Label> implicitLabels) {
-    }
-
-    /**
-     * Returns a string that identifies the configuration fragment.
-     */
-    public abstract String cacheKey();
-
-    /**
-     * The fragment may use this hook to perform I/O and read data into memory that is used during
-     * analysis. During the analysis phase disk I/O operations are disallowed.
-     *
-     * <p>This hook is only called for the top-level configuration after the loading phase is
-     * complete.
-     */
-    @SuppressWarnings("unused")
-    public void prepareHook(Path execPath, ArtifactFactory artifactFactory,
-        PathFragment genfilesPath, PackageRootResolver resolver)
-        throws ViewCreationFailedException {
-    }
-
-    /**
-     * Adds all the roots from this fragment.
-     */
-    @SuppressWarnings("unused")
-    public void addRoots(List<Root> roots) {
-    }
-
-    /**
-     * Returns a (key, value) mapping to insert into the subcommand environment for coverage.
-     */
-    public Map<String, String> getCoverageEnvironment() {
-      return ImmutableMap.<String, String>of();
-    }
-
-    /*
-     * Returns the command-line "Make" variable overrides.
-     */
-    public ImmutableMap<String, String> getCommandLineDefines() {
-      return ImmutableMap.of();
-    }
-
-    /**
-     * Returns all the coverage labels for the fragment.
-     */
-    public ImmutableList<Label> getCoverageLabels() {
-      return ImmutableList.of();
-    }
-
-    /**
-     * Returns the coverage report generator tool labels.
-     */
-    public ImmutableList<Label> getCoverageReportGeneratorLabels() {
-      return ImmutableList.of();
-    }
-
-    /**
-     * Returns a fragment of the output directory name for this configuration. The output
-     * directory for the whole configuration contains all the short names by all fragments.
+     * Returns a fragment of the output directory name for this configuration. The output directory
+     * for the whole configuration contains all the short names by all fragments.
      */
     @Nullable
     public String getOutputDirectoryName() {
       return null;
     }
-
-    /**
-     * This will be added to the name of the configuration, but not to the output directory name.
-     */
-    @Nullable
-    public String getConfigurationNameSuffix() {
-      return null;
-    }
-
-    /**
-     * The platform name is a concatenation of fragment platform names.
-     */
-    public String getPlatformName() {
-      return "";
-    }
-
-    /**
-     * Return false if incremental build is not possible for some reason.
-     */
-    public boolean supportsIncrementalBuild() {
-      return true;
-    }
-
-    /**
-     * Return true if the fragment performs static linking. This information is needed for
-     * lincence checking.
-     */
-    public boolean performsStaticLink() {
-      return false;
-    }
-
-    /**
-     * Fragments should delete temporary directories they create for their inner mechanisms.
-     * This is only called for target configuration.
-     */
-    @SuppressWarnings("unused")
-    public void prepareForExecutionPhase() throws IOException {
-    }
-
-    /**
-     * Add items to the shell environment.
-     */
-    @SuppressWarnings("unused")
-    public void setupShellEnvironment(ImmutableMap.Builder<String, String> builder) {
-    }
-
-    /**
-     * Add mappings from generally available tool names (like "sh") to their paths
-     * that actions can access.
-     */
-    @SuppressWarnings("unused")
-    public void defineExecutables(ImmutableMap.Builder<String, PathFragment> builder) {
-    }
-
-    /**
-     * Returns { 'option name': 'alternative default' } entries for options where the
-     * "real default" should be something besides the default specified in the {@link Option}
-     * declaration.
-     */
-    public Map<String, Object> lateBoundOptionDefaults() {
-      return ImmutableMap.of();
-    }
-
-    /**
-     * Declares dependencies on any relevant Skyframe values (for example, relevant FileValues).
-     *
-     * @param env the skyframe environment
-     */
-    public void declareSkyframeDependencies(Environment env) {
-    }
   }
 
-  /**
-   * A converter from strings to Labels.
-   */
-  public static class LabelConverter implements Converter<Label> {
-    @Override
-    public Label convert(String input) throws OptionsParsingException {
-      try {
-        // Check if the input starts with '/'. We don't check for "//" so that
-        // we get a better error message if the user accidentally tries to use
-        // an absolute path (starting with '/') for a label.
-        if (!input.startsWith("/")) {
-          input = "//" + input;
-        }
-        return Label.parseAbsolute(input);
-      } catch (SyntaxException e) {
-        throw new OptionsParsingException(e.getMessage());
-      }
-    }
-
-    @Override
-    public String getTypeDescription() {
-      return "a build target label";
-    }
-  }
-
-  public static class PluginOptionConverter implements Converter<Map.Entry<String, String>> {
-    @Override
-    public Map.Entry<String, String> convert(String input) throws OptionsParsingException {
-      int index = input.indexOf('=');
-      if (index == -1) {
-        throw new OptionsParsingException("Plugin option not in the plugin=option format");
-      }
-      String option = input.substring(0, index);
-      String value = input.substring(index + 1);
-      return Maps.immutableEntry(option, value);
-    }
-
-    @Override
-    public String getTypeDescription() {
-      return "An option for a plugin";
-    }
-  }
-
-  public static class RunsPerTestConverter extends PerLabelOptions.PerLabelOptionsConverter {
-    @Override
-    public PerLabelOptions convert(String input) throws OptionsParsingException {
-      try {
-        return parseAsInteger(input);
-      } catch (NumberFormatException ignored) {
-        return parseAsRegex(input);
-      }
-    }
-
-    private PerLabelOptions parseAsInteger(String input)
-        throws NumberFormatException, OptionsParsingException {
-      int numericValue = Integer.parseInt(input);
-      if (numericValue <= 0) {
-        throw new OptionsParsingException("'" + input + "' should be >= 1");
-      } else {
-        RegexFilter catchAll = new RegexFilter(Collections.singletonList(".*"),
-            Collections.<String>emptyList());
-        return new PerLabelOptions(catchAll, Collections.singletonList(input));
-      }
-    }
-
-    private PerLabelOptions parseAsRegex(String input) throws OptionsParsingException {
-      PerLabelOptions testRegexps = super.convert(input);
-      if (testRegexps.getOptions().size() != 1) {
-        throw new OptionsParsingException(
-            "'" + input + "' has multiple runs for a single pattern");
-      }
-      String runsPerTest = Iterables.getOnlyElement(testRegexps.getOptions());
-      try {
-        int numericRunsPerTest = Integer.parseInt(runsPerTest);
-        if (numericRunsPerTest <= 0) {
-          throw new OptionsParsingException("'" + input + "' has a value < 1");
-        }
-      } catch (NumberFormatException e) {
-        throw new OptionsParsingException("'" + input + "' has a non-numeric value", e);
-      }
-      return testRegexps;
-    }
-
-    @Override
-    public String getTypeDescription() {
-      return "a positive integer or test_regex@runs. This flag may be passed more than once";
-    }
-  }
-
-  /**
-   * Values for the --strict_*_deps option
-   */
-  public static enum StrictDepsMode {
-    /** Silently allow referencing transitive dependencies. */
-    OFF,
-    /** Warn about transitive dependencies being used directly. */
-    WARN,
-    /** Fail the build when transitive dependencies are used directly. */
-    ERROR,
-    /** Transition to strict by default. */
-    STRICT,
-    /** When no flag value is specified on the command line. */
-    DEFAULT
-  }
-
-  /**
-   * Converter for the --strict_*_deps option.
-   */
-  public static class StrictDepsConverter extends EnumConverter<StrictDepsMode> {
-    public StrictDepsConverter() {
-      super(StrictDepsMode.class, "strict dependency checking level");
-    }
-  }
-
-  /**
-   * Converter for default --host_cpu to the auto-detected host cpu.
-   *
-   * <p>This detects the host cpu of the Blaze's server but if the compilation happens in a
-   * compilation cluster then the host cpu of the compilation cluster might be different than
-   * the auto-detected one and the --host_cpu option must then be set explicitly.
-   */
-  public static class HostCpuConverter implements Converter<String> {
-    @Override
-    public String convert(String input) throws OptionsParsingException {
-      if (input.isEmpty()) {
-        switch (OS.getCurrent()) {
-          case DARWIN:
-            return "darwin";
-          default:
-            return "k8";
-        }
-      }
-      return input;
-    }
-
-    @Override
-    public String getTypeDescription() {
-      return "a string";
-    }
-  }
-
-  /**
-   * Options that affect the value of a BuildConfiguration instance.
-   *
-   * <p>(Note: any client that creates a view will also need to declare
-   * BuildView.Options, which affect the <i>mechanism</i> of view construction,
-   * even if they don't affect the value of the BuildConfiguration instances.)
-   *
-   * <p>IMPORTANT: when adding new options, be sure to consider whether those
-   * values should be propagated to the host configuration or not (see
-   * {@link ConfigurationFactory#getConfiguration}.
-   *
-   * <p>ALSO IMPORTANT: all option types MUST define a toString method that
-   * gives identical results for semantically identical option values. The
-   * simplest way to ensure that is to return the input string.
-   */
-  public static class Options extends FragmentOptions implements Cloneable {
-    public String getCpu() {
-      return cpu;
-    }
-
-    @Option(name = "cpu",
-        defaultValue = "null",
-        category = "semantics",
-        help = "The target CPU.")
-    public String cpu;
-
-    @Option(name = "min_param_file_size",
-        defaultValue = "32768",
-        category = "undocumented",
-        help = "Minimum command line length before creating a parameter file.")
-    public int minParamFileSize;
-
-    @Option(name = "experimental_extended_sanity_checks",
-        defaultValue = "false",
-        category = "undocumented",
-        help  = "Enables internal validation checks to make sure that configured target "
-            + "implementations only access things they should. Causes a performance hit.")
-    public boolean extendedSanityChecks;
-
-    @Option(name = "experimental_allow_runtime_deps_on_neverlink",
-        defaultValue = "true",
-        category = "undocumented",
-        help = "Flag to help transition from allowing to disallowing runtime_deps on neverlink"
-            + " Java archives. The depot needs to be cleaned up to roll this out by default.")
-    public boolean allowRuntimeDepsOnNeverLink;
-
-    @Option(name = "strict_filesets",
-        defaultValue = "false",
-        category = "semantics",
-        help = "If this option is enabled, filesets crossing package boundaries are reported "
-            + "as errors. It does not work when check_fileset_dependencies_recursively is "
-            + "disabled.")
-    public boolean strictFilesets;
-
-    // Plugins are build using the host config. To avoid cycles we just don't propagate
-    // this option to the host config. If one day we decide to use plugins when building
-    // host tools, we can improve this by (for example) creating a compiler configuration that is
-    // used only for building plugins.
-    @Option(name = "plugin",
-        converter = LabelConverter.class,
-        allowMultiple = true,
-        defaultValue = "",
-        category = "flags",
-        help = "Plugins to use in the build. Currently works with java_plugin.")
-    public List<Label> pluginList;
-
-    @Option(name = "plugin_copt",
-        converter = PluginOptionConverter.class,
-        allowMultiple = true,
-        category = "flags",
-        defaultValue = ":",
-        help = "Plugin options")
-    public List<Map.Entry<String, String>> pluginCoptList;
-
-    @Option(name = "stamp",
-        defaultValue = "true",
-        category = "semantics",
-        help = "Stamp binaries with the date, username, hostname, workspace information, etc.")
-    public boolean stampBinaries;
-
-    // TODO(bazel-team): delete from OSS tree
-    @Option(name = "instrumentation_filter",
-        converter = RegexFilter.RegexFilterConverter.class,
-        defaultValue = "-javatests,-_test$",
-        category = "semantics",
-        help = "When coverage is enabled, only rules with names included by the "
-            + "specified regex-based filter will be instrumented. Rules prefixed "
-            + "with '-' are excluded instead. By default, rules containing "
-            + "'javatests' or ending with '_test' will not be instrumented.")
-    public RegexFilter instrumentationFilter;
-
-    @Option(name = "show_cached_analysis_results",
-        defaultValue = "true",
-        category = "undocumented",
-        help = "Bazel reruns a static analysis only if it detects changes in the analysis "
-            + "or its dependencies. If this option is enabled, Bazel will show the analysis' "
-            + "results, even if it did not rerun the analysis.  If this option is disabled, "
-            + "Bazel will show analysis results only if it reran the analysis.")
-    public boolean showCachedAnalysisResults;
-
-    @Option(name = "host_cpu",
-        defaultValue = "",
-        category = "semantics",
-        converter = HostCpuConverter.class,
-        help = "The host CPU.")
-    public String hostCpu;
-
-    @Option(name = "compilation_mode",
-        abbrev = 'c',
-        converter = CompilationMode.Converter.class,
-        defaultValue = "fastbuild",
-        category = "semantics", // Should this be "flags"?
-        help = "Specify the mode the binary will be built in. "
-               + "Values: 'fastbuild', 'dbg', 'opt'.")
-    public CompilationMode compilationMode;
-
-    /**
-     * This option is used internally to set the short name (see {@link
-     * #getShortName()}) of the <i>host</i> configuration to a constant, so
-     * that the output files for the host are completely independent of those
-     * for the target, no matter what options are in force (k8/piii, opt/dbg,
-     * etc).
-     */
-    @Option(name = "configuration short name", // (Spaces => can't be specified on command line.)
-        defaultValue = "null",
-        category = "undocumented")
-    public String shortName;
-
-    @Option(name = "platform_suffix",
-        defaultValue = "null",
-        category = "misc",
-        help = "Specifies a suffix to be added to the configuration directory.")
-    public String platformSuffix;
-
-    @Option(name = "test_env",
-        converter = Converters.OptionalAssignmentConverter.class,
-        allowMultiple = true,
-        defaultValue = "",
-        category = "testing",
-        help = "Specifies additional environment variables to be injected into the test runner "
-            + "environment. Variables can be either specified by name, in which case its value "
-            + "will be read from the Bazel client environment, or by the name=value pair. "
-            + "This option can be used multiple times to specify several variables. "
-            + "Used only by the 'bazel test' command."
-        )
-    public List<Map.Entry<String, String>> testEnvironment;
-
-    @Option(name = "collect_code_coverage",
-        defaultValue = "false",
-        category = "testing",
-        help = "If specified, Bazel will instrument code (using offline instrumentation where "
-            + "possible) and will collect coverage information during tests. Only targets that "
-            + " match --instrumentation_filter will be affected. Usually this option should "
-            + " not be specified directly - 'bazel coverage' command should be used instead."
-        )
-    public boolean collectCodeCoverage;
-
-    @Option(name = "microcoverage",
-        defaultValue = "false",
-        category = "testing",
-        help = "If specified with coverage, Blaze will collect microcoverage (per test method "
-            + "coverage) information during tests. Only targets that match "
-            + "--instrumentation_filter will be affected. Usually this option should not be "
-            + "specified directly - 'blaze coverage --microcoverage' command should be used "
-            + "instead."
-        )
-    public boolean collectMicroCoverage;
-
-    @Option(name = "cache_test_results",
-        defaultValue = "auto",
-        category = "testing",
-        abbrev = 't', // it's useful to toggle this on/off quickly
-        help = "If 'auto', Bazel will only rerun a test if any of the following conditions apply: "
-            + "(1) Bazel detects changes in the test or its dependencies "
-            + "(2) the test is marked as external "
-            + "(3) multiple test runs were requested with --runs_per_test"
-            + "(4) the test failed"
-            + "If 'yes', the caching behavior will be the same as 'auto' except that "
-            + "it may cache test failures and test runs with --runs_per_test."
-            + "If 'no', all tests will be always executed.")
-    public TriState cacheTestResults;
-
-    @Deprecated
-    @Option(name = "test_result_expiration",
-        defaultValue = "-1", // No expiration by defualt.
-        category = "testing",
-        help = "This option is deprecated and has no effect.")
-    public int testResultExpiration;
-
-    @Option(name = "test_sharding_strategy",
-        defaultValue = "explicit",
-        category = "testing",
-        converter = TestActionBuilder.ShardingStrategyConverter.class,
-        help = "Specify strategy for test sharding: "
-            + "'explicit' to only use sharding if the 'shard_count' BUILD attribute is present. "
-            + "'disabled' to never use test sharding. "
-            + "'experimental_heuristic' to enable sharding on remotely executed tests without an "
-            + "explicit  'shard_count' attribute which link in a supported framework. Considered "
-            + "experimental.")
-    public TestActionBuilder.TestShardingStrategy testShardingStrategy;
-
-    @Option(name = "runs_per_test",
-        allowMultiple = true,
-        defaultValue = "1",
-        category = "testing",
-        converter = RunsPerTestConverter.class,
-        help = "Specifies number of times to run each test. If any of those attempts "
-            + "fail for any reason, the whole test would be considered failed. "
-            + "Normally the value specified is just an integer. Example: --runs_per_test=3 "
-            + "will run all tests 3 times. "
-            + "Alternate syntax: regex_filter@runs_per_test. Where runs_per_test stands for "
-            + "an integer value and regex_filter stands "
-            + "for a list of include and exclude regular expression patterns (Also see "
-            + "--instrumentation_filter). Example: "
-            + "--runs_per_test=//foo/.*,-//foo/bar/.*@3 runs all tests in //foo/ "
-            + "except those under foo/bar three times. "
-            + "This option can be passed multiple times. ")
-    public List<PerLabelOptions> runsPerTest;
-
-    @Option(name = "build_runfile_links",
-        defaultValue = "true",
-        category = "strategy",
-        help = "If true, build runfiles symlink forests for all targets.  "
-            + "If false, write only manifests when possible.")
-    public boolean buildRunfiles;
-
-    @Option(name = "test_arg",
-        allowMultiple = true,
-        defaultValue = "",
-        category = "testing",
-        help = "Specifies additional options and arguments that should be passed to the test "
-            + "executable. Can be used multiple times to specify several arguments. "
-            + "If multiple tests are executed, each of them will receive identical arguments. "
-            + "Used only by the 'bazel test' command."
-        )
-    public List<String> testArguments;
-
-    @Option(name = "test_filter",
-        allowMultiple = false,
-        defaultValue = "null",
-        category = "testing",
-        help = "Specifies a filter to forward to the test framework.  Used to limit "
-            + "the tests run. Note that this does not affect which targets are built.")
-    public String testFilter;
-
-    @Option(name = "check_fileset_dependencies_recursively",
-        defaultValue = "true",
-        category = "semantics",
-        help = "If false, fileset targets will, whenever possible, create "
-            + "symlinks to directories instead of creating one symlink for each "
-            + "file inside the directory. Disabling this will significantly "
-            + "speed up fileset builds, but targets that depend on filesets will "
-            + "not be rebuilt if files are added, removed or modified in a "
-            + "subdirectory which has not been traversed.")
-    public boolean checkFilesetDependenciesRecursively;
-
-    @Option(name = "run_under",
-        category = "run",
-        defaultValue = "null",
-        converter = RunUnderConverter.class,
-        help = "Prefix to insert in front of command before running. "
-            + "Examples:\n"
-            + "\t--run_under=valgrind\n"
-            + "\t--run_under=strace\n"
-            + "\t--run_under='strace -c'\n"
-            + "\t--run_under='valgrind --quiet --num-callers=20'\n"
-            + "\t--run_under=//package:target\n"
-            + "\t--run_under='//package:target --options'\n")
-    public RunUnder runUnder;
-
-    @Option(name = "distinct_host_configuration",
-        defaultValue = "true",
-        category = "strategy",
-        help = "Build all the tools used during the build for a distinct configuration from "
-            + "that used for the target program.  By default, the same configuration is used "
-            + "for host and target programs, but this may cause undesirable rebuilds of tool "
-            + "such as the protocol compiler (and then everything downstream) whenever a minor "
-            + "change is made to the target configuration, such as setting the linker options.  "
-            + "When this flag is specified, a distinct configuration will be used to build the "
-            + "tools, preventing undesired rebuilds.  However, certain libraries will then "
-            + "need to be compiled twice, once for each configuration, which may cause some "
-            + "builds to be slower.  As a rule of thumb, this option is likely to benefit "
-            + "users that make frequent changes in configuration (e.g. opt/dbg).  "
-            + "Please read the user manual for the full explanation.")
-    public boolean useDistinctHostConfiguration;
-
-    @Option(name = "check_visibility",
-        defaultValue = "true",
-        category = "checking",
-        help = "If disabled, visibility errors are demoted to warnings.")
-    public boolean checkVisibility;
-
-    // Moved from viewOptions to here because license information is very expensive to serialize.
-    // Having it here allows us to skip computation of transitive license information completely
-    // when the setting is disabled.
-    @Option(name = "check_licenses",
-        defaultValue = "false",
-        category = "checking",
-        help = "Check that licensing constraints imposed by dependent packages "
-            + "do not conflict with distribution modes of the targets being built. "
-            + "By default, licenses are not checked.")
-    public boolean checkLicenses;
-
-    @Option(name = "experimental_enforce_constraints",
-        defaultValue = "true",
-        category = "undocumented",
-        help = "Checks the environments each target is compatible with and reports errors if any "
-            + "target has dependencies that don't support the same environments")
-    public boolean enforceConstraints;
-
-    @Option(name = "experimental_action_listener",
-        allowMultiple = true,
-        defaultValue = "",
-        category = "experimental",
-        converter = LabelConverter.class,
-        help = "Use action_listener to attach an extra_action to existing build actions.")
-    public List<Label> actionListeners;
-
-    @Option(name = "is host configuration",
-        defaultValue = "false",
-        category = "undocumented",
-        help = "Shows whether these options are set for host configuration.")
-    public boolean isHost;
-
-    @Option(name = "experimental_proto_header_modules",
-        defaultValue = "false",
-        category = "undocumented",
-        help  = "Enables compilation of C++ header modules for proto libraries.")
-    public boolean protoHeaderModules;
-
-    @Option(name = "features",
-        allowMultiple = true,
-        defaultValue = "",
-        category = "flags",
-        help = "The given features will be enabled or disabled by default for all packages. "
-            + "Specifying -<feature> will disable the feature globally. "
-            + "Negative features always override positive ones. "
-            + "This flag is used to enable rolling out default feature changes without a "
-            + "Blaze release.")
-    public List<String> defaultFeatures;
-
-    @Option(name = "target_environment",
-        converter = LabelConverter.class,
-        allowMultiple = true,
-        defaultValue = "",
-        category = "flags",
-        help = "Declares this build's target environment. Must be a label reference to an "
-            + "\"environment\" rule. If specified, all top-level targets must be "
-            + "compatible with this environment."
-    )
-    public List<Label> targetEnvironments;
-
-    @Override
-    public FragmentOptions getHost(boolean fallback) {
-      Options host = (Options) getDefault();
-
-      host.shortName = "host";
-      host.compilationMode = CompilationMode.OPT;
-      host.isHost = true;
-
-      if (fallback) {
-        // In the fallback case, we have already tried the target options and they didn't work, so
-        // now we try the default options; the hostCpu field has the default value, because we use
-        // getDefault() above.
-        host.cpu = host.hostCpu;
-      } else {
-        host.cpu = hostCpu;
-      }
-
-      // === Runfiles ===
-      // Ideally we could force this the other way, and skip runfiles construction
-      // for host tools which are never run locally, but that's probably a very
-      // small optimization.
-      host.buildRunfiles = true;
-
-      // === Linkstamping ===
-      // Disable all link stamping for the host configuration, to improve action
-      // cache hit rates for tools.
-      host.stampBinaries = false;
-
-      // === Visibility ===
-      host.checkVisibility = checkVisibility;
-
-      // === Licenses ===
-      host.checkLicenses = checkLicenses;
-
-      // === Allow runtime_deps to depend on neverlink Java libraries.
-      host.allowRuntimeDepsOnNeverLink = allowRuntimeDepsOnNeverLink;
-
-      // === Pass on C++ compiler features.
-      host.defaultFeatures = ImmutableList.copyOf(defaultFeatures);
-
-      return host;
-    }
-
-    @Override
-    public void addAllLabels(Multimap<String, Label> labelMap) {
-      labelMap.putAll("action_listener", actionListeners);
-      labelMap.putAll("plugins", pluginList);
-      if ((runUnder != null) && (runUnder.getLabel() != null)) {
-        labelMap.put("RunUnder", runUnder.getLabel());
-      }
-    }
-  }
-
-  /**
-   * All the output directories pertinent to a configuration.
-   */
-  private static final class OutputRoots implements Serializable {
-    private final Root outputDirectory; // the configuration-specific output directory.
-    private final Root binDirectory;
-    private final Root genfilesDirectory;
-    private final Root coverageMetadataDirectory; // for coverage-related metadata, artifacts, etc.
-    private final Root testLogsDirectory;
-    private final Root includeDirectory;
-    private final Root middlemanDirectory;
-
-    private OutputRoots(BlazeDirectories directories, String outputDirName) {
-      Path execRoot = directories.getExecRoot();
-      // configuration-specific output tree
-      Path outputDir = directories.getOutputPath().getRelative(outputDirName);
-      this.outputDirectory = Root.asDerivedRoot(execRoot, outputDir);
-
-      // specific subdirs under outputDirectory
-      this.binDirectory = Root.asDerivedRoot(execRoot, outputDir.getRelative("bin"));
-      this.genfilesDirectory = Root.asDerivedRoot(execRoot, outputDir.getRelative("genfiles"));
-      this.coverageMetadataDirectory = Root.asDerivedRoot(execRoot,
-          outputDir.getRelative("coverage-metadata"));
-      this.testLogsDirectory = Root.asDerivedRoot(execRoot, outputDir.getRelative("testlogs"));
-      this.includeDirectory = Root.asDerivedRoot(execRoot,
-          outputDir.getRelative(BlazeDirectories.RELATIVE_INCLUDE_DIR));
-      this.middlemanDirectory = Root.middlemanRoot(execRoot, outputDir);
-    }
-  }
-
-  /** A list of build configurations that only contains the null element. */
-  private static final List<BuildConfiguration> NULL_LIST =
-      Collections.unmodifiableList(Arrays.asList(new BuildConfiguration[] { null }));
-
-  private final String cacheKey;
-  private final String shortCacheKey;
-
-  private Transitions transitions;
-  private Set<BuildConfiguration> allReachableConfigurations;
-
-  private final ImmutableMap<Class<? extends Fragment>, Fragment> fragments;
-
-  /** Directories in the output tree. */
-  private final OutputRoots outputRoots;
-
-  /** If false, AnalysisEnviroment doesn't register any actions created by the ConfiguredTarget. */
-  private final boolean actionsEnabled;
-
-  private final ImmutableSet<Label> coverageLabels;
-  private final ImmutableSet<Label> coverageReportGeneratorLabels;
-
-  // TODO(bazel-team): Move this to a configuration fragment.
-  private final PathFragment shExecutable;
+  private final OutputDirectories outputDirectories;
+
+  private final ImmutableSortedMap<Class<? extends Fragment>, Fragment> fragments;
+  private final FragmentClassSet fragmentClassSet;
+
+  private final ImmutableMap<String, Class<? extends Fragment>> skylarkVisibleFragments;
+  private final RepositoryName mainRepositoryName;
+  private final ImmutableSet<String> reservedActionMnemonics;
+  private CommandLineLimits commandLineLimits;
 
   /**
    * The global "make variables" such as "$(TARGET_CPU)"; these get applied to all rules analyzed in
@@ -882,154 +148,200 @@ public final class BuildConfiguration implements Serializable {
    */
   private final ImmutableMap<String, String> globalMakeEnv;
 
-  private final ImmutableMap<String, String> defaultShellEnvironment;
+  private final ActionEnvironment actionEnv;
+  private final ActionEnvironment testEnv;
+
   private final BuildOptions buildOptions;
-  private final Options options;
+  private final BuildOptions.OptionsDiffForReconstruction buildOptionsDiff;
+  private final CoreOptions options;
 
-  private final String shortName;
-  private final String mnemonic;
-  private final String platformName;
+  private final ImmutableMap<String, String> commandLineBuildVariables;
+
+  private final String checksum;
+  private final int hashCode; // We can precompute the hash code as all its inputs are immutable.
+
+  /** Data for introspecting the options used by this configuration. */
+  private final TransitiveOptionDetails transitiveOptionDetails;
+
+  private final Supplier<BuildConfigurationEvent> buildEventSupplier;
 
   /**
-   * It is not fingerprinted because it should only be used to access
-   * variables that do not break the hermetism of build rules.
+   * Returns true if this configuration is semantically equal to the other, with the possible
+   * exception that the other has fewer fragments.
+   *
+   * <p>This is useful for trimming: as the same configuration gets "trimmed" while going down a
+   * dependency chain, it's still the same configuration but loses some of its fragments. So we need
+   * a more nuanced concept of "equality" than simple reference equality.
    */
-  private final ImmutableMap<String, String> clientEnvironment;
-
-  /**
-   * Helper container for {@link #transitiveOptionsMap} below.
-   */
-  private static class OptionDetails implements Serializable {
-    private OptionDetails(Class<? extends OptionsBase> optionsClass, Object value,
-        boolean allowsMultiple) {
-      this.optionsClass = optionsClass;
-      this.value = value;
-      this.allowsMultiple = allowsMultiple;
-    }
-
-    /** The {@link FragmentOptions} class that defines this option. */
-    private final Class<? extends OptionsBase> optionsClass;
-
-    /**
-     * The value of the given option (either explicitly defined or default). May be null.
-     */
-    private final Object value;
-
-    /** Whether or not this option supports multiple values. */
-    private final boolean allowsMultiple;
+  // TODO(b/121048710): make this reflect starlark options
+  public boolean equalsOrIsSupersetOf(BuildConfiguration other) {
+    return this.equals(other)
+        || (other != null
+            // TODO(gregce): add back in output root checking. This requires a better approach to
+            // configuration-safe output paths. If the parent config has a fragment the child config
+            // doesn't, it may inject $(FOO) into the output roots. So the child bindir might be
+            // "bazel-out/arm-linux-fastbuild/bin" while the parent bindir is
+            // "bazel-out/android-arm-linux-fastbuild/bin". That's pretty awkward to check here.
+            //      && outputRoots.equals(other.outputRoots)
+            && fragments.values().containsAll(other.fragments.values())
+            && buildOptions.getNativeOptions().containsAll(other.buildOptions.getNativeOptions()));
   }
 
   /**
-   * Maps option names to the {@link OptionDetails} the option takes for this configuration.
-   *
-   * <p>This can be used to:
-   * <ol>
-   *   <li>Find an option's (parsed) value given its command-line name</li>
-   *   <li>Parse alternative values for the option.</li>
-   * </ol>
-   *
-   * <p>This map is "transitive" in that it includes *all* options recognizable by this
-   * configuration, including those defined in child fragments.
+   * Returns {@code true} if this configuration is semantically equal to the other, including
+   * checking that both have the same sets of fragments and options.
    */
-  private final Map<String, OptionDetails> transitiveOptionsMap;
+  @Override
+  public boolean equals(Object other) {
+    if (this == other) {
+      return true;
+    }
+    if (!(other instanceof BuildConfiguration)) {
+      return false;
+    }
+    BuildConfiguration otherConfig = (BuildConfiguration) other;
+    return fragments.values().equals(otherConfig.fragments.values())
+        && buildOptions.equals(otherConfig.buildOptions);
+  }
 
+  private int computeHashCode() {
+    return Objects.hash(fragments, buildOptions.getNativeOptions());
+  }
+
+  public void describe(StringBuilder sb) {
+    sb.append("BuildConfiguration ").append(checksum()).append(":\n");
+    // Fragments.
+    sb.append("  fragments: ")
+        .append(
+            getFragmentsMap().keySet().stream()
+                .sorted(comparing(Class::getName))
+                .map(Class::getName)
+                .collect(joining(",")))
+        .append("\n");
+    // Options.
+    getOptions().getFragmentClasses().stream()
+        .sorted(comparing(Class::getName))
+        .map(optionsClass -> getOptions().get(optionsClass))
+        .forEach(options -> options.describe(sb));
+    // User-defined options.
+    sb.append("Fragment user-defined {\n");
+    buildOptions.getStarlarkOptions().entrySet().stream()
+        .sorted(Comparator.comparing(Map.Entry::getKey))
+        .forEach(
+            entry ->
+                sb.append("  ")
+                    .append(entry.getKey().toString())
+                    .append(": ")
+                    .append(entry.getValue()));
+    sb.append("\n}");
+  }
+
+  @Override
+  public int hashCode() {
+    return hashCode;
+  }
+
+  /** Returns map of all the fragments for this configuration. */
+  public ImmutableMap<Class<? extends Fragment>, Fragment> getFragmentsMap() {
+    return fragments;
+  }
 
   /**
-   * Validates the options for this BuildConfiguration. Issues warnings for the
-   * use of deprecated options, and warnings or errors for any option settings
-   * that conflict.
+   * Validates the options for this BuildConfiguration. Issues warnings for the use of deprecated
+   * options, and warnings or errors for any option settings that conflict.
    */
   public void reportInvalidOptions(EventHandler reporter) {
     for (Fragment fragment : fragments.values()) {
       fragment.reportInvalidOptions(reporter, this.buildOptions);
     }
 
-    Set<String> plugins = new HashSet<>();
-    for (Label plugin : options.pluginList) {
-      String name = plugin.getName();
-      if (plugins.contains(name)) {
-        reporter.handle(Event.error("A build cannot have two plugins with the same name"));
-      }
-      plugins.add(name);
-    }
-    for (Map.Entry<String, String> opt : options.pluginCoptList) {
-      if (!plugins.contains(opt.getKey())) {
-        reporter.handle(Event.error("A plugin_copt must refer to an existing plugin"));
-      }
-    }
-
-    if (options.shortName != null) {
-      reporter.handle(Event.error(
-          "The internal '--configuration short name' option cannot be used on the command line"));
-    }
-
-    if (options.testShardingStrategy
-        == TestActionBuilder.TestShardingStrategy.EXPERIMENTAL_HEURISTIC) {
-      reporter.handle(Event.warn(
-          "Heuristic sharding is intended as a one-off experimentation tool for determing the "
-          + "benefit from sharding certain tests. Please don't keep this option in your "
-          + ".blazerc or continuous build"));
+    if (options.outputDirectoryName != null) {
+      reporter.handle(
+          Event.error(
+              "The internal '--output directory name' option cannot be used on the command line"));
     }
   }
 
-  private ImmutableMap<String, String> setupShellEnvironment() {
-    ImmutableMap.Builder<String, String> builder = new ImmutableMap.Builder<>();
-    for (Fragment fragment : fragments.values()) {
-      fragment.setupShellEnvironment(builder);
+  /**
+   * Compute the test environment, which, at configuration level, is a pair consisting of the
+   * statically set environment variables with their values and the set of environment variables to
+   * be inherited from the client environment.
+   */
+  private ActionEnvironment setupTestEnvironment() {
+    // We make a copy first to remove duplicate entries; last one wins.
+    Map<String, String> testEnv = new HashMap<>();
+    for (Map.Entry<String, String> entry : options.testEnvironment) {
+      testEnv.put(entry.getKey(), entry.getValue());
     }
-    return builder.build();
+    return ActionEnvironment.split(testEnv);
   }
 
-  BuildConfiguration(BlazeDirectories directories,
-                     Map<Class<? extends Fragment>, Fragment> fragmentsMap,
-                     BuildOptions buildOptions,
-                     Map<String, String> clientEnv,
-                     boolean actionsDisabled) {
-    this.actionsEnabled = !actionsDisabled;
-    fragments = ImmutableMap.copyOf(fragmentsMap);
+  private static ImmutableSortedMap<Class<? extends Fragment>, Fragment> makeFragmentsMap(
+      Map<Class<? extends Fragment>, Fragment> fragmentsMap) {
+    return fragmentsInterner.intern(ImmutableSortedMap.copyOf(fragmentsMap, lexicalFragmentSorter));
+  }
 
-    // This is a view that will be updated upon each client command.
-    this.clientEnvironment = ImmutableMap.copyOf(clientEnv);
+  /** Constructs a new BuildConfiguration instance. */
+  public BuildConfiguration(
+      BlazeDirectories directories,
+      Map<Class<? extends Fragment>, Fragment> fragmentsMap,
+      BuildOptions buildOptions,
+      BuildOptions.OptionsDiffForReconstruction buildOptionsDiff,
+      ImmutableSet<String> reservedActionMnemonics,
+      ActionEnvironment actionEnvironment,
+      String repositoryName) {
+    this(
+        directories,
+        fragmentsMap,
+        buildOptions,
+        buildOptionsDiff,
+        reservedActionMnemonics,
+        actionEnvironment,
+        RepositoryName.createFromValidStrippedName(repositoryName));
+  }
 
-    this.buildOptions = buildOptions;
-    this.options = buildOptions.get(Options.class);
+  @AutoCodec.VisibleForSerialization
+  @AutoCodec.Instantiator
+  BuildConfiguration(
+      BlazeDirectories directories,
+      Map<Class<? extends Fragment>, Fragment> fragmentsMap,
+      BuildOptions buildOptions,
+      BuildOptions.OptionsDiffForReconstruction buildOptionsDiff,
+      ImmutableSet<String> reservedActionMnemonics,
+      ActionEnvironment actionEnvironment,
+      RepositoryName mainRepositoryName) {
+    // this.directories = directories;
+    this.fragments = makeFragmentsMap(fragmentsMap);
+    this.fragmentClassSet = FragmentClassSet.of(this.fragments.keySet());
+    this.skylarkVisibleFragments = buildIndexOfSkylarkVisibleFragments();
+    this.buildOptions = buildOptions.clone();
+    this.buildOptionsDiff = buildOptionsDiff;
+    this.options = buildOptions.get(CoreOptions.class);
+    this.outputDirectories =
+        new OutputDirectories(directories, options, fragments, mainRepositoryName);
+    this.mainRepositoryName = mainRepositoryName;
 
-    this.mnemonic = buildMnemonic();
-    String outputDirName = (options.shortName != null) ? options.shortName : mnemonic;
-    this.shortName = buildShortName(outputDirName);
-    this.platformName = buildPlatformName();
-
-    this.shExecutable = collectExecutables().get("sh");
-
-    this.outputRoots = new OutputRoots(directories, outputDirName);
-
-    ImmutableSet.Builder<Label> coverageLabelsBuilder = ImmutableSet.builder();
-    ImmutableSet.Builder<Label> coverageReportGeneratorLabelsBuilder = ImmutableSet.builder();
-    for (Fragment fragment : fragments.values()) {
-      coverageLabelsBuilder.addAll(fragment.getCoverageLabels());
-      coverageReportGeneratorLabelsBuilder.addAll(fragment.getCoverageReportGeneratorLabels());
+    // We can't use an ImmutableMap.Builder here; we need the ability to add entries with keys that
+    // are already in the map so that the same define can be specified on the command line twice,
+    // and ImmutableMap.Builder does not support that.
+    Map<String, String> commandLineDefinesBuilder = new TreeMap<>();
+    for (Map.Entry<String, String> define : options.commandLineBuildVariables) {
+      commandLineDefinesBuilder.put(define.getKey(), define.getValue());
     }
-    this.coverageLabels = coverageLabelsBuilder.build();
-    this.coverageReportGeneratorLabels = coverageReportGeneratorLabelsBuilder.build();
+    commandLineBuildVariables = ImmutableMap.copyOf(commandLineDefinesBuilder);
 
-    this.defaultShellEnvironment = setupShellEnvironment();
-
-    this.transitiveOptionsMap = computeOptionsMap(buildOptions, fragments.values());
+    this.actionEnv = actionEnvironment;
+    this.testEnv = setupTestEnvironment();
+    this.transitiveOptionDetails =
+        TransitiveOptionDetails.forOptions(
+            buildOptions.getNativeOptions(), buildOptions.getStarlarkOptions());
 
     ImmutableMap.Builder<String, String> globalMakeEnvBuilder = ImmutableMap.builder();
-    for (Fragment fragment : fragments.values()) {
-      fragment.addGlobalMakeVariables(globalMakeEnvBuilder);
-    }
 
-    // Lots of packages in third_party assume that BINMODE expands to either "-dbg", or "-opt". So
-    // for backwards compatibility we preserve that invariant, setting BINMODE to "-dbg" rather than
-    // "-fastbuild" if the compilation mode is "fastbuild".
-    // We put the real compilation mode in a new variable COMPILATION_MODE.
+    // TODO(configurability-team): Deprecate TARGET_CPU in favor of platforms.
+    globalMakeEnvBuilder.put("TARGET_CPU", options.cpu);
     globalMakeEnvBuilder.put("COMPILATION_MODE", options.compilationMode.toString());
-    globalMakeEnvBuilder.put("BINMODE", "-"
-        + ((options.compilationMode == CompilationMode.FASTBUILD)
-            ? "dbg"
-            : options.compilationMode.toString()));
+
     /*
      * Attention! Document these in the build-encyclopedia
      */
@@ -1037,386 +349,154 @@ public final class BuildConfiguration implements Serializable {
     // These variables will be used on Windows as well, so we need to make sure
     // that paths use the correct system file-separator.
     globalMakeEnvBuilder.put("BINDIR", getBinDirectory().getExecPath().getPathString());
-    globalMakeEnvBuilder.put("INCDIR",
-        getIncludeDirectory().getExecPath().getPathString());
     globalMakeEnvBuilder.put("GENDIR", getGenfilesDirectory().getExecPath().getPathString());
     globalMakeEnv = globalMakeEnvBuilder.build();
 
-    cacheKey = computeCacheKey(
-        directories, fragmentsMap, this.buildOptions, this.clientEnvironment);
-    shortCacheKey = shortName + "-" + Fingerprint.md5Digest(cacheKey);
-  }
+    checksum = buildOptions.computeChecksum();
+    hashCode = computeHashCode();
 
+    this.reservedActionMnemonics = reservedActionMnemonics;
+    this.buildEventSupplier = Suppliers.memoize(this::createBuildEvent);
+    this.commandLineLimits = new CommandLineLimits(options.minParamFileSize);
+  }
 
   /**
-   * Computes and returns the transitive optionName -> "option info" map for
-   * this configuration.
+   * Returns a copy of this configuration only including the given fragments (which the current
+   * configuration is assumed to have).
    */
-  private static Map<String, OptionDetails> computeOptionsMap(BuildOptions buildOptions,
-      Iterable<Fragment> fragments) {
-    // Collect from our fragments "alternative defaults" for options where the default
-    // should be something other than what's specified in Option.defaultValue.
-    Map<String, Object> lateBoundDefaults = Maps.newHashMap();
-    for (Fragment fragment : fragments) {
-      lateBoundDefaults.putAll(fragment.lateBoundOptionDefaults());
-    }
+  public BuildConfiguration clone(
+      FragmentClassSet fragmentClasses,
+      RuleClassProvider ruleClassProvider,
+      BuildOptions defaultBuildOptions) {
 
-    ImmutableMap.Builder<String, OptionDetails> map = ImmutableMap.builder();
-    try {
-      for (FragmentOptions options : buildOptions.getOptions()) {
-        for (Field field : options.getClass().getFields()) {
-          if (field.isAnnotationPresent(Option.class)) {
-            Option option = field.getAnnotation(Option.class);
-            Object value = field.get(options);
-            if (value == null) {
-              if (lateBoundDefaults.containsKey(option.name())) {
-                value = lateBoundDefaults.get(option.name());
-              } else if (!option.defaultValue().equals("null")) {
-                 // See {@link Option#defaultValue} for an explanation of default "null" strings.
-                value = option.defaultValue();
-              }
-            }
-            map.put(option.name(),
-                new OptionDetails(options.getClass(), value, option.allowMultiple()));
-          }
-        }
-      }
-    } catch (IllegalAccessException e) {
-      throw new IllegalStateException(
-          "Unexpected illegal access trying to create this configuration's options map: ", e);
-    }
-    return map.build();
-  }
-
-  private String buildShortName(String outputDirName) {
-    ArrayList<String> nameParts = new ArrayList<>(ImmutableList.of(outputDirName));
+    ClassToInstanceMap<Fragment> fragmentsMap = MutableClassToInstanceMap.create();
     for (Fragment fragment : fragments.values()) {
-      nameParts.add(fragment.getConfigurationNameSuffix());
-    }
-    return Joiner.on('-').skipNulls().join(nameParts);
-  }
-
-  private String buildMnemonic() {
-    // See explanation at getShortName().
-    String platformSuffix = (options.platformSuffix != null) ? options.platformSuffix : "";
-    ArrayList<String> nameParts = new ArrayList<>();
-    for (Fragment fragment : fragments.values()) {
-      nameParts.add(fragment.getOutputDirectoryName());
-    }
-    nameParts.add(getCompilationMode() + platformSuffix);
-    return Joiner.on('-').skipNulls().join(nameParts);
-  }
-
-  private String buildPlatformName() {
-    StringBuilder platformNameBuilder = new StringBuilder();
-    for (Fragment fragment : fragments.values()) {
-      platformNameBuilder.append(fragment.getPlatformName());
-    }
-    return platformNameBuilder.toString();
-  }
-
-  /**
-   * Set the outgoing configuration transitions. During the lifetime of a given build configuration,
-   * this must happen exactly once, shortly after the configuration is created.
-   * TODO(bazel-team): this makes the object mutable, get rid of it.
-   */
-  public void setConfigurationTransitions(Transitions transitions) {
-    Preconditions.checkNotNull(transitions);
-    Preconditions.checkState(this.transitions == null);
-    this.transitions = transitions;
-  }
-
-  public Transitions getTransitions() {
-    Preconditions.checkState(this.transitions != null || isHostConfiguration());
-    return transitions;
-  }
-
-  /**
-   * Returns all configurations that can be reached from this configuration through any kind of
-   * configuration transition.
-   */
-  public synchronized Collection<BuildConfiguration> getAllReachableConfigurations() {
-    if (allReachableConfigurations == null) {
-      // This is needed for every configured target in skyframe m2, so we cache it.
-      // We could alternatively make the corresponding dependencies into a skyframe node.
-      this.allReachableConfigurations = computeAllReachableConfigurations();
-    }
-    return allReachableConfigurations;
-  }
-
-  /**
-   * Returns all configurations that can be reached from this configuration through any kind of
-   * configuration transition.
-   */
-  private Set<BuildConfiguration> computeAllReachableConfigurations() {
-    Set<BuildConfiguration> result = new LinkedHashSet<>();
-    Queue<BuildConfiguration> queue = new LinkedList<>();
-    queue.add(this);
-    while (!queue.isEmpty()) {
-      BuildConfiguration config = queue.remove();
-      if (!result.add(config)) {
-        continue;
-      }
-      config.getTransitions().addDirectlyReachableConfigurations(queue);
-    }
-    return result;
-  }
-
-  /**
-   * Returns the new configuration after traversing a dependency edge with a given configuration
-   * transition.
-   *
-   * @param transition the configuration transition
-   * @return the new configuration
-   * @throws IllegalArgumentException if the transition is a {@link SplitTransition}
-   */
-  public BuildConfiguration getConfiguration(Transition transition) {
-    Preconditions.checkArgument(!(transition instanceof SplitTransition));
-    return transitions.getConfiguration(transition);
-  }
-
-  /**
-   * Returns the new configurations after traversing a dependency edge with a given split
-   * transition.
-   *
-   * @param transition the split configuration transition
-   * @return the new configurations
-   */
-  public List<BuildConfiguration> getSplitConfigurations(SplitTransition<?> transition) {
-    return transitions.getSplitConfigurations(transition);
-  }
-
-  /**
-   * Calculates the configurations of a direct dependency. If a rule in some BUILD file refers
-   * to a target (like another rule or a source file) using a label attribute, that target needs
-   * to have a configuration, too. This method figures out the proper configuration for the
-   * dependency.
-   *
-   * @param fromRule the rule that's depending on some target
-   * @param attribute the attribute using which the rule depends on that target (eg. "srcs")
-   * @param toTarget the target that's dependeded on
-   * @return the configuration that should be associated to {@code toTarget}
-   */
-  public Iterable<BuildConfiguration> evaluateTransition(final Rule fromRule,
-      final Attribute attribute, final Target toTarget) {
-    // Fantastic configurations and where to find them:
-
-    // I. Input files and package groups have no configurations. We don't want to duplicate them.
-    if (toTarget instanceof InputFile || toTarget instanceof PackageGroup) {
-      return NULL_LIST;
-    }
-
-    // II. Host configurations never switch to another. All prerequisites of host targets have the
-    // same host configuration.
-    if (isHostConfiguration()) {
-      return ImmutableList.of(this);
-    }
-
-    // Make sure config_setting dependencies are resolved in the referencing rule's configuration,
-    // unconditionally. For example, given:
-    //
-    // genrule(
-    //     name = 'myrule',
-    //     tools = select({ '//a:condition': [':sometool'] })
-    //
-    // all labels in "tools" get resolved in the host configuration (since the "tools" attribute
-    // declares a host configuration transition). We want to explicitly exclude configuration labels
-    // from these transitions, since their *purpose* is to do computation on the owning
-    // rule's configuration.
-    // TODO(bazel-team): implement this more elegantly. This is far too hackish. Specifically:
-    // don't reference the rule name explicitly and don't require special-casing here.
-    if (toTarget instanceof Rule && ((Rule) toTarget).getRuleClass().equals("config_setting")) {
-      return ImmutableList.of(this);
-    }
-
-    List<BuildConfiguration> toConfigurations;
-    if (attribute.getConfigurationTransition() instanceof SplitTransition) {
-      Preconditions.checkState(attribute.getConfigurator() == null);
-      toConfigurations = getSplitConfigurations(
-          (SplitTransition<?>) attribute.getConfigurationTransition());
-    } else {
-      // III. Attributes determine configurations. The configuration of a prerequisite is determined
-      // by the attribute.
-      @SuppressWarnings("unchecked")
-      Configurator<BuildConfiguration, Rule> configurator =
-          (Configurator<BuildConfiguration, Rule>) attribute.getConfigurator();
-      toConfigurations = ImmutableList.of((configurator != null)
-          ? configurator.apply(fromRule, this, attribute, toTarget)
-          : getConfiguration(attribute.getConfigurationTransition()));
-    }
-
-    return Iterables.transform(toConfigurations,
-        new Function<BuildConfiguration, BuildConfiguration>() {
-      @Override
-      public BuildConfiguration apply(BuildConfiguration input) {
-        // IV. Allow the transition object to perform an arbitrary switch. Blaze modules can inject
-        // configuration transition logic by extending the Transitions class.
-        BuildConfiguration actual = getTransitions().configurationHook(
-            fromRule, attribute, toTarget, input);
-
-        // V. Allow rule classes to override their own configurations.
-        Rule associatedRule = toTarget.getAssociatedRule();
-        if (associatedRule != null) {
-          @SuppressWarnings("unchecked")
-          RuleClass.Configurator<BuildConfiguration, Rule> func =
-              associatedRule.getRuleClassObject().<BuildConfiguration, Rule>getConfigurator();
-          actual = func.apply(associatedRule, actual);
-        }
-
-        return actual;
-      }
-    });
-  }
-
-  /**
-   * Returns a multimap of all labels that should be implicitly loaded from labels that were
-   * specified as options, keyed by the name to be displayed to the user if something goes wrong.
-   * The returned set only contains labels that were derived from command-line options; the
-   * intention is that it can be used to sanity-check that the command-line options actually contain
-   * these in their transitive closure.
-   */
-  public ListMultimap<String, Label> getImplicitLabels() {
-    ListMultimap<String, Label> implicitLabels = ArrayListMultimap.create();
-    for (Fragment fragment : fragments.values()) {
-      fragment.addImplicitLabels(implicitLabels);
-    }
-    return implicitLabels;
-  }
-
-  /**
-   * For an given environment, returns a subset containing all
-   * variables in the given list if they are defined in the given
-   * environment.
-   */
-  @VisibleForTesting
-  static Map<String, String> getMapping(List<String> variables,
-                                        Map<String, String> environment) {
-    Map<String, String> result = new HashMap<>();
-    for (String var : variables) {
-      if (environment.containsKey(var)) {
-        result.put(var, environment.get(var));
+      if (fragmentClasses.fragmentClasses().contains(fragment.getClass())) {
+        fragmentsMap.put(fragment.getClass(), fragment);
       }
     }
-    return result;
+    BuildOptions options =
+        buildOptions.trim(getOptionsClasses(fragmentsMap.keySet(), ruleClassProvider));
+    BuildConfiguration newConfig =
+        new BuildConfiguration(
+            getDirectories(),
+            fragmentsMap,
+            options,
+            BuildOptions.diffForReconstruction(defaultBuildOptions, options),
+            reservedActionMnemonics,
+            actionEnv,
+            mainRepositoryName.strippedName());
+    return newConfig;
+  }
+
+  /** Returns the config fragment options classes used by the given fragment types. */
+  public static Set<Class<? extends FragmentOptions>> getOptionsClasses(
+      Iterable<Class<? extends Fragment>> fragmentClasses, RuleClassProvider ruleClassProvider) {
+
+    Multimap<Class<? extends BuildConfiguration.Fragment>, Class<? extends FragmentOptions>>
+        fragmentToRequiredOptions = ArrayListMultimap.create();
+    for (ConfigurationFragmentFactory fragmentLoader :
+        ((ConfiguredRuleClassProvider) ruleClassProvider).getConfigurationFragments()) {
+      fragmentToRequiredOptions.putAll(fragmentLoader.creates(), fragmentLoader.requiredOptions());
+    }
+    Set<Class<? extends FragmentOptions>> options = new HashSet<>();
+    for (Class<? extends BuildConfiguration.Fragment> fragmentClass : fragmentClasses) {
+      options.addAll(fragmentToRequiredOptions.get(fragmentClass));
+    }
+    return options;
+  }
+
+  private ImmutableMap<String, Class<? extends Fragment>> buildIndexOfSkylarkVisibleFragments() {
+    ImmutableMap.Builder<String, Class<? extends Fragment>> builder = ImmutableMap.builder();
+
+    for (Class<? extends Fragment> fragmentClass : fragments.keySet()) {
+      SkylarkModule module = SkylarkInterfaceUtils.getSkylarkModule(fragmentClass);
+      if (module != null) {
+        builder.put(module.name(), fragmentClass);
+      }
+    }
+    return builder.build();
   }
 
   /**
-   * Avoid this method. The client environment is not part of the configuration's signature, so
-   * calls to this method introduce a non-hermetic access to data that is not visible to Skyframe.
+   * Retrieves the {@link TransitiveOptionDetails} containing data on this configuration's options.
    *
-   * @return an unmodifiable view of the bazel client's environment
-   *         upon its most recent request.
+   * @see BuildConfigurationOptionDetails
    */
-  // TODO(bazel-team): Remove this.
-  public Map<String, String> getClientEnv() {
-    return clientEnvironment;
+  TransitiveOptionDetails getTransitiveOptionDetails() {
+    return transitiveOptionDetails;
+  }
+
+  /** Returns the output directory for this build configuration. */
+  public ArtifactRoot getOutputDirectory(RepositoryName repositoryName) {
+    return outputDirectories.getOutputDirectory();
+  }
+
+  @Override
+  public ArtifactRoot getBinDir() {
+    return outputDirectories.getBinDirectory();
+  }
+
+  /** Returns the bin directory for this build configuration. */
+  public ArtifactRoot getBinDirectory() {
+    return outputDirectories.getBinDirectory();
   }
 
   /**
-   * Returns the {@link Option} class the defines the given option, null if the
-   * option isn't recognized.
-   *
-   * <p>optionName is the name of the option as it appears on the command line
-   * e.g. {@link Option#name}).
+   * TODO(kchodorow): This (and the other get*Directory functions) won't work with external
+   * repositories without changes to how ArtifactFactory resolves derived roots. This is not an
+   * issue right now because it only effects Blaze's include scanning (internal) and Bazel's
+   * repositories (external) but will need to be fixed.
    */
-  Class<? extends OptionsBase> getOptionClass(String optionName) {
-    OptionDetails optionData = transitiveOptionsMap.get(optionName);
-    return optionData == null ? null : optionData.optionsClass;
+  public ArtifactRoot getBinDirectory(RepositoryName repositoryName) {
+    return outputDirectories.getBinDirectory();
   }
 
-  /**
-   * Returns the value of the specified option for this configuration or null if the
-   * option isn't recognized. Since an option's legitimate value could be null, use
-   * {@link #getOptionClass} to distinguish between that and an unknown option.
-   *
-   * <p>optionName is the name of the option as it appears on the command line
-   * e.g. {@link Option#name}).
-   */
-  Object getOptionValue(String optionName) {
-    OptionDetails optionData = transitiveOptionsMap.get(optionName);
-    return (optionData == null) ? null : optionData.value;
-  }
-
-  /**
-   * Returns whether or not the given option supports multiple values at the command line (e.g.
-   * "--myoption value1 --myOption value2 ..."). Returns false for unrecognized options. Use
-   * {@link #getOptionClass} to distinguish between those and legitimate single-value options.
-   *
-   * <p>As declared in {@link Option#allowMultiple}, multi-value options are expected to be
-   * of type {@code List<T>}.
-   */
-  boolean allowsMultipleValues(String optionName) {
-    OptionDetails optionData = transitiveOptionsMap.get(optionName);
-    return (optionData == null) ? false : optionData.allowsMultiple;
-  }
-
-  /**
-   * The platform string, suitable for use as a key into a MakeEnvironment.
-   */
-  public String getPlatformName() {
-    return platformName;
-  }
-
-  /**
-   * Returns the output directory for this build configuration.
-   */
-  public Root getOutputDirectory() {
-    return outputRoots.outputDirectory;
-  }
-
-  /**
-   * Returns the bin directory for this build configuration.
-   */
-  @SkylarkCallable(name = "bin_dir", structField = true,
-      doc = "The root corresponding to bin directory.")
-  public Root getBinDirectory() {
-    return outputRoots.binDirectory;
-  }
-
-  /**
-   * Returns a relative path to the bin directory at execution time.
-   */
+  /** Returns a relative path to the bin directory at execution time. */
   public PathFragment getBinFragment() {
-    return getBinDirectory().getExecPath();
+    return outputDirectories.getBinDirectory().getExecPath();
+  }
+
+  /** Returns the include directory for this build configuration. */
+  public ArtifactRoot getIncludeDirectory(RepositoryName repositoryName) {
+    return outputDirectories.getIncludeDirectory();
+  }
+
+  @Override
+  public ArtifactRoot getGenfilesDir() {
+    return outputDirectories.getGenfilesDirectory();
+  }
+
+  /** Returns the genfiles directory for this build configuration. */
+  public ArtifactRoot getGenfilesDirectory() {
+    return outputDirectories.getGenfilesDirectory();
+  }
+
+  public ArtifactRoot getGenfilesDirectory(RepositoryName repositoryName) {
+    return outputDirectories.getGenfilesDirectory();
+  }
+
+  public boolean hasSeparateGenfilesDirectory() {
+    return !outputDirectories.mergeGenfilesDirectory();
   }
 
   /**
-   * Returns the include directory for this build configuration.
+   * Returns the directory where coverage-related artifacts and metadata files should be stored.
+   * This includes for example uninstrumented class files needed for Jacoco's coverage reporting
+   * tools.
    */
-  public Root getIncludeDirectory() {
-    return outputRoots.includeDirectory;
+  public ArtifactRoot getCoverageMetadataDirectory(RepositoryName repositoryName) {
+    return outputDirectories.getCoverageMetadataDirectory();
   }
 
-  /**
-   * Returns the genfiles directory for this build configuration.
-   */
-  @SkylarkCallable(name = "genfiles_dir", structField = true,
-      doc = "The root corresponding to genfiles directory.")
-  public Root getGenfilesDirectory() {
-    return outputRoots.genfilesDirectory;
+  /** Returns the testlogs directory for this build configuration. */
+  public ArtifactRoot getTestLogsDirectory(RepositoryName repositoryName) {
+    return outputDirectories.getTestLogsDirectory();
   }
 
-  /**
-   * Returns the directory where coverage-related artifacts and metadata files
-   * should be stored. This includes for example uninstrumented class files
-   * needed for Jacoco's coverage reporting tools.
-   */
-  public Root getCoverageMetadataDirectory() {
-    return outputRoots.coverageMetadataDirectory;
-  }
-
-  /**
-   * Returns the testlogs directory for this build configuration.
-   */
-  public Root getTestLogsDirectory() {
-    return outputRoots.testLogsDirectory;
-  }
-
-  /**
-   * Returns a relative path to the genfiles directory at execution time.
-   */
+  /** Returns a relative path to the genfiles directory at execution time. */
   public PathFragment getGenfilesFragment() {
-    return getGenfilesDirectory().getExecPath();
+    return outputDirectories.getGenfilesFragment();
   }
 
   /**
@@ -1425,227 +505,147 @@ public final class BuildConfiguration implements Serializable {
    * not match the host platform. You should only use this when invoking tools that are known to use
    * the native path separator, i.e., the path separator for the machine that they run on.
    */
-  @SkylarkCallable(name = "host_path_separator", structField = true,
-      doc = "Returns the separator for PATH environment variable, which is ':' on Unix.")
+  @Override
   public String getHostPathSeparator() {
-    // TODO(bazel-team): This needs to change when we support Windows.
-    return ":";
+    return outputDirectories.getHostPathSeparator();
   }
 
-  /**
-   * Returns the internal directory (used for middlemen) for this build configuration.
-   */
-  public Root getMiddlemanDirectory() {
-    return outputRoots.middlemanDirectory;
-  }
-
-  public boolean getAllowRuntimeDepsOnNeverLink() {
-    return options.allowRuntimeDepsOnNeverLink;
+  /** Returns the internal directory (used for middlemen) for this build configuration. */
+  public ArtifactRoot getMiddlemanDirectory(RepositoryName repositoryName) {
+    return outputDirectories.getMiddlemanDirectory();
   }
 
   public boolean isStrictFilesets() {
     return options.strictFilesets;
   }
 
-  public List<Label> getPlugins() {
-    return options.pluginList;
+  public boolean isStrictFilesetOutput() {
+    return options.strictFilesetOutput;
   }
 
-  public List<Map.Entry<String, String>> getPluginCopts() {
-    return options.pluginCoptList;
-  }
-
-  /**
-   *  Implements a non-injective mapping from BuildConfiguration instances to
-   *  strings.  The result should identify the aspects of the configuration
-   *  that should be reflected in the output file names.  Furthermore the
-   *  returned string must not contain shell metacharacters.
-   *
-   *  <p>The intention here is that we use this string as the directory name
-   *  for artifacts of this build.
-   *
-   *  <p>For configuration settings which are NOT part of the short name,
-   *  rebuilding with a different value of such a setting will build in
-   *  the same output directory.  This means that any actions whose
-   *  keys (see Action.getKey()) have changed will be rerun.  That
-   *  may result in a lot of recompilation.
-   *
-   *  <p>For configuration settings which ARE part of the short name,
-   *  rebuilding with a different value of such a setting will rebuild
-   *  in a different output directory; this will result in higher disk
-   *  usage and more work the _first_ time you rebuild with a different
-   *  setting, but will result in less work if you regularly switch
-   *  back and forth between different settings.
-   *
-   *  <p>With one important exception, it's sound to choose any subset of the
-   *  config's components for this string, it just alters the dimensionality
-   *  of the cache.  In other words, it's a trade-off on the "injectiveness"
-   *  scale: at one extreme (shortName is in fact a complete fingerprint, and
-   *  thus injective) you get extremely precise caching (no competition for the
-   *  same output-file locations) but you have to rebuild for even the
-   *  slightest change in configuration.  At the other extreme
-   *  (PartialFingerprint is a constant) you have very high competition for
-   *  output-file locations, but if a slight change in configuration doesn't
-   *  affect a particular build step, you're guaranteed not to have to
-   *  rebuild it.   The important exception has to do with cross-compilation:
-   *  the host and target configurations must not map to the same output
-   *  directory, because then files would need to get built for the host
-   *  and then rebuilt for the target even within a single build, and that
-   *  wouldn't work.
-   *
-   *  <p>Just to re-iterate: cross-compilation builds (i.e. hostConfig !=
-   *  targetConfig) will not work if the two configurations' short names are
-   *  equal.  This is an important practical case: the mere addition of
-   *  a compile flag to the target configuration would cause the build to
-   *  fail.  In other words, it would break if the host and target
-   *  configurations are not identical but are "too close".  The current
-   *  solution is to set the host configuration equal to the target
-   *  configuration if they are "too close"; this may cause the tools to get
-   *  rebuild for the new host configuration though.
-   */
-  public String getShortName() {
-    return shortName;
+  public String getMainRepositoryName() {
+    return mainRepositoryName.strippedName();
   }
 
   /**
-   * Like getShortName(), but always returns a configuration-dependent string even for
-   * the host configuration.
+   * Returns the configuration-dependent string for this configuration. This is also the name of the
+   * configuration's base output directory unless {@link CoreOptions#outputDirectoryName} overrides
+   * it.
    */
   public String getMnemonic() {
-    return mnemonic;
+    return outputDirectories.getMnemonic();
   }
 
   @Override
   public String toString() {
-    return getShortName();
+    return checksum();
+  }
+
+  public ActionEnvironment getActionEnvironment() {
+    return actionEnv;
   }
 
   /**
-   * Returns the default shell environment
+   * Return the "fixed" part of the actions' environment variables.
+   *
+   * <p>An action's full set of environment variables consist of a "fixed" part and of a "variable"
+   * part. The "fixed" variables are independent of the Bazel client's own environment, and are
+   * returned by this function. The "variable" ones are inherited from the Bazel client's own
+   * environment, and are returned by {@link #getVariableShellEnvironment}.
+   *
+   * <p>Since values of the "fixed" variables are already known at analysis phase, it is returned
+   * here as a map.
    */
-  @SkylarkCallable(name = "default_shell_env", structField = true,
-      doc = "A dictionary representing the default environment. It maps variables "
-      + "to their values (strings).")
-  public ImmutableMap<String, String> getDefaultShellEnvironment() {
-    return defaultShellEnvironment;
+  @Override
+  public ImmutableMap<String, String> getLocalShellEnvironment() {
+    return actionEnv.getFixedEnv().toMap();
   }
 
   /**
-   * Returns the path to sh.
+   * Return the "variable" part of the actions' environment variables.
+   *
+   * <p>An action's full set of environment variables consist of a "fixed" part and of a "variable"
+   * part. The "fixed" variables are independent of the Bazel client's own environment, and are
+   * returned by {@link #getLocalShellEnvironment}. The "variable" ones are inherited from the Bazel
+   * client's own environment, and are returned by this function.
+   *
+   * <p>The values of the "variable" variables are tracked in Skyframe via the {@link
+   * com.google.devtools.build.lib.skyframe.SkyFunctions#CLIENT_ENVIRONMENT_VARIABLE} skyfunction.
+   * This method only returns the names of those variables to be inherited, if set in the client's
+   * environment. (Variables where the name is not returned in this set should not be taken from the
+   * client environment.)
    */
-  public PathFragment getShExecutable() {
-    return shExecutable;
+  @Deprecated // Use getActionEnvironment instead.
+  public Iterable<String> getVariableShellEnvironment() {
+    return actionEnv.getInheritedEnv();
   }
 
   /**
-   * Returns a regex-based instrumentation filter instance that used to match label
-   * names to identify targets to be instrumented in the coverage mode.
+   * Returns a regex-based instrumentation filter instance that used to match label names to
+   * identify targets to be instrumented in the coverage mode.
    */
   public RegexFilter getInstrumentationFilter() {
     return options.instrumentationFilter;
   }
 
   /**
-   * Returns the set of labels for coverage.
+   * Returns a boolean of whether to include targets created by *_test rules in the set of targets
+   * matched by --instrumentation_filter. If this is false, all test targets are excluded from
+   * instrumentation.
    */
-  public Set<Label> getCoverageLabels() {
-    return coverageLabels;
-  }
-
-  /**
-   * Returns the set of labels for the coverage report generator.
-   */
-  public Set<Label> getCoverageReportGeneratorLabels() {
-    return coverageReportGeneratorLabels;
-  }
-
-  /**
-   * Returns true if bazel should show analyses results, even if it did not
-   * re-run the analysis.
-   */
-  public boolean showCachedAnalysisResults() {
-    return options.showCachedAnalysisResults;
+  public boolean shouldInstrumentTestTargets() {
+    return options.instrumentTestTargets;
   }
 
   /**
    * Returns a new, unordered mapping of names to values of "Make" variables defined by this
    * configuration.
    *
-   * <p>This does *not* include package-defined overrides (e.g. vardef)
-   * and so should not be used by the build logic.  This is used only for
-   * the 'info' command.
+   * <p>This does *not* include package-defined overrides (e.g. vardef) and so should not be used by
+   * the build logic. This is used only for the 'info' command.
    *
-   * <p>Command-line definitions of make enviroments override variables defined by
-   * {@code Fragment.addGlobalMakeVariables()}.
+   * <p>Command-line definitions of make environments override variables defined by {@code
+   * Fragment.addGlobalMakeVariables()}.
    */
   public Map<String, String> getMakeEnvironment() {
     Map<String, String> makeEnvironment = new HashMap<>();
     makeEnvironment.putAll(globalMakeEnv);
-    for (Fragment fragment : fragments.values()) {
-      makeEnvironment.putAll(fragment.getCommandLineDefines());
-    }
+    makeEnvironment.putAll(commandLineBuildVariables);
     return ImmutableMap.copyOf(makeEnvironment);
   }
 
   /**
-   * Returns a new, unordered mapping of names that are set through the command lines.
-   * (Fragments, in particular the Google C++ support, can set variables through the
-   * command line.)
+   * Returns a new, unordered mapping of names that are set through the command lines. (Fragments,
+   * in particular the Google C++ support, can set variables through the command line.)
    */
-  public Map<String, String> getCommandLineDefines() {
-    ImmutableMap.Builder<String, String> builder = ImmutableMap.builder();
-    for (Fragment fragment : fragments.values()) {
-      builder.putAll(fragment.getCommandLineDefines());
-    }
-    return builder.build();
+  public ImmutableMap<String, String> getCommandLineBuildVariables() {
+    return commandLineBuildVariables;
   }
 
-  /**
-   * Returns the global defaults for this configuration for the Make environment.
-   */
-  public Map<String, String> getGlobalMakeEnvironment() {
+  /** Returns the global defaults for this configuration for the Make environment. */
+  public ImmutableMap<String, String> getGlobalMakeEnvironment() {
     return globalMakeEnv;
   }
 
   /**
-   * Returns a (key, value) mapping to insert into the subcommand environment for coverage
-   * actions.
-   */
-  public Map<String, String> getCoverageEnvironment() {
-    Map<String, String> env = new HashMap<>();
-    for (Fragment fragment : fragments.values()) {
-      env.putAll(fragment.getCoverageEnvironment());
-    }
-    return env;
-  }
-
-  /**
-   * Returns the default value for the specified "Make" variable for this
-   * configuration.  Returns null if no value was found.
+   * Returns the default value for the specified "Make" variable for this configuration. Returns
+   * null if no value was found.
    */
   public String getMakeVariableDefault(String var) {
     return globalMakeEnv.get(var);
   }
 
-  /**
-   * Returns a configuration fragment instances of the given class.
-   */
-  @SkylarkCallable(name = "fragment", hidden = true,
-      doc = "Returns a configuration fragment using the key.")
+  /** Returns a configuration fragment instances of the given class. */
   public <T extends Fragment> T getFragment(Class<T> clazz) {
     return clazz.cast(fragments.get(clazz));
   }
 
-  /**
-   * Returns true if the requested configuration fragment is present.
-   */
+  /** Returns true if the requested configuration fragment is present. */
   public <T extends Fragment> boolean hasFragment(Class<T> clazz) {
     return getFragment(clazz) != null;
   }
 
-  /**
-   * Returns true if all requested configuration fragment are present (this may be slow).
-   */
+  /** Returns true if all requested configuration fragment are present (this may be slow). */
   public boolean hasAllFragments(Set<Class<?>> fragmentClasses) {
     for (Class<?> fragmentClass : fragmentClasses) {
       if (!hasFragment(fragmentClass.asSubclass(Fragment.class))) {
@@ -1655,118 +655,86 @@ public final class BuildConfiguration implements Serializable {
     return true;
   }
 
-  /**
-   * Returns true if non-functional build stamps are enabled.
-   */
+  public BlazeDirectories getDirectories() {
+    return outputDirectories.getDirectories();
+  }
+
+  /** Which fragments does this configuration contain? */
+  public FragmentClassSet fragmentClasses() {
+    return fragmentClassSet;
+  }
+
+  /** Returns true if non-functional build stamps are enabled. */
   public boolean stampBinaries() {
     return options.stampBinaries;
   }
 
-  /**
-   * Returns true if extended sanity checks should be enabled.
-   */
+  /** Returns true if extended sanity checks should be enabled. */
   public boolean extendedSanityChecks() {
     return options.extendedSanityChecks;
   }
 
-  /**
-   * Returns true if we are building runfiles symlinks for this configuration.
-   */
-  public boolean buildRunfiles() {
-    return options.buildRunfiles;
+  /** Returns true if we are building runfiles manifests for this configuration. */
+  public boolean buildRunfilesManifests() {
+    return options.buildRunfilesManifests;
   }
 
-  public boolean getCheckFilesetDependenciesRecursively() {
-    return options.checkFilesetDependenciesRecursively;
+  /** Returns true if we are building runfile links for this configuration. */
+  public boolean buildRunfileLinks() {
+    return options.buildRunfilesManifests && options.buildRunfiles;
   }
 
-  public List<String> getTestArguments() {
-    return options.testArguments;
-  }
-
-  public String getTestFilter() {
-    return options.testFilter;
+  /** Returns if we are building external runfiles symlinks using the old-style structure. */
+  public boolean legacyExternalRunfiles() {
+    return options.legacyExternalRunfiles;
   }
 
   /**
-   * Returns user-specified test environment variables and their values, as
-   * set by the --test_env options.
+   * Returns user-specified test environment variables and their values, as set by the --test_env
+   * options.
    */
-  public Map<String, String> getTestEnv() {
-    return getTestEnv(options.testEnvironment, clientEnvironment);
+  @Override
+  public ImmutableMap<String, String> getTestEnv() {
+    return testEnv.getFixedEnv().toMap();
   }
 
   /**
-   * Returns user-specified test environment variables and their values, as
-   * set by the --test_env options.
-   *
-   * @param envOverrides The --test_env flag values.
-   * @param clientEnvironment The full client environment.
+   * Returns user-specified test environment variables and their values, as set by the {@code
+   * --test_env} options. It is incomplete in that it is not a superset of the {@link
+   * #getActionEnvironment}, but both have to be applied, with this one being applied after the
+   * other, such that {@code --test_env} settings can override {@code --action_env} settings.
    */
-  public static Map<String, String> getTestEnv(List<Map.Entry<String, String>> envOverrides,
-                                        Map<String, String> clientEnvironment) {
-    Map<String, String> testEnv = new HashMap<>();
-    for (Map.Entry<String, String> var : envOverrides) {
-      if (var.getValue() != null) {
-        testEnv.put(var.getKey(), var.getValue());
-      } else {
-        String value = clientEnvironment.get(var.getKey());
-        if (value != null) {
-          testEnv.put(var.getKey(), value);
-        }
-      }
-    }
+  // TODO(ulfjack): Just return the merged action and test action environment here?
+  public ActionEnvironment getTestActionEnvironment() {
     return testEnv;
   }
 
-  public TriState cacheTestResults() {
-    return options.cacheTestResults;
+  public CommandLineLimits getCommandLineLimits() {
+    return commandLineLimits;
   }
 
-  public int getMinParamFileSize() {
-    return options.minParamFileSize;
-  }
-
-  @SkylarkCallable(name = "coverage_enabled", structField = true,
-      doc = "A boolean that tells whether code coverage is enabled.")
+  @Override
   public boolean isCodeCoverageEnabled() {
     return options.collectCodeCoverage;
-  }
-
-  public boolean isMicroCoverageEnabled() {
-    return options.collectMicroCoverage;
-  }
-
-  public boolean isActionsEnabled() {
-    return actionsEnabled;
-  }
-
-  public TestActionBuilder.TestShardingStrategy testShardingStrategy() {
-    return options.testShardingStrategy;
-  }
-
-  /**
-   * @return number of times the given test should run.
-   * If the test doesn't match any of the filters, runs it once.
-   */
-  public int getRunsPerTestForLabel(Label label) {
-    for (PerLabelOptions perLabelRuns : options.runsPerTest) {
-      if (perLabelRuns.isIncluded(label)) {
-        return Integer.parseInt(Iterables.getOnlyElement(perLabelRuns.getOptions()));
-      }
-    }
-    return 1;
   }
 
   public RunUnder getRunUnder() {
     return options.runUnder;
   }
 
-  /**
-   * Returns true if this is a host configuration.
-   */
+  /** Returns true if this is a host configuration. */
   public boolean isHostConfiguration() {
     return options.isHost;
+  }
+
+  /** Returns true if this is an execution configuration. */
+  public boolean isExecConfiguration() {
+    return options.isExec;
+  }
+
+  /** Returns true if this is an tool-related configuration. */
+  public boolean isToolConfiguration() {
+    return isExecConfiguration() || isHostConfiguration();
   }
 
   public boolean checkVisibility() {
@@ -1781,206 +749,213 @@ public final class BuildConfiguration implements Serializable {
     return options.enforceConstraints;
   }
 
+  public boolean allowAnalysisFailures() {
+    return options.allowAnalysisFailures;
+  }
+
+  public boolean evaluatingForAnalysisTest() {
+    return options.evaluatingForAnalysisTest;
+  }
+
+  public int analysisTestingDepsLimit() {
+    return options.analysisTestingDepsLimit;
+  }
+
   public List<Label> getActionListeners() {
-    return actionsEnabled ? options.actionListeners : ImmutableList.<Label>of();
+    return options.actionListeners;
+  }
+
+  public boolean inmemoryUnusedInputsList() {
+    return options.inmemoryUnusedInputsList;
   }
 
   /**
-   * Returns compilation mode.
+   * Returns whether FileWriteAction may transparently compress its contents in the analysis phase
+   * to save memory. Semantics are not affected.
    */
+  public FileWriteAction.Compression transparentCompression() {
+    return FileWriteAction.Compression.fromBoolean(options.transparentCompression);
+  }
+
+  /**
+   * Returns whether we should trim configurations to only include the fragments needed to correctly
+   * analyze a rule.
+   */
+  public boolean trimConfigurations() {
+    return options.configsMode == CoreOptions.ConfigsMode.ON;
+  }
+
+  /**
+   * Returns whether we should trim configurations to only include the fragments needed to correctly
+   * analyze a rule.
+   */
+  public boolean trimConfigurationsRetroactively() {
+    return options.configsMode == CoreOptions.ConfigsMode.RETROACTIVE;
+  }
+
+  /**
+   * <b>>Experimental feature:</b> if true, qualifying outputs use path prefixes based on their
+   * content instead of the traditional <code>blaze-out/$CPU-$COMPILATION_MODE</code>.
+   *
+   * <p>This promises both more intrinsic correctness (outputs with different contents can't write
+   * to the same path) and efficiency (outputs with the <i>same</i> contents share the same path and
+   * therefore permit better action caching). But it's highly experimental and should not be relied
+   * on in any serious way any time soon.
+   *
+   * <p>See <a href="https://github.com/bazelbuild/bazel/issues/6526">#6526</a> for details.
+   */
+  public boolean useContentBasedOutputPaths() {
+    return options.outputPathsMode == CoreOptions.OutputPathsMode.CONTENT;
+  }
+
+  public boolean allowUnresolvedSymlinks() {
+    return options.allowUnresolvedSymlinks;
+  }
+
+  /** Returns compilation mode. */
   public CompilationMode getCompilationMode() {
     return options.compilationMode;
   }
 
-  /**
-   * Helper method to create a key from the BuildConfiguration initialization
-   * parameters and any additional component suppliers.
-   */
-  static String computeCacheKey(BlazeDirectories directories,
-      Map<Class<? extends Fragment>, Fragment> fragments,
-      BuildOptions buildOptions, Map<String, String> clientEnv) {
-
-    // Creates a full fingerprint of all constructor parameters, used for
-    // canonicalization.
-    //
-    // Note the use of each Path's FileSystem field; the test suite creates
-    // many paths of equal name but belonging to distinct filesystems, so we
-    // have to detect this. (Note however that we're relying on the
-    // injectiveness of identityHashCode for FileSystem, which is inelegant,
-    // but only affects the tests, since the production code uses only one
-    // instance.)
-
-    ImmutableList.Builder<String> keys = ImmutableList.builder();
-
-    // NOTE: identityHashCode isn't sound; may cause tests to fail.
-    keys.add(String.valueOf(System.identityHashCode(directories.getOutputBase().getFileSystem())));
-    keys.add(directories.getOutputBase().toString());
-    keys.add(buildOptions.computeCacheKey());
-    // This is needed so that if we have --test_env=VAR, the configuration key is updated if the
-    // environment variable VAR is updated.
-    keys.add(BuildConfiguration.getTestEnv(
-        buildOptions.get(Options.class).testEnvironment, clientEnv).toString());
-    keys.add(directories.getWorkspace().toString());
-
-    for (Fragment fragment : fragments.values()) {
-      keys.add(fragment.cacheKey());
-    }
-
-    // TODO(bazel-team): add hash of the FDO/LIPO profile file to config cache key
-
-    return StringUtilities.combineKeys(keys.build());
-  }
-
-  /**
-   * Returns a string that identifies the configuration.
-   *
-   *  <p>The string uniquely identifies the configuration. As a result, it can be rather long and
-   * include spaces and other non-alphanumeric characters. If you need a shorter key, use
-   * {@link #shortCacheKey()}.
-   *
-   * @see #computeCacheKey
-   */
-  public final String cacheKey() {
-    return cacheKey;
-  }
-
-  /**
-   * Returns a (relatively) short key that identifies the configuration.
-   *
-   * <p>The short key is the short name of the configuration concatenated with a hash of the
-   * {@link #cacheKey()}.
-   */
-  public final String shortCacheKey() {
-    return shortCacheKey;
+  /** Returns the cache key of the build options used to create this configuration. */
+  public String checksum() {
+    return checksum;
   }
 
   /** Returns a copy of the build configuration options for this configuration. */
   public BuildOptions cloneOptions() {
-    return buildOptions.clone();
+    BuildOptions clone = buildOptions.clone();
+    return clone;
   }
 
   /**
-   * Prepare the fdo support. It reads data into memory that is used during analysis. The analysis
-   * phase is generally not allowed to perform disk I/O. This code is here because it is
-   * conceptually part of the analysis phase, and it needs to happen when the loading phase is
-   * complete.
+   * Returns the actual options reference used by this configuration.
+   *
+   * <p><b>Be very careful using this method.</b> Options classes are mutable - no caller should
+   * ever call this method if there's any change the reference might be written to. This method only
+   * exists because {@link #cloneOptions} can be expensive when applied to every edge in a
+   * dependency graph.
+   *
+   * <p>Do not use this method without careful review with other Bazel developers.
    */
-  public void prepareToBuild(Path execRoot, ArtifactFactory artifactFactory,
-      PackageRootResolver resolver) throws ViewCreationFailedException {
-    for (Fragment fragment : fragments.values()) {
-      fragment.prepareHook(execRoot, artifactFactory, getGenfilesFragment(), resolver);
-    }
+  public BuildOptions getOptions() {
+    return buildOptions;
   }
 
-  /**
-   * Declares dependencies on any relevant Skyframe values (for example, relevant FileValues).
-   */
-  public void declareSkyframeDependencies(SkyFunction.Environment env) {
-    for (Fragment fragment : fragments.values()) {
-      fragment.declareSkyframeDependencies(env);
-    }
-  }
-
-  /**
-   * Returns all the roots for this configuration.
-   */
-  public List<Root> getRoots() {
-    List<Root> roots = new ArrayList<>();
-
-    // Configuration-specific roots.
-    roots.add(getBinDirectory());
-    roots.add(getGenfilesDirectory());
-    roots.add(getIncludeDirectory());
-    roots.add(getMiddlemanDirectory());
-    roots.add(getTestLogsDirectory());
-
-    // Fragment-defined roots
-    for (Fragment fragment : fragments.values()) {
-      fragment.addRoots(roots);
-    }
-
-    return ImmutableList.copyOf(roots);
-  }
-
-  public ListMultimap<String, Label> getAllLabels() {
-    return buildOptions.getAllLabels();
+  public BuildOptions.OptionsDiffForReconstruction getBuildOptionsDiff() {
+    return buildOptionsDiff;
   }
 
   public String getCpu() {
     return options.cpu;
   }
 
-  /**
-   * Returns true is incremental builds are supported with this configuration.
-   */
-  public boolean supportsIncrementalBuild() {
-    for (Fragment fragment : fragments.values()) {
-      if (!fragment.supportsIncrementalBuild()) {
-        return false;
-      }
-    }
-    return true;
+  @VisibleForTesting
+  public String getHostCpu() {
+    return options.hostCpu;
   }
 
-  /**
-   * Returns true if the configuration performs static linking.
-   */
-  public boolean performsStaticLink() {
-    for (Fragment fragment : fragments.values()) {
-      if (fragment.performsStaticLink()) {
+  // TODO(buchgr): Revisit naming and functionality of this flag. See #9248 for details.
+  public static boolean runfilesEnabled(CoreOptions options) {
+    switch (options.enableRunfiles) {
+      case YES:
         return true;
-      }
-    }
-    return false;
-  }
-
-  /**
-   * Deletes temporary directories before execution phase. This is only called for
-   * target configuration.
-   */
-  public void prepareForExecutionPhase() throws IOException {
-    for (Fragment fragment : fragments.values()) {
-      fragment.prepareForExecutionPhase();
+      case NO:
+        return false;
+      default:
+        return OS.getCurrent() != OS.WINDOWS;
     }
   }
 
+  public boolean runfilesEnabled() {
+    return runfilesEnabled(this.options);
+  }
+
+  public boolean inprocessSymlinkCreation() {
+    return options.inprocessSymlinkCreation;
+  }
+
+  public boolean skipRunfilesManifests() {
+    return options.skipRunfilesManifests;
+  }
+
+  public boolean remotableSourceManifestActions() {
+    return options.remotableSourceManifestActions;
+  }
+
   /**
-   * Collects executables defined by fragments.
+   * Returns a modified copy of {@code executionInfo} if any {@code executionInfoModifiers} apply to
+   * the given {@code mnemonic}. Otherwise returns {@code executionInfo} unchanged.
    */
-  private ImmutableMap<String, PathFragment> collectExecutables() {
-    ImmutableMap.Builder<String, PathFragment> builder = new ImmutableMap.Builder<>();
-    for (Fragment fragment : fragments.values()) {
-      fragment.defineExecutables(builder);
+  public ImmutableMap<String, String> modifiedExecutionInfo(
+      ImmutableMap<String, String> executionInfo, String mnemonic) {
+    if (!options.executionInfoModifier.matches(mnemonic)) {
+      return executionInfo;
     }
-    return builder.build();
+    Map<String, String> mutableCopy = new HashMap<>(executionInfo);
+    modifyExecutionInfo(mutableCopy, mnemonic);
+    return executionInfoInterner.intern(ImmutableSortedMap.copyOf(mutableCopy));
   }
 
-  /**
-   * See {@code BuildConfigurationCollection.Transitions.getArtifactOwnerConfiguration()}.
-   */
-  public BuildConfiguration getArtifactOwnerConfiguration() {
-    return transitions.getArtifactOwnerConfiguration();
+  /** Applies {@code executionInfoModifiers} to the given {@code executionInfo}. */
+  public void modifyExecutionInfo(Map<String, String> executionInfo, String mnemonic) {
+    options.executionInfoModifier.apply(mnemonic, executionInfo);
   }
 
-  /**
-   * @return whether proto header modules should be built.
-   */
-  public boolean getProtoHeaderModules() {
-    return options.protoHeaderModules;
-  }
-
-  /**
-   * @return the list of default features used for all packages.
-   */
+  /** @return the list of default features used for all packages. */
   public List<String> getDefaultFeatures() {
     return options.defaultFeatures;
   }
 
   /**
-   * Returns the "top-level" environment space, i.e. the set of environments all top-level
-   * targets must be compatible with. An empty value implies no restrictions.
+   * Returns the "top-level" environment space, i.e. the set of environments all top-level targets
+   * must be compatible with. An empty value implies no restrictions.
    */
   public List<Label> getTargetEnvironments() {
     return options.targetEnvironments;
+  }
+
+  /**
+   * Returns the {@link Label} of the {@code environment_group} target that will be used to find the
+   * target environment during auto-population.
+   */
+  public Label getAutoCpuEnvironmentGroup() {
+    return options.autoCpuEnvironmentGroup;
+  }
+
+  public Class<? extends Fragment> getSkylarkFragmentByName(String name) {
+    return skylarkVisibleFragments.get(name);
+  }
+
+  public ImmutableCollection<String> getSkylarkFragmentNames() {
+    return skylarkVisibleFragments.keySet();
+  }
+
+  public BuildEventId getEventId() {
+    return BuildEventId.configurationId(checksum());
+  }
+
+  public BuildConfigurationEvent toBuildEvent() {
+    return buildEventSupplier.get();
+  }
+
+  private BuildConfigurationEvent createBuildEvent() {
+    BuildEventId eventId = getEventId();
+    BuildEventStreamProtos.BuildEvent.Builder builder =
+        BuildEventStreamProtos.BuildEvent.newBuilder();
+    builder
+        .setId(eventId.asStreamProto())
+        .setConfiguration(
+            BuildEventStreamProtos.Configuration.newBuilder()
+                .setMnemonic(getMnemonic())
+                .setPlatformName(getCpu())
+                .putAllMakeVariable(getMakeEnvironment())
+                .setCpu(getCpu())
+                .build());
+    return new BuildConfigurationEvent(eventId, builder.build());
+  }
+
+  public ImmutableSet<String> getReservedActionMnemonics() {
+    return reservedActionMnemonics;
   }
 }

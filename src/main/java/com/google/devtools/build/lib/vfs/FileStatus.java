@@ -1,4 +1,4 @@
-// Copyright 2014 Google Inc. All rights reserved.
+// Copyright 2014 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -37,8 +37,7 @@ import java.io.IOException;
 public interface FileStatus {
 
   /**
-   * Returns true iff this file is a regular or special file (e.g. socket,
-   * fifo or device).
+   * Returns true iff this file is a regular file or {@code isSpecial()}.
    */
   boolean isFile();
 
@@ -53,6 +52,12 @@ public interface FileStatus {
   boolean isSymbolicLink();
 
   /**
+   * Returns true iff this file is a special file (e.g. socket, fifo or device). {@link #getSize()}
+   * can't be trusted for such files.
+   */
+  boolean isSpecialFile();
+
+  /**
    * Returns the total size, in bytes, of this file.
    */
   long getSize() throws IOException;
@@ -60,14 +65,15 @@ public interface FileStatus {
   /**
    * Returns the last modified time of this file's data (milliseconds since
    * UNIX epoch).
+   *
+   * TODO(bazel-team): Unix actually gives us nanosecond resolution for mtime and ctime. Consider
+   * making use of this.
    */
   long getLastModifiedTime() throws IOException;
 
   /**
    * Returns the last change time of this file, where change means any change
    * to the file, including metadata changes (milliseconds since UNIX epoch).
-   *
-   * Note: UNIX uses seconds!
    */
   long getLastChangeTime() throws IOException;
 
@@ -78,5 +84,5 @@ public interface FileStatus {
    * <p>Think of this value as a reference to the underlying inode. "mv"ing file a to file b
    * ought to cause the node ID of b to change, but appending / modifying b should not.
    */
-  public long getNodeId() throws IOException;
+  long getNodeId() throws IOException;
 }

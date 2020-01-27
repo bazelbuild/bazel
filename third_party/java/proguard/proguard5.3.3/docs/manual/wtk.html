@@ -1,0 +1,71 @@
+<!doctype html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<html>
+<head>
+<meta http-equiv="content-type" content="text/html; charset=iso-8859-1">
+<meta http-equiv="content-style-type" content="text/css">
+<link rel="stylesheet" type="text/css" href="style.css">
+<title>ProGuard JME Wireless Toolkit Integration</title>
+</head>
+<body>
+
+<script type="text/javascript" language="JavaScript">
+<!--
+if (window.self==window.top)
+  document.write('<a class="largebutton" target="_top" href="../index.html#manual/wtk.html">ProGuard index</a> <a class="largebutton" target="_top" href="http://www.guardsquare.com/dexguard">DexGuard</a> <a class="largebutton" target="_top" href="http://www.guardsquare.com/">GuardSquare</a> <a class="largebutton" target="other" href="http://sourceforge.net/projects/proguard/">Sourceforge</a>')
+//-->
+</script>
+<noscript>
+<a class="largebutton" target="_top"  href="../index.html#manual/wtk.html">ProGuard index</a>
+<a class="largebutton" target="_top"  href="http://www.guardsquare.com/dexguard">DexGuard</a>
+<a class="largebutton" target="_top"  href="http://www.guardsquare.com/">GuardSquare</a>
+<a class="largebutton" target="other" href="http://sourceforge.net/projects/proguard/">Sourceforge</a>
+</noscript>
+
+<h2>JME Wireless Toolkit Integration</h2>
+
+<b>ProGuard</b> can be seamlessly integrated in Oracle's Wireless Toolkit (WTK)
+for Java Micro Edition (JME).
+<p>
+
+The WTK already comes with a plug-in for ProGuard. Alternatively, ProGuard
+offers its own plug-in. This latter implementation is recommended, as it more
+up to date and it solves some problems. It is also somewhat more efficient,
+invoking the ProGuard engine directly, instead of writing out a configuration
+file and running ProGuard in a separate virtual machine.
+<p>
+
+In order to integrate this plug-in in the toolkit, you'll have to put the
+following lines in the file
+{j2mewtk.dir}<code>/wtklib/Linux/ktools.properties</code> or
+{j2mewtk.dir}<code>\wtklib\Windows\ktools.properties</code> (whichever is
+applicable).
+<p>
+
+<pre>
+obfuscator.runner.class.name: proguard.wtk.ProGuardObfuscator
+obfuscator.runner.classpath: /usr/local/java/proguard/lib/proguard.jar
+</pre>
+<p>
+
+Please make sure the class path is set correctly for your system.
+<p>
+
+Once ProGuard has been set up, you can apply it to your projects as part of
+the build process. The build process is started from the WTK menu bar:
+<p>
+<center><b>Project -> Package -> Create Obfuscated Package</b></center>
+<p>
+This option will compile, shrink, obfuscate, verify, and install your midlets
+for testing.
+<p>
+Should you ever need to customize your ProGuard configuration for the JME WTK,
+you can adapt the configuration file <code>proguard/wtk/default.pro</code>
+that's inside the <code>proguard.jar</code>.
+
+<hr />
+<address>
+Copyright &copy; 2002-2017
+<a target="other" href="http://www.lafortune.eu/">Eric Lafortune</a> @ <a target="top" href="http://www.guardsquare.com/">GuardSquare</a>.
+</address>
+</body>
+</html>

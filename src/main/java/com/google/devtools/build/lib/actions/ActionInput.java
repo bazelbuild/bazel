@@ -1,4 +1,4 @@
-// Copyright 2014 Google Inc. All rights reserved.
+// Copyright 2014 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,9 +14,10 @@
 
 package com.google.devtools.build.lib.actions;
 
+import com.google.devtools.build.lib.vfs.PathFragment;
+
 /**
- * Represents an input file to a build action, with an appropriate relative path and digest
- * value.
+ * Represents an input file to a build action, with an appropriate relative path.
  *
  * <p>Artifact is the only notable implementer of the interface, but the interface remains
  * because 1) some Google specific rules ship files that could be Artifacts to remote execution
@@ -32,8 +33,22 @@ package com.google.devtools.build.lib.actions;
  */
 public interface ActionInput {
 
+  /** @return the relative path to the input file. */
+  String getExecPathString();
+
   /**
    * @return the relative path to the input file.
    */
-  public String getExecPathString();
+  PathFragment getExecPath();
+
+  /** The input is a symlink that is supposed to stay un-dereferenced. */
+  boolean isSymlink();
+
+  /**
+   * Returns if this input's file system path includes a digest of its content. See {@link
+   * com.google.devtools.build.lib.analysis.config.BuildConfiguration#useContentBasedOutputPaths}.
+   */
+  default boolean contentBasedPath() {
+    return false;
+  }
 }

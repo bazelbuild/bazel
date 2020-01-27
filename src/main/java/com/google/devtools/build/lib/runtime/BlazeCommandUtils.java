@@ -1,4 +1,4 @@
-// Copyright 2014 Google Inc. All rights reserved.
+// Copyright 2014 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,19 +14,17 @@
 package com.google.devtools.build.lib.runtime;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
-import com.google.devtools.build.lib.Constants;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
+import com.google.devtools.build.lib.packages.StarlarkSemanticsOptions;
 import com.google.devtools.build.lib.util.ResourceFileLoader;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
-
 import java.io.IOException;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
 import java.util.Set;
 
 /**
@@ -36,17 +34,20 @@ public class BlazeCommandUtils {
   /**
    * Options classes used as startup options in Blaze core.
    */
-  private static final List<Class<? extends OptionsBase>> DEFAULT_STARTUP_OPTIONS =
-      ImmutableList.<Class<? extends OptionsBase>>of(
+  private static final ImmutableList<Class<? extends OptionsBase>> DEFAULT_STARTUP_OPTIONS =
+      ImmutableList.of(
           BlazeServerStartupOptions.class,
           HostJvmStartupOptions.class);
 
-  /**
-   * The set of option-classes that are common to all Blaze commands.
-   */
-  private static final Collection<Class<? extends OptionsBase>> COMMON_COMMAND_OPTIONS =
-      ImmutableList.of(CommonCommandOptions.class, BlazeCommandEventHandler.Options.class);
-
+  /** The set of option-classes that are common to all Blaze commands. */
+  private static final ImmutableList<Class<? extends OptionsBase>> COMMON_COMMAND_OPTIONS =
+      ImmutableList.of(
+          UiOptions.class,
+          CommonCommandOptions.class,
+          ClientOptions.class,
+          // Skylark options aren't applicable to all commands, but making them a common option
+          // allows users to put them in the common section of the bazelrc. See issue #3538.
+          StarlarkSemanticsOptions.class);
 
   private BlazeCommandUtils() {}
 
@@ -59,6 +60,16 @@ public class BlazeCommandUtils {
     }
 
     return ImmutableList.copyOf(options);
+  }
+
+  public static ImmutableSet<Class<? extends OptionsBase>> getCommonOptions(
+      Iterable<BlazeModule> modules) {
+    ImmutableSet.Builder<Class<? extends OptionsBase>> builder = ImmutableSet.builder();
+    builder.addAll(COMMON_COMMAND_OPTIONS);
+    for (BlazeModule blazeModule : modules) {
+      builder.addAll(blazeModule.getCommonCommandOptions());
+    }
+    return builder.build();
   }
 
   /**
@@ -78,7 +89,7 @@ public class BlazeCommandUtils {
     }
 
     Set<Class<? extends OptionsBase>> options = new HashSet<>();
-    options.addAll(COMMON_COMMAND_OPTIONS);
+    options.addAll(getCommonOptions(modules));
     Collections.addAll(options, commandAnnotation.options());
 
     if (commandAnnotation.usesConfigurationOptions()) {
@@ -99,20 +110,20 @@ public class BlazeCommandUtils {
    * Returns the expansion of the specified help topic.
    *
    * @param topic the name of the help topic; used in %{command} expansion.
-   * @param help the text template of the help message. Certain %{x} variables
-   *        will be expanded. A prefix of "resource:" means use the .jar
-   *        resource of that name.
-   * @param categoryDescriptions a mapping from option category names to
-   *        descriptions, passed to {@link OptionsParser#describeOptions}.
-   * @param helpVerbosity a tri-state verbosity option selecting between just
-   *        names, names and syntax, and full description.
+   * @param help the text template of the help message. Certain %{x} variables will be expanded. A
+   *     prefix of "resource:" means use the .jar resource of that name.
+   * @param helpVerbosity a tri-state verbosity option selecting between just names, names and
+   *     syntax, and full description.
+   * @param productName the product name
    */
-  public static final String expandHelpTopic(String topic, String help,
-                                      Class<? extends BlazeCommand> commandClass,
-                                      Collection<Class<? extends OptionsBase>> options,
-                                      Map<String, String> categoryDescriptions,
-                                      OptionsParser.HelpVerbosity helpVerbosity) {
-    OptionsParser parser = OptionsParser.newOptionsParser(options);
+  public static final String expandHelpTopic(
+      String topic,
+      String help,
+      Class<? extends BlazeCommand> commandClass,
+      Collection<Class<? extends OptionsBase>> options,
+      OptionsParser.HelpVerbosity helpVerbosity,
+      String productName) {
+    OptionsParser parser = OptionsParser.builder().optionsClasses(options).build();
 
     String template;
     if (help.startsWith("resource:")) {
@@ -120,8 +131,12 @@ public class BlazeCommandUtils {
       try {
         template = ResourceFileLoader.loadResource(commandClass, resourceName);
       } catch (IOException e) {
-        throw new IllegalStateException("failed to load help resource '" + resourceName
-                                        + "' due to I/O error: " + e.getMessage(), e);
+        throw new IllegalStateException(
+            "failed to load help resource '"
+                + resourceName
+                + "' due to I/O error: "
+                + e.getMessage(),
+            e);
       }
     } else {
       template = help;
@@ -131,38 +146,40 @@ public class BlazeCommandUtils {
       throw new IllegalStateException("Help template for '" + topic + "' omits %{options}!");
     }
 
-    return template.
-        replace("%{product}", Constants.PRODUCT_NAME).
-        replace("%{command}", topic).
-        replace("%{options}", parser.describeOptions(categoryDescriptions, helpVerbosity)).
-        trim()
+    String optionStr;
+      optionStr =
+          parser.describeOptions(productName, helpVerbosity).replace("%{product}", productName);
+
+    return template
+            .replace("%{product}", productName)
+            .replace("%{command}", topic)
+            .replace("%{options}", optionStr)
+            .trim()
         + "\n\n"
         + (helpVerbosity == OptionsParser.HelpVerbosity.MEDIUM
-           ? "(Use 'help --long' for full details or --short to just enumerate options.)\n"
-           : "");
+            ? "(Use 'help --long' for full details or --short to just enumerate options.)\n"
+            : "");
   }
 
   /**
    * The help page for this command.
    *
-   * @param categoryDescriptions a mapping from option category names to
-   *        descriptions, passed to {@link OptionsParser#describeOptions}.
-   * @param verbosity a tri-state verbosity option selecting between just names,
-   *        names and syntax, and full description.
+   * @param verbosity a tri-state verbosity option selecting between just names, names and syntax,
+   *     and full description.
    */
   public static String getUsage(
       Class<? extends BlazeCommand> commandClass,
-      Map<String, String> categoryDescriptions,
       OptionsParser.HelpVerbosity verbosity,
       Iterable<BlazeModule> blazeModules,
-      ConfiguredRuleClassProvider ruleClassProvider) {
+      ConfiguredRuleClassProvider ruleClassProvider,
+      String productName) {
     Command commandAnnotation = commandClass.getAnnotation(Command.class);
     return BlazeCommandUtils.expandHelpTopic(
         commandAnnotation.name(),
         commandAnnotation.help(),
         commandClass,
         BlazeCommandUtils.getOptions(commandClass, blazeModules, ruleClassProvider),
-        categoryDescriptions,
-        verbosity);
+        verbosity,
+        productName);
   }
 }

@@ -1,4 +1,4 @@
-// Copyright 2014 Google Inc. All rights reserved.
+// Copyright 2014 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -32,15 +32,7 @@ public class Interspersing {
   public static <E> Iterable<E> beforeEach(final E what, Iterable<E> sequence) {
     Preconditions.checkNotNull(what);
     return Iterables.concat(
-        Iterables.transform(
-            sequence,
-            new Function<E, Iterable<E>>() {
-              @Override
-              public Iterable<E> apply(E element) {
-                return ImmutableList.of(what, element);
-              }
-            }
-        ));
+        Iterables.transform(sequence, element -> ImmutableList.of(what, element)));
   }
 
   /**
@@ -50,14 +42,7 @@ public class Interspersing {
   public static Iterable<String>
       prependEach(final String what, Iterable<String> sequence) {
     Preconditions.checkNotNull(what);
-    return Iterables.transform(
-        sequence,
-        new Function<String, String>() {
-          @Override
-          public String apply(String input) {
-            return what + input;
-          }
-        });
+    return Iterables.transform(sequence, input -> what + input);
   }
 
   /**

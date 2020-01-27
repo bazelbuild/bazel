@@ -1,4 +1,4 @@
-// Copyright 2014 Google Inc. All rights reserved.
+// Copyright 2014 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.shell.CommandException;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 
 /**
  * Provides utility methods for working with directories in a Unix environment.
@@ -75,7 +76,8 @@ public final class Directories {
       new Command(new String[] {"/bin/rm", "-rf", filePath}).execute();
     } catch (AbnormalTerminationException e) {
       String message =
-          e.getResult().getTerminationStatus() + ": " + new String(e.getResult().getStderr());
+          e.getResult().getTerminationStatus() + ": " + new String(
+              e.getResult().getStderr(), StandardCharsets.UTF_8);
       throw new IOException(message, e);
     } catch (CommandException e) {
       throw new IOException(e);

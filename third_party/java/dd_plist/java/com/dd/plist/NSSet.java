@@ -30,8 +30,6 @@ import java.util.*;
  * A set is an interface to an unordered collection of objects.
  * This implementation uses a <code>LinkedHashSet</code> or <code>TreeSet</code>as the underlying
  * data structure.
- * <p/>
- * <b>Warning:</b> Sets cannot yet be used for saving in binary property lists, as binary property list format v1+ is required to save them.
  *
  * @author Daniel Dreibrodt
  * @see LinkedHashSet
@@ -80,6 +78,7 @@ public class NSSet extends NSObject {
     /**
      * Create a set and fill it with the given objects.
      *
+     * @param ordered Indicates whether the created set should be ordered or unordered.
      * @param objects The objects to populate the set.
      * @see java.util.LinkedHashSet
      * @see java.util.TreeSet

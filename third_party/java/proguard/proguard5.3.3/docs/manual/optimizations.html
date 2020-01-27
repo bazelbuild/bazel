@@ -1,0 +1,202 @@
+<!doctype html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<html>
+<head>
+<meta http-equiv="content-type" content="text/html; charset=iso-8859-1">
+<meta http-equiv="content-style-type" content="text/css">
+<link rel="stylesheet" type="text/css" href="style.css">
+<title>Optimizations</title>
+</head>
+<body>
+
+<script type="text/javascript" language="JavaScript">
+<!--
+if (window.self==window.top)
+  document.write('<a class="largebutton" target="_top" href="../index.html#manual/optimizations.html">ProGuard index</a> <a class="largebutton" target="_top" href="http://www.guardsquare.com/dexguard">DexGuard</a> <a class="largebutton" target="_top" href="http://www.guardsquare.com/">GuardSquare</a> <a class="largebutton" target="other" href="http://sourceforge.net/projects/proguard/">Sourceforge</a>')
+//-->
+</script>
+<noscript>
+<a class="largebutton" target="_top"  href="../index.html#manual/optimizations.html">ProGuard index</a>
+<a class="largebutton" target="_top"  href="http://www.guardsquare.com/dexguard">DexGuard</a>
+<a class="largebutton" target="_top"  href="http://www.guardsquare.com/">GuardSquare</a>
+<a class="largebutton" target="other" href="http://sourceforge.net/projects/proguard/">Sourceforge</a>
+</noscript>
+
+<h2>Optimizations</h2>
+
+The optimization step of ProGuard can be switched off with the
+<a href="usage.html#dontoptimize"><code>-dontoptimize</code></a> option. For
+more fine-grained control over individual optimizations, experts can use the
+<a href="usage.html#optimizations"><code>-optimizations</code></a> option,
+with a filter based on the optimization names listed below. The filter works
+like any <a href="usage.html#filters">filter</a> in ProGuard.
+<p>
+
+The following wildcards are supported:
+
+<table cellspacing="10">
+<tr><td valign="top"><code><b>?</b></code></td>
+    <td>matches any single character in an optimization name.</td></tr>
+<tr><td valign="top"><code><b>*</b></code></td>
+    <td>matches any part of an optimization name.</td></tr>
+</table>
+
+An optimization that is preceded by an exclamation mark '<b>!</b>' is
+<i>excluded</i> from further attempts to match with <i>subsequent</i>
+optimization names in the filter. Make sure to specify filters correctly,
+since they are not checked for potential typos.
+<p>
+
+For example,
+"<code>code/simplification/variable,code/simplification/arithmetic</code>"
+only performs the two specified peephole optimizations.
+<p>
+
+For example, "<code>!method/propagation/*</code>" performs all optimizations,
+except the ones that propagate values between methods.
+<p>
+
+For example,
+"<code>!code/simplification/advanced,code/simplification/*</code>" only
+performs all peephole optimizations.
+<p>
+Some optimizations necessarily imply other optimizations. These are then
+indicated. Note that the list is likely to change over time, as optimizations
+are added and reorganized.
+<p>
+
+<dl>
+<dt><code><b>class/marking/final</b></code></dt>
+<dd>Marks classes as final, whenever possible.</dd>
+
+<dt><code><b>class/unboxing/enum</b></code></dt>
+<dd>Simplifies enum types to integer constants, whenever possible.</dd>
+
+<dt><code><b>class/merging/vertical</b></code></dt>
+<dd>Merges classes vertically in the class hierarchy, whenever possible.</dd>
+
+<dt><code><b>class/merging/horizontal</b></code></dt>
+<dd>Merges classes horizontally in the class hierarchy, whenever possible.</dd>
+
+<dt><div>(&rArr; <code>code/removal/advanced</code>)</div>
+    <code><b>field/removal/writeonly</b></code></dt>
+<dd>Removes write-only fields.</dd>
+
+<dt><code><b>field/marking/private</b></code></dt>
+<dd>Marks fields as private, whenever possible.</dd>
+
+<dt><div>(&rArr; <code>code/simplification/advanced</code>)</div>
+    <code><b>field/propagation/value</b></code></dt>
+<dd>Propagates the values of fields across methods.</dd>
+
+<dt><code><b>method/marking/private</b></code></dt>
+<dd>Marks methods as private, whenever possible (<i>devirtualization</i>).</dd>
+
+<dt><div>(&rArr; <code>code/removal/advanced</code>)</div>
+    <code><b>method/marking/static</b></code></dt>
+<dd>Marks methods as static, whenever possible (<i>devirtualization</i>).</dd>
+
+<dt><code><b>method/marking/final</b></code></dt>
+<dd>Marks methods as final, whenever possible.</dd>
+
+<dt><div>(&rArr; <code>code/removal/advanced</code>)</div>
+    <code><b>method/removal/parameter</b></code></dt>
+<dd>Removes unused method parameters.</dd>
+
+<dt><div>(&rArr; <code>code/simplification/advanced</code>)</div>
+    <code><b>method/propagation/parameter</b></code></dt>
+<dd>Propagates the values of method parameters from method invocations to
+    the invoked methods.</dd>
+
+<dt><div>(&rArr; <code>code/simplification/advanced</code>)</div>
+    <code><b>method/propagation/returnvalue</b></code></dt>
+<dd>Propagates the values of method return values from methods to their
+    invocations.</dd>
+
+<dt><code><b>method/inlining/short</b></code></dt>
+<dd>Inlines short methods.</dd>
+
+<dt><code><b>method/inlining/unique</b></code></dt>
+<dd>Inlines methods that are only called once.</dd>
+
+<dt><code><b>method/inlining/tailrecursion</b></code></dt>
+<dd>Simplifies tail recursion calls, whenever possible.</dd>
+
+<dt><code><b>code/merging</b></code></dt>
+<dd>Merges identical blocks of code by modifying branch targets.</dd>
+
+<dt><code><b>code/simplification/variable</b></code></dt>
+<dd>Performs peephole optimizations for variable loading and storing.</dd>
+
+<dt><code><b>code/simplification/arithmetic</b></code></dt>
+<dd>Performs peephole optimizations for arithmetic instructions.</dd>
+
+<dt><code><b>code/simplification/cast</b></code></dt>
+<dd>Performs peephole optimizations for casting operations.</dd>
+
+<dt><code><b>code/simplification/field</b></code></dt>
+<dd>Performs peephole optimizations for field loading and storing.</dd>
+
+<dt><div>(&rArr; <code>code/removal/simple</code>)</div>
+    <code><b>code/simplification/branch</b></code></dt>
+<dd>Performs peephole optimizations for branch instructions.</dd>
+
+<dt><code><b>code/simplification/string</b></code></dt>
+<dd>Performs peephole optimizations for constant strings.</dd>
+
+<dt><div>(<i>best used with</i> <code>code/removal/advanced</code>)</div>
+    <code><b>code/simplification/advanced</b></code></dt>
+<dd>Simplifies code based on control flow analysis and data flow
+    analysis.</dd>
+
+<dt><div>(&rArr; <code>code/removal/exception</code>)</div>
+    <code><b>code/removal/advanced</b></code></dt>
+<dd>Removes dead code based on control flow analysis and data flow
+    analysis.</dd>
+
+<dt><div>(&rArr; <code>code/removal/exception</code>)</div>
+    <code><b>code/removal/simple</b></code></dt>
+<dd>Removes dead code based on a simple control flow analysis.</dd>
+
+<dt><code><b>code/removal/variable</b></code></dt>
+<dd>Removes unused variables from the local variable frame.</dd>
+
+<dt><code><b>code/removal/exception</b></code></dt>
+<dd>Removes exceptions with empty try blocks.</dd>
+
+<dt><code><b>code/allocation/variable</b></code></dt>
+<dd>Optimizes variable allocation on the local variable frame.</dd>
+</dl>
+<p>
+
+ProGuard also provides some unofficial settings to control optimizations, that
+may disappear in future versions. These are Java system properties, which
+can be set as JVM arguments (with <code>-D.....)</code>:
+<dl>
+<dt><code><b>maximum.inlined.code.length</b></code> (default = 8 bytes)</dt>
+<dd>Specifies the maximum code length (expressed in bytes) of short methods
+    that are eligible to be inlined. Inlining methods that are too long may
+    unnecessarily inflate the code size.</dd>
+
+<dt><code><b>maximum.resulting.code.length</b></code> (default = 8000 bytes
+    for JSE, 2000 bytes for JME)</dt>
+<dd>Specifies the maximum resulting code length (expressed in bytes) allowed
+    when inlining methods. Many Java virtual machines do not apply just-in-time
+    compilation to methods that are too long, so it's important not to let them
+    grow too large.</dd>
+
+<dt><code><b>optimize.conservatively</b></code> (default = unset)</dt>
+<dd>Allows input code with ordinary instructions intentionally throwing
+    <code>NullPointerException</code>,
+    <code>ArrayIndexOutOfBoundsException</code>, or
+    <code>ClassCastException</code>, without any other useful purposes. By
+    default, ProGuard may just discard such seemingly useless instructions,
+    resulting in better optimization of most common code.</dd>
+</dl>
+
+<hr />
+<address>
+Copyright &copy; 2002-2017
+<a target="other" href="http://www.lafortune.eu/">Eric Lafortune</a> @ <a target="top" href="http://www.guardsquare.com/">GuardSquare</a>.
+</address>
+</body>
+</html>

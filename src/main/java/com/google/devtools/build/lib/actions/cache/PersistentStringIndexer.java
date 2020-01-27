@@ -1,4 +1,4 @@
-// Copyright 2014 Google Inc. All rights reserved.
+// Copyright 2014 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -13,19 +13,18 @@
 // limitations under the License.
 package com.google.devtools.build.lib.actions.cache;
 
-import com.google.common.collect.MapMaker;
+import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ConditionallyThreadSafe;
 import com.google.devtools.build.lib.util.CanonicalStringIndexer;
-import com.google.devtools.build.lib.util.Clock;
 import com.google.devtools.build.lib.util.PersistentMap;
 import com.google.devtools.build.lib.util.StringCanonicalizer;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
-
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
 /**
@@ -59,7 +58,7 @@ final class PersistentStringIndexer extends CanonicalStringIndexer {
             mapFile, journalFile);
       this.clock = clock;
       nextUpdate = clock.nanoTime();
-      load(/*throwOnLoadFailure=*/true);
+      load(/* failFast= */ true);
     }
 
     @Override
@@ -74,11 +73,6 @@ final class PersistentStringIndexer extends CanonicalStringIndexer {
 
     @Override
     public Integer remove(Object object) {
-      throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public void clear() {
       throw new UnsupportedOperationException();
     }
 
@@ -155,7 +149,7 @@ final class PersistentStringIndexer extends CanonicalStringIndexer {
   }
 
   private static <K, V> ConcurrentMap<K, V> newConcurrentMap(int expectedCapacity) {
-    return new MapMaker().initialCapacity(expectedCapacity).makeMap();
+    return new ConcurrentHashMap<>(expectedCapacity);
   }
 
 }

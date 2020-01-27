@@ -1,4 +1,4 @@
-// Copyright 2014 Google Inc. All rights reserved.
+// Copyright 2014 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,16 +15,16 @@
 //
 // This implementation saves us from linking huge OpenSSL library.
 
-#ifndef DEVTOOLS_BLAZE_MAIN_UTIL_MD5_H_
-#define DEVTOOLS_BLAZE_MAIN_UTIL_MD5_H_
+#ifndef BAZEL_SRC_MAIN_CPP_UTIL_MD5_H_
+#define BAZEL_SRC_MAIN_CPP_UTIL_MD5_H_
 
 #include <string>
 
-#include "util/port.h"
+#if defined(_MSC_VER) && !defined(__alignof__)
+#define __alignof__ __alignof
+#endif  // _MSC_VER && !__alignof__
 
 namespace blaze_util {
-
-using std::string;
 
 // The <code>Context</code> class performs the actual MD5
 // computation. It works incrementally and can be fed a single byte at
@@ -53,7 +53,7 @@ class Md5Digest {
 
   // Produces a hexadecimal string representation of this digest in the form:
   // [0-9a-f]{32}
-  string String() const;
+  std::string String() const;
 
  private:
   void Transform(const unsigned char* buffer, unsigned int len);
@@ -67,5 +67,4 @@ class Md5Digest {
 
 }  // namespace blaze_util
 
-
-#endif  // DEVTOOLS_BLAZE_MAIN_UTIL_MD5_H_
+#endif  // BAZEL_SRC_MAIN_CPP_UTIL_MD5_H_

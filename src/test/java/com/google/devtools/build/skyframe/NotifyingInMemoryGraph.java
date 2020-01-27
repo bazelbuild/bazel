@@ -1,4 +1,4 @@
-// Copyright 2014 Google Inc. All rights reserved.
+// Copyright 2016 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -13,116 +13,63 @@
 // limitations under the License.
 package com.google.devtools.build.skyframe;
 
-import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
-import com.google.devtools.build.lib.util.Pair;
+import java.util.Map;
+import javax.annotation.Nullable;
 
-import java.util.Set;
-
-/**
- * Class that allows clients to be notified on each access of the graph. Clients can simply track
- * accesses, or they can block to achieve desired synchronization.
- */
-public class NotifyingInMemoryGraph extends InMemoryGraph {
-  private final Listener graphListener;
-
-  public NotifyingInMemoryGraph(Listener graphListener) {
-    this.graphListener = graphListener;
+/** {@link NotifyingHelper} that additionally implements the {@link InMemoryGraph} interface. */
+class NotifyingInMemoryGraph extends NotifyingHelper.NotifyingProcessableGraph
+    implements InMemoryGraph {
+  NotifyingInMemoryGraph(InMemoryGraph delegate, NotifyingHelper.Listener graphListener) {
+    super(delegate, graphListener);
   }
 
   @Override
-  public NodeEntry createIfAbsent(SkyKey key) {
-    graphListener.accept(key, EventType.CREATE_IF_ABSENT, Order.BEFORE, null);
-    NodeEntry newval = getEntry(key);
-    NodeEntry oldval = getNodeMap().putIfAbsent(key, newval);
-    return oldval == null ? newval : oldval;
+  public Map<SkyKey, ? extends NodeEntry> createIfAbsentBatch(
+      @Nullable SkyKey requestor, Reason reason, Iterable<SkyKey> keys) {
+    try {
+      return super.createIfAbsentBatch(requestor, reason, keys);
+    } catch (InterruptedException e) {
+      throw new IllegalStateException(e);
+    }
   }
 
-  // Subclasses should override if they wish to subclass NotifyingNodeEntry.
-  protected NotifyingNodeEntry getEntry(SkyKey key) {
-    return new NotifyingNodeEntry(key);
+  @Nullable
+  @Override
+  public NodeEntry get(@Nullable SkyKey requestor, Reason reason, SkyKey key) {
+    try {
+      return super.get(requestor, reason, key);
+    } catch (InterruptedException e) {
+      throw new IllegalStateException(e);
+    }
   }
 
-  /** Receiver to be informed when an event for a given key occurs. */
-  public interface Listener {
-    @ThreadSafe
-    void accept(SkyKey key, EventType type, Order order, Object context);
-
-    public static Listener NULL_LISTENER = new Listener() {
-      @Override
-      public void accept(SkyKey key, EventType type, Order order, Object context) {}
-    };
+  @Override
+  public Map<SkyKey, ? extends NodeEntry> getBatch(
+      @Nullable SkyKey requestor, Reason reason, Iterable<? extends SkyKey> keys) {
+    try {
+      return super.getBatch(requestor, reason, keys);
+    } catch (InterruptedException e) {
+      throw new IllegalStateException(e);
+    }
   }
 
-  /**
-   * Graph/value entry events that the receiver can be informed of. When writing tests, feel free to
-   * add additional events here if needed.
-   */
-  public enum EventType {
-    CREATE_IF_ABSENT,
-    ADD_REVERSE_DEP,
-    SIGNAL,
-    SET_VALUE,
-    MARK_DIRTY,
-    IS_CHANGED,
-    IS_DIRTY
+  @Override
+  public Map<SkyKey, SkyValue> getValues() {
+    return ((InMemoryGraph) delegate).getValues();
   }
 
-  public enum Order {
-    BEFORE,
-    AFTER
+  @Override
+  public Map<SkyKey, SkyValue> getDoneValues() {
+    return ((InMemoryGraph) delegate).getDoneValues();
   }
 
-  protected class NotifyingNodeEntry extends InMemoryNodeEntry {
-    private final SkyKey myKey;
+  @Override
+  public Map<SkyKey, ? extends NodeEntry> getAllValues() {
+    return ((InMemoryGraph) delegate).getAllValues();
+  }
 
-    protected NotifyingNodeEntry(SkyKey key) {
-      myKey = key;
-    }
-
-    // Note that these methods are not synchronized. Necessary synchronization happens when calling
-    // the super() methods.
-    @Override
-    public DependencyState addReverseDepAndCheckIfDone(SkyKey reverseDep) {
-      graphListener.accept(myKey, EventType.ADD_REVERSE_DEP, Order.BEFORE, reverseDep);
-      DependencyState result = super.addReverseDepAndCheckIfDone(reverseDep);
-      graphListener.accept(myKey, EventType.ADD_REVERSE_DEP, Order.AFTER, reverseDep);
-      return result;
-    }
-
-    @Override
-    public boolean signalDep(Version childVersion) {
-      graphListener.accept(myKey, EventType.SIGNAL, Order.BEFORE, childVersion);
-      boolean result = super.signalDep(childVersion);
-      graphListener.accept(myKey, EventType.SIGNAL, Order.AFTER, childVersion);
-      return result;
-    }
-
-    @Override
-    public Set<SkyKey> setValue(SkyValue value, Version version) {
-      graphListener.accept(myKey, EventType.SET_VALUE, Order.BEFORE, value);
-      Set<SkyKey> result = super.setValue(value, version);
-      graphListener.accept(myKey, EventType.SET_VALUE, Order.AFTER, value);
-      return result;
-    }
-
-    @Override
-    public Pair<? extends Iterable<SkyKey>, ? extends SkyValue> markDirty(boolean isChanged) {
-      graphListener.accept(myKey, EventType.MARK_DIRTY, Order.BEFORE, isChanged);
-      Pair<? extends Iterable<SkyKey>, ? extends SkyValue> result = super.markDirty(isChanged);
-      graphListener.accept(myKey, EventType.MARK_DIRTY, Order.AFTER, isChanged);
-      return result;
-    }
-
-    @Override
-    public boolean isChanged() {
-      graphListener.accept(myKey, EventType.IS_CHANGED, Order.BEFORE, this);
-      return super.isChanged();
-    }
-
-    @Override
-    public boolean isDirty() {
-      graphListener.accept(myKey, EventType.IS_DIRTY, Order.BEFORE, this);
-      return super.isDirty();
-    }
+  @Override
+  public Map<SkyKey, ? extends NodeEntry> getAllValuesMutable() {
+    return ((InMemoryGraph) delegate).getAllValuesMutable();
   }
 }

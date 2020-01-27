@@ -1,4 +1,4 @@
-// Copyright 2014 Google Inc. All rights reserved.
+// Copyright 2014 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,21 +14,15 @@
 package com.google.devtools.build.lib.vfs;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.assertArrayEquals;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.fail;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 
-import com.google.devtools.build.lib.testutil.MoreAsserts;
+import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.FileSystem.NotASymlinkException;
-
-import org.junit.Before;
-import org.junit.Test;
-
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.Collection;
+import org.junit.Before;
+import org.junit.Test;
 
 /**
  * This class handles the generic tests that any filesystem must pass.
@@ -43,11 +37,8 @@ public abstract class SymlinkAwareFileSystemTest extends FileSystemTest {
   protected Path xLinkToDirectory;
   protected Path xDanglingLink;
 
-  @Override
   @Before
-  public void setUp() throws Exception {
-    super.setUp();
-
+  public final void createSymbolicLinks() throws Exception  {
     // % ls -lR
     // -rw-rw-r-- xFile
     // drwxrwxr-x xNonEmptyDirectory
@@ -78,19 +69,19 @@ public abstract class SymlinkAwareFileSystemTest extends FileSystemTest {
 
     createSymbolicLink(linkPath, newPath);
 
-    assertTrue(linkPath.isSymbolicLink());
+    assertThat(linkPath.isSymbolicLink()).isTrue();
 
-    assertTrue(linkPath.isFile());
-    assertFalse(linkPath.isFile(Symlinks.NOFOLLOW));
-    assertTrue(linkPath.isFile(Symlinks.FOLLOW));
+    assertThat(linkPath.isFile()).isTrue();
+    assertThat(linkPath.isFile(Symlinks.NOFOLLOW)).isFalse();
+    assertThat(linkPath.isFile(Symlinks.FOLLOW)).isTrue();
 
-    assertFalse(linkPath.isDirectory());
-    assertFalse(linkPath.isDirectory(Symlinks.NOFOLLOW));
-    assertFalse(linkPath.isDirectory(Symlinks.FOLLOW));
+    assertThat(linkPath.isDirectory()).isFalse();
+    assertThat(linkPath.isDirectory(Symlinks.NOFOLLOW)).isFalse();
+    assertThat(linkPath.isDirectory(Symlinks.FOLLOW)).isFalse();
 
-    if (supportsSymlinks) {
-      assertEquals(newPath.toString().length(), linkPath.getFileSize(Symlinks.NOFOLLOW));
-      assertEquals(newPath.getFileSize(Symlinks.NOFOLLOW), linkPath.getFileSize());
+    if (testFS.supportsSymbolicLinksNatively(linkPath)) {
+      assertThat(linkPath.getFileSize(Symlinks.NOFOLLOW)).isEqualTo(newPath.toString().length());
+      assertThat(linkPath.getFileSize()).isEqualTo(newPath.getFileSize(Symlinks.NOFOLLOW));
     }
     assertThat(linkPath.getParentDirectory().getDirectoryEntries()).hasSize(2);
     assertThat(linkPath.getParentDirectory().getDirectoryEntries()).containsExactly(newPath,
@@ -106,9 +97,9 @@ public abstract class SymlinkAwareFileSystemTest extends FileSystemTest {
 
     createSymbolicLink(linkPath, newPath);
 
-    assertTrue(linkPath.isSymbolicLink());
-    assertFalse(linkPath.isFile());
-    assertTrue(linkPath.isDirectory());
+    assertThat(linkPath.isSymbolicLink()).isTrue();
+    assertThat(linkPath.isFile()).isFalse();
+    assertThat(linkPath.isDirectory()).isTrue();
     assertThat(linkPath.getParentDirectory().getDirectoryEntries()).hasSize(2);
     assertThat(linkPath.getParentDirectory().
       getDirectoryEntries()).containsExactly(newPath, linkPath);
@@ -152,8 +143,8 @@ public abstract class SymlinkAwareFileSystemTest extends FileSystemTest {
 
   private void assertCanonicalPathsMatch(Path newPath, Path link1, Path link2)
       throws IOException {
-    assertEquals(newPath, link1.resolveSymbolicLinks());
-    assertEquals(newPath, link2.resolveSymbolicLinks());
+    assertThat(link1.resolveSymbolicLinks()).isEqualTo(newPath);
+    assertThat(link2.resolveSymbolicLinks()).isEqualTo(newPath);
   }
 
   //
@@ -162,26 +153,18 @@ public abstract class SymlinkAwareFileSystemTest extends FileSystemTest {
 
   @Test
   public void testCreateDirectoryWhereDanglingSymlinkAlreadyExists() {
-    try {
-      xDanglingLink.createDirectory();
-      fail();
-    } catch (IOException e) {
-      assertThat(e).hasMessage(xDanglingLink + " (File exists)");
-    }
-    assertTrue(xDanglingLink.isSymbolicLink()); // still a symbolic link
-    assertFalse(xDanglingLink.isDirectory(Symlinks.FOLLOW)); // link still dangles
+    IOException e = assertThrows(IOException.class, () -> xDanglingLink.createDirectory());
+    assertThat(e).hasMessageThat().isEqualTo(xDanglingLink + " (File exists)");
+    assertThat(xDanglingLink.isSymbolicLink()).isTrue(); // still a symbolic link
+    assertThat(xDanglingLink.isDirectory(Symlinks.FOLLOW)).isFalse(); // link still dangles
   }
 
   @Test
   public void testCreateDirectoryWhereSymlinkAlreadyExists() {
-    try {
-      xLinkToDirectory.createDirectory();
-      fail();
-    } catch (IOException e) {
-      assertThat(e).hasMessage(xLinkToDirectory + " (File exists)");
-    }
-    assertTrue(xLinkToDirectory.isSymbolicLink()); // still a symbolic link
-    assertTrue(xLinkToDirectory.isDirectory(Symlinks.FOLLOW)); // link still points to dir
+    IOException e = assertThrows(IOException.class, () -> xLinkToDirectory.createDirectory());
+    assertThat(e).hasMessageThat().isEqualTo(xLinkToDirectory + " (File exists)");
+    assertThat(xLinkToDirectory.isSymbolicLink()).isTrue(); // still a symbolic link
+    assertThat(xLinkToDirectory.isDirectory(Symlinks.FOLLOW)).isTrue(); // link still points to dir
   }
 
   //  createSymbolicLink(PathFragment)
@@ -203,47 +186,64 @@ public abstract class SymlinkAwareFileSystemTest extends FileSystemTest {
     };
     Path linkPath = absolutize("link");
     for (String linkTarget : linkTargets) {
-      PathFragment relative = new PathFragment(linkTarget);
+      PathFragment relative = PathFragment.create(linkTarget);
       linkPath.delete();
       createSymbolicLink(linkPath, relative);
-      if (supportsSymlinks) {
-        assertEquals(linkTarget.length(), linkPath.getFileSize(Symlinks.NOFOLLOW));
-        assertEquals(relative, linkPath.readSymbolicLink());
+      if (testFS.supportsSymbolicLinksNatively(linkPath)) {
+        assertThat(linkPath.getFileSize(Symlinks.NOFOLLOW))
+            .isEqualTo(relative.getSafePathString().length());
+        assertThat(linkPath.readSymbolicLink()).isEqualTo(relative);
       }
     }
   }
 
   @Test
   public void testLinkToRootResolvesCorrectly() throws IOException {
+    if (OS.getCurrent() == OS.WINDOWS) {
+      // This test cannot be run on Windows, it mixes "/" paths with "C:/" paths
+      return;
+    }
     Path rootPath = testFS.getPath("/");
+
+    try {
+      rootPath.getChild("testDir").createDirectory();
+    } catch (IOException e) {
+      // Do nothing. This is a real FS, and we don't have permission.
+    }
+
     Path linkPath = absolutize("link");
     createSymbolicLink(linkPath, rootPath);
 
     // resolveSymbolicLinks requires an existing path:
-    try {
-      linkPath.getRelative("test").resolveSymbolicLinks();
-      fail();
-    } catch (FileNotFoundException e) { /* ok */ }
+    assertThrows(
+        FileNotFoundException.class, () -> linkPath.getRelative("test").resolveSymbolicLinks());
 
     // The path may not be a symlink, neither on Darwin nor on Linux.
-    Path rootChild = testFS.getPath("/sbin");
-    if (!rootChild.isDirectory()) {
-      rootChild.createDirectory();
+    String nonLinkEntry = null;
+    for (String child : testFS.getDirectoryEntries(rootPath)) {
+      Path p = rootPath.getChild(child);
+      if (!p.isSymbolicLink() && p.isDirectory()) {
+        nonLinkEntry = p.getBaseName();
+        break;
+      }
     }
-    assertEquals(rootChild, linkPath.getRelative("sbin").resolveSymbolicLinks());
+
+    assertThat(nonLinkEntry).isNotNull();
+    Path rootChild = testFS.getPath("/" + nonLinkEntry);
+    assertThat(linkPath.getRelative(nonLinkEntry).resolveSymbolicLinks()).isEqualTo(rootChild);
   }
 
   @Test
   public void testLinkToFragmentContainingLinkResolvesCorrectly() throws IOException {
     Path link1 = absolutize("link1");
-    PathFragment link1target = new PathFragment("link2/foo");
+    PathFragment link1target = PathFragment.create("link2/foo");
     Path link2 = absolutize("link2");
     Path link2target = xNonEmptyDirectory;
 
     createSymbolicLink(link1, link1target); // ln -s link2/foo link1
     createSymbolicLink(link2, link2target); // ln -s xNonEmptyDirectory link2
     // link1 --> xNonEmptyDirectory/foo
-    assertEquals(link1.resolveSymbolicLinks(), link2target.getRelative("foo"));
+    assertThat(link2target.getRelative("foo")).isEqualTo(link1.resolveSymbolicLinks());
   }
 
   //
@@ -255,13 +255,9 @@ public abstract class SymlinkAwareFileSystemTest extends FileSystemTest {
     Path link = absolutize("recursive-link");
     createSymbolicLink(link, link);
 
-    if (supportsSymlinks) {
-      try {
-        link.resolveSymbolicLinks();
-        fail();
-      } catch (IOException e) {
-        assertThat(e).hasMessage(link + " (Too many levels of symbolic links)");
-      }
+    if (testFS.supportsSymbolicLinksNatively(link)) {
+      IOException e = assertThrows(IOException.class, () -> link.resolveSymbolicLinks());
+      assertThat(e).hasMessageThat().isEqualTo(link + " (Too many levels of symbolic links)");
     }
   }
 
@@ -272,48 +268,33 @@ public abstract class SymlinkAwareFileSystemTest extends FileSystemTest {
     createSymbolicLink(link2, link1);
     createSymbolicLink(link1, link2);
 
-    if (supportsSymlinks) {
-      try {
-        link1.resolveSymbolicLinks();
-        fail();
-      } catch (IOException e) {
-        assertThat(e).hasMessage(link1 + " (Too many levels of symbolic links)");
-      }
+    if (testFS.supportsSymbolicLinksNatively(link1)) {
+      IOException e = assertThrows(IOException.class, () -> link1.resolveSymbolicLinks());
+      assertThat(e).hasMessageThat().isEqualTo(link1 + " (Too many levels of symbolic links)");
     }
   }
 
   @Test
   public void testResolveSymbolicLinksENOENT() {
-    if (supportsSymlinks) {
-      try {
-        xDanglingLink.resolveSymbolicLinks();
-        fail();
-      } catch (IOException e) {
-        assertThat(e).hasMessage(xNothing + " (No such file or directory)");
-      }
+    if (testFS.supportsSymbolicLinksNatively(xDanglingLink)) {
+      IOException e = assertThrows(IOException.class, () -> xDanglingLink.resolveSymbolicLinks());
+      assertThat(e).hasMessageThat().isEqualTo(xNothing + " (No such file or directory)");
     }
   }
 
   @Test
   public void testResolveSymbolicLinksENOTDIR() throws IOException {
-    if (supportsSymlinks) {
-      Path badLinkTarget = xFile.getChild("bad"); // parent is not a directory!
-      Path badLink = absolutize("badLink");
+    Path badLinkTarget = xFile.getChild("bad"); // parent is not a directory!
+    Path badLink = absolutize("badLink");
+    if (testFS.supportsSymbolicLinksNatively(badLink)) {
       createSymbolicLink(badLink, badLinkTarget);
-      try {
-        badLink.resolveSymbolicLinks();
-        fail();
-      } catch (IOException e) {
-        // ok.  Ideally we would assert "(Not a directory)" in the error
-        // message, but that would require yet another stat in the
-        // implementation.
-      }
+      assertThrows(IOException.class, () -> badLink.resolveSymbolicLinks());
     }
   }
 
   @Test
   public void testResolveSymbolicLinksWithUplevelRefs() throws IOException {
-    if (supportsSymlinks) {
+    if (testFS.supportsSymbolicLinksNatively(xLinkToFile)) {
       // Create a series of links that refer to xFile as ./xFile,
       // ./../foo/xFile, ./../../bar/foo/xFile, etc.  They should all resolve
       // to xFile.
@@ -321,8 +302,8 @@ public abstract class SymlinkAwareFileSystemTest extends FileSystemTest {
       String prefix = "./";
       while ((ancestor = ancestor.getParentDirectory()) != null) {
         xLinkToFile.delete();
-        createSymbolicLink(xLinkToFile, new PathFragment(prefix + xFile.relativeTo(ancestor)));
-        assertEquals(xFile, xLinkToFile.resolveSymbolicLinks());
+        createSymbolicLink(xLinkToFile, PathFragment.create(prefix + xFile.relativeTo(ancestor)));
+        assertThat(xLinkToFile.resolveSymbolicLinks()).isEqualTo(xFile);
 
         prefix += "../";
       }
@@ -331,30 +312,22 @@ public abstract class SymlinkAwareFileSystemTest extends FileSystemTest {
 
   @Test
   public void testReadSymbolicLink() throws IOException {
-    if (supportsSymlinks) {
-      assertEquals(xNothing.toString(),
-                   xDanglingLink.readSymbolicLink().toString());
+    if (testFS.supportsSymbolicLinksNatively(xDanglingLink)) {
+      assertThat(xDanglingLink.readSymbolicLink().toString()).isEqualTo(xNothing.toString());
     }
 
-    assertEquals(xFile.toString(),
-                 xLinkToFile.readSymbolicLink().toString());
+    assertThat(xLinkToFile.readSymbolicLink().toString()).isEqualTo(xFile.toString());
 
-    assertEquals(xEmptyDirectory.toString(),
-                 xLinkToDirectory.readSymbolicLink().toString());
+    assertThat(xLinkToDirectory.readSymbolicLink().toString())
+        .isEqualTo(xEmptyDirectory.toString());
 
-    try {
-      xFile.readSymbolicLink(); // not a link
-      fail();
-    } catch (NotASymlinkException e) {
-      assertThat(e).hasMessage(xFile.toString());
-    }
+    NotASymlinkException nase =
+        assertThrows(NotASymlinkException.class, () -> xFile.readSymbolicLink());
+    assertThat(nase).hasMessageThat().isEqualTo(xFile.toString() + " is not a symlink");
 
-    try {
-      xNothing.readSymbolicLink(); // nothing there
-      fail();
-    } catch (IOException e) {
-      assertThat(e).hasMessage(xNothing + " (No such file or directory)");
-    }
+    FileNotFoundException fnfe =
+        assertThrows(FileNotFoundException.class, () -> xNothing.readSymbolicLink());
+    assertThat(fnfe).hasMessageThat().isEqualTo(xNothing + " (No such file or directory)");
   }
 
   @Test
@@ -362,13 +335,10 @@ public abstract class SymlinkAwareFileSystemTest extends FileSystemTest {
       throws IOException {
     xEmptyDirectory.setWritable(false);
     Path xChildOfReadonlyDir = xEmptyDirectory.getChild("x");
-    if (supportsSymlinks) {
-      try {
-        xChildOfReadonlyDir.createSymbolicLink(xNothing);
-        fail();
-      } catch (IOException e) {
-        assertThat(e).hasMessage(xChildOfReadonlyDir + " (Permission denied)");
-      }
+    if (testFS.supportsSymbolicLinksNatively(xChildOfReadonlyDir)) {
+      IOException e =
+          assertThrows(IOException.class, () -> xChildOfReadonlyDir.createSymbolicLink(xNothing));
+      assertThat(e).hasMessageThat().isEqualTo(xChildOfReadonlyDir + " (Permission denied)");
     }
   }
 
@@ -381,81 +351,66 @@ public abstract class SymlinkAwareFileSystemTest extends FileSystemTest {
     Path newPath = absolutize("non-existing-dir/new-file");
     Path someLink = absolutize("dangling-link");
     createSymbolicLink(someLink, newPath);
-    assertTrue(someLink.isSymbolicLink());
-    assertTrue(someLink.exists(Symlinks.NOFOLLOW)); // the link itself exists
-    assertFalse(someLink.exists()); // ...but the referent doesn't
-    if (supportsSymlinks) {
-      try {
-        someLink.resolveSymbolicLinks();
-      } catch (FileNotFoundException e) {
-        assertThat(e).hasMessage(newPath.getParentDirectory() + " (No such file or directory)");
-      }
+    assertThat(someLink.isSymbolicLink()).isTrue();
+    assertThat(someLink.exists(Symlinks.NOFOLLOW)).isTrue(); // the link itself exists
+    assertThat(someLink.exists()).isFalse(); // ...but the referent doesn't
+    if (testFS.supportsSymbolicLinksNatively(someLink)) {
+      FileNotFoundException e =
+          assertThrows(FileNotFoundException.class, () -> someLink.resolveSymbolicLinks());
+      assertThat(e)
+          .hasMessageThat()
+          .isEqualTo(newPath.getParentDirectory() + " (No such file or directory)");
     }
   }
 
   @Test
   public void testCannotCreateSymbolicLinkWithoutParent() throws IOException {
     Path xChildOfMissingDir = xNothing.getChild("x");
-    if (supportsSymlinks) {
-      try {
-        xChildOfMissingDir.createSymbolicLink(xFile);
-        fail();
-      } catch (FileNotFoundException e) {
-        MoreAsserts.assertEndsWith(" (No such file or directory)", e.getMessage());
-      }
+    if (testFS.supportsSymbolicLinksNatively(xChildOfMissingDir)) {
+      FileNotFoundException e =
+          assertThrows(
+              FileNotFoundException.class, () -> xChildOfMissingDir.createSymbolicLink(xFile));
+      assertThat(e).hasMessageThat().endsWith(" (No such file or directory)");
     }
   }
 
   @Test
   public void testCreateSymbolicLinkWhereNothingExists() throws IOException {
     createSymbolicLink(xNothing, xFile);
-    assertTrue(xNothing.isSymbolicLink());
+    assertThat(xNothing.isSymbolicLink()).isTrue();
   }
 
   @Test
   public void testCreateSymbolicLinkWhereDirectoryAlreadyExists() {
-    try {
-      createSymbolicLink(xEmptyDirectory, xFile);
-      fail();
-    } catch (IOException e) { // => couldn't be created
-      assertThat(e).hasMessage(xEmptyDirectory + " (File exists)");
-    }
-    assertTrue(xEmptyDirectory.isDirectory(Symlinks.NOFOLLOW));
+    IOException e =
+        assertThrows(IOException.class, () -> createSymbolicLink(xEmptyDirectory, xFile));
+    assertThat(e).hasMessageThat().isEqualTo(xEmptyDirectory + " (File exists)");
+    assertThat(xEmptyDirectory.isDirectory(Symlinks.NOFOLLOW)).isTrue();
   }
 
   @Test
   public void testCreateSymbolicLinkWhereFileAlreadyExists() {
-    try {
-      createSymbolicLink(xFile, xEmptyDirectory);
-      fail();
-    } catch (IOException e) { // => couldn't be created
-      assertThat(e).hasMessage(xFile + " (File exists)");
-    }
-    assertTrue(xFile.isFile(Symlinks.NOFOLLOW));
+    IOException e =
+        assertThrows(IOException.class, () -> createSymbolicLink(xFile, xEmptyDirectory));
+    assertThat(e).hasMessageThat().isEqualTo(xFile + " (File exists)");
+    assertThat(xFile.isFile(Symlinks.NOFOLLOW)).isTrue();
   }
 
   @Test
   public void testCreateSymbolicLinkWhereDanglingSymlinkAlreadyExists() {
-    try {
-      createSymbolicLink(xDanglingLink, xFile);
-      fail();
-    } catch (IOException e) {
-      assertThat(e).hasMessage(xDanglingLink + " (File exists)");
-    }
-    assertTrue(xDanglingLink.isSymbolicLink()); // still a symbolic link
-    assertFalse(xDanglingLink.isDirectory()); // link still dangles
+    IOException e = assertThrows(IOException.class, () -> createSymbolicLink(xDanglingLink, xFile));
+    assertThat(e).hasMessageThat().isEqualTo(xDanglingLink + " (File exists)");
+    assertThat(xDanglingLink.isSymbolicLink()).isTrue(); // still a symbolic link
+    assertThat(xDanglingLink.isDirectory()).isFalse(); // link still dangles
   }
 
   @Test
   public void testCreateSymbolicLinkWhereSymlinkAlreadyExists() {
-    try {
-      createSymbolicLink(xLinkToDirectory, xNothing);
-      fail();
-    } catch (IOException e) {
-      assertThat(e).hasMessage(xLinkToDirectory + " (File exists)");
-    }
-    assertTrue(xLinkToDirectory.isSymbolicLink()); // still a symbolic link
-    assertTrue(xLinkToDirectory.isDirectory()); // link still points to dir
+    IOException e =
+        assertThrows(IOException.class, () -> createSymbolicLink(xLinkToDirectory, xNothing));
+    assertThat(e).hasMessageThat().isEqualTo(xLinkToDirectory + " (File exists)");
+    assertThat(xLinkToDirectory.isSymbolicLink()).isTrue(); // still a symbolic link
+    assertThat(xLinkToDirectory.isDirectory()).isTrue(); // link still points to dir
   }
 
   @Test
@@ -465,10 +420,10 @@ public abstract class SymlinkAwareFileSystemTest extends FileSystemTest {
     FileSystemUtils.createEmptyFile(newPath);
     createSymbolicLink(someLink, newPath);
 
-    assertEquals(xEmptyDirectory.getDirectoryEntries().size(), 2);
+    assertThat(xEmptyDirectory.getDirectoryEntries()).hasSize(2);
 
-    assertTrue(someLink.delete());
-    assertEquals(xEmptyDirectory.getDirectoryEntries().size(), 1);
+    assertThat(someLink.delete()).isTrue();
+    assertThat(xEmptyDirectory.getDirectoryEntries()).hasSize(1);
 
     assertThat(xEmptyDirectory.getDirectoryEntries()).containsExactly(newPath);
   }
@@ -477,7 +432,7 @@ public abstract class SymlinkAwareFileSystemTest extends FileSystemTest {
   @Test
   public void testLinkFollowedToDirectory() throws IOException {
     Path theDirectory = absolutize("foo/");
-    assertTrue(theDirectory.createDirectory());
+    assertThat(theDirectory.createDirectory()).isTrue();
     Path newPath1 = absolutize("foo/new-file-1");
     Path newPath2 = absolutize("foo/new-file-2");
     Path newPath3 = absolutize("foo/new-file-3");
@@ -501,7 +456,7 @@ public abstract class SymlinkAwareFileSystemTest extends FileSystemTest {
     Path newPath1 = absolutize("new-file-1");
     Path newPath2 = absolutize("new-file-2");
     FileSystemUtils.createEmptyFile(newPath1);
-    assertTrue(newPath2.createDirectory());
+    assertThat(newPath2.createDirectory()).isTrue();
 
     Path linkPath1 = absolutize("link1");
     Path linkPath2 = absolutize("link2");
@@ -511,8 +466,8 @@ public abstract class SymlinkAwareFileSystemTest extends FileSystemTest {
     newPath1.delete();
     newPath2.delete();
 
-    assertFalse(linkPath1.isFile());
-    assertFalse(linkPath2.isDirectory());
+    assertThat(linkPath1.isFile()).isFalse();
+    assertThat(linkPath2.isDirectory()).isFalse();
   }
 
   @Test
@@ -528,7 +483,7 @@ public abstract class SymlinkAwareFileSystemTest extends FileSystemTest {
     String resultData =
       new String(FileSystemUtils.readContentAsLatin1(testFile));
 
-    assertEquals(testData,resultData);
+    assertThat(resultData).isEqualTo(testData);
   }
 
   //
@@ -541,20 +496,20 @@ public abstract class SymlinkAwareFileSystemTest extends FileSystemTest {
     Path b = absolutize("b");
     FileSystemUtils.createEmptyFile(b);
     createSymbolicLink(a, b);  // ln -sf "b" "a"
-    assertTrue(a.exists()); // = exists(FOLLOW)
-    assertTrue(b.exists()); // = exists(FOLLOW)
-    assertTrue(a.exists(Symlinks.FOLLOW));
-    assertTrue(b.exists(Symlinks.FOLLOW));
-    assertTrue(a.exists(Symlinks.NOFOLLOW));
-    assertTrue(b.exists(Symlinks.NOFOLLOW));
+    assertThat(a.exists()).isTrue(); // = exists(FOLLOW)
+    assertThat(b.exists()).isTrue(); // = exists(FOLLOW)
+    assertThat(a.exists(Symlinks.FOLLOW)).isTrue();
+    assertThat(b.exists(Symlinks.FOLLOW)).isTrue();
+    assertThat(a.exists(Symlinks.NOFOLLOW)).isTrue();
+    assertThat(b.exists(Symlinks.NOFOLLOW)).isTrue();
     b.delete(); // "a" is now a dangling link
-    assertFalse(a.exists()); // = exists(FOLLOW)
-    assertFalse(b.exists()); // = exists(FOLLOW)
-    assertFalse(a.exists(Symlinks.FOLLOW));
-    assertFalse(b.exists(Symlinks.FOLLOW));
+    assertThat(a.exists()).isFalse(); // = exists(FOLLOW)
+    assertThat(b.exists()).isFalse(); // = exists(FOLLOW)
+    assertThat(a.exists(Symlinks.FOLLOW)).isFalse();
+    assertThat(b.exists(Symlinks.FOLLOW)).isFalse();
 
-    assertTrue(a.exists(Symlinks.NOFOLLOW)); // symlink still exists
-    assertFalse(b.exists(Symlinks.NOFOLLOW));
+    assertThat(a.exists(Symlinks.NOFOLLOW)).isTrue(); // symlink still exists
+    assertThat(b.exists(Symlinks.NOFOLLOW)).isFalse();
   }
 
   @Test
@@ -563,19 +518,19 @@ public abstract class SymlinkAwareFileSystemTest extends FileSystemTest {
     Path b = absolutize("b");
     b.createDirectory();
     createSymbolicLink(a, b);  // ln -sf "b" "a"
-    assertTrue(a.isDirectory()); // = isDirectory(FOLLOW)
-    assertTrue(b.isDirectory()); // = isDirectory(FOLLOW)
-    assertTrue(a.isDirectory(Symlinks.FOLLOW));
-    assertTrue(b.isDirectory(Symlinks.FOLLOW));
-    assertFalse(a.isDirectory(Symlinks.NOFOLLOW)); // it's a link!
-    assertTrue(b.isDirectory(Symlinks.NOFOLLOW));
+    assertThat(a.isDirectory()).isTrue(); // = isDirectory(FOLLOW)
+    assertThat(b.isDirectory()).isTrue(); // = isDirectory(FOLLOW)
+    assertThat(a.isDirectory(Symlinks.FOLLOW)).isTrue();
+    assertThat(b.isDirectory(Symlinks.FOLLOW)).isTrue();
+    assertThat(a.isDirectory(Symlinks.NOFOLLOW)).isFalse(); // it's a link!
+    assertThat(b.isDirectory(Symlinks.NOFOLLOW)).isTrue();
     b.delete(); // "a" is now a dangling link
-    assertFalse(a.isDirectory()); // = isDirectory(FOLLOW)
-    assertFalse(b.isDirectory()); // = isDirectory(FOLLOW)
-    assertFalse(a.isDirectory(Symlinks.FOLLOW));
-    assertFalse(b.isDirectory(Symlinks.FOLLOW));
-    assertFalse(a.isDirectory(Symlinks.NOFOLLOW));
-    assertFalse(b.isDirectory(Symlinks.NOFOLLOW));
+    assertThat(a.isDirectory()).isFalse(); // = isDirectory(FOLLOW)
+    assertThat(b.isDirectory()).isFalse(); // = isDirectory(FOLLOW)
+    assertThat(a.isDirectory(Symlinks.FOLLOW)).isFalse();
+    assertThat(b.isDirectory(Symlinks.FOLLOW)).isFalse();
+    assertThat(a.isDirectory(Symlinks.NOFOLLOW)).isFalse();
+    assertThat(b.isDirectory(Symlinks.NOFOLLOW)).isFalse();
   }
 
   @Test
@@ -584,19 +539,19 @@ public abstract class SymlinkAwareFileSystemTest extends FileSystemTest {
     Path b = absolutize("b");
     FileSystemUtils.createEmptyFile(b);
     createSymbolicLink(a, b);  // ln -sf "b" "a"
-    assertTrue(a.isFile()); // = isFile(FOLLOW)
-    assertTrue(b.isFile()); // = isFile(FOLLOW)
-    assertTrue(a.isFile(Symlinks.FOLLOW));
-    assertTrue(b.isFile(Symlinks.FOLLOW));
-    assertFalse(a.isFile(Symlinks.NOFOLLOW)); // it's a link!
-    assertTrue(b.isFile(Symlinks.NOFOLLOW));
+    assertThat(a.isFile()).isTrue(); // = isFile(FOLLOW)
+    assertThat(b.isFile()).isTrue(); // = isFile(FOLLOW)
+    assertThat(a.isFile(Symlinks.FOLLOW)).isTrue();
+    assertThat(b.isFile(Symlinks.FOLLOW)).isTrue();
+    assertThat(a.isFile(Symlinks.NOFOLLOW)).isFalse(); // it's a link!
+    assertThat(b.isFile(Symlinks.NOFOLLOW)).isTrue();
     b.delete(); // "a" is now a dangling link
-    assertFalse(a.isFile()); // = isFile()
-    assertFalse(b.isFile()); // = isFile()
-    assertFalse(a.isFile());
-    assertFalse(b.isFile());
-    assertFalse(a.isFile(Symlinks.NOFOLLOW));
-    assertFalse(b.isFile(Symlinks.NOFOLLOW));
+    assertThat(a.isFile()).isFalse(); // = isFile()
+    assertThat(b.isFile()).isFalse(); // = isFile()
+    assertThat(a.isFile()).isFalse();
+    assertThat(b.isFile()).isFalse();
+    assertThat(a.isFile(Symlinks.NOFOLLOW)).isFalse();
+    assertThat(b.isFile(Symlinks.NOFOLLOW)).isFalse();
   }
 
   @Test
@@ -612,11 +567,11 @@ public abstract class SymlinkAwareFileSystemTest extends FileSystemTest {
     Path child = xEmptyDirectory.getChild("child");
     Path aliasToChild = xLinkToDirectory.getChild("child");
 
-    assertFalse(aliasToChild.exists());
+    assertThat(aliasToChild.exists()).isFalse();
     FileSystemUtils.createEmptyFile(child);
-    assertTrue(aliasToChild.exists());
-    assertTrue(aliasToChild.isFile());
-    assertFalse(aliasToChild.isDirectory());
+    assertThat(aliasToChild.exists()).isTrue();
+    assertThat(aliasToChild.isFile()).isTrue();
+    assertThat(aliasToChild.isDirectory()).isFalse();
 
     validateLinkedReferenceObeysReadOnly(child, aliasToChild);
     validateLinkedReferenceObeysExecutable(child, aliasToChild);
@@ -627,11 +582,11 @@ public abstract class SymlinkAwareFileSystemTest extends FileSystemTest {
     Path childDir = xEmptyDirectory.getChild("childDir");
     Path linkToChildDir = xLinkToDirectory.getChild("childDir");
 
-    assertFalse(linkToChildDir.exists());
+    assertThat(linkToChildDir.exists()).isFalse();
     childDir.createDirectory();
-    assertTrue(linkToChildDir.exists());
-    assertTrue(linkToChildDir.isDirectory());
-    assertFalse(linkToChildDir.isFile());
+    assertThat(linkToChildDir.exists()).isTrue();
+    assertThat(linkToChildDir.isDirectory()).isTrue();
+    assertThat(linkToChildDir.isFile()).isFalse();
 
     validateLinkedReferenceObeysReadOnly(childDir, linkToChildDir);
     validateLinkedReferenceObeysExecutable(childDir, linkToChildDir);
@@ -644,11 +599,11 @@ public abstract class SymlinkAwareFileSystemTest extends FileSystemTest {
     createSymbolicLink(linkToLinkToDirectory, xLinkToDirectory);
     Path linkToChildDir = linkToLinkToDirectory.getChild("childDir");
 
-    assertFalse(linkToChildDir.exists());
+    assertThat(linkToChildDir.exists()).isFalse();
     childDir.createDirectory();
-    assertTrue(linkToChildDir.exists());
-    assertTrue(linkToChildDir.isDirectory());
-    assertFalse(linkToChildDir.isFile());
+    assertThat(linkToChildDir.exists()).isTrue();
+    assertThat(linkToChildDir.isDirectory()).isTrue();
+    assertThat(linkToChildDir.isFile()).isFalse();
 
     validateLinkedReferenceObeysReadOnly(childDir, linkToChildDir);
     validateLinkedReferenceObeysExecutable(childDir, linkToChildDir);
@@ -656,26 +611,26 @@ public abstract class SymlinkAwareFileSystemTest extends FileSystemTest {
 
   private void validateLinkedReferenceObeysReadOnly(Path path, Path link) throws IOException {
     path.setWritable(false);
-    assertFalse(path.isWritable());
-    assertFalse(link.isWritable());
+    assertThat(path.isWritable()).isFalse();
+    assertThat(link.isWritable()).isFalse();
     path.setWritable(true);
-    assertTrue(path.isWritable());
-    assertTrue(link.isWritable());
+    assertThat(path.isWritable()).isTrue();
+    assertThat(link.isWritable()).isTrue();
     path.setWritable(false);
-    assertFalse(path.isWritable());
-    assertFalse(link.isWritable());
+    assertThat(path.isWritable()).isFalse();
+    assertThat(link.isWritable()).isFalse();
   }
 
   private void validateLinkedReferenceObeysExecutable(Path path, Path link) throws IOException {
     path.setExecutable(true);
-    assertTrue(path.isExecutable());
-    assertTrue(link.isExecutable());
+    assertThat(path.isExecutable()).isTrue();
+    assertThat(link.isExecutable()).isTrue();
     path.setExecutable(false);
-    assertFalse(path.isExecutable());
-    assertFalse(link.isExecutable());
+    assertThat(path.isExecutable()).isFalse();
+    assertThat(link.isExecutable()).isFalse();
     path.setExecutable(true);
-    assertTrue(path.isExecutable());
-    assertTrue(link.isExecutable());
+    assertThat(path.isExecutable()).isTrue();
+    assertThat(link.isExecutable()).isTrue();
   }
 
   @Test
@@ -692,7 +647,7 @@ public abstract class SymlinkAwareFileSystemTest extends FileSystemTest {
     createSymbolicLink(link, linkedTo);
     Path linkedChild = link.getChild("child");
     byte[] inputData = FileSystemUtils.readContent(linkedChild);
-    assertArrayEquals(outputData, inputData);
+    assertThat(inputData).isEqualTo(outputData);
   }
 
   @Test
@@ -708,6 +663,6 @@ public abstract class SymlinkAwareFileSystemTest extends FileSystemTest {
     FileSystemUtils.writeContent(linkedChild, outputData);
 
     byte[] inputData = FileSystemUtils.readContent(child);
-    assertArrayEquals(outputData, inputData);
+    assertThat(inputData).isEqualTo(outputData);
   }
 }

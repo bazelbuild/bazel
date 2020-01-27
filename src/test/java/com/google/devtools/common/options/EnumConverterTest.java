@@ -1,4 +1,4 @@
-// Copyright 2014 Google Inc. All rights reserved.
+// Copyright 2014 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,17 +14,13 @@
 
 package com.google.devtools.common.options;
 
-import static com.google.devtools.common.options.OptionsParser.newOptionsParser;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertSame;
-import static org.junit.Assert.fail;
+import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 
+import java.util.List;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
-
-import java.util.List;
 
 /**
  * A test for {@link EnumConverter}.
@@ -47,16 +43,14 @@ public class EnumConverterTest {
   @Test
   public void converterForEnumWithTwoValues() throws Exception {
     CompilationModeConverter converter = new CompilationModeConverter();
-    assertEquals(converter.convert("dbg"), CompilationMode.DBG);
-    assertEquals(converter.convert("opt"), CompilationMode.OPT);
-    try {
-      converter.convert("none");
-      fail();
-    } catch(OptionsParsingException e) {
-      assertEquals(e.getMessage(),
-                   "Not a valid compilation mode: 'none' (should be dbg or opt)");
-    }
-    assertEquals("dbg or opt", converter.getTypeDescription());
+    assertThat(converter.convert("dbg")).isEqualTo(CompilationMode.DBG);
+    assertThat(converter.convert("opt")).isEqualTo(CompilationMode.OPT);
+    OptionsParsingException e =
+        assertThrows(OptionsParsingException.class, () -> converter.convert("none"));
+    assertThat(e)
+        .hasMessageThat()
+        .isEqualTo("Not a valid compilation mode: 'none' (should be dbg or opt)");
+    assertThat(converter.getTypeDescription()).isEqualTo("dbg or opt");
   }
 
   private enum Fruit {
@@ -74,14 +68,13 @@ public class EnumConverterTest {
   public void typeDescriptionForEnumWithThreeValues() throws Exception {
     FruitConverter converter = new FruitConverter();
     // We always use lowercase in the user-visible messages:
-    assertEquals("apple, banana or cherry",
-                 converter.getTypeDescription());
+    assertThat(converter.getTypeDescription()).isEqualTo("apple, banana or cherry");
   }
 
   @Test
   public void converterIsCaseInsensitive() throws Exception {
     FruitConverter converter = new FruitConverter();
-    assertSame(Fruit.Banana, converter.convert("bAnANa"));
+    assertThat(converter.convert("bAnANa")).isSameInstanceAs(Fruit.Banana);
   }
 
   // Regression test: lists of enum using a subclass of EnumConverter don't work
@@ -96,22 +89,27 @@ public class EnumConverterTest {
   }
 
   public static class EnumListTestOptions extends OptionsBase {
-    @Option(name = "goo",
-            allowMultiple = true,
-            converter = AlphabetEnumConverter.class,
-            defaultValue = "null")
+    @Option(
+      name = "goo",
+      allowMultiple = true,
+      converter = AlphabetEnumConverter.class,
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.NO_OP},
+      defaultValue = "null"
+    )
     public List<AlphabetEnum> goo;
   }
 
   @Test
   public void enumList() throws OptionsParsingException {
-    OptionsParser parser = newOptionsParser(EnumListTestOptions.class);
+    OptionsParser parser =
+        OptionsParser.builder().optionsClasses(EnumListTestOptions.class).build();
     parser.parse("--goo=ALPHA", "--goo=BRAVO");
     EnumListTestOptions options = parser.getOptions(EnumListTestOptions.class);
-    assertNotNull(options.goo);
-    assertEquals(2, options.goo.size());
-    assertEquals(AlphabetEnum.ALPHA, options.goo.get(0));
-    assertEquals(AlphabetEnum.BRAVO, options.goo.get(1));
+    assertThat(options.goo).isNotNull();
+    assertThat(options.goo).hasSize(2);
+    assertThat(options.goo.get(0)).isEqualTo(AlphabetEnum.ALPHA);
+    assertThat(options.goo.get(1)).isEqualTo(AlphabetEnum.BRAVO);
   }
 
 }

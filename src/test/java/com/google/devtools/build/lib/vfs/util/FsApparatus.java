@@ -1,4 +1,4 @@
-// Copyright 2014 Google Inc. All rights reserved.
+// Copyright 2014 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -13,17 +13,15 @@
 // limitations under the License.
 package com.google.devtools.build.lib.vfs.util;
 
+import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.testutil.TestUtils;
-import com.google.devtools.build.lib.util.BlazeClock;
 import com.google.devtools.build.lib.util.StringUtilities;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
-
-import junit.framework.AssertionFailedError;
-
 import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 
 /**
@@ -57,13 +55,13 @@ public class FsApparatus {
    * does not hold with our usage of Unix filesystems.
    */
   public static FsApparatus newNative() {
-    FileSystem fs = FileSystems.initDefaultAsNative();
+    FileSystem fs = FileSystems.getNativeFileSystem();
     Path wd = fs.getPath(TMP_DIR);
 
     try {
-      FileSystemUtils.deleteTree(wd);
+      wd.deleteTree();
     } catch (IOException e) {
-      throw new AssertionFailedError(e.getMessage());
+      throw new AssertionError(e.getMessage());
     }
 
     return new FsApparatus(fs, wd);
@@ -89,10 +87,8 @@ public class FsApparatus {
   }
 
   /**
-   * Initializes this apparatus (if it hasn't been initialized yet), and creates
-   * a scratch file in the scratch filesystem with the given {@code pathName}
-   * with {@code lines} being its content. The method returns a Path instance
-   * for the scratch file.
+   * Creates a scratch file in the scratch filesystem with the given {@code pathName} with
+   * {@code lines} being its content. The method returns a Path instance for the scratch file.
    */
   public Path file(String pathName, String... lines) throws IOException {
     Path file = path(pathName);
@@ -107,6 +103,18 @@ public class FsApparatus {
     String fileContent = StringUtilities.joinLines(lines);
     FileSystemUtils.writeContentAsLatin1(file, fileContent);
     return file;
+  }
+
+  /**
+   * Creates or recreates a scratch file just like {@link #file} but tolerating an existing file.
+   */
+  public Path overwriteFile(String pathName, String... lines) throws IOException {
+    try {
+      path(pathName).delete();
+    } catch (FileNotFoundException e) {
+      // Ignored.
+    }
+    return file(pathName, lines);
   }
 
   /**
@@ -126,11 +134,9 @@ public class FsApparatus {
   }
 
   /**
-   * Initializes this apparatus (if it hasn't been initialized yet), and returns
-   * a path object describing a file, directory, or symlink pointed at by
-   * {@code pathName}. Note that this will not create any entity in the
-   * filesystem; i.e., the file that the object is describing may not exist in
-   * the filesystem.
+   * Resolves {@code pathName} relative to the working directory. Note that this will not create any
+   * entity in the filesystem; i.e., the file that the object is describing may not exist in the
+   * filesystem.
    */
   public Path path(String pathName) {
     return workingDir.getRelative(pathName);

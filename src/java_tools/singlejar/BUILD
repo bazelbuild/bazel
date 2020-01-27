@@ -1,32 +1,48 @@
-package(default_visibility = ["//src:__pkg__"])
+# Description:
+#   SingleJar combines multiple zip files and additional files
+#   into a single zip file.
+package(default_visibility = ["//src/java_tools:__subpackages__"])
 
-java_library(
+filegroup(
+    name = "srcs",
+    srcs = glob(["*"]) + [
+        "//src/java_tools/singlejar/java/com/google/devtools/build/singlejar:srcs",
+        "//src/java_tools/singlejar/java/com/google/devtools/build/zip:srcs",
+        "//src/java_tools/singlejar/javatests/com/google/devtools/build/singlejar:srcs",
+        "//src/java_tools/singlejar/javatests/com/google/devtools/build/zip:srcs",
+    ],
+    visibility = ["//:__subpackages__"],
+)
+
+package_group(
+    name = "singlejar_package_group",
+    packages = ["//src/java_tools/singlejar/..."],
+)
+
+alias(
     name = "libSingleJar",
-    srcs = glob(["java/**/*.java"]),
-    deps = [
-        "//src/main/java:shell",
-        "//third_party:guava",
-        "//third_party:jsr305",
-    ],
+    actual = "//src/java_tools/singlejar/java/com/google/devtools/build/singlejar:libSingleJar",
+    visibility = ["//visibility:public"],
 )
 
-java_binary(
+alias(
     name = "SingleJar",
-    main_class = "com.google.devtools.build.singlejar.SingleJar",
-    runtime_deps = [":libSingleJar"],
+    actual = "//src/java_tools/singlejar/java/com/google/devtools/build/singlejar:bazel-singlejar",
+    visibility = ["//visibility:public"],
 )
 
-java_test(
-    name = "tests",
-    srcs = glob(["javatests/**/*.java"]),
-    args = ["com.google.devtools.build.singlejar.SingleJarTests"],
-    deps = [
-        ":libSingleJar",
-        "//src/main/java:shell",
-        "//src/test/java:testutil",
-        "//third_party:guava",
-        "//third_party:jsr305",
-        "//third_party:junit4",
-        "//third_party:truth",
-    ],
+alias(
+    name = "SingleJar_deploy.jar",
+    actual = "//src/java_tools/singlejar/java/com/google/devtools/build/singlejar:bazel-singlejar_deploy.jar",
+    visibility = ["//visibility:public"],
+)
+
+alias(
+    name = "bootstrap",
+    actual = "//src/java_tools/singlejar/java/com/google/devtools/build/singlejar:bootstrap",
+)
+
+alias(
+    name = "bootstrap_deploy.jar",
+    actual = "//src/java_tools/singlejar/java/com/google/devtools/build/singlejar:bootstrap_deploy.jar",
 )

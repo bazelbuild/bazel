@@ -1,4 +1,4 @@
-// Copyright 2014 Google Inc. All rights reserved.
+// Copyright 2014 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -28,8 +28,8 @@ public class ModifiedFileSetTest {
 
   @Test
   public void testHashCodeAndEqualsContract() throws Exception {
-    PathFragment fragA = new PathFragment("a");
-    PathFragment fragB = new PathFragment("b");
+    PathFragment fragA = PathFragment.create("a");
+    PathFragment fragB = PathFragment.create("b");
 
     ModifiedFileSet empty1 = ModifiedFileSet.NOTHING_MODIFIED;
     ModifiedFileSet empty2 = ModifiedFileSet.builder().build();

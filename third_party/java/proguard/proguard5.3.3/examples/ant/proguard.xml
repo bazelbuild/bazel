@@ -1,0 +1,89 @@
+<!-- This Ant build file illustrates how to process ProGuard (including its
+     main application, its GUI, its Ant task, and its WTK plugin), and the
+     ReTrace tool, all in one go.
+     Usage: ant -f proguard.xml -->
+
+<project name="ProGuard" default="obfuscate" basedir="../..">
+
+<target name="obfuscate">
+  <taskdef resource="proguard/ant/task.properties"
+           classpath="lib/proguard.jar" />
+
+  <proguard printmapping="proguard.map"
+            overloadaggressively="on"
+            repackageclasses=""
+            renamesourcefileattribute="SourceFile">
+
+    <!-- Specify the input jars, output jars, and library jars. -->
+
+    <injar  file="lib/proguard.jar" />
+    <injar  file="lib/proguardgui.jar" filter="!META-INF/**" />
+    <injar  file="lib/retrace.jar"     filter="!META-INF/**" />
+
+    <outjar file="examples/ant/proguard_out.jar" />
+
+    <libraryjar file="${java.home}/lib/rt.jar" />
+    <libraryjar file="/usr/local/java/ant/lib/ant.jar" />
+    <libraryjar file="/usr/local/java/gradle-2.12/lib/plugins/gradle-plugins-2.12.jar" />
+    <libraryjar file="/usr/local/java/gradle-2.12/lib/gradle-base-services-2.12.jar" />
+    <libraryjar file="/usr/local/java/gradle-2.12/lib/gradle-base-services-groovy-2.12.jar" />
+    <libraryjar file="/usr/local/java/gradle-2.12/lib/gradle-core-2.12.jar" />
+    <libraryjar file="/usr/local/java/gradle-2.12/lib/groovy-all-2.4.4.jar" />
+    <libraryjar file="/usr/local/java/wtk2.5.2/wtklib/kenv.zip" />
+
+    <!-- Adapt the resource file names, based on the corresponding obfuscated
+         class names. -->
+
+    <adaptresourcefilenames    filter="**.properties,**.gif,**.jpg"  />
+    <adaptresourcefilecontents filter="proguard/ant/task.properties" />
+
+    <!-- Optionally preserve line numbers in the obfuscated stack traces.
+    <keepattribute name="LineNumberTable">
+    <keepattribute name="SourceFile">
+    -->
+
+    <!-- The main seeds: ProGuard and its companion tool ReTrace. -->
+
+    <keep access="public" name="proguard.ProGuard">
+      <method access    ="public static"
+              type      ="void"
+              name      ="main"
+              parameters="java.lang.String[]" />
+    </keep>
+    <keep access="public" name="proguard.gui.ProGuardGUI">
+      <method access    ="public static"
+              type      ="void"
+              name      ="main"
+              parameters="java.lang.String[]" />
+    </keep>
+    <keep access="public" name="proguard.retrace.ReTrace">
+      <method access    ="public static"
+              type      ="void"
+              name      ="main"
+              parameters="java.lang.String[]" />
+    </keep>
+
+    <!-- If we have ant.jar, we can properly process the Ant task. -->
+
+    <keeppackagename name="proguard.ant" />
+    <keep name="proguard.ant.*" allowobfuscation="true" />
+    <keepclassmembers access="public" name="proguard.ant.*">
+      <constructor parameters="org.apache.tools.ant.Project" />
+      <method access="public" type="void" name="set*" parameters="***" />
+      <method access="public" type="void" name="add*" parameters="***" />
+    </keepclassmembers>
+
+    <!-- If we have the Gradle jars, we can properly process the Gradle task. -->
+
+    <keep access="public" name="proguard.gradle.*">
+      <method access="public" />
+    </keep>
+
+    <!-- If we have kenv.zip, we can process the J2ME WTK plugin. -->
+
+    <keep access="public" name="proguard.wtk.ProGuardObfuscator" />
+
+  </proguard>
+</target>
+
+</project>

@@ -1,4 +1,4 @@
-// Copyright 2014 Google Inc. All rights reserved.
+// Copyright 2014 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -50,7 +50,7 @@ public class TestUtils {
   }
 
   public static String tmpDir() {
-    return tmpDirFile().getAbsolutePath();
+    return tmpDirFile().getAbsolutePath().replaceAll("\\\\", "/");
   }
 
   static String getUserValue(String key) {
@@ -112,7 +112,7 @@ public class TestUtils {
         randomSeed = Integer.parseInt(value);
       } catch (NumberFormatException e) {
         // throw new AssertionError("TEST_RANDOM_SEED must be an integer");
-        throw new RuntimeException("TEST_RANDOM_SEED must be an integer");
+        throw new RuntimeException("TEST_RANDOM_SEED must be an integer", e);
       }
     }
 

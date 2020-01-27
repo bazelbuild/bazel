@@ -1,4 +1,4 @@
-// Copyright 2014 Google Inc. All rights reserved.
+// Copyright 2014 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,7 +15,7 @@
 package com.google.devtools.build.lib.actions;
 
 import com.google.common.base.Preconditions;
-
+import com.google.devtools.build.lib.actions.Artifact.OwnerlessArtifactWrapper;
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.ThreadSafe;
 
@@ -24,35 +24,47 @@ import javax.annotation.concurrent.ThreadSafe;
  */
 @ThreadSafe
 public final class MapBasedActionGraph implements MutableActionGraph {
-  private final ConcurrentMultimapWithHeadElement<Artifact, Action> generatingActionMap =
-      new ConcurrentMultimapWithHeadElement<>();
+  private final ActionKeyContext actionKeyContext;
+  private final ConcurrentMultimapWithHeadElement<OwnerlessArtifactWrapper, ActionAnalysisMetadata>
+      generatingActionMap = new ConcurrentMultimapWithHeadElement<>();
 
-  @Override
-  @Nullable
-  public Action getGeneratingAction(Artifact artifact) {
-    return generatingActionMap.get(artifact);
+  public MapBasedActionGraph(ActionKeyContext actionKeyContext) {
+    this.actionKeyContext = actionKeyContext;
   }
 
   @Override
-  public void registerAction(Action action) throws ActionConflictException {
+  @Nullable
+  public ActionAnalysisMetadata getGeneratingAction(Artifact artifact) {
+    return generatingActionMap.get(new OwnerlessArtifactWrapper(artifact));
+  }
+
+  @Override
+  public void registerAction(ActionAnalysisMetadata action) throws ActionConflictException {
     for (Artifact artifact : action.getOutputs()) {
-      Action previousAction = generatingActionMap.putAndGet(artifact, action);
-      if (previousAction != null && previousAction != action
-          && !Actions.canBeShared(action, previousAction)) {
-        generatingActionMap.remove(artifact, action);
-        throw new ActionConflictException(artifact, previousAction, action);
+      OwnerlessArtifactWrapper wrapper = new OwnerlessArtifactWrapper(artifact);
+      ActionAnalysisMetadata previousAction = generatingActionMap.putAndGet(wrapper, action);
+      if (previousAction != null
+          && previousAction != action
+          && !Actions.canBeShared(actionKeyContext, action, previousAction)) {
+        generatingActionMap.remove(wrapper, action);
+        throw new ActionConflictException(actionKeyContext, artifact, previousAction, action);
       }
     }
   }
 
   @Override
-  public void unregisterAction(Action action) {
+  public void unregisterAction(ActionAnalysisMetadata action) {
     for (Artifact artifact : action.getOutputs()) {
-      generatingActionMap.remove(artifact, action);
-      Action otherAction = generatingActionMap.get(artifact);
-      Preconditions.checkState(otherAction == null
-          || (otherAction != action && Actions.canBeShared(action, otherAction)),
-          "%s %s", action, otherAction);
+      OwnerlessArtifactWrapper wrapper = new OwnerlessArtifactWrapper(artifact);
+      generatingActionMap.remove(wrapper, action);
+      ActionAnalysisMetadata otherAction = generatingActionMap.get(wrapper);
+      Preconditions.checkState(
+          otherAction == null
+              || (otherAction != action
+                  && Actions.canBeShared(actionKeyContext, action, otherAction)),
+          "%s %s",
+          action,
+          otherAction);
     }
   }
 

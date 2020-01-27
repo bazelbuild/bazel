@@ -1,4 +1,4 @@
-// Copyright 2014 Google Inc. All rights reserved.
+// Copyright 2014 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,11 +14,13 @@
 
 package com.google.devtools.build.lib.util.io;
 
+import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
-import com.google.devtools.build.lib.util.Clock;
+import com.google.devtools.build.lib.vfs.PathFragment;
+import java.util.logging.Logger;
 
 /**
  * A utility class for dealing with filesystem timestamp granularity issues.
@@ -36,8 +38,8 @@ import com.google.devtools.build.lib.util.Clock;
  * on foo/bar is not changed by the second command, even though some time has
  * passed, because the times are the same when rounded to the file system
  * timestamp granularity (often 1 second).
- * For performance, we assume that files
- * timestamps haven't changed  can safely be cached without reexamining their contents.
+ * For performance, we assume that files whose
+ * timestamps haven't changed can safely be cached without reexamining their contents.
  * But this assumption would be violated in the above scenario.
  *
  * <p>
@@ -72,6 +74,8 @@ import com.google.devtools.build.lib.util.Clock;
  */
 @ThreadCompatible
 public class TimestampGranularityMonitor {
+  private static final Logger logger =
+      Logger.getLogger(TimestampGranularityMonitor.class.getName());
 
   /**
    * The time of the start of the current Blaze command,
@@ -121,11 +125,17 @@ public class TimestampGranularityMonitor {
    * of a build file or source file with the specified time stamp.
    */
   @ThreadSafe
-  public void notifyDependenceOnFileTime(long mtime) {
-    if (mtime == this.commandStartTimeMillis) {
+  public void notifyDependenceOnFileTime(PathFragment path, long ctimeMillis) {
+    if (!this.waitAMillisecond && ctimeMillis == this.commandStartTimeMillis) {
+      if (path != null) {
+        logger.info("Will have to wait for a millisecond on completion because of " + path);
+      }
       this.waitAMillisecond = true;
     }
-    if (mtime == this.commandStartTimeMillisRounded) {
+    if (!this.waitASecond && ctimeMillis == this.commandStartTimeMillisRounded) {
+      if (path != null) {
+        logger.info("Will have to wait for a second on completion because of " + path);
+      }
       this.waitASecond = true;
     }
   }
@@ -147,6 +157,7 @@ public class TimestampGranularityMonitor {
    */
   public void waitForTimestampGranularity(OutErr outErr) {
     if (this.waitASecond || this.waitAMillisecond) {
+      long before = clock.currentTimeMillis();
       long startedWaiting = Profiler.nanoTimeMaybe();
       boolean interrupted = false;
 
@@ -180,6 +191,11 @@ public class TimestampGranularityMonitor {
 
       Profiler.instance().logSimpleTask(startedWaiting, ProfilerTask.WAIT,
                                         "Timestamp granularity");
+      logger.info(
+          "Waited for "
+              + (clock.currentTimeMillis() - before)
+              + "ms for file system"
+              + " to catch up");
     }
   }
 
@@ -190,5 +206,4 @@ public class TimestampGranularityMonitor {
   private static long roundDown(long millis) {
     return millis / 1000 * 1000;
   }
-
 }

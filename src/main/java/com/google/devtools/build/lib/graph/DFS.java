@@ -1,4 +1,4 @@
-// Copyright 2014 Google Inc. All rights reserved.
+// Copyright 2014 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,12 +14,14 @@
 
 package com.google.devtools.build.lib.graph;
 
-import com.google.common.collect.Lists;
+import static java.util.Comparator.comparing;
+import static java.util.stream.Collectors.toCollection;
 
+import com.google.devtools.build.lib.collect.compacthashset.CompactHashSet;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
@@ -51,7 +53,7 @@ public class DFS<T> {
 
   private final boolean transpose;
 
-  private final Set<Node<T>> marked = new HashSet<>();
+  private final Set<Node<T>> marked = CompactHashSet.create();
 
   /**
    *  Constructs a DFS instance for searching over the enclosing Digraph
@@ -63,20 +65,11 @@ public class DFS<T> {
    *  @param transpose iff true, the graph is implicitly transposed during
    *  visitation.
    */
-  public DFS(Order order, final Comparator<T> edgeOrder, boolean transpose) {
+  public DFS(Order order, final Comparator<? super T> edgeOrder, boolean transpose) {
     this.order = order;
     this.transpose = transpose;
 
-    if (edgeOrder == null) {
-      this.edgeOrder = null;
-    } else {
-      this.edgeOrder = new Comparator<Node<T>>() {
-        @Override
-        public int compare(Node<T> o1, Node<T> o2) {
-          return edgeOrder.compare(o1.getLabel(), o2.getLabel());
-        }
-      };
-    }
+    this.edgeOrder = (edgeOrder == null) ? null : comparing(Node::getLabel, edgeOrder::compare);
   }
 
   public DFS(Order order, boolean transpose) {
@@ -102,8 +95,8 @@ public class DFS<T> {
     Collection<Node<T>> edgeTargets = transpose
         ? node.getPredecessors() : node.getSuccessors();
     if (edgeOrder != null) {
-      List<Node<T>> mutableNodeList = Lists.newArrayList(edgeTargets);
-      Collections.sort(mutableNodeList, edgeOrder);
+      List<Node<T>> mutableNodeList =
+          edgeTargets.stream().sorted(edgeOrder).collect(toCollection(ArrayList::new));
       edgeTargets = mutableNodeList;
     }
 

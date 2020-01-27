@@ -1,4 +1,4 @@
-// Copyright 2014 Google Inc. All rights reserved.
+// Copyright 2014 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -13,38 +13,38 @@
 // limitations under the License.
 package com.google.devtools.build.lib.query2.engine;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Sets;
+import com.google.common.collect.Iterables;
+import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.Argument;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.ArgumentType;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryFunction;
+import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryTaskFuture;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.Setting;
-
+import com.google.devtools.build.lib.query2.engine.QueryEnvironment.TargetAccessor;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.HashMap;
+import java.util.Collections;
 import java.util.HashSet;
-import java.util.Iterator;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 
 /**
- * A tests(x) filter expression, which returns all the tests in set x,
- * expanding test_suite rules into their constituents.
+ * A tests(x) filter expression, which returns all the tests in set x, expanding test_suite rules
+ * into their constituents.
  *
- * <p>Unfortunately this class reproduces a substantial amount of logic from
- * {@code TestSuiteConfiguredTarget}, albeit in a somewhat simplified form.
- * This is basically inevitable since the expansion of test_suites cannot be
- * done during the loading phase, because it involves inter-package references.
- * We make no attempt to validate the input, or report errors or warnings other
- * than missing target.
+ * <p>Unfortunately this class reproduces a substantial amount of logic from {@code
+ * TestSuiteConfiguredTarget}, albeit in a somewhat simplified form. This is basically inevitable
+ * since the expansion of test_suites cannot be done during the loading phase, because it involves
+ * inter-package references. We make no attempt to validate the input, or report errors or warnings
+ * other than missing target.
  *
  * <pre>expr ::= TESTS '(' expr ')'</pre>
  */
-class TestsFunction implements QueryFunction {
-  TestsFunction() {
-  }
+public class TestsFunction implements QueryFunction {
+  @VisibleForTesting
+  public TestsFunction() {}
 
   @Override
   public String getName() {
@@ -62,31 +62,234 @@ class TestsFunction implements QueryFunction {
   }
 
   @Override
-  public <T> Set<T> eval(QueryEnvironment<T> env, QueryExpression expression, List<Argument> args)
-      throws QueryException {
-    Closure<T> closure = new Closure<>(expression, env);
-    Set<T> result = new HashSet<>();
-    for (T target : args.get(0).getExpression().eval(env)) {
-      if (env.getAccessor().isTestRule(target)) {
-        result.add(target);
-      } else if (env.getAccessor().isTestSuite(target)) {
-        for (T test : closure.getTestsInSuite(target)) {
-          result.add(env.getOrCreate(test));
-        }
-      }
-    }
-    return result;
+  public <T> QueryTaskFuture<Void> eval(
+      QueryEnvironment<T> env,
+      QueryExpressionContext<T> context,
+      QueryExpression expression,
+      List<Argument> args,
+      Callback<T> callback) {
+    Closure<T> closure = new Closure<>(expression, callback, env);
+
+    // A callback that appropriately feeds top-level test and test_suite targets to 'closure'.
+    Callback<T> visitAllTestSuitesCallback =
+        partialResult -> {
+          PartitionResult<T> partitionResult = closure.partition(partialResult);
+          closure
+              .getUniqueTestSuites(partitionResult.testSuiteTargets)
+              .forEach(closure::visitUniqueTestsInUniqueSuite);
+          callback.process(closure.getUniqueTests(partitionResult.testTargets));
+        };
+
+    // Get a future that represents full evaluation of the argument expression.
+    QueryTaskFuture<Void> testSuiteVisitationStartedFuture =
+        env.eval(args.get(0).getExpression(), context, visitAllTestSuitesCallback);
+
+    return env.transformAsync(
+        // When this future is done, all top-level test_suite targets have already been fed to the
+        // 'closure', meaning that ...
+        testSuiteVisitationStartedFuture,
+        // ... 'closure.getTopLevelRecursiveVisitationFutures()' represents the full visitation of
+        // all these test_suite targets.
+        dummyVal -> env.whenAllSucceed(closure.getTopLevelRecursiveVisitationFutures()));
   }
 
+  private static class PartitionResult<T> {
+    final ImmutableList<T> testTargets;
+    final ImmutableList<T> testSuiteTargets;
+    final ImmutableList<T> otherTargets;
+
+    private PartitionResult(
+        ImmutableList<T> testTargets,
+        ImmutableList<T> testSuiteTargets,
+        ImmutableList<T> otherTargets) {
+      this.testTargets = testTargets;
+      this.testSuiteTargets = testSuiteTargets;
+      this.otherTargets = otherTargets;
+    }
+  }
+
+  /** A closure over the state needed to do asynchronous test_suite visitation and expansion. */
+  @ThreadSafe
+  private static final class Closure<T> {
+    private final QueryExpression expression;
+    private final Callback<T> callback;
+    /** The environment in which this query is being evaluated. */
+    private final QueryEnvironment<T> env;
+
+    private final TargetAccessor<T> accessor;
+    private final boolean strict;
+    private final Uniquifier<T> testUniquifier;
+    private final Uniquifier<T> testSuiteUniquifier;
+    private final List<QueryTaskFuture<Void>> topLevelRecursiveVisitationFutures =
+        Collections.synchronizedList(new ArrayList<>());
+
+    private Closure(QueryExpression expression, Callback<T> callback, QueryEnvironment<T> env) {
+      this.expression = expression;
+      this.callback = callback;
+      this.env = env;
+      this.accessor = env.getAccessor();
+      this.strict = env.isSettingEnabled(Setting.TESTS_EXPRESSION_STRICT);
+      this.testUniquifier = env.createUniquifier();
+      this.testSuiteUniquifier = env.createUniquifier();
+    }
+
+    private Iterable<T> getUniqueTests(Iterable<T> tests) throws QueryException {
+      return testUniquifier.unique(tests);
+    }
+
+    private Iterable<T> getUniqueTestSuites(Iterable<T> testSuites) throws QueryException {
+      return testSuiteUniquifier.unique(testSuites);
+    }
+
+    private void visitUniqueTestsInUniqueSuite(T testSuite) {
+      topLevelRecursiveVisitationFutures.add(
+          env.executeAsync(() -> recursivelyVisitUniqueTestsInUniqueSuite(testSuite)));
+    }
+
+    /**
+     * Returns all the futures representing the work items entailed by all the previous calls to
+     * {@link #visitUniqueTestsInUniqueSuite}.
+     */
+    private ImmutableList<QueryTaskFuture<Void>> getTopLevelRecursiveVisitationFutures() {
+      return ImmutableList.copyOf(topLevelRecursiveVisitationFutures);
+    }
+
+    private QueryTaskFuture<Void> recursivelyVisitUniqueTestsInUniqueSuite(T testSuite) {
+      List<String> tagsAttribute = accessor.getStringListAttr(testSuite, "tags");
+      // Split the tags list into positive and negative tags
+      Set<String> requiredTags = new HashSet<>();
+      Set<String> excludedTags = new HashSet<>();
+      sortTagsBySense(tagsAttribute, requiredTags, excludedTags);
+
+      List<T> testsToProcess = new ArrayList<>();
+      List<T> testSuites;
+
+      try {
+        PartitionResult<T> partitionResult = partition(getPrerequisites(testSuite, "tests"));
+
+        for (T testTarget : partitionResult.testTargets) {
+          if (includeTest(requiredTags, excludedTags, testTarget)
+              && testUniquifier.unique(testTarget)) {
+            testsToProcess.add(testTarget);
+          }
+        }
+
+        testSuites = testSuiteUniquifier.unique(partitionResult.testSuiteTargets);
+
+        // If strict mode is enabled, then give an error for any non-test, non-test-suite target.
+        if (strict) {
+          for (T otherTarget : partitionResult.otherTargets) {
+            env.reportBuildFileError(
+                expression,
+                "The label '"
+                    + accessor.getLabel(otherTarget)
+                    + "' in the test_suite '"
+                    + accessor.getLabel(testSuite)
+                    + "' does not refer to a test or test_suite "
+                    + "rule!");
+          }
+        }
+
+        // Add implicit dependencies on tests in same package, if any.
+        for (T target : getPrerequisites(testSuite, "$implicit_tests")) {
+          // The Package construction of $implicit_tests ensures that this check never fails, but we
+          // add it here anyway for compatibility with future code.
+          if (accessor.isTestRule(target)
+              && includeTest(requiredTags, excludedTags, target)
+              && testUniquifier.unique(target)) {
+            testsToProcess.add(target);
+          }
+        }
+      } catch (InterruptedException e) {
+        return env.immediateCancelledFuture();
+      } catch (QueryException e) {
+        return env.immediateFailedFuture(e);
+      }
+
+      // Process all tests, asynchronously.
+      QueryTaskFuture<Void> allTestsProcessedFuture =
+          env.execute(
+              () -> {
+                callback.process(testsToProcess);
+                return null;
+              });
+
+      // Visit all suites recursively, asynchronously.
+      QueryTaskFuture<Void> allTestSuitsVisitedFuture =
+          env.whenAllSucceed(
+              Iterables.transform(testSuites, this::recursivelyVisitUniqueTestsInUniqueSuite));
+
+      return env.whenAllSucceed(
+          ImmutableList.of(allTestsProcessedFuture, allTestSuitsVisitedFuture));
+    }
+
+    private PartitionResult<T> partition(Iterable<T> targets) {
+      ImmutableList.Builder<T> testTargetsBuilder = ImmutableList.builder();
+      ImmutableList.Builder<T> testSuiteTargetsBuilder = ImmutableList.builder();
+      ImmutableList.Builder<T> otherTargetsBuilder = ImmutableList.builder();
+
+      for (T target : targets) {
+        if (accessor.isTestRule(target)) {
+          testTargetsBuilder.add(target);
+        } else if (accessor.isTestSuite(target)) {
+          testSuiteTargetsBuilder.add(target);
+        } else {
+          otherTargetsBuilder.add(target);
+        }
+      }
+
+      return new PartitionResult<>(
+          testTargetsBuilder.build(), testSuiteTargetsBuilder.build(), otherTargetsBuilder.build());
+    }
+
+    /**
+     * Returns the set of rules named by the attribute 'attrName' of test_suite rule 'testSuite'.
+     * The attribute must be a list of labels. If a target cannot be resolved, then an error is
+     * reported to the environment (which may throw an exception if {@code keep_going} is disabled).
+     *
+     * @precondition env.getAccessor().isTestSuite(testSuite)
+     */
+    private Iterable<T> getPrerequisites(T testSuite, String attrName)
+        throws QueryException, InterruptedException {
+      return accessor.getPrerequisites(
+          expression,
+          testSuite,
+          attrName,
+          "couldn't expand '"
+              + attrName
+              + "' attribute of test_suite "
+              + accessor.getLabel(testSuite)
+              + ": ");
+    }
+
+    /**
+     * Filters 'tests' (by mutation) according to the 'tags' attribute, specifically those that
+     * match ALL of the tags in tagsAttribute.
+     *
+     * @precondition {@code env.getAccessor().isTestSuite(testSuite)}
+     * @precondition {@code env.getAccessor().isTestRule(test)}
+     */
+    private boolean includeTest(Set<String> requiredTags, Set<String> excludedTags, T test) {
+      List<String> testTags = new ArrayList<>(accessor.getStringListAttr(test, "tags"));
+      testTags.add(accessor.getStringAttr(test, "size"));
+      return TestsFunction.includeTest(testTags, requiredTags, excludedTags);
+    }
+  }
+
+  // TODO(ulfjack): This must match the code in TestTargetUtils. However, we don't currently want
+  // to depend on the packages library. Extract to a neutral place?
   /**
    * Decides whether to include a test in a test_suite or not.
+   *
    * @param testTags Collection of all tags exhibited by a given test.
    * @param positiveTags Tags declared by the suite. A test must match ALL of these.
    * @param negativeTags Tags declared by the suite. A test must match NONE of these.
    * @return false is the test is to be removed.
    */
-  private static boolean includeTest(Collection<String> testTags,
-      Collection<String> positiveTags, Collection<String> negativeTags) {
+  private static boolean includeTest(
+      Collection<String> testTags,
+      Collection<String> positiveTags,
+      Collection<String> negativeTags) {
     // Add this test if it matches ALL of the positive tags and NONE of the
     // negative tags in the tags attribute.
     for (String tag : negativeTags) {
@@ -128,129 +331,6 @@ class TestsFunction implements QueryFunction {
         continue;
       } else {
         requiredTags.add(tag);
-      }
-    }
-  }
-
-  /**
-   * A closure over the temporary state needed to compute the expression. This makes the evaluation
-   * thread-safe, as long as instances of this class are used only within a single thread.
-   */
-  private final class Closure<T> {
-    private final QueryExpression expression;
-    /** A dynamically-populated mapping from test_suite rules to their tests. */
-    private final Map<T, Set<T>> testsInSuite = new HashMap<>();
-
-    /** The environment in which this query is being evaluated. */
-    private final QueryEnvironment<T> env;
-
-    private final boolean strict;
-
-    private Closure(QueryExpression expression, QueryEnvironment<T> env) {
-      this.expression = expression;
-      this.env = env;
-      this.strict = env.isSettingEnabled(Setting.TESTS_EXPRESSION_STRICT);
-    }
-
-    /**
-     * Computes and returns the set of test rules in a particular suite.  Uses
-     * dynamic programming---a memoized version of {@link #computeTestsInSuite}.
-     *
-     * @precondition env.getAccessor().isTestSuite(testSuite)
-     */
-    private Set<T> getTestsInSuite(T testSuite) throws QueryException {
-      Set<T> tests = testsInSuite.get(testSuite);
-      if (tests == null) {
-        tests = Sets.newHashSet();
-        testsInSuite.put(testSuite, tests); // break cycles by inserting empty set early.
-        computeTestsInSuite(testSuite, tests);
-      }
-      return tests;
-    }
-
-    /**
-     * Populates 'result' with all the tests associated with the specified
-     * 'testSuite'.  Throws an exception if any target is missing.
-     *
-     * <p>CAUTION!  Keep this logic consistent with {@code TestsSuiteConfiguredTarget}!
-     *
-     * @precondition env.getAccessor().isTestSuite(testSuite)
-     */
-    private void computeTestsInSuite(T testSuite, Set<T> result) throws QueryException {
-      List<T> testsAndSuites = new ArrayList<>();
-      // Note that testsAndSuites can contain input file targets; the test_suite rule does not
-      // restrict the set of targets that can appear in tests or suites.
-      testsAndSuites.addAll(getPrerequisites(testSuite, "tests"));
-      testsAndSuites.addAll(getPrerequisites(testSuite, "suites"));
-
-      // 1. Add all tests
-      for (T test : testsAndSuites) {
-        if (env.getAccessor().isTestRule(test)) {
-          result.add(test);
-        } else if (strict && !env.getAccessor().isTestSuite(test)) {
-          // If strict mode is enabled, then give an error for any non-test, non-test-suite targets.
-          env.reportBuildFileError(expression, "The label '"
-              + env.getAccessor().getLabel(test) + "' in the test_suite '"
-              + env.getAccessor().getLabel(testSuite) + "' does not refer to a test or test_suite "
-              + "rule!");
-        }
-      }
-
-      // 2. Add implicit dependencies on tests in same package, if any.
-      for (T target : getPrerequisites(testSuite, "$implicit_tests")) {
-        // The Package construction of $implicit_tests ensures that this check never fails, but we
-        // add it here anyway for compatibility with future code.
-        if (env.getAccessor().isTestRule(target)) {
-          result.add(target);
-        }
-      }
-
-      // 3. Filter based on tags, size, env.
-      filterTests(testSuite, result);
-
-      // 4. Expand all suites recursively.
-      for (T suite : testsAndSuites) {
-        if (env.getAccessor().isTestSuite(suite)) {
-          result.addAll(getTestsInSuite(suite));
-        }
-      }
-    }
-
-    /**
-     * Returns the set of rules named by the attribute 'attrName' of test_suite rule 'testSuite'.
-     * The attribute must be a list of labels. If a target cannot be resolved, then an error is
-     * reported to the environment (which may throw an exception if {@code keep_going} is disabled).
-     *
-     * @precondition env.getAccessor().isTestSuite(testSuite)
-     */
-    private List<T> getPrerequisites(T testSuite, String attrName) throws QueryException {
-      return env.getAccessor().getLabelListAttr(expression, testSuite, attrName,
-          "couldn't expand '" + attrName
-          + "' attribute of test_suite " + env.getAccessor().getLabel(testSuite) + ": ");
-    }
-
-    /**
-     * Filters 'tests' (by mutation) according to the 'tags' attribute, specifically those that
-     * match ALL of the tags in tagsAttribute.
-     *
-     * @precondition {@code env.getAccessor().isTestSuite(testSuite)}
-     * @precondition {@code env.getAccessor().isTestRule(test)} for all test in tests
-     */
-    private void filterTests(T testSuite, Set<T> tests) {
-      List<String> tagsAttribute = env.getAccessor().getStringListAttr(testSuite, "tags");
-      // Split the tags list into positive and negative tags
-      Set<String> requiredTags = new HashSet<>();
-      Set<String> excludedTags = new HashSet<>();
-      sortTagsBySense(tagsAttribute, requiredTags, excludedTags);
-
-      Iterator<T> it = tests.iterator();
-      while (it.hasNext()) {
-        T test = it.next();
-        List<String> testTags = new ArrayList<>(env.getAccessor().getStringListAttr(test, "tags"));
-        testTags.add(env.getAccessor().getStringAttr(test, "size"));
-        if (!includeTest(testTags, requiredTags, excludedTags)) {
-          it.remove();
-        }
       }
     }
   }

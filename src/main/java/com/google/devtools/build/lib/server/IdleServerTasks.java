@@ -1,4 +1,4 @@
-// Copyright 2014 Google Inc. All rights reserved.
+// Copyright 2014 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,38 +15,30 @@
 package com.google.devtools.build.lib.server;
 
 import com.google.common.base.Preconditions;
-import com.google.devtools.build.lib.util.LoggingUtil;
-import com.google.devtools.build.lib.util.ProcMeminfoParser;
-import com.google.devtools.build.lib.vfs.FileStatus;
-import com.google.devtools.build.lib.vfs.Path;
-import com.google.devtools.build.lib.vfs.Symlinks;
-
-import java.io.IOException;
+import com.google.common.util.concurrent.ThreadFactoryBuilder;
+import com.google.devtools.build.lib.profiler.AutoProfiler;
+import com.google.devtools.build.lib.util.StringUtilities;
+import java.lang.management.ManagementFactory;
+import java.lang.management.MemoryMXBean;
+import java.lang.management.MemoryUsage;
+import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
-import java.util.logging.Level;
 import java.util.logging.Logger;
-
-import javax.annotation.Nullable;
 
 /**
  * Run cleanup-related tasks during idle periods in the server.
  * idle() and busy() must be called in that order, and only once.
  */
 class IdleServerTasks {
-
-  private final Path workspaceDir;
   private final ScheduledThreadPoolExecutor executor;
-  private static final Logger LOG = Logger.getLogger(IdleServerTasks.class.getName());
+  private static final Logger logger = Logger.getLogger(IdleServerTasks.class.getName());
 
-  private static final long FIVE_MIN_MILLIS = 1000 * 60 * 5;
-
-  /**
-   * Must be called from the main thread.
-   */
-  public IdleServerTasks(@Nullable Path workspaceDir) {
-    this.executor = new ScheduledThreadPoolExecutor(1);
-    this.workspaceDir = workspaceDir;
+  /** Must be called from the main thread. */
+  public IdleServerTasks() {
+    this.executor = new ScheduledThreadPoolExecutor(
+        1,
+        new ThreadFactoryBuilder().setNameFormat("idle-server-tasks-%d").build());
   }
 
   /**
@@ -56,14 +48,26 @@ class IdleServerTasks {
   public void idle() {
     Preconditions.checkState(!executor.isShutdown());
 
-    // Do a GC cycle while the server is idle.
-    executor.schedule(new Runnable() {
-        @Override public void run() {
-          long before = System.currentTimeMillis();
-          System.gc();
-          LOG.info("Idle GC: " + (System.currentTimeMillis() - before) + "ms");
-        }
-      }, 10, TimeUnit.SECONDS);
+    @SuppressWarnings("unused")
+    Future<?> possiblyIgnoredError =
+        executor.schedule(
+            () -> {
+              MemoryMXBean memBean = ManagementFactory.getMemoryMXBean();
+              MemoryUsage before = memBean.getHeapMemoryUsage();
+              try (AutoProfiler p = AutoProfiler.logged("Idle GC", logger)) {
+                System.gc();
+              }
+              MemoryUsage after = memBean.getHeapMemoryUsage();
+              logger.info(
+                  String.format(
+                      "[Idle GC] used: %s -> %s, committed: %s -> %s",
+                      StringUtilities.prettyPrintBytes(before.getUsed()),
+                      StringUtilities.prettyPrintBytes(after.getUsed()),
+                      StringUtilities.prettyPrintBytes(before.getCommitted()),
+                      StringUtilities.prettyPrintBytes(after.getCommitted())));
+            },
+            10,
+            TimeUnit.SECONDS);
   }
 
   /**
@@ -93,66 +97,5 @@ class IdleServerTasks {
     if (interrupted) {
       Thread.currentThread().interrupt();
     }
-  }
-
-  /**
-   * Return true iff the server should continue processing requests.
-   * Called from the main thread, so it should return quickly.
-   */
-  public boolean continueProcessing(long idleMillis) {
-    if (!memoryHeuristic(idleMillis)) {
-      return false;
-    }
-    if (workspaceDir == null) {
-      return false;
-    }
-
-    FileStatus stat;
-    try {
-      stat = workspaceDir.statIfFound(Symlinks.FOLLOW);
-    } catch (IOException e) {
-      // Do not terminate the server if the workspace is temporarily inaccessible, for example,
-      // if it is on a network filesystem and the connection is down.
-      return true;
-    }
-    return stat != null && stat.isDirectory();
-  }
-
-  private boolean memoryHeuristic(long idleMillis) {
-    if (idleMillis < FIVE_MIN_MILLIS) {
-      // Don't check memory health until after five minutes.
-      return true;
-    }
-
-    ProcMeminfoParser memInfo = null;
-    try {
-      memInfo = new ProcMeminfoParser();
-    } catch (IOException e) {
-      LOG.info("Could not process /proc/meminfo: " + e);
-      return true;
-    }
-
-    long totalPhysical, totalFree;
-    try {
-      totalPhysical = memInfo.getTotalKb();
-      totalFree = memInfo.getFreeRamKb(); // See method javadoc.
-    } catch (IllegalArgumentException e) {
-      // Ugly capture of unchecked exception, similar to that in
-      // LocalHostCapacity.
-      LoggingUtil.logToRemote(Level.WARNING,
-          "Could not read memInfo during idle query", e);
-      return true;
-    }
-    double fractionFree = (double) totalFree / totalPhysical;
-
-    // If the system as a whole is low on memory, let this server die.
-    if (fractionFree < .1) {
-      LOG.info("Terminating due to memory constraints");
-      LOG.info(String.format("Total physical:%d\nTotal free: %d\n",
-                                         totalPhysical, totalFree));
-      return false;
-    }
-
-    return true;
   }
 }

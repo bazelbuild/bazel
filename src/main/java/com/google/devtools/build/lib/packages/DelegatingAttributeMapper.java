@@ -1,4 +1,4 @@
-// Copyright 2015 Google Inc. All rights reserved.
+// Copyright 2015 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,8 +15,8 @@ package com.google.devtools.build.lib.packages;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.syntax.Label;
-
+import com.google.devtools.build.lib.cmdline.Label;
+import java.util.Collection;
 import javax.annotation.Nullable;
 
 /**
@@ -41,8 +41,18 @@ public class DelegatingAttributeMapper implements AttributeMap {
   }
 
   @Override
+  public String getRuleClassName() {
+    return delegate.getRuleClassName();
+  }
+
+  @Override
   public <T> T get(String attributeName, Type<T> type) {
     return delegate.get(attributeName, type);
+  }
+
+  @Override
+  public boolean isConfigurable(String attributeName) {
+    return delegate.isConfigurable(attributeName);
   }
 
   @Override
@@ -68,8 +78,13 @@ public class DelegatingAttributeMapper implements AttributeMap {
   }
 
   @Override
-  public void visitLabels(AcceptsLabelAttribute observer) {
-    delegate.visitLabels(observer);
+  public Collection<DepEdge> visitLabels() throws InterruptedException {
+    return delegate.visitLabels();
+  }
+
+  @Override
+  public Collection<DepEdge> visitLabels(Attribute attribute) throws InterruptedException {
+    return delegate.visitLabels(attribute);
   }
 
   @Override
@@ -93,7 +108,12 @@ public class DelegatingAttributeMapper implements AttributeMap {
   }
 
   @Override
-  public boolean has(String attrName, Type<?> type) {
+  public boolean has(String attrName) {
+    return delegate.has(attrName);
+  }
+
+  @Override
+  public <T> boolean has(String attrName, Type<T> type) {
     return delegate.has(attrName, type);
   }
 }

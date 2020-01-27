@@ -1,4 +1,4 @@
-// Copyright 2014 Google Inc. All rights reserved.
+// Copyright 2014 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -18,7 +18,6 @@ import com.google.devtools.build.lib.shell.AbnormalTerminationException;
 import com.google.devtools.build.lib.shell.Command;
 import com.google.devtools.build.lib.shell.CommandException;
 import com.google.devtools.build.lib.shell.CommandResult;
-
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Map;
@@ -48,8 +47,8 @@ public class CommandUtils {
    * bar baz".
    */
   public static String describeCommandError(boolean verbose, Command command) {
-    return CommandFailureUtils.describeCommandError(verbose, commandLine(command), env(command),
-                                                    cwd(command));
+    return CommandFailureUtils.describeCommandError(
+        verbose, commandLine(command), env(command), cwd(command), null);
   }
 
   /**
@@ -58,8 +57,8 @@ public class CommandUtils {
    * command /dir/foo bar baz".
    */
   public static String describeCommandFailure(boolean verbose, Command command) {
-    return CommandFailureUtils.describeCommandFailure(verbose, commandLine(command), env(command),
-                                                      cwd(command));
+    return CommandFailureUtils.describeCommandFailure(
+        verbose, commandLine(command), env(command), cwd(command), null);
   }
 
   /**
@@ -74,9 +73,9 @@ public class CommandUtils {
     if (exception instanceof AbnormalTerminationException) {
       CommandResult result = ((AbnormalTerminationException) exception).getResult();
       try {
-        return message + "\n" +
-            new String(result.getStdout()) +
-            new String(result.getStderr());
+        return message + "\n"
+            + new String(result.getStdout())
+            + new String(result.getStderr());
       } catch (IllegalStateException e) {
         // This can happen if the command didn't save stdout/stderr,
         // so ignore this exception and fall through to the ordinary case.

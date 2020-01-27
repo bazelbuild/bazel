@@ -1,4 +1,4 @@
-// Copyright 2014 Google Inc. All rights reserved.
+// Copyright 2014 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,38 +14,27 @@
 
 package com.google.devtools.build.lib.syntax;
 
-/**
- * Syntax node for a function call statement. Used for build rules.
- */
+
+/** Syntax node for a function call statement. Used for build rules. */
 public final class ExpressionStatement extends Statement {
 
-  private final Expression expr;
+  private final Expression expression;
 
-  public ExpressionStatement(Expression expr) {
-    this.expr = expr;
+  ExpressionStatement(Expression expression) {
+    this.expression = expression;
   }
 
   public Expression getExpression() {
-    return expr;
+    return expression;
   }
 
   @Override
-  public String toString() {
-    return expr.toString() + '\n';
-  }
-
-  @Override
-  void exec(Environment env) throws EvalException, InterruptedException {
-    expr.eval(env);
-  }
-
-  @Override
-  public void accept(SyntaxTreeVisitor visitor) {
+  public void accept(NodeVisitor visitor) {
     visitor.visit(this);
   }
 
   @Override
-  void validate(ValidationEnvironment env) throws EvalException {
-    expr.validate(env);
+  public Kind kind() {
+    return Kind.EXPRESSION;
   }
 }

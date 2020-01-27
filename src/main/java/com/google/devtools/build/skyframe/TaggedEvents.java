@@ -1,4 +1,4 @@
-// Copyright 2014 Google Inc. All rights reserved.
+// Copyright 2014 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -13,11 +13,13 @@
 // limitations under the License.
 package com.google.devtools.build.skyframe;
 
+import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.Collections2;
 import com.google.common.collect.ImmutableCollection;
-import com.google.common.collect.Iterables;
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.events.Event;
-
 import java.io.Serializable;
+import java.util.Objects;
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;
 
@@ -32,23 +34,22 @@ import javax.annotation.concurrent.Immutable;
  */
 @Immutable
 public final class TaggedEvents implements Serializable {
+  private final ImmutableList<Event> events;
+  private final int hashCode;
 
-  @Nullable
-  private final String tag;
-  private final ImmutableCollection<Event> events;
-
-  TaggedEvents(@Nullable String tag, ImmutableCollection<Event> events) {
-
-    this.tag = tag;
-    this.events = events;
+  @VisibleForTesting
+  public TaggedEvents(final @Nullable String tag, ImmutableCollection<Event> events) {
+    this.events =
+        events.isEmpty()
+            ? ImmutableList.of()
+            : ImmutableList.copyOf(
+                Collections2.transform(
+                    events,
+                    (Event e) -> e.withTag(tag)));
+    this.hashCode = events.hashCode();
   }
 
-  @Nullable
-  String getTag() {
-    return tag;
-  }
-
-  ImmutableCollection<Event> getEvents() {
+  ImmutableList<Event> getEvents() {
     return events;
   }
 
@@ -58,6 +59,23 @@ public final class TaggedEvents implements Serializable {
    */
   @Override
   public String toString() {
-    return tag == null ? "<unknown>" : tag + ": " + Iterables.toString(events);
+    return events.toString();
+  }
+
+  @Override
+  public int hashCode() {
+    return hashCode;
+  }
+
+  @Override
+  public boolean equals(Object other) {
+    if (this == other) {
+      return true;
+    }
+    if (!(other instanceof TaggedEvents)) {
+      return false;
+    }
+    TaggedEvents that = (TaggedEvents) other;
+    return (hashCode == that.hashCode) && Objects.equals(this.events, that.events);
   }
 }

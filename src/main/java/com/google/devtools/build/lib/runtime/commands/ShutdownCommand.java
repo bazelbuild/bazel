@@ -1,4 +1,4 @@
-// Copyright 2014 Google Inc. All rights reserved.
+// Copyright 2014 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,14 +14,16 @@
 package com.google.devtools.build.lib.runtime.commands;
 
 import com.google.devtools.build.lib.runtime.BlazeCommand;
-import com.google.devtools.build.lib.runtime.BlazeCommandDispatcher.ShutdownBlazeServerException;
-import com.google.devtools.build.lib.runtime.BlazeRuntime;
+import com.google.devtools.build.lib.runtime.BlazeCommandResult;
 import com.google.devtools.build.lib.runtime.Command;
+import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.common.options.Option;
+import com.google.devtools.common.options.OptionDocumentationCategory;
+import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
-import com.google.devtools.common.options.OptionsProvider;
+import com.google.devtools.common.options.OptionsParsingResult;
 
 /**
  * The 'blaze shutdown' command.
@@ -37,22 +39,23 @@ public final class ShutdownCommand implements BlazeCommand {
 
   public static class Options extends OptionsBase {
 
-    @Option(name="iff_heap_size_greater_than",
-            defaultValue = "0",
-            category = "misc",
-            help="Iff non-zero, then shutdown will only shut down the " +
-                 "server if the total memory (in MB) consumed by the JVM " +
-                 "exceeds this value.")
+    @Option(
+      name = "iff_heap_size_greater_than",
+      defaultValue = "0",
+      documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
+      effectTags = {OptionEffectTag.LOSES_INCREMENTAL_STATE, OptionEffectTag.EAGERNESS_TO_EXIT},
+      help =
+          "Iff non-zero, then shutdown will only shut down the server if the total memory (in MB) "
+              + "consumed by the JVM exceeds this value."
+    )
     public int heapSizeLimit;
   }
 
   @Override
-  public void editOptions(BlazeRuntime runtime, OptionsParser optionsParser) {}
+  public void editOptions(OptionsParser optionsParser) {}
 
   @Override
-  public ExitCode exec(BlazeRuntime runtime, OptionsProvider options)
-      throws ShutdownBlazeServerException {
-
+  public BlazeCommandResult exec(CommandEnvironment env, OptionsParsingResult options) {
     int limit = options.getOptions(Options.class).heapSizeLimit;
 
     // Iff limit is non-zero, shut down the server if total memory exceeds the
@@ -64,9 +67,10 @@ public final class ShutdownCommand implements BlazeCommand {
 
     if (limit == 0 ||
         Runtime.getRuntime().totalMemory() > limit * 1000L * 1000) {
-      throw new ShutdownBlazeServerException(0);
+      return BlazeCommandResult.shutdown(ExitCode.SUCCESS);
     }
-    return ExitCode.SUCCESS;
+
+    return BlazeCommandResult.exitCode(ExitCode.SUCCESS);
   }
 
 }

@@ -1,4 +1,4 @@
-// Copyright 2014 Google Inc. All rights reserved.
+// Copyright 2014 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,13 +15,13 @@
 package com.google.devtools.build.lib.events;
 
 /**
- * The ErrorEventListener is the primary means of reporting error and warning events. It is a subset
- * of the functionality of the {@link Reporter}. In most cases, you should use this interface
- * instead of the final {@code Reporter} class.
+ * An EventHandler handles events, such as errors and warnings. It is a subset of the functionality
+ * of the {@link Reporter}. In most cases, you should use this interface instead of the {@code
+ * Reporter} class.
  */
 public interface EventHandler {
   /**
    * Handles an event.
    */
-  public void handle(Event event);
+  void handle(Event event);
 }

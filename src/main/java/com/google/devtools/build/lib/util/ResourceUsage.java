@@ -1,4 +1,4 @@
-// Copyright 2014 Google Inc. All rights reserved.
+// Copyright 2014 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -20,9 +20,7 @@ import com.google.common.base.CharMatcher;
 import com.google.common.base.Splitter;
 import com.google.common.collect.Iterables;
 import com.google.common.io.Files;
-
 import com.sun.management.OperatingSystemMXBean;
-
 import java.io.File;
 import java.io.IOException;
 import java.lang.management.ManagementFactory;
@@ -45,7 +43,7 @@ public final class ResourceUsage {
       (OperatingSystemMXBean) ManagementFactory.getOperatingSystemMXBean();
 
   private static final MemoryMXBean MEM_BEAN = ManagementFactory.getMemoryMXBean();
-  private static final Splitter WHITESPACE_SPLITTER = Splitter.on(CharMatcher.WHITESPACE);
+  private static final Splitter WHITESPACE_SPLITTER = Splitter.on(CharMatcher.whitespace());
 
   /**
    * Calculates an estimate of the current total CPU usage and the CPU usage of
@@ -181,7 +179,7 @@ public final class ResourceUsage {
   private static long getCurrentTotalIdleTimeInJiffies() {
     try {
       File file = new File("/proc/stat");
-      String content = Files.toString(file, US_ASCII);
+      String content = Files.asCharSource(file, US_ASCII).read();
       String value = Iterables.get(WHITESPACE_SPLITTER.split(content), 5);
       return Long.parseLong(value);
     } catch (NumberFormatException | IOException e) {
@@ -205,8 +203,8 @@ public final class ResourceUsage {
       if (file.isDirectory()) {
         return new long[2];
       }
-      Iterator<String> stat = WHITESPACE_SPLITTER.split(
-          Files.toString(file, US_ASCII)).iterator();
+      Iterator<String> stat =
+          WHITESPACE_SPLITTER.split(Files.asCharSource(file, US_ASCII).read()).iterator();
       for (int i = 0; i < 13; ++i) {
         stat.next();
       }

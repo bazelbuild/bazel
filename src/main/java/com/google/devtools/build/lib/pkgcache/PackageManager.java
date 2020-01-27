@@ -1,4 +1,4 @@
-// Copyright 2014 Google Inc. All rights reserved.
+// Copyright 2014 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,26 +15,14 @@ package com.google.devtools.build.lib.pkgcache;
 
 import com.google.devtools.build.lib.concurrent.ThreadSafety;
 import com.google.devtools.build.lib.packages.CachingPackageLocator;
-
 import java.io.PrintStream;
 
 /**
- * A PackageManager keeps state about loaded packages around for quick lookup, and provides
- * related functionality: Recursive package finding, loaded package checking, etc.
+ * A PackageManager keeps state about loaded packages around for quick lookup, and provides related
+ * functionality: Recursive package finding, loaded package checking, etc.
  */
-public interface PackageManager extends PackageProvider, CachingPackageLocator,
-    LoadedPackageProvider {
-
-  /**
-   * Returns the package cache statistics.
-   */
-  PackageManagerStatistics getStatistics();
-
-  /**
-   * Removes cached data which is not needed anymore after loading is complete, to reduce memory
-   * consumption between builds. Whether or not this method is called does not affect correctness.
-   */
-  void partiallyClear();
+public interface PackageManager extends PackageProvider, CachingPackageLocator {
+  PackageManagerStatistics getAndClearStatistics();
 
   /**
    * Dump the contents of the package manager in human-readable form.
@@ -56,32 +44,22 @@ public interface PackageManager extends PackageProvider, CachingPackageLocator,
    * Collects statistics of the package manager since the last sync.
    */
   interface PackageManagerStatistics {
+    public static final PackageManagerStatistics ZERO = new PackageManagerStatistics() {
+        @Override public int getPackagesLoaded() {
+          return 0;
+        }
+    };
 
     /**
-     * Returns the number of packages loaded since the last sync. I.e. the cache
-     * misses.
+     * Returns the number of packages loaded since the last sync.
      */
     int getPackagesLoaded();
-
-    /**
-     * Returns the number of packages looked up since the last sync.
-     */
-    int getPackagesLookedUp();
-
-    /**
-     * Returns the number of all the packages currently loaded.
-     *
-     * <p>
-     * Note that this method is not affected by sync(), and the packages it
-     * returns are not guaranteed to be up-to-date.
-     */
-    int getCacheSize();
   }
 
   /**
    * Retrieve a target pattern parser that works with this package manager.
    */
-  TargetPatternEvaluator getTargetPatternEvaluator();
+  TargetPatternPreloader newTargetPatternPreloader();
 
   /**
    * Construct a new {@link TransitivePackageLoader}.

@@ -1,4 +1,4 @@
-// Copyright 2014 Google Inc. All rights reserved.
+// Copyright 2014 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,17 +17,18 @@ import static com.google.common.truth.Truth.assertThat;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
-
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
-
+import com.google.protobuf.ByteString;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 /**
  * Tests for Fingerprint.
@@ -40,25 +41,31 @@ public class FingerprintTest {
     Fingerprint f1Latin1 = new Fingerprint();
     for (String s : list1) {
       f1.addString(s);
-      f1Latin1.addStringLatin1(s);
+      f1Latin1.addString(s);
     }
     Fingerprint f2 = new Fingerprint();
     Fingerprint f2Latin1 = new Fingerprint();
     for (String s : list2) {
       f2.addString(s);
-      f2Latin1.addStringLatin1(s);
+      f2Latin1.addString(s);
     }
     assertThat(f1.hexDigestAndReset()).isNotEqualTo(f2.hexDigestAndReset());
     assertThat(f1Latin1.hexDigestAndReset()).isNotEqualTo(f2Latin1.hexDigestAndReset());
   }
 
-  // You can validate the md5 of the simple string against
-  // echo -n 'Hello World!'| md5sum
   @Test
-  public void bytesFingerprint() {
-    assertThat("ed076287532e86365e841e92bfc50d8c").isEqualTo(
-        new Fingerprint().addBytes("Hello World!".getBytes(UTF_8)).hexDigestAndReset());
-    assertThat("ed076287532e86365e841e92bfc50d8c").isEqualTo(Fingerprint.md5Digest("Hello World!"));
+  public void equivalentBytesAndStringsFingerprintsMatch() {
+    String helloWorld = "Hello World!";
+    // $ echo -n 'Hello World!' | sha256sum
+    String helloWorldHash = "7f83b1657ff1fc53b92dc18148a1d65dfc2d4b1fa3d677284addd200126d9069";
+
+    assertThat(new Fingerprint().addBytes(helloWorld.getBytes(UTF_8)).hexDigestAndReset())
+        .isEqualTo(helloWorldHash);
+
+    assertThat(Fingerprint.getHexDigest(helloWorld)).isEqualTo(helloWorldHash);
+
+    assertThat(new Fingerprint().addBytes(ByteString.copyFromUtf8(helloWorld)).hexDigestAndReset())
+        .isEqualTo(helloWorldHash);
   }
 
   @Test
@@ -101,21 +108,6 @@ public class FingerprintTest {
   }
 
   @Test
-  public void toStringTest() throws Exception {
-    Fingerprint f1 = new Fingerprint();
-    f1.addString("Hello ");
-    f1.addString("World!");
-    String fp = f1.hexDigestAndReset();
-    Fingerprint f2 = new Fingerprint();
-    f2.addString("Hello ");
-    // make sure that you can call toString on the intermediate result
-    // and continue with the operation.
-    assertThat(fp).isNotEqualTo(f2.toString());
-    f2.addString("World!");
-    assertThat(fp).isEqualTo(f2.hexDigestAndReset());
-  }
-
-  @Test
   public void addBoolean() throws Exception {
     String f1 = new Fingerprint().addBoolean(true).hexDigestAndReset();
     String f2 = new Fingerprint().addBoolean(false).hexDigestAndReset();
@@ -127,11 +119,59 @@ public class FingerprintTest {
 
   @Test
   public void addPath() throws Exception {
-    PathFragment pf = new PathFragment("/etc/pwd");
-    assertThat("01cc3eeea3a2f58e447e824f9f62d3d1").isEqualTo(
-        new Fingerprint().addPath(pf).hexDigestAndReset());
+    PathFragment pf = PathFragment.create("/etc/pwd");
+    assertThat(new Fingerprint().addPath(pf).hexDigestAndReset())
+        .isEqualTo("0b229115c2da46773ff38528420b922488dd564ddb3c0c861fb1c77ae8525f9b");
     Path p = new InMemoryFileSystem(BlazeClock.instance()).getPath(pf);
-    assertThat("01cc3eeea3a2f58e447e824f9f62d3d1").isEqualTo(
-        new Fingerprint().addPath(p).hexDigestAndReset());
+    assertThat(new Fingerprint().addPath(p).hexDigestAndReset())
+        .isEqualTo("0b229115c2da46773ff38528420b922488dd564ddb3c0c861fb1c77ae8525f9b");
+  }
+
+  @Test
+  public void addNullableBoolean() throws Exception {
+    String f1 = new Fingerprint().addNullableBoolean(null).hexDigestAndReset();
+    assertThat(f1).isEqualTo(new Fingerprint().addNullableBoolean(null).hexDigestAndReset());
+    assertThat(f1).isNotEqualTo(new Fingerprint().addNullableBoolean(false).hexDigestAndReset());
+    assertThat(f1).isNotEqualTo(new Fingerprint().addNullableBoolean(true).hexDigestAndReset());
+  }
+
+  @Test
+  public void addNullableInteger() throws Exception {
+    String f1 = new Fingerprint().addNullableInt(null).hexDigestAndReset();
+    assertThat(f1).isEqualTo(new Fingerprint().addNullableInt(null).hexDigestAndReset());
+    assertThat(f1).isNotEqualTo(new Fingerprint().addNullableInt(0).hexDigestAndReset());
+    assertThat(f1).isNotEqualTo(new Fingerprint().addNullableInt(1).hexDigestAndReset());
+  }
+
+  @Test
+  public void addNullableString() throws Exception {
+    String f1 = new Fingerprint().addNullableString(null).hexDigestAndReset();
+    assertThat(f1).isEqualTo(new Fingerprint().addNullableString(null).hexDigestAndReset());
+    assertThat(f1).isNotEqualTo(new Fingerprint().addNullableString("").hexDigestAndReset());
+  }
+
+  @Test
+  public void testReusableAfterReset() throws Exception {
+    Fingerprint fp = new Fingerprint();
+    String f1 = convolutedFingerprintAndReset(fp);
+    String f2 = convolutedFingerprintAndReset(fp);
+    assertThat(f1).isEqualTo(f2);
+  }
+
+  private static String convolutedFingerprintAndReset(Fingerprint fingerprint) {
+    return fingerprint
+        .addBoolean(false)
+        .addBytes(new byte[10])
+        .addBytes(new byte[10], 0, 5)
+        .addInt(20)
+        .addLong(30)
+        .addNullableBoolean(null)
+        .addNullableInt(null)
+        .addNullableString(null)
+        .addPath(PathFragment.create("/foo/bar"))
+        .addPaths(ImmutableList.of(PathFragment.create("/foo/bar")))
+        .addString("baz")
+        .addUUID(UUID.fromString("12345678-1234-1234-1234-1234567890ab"))
+        .hexDigestAndReset();
   }
 }

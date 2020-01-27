@@ -1,0 +1,106 @@
+---
+layout: documentation
+title: One-Page Overview
+---
+<h1>One-Page Overview</h1>
+
+A list of all modules and globals that are available:
+
+<h2>
+
+
+  <a href="/versions/{{ site.version }}/skylark/lib/${global_name}.html">Global Functions</a>
+
+
+</h2>
+<div class="toc">
+  <ul>
+
+#foreach ($name in $global_functions)
+
+    <li>
+
+
+      <a href="/versions/{{ site.version }}/skylark/lib/${global_name}.html#${name}">${name}</a>
+
+
+    </li>
+
+#end
+
+  </ul>
+</div>
+<h2>
+
+
+  <a href="/versions/{{ site.version }}/skylark/lib/${global_name}.html">Global Constants</a>
+
+
+</h2>
+<div class="toc">
+  <ul>
+
+#foreach ($name in $global_constants)
+
+    <li>
+
+
+      <a href="/versions/{{ site.version }}/skylark/lib/${global_name}.html#${name}">${name}</a>
+
+
+    </li>
+
+#end
+
+  </ul>
+</div>
+<h2>
+  Global Modules
+</h2>
+<div class="toc">
+  <ul>
+
+#foreach ($module in $global_modules)
+
+    <li>
+
+
+      <a href="/versions/{{ site.version }}/skylark/lib/${module.name}.html">${module.name}</a>
+
+
+    #if (${module.deprecated})
+    (Deprecated)
+    #end
+
+    </li>
+
+#end
+
+  </ul>
+</div>
+#foreach ($entry in $modules.entrySet())
+<h2>
+
+
+  <a href="/versions/{{ site.version }}/skylark/lib/skylark-${entry.key.templateIdentifier}.html">${entry.key.title}</a>
+
+
+</h2>
+<div class="toc">
+  <ul>
+  #foreach ($module in $entry.value)
+
+    <li>
+
+
+      <a href="/versions/{{ site.version }}/skylark/lib/${module.name}.html">${module.title}</a>
+
+      #if (${module.deprecated})
+      (Deprecated)
+      #end
+    </li>
+
+  #end
+  </ul>
+</div>
+#end

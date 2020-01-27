@@ -1,4 +1,4 @@
-// Copyright 2014 Google Inc. All rights reserved.
+// Copyright 2014 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -13,16 +13,12 @@
 // limitations under the License.
 package com.google.devtools.build.lib.util;
 
-import com.google.common.base.Function;
-
-import java.util.Comparator;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import java.util.Objects;
-
 import javax.annotation.Nullable;
 
-/**
- * An immutable, semantic-free ordered pair of nullable values. Avoid using it in public APIs.
- */
+/** An immutable, semantic-free ordered pair of nullable values. Avoid using it in public APIs. */
+@AutoCodec
 public final class Pair<A, B> {
 
   /**
@@ -81,42 +77,8 @@ public final class Pair<A, B> {
 
   @Override
   public int hashCode() {
-    return Objects.hash(first, second);
-  }
-
-  /**
-   * A function that maps to the first element in a pair.
-   */
-  public static <A, B> Function<Pair<A, B>, A> firstFunction() {
-    return new Function<Pair<A, B>, A>() {
-      @Override
-      public A apply(Pair<A, B> pair) {
-        return pair.first;
-      }
-    };
-  }
-
-  /**
-   * A function that maps to the second element in a pair.
-   */
-  public static <A, B> Function<Pair<A, B>, B> secondFunction() {
-    return new Function<Pair<A, B>, B>() {
-      @Override
-      public B apply(Pair<A, B> pair) {
-        return pair.second;
-      }
-    };
-  }
-
-  /**
-   * A comparator that compares pairs by comparing the first element.
-   */
-  public static <T extends Comparable<T>, B> Comparator<Pair<T, B>> compareByFirst() {
-    return new Comparator<Pair<T, B>>() {
-      @Override
-      public int compare(Pair<T, B> o1, Pair<T, B> o2) {
-        return o1.first.compareTo(o2.first);
-      }
-    };
+    int hash1 = first == null ? 0 : first.hashCode();
+    int hash2 = second == null ? 0 : second.hashCode();
+    return 31 * hash1 + hash2;
   }
 }

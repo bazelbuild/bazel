@@ -1,4 +1,4 @@
-// Copyright 2014 Google Inc. All rights reserved.
+// Copyright 2014 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,45 +14,51 @@
 
 package com.google.devtools.build.lib.analysis;
 
-import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.EmptyRunfilesSupplier;
+import com.google.devtools.build.lib.actions.RunfilesSupplier;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.syntax.Label;
-
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.skylarkbuildapi.FilesToRunProviderApi;
 import javax.annotation.Nullable;
 
-/**
- * Returns information about executables produced by a target and the files needed to run it.
- */
+/** Returns information about executables produced by a target and the files needed to run it. */
 @Immutable
-public final class FilesToRunProvider implements TransitiveInfoProvider {
+@AutoCodec
+public final class FilesToRunProvider
+    implements TransitiveInfoProvider, FilesToRunProviderApi<Artifact> {
+  /** The name of the field in Skylark used to access this class. */
+  public static final String SKYLARK_NAME = "files_to_run";
 
-  private final Label label;
-  private final ImmutableList<Artifact> filesToRun;
+  public static final FilesToRunProvider EMPTY =
+      new FilesToRunProvider(NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER), null, null);
+
+  private final NestedSet<Artifact> filesToRun;
   @Nullable private final RunfilesSupport runfilesSupport;
   @Nullable private final Artifact executable;
 
-  public FilesToRunProvider(Label label, ImmutableList<Artifact> filesToRun,
-      @Nullable RunfilesSupport runfilesSupport, @Nullable Artifact executable) {
-    this.label = label;
+  public FilesToRunProvider(
+      NestedSet<Artifact> filesToRun,
+      @Nullable RunfilesSupport runfilesSupport,
+      @Nullable Artifact executable) {
     this.filesToRun = filesToRun;
     this.runfilesSupport = runfilesSupport;
     this.executable  = executable;
   }
 
   /**
-   * Returns the label that is associated with this piece of information.
-   *
-   * <p>This is usually the label of the target that provides the information.
+   * Creates an instance that contains one single executable and no other files.
    */
-  public Label getLabel() {
-    return label;
+  public static FilesToRunProvider fromSingleExecutableArtifact(Artifact artifact) {
+    return new FilesToRunProvider(
+        NestedSetBuilder.create(Order.STABLE_ORDER, artifact), null, artifact);
   }
 
-  /**
-   * Returns artifacts needed to run the executable for this target.
-   */
-  public ImmutableList<Artifact> getFilesToRun() {
+  /** Returns artifacts needed to run the executable for this target. */
+  public NestedSet<Artifact> getFilesToRun() {
     return filesToRun;
   }
 
@@ -63,10 +69,10 @@ public final class FilesToRunProvider implements TransitiveInfoProvider {
     return runfilesSupport;
   }
 
-  /**
-   * Returns the Executable or null if it does not exist.
-   */
-  @Nullable public Artifact getExecutable() {
+  /** Returns the Executable or null if it does not exist. */
+  @Override
+  @Nullable
+  public Artifact getExecutable() {
     return executable;
   }
 
@@ -74,7 +80,18 @@ public final class FilesToRunProvider implements TransitiveInfoProvider {
    * Returns the RunfilesManifest or null if it does not exist. It is a shortcut to
    * getRunfilesSupport().getRunfilesManifest().
    */
-  @Nullable public Artifact getRunfilesManifest() {
+  @Override
+  @Nullable
+  public Artifact getRunfilesManifest() {
     return runfilesSupport != null ? runfilesSupport.getRunfilesManifest() : null;
+  }
+
+  /** Return a {@link RunfilesSupplier} encapsulating runfiles for this tool. */
+  public RunfilesSupplier getRunfilesSupplier() {
+    if (runfilesSupport != null) {
+      return RunfilesSupplierImpl.create(runfilesSupport);
+    } else {
+      return EmptyRunfilesSupplier.INSTANCE;
+    }
   }
 }

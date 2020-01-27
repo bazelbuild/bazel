@@ -1,4 +1,4 @@
-// Copyright 2014 Google Inc. All rights reserved.
+// Copyright 2014 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,11 +14,10 @@
 package com.google.devtools.build.lib.query2.engine;
 
 import com.google.common.base.Joiner;
-
+import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryTaskFuture;
+import java.util.ArrayList;
 import java.util.Collection;
-import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Set;
 
 /**
  * A set(word, ..., word) expression, which computes the union of zero or more
@@ -39,21 +38,22 @@ import java.util.Set;
  *
  * <pre>expr ::= SET '(' WORD * ')'</pre>
  */
-class SetExpression extends QueryExpression {
+public class SetExpression extends QueryExpression {
 
   private final List<TargetLiteral> words;
 
-  SetExpression(List<TargetLiteral> words) {
+  public SetExpression(List<TargetLiteral> words) {
     this.words = words;
   }
 
   @Override
-  public <T> Set<T> eval(QueryEnvironment<T> env) throws QueryException {
-    Set<T> result = new LinkedHashSet<>();
+  public <T> QueryTaskFuture<Void> eval(
+      QueryEnvironment<T> env, QueryExpressionContext<T> context, Callback<T> callback) {
+    ArrayList<QueryTaskFuture<Void>> queryTasks = new ArrayList<>(words.size());
     for (TargetLiteral expr : words) {
-      result.addAll(expr.eval(env));
+      queryTasks.add(env.eval(expr, context, callback));
     }
-    return result;
+    return env.whenAllSucceed(queryTasks);
   }
 
   @Override
@@ -61,6 +61,16 @@ class SetExpression extends QueryExpression {
     for (TargetLiteral expr : words) {
       expr.collectTargetPatterns(literals);
     }
+  }
+
+  @Override
+  public <T, C> T accept(QueryExpressionVisitor<T, C> visitor, C context) {
+    return visitor.visit(this, context);
+  }
+
+  /** Gets the list of {@link TargetLiteral}s contained in the expression. */
+  public List<TargetLiteral> getWords() {
+    return words;
   }
 
   @Override

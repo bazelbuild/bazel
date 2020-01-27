@@ -1,2 +1,0 @@
-momczip invokes momc ("Managed object model compiler") and zips up the output,
-as the number of output files is unpredictable.

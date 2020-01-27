@@ -1,4 +1,4 @@
-// Copyright 2014 Google Inc. All rights reserved.
+// Copyright 2014 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,13 +15,12 @@ package com.google.devtools.build.lib.rules.java;
 
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 
-/**
- * Provides the fully qualified name of the primary class to invoke for java targets.
- */
+/** Provides the fully qualified name of the primary class to invoke for java targets. */
 @Immutable
+@AutoCodec
 public final class JavaPrimaryClassProvider implements TransitiveInfoProvider {
-
   private final String primaryClass;
 
   public JavaPrimaryClassProvider(String primaryClass) {
@@ -29,12 +28,11 @@ public final class JavaPrimaryClassProvider implements TransitiveInfoProvider {
   }
 
   /**
-   * Returns either the Java class whose main() method is to be invoked (when
-   * use_testrunner=0) or the Java subclass of junit.framework.Test that
-   * is to be tested by the test runner class (when use_testrunner=1).
+   * Returns either the Java class whose main() method is to be invoked (when use_testrunner=0) or
+   * the Java subclass of junit.framework.Test that is to be tested by the test runner class (when
+   * use_testrunner=1).
    *
-   * @return a fully qualified Java class name, or null if none could be
-   *   determined.
+   * @return a fully qualified Java class name, or null if none could be determined.
    */
   public String getPrimaryClass() {
     return primaryClass;

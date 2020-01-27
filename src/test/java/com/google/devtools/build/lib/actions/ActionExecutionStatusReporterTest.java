@@ -1,4 +1,4 @@
-// Copyright 2015 Google Inc. All rights reserved.
+// Copyright 2015 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,68 +14,37 @@
 package com.google.devtools.build.lib.actions;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.assertEquals;
 import static org.mockito.Mockito.when;
 
-import com.google.common.base.Preconditions;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.eventbus.EventBus;
-import com.google.devtools.build.lib.events.EventCollector;
+import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.events.EventKind;
-import com.google.devtools.build.lib.events.Reporter;
-import com.google.devtools.build.lib.util.Clock;
-
+import com.google.devtools.build.lib.events.util.EventCollectionApparatus;
+import com.google.devtools.build.lib.testutil.ManualClock;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 import org.mockito.Mockito;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
-
-/**
- * Test for the {@link ActionExecutionStatusReporter} class.
- */
+/** Test for the {@link ActionExecutionStatusReporter} class. */
 @RunWith(JUnit4.class)
 public class ActionExecutionStatusReporterTest {
-  private static final class MockClock implements Clock {
-    private long millis = 0;
 
-    public void advance() {
-      advanceBy(1000);
-    }
-
-    public void advanceBy(long millis) {
-      Preconditions.checkArgument(millis > 0);
-      this.millis += millis;
-    }
-
-    @Override
-    public long currentTimeMillis() {
-      return millis;
-    }
-
-    @Override
-    public long nanoTime() {
-      // There's no reason to use a nanosecond-precision for a mock clock.
-      return millis * 1000000L;
-    }
-  }
-
-  private EventCollector collector;
+  private EventCollectionApparatus events;
   private ActionExecutionStatusReporter statusReporter;
   private EventBus eventBus;
-  private MockClock clock = new MockClock();
+  private ManualClock clock = new ManualClock();
 
-  private Action mockAction(String progressMessage) { return mockAction(progressMessage, false); }
-
-  private Action mockAction(String progressMessage, boolean remote) {
+  private Action mockAction(String progressMessage) {
     Action action = Mockito.mock(Action.class);
-    when(action.describeStrategy(null)).thenReturn(remote ? "remote" : "something else");
+    when(action.getOwner()).thenReturn(ActionsTestUtil.NULL_ACTION_OWNER);
     when(action.getProgressMessage()).thenReturn(progressMessage);
     if (progressMessage == null) {
       when(action.prettyPrint()).thenReturn("default message");
@@ -84,35 +53,48 @@ public class ActionExecutionStatusReporterTest {
   }
 
   @Before
-  public void setUp() throws Exception {
-    collector = new EventCollector(EventKind.ALL_EVENTS);
-    Reporter reporter = new Reporter();
-    reporter.addHandler(collector);
-    statusReporter = ActionExecutionStatusReporter.create(reporter, clock);
+  public final void initializeEventBus() throws Exception  {
+    events = new EventCollectionApparatus(EventKind.ALL_EVENTS);
+    statusReporter = ActionExecutionStatusReporter.create(events.reporter(), clock);
     eventBus = new EventBus();
     eventBus.register(statusReporter);
   }
 
   private void verifyNoOutput() {
-    collector.clear();
+    events.clear();
     statusReporter.showCurrentlyExecutingActions("");
-    assertEquals(0, collector.count());
+    assertThat(events.collector()).isEmpty();
   }
 
   private void verifyOutput(String... lines) throws Exception {
-    collector.clear();
+    events.clear();
     statusReporter.showCurrentlyExecutingActions("");
-    assertThat(Splitter.on('\n').omitEmptyStrings().trimResults().split(
-        Iterables.getOnlyElement(collector).getMessage().replaceAll(" +", " ")))
-        .containsExactlyElementsIn(Arrays.asList(lines)).inOrder();
+    assertThat(
+            Splitter.on('\n')
+                .omitEmptyStrings()
+                .trimResults()
+                .split(
+                    Iterables.getOnlyElement(events.collector())
+                        .getMessage()
+                        .replaceAll(" +", " ")))
+        .containsExactlyElementsIn(Arrays.asList(lines))
+        .inOrder();
   }
 
   private void verifyWarningOutput(String... lines) throws Exception {
-    collector.clear();
+    events.setFailFast(false);
+    events.clear();
     statusReporter.warnAboutCurrentlyExecutingActions();
-    assertThat(Splitter.on('\n').omitEmptyStrings().trimResults().split(
-        Iterables.getOnlyElement(collector).getMessage().replaceAll(" +", " ")))
-        .containsExactlyElementsIn(Arrays.asList(lines)).inOrder();
+    assertThat(
+            Splitter.on('\n')
+                .omitEmptyStrings()
+                .trimResults()
+                .split(
+                    Iterables.getOnlyElement(events.collector())
+                        .getMessage()
+                        .replaceAll(" +", " ")))
+        .containsExactlyElementsIn(Arrays.asList(lines))
+        .inOrder();
   }
 
   @Test
@@ -120,13 +102,13 @@ public class ActionExecutionStatusReporterTest {
     verifyNoOutput();
     verifyWarningOutput("There are no active jobs - stopping the build");
     setPreparing(mockAction("action1"));
-    clock.advance();
+    clock.advanceMillis(1000);
     verifyWarningOutput("Still waiting for unfinished jobs");
-    setScheduling(mockAction("action2"));
-    clock.advance();
-    setRunning(mockAction("action3", true));
-    clock.advance();
-    setRunning(mockAction("action4", false));
+    setScheduling(mockAction("action2"), "remote");
+    clock.advanceMillis(1000);
+    setRunning(mockAction("action3"), "remote");
+    clock.advanceMillis(1000);
+    setRunning(mockAction("action4"), "something else");
     verifyOutput("Still waiting for 4 jobs to complete:",
         "Preparing:", "action1, 3 s",
         "Running (remote):", "action3, 1 s",
@@ -141,19 +123,19 @@ public class ActionExecutionStatusReporterTest {
 
   @Test
   public void testSingleAction() throws Exception {
-    Action action = mockAction("action1", true);
+    Action action = mockAction("action1");
     verifyNoOutput();
     setPreparing(action);
-    clock.advanceBy(1200);
+    clock.advanceMillis(1200);
     verifyOutput("Still waiting for 1 job to complete:", "Preparing:", "action1, 1 s");
-    clock.advanceBy(5000);
+    clock.advanceMillis(5000);
 
-    setScheduling(action);
-    clock.advanceBy(1200);
+    setScheduling(action, "remote");
+    clock.advanceMillis(1200);
     // Only started *scheduling* 1200 ms ago, not 6200 ms ago.
     verifyOutput("Still waiting for 1 job to complete:", "Scheduling:", "action1, 1 s");
-    setRunning(action);
-    clock.advanceBy(3000);
+    setRunning(action, "remote");
+    clock.advanceMillis(3000);
     // Only started *running* 3000 ms ago, not 4200 ms ago.
     verifyOutput("Still waiting for 1 job to complete:", "Running (remote):", "action1, 3 s");
     statusReporter.remove(action);
@@ -162,22 +144,22 @@ public class ActionExecutionStatusReporterTest {
 
   @Test
   public void testDynamicUpdate() throws Exception {
-    Action action = mockAction("action1", true);
+    Action action = mockAction("action1");
     verifyNoOutput();
     setPreparing(action);
-    clock.advance();
+    clock.advanceMillis(1000);
     verifyOutput("Still waiting for 1 job to complete:", "Preparing:", "action1, 1 s");
-    setScheduling(action);
-    clock.advance();
+    setScheduling(action, "remote");
+    clock.advanceMillis(1000);
     verifyOutput("Still waiting for 1 job to complete:", "Scheduling:", "action1, 1 s");
-    setRunning(action);
-    clock.advance();
+    setRunning(action, "remote");
+    clock.advanceMillis(1000);
     verifyOutput("Still waiting for 1 job to complete:", "Running (remote):", "action1, 1 s");
-    clock.advance();
+    clock.advanceMillis(1000);
 
-    eventBus.post(ActionStatusMessage.analysisStrategy(action));
+    eventBus.post(new ScanningActionEvent(action));
     // Locality strategy was changed, so timer was reset to 0 s.
-    verifyOutput("Still waiting for 1 job to complete:", "Analyzing:", "action1, 0 s");
+    verifyOutput("Still waiting for 1 job to complete:", "Scanning:", "action1, 0 s");
     statusReporter.remove(action);
     verifyNoOutput();
   }
@@ -186,12 +168,12 @@ public class ActionExecutionStatusReporterTest {
   public void testGroups() throws Exception {
     verifyNoOutput();
     List<Action> actions = ImmutableList.of(
-        mockAction("remote1", true), mockAction("remote2", true), mockAction("remote3", true),
-        mockAction("local1", false), mockAction("local2", false), mockAction("local3", false));
+        mockAction("remote1"), mockAction("remote2"), mockAction("remote3"),
+        mockAction("local1"), mockAction("local2"), mockAction("local3"));
 
     for (Action a : actions) {
-      setScheduling(a);
-      clock.advance();
+      setScheduling(a, "remote");
+      clock.advanceMillis(1000);
     }
 
     verifyOutput("Still waiting for 6 jobs to complete:",
@@ -200,8 +182,8 @@ public class ActionExecutionStatusReporterTest {
         "local1, 3 s", "local2, 2 s", "local3, 1 s");
 
     for (Action a : actions) {
-      setRunning(a);
-      clock.advanceBy(2000);
+      setRunning(a, a.getProgressMessage().startsWith("remote") ? "remote" : "something else");
+      clock.advanceMillis(2000);
     }
 
     // Timers got reset because now they are no longer scheduling but running.
@@ -222,16 +204,16 @@ public class ActionExecutionStatusReporterTest {
     for (int i = 1; i <= 100; i++) {
       Action a = mockAction("a" + i);
       actions.add(a);
-      setScheduling(a);
-      clock.advance();
+      setScheduling(a, "remote");
+      clock.advanceMillis(1000);
     }
     verifyOutput("Still waiting for 100 jobs to complete:", "Scheduling:",
         "a1, 100 s", "a2, 99 s", "a3, 98 s", "a4, 97 s", "a5, 96 s",
         "a6, 95 s", "a7, 94 s", "a8, 93 s", "a9, 92 s", "... 91 more jobs");
 
     for (int i = 0; i < 5; i++) {
-      setRunning(actions.get(i));
-      clock.advance();
+      setRunning(actions.get(i), "something else");
+      clock.advanceMillis(1000);
     }
     verifyOutput("Still waiting for 100 jobs to complete:",
         "Running (something else):", "a1, 5 s", "a2, 4 s", "a3, 3 s", "a4, 2 s", "a5, 1 s",
@@ -242,14 +224,14 @@ public class ActionExecutionStatusReporterTest {
   @Test
   public void testOrdering() throws Exception {
     verifyNoOutput();
-    setScheduling(mockAction("a1"));
-    clock.advance();
+    setScheduling(mockAction("a1"), "remote");
+    clock.advanceMillis(1000);
     setPreparing(mockAction("b1"));
-    clock.advance();
+    clock.advanceMillis(1000);
     setPreparing(mockAction("b2"));
-    clock.advance();
-    setScheduling(mockAction("a2"));
-    clock.advance();
+    clock.advanceMillis(1000);
+    setScheduling(mockAction("a2"), "remote");
+    clock.advanceMillis(1000);
     verifyOutput("Still waiting for 4 jobs to complete:",
         "Preparing:", "b1, 3 s", "b2, 2 s",
         "Scheduling:", "a1, 4 s", "a2, 1 s");
@@ -258,36 +240,36 @@ public class ActionExecutionStatusReporterTest {
   @Test
   public void testNoProgressMessage() throws Exception {
     verifyNoOutput();
-    setScheduling(mockAction(null));
+    setScheduling(mockAction(null), "remote");
     verifyOutput("Still waiting for 1 job to complete:", "Scheduling:", "default message, 0 s");
   }
 
   @Test
   public void testWaitTimeCalculation() throws Exception {
     // --progress_report_interval=0
-    assertEquals(10, ActionExecutionStatusReporter.getWaitTime(0, 0));
-    assertEquals(30, ActionExecutionStatusReporter.getWaitTime(0, 10));
-    assertEquals(60, ActionExecutionStatusReporter.getWaitTime(0, 30));
-    assertEquals(60, ActionExecutionStatusReporter.getWaitTime(0, 60));
+    assertThat(ActionExecutionStatusReporter.getWaitTime(0, 0)).isEqualTo(10);
+    assertThat(ActionExecutionStatusReporter.getWaitTime(0, 10)).isEqualTo(30);
+    assertThat(ActionExecutionStatusReporter.getWaitTime(0, 30)).isEqualTo(60);
+    assertThat(ActionExecutionStatusReporter.getWaitTime(0, 60)).isEqualTo(60);
 
     // --progress_report_interval=42
-    assertEquals(42, ActionExecutionStatusReporter.getWaitTime(42, 0));
-    assertEquals(42, ActionExecutionStatusReporter.getWaitTime(42, 42));
+    assertThat(ActionExecutionStatusReporter.getWaitTime(42, 0)).isEqualTo(42);
+    assertThat(ActionExecutionStatusReporter.getWaitTime(42, 42)).isEqualTo(42);
 
     // --progress_report_interval=30 (looks like one of the default timeout stages)
-    assertEquals(30, ActionExecutionStatusReporter.getWaitTime(30, 0));
-    assertEquals(30, ActionExecutionStatusReporter.getWaitTime(30, 30));
+    assertThat(ActionExecutionStatusReporter.getWaitTime(30, 0)).isEqualTo(30);
+    assertThat(ActionExecutionStatusReporter.getWaitTime(30, 30)).isEqualTo(30);
   }
 
-  private void setScheduling(ActionMetadata action) {
-    eventBus.post(ActionStatusMessage.schedulingStrategy(action));
+  private void setScheduling(ActionExecutionMetadata action, String strategy) {
+    eventBus.post(new SchedulingActionEvent(action, strategy));
   }
 
-  private void setPreparing(ActionMetadata action) {
-    eventBus.post(ActionStatusMessage.preparingStrategy(action));
+  private void setPreparing(Action action) {
+    eventBus.post(new ActionStartedEvent(action, 0));
   }
 
-  private void setRunning(ActionMetadata action) {
-    eventBus.post(ActionStatusMessage.runningStrategy(action));
+  private void setRunning(ActionExecutionMetadata action, String strategy) {
+    eventBus.post(new RunningActionEvent(action, strategy));
   }
 }

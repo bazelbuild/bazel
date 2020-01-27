@@ -1,0 +1,16 @@
+---
+layout: documentation
+title: ${category.title}
+---
+<h1>${category.title}</h1>
+
+${description}
+
+<div class="toc">
+<ul>
+#foreach ($module in $modules)
+
+<li><a href="/versions/{{ site.version }}/skylark/lib/${module.name}.html">${module.title}</a></li>
+#end
+</ul>
+</div>

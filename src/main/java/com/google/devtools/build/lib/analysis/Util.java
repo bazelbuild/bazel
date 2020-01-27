@@ -1,4 +1,4 @@
-// Copyright 2014 Google Inc. All rights reserved.
+// Copyright 2014 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,9 +14,20 @@
 
 package com.google.devtools.build.lib.analysis;
 
+import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ListMultimap;
+import com.google.common.collect.Sets;
+import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.collect.compacthashset.CompactHashSet;
+import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.Target;
-import com.google.devtools.build.lib.syntax.Label;
+import com.google.devtools.build.lib.rules.AliasConfiguredTarget;
+import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
+import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import java.util.List;
+import java.util.Set;
 
 /**
  * Utility methods for use by ConfiguredTarget implementations.
@@ -60,5 +71,61 @@ public abstract class Util {
    */
   public static boolean containsHyphen(PathFragment path) {
     return path.getPathString().indexOf('-') >= 0;
+  }
+
+  // ---------- Implicit dependency extractor
+
+  /*
+   * Given a RuleContext, find all the implicit deps aka deps that weren't explicitly set in the
+   * build file and all toolchain deps.
+   * note: nodes that are depended on both implicitly and explicitly are considered explicit.
+   */
+  public static ImmutableSet<ConfiguredTargetKey> findImplicitDeps(RuleContext ruleContext) {
+    // (1) Consider rule attribute dependencies.
+    Set<ConfiguredTargetKey> maybeImplicitDeps = CompactHashSet.create();
+    Set<ConfiguredTargetKey> explicitDeps = CompactHashSet.create();
+    AttributeMap attributes = ruleContext.attributes();
+    ListMultimap<String, ConfiguredTargetAndData> targetMap =
+        ruleContext.getConfiguredTargetAndDataMap();
+    for (String attrName : attributes.getAttributeNames()) {
+      List<ConfiguredTargetAndData> attrValues = targetMap.get(attrName);
+      if (attrValues != null && !attrValues.isEmpty()) {
+        if (attributes.isAttributeValueExplicitlySpecified(attrName)) {
+          addLabelsAndConfigs(explicitDeps, attrValues);
+        } else {
+          addLabelsAndConfigs(maybeImplicitDeps, attrValues);
+        }
+      }
+    }
+    // (2) Consider toolchain dependencies
+    ToolchainContext toolchainContext = ruleContext.getToolchainContext();
+    if (toolchainContext != null) {
+      BuildConfiguration config = ruleContext.getConfiguration();
+      for (Label toolchain : toolchainContext.resolvedToolchainLabels()) {
+        maybeImplicitDeps.add(ConfiguredTargetKey.of(toolchain, config));
+      }
+      maybeImplicitDeps.add(
+          ConfiguredTargetKey.of(toolchainContext.executionPlatform().label(), config));
+      maybeImplicitDeps.add(
+          ConfiguredTargetKey.of(toolchainContext.targetPlatform().label(), config));
+    }
+    return ImmutableSet.copyOf(Sets.difference(maybeImplicitDeps, explicitDeps));
+  }
+
+  private static void addLabelsAndConfigs(
+      Set<ConfiguredTargetKey> set, List<ConfiguredTargetAndData> deps) {
+    for (ConfiguredTargetAndData dep : deps) {
+      // This must be done because {@link AliasConfiguredTarget#getLabel} returns the label of the
+      // "actual" configured target instead of the alias.
+      if (dep.getConfiguredTarget() instanceof AliasConfiguredTarget) {
+        set.add(
+            ConfiguredTargetKey.of(
+                ((AliasConfiguredTarget) dep.getConfiguredTarget()).getOriginalLabel(),
+                dep.getConfiguration()));
+      } else {
+        set.add(
+            ConfiguredTargetKey.of(dep.getConfiguredTarget().getLabel(), dep.getConfiguration()));
+      }
+    }
   }
 }

@@ -1,0 +1,37 @@
+public abstract class com.example.gavra.java8coverage.Defaults$$CC {
+  public static boolean[] $jacocoData;
+
+  public static void foo$$dflt$$(com.example.gavra.java8coverage.Defaults);
+    Code:
+       0: invokestatic  #12                 // Method $jacocoInit$$STATIC$$:()[Z
+       3: astore_1
+       4: aload_1
+       5: iconst_0
+       6: iconst_1
+       7: bastore
+       8: return
+
+  public static void baz$$STATIC$$();
+    Code:
+       0: invokestatic  #12                 // Method $jacocoInit$$STATIC$$:()[Z
+       3: astore_0
+       4: aload_0
+       5: iconst_1
+       6: iconst_1
+       7: bastore
+       8: return
+
+  static boolean[] $jacocoInit$$STATIC$$();
+    Code:
+       0: getstatic     #18                 // Field $jacocoData:[Z
+       3: dup
+       4: ifnonnull     21
+       7: pop
+       8: ldc2_w        #19                 // long -7447229029980688604l
+      11: ldc           #22                 // String com/example/gavra/java8coverage/Defaults
+      13: iconst_2
+      14: invokestatic  #28                 // Method org/jacoco/agent/rt/internal_773e439/Offline.getProbes:(JLjava/lang/String;I)[Z
+      17: dup
+      18: putstatic     #18                 // Field $jacocoData:[Z
+      21: areturn
+}

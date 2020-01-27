@@ -1,4 +1,4 @@
-// Copyright 2014 Google Inc. All rights reserved.
+// Copyright 2014 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,214 +12,41 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "blaze_util.h"
+#include "src/main/cpp/blaze_util.h"
 
-#include <errno.h>
 #include <fcntl.h>
-#include <limits.h>
-#include <pwd.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/ioctl.h>
-#include <sys/socket.h>
-#include <sys/stat.h>
-#include <sys/xattr.h>
-#include <unistd.h>
-#include <sstream>
+#include <cassert>
+#include <iostream>
 
-#include "util/numbers.h"
-#include "util/strings.h"
-
-using std::vector;
+#include "src/main/cpp/blaze_util_platform.h"
+#include "src/main/cpp/util/errors.h"
+#include "src/main/cpp/util/exit_code.h"
+#include "src/main/cpp/util/file.h"
+#include "src/main/cpp/util/logging.h"
+#include "src/main/cpp/util/numbers.h"
+#include "src/main/cpp/util/path_platform.h"
+#include "src/main/cpp/util/port.h"
+#include "src/main/cpp/util/strings.h"
 
 namespace blaze {
 
-void die(const int exit_status, const char *format, ...) {
-  va_list ap;
-  va_start(ap, format);
-  vfprintf(stderr, format, ap);
-  va_end(ap);
-  fputc('\n', stderr);
-  exit(exit_status);
-}
+using std::map;
+using std::string;
+using std::vector;
 
-void pdie(const int exit_status, const char *format, ...) {
-  fprintf(stderr, "Error: ");
-  va_list ap;
-  va_start(ap, format);
-  vfprintf(stderr, format, ap);
-  va_end(ap);
-  fprintf(stderr, ": %s\n", strerror(errno));
-  exit(exit_status);
-}
+const char kServerPidFile[] = "server.pid.txt";
 
-string GetUserName() {
-  const char *user = getenv("USER");
-  if (user && user[0] != '\0') return user;
-  errno = 0;
-  passwd *pwent = getpwuid(getuid());  // NOLINT (single-threaded)
-  if (pwent == NULL || pwent->pw_name == NULL) {
-    pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
-         "$USER is not set, and unable to look up name of current user");
-  }
-  return pwent->pw_name;
-}
+const unsigned int kPostShutdownGracePeriodSeconds = 60;
 
-// Returns the given path in absolute form.  Does not change paths that are
-// already absolute.
-//
-// If called from working directory "/bar":
-//   MakeAbsolute("foo") --> "/bar/foo"
-//   MakeAbsolute("/foo") ---> "/foo"
-string MakeAbsolute(string path) {
-  // Check if path is already absolute.
-  if (path.empty() || path[0] == '/') {
-    return path;
-  }
+const unsigned int kPostKillGracePeriodSeconds = 10;
 
-  char cwdbuf[PATH_MAX];
-  if (getcwd(cwdbuf, sizeof cwdbuf) == NULL) {
-    pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR, "getcwd() failed");
-  }
-
-  // Determine whether the cwd ends with "/" or not.
-  string separator = (cwdbuf[strlen(cwdbuf) - 1] == '/') ? "" : "/";
-  return cwdbuf + separator + path;
-}
-
-// mkdir -p path.  Returns -1 on failure, sets errno.
-int MakeDirectories(string path, int mode) {
-  path.push_back('\0');
-  char *buf = &path[0];
-  for (char *slash = strchr(buf + 1, '/'); slash != NULL;
-       slash = strchr(slash + 1, '/')) {
-    *slash = '\0';
-    if (mkdir(buf, mode) == -1 && errno != EEXIST) {
-      return -1;
-    }
-    *slash = '/';
-  }
-  // TODO(bazel-team):  EEXIST does not prove that it's a directory!
-  if (mkdir(buf, mode) == -1 && errno != EEXIST) {
-    return -1;
-  }
-  return 0;
-}
-
-// Replaces 'contents' with contents of 'fd' file descriptor.
-// Returns false on error.
-bool ReadFileDescriptor(int fd, string *content) {
-  content->clear();
-  char buf[4096];
-  // OPT:  This loop generates one spurious read on regular files.
-  while (int r = read(fd, buf, sizeof buf)) {
-    if (r == -1) {
-      if (errno == EINTR || errno == EAGAIN) continue;
-      return false;
-    }
-    content->append(buf, r);
-  }
-  close(fd);
-  return true;
-}
-
-// Replaces 'content' with contents of file 'filename'.
-// Returns false on error.
-bool ReadFile(const string &filename, string *content) {
-  int fd = open(filename.c_str(), O_RDONLY);
-  if (fd == -1) return false;
-  return ReadFileDescriptor(fd, content);
-}
-
-// Writes 'content' into file 'filename', and makes it executable.
-// Returns false on failure, sets errno.
-bool WriteFile(const string &content, const string &filename) {
-  unlink(filename.c_str());
-  int fd = open(filename.c_str(), O_CREAT|O_WRONLY|O_TRUNC, 0755);  // chmod +x
-  if (fd == -1) return false;
-  int r = write(fd, content.data(), content.size());
-  int saved_errno = errno;
-  if (close(fd)) return false;  // Can fail on NFS.
-  errno = saved_errno;  // Caller should see errno from write().
-  return r == content.size();
-}
-
-// Returns true iff both stdout and stderr are connected to a
-// terminal, and it can support color and cursor movement
-// (this is computed heuristically based on the values of
-// environment variables).
-bool IsStandardTerminal() {
-  string term = getenv("TERM") == nullptr ? "" : getenv("TERM");
-  string emacs = getenv("EMACS") == nullptr ? "" : getenv("EMACS");
-  if (term == "" || term == "dumb" || term == "emacs" || term == "xterm-mono" ||
-      term == "symbolics" || term == "9term" || emacs == "t") {
-    return false;
-  }
-  return isatty(STDOUT_FILENO) && isatty(STDERR_FILENO);
-}
-
-// Returns the number of columns of the terminal to which stdout is
-// connected, or $COLUMNS (default 80) if there is no such terminal.
-int GetTerminalColumns() {
-  struct winsize ws;
-  if (ioctl(STDOUT_FILENO, TIOCGWINSZ, &ws) != -1) {
-    return ws.ws_col;
-  }
-  const char* columns_env = getenv("COLUMNS");
-  if (columns_env != NULL && columns_env[0] != '\0') {
-    char* endptr;
-    int columns = blaze_util::strto32(columns_env, &endptr, 10);
-    if (*endptr == '\0') {  // $COLUMNS is a valid number
-      return columns;
-    }
-  }
-  return 80;  // default if not a terminal.
-}
-
-// Replace the current process with the given program in the given working
-// directory, using the given argument vector.
-// This function does not return on success.
-void ExecuteProgram(string exe, const vector<string>& args_vector) {
-  if (VerboseLogging()) {
-    string dbg;
-    for (const auto& s : args_vector) {
-      dbg.append(s);
-      dbg.append(" ");
-    }
-
-    char cwd[PATH_MAX] = {};
-    getcwd(cwd, sizeof(cwd));
-
-    fprintf(stderr, "Invoking binary %s in %s:\n  %s\n",
-            exe.c_str(), cwd, dbg.c_str());
-  }
-
-  // Copy to a char* array for execv:
-  int n = args_vector.size();
-  const char **argv = new const char *[n + 1];
-  for (int i = 0; i < n; ++i) {
-    argv[i] = args_vector[i].c_str();
-  }
-  argv[n] = NULL;
-
-  execv(exe.c_str(), const_cast<char**>(argv));
-}
-
-// Re-execute the blaze command line with a different binary as argv[0].
-// This function does not return on success.
-void ReExecute(const string &executable, int argc, const char *argv[]) {
-  vector<string> args;
-  args.push_back(executable);
-  for (int i = 1; i < argc; i++) {
-    args.push_back(argv[i]);
-  }
-  ExecuteProgram(args[0], args);
-}
-
-const char* GetUnaryOption(const char *arg, const char *next_arg,
-                                  const char *key) {
+const char* GetUnaryOption(const char *arg,
+                           const char *next_arg,
+                           const char *key) {
   const char *value = blaze_util::var_strprefix(arg, key);
   if (value == NULL) {
     return NULL;
@@ -237,8 +64,9 @@ bool GetNullaryOption(const char *arg, const char *key) {
   if (value == NULL) {
     return false;
   } else if (value[0] == '=') {
-    die(blaze_exit_code::BAD_ARGV,
-        "In argument '%s': option '%s' does not take a value.", arg, key);
+    BAZEL_DIE(blaze_exit_code::BAD_ARGV)
+        << "In argument '" << arg << "': option '" << key
+        << "' does not take a value.";
   } else if (value[0]) {
     return false;  // trailing garbage in key name
   }
@@ -246,93 +74,188 @@ bool GetNullaryOption(const char *arg, const char *key) {
   return true;
 }
 
-blaze_exit_code::ExitCode CheckValidPort(
-    const string &str, const string &option, string *error) {
-  int number;
-  if (blaze_util::safe_strto32(str, &number) && number > 0 && number < 65536) {
-    return blaze_exit_code::SUCCESS;
+const char* SearchUnaryOption(const vector<string>& args,
+                              const char *key, bool warn_if_dupe) {
+  if (args.empty()) {
+    return NULL;
   }
 
-  blaze_util::StringPrintf(error,
-      "Invalid argument to %s: '%s' (must be a valid port number).",
-      option.c_str(), str.c_str());
-  return blaze_exit_code::BAD_ARGV;
-}
+  const char* value = nullptr;
+  bool found_dupe = false;  // true if 'key' was found twice
+  vector<string>::size_type i = 0;
 
-bool VerboseLogging() {
-  return getenv("VERBOSE_BLAZE_CLIENT") != NULL;
-}
-
-// Read the Jvm version from a file descriptor. The read fd
-// should contains a similar output as the java -version output.
-string ReadJvmVersion(int fd) {
-  string version_string;
-  if (ReadFileDescriptor(fd, &version_string)) {
-    // try to look out for 'version "'
-    static const string version_pattern = "version \"";
-    size_t found = version_string.find(version_pattern);
-    if (found != string::npos) {
-      found += version_pattern.size();
-      // If we found "version \"", process until next '"'
-      size_t end = version_string.find("\"", found);
-      if (end == string::npos) {  // consider end of string as a '"'
-        end = version_string.size();
+  // Examine the first N-1 arguments. (N-1 because we examine the i'th and
+  // i+1'th together, in case a flag is defined "--name value" style and not
+  // "--name=value" style.)
+  for (; i < args.size() - 1; ++i) {
+    if (args[i] == "--") {
+      // If the current argument is "--", all following args are target names.
+      // If 'key' was not found, 'value' is nullptr and we can return that.
+      // If 'key' was found exactly once, then 'value' has the value and again
+      // we can return that.
+      // If 'key' was found more than once then we could not have reached this
+      // line, because we would have broken out of the loop when 'key' was found
+      // the second time.
+      return value;
+    }
+    const char* result = GetUnaryOption(args[i].c_str(),
+                                        args[i + 1].c_str(),
+                                        key);
+    if (result != NULL) {
+      // 'key' was found and 'result' has its value.
+      if (value) {
+        // 'key' was found once before, because 'value' is not empty.
+        found_dupe = true;
+        break;
+      } else {
+        // 'key' was not found before, so store the value in 'value'.
+        value = result;
       }
-      return version_string.substr(found, end - found);
     }
   }
-  return "";
-}
 
-string GetJvmVersion(string java_exe) {
-  vector<string> args;
-  args.push_back("java");
-  args.push_back("-version");
-
-  int fds[2];
-  if (pipe(fds)) {
-    pdie(blaze_exit_code::INTERNAL_ERROR, "pipe creation failed");
-  }
-
-  int child = fork();
-  if (child == -1) {
-    pdie(blaze_exit_code::INTERNAL_ERROR, "fork() failed");
-  } else if (child > 0) {  // we're the parent
-    close(fds[1]);         // parent keeps only the reading side
-    return ReadJvmVersion(fds[0]);
+  if (value) {
+    // 'value' is not empty, so 'key' was found at least once in the first N-1
+    // arguments.
+    if (warn_if_dupe) {
+      if (!found_dupe) {
+        // We did not find a duplicate in the first N-1 arguments. Examine the
+        // last argument, it may be a duplicate.
+        found_dupe = (GetUnaryOption(args[i].c_str(), NULL, key) != nullptr);
+      }
+      if (found_dupe) {
+        BAZEL_LOG(WARNING) << key << " is given more than once, "
+                           << "only the first occurrence is used";
+      }
+    }
+    return value;
   } else {
-    close(fds[0]);  // child keeps only the writing side
-    // Redirect output to the writing side of the dup.
-    dup2(fds[1], STDOUT_FILENO);
-    dup2(fds[1], STDERR_FILENO);
-    // Execute java -version
-    ExecuteProgram(java_exe, args);
-    pdie(blaze_exit_code::INTERNAL_ERROR, "Failed to run java -version");
+    // 'value' is empty, so 'key' was not yet found in the first N-1 arguments.
+    // If 'key' is in the last argument, we'll parse and return the value from
+    // that, and if it isn't, we'll return NULL.
+    return GetUnaryOption(args[i].c_str(), NULL, key);
   }
 }
 
-bool CheckJavaVersionIsAtLeast(string jvm_version, string version_spec) {
-  vector<string> jvm_version_vect = blaze_util::Split(jvm_version, '.');
-  vector<string> version_spec_vect = blaze_util::Split(version_spec, '.');
-  int i;
-  for (i = 0; i < jvm_version_vect.size() && i < version_spec_vect.size();
-       i++) {
-    int jvm = blaze_util::strto32(jvm_version_vect[i].c_str(), NULL, 10);
-    int spec = blaze_util::strto32(version_spec_vect[i].c_str(), NULL, 10);
-    if (jvm > spec) {
-      return true;
-    } else if (jvm < spec) {
+bool SearchNullaryOption(const vector<string>& args,
+                         const string& flag_name,
+                         const bool default_value) {
+  const string positive_flag = "--" + flag_name;
+  const string negative_flag = "--no" + flag_name;
+  bool result = default_value;
+  for (vector<string>::size_type i = 0; i < args.size(); i++) {
+    if (args[i] == "--") {
+      break;
+    }
+    if (GetNullaryOption(args[i].c_str(), positive_flag.c_str())) {
+      result = true;
+    } else if (GetNullaryOption(args[i].c_str(), negative_flag.c_str())) {
+      result = false;
+    }
+  }
+  return result;
+}
+
+bool IsArg(const string& arg) {
+  return blaze_util::starts_with(arg, "-") && (arg != "--help")
+      && (arg != "-help") && (arg != "-h");
+}
+
+std::string AbsolutePathFromFlag(const std::string& value) {
+  if (value.empty()) {
+    return blaze_util::GetCwd();
+  } else {
+    return blaze_util::MakeAbsolute(value);
+  }
+}
+
+void LogWait(unsigned int elapsed_seconds, unsigned int wait_seconds) {
+  SigPrintf("WARNING: Waiting for server process to terminate "
+            "(waited %d seconds, waiting at most %d)\n",
+            elapsed_seconds, wait_seconds);
+}
+
+bool AwaitServerProcessTermination(int pid, const blaze_util::Path& output_base,
+                                   unsigned int wait_seconds) {
+  uint64_t st = GetMillisecondsMonotonic();
+  const unsigned int first_seconds = 5;
+  bool logged_first = false;
+  const unsigned int second_seconds = 10;
+  bool logged_second = false;
+  const unsigned int third_seconds = 30;
+  bool logged_third = false;
+
+  while (VerifyServerProcess(pid, output_base)) {
+    TrySleep(100);
+    uint64_t elapsed_millis = GetMillisecondsMonotonic() - st;
+    if (!logged_first && elapsed_millis > first_seconds * 1000) {
+      LogWait(first_seconds, wait_seconds);
+      logged_first = true;
+    }
+    if (!logged_second && elapsed_millis > second_seconds * 1000) {
+      LogWait(second_seconds, wait_seconds);
+      logged_second = true;
+    }
+    if (!logged_third && elapsed_millis > third_seconds * 1000) {
+      LogWait(third_seconds, wait_seconds);
+      logged_third = true;
+    }
+    if (elapsed_millis > wait_seconds * 1000) {
+      SigPrintf("INFO: Waited %d seconds for server process (pid=%d) to"
+                " terminate.\n",
+                wait_seconds, pid);
       return false;
     }
   }
-  if (i < version_spec_vect.size()) {
-    for (; i < version_spec_vect.size(); i++) {
-      if (version_spec_vect[i] != "0") {
-        return false;
-      }
+  return true;
+}
+
+// For now, we don't have the client set up to log to a file. If --client_debug
+// is passed, however, all BAZEL_LOG statements will be output to stderr.
+// If/when we switch to logging these to a file, care will have to be taken to
+// either log to both stderr and the file in the case of --client_debug, or be
+// ok that these log lines will only go to one stream.
+void SetDebugLog(bool enabled) {
+  if (enabled) {
+    blaze_util::SetLoggingOutputStreamToStderr();
+  } else {
+    blaze_util::SetLoggingOutputStream(nullptr);
+  }
+}
+
+bool IsRunningWithinTest() { return ExistsEnv("TEST_TMPDIR"); }
+
+void WithEnvVars::SetEnvVars(const map<string, EnvVarValue>& vars) {
+  for (const auto& var : vars) {
+    switch (var.second.action) {
+      case EnvVarAction::UNSET:
+        UnsetEnv(var.first);
+        break;
+
+      case EnvVarAction::SET:
+        SetEnv(var.first, var.second.value);
+        break;
+
+      default:
+        assert(false);
     }
   }
-  return true;
+}
+
+WithEnvVars::WithEnvVars(const map<string, EnvVarValue>& vars) {
+  for (const auto& v : vars) {
+    if (ExistsEnv(v.first)) {
+      _old_values[v.first] = EnvVarValue(EnvVarAction::SET, GetEnv(v.first));
+    } else {
+      _old_values[v.first] = EnvVarValue(EnvVarAction::UNSET, "");
+    }
+  }
+
+  SetEnvVars(vars);
+}
+
+WithEnvVars::~WithEnvVars() {
+  SetEnvVars(_old_values);
 }
 
 }  // namespace blaze

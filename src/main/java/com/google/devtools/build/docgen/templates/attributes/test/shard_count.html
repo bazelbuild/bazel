@@ -1,0 +1,14 @@
+<p>Non-negative integer less than or equal to 50;
+optional</p>
+
+<p>Specifies the number of parallel shards
+to use to run the test.</p>
+
+<p>This value will override any heuristics used to determine the number of
+parallel shards with which to run the test. Note that for some test
+rules, this parameter may be required to enable sharding
+in the first place. Also see <code>--test_sharding_strategy</code>.</p>
+
+<p>Sharding requires the test runner to support the test sharding protocol.
+If it does not, then it will most likely run every test in every shard, which
+is not what you want.</p>

@@ -1,4 +1,4 @@
-// Copyright 2014 Google Inc. All rights reserved.
+// Copyright 2014 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.actions;
 
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.Path;
-
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
@@ -34,9 +33,10 @@ public final class ActionLogBufferPathGenerator {
   /**
    * Generates a unique filename for an action to store its output.
    */
-  public FileOutErr generate() {
+  public FileOutErr generate(ArtifactPathResolver resolver) {
     int actionId = actionCounter.incrementAndGet();
-    return new FileOutErr(actionOutputRoot.getRelative("stdout-" + actionId),
-                          actionOutputRoot.getRelative("stderr-" + actionId));
+    return new FileOutErr(
+        resolver.convertPath(actionOutputRoot.getRelative("stdout-" + actionId)),
+        resolver.convertPath(actionOutputRoot.getRelative("stderr-" + actionId)));
   }
 }

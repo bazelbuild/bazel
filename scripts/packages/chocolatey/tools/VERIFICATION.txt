@@ -1,0 +1,17 @@
+﻿VERIFICATION
+Verification is intended to assist the Chocolatey moderators and community
+in verifying that this package's contents are trustworthy.
+
+Download the zip file from github releases
+Take its sha256
+If it matches what is in package's chocolateyinstall.ps1, it's authentic.
+
+Example:
+
+```
+invoke-webrequest https://github.com/bazelbuild/bazel/releases/0.3.1/bazel_0.3.1_windows_x86_64.zip -outfile bazel_0.3.1_windows_x86_64.zip
+get-filehash bazel_0.3.1_windows_x86_64.zip -algorithm sha256
+# compare that to what's in <package>/tools/chocolateyinstall.ps1
+```
+
+See also package build script `<repo>/scripts/packages/chocolatey/buildAndInstall.ps1`.

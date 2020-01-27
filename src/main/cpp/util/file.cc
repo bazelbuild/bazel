@@ -1,4 +1,4 @@
-// Copyright 2014 Google Inc. All rights reserved.
+// Copyright 2014 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -11,90 +11,117 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-#include "util/file.h"
 
-#include <errno.h>   // EINVAL
+#include "src/main/cpp/util/file.h"
+
 #include <limits.h>  // PATH_MAX
-#include <sys/stat.h>
-#include <unistd.h>  // access
+
+#include <algorithm>
 #include <cstdlib>
 #include <vector>
 
-#include "blaze_exit_code.h"
-#include "blaze_util.h"
-#include "util/strings.h"
-
-using std::pair;
+#include "src/main/cpp/util/errors.h"
+#include "src/main/cpp/util/exit_code.h"
+#include "src/main/cpp/util/path.h"
+#include "src/main/cpp/util/strings.h"
 
 namespace blaze_util {
 
-pair<string, string> SplitPath(const string &path) {
-  size_t pos = path.rfind('/');
+using std::string;
+using std::vector;
 
-  // Handle the case with no '/' in 'path'.
-  if (pos == string::npos) return std::make_pair("", path);
-
-  // Handle the case with a single leading '/' in 'path'.
-  if (pos == 0) return std::make_pair(string(path, 0, 1), string(path, 1));
-
-  return std::make_pair(string(path, 0, pos), string(path, pos + 1));
-}
-
-string Dirname(const string &path) {
-  return SplitPath(path).first;
-}
-
-string Basename(const string &path) {
-  return SplitPath(path).second;
-}
-
-string JoinPath(const string &path1, const string &path2) {
-  if (path1.empty()) {
-    // "" + "/bar"
-    return path2;
+bool ReadFrom(file_handle_type handle, string *content, int max_size) {
+  static const size_t kReadSize = 4096;  // read 4K chunks
+  content->clear();
+  char buf[kReadSize];
+  // OPT:  This loop generates one spurious read on regular files.
+  int error;
+  while (int r = ReadFromHandle(
+             handle, buf,
+             max_size > 0 ? std::min(static_cast<size_t>(max_size), kReadSize)
+                          : kReadSize,
+             &error)) {
+    if (r < 0) {
+      if (error == ReadFileResult::INTERRUPTED ||
+          error == ReadFileResult::AGAIN) {
+        continue;
+      }
+      return false;
+    }
+    content->append(buf, r);
+    if (max_size > 0) {
+      if (max_size > r) {
+        max_size -= r;
+      } else {
+        break;
+      }
+    }
   }
+  return true;
+}
 
-  if (path1[path1.size() - 1] == '/') {
-    if (path2.find('/') == 0) {
-      // foo/ + /bar
-      return path1 + path2.substr(1);
+bool ReadFrom(file_handle_type handle, void *data, size_t size) {
+  static const size_t kReadSize = 4096;  // read 4K chunks
+  size_t offset = 0;
+  int error;
+  while (int r = ReadFromHandle(handle, reinterpret_cast<char *>(data) + offset,
+                                std::min(kReadSize, size), &error)) {
+    if (r < 0) {
+      if (error == ReadFileResult::INTERRUPTED ||
+          error == ReadFileResult::AGAIN) {
+        continue;
+      }
+      return false;
+    }
+    offset += r;
+    if (size > static_cast<size_t>(r)) {
+      size -= r;
     } else {
-      // foo/ + bar
-      return path1 + path2;
-    }
-  } else {
-    if (path2.find('/') == 0) {
-      // foo + /bar
-      return path1 + path2;
-    } else {
-      // foo + bar
-      return path1 + "/" + path2;
+      break;
     }
   }
+  return true;
 }
 
-string Which(const string &executable) {
-  string path(getenv("PATH"));
-  if (path.empty()) {
-    blaze::die(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
-               "Could not get PATH to find %s", executable.c_str());
+bool WriteFile(const std::string &content, const std::string &filename,
+               unsigned int perm) {
+  return WriteFile(content.c_str(), content.size(), filename, perm);
+}
+
+bool WriteFile(const std::string &content, const Path &path,
+               unsigned int perm) {
+  return WriteFile(content.c_str(), content.size(), path, perm);
+}
+
+class DirectoryTreeWalker : public DirectoryEntryConsumer {
+ public:
+  DirectoryTreeWalker(vector<string> *files,
+                      _ForEachDirectoryEntry walk_entries)
+      : _files(files), _walk_entries(walk_entries) {}
+
+  void Consume(const string &path, bool follow_directory) override {
+    if (follow_directory) {
+      Walk(path);
+    } else {
+      _files->push_back(path);
+    }
   }
 
-  std::vector<std::string> pieces = blaze_util::Split(path, ':');
-  for (auto piece : pieces) {
-    if (piece.empty()) {
-      piece = ".";
-    }
+  void Walk(const string &path) { _walk_entries(path, this); }
 
-    struct stat file_stat;
-    string candidate = blaze_util::JoinPath(piece, executable);
-    if (access(candidate.c_str(), X_OK) == 0 &&
-        stat(candidate.c_str(), &file_stat) == 0 &&
-        S_ISREG(file_stat.st_mode)) {
-      return candidate;
-    }
-  }
-  return "";
+ private:
+  vector<string> *_files;
+  _ForEachDirectoryEntry _walk_entries;
+};
+
+void GetAllFilesUnder(const string &path, vector<string> *result) {
+  _GetAllFilesUnder(path, result, &ForEachDirectoryEntry);
+}
+
+void _GetAllFilesUnder(const string &path,
+                       vector<string> *result,
+                       _ForEachDirectoryEntry walk_entries) {
+  DirectoryTreeWalker(result, walk_entries).Walk(path);
 }
 
 }  // namespace blaze_util

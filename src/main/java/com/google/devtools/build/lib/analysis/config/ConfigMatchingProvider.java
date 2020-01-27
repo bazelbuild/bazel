@@ -1,4 +1,4 @@
-// Copyright 2014 Google Inc. All rights reserved.
+// Copyright 2014 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,38 +14,52 @@
 
 package com.google.devtools.build.lib.analysis.config;
 
+import com.google.common.collect.ImmutableMultimap;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.syntax.Label;
-
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import java.util.Map;
 import java.util.Set;
 
 /**
- * A "configuration target" that asserts whether or not it matches the
- * configuration it's bound to.
+ * A "configuration target" that asserts whether or not it matches the configuration it's bound to.
  *
- * <p>This can be used, e.g., to declare a BUILD target that defines the
- * conditions which trigger a configurable attribute branch. In general,
- * this can be used to trigger for any user-configurable build behavior.
+ * <p>This can be used, e.g., to declare a BUILD target that defines the conditions which trigger a
+ * configurable attribute branch. In general, this can be used to trigger for any user-configurable
+ * build behavior.
  */
 @Immutable
+@AutoCodec
 public final class ConfigMatchingProvider implements TransitiveInfoProvider {
-
   private final Label label;
+  private final ImmutableMultimap<String, String> settingsMap;
+  private final Map<Label, String> flagSettingsMap;
+  private final ImmutableSet<String> requiredFragmentOptions;
   private final boolean matches;
-  private final Map<String, String> settingsMap;
 
   /**
    * @param label the build label corresponding to this matcher
    * @param settingsMap the condition settings that trigger this matcher
-   * @param matches whether or not this matcher matches the configuration associated with
-   *     its configured target
+   * @param flagSettingsMap the label-keyed settings that trigger this matcher
+   * @param requiredFragmentOptions {@link FragmentOptions} required to match the options this
+   *     matcher checks. This provides comparable functionality to {@link
+   *     com.google.devtools.build.lib.analysis.RequiredConfigFragmentsProvider}.
+   * @param matches whether or not this matcher matches the configuration associated with its
+   *     configured target
    */
-  public ConfigMatchingProvider(Label label, Map<String, String> settingsMap,
+  @AutoCodec.Instantiator
+  public ConfigMatchingProvider(
+      Label label,
+      ImmutableMultimap<String, String> settingsMap,
+      Map<Label, String> flagSettingsMap,
+      ImmutableSet<String> requiredFragmentOptions,
       boolean matches) {
     this.label = label;
     this.settingsMap = settingsMap;
+    this.flagSettingsMap = flagSettingsMap;
+    this.requiredFragmentOptions = requiredFragmentOptions;
     this.matches = matches;
   }
 
@@ -64,13 +78,41 @@ public final class ConfigMatchingProvider implements TransitiveInfoProvider {
     return matches;
   }
 
+  public ImmutableSet<String> getRequiredFragmentOptions() {
+    return requiredFragmentOptions;
+  }
+
   /**
    * Returns true if this matcher's conditions are a proper superset of another matcher's
    * conditions, i.e. if this matcher is a specialization of the other one.
    */
   public boolean refines(ConfigMatchingProvider other) {
-    Set<Map.Entry<String, String>> settings = settingsMap.entrySet();
-    Set<Map.Entry<String, String>> otherSettings = other.settingsMap.entrySet();
-    return settings.containsAll(otherSettings) && settings.size() > otherSettings.size();
+    Set<Map.Entry<String, String>> settings = ImmutableSet.copyOf(settingsMap.entries());
+    Set<Map.Entry<String, String>> otherSettings = ImmutableSet.copyOf(other.settingsMap.entries());
+    Set<Map.Entry<Label, String>> flagSettings = flagSettingsMap.entrySet();
+    Set<Map.Entry<Label, String>> otherFlagSettings = other.flagSettingsMap.entrySet();
+
+    if (!settings.containsAll(otherSettings)) {
+      // not a superset
+      return false;
+    }
+
+    if (!flagSettings.containsAll(otherFlagSettings)) {
+      // not a superset
+      return false;
+    }
+
+    if (!(settings.size() > otherSettings.size()
+        || flagSettings.size() > otherFlagSettings.size())) {
+      // not a proper superset
+      return false;
+    }
+
+    return true;
+  }
+
+  /** Format this provider as its label. */
+  public String toString() {
+    return label.toString();
   }
 }

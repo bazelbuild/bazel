@@ -1,4 +1,4 @@
-// Copyright 2015 Google Inc. All rights reserved.
+// Copyright 2015 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -13,81 +13,113 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis.actions;
 
+import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.NULL_ACTION_OWNER;
 
-import com.google.common.collect.Sets;
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
-import com.google.devtools.build.lib.actions.ActionExecutionException;
+import com.google.devtools.build.lib.actions.ActionExecutionContext.LostInputsCheck;
+import com.google.devtools.build.lib.actions.ActionInputPrefetcher;
+import com.google.devtools.build.lib.actions.ActionResult;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Executor;
+import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
+import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.exec.util.TestExecutorBuilder;
-import com.google.devtools.build.lib.testutil.MoreAsserts;
+import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationDepsUtils;
+import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationTester;
+import com.google.devtools.build.lib.testutil.TestConstants;
+import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 /**
  * Tests {@link SymlinkAction}.
  */
+@RunWith(JUnit4.class)
 public class SymlinkActionTest extends BuildViewTestCase {
 
   private Path input;
   private Artifact inputArtifact;
   private Path output;
-  private Artifact outputArtifact;
+  private Artifact.DerivedArtifact outputArtifact;
   private SymlinkAction action;
 
-  @Override
-  public void setUp() throws Exception {
-    super.setUp();
-    input = scratchFile("/workspace/input.txt", "Hello, world.");
+  @Before
+  public final void setUp() throws Exception {
+    input = scratch.file("input.txt", "Hello, world.");
     inputArtifact = getSourceArtifact("input.txt");
-    Path linkedInput = directories.getExecRoot().getRelative("input.txt");
+    Path linkedInput =
+        directories.getExecRoot(TestConstants.WORKSPACE_NAME).getRelative("input.txt");
     FileSystemUtils.createDirectoryAndParents(linkedInput.getParentDirectory());
     linkedInput.createSymbolicLink(input);
     outputArtifact = getBinArtifactWithNoOwner("destination.txt");
+    outputArtifact.setGeneratingActionKey(ActionsTestUtil.NULL_ACTION_LOOKUP_DATA);
     output = outputArtifact.getPath();
     FileSystemUtils.createDirectoryAndParents(output.getParentDirectory());
-    action = new SymlinkAction(NULL_ACTION_OWNER,
+    action = SymlinkAction.toArtifact(NULL_ACTION_OWNER,
         inputArtifact, outputArtifact, "Symlinking test");
   }
 
+  @Test
   public void testInputArtifactIsInput() {
-    Iterable<Artifact> inputs = action.getInputs();
-    assertEquals(Sets.newHashSet(inputArtifact), Sets.newHashSet(inputs));
+    Iterable<Artifact> inputs = action.getInputs().toList();
+    assertThat(inputs).containsExactly(inputArtifact);
   }
 
+  @Test
   public void testDestinationArtifactIsOutput() {
     Iterable<Artifact> outputs = action.getOutputs();
-    assertEquals(Sets.newHashSet(outputArtifact), Sets.newHashSet(outputs));
+    assertThat(outputs).containsExactly(outputArtifact);
   }
 
+  @Test
   public void testSymlink() throws Exception {
-    Executor executor = new TestExecutorBuilder(directories, null).build();
-    action.execute(new ActionExecutionContext(executor, null, null, null, null));
-    assertTrue(output.isSymbolicLink());
-    assertEquals(input, output.resolveSymbolicLinks());
-    assertEquals(inputArtifact, action.getPrimaryInput());
-    assertEquals(outputArtifact, action.getPrimaryOutput());
+    Executor executor = new TestExecutorBuilder(fileSystem, directories, null).build();
+    ActionResult actionResult =
+        action.execute(
+            new ActionExecutionContext(
+                executor,
+                /*actionInputFileCache=*/ null,
+                ActionInputPrefetcher.NONE,
+                actionKeyContext,
+                /*metadataHandler=*/ null,
+                LostInputsCheck.NONE,
+                /*fileOutErr=*/ null,
+                new StoredEventHandler(),
+                /*clientEnv=*/ ImmutableMap.of(),
+                /*topLevelFilesets=*/ ImmutableMap.of(),
+                /*artifactExpander=*/ null,
+                /*actionFileSystem=*/ null,
+                /*skyframeDepsResult=*/ null));
+    assertThat(actionResult.spawnResults()).isEmpty();
+    assertThat(output.isSymbolicLink()).isTrue();
+    assertThat(output.resolveSymbolicLinks()).isEqualTo(input);
+    assertThat(action.getPrimaryInput()).isEqualTo(inputArtifact);
+    assertThat(action.getPrimaryOutput()).isEqualTo(outputArtifact);
   }
 
-  public void testExecutableSymlink() throws Exception {
-    Executor executor = new TestExecutorBuilder(directories, null).build();
-    outputArtifact = getBinArtifactWithNoOwner("destination2.txt");
-    output = outputArtifact.getPath();
-    action = new ExecutableSymlinkAction(NULL_ACTION_OWNER, inputArtifact, outputArtifact);
-    assertFalse(input.isExecutable());
-    ActionExecutionContext actionExecutionContext =
-        new ActionExecutionContext(executor, null, null, null, null);
-    try {
-      action.execute(actionExecutionContext);
-      fail("Expected ActionExecutionException");
-    } catch (ActionExecutionException e) {
-      MoreAsserts.assertContainsRegex("'input.txt' is not executable", e.getMessage());
-    }
-    input.setExecutable(true);
-    action.execute(actionExecutionContext);
-    assertTrue(output.isSymbolicLink());
-    assertEquals(input, output.resolveSymbolicLinks());
+  @Test
+  public void testCodec() throws Exception {
+    new SerializationTester(action)
+        .addDependency(FileSystem.class, scratch.getFileSystem())
+        .addDependencies(SerializationDepsUtils.SERIALIZATION_DEPS_FOR_TEST)
+        .setVerificationFunction(
+            (in, out) -> {
+              SymlinkAction inAction = (SymlinkAction) in;
+              SymlinkAction outAction = (SymlinkAction) out;
+              assertThat(inAction.getPrimaryInput().getFilename())
+                  .isEqualTo(outAction.getPrimaryInput().getFilename());
+              assertThat(inAction.getPrimaryOutput().getFilename())
+                  .isEqualTo(outAction.getPrimaryOutput().getFilename());
+              assertThat(inAction.getOwner()).isEqualTo(outAction.getOwner());
+              assertThat(inAction.getProgressMessage()).isEqualTo(outAction.getProgressMessage());
+            })
+        .runTests();
   }
 }

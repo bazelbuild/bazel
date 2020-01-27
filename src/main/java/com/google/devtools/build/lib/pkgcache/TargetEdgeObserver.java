@@ -1,4 +1,4 @@
-// Copyright 2014 Google Inc. All rights reserved.
+// Copyright 2014 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,11 +14,10 @@
 
 package com.google.devtools.build.lib.pkgcache;
 
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.NoSuchThingException;
 import com.google.devtools.build.lib.packages.Target;
-import com.google.devtools.build.lib.syntax.Label;
-
 import javax.annotation.Nullable;
 
 /**
@@ -41,10 +40,9 @@ public interface TargetEdgeObserver {
   /**
    * Called when a Target has a reference to a non-existent target.
    *
-   * @param target the target.  May be null (e.g. in the case of an implicit
-   *   dependency on a subincluded file).
-   * @param to a label reference in the rule, which does not correspond
-   *     to a valid target.
+   * @param target the target. May be null (e.g. in the case of an implicit dependency on a
+   *     subincluded file).
+   * @param to a label reference in the rule, which does not correspond to a valid target.
    * @param e the corresponding exception thrown
    */
   void missingEdge(@Nullable Target target, Label to, NoSuchThingException e);

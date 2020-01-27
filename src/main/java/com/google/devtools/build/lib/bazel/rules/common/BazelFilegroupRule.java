@@ -1,4 +1,4 @@
-// Copyright 2014 Google Inc. All rights reserved.
+// Copyright 2014 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -13,17 +13,15 @@
 // limitations under the License.
 package com.google.devtools.build.lib.bazel.rules.common;
 
-import static com.google.devtools.build.lib.packages.Attribute.ConfigurationTransition.DATA;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
-import static com.google.devtools.build.lib.packages.Type.LABEL_LIST;
-import static com.google.devtools.build.lib.packages.Type.LICENSE;
+import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
+import static com.google.devtools.build.lib.packages.BuildType.LICENSE;
 import static com.google.devtools.build.lib.packages.Type.STRING;
 
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.packages.RuleClass;
-import com.google.devtools.build.lib.packages.RuleClass.Builder;
 import com.google.devtools.build.lib.rules.filegroup.Filegroup;
 import com.google.devtools.build.lib.util.FileTypeSet;
 
@@ -32,44 +30,55 @@ import com.google.devtools.build.lib.util.FileTypeSet;
  */
 public final class BazelFilegroupRule implements RuleDefinition {
   @Override
-  public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
+  public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
     // filegroup ignores any filtering set with setSrcsAllowedFiles.
     return builder
         /*<!-- #BLAZE_RULE(filegroup).ATTRIBUTE(srcs) -->
         The list of targets that are members of the file group.
-        ${SYNOPSIS}
         <p>
-          It is common to use the result of a <a href="#glob">glob</a> expression for the value
+          It is common to use the result of a <a href="${link glob}">glob</a> expression for
+          the value
           of the <code>srcs</code> attribute. If a rule and a source file with the same name both
           exist in the package, the glob will return the outputs of the rule instead of the source
           file.
         </p>
         <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
         .add(attr("srcs", LABEL_LIST).allowedFileTypes(FileTypeSet.ANY_FILE))
+        /*<!-- #BLAZE_RULE(filegroup).ATTRIBUTE(output_group) -->
+        The output group from which to gather artifacts from sources.  If this attribute is
+        specified, artifacts from the specified output group of the dependencies will be exported
+        instead of the default output group.
+        <p>An "output group" is a category of output artifacts of a target, specified in that
+          rule's implementation.
+        </p>
+        <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
+        .add(attr("output_group", STRING))
         /*<!-- #BLAZE_RULE(filegroup).ATTRIBUTE(data) -->
         The list of files needed by this rule at runtime.
-        ${SYNOPSIS}
         <p>
           Targets named in the <code>data</code> attribute will be added to the
           <code>runfiles</code> of this <code>filegroup</code> rule. When the
           <code>filegroup</code> is referenced in the <code>data</code> attribute of
           another rule its <code>runfiles</code> will be added to the <code>runfiles</code>
-          of the depending rule. See the <a href="build-ref.html#data">data dependencies</a>
-          section and <a href="#common.data">general documentation of <code>data</code></a>
-          for more information about how to depend on and use data files.
+          of the depending rule. See the <a href="../build-ref.html#data">data dependencies</a>
+          section and <a href="${link common-definitions#common.data}">general documentation of
+          <code>data</code></a> for more information about how to depend on and use data files.
         </p>
         <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
-        .add(attr("data", LABEL_LIST).cfg(DATA).allowedFileTypes(FileTypeSet.ANY_FILE))
+        .add(attr("data", LABEL_LIST).allowedFileTypes(FileTypeSet.ANY_FILE).dontCheckConstraints())
         .add(attr("output_licenses", LICENSE))
         /*<!-- #BLAZE_RULE(filegroup).ATTRIBUTE(path) -->
         An optional string to set a path to the files in the group, relative to the package path.
-        ${SYNOPSIS}
         <p>
           This attribute can be used internally by other rules depending on this
           <code>filegroup</code> to find the name of the directory holding the files.
         </p>
         <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
-        .add(attr("path", STRING))
+        .add(
+            attr("path", STRING)
+                .undocumented(
+                    "only used to expose FilegroupPathProvider, which is not currently used"))
+        .useToolchainResolution(false)
         .build();
   }
 
@@ -85,8 +94,6 @@ public final class BazelFilegroupRule implements RuleDefinition {
 
 /*<!-- #BLAZE_RULE (NAME = filegroup, TYPE = BINARY, FAMILY = General)[GENERIC_RULE] -->
 
-${ATTRIBUTE_SIGNATURE}
-
 <p>
   Use <code>filegroup</code> to give a convenient name to a collection of targets.
   These can then be referenced from other rules.
@@ -96,11 +103,9 @@ ${ATTRIBUTE_SIGNATURE}
   Using <code>filegroup</code> is encouraged instead of referencing directories directly.
   The latter is unsound since the build system does not have full knowledge of all files
   below the directory, so it may not rebuild when these files change. When combined with
-  <a href="#glob">glob</a>, <code>filegroup</code> can ensure that all files are explicitly
-  known to the build system.
+  <a href="${link glob}">glob</a>, <code>filegroup</code> can ensure that all files are
+  explicitly known to the build system.
 </p>
-
-${ATTRIBUTE_DEFINITION}
 
 <h4 id="filegroup_example">Examples</h4>
 

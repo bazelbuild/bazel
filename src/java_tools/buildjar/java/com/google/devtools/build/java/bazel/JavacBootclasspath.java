@@ -1,4 +1,4 @@
-// Copyright 2015 Google Inc. All rights reserved.
+// Copyright 2015 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,19 +14,22 @@
 
 package com.google.devtools.build.java.bazel;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
+
+import com.google.common.collect.ImmutableList;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOError;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Utility class to provide java-level access to the blessed javac boot class path:
- * {@code //tools/defaults:javac_bootclasspath}, as defined by bazel's --javac_bootclasspath flag.
+ * Utility class to provide java-level access to the blessed javac boot class path: {@code
+ * //tools/defaults:javac_bootclasspath}, as defined by bazel's --javac_bootclasspath flag.
  *
- * <p>This class is typically used only from a host build tool or in
- * tests.  When using this in production, the bootclasspath is
- * deployed as separate jar files within the runfiles directory.
+ * <p>This class is typically used only from a host build tool or in tests. When using this in
+ * production, the bootclasspath is deployed as separate jar files within the runfiles directory.
  */
 public class JavacBootclasspath {
 
@@ -54,8 +57,7 @@ public class JavacBootclasspath {
       File file = new File(runfilesRoot, location);
       if (!file.isFile()) {
         throw new IOError(
-            new FileNotFoundException(
-                "Can't find boot class path element: " + file.getPath()));
+            new FileNotFoundException("Can't find boot class path element: " + file.getPath()));
       }
       files.add(file);
       if (str.length() > 0) {
@@ -70,8 +72,8 @@ public class JavacBootclasspath {
   /**
    * Returns the blessed boot class path as a colon-separated string.
    *
-   * Suitable for passing as the value of a {@code -bootclasspath} flag.
-   * Valid while the current build action or test is executing.
+   * <p>Suitable for passing as the value of a {@code -bootclasspath} flag. Valid while the current
+   * build action or test is executing.
    */
   public static String asString() {
     return AS_STRING;
@@ -80,10 +82,15 @@ public class JavacBootclasspath {
   /**
    * Returns the blessed boot class path as a list of {@code File} objects.
    *
-   * Each {@code File} will represent a jar file that will exist while the
-   * current build action or test is executing.
+   * <p>Each {@code File} will represent a jar file that will exist while the current build action
+   * or test is executing.
    */
   public static List<File> asFiles() {
     return new ArrayList<>(AS_FILES);
+  }
+
+  /** Returns the blessed boot class path as a list of {@code Path}s. */
+  public static ImmutableList<Path> asPaths() {
+    return asFiles().stream().map(File::toPath).map(Path::normalize).collect(toImmutableList());
   }
 }

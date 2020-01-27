@@ -1,4 +1,4 @@
-// Copyright 2014 Google Inc. All rights reserved.
+// Copyright 2014 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -13,40 +13,65 @@
 // limitations under the License.
 package com.google.devtools.build.lib.syntax;
 
-/**
- * Syntax node for a string literal.
- */
-public final class StringLiteral extends Literal<String> {
+import com.google.devtools.build.lib.skyframe.serialization.DeserializationContext;
+import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
+import com.google.devtools.build.lib.skyframe.serialization.SerializationContext;
+import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
+import com.google.protobuf.CodedInputStream;
+import com.google.protobuf.CodedOutputStream;
+import java.io.IOException;
 
-  private final char quoteChar;
+/** Syntax node for a string literal. */
+public final class StringLiteral extends Expression {
 
-  public StringLiteral(String value, char quoteChar) {
-    super(value);
-    this.quoteChar = quoteChar;
+  private final String value;
+
+  StringLiteral(String value) {
+    this.value = value;
+  }
+
+  /** Returns the value denoted by the string literal */
+  public String getValue() {
+    return value;
   }
 
   @Override
-  public String toString() {
-    return quoteChar + value.replace(Character.toString(quoteChar), "\\" + quoteChar) + quoteChar;
-  }
-
-  @Override
-  public void accept(SyntaxTreeVisitor visitor) {
+  public void accept(NodeVisitor visitor) {
     visitor.visit(this);
   }
 
-  /**
-   * Gets the quote character that was used for this string.  For example, if
-   * the string was 'hello, world!', then this method returns '\''.
-   *
-   * @return the character used to quote the string.
-   */
-  public char getQuoteChar() {
-    return quoteChar;
+  @Override
+  public Kind kind() {
+    return Kind.STRING_LITERAL;
   }
 
-  @Override
-  SkylarkType validate(ValidationEnvironment env) throws EvalException {
-    return SkylarkType.STRING;
+  static final class StringLiteralCodec implements ObjectCodec<StringLiteral> {
+    @Override
+    public Class<? extends StringLiteral> getEncodedClass() {
+      return StringLiteral.class;
+    }
+
+    @Override
+    public void serialize(
+        SerializationContext context, StringLiteral stringLiteral, CodedOutputStream codedOut)
+        throws SerializationException, IOException {
+      // The String instances referred to by StringLiterals are deduped by Parser, so therefore
+      // memoization is guaranteed to be profitable.
+      context.serializeWithAdHocMemoizationStrategy(
+          stringLiteral.getValue(), MemoizationStrategy.MEMOIZE_AFTER, codedOut);
+      context.serialize(stringLiteral.getStartLocation(), codedOut);
+    }
+
+    @Override
+    public StringLiteral deserialize(DeserializationContext context, CodedInputStream codedIn)
+        throws SerializationException, IOException {
+      String value =
+          context.deserializeWithAdHocMemoizationStrategy(
+              codedIn, MemoizationStrategy.MEMOIZE_AFTER);
+      Lexer.LexerLocation location = context.deserialize(codedIn);
+      StringLiteral stringLiteral = new StringLiteral(value);
+      stringLiteral.setLocation(location);
+      return stringLiteral;
+    }
   }
 }

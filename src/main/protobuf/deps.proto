@@ -1,4 +1,4 @@
-// Copyright 2014 Google Inc. All rights reserved.
+// Copyright 2014 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -30,12 +30,14 @@ message SourceLocation {
 message Dependency {
 
   enum Kind {
-    // Direct dependency used explicitly in the source.
+    // Dependency used explicitly in the source.
     EXPLICIT = 0;
-    // Transitive dependency that is implicitly loaded and used by the compiler.
+    // Dependency that is implicitly loaded and used by the compiler.
     IMPLICIT = 1;
     // Unused dependency.
     UNUSED = 2;
+    // Implicit dependency considered by the compiler but not completed.
+    INCOMPLETE = 3;
   }
 
   // Path to the artifact representing this dependency.
@@ -58,4 +60,12 @@ message Dependencies {
   // Whether the action was successful; even when compilation fails, partial
   // dependency information can be useful.
   optional bool success = 3;
+
+  // Packages contained in the output jar, sorted alphabetically.
+  repeated string contained_package = 4;
+
+  // If the Java action was started with a reduced classpath and an error
+  // occurred suggesting that it should be rerun with the full classpath, this
+  // will be true.
+  optional bool requires_reduced_classpath_fallback = 5;
 }

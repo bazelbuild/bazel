@@ -1,4 +1,4 @@
-// Copyright 2014 Google Inc. All rights reserved.
+// Copyright 2014 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,33 +15,90 @@
 package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.base.Preconditions;
+import com.google.common.collect.Interner;
+import com.google.devtools.build.lib.actions.ActionLookupValue.ActionLookupKey;
+import com.google.devtools.build.lib.analysis.AliasProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
-import com.google.devtools.build.lib.syntax.Label;
+import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.concurrent.BlazeInterners;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.skyframe.SkyFunctionName;
-
 import java.util.Objects;
-
 import javax.annotation.Nullable;
 
 /**
- *  A (Label, Configuration) pair. Note that this pair may be used to look up the generating action
- * of an artifact. Callers may want to ensure that they have the correct configuration for this
- * purpose by passing in {@link BuildConfiguration#getArtifactOwnerConfiguration} in preference to
- * the raw configuration.
+ * A (Label, Configuration key) pair. Note that this pair may be used to look up the generating
+ * action of an artifact.
  */
-public class ConfiguredTargetKey extends ActionLookupValue.ActionLookupKey {
+@AutoCodec
+public class ConfiguredTargetKey extends ActionLookupKey {
   private final Label label;
-  @Nullable
-  private final BuildConfiguration configuration;
+  @Nullable private final BuildConfigurationValue.Key configurationKey;
 
-  public ConfiguredTargetKey(Label label, @Nullable BuildConfiguration configuration) {
+  private transient int hashCode;
+
+  private ConfiguredTargetKey(Label label, @Nullable BuildConfigurationValue.Key configurationKey) {
     this.label = Preconditions.checkNotNull(label);
-    this.configuration = configuration;
+    this.configurationKey = configurationKey;
   }
 
-  public ConfiguredTargetKey(ConfiguredTarget rule) {
-    this(rule.getTarget().getLabel(), rule.getConfiguration());
+  private static Label getLabel(ConfiguredTarget configuredTarget) {
+    AliasProvider aliasProvider = configuredTarget.getProvider(AliasProvider.class);
+    return aliasProvider != null
+        ? aliasProvider.getAliasChain().get(0)
+        : configuredTarget.getLabel();
+  }
+
+  public static ConfiguredTargetKey of(
+      ConfiguredTarget configuredTarget, BuildConfiguration buildConfiguration) {
+    return of(getLabel(configuredTarget), buildConfiguration);
+  }
+
+  public static ConfiguredTargetKey of(
+      ConfiguredTarget configuredTarget,
+      BuildConfigurationValue.Key configurationKey,
+      boolean isHostConfiguration) {
+    return of(getLabel(configuredTarget), configurationKey, isHostConfiguration);
+  }
+
+  public static ConfiguredTargetKey inTargetConfig(ConfiguredTarget configuredTarget) {
+    return of(
+        getLabel(configuredTarget),
+        configuredTarget.getConfigurationKey(),
+        /*isHostConfiguration=*/ false);
+  }
+
+  /**
+   * Caches so that the number of ConfiguredTargetKey instances is {@code O(configured targets)} and
+   * not {@code O(edges between configured targets)}.
+   */
+  private static final Interner<ConfiguredTargetKey> interner = BlazeInterners.newWeakInterner();
+  private static final Interner<HostConfiguredTargetKey> hostInterner =
+      BlazeInterners.newWeakInterner();
+
+  public static ConfiguredTargetKey of(Label label, @Nullable BuildConfiguration configuration) {
+    KeyAndHost keyAndHost = keyFromConfiguration(configuration);
+    return of(label, keyAndHost.key, keyAndHost.isHost);
+  }
+
+  @AutoCodec.Instantiator
+  public static ConfiguredTargetKey of(
+      Label label,
+      @Nullable BuildConfigurationValue.Key configurationKey,
+      boolean isHostConfiguration) {
+    if (isHostConfiguration) {
+      return hostInterner.intern(new HostConfiguredTargetKey(label, configurationKey));
+    } else {
+      return interner.intern(new ConfiguredTargetKey(label, configurationKey));
+    }
+  }
+
+  static KeyAndHost keyFromConfiguration(@Nullable BuildConfiguration configuration) {
+    return configuration == null
+        ? KeyAndHost.NULL_INSTANCE
+        : new KeyAndHost(
+            BuildConfigurationValue.key(configuration), configuration.isHostConfiguration());
   }
 
   @Override
@@ -50,19 +107,44 @@ public class ConfiguredTargetKey extends ActionLookupValue.ActionLookupKey {
   }
 
   @Override
-  SkyFunctionName getType() {
+  public SkyFunctionName functionName() {
     return SkyFunctions.CONFIGURED_TARGET;
   }
 
   @Nullable
-  public BuildConfiguration getConfiguration() {
-    return configuration;
+  BuildConfigurationValue.Key getConfigurationKey() {
+    return configurationKey;
   }
 
   @Override
   public int hashCode() {
-    int configVal = configuration == null ? 79 : configuration.hashCode();
-    return 31 * label.hashCode() + configVal;
+    // We use the hash code caching strategy employed by java.lang.String. There are three subtle
+    // things going on here:
+    //
+    // (1) We use a value of 0 to indicate that the hash code hasn't been computed and cached yet.
+    // Yes, this means that if the hash code is really 0 then we will "recompute" it each time. But
+    // this isn't a problem in practice since a hash code of 0 should be rare.
+    //
+    // (2) Since we have no synchronization, multiple threads can race here thinking there are the
+    // first one to compute and cache the hash code.
+    //
+    // (3) Moreover, since 'hashCode' is non-volatile, the cached hash code value written from one
+    // thread may not be visible by another.
+    //
+    // All three of these issues are benign from a correctness perspective; in the end we have no
+    // overhead from synchronization, at the cost of potentially computing the hash code more than
+    // once.
+    int h = hashCode;
+    if (h == 0) {
+      h = computeHashCode();
+      hashCode = h;
+    }
+    return h;
+  }
+
+  private int computeHashCode() {
+    int configVal = configurationKey == null ? 79 : configurationKey.hashCode();
+    return 31 * label.hashCode() + configVal + (isHostConfiguration() ? 41 : 0);
   }
 
   @Override
@@ -77,20 +159,52 @@ public class ConfiguredTargetKey extends ActionLookupValue.ActionLookupKey {
       return false;
     }
     ConfiguredTargetKey other = (ConfiguredTargetKey) obj;
-    return Objects.equals(label, other.label) && Objects.equals(configuration, other.configuration);
+    return this.isHostConfiguration() == other.isHostConfiguration()
+        && Objects.equals(label, other.label)
+        && Objects.equals(configurationKey, other.configurationKey);
+  }
+
+  public boolean isHostConfiguration() {
+    return false;
   }
 
   public String prettyPrint() {
     if (label == null) {
       return "null";
     }
-    return (configuration != null && configuration.isHostConfiguration())
-        ? (label + " (host)") : label.toString();
+    return isHostConfiguration() ? (label + " (host)") : label.toString();
   }
 
   @Override
   public String toString() {
-    return label + " " + (configuration == null ? "null" : configuration.shortCacheKey());
+    return String.format("%s %s %s", label, configurationKey, isHostConfiguration());
   }
 
+  static class HostConfiguredTargetKey extends ConfiguredTargetKey {
+    private HostConfiguredTargetKey(
+        Label label, @Nullable BuildConfigurationValue.Key configurationKey) {
+      super(label, configurationKey);
+    }
+
+    @Override
+    public boolean isHostConfiguration() {
+      return true;
+    }
+  }
+
+  /**
+   * Simple wrapper class for turning a {@link BuildConfiguration} into a {@link
+   * BuildConfigurationValue.Key} and boolean isHost.
+   */
+  public static class KeyAndHost {
+    private static final KeyAndHost NULL_INSTANCE = new KeyAndHost(null, false);
+
+    @Nullable public final BuildConfigurationValue.Key key;
+    final boolean isHost;
+
+    private KeyAndHost(@Nullable BuildConfigurationValue.Key key, boolean isHost) {
+      this.key = key;
+      this.isHost = isHost;
+    }
+  }
 }

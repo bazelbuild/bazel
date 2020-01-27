@@ -1,4 +1,4 @@
-// Copyright 2014 Google Inc. All rights reserved.
+// Copyright 2014 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -13,22 +13,25 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.test;
 
+import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
+import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.ExecException;
-import com.google.devtools.build.lib.actions.ExecutionStrategy;
+import com.google.devtools.build.lib.analysis.test.TestActionContext;
+import com.google.devtools.build.lib.analysis.test.TestResult;
+import com.google.devtools.build.lib.analysis.test.TestRunnerAction;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.view.test.TestStatus.TestResultData;
-
 import java.io.IOException;
 
 /**
  * Test strategy wrapper called 'exclusive'. It should delegate to a test strategy for local
- * execution. The name 'exclusive' triggers behavior it triggers behavior in
- * SkyframeExecutor to schedule test execution sequentially after non-test actions. This
- * ensures streamed test output is not polluted by other action output.
+ * execution.
+ *
+ * <p>This strategy should be registered with a command line identifier of 'exclusive' which will
+ * trigger behavior in SkyframeExecutor to schedule test execution sequentially after non-test
+ * actions. This ensures streamed test output is not polluted by other action output.
  */
-@ExecutionStrategy(contextType = TestActionContext.class,
-          name = { "exclusive" })
 public class ExclusiveTestStrategy implements TestActionContext {
   private TestActionContext parent;
 
@@ -37,9 +40,15 @@ public class ExclusiveTestStrategy implements TestActionContext {
   }
 
   @Override
-  public void exec(TestRunnerAction action,
-      ActionExecutionContext actionExecutionContext) throws ExecException, InterruptedException {
-    parent.exec(action, actionExecutionContext);
+  public TestRunnerSpawn createTestRunnerSpawn(
+      TestRunnerAction testRunnerAction, ActionExecutionContext actionExecutionContext)
+      throws ExecException, InterruptedException {
+    return parent.createTestRunnerSpawn(testRunnerAction, actionExecutionContext);
+  }
+
+  @Override
+  public boolean isTestKeepGoing() {
+    return parent.isTestKeepGoing();
   }
 
   @Override
@@ -49,7 +58,9 @@ public class ExclusiveTestStrategy implements TestActionContext {
   }
 
   @Override
-  public String strategyLocality(TestRunnerAction testRunnerAction) {
-    return "exclusive";
+  public ListenableFuture<Void> getTestCancelFuture(ActionOwner owner, int shard) {
+    // TODO(ulfjack): Exclusive tests run sequentially, and this feature exists to allow faster
+    //  aborts of concurrent actions. It's not clear what, if anything, we should do here.
+    return null;
   }
 }

@@ -1,0 +1,14 @@
+dependency {
+  path: "third_party/bazel/src/java_tools/import_deps_checker/javatests/com/google/devtools/build/importdeps/testdata/j_p_l/libb-hjar.jar"
+  kind: EXPLICIT
+}
+dependency {
+  path: "third_party/bazel/src/java_tools/import_deps_checker/javatests/com/google/devtools/build/importdeps/testdata/j_p_l/libp1-speed-hjar.jar"
+  kind: EXPLICIT
+}
+dependency {
+  path: "third_party/bazel/src/java_tools/import_deps_checker/javatests/com/google/devtools/build/importdeps/testdata/j_p_l/libp2-speed-hjar.jar"
+  kind: EXPLICIT
+}
+rule_label: "//third_party/bazel/src/java_tools/import_deps_checker/javatests/com/google/devtools/build/importdeps/testdata/j_p_l/a"
+success: true

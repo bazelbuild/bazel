@@ -1,0 +1,6 @@
+dependency {
+  path: "third_party/bazel/src/java_tools/import_deps_checker/javatests/com/google/devtools/build/importdeps/testdata/libStringAnnotation.jar"
+  kind: EXPLICIT
+}
+rule_label: ""
+success: true

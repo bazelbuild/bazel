@@ -1,0 +1,83 @@
+# Each line is a file pattern followed by one or more owners.
+
+# Order is important; the last matching pattern takes the most precedence.
+
+# When someone opens a pull request that only modifies files in directory, only
+# component owners and not the global owner(s) will be requested for a review.
+
+# Syntax: https://help.github.com/articles/about-codeowners/
+
+# Use individual usernames instead of teams (like @bazelbuild/android) for
+# auto-assignment to work, unless everyone in the team has write permissions to the repository.
+# See https://github.community/t5/How-to-use-Git-and-GitHub/CODEOWNERS-works-with-users-but-not-teams/td-p/4986
+
+# Component owners
+# ----------------
+
+# Android
+
+# android/ directory anywhere in the repository
+android/ @ahumesky @jin
+
+/src/tools/android/java/com/google/devtools/build/android/desugar/ @ahumesky @jin @kevin1e100
+
+/src/test/java/com/google/devtools/build/android/desugar/ @ahumesky @jin @kevin1e100
+
+/src/tools/android/java/com/google/devtools/build/android/dexer/ @ahumesky @jin @kevin1e100
+
+/src/test/java/com/google/devtools/build/android/dexer/ @ahumesky @jin @kevin1e100
+
+# Apple
+
+/src/objc_tools/ @allevato @davidgoldman @dmaclach @sergiocampama @kelvinchan-google @reinhillman @thomasvl
+
+/src/test/shell/bazel/apple/ @allevato @davidgoldman @dmaclach @sergiocampama @kelvinchan-google @reinhillman @thomasvl
+
+# Documentation
+
+/site @aiuto
+
+# C++
+
+/src/tools/cpp @hlopko @scentini @oquenchil
+
+/src/test/shell/bazel/cpp @hlopko @scentini @oquenchil
+
+/src/test/java/com/google/devtools/build/lib/rules/cpp/ @hlopko @scentini @oquenchil
+
+/src/main/java/com/google/devtools/build/lib/rules/cpp/ @hlopko @scentini @oquenchil
+
+# Java
+
+/src/java_tools/buildjar/ @bazelbuild/java-team
+
+/src/main/java/com/google/devtools/build/lib/ideinfo/ @bazelbuild/intellij
+
+/src/tools/singlejar/ @asmundak
+
+# Remote caching and execution
+
+/src/main/java/com/google/devtools/build/lib/remote/ @buchgr @ola-rozenfeld
+
+/src/test/shell/bazel/remote/ @buchgr @ola-rozenfeld
+
+/src/tools/execlog/ @buchgr @ola-rozenfeld
+/src/tools/remote/ @buchgr @ola-rozenfeld
+
+# Execution and I/O related code
+
+/src/main/java/com/google/devtools/build/lib/sandbox/ @philwo
+/src/main/java/com/google/devtools/build/lib/ssd/ @philwo
+/src/main/java/com/google/devtools/build/lib/standalone/ @philwo
+/src/main/java/com/google/devtools/build/lib/worker/ @philwo
+/src/main/java/com/google/devtools/build/lib/rules/java/ @iirina
+/src/main/java/com/google/devtools/build/lib/rules/ @hlopko
+
+# Skylark
+
+/src/main/java/com/google/devtools/build/lib/syntax/ @brandjon @c-parsons @dslomov @laurentlb @vladmos
+
+/tools/coverage/ @iirina
+/tools/test/collect_coverage.sh @iirina
+/tools/test/collect_cc_coverage.sh @iirina
+/tools/test/CoverageOutputGenerator/ @iirina

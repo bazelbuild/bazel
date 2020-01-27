@@ -1,4 +1,4 @@
-// Copyright 2014 Google Inc. All rights reserved.
+// Copyright 2014 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,29 +15,35 @@
 package com.google.devtools.build.lib.bazel.rules.java;
 
 import static com.google.devtools.build.lib.packages.Attribute.attr;
+import static com.google.devtools.build.lib.packages.BuildType.LABEL;
+import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
 import static com.google.devtools.build.lib.packages.Type.BOOLEAN;
 
+import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
-import com.google.devtools.build.lib.bazel.rules.BazelBaseRuleClasses;
 import com.google.devtools.build.lib.bazel.rules.java.BazelJavaRuleClasses.BaseJavaBinaryRule;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.RuleClass;
-import com.google.devtools.build.lib.packages.RuleClass.Builder;
+import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
+import com.google.devtools.build.lib.rules.cpp.CppRuleClasses;
+import com.google.devtools.build.lib.rules.java.JavaConfiguration;
+import com.google.devtools.build.lib.util.FileTypeSet;
 
 /**
  * Rule definition for the java_binary rule.
  */
 public final class BazelJavaBinaryRule implements RuleDefinition {
   @Override
-  public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
+  public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
     /* <!-- #BLAZE_RULE(java_binary).NAME -->
     <br/>It is good practice to use the name of the source file that is the main entry point of the
     application (minus the extension). For example, if your entry point is called
     <code>Main.java</code>, then your name could be <code>Main</code>.
     <!-- #END_BLAZE_RULE.NAME --> */
     return builder
+        .requiresConfigurationFragments(JavaConfiguration.class, CppConfiguration.class)
         /* <!-- #BLAZE_RULE(java_binary).IMPLICIT_OUTPUTS -->
         <ul>
           <li><code><var>name</var>.jar</code>: A Java archive, containing the class files and other
@@ -51,8 +57,8 @@ public final class BazelJavaBinaryRule implements RuleDefinition {
               creates a self-contained jar file with a manifest that allows it to be run with the
               <code>java -jar</code> command or with the wrapper script's <code>--singlejar</code>
               option. Using the wrapper script is preferred to <code>java -jar</code> because it
-              also passes the <a href="#java_binary.jvm_flags">JVM flags</a> and the options to load
-              native libraries.
+              also passes the <a href="${link java_binary.jvm_flags}">JVM flags</a> and the options
+              to load native libraries.
             </p>
             <p>
               The deploy jar contains all the classes that would be found by a classloader that
@@ -60,6 +66,13 @@ public final class BazelJavaBinaryRule implements RuleDefinition {
               contains the native libraries needed for dependencies. These are automatically loaded
               into the JVM at runtime.
             </p>
+            <p>If your target specifies a <a href="#java_binary.launcher">launcher</a>
+              attribute, then instead of being a normal JAR file, the _deploy.jar will be a
+              native binary. This will contain the launcher plus any native (C++) dependencies of
+              your rule, all linked into a static binary. The actual jar file's bytes will be
+              appended to that native binary, creating a single binary blob containing both the
+              executable and the Java code. You can execute the resulting jar file directly
+              like you would execute any native binary.</p>
           </li>
           <li><code><var>name</var>_deploy-src.jar</code>: An archive containing the sources
             collected from the transitive closure of the target. These will match the classes in the
@@ -67,13 +80,32 @@ public final class BazelJavaBinaryRule implements RuleDefinition {
         </ul>
         <!-- #END_BLAZE_RULE.IMPLICIT_OUTPUTS --> */
         .setImplicitOutputsFunction(BazelJavaRuleClasses.JAVA_BINARY_IMPLICIT_OUTPUTS)
-        .override(attr("$is_executable", BOOLEAN).nonconfigurable("automatic").value(
-            new Attribute.ComputedDefault() {
-              @Override
-              public Object getDefault(AttributeMap rule) {
-                return rule.get("create_executable", BOOLEAN);
-              }
-            }))
+        /* <!-- #BLAZE_RULE(java_binary).ATTRIBUTE(deploy_env) -->
+        A list of other <code>java_binary</code> targets which represent the deployment
+        environment for this binary.
+        Set this attribute when building a plugin which will be loaded by another
+        <code>java_binary</code>.<br/> Setting this attribute excludes all dependencies from
+        the runtime classpath (and the deploy jar) of this binary that are shared between this
+        binary and the targets specified in <code>deploy_env</code>.
+        <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
+        .add(
+            attr("deploy_env", LABEL_LIST)
+                .allowedRuleClasses("java_binary")
+                .allowedFileTypes(FileTypeSet.NO_FILE))
+        .override(
+            attr("$is_executable", BOOLEAN)
+                .nonconfigurable("automatic")
+                .value(
+                    new Attribute.ComputedDefault() {
+                      @Override
+                      public Object getDefault(AttributeMap rule) {
+                        return rule.get("create_executable", BOOLEAN);
+                      }
+                    }))
+        .add(
+            attr("$jacocorunner", LABEL)
+                .value(env.getToolsLabel("//tools/jdk:JacocoCoverageRunner")))
+        .addRequiredToolchains(CppRuleClasses.ccToolchainTypeAttribute(env))
         .build();
   }
 
@@ -81,15 +113,13 @@ public final class BazelJavaBinaryRule implements RuleDefinition {
   public Metadata getMetadata() {
     return RuleDefinition.Metadata.builder()
         .name("java_binary")
-        .ancestors(BaseJavaBinaryRule.class, BazelBaseRuleClasses.BinaryBaseRule.class)
+        .ancestors(BaseJavaBinaryRule.class, BaseRuleClasses.BinaryBaseRule.class)
         .factoryClass(BazelJavaBinary.class)
         .build();
   }
 }
 
 /*<!-- #BLAZE_RULE (NAME = java_binary, TYPE = BINARY, FAMILY = Java) -->
-
-${ATTRIBUTE_SIGNATURE}
 
 <p>
   Builds a Java archive ("jar file"), plus a wrapper shell script with the same name as the rule.
@@ -106,9 +136,9 @@ ${IMPLICIT_OUTPUTS}
 
 <p>
   A <code>deps</code> attribute is not allowed in a <code>java_binary</code> rule without
-  <a href="#java_binary.srcs"><code>srcs</code></a>; such a rule requires a
-  <a href="#java_binary.main_class"><code>main_class</code></a> provided by
-  <a href="#java_binary.runtime_deps"><code>runtime_deps</code></a>.
+  <a href="${link java_binary.srcs}"><code>srcs</code></a>; such a rule requires a
+  <a href="${link java_binary.main_class}"><code>main_class</code></a> provided by
+  <a href="${link java_binary.runtime_deps}"><code>runtime_deps</code></a>.
 </p>
 
 <p>The following code snippet illustrates a common mistake:</p>
@@ -135,7 +165,5 @@ java_binary(
     ],
 )
 </pre>
-
-${ATTRIBUTE_DEFINITION}
 
 <!-- #END_BLAZE_RULE -->*/

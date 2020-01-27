@@ -1,4 +1,4 @@
-// Copyright 2014 Google Inc. All rights reserved.
+// Copyright 2014 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,162 +14,461 @@
 
 package com.google.devtools.build.lib.bazel.rules;
 
-import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
-import com.google.common.eventbus.Subscribe;
-import com.google.devtools.build.lib.actions.ActionContextConsumer;
-import com.google.devtools.build.lib.actions.ActionContextProvider;
-import com.google.devtools.build.lib.actions.ActionGraph;
-import com.google.devtools.build.lib.actions.ActionInputFileCache;
-import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.Executor.ActionContext;
-import com.google.devtools.build.lib.actions.ExecutorInitException;
+import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
-import com.google.devtools.build.lib.query2.output.OutputFormatter;
-import com.google.devtools.build.lib.rules.cpp.CppCompileActionContext;
-import com.google.devtools.build.lib.rules.cpp.CppLinkActionContext;
-import com.google.devtools.build.lib.rules.cpp.LocalGccStrategy;
-import com.google.devtools.build.lib.rules.cpp.LocalLinkStrategy;
-import com.google.devtools.build.lib.rules.genquery.GenQuery;
+import com.google.devtools.build.lib.analysis.config.BuildOptions;
+import com.google.devtools.build.lib.bazel.rules.sh.BazelShRuleClasses;
+import com.google.devtools.build.lib.remote.options.RemoteOptions;
+import com.google.devtools.build.lib.rules.cpp.CcSkyframeFdoSupportFunction;
+import com.google.devtools.build.lib.rules.cpp.CcSkyframeFdoSupportValue;
+import com.google.devtools.build.lib.rules.cpp.CppOptions;
+import com.google.devtools.build.lib.rules.java.JavaOptions;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.Command;
-import com.google.devtools.build.lib.runtime.GotOptionsEvent;
-import com.google.devtools.build.lib.skyframe.PrecomputedValue;
+import com.google.devtools.build.lib.runtime.CommandEnvironment;
+import com.google.devtools.build.lib.runtime.WorkspaceBuilder;
+import com.google.devtools.build.lib.util.AbruptExitException;
+import com.google.devtools.build.lib.util.ExitCode;
+import com.google.devtools.build.lib.util.ResourceFileLoader;
 import com.google.devtools.common.options.Option;
+import com.google.devtools.common.options.OptionDocumentationCategory;
+import com.google.devtools.common.options.OptionEffectTag;
+import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.OptionsBase;
-import com.google.devtools.common.options.OptionsProvider;
-
-import java.util.Map;
+import java.io.IOException;
 
 /**
  * Module implementing the rule set of Bazel.
  */
 public class BazelRulesModule extends BlazeModule {
-  /**
-   * Execution options affecting how we execute the build actions (but not their semantics).
-   */
-  public static class BazelExecutionOptions extends OptionsBase {
+  /** This is where deprecated options go to die. */
+  public static class GraveyardOptions extends OptionsBase {
     @Option(
-        name = "spawn_strategy",
-        defaultValue = "standalone",
-        category = "strategy",
-        help = "Specify how spawn actions are executed by default."
-            + "'standalone' means run all of them locally."
-            + "'sandboxed' means run them in namespaces based sandbox (available only on Linux)")
-    public String spawnStrategy;
+        name = "incompatible_disallow_legacy_java_provider",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        metadataTags = {
+          OptionMetadataTag.INCOMPATIBLE_CHANGE,
+          OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+        },
+        help = "Deprecated no-op.")
+    public boolean incompatibleDisallowLegacyJavaProvider;
 
     @Option(
-        name = "genrule_strategy",
-        defaultValue = "standalone", 
-        category = "strategy",
-        help = "Specify how to execute genrules."
-            + "'standalone' means run all of them locally."
-            + "'sandboxed' means run them in namespaces based sandbox (available only on Linux)")
+        name = "incompatible_disable_legacy_proto_provider",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        metadataTags = {
+          OptionMetadataTag.INCOMPATIBLE_CHANGE,
+          OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES,
+        },
+        help = "Deprecated no-op.")
+    public boolean disableLegacyProtoProvider;
 
-    public String genruleStrategy;
-  }
+    @Option(
+        name = "incompatible_disable_proto_source_root",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        metadataTags = {
+          OptionMetadataTag.INCOMPATIBLE_CHANGE,
+          OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES,
+        },
+        help = "Deprecated no-op.")
+    public boolean disableProtoSourceRoot;
 
-  private static class BazelActionContextConsumer implements ActionContextConsumer {
-    BazelExecutionOptions options;
+    @Option(
+        name = "incompatible_do_not_emit_buggy_external_repo_import",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        metadataTags = {
+          OptionMetadataTag.DEPRECATED,
+          OptionMetadataTag.INCOMPATIBLE_CHANGE,
+          OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+        },
+        help = "Deprecated no-op.")
+    public boolean doNotUseBuggyImportPath;
 
-    private BazelActionContextConsumer(BazelExecutionOptions options) {
-      this.options = options;
+    @Option(
+        name = "incompatible_disable_crosstool_file",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+        metadataTags = {
+          OptionMetadataTag.DEPRECATED,
+          OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES,
+          OptionMetadataTag.INCOMPATIBLE_CHANGE
+        },
+        help = "Deprecated no-op.")
+    public boolean disableCrosstool;
 
-    }
-    @Override
-    public Map<String, String> getSpawnActionContexts() {
-      ImmutableMap.Builder<String, String> builder = ImmutableMap.builder();
+    @Option(
+        name = "incompatible_disable_legacy_crosstool_fields",
+        oldName = "experimental_disable_legacy_crosstool_fields",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+        metadataTags = {
+          OptionMetadataTag.INCOMPATIBLE_CHANGE,
+          OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+        },
+        help = "Deprecated no-op.")
+    public boolean disableLegacyCrosstoolFields;
 
-      builder.put("Genrule", options.genruleStrategy);
+    @Option(
+        name = "incompatible_require_feature_configuration_for_pic",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+        metadataTags = {
+          OptionMetadataTag.DEPRECATED,
+          OptionMetadataTag.INCOMPATIBLE_CHANGE,
+          OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+        },
+        help = "Deprecated no-op.")
+    public boolean requireFeatureConfigurationForPic;
 
-      // TODO(bazel-team): put this in getActionContexts (key=SpawnActionContext.class) instead
-      builder.put("", options.spawnStrategy);
+    @Option(
+        name = "incompatible_disable_depset_in_cc_user_flags",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+        metadataTags = {
+          OptionMetadataTag.DEPRECATED,
+          OptionMetadataTag.INCOMPATIBLE_CHANGE,
+          OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+        },
+        help = "Deprecated no-op.")
+    public boolean disableDepsetInUserFlags;
 
-      return builder.build();
-    }
+    @Option(
+        name = "incompatible_dont_emit_static_libgcc",
+        oldName = "experimental_dont_emit_static_libgcc",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.ACTION_COMMAND_LINES, OptionEffectTag.LOADING_AND_ANALYSIS},
+        metadataTags = {
+          OptionMetadataTag.DEPRECATED,
+          OptionMetadataTag.INCOMPATIBLE_CHANGE,
+          OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+        },
+        help = "Deprecated no-op.")
+    public boolean disableEmittingStaticLibgcc;
 
-    @Override
-    public Map<Class<? extends ActionContext>, String> getActionContexts() {
-      ImmutableMap.Builder<Class<? extends ActionContext>, String> builder =
-          ImmutableMap.builder();
-      builder.put(CppCompileActionContext.class, "");
-      builder.put(CppLinkActionContext.class, "");
-      return builder.build();
-    }
-  }
+    @Option(
+        name = "incompatible_linkopts_in_user_link_flags",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.ACTION_COMMAND_LINES, OptionEffectTag.LOADING_AND_ANALYSIS},
+        metadataTags = {
+          OptionMetadataTag.DEPRECATED,
+          OptionMetadataTag.INCOMPATIBLE_CHANGE,
+          OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+        },
+        help = "Deprecated no-op.")
+    public boolean enableLinkoptsInUserLinkFlags;
 
-  private class BazelActionContextProvider implements ActionContextProvider {
-    @Override
-    public Iterable<ActionContext> getActionContexts() {
-      return ImmutableList.of(
-          new LocalGccStrategy(optionsProvider),
-          new LocalLinkStrategy());
-    }
+    @Option(
+        name = "incompatible_disable_runtimes_filegroups",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.ACTION_COMMAND_LINES, OptionEffectTag.LOADING_AND_ANALYSIS},
+        metadataTags = {
+          OptionMetadataTag.DEPRECATED,
+          OptionMetadataTag.INCOMPATIBLE_CHANGE,
+          OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+        },
+        help = "Deprecated no-op.")
+    public boolean disableRuntimesFilegroups;
 
-    @Override
-    public void executorCreated(Iterable<ActionContext> usedContexts)
-        throws ExecutorInitException {
-    }
+    @Option(
+        name = "incompatible_disable_tools_defaults_package",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.LOADING_AND_ANALYSIS},
+        metadataTags = {
+          OptionMetadataTag.DEPRECATED,
+          OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES,
+          OptionMetadataTag.INCOMPATIBLE_CHANGE
+        },
+        help = "Deprecated no-op.")
+    public boolean incompatibleDisableInMemoryToolsDefaultsPackage;
 
-    @Override
-    public void executionPhaseStarting(ActionInputFileCache actionInputFileCache,
-        ActionGraph actionGraph, Iterable<Artifact> topLevelArtifacts)
-        throws ExecutorInitException, InterruptedException {
-    }
+    @Option(
+        name = "experimental_enable_cc_toolchain_config_info",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        metadataTags = {OptionMetadataTag.DEPRECATED},
+        help = "No-op")
+    public boolean enableCcToolchainConfigInfoFromSkylark;
 
-    @Override
-    public void executionPhaseEnding() {
-    }
-  }
+    @Option(
+        name = "output_symbol_counts",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.ACTION_COMMAND_LINES, OptionEffectTag.AFFECTS_OUTPUTS},
+        metadataTags = {OptionMetadataTag.HIDDEN, OptionMetadataTag.DEPRECATED},
+        help = "Deprecated no-op.")
+    public boolean symbolCounts;
 
-  private BlazeRuntime runtime;
-  private OptionsProvider optionsProvider;
+    @Option(
+        name = "incompatible_disable_sysroot_from_configuration",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+        metadataTags = {
+          OptionMetadataTag.DEPRECATED,
+          OptionMetadataTag.INCOMPATIBLE_CHANGE,
+          OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+        },
+        help = "Deprecated no-op.")
+    public boolean disableSysrootFromConfiguration;
 
-  @Override
-  public void beforeCommand(BlazeRuntime blazeRuntime, Command command) {
-    this.runtime = blazeRuntime;
-    runtime.getEventBus().register(this);
-  }
+    @Option(
+        name = "incompatible_provide_cc_toolchain_info_from_cc_toolchain_suite",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+        metadataTags = {
+          OptionMetadataTag.DEPRECATED,
+          OptionMetadataTag.INCOMPATIBLE_CHANGE,
+          OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+        },
+        help = "Deprecated no-op.")
+    public boolean provideCcToolchainInfoFromCcToolchainSuite;
 
-  @Override
-  public Iterable<Class<? extends OptionsBase>> getCommandOptions(Command command) {
-    return command.builds()
-        ? ImmutableList.<Class<? extends OptionsBase>>of(BazelExecutionOptions.class)
-        : ImmutableList.<Class<? extends OptionsBase>>of();
-  }
+    @Option(
+        name = "incompatible_disable_cc_toolchain_label_from_crosstool_proto",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS, OptionEffectTag.EAGERNESS_TO_EXIT},
+        metadataTags = {
+          OptionMetadataTag.DEPRECATED,
+          OptionMetadataTag.INCOMPATIBLE_CHANGE,
+          OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+        },
+        help = "Deprecated no-op.")
+    public boolean disableCcToolchainFromCrosstool;
 
-  @Override
-  public ActionContextConsumer getActionContextConsumer() {
-    return new BazelActionContextConsumer(
-        optionsProvider.getOptions(BazelExecutionOptions.class));
-  }
+    @Option(
+        name = "incompatible_disable_cc_configuration_make_variables",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        metadataTags = {
+          OptionMetadataTag.INCOMPATIBLE_CHANGE,
+          OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES,
+          OptionMetadataTag.DEPRECATED,
+        },
+        help = "Deprecated no-op.")
+    public boolean disableMakeVariables;
 
-  @Override
-  public ActionContextProvider getActionContextProvider() {
-    return new BazelActionContextProvider();
-  }
+    @Option(
+        name = "make_variables_source",
+        defaultValue = "configuration",
+        metadataTags = {OptionMetadataTag.HIDDEN, OptionMetadataTag.DEPRECATED},
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.UNKNOWN})
+    public String makeVariableSource;
 
-  @Subscribe
-  public void gotOptions(GotOptionsEvent event) {
-    optionsProvider = event.getOptions();
+    @Option(
+        name = "incompatible_disable_legacy_flags_cc_toolchain_api",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+        metadataTags = {
+          OptionMetadataTag.INCOMPATIBLE_CHANGE,
+          OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES,
+          OptionMetadataTag.DEPRECATED
+        },
+        help =
+            "Flag for disabling the legacy cc_toolchain Skylark API for accessing legacy "
+                + "CROSSTOOL fields.")
+    public boolean disableLegacyFlagsCcToolchainApi;
+
+    @Option(
+        name = "incompatible_enable_legacy_cpp_toolchain_skylark_api",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        metadataTags = {
+          OptionMetadataTag.INCOMPATIBLE_CHANGE,
+          OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES,
+          OptionMetadataTag.DEPRECATED
+        },
+        help = "Obsolete, no effect.")
+    public boolean enableLegacyToolchainSkylarkApi;
+
+    @Option(
+        name = "incompatible_disable_legacy_cpp_toolchain_skylark_api",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        metadataTags = {
+          OptionMetadataTag.INCOMPATIBLE_CHANGE,
+          OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES,
+          OptionMetadataTag.DEPRECATED
+        },
+        help = "Obsolete, no effect.")
+    public boolean disableLegacyToolchainSkylarkApi;
+
+    @Option(
+        name = "incompatible_cc_coverage",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {
+          OptionEffectTag.UNKNOWN,
+        },
+        oldName = "experimental_cc_coverage",
+        metadataTags = {
+          OptionMetadataTag.INCOMPATIBLE_CHANGE,
+          OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES,
+          OptionMetadataTag.DEPRECATED
+        },
+        help = "Obsolete, no effect.")
+    public boolean useGcovCoverage;
+
+    @Deprecated
+    @Option(
+        name = "direct_run",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        metadataTags = {OptionMetadataTag.DEPRECATED},
+        help = "Deprecated no-op.")
+    public boolean directRun;
+
+    @Deprecated
+    @Option(
+        name = "glibc",
+        defaultValue = "null",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        metadataTags = {OptionMetadataTag.DEPRECATED},
+        help = "Deprecated no-op.")
+    public String glibc;
+    
+    @Deprecated
+    @Option(
+        name = "experimental_shortened_obj_file_path",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.EXECUTION},
+        defaultValue = "true",
+        help = "This option is deprecated and has no effect.")
+    public boolean shortenObjFilePath;
+
+    @Option(
+        name = "force_ignore_dash_static",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS, OptionEffectTag.AFFECTS_OUTPUTS},
+        help = "noop")
+    public boolean forceIgnoreDashStatic;
+
+    @Option(
+        name = "incompatible_disable_late_bound_option_defaults",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        metadataTags = {
+          OptionMetadataTag.DEPRECATED,
+          OptionMetadataTag.INCOMPATIBLE_CHANGE,
+          OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+        },
+        help = "This option is deprecated and has no effect.")
+    public boolean incompatibleDisableLateBoundOptionDefaults;
+
+    @Option(
+        name = "incompatible_use_native_patch",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        metadataTags = {
+          OptionMetadataTag.DEPRECATED,
+          OptionMetadataTag.INCOMPATIBLE_CHANGE,
+          OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+        },
+        help = "This option is deprecated and has no effect.")
+    public boolean useNativePatch;
+
+    @Deprecated
+    @Option(
+        name = "ui",
+        oldName = "experimental_ui",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        help = "No-op.")
+    public boolean experimentalUi;
   }
 
   @Override
   public void initializeRuleClasses(ConfiguredRuleClassProvider.Builder builder) {
+    builder.setToolsRepository(BazelRuleClassProvider.TOOLS_REPOSITORY);
     BazelRuleClassProvider.setup(builder);
+
+    try {
+      // Load auto-configuration files, it is made outside of the rule class provider so that it
+      // will not be loaded for our Java tests.
+      builder.addWorkspaceFileSuffix(
+          ResourceFileLoader.loadResource(BazelRulesModule.class, "xcode_configure.WORKSPACE"));
+      builder.addWorkspaceFileSuffix(
+          ResourceFileLoader.loadResource(BazelShRuleClasses.class, "sh_configure.WORKSPACE"));
+    } catch (IOException e) {
+      throw new IllegalStateException(e);
+    }
   }
 
   @Override
-  public Iterable<PrecomputedValue.Injected> getPrecomputedSkyframeValues() {
-    return ImmutableList.of(PrecomputedValue.injected(
-        GenQuery.QUERY_OUTPUT_FORMATTERS,
-        new Supplier<ImmutableList<OutputFormatter>>() {
-          @Override
-          public ImmutableList<OutputFormatter> get() {
-            return runtime.getQueryOutputFormatters();
-          }
-        }));
+  public void beforeCommand(CommandEnvironment env) throws AbruptExitException {
+    validateRemoteOutputsMode(env);
+  }
+
+  @Override
+  public void workspaceInit(
+      BlazeRuntime runtime, BlazeDirectories directories, WorkspaceBuilder builder) {
+    builder.addSkyFunction(
+        CcSkyframeFdoSupportValue.SKYFUNCTION, new CcSkyframeFdoSupportFunction(directories));
+  }
+
+  @Override
+  public BuildOptions getDefaultBuildOptions(BlazeRuntime blazeRuntime) {
+    return BuildOptions.getDefaultBuildOptionsForFragments(
+        blazeRuntime.getRuleClassProvider().getConfigurationOptions());
+  }
+
+  @Override
+  public Iterable<Class<? extends OptionsBase>> getCommandOptions(Command command) {
+    return "build".equals(command.name())
+        ? ImmutableList.of(GraveyardOptions.class) : ImmutableList.of();
+  }
+
+  private static void validateRemoteOutputsMode(CommandEnvironment env) throws AbruptExitException {
+    RemoteOptions remoteOptions = env.getOptions().getOptions(RemoteOptions.class);
+    if (remoteOptions == null) {
+      return;
+    }
+    if (!remoteOptions.remoteOutputsMode.downloadAllOutputs()) {
+      JavaOptions javaOptions = env.getOptions().getOptions(JavaOptions.class);
+      if (javaOptions != null && !javaOptions.inmemoryJdepsFiles) {
+        throw new AbruptExitException(
+            "--experimental_remote_download_outputs=minimal requires"
+                + " --experimental_inmemory_jdeps_files to be enabled",
+            ExitCode.COMMAND_LINE_ERROR);
+      }
+      CppOptions cppOptions = env.getOptions().getOptions(CppOptions.class);
+      if (cppOptions != null && !cppOptions.inmemoryDotdFiles) {
+        throw new AbruptExitException(
+            "--experimental_remote_download_outputs=minimal requires"
+                + " --experimental_inmemory_dotd_files to be enabled",
+            ExitCode.COMMAND_LINE_ERROR);
+      }
+    }
   }
 }

@@ -1,4 +1,4 @@
-// Copyright 2014 Google Inc. All rights reserved.
+// Copyright 2014 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -13,126 +13,63 @@
 // limitations under the License.
 package com.google.devtools.build.lib.syntax;
 
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
-
 import java.util.List;
+import javax.annotation.Nullable;
 
-// TODO(bazel-team): maybe we should get rid of the ConditionalStatements and
-// create a chain of if-else statements for elif-s.
-/**
- * Syntax node for an if/else statement.
- */
+/** Syntax node for an if or elif statement. */
 public final class IfStatement extends Statement {
 
-  /**
-   * Syntax node for an [el]if statement.
-   */
-  static final class ConditionalStatements extends Statement {
+  private final TokenKind token; // IF or ELIF
+  private final Expression condition;
+  private final ImmutableList<Statement> thenBlock; // non-empty
+  @Nullable ImmutableList<Statement> elseBlock; // non-empty if non-null; set after construction
 
-    private final Expression condition;
-    private final ImmutableList<Statement> stmts;
-
-    public ConditionalStatements(Expression condition, List<Statement> stmts) {
-      this.condition = Preconditions.checkNotNull(condition);
-      this.stmts = ImmutableList.copyOf(stmts);
-    }
-
-    @Override
-    void exec(Environment env) throws EvalException, InterruptedException {
-      for (Statement stmt : stmts) {
-        stmt.exec(env);
-      }
-    }
-
-    @Override
-    public String toString() {
-      // TODO(bazel-team): see TODO in the outer class
-      return "[el]if " + condition + ": " + stmts + "\n";
-    }
-
-    @Override
-    public void accept(SyntaxTreeVisitor visitor) {
-      visitor.visit(this);
-    }
-
-    Expression getCondition() {
-      return condition;
-    }
-
-    ImmutableList<Statement> getStmts() {
-      return stmts;
-    }
-
-    @Override
-    void validate(ValidationEnvironment env) throws EvalException {
-      // EvalUtils.toBoolean() evaluates everything so we don't need type check here.
-      condition.validate(env);
-      validateStmts(env, stmts);
-    }
+  IfStatement(TokenKind token, Expression condition, List<Statement> thenBlock) {
+    this.token = token;
+    this.condition = condition;
+    this.thenBlock = ImmutableList.copyOf(thenBlock);
   }
-
-  private final ImmutableList<ConditionalStatements> thenBlocks;
-  private final ImmutableList<Statement> elseBlock;
 
   /**
-   * Constructs a if-elif-else statement. The else part is mandatory, but the list may be empty.
-   * ThenBlocks has to have at least one element.
+   * Reports whether this is an 'elif' statement.
+   *
+   * <p>An elif statement may appear only as the sole statement in the "else" block of another
+   * IfStatement.
    */
-  IfStatement(List<ConditionalStatements> thenBlocks, List<Statement> elseBlock) {
-    Preconditions.checkArgument(!thenBlocks.isEmpty());
-    this.thenBlocks = ImmutableList.copyOf(thenBlocks);
-    this.elseBlock = ImmutableList.copyOf(elseBlock);
+  public boolean isElif() {
+    return token == TokenKind.ELIF;
   }
 
-  public ImmutableList<ConditionalStatements> getThenBlocks() {
-    return thenBlocks;
+  public Expression getCondition() {
+    return condition;
   }
 
+  public ImmutableList<Statement> getThenBlock() {
+    return thenBlock;
+  }
+
+  @Nullable
   public ImmutableList<Statement> getElseBlock() {
     return elseBlock;
   }
 
+  void setElseBlock(List<Statement> elseBlock) {
+    this.elseBlock = ImmutableList.copyOf(elseBlock);
+  }
+
   @Override
   public String toString() {
-    // TODO(bazel-team): if we want to print the complete statement, the function
-    // needs an extra argument to specify indentation level.
-    return "if : ...\n";
+    return String.format("if %s: ...\n", condition);
   }
 
   @Override
-  void exec(Environment env) throws EvalException, InterruptedException {
-    for (ConditionalStatements stmt : thenBlocks) {
-      if (EvalUtils.toBoolean(stmt.getCondition().eval(env))) {
-        stmt.exec(env);
-        return;
-      }
-    }
-    for (Statement stmt : elseBlock) {
-      stmt.exec(env);
-    }
-  }
-
-  @Override
-  public void accept(SyntaxTreeVisitor visitor) {
+  public void accept(NodeVisitor visitor) {
     visitor.visit(this);
   }
 
   @Override
-  void validate(ValidationEnvironment env) throws EvalException {
-    env.startTemporarilyDisableReadonlyCheckSession();
-    for (ConditionalStatements stmts : thenBlocks) {
-      stmts.validate(env);
-    }
-    validateStmts(env, elseBlock);
-    env.finishTemporarilyDisableReadonlyCheckSession();
-  }
-
-  private static void validateStmts(ValidationEnvironment env, List<Statement> stmts)
-      throws EvalException {
-    for (Statement stmt : stmts) {
-      stmt.validate(env);
-    }
-    env.finishTemporarilyDisableReadonlyCheckBranch();
+  public Kind kind() {
+    return Kind.IF;
   }
 }

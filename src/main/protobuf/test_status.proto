@@ -1,4 +1,4 @@
-// Copyright 2014 Google Inc. All rights reserved.
+// Copyright 2014 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -82,6 +82,7 @@ message TestResultData {
 
   // Following data is informational.
   optional BlazeTestStatus status = 3 [default = NO_STATUS];
+  optional string status_details = 16;
   repeated string failed_logs = 4;
   repeated string warning = 5;
   optional bool has_coverage = 6;
@@ -103,6 +104,9 @@ message TestResultData {
 
   // Total time in ms.
   optional int64 run_duration_millis = 12;
+
+  // Start time of the test action in ms since the epoch.
+  optional int64 start_time_millis_epoch = 15;
 
   // Additional build info
   optional TestCase test_case = 13;

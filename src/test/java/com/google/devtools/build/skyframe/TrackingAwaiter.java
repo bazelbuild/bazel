@@ -1,4 +1,4 @@
-// Copyright 2014 Google Inc. All rights reserved.
+// Copyright 2014 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,16 +16,26 @@ package com.google.devtools.build.skyframe;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.base.Throwables;
+import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.Uninterruptibles;
 import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.util.Pair;
 
+import java.util.List;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
-/** Safely await {@link CountDownLatch}es in tests, storing any exceptions that happen. */
+/**
+ * Safely await {@link CountDownLatch}es in tests, storing any exceptions that happen. Callers
+ * should call {@link #assertNoErrors} at the end of each test method, either manually or using an
+ * {@code @After} hook.
+ */
 public class TrackingAwaiter {
+  public static final TrackingAwaiter INSTANCE = new TrackingAwaiter();
+
+  private TrackingAwaiter() {}
+
   private final ConcurrentLinkedQueue<Pair<String, Throwable>> exceptionsThrown =
       new ConcurrentLinkedQueue<>();
 
@@ -42,7 +52,7 @@ public class TrackingAwaiter {
    * this was not a race condition, but an honest-to-goodness interrupt, and we propagate the
    * exception onward.
    */
-  public static void waitAndMaybeThrowInterrupt(CountDownLatch latch, String errorMessage)
+  private static void waitAndMaybeThrowInterrupt(CountDownLatch latch, String errorMessage)
       throws InterruptedException {
     if (Uninterruptibles.awaitUninterruptibly(latch, TestUtils.WAIT_TIMEOUT_SECONDS,
         TimeUnit.SECONDS)) {
@@ -72,7 +82,14 @@ public class TrackingAwaiter {
     }
   }
 
+  /** Allow arbitrary errors to be recorded here for later throwing. */
+  public void injectExceptionAndMessage(Throwable throwable, String message) {
+    exceptionsThrown.add(Pair.of(message, throwable));
+  }
+
   public void assertNoErrors() {
-    assertThat(exceptionsThrown).isEmpty();
+    List<Pair<String, Throwable>> thisEvalExceptionsThrown = ImmutableList.copyOf(exceptionsThrown);
+    exceptionsThrown.clear();
+    assertThat(thisEvalExceptionsThrown).isEmpty();
   }
 }

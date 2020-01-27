@@ -1,4 +1,4 @@
-// Copyright 2014 Google Inc. All rights reserved.
+// Copyright 2014 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -13,9 +13,11 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import com.google.devtools.build.lib.actions.Actions;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.ArtifactOwner;
+import com.google.devtools.build.lib.actions.BasicActionLookupValue;
 import com.google.devtools.build.lib.analysis.WorkspaceStatusAction;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 
@@ -25,17 +27,18 @@ import com.google.devtools.build.skyframe.SkyKey;
  */
 // TODO(bazel-team): This seems to be superfluous now, but it cannot be removed without making
 // PrecomputedValue public instead of package-private
-public class WorkspaceStatusValue extends ActionLookupValue {
+public class WorkspaceStatusValue extends BasicActionLookupValue {
   private final Artifact stableArtifact;
   private final Artifact volatileArtifact;
 
   // There should only ever be one BuildInfo value in the graph.
-  public static final SkyKey SKY_KEY = new SkyKey(SkyFunctions.BUILD_INFO, "BUILD_INFO");
-  static final ArtifactOwner ARTIFACT_OWNER = new BuildInfoKey();
+  @AutoCodec public static final BuildInfoKey BUILD_INFO_KEY = new BuildInfoKey();
 
-  public WorkspaceStatusValue(Artifact stableArtifact, Artifact volatileArtifact,
-      WorkspaceStatusAction action) {
-    super(action);
+  WorkspaceStatusValue(
+      Artifact stableArtifact,
+      Artifact volatileArtifact,
+      WorkspaceStatusAction workspaceStatusAction) {
+    super(Actions.GeneratingActions.fromSingleAction(workspaceStatusAction, BUILD_INFO_KEY));
     this.stableArtifact = stableArtifact;
     this.volatileArtifact = volatileArtifact;
   }
@@ -48,15 +51,13 @@ public class WorkspaceStatusValue extends ActionLookupValue {
     return volatileArtifact;
   }
 
-  private static class BuildInfoKey extends ActionLookupKey {
-    @Override
-    SkyFunctionName getType() {
-      throw new UnsupportedOperationException();
-    }
+  /** {@link SkyKey} for {@link WorkspaceStatusValue}. */
+  public static class BuildInfoKey extends ActionLookupKey {
+    private BuildInfoKey() {}
 
     @Override
-    SkyKey getSkyKey() {
-      return SKY_KEY;
+    public SkyFunctionName functionName() {
+      return SkyFunctions.BUILD_INFO;
     }
   }
 }

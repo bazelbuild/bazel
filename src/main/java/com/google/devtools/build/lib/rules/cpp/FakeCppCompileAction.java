@@ -1,4 +1,4 @@
-// Copyright 2014 Google Inc. All rights reserved.
+// Copyright 2014 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,37 +15,38 @@
 package com.google.devtools.build.lib.rules.cpp;
 
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
+import static java.util.stream.Collectors.joining;
 
-import com.google.common.base.Function;
-import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
-import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterables;
+import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.actions.AbstractAction;
+import com.google.devtools.build.lib.actions.ActionEnvironment;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionOwner;
+import com.google.devtools.build.lib.actions.ActionResult;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.ExecException;
-import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.actions.ResourceSet;
-import com.google.devtools.build.lib.analysis.RuleContext;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.actions.Spawn;
+import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
 import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.exec.SpawnStrategyResolver;
+import com.google.devtools.build.lib.rules.cpp.CcCommon.CoptsFilter;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
-import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.util.ShellEscaper;
-import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
+import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
-
 import java.io.IOException;
+import java.util.List;
 import java.util.UUID;
 import java.util.logging.Logger;
-
-import javax.annotation.Nullable;
 
 /**
  * Action that represents a fake C++ compilation step.
@@ -53,33 +54,58 @@ import javax.annotation.Nullable;
 @ThreadCompatible
 public class FakeCppCompileAction extends CppCompileAction {
 
-  private static final Logger LOG = Logger.getLogger(FakeCppCompileAction.class.getName());
+  private static final Logger logger = Logger.getLogger(FakeCppCompileAction.class.getName());
 
-  public static final UUID GUID = UUID.fromString("b2d95c91-1434-47ae-a786-816017de8494");
+  public static final UUID GUID = UUID.fromString("8ab63589-be01-4a39-b770-b98ae8b03493");
 
   private final PathFragment tempOutputFile;
 
-  FakeCppCompileAction(ActionOwner owner,
-      ImmutableList<String> features,
+  FakeCppCompileAction(
+      ActionOwner owner,
       FeatureConfiguration featureConfiguration,
+      CcToolchainVariables variables,
       Artifact sourceFile,
-      Label sourceLabel,
+      CppConfiguration cppConfiguration,
+      boolean shareable,
+      boolean shouldScanIncludes,
+      boolean shouldPruneModules,
+      boolean usePic,
+      boolean useHeaderModules,
       NestedSet<Artifact> mandatoryInputs,
+      NestedSet<Artifact> inputsForInvalidation,
+      ImmutableList<Artifact> builtinIncludeFiles,
+      NestedSet<Artifact> prunableHeaders,
       Artifact outputFile,
       PathFragment tempOutputFile,
-      DotdFile dotdFile,
-      BuildConfiguration configuration,
-      CppConfiguration cppConfiguration,
-      CppCompilationContext context,
-      ImmutableList<String> copts,
-      ImmutableList<String> pluginOpts,
-      Predicate<String> nocopts,
-      ImmutableList<PathFragment> extraSystemIncludePrefixes,
-      @Nullable String fdoBuildStamp,
-      RuleContext ruleContext) {
-    super(owner, features, featureConfiguration, sourceFile, sourceLabel, mandatoryInputs,
-        outputFile, dotdFile, null, null, null,
-        configuration, cppConfiguration,
+      Artifact dotdFile,
+      ActionEnvironment env,
+      CcCompilationContext ccCompilationContext,
+      CoptsFilter nocopts,
+      CppSemantics cppSemantics,
+      ImmutableList<PathFragment> builtInIncludeDirectories,
+      ImmutableMap<String, String> executionInfo,
+      Artifact grepIncludes) {
+    super(
+        owner,
+        featureConfiguration,
+        variables,
+        sourceFile,
+        cppConfiguration,
+        shareable,
+        shouldScanIncludes,
+        shouldPruneModules,
+        usePic,
+        useHeaderModules,
+        mandatoryInputs,
+        inputsForInvalidation,
+        builtinIncludeFiles,
+        prunableHeaders,
+        outputFile,
+        dotdFile,
+        /* gcnoFile=*/ null,
+        /* dwoFile=*/ null,
+        /* ltoIndexingFile=*/ null,
+        env,
         // We only allow inclusion of header files explicitly declared in
         // "srcs", so we only use declaredIncludeSrcs, not declaredIncludeDirs.
         // (Disallowing use of undeclared headers for cc_fake_binary is needed
@@ -87,41 +113,71 @@ public class FakeCppCompileAction extends CppCompileAction {
         // cc_fake_binary and for the negative compilation tests that depend on
         // the cc_fake_binary, and the runfiles must be determined at analysis
         // time, so they can't depend on the contents of the ".d" file.)
-        CppCompilationContext.disallowUndeclaredHeaders(context), null, copts, pluginOpts, nocopts,
-        extraSystemIncludePrefixes, fdoBuildStamp, VOID_INCLUDE_RESOLVER,
-        ImmutableList.<IncludeScannable>of(),
-        GUID, /*usePic=*/false, ruleContext);
+        CcCompilationContext.disallowUndeclaredHeaders(ccCompilationContext),
+        nocopts,
+        /* additionalIncludeScanningRoots=*/ ImmutableList.of(),
+        GUID,
+        executionInfo,
+        CppActionNames.CPP_COMPILE,
+        cppSemantics,
+        builtInIncludeDirectories,
+        grepIncludes);
     this.tempOutputFile = Preconditions.checkNotNull(tempOutputFile);
   }
 
   @Override
   @ThreadCompatible
-  public void execute(ActionExecutionContext actionExecutionContext)
+  public ActionResult execute(ActionExecutionContext actionExecutionContext)
       throws ActionExecutionException, InterruptedException {
-    Executor executor = actionExecutionContext.getExecutor();
-
-    // First, do an normal compilation, to generate the ".d" file. The generated
-    // object file is built to a temporary location (tempOutputFile) and ignored
-    // afterwards.
-    LOG.info("Generating " + getDotdFile());
-    CppCompileActionContext context = executor.getContext(CppCompileActionContext.class);
-    CppCompileActionContext.Reply reply = null;
+    setModuleFileFlags();
+    List<SpawnResult> spawnResults;
+    // First, do a normal compilation, to generate the ".d" file. The generated object file is built
+    // to a temporary location (tempOutputFile) and ignored afterwards.
+    logger.info("Generating " + getDotdFile());
+    byte[] dotDContents = null;
     try {
-      // We delegate stdout/stderr to nowhere, i.e. same as redirecting to /dev/null.
-      reply = context.execWithReply(
-          this, actionExecutionContext.withFileOutErr(new FileOutErr()));
+      Spawn spawn = createSpawn(actionExecutionContext.getClientEnv());
+      SpawnStrategyResolver spawnStrategyResolver =
+          actionExecutionContext.getContext(SpawnStrategyResolver.class);
+      spawnResults = spawnStrategyResolver.exec(spawn, actionExecutionContext);
+      // The SpawnActionContext guarantees that the first list entry is the successful one.
+      dotDContents = getDotDContents(spawnResults.get(0));
     } catch (ExecException e) {
-      // We ignore failures here (other than capturing the Distributor reply).
-      // The compilation may well fail (that's the whole point of negative compilation tests).
-      // We execute it here just for the side effect of generating the ".d" file.
-      reply = context.getReplyFromException(e, this);
-      if (reply == null) {
-        // This can only happen if the ExecException does not come from remote execution.
-        throw e.toActionExecutionException("", executor.getVerboseFailures(), this);
-      }
+      throw e.toActionExecutionException(
+          "C++ compilation of rule '" + getOwner().getLabel() + "'",
+          actionExecutionContext.getVerboseFailures(),
+          this);
+    } finally {
+      clearAdditionalInputs();
     }
-    IncludeScanningContext scanningContext = executor.getContext(IncludeScanningContext.class);
-    updateActionInputs(executor.getExecRoot(), scanningContext.getArtifactResolver(), reply);
+    CppIncludeExtractionContext scanningContext =
+        actionExecutionContext.getContext(CppIncludeExtractionContext.class);
+    Path execRoot = actionExecutionContext.getExecRoot();
+
+    NestedSet<Artifact> discoveredInputs;
+    if (getDotdFile() == null) {
+      discoveredInputs = NestedSetBuilder.<Artifact>stableOrder().build();
+    } else {
+      HeaderDiscovery.Builder discoveryBuilder =
+          new HeaderDiscovery.Builder()
+              .setAction(this)
+              .setSourceFile(getSourceFile())
+              .setDependencies(
+                  processDepset(actionExecutionContext, execRoot, dotDContents).getDependencies())
+              .setPermittedSystemIncludePrefixes(getPermittedSystemIncludePrefixes(execRoot))
+              .setAllowedDerivedInputs(getAllowedDerivedInputs());
+
+      if (needsIncludeValidation) {
+        discoveryBuilder.shouldValidateInclusions();
+      }
+
+      discoveredInputs =
+          discoveryBuilder
+              .build()
+              .discoverInputsFromDependencies(execRoot, scanningContext.getArtifactResolver());
+    }
+
+    dotDContents = null; // Garbage collect in-memory .d contents.
 
     // Even cc_fake_binary rules need to properly declare their dependencies...
     // In fact, they need to declare their dependencies even more than cc_binary rules do.
@@ -130,18 +186,31 @@ public class FakeCppCompileAction extends CppCompileAction {
     // listed in the "srcs" of the cc_fake_binary or in the "srcs" of a cc_library that it
     // depends on.
     try {
-      validateInclusions(actionExecutionContext.getMiddlemanExpander(), executor.getEventHandler());
+      validateInclusions(actionExecutionContext, discoveredInputs);
     } catch (ActionExecutionException e) {
       // TODO(bazel-team): (2009) make this into an error, once most of the current warnings
       // are fixed.
-      executor.getEventHandler().handle(Event.warn(
-          getOwner().getLocation(),
-          e.getMessage() + ";\n  this warning may eventually become an error"));
+      actionExecutionContext
+          .getEventHandler()
+          .handle(
+              Event.warn(
+                  getOwner().getLocation(),
+                  e.getMessage() + ";\n  this warning may eventually become an error"));
+    }
+
+    if (discoversInputs()) {
+      updateActionInputs(discoveredInputs);
+    } else {
+      Preconditions.checkState(
+          discoveredInputs.isEmpty(),
+          "Discovered inputs without discovering inputs? %s %s",
+          discoveredInputs,
+          this);
     }
 
     // Generate a fake ".o" file containing the command line needed to generate
     // the real object file.
-    LOG.info("Generating " + outputFile);
+    logger.info("Generating " + outputFile);
 
     // A cc_fake_binary rule generates fake .o files and a fake target file,
     // which merely contain instructions on building the real target. We need to
@@ -151,18 +220,35 @@ public class FakeCppCompileAction extends CppCompileAction {
     // runfiles directory (where writing is forbidden), we patch the command
     // line to write to $TEST_TMPDIR instead.
     final String outputPrefix = "$TEST_TMPDIR/";
-    String argv = Joiner.on(' ').join(
-      Iterables.transform(getArgv(outputFile.getExecPath()), new Function<String, String>() {
-        @Override
-        public String apply(String input) {
-          String result = ShellEscaper.escapeString(input);
-          if (input.equals(outputFile.getExecPathString())
-              || input.equals(getDotdFile().getSafeExecPath().getPathString())) {
-            result = outputPrefix + result;
-          }
-          return result;
-        }
-      }));
+    String argv;
+    try {
+      argv =
+          getArguments().stream()
+              .map(
+                  input -> {
+                    String result = ShellEscaper.escapeString(input);
+                    // Replace -c <tempOutputFile> so it's -c <outputFile>.
+                    if (input.equals(tempOutputFile.getPathString())) {
+                      result =
+                          outputPrefix + ShellEscaper.escapeString(outputFile.getExecPathString());
+                    }
+                    if (input.equals(outputFile.getExecPathString())
+                        || (getDotdFile() != null
+                            && input.equals(getDotdFile().getExecPathString()))) {
+                      result = outputPrefix + ShellEscaper.escapeString(input);
+                    }
+                    return result;
+                  })
+              .collect(joining(" "));
+    } catch (CommandLineExpansionException e) {
+      throw new ActionExecutionException(
+          "failed to generate compile command for rule '"
+              + getOwner().getLabel()
+              + ": "
+              + e.getMessage(),
+          this,
+          /* catastrophe= */ false);
+    }
 
     // Write the command needed to build the real .o file to the fake .o file.
     // Generate a command to ensure that the output directory exists; otherwise
@@ -170,44 +256,39 @@ public class FakeCppCompileAction extends CppCompileAction {
     try {
       // Ensure that the .d file and .o file are siblings, so that the "mkdir" below works for
       // both.
-      Preconditions.checkState(outputFile.getExecPath().getParentDirectory().equals(
-          getDotdFile().getSafeExecPath().getParentDirectory()));
-      FileSystemUtils.writeContent(outputFile.getPath(), ISO_8859_1,
-          outputFile.getPath().getBaseName() + ": "
-          + "mkdir -p " + outputPrefix + "$(dirname " + outputFile.getExecPath() + ")"
-          + " && " + argv + "\n");
+      Preconditions.checkState(
+          getDotdFile() == null
+              || outputFile
+                  .getExecPath()
+                  .getParentDirectory()
+                  .equals(getDotdFile().getExecPath().getParentDirectory()));
+      FileSystemUtils.writeContent(
+          actionExecutionContext.getInputPath(outputFile),
+          ISO_8859_1,
+          actionExecutionContext.getInputPath(outputFile).getBaseName()
+              + ": "
+              + "mkdir -p "
+              + outputPrefix
+              + "$(dirname "
+              + outputFile.getExecPath()
+              + ")"
+              + " && "
+              + argv
+              + "\n");
     } catch (IOException e) {
-      throw new ActionExecutionException("failed to create fake compile command for rule '" +
-                                         getOwner().getLabel() + ": " + e.getMessage(),
-                                         this, false);
+      throw new ActionExecutionException("failed to create fake compile command for rule '"
+          + getOwner().getLabel() + ": " + e.getMessage(), this, false);
     }
+    return ActionResult.create(spawnResults);
   }
 
   @Override
-  protected PathFragment getInternalOutputFile() {
-    return tempOutputFile;
-  }
-
-  @Override
-  public String getMnemonic() { return "FakeCppCompile"; }
-
-  @Override
-  public String describeStrategy(Executor executor) {
-    return "fake";
+  public String getMnemonic() {
+    return "FakeCppCompile";
   }
 
   @Override
   public ResourceSet estimateResourceConsumptionLocal() {
-    return ResourceSet.createWithRamCpuIo(/*memoryMb=*/1, /*cpuUsage=*/0.1, /*ioUsage=*/0.0);
-  }
-
-  @Override
-  public ResourceSet estimateResourceConsumption(Executor executor) {
-    return executor.getContext(CppCompileActionContext.class).estimateResourceConsumption(this);
-  }
-
-  @Override
-  protected boolean needsIncludeScanning(Executor executor) {
-    return false;
+    return AbstractAction.DEFAULT_RESOURCE_SET;
   }
 }

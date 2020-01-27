@@ -1,4 +1,4 @@
-// Copyright 2014 Google Inc. All rights reserved.
+// Copyright 2014 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -11,25 +11,28 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-#include "util/numbers.h"
+#include "src/main/cpp/util/numbers.h"
 
-#include <errno.h>
+#include <errno.h>  // errno, ERANGE
 #include <limits.h>
 #include <cassert>
+#include <cinttypes>
 #include <cstdlib>
 #include <limits>
 
-#include "util/strings.h"
+#include "src/main/cpp/util/strings.h"
 
 namespace blaze_util {
 
-static const int32 kint32min = static_cast<int32>(~0x7FFFFFFF);
-static const int32 kint32max = static_cast<int32>(0x7FFFFFFF);
+using std::string;
+
+static const int32_t kint32min = static_cast<int32_t>(~0x7FFFFFFF);
+static const int32_t kint32max = static_cast<int32_t>(0x7FFFFFFF);
 
 // Represents integer values of digits.
 // Uses 36 to indicate an invalid character since we support
 // bases up to 36.
-static const int8 kAsciiToInt[256] = {
+static const int8_t kAsciiToInt[256] = {
   36, 36, 36, 36, 36, 36, 36, 36, 36, 36, 36, 36, 36, 36, 36, 36,  // 16 36s.
   36, 36, 36, 36, 36, 36, 36, 36, 36, 36, 36, 36, 36, 36, 36, 36,
   36, 36, 36, 36, 36, 36, 36, 36, 36, 36, 36, 36, 36, 36, 36, 36,
@@ -51,10 +54,10 @@ static const int8 kAsciiToInt[256] = {
   36, 36, 36, 36, 36, 36, 36, 36, 36, 36, 36, 36, 36, 36, 36, 36 };
 
 // Parse the sign.
-inline bool safe_parse_sign(const string &text  /*inout*/,
+inline bool safe_parse_sign(const char** rest, /*inout*/
                             bool* negative_ptr  /*output*/) {
-  const char* start = text.data();
-  const char* end = start + text.size();
+  const char* start = *rest;
+  const char* end = start + strlen(start);
 
   // Consume whitespace.
   while (start < end && ascii_isspace(start[0])) {
@@ -76,6 +79,7 @@ inline bool safe_parse_sign(const string &text  /*inout*/,
     }
   }
 
+  *rest = start;
   return true;
 }
 
@@ -103,13 +107,13 @@ inline bool safe_parse_sign(const string &text  /*inout*/,
 //
 // Overflow checking becomes simple.
 
-inline bool safe_parse_positive_int(const string &text, int* value_p) {
+inline bool safe_parse_positive_int(const char *text, int* value_p) {
   int value = 0;
   const int vmax = std::numeric_limits<int>::max();
-  assert(vmax > 0);
+  static_assert(vmax > 0, "");
   const int vmax_over_base = vmax / 10;
-  const char* start = text.data();
-  const char* end = start + text.size();
+  const char* start = text;
+  const char* end = start + strlen(text);
   // loop over digits
   for (; start < end; ++start) {
     unsigned char c = static_cast<unsigned char>(start[0]);
@@ -133,10 +137,10 @@ inline bool safe_parse_positive_int(const string &text, int* value_p) {
   return true;
 }
 
-inline bool safe_parse_negative_int(const string &text, int* value_p) {
+inline bool safe_parse_negative_int(const char *text, int* value_p) {
   int value = 0;
   const int vmin = std::numeric_limits<int>::min();
-  assert(vmin < 0);
+  static_assert(vmin < 0, "");
   int vmin_over_base = vmin / 10;
   // 2003 c++ standard [expr.mul]
   // "... the sign of the remainder is implementation-defined."
@@ -145,8 +149,8 @@ inline bool safe_parse_negative_int(const string &text, int* value_p) {
   if (vmin % 10 > 0) {
     vmin_over_base += 1;
   }
-  const char* start = text.data();
-  const char* end = start + text.size();
+  const char* start = text;
+  const char* end = start + strlen(text);
   // loop over digits
   for (; start < end; ++start) {
     unsigned char c = static_cast<unsigned char>(start[0]);
@@ -172,20 +176,21 @@ inline bool safe_parse_negative_int(const string &text, int* value_p) {
 
 bool safe_strto32(const string &text, int *value_p) {
   *value_p = 0;
+  const char* rest = text.c_str();
   bool negative;
-  if (!safe_parse_sign(text, &negative)) {
+  if (!safe_parse_sign(&rest, &negative)) {
     return false;
   }
   if (!negative) {
-    return safe_parse_positive_int(text, value_p);
+    return safe_parse_positive_int(rest, value_p);
   } else {
-    return safe_parse_negative_int(text, value_p);
+    return safe_parse_negative_int(rest, value_p);
   }
 }
 
-int32 strto32(const char *str, char **endptr, int base) {
-  if (sizeof(int32) == sizeof(long)) {  // NOLINT
-    return static_cast<int32>(strtol(str, endptr, base));  // NOLINT
+int32_t strto32(const char *str, char **endptr, int base) {
+  if (sizeof(int32_t) == sizeof(long)) {  // NOLINT
+    return static_cast<int32_t>(strtol(str, endptr, base));  // NOLINT
   }
   const int saved_errno = errno;
   errno = 0;
@@ -203,7 +208,7 @@ int32 strto32(const char *str, char **endptr, int base) {
   }
   if (errno == 0)
     errno = saved_errno;
-  return static_cast<int32>(result);
+  return static_cast<int32_t>(result);
 }
 
 }  // namespace blaze_util

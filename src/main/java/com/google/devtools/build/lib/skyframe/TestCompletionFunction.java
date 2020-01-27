@@ -1,4 +1,4 @@
-// Copyright 2014 Google Inc. All rights reserved.
+// Copyright 2014 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -13,50 +13,51 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
-import com.google.devtools.build.lib.analysis.LabelAndConfiguration;
-import com.google.devtools.build.lib.rules.test.TestProvider;
-import com.google.devtools.build.lib.syntax.Label;
+import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
+import com.google.devtools.build.lib.analysis.test.TestProvider;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 
 /**
- * TargetCompletionFunction builds all relevant test artifacts of a {@link
+ * TestCompletionFunction builds all relevant test artifacts of a {@link
  * com.google.devtools.build.lib.analysis.ConfiguredTarget}. This includes test shards and repeated
  * runs.
  */
 public final class TestCompletionFunction implements SkyFunction {
-
-  public TestCompletionFunction() {
-  }
-
   @Override
-  public SkyValue compute(SkyKey skyKey, Environment env) {
+  public SkyValue compute(SkyKey skyKey, Environment env) throws InterruptedException {
     TestCompletionValue.TestCompletionKey key =
         (TestCompletionValue.TestCompletionKey) skyKey.argument();
-    LabelAndConfiguration lac = key.getLabelAndConfiguration();
-    if (env.getValue(TargetCompletionValue.key(lac)) == null) {
+    ConfiguredTargetKey ctKey = key.configuredTargetKey();
+    TopLevelArtifactContext ctx = key.topLevelArtifactContext();
+    if (env.getValue(TargetCompletionValue.key(ctKey, ctx, /*willTest=*/ true)) == null) {
       return null;
     }
 
-    ConfiguredTargetValue ctValue = (ConfiguredTargetValue)
-        env.getValue(ConfiguredTargetValue.key(lac.getLabel(), lac.getConfiguration()));
+    ConfiguredTargetValue ctValue = (ConfiguredTargetValue) env.getValue(ctKey);
     if (ctValue == null) {
       return null;
     }
 
     ConfiguredTarget ct = ctValue.getConfiguredTarget();
-    if (key.isExclusiveTesting()) {
-      // Request test artifacts iteratively if testing exclusively.
-      for (Artifact testArtifact : TestProvider.getTestStatusArtifacts(ct)) {
-        if (env.getValue(ArtifactValue.key(testArtifact, /*isMandatory=*/true)) == null) {
+    if (key.exclusiveTesting()) {
+      // Request test execution iteratively if testing exclusively.
+      for (Artifact.DerivedArtifact testArtifact : TestProvider.getTestStatusArtifacts(ct)) {
+        env.getValue(testArtifact.getGeneratingActionKey());
+        if (env.valuesMissing()) {
           return null;
         }
       }
     } else {
-      env.getValues(ArtifactValue.mandatoryKeys(TestProvider.getTestStatusArtifacts(ct)));
+      env.getValues(
+          Iterables.transform(
+              TestProvider.getTestStatusArtifacts(ct),
+              Artifact.DerivedArtifact::getGeneratingActionKey));
       if (env.valuesMissing()) {
         return null;
       }
@@ -66,6 +67,6 @@ public final class TestCompletionFunction implements SkyFunction {
 
   @Override
   public String extractTag(SkyKey skyKey) {
-    return Label.print(((LabelAndConfiguration) skyKey.argument()).getLabel());
+    return Label.print(((ConfiguredTargetKey) skyKey.argument()).getLabel());
   }
 }

@@ -1,4 +1,4 @@
-// Copyright 2014 Google Inc. All rights reserved.
+// Copyright 2014 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -24,7 +24,9 @@ public final class ProcessUtils {
   private ProcessUtils() {}
 
   static {
-    UnixJniLoader.loadJni();
+    if (!"0".equals(System.getProperty("io.bazel.EnableJni"))) {
+      UnixJniLoader.loadJni();
+    }
   }
 
   /**

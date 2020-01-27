@@ -1,4 +1,4 @@
-// Copyright 2014 Google Inc. All rights reserved.
+// Copyright 2014 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -13,118 +13,77 @@
 // limitations under the License.
 package com.google.devtools.build.lib.runtime.commands;
 
-import com.google.common.base.Function;
-import com.google.common.base.Functions;
-import com.google.common.base.Preconditions;
-import com.google.common.collect.Maps;
-import com.google.common.collect.Multimaps;
-import com.google.common.collect.Ordering;
-import com.google.common.collect.TreeMultimap;
-import com.google.devtools.build.lib.actions.MiddlemanAction;
+import com.google.common.base.Joiner;
+import com.google.common.base.Optional;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
-import com.google.devtools.build.lib.profiler.ProfileInfo;
-import com.google.devtools.build.lib.profiler.ProfileInfo.CriticalPathEntry;
-import com.google.devtools.build.lib.profiler.ProfileInfo.InfoListener;
+import com.google.devtools.build.lib.events.Reporter;
+import com.google.devtools.build.lib.profiler.JsonProfile;
 import com.google.devtools.build.lib.profiler.ProfilePhase;
-import com.google.devtools.build.lib.profiler.ProfilePhaseStatistics;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
-import com.google.devtools.build.lib.profiler.chart.AggregatingChartCreator;
-import com.google.devtools.build.lib.profiler.chart.Chart;
-import com.google.devtools.build.lib.profiler.chart.ChartCreator;
-import com.google.devtools.build.lib.profiler.chart.DetailedChartCreator;
-import com.google.devtools.build.lib.profiler.chart.HtmlChartVisitor;
+import com.google.devtools.build.lib.profiler.analysis.ProfileInfo;
+import com.google.devtools.build.lib.profiler.analysis.ProfileInfo.InfoListener;
+import com.google.devtools.build.lib.profiler.output.PhaseText;
+import com.google.devtools.build.lib.profiler.statistics.CriticalPathStatistics;
+import com.google.devtools.build.lib.profiler.statistics.PhaseStatistics;
+import com.google.devtools.build.lib.profiler.statistics.PhaseSummaryStatistics;
 import com.google.devtools.build.lib.runtime.BlazeCommand;
-import com.google.devtools.build.lib.runtime.BlazeRuntime;
+import com.google.devtools.build.lib.runtime.BlazeCommandResult;
 import com.google.devtools.build.lib.runtime.Command;
+import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.StringUtil;
 import com.google.devtools.build.lib.util.TimeUtilities;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.common.options.Converters;
 import com.google.devtools.common.options.Option;
+import com.google.devtools.common.options.OptionDocumentationCategory;
+import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionsBase;
-import com.google.devtools.common.options.OptionsParser;
-import com.google.devtools.common.options.OptionsProvider;
-
+import com.google.devtools.common.options.OptionsParsingResult;
 import java.io.BufferedOutputStream;
-import java.io.ByteArrayOutputStream;
+import java.io.File;
+import java.io.FileInputStream;
 import java.io.IOException;
-import java.io.OutputStream;
+import java.io.InputStream;
 import java.io.PrintStream;
-import java.io.UnsupportedEncodingException;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
 import java.util.EnumMap;
-import java.util.EnumSet;
-import java.util.List;
-import java.util.Map;
 
-/**
- * Command line wrapper for analyzing Blaze build profiles.
- */
-@Command(name = "analyze-profile",
-         options = { ProfileCommand.ProfileOptions.class },
-         shortDescription = "Analyzes build profile data.",
-         help = "resource:analyze-profile.txt",
-         allowResidue = true,
-         mustRunInWorkspace = false)
+/** Command line wrapper for analyzing Blaze build profiles. */
+@Command(
+  name = "analyze-profile",
+  options = {ProfileCommand.ProfileOptions.class},
+  shortDescription = "Analyzes build profile data.",
+  help = "resource:analyze-profile.txt",
+  allowResidue = true,
+  completion = "path",
+  mustRunInWorkspace = false
+)
 public final class ProfileCommand implements BlazeCommand {
-
-  private final String TWO_COLUMN_FORMAT = "%-37s %10s\n";
-  private final String THREE_COLUMN_FORMAT = "%-28s %10s %8s\n";
 
   public static class DumpConverter extends Converters.StringSetConverter {
     public DumpConverter() {
-      super("text", "raw", "text-unsorted", "raw-unsorted");
+      super("text", "raw");
     }
   }
 
   public static class ProfileOptions extends OptionsBase {
-    @Option(name = "dump",
-        abbrev='d',
+    @Option(
+        name = "dump",
+        abbrev = 'd',
         converter = DumpConverter.class,
         defaultValue = "null",
-        help = "output full profile data dump either in human-readable 'text' format or"
-            + " script-friendly 'raw' format, either sorted or unsorted.")
+        documentationCategory = OptionDocumentationCategory.LOGGING,
+        effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+        help =
+            "output full profile data dump either in human-readable 'text' format or"
+                + " script-friendly 'raw' format.")
     public String dumpMode;
-
-    @Option(name = "html",
-        defaultValue = "false",
-        help = "If present, an HTML file visualizing the tasks of the profiled build is created. "
-            + "The name of the html file is the name of the profile file plus '.html'.")
-    public boolean html;
-
-    @Option(name = "html_pixels_per_second",
-        defaultValue = "50",
-        help = "Defines the scale of the time axis of the task diagram. The unit is "
-            + "pixels per second. Default is 50 pixels per second. ")
-    public int htmlPixelsPerSecond;
-
-    @Option(name = "html_details",
-        defaultValue = "false",
-        help = "If --html_details is present, the task diagram contains all tasks of the profile. "
-            + "If --nohtml_details is present, an aggregated diagram is generated. The default is "
-            + "to generate an aggregated diagram.")
-    public boolean htmlDetails;
-
-    @Option(name = "vfs_stats",
-        defaultValue = "false",
-        help = "If present, include VFS path statistics.")
-    public boolean vfsStats;
-
-    @Option(name = "vfs_stats_limit",
-        defaultValue = "-1",
-        help = "Maximum number of VFS path statistics to print.")
-    public int vfsStatsLimit;
   }
 
-  private Function<String, String> currentPathMapping = Functions.<String>identity();
-
-  private InfoListener getInfoListener(final BlazeRuntime runtime) {
+  private InfoListener getInfoListener(final CommandEnvironment env) {
     return new InfoListener() {
-      private final EventHandler reporter = runtime.getReporter();
+      private final EventHandler reporter = env.getReporter();
 
       @Override
       public void info(String text) {
@@ -138,159 +97,135 @@ public final class ProfileCommand implements BlazeCommand {
     };
   }
 
-  @Override
-  public void editOptions(BlazeRuntime runtime, OptionsParser optionsParser) {}
-
-  @Override
-  public ExitCode exec(final BlazeRuntime runtime, OptionsProvider options) {
-    ProfileOptions opts =
-        options.getOptions(ProfileOptions.class);
-
-    if (!opts.vfsStats) {
-      opts.vfsStatsLimit = 0;
-    }
-
-    currentPathMapping = new Function<String, String>() {
-      @Override
-      public String apply(String input) {
-        if (runtime.getWorkspaceName().isEmpty()) {
-          return input;
-        } else {
-          return input.substring(input.lastIndexOf("/" + runtime.getWorkspaceName()) + 1);
-        }
+  /**
+   * Note that this is just a basic check whether the file is zlib compressed.
+   *
+   * <p>Other checks (e.g. the magic bytes of the binary profile file) are done later.
+   */
+  private static boolean isOldBinaryProfile(File profile) {
+    try (InputStream inputStream = new FileInputStream(profile)) {
+      byte[] magicBytes = new byte[2];
+      int numBytesRead = inputStream.read(magicBytes);
+      if (numBytesRead == 2
+          && magicBytes[0] == (byte) 0x78
+          && (magicBytes[1] == (byte) 0x01
+              || magicBytes[1] == (byte) 0x9C
+              || magicBytes[1] == (byte) 0xDA)) {
+        return true;
       }
-    };
+    } catch (Exception e) {
+      // silently ignore any exception
+    }
+    return false;
+  }
 
-    PrintStream out = new PrintStream(runtime.getReporter().getOutErr().getOutputStream());
-    try {
-      runtime.getReporter().handle(Event.warn(
-          null, "This information is intended for consumption by Blaze developers"
-              + " only, and may change at any time.  Script against it at your own risk"));
+  @Override
+  public BlazeCommandResult exec(final CommandEnvironment env, OptionsParsingResult options) {
+    ProfileOptions profileOptions = options.getOptions(ProfileOptions.class);
+    String dumpMode = profileOptions.dumpMode;
 
+    try (PrintStream out = getOutputStream(env)) {
+      Reporter reporter = env.getReporter();
+      InfoListener infoListener = getInfoListener(env);
+
+      reporter.handle(
+          Event.warn(
+              "This information is intended for consumption by Bazel developers"
+                  + " only, and may change at any time. Script against it at your own risk"));
       for (String name : options.getResidue()) {
-        Path profileFile = runtime.getWorkingDirectory().getRelative(name);
-        try {
-          ProfileInfo info = ProfileInfo.loadProfileVerbosely(
-              profileFile, getInfoListener(runtime));
-          if (opts.dumpMode != null) {
-            dumpProfile(runtime, info, out, opts.dumpMode);
-          } else if (opts.html) {
-            createHtml(runtime, info, profileFile, opts);
-          } else {
-            createText(runtime, info, out, opts);
+        Path profileFile = env.getWorkingDirectory().getRelative(name);
+        if (isOldBinaryProfile(profileFile.getPathFile())) {
+          BlazeCommandResult commandResult =
+              handleOldBinaryProfile(env, dumpMode, out, profileFile, infoListener);
+          if (commandResult != null) {
+            return commandResult;
           }
-        } catch (IOException e) {
-          runtime.getReporter().handle(Event.error(
-              null, "Failed to process file " + name + ": " + e.getMessage()));
+          reporter.handle(
+              Event.warn(
+                  "The old binary profile format is deprecated."
+                      + " Use the JSON trace profile instead."));
+        } else {
+          try {
+            if (dumpMode != null) {
+              reporter.handle(
+                  Event.warn(
+                      "--dump has not been implemented yet for the JSON profile, ignoring."));
+            }
+            JsonProfile jsonProfile = new JsonProfile(profileFile.getPathFile());
+
+            JsonProfile.BuildMetadata buildMetadata = jsonProfile.getBuildMetadata();
+            if (buildMetadata != null) {
+              infoListener.info(
+                  "Profile created on "
+                      + buildMetadata.date()
+                      + ", build ID: "
+                      + buildMetadata.buildId()
+                      + ", output base: "
+                      + buildMetadata.outputBase());
+            }
+
+            new PhaseText(
+                    out,
+                    jsonProfile.getPhaseSummaryStatistics(),
+                    /* phaseStatistics= */ Optional.absent(),
+                    Optional.of(new CriticalPathStatistics(jsonProfile.getTraceEvents())))
+                .print();
+          } catch (IOException e) {
+            reporter.handle(Event.error("Failed to analyze profile file(s): " + e.getMessage()));
+            return BlazeCommandResult.exitCode(ExitCode.PARSING_FAILURE);
+          }
         }
       }
-    } finally {
-      out.flush();
     }
-    return ExitCode.SUCCESS;
+    return BlazeCommandResult.exitCode(ExitCode.SUCCESS);
   }
 
-  private void createText(BlazeRuntime runtime, ProfileInfo info, PrintStream out,
-      ProfileOptions opts) {
-    List<ProfilePhaseStatistics> statistics = getStatistics(runtime, info, opts);
-
-    for (ProfilePhaseStatistics stat : statistics) {
-      String title = stat.getTitle();
-
-      if (!title.isEmpty()) {
-        out.println("\n=== " + title.toUpperCase() + " ===\n");
-      }
-      out.print(stat.getStatistics());
-    }
-  }
-
-  private void createHtml(BlazeRuntime runtime, ProfileInfo info, Path profileFile,
-      ProfileOptions opts)
-      throws IOException {
-    Path htmlFile =
-        profileFile.getParentDirectory().getChild(profileFile.getBaseName() + ".html");
-    List<ProfilePhaseStatistics> statistics = getStatistics(runtime, info, opts);
-
-    runtime.getReporter().handle(Event.info("Creating HTML output in " + htmlFile));
-
-    ChartCreator chartCreator =
-        opts.htmlDetails ? new DetailedChartCreator(info, statistics)
-                         : new AggregatingChartCreator(info, statistics);
-    Chart chart = chartCreator.create();
-    OutputStream out = new BufferedOutputStream(htmlFile.getOutputStream());
+  private static BlazeCommandResult handleOldBinaryProfile(
+      CommandEnvironment env,
+      String dumpMode,
+      PrintStream out,
+      Path profileFile,
+      InfoListener infoListener) {
     try {
-      chart.accept(new HtmlChartVisitor(new PrintStream(out), opts.htmlPixelsPerSecond));
-    } finally {
-      try {
-        out.close();
-      } catch (IOException e) {
-        // Ignore
+      ProfileInfo info = ProfileInfo.loadProfileVerbosely(profileFile, infoListener);
+
+      if (dumpMode != null) {
+        dumpProfile(info, out, dumpMode);
+        return null;
       }
+
+      ProfileInfo.aggregateProfile(info, infoListener);
+      PhaseSummaryStatistics phaseSummaryStatistics = new PhaseSummaryStatistics(info);
+      EnumMap<ProfilePhase, PhaseStatistics> phaseStatistics = new EnumMap<>(ProfilePhase.class);
+
+      for (ProfilePhase phase : ProfilePhase.values()) {
+        phaseStatistics.put(phase, new PhaseStatistics(phase, info));
+      }
+
+      new PhaseText(
+              out,
+              phaseSummaryStatistics,
+              Optional.of(phaseStatistics),
+              Optional.of(new CriticalPathStatistics(info)))
+          .print();
+    } catch (IOException e) {
+      System.out.println(e);
+      env.getReporter().handle(Event.error("Failed to analyze profile file(s): " + e.getMessage()));
+      return BlazeCommandResult.exitCode(ExitCode.PARSING_FAILURE);
     }
+    return null;
   }
 
-  private List<ProfilePhaseStatistics> getStatistics(
-      BlazeRuntime runtime, ProfileInfo info, ProfileOptions opts) {
-    try {
-      ProfileInfo.aggregateProfile(info, getInfoListener(runtime));
-      runtime.getReporter().handle(Event.info("Analyzing relationships"));
-
-      info.analyzeRelationships();
-
-      List<ProfilePhaseStatistics> statistics = new ArrayList<>();
-
-      // Print phase durations and total execution time
-      ByteArrayOutputStream byteOutput = new ByteArrayOutputStream();
-      PrintStream out = new PrintStream(byteOutput, false, "UTF-8");
-      long duration = 0;
-      for (ProfilePhase phase : ProfilePhase.values()) {
-        ProfileInfo.Task phaseTask = info.getPhaseTask(phase);
-        if (phaseTask != null) {
-          duration += info.getPhaseDuration(phaseTask);
-        }
-      }
-      for (ProfilePhase phase : ProfilePhase.values()) {
-        ProfileInfo.Task phaseTask = info.getPhaseTask(phase);
-        if (phaseTask != null) {
-          long phaseDuration = info.getPhaseDuration(phaseTask);
-          out.printf(THREE_COLUMN_FORMAT, "Total " + phase.nick + " phase time",
-              TimeUtilities.prettyTime(phaseDuration), prettyPercentage(phaseDuration, duration));
-        }
-      }
-      out.printf(THREE_COLUMN_FORMAT, "Total run time", TimeUtilities.prettyTime(duration),
-          "100.00%");
-      statistics.add(new ProfilePhaseStatistics("Phase Summary Information",
-          new String(byteOutput.toByteArray(), "UTF-8")));
-
-      // Print details of major phases
-      if (duration > 0) {
-        statistics.add(formatInitPhaseStatistics(info, opts));
-        statistics.add(formatLoadingPhaseStatistics(info, opts));
-        statistics.add(formatAnalysisPhaseStatistics(info, opts));
-        ProfilePhaseStatistics stat = formatExecutionPhaseStatistics(info, opts);
-        if (stat != null) {
-          statistics.add(stat);
-        }
-      }
-
-      return statistics;
-    } catch (UnsupportedEncodingException e) {
-      throw new AssertionError("Should not happen since, UTF8 is available on all JVMs");
-    }
+  private static PrintStream getOutputStream(CommandEnvironment env) {
+    return new PrintStream(
+        new BufferedOutputStream(env.getReporter().getOutErr().getOutputStream()), false);
   }
 
-  private void dumpProfile(
-      BlazeRuntime runtime, ProfileInfo info, PrintStream out, String dumpMode) {
-    if (!dumpMode.contains("unsorted")) {
-      ProfileInfo.aggregateProfile(info, getInfoListener(runtime));
-    }
+  /** Dumps all tasks in the requested format. */
+  private static void dumpProfile(ProfileInfo info, PrintStream out, String dumpMode) {
     if (dumpMode.contains("raw")) {
       for (ProfileInfo.Task task : info.allTasksById) {
         dumpRaw(task, out);
-      }
-    } else if (dumpMode.contains("unsorted")) {
-      for (ProfileInfo.Task task : info.allTasksById) {
-        dumpTask(task, out, 0);
       }
     } else {
       for (ProfileInfo.Task task : info.rootTasksById) {
@@ -299,11 +234,24 @@ public final class ProfileCommand implements BlazeCommand {
     }
   }
 
-  private void dumpTask(ProfileInfo.Task task, PrintStream out, int indent) {
-    StringBuilder builder = new StringBuilder(String.format(
-        "\n%s %s\nThread: %-6d  Id: %-6d  Parent: %d\nStart time: %-12s   Duration: %s",
-        task.type, task.getDescription(), task.threadId, task.id, task.parentId,
-        TimeUtilities.prettyTime(task.startTime), TimeUtilities.prettyTime(task.duration)));
+  /** Dumps the task information and all subtasks. */
+  private static void dumpTask(ProfileInfo.Task task, PrintStream out, int indent) {
+    StringBuilder builder =
+        new StringBuilder(
+            String.format(
+                Joiner.on('\n')
+                    .join(
+                        "",
+                        "%s %s",
+                        "Thread: %-6d  Id: %-6d  Parent: %d",
+                        "Start time: %-12s   Duration: %s"),
+                task.type,
+                task.getDescription(),
+                task.threadId,
+                task.id,
+                task.parentId,
+                TimeUtilities.prettyTime(task.startTime),
+                TimeUtilities.prettyTime(task.durationNanos)));
     if (task.hasStats()) {
       builder.append("\n");
       ProfileInfo.AggregateAttr[] stats = task.getStatAttrArray();
@@ -322,7 +270,7 @@ public final class ProfileCommand implements BlazeCommand {
     }
   }
 
-  private void dumpRaw(ProfileInfo.Task task, PrintStream out) {
+  private static void dumpRaw(ProfileInfo.Task task, PrintStream out) {
     StringBuilder aggregateString = new StringBuilder();
     ProfileInfo.AggregateAttr[] stats = task.getStatAttrArray();
     for (ProfilerTask type : ProfilerTask.values()) {
@@ -333,433 +281,15 @@ public final class ProfileCommand implements BlazeCommand {
       }
     }
     out.println(
-        task.threadId + "|" + task.id + "|" + task.parentId + "|"
-        + task.startTime + "|" + task.duration + "|"
-        + aggregateString.toString().trim() + "|"
-        + task.type + "|" + task.getDescription());
-  }
-
-  /**
-   * Converts relative duration to the percentage string
-   * @return formatted percentage string or "N/A" if result is undefined.
-   */
-  private static String prettyPercentage(long duration, long total) {
-    if (total == 0) {
-      // Return "not available" string if total is 0 and result is undefined.
-      return "N/A";
-    }
-    return String.format("%5.2f%%", duration*100.0/total);
-  }
-
-  private void printCriticalPath(String title, PrintStream out, CriticalPathEntry path) {
-    out.printf("\n%s (%s):%n", title, TimeUtilities.prettyTime(path.cumulativeDuration));
-
-    boolean lightCriticalPath = isLightCriticalPath(path);
-    out.println(lightCriticalPath ?
-        String.format("%6s %11s %8s   %s", "Id", "Time", "Percentage", "Description")
-        : String.format("%6s %11s %8s %8s   %s", "Id", "Time", "Share", "Critical", "Description"));
-
-    long totalPathTime = path.cumulativeDuration;
-    int middlemanCount = 0;
-    long middlemanDuration = 0L;
-    long middlemanCritTime = 0L;
-
-    for (; path != null ; path = path.next) {
-      if (path.task.id < 0) {
-        // Ignore fake actions.
-        continue;
-      } else if (path.task.getDescription().startsWith(MiddlemanAction.MIDDLEMAN_MNEMONIC + " ")
-          || path.task.getDescription().startsWith("TargetCompletionMiddleman")) {
-        // Aggregate middleman actions.
-        middlemanCount++;
-        middlemanDuration += path.duration;
-        middlemanCritTime += path.getCriticalTime();
-      } else {
-        String desc = path.task.getDescription().replace(':', ' ');
-        if (lightCriticalPath) {
-          out.printf("%6d %11s %8s   %s%n", path.task.id, TimeUtilities.prettyTime(path.duration),
-              prettyPercentage(path.duration, totalPathTime), desc);
-        } else {
-          out.printf("%6d %11s %8s %8s   %s%n", path.task.id,
-              TimeUtilities.prettyTime(path.duration),
-              prettyPercentage(path.duration, totalPathTime),
-              prettyPercentage(path.getCriticalTime(), totalPathTime), desc);
-        }
-      }
-    }
-    if (middlemanCount > 0) {
-      if (lightCriticalPath) {
-        out.printf("       %11s %8s   [%d middleman actions]%n",
-            TimeUtilities.prettyTime(middlemanDuration),
-            prettyPercentage(middlemanDuration, totalPathTime), middlemanCount);
-      } else {
-        out.printf("       %11s %8s %8s   [%d middleman actions]%n",
-            TimeUtilities.prettyTime(middlemanDuration),
-            prettyPercentage(middlemanDuration, totalPathTime),
-            prettyPercentage(middlemanCritTime, totalPathTime), middlemanCount);
-      }
-    }
-  }
-
-  private boolean isLightCriticalPath(CriticalPathEntry path) {
-    return path.task.type == ProfilerTask.CRITICAL_PATH_COMPONENT;
-  }
-
-  private void printShortPhaseAnalysis(ProfileInfo info, PrintStream out, ProfilePhase phase) {
-    ProfileInfo.Task phaseTask = info.getPhaseTask(phase);
-    if (phaseTask != null) {
-      long phaseDuration = info.getPhaseDuration(phaseTask);
-      out.printf(TWO_COLUMN_FORMAT, "Total " + phase.nick + " phase time",
-          TimeUtilities.prettyTime(phaseDuration));
-      printTimeDistributionByType(info, out, phaseTask);
-    }
-  }
-
-  private void printTimeDistributionByType(ProfileInfo info, PrintStream out,
-      ProfileInfo.Task phaseTask) {
-    List<ProfileInfo.Task> taskList = info.getTasksForPhase(phaseTask);
-    long phaseDuration = info.getPhaseDuration(phaseTask);
-    long totalDuration = phaseDuration;
-    for (ProfileInfo.Task task : taskList) {
-      // Tasks on the phaseTask thread already accounted for in the phaseDuration.
-      if (task.threadId != phaseTask.threadId) {
-        totalDuration += task.duration;
-      }
-    }
-    boolean headerNeeded = true;
-    for (ProfilerTask type : ProfilerTask.values()) {
-      ProfileInfo.AggregateAttr stats = info.getStatsForType(type, taskList);
-      if (stats.count > 0 && stats.totalTime > 0) {
-        if (headerNeeded) {
-          out.println("\nTotal time (across all threads) spent on:");
-          out.printf("%18s %8s %8s %11s%n", "Type", "Total", "Count", "Average");
-          headerNeeded = false;
-        }
-        out.printf("%18s %8s %8d %11s%n", type.toString(),
-            prettyPercentage(stats.totalTime, totalDuration), stats.count,
-            TimeUtilities.prettyTime(stats.totalTime / stats.count));
-      }
-    }
-  }
-
-  static class Stat implements Comparable<Stat> {
-    public long duration;
-    public long frequency;
-
-    @Override
-    public int compareTo(Stat o) {
-      return this.duration == o.duration ? Long.compare(this.frequency, o.frequency)
-          : Long.compare(this.duration, o.duration);
-    }
-  }
-
-  /**
-   * Print the time spent on VFS operations on each path. Output is grouped by operation and sorted
-   * by descending duration. If multiple of the same VFS operation were logged for the same path,
-   * print the total duration.
-   *
-   * @param info profiling data.
-   * @param out output stream.
-   * @param phase build phase.
-   * @param limit maximum number of statistics to print, or -1 for no limit.
-   */
-  private void printVfsStatistics(ProfileInfo info, PrintStream out,
-                                  ProfilePhase phase, int limit) {
-    ProfileInfo.Task phaseTask = info.getPhaseTask(phase);
-    if (phaseTask == null) {
-      return;
-    }
-
-    if (limit == 0) {
-      return;
-    }
-
-    // Group into VFS operations and build maps from path to duration.
-
-    List<ProfileInfo.Task> taskList = info.getTasksForPhase(phaseTask);
-    EnumMap<ProfilerTask, Map<String, Stat>> stats = Maps.newEnumMap(ProfilerTask.class);
-
-    collectVfsEntries(stats, taskList);
-
-    if (!stats.isEmpty()) {
-      out.printf("\nVFS path statistics:\n");
-      out.printf("%15s %10s %10s %s\n", "Type", "Frequency", "Duration", "Path");
-    }
-
-    // Reverse the maps to get maps from duration to path. We use a TreeMultimap to sort by duration
-    // and because durations are not unique.
-
-    for (ProfilerTask type : stats.keySet()) {
-      Map<String, Stat> statsForType = stats.get(type);
-      TreeMultimap<Stat, String> sortedStats =
-          TreeMultimap.create(Ordering.natural().reverse(), Ordering.natural());
-
-      Multimaps.invertFrom(Multimaps.forMap(statsForType), sortedStats);
-
-      int numPrinted = 0;
-      for (Map.Entry<Stat, String> stat : sortedStats.entries()) {
-        if (limit != -1 && numPrinted++ == limit) {
-          out.printf("... %d more ...\n", sortedStats.size() - limit);
-          break;
-        }
-        out.printf("%15s %10d %10s %s\n",
-            type.name(), stat.getKey().frequency, TimeUtilities.prettyTime(stat.getKey().duration),
-            stat.getValue());
-      }
-    }
-  }
-
-  private void collectVfsEntries(EnumMap<ProfilerTask, Map<String, Stat>> stats,
-      List<ProfileInfo.Task> taskList) {
-    for (ProfileInfo.Task task : taskList) {
-      collectVfsEntries(stats, Arrays.asList(task.subtasks));
-      if (!task.type.name().startsWith("VFS_")) {
-        continue;
-      }
-
-      Map<String, Stat> statsForType = stats.get(task.type);
-      if (statsForType == null) {
-        statsForType = Maps.newHashMap();
-        stats.put(task.type, statsForType);
-      }
-
-      String path = currentPathMapping.apply(task.getDescription());
-
-      Stat stat = statsForType.get(path);
-      if (stat == null) {
-        stat = new Stat();
-      }
-
-      stat.duration += task.duration;
-      stat.frequency++;
-      statsForType.put(path, stat);
-    }
-  }
-
-  /**
-   * Returns set of profiler tasks to be filtered from critical path.
-   * Also always filters out ACTION_LOCK and WAIT tasks to simulate
-   * unlimited resource critical path (see comments inside formatExecutionPhaseStatistics()
-   * method).
-   */
-  private EnumSet<ProfilerTask> getTypeFilter(ProfilerTask... tasks) {
-    EnumSet<ProfilerTask> filter = EnumSet.of(ProfilerTask.ACTION_LOCK, ProfilerTask.WAIT);
-    Collections.addAll(filter, tasks);
-    return filter;
-  }
-
-  private ProfilePhaseStatistics formatInitPhaseStatistics(ProfileInfo info, ProfileOptions opts)
-      throws UnsupportedEncodingException {
-    return formatSimplePhaseStatistics(info, opts, "Init", ProfilePhase.INIT);
-  }
-
-  private ProfilePhaseStatistics formatLoadingPhaseStatistics(ProfileInfo info, ProfileOptions opts)
-      throws UnsupportedEncodingException {
-    return formatSimplePhaseStatistics(info, opts, "Loading", ProfilePhase.LOAD);
-  }
-
-  private ProfilePhaseStatistics formatAnalysisPhaseStatistics(ProfileInfo info,
-                                                               ProfileOptions opts)
-      throws UnsupportedEncodingException {
-    return formatSimplePhaseStatistics(info, opts, "Analysis", ProfilePhase.ANALYZE);
-  }
-
-  private ProfilePhaseStatistics formatSimplePhaseStatistics(ProfileInfo info,
-                                                             ProfileOptions opts,
-                                                             String name,
-                                                             ProfilePhase phase)
-      throws UnsupportedEncodingException {
-    ByteArrayOutputStream byteOutput = new ByteArrayOutputStream();
-    PrintStream out = new PrintStream(byteOutput, false, "UTF-8");
-
-    printShortPhaseAnalysis(info, out, phase);
-    printVfsStatistics(info, out, phase, opts.vfsStatsLimit);
-    return new ProfilePhaseStatistics(name + " Phase Information",
-        new String(byteOutput.toByteArray(), "UTF-8"));
-  }
-
-  private ProfilePhaseStatistics formatExecutionPhaseStatistics(ProfileInfo info,
-                                                                ProfileOptions opts)
-      throws UnsupportedEncodingException {
-    ByteArrayOutputStream byteOutput = new ByteArrayOutputStream();
-    PrintStream out = new PrintStream(byteOutput, false, "UTF-8");
-
-    ProfileInfo.Task prepPhase = info.getPhaseTask(ProfilePhase.PREPARE);
-    ProfileInfo.Task execPhase = info.getPhaseTask(ProfilePhase.EXECUTE);
-    ProfileInfo.Task finishPhase = info.getPhaseTask(ProfilePhase.FINISH);
-    if (execPhase == null) {
-      return null;
-    }
-
-    List<ProfileInfo.Task> execTasks = info.getTasksForPhase(execPhase);
-    long graphTime = info.getStatsForType(ProfilerTask.ACTION_GRAPH, execTasks).totalTime;
-    long execTime = info.getPhaseDuration(execPhase) - graphTime;
-
-    if (prepPhase != null) {
-      out.printf(TWO_COLUMN_FORMAT, "Total preparation time",
-          TimeUtilities.prettyTime(info.getPhaseDuration(prepPhase)));
-    }
-    out.printf(TWO_COLUMN_FORMAT, "Total execution phase time",
-        TimeUtilities.prettyTime(info.getPhaseDuration(execPhase)));
-    if (finishPhase != null) {
-      out.printf(TWO_COLUMN_FORMAT, "Total time finalizing build",
-          TimeUtilities.prettyTime(info.getPhaseDuration(finishPhase)));
-    }
-    out.println();
-    out.printf(TWO_COLUMN_FORMAT, "Action dependency map creation",
-        TimeUtilities.prettyTime(graphTime));
-    out.printf(TWO_COLUMN_FORMAT, "Actual execution time",
-        TimeUtilities.prettyTime(execTime));
-
-    EnumSet<ProfilerTask> typeFilter = EnumSet.noneOf(ProfilerTask.class);
-    CriticalPathEntry totalPath = info.getCriticalPath(typeFilter);
-    info.analyzeCriticalPath(typeFilter, totalPath);
-
-    typeFilter = getTypeFilter();
-    CriticalPathEntry optimalPath = info.getCriticalPath(typeFilter);
-    info.analyzeCriticalPath(typeFilter, optimalPath);
-
-    if (totalPath != null) {
-      printCriticalPathTimingBreakdown(info, totalPath, optimalPath, execTime, out);
-    } else {
-      out.println("\nCritical path not available because no action graph was generated.");
-    }
-
-    printTimeDistributionByType(info, out, execPhase);
-
-    if (totalPath != null) {
-      printCriticalPath("Critical path", out, totalPath);
-      // In light critical path we do not record scheduling delay data so it does not make sense
-      // to differentiate it.
-      if (!isLightCriticalPath(totalPath)) {
-        printCriticalPath("Critical path excluding scheduling delays", out, optimalPath);
-      }
-    }
-
-    if (info.getMissingActionsCount() > 0) {
-      out.println("\n" + info.getMissingActionsCount() + " action(s) are present in the"
-          + " action graph but missing instrumentation data. Most likely profile file"
-          + " has been created for the failed or aborted build.");
-    }
-
-    printVfsStatistics(info, out, ProfilePhase.EXECUTE, opts.vfsStatsLimit);
-
-    return new ProfilePhaseStatistics("Execution Phase Information",
-        new String(byteOutput.toByteArray(), "UTF-8"));
-  }
-
-  void printCriticalPathTimingBreakdown(ProfileInfo info, CriticalPathEntry totalPath,
-      CriticalPathEntry optimalPath, long execTime, PrintStream out) {
-    Preconditions.checkNotNull(totalPath);
-    Preconditions.checkNotNull(optimalPath);
-    // TODO(bazel-team): Print remote vs build stats recorded by CriticalPathStats
-    if (isLightCriticalPath(totalPath)) {
-      return;
-    }
-    out.println(totalPath.task.type);
-    // Worker thread pool scheduling delays for the actual critical path.
-    long workerWaitTime = 0;
-    long mainThreadWaitTime = 0;
-    for (ProfileInfo.CriticalPathEntry entry = totalPath; entry != null; entry = entry.next) {
-      workerWaitTime += info.getActionWaitTime(entry.task);
-      mainThreadWaitTime += info.getActionQueueTime(entry.task);
-    }
-    out.printf(TWO_COLUMN_FORMAT, "Worker thread scheduling delays",
-        TimeUtilities.prettyTime(workerWaitTime));
-    out.printf(TWO_COLUMN_FORMAT, "Main thread scheduling delays",
-        TimeUtilities.prettyTime(mainThreadWaitTime));
-
-    out.println("\nCritical path time:");
-    // Actual critical path.
-    long totalTime = totalPath.cumulativeDuration;
-    out.printf("%-37s %10s (%s of execution time)\n", "Actual time",
-        TimeUtilities.prettyTime(totalTime),
-        prettyPercentage(totalTime, execTime));
-    // Unlimited resource critical path. Essentially, we assume that if we
-    // remove all scheduling delays caused by resource semaphore contention,
-    // each action execution time would not change (even though load now would
-    // be substantially higher - so this assumption might be incorrect but it is
-    // still useful for modeling). Given those assumptions we calculate critical
-    // path excluding scheduling delays.
-    long optimalTime = optimalPath.cumulativeDuration;
-    out.printf("%-37s %10s (%s of execution time)\n", "Time excluding scheduling delays",
-        TimeUtilities.prettyTime(optimalTime),
-        prettyPercentage(optimalTime, execTime));
-
-    // Artificial critical path if we ignore all the time spent in all tasks,
-    // except time directly attributed to the ACTION tasks.
-    out.println("\nTime related to:");
-
-    EnumSet<ProfilerTask> typeFilter = EnumSet.allOf(ProfilerTask.class);
-    ProfileInfo.CriticalPathEntry path = info.getCriticalPath(typeFilter);
-    out.printf(TWO_COLUMN_FORMAT, "the builder overhead",
-        prettyPercentage(path.cumulativeDuration, totalTime));
-
-    typeFilter = getTypeFilter();
-    for (ProfilerTask task : ProfilerTask.values()) {
-      if (task.name().startsWith("VFS_")) {
-        typeFilter.add(task);
-      }
-    }
-    path = info.getCriticalPath(typeFilter);
-    out.printf(TWO_COLUMN_FORMAT, "the VFS calls",
-        prettyPercentage(optimalTime - path.cumulativeDuration, optimalTime));
-
-    typeFilter = getTypeFilter(ProfilerTask.ACTION_CHECK);
-    path = info.getCriticalPath(typeFilter);
-    out.printf(TWO_COLUMN_FORMAT, "the dependency checking",
-        prettyPercentage(optimalTime - path.cumulativeDuration, optimalTime));
-
-    typeFilter = getTypeFilter(ProfilerTask.ACTION_EXECUTE);
-    path = info.getCriticalPath(typeFilter);
-    out.printf(TWO_COLUMN_FORMAT, "the execution setup",
-        prettyPercentage(optimalTime - path.cumulativeDuration, optimalTime));
-
-    typeFilter = getTypeFilter(ProfilerTask.SPAWN, ProfilerTask.LOCAL_EXECUTION);
-    path = info.getCriticalPath(typeFilter);
-    out.printf(TWO_COLUMN_FORMAT, "local execution",
-        prettyPercentage(optimalTime - path.cumulativeDuration, optimalTime));
-
-    typeFilter = getTypeFilter(ProfilerTask.SCANNER);
-    path = info.getCriticalPath(typeFilter);
-    out.printf(TWO_COLUMN_FORMAT, "the include scanner",
-        prettyPercentage(optimalTime - path.cumulativeDuration, optimalTime));
-
-    typeFilter = getTypeFilter(ProfilerTask.REMOTE_EXECUTION, ProfilerTask.PROCESS_TIME,
-        ProfilerTask.LOCAL_PARSE,  ProfilerTask.UPLOAD_TIME,
-        ProfilerTask.REMOTE_QUEUE,  ProfilerTask.REMOTE_SETUP, ProfilerTask.FETCH);
-    path = info.getCriticalPath(typeFilter);
-    out.printf(TWO_COLUMN_FORMAT, "Remote execution (cumulative)",
-        prettyPercentage(optimalTime - path.cumulativeDuration, optimalTime));
-
-    typeFilter = getTypeFilter( ProfilerTask.UPLOAD_TIME, ProfilerTask.REMOTE_SETUP);
-    path = info.getCriticalPath(typeFilter);
-    out.printf(TWO_COLUMN_FORMAT, "  file uploads",
-        prettyPercentage(optimalTime - path.cumulativeDuration, optimalTime));
-
-    typeFilter = getTypeFilter(ProfilerTask.FETCH);
-    path = info.getCriticalPath(typeFilter);
-    out.printf(TWO_COLUMN_FORMAT, "  file fetching",
-        prettyPercentage(optimalTime - path.cumulativeDuration, optimalTime));
-
-    typeFilter = getTypeFilter(ProfilerTask.PROCESS_TIME);
-    path = info.getCriticalPath(typeFilter);
-    out.printf(TWO_COLUMN_FORMAT, "  process time",
-        prettyPercentage(optimalTime - path.cumulativeDuration, optimalTime));
-
-    typeFilter = getTypeFilter(ProfilerTask.REMOTE_QUEUE);
-    path = info.getCriticalPath(typeFilter);
-    out.printf(TWO_COLUMN_FORMAT, "  remote queueing",
-        prettyPercentage(optimalTime - path.cumulativeDuration, optimalTime));
-
-    typeFilter = getTypeFilter(ProfilerTask.LOCAL_PARSE);
-    path = info.getCriticalPath(typeFilter);
-    out.printf(TWO_COLUMN_FORMAT, "  remote execution parse",
-        prettyPercentage(optimalTime - path.cumulativeDuration, optimalTime));
-
-    typeFilter = getTypeFilter(ProfilerTask.REMOTE_EXECUTION);
-    path = info.getCriticalPath(typeFilter);
-    out.printf(TWO_COLUMN_FORMAT, "  other remote activities",
-        prettyPercentage(optimalTime - path.cumulativeDuration, optimalTime));
+        Joiner.on('|')
+            .join(
+                task.threadId,
+                task.id,
+                task.parentId,
+                task.startTime,
+                task.durationNanos,
+                aggregateString.toString().trim(),
+                task.type,
+                task.getDescription()));
   }
 }

@@ -1,4 +1,4 @@
-// Copyright 2014 Google Inc. All rights reserved.
+// Copyright 2014 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -124,7 +124,7 @@ class GenericTypeHelper {
         return Primitives.wrap(toClass).equals(from);
       }
     }
-    return TypeToken.of(to).isAssignableFrom(from);
+    return TypeToken.of(to).isSupertypeOf(from);
   }
 
   private GenericTypeHelper() {

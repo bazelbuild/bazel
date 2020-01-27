@@ -1,41 +1,49 @@
-# Bazel
+# [Bazel](https://bazel.build)
 
 *{Fast, Correct} - Choose two*
 
-Bazel is a build tool that builds code quickly and reliably. It is used to build
-the majority of Google's software, and thus it has been designed to handle
-build problems present in Google's development environment, including:
+Build and test software of any size, quickly and reliably.
 
-* **A massive, shared code repository, in which all software is built from
-source.** Bazel has been built for speed, using both caching and parallelism
-to achieve this. Bazel is critical to Google's ability to continue
-to scale its software development practices as the company grows.
+* **Speed up your builds and tests**:
+  Bazel rebuilds only what is necessary.
+  With advanced local and distributed caching, optimized dependency analysis and
+  parallel execution, you get fast and incremental builds.
 
-* **A emphasis on automated testing and releases.** Bazel has
-been built for correctness and reproducibility, meaning that a build performed
-on a continuous build machine or in a release pipeline will generate
-bitwise-identical outputs to those generated on a developer's machine.
+* **One tool, multiple languages**: Build and test Java, C++, Android, iOS, Go,
+  and a wide variety of other language platforms. Bazel runs on Windows, macOS,
+  and Linux.
 
-* **Language and platform diversity.** Bazel's architecture is general enough to
-support many different programming languages within Google, and can be
-used to build both client and server software targeting multiple
-architectures from the same underlying codebase.
+* **Scalable**: Bazel helps you scale your organization, codebase, and
+  continuous integration solution. It handles codebases of any size, in multiple
+  repositories or a huge monorepo.
 
-Find more background about Bazel in our [FAQ](docs/FAQ.md)
+* **Extensible to your needs**: Easily add support for new languages and
+  platforms with Bazel's familiar extension language. Share and re-use language
+  rules written by the growing Bazel community.
 
 ## Getting Started
 
-  * How to [install Bazel](docs/install.md)
-  * How to [get started using Bazel](docs/getting-started.md)
-  * The blaze command line is documented in the  [user manual](docs/bazel-user-manual.html)
-  * The rule reference documentation is in the [build encyclopedia](docs/build-encyclopedia.html).
-  * How to [use the query command](docs/bazel-query-v2.html)
-  * How to [extend Bazel](docs/skylark/index.md)
-  * The test environment is described the [test encyclopedia](docs/test-encyclopedia.html).
+  * [Install Bazel](https://docs.bazel.build/install.html)
+  * [Get started with Bazel](https://docs.bazel.build/getting-started.html)
+  * Follow our tutorials:
 
-* About the Bazel project:
+    - [Build C++](https://docs.bazel.build/tutorial/cpp.html)
+    - [Build Java](https://docs.bazel.build/tutorial/java.html)
+    - [Android](https://docs.bazel.build/tutorial/android-app.html)
+    - [iOS](https://docs.bazel.build/tutorial/ios-app.html)
 
-  * How to [contribute to Bazel](docs/contributing.md)
-  * Our [governance plan](docs/governance.md)
-  * Future plans are in the [roadmap](docs/roadmap.md)
-  * For each feature, which level of [support](docs/support.md) to expect.
+## Documentation
+
+  * [Bazel command line](https://docs.bazel.build/user-manual.html)
+  * [Rule reference](https://docs.bazel.build/be/overview.html)
+  * [Use the query command](https://docs.bazel.build/query.html)
+  * [Extend Bazel](https://docs.bazel.build/skylark/concepts.html)
+  * [Write tests](https://docs.bazel.build/test-encyclopedia.html)
+  * [Roadmap](https://bazel.build/roadmap.html)
+  * [Who is using Bazel?](https://github.com/bazelbuild/bazel/wiki/Bazel-Users)
+
+## Contributing to Bazel
+
+See [CONTRIBUTING.md](CONTRIBUTING.md)
+
+[![Build status](https://badge.buildkite.com/1fd282f8ad98c3fb10758a821e5313576356709dd7d11e9618.svg?status=master)](https://ci.bazel.build)

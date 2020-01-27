@@ -1,4 +1,4 @@
-// Copyright 2014 Google Inc. All rights reserved.
+// Copyright 2014 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -20,7 +20,8 @@ package com.google.devtools.common.options;
 public interface Converter<T> {
 
   /**
-   * Convert a string into type T.
+   * Convert a string into type T. Please note that we assume that converting the same string (if
+   * successful) will produce objects which are equal ({@link Object#equals)}).
    */
   T convert(String input) throws OptionsParsingException;
 

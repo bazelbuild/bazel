@@ -1,4 +1,4 @@
-// Copyright 2014 Google Inc. All rights reserved.
+// Copyright 2014 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -13,10 +13,11 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.util.StringUtilities;
-
+import java.util.Date;
 import java.util.Map;
 import java.util.logging.Logger;
 
@@ -29,11 +30,15 @@ import java.util.logging.Logger;
  * (eg. when running non-released version), {@link #isAvailable()} returns false.
  */
 public class BlazeVersionInfo {
+  public static final String BUILD_LABEL = "Build label";
+  
   private final Map<String, String> buildData = Maps.newTreeMap();
   private static BlazeVersionInfo instance = null;
-  private static final String BUILD_LABEL = "Build label";
 
-  private static final Logger LOG = Logger.getLogger(BlazeVersionInfo.class.getName());
+  private static final Logger logger = Logger.getLogger(BlazeVersionInfo.class.getName());
+
+  /** Key for the release timestamp is seconds. */
+  public static final String BUILD_TIMESTAMP = "Build timestamp as int";
 
   public BlazeVersionInfo(Map<String, String> info) {
     buildData.putAll(info);
@@ -54,9 +59,9 @@ public class BlazeVersionInfo {
 
   private static void logVersionInfo(BlazeVersionInfo info) {
     if (info.getSummary() == null) {
-      LOG.warning("Blaze release version information not available");
+      logger.warning("Bazel release version information not available");
     } else {
-      LOG.info("Blaze version info: " + info.getSummary());
+      logger.info("Bazel version info: " + info.getSummary());
     }
   }
 
@@ -109,5 +114,30 @@ public class BlazeVersionInfo {
     return (buildLabel != null && buildLabel.length() > 0)
         ? "release " + buildLabel
         : "development version";
+  }
+
+  /**
+   * Returns the version, if any, or {@code ""}. The returned version number is easier to process
+   * than the version returned by #getReleaseName().
+   */
+  public String getVersion() {
+    String buildLabel = buildData.get(BUILD_LABEL);
+    return buildLabel != null ? buildLabel : "";
+  }
+
+  /**
+   * Returns the release timestamp in seconds.
+   */
+  public long getTimestamp() {
+    String timestamp = buildData.get(BUILD_TIMESTAMP);
+    if (timestamp == null || timestamp.equals("0")) {
+      return new Date().getTime();
+    }
+    return Long.parseLong(timestamp);
+  }
+
+  @VisibleForTesting
+  public Map<String, String> getBuildData() {
+    return buildData;
   }
 }

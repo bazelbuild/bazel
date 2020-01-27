@@ -1,4 +1,4 @@
-// Copyright 2014 Google Inc. All rights reserved.
+// Copyright 2014 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,21 +15,28 @@ package com.google.devtools.build.lib.testutil;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
-import static com.google.common.truth.Truth.assert_;
-import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
+import com.google.common.base.Function;
 import com.google.common.base.Joiner;
 import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
-import com.google.common.collect.Iterables;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
-
+import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.events.EventCollector;
+import com.google.devtools.build.lib.events.EventKind;
+import com.google.devtools.build.lib.util.Pair;
 import java.lang.ref.Reference;
 import java.lang.reflect.Field;
 import java.util.ArrayDeque;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.Comparator;
+import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 import java.util.Queue;
 import java.util.Set;
@@ -40,91 +47,8 @@ import java.util.regex.Pattern;
  */
 public class MoreAsserts {
 
-  public static void assertContainsRegex(String regex, String actual) {
-    assertThat(actual).containsMatch(regex);
-  }
-
-  public static void assertContainsRegex(String msg, String regex, String actual) {
-    assertWithMessage(msg).that(actual).containsMatch(regex);
-  }
-
-  public static void assertNotContainsRegex(String regex, String actual) {
-    assertThat(actual).doesNotContainMatch(regex);
-  }
-
-  public static void assertNotContainsRegex(String msg, String regex, String actual) {
-    assertWithMessage(msg).that(actual).doesNotContainMatch(regex);
-  }
-
-  public static void assertMatchesRegex(String regex, String actual) {
-    assertThat(actual).matches(regex);
-  }
-
-  public static void assertMatchesRegex(String msg, String regex, String actual) {
-    assertWithMessage(msg).that(actual).matches(regex);
-  }
-
-  public static void assertNotMatchesRegex(String regex, String actual) {
-    assertThat(actual).doesNotMatch(regex);
-  }
-
   public static <T> void assertEquals(T expected, T actual, Comparator<T> comp) {
     assertThat(comp.compare(expected, actual)).isEqualTo(0);
-  }
-
-  public static <T> void assertContentsAnyOrder(
-      Iterable<? extends T> expected, Iterable<? extends T> actual,
-      Comparator<? super T> comp) {
-    assertThat(actual).hasSize(Iterables.size(expected));
-    int i = 0;
-    for (T e : expected) {
-      for (T a : actual) {
-        if (comp.compare(e, a) == 0) {
-          i++;
-        }
-      }
-    }
-    assertThat(actual).hasSize(i);
-  }
-
-  public static void assertGreaterThanOrEqual(long target, long actual) {
-    assertThat(actual).isAtLeast(target);
-  }
-
-  public static void assertGreaterThanOrEqual(String msg, long target, long actual) {
-    assertWithMessage(msg).that(actual).isAtLeast(target);
-  }
-
-  public static void assertGreaterThan(long target, long actual) {
-    assertThat(actual).isGreaterThan(target);
-  }
-
-  public static void assertGreaterThan(String msg, long target, long actual) {
-    assertWithMessage(msg).that(actual).isGreaterThan(target);
-  }
-
-  public static void assertLessThanOrEqual(long target, long actual) {
-    assertThat(actual).isAtMost(target);
-  }
-
-  public static void assertLessThanOrEqual(String msg, long target, long actual) {
-    assertWithMessage(msg).that(actual).isAtMost(target);
-  }
-
-  public static void assertLessThan(long target, long actual) {
-    assertThat(actual).isLessThan(target);
-  }
-
-  public static void assertLessThan(String msg, long target, long actual) {
-    assertWithMessage(msg).that(actual).isLessThan(target);
-  }
-
-  public static void assertEndsWith(String ending, String actual) {
-    assertThat(actual).endsWith(ending);
-  }
-
-  public static void assertStartsWith(String prefix, String actual) {
-    assertThat(actual).startsWith(prefix);
   }
 
   /**
@@ -141,15 +65,9 @@ public class MoreAsserts {
    */
   public static void assertInstanceOfNotReachable(
       Object start, final Class<?> clazz) {
-    Predicate<Object> p = new Predicate<Object>() {
-      @Override
-      public boolean apply(Object obj) {
-        return clazz.isAssignableFrom(obj.getClass());
-      }
-    };
+    Predicate<Object> p = obj -> clazz.isAssignableFrom(obj.getClass());
     if (isRetained(p, start)) {
-      assert_().fail(
-          "Found an instance of " + clazz.getCanonicalName() + " reachable from " + start);
+      fail("Found an instance of " + clazz.getCanonicalName() + " reachable from " + start);
     }
   }
 
@@ -197,7 +115,15 @@ public class MoreAsserts {
               continue;
             }
 
-            f.setAccessible(true);
+            try {
+              f.setAccessible(true);
+            } catch (RuntimeException e) {
+              // JDK9 can throw InaccessibleObjectException when internal modules are accessed.
+              // This isn't available in JDK8, so catch RuntimeException
+              // We can use a JVM arg --add_opens to suppress that, but that involves every
+              // test adding every JVM module to the target.
+              continue;
+            }
             try {
               Object ref = f.get(current);
               if (ref != null) {
@@ -243,8 +169,9 @@ public class MoreAsserts {
   public static void assertContainsWordsWithQuotes(String message,
       String... strings) {
     for (String string : strings) {
-      assertTrue(message + " should contain '" + string + "' (with quotes)",
-          message.contains("'" + string + "'"));
+      assertWithMessage(message + " should contain '" + string + "' (with quotes)")
+          .that(message.contains("'" + string + "'"))
+          .isTrue();
     }
   }
 
@@ -305,10 +232,295 @@ public class MoreAsserts {
     return set;
   }
 
-  public static <T> void
-  assertSameContents(Iterable<? extends T> expected, Iterable<? extends T> actual) {
-    if (!Sets.newHashSet(expected).equals(Sets.newHashSet(actual))) {
-      fail("got string set: " + asStringSet(actual) + "\nwant: " + asStringSet(expected));
+  /**
+   * If the specified EventCollector contains any events, an informative
+   * assertion fails in the context of the specified TestCase.
+   */
+  public static void assertNoEvents(Iterable<Event> eventCollector) {
+    String eventsString = eventsToString(eventCollector);
+    assertThat(eventsString).isEmpty();
+  }
+
+  /**
+   * If the specified EventCollector contains an unexpected number of events, an informative
+   * assertion fails in the context of the specified TestCase.
+   */
+  public static void assertEventCount(int expectedCount, EventCollector eventCollector) {
+    assertWithMessage(eventsToString(eventCollector))
+        .that(eventCollector.count()).isEqualTo(expectedCount);
+  }
+
+  /**
+   * If the specified EventCollector contains an unexpected number of events, an informative
+   * assertion fails in the context of the specified TestCase.
+   */
+  public static void assertEventCountAtLeast(int minCount, EventCollector eventCollector) {
+    assertWithMessage(eventsToString(eventCollector))
+        .that(eventCollector.count())
+        .isAtLeast(minCount);
+  }
+
+  /**
+   * If the specified EventCollector does not contain an event which has 'expectedEvent' as a
+   * substring, an informative assertion fails. Otherwise the matching event is returned.
+   */
+  public static Event assertContainsEvent(Iterable<Event> eventCollector, String expectedEvent) {
+    return assertContainsEvent(eventCollector, expectedEvent, EventKind.ALL_EVENTS);
+  }
+
+  /**
+   * If the specified EventCollector does not contain an event which has
+   * 'expectedEvent' as a substring, an informative assertion fails. Otherwise
+   * the matching event is returned.
+   */
+  public static Event assertContainsEvent(Iterable<Event> eventCollector,
+      String expectedEvent, EventKind kind) {
+    return assertContainsEvent(eventCollector, expectedEvent, ImmutableSet.of(kind));
+  }
+
+  /**
+   * If the specified EventCollector does not contain an event of a kind of 'kinds' which has
+   * 'expectedEvent' as a substring, an informative assertion fails. Otherwise
+   * the matching event is returned.
+   */
+  public static Event assertContainsEvent(Iterable<Event> eventCollector,
+                                          String expectedEvent,
+                                          Set<EventKind> kinds) {
+    for (Event event : eventCollector) {
+      // We want to be able to check for the location and the message type (error / warning).
+      // Consequently, we use toString() instead of getMessage().
+      if (event.toString().contains(expectedEvent) && kinds.contains(event.getKind())) {
+        return event;
+      }
     }
+    String eventsString = eventsToString(eventCollector);
+    assertWithMessage("Event '" + expectedEvent + "' not found"
+        + (eventsString.length() == 0 ? "" : ("; found these though:" + eventsString)))
+        .that(false).isTrue();
+    return null; // unreachable
+  }
+
+  /**
+   * If {@code eventCollector} does not contain an event which matches {@code expectedEventRegex},
+   * fails with an informative assertion.
+   */
+  public static void assertContainsEventRegex(
+      Iterable<Event> eventCollector, String expectedEventRegex) {
+    for (Event event : eventCollector) {
+      if (event.toString().matches(expectedEventRegex)) {
+        return;
+      }
+    }
+    String eventsString = eventsToString(eventCollector);
+    String failureMessage = "Event matching '" + expectedEventRegex + "' not found";
+    if (!eventsString.isEmpty()) {
+      failureMessage += "; found these though: " + eventsString;
+    }
+    fail(failureMessage);
+  }
+
+  public static void assertNotContainsEventRegex(
+      Iterable<Event> eventCollector, String unexpectedEventRegex) {
+    for (Event event : eventCollector) {
+      assertThat(event.toString()).doesNotMatch(unexpectedEventRegex);
+    }
+  }
+
+  /**
+   * If the specified EventCollector contains an event which has
+   * 'expectedEvent' as a substring, an informative assertion fails.
+   */
+  public static void assertDoesNotContainEvent(Iterable<Event> eventCollector,
+                                          String expectedEvent) {
+    for (Event event : eventCollector) {
+      assertWithMessage("Unexpected string '" + expectedEvent + "' matched following event:\n"
+          + event.getMessage()).that(event.getMessage()).doesNotContain(expectedEvent);
+    }
+  }
+
+  /**
+   * If the specified EventCollector does not contain an event which has
+   * each of {@code words} surrounded by single quotes as a substring, an
+   * informative assertion fails.  Otherwise the matching event is returned.
+   */
+  public static Event assertContainsEventWithWordsInQuotes(
+      Iterable<Event> eventCollector,
+      String... words) {
+    for (Event event : eventCollector) {
+      boolean found = true;
+      for (String word : words) {
+        if (!event.getMessage().contains("'" + word + "'")) {
+          found = false;
+          break;
+        }
+      }
+      if (found) {
+        return event;
+      }
+    }
+    String eventsString = eventsToString(eventCollector);
+    assertWithMessage("Event containing words " + Arrays.toString(words) + " in "
+        + "single quotes not found"
+        + (eventsString.length() == 0 ? "" : ("; found these though:" + eventsString)))
+        .that(false).isTrue();
+    return null; // unreachable
+  }
+
+  /**
+   * Returns a string consisting of each event in the specified collector,
+   * preceded by a newline.
+   */
+  private static String eventsToString(Iterable<Event> eventCollector) {
+    StringBuilder buf = new StringBuilder();
+    eventLoop: for (Event event : eventCollector) {
+      for (String ignoredPrefix : TestConstants.IGNORED_MESSAGE_PREFIXES) {
+        if (event.getMessage().startsWith(ignoredPrefix)) {
+          continue eventLoop;
+        }
+      }
+      buf.append('\n').append(event);
+    }
+    return buf.toString();
+  }
+
+  /**
+   * If "expectedSublist" is not a sublist of "arguments", an informative
+   * assertion is failed in the context of the specified TestCase.
+   *
+   * <p>Argument order mnemonic: assert(X)ContainsSublist(Y).
+   */
+  @SuppressWarnings({"unchecked", "varargs"})
+  public static <T> void assertContainsSublist(List<T> arguments, T... expectedSublist) {
+    List<T> sublist = Arrays.asList(expectedSublist);
+    try {
+      assertThat(Collections.indexOfSubList(arguments, sublist)).isNotEqualTo(-1);
+    } catch (AssertionError e) {
+      throw new AssertionError("Did not find " + sublist + " as a sublist of " + arguments, e);
+    }
+  }
+
+  /**
+   * If "expectedSublist" is a sublist of "arguments", an informative
+   * assertion is failed in the context of the specified TestCase.
+   *
+   * <p>Argument order mnemonic: assert(X)DoesNotContainSublist(Y).
+   */
+  @SuppressWarnings({"unchecked", "varargs"})
+  public static <T> void assertDoesNotContainSublist(List<T> arguments, T... expectedSublist) {
+    List<T> sublist = Arrays.asList(expectedSublist);
+    try {
+      assertThat(Collections.indexOfSubList(arguments, sublist)).isEqualTo(-1);
+    } catch (AssertionError e) {
+      throw new AssertionError("Found " + sublist + " as a sublist of " + arguments, e);
+    }
+  }
+
+  /**
+   * Check to see if each element of expectedMessages is the beginning of a message in
+   * eventCollector, in order, as in {@link #containsSublistWithGapsAndEqualityChecker}. If not, an
+   * informative assertion is failed
+   */
+  public static void assertContainsEventsInOrder(
+      Iterable<Event> eventCollector, String... expectedMessages) {
+    String failure =
+        containsSublistWithGapsAndEqualityChecker(
+            ImmutableList.copyOf(eventCollector),
+            pair -> pair.first.getMessage().contains(pair.second),
+            expectedMessages);
+
+    String eventsString = eventsToString(eventCollector);
+    assertWithMessage("Event '" + failure + "' not found in proper order"
+        + (eventsString.length() == 0 ? "" : ("; found these though:" + eventsString)))
+        .that(failure).isNull();
+  }
+
+  /**
+   * Check to see if each element of expectedSublist is in arguments, according to
+   * the equalityChecker, in the same order as in expectedSublist (although with
+   * other interspersed elements in arguments allowed).
+   * @param equalityChecker function that takes a Pair<S, T> element and returns true
+   * if the elements of the pair are equal by its lights.
+   * @return first element not in arguments in order, or null if success.
+   */
+  @SuppressWarnings({"unchecked"})
+  protected static <S, T> T containsSublistWithGapsAndEqualityChecker(List<S> arguments,
+      Function<Pair<S, T>, Boolean> equalityChecker, T... expectedSublist) {
+    Iterator<S> iter = arguments.iterator();
+    outerLoop:
+    for (T expected : expectedSublist) {
+      while (iter.hasNext()) {
+        S actual = iter.next();
+        if (equalityChecker.apply(Pair.of(actual, expected))) {
+          continue outerLoop;
+        }
+      }
+      return expected;
+    }
+    return null;
+  }
+
+  public static List<Event> assertContainsEventWithFrequency(Iterable<Event> events,
+      String expectedMessage, int expectedFrequency) {
+    ImmutableList.Builder<Event> builder = ImmutableList.builder();
+    for (Event event : events) {
+      if (event.getMessage().contains(expectedMessage)) {
+        builder.add(event);
+      }
+    }
+    List<Event> foundEvents = builder.build();
+    assertWithMessage(events.toString()).that(foundEvents).hasSize(expectedFrequency);
+    return foundEvents;
+  }
+
+  /*
+   * This method will be in JUnit 4.13. Instead of patching Bazel's JUnit jar to contain the
+   * <a href="https://github.com/junit-team/junit4/commit/bdb1799">patch</a>, we define it here.
+   * Once JUnit 4.13 is released, we will switcher callers to use org.junit.Assert#assertThrows
+   * instead. See https://github.com/bazelbuild/bazel/issues/3729.
+   */
+  public static <T extends Throwable> T assertThrows(
+      Class<T> expectedThrowable, ThrowingRunnable runnable) {
+    return assertThrows("", expectedThrowable, runnable);
+  }
+
+  /*
+   * This method will be in JUnit 4.13. Instead of patching Bazel's JUnit jar to contain the
+   * <a href="https://github.com/junit-team/junit4/commit/bdb1799">patch</a>, we define it here.
+   * Once JUnit 4.13 is released, we will switcher callers to use org.junit.Assert#assertThrows
+   * instead. See https://github.com/bazelbuild/bazel/issues/3729.
+   */
+  public static <T extends Throwable> T assertThrows(
+      String message, Class<T> expectedThrowable, ThrowingRunnable runnable) {
+    try {
+      runnable.run();
+    } catch (Throwable actualThrown) {
+      if (expectedThrowable.isInstance(actualThrown)) {
+        @SuppressWarnings("unchecked")
+        T retVal = (T) actualThrown;
+        return retVal;
+      } else {
+        throw new AssertionError(
+            buildPrefix(message)
+                + String.format(
+                    "expected %s to be thrown, but %s was thrown",
+                    expectedThrowable.getSimpleName(), actualThrown.getClass().getSimpleName()),
+            actualThrown);
+      }
+    }
+    String mismatchMessage =
+        buildPrefix(message)
+            + String.format(
+                "expected %s to be thrown, but nothing was thrown",
+                expectedThrowable.getSimpleName());
+    throw new AssertionError(mismatchMessage);
+  }
+
+  private static String buildPrefix(String message) {
+    return message != null && message.length() != 0 ? message + ": " : "";
+  }
+
+  /** A helper interface for {@link #assertThrows}. */
+  public interface ThrowingRunnable {
+    void run() throws Throwable;
   }
 }

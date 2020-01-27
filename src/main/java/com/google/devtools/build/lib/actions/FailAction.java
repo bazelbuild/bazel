@@ -1,4 +1,4 @@
-// Copyright 2014 Google Inc. All rights reserved.
+// Copyright 2014 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,14 +14,18 @@
 
 package com.google.devtools.build.lib.actions;
 
-import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
+import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.util.Fingerprint;
 
 /**
- * FailAction is an Action that always fails to execute.  (Used as scaffolding
- * for rules we haven't yet implemented.  Also useful for testing.)
+ * FailAction is an Action that always fails to execute. (Used as scaffolding for rules we haven't
+ * yet implemented. Also useful for testing.)
  */
-@ThreadSafe
+@AutoCodec
+@Immutable
 public final class FailAction extends AbstractAction {
 
   private static final String GUID = "626cb78a-810f-4af3-979c-ee194955f04c";
@@ -29,7 +33,7 @@ public final class FailAction extends AbstractAction {
   private final String errorMessage;
 
   public FailAction(ActionOwner owner, Iterable<Artifact> outputs, String errorMessage) {
-    super(owner, ImmutableList.<Artifact>of(), outputs);
+    super(owner, NestedSetBuilder.emptySet(Order.STABLE_ORDER), outputs);
     this.errorMessage = errorMessage;
   }
 
@@ -38,32 +42,27 @@ public final class FailAction extends AbstractAction {
     return null;
   }
 
+  public String getErrorMessage() {
+    return errorMessage;
+  }
+
   @Override
-  public void execute(
-      ActionExecutionContext actionExecutionContext)
-  throws ActionExecutionException {
+  public ActionResult execute(ActionExecutionContext actionExecutionContext)
+      throws ActionExecutionException {
     throw new ActionExecutionException(errorMessage, this, false);
   }
 
   @Override
-  public ResourceSet estimateResourceConsumption(Executor executor) {
-    return ResourceSet.ZERO;
-  }
-
-  @Override
-  protected String computeKey() {
-    return GUID;
+  protected void computeKey(ActionKeyContext actionKeyContext, Fingerprint fp) {
+    fp.addString(GUID);
   }
 
   @Override
   protected String getRawProgressMessage() {
-    return "Building unsupported rule " + getOwner().getLabel()
-        + " located at " + getOwner().getLocation();
-  }
-
-  @Override
-  public String describeStrategy(Executor executor) {
-    return "";
+    return "Reporting failed target "
+        + getOwner().getLabel()
+        + " located at "
+        + getOwner().getLocation();
   }
 
   @Override

@@ -1,4 +1,4 @@
-// Copyright 2014 Google Inc. All rights reserved.
+// Copyright 2014 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,27 +17,29 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.base.Throwables;
-import com.google.common.collect.Iterables;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 import com.google.common.util.concurrent.SettableFuture;
+import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.concurrent.ThreadSafety;
+import com.google.devtools.build.lib.packages.Globber.BadGlobException;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.lib.vfs.UnixGlob;
-
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
-import java.util.LinkedHashSet;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Executor;
 import java.util.concurrent.Future;
-import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
 /**
@@ -45,12 +47,6 @@ import java.util.concurrent.atomic.AtomicReference;
  */
 @ThreadSafety.ThreadCompatible
 public class GlobCache {
-  public static class BadGlobException extends Exception {
-    BadGlobException(String message) {
-      super(message);
-    }
-  }
-
   /**
    * A mapping from glob expressions (e.g. "*.java") to the list of files it
    * matched (in the order returned by VFS) at the time the package was
@@ -80,61 +76,58 @@ public class GlobCache {
    * System call caching layer.
    */
   private AtomicReference<? extends UnixGlob.FilesystemCalls> syscalls;
+  private final int maxDirectoriesToEagerlyVisit;
 
-  /**
-   * The thread pool for glob evaluation.
-   */
-  private final ThreadPoolExecutor globExecutor;
+  /** The thread pool for glob evaluation. */
+  private final Executor globExecutor;
+
+  private final AtomicBoolean globalStarted = new AtomicBoolean(false);
 
   /**
    * Create a glob expansion cache.
-   * @param packageDirectory globs will be expanded relatively to this
-   *                         directory.
+   *
+   * @param packageDirectory globs will be expanded relatively to this directory.
    * @param packageId the name of the package this cache belongs to.
    * @param locator the package locator.
    * @param globExecutor thread pool for glob evaluation.
+   * @param maxDirectoriesToEagerlyVisit the number of directories to eagerly traverse on the first
+   *     glob for a given package, in order to warm the filesystem. -1 means do no eager traversal.
+   *     See {@code PackageCacheOptions#maxDirectoriesToEagerlyVisitInGlobbing}.
    */
-  public GlobCache(final Path packageDirectory,
-                   final PackageIdentifier packageId,
-                   final CachingPackageLocator locator,
-                   AtomicReference<? extends UnixGlob.FilesystemCalls> syscalls,
-                   ThreadPoolExecutor globExecutor) {
+  public GlobCache(
+      final Path packageDirectory,
+      final PackageIdentifier packageId,
+      final ImmutableSet<PathFragment> blacklistedGlobPrefixes,
+      final CachingPackageLocator locator,
+      AtomicReference<? extends UnixGlob.FilesystemCalls> syscalls,
+      Executor globExecutor,
+      int maxDirectoriesToEagerlyVisit) {
     this.packageDirectory = Preconditions.checkNotNull(packageDirectory);
     this.packageId = Preconditions.checkNotNull(packageId);
     this.globExecutor = Preconditions.checkNotNull(globExecutor);
     this.syscalls = syscalls == null ? new AtomicReference<>(UnixGlob.DEFAULT_SYSCALLS) : syscalls;
+    this.maxDirectoriesToEagerlyVisit = maxDirectoriesToEagerlyVisit;
 
     Preconditions.checkNotNull(locator);
-    final PathFragment pkgNameFrag = packageId.getPackageFragment();
-    childDirectoryPredicate = new Predicate<Path>() {
-      @Override
-      public boolean apply(Path directory) {
-        if (directory.equals(packageDirectory)) {
-          return true;
-        }
+    childDirectoryPredicate =
+        directory -> {
+          if (directory.equals(packageDirectory)) {
+            return true;
+          }
 
-        PathFragment pkgName = pkgNameFrag.getRelative(directory.relativeTo(packageDirectory));
-        UnixGlob.FilesystemCalls syscalls = GlobCache.this.syscalls.get();
-        if (syscalls != UnixGlob.DEFAULT_SYSCALLS) {
-          // This is needed because in case the BUILD file exists, we do not call readdir() on its
-          // directory. However, the package needs to be re-evaluated if the BUILD file is removed.
-          // Therefore, we add this BUILD file to our dependencies by statting it through the
-          // recording syscall object so that the BUILD file itself is added to the dependencies of
-          // this package.
-          //
-          // The stat() call issued by locator.getBuildFileForPackage() does not quite cut it
-          // because 1. it is cached so there may not be a stat() call at all and 2. even if there
-          // is, it does not go through the proxy in GlobCache.this.syscalls.
-          //
-          // Note that this does not cause any significant slowdown; the BUILD file cache will have
-          // already evaluated the very same stat, so we don't pay any I/O cost, only a cache
-          // lookup.
-          syscalls.statNullable(directory.getChild("BUILD"), Symlinks.FOLLOW);
-        }
+          PathFragment subPackagePath =
+              packageId.getPackageFragment().getRelative(directory.relativeTo(packageDirectory));
 
-        return locator.getBuildFileForPackage(pkgName.getPathString()) == null;
-      }
-    };
+          for (PathFragment blacklistedPrefix : blacklistedGlobPrefixes) {
+            if (subPackagePath.startsWith(blacklistedPrefix)) {
+              return false;
+            }
+          }
+
+          PackageIdentifier subPackageId =
+              PackageIdentifier.create(packageId.getRepository(), subPackagePath);
+          return locator.getBuildFileForPackage(subPackageId) == null;
+        };
   }
 
   /**
@@ -147,26 +140,30 @@ public class GlobCache {
    * @throws BadGlobException if the glob was syntactically invalid, or
    *  contained uplevel references.
    */
-  Future<List<Path>> getGlobAsync(String pattern, boolean excludeDirs)
+  Future<List<Path>> getGlobUnsortedAsync(String pattern, boolean excludeDirs)
       throws BadGlobException {
     Future<List<Path>> cached = globCache.get(Pair.of(pattern, excludeDirs));
     if (cached == null) {
-      cached = safeGlob(pattern, excludeDirs);
+      if (maxDirectoriesToEagerlyVisit > -1
+          && !globalStarted.getAndSet(true)) {
+        packageDirectory.prefetchPackageAsync(maxDirectoriesToEagerlyVisit);
+      }
+      cached = safeGlobUnsorted(pattern, excludeDirs);
       setGlobPaths(pattern, excludeDirs, cached);
     }
     return cached;
   }
 
   @VisibleForTesting
-  List<String> getGlob(String pattern)
+  List<String> getGlobUnsorted(String pattern)
       throws IOException, BadGlobException, InterruptedException {
-    return getGlob(pattern, false);
+    return getGlobUnsorted(pattern, false);
   }
 
   @VisibleForTesting
-  protected List<String> getGlob(String pattern, boolean excludeDirs)
+  protected List<String> getGlobUnsorted(String pattern, boolean excludeDirs)
       throws IOException, BadGlobException, InterruptedException {
-    Future<List<Path>> futureResult = getGlobAsync(pattern, excludeDirs);
+    Future<List<Path>> futureResult = getGlobUnsortedAsync(pattern, excludeDirs);
     List<Path> globPaths = fromFuture(futureResult);
     // Replace the UnixGlob.GlobFuture with a completed future object, to allow
     // garbage collection of the GlobFuture and GlobVisitor objects.
@@ -183,17 +180,18 @@ public class GlobCache {
       // invalid as a label, plus users should say explicitly if they
       // really want to name the package directory.
       if (!relative.isEmpty()) {
+        if (relative.charAt(0) == '@') {
+          // Add explicit colon to disambiguate from external repository.
+          relative = ":" + relative;
+        }
         result.add(relative);
       }
     }
     return result;
   }
 
-  /**
-   * Adds glob entries to the cache, making sure they are sorted first.
-   */
-  @VisibleForTesting
-  void setGlobPaths(String pattern, boolean excludeDirectories, Future<List<Path>> result) {
+  /** Adds glob entries to the cache. */
+  private void setGlobPaths(String pattern, boolean excludeDirectories, Future<List<Path>> result) {
     globCache.put(Pair.of(pattern, excludeDirectories), result);
   }
 
@@ -202,7 +200,7 @@ public class GlobCache {
    * getGlob().
    */
   @VisibleForTesting
-  Future<List<Path>> safeGlob(String pattern, boolean excludeDirs) throws BadGlobException {
+  Future<List<Path>> safeGlobUnsorted(String pattern, boolean excludeDirs) throws BadGlobException {
     // Forbidden patterns:
     if (pattern.indexOf('?') != -1) {
       throw new BadGlobException("glob pattern '" + pattern + "' contains forbidden '?' wildcard");
@@ -216,9 +214,9 @@ public class GlobCache {
         .addPattern(pattern)
         .setExcludeDirectories(excludeDirs)
         .setDirectoryFilter(childDirectoryPredicate)
-        .setThreadPool(globExecutor)
+        .setExecutor(globExecutor)
         .setFilesystemCalls(syscalls)
-        .globAsync(true);
+        .globAsync();
   }
 
   /**
@@ -238,67 +236,39 @@ public class GlobCache {
   }
 
   /**
-   * Returns true iff all this package's globs are up-to-date.  That is,
-   * re-evaluating the package's BUILD file at this moment would yield an
-   * equivalent Package instance.  (This call requires filesystem I/O to
-   * re-evaluate the globs.)
-   */
-  public boolean globsUpToDate() throws InterruptedException {
-    // Start all globs in parallel.
-    Map<Pair<String, Boolean>, Future<List<Path>>> newGlobs = new HashMap<>();
-    try {
-      for (Map.Entry<Pair<String, Boolean>, Future<List<Path>>> entry : globCache.entrySet()) {
-        Pair<String, Boolean> key = entry.getKey();
-        try {
-          newGlobs.put(key, safeGlob(key.first, key.second));
-        } catch (BadGlobException e) {
-          return false;
-        }
-      }
-
-      for (Map.Entry<Pair<String, Boolean>, Future<List<Path>>> entry : globCache.entrySet()) {
-        try {
-          Pair<String, Boolean> key = entry.getKey();
-          List<Path> newGlob = fromFuture(newGlobs.get(key));
-          List<Path> oldGlob = fromFuture(entry.getValue());
-          if (!oldGlob.equals(newGlob)) {
-            return false;
-          }
-        } catch (IOException e) {
-          return false;
-        }
-      }
-
-      return true;
-    } finally {
-      finishBackgroundTasks(newGlobs.values());
-    }
-  }
-
-  /**
-   * Evaluate the build language expression "glob(includes, excludes)" in the
-   * context of this package.
+   * Helper for evaluating the build language expression "glob(includes, excludes)" in the context
+   * of this package.
    *
    * <p>Called by PackageFactory via Package.
    */
-  public List<String> glob(List<String> includes, List<String> excludes, boolean excludeDirs)
+  public List<String> globUnsorted(
+      List<String> includes, List<String> excludes, boolean excludeDirs, boolean allowEmpty)
       throws IOException, BadGlobException, InterruptedException {
     // Start globbing all patterns in parallel. The getGlob() calls below will
     // block on an individual pattern's results, but the other globs can
     // continue in the background.
-    for (String pattern : Iterables.concat(includes, excludes)) {
-      getGlobAsync(pattern, excludeDirs);
-    }
-
-    Set<String> results = new LinkedHashSet<>();
     for (String pattern : includes) {
-      results.addAll(getGlob(pattern, excludeDirs));
-    }
-    for (String pattern : excludes) {
-      results.removeAll(getGlob(pattern, excludeDirs));
+      @SuppressWarnings("unused") 
+      Future<?> possiblyIgnoredError = getGlobUnsortedAsync(pattern, excludeDirs);
     }
 
+    HashSet<String> results = new HashSet<>();
     Preconditions.checkState(!results.contains(null), "glob returned null");
+    for (String pattern : includes) {
+      List<String> items = getGlobUnsorted(pattern, excludeDirs);
+      if (!allowEmpty && items.isEmpty()) {
+        throw new BadGlobException(
+            "glob pattern '"
+                + pattern
+                + "' didn't match anything, but allow_empty is set to False.");
+      }
+      results.addAll(items);
+    }
+    UnixGlob.removeExcludes(results, excludes);
+    if (!allowEmpty && results.isEmpty()) {
+      throw new BadGlobException(
+          "all files in the glob have been excluded, but allow_empty is set to False.");
+    }
     return new ArrayList<>(results);
   }
 
@@ -321,7 +291,7 @@ public class GlobCache {
     for (Future<List<Path>> task : tasks) {
       try {
         fromFuture(task);
-      } catch (IOException | InterruptedException e) {
+      } catch (CancellationException | IOException | InterruptedException e) {
         // Ignore: If this was still going on in the background, some other
         // failure already occurred.
       }
@@ -331,10 +301,12 @@ public class GlobCache {
   private static void cancelBackgroundTasks(Collection<Future<List<Path>>> tasks) {
     for (Future<List<Path>> task : tasks) {
       task.cancel(true);
+    }
 
+    for (Future<List<Path>> task : tasks) {
       try {
         task.get();
-      } catch (ExecutionException | InterruptedException e) {
+      } catch (CancellationException | ExecutionException | InterruptedException e) {
         // We don't care. Point is, the task does not bother us anymore.
       }
     }

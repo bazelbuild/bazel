@@ -1,4 +1,4 @@
-// Copyright 2014 Google Inc. All rights reserved.
+// Copyright 2014 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,23 +16,29 @@ package com.google.devtools.build.lib.analysis;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
-import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
+import com.google.devtools.build.lib.actions.CommandLine;
 import com.google.devtools.build.lib.analysis.SourceManifestAction.ManifestType;
 import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
+import com.google.devtools.build.lib.analysis.actions.SymlinkTreeAction;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.RunUnder;
-import com.google.devtools.build.lib.collect.IterablesChain;
+import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.TargetUtils;
+import com.google.devtools.build.lib.packages.Type;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
-
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import javax.annotation.Nullable;
 
 /**
  * This class manages the creation of the runfiles symlink farms.
@@ -64,98 +70,135 @@ import java.util.Set;
  * in the dependency analysis, we create a Middleman Artifact which depends on all of these. Actions
  * which will run an executable should depend on this Middleman Artifact.
  */
-public class RunfilesSupport {
+@Immutable
+@AutoCodec
+public final class RunfilesSupport {
   private static final String RUNFILES_DIR_EXT = ".runfiles";
+  private static final String INPUT_MANIFEST_EXT = ".runfiles_manifest";
+  private static final String OUTPUT_MANIFEST_BASENAME = "MANIFEST";
 
   private final Runfiles runfiles;
 
   private final Artifact runfilesInputManifest;
   private final Artifact runfilesManifest;
   private final Artifact runfilesMiddleman;
-  private final Artifact sourcesManifest;
   private final Artifact owningExecutable;
-  private final boolean createSymlinks;
-  private final ImmutableList<String> args;
+  private final boolean buildRunfileLinks;
+  private final boolean runfilesEnabled;
+  private final CommandLine args;
 
   /**
    * Creates the RunfilesSupport helper with the given executable and runfiles.
    *
    * @param ruleContext the rule context to create the runfiles support for
-   * @param executable the executable for whose runfiles this runfiles support is responsible, may
-   *        be null
+   * @param executable the executable for whose runfiles this runfiles support is responsible
    * @param runfiles the runfiles
-   * @param appendingArgs to be added after the rule's args
    */
-  private RunfilesSupport(RuleContext ruleContext, Artifact executable, Runfiles runfiles,
-      List<String> appendingArgs, boolean createSymlinks) {
-    owningExecutable = executable;
-    this.createSymlinks = createSymlinks;
+  private static RunfilesSupport create(
+      RuleContext ruleContext, Artifact executable, Runfiles runfiles, CommandLine args) {
+    Artifact owningExecutable = Preconditions.checkNotNull(executable);
+    boolean createManifest = ruleContext.getConfiguration().buildRunfilesManifests();
+    boolean buildRunfileLinks = ruleContext.getConfiguration().buildRunfileLinks();
 
     // Adding run_under target to the runfiles manifest so it would become part
     // of runfiles tree and would be executable everywhere.
     RunUnder runUnder = ruleContext.getConfiguration().getRunUnder();
-    if (runUnder != null && runUnder.getLabel() != null
+    if (runUnder != null
+        && runUnder.getLabel() != null
         && TargetUtils.isTestRule(ruleContext.getRule())) {
       TransitiveInfoCollection runUnderTarget =
-          ruleContext.getPrerequisite(":run_under", Mode.DATA);
-      runfiles = new Runfiles.Builder()
-          .merge(getRunfiles(runUnderTarget))
-          .merge(runfiles)
-          .build();
+          ruleContext.getPrerequisite(":run_under", Mode.DONT_CHECK);
+      runfiles =
+          new Runfiles.Builder(
+                  ruleContext.getWorkspaceName(),
+                  ruleContext.getConfiguration().legacyExternalRunfiles())
+              .merge(getRunfiles(runUnderTarget, ruleContext.getWorkspaceName()))
+              .merge(runfiles)
+              .build();
     }
-    this.runfiles = runfiles;
-
     Preconditions.checkState(!runfiles.isEmpty());
 
-    Map<PathFragment, Artifact> symlinks = getRunfilesSymlinks();
-    if (executable != null && !symlinks.containsValue(executable)) {
-      throw new IllegalStateException("main program " + executable + " not included in runfiles");
+    Artifact runfilesInputManifest;
+    Artifact runfilesManifest;
+    if (createManifest) {
+      runfilesInputManifest = createRunfilesInputManifestArtifact(ruleContext, owningExecutable);
+      runfilesManifest =
+          createRunfilesAction(ruleContext, runfiles, buildRunfileLinks, runfilesInputManifest);
+    } else {
+      runfilesInputManifest = null;
+      runfilesManifest = null;
     }
+    Artifact runfilesMiddleman =
+        createRunfilesMiddleman(ruleContext, owningExecutable, runfiles, runfilesManifest);
 
-    runfilesInputManifest = createRunfilesInputManifestArtifact(ruleContext);
-    this.runfilesManifest = createRunfilesAction(ruleContext, runfiles);
-    this.runfilesMiddleman = createRunfilesMiddleman(ruleContext, runfiles.getAllArtifacts());
-    sourcesManifest = createSourceManifest(ruleContext, runfiles);
+    boolean runfilesEnabled = ruleContext.getConfiguration().runfilesEnabled();
 
-    args = ImmutableList.<String>builder()
-        .addAll(ruleContext.getTokenizedStringListAttr("args", ruleContext))
-        .addAll(appendingArgs)
-        .build();
+    return new RunfilesSupport(
+        runfiles,
+        runfilesInputManifest,
+        runfilesManifest,
+        runfilesMiddleman,
+        owningExecutable,
+        buildRunfileLinks,
+        runfilesEnabled,
+        args);
   }
 
-  private RunfilesSupport(Runfiles runfiles, Artifact runfilesInputManifest,
-      Artifact runfilesManifest, Artifact runfilesMiddleman, Artifact sourcesManifest,
-      Artifact owningExecutable, boolean createSymlinks, ImmutableList<String> args) {
+  @AutoCodec.Instantiator
+  @VisibleForSerialization
+  RunfilesSupport(
+      Runfiles runfiles,
+      Artifact runfilesInputManifest,
+      Artifact runfilesManifest,
+      Artifact runfilesMiddleman,
+      Artifact owningExecutable,
+      boolean buildRunfileLinks,
+      boolean runfilesEnabled,
+      CommandLine args) {
     this.runfiles = runfiles;
     this.runfilesInputManifest = runfilesInputManifest;
     this.runfilesManifest = runfilesManifest;
     this.runfilesMiddleman = runfilesMiddleman;
-    this.sourcesManifest = sourcesManifest;
     this.owningExecutable = owningExecutable;
-    this.createSymlinks = createSymlinks;
+    this.buildRunfileLinks = buildRunfileLinks;
+    this.runfilesEnabled = runfilesEnabled;
     this.args = args;
   }
 
-  /**
-   * Returns the executable owning this RunfilesSupport. Only use from Skylark.
-   */
+  /** Returns the executable owning this RunfilesSupport. Only use from Skylark. */
   public Artifact getExecutable() {
     return owningExecutable;
   }
 
-  /**
-   * Returns the exec path of the directory where the runfiles contained in this
-   * RunfilesSupport are generated. When the owning rule has no executable,
-   * returns null.
-   */
-  public PathFragment getRunfilesDirectoryExecPath() {
-    if (owningExecutable == null) {
-      return null;
-    }
+  public static PathFragment getRunfilesDirectoryExecPath(Artifact executable) {
+    PathFragment executablePath = executable.getExecPath();
+    return executablePath
+        .getParentDirectory()
+        .getChild(executablePath.getBaseName() + RUNFILES_DIR_EXT);
+  }
 
-    PathFragment executablePath = owningExecutable.getExecPath();
-    return executablePath.getParentDirectory().getChild(
-        executablePath.getBaseName() + RUNFILES_DIR_EXT);
+  /** Returns the path of the runfiles directory relative to the exec root. */
+  public PathFragment getRunfilesDirectoryExecPath() {
+    return getRunfilesDirectoryExecPath(owningExecutable);
+  }
+
+  /**
+   * Returns {@code true} if runfile symlinks should be materialized when building an executable.
+   *
+   * <p>Also see {@link #isRunfilesEnabled()}.
+   */
+  public boolean isBuildRunfileLinks() {
+    return buildRunfileLinks;
+  }
+
+  /**
+   * Returns {@code true} if runfile symlinks are enabled.
+   *
+   * <p>This option differs from {@link #isBuildRunfileLinks()} in that if {@code false} it also
+   * disables runfile symlinks creation during run/test.
+   */
+  public boolean isRunfilesEnabled() {
+    return runfilesEnabled;
   }
 
   public Runfiles getRunfiles() {
@@ -163,49 +206,54 @@ public class RunfilesSupport {
   }
 
   /**
-   * For executable programs, the .runfiles_manifest file outside of the
-   * runfiles symlink farm; otherwise, returns null.
+   * Returns the .runfiles_manifest file outside of the runfiles symlink farm. Returns null if
+   * --nobuild_runfile_manifests is in effect.
    *
-   * <p>The MANIFEST file represents the contents of all of the symlinks in the
-   * symlink farm. For efficiency, Blaze's dependency analysis ignores the
-   * actual symlinks and just looks at the MANIFEST file. It is an invariant
-   * that the MANIFEST file should accurately represent the contents of the
-   * symlinks whenever the MANIFEST file is present.
+   * <p>The MANIFEST file represents the contents of all of the symlinks in the symlink farm. For
+   * efficiency, Blaze's dependency analysis ignores the actual symlinks and just looks at the
+   * MANIFEST file. It is an invariant that the MANIFEST file should accurately represent the
+   * contents of the symlinks whenever the MANIFEST file is present.
    */
+  @Nullable
   public Artifact getRunfilesInputManifest() {
     return runfilesInputManifest;
   }
 
-  private Artifact createRunfilesInputManifestArtifact(ActionConstructionContext context) {
+  private static Artifact createRunfilesInputManifestArtifact(
+      RuleContext context, Artifact owningExecutable) {
     // The executable may be null for emptyRunfiles
-    PathFragment relativePath = (owningExecutable != null)
-        ? owningExecutable.getRootRelativePath()
-        : Util.getWorkspaceRelativePath(context.getRule());
+    PathFragment relativePath =
+        (owningExecutable != null)
+            ? owningExecutable.getRootRelativePath()
+            : context.getPackageDirectory().getRelative(context.getLabel().getName());
     String basename = relativePath.getBaseName();
-    PathFragment inputManifestPath = relativePath.replaceName(basename + ".runfiles_manifest");
-    return context.getAnalysisEnvironment().getDerivedArtifact(inputManifestPath,
-        context.getConfiguration().getBinDirectory());
+    PathFragment inputManifestPath = relativePath.replaceName(basename + INPUT_MANIFEST_EXT);
+    return context.getDerivedArtifact(
+        inputManifestPath,
+        context.getConfiguration().getBinDirectory(context.getRule().getRepository()));
   }
 
   /**
-   * For executable programs, returns the MANIFEST file in the runfiles
-   * symlink farm, if blaze is run with --build_runfile_links; returns
-   * the .runfiles_manifest file outside of the symlink farm, if blaze
-   * is run with --nobuild_runfile_links.
-   * <p>
-   * Beware: In most cases {@link #getRunfilesInputManifest} is the more
-   * appropriate function.
+   * Returns the MANIFEST file in the runfiles symlink farm if Bazel is run with
+   * --build_runfile_links. Returns the .runfiles_manifest file outside of the symlink farm, if
+   * Bazel is run with --nobuild_runfile_links. Returns null if --nobuild_runfile_manifests is
+   * passed.
+   *
+   * <p>Beware: In most cases {@link #getRunfilesInputManifest} is the more appropriate function.
    */
+  @Nullable
   public Artifact getRunfilesManifest() {
     return runfilesManifest;
   }
 
-  /**
-   * For executable programs, the root directory of the runfiles symlink farm;
-   * otherwise, returns null.
-   */
+  /** Returns the root directory of the runfiles symlink farm; otherwise, returns null. */
+  @Nullable
   public Path getRunfilesDirectory() {
-    return FileSystemUtils.replaceExtension(getRunfilesInputManifest().getPath(), RUNFILES_DIR_EXT);
+    Artifact inputManifest = getRunfilesInputManifest();
+    if (inputManifest == null) {
+      return null;
+    }
+    return FileSystemUtils.replaceExtension(inputManifest.getPath(), RUNFILES_DIR_EXT);
   }
 
   /**
@@ -235,96 +283,98 @@ public class RunfilesSupport {
   }
 
   /**
-   * Returns both runfiles artifacts and "conditional" artifacts that may be part of a
-   * Runfiles PruningManifest. This means the returned set may be an overapproximation of the
-   * actual set of runfiles (see {@link Runfiles.PruningManifest}).
+   * Returns both runfiles artifacts and "conditional" artifacts that may be part of a Runfiles
+   * PruningManifest. This means the returned set may be an overapproximation of the actual set of
+   * runfiles (see {@link Runfiles.PruningManifest}).
    */
-  public Iterable<Artifact> getRunfilesArtifactsWithoutMiddlemen() {
-    return runfiles.getArtifactsWithoutMiddlemen();
+  public NestedSet<Artifact> getRunfilesArtifacts() {
+    return runfiles.getArtifacts();
+  }
+
+  /** Returns the name of the workspace that the build is occurring in. */
+  public PathFragment getWorkspaceName() {
+    return runfiles.getSuffix();
   }
 
   /**
-   * Returns the middleman artifact that depends on getExecutable(),
-   * getRunfilesManifest(), and getRunfilesSymlinkTargets(). Anything which
-   * needs to actually run the executable should depend on this.
+   * Returns the middleman artifact that depends on getExecutable(), getRunfilesManifest(), and
+   * getRunfilesSymlinkTargets(). Anything which needs to actually run the executable should depend
+   * on this.
    */
   public Artifact getRunfilesMiddleman() {
     return runfilesMiddleman;
   }
 
-  /**
-   * Returns the Sources manifest.
-   * This may be null if the owningRule has no executable.
-   */
-  public Artifact getSourceManifest() {
-    return sourcesManifest;
+  private static Artifact createRunfilesMiddleman(
+      ActionConstructionContext context,
+      Artifact owningExecutable,
+      Runfiles runfiles,
+      @Nullable Artifact runfilesManifest) {
+    NestedSetBuilder<Artifact> deps = NestedSetBuilder.stableOrder();
+    deps.addTransitive(runfiles.getAllArtifacts());
+    if (runfilesManifest != null) {
+      deps.add(runfilesManifest);
+    } else {
+      deps.addTransitive(SourceManifestAction.getDependencies(runfiles));
+    }
+    return context
+        .getAnalysisEnvironment()
+        .getMiddlemanFactory()
+        .createRunfilesMiddleman(
+            context.getActionOwner(),
+            owningExecutable,
+            deps.build(),
+            context.getMiddlemanDirectory(),
+            "runfiles");
   }
 
-  private Artifact createRunfilesMiddleman(ActionConstructionContext context,
-      Iterable<Artifact> allRunfilesArtifacts) {
-    Iterable<Artifact> inputs = IterablesChain.<Artifact>builder()
-        .add(allRunfilesArtifacts)
-        .addElement(runfilesManifest)
-        .build();
-    return context.getAnalysisEnvironment().getMiddlemanFactory().createRunfilesMiddleman(
-        context.getActionOwner(), owningExecutable, inputs,
-        context.getConfiguration().getMiddlemanDirectory());
-  }
-
   /**
-   * Creates a runfiles action for all of the specified files, and returns the
-   * output artifact (the artifact for the MANIFEST file).
+   * Creates a runfiles action for all of the specified files, and returns the output artifact (the
+   * artifact for the MANIFEST file).
    *
-   * <p>The "runfiles" action creates a symlink farm that links all the runfiles
-   * (which may come from different places, e.g. different package paths,
-   * generated files, etc.) into a single tree, so that programs can access them
-   * using the workspace-relative name.
+   * <p>The "runfiles" action creates a symlink farm that links all the runfiles (which may come
+   * from different places, e.g. different package paths, generated files, etc.) into a single tree,
+   * so that programs can access them using the workspace-relative name.
    */
-  private Artifact createRunfilesAction(ActionConstructionContext context, Runfiles runfiles) {
+  private static Artifact createRunfilesAction(
+      ActionConstructionContext context,
+      Runfiles runfiles,
+      boolean createSymlinks,
+      Artifact inputManifest) {
     // Compute the names of the runfiles directory and its MANIFEST file.
-    Artifact inputManifest = getRunfilesInputManifest();
-    context.getAnalysisEnvironment().registerAction(
-        SourceManifestAction.forRunfiles(
-            ManifestType.SOURCE_SYMLINKS, context.getActionOwner(), inputManifest, runfiles));
+    context
+        .getAnalysisEnvironment()
+        .registerAction(
+            new SourceManifestAction(
+                ManifestType.SOURCE_SYMLINKS,
+                context.getActionOwner(),
+                inputManifest,
+                runfiles,
+                context.getConfiguration().remotableSourceManifestActions()));
 
     if (!createSymlinks) {
       // Just return the manifest if that's all the build calls for.
       return inputManifest;
     }
 
-    PathFragment runfilesDir = FileSystemUtils.replaceExtension(inputManifest.getRootRelativePath(),
-        RUNFILES_DIR_EXT);
-    PathFragment outputManifestPath = runfilesDir.getRelative("MANIFEST");
+    PathFragment runfilesDir =
+        FileSystemUtils.replaceExtension(inputManifest.getRootRelativePath(), RUNFILES_DIR_EXT);
+    PathFragment outputManifestPath = runfilesDir.getRelative(OUTPUT_MANIFEST_BASENAME);
 
     BuildConfiguration config = context.getConfiguration();
-    Artifact outputManifest = context.getAnalysisEnvironment().getDerivedArtifact(
-        outputManifestPath, config.getBinDirectory());
-    context.getAnalysisEnvironment().registerAction(new SymlinkTreeAction(
-        context.getActionOwner(), inputManifest, outputManifest, /*filesetTree=*/false));
+    Artifact outputManifest =
+        context.getDerivedArtifact(outputManifestPath, context.getBinDirectory());
+    context
+        .getAnalysisEnvironment()
+        .registerAction(
+            new SymlinkTreeAction(
+                context.getActionOwner(),
+                config,
+                inputManifest,
+                runfiles,
+                outputManifest,
+                /*filesetTree=*/ false));
     return outputManifest;
-  }
-
-  /**
-   * Creates an Artifact which writes the "sources only" manifest file.
-   *
-   * @param context the owner for the manifest action
-   * @param runfiles the runfiles
-   * @return the Artifact representing the file write action.
-   */
-  private Artifact createSourceManifest(ActionConstructionContext context, Runfiles runfiles) {
-    // Put the sources only manifest next to the MANIFEST file but call it SOURCES.
-    PathFragment runfilesDir = getRunfilesDirectoryExecPath();
-    if (runfilesDir != null) {
-      PathFragment sourcesManifestPath = runfilesDir.getRelative("SOURCES");
-      Artifact sourceOnlyManifest = context.getAnalysisEnvironment().getDerivedArtifact(
-          sourcesManifestPath, context.getConfiguration().getBinDirectory());
-      context.getAnalysisEnvironment().registerAction(
-          SourceManifestAction.forRunfiles(
-              ManifestType.SOURCES_ONLY, context.getActionOwner(), sourceOnlyManifest, runfiles));
-      return sourceOnlyManifest;
-    } else {
-      return null;
-    }
   }
 
   /**
@@ -334,50 +384,69 @@ public class RunfilesSupport {
    *
    * @return the Runfiles object
    */
-
-  private static Runfiles getRunfiles(TransitiveInfoCollection target) {
+  private static Runfiles getRunfiles(TransitiveInfoCollection target, String workspaceName) {
     RunfilesProvider runfilesProvider = target.getProvider(RunfilesProvider.class);
     if (runfilesProvider != null) {
       return runfilesProvider.getDefaultRunfiles();
     } else {
-      return Runfiles.EMPTY;
+      return new Runfiles.Builder(workspaceName)
+          .addTransitiveArtifacts(target.getProvider(FilesToRunProvider.class).getFilesToRun())
+          .build();
     }
   }
 
-  /**
-   * Returns the unmodifiable list of expanded and tokenized 'args' attribute
-   * values.
-   */
-  public List<String> getArgs() {
+  /** Returns the unmodifiable list of expanded and tokenized 'args' attribute values. */
+  public CommandLine getArgs() {
     return args;
   }
 
   /**
-   * Creates and returns a RunfilesSupport object for the given rule and executable. Note that this
-   * method calls back into the passed in rule to obtain the runfiles.
+   * Creates and returns a {@link RunfilesSupport} object for the given rule and executable. Note
+   * that this method calls back into the passed in rule to obtain the runfiles.
    */
-  public static RunfilesSupport withExecutable(RuleContext ruleContext, Runfiles runfiles,
-      Artifact executable) {
-    return new RunfilesSupport(ruleContext, executable, runfiles, ImmutableList.<String>of(),
-        ruleContext.shouldCreateRunfilesSymlinks());
+  public static RunfilesSupport withExecutable(
+      RuleContext ruleContext, Runfiles runfiles, Artifact executable) {
+    return RunfilesSupport.create(
+        ruleContext, executable, runfiles, computeArgs(ruleContext, CommandLine.EMPTY));
   }
 
   /**
-   * Creates and returns a RunfilesSupport object for the given rule and executable. Note that this
-   * method calls back into the passed in rule to obtain the runfiles.
+   * Creates and returns a {@link RunfilesSupport} object for the given rule and executable. Note
+   * that this method calls back into the passed in rule to obtain the runfiles.
    */
-  public static RunfilesSupport withExecutable(RuleContext ruleContext, Runfiles runfiles,
-      Artifact executable, boolean createSymlinks) {
-    return new RunfilesSupport(ruleContext, executable, runfiles, ImmutableList.<String>of(),
-        createSymlinks);
+  public static RunfilesSupport withExecutable(
+      RuleContext ruleContext, Runfiles runfiles, Artifact executable, List<String> appendingArgs) {
+    return RunfilesSupport.create(
+        ruleContext, executable, runfiles, computeArgs(ruleContext, CommandLine.of(appendingArgs)));
   }
 
   /**
-   * Creates and returns a RunfilesSupport object for the given rule, executable, runfiles and args.
+   * Creates and returns a {@link RunfilesSupport} object for the given rule, executable, runfiles
+   * and args.
    */
-  public static RunfilesSupport withExecutable(RuleContext ruleContext, Runfiles runfiles,
-      Artifact executable, List<String> appendingArgs) {
-    return new RunfilesSupport(ruleContext, executable, runfiles,
-        ImmutableList.copyOf(appendingArgs), ruleContext.shouldCreateRunfilesSymlinks());
+  public static RunfilesSupport withExecutable(
+      RuleContext ruleContext, Runfiles runfiles, Artifact executable, CommandLine appendingArgs) {
+    return RunfilesSupport.create(
+        ruleContext, executable, runfiles, computeArgs(ruleContext, appendingArgs));
+  }
+
+  private static CommandLine computeArgs(RuleContext ruleContext, CommandLine additionalArgs) {
+    if (!ruleContext.getRule().isAttrDefined("args", Type.STRING_LIST)) {
+      // Some non-_binary rules create RunfilesSupport instances; it is fine to not have an args
+      // attribute here.
+      return additionalArgs;
+    }
+    return CommandLine.concat(
+        ruleContext.getExpander().withDataLocations().tokenized("args"), additionalArgs);
+  }
+
+  /** Returns the path of the input manifest of {@code runfilesDir}. */
+  public static Path inputManifestPath(Path runfilesDir) {
+    return FileSystemUtils.replaceExtension(runfilesDir, INPUT_MANIFEST_EXT);
+  }
+
+  /** Returns the path of the output manifest of {@code runfilesDir}. */
+  public static Path outputManifestPath(Path runfilesDir) {
+    return runfilesDir.getRelative(OUTPUT_MANIFEST_BASENAME);
   }
 }

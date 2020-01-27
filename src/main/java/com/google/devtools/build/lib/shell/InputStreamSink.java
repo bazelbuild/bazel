@@ -1,4 +1,4 @@
-// Copyright 2014 Google Inc. All rights reserved.
+// Copyright 2014 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -40,9 +40,8 @@ public final class InputStreamSink {
    */
   private static final byte[] DISCARD = new byte[4096];
 
-  // Supresses default constructor; ensures non-instantiability
-  private InputStreamSink() {
-  }
+  // Suppresses default constructor; ensures non-instantiability
+  private InputStreamSink() {}
 
   /**
    * A {@link Thread} which reads and discards data from an

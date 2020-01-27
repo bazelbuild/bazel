@@ -1,0 +1,132 @@
+Mon Jan 30 00:00:01 2017  Google Inc. <google-gflags@googlegroups.com>
+  * python-gflags: version 3.1.1.
+  * Added PEP8 style method/function aliases.
+
+Tue Nov 01 00:00:01 2016  Google Inc. <google-gflags@googlegroups.com>
+  * python-gflags: version 3.1.0.
+  * Python3 compatibility
+  * Removed UnrecognizedFlag exception.
+  * Replaced flags.DuplicateFlag with flags.DuplicateFlagError.
+  * Moved the validators.Error class to exceptions.ValidationError.
+  * Renamed IllegalFlagValue to IllegalFlagValueError.
+  * Removed MutualExclusionValidator class, in favor of flags.MarkFlagsAsMutualExclusive.
+  * Removed FlagValues.AddValidator method.
+  * Removed _helpers.GetMainModule.
+  * Use xml.dom.minidom to create XML strings, instead of manual crafting.
+  * Declared PEP8-style names.
+  * Added examples.
+
+
+
+  * python-gflags: version 3.0.7.
+  * Removed the unused method ShortestUniquePrefixes.
+  * Removed _GetCallingModule function alias.
+
+Fri Aug 05 00:00:01 2016  Google Inc. <google-gflags@googlegroups.com>
+
+  * python-gflags: version 3.0.6
+  * Declared pypi package classifiers.
+  * Added support for CLIF flag processing (not included in python-gflags repo
+    yet).
+
+Thu May 12 00:00:01 2016  Google Inc. <google-gflags@googlegroups.com>
+
+  * python-gflags: version 3.0.5
+  * Added a warning when FLAGS.SetDefault is used after flags were parsed.
+  * Added new function: MarkFlagsAsRequired.
+
+Fri Apr 15 00:00:01 2016  Google Inc. <google-gflags@googlegroups.com>
+
+  * python-gflags: version 3.0.4
+  * One more fix for setup.py - this time about third_party package.
+
+Mon Apr 11 00:00:01 2016  Google Inc. <google-gflags@googlegroups.com>
+
+  * python-gflags: version 3.0.3
+  * Fixed setup.py.
+  * --noflag if argument is given is no longer allowed.
+  * Python3 compatibility: removed need for cgi import.
+  * Disallowed unparsed flag usage after FLAGS.Reset()
+
+Thu Feb 09 11:55:00 2016  Google Inc. <google-gflags@googlegroups.com>
+
+  * python-gflags: version 3.0.2
+  * Fix MANIFEST.in to include all relevant files.
+
+Thu Feb 04 22:23:00 2016  Google Inc. <google-gflags@googlegroups.com>
+
+  * python-gflags: version 3.0.1
+  * Some changes for python3 compatibility.
+  * Automatically generate ordering operations for Flag.
+  * Add optional comma compatibility to whitespace-separated list flags.
+
+Tue Jan 12 16:39:00 2016  Google Inc. <google-gflags@googlegroups.com>
+
+  * python-gflags: version 3.0.0.
+  * A lot of potentially backwards incompatible changes since 2.0.
+  * This version is NOT recommended to use in production. Some of the files and
+    documentation has been lost during export; this will be fixed in next
+    versions.
+
+Wed Jan 18 13:57:39 2012  Google Inc. <google-gflags@googlegroups.com>
+
+	* python-gflags: version 2.0
+	* No changes from version 1.8.
+
+Wed Jan 18 11:54:03 2012  Google Inc. <google-gflags@googlegroups.com>
+
+	* python-gflags: version 1.8
+	* Don't raise DuplicateFlag when re-importing a module (mmcdonald)
+	* Changed the 'official' python-gflags email in setup.py/etc
+	* Changed copyright text to reflect Google's relinquished ownership
+
+Tue Dec 20 17:10:41 2011  Google Inc. <opensource@google.com>
+
+	* python-gflags: version 1.7
+	* Prepare gflags for python 3.x, keeping 2.4 compatibility (twouters)
+	* If output is a tty, use terminal's width to wrap help-text (wiesmann)
+	* PORTING: Fix ImportError for non-Unix platforms (kdeus)
+	* PORTING: Run correctly when termios isn't available (shines)
+	* Add unicode support to flags (csilvers)
+
+Fri Jul 29 12:24:08 2011  Google Inc. <opensource@google.com>
+
+	* python-gflags: version 1.6
+	* Document FlagValues.UseGnuGetOpt (garymm)
+	* replace fchmod with chmod to work on python 2.4 (mshields)
+	* Fix bug in flag decl reporting for dup flags (craigcitro)
+	* Add multi_float, and tests for multi_float/int (simonf)
+	* Make flagfiles expand in place, to follow docs (dmlynch)
+	* Raise exception if --flagfile can't be read (tlim)
+
+Wed Jan 26 13:50:46 2011  Google Inc. <opensource@google.com>
+
+	* python-gflags: version 1.5.1
+	* Fix manifest and setup.py to include new files
+
+Mon Jan 24 16:58:10 2011  Google Inc. <opensource@google.com>
+
+	* python-gflags: version 1.5
+	* Add support for flag validators (olexiy)
+	* Better reporting on UnrecognizedFlagError (sorenj)
+	* Cache ArgumentParser, to save space (tmarek)
+
+Wed Oct 13 17:40:12 2010  Google Inc. <opensource@google.com>
+
+	* python-gflags: version 1.4
+	* Unregister per-command flags after running the command (dnr)
+	* Allow key-flags to work with special flags (salcianu)
+	* Allow printing flags of a specific module (mikecurtis)
+	* BUGFIX: Fix an error message for float flags (olexiy)
+	* BUGFIX: Can now import while defining flags (salcianu)
+	* BUGFIX: Fix flagfile parsing in python (chronos)
+	* DOC: Better explain the format of --helpxml output (salcianu)
+	* DOC: Better error message on parse failure (tstromberg)
+	* Better test coverage under python 2.2 (mshields)
+	* Added a Makefile for building the packages.
+
+Mon Jan  4 18:46:29 2010  Tim 'mithro' Ansell  <mithro@mithis.com>
+
+	* python-gflags: version 1.3
+	* Fork from the C++ package (google-gflags 1.3)
+	* Add debian packaging

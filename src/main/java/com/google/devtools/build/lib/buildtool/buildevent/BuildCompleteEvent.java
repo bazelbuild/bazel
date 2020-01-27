@@ -1,4 +1,4 @@
-// Copyright 2014 Google Inc. All rights reserved.
+// Copyright 2014 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,21 +14,30 @@
 
 package com.google.devtools.build.lib.buildtool.buildevent;
 
-import com.google.devtools.build.lib.buildtool.BuildRequest;
+import static com.google.common.base.Preconditions.checkNotNull;
+
+import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.buildeventstream.BuildCompletingEvent;
+import com.google.devtools.build.lib.buildeventstream.BuildEventId;
 import com.google.devtools.build.lib.buildtool.BuildResult;
+import java.util.Collection;
 
 /**
  * This event is fired from BuildTool#stopRequest().
+ *
+ * <p>This class also implements the {@link BuildFinished} event of the build event protocol (BEP).
  */
-public final class BuildCompleteEvent {
+public final class BuildCompleteEvent extends BuildCompletingEvent {
   private final BuildResult result;
 
-  /**
-   * Construct the BuildStartingEvent.
-   * @param request the build request.
-   */
-  public BuildCompleteEvent(BuildRequest request, BuildResult result) {
-    this.result = result;
+  /** Construct the BuildCompleteEvent. */
+  public BuildCompleteEvent(BuildResult result, Collection<BuildEventId> children) {
+    super(result.getExitCondition(), result.getStopTime(), children, result.getWasSuspended());
+    this.result = checkNotNull(result);
+  }
+
+  public BuildCompleteEvent(BuildResult result) {
+    this(result, ImmutableList.<BuildEventId>of());
   }
 
   /**

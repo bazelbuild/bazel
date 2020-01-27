@@ -1,4 +1,4 @@
-// Copyright 2014 Google Inc. All rights reserved.
+// Copyright 2014 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -13,74 +13,27 @@
 // limitations under the License.
 package com.google.devtools.build.skyframe;
 
-import com.google.common.base.Function;
-import com.google.common.base.Preconditions;
-
 import java.io.Serializable;
 
 /**
  * A {@link SkyKey} is effectively a pair (type, name) that identifies a Skyframe value.
+ *
+ * <p>SkyKey implementations are heavily used as map keys. Thus, they should have fast {@link
+ * #hashCode} implementations (cached if necessary). The same SkyKey may be created multiple times
+ * by different {@code SkyFunction}s requesting it, and so it should have effective interning. There
+ * will likely be more SkyKeys on the JVM heap than any other non-native type, so be mindful of
+ * memory usage (in particular object wrapper size and memory alignment)! Typically the
+ * implementation should have a fixed {@link #functionName} implementation and return itself as the
+ * {@link #argument} in order to reduce the cost of wrapper objects.
  */
-public final class SkyKey implements Serializable {
-  private final SkyFunctionName functionName;
+public interface SkyKey extends Serializable {
+  SkyFunctionName functionName();
 
-  /**
-   * The name of the value.
-   *
-   * <p>This is deliberately an untyped Object so that we can use arbitrary value types (e.g.,
-   * Labels, PathFragments, BuildConfigurations, etc.) as value names without incurring
-   * serialization costs in the in-memory implementation of the graph.
-   */
-  private final Object argument;
-
-  /**
-   * Cache the hash code for this object. It might be expensive to compute.
-   */
-  private final int hashCode;
-
-  public SkyKey(SkyFunctionName functionName, Object valueName) {
-    this.functionName = Preconditions.checkNotNull(functionName);
-    this.argument = Preconditions.checkNotNull(valueName);
-    this.hashCode = 31 * functionName.hashCode() + argument.hashCode();
+  default Object argument() {
+    return this;
   }
 
-  public SkyFunctionName functionName() {
-    return functionName;
+  default ShareabilityOfValue getShareabilityOfValue() {
+    return functionName().getShareabilityOfValue();
   }
-
-  public Object argument() {
-    return argument;
-  }
-
-  @Override
-  public String toString() {
-    return functionName + ":" + argument;
-  }
-
-  @Override
-  public int hashCode() {
-    return hashCode;
-  }
-
-  @Override
-  public boolean equals(Object obj) {
-    if (this == obj) {
-      return true;
-    }
-    if (obj == null) {
-      return false;
-    }
-    if (getClass() != obj.getClass()) {
-      return false;
-    }
-    SkyKey other = (SkyKey) obj;
-    return argument.equals(other.argument) && functionName.equals(other.functionName);
-  }
-
-  public static final Function<SkyKey, Object> NODE_NAME = new Function<SkyKey, Object>() {
-    @Override
-    public Object apply(SkyKey input) {
-      return input.argument();
-    }
-  };
 }

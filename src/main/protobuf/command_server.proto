@@ -1,0 +1,172 @@
+// Copyright 2016 The Bazel Authors. All rights reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//    http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+//
+// This file contains the protocol used to communicate between the Bazel client
+// and the server. At a high level clients may call the CommandServer.run rpc
+// to initiates a Bazel command and CommandServer.cancel to cancel an in-flight
+// command. CommandServer.ping may be used to check for server liveness without
+// executing any commands. See documentation of individual messages for more
+// details.
+syntax = "proto3";
+
+package command_server;
+
+option java_package = "com.google.devtools.build.lib.server";
+option java_outer_classname = "CommandProtos";
+
+// Passed to CommandServer.run to initiate execution of a Bazel command.
+message RunRequest {
+  // Request cookie from the output base of the server. This serves as a
+  // rudimentary form of mutual authentication.
+  string cookie = 1;
+
+  // Command and command arguments. Does not include startup arguments.
+  repeated bytes arg = 2;
+
+  // Tells the server whether or not the client is willing to wait for any
+  // concurrent in-flight request to complete (there are many commands which
+  // may not run concurrently). If false and there are in-flight requests then
+  // the server will return an error immediately.
+  bool block_for_lock = 3;
+
+  // A simple description of the client for reporting purposes. This value is
+  // required.
+  string client_description = 4;
+
+  // Invocation policy affects how command arguments are interpreted and should
+  // be passed separately. This is a proto message, either a human readable
+  // String or base64-encoded binary-serialized version of the message. It is
+  // not typed directly as an InvocationPolicy message due to distinctions
+  // between batch and server mode, so the parsing logic is only in the Java
+  // code.
+  string invocation_policy = 5;
+
+  // Startup arguments, in the order they were applied, tagged with where they
+  // came from. These options have already been parsed and already have had
+  // their effect. This information should only be used for logging.
+  repeated StartupOption startup_options = 6;
+}
+
+// Contains the a startup option with its source file. Uses bytes to preserve
+// the way the user inputted the arguments, like the args in RunRequest.
+message StartupOption {
+  // Startup option in --nullaryflag or --unaryflag=value form.
+  bytes option = 1;
+  // Where the option came from, such as an rc file or an empty string for the
+  // command line.
+  bytes source = 2;
+}
+
+// Description of an environment variable
+message EnvironmentVariable {
+  bytes name = 1;
+  bytes value = 2;
+}
+
+// Description of a request by the server to the client to execute a binary
+// after the command invocation finishes.
+message ExecRequest {
+  bytes working_directory = 1;
+  repeated bytes argv = 2;
+  repeated EnvironmentVariable environment_variable = 3;
+}
+
+// Contains metadata and result data for a command execution.
+message RunResponse {
+  // Request cookie from the output base of the server. This serves as a
+  // rudimentary form of mutual authentication. Set on every response.
+  string cookie = 1;
+
+  // Standard out of the command, chunked. May be empty.
+  bytes standard_output = 2;
+
+  // Standard error of the command, chunked. May be empty.
+  bytes standard_error = 3;
+
+  // Whether this is the last message of the stream, signals that exit_code is
+  // valid.
+  bool finished = 4;
+
+  // The exit code of the command, only valid when finished is set.
+  int32 exit_code = 5;
+
+  // Randomly generated command identifier, this may be used to cancel execution
+  // of the command by issuing a cancel call. This should be sent to the client
+  // as soon as possible. This is not required to be set (non-empty) on every
+  // response.
+  string command_id = 6;
+
+  // Whether the command has shut down the server; if set, the client should
+  // wait until the server process dies before finishing.
+  bool termination_expected = 7;
+
+  // A command to exec() after the command invocation finishes. Should only be
+  // present if finished is set.
+  ExecRequest exec_request = 8;
+}
+
+// Passed to CommandServer.cancel to initiate graceful cancellation of an
+// in-flight command.
+message CancelRequest {
+  // The client request cookie (see RunRequest.cookie).
+  string cookie = 1;
+
+  // The id of the command to cancel.
+  string command_id = 2;
+}
+
+message CancelResponse {
+  // The server response cookie (see RunResponse.cookie).
+  string cookie = 1;
+}
+
+// Passed to CommandServer.ping to initiate a ping request.
+message PingRequest {
+  // The client request cookie (see RunRequest.cookie).
+  string cookie = 1;
+}
+
+message PingResponse {
+  // The server response cookie (see RunResponse.cookie).
+  string cookie = 1;
+}
+
+// Describes metadata necessary for connecting to and managing the server.
+message ServerInfo {
+  // The server process's pid.
+  int32 pid = 1;
+
+  // Address the CommandServer is listening on. Can be passed directly to grpc
+  // to create a connection.
+  string address = 2;
+
+  // Client request cookie.
+  string request_cookie = 3;
+
+  // Server response cookie.
+  string response_cookie = 4;
+}
+
+service CommandServer {
+  // Run a Bazel command. See documentation of argument/return messages for
+  // details.
+  rpc Run (RunRequest) returns (stream RunResponse) {}
+
+  // Cancel a currently running Bazel command. May return before the run command
+  // actually terminates.
+  rpc Cancel (CancelRequest) returns (CancelResponse) {}
+
+  // Does not do anything. Used for liveness check.
+  rpc Ping (PingRequest) returns (PingResponse) {}
+}

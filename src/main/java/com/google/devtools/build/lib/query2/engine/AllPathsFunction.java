@@ -1,4 +1,4 @@
-// Copyright 2014 Google Inc. All rights reserved.
+// Copyright 2014 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -13,14 +13,20 @@
 // limitations under the License.
 package com.google.devtools.build.lib.query2.engine;
 
+import com.google.common.base.Predicate;
+import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.Argument;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.ArgumentType;
+import com.google.devtools.build.lib.query2.engine.QueryEnvironment.CustomFunctionQueryEnvironment;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryFunction;
-
+import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryTaskCallable;
+import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryTaskFuture;
+import com.google.devtools.build.lib.query2.engine.QueryEnvironment.ThreadSafeMutableSet;
+import java.util.Collection;
 import java.util.HashSet;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.Set;
 
@@ -47,37 +53,61 @@ public class AllPathsFunction implements QueryFunction {
   }
 
   @Override
-  public <T> Set<T> eval(QueryEnvironment<T> env, QueryExpression expression, List<Argument> args)
-      throws QueryException {
-    QueryExpression from = args.get(0).getExpression();
-    QueryExpression to = args.get(1).getExpression();
+  public <T> QueryTaskFuture<Void> eval(
+      final QueryEnvironment<T> env,
+      QueryExpressionContext<T> context,
+      final QueryExpression expression,
+      List<Argument> args,
+      final Callback<T> callback) {
+    final QueryTaskFuture<ThreadSafeMutableSet<T>> fromValueFuture =
+        QueryUtil.evalAll(env, context, args.get(0).getExpression());
+    final QueryTaskFuture<ThreadSafeMutableSet<T>> toValueFuture =
+        QueryUtil.evalAll(env, context, args.get(1).getExpression());
 
-    Set<T> fromValue = from.eval(env);
-    Set<T> toValue = to.eval(env);
-
-    // Algorithm: compute "reachableFromX", the forward transitive closure of
-    // the "from" set, then find the intersection of "reachableFromX" with the
-    // reverse transitive closure of the "to" set.  The reverse transitive
-    // closure and intersection operations are interleaved for efficiency.
-    // "result" holds the intersection.
-
-    env.buildTransitiveClosure(expression, fromValue, Integer.MAX_VALUE);
-
-    Set<T> reachableFromX = env.getTransitiveClosure(fromValue);
-    Set<T> result = intersection(reachableFromX, toValue);
-    LinkedList<T> worklist = new LinkedList<>(result);
-
-    T n;
-    while ((n = worklist.poll()) != null) {
-      for (T np : env.getReverseDeps(n)) {
-        if (reachableFromX.contains(np)) {
-          if (result.add(np)) {
-            worklist.add(np);
-          }
-        }
-      }
+    if (env instanceof CustomFunctionQueryEnvironment) {
+      return env.whenAllSucceedCall(
+          ImmutableList.of(fromValueFuture, toValueFuture),
+          new QueryTaskCallable<Void>() {
+            @Override
+            public Void call() throws QueryException, InterruptedException {
+              Collection<T> fromValue = fromValueFuture.getIfSuccessful();
+              Collection<T> toValue = toValueFuture.getIfSuccessful();
+              ((CustomFunctionQueryEnvironment<T>) env)
+                  .allPaths(fromValue, toValue, expression, callback);
+              return null;
+            }
+          });
     }
-    return result;
+    return env.whenAllSucceedCall(
+        ImmutableList.of(fromValueFuture, toValueFuture),
+        new QueryTaskCallable<Void>() {
+          @Override
+          public Void call() throws QueryException, InterruptedException {
+            // Algorithm: compute "reachableFromX", the forward transitive closure of
+            // the "from" set, then find the intersection of "reachableFromX" with the
+            // reverse transitive closure of the "to" set.  The reverse transitive
+            // closure and intersection operations are interleaved for efficiency.
+            // "result" holds the intersection.
+
+            ThreadSafeMutableSet<T> fromValue = fromValueFuture.getIfSuccessful();
+            ThreadSafeMutableSet<T> toValue = toValueFuture.getIfSuccessful();
+
+            env.buildTransitiveClosure(expression, fromValue, Integer.MAX_VALUE);
+
+            Set<T> reachableFromX = env.getTransitiveClosure(fromValue, context);
+            Predicate<T> reachable = Predicates.in(reachableFromX);
+            Uniquifier<T> uniquifier = env.createUniquifier();
+            Collection<T> result = uniquifier.unique(intersection(reachableFromX, toValue));
+            callback.process(result);
+            Collection<T> worklist = result;
+            while (!worklist.isEmpty()) {
+              Iterable<T> reverseDeps = env.getReverseDeps(worklist, context);
+              worklist = uniquifier.unique(Iterables.filter(reverseDeps, reachable));
+              callback.process(worklist);
+            }
+            return null;
+          }
+        });
   }
 
   /**

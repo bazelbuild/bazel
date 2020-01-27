@@ -1,4 +1,4 @@
-// Copyright 2014 Google Inc. All rights reserved.
+// Copyright 2014 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,18 +15,21 @@
 package com.google.devtools.build.lib.util;
 
 import com.google.common.collect.ForwardingMap;
+import com.google.common.io.ByteStreams;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
-
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
+import java.io.ByteArrayInputStream;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.util.HashMap;
 import java.util.Hashtable;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.logging.Logger;
 
 /**
  * A map that is backed by persistent storage. It uses two files on disk for
@@ -65,8 +68,10 @@ import java.util.Map;
 public abstract class PersistentMap<K, V> extends ForwardingMap<K, V> {
 
   private static final int MAGIC = 0x20071105;
-
   private static final int ENTRY_MAGIC = 0xfe;
+  private static final int MIN_MAPFILE_SIZE = 16;
+  private static final int MAX_ARRAY_SIZE = Integer.MAX_VALUE - 8;
+  private static final Logger logger = Logger.getLogger(PersistentMap.class.getName());
 
   private final int version;
   private final Path mapFile;
@@ -114,7 +119,9 @@ public abstract class PersistentMap<K, V> extends ForwardingMap<K, V> {
     delegate = map;
   }
 
-  @Override protected Map<K, V> delegate() {
+
+  @Override
+  protected Map<K, V> delegate() {
     return delegate;
   }
 
@@ -136,7 +143,7 @@ public abstract class PersistentMap<K, V> extends ForwardingMap<K, V> {
    * Marks the map as dirty and potentially writes updated entries to the
    * journal.
    */
-  private void markAsDirty() {
+  protected void markAsDirty() {
     dirty = true;
     if (updateJournal()) {
       writeJournal();
@@ -185,7 +192,15 @@ public abstract class PersistentMap<K, V> extends ForwardingMap<K, V> {
   private void writeJournal() {
     try {
       if (journalOut == null) {
-        journalOut = createMapFile(journalFile);
+        if (journalFile.exists()) {
+          // The journal file was left around after the last save() because
+          // keepJournal() was true. Append to it.
+          journalOut =
+              new DataOutputStream(new BufferedOutputStream(journalFile.getOutputStream(true)));
+        } else {
+          // Create new journal.
+          journalOut = createMapFile(journalFile);
+        }
       }
       writeEntries(journalOut, journal);
       journalOut.flush();
@@ -222,7 +237,7 @@ public abstract class PersistentMap<K, V> extends ForwardingMap<K, V> {
         }
         // Force the map to be dirty, so that we can save it to disk.
         dirty = true;
-        save(/*fullSave=*/true);
+        save(/*fullSave=*/ true);
       } else {
         dirty = false;
       }
@@ -236,7 +251,7 @@ public abstract class PersistentMap<K, V> extends ForwardingMap<K, V> {
    * @throws IOException
    */
   public void load() throws IOException {
-    load(/*throwOnLoadFailure=*/false);
+    load(/* failFast= */ false);
   }
 
   @Override
@@ -289,6 +304,7 @@ public abstract class PersistentMap<K, V> extends ForwardingMap<K, V> {
             mapFile.getRelative(FileSystemUtils.replaceExtension(mapFile.asFragment(), ".tmp"));
         try {
           saveEntries(delegate(), mapTemp);
+          mapFile.delete();
           mapTemp.renameTo(mapFile);
         } finally {
           mapTemp.delete();
@@ -331,17 +347,30 @@ public abstract class PersistentMap<K, V> extends ForwardingMap<K, V> {
     if (!mapFile.exists()) {
       return;
     }
-    DataInputStream in =
-      new DataInputStream(new BufferedInputStream(mapFile.getInputStream()));
-    try {
-      long fileSize = mapFile.getFileSize();
-      if (fileSize < (16)) {
-        if (failFast) {
-          throw new IOException(mapFile + " is too short: Only " + fileSize + " bytes");
-        } else {
-          return;
-        }
+
+    long fileSize = mapFile.getFileSize();
+    if (fileSize < MIN_MAPFILE_SIZE) {
+      if (failFast) {
+        throw new IOException(mapFile + " is too short: Only " + fileSize + " bytes");
+      } else {
+        return;
       }
+    } else if (fileSize > MAX_ARRAY_SIZE) {
+      if (failFast) {
+        throw new IOException(mapFile + " is too long: " + fileSize + " bytes");
+      } else {
+        return;
+      }
+    }
+
+    // We read the whole file up front as a performance optimization; otherwise calling available()
+    // on the stream over and over does a lot of syscalls.
+    byte[] mapBytes;
+    try (InputStream fileInput = mapFile.getInputStream()) {
+      mapBytes = ByteStreams.toByteArray(new BufferedInputStream(fileInput));
+    }
+    DataInputStream in = new DataInputStream(new ByteArrayInputStream(mapBytes));
+    try {
       if (in.readLong() != MAGIC) { // not a PersistentMap
         if (failFast) {
           throw new IOException("Unexpected format");
@@ -358,6 +387,8 @@ public abstract class PersistentMap<K, V> extends ForwardingMap<K, V> {
     } finally {
       in.close();
     }
+
+    logger.info(String.format("Loaded cache '%s' [%s bytes]", mapFile, fileSize));
   }
 
   /**
@@ -383,7 +414,7 @@ public abstract class PersistentMap<K, V> extends ForwardingMap<K, V> {
   private DataOutputStream createMapFile(Path mapFile) throws IOException {
     FileSystemUtils.createDirectoryAndParents(mapFile.getParentDirectory());
     DataOutputStream out =
-      new DataOutputStream(new BufferedOutputStream(mapFile.getOutputStream()));
+        new DataOutputStream(new BufferedOutputStream(mapFile.getOutputStream()));
     out.writeLong(MAGIC);
     out.writeLong(version);
     return out;
@@ -397,8 +428,7 @@ public abstract class PersistentMap<K, V> extends ForwardingMap<K, V> {
    *        DataOutputStream.
    * @throws IOException
    */
-  private void writeEntries(DataOutputStream out, Map<K, V> map)
-      throws IOException {
+  private void writeEntries(DataOutputStream out, Map<K, V> map) throws IOException {
     for (Map.Entry<K, V> entry : map.entrySet()) {
       out.writeByte(ENTRY_MAGIC);
       writeKey(entry.getKey(), out);
@@ -453,8 +483,7 @@ public abstract class PersistentMap<K, V> extends ForwardingMap<K, V> {
    * @param out the DataOutputStream to write the entry to.
    * @throws IOException
    */
-  protected abstract void writeKey(K key, DataOutputStream out)
-      throws IOException;
+  protected abstract void writeKey(K key, DataOutputStream out) throws IOException;
 
   /**
    * Writes a value of this map into the specified DataOutputStream.
@@ -463,8 +492,7 @@ public abstract class PersistentMap<K, V> extends ForwardingMap<K, V> {
    * @param out the DataOutputStream to write the entry to.
    * @throws IOException
    */
-  protected abstract void writeValue(V value, DataOutputStream out)
-      throws IOException;
+  protected abstract void writeValue(V value, DataOutputStream out) throws IOException;
 
   /**
    * Reads an entry of this map from the specified DataInputStream.
@@ -484,3 +512,4 @@ public abstract class PersistentMap<K, V> extends ForwardingMap<K, V> {
    */
   protected abstract V readValue(DataInputStream in) throws IOException;
 }
+

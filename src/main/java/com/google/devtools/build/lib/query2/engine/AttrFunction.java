@@ -1,4 +1,4 @@
-// Copyright 2014 Google Inc. All rights reserved.
+// Copyright 2014 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,34 +16,43 @@ package com.google.devtools.build.lib.query2.engine;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.Argument;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.ArgumentType;
-
+import com.google.devtools.build.lib.query2.engine.QueryEnvironment.FilteringQueryFunction;
 import java.util.List;
 
 /**
- * An attr(attribute, pattern, argument) filter expression, which computes
- * the set of subset of nodes in 'argument' which correspond to rules with
- * defined attribute 'attribute' with attribute value matching the unanchored
- * regexp 'pattern'. For list attributes, the attribute value will be defined as
- * a usual List.toString() representation (using '[' as first character, ']' as
- * last character and ", " as a delimiter between multiple values). Also, all
- * label-based attributes will use fully-qualified label names instead of
- * original value specified in the BUILD file.
+ * An attr(attribute, pattern, argument) filter expression, which computes the set of subset of
+ * nodes in 'argument' which correspond to rules with defined attribute 'attribute' with attribute
+ * value matching the unanchored regexp 'pattern'. For list attributes, the attribute value will be
+ * defined as a usual List.toString() representation (using '[' as first character, ']' as last
+ * character and ", " as a delimiter between multiple values). Also, all label-based attributes will
+ * use fully-qualified label names instead of original value specified in the BUILD file.
  *
  * <pre>expr ::= ATTR '(' ATTRNAME ',' WORD ',' expr ')'</pre>
  *
  * Examples
+ *
  * <pre>
  * attr(linkshared,1,//project/...)    find all rules under in the //project/... that
  *                                 have attribute linkshared set to 1.
  * </pre>
  */
-class AttrFunction extends RegexFilterExpression {
+public class AttrFunction extends RegexFilterExpression {
   AttrFunction() {
+    super(/*invert=*/ false);
+  }
+
+  private AttrFunction(boolean invert) {
+    super(invert);
+  }
+
+  @Override
+  public FilteringQueryFunction invert() {
+    return new AttrFunction(!invert);
   }
 
   @Override
   public String getName() {
-    return "attr";
+    return (invert ? "no" : "") + "attr";
   }
 
   @Override

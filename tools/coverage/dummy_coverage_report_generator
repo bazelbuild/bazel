@@ -1,0 +1,2 @@
+# Dummy file. Bazel requires there to be a single file in the coverage report
+# generator attribute, even though it's currently not used in Bazel.

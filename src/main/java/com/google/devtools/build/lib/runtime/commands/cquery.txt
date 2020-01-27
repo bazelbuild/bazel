@@ -1,0 +1,8 @@
+
+Usage: %{product} %{command} <options> <targets>
+
+Queries the specified targets, taking options into account. Unlike query,
+cquery works on the post analysis phase configured target graph. It understands
+and takes into account configurations and configuration transitions.
+
+%{options}

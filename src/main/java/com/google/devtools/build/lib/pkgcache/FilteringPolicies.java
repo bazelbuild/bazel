@@ -1,4 +1,4 @@
-// Copyright 2014 Google Inc. All rights reserved.
+// Copyright 2014 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -13,28 +13,48 @@
 // limitations under the License.
 package com.google.devtools.build.lib.pkgcache;
 
+import com.google.auto.value.AutoValue;
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.TargetUtils;
-
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import java.util.Objects;
 
 /**
  * Utility class for predefined filtering policies.
  */
 public final class FilteringPolicies {
+  public static final FilteringPolicy NO_FILTER = new NoFilter();
+  public static final FilteringPolicy FILTER_MANUAL = new FilterManual();
+  public static final FilteringPolicy FILTER_TESTS = new FilterTests();
+  public static final FilteringPolicy RULES_ONLY = new RulesOnly();
+
+  /** Returns the result of applying y, if target passes x. */
+  public static FilteringPolicy and(final FilteringPolicy x, final FilteringPolicy y) {
+    if (x.equals(NO_FILTER)) {
+      return y;
+    }
+    if (y.equals(NO_FILTER)) {
+      return x;
+    }
+    return new AndFilteringPolicy(x, y);
+  }
+
+  public static FilteringPolicy ruleType(String ruleName, boolean keepExplicit) {
+    return RuleTypeFilter.create(ruleName, keepExplicit);
+  }
 
   private FilteringPolicies() {
   }
 
-  /**
-   * Base class for singleton filtering policies.
-   */
-  private abstract static class AbstractFilteringPolicy implements FilteringPolicy {
+  /** Base class for singleton filtering policies. */
+  private abstract static class AbstractFilteringPolicy extends FilteringPolicy {
+    private final int hashCode = getClass().getSimpleName().hashCode();
+
     @Override
     public int hashCode() {
-      return getClass().getSimpleName().hashCode();
+      return hashCode;
     }
 
     @Override
@@ -54,9 +74,12 @@ public final class FilteringPolicies {
     public boolean shouldRetain(Target target, boolean explicit) {
       return true;
     }
-  }
 
-  public static final FilteringPolicy NO_FILTER = new NoFilter();
+    @Override
+    public String toString() {
+      return "[]";
+    }
+  }
 
   private static class FilterManual extends AbstractFilteringPolicy {
     @Override
@@ -64,8 +87,6 @@ public final class FilteringPolicies {
       return explicit || !(TargetUtils.hasManualTag(target));
     }
   }
-
-  public static final FilteringPolicy FILTER_MANUAL = new FilterManual();
 
   private static class FilterTests extends AbstractFilteringPolicy {
     @Override
@@ -75,8 +96,6 @@ public final class FilteringPolicies {
     }
   }
 
-  public static final FilteringPolicy FILTER_TESTS = new FilterTests();
-
   private static class RulesOnly extends AbstractFilteringPolicy {
     @Override
     public boolean shouldRetain(Target target, boolean explicit) {
@@ -84,21 +103,39 @@ public final class FilteringPolicies {
     }
   }
 
-  public static final FilteringPolicy RULES_ONLY = new RulesOnly();
+  /** FilteringPolicy that only matches a specific rule name. */
+  @AutoValue
+  @AutoCodec
+  abstract static class RuleTypeFilter extends FilteringPolicy {
+    abstract String ruleName();
 
-  /**
-   * Returns the result of applying y, if target passes x.
-   */
-  public static FilteringPolicy and(final FilteringPolicy x,
-                                    final FilteringPolicy y) {
-    return new AndFilteringPolicy(x, y);
+    abstract boolean keepExplicit();
+
+    @Override
+    public boolean shouldRetain(Target target, boolean explicit) {
+      if (explicit && keepExplicit()) {
+        return true;
+      }
+
+      if (target.getAssociatedRule().getRuleClass().equals(ruleName())) {
+        return true;
+      }
+
+      return false;
+    }
+
+    @AutoCodec.Instantiator
+    static RuleTypeFilter create(String ruleName, boolean keepExplicit) {
+      return new AutoValue_FilteringPolicies_RuleTypeFilter(ruleName, keepExplicit);
+    }
   }
 
-  private static class AndFilteringPolicy implements FilteringPolicy {
+  /** FilteringPolicy for combining FilteringPolicies. */
+  public static class AndFilteringPolicy extends FilteringPolicy {
     private final FilteringPolicy firstPolicy;
     private final FilteringPolicy secondPolicy;
 
-    public AndFilteringPolicy(FilteringPolicy firstPolicy, FilteringPolicy secondPolicy) {
+    private AndFilteringPolicy(FilteringPolicy firstPolicy, FilteringPolicy secondPolicy) {
       this.firstPolicy = Preconditions.checkNotNull(firstPolicy);
       this.secondPolicy = Preconditions.checkNotNull(secondPolicy);
     }
@@ -107,6 +144,14 @@ public final class FilteringPolicies {
     public boolean shouldRetain(Target target, boolean explicit) {
       return firstPolicy.shouldRetain(target, explicit)
           && secondPolicy.shouldRetain(target, explicit);
+    }
+
+    public FilteringPolicy getFirstPolicy() {
+      return firstPolicy;
+    }
+
+    public FilteringPolicy getSecondPolicy() {
+      return secondPolicy;
     }
 
     @Override
@@ -121,6 +166,11 @@ public final class FilteringPolicies {
       }
       AndFilteringPolicy other = (AndFilteringPolicy) obj;
       return other.firstPolicy.equals(firstPolicy) && other.secondPolicy.equals(secondPolicy);
+    }
+
+    @Override
+    public String toString() {
+      return String.format("and_filter(%s, %s)", firstPolicy, secondPolicy);
     }
   }
 }

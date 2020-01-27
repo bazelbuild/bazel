@@ -1,0 +1,62 @@
+-keep class java.io.PrintStream {
+  *** println(java.lang.String);
+}
+-keep class java.lang.AssertionError {
+  <init>();
+}
+-keep class java.lang.Class {
+  *** cast(java.lang.Object);
+  *** desiredAssertionStatus();
+}
+-keep class java.lang.IndexOutOfBoundsException {
+}
+-keep class java.lang.Object {
+  <init>();
+}
+-keep class java.lang.String {
+}
+-keep class java.lang.System {
+  *** out;
+}
+-keep class java.lang.invoke.CallSite {
+}
+-keep class java.lang.invoke.LambdaMetafactory {
+  *** metafactory(java.lang.invoke.MethodHandles$Lookup, java.lang.String, java.lang.invoke.MethodType, java.lang.invoke.MethodType, java.lang.invoke.MethodHandle, java.lang.invoke.MethodType);
+}
+-keep class java.lang.invoke.MethodHandle {
+}
+-keep class java.lang.invoke.MethodHandles {
+}
+-keep class java.lang.invoke.MethodHandles$Lookup {
+}
+-keep class java.lang.invoke.MethodType {
+}
+-keep class java.util.AbstractList {
+}
+-keep class java.util.ArrayList {
+  <init>();
+  <init>(int);
+  *** add(java.lang.Object);
+  *** get(int);
+  *** iterator();
+}
+-keep class java.util.Collection {
+  *** removeIf(java.util.function.Predicate);
+}
+-keep class java.util.Date {
+  <init>(long);
+  *** getTime();
+}
+-keep class java.util.Iterator {
+  *** hasNext();
+  *** next();
+}
+-keep class java.util.LinkedList {
+}
+-keep class java.util.List {
+  *** add(java.lang.Object);
+  *** get(int);
+  *** iterator();
+}
+-keep class java.util.function.Predicate {
+}

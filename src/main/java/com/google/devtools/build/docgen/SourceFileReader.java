@@ -1,4 +1,4 @@
-// Copyright 2014 Google Inc. All rights reserved.
+// Copyright 2014 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -18,19 +18,18 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.LinkedListMultimap;
 import com.google.common.collect.ListMultimap;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
-
 import java.io.BufferedReader;
 import java.io.File;
-import java.io.FileReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.regex.Matcher;
 
 /**
@@ -85,157 +84,198 @@ public class SourceFileReader {
     final List<RuleDocumentationVariable> docVariables = new LinkedList<>();
     final ListMultimap<String, RuleDocumentationAttribute> docAttributes =
         LinkedListMultimap.create();
-    readTextFile(javaSourceFilePath, new ReadAction() {
+    readTextFile(
+        javaSourceFilePath,
+        new ReadAction() {
 
-      private boolean inBlazeRuleDocs = false;
-      private boolean inBlazeRuleVarDocs = false;
-      private boolean inBlazeAttributeDocs = false;
-      private StringBuilder sb = new StringBuilder();
-      private String ruleName;
-      private String ruleType;
-      private String ruleFamily;
-      private String variableName;
-      private String attributeName;
-      private ImmutableSet<String> flags;
-      private int startLineCnt;
+          private boolean inBlazeRuleDocs = false;
+          private boolean inBlazeRuleVarDocs = false;
+          private boolean inBlazeAttributeDocs = false;
+          private boolean inFamilySummary = false;
+          private StringBuilder sb = new StringBuilder();
+          private String ruleName;
+          private String familySummary = "";
+          private String ruleType;
+          private String ruleFamily;
+          private String variableName;
+          private String attributeName;
+          private ImmutableSet<String> flags;
+          private int startLineCnt;
 
-      @Override
-      public void readLineImpl(String line) throws BuildEncyclopediaDocException {
-        // TODO(bazel-team): check if copy paste code can be reduced using inner classes
-        if (inBlazeRuleDocs) {
-          if (DocgenConsts.BLAZE_RULE_END.matcher(line).matches()) {
-            endBlazeRuleDoc(docMap);
-          } else {
-            appendLine(line);
-          }
-        } else if (inBlazeRuleVarDocs) {
-          if (DocgenConsts.BLAZE_RULE_VAR_END.matcher(line).matches()) {
-            endBlazeRuleVarDoc(docVariables);
-          } else {
-            appendLine(line);
-          }
-        } else if (inBlazeAttributeDocs) {
-          if (DocgenConsts.BLAZE_RULE_ATTR_END.matcher(line).matches()) {
-            endBlazeAttributeDoc(docAttributes);
-          } else {
-            appendLine(line);
-          }
-        }
-        Matcher ruleStartMatcher = DocgenConsts.BLAZE_RULE_START.matcher(line);
-        Matcher ruleVarStartMatcher = DocgenConsts.BLAZE_RULE_VAR_START.matcher(line);
-        Matcher ruleAttrStartMatcher = DocgenConsts.BLAZE_RULE_ATTR_START.matcher(line);
-        if (ruleStartMatcher.find()) {
-          startBlazeRuleDoc(line, ruleStartMatcher);
-        } else if (ruleVarStartMatcher.find()) {
-          startBlazeRuleVarDoc(ruleVarStartMatcher);
-        } else if (ruleAttrStartMatcher.find()) {
-          startBlazeAttributeDoc(line, ruleAttrStartMatcher);
-        }
-      }
-
-      private void appendLine(String line) {
-        // Add another line of html code to the building rule documentation
-        // Removing whitespace and java comment asterisk from the beginning of the line
-        sb.append(line.replaceAll("^[\\s]*\\*", "") + LS);
-      }
-
-      private void startBlazeRuleDoc(String line, Matcher matcher)
-          throws BuildEncyclopediaDocException {
-        checkDocValidity();
-        // Start of a new rule.
-        // e.g.: matcher.group(1) = "NAME = cc_binary, TYPE = BINARY, FAMILY = C / C++"
-        for (String group : Splitter.on(",").split(matcher.group(1))) {
-          List<String> parts = Splitter.on("=").limit(2).splitToList(group);
-          boolean good = false;
-          if (parts.size() == 2) {
-            String key = parts.get(0).trim();
-            String value = parts.get(1).trim();
-            good = true;
-            if (DocgenConsts.META_KEY_NAME.equals(key)) {
-              ruleName = value;
-            } else if (DocgenConsts.META_KEY_TYPE.equals(key)) {
-              ruleType = value;
-            } else if (DocgenConsts.META_KEY_FAMILY.equals(key)) {
-              ruleFamily = value;
-            } else {
-              good = false;
+          @Override
+          public void readLineImpl(String line) throws BuildEncyclopediaDocException {
+            // TODO(bazel-team): check if copy paste code can be reduced using inner classes
+            if (inBlazeRuleDocs) {
+              if (DocgenConsts.BLAZE_RULE_END.matcher(line).matches()) {
+                endBlazeRuleDoc(docMap);
+              } else {
+                appendLine(line);
+              }
+            } else if (inBlazeRuleVarDocs) {
+              if (DocgenConsts.BLAZE_RULE_VAR_END.matcher(line).matches()) {
+                endBlazeRuleVarDoc(docVariables);
+              } else {
+                appendLine(line);
+              }
+            } else if (inBlazeAttributeDocs) {
+              if (DocgenConsts.BLAZE_RULE_ATTR_END.matcher(line).matches()) {
+                endBlazeAttributeDoc(docAttributes);
+              } else {
+                appendLine(line);
+              }
+            } else if (inFamilySummary) {
+              if (DocgenConsts.FAMILY_SUMMARY_END.matcher(line).matches()) {
+                endFamilySummary();
+              } else {
+                appendLine(line);
+              }
+            }
+            Matcher familySummaryStartMatcher = DocgenConsts.FAMILY_SUMMARY_START.matcher(line);
+            Matcher ruleStartMatcher = DocgenConsts.BLAZE_RULE_START.matcher(line);
+            Matcher ruleVarStartMatcher = DocgenConsts.BLAZE_RULE_VAR_START.matcher(line);
+            Matcher ruleAttrStartMatcher = DocgenConsts.BLAZE_RULE_ATTR_START.matcher(line);
+            if (familySummaryStartMatcher.find()) {
+              startFamilySummary();
+            } else if (ruleStartMatcher.find()) {
+              startBlazeRuleDoc(line, ruleStartMatcher);
+            } else if (ruleVarStartMatcher.find()) {
+              startBlazeRuleVarDoc(ruleVarStartMatcher);
+            } else if (ruleAttrStartMatcher.find()) {
+              startBlazeAttributeDoc(line, ruleAttrStartMatcher);
             }
           }
-          if (!good) {
-            System.err.printf("WARNING: bad rule definition in line %d: '%s'", getLineCnt(), line);
+
+          private void appendLine(String line) {
+            // Add another line of html code to the building rule documentation
+            // Removing whitespace and java comment asterisk from the beginning of the line
+            sb.append(line.replaceAll("^[\\s]*\\*", "") + LS);
           }
-        }
 
-        startLineCnt = getLineCnt();
-        addFlags(line);
-        inBlazeRuleDocs = true;
-      }
+          private void startBlazeRuleDoc(String line, Matcher matcher)
+              throws BuildEncyclopediaDocException {
+            sb = new StringBuilder();
+            checkDocValidity();
+            // Start of a new rule.
+            // e.g.: matcher.group(1) = "NAME = cc_binary, TYPE = BINARY, FAMILY = C / C++"
+            for (String group : Splitter.on(",").split(matcher.group(1))) {
+              List<String> parts = Splitter.on("=").limit(2).splitToList(group);
+              boolean good = false;
+              if (parts.size() == 2) {
+                String key = parts.get(0).trim();
+                String value = parts.get(1).trim();
+                good = true;
+                if (DocgenConsts.META_KEY_NAME.equals(key)) {
+                  ruleName = value;
+                } else if (DocgenConsts.META_KEY_TYPE.equals(key)) {
+                  ruleType = value;
+                } else if (DocgenConsts.META_KEY_FAMILY.equals(key)) {
+                  ruleFamily = value;
+                } else {
+                  good = false;
+                }
+              }
+              if (!good) {
+                System.err.printf(
+                    "WARNING: bad rule definition in line %d: '%s'", getLineCnt(), line);
+              }
+            }
 
-      private void endBlazeRuleDoc(final Map<String, RuleDocumentation> documentations)
-          throws BuildEncyclopediaDocException {
-        // End of a rule, create RuleDocumentation object
-        documentations.put(ruleName, new RuleDocumentation(ruleName, ruleType,
-            ruleFamily, sb.toString(), getLineCnt(), javaSourceFilePath, flags,
-            ruleClassProvider));
-        sb = new StringBuilder();
-        inBlazeRuleDocs = false;
-      }
+            startLineCnt = getLineCnt();
+            addFlags(line);
+            inBlazeRuleDocs = true;
+          }
 
-      private void startBlazeRuleVarDoc(Matcher matcher) throws BuildEncyclopediaDocException {
-        checkDocValidity();
-        // Start of a new rule variable
-        ruleName = matcher.group(1).replaceAll("[\\s]", "");
-        variableName = matcher.group(2).replaceAll("[\\s]", "");
-        startLineCnt = getLineCnt();
-        inBlazeRuleVarDocs = true;
-      }
+          private void startFamilySummary() {
+            sb = new StringBuilder();
+            inFamilySummary = true;
+          }
 
-      private void endBlazeRuleVarDoc(final List<RuleDocumentationVariable> docVariables) {
-        // End of a rule, create RuleDocumentationVariable object
-        docVariables.add(
-            new RuleDocumentationVariable(ruleName, variableName, sb.toString(), startLineCnt));
-        sb = new StringBuilder();
-        inBlazeRuleVarDocs = false;
-      }
+          private void endFamilySummary() {
+            familySummary = sb.toString();
+          }
 
-      private void startBlazeAttributeDoc(String line, Matcher matcher)
-          throws BuildEncyclopediaDocException {
-        checkDocValidity();
-        // Start of a new attribute
-        ruleName = matcher.group(1).replaceAll("[\\s]", "");
-        attributeName = matcher.group(2).replaceAll("[\\s]", "");
-        startLineCnt = getLineCnt();
-        addFlags(line);
-        inBlazeAttributeDocs = true;
-      }
+          private void endBlazeRuleDoc(final Map<String, RuleDocumentation> documentations)
+              throws BuildEncyclopediaDocException {
+            // End of a rule, create RuleDocumentation object
+            documentations.put(
+                ruleName,
+                new RuleDocumentation(
+                    ruleName,
+                    ruleType,
+                    ruleFamily,
+                    sb.toString(),
+                    getLineCnt(),
+                    javaSourceFilePath,
+                    flags,
+                    ruleClassProvider,
+                    familySummary));
+            sb = new StringBuilder();
+            inBlazeRuleDocs = false;
+          }
 
-      private void endBlazeAttributeDoc(
-          final ListMultimap<String, RuleDocumentationAttribute> docAttributes) {
-        // End of a attribute, create RuleDocumentationAttribute object
-        docAttributes.put(attributeName, RuleDocumentationAttribute.create(
-            ruleClassProvider.getRuleClassDefinition(ruleName),
-            attributeName, sb.toString(), startLineCnt, flags));
-        sb = new StringBuilder();
-        inBlazeAttributeDocs = false;
-      }
+          private void startBlazeRuleVarDoc(Matcher matcher) throws BuildEncyclopediaDocException {
+            checkDocValidity();
+            // Start of a new rule variable
+            ruleName = matcher.group(1).replaceAll("[\\s]", "");
+            variableName = matcher.group(2).replaceAll("[\\s]", "");
+            startLineCnt = getLineCnt();
+            inBlazeRuleVarDocs = true;
+          }
 
-      private void addFlags(String line) {
-        // Add flags if there's any
-        Matcher matcher = DocgenConsts.BLAZE_RULE_FLAGS.matcher(line);
-        if (matcher.find()) {
-          flags = ImmutableSet.<String>copyOf(matcher.group(1).split(","));
-        } else {
-          flags = ImmutableSet.<String>of();
-        }
-      }
+          private void endBlazeRuleVarDoc(final List<RuleDocumentationVariable> docVariables) {
+            // End of a rule, create RuleDocumentationVariable object
+            docVariables.add(
+                new RuleDocumentationVariable(ruleName, variableName, sb.toString(), startLineCnt));
+            sb = new StringBuilder();
+            inBlazeRuleVarDocs = false;
+          }
 
-      private void checkDocValidity() throws BuildEncyclopediaDocException {
-        if (inBlazeRuleDocs || inBlazeRuleVarDocs || inBlazeAttributeDocs) {
-          throw new BuildEncyclopediaDocException(javaSourceFilePath, getLineCnt(),
-              "Malformed documentation, #BLAZE_RULE started after another #BLAZE_RULE.");
-        }
-      }
-    });
+          private void startBlazeAttributeDoc(String line, Matcher matcher)
+              throws BuildEncyclopediaDocException {
+            checkDocValidity();
+            // Start of a new attribute
+            ruleName = matcher.group(1).replaceAll("[\\s]", "");
+            attributeName = matcher.group(2).replaceAll("[\\s]", "");
+            startLineCnt = getLineCnt();
+            addFlags(line);
+            inBlazeAttributeDocs = true;
+          }
+
+          private void endBlazeAttributeDoc(
+              final ListMultimap<String, RuleDocumentationAttribute> docAttributes) {
+            // End of a attribute, create RuleDocumentationAttribute object
+            docAttributes.put(
+                attributeName,
+                RuleDocumentationAttribute.create(
+                    ruleClassProvider.getRuleClassDefinition(ruleName).getClass(),
+                    attributeName,
+                    sb.toString(),
+                    startLineCnt,
+                    javaSourceFilePath,
+                    flags));
+            sb = new StringBuilder();
+            inBlazeAttributeDocs = false;
+          }
+
+          private void addFlags(String line) {
+            // Add flags if there's any
+            Matcher matcher = DocgenConsts.BLAZE_RULE_FLAGS.matcher(line);
+            if (matcher.find()) {
+              flags = ImmutableSet.<String>copyOf(matcher.group(1).split(","));
+            } else {
+              flags = ImmutableSet.<String>of();
+            }
+          }
+
+          private void checkDocValidity() throws BuildEncyclopediaDocException {
+            if (inBlazeRuleDocs || inBlazeRuleVarDocs || inBlazeAttributeDocs) {
+              throw new BuildEncyclopediaDocException(
+                  javaSourceFilePath,
+                  getLineCnt(),
+                  "Malformed documentation, #BLAZE_RULE started after another #BLAZE_RULE.");
+            }
+          }
+        });
 
     // Adding rule doc variables to the corresponding rules
     for (RuleDocumentationVariable docVariable : docVariables) {
@@ -292,25 +332,29 @@ public class SourceFileReader {
       return line;
     }
 
-    for (Entry<String, String> variable : variables.entrySet()) {
+    for (Map.Entry<String, String> variable : variables.entrySet()) {
       line = line.replace("${" + variable.getKey() + "}", variable.getValue());
     }
     return line;
   }
 
+  private static BufferedReader createReader(String filePath) throws IOException {
+    File file = new File(filePath);
+    if (file.exists()) {
+      return Files.newBufferedReader(file.toPath(), StandardCharsets.UTF_8);
+    } else {
+      InputStream is = SourceFileReader.class.getResourceAsStream(filePath);
+      if (is != null) {
+        return new BufferedReader(new InputStreamReader(is, StandardCharsets.UTF_8));
+      } else {
+        return null;
+      }
+    }
+  }
+
   public static void readTextFile(String filePath, ReadAction action)
       throws BuildEncyclopediaDocException, IOException {
-    BufferedReader br = null;
-    try {
-      File file = new File(filePath);
-      if (file.exists()) {
-        br = new BufferedReader(new FileReader(file));
-      } else {
-        InputStream is = SourceFileReader.class.getResourceAsStream(filePath);
-        if (is != null) {
-          br = new BufferedReader(new InputStreamReader(is));
-        }
-      }
+    try (BufferedReader br = createReader(filePath)) {
       if (br != null) {
         String line = null;
         while ((line = br.readLine()) != null) {
@@ -318,10 +362,6 @@ public class SourceFileReader {
         }
       } else {
         System.out.println("Couldn't find file or resource: " + filePath);
-      }
-    } finally {
-      if (br != null) {
-        br.close();
       }
     }
   }

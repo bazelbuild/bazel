@@ -1,4 +1,4 @@
-// Copyright 2014 Google Inc. All rights reserved.
+// Copyright 2014 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -13,10 +13,9 @@
 // limitations under the License.
 package com.google.devtools.build.lib.syntax;
 
-/**
- * Syntax node for comments.
- */
-public final class Comment extends ASTNode {
+
+/** Syntax node for comments. */
+public final class Comment extends Node {
 
   protected final String value;
 
@@ -29,7 +28,7 @@ public final class Comment extends ASTNode {
   }
 
   @Override
-  public void accept(SyntaxTreeVisitor visitor) {
+  public void accept(NodeVisitor visitor) {
     visitor.visit(this);
   }
 

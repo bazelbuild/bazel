@@ -1,0 +1,96 @@
+<!doctype html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<html>
+<head>
+<meta http-equiv="content-type" content="text/html; charset=iso-8859-1">
+<meta http-equiv="content-script-type" content="text/javascript">
+<meta http-equiv="content-style-type" content="text/css">
+<meta name="author" content="Eric Lafortune">
+<meta name="description" content="ProGuard: java shrinker, optimizer, obfuscator, and preverifier">
+<meta name="keywords" content="java obfuscator, optimizer, shrinker, preverfier">
+<link rel="stylesheet" type="text/css" href="style.css">
+<link rel="shortcut icon" type="image/x-icon" href="favicon.ico">
+<title>ProGuard</title>
+</head>
+
+<script type="text/javascript" language="JavaScript">
+//<!--
+  var destWindowHash = window.location.hash;
+  function mainFrameLoaded() {
+    if (destWindowHash.length > 1) {
+      var destFrameFile = destWindowHash.substring(1);
+      var currFrameFile = frames["main"].location.href.replace(window.location.href.replace(/index.html.*/, ""), "");
+      if (currFrameFile != destFrameFile) {
+        frames["main"].location.replace(destFrameFile);
+        if (destFrameFile.search("manual/") >= 0)
+          frames["sections"].location.replace("manual/sections.html");
+      }
+      destWindowHash = "";
+    }
+  }
+//-->
+</script>
+
+<frameset
+ rows="50,*"
+ framespacing="0"
+ frameborder="no">
+
+<frame
+ id="title"
+ name="title"
+ src="title.html"
+ scrolling="no"
+ marginwidth="0"
+ marginheight="0"
+ noresize="noresize" />
+
+<frameset
+ cols="120,*"
+ framespacing="0"
+ frameborder="no">
+
+<frame
+ id="sections"
+ name="sections"
+ src="sections.html"
+ scrolling="no"
+ marginwidth="0"
+ marginheight="0"
+ noresize="noresize" />
+
+<frame
+ id="main"
+ name="main"
+ src="main.html"
+ scrolling="auto"
+ marginwidth="10"
+ marginheight="10"
+ noresize="noresize"
+ onload="mainFrameLoaded()" />
+
+</frameset>
+</frameset>
+
+<noframes>
+<body>
+<p class="intro">
+<b>ProGuard</b> is a free Java class file shrinker, optimizer, obfuscator, and
+preverifier. It detects and removes unused classes, fields, methods, and
+attributes. It optimizes bytecode and removes unused instructions. It renames
+the remaining classes, fields, and methods using short meaningless names.
+Finally, it preverifies the processed code for Java 6 or for Java Micro
+Edition.
+</p>
+<p>
+Your browser doesn't support frames, but that's cool.
+<p>
+You can go straight to the <a href="main.html">main page</a>.
+
+<hr />
+<address>
+Copyright &copy; 2002-2017
+<a target="other" href="http://www.lafortune.eu/">Eric Lafortune</a> @ <a target="top" href="http://www.guardsquare.com/">GuardSquare</a>.
+</address>
+</body>
+</noframes>
+</html>

@@ -1,0 +1,61 @@
+---
+layout: documentation
+title: Command-Line Reference
+---
+<h1>Command-Line Reference</h1>
+
+<pre>
+bazel [&lt;startup options&gt;] &lt;command&gt; [&lt;args&gt;]
+</pre>
+
+or
+
+<pre>
+bazel [&lt;startup options&gt;] &lt;command&gt; [&lt;args&gt;] -- [&lt;target patterns&gt;]
+</pre>
+
+See the <a href="guide.html#target-patterns">User's Guide</a> for the
+target patterns syntax.
+
+<h2>Option Syntax</h2>
+
+<p>
+Options can be passed to Bazel in different ways. Options that require a value
+can be passed with either an equals sign or a space:
+<pre>
+--&lt;option&gt;=&lt;value&gt;
+--&lt;option&gt; &lt;value&gt;
+</pre>
+Some options have a single character short form; in that case, the short form
+has to be passed with a single dash and a space.
+<pre>
+-&lt;short_form&gt; &lt;value&gt;
+</pre>
+</p>
+
+<p>
+Boolean options can be enabled as follows:
+<pre>
+--&lt;option&gt;
+--&lt;option&gt;=[true|yes|1]
+</pre>
+
+and disabled as follows:
+<pre>
+--no&lt;option&gt;
+--&lt;option&gt;=[false|no|0]
+</pre>
+</p>
+
+<p>
+Tristate options are usually set to automatic by default, and can be
+force-enabled as follows:
+<pre>
+--&lt;option&gt;=[true|yes|1]
+</pre>
+or force-disabled as follows:
+<pre>
+--no&lt;option&gt;
+--&lt;option&gt;=[false|no|0]
+</pre>
+</p>

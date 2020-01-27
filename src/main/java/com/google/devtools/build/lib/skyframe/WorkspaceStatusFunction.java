@@ -1,4 +1,4 @@
-// Copyright 2014 Google Inc. All rights reserved.
+// Copyright 2014 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -21,23 +21,31 @@ import com.google.devtools.build.skyframe.SkyValue;
 
 /** Creates the workspace status artifacts and action. */
 public class WorkspaceStatusFunction implements SkyFunction {
-  WorkspaceStatusFunction() {
+  interface WorkspaceStatusActionFactory {
+    WorkspaceStatusAction create(String workspaceName);
+  }
+
+  private final WorkspaceStatusActionFactory workspaceStatusActionFactory;
+
+  WorkspaceStatusFunction(
+      WorkspaceStatusActionFactory workspaceStatusActionFactory) {
+    this.workspaceStatusActionFactory = workspaceStatusActionFactory;
   }
 
   @Override
-  public SkyValue compute(SkyKey skyKey, Environment env) {
+  public SkyValue compute(SkyKey skyKey, Environment env) throws InterruptedException {
     Preconditions.checkState(
-        WorkspaceStatusValue.SKY_KEY.equals(skyKey), WorkspaceStatusValue.SKY_KEY);
-
-    WorkspaceStatusAction action = PrecomputedValue.WORKSPACE_STATUS_KEY.get(env);
-    if (action == null) {
+        WorkspaceStatusValue.BUILD_INFO_KEY.equals(skyKey), WorkspaceStatusValue.BUILD_INFO_KEY);
+    WorkspaceNameValue workspaceNameValue =
+        (WorkspaceNameValue) env.getValue(WorkspaceNameValue.key());
+    if (env.valuesMissing()) {
       return null;
     }
 
-    return new WorkspaceStatusValue(
-        action.getStableStatus(),
-        action.getVolatileStatus(),
-        action);
+    WorkspaceStatusAction action =
+        workspaceStatusActionFactory.create(workspaceNameValue.getName());
+
+    return new WorkspaceStatusValue(action.getStableStatus(), action.getVolatileStatus(), action);
   }
 
   @Override

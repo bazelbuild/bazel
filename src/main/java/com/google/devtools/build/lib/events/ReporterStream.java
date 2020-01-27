@@ -1,4 +1,4 @@
-// Copyright 2014 Google Inc. All rights reserved.
+// Copyright 2014 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,21 +14,20 @@
 
 package com.google.devtools.build.lib.events;
 
-import static java.nio.charset.StandardCharsets.ISO_8859_1;
-
+import com.google.common.base.Preconditions;
 import java.io.OutputStream;
+import java.util.Arrays;
 
 /**
- * An OutputStream that delegates all writes to a Reporter.
+ * An OutputStream that delegates all writes to an EventHandler.
  */
 public final class ReporterStream extends OutputStream {
-
-  private final EventHandler reporter;
+  private final EventHandler handler;
   private final EventKind eventKind;
 
-  public ReporterStream(EventHandler reporter, EventKind eventKind) {
-    this.reporter = reporter;
-    this.eventKind = eventKind;
+  public ReporterStream(EventHandler handler, EventKind eventKind) {
+    this.handler = Preconditions.checkNotNull(handler);
+    this.eventKind = Preconditions.checkNotNull(eventKind);
   }
 
   @Override
@@ -43,16 +42,16 @@ public final class ReporterStream extends OutputStream {
 
   @Override
   public void write(int b) {
-    reporter.handle(new Event(eventKind, null, new byte[] { (byte) b }));
+    handler.handle(Event.of(eventKind, null, new byte[] { (byte) b }));
   }
 
   @Override
   public void write(byte[] bytes) {
-    reporter.handle(new Event(eventKind, null, bytes));
+    write(bytes, 0, bytes.length);
   }
 
   @Override
   public void write(byte[] bytes, int offset, int len) {
-    reporter.handle(new Event(eventKind, null, new String(bytes, offset, len, ISO_8859_1)));
+    handler.handle(Event.of(eventKind, null, Arrays.copyOfRange(bytes, offset, offset + len)));
   }
 }

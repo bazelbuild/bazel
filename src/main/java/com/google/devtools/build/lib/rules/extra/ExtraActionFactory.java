@@ -1,4 +1,4 @@
-// Copyright 2014 Google Inc. All rights reserved.
+// Copyright 2014 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -13,23 +13,25 @@
 // limitations under the License.
 
 package com.google.devtools.build.lib.rules.extra;
-import com.google.common.collect.ImmutableMap;
+
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.CompositeRunfilesSupplier;
+import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.analysis.CommandHelper;
 import com.google.devtools.build.lib.analysis.ConfigurationMakeVariableContext;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
-import com.google.devtools.build.lib.analysis.FilesToRunProvider;
-import com.google.devtools.build.lib.analysis.MakeVariableExpander;
-import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
+import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
+import com.google.devtools.build.lib.analysis.ShToolchain;
+import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
+import com.google.devtools.build.lib.analysis.extra.ExtraActionSpec;
+import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.packages.Type;
-import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
-import com.google.devtools.build.lib.syntax.Label;
-
+import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.List;
 
 /**
@@ -37,22 +39,21 @@ import java.util.List;
  */
 public final class ExtraActionFactory implements RuleConfiguredTargetFactory {
   @Override
-  public ConfiguredTarget create(RuleContext context) {
+  public ConfiguredTarget create(RuleContext context)
+      throws InterruptedException, RuleErrorException, ActionConflictException {
     // This rule doesn't produce any output when listed as a build target.
     // Only when used via the --experimental_action_listener flag,
     // this rule instructs the build system to add additional outputs.
     List<Artifact> resolvedData = Lists.newArrayList();
 
-    Iterable<FilesToRunProvider> tools =
-        context.getPrerequisites("tools", Mode.HOST, FilesToRunProvider.class);
-    CommandHelper commandHelper = new CommandHelper(
-        context, tools, ImmutableMap.<Label, Iterable<Artifact>>of());
+    CommandHelper commandHelper =
+        CommandHelper.builder(context).addHostToolDependencies("tools").build();
 
-    resolvedData.addAll(context.getPrerequisiteArtifacts("data", Mode.DATA).list());
+    resolvedData.addAll(context.getPrerequisiteArtifacts("data", Mode.DONT_CHECK).list());
     List<String>outputTemplates =
         context.attributes().get("out_templates", Type.STRING_LIST);
 
-    String command = commandHelper.resolveCommandAndExpandLabels(false, true);
+    String command = context.attributes().get("cmd", Type.STRING);
     // This is a bit of a hack. We want to run the MakeVariableExpander first, so we expand $ on
     // variables that are expanded below with $$, which gets reverted to $ by the
     // MakeVariableExpander. This allows us to expand package-specific make variables in the
@@ -62,27 +63,31 @@ public final class ExtraActionFactory implements RuleConfiguredTargetFactory {
     command = command.replace("$(ACTION_ID)", "$$(ACTION_ID)");
     command = command.replace("$(OWNER_LABEL_DIGEST)", "$$(OWNER_LABEL_DIGEST)");
     command = command.replace("$(output ", "$$(output ");
-    try {
-      command = MakeVariableExpander.expand(
-          command, new ConfigurationMakeVariableContext(
-              context.getTarget().getPackage(), context.getConfiguration()));
-    } catch (MakeVariableExpander.ExpansionException e) {
-      context.ruleError(String.format("Unable to expand make variables: %s",
-          e.getMessage()));
-    }
+    ConfigurationMakeVariableContext makeVariableContext = new ConfigurationMakeVariableContext(
+        context, context.getTarget().getPackage(), context.getConfiguration());
+    command = context
+        .getExpander(makeVariableContext)
+        .withDataExecLocations()
+        .expand("cmd", command);
 
     boolean requiresActionOutput =
         context.attributes().get("requires_action_output", Type.BOOLEAN);
 
-    ExtraActionSpec spec = new ExtraActionSpec(
-        commandHelper.getResolvedTools(),
-        commandHelper.getRemoteRunfileManifestMap(),
-        resolvedData,
-        outputTemplates,
-        command,
-        context.getLabel(),
-        requiresActionOutput);
-
+    PathFragment shExecutable = ShToolchain.getPathOrError(context);
+    if (context.hasErrors()) {
+      return null;
+    }
+    ExtraActionSpec spec =
+        new ExtraActionSpec(
+            shExecutable,
+            commandHelper.getResolvedTools(),
+            CompositeRunfilesSupplier.fromSuppliers(commandHelper.getToolsRunfilesSuppliers()),
+            resolvedData,
+            outputTemplates,
+            command,
+            context.getLabel(),
+            TargetUtils.getExecutionInfo(context.getRule()),
+            requiresActionOutput);
     return new RuleConfiguredTargetBuilder(context)
         .addProvider(ExtraActionSpec.class, spec)
         .add(RunfilesProvider.class, RunfilesProvider.simple(Runfiles.EMPTY))

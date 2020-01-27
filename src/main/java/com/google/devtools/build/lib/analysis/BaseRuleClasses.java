@@ -1,4 +1,4 @@
-// Copyright 2014 Google Inc. All rights reserved.
+// Copyright 2014 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,50 +14,49 @@
 
 package com.google.devtools.build.lib.analysis;
 
-import static com.google.devtools.build.lib.packages.Attribute.ConfigurationTransition.DATA;
-import static com.google.devtools.build.lib.packages.Attribute.ConfigurationTransition.HOST;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
+import static com.google.devtools.build.lib.packages.BuildType.DISTRIBUTIONS;
+import static com.google.devtools.build.lib.packages.BuildType.LABEL;
+import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
+import static com.google.devtools.build.lib.packages.BuildType.LICENSE;
+import static com.google.devtools.build.lib.packages.BuildType.NODEP_LABEL_LIST;
 import static com.google.devtools.build.lib.packages.Type.BOOLEAN;
-import static com.google.devtools.build.lib.packages.Type.DISTRIBUTIONS;
 import static com.google.devtools.build.lib.packages.Type.INTEGER;
-import static com.google.devtools.build.lib.packages.Type.LABEL;
-import static com.google.devtools.build.lib.packages.Type.LABEL_LIST;
-import static com.google.devtools.build.lib.packages.Type.LICENSE;
-import static com.google.devtools.build.lib.packages.Type.NODEP_LABEL_LIST;
 import static com.google.devtools.build.lib.packages.Type.STRING;
+import static com.google.devtools.build.lib.packages.Type.STRING_DICT;
 import static com.google.devtools.build.lib.packages.Type.STRING_LIST;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.HostTransition;
 import com.google.devtools.build.lib.analysis.config.RunUnder;
 import com.google.devtools.build.lib.analysis.constraints.EnvironmentRule;
+import com.google.devtools.build.lib.analysis.test.TestConfiguration;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Attribute;
-import com.google.devtools.build.lib.packages.Attribute.LateBoundLabel;
-import com.google.devtools.build.lib.packages.Attribute.LateBoundLabelList;
+import com.google.devtools.build.lib.packages.Attribute.LabelLateBoundDefault;
+import com.google.devtools.build.lib.packages.Attribute.LabelListLateBoundDefault;
+import com.google.devtools.build.lib.packages.Attribute.LateBoundDefault.Resolver;
 import com.google.devtools.build.lib.packages.AttributeMap;
-import com.google.devtools.build.lib.packages.Rule;
+import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.RuleClass;
-import com.google.devtools.build.lib.packages.RuleClass.Builder;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.packages.TestSize;
 import com.google.devtools.build.lib.packages.Type;
-import com.google.devtools.build.lib.syntax.Label;
+import com.google.devtools.build.lib.packages.Type.ConversionException;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.util.FileTypeSet;
-
-import java.util.List;
 
 /**
  * Rule class definitions used by (almost) every rule.
  */
 public class BaseRuleClasses {
-  /**
-   * Label of the pseudo-filegroup that contains all the targets that are needed
-   * for running tests in coverage mode.
-   */
-  private static final Label COVERAGE_SUPPORT_LABEL =
-      Label.parseAbsoluteUnchecked("//tools/defaults:coverage");
 
-  private static final Attribute.ComputedDefault testonlyDefault =
+  @AutoCodec @AutoCodec.VisibleForSerialization
+  static final Attribute.ComputedDefault testonlyDefault =
       new Attribute.ComputedDefault() {
         @Override
         public Object getDefault(AttributeMap rule) {
@@ -65,7 +64,8 @@ public class BaseRuleClasses {
         }
       };
 
-  private static final Attribute.ComputedDefault deprecationDefault =
+  @AutoCodec @AutoCodec.VisibleForSerialization
+  static final Attribute.ComputedDefault deprecationDefault =
       new Attribute.ComputedDefault() {
         @Override
         public Object getDefault(AttributeMap rule) {
@@ -73,98 +73,163 @@ public class BaseRuleClasses {
         }
       };
 
+  // TODO(b/65746853): provide a way to do this without passing the entire configuration
   /**
    * Implementation for the :action_listener attribute.
+   *
+   * <p>action_listeners are special rules; they tell the build system to add extra_actions to
+   * existing rules. As such they need an edge to every ConfiguredTarget with the limitation that
+   * they only run on the target configuration and should not operate on action_listeners and
+   * extra_actions themselves (to avoid cycles).
    */
-  private static final LateBoundLabelList<BuildConfiguration> ACTION_LISTENER =
-      new LateBoundLabelList<BuildConfiguration>() {
-    @Override
-    public List<Label> getDefault(Rule rule, BuildConfiguration configuration) {
-      // action_listeners are special rules; they tell the build system to add extra_actions to
-      // existing rules. As such they need an edge to every ConfiguredTarget with the limitation
-      // that they only run on the target configuration and should not operate on action_listeners
-      // and extra_actions themselves (to avoid cycles).
-      return configuration.getActionListeners();
-    }
-  };
+  @AutoCodec @VisibleForTesting
+  static final LabelListLateBoundDefault<?> ACTION_LISTENER =
+      LabelListLateBoundDefault.fromTargetConfiguration(
+          BuildConfiguration.class,
+          (rule, attributes, configuration) -> configuration.getActionListeners());
 
-  private static final LateBoundLabelList<BuildConfiguration> COVERAGE_SUPPORT =
-      new LateBoundLabelList<BuildConfiguration>(ImmutableList.of(COVERAGE_SUPPORT_LABEL)) {
-        @Override
-        public List<Label> getDefault(Rule rule, BuildConfiguration configuration) {
-          return configuration.isCodeCoverageEnabled()
-              ? ImmutableList.<Label>copyOf(configuration.getCoverageLabels())
-              : ImmutableList.<Label>of();
+  public static final String DEFAULT_COVERAGE_SUPPORT_VALUE = "//tools/test:coverage_support";
+
+  @AutoCodec
+  static final Resolver<TestConfiguration, Label> COVERAGE_SUPPORT_CONFIGURATION_RESOLVER =
+      (rule, attributes, configuration) -> configuration.getCoverageSupport();
+
+  public static LabelLateBoundDefault<TestConfiguration> coverageSupportAttribute(
+      Label defaultValue) {
+    return LabelLateBoundDefault.fromTargetConfiguration(
+        TestConfiguration.class, defaultValue, COVERAGE_SUPPORT_CONFIGURATION_RESOLVER);
+  }
+
+  public static final String DEFAULT_COVERAGE_REPORT_GENERATOR_VALUE =
+      "//tools/test:coverage_report_generator";
+
+  private static final String DEFAULT_COVERAGE_OUTPUT_GENERATOR_VALUE =
+      "@bazel_tools//tools/test:lcov_merger";
+
+  @AutoCodec
+  static final Resolver<TestConfiguration, Label> COVERAGE_REPORT_GENERATOR_CONFIGURATION_RESOLVER =
+      (rule, attributes, configuration) -> configuration.getCoverageReportGenerator();
+
+  public static LabelLateBoundDefault<TestConfiguration> coverageReportGeneratorAttribute(
+      Label defaultValue) {
+    return LabelLateBoundDefault.fromTargetConfiguration(
+        TestConfiguration.class, defaultValue, COVERAGE_REPORT_GENERATOR_CONFIGURATION_RESOLVER);
+  }
+
+  public static LabelLateBoundDefault<BuildConfiguration> getCoverageOutputGeneratorLabel() {
+    return LabelLateBoundDefault.fromTargetConfiguration(
+        BuildConfiguration.class, null, COVERAGE_OUTPUT_GENERATOR_RESOLVER);
+  }
+
+  @AutoCodec
+  static final Resolver<BuildConfiguration, Label> COVERAGE_OUTPUT_GENERATOR_RESOLVER =
+      (rule, attributes, configuration) -> {
+        if (configuration.isCodeCoverageEnabled()) {
+          return Label.parseAbsoluteUnchecked(DEFAULT_COVERAGE_OUTPUT_GENERATOR_VALUE);
+        } else {
+          return null;
         }
       };
 
-  private static final LateBoundLabelList<BuildConfiguration> COVERAGE_REPORT_GENERATOR =
-      new LateBoundLabelList<BuildConfiguration>(ImmutableList.of(COVERAGE_SUPPORT_LABEL)) {
-        @Override
-        public List<Label> getDefault(Rule rule, BuildConfiguration configuration) {
-          return configuration.isCodeCoverageEnabled()
-              ? ImmutableList.<Label>copyOf(configuration.getCoverageReportGeneratorLabels())
-              : ImmutableList.<Label>of();
-        }
-      };
-
-  /**
-   * Implementation for the :run_under attribute.
-   */
-  private static final LateBoundLabel<BuildConfiguration> RUN_UNDER =
-      new LateBoundLabel<BuildConfiguration>() {
-        @Override
-        public Label getDefault(Rule rule, BuildConfiguration configuration) {
-          RunUnder runUnder = configuration.getRunUnder();
-          return runUnder == null ? null : runUnder.getLabel();
-        }
-      };
+  // TODO(b/65746853): provide a way to do this without passing the entire configuration
+  /** Implementation for the :run_under attribute. */
+  @AutoCodec
+  public static final LabelLateBoundDefault<?> RUN_UNDER =
+      LabelLateBoundDefault.fromTargetConfiguration(
+          BuildConfiguration.class,
+          null,
+          (rule, attributes, configuration) -> {
+            RunUnder runUnder = configuration.getRunUnder();
+            return runUnder != null ? runUnder.getLabel() : null;
+          });
 
   /**
    * A base rule for all test rules.
    */
   public static final class TestBaseRule implements RuleDefinition {
     @Override
-    public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
+    public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
       return builder
-          .add(attr("size", STRING).value("medium").taggable()
-              .nonconfigurable("policy decision: should be consistent across configurations"))
-          .add(attr("timeout", STRING).taggable()
-              .nonconfigurable("policy decision: should be consistent across configurations")
-              .value(new Attribute.ComputedDefault() {
-                @Override
-                public Object getDefault(AttributeMap rule) {
-                  TestSize size = TestSize.getTestSize(rule.get("size", Type.STRING));
-                  if (size != null) {
-                    String timeout = size.getDefaultTimeout().toString();
-                    if (timeout != null) {
-                      return timeout;
-                    }
-                  }
-                  return "illegal";
-                }
-              }))
-          .add(attr("flaky", BOOLEAN).value(false).taggable()
-              .nonconfigurable("policy decision: should be consistent across configurations"))
+          .requiresConfigurationFragments(TestConfiguration.class)
+          .add(
+              attr("size", STRING)
+                  .value("medium")
+                  .taggable()
+                  .nonconfigurable("policy decision: should be consistent across configurations"))
+          .add(
+              attr("timeout", STRING)
+                  .taggable()
+                  .nonconfigurable("policy decision: should be consistent across configurations")
+                  .value(
+                      new Attribute.ComputedDefault() {
+                        @Override
+                        public Object getDefault(AttributeMap rule) {
+                          TestSize size = TestSize.getTestSize(rule.get("size", Type.STRING));
+                          if (size != null) {
+                            String timeout = size.getDefaultTimeout().toString();
+                            if (timeout != null) {
+                              return timeout;
+                            }
+                          }
+                          return "illegal";
+                        }
+                      }))
+          .add(
+              attr("flaky", BOOLEAN)
+                  .value(false)
+                  .taggable()
+                  .nonconfigurable("policy decision: should be consistent across configurations"))
           .add(attr("shard_count", INTEGER).value(-1))
-          .add(attr("local", BOOLEAN).value(false).taggable()
-              .nonconfigurable("policy decision: should be consistent across configurations"))
-          .add(attr("args", STRING_LIST)
-              .nonconfigurable("policy decision: should be consistent across configurations"))
-          .add(attr("$test_runtime", LABEL_LIST).cfg(HOST).value(ImmutableList.of(
-              env.getLabel("//tools/test:runtime"))))
-
-          // TODO(bazel-team): TestActions may need to be run with coverage, so all tests
-          // implicitly depend on crosstool, which provides gcov.  We could add gcov to
-          // InstrumentedFilesProvider.getInstrumentationMetadataFiles() (or a new method) for
-          // all the test rules that have C++ in their transitive closure. Then this could go.
-          .add(attr(":coverage_support", LABEL_LIST).cfg(HOST).value(COVERAGE_SUPPORT))
-          .add(attr(":coverage_report_generator", LABEL_LIST).cfg(HOST)
-              .value(COVERAGE_REPORT_GENERATOR))
-
-          // The target itself and run_under both run on the same machine. We use the DATA config
-          // here because the run_under acts like a data dependency (e.g. no LIPO optimization).
-          .add(attr(":run_under", LABEL).cfg(DATA).value(RUN_UNDER))
+          .add(
+              attr("local", BOOLEAN)
+                  .value(false)
+                  .taggable()
+                  .nonconfigurable("policy decision: should be consistent across configurations"))
+          .add(attr("args", STRING_LIST))
+          // Input files for every test action
+          .add(
+              attr("$test_wrapper", LABEL)
+                  .cfg(HostTransition.createFactory())
+                  .singleArtifact()
+                  .value(env.getToolsLabel("//tools/test:test_wrapper")))
+          .add(
+              attr("$xml_writer", LABEL)
+                  .cfg(HostTransition.createFactory())
+                  .singleArtifact()
+                  .value(env.getToolsLabel("//tools/test:xml_writer")))
+          .add(
+              attr("$test_runtime", LABEL_LIST)
+                  .cfg(HostTransition.createFactory())
+                  .value(getTestRuntimeLabelList(env)))
+          .add(
+              attr("$test_setup_script", LABEL)
+                  .cfg(HostTransition.createFactory())
+                  .singleArtifact()
+                  .value(env.getToolsLabel("//tools/test:test_setup")))
+          .add(
+              attr("$xml_generator_script", LABEL)
+                  .cfg(HostTransition.createFactory())
+                  .singleArtifact()
+                  .value(env.getToolsLabel("//tools/test:test_xml_generator")))
+          .add(
+              attr("$collect_coverage_script", LABEL)
+                  .cfg(HostTransition.createFactory())
+                  .singleArtifact()
+                  .value(env.getToolsLabel("//tools/test:collect_coverage")))
+          // Input files for test actions collecting code coverage
+          .add(
+              attr(":coverage_support", LABEL)
+                  .value(
+                      coverageSupportAttribute(env.getToolsLabel(DEFAULT_COVERAGE_SUPPORT_VALUE))))
+          // Used in the one-per-build coverage report generation action.
+          .add(
+              attr(":coverage_report_generator", LABEL)
+                  .cfg(HostTransition.createFactory())
+                  .value(
+                      coverageReportGeneratorAttribute(
+                          env.getToolsLabel(DEFAULT_COVERAGE_REPORT_GENERATOR_VALUE))))
+          // The target itself and run_under both run on the same machine.
+          .add(attr(":run_under", LABEL).value(RUN_UNDER).skipPrereqValidatorCheck())
           .build();
     }
 
@@ -173,9 +238,31 @@ public class BaseRuleClasses {
       return RuleDefinition.Metadata.builder()
           .name("$test_base_rule")
           .type(RuleClassType.ABSTRACT)
+          .ancestors(RootRule.class, MakeVariableExpandingRule.class)
           .build();
     }
   }
+
+  private static final String TOOLS_TEST_RUNTIME_TARGET_PATTERN = "//tools/test:runtime";
+  private static ImmutableList<Label> testRuntimeLabelList = null;
+
+  // Always return the same ImmutableList<Label> for every $test_runtime attribute's default value.
+  public static synchronized ImmutableList<Label> getTestRuntimeLabelList(
+      RuleDefinitionContext env) {
+    if (testRuntimeLabelList == null) {
+      testRuntimeLabelList =
+          ImmutableList.of(
+              Label.parseAbsoluteUnchecked(
+                  env.getToolsRepository() + TOOLS_TEST_RUNTIME_TARGET_PATTERN));
+    }
+    return testRuntimeLabelList;
+  }
+
+  /**
+   * The attribute used to list the configuration properties used by a target and its transitive
+   * dependencies. Currently only supports config_feature_flag.
+   */
+  public static final String TAGGED_TRIMMING_ATTR = "transitive_configs";
 
   /**
    * Share common attributes across both base and Skylark base rules.
@@ -186,56 +273,111 @@ public class BaseRuleClasses {
         // necessary package groups is handled by {@link LabelVisitor#visitTargetVisibility}.
         // Package groups always have the null configuration so that they are not duplicated
         // needlessly.
-        .add(attr("visibility", NODEP_LABEL_LIST).orderIndependent().cfg(HOST)
-            .nonconfigurable("special attribute integrated more deeply into Bazel's core logic"))
-        .add(attr("deprecation", STRING).value(deprecationDefault)
-            .nonconfigurable("Used in core loading phase logic with no access to configs"))
-        .add(attr("tags", STRING_LIST).orderIndependent().taggable()
-            .nonconfigurable("low-level attribute, used in TargetUtils without configurations"))
-        .add(attr("generator_name", STRING).undocumented("internal"))
-        .add(attr("generator_function", STRING).undocumented("internal"))
-        .add(attr("testonly", BOOLEAN).value(testonlyDefault)
-            .nonconfigurable("policy decision: rules testability should be consistent"))
-        .add(attr(RuleClass.COMPATIBLE_ENVIRONMENT_ATTR, LABEL_LIST)
-            .allowedRuleClasses(EnvironmentRule.RULE_NAME)
-            .cfg(Attribute.ConfigurationTransition.HOST)
-            .allowedFileTypes(FileTypeSet.NO_FILE)
-            .undocumented("not yet released"))
-        .add(attr(RuleClass.RESTRICTED_ENVIRONMENT_ATTR, LABEL_LIST)
-            .allowedRuleClasses(EnvironmentRule.RULE_NAME)
-            .cfg(Attribute.ConfigurationTransition.HOST)
-            .allowedFileTypes(FileTypeSet.NO_FILE)
-            .undocumented("not yet released"));
+        .add(
+            attr("visibility", NODEP_LABEL_LIST)
+                .orderIndependent()
+                .cfg(HostTransition.createFactory())
+                .nonconfigurable(
+                    "special attribute integrated more deeply into Bazel's core logic"))
+        .add(
+            attr(TAGGED_TRIMMING_ATTR, NODEP_LABEL_LIST)
+                .orderIndependent()
+                .nonconfigurable("Used in determining configuration"))
+        .add(
+            attr("deprecation", STRING)
+                .value(deprecationDefault)
+                .nonconfigurable("Used in core loading phase logic with no access to configs"))
+        .add(
+            attr("tags", STRING_LIST)
+                .orderIndependent()
+                .taggable()
+                .nonconfigurable("low-level attribute, used in TargetUtils without configurations"))
+        .add(
+            attr("generator_name", STRING)
+                .undocumented("internal")
+                .nonconfigurable("static structure of a rule"))
+        .add(
+            attr("generator_function", STRING)
+                .undocumented("internal")
+                .nonconfigurable("static structure of a rule"))
+        .add(
+            attr("generator_location", STRING)
+                .undocumented("internal")
+                .nonconfigurable("static structure of a rule"))
+        .add(
+            attr("testonly", BOOLEAN)
+                .value(testonlyDefault)
+                .nonconfigurable("policy decision: rules testability should be consistent"))
+        .add(attr("features", STRING_LIST).orderIndependent())
+        .add(
+            attr(":action_listener", LABEL_LIST)
+                .cfg(HostTransition.createFactory())
+                .value(ACTION_LISTENER))
+        .add(
+            attr(RuleClass.COMPATIBLE_ENVIRONMENT_ATTR, LABEL_LIST)
+                .allowedRuleClasses(EnvironmentRule.RULE_NAME)
+                .cfg(HostTransition.createFactory())
+                .allowedFileTypes(FileTypeSet.NO_FILE)
+                .dontCheckConstraints()
+                .nonconfigurable(
+                    "special logic for constraints and select: see ConstraintSemantics"))
+        .add(
+            attr(RuleClass.RESTRICTED_ENVIRONMENT_ATTR, LABEL_LIST)
+                .allowedRuleClasses(EnvironmentRule.RULE_NAME)
+                .cfg(HostTransition.createFactory())
+                .allowedFileTypes(FileTypeSet.NO_FILE)
+                .dontCheckConstraints()
+                .nonconfigurable(
+                    "special logic for constraints and select: see ConstraintSemantics"))
+        .add(
+            attr(RuleClass.CONFIG_SETTING_DEPS_ATTRIBUTE, LABEL_LIST)
+                .nonconfigurable("stores configurability keys"));
+  }
+
+  public static RuleClass.Builder nameAttribute(RuleClass.Builder builder) {
+    return builder.add(attr("name", STRING).nonconfigurable("Rule name"));
+  }
+
+  public static RuleClass.Builder execPropertiesAttribute(RuleClass.Builder builder)
+      throws ConversionException {
+    return builder.add(
+        attr(RuleClass.EXEC_PROPERTIES, STRING_DICT).defaultValue(ImmutableMap.of()));
   }
 
   /**
-   * Common parts of rules.
+   * Ancestor of every rule.
+   *
+   * <p>Adds the name attribute to every rule.
+   */
+  public static final class RootRule implements RuleDefinition {
+
+    @Override
+    public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment environment) {
+        return nameAttribute(builder).build();
+    }
+
+    @Override
+    public Metadata getMetadata() {
+      return RuleDefinition.Metadata.builder()
+          .name("$root_rule")
+          .type(RuleClassType.ABSTRACT)
+          .build();
+    }
+  }
+
+  /**
+   * Common parts of some rules.
    */
   public static final class BaseRule implements RuleDefinition {
     @Override
     public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
       return commonCoreAndSkylarkAttributes(builder)
-          // The name attribute is handled specially, so it does not appear here.
-          //
-          // Aggregates the labels of all {@link ConfigRuleClasses} rules this rule uses (e.g.
-          // keys for configurable attributes). This is specially populated in
-          // {@RuleClass#populateRuleAttributeValues}.
-          //
-          // This attribute is not needed for actual builds. Its main purpose is so query's
-          // proto/XML output includes the labels of config dependencies, so, e.g., depserver
-          // reverse dependency lookups remain accurate. These can't just be added to the
-          // attribute definitions proto/XML queries already output because not all attributes
-          // contain labels.
-          //
-          // Builds and Blaze-interactive queries don't need this because they find dependencies
-          // through direct Rule label visitation, which already factors these in.
-          .add(attr("$config_dependencies", LABEL_LIST)
-              .nonconfigurable("not intended for actual builds"))
-          .add(attr("licenses", LICENSE)
-              .nonconfigurable("Used in core loading phase logic with no access to configs"))
-          .add(attr("distribs", DISTRIBUTIONS)
-              .nonconfigurable("Used in core loading phase logic with no access to configs"))
-          .add(attr(":action_listener", LABEL_LIST).cfg(HOST).value(ACTION_LISTENER))
+          .add(
+              attr("licenses", LICENSE)
+                  .nonconfigurable("Used in core loading phase logic with no access to configs"))
+          .add(
+              attr("distribs", DISTRIBUTIONS)
+                  .nonconfigurable("Used in core loading phase logic with no access to configs"))
           .build();
     }
 
@@ -244,19 +386,57 @@ public class BaseRuleClasses {
       return RuleDefinition.Metadata.builder()
           .name("$base_rule")
           .type(RuleClassType.ABSTRACT)
+          .ancestors(RootRule.class)
           .build();
     }
   }
 
   /**
-   * Common ancestor class for all rules.
+   * A rule that contains a {@code variables=} attribute to allow referencing Make variables.
+   */
+  public static final class MakeVariableExpandingRule implements RuleDefinition {
+    @Override
+    public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
+      return builder
+          /* <!-- #BLAZE_RULE($make_variable_expanding_rule).ATTRIBUTE(toolchains) -->
+          The set of toolchains that supply <a href="${link make-variables}">"Make variables"</a>
+          that this target can use in some of its attributes. Some rules have toolchains whose Make
+          variables they can use by default.
+          <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
+          .add(attr("toolchains", LABEL_LIST)
+              .allowedFileTypes(FileTypeSet.NO_FILE)
+              .mandatoryProviders(ImmutableList.of(TemplateVariableInfo.PROVIDER.id()))
+              .dontCheckConstraints())
+          .build();
+    }
+
+    @Override
+    public Metadata getMetadata() {
+      return RuleDefinition.Metadata.builder()
+          .name("$make_variable_expanding_rule")
+          .type(RuleClassType.ABSTRACT)
+          .build();
+    }
+  }
+
+  /**
+   * Common ancestor class for some rules.
    */
   public static final class RuleBase implements RuleDefinition {
     @Override
-    public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
+    public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
       return builder
           .add(attr("deps", LABEL_LIST).legacyAllowAnyFileType())
-          .add(attr("data", LABEL_LIST).cfg(DATA).allowedFileTypes(FileTypeSet.ANY_FILE))
+          .add(
+              attr("data", LABEL_LIST)
+                  .allowedFileTypes(FileTypeSet.ANY_FILE)
+                  .dontCheckConstraints())
+          .add(attr(RuleClass.EXEC_PROPERTIES, Type.STRING_DICT).value(ImmutableMap.of()))
+          .add(
+              attr(RuleClass.EXEC_COMPATIBLE_WITH_ATTR, BuildType.LABEL_LIST)
+                  .allowedFileTypes()
+                  .nonconfigurable("Used in toolchain resolution")
+                  .value(ImmutableList.of()))
           .build();
     }
 
@@ -266,6 +446,50 @@ public class BaseRuleClasses {
           .name("$rule")
           .type(RuleClassType.ABSTRACT)
           .ancestors(BaseRule.class)
+          .build();
+    }
+  }
+
+  public static final ImmutableSet<String> ALLOWED_RULE_CLASSES =
+      ImmutableSet.of("filegroup", "genrule", "Fileset");
+
+  /** A base rule for all binary rules. */
+  public static final class BinaryBaseRule implements RuleDefinition {
+    @Override
+    public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
+      return builder
+          .add(attr("args", STRING_LIST))
+          .add(attr("output_licenses", LICENSE))
+          .add(
+              attr("$is_executable", BOOLEAN)
+                  .value(true)
+                  .nonconfigurable("Called from RunCommand.isExecutable, which takes a Target"))
+          .build();
+    }
+
+    @Override
+    public Metadata getMetadata() {
+      return RuleDefinition.Metadata.builder()
+          .name("$binary_base_rule")
+          .type(RuleClassType.ABSTRACT)
+          .ancestors(RootRule.class, MakeVariableExpandingRule.class)
+          .build();
+    }
+  }
+
+  /** Rule class for rules in error. */
+  public static final class ErrorRule implements RuleDefinition {
+    @Override
+    public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
+      return builder.publicByDefault().build();
+    }
+
+    @Override
+    public Metadata getMetadata() {
+      return RuleDefinition.Metadata.builder()
+          .name("$error_rule")
+          .type(RuleClassType.ABSTRACT)
+          .ancestors(BaseRuleClasses.BaseRule.class)
           .build();
     }
   }

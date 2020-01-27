@@ -1,0 +1,42 @@
+destination: production
+markdown: kramdown
+kramdown:
+  syntax_highlighter: rouge
+  toc_levels: "2,3"
+highlighter: rouge
+
+paginate: 10
+sass:
+  sass_dir: _sass
+gems: [jekyll-paginate]
+
+# Update this to the newest release for the default docs.bazel.build version.
+version: "2.0.0"
+
+# This must be kept in sync with //scripts/docs:doc_versions.bzl
+doc_versions:
+  - master
+  - 2.0.0
+  - 1.2.0
+  - 1.1.0
+  - 1.0.0
+  - 0.29.1
+  - 0.29.0
+  - 0.28.0
+  - 0.27.0
+  - 0.26.0
+  - 0.25.0
+  - 0.24.0
+  - 0.23.0
+  - 0.22.0
+  - 0.21.0
+  - 0.20.0
+  - 0.19.2
+  - 0.19.1
+  - 0.18.1
+  - 0.17.2
+  - 0.17.1
+
+main_site_url: https://www.bazel.build
+docs_site_url: "/"
+blog_site_url: https://blog.bazel.build

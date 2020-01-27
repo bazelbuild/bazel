@@ -1,4 +1,4 @@
-// Copyright 2014 Google Inc. All rights reserved.
+// Copyright 2014 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,6 +16,7 @@ package com.google.devtools.build.skyframe;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
+import java.util.Collection;
 import java.util.Map;
 
 /**
@@ -32,7 +33,7 @@ public class ImmutableDiff implements Differencer.Diff {
   }
 
   @Override
-  public Iterable<SkyKey> changedKeysWithoutNewValues() {
+  public Collection<SkyKey> changedKeysWithoutNewValues() {
     return valuesToInvalidate;
   }
 

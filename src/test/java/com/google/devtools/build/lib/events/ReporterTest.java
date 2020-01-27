@@ -1,4 +1,4 @@
-// Copyright 2014 Google Inc. All rights reserved.
+// Copyright 2014 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,10 +14,11 @@
 package com.google.devtools.build.lib.events;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.assertEquals;
+import static com.google.devtools.build.lib.events.Reporter.SHOW_ONCE_TAG;
 
 import com.google.common.collect.ImmutableList;
-
+import com.google.common.eventbus.EventBus;
+import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -34,9 +35,8 @@ public class ReporterTest extends EventTestTemplate {
   private AbstractEventHandler outAppender;
 
   @Before
-  public void setUp() throws Exception {
-    super.setUp();
-    reporter = new Reporter();
+  public final void initializeOutput() throws Exception  {
+    reporter = new Reporter(new EventBus());
     out = new StringBuilder();
     outAppender = new AbstractEventHandler(EventKind.ERRORS) {
       @Override
@@ -49,26 +49,54 @@ public class ReporterTest extends EventTestTemplate {
   @Test
   public void reporterShowOutput() {
     reporter.setOutputFilter(OutputFilter.RegexOutputFilter.forRegex("naughty"));
-    EventCollector collector = new EventCollector(EventKind.ALL_EVENTS);
+    EventCollector collector = new EventCollector();
     reporter.addHandler(collector);
-    Event interesting = new Event(EventKind.WARNING, null, "show-me", "naughty");
+    Event interesting = Event.warn(null, "show-me").withTag("naughty");
 
     reporter.handle(interesting);
-    reporter.handle(new Event(EventKind.WARNING, null, "ignore-me", "good"));
+    reporter.handle(Event.warn(null, "ignore-me").withTag("good"));
 
-    assertEquals(ImmutableList.copyOf(collector), ImmutableList.of(interesting));
+    assertThat(ImmutableList.of(interesting)).isEqualTo(ImmutableList.copyOf(collector));
   }
 
   @Test
   public void reporterCollectsEvents() {
     ImmutableList<Event> want = ImmutableList.of(Event.warn("xyz"), Event.error("err"));
-    EventCollector collector = new EventCollector(EventKind.ALL_EVENTS);
+    EventCollector collector = new EventCollector();
     reporter.addHandler(collector);
     for (Event e : want) {
       reporter.handle(e);
     }
     ImmutableList<Event> got = ImmutableList.copyOf(collector);
-    assertEquals(got, want);
+    assertThat(want).isEqualTo(got);
+  }
+
+  @Test
+  public void reporterIgnoresDuplicateEventsWithShowOnce() {
+    ImmutableList<Event> duplicates =
+        ImmutableList.of(
+            Event.warn("ShowMeOnce").withTag(SHOW_ONCE_TAG),
+            Event.warn("ShowMeOnce").withTag(SHOW_ONCE_TAG),
+            Event.warn("ShowMeOnce").withTag(SHOW_ONCE_TAG),
+            Event.warn("ShowMeOnce").withTag(SHOW_ONCE_TAG));
+    EventCollector collector = new EventCollector();
+    reporter.addHandler(collector);
+    for (Event e : duplicates) {
+      reporter.handle(e);
+    }
+    ImmutableList<Event> got = ImmutableList.copyOf(collector);
+    assertThat(got).containsExactly(Event.warn("ShowMeOnce").withTag(SHOW_ONCE_TAG));
+  }
+
+  @Test
+  public void reporterShowsEventsWithShowOnceIgnoringFilter() {
+    reporter.setOutputFilter(OutputFilter.OUTPUT_NOTHING);
+    EventCollector collector = new EventCollector();
+    reporter.addHandler(collector);
+    reporter.handle(Event.warn("ShowMeOnce").withTag(SHOW_ONCE_TAG));
+
+    ImmutableList<Event> got = ImmutableList.copyOf(collector);
+    assertThat(got).containsExactly(Event.warn("ShowMeOnce").withTag(SHOW_ONCE_TAG));
   }
 
   @Test
@@ -80,10 +108,10 @@ public class ReporterTest extends EventTestTemplate {
     reporter.addHandler(outAppender);
     reporter.addHandler(outAppender); // Should have 4 handlers now.
     copiedReporter.handle(Event.error(location, "."));
-    assertEquals("...", out.toString()); // The copied reporter has 3 handlers.
+    assertThat(out.toString()).isEqualTo("..."); // The copied reporter has 3 handlers.
     out = new StringBuilder();
     reporter.handle(Event.error(location, "."));
-    assertEquals("....", out.toString()); // The old reporter has 4 handlers.
+    assertThat(out.toString()).isEqualTo("...."); // The old reporter has 4 handlers.
   }
 
   @Test
@@ -91,11 +119,37 @@ public class ReporterTest extends EventTestTemplate {
     assertThat(out.toString()).isEmpty();
     reporter.addHandler(outAppender);
     reporter.handle(Event.error(location, "Event gets registered."));
-    assertEquals("Event gets registered.", out.toString());
+    assertThat(out.toString()).isEqualTo("Event gets registered.");
     out = new StringBuilder();
     reporter.removeHandler(outAppender);
     reporter.handle(Event.error(location, "Event gets ignored."));
     assertThat(out.toString()).isEmpty();
   }
 
+  @Test
+  public void propagatePostCalls() {
+    FakeExtendedEventHandler extendedEventHandler = new FakeExtendedEventHandler();
+    assertThat(extendedEventHandler.calledPost).isEqualTo(0);
+
+    reporter.addHandler(extendedEventHandler);
+    reporter.post(new FakePostable());
+
+    assertThat(extendedEventHandler.calledPost).isEqualTo(1);
+  }
+
+  private static class FakeExtendedEventHandler implements ExtendedEventHandler {
+    int calledPost = 0;
+
+    @Override
+    public void post(Postable obj) {
+      calledPost++;
+    }
+
+    @Override
+    public void handle(Event event) {
+      throw new UnsupportedOperationException();
+    }
+  }
+
+  private static class FakePostable implements Postable {}
 }

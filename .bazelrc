@@ -1,0 +1,43 @@
+# Shared configuration flags to build and test Bazel on RBE.
+build:remote_shared --define=EXECUTOR=remote
+build:remote_shared --remote_instance_name=projects/bazel-untrusted/instances/default_instance
+build:remote_shared --remote_executor=grpcs://remotebuildexecution.googleapis.com
+build:remote_shared --remote_timeout=600
+build:remote_shared --google_default_credentials
+build:remote_shared --jobs=100
+build:remote_shared --action_env=PATH=/bin:/usr/bin:/usr/local/bin
+build:remote_shared --disk_cache=
+# Workaround for singlejar incompatibility with RBE
+build:remote_shared --noexperimental_check_desugar_deps
+
+# Configuration to build and test Bazel on RBE on Ubuntu 18.04 with Java 11
+build:ubuntu1804_java11 --host_javabase=@rbe_ubuntu1804_java11//java:jdk
+build:ubuntu1804_java11 --javabase=@rbe_ubuntu1804_java11//java:jdk
+build:ubuntu1804_java11 --host_java_toolchain=@bazel_tools//tools/jdk:toolchain_java9
+build:ubuntu1804_java11 --java_toolchain=@bazel_tools//tools/jdk:toolchain_java9
+build:ubuntu1804_java11 --crosstool_top=@rbe_ubuntu1804_java11//cc:toolchain
+build:ubuntu1804_java11 --extra_toolchains=@rbe_ubuntu1804_java11//config:cc-toolchain
+build:ubuntu1804_java11 --extra_execution_platforms=//:rbe_ubuntu1804_java11_platform
+build:ubuntu1804_java11 --extra_execution_platforms=//:rbe_ubuntu1804_java11_highcpu_platform
+build:ubuntu1804_java11 --host_platform=//:rbe_ubuntu1804_java11_platform
+build:ubuntu1804_java11 --platforms=//:rbe_ubuntu1804_java11_platform
+build:ubuntu1804_java11 --config=remote_shared
+
+# Configuration to build and test Bazel on RBE on Ubuntu 18.04 with Java 11
+build:ubuntu1604_java8 --host_javabase=@rbe_ubuntu1604_java8//java:jdk
+build:ubuntu1604_java8 --javabase=@rbe_ubuntu1604_java8//java:jdk
+build:ubuntu1604_java8 --host_java_toolchain=@bazel_tools//tools/jdk:toolchain_hostjdk8
+build:ubuntu1604_java8 --java_toolchain=@bazel_tools//tools/jdk:toolchain_hostjdk8
+build:ubuntu1604_java8 --crosstool_top=@rbe_ubuntu1604_java8//cc:toolchain
+build:ubuntu1604_java8 --extra_toolchains=@rbe_ubuntu1604_java8//config:cc-toolchain
+build:ubuntu1604_java8 --extra_execution_platforms=//:rbe_ubuntu1604_java8_platform
+build:ubuntu1604_java8 --extra_execution_platforms=//:rbe_ubuntu1604_java8_highcpu_platform
+build:ubuntu1604_java8 --host_platform=//:rbe_ubuntu1604_java8_platform
+build:ubuntu1604_java8 --platforms=//:rbe_ubuntu1604_java8_platform
+build:ubuntu1604_java8 --config=remote_shared
+
+# Alias
+build:remote --config=ubuntu1604_java8
+
+# User-specific .bazelrc
+try-import user.bazelrc

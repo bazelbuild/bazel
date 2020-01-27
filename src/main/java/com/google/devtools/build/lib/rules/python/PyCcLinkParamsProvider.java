@@ -1,4 +1,4 @@
-// Copyright 2014 Google Inc. All rights reserved.
+// Copyright 2014 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -13,35 +13,36 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.python;
 
-import com.google.common.base.Function;
-import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
-import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.rules.cpp.CcLinkParamsStore;
-import com.google.devtools.build.lib.rules.cpp.CcLinkParamsStore.CcLinkParamsStoreImpl;
+import com.google.devtools.build.lib.packages.BuiltinProvider;
+import com.google.devtools.build.lib.packages.NativeInfo;
+import com.google.devtools.build.lib.rules.cpp.CcInfo;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.skylarkbuildapi.cpp.PyCcLinkParamsProviderApi;
 
-/**
- * A target that provides C++ libraries to be linked into Python targets.
- */
+/** A target that provides C++ libraries to be linked into Python targets. */
 @Immutable
-public final class PyCcLinkParamsProvider implements TransitiveInfoProvider {
-  private final CcLinkParamsStoreImpl store;
+@AutoCodec
+public final class PyCcLinkParamsProvider extends NativeInfo implements PyCcLinkParamsProviderApi {
+  public static final Provider PROVIDER = new Provider();
 
-  public PyCcLinkParamsProvider(CcLinkParamsStore store) {
-    this.store = new CcLinkParamsStoreImpl(store);
+  private final CcInfo ccInfo;
+
+  public PyCcLinkParamsProvider(CcInfo ccInfo) {
+    super(PROVIDER);
+    this.ccInfo = CcInfo.builder().setCcLinkingContext(ccInfo.getCcLinkingContext()).build();
   }
 
-  public CcLinkParamsStore getLinkParams() {
-    return store;
+  @Override
+  public CcInfo getCcInfo() {
+    return ccInfo;
   }
 
-  public static final Function<TransitiveInfoCollection, CcLinkParamsStore> TO_LINK_PARAMS =
-      new Function<TransitiveInfoCollection, CcLinkParamsStore>() {
-        @Override
-        public CcLinkParamsStore apply(TransitiveInfoCollection input) {
-          PyCcLinkParamsProvider provider = input.getProvider(
-              PyCcLinkParamsProvider.class);
-          return provider == null ? null : provider.getLinkParams();
-        }
-      };
+  /** Provider class for {@link PyCcLinkParamsProvider} objects. */
+  public static class Provider extends BuiltinProvider<PyCcLinkParamsProvider>
+      implements PyCcLinkParamsProviderApi.Provider {
+    private Provider() {
+      super("PyCcLinkParamsProvider", PyCcLinkParamsProvider.class);
+    }
+  }
 }

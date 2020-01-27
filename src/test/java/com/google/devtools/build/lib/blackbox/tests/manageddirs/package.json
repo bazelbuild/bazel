@@ -1,0 +1,8 @@
+{
+  "name": "fine_grained_user_modules",
+  "version": "0.0.1",
+  "description": "prototype for using user's node_modules",
+  "dependencies": {
+    "example-module": "0.2.0"
+  }
+}

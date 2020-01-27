@@ -1,0 +1,158 @@
+// Copyright 2018 The Bazel Authors. All rights reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//    http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+syntax = "proto3";
+
+package remote_logging;
+
+import "build/bazel/remote/execution/v2/remote_execution.proto";
+import "google/protobuf/timestamp.proto";
+import "google/bytestream/bytestream.proto";
+import "google/longrunning/operations.proto";
+import "google/rpc/status.proto";
+
+option java_package = "com.google.devtools.build.lib.remote.logging";
+
+// A single log entry for gRPC calls related to remote execution.
+message LogEntry {
+  // Request metadata included in call.
+  build.bazel.remote.execution.v2.RequestMetadata metadata = 1;
+
+  // Status of the call on close.
+  google.rpc.Status status = 2;
+
+  // Full method name of the method called as returned from
+  // io.grpc.MethodDescriptor.getFullMethodName() (i.e. in format
+  // $FULL_SERVICE_NAME/$METHOD_NAME).
+  string method_name = 3;
+
+  // Method specific details for this call.
+  RpcCallDetails details = 4;
+
+  // Time the call started.
+  google.protobuf.Timestamp start_time = 5;
+
+  // Time the call closed.
+  google.protobuf.Timestamp end_time = 6;
+}
+
+// Details for a call to
+// build.bazel.remote.execution.v2.ActionCache.GetCapabilities.
+message GetCapabilitiesDetails {
+  // The build.bazel.remote.execution.v2.GetCapabilitiesRequest sent by
+  // the call.
+  build.bazel.remote.execution.v2.GetCapabilitiesRequest request = 1;
+
+  // The received build.bazel.remote.execution.v2.ServerCapabilities.
+  build.bazel.remote.execution.v2.ServerCapabilities response = 2;
+}
+
+// Details for a call to
+// build.bazel.remote.execution.v2.Execution.Execute.
+message ExecuteDetails {
+  // The build.bazel.remote.execution.v2.ExecuteRequest sent by the
+  // call.
+  build.bazel.remote.execution.v2.ExecuteRequest request = 1;
+
+  // Each google.longrunning.Operation received by the Execute call in order.
+  repeated google.longrunning.Operation responses = 2;
+}
+
+// Details for a call to
+// build.bazel.remote.execution.v2.ActionCache.GetActionResult.
+message GetActionResultDetails {
+  // The build.bazel.remote.execution.v2.GetActionResultRequest sent by
+  // the call.
+  build.bazel.remote.execution.v2.GetActionResultRequest request = 1;
+
+  // The received build.bazel.remote.execution.v2.ActionResult.
+  build.bazel.remote.execution.v2.ActionResult response = 2;
+}
+
+// Details for a call to
+// build.bazel.remote.execution.v2.ActionCache.UpdateActionResult.
+message UpdateActionResultDetails {
+  // The build.bazel.remote.execution.v2.GetActionResultRequest sent by
+  // the call.
+  build.bazel.remote.execution.v2.UpdateActionResultRequest request = 1;
+
+  // The received build.bazel.remote.execution.v2.ActionResult.
+  build.bazel.remote.execution.v2.ActionResult response = 2;
+}
+
+// Details for a call to build.bazel.remote.execution.v2.WaitExecution.
+message WaitExecutionDetails {
+  // The google.watcher.v1.Request sent by the Watch call.
+  build.bazel.remote.execution.v2.WaitExecutionRequest request = 1;
+
+  // Each google.longrunning.Operation received by the call in order.
+  repeated google.longrunning.Operation responses = 2;
+}
+
+// Details for a call to
+// build.bazel.remote.execution.v2.ContentAddressableStorage.FindMissingBlobs.
+message FindMissingBlobsDetails {
+  // The build.bazel.remote.execution.v2.FindMissingBlobsRequest request
+  // sent.
+  build.bazel.remote.execution.v2.FindMissingBlobsRequest request = 1;
+
+  // The build.bazel.remote.execution.v2.FindMissingBlobsResponse
+  // received.
+  build.bazel.remote.execution.v2.FindMissingBlobsResponse response = 2;
+}
+
+// Details for a call to google.bytestream.Read.
+message ReadDetails {
+  // The google.bytestream.ReadRequest sent.
+  google.bytestream.ReadRequest request = 1;
+
+  // The number of reads performed in this call.
+  int64 num_reads = 2;
+
+  // The total number of bytes read totalled over all stream responses.
+  int64 bytes_read = 3;
+}
+
+// Details for a call to google.bytestream.Write.
+message WriteDetails {
+  // The names of resources requested to be written to in this call in the order
+  // they were first requested in. If the ByteStream protocol is followed
+  // according to specification, this should only contain have a single element,
+  // which is the resource name specified in the first message of the stream.
+  repeated string resource_names = 1;
+
+  // The number of writes performed in this call.
+  int64 num_writes = 2;
+
+  // The total number of bytes sent over the stream.
+  int64 bytes_sent = 3;
+
+  // The received google.bytestream.WriteResponse.
+  google.bytestream.WriteResponse response = 4;
+}
+
+// Contains details for specific types of calls.
+message RpcCallDetails {
+  reserved 1 to 4, 11;
+  oneof details {
+    ExecuteDetails execute = 7;
+    GetActionResultDetails get_action_result = 8;
+    WaitExecutionDetails wait_execution = 9;
+    FindMissingBlobsDetails find_missing_blobs = 10;
+    ReadDetails read = 5;
+    WriteDetails write = 6;
+    GetCapabilitiesDetails get_capabilities = 12;
+    UpdateActionResultDetails update_action_result = 13;
+  }
+}

@@ -1,0 +1,34 @@
+---
+platforms:
+  centos7:
+    build_targets:
+      - "//src:bazel"
+    build_flags:
+      - "-c"
+      - "opt"
+  ubuntu1604:
+    build_targets:
+      - "//src:bazel"
+    build_flags:
+      - "-c"
+      - "opt"
+  ubuntu1804:
+    build_targets:
+      - "//src:bazel"
+    build_flags:
+      - "-c"
+      - "opt"
+  macos:
+    build_targets:
+      - "//src:bazel"
+    build_flags:
+      - "-c"
+      - "opt"
+  windows:
+    build_flags:
+      - "--copt=-w"
+      - "--host_copt=-w"
+      - "-c"
+      - "opt"
+    build_targets:
+      - "//src:bazel.exe"

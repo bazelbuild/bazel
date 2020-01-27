@@ -1,4 +1,4 @@
-// Copyright 2014 Google Inc. All rights reserved.
+// Copyright 2014 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,87 +16,40 @@ package com.google.devtools.build.lib.actions;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.actions.extra.EnvironmentVariable;
-import com.google.devtools.build.lib.actions.extra.SpawnInfo;
-import com.google.devtools.build.lib.util.CommandDescriptionForm;
-import com.google.devtools.build.lib.util.CommandFailureUtils;
-import com.google.devtools.build.lib.vfs.Path;
+import com.google.common.collect.Iterables;
+import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.vfs.PathFragment;
-
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
-
+import java.util.Set;
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;
 
-/**
- * Base implementation of a Spawn.
- */
+/** Base implementation of a Spawn. */
 @Immutable
 public class BaseSpawn implements Spawn {
   private final ImmutableList<String> arguments;
   private final ImmutableMap<String, String> environment;
   private final ImmutableMap<String, String> executionInfo;
-  private final ImmutableMap<PathFragment, Artifact> runfilesManifests;
-  private final ActionMetadata action;
+  private final RunfilesSupplier runfilesSupplier;
+  private final ActionExecutionMetadata action;
   private final ResourceSet localResources;
 
-  /**
-   * Returns a new Spawn. The caller must not modify the parameters after the call; neither will
-   * this method.
-   */
-  public BaseSpawn(List<String> arguments,
+  public BaseSpawn(
+      List<String> arguments,
       Map<String, String> environment,
       Map<String, String> executionInfo,
-      Map<PathFragment, Artifact> runfilesManifests,
-      ActionMetadata action,
+      RunfilesSupplier runfilesSupplier,
+      ActionExecutionMetadata action,
       ResourceSet localResources) {
     this.arguments = ImmutableList.copyOf(arguments);
     this.environment = ImmutableMap.copyOf(environment);
     this.executionInfo = ImmutableMap.copyOf(executionInfo);
-    this.runfilesManifests = ImmutableMap.copyOf(runfilesManifests);
+    this.runfilesSupplier = runfilesSupplier;
     this.action = action;
     this.localResources = localResources;
-  }
-
-  /**
-   * Returns a new Spawn.
-   */
-  public BaseSpawn(List<String> arguments,
-      Map<String, String> environment,
-      Map<String, String> executionInfo,
-      // TODO(bazel-team): have this always be non-null.
-      @Nullable Artifact runfilesManifest,
-      ActionMetadata action,
-      ResourceSet localResources) {
-    this(arguments, environment, executionInfo,
-        ((runfilesManifest != null)
-            ? ImmutableMap.of(runfilesForFragment(new PathFragment(arguments.get(0))),
-            runfilesManifest)
-            : ImmutableMap.<PathFragment, Artifact>of()),
-        action, localResources);
-  }
-
-  public static PathFragment runfilesForFragment(PathFragment pathFragment) {
-    return pathFragment.getParentDirectory().getChild(pathFragment.getBaseName() + ".runfiles");
-  }
-
-  /**
-   * Returns a new Spawn.
-   */
-  public BaseSpawn(List<String> arguments,
-      Map<String, String> environment,
-      Map<String, String> executionInfo,
-      ActionMetadata action,
-      ResourceSet localResources) {
-    this(arguments, environment, executionInfo,
-        ImmutableMap.<PathFragment, Artifact>of(), action, localResources);
-  }
-
-  @Override
-  public boolean isRemotable() {
-    return !executionInfo.containsKey("local");
   }
 
   @Override
@@ -105,38 +58,8 @@ public class BaseSpawn implements Spawn {
   }
 
   @Override
-  public String asShellCommand(Path workingDir) {
-    return asShellCommand(getArguments(), workingDir, getEnvironment());
-  }
-
-  @Override
-  public ImmutableMap<PathFragment, Artifact> getRunfilesManifests() {
-    return runfilesManifests;
-  }
-
-  @Override
-  public ImmutableList<Artifact> getFilesetManifests() {
-    return ImmutableList.<Artifact>of();
-  }
-
-  @Override
-  public SpawnInfo getExtraActionInfo() {
-    SpawnInfo.Builder info = SpawnInfo.newBuilder();
-
-    info.addAllArgument(getArguments());
-    for (Map.Entry<String, String> variable : getEnvironment().entrySet()) {
-      info.addVariable(EnvironmentVariable.newBuilder()
-        .setName(variable.getKey())
-        .setValue(variable.getValue()).build());
-    }
-    for (ActionInput input : getInputFiles()) {
-      // Explicitly ignore middleman artifacts here.
-      if (!(input instanceof Artifact) || !((Artifact) input).isMiddlemanArtifact()) {
-        info.addInputFile(input.getExecPathString());
-      }
-    }
-    info.addAllOutputFile(ActionInputHelper.toExecPaths(getOutputFiles()));
-    return info.build();
+  public RunfilesSupplier getRunfilesSupplier() {
+    return runfilesSupplier;
   }
 
   @Override
@@ -147,23 +70,45 @@ public class BaseSpawn implements Spawn {
   }
 
   @Override
-  public ImmutableMap<String, String> getEnvironment() {
-    if (getRunfilesManifests().size() != 1) {
-      return environment;
-    }
-
-    ImmutableMap.Builder<String, String> env = ImmutableMap.builder();
-    env.putAll(environment);
-    for (Map.Entry<PathFragment, Artifact> e : getRunfilesManifests().entrySet()) {
-      // TODO(bazel-team): Unify these into a single env variable.
-      env.put("JAVA_RUNFILES", e.getKey().getPathString() + "/");
-      env.put("PYTHON_RUNFILES", e.getKey().getPathString() + "/");
-    }
-    return env.build();
+  public ImmutableMap<Artifact, ImmutableList<FilesetOutputSymlink>> getFilesetMappings() {
+    return ImmutableMap.of();
   }
 
   @Override
-  public Iterable<? extends ActionInput> getInputFiles() {
+  public ImmutableMap<String, String> getEnvironment() {
+    PathFragment runfilesRoot = getRunfilesRoot();
+    if (runfilesRoot == null
+        || (environment.containsKey("JAVA_RUNFILES")
+            && environment.containsKey("PYTHON_RUNFILES"))) {
+      return environment;
+    } else {
+      ImmutableMap.Builder<String, String> env = ImmutableMap.builder();
+      env.putAll(environment);
+      // TODO(bazel-team): Unify these into a single env variable.
+      String runfilesRootString = runfilesRoot.getPathString();
+      env.put("JAVA_RUNFILES", runfilesRootString);
+      env.put("PYTHON_RUNFILES", runfilesRootString);
+      return env.build();
+    }
+  }
+
+  /** @return the runfiles directory if there is only one, otherwise null */
+  private PathFragment getRunfilesRoot() {
+    Set<PathFragment> runfilesSupplierRoots = runfilesSupplier.getRunfilesDirs();
+    if (runfilesSupplierRoots.size() == 1) {
+      return Iterables.getOnlyElement(runfilesSupplierRoots);
+    } else {
+      return null;
+    }
+  }
+
+  @Override
+  public NestedSet<? extends ActionInput> getToolFiles() {
+    return action.getTools();
+  }
+
+  @Override
+  public NestedSet<? extends ActionInput> getInputFiles() {
     return action.getInputs();
   }
 
@@ -173,7 +118,7 @@ public class BaseSpawn implements Spawn {
   }
 
   @Override
-  public ActionMetadata getResourceOwner() {
+  public ActionExecutionMetadata getResourceOwner() {
     return action;
   }
 
@@ -183,32 +128,18 @@ public class BaseSpawn implements Spawn {
   }
 
   @Override
-  public ActionOwner getOwner() { return action.getOwner(); }
-
-  @Override
-  public String getMnemonic() { return action.getMnemonic(); }
-
-  /**
-   * Convert a working dir + environment map + arg list into a Bourne shell
-   * command.
-   */
-  public static String asShellCommand(Collection<String> arguments,
-                                      Path workingDirectory,
-                                      Map<String, String> environment) {
-    // We print this command out in such a way that it can safely be
-    // copied+pasted as a Bourne shell command.  This is extremely valuable for
-    // debugging.
-    return CommandFailureUtils.describeCommand(CommandDescriptionForm.COMPLETE,
-        arguments, environment, workingDirectory.getPathString());
+  public String getMnemonic() {
+    return action.getMnemonic();
   }
 
-  /**
-   * A local spawn requiring zero resources.
-   */
-  public static class Local extends BaseSpawn {
-    public Local(List<String> arguments, Map<String, String> environment, ActionMetadata action) {
-      super(arguments, environment, ImmutableMap.<String, String>of("local", ""),
-          action, ResourceSet.ZERO);
-    }
+  @Override
+  public ImmutableMap<String, String> getCombinedExecProperties() {
+    return action.getOwner().getExecProperties();
+  }
+
+  @Override
+  @Nullable
+  public PlatformInfo getExecutionPlatform() {
+    return action.getExecutionPlatform();
   }
 }

@@ -1,4 +1,4 @@
-// Copyright 2014 Google Inc. All rights reserved.
+// Copyright 2014 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,10 +14,8 @@
 
 package com.google.devtools.common.options;
 
-/**
- * Indicates that an option is declared in more than one class.
- */
-public class DuplicateOptionDeclarationException extends RuntimeException {
+/** Indicates that a flag is declared more than once. */
+public class DuplicateOptionDeclarationException extends Exception {
 
   DuplicateOptionDeclarationException(String message) {
     super(message);

@@ -1,4 +1,4 @@
-// Copyright 2014 Google Inc. All rights reserved.
+// Copyright 2014 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,21 +14,19 @@
 
 package com.google.devtools.common.options;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.fail;
+import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 
 import com.google.common.collect.Maps;
-
+import java.util.Map;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-import java.util.Map;
-
 /**
- * Test for {@link Converters.AssignmentConverter} and
- * {@link Converters.OptionalAssignmentConverter}.
+ * Test for {@link Converters.AssignmentConverter} and {@link
+ * Converters.OptionalAssignmentConverter}.
  */
 public abstract class AssignmentConverterTest {
 
@@ -47,29 +45,19 @@ public abstract class AssignmentConverterTest {
 
   @Test
   public void assignment() throws Exception {
-    assertEquals(Maps.immutableEntry("A", "1"), convert("A=1"));
-    assertEquals(Maps.immutableEntry("A", "ABC"), convert("A=ABC"));
-    assertEquals(Maps.immutableEntry("A", ""), convert("A="));
+    assertThat(convert("A=1")).isEqualTo(Maps.immutableEntry("A", "1"));
+    assertThat(convert("A=ABC")).isEqualTo(Maps.immutableEntry("A", "ABC"));
+    assertThat(convert("A=")).isEqualTo(Maps.immutableEntry("A", ""));
   }
 
   @Test
   public void missingName() throws Exception {
-    try {
-      convert("=VALUE");
-      fail();
-    } catch (OptionsParsingException e) {
-      // expected.
-    }
+    assertThrows(OptionsParsingException.class, () -> convert("=VALUE"));
   }
 
   @Test
   public void emptyString() throws Exception {
-    try {
-      convert("");
-      fail();
-    } catch (OptionsParsingException e) {
-      // expected.
-    }
+    assertThrows(OptionsParsingException.class, () -> convert(""));
   }
 
 
@@ -83,12 +71,7 @@ public abstract class AssignmentConverterTest {
 
     @Test
     public void missingValue() throws Exception {
-      try {
-        convert("NAME");
-        fail();
-      } catch (OptionsParsingException e) {
-        // expected.
-      }
+      assertThrows(OptionsParsingException.class, () -> convert("NAME"));
     }
   }
 
@@ -102,7 +85,7 @@ public abstract class AssignmentConverterTest {
 
     @Test
     public void missingValue() throws Exception {
-      assertEquals(Maps.immutableEntry("NAME", null), convert("NAME"));
+      assertThat(convert("NAME")).isEqualTo(Maps.immutableEntry("NAME", null));
     }
   }
 }

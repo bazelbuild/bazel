@@ -1,4 +1,4 @@
-// Copyright 2014 Google Inc. All rights reserved.
+// Copyright 2014 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -13,9 +13,11 @@
 // limitations under the License.
 package com.google.devtools.build.lib.util.io;
 
+import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.util.StringUtilities.joinLines;
-import static org.junit.Assert.assertEquals;
 
+import org.junit.After;
+import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -26,16 +28,26 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public class DelegatingOutErrTest {
 
+  private DelegatingOutErr delegate;
+
+  @Before
+  public final void createDelegate() {
+    delegate = new DelegatingOutErr();
+  }
+
+  @After
+  public final void closeDelegate() throws Exception {
+    delegate.close();
+  }
+
   @Test
   public void testNewDelegateIsLikeDevNull() {
-    DelegatingOutErr delegate = new DelegatingOutErr();
     delegate.printOut("Hello, world.\n");
     delegate.printErr("Feel free to ignore me.\n");
   }
 
   @Test
   public void testSubscribeAndUnsubscribeSink() {
-    DelegatingOutErr delegate = new DelegatingOutErr();
     delegate.printOut("Nobody will listen to this.\n");
     RecordingOutErr sink = new RecordingOutErr();
     delegate.addSink(sink);
@@ -44,12 +56,11 @@ public class DelegatingOutErrTest {
     delegate.printOutLn("... and alone again ...");
     delegate.addSink(sink);
     delegate.printOutLn("How are things?");
-    assertEquals("Hello, sink.\nHow are things?\n", sink.outAsLatin1());
+    assertThat(sink.outAsLatin1()).isEqualTo("Hello, sink.\nHow are things?\n");
   }
 
   @Test
   public void testSubscribeMultipleSinks() {
-    DelegatingOutErr delegate = new DelegatingOutErr();
     RecordingOutErr left = new RecordingOutErr();
     RecordingOutErr right = new RecordingOutErr();
     delegate.addSink(left);
@@ -63,10 +74,8 @@ public class DelegatingOutErrTest {
     delegate.addSink(left);
     delegate.addSink(right);
     delegate.printOutLn("left and right");
-    assertEquals(joinLines("left only", "both", "left and right", ""),
-                 left.outAsLatin1());
-    assertEquals(joinLines("both", "right only", "left and right", ""),
-                 right.outAsLatin1());
+    assertThat(left.outAsLatin1()).isEqualTo(joinLines("left only", "both", "left and right", ""));
+    assertThat(right.outAsLatin1())
+        .isEqualTo(joinLines("both", "right only", "left and right", ""));
   }
-
 }

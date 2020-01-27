@@ -1,4 +1,4 @@
-// Copyright 2014 Google Inc. All rights reserved.
+// Copyright 2014 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,18 +14,27 @@
 package com.google.devtools.build.lib.actions;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.devtools.build.lib.syntax.Label;
+import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 
 /**
- * An interface for {@code LabelAndConfiguration}, or at least for a {@link Label}. Only tests and
- * internal {@link Artifact}-generators should implement this interface -- otherwise,
- * {@code LabelAndConfiguration} should be the only implementation.
+ * An interface for {@code ActionLookupKey}, or at least for a {@link Label}. Only tests and
+ * internal {@link Artifact}-generators should implement this interface -- otherwise, {@code
+ * ActionLookupKey} and its subclasses should be the only implementation.
  */
 public interface ArtifactOwner {
   Label getLabel();
 
-  @VisibleForTesting
-  public static final ArtifactOwner NULL_OWNER = new ArtifactOwner() {
+  /**
+   * An {@link ArtifactOwner} that just returns null for its label. Only for use with resolved
+   * source artifacts and tests.
+   */
+  class NullArtifactOwner implements ArtifactOwner {
+    @AutoCodec @VisibleForTesting
+    public static final NullArtifactOwner INSTANCE = new NullArtifactOwner();
+
+    private NullArtifactOwner() {}
+
     @Override
     public Label getLabel() {
       return null;
@@ -35,5 +44,5 @@ public interface ArtifactOwner {
     public String toString() {
       return "NULL_OWNER";
     }
-  };
+  }
 }

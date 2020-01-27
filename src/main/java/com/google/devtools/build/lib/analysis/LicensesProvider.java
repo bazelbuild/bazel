@@ -1,4 +1,4 @@
-// Copyright 2014 Google Inc. All rights reserved.
+// Copyright 2014 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,17 +16,14 @@ package com.google.devtools.build.lib.analysis;
 
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.License;
-import com.google.devtools.build.lib.syntax.Label;
-
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import java.util.Objects;
 
-/**
- * A {@link ConfiguredTarget} that has licensed targets in its transitive closure.
- */
+/** A {@link ConfiguredTarget} that has licensed targets in its transitive closure. */
 public interface LicensesProvider extends TransitiveInfoProvider {
-
   /**
    * The set of label - license associations in the transitive closure.
    *
@@ -35,10 +32,19 @@ public interface LicensesProvider extends TransitiveInfoProvider {
   NestedSet<TargetLicense> getTransitiveLicenses();
 
   /**
-   * License association for a particular target.
+   * A label - license association for output_licenses. If there are no output_licenses it returns
+   * null.
    */
-  public static final class TargetLicense {
+  TargetLicense getOutputLicenses();
 
+  /**
+   * Return whether there is an output_licenses.
+   */
+  boolean hasOutputLicenses();
+
+  /** License association for a particular target. */
+  @AutoCodec
+  final class TargetLicense {
     private final Label label;
     private final License license;
 

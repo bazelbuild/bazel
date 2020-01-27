@@ -1,4 +1,4 @@
-// Copyright 2014 Google Inc. All rights reserved.
+// Copyright 2014 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -13,7 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.events;
 
-import static org.junit.Assert.assertEquals;
+import static com.google.common.truth.Truth.assertThat;
+import static java.nio.charset.StandardCharsets.UTF_8;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -27,18 +28,28 @@ public class EventTest extends EventTestTemplate {
 
   @Test
   public void eventRetainsEventKind() {
-    assertEquals(EventKind.WARNING, event.getKind());
+    assertThat(event.getKind()).isEqualTo(EventKind.WARNING);
   }
 
   @Test
   public void eventRetainsMessage() {
-    assertEquals("This is not an error message.", event.getMessage());
+    assertThat(event.getMessage()).isEqualTo("This is not an error message.");
   }
 
   @Test
   public void eventRetainsLocation() {
-    assertEquals(21, event.getLocation().getStartOffset());
-    assertEquals(31, event.getLocation().getEndOffset());
+    assertThat(event.getLocation().toString())
+        .isEqualTo("/path/to/workspace/my/sample/path.txt:3:4");
   }
 
+  @Test
+  public void eventEncoding() {
+    String message = "Bazel \u1f33f";
+    Event ev1 = Event.of(EventKind.WARNING, null, message);
+    assertThat(ev1.getMessage()).isEqualTo(message);
+    assertThat(ev1.getMessageBytes()).isEqualTo(message.getBytes(UTF_8));
+    Event ev2 = Event.of(EventKind.WARNING, null, message.getBytes(UTF_8));
+    assertThat(ev2.getMessage()).isEqualTo(message);
+    assertThat(ev2.getMessageBytes()).isEqualTo(message.getBytes(UTF_8));
+  }
 }

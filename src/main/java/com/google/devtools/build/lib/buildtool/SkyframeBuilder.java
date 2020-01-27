@@ -1,4 +1,4 @@
-// Copyright 2014 Google Inc. All rights reserved.
+// Copyright 2014 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,49 +14,57 @@
 package com.google.devtools.build.lib.buildtool;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
-import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.Range;
 import com.google.common.collect.Sets;
-import com.google.common.eventbus.EventBus;
-import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionCacheChecker;
+import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionExecutionStatusReporter;
-import com.google.devtools.build.lib.actions.ActionInputFileCache;
+import com.google.devtools.build.lib.actions.ActionInputPrefetcher;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.BuildFailedException;
-import com.google.devtools.build.lib.actions.BuilderUtils;
 import com.google.devtools.build.lib.actions.Executor;
+import com.google.devtools.build.lib.actions.MetadataProvider;
+import com.google.devtools.build.lib.actions.MissingInputFileException;
 import com.google.devtools.build.lib.actions.ResourceManager;
 import com.google.devtools.build.lib.actions.TestExecException;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
-import com.google.devtools.build.lib.analysis.TargetCompleteEvent;
-import com.google.devtools.build.lib.rules.test.TestProvider;
+import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
+import com.google.devtools.build.lib.analysis.test.TestProvider;
+import com.google.devtools.build.lib.buildtool.buildevent.ExecutionProgressReceiverAvailableEvent;
+import com.google.devtools.build.lib.events.ExtendedEventHandler;
+import com.google.devtools.build.lib.events.Reporter;
+import com.google.devtools.build.lib.packages.BuildFileNotFoundException;
+import com.google.devtools.build.lib.profiler.Profiler;
+import com.google.devtools.build.lib.profiler.SilentCloseable;
+import com.google.devtools.build.lib.runtime.KeepGoingOption;
 import com.google.devtools.build.lib.skyframe.ActionExecutionInactivityWatchdog;
-import com.google.devtools.build.lib.skyframe.ActionExecutionValue;
+import com.google.devtools.build.lib.skyframe.AspectValue;
+import com.google.devtools.build.lib.skyframe.AspectValue.AspectKey;
 import com.google.devtools.build.lib.skyframe.Builder;
-import com.google.devtools.build.lib.skyframe.SkyFunctions;
-import com.google.devtools.build.lib.skyframe.SkyframeActionExecutor;
+import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
-import com.google.devtools.build.lib.skyframe.TargetCompletionValue;
+import com.google.devtools.build.lib.skyframe.TopDownActionCache;
 import com.google.devtools.build.lib.util.AbruptExitException;
-import com.google.devtools.build.lib.util.BlazeClock;
+import com.google.devtools.build.lib.util.ExitCode;
+import com.google.devtools.build.lib.util.LoggingUtil;
+import com.google.devtools.build.lib.vfs.ModifiedFileSet;
 import com.google.devtools.build.skyframe.CycleInfo;
 import com.google.devtools.build.skyframe.ErrorInfo;
-import com.google.devtools.build.skyframe.EvaluationProgressReceiver;
 import com.google.devtools.build.skyframe.EvaluationResult;
-import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
-import com.google.devtools.build.skyframe.SkyValue;
-
-import java.text.NumberFormat;
+import com.google.devtools.common.options.OptionsProvider;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.Locale;
+import java.util.Comparator;
+import java.util.LinkedList;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.logging.Level;
+import javax.annotation.Nullable;
 
 /**
  * A {@link Builder} implementation driven by Skyframe.
@@ -64,74 +72,112 @@ import java.util.concurrent.atomic.AtomicBoolean;
 @VisibleForTesting
 public class SkyframeBuilder implements Builder {
 
+  private final ResourceManager resourceManager;
   private final SkyframeExecutor skyframeExecutor;
-  private final boolean keepGoing;
-  private final int numJobs;
-  private final boolean checkOutputFiles;
-  private final ActionInputFileCache fileCache;
+  private final ModifiedFileSet modifiedOutputFiles;
+  private final MetadataProvider fileCache;
+  private final ActionInputPrefetcher actionInputPrefetcher;
   private final ActionCacheChecker actionCacheChecker;
-  private final int progressReportInterval;
+  private final TopDownActionCache topDownActionCache;
 
   @VisibleForTesting
-  public SkyframeBuilder(SkyframeExecutor skyframeExecutor, ActionCacheChecker actionCacheChecker,
-      boolean keepGoing, int numJobs, boolean checkOutputFiles,
-      ActionInputFileCache fileCache, int progressReportInterval) {
+  public SkyframeBuilder(
+      SkyframeExecutor skyframeExecutor,
+      ResourceManager resourceManager,
+      ActionCacheChecker actionCacheChecker,
+      TopDownActionCache topDownActionCache,
+      ModifiedFileSet modifiedOutputFiles,
+      MetadataProvider fileCache,
+      ActionInputPrefetcher actionInputPrefetcher) {
+    this.resourceManager = resourceManager;
     this.skyframeExecutor = skyframeExecutor;
     this.actionCacheChecker = actionCacheChecker;
-    this.keepGoing = keepGoing;
-    this.numJobs = numJobs;
-    this.checkOutputFiles = checkOutputFiles;
+    this.topDownActionCache = topDownActionCache;
+    this.modifiedOutputFiles = modifiedOutputFiles;
     this.fileCache = fileCache;
-    this.progressReportInterval = progressReportInterval;
+    this.actionInputPrefetcher = actionInputPrefetcher;
   }
 
   @Override
-  public void buildArtifacts(Set<Artifact> artifacts,
+  public void buildArtifacts(
+      Reporter reporter,
+      Set<Artifact> artifacts,
       Set<ConfiguredTarget> parallelTests,
       Set<ConfiguredTarget> exclusiveTests,
-      Collection<ConfiguredTarget> targetsToBuild,
+      Set<ConfiguredTarget> targetsToBuild,
+      Set<ConfiguredTarget> targetsToSkip,
+      Collection<AspectValue> aspects,
       Executor executor,
-      Set<ConfiguredTarget> builtTargets,
-      boolean explain,
-      Range<Long> lastExecutionTimeRange)
+      Set<ConfiguredTargetKey> builtTargets,
+      Set<AspectKey> builtAspects,
+      OptionsProvider options,
+      @Nullable Range<Long> lastExecutionTimeRange,
+      TopLevelArtifactContext topLevelArtifactContext)
       throws BuildFailedException, AbruptExitException, TestExecException, InterruptedException {
-    skyframeExecutor.prepareExecution(checkOutputFiles, lastExecutionTimeRange);
-    skyframeExecutor.setFileCache(fileCache);
+    skyframeExecutor.detectModifiedOutputFiles(modifiedOutputFiles, lastExecutionTimeRange);
+    try (SilentCloseable c = Profiler.instance().profile("configureActionExecutor")) {
+      skyframeExecutor.configureActionExecutor(fileCache, actionInputPrefetcher);
+    }
     // Note that executionProgressReceiver accesses builtTargets concurrently (after wrapping in a
     // synchronized collection), so unsynchronized access to this variable is unsafe while it runs.
     ExecutionProgressReceiver executionProgressReceiver =
-        new ExecutionProgressReceiver(Preconditions.checkNotNull(builtTargets),
-            countTestActions(exclusiveTests), skyframeExecutor.getEventBus());
-    ResourceManager.instance().setEventBus(skyframeExecutor.getEventBus());
+        new ExecutionProgressReceiver(
+            Preconditions.checkNotNull(builtTargets),
+            Preconditions.checkNotNull(builtAspects),
+            countTestActions(exclusiveTests));
+    skyframeExecutor
+        .getEventBus()
+        .post(new ExecutionProgressReceiverAvailableEvent(executionProgressReceiver));
 
-    boolean success = false;
+    List<ExitCode> exitCodes = new LinkedList<>();
     EvaluationResult<?> result;
 
     ActionExecutionStatusReporter statusReporter = ActionExecutionStatusReporter.create(
-        skyframeExecutor.getReporter(), executor, skyframeExecutor.getEventBus());
+        reporter, skyframeExecutor.getEventBus());
 
     AtomicBoolean isBuildingExclusiveArtifacts = new AtomicBoolean(false);
-    ActionExecutionInactivityWatchdog watchdog = new ActionExecutionInactivityWatchdog(
-        executionProgressReceiver.createInactivityMonitor(statusReporter),
-        executionProgressReceiver.createInactivityReporter(statusReporter,
-            isBuildingExclusiveArtifacts), progressReportInterval);
+    ActionExecutionInactivityWatchdog watchdog =
+        new ActionExecutionInactivityWatchdog(
+            executionProgressReceiver.createInactivityMonitor(statusReporter),
+            executionProgressReceiver.createInactivityReporter(
+                statusReporter, isBuildingExclusiveArtifacts),
+            options.getOptions(BuildRequestOptions.class).progressReportInterval);
 
     skyframeExecutor.setActionExecutionProgressReportingObjects(executionProgressReceiver,
         executionProgressReceiver, statusReporter);
     watchdog.start();
 
-    try {
-      result = skyframeExecutor.buildArtifacts(executor, artifacts, targetsToBuild, parallelTests,
-          /*exclusiveTesting=*/false, keepGoing, explain, numJobs, actionCacheChecker,
-          executionProgressReceiver);
-      // progressReceiver is finished, so unsynchronized access to builtTargets is now safe.
-      success = processResult(result, keepGoing, skyframeExecutor);
+    targetsToBuild = Sets.difference(targetsToBuild, targetsToSkip);
+    parallelTests = Sets.difference(parallelTests, targetsToSkip);
+    exclusiveTests = Sets.difference(exclusiveTests, targetsToSkip);
 
-      Preconditions.checkState(
-          !success || result.keyNames().size()
-              == (artifacts.size() + targetsToBuild.size() + parallelTests.size()),
-          "Build reported as successful but not all artifacts and targets built: %s, %s",
-          result, artifacts);
+    try {
+      result =
+          skyframeExecutor.buildArtifacts(
+              reporter,
+              resourceManager,
+              executor,
+              artifacts,
+              targetsToBuild,
+              aspects,
+              parallelTests,
+              exclusiveTests,
+              options,
+              actionCacheChecker,
+              topDownActionCache,
+              executionProgressReceiver,
+              topLevelArtifactContext);
+      // progressReceiver is finished, so unsynchronized access to builtTargets is now safe.
+      Optional<ExitCode> exitCode =
+          processResult(
+              reporter,
+              result,
+              options.getOptions(KeepGoingOption.class).keepGoing,
+              skyframeExecutor);
+
+      if (exitCode != null) {
+        exitCodes.add(exitCode.orNull());
+      }
 
       // Run exclusive tests: either tagged as "exclusive" or is run in an invocation with
       // --test_output=streamed.
@@ -139,65 +185,152 @@ public class SkyframeBuilder implements Builder {
       for (ConfiguredTarget exclusiveTest : exclusiveTests) {
         // Since only one artifact is being built at a time, we don't worry about an artifact being
         // built and then the build being interrupted.
-        result = skyframeExecutor.buildArtifacts(executor, ImmutableSet.<Artifact>of(),
-            targetsToBuild, ImmutableSet.of(exclusiveTest), /*exclusiveTesting=*/true, keepGoing,
-            explain, numJobs, actionCacheChecker, null);
-        boolean exclusiveSuccess = processResult(result, keepGoing, skyframeExecutor);
-        Preconditions.checkState(!exclusiveSuccess || !result.keyNames().isEmpty(),
+        result =
+            skyframeExecutor.runExclusiveTest(
+                reporter,
+                resourceManager,
+                executor,
+                exclusiveTest,
+                options,
+                actionCacheChecker,
+                topDownActionCache,
+                null,
+                topLevelArtifactContext);
+        exitCode =
+            processResult(
+                reporter,
+                result,
+                options.getOptions(KeepGoingOption.class).keepGoing,
+                skyframeExecutor);
+        Preconditions.checkState(
+            exitCode != null || !result.keyNames().isEmpty(),
             "Build reported as successful but test %s not executed: %s",
-            exclusiveTest, result);
-        success &= exclusiveSuccess;
+            exclusiveTest,
+            result);
+
+        if (exitCode != null) {
+          exitCodes.add(exitCode.orNull());
+        }
       }
     } finally {
       watchdog.stop();
-      ResourceManager.instance().unsetEventBus();
       skyframeExecutor.setActionExecutionProgressReportingObjects(null, null, null);
       statusReporter.unregisterFromEventBus();
     }
 
-    if (!success) {
-      throw new BuildFailedException();
-    }
-  }
-
-  private static boolean resultHasCatastrophicError(EvaluationResult<?> result) {
-    for (ErrorInfo errorInfo : result.errorMap().values()) {
-      if (errorInfo.isCatastrophic()) {
-        return true;
+    if (!exitCodes.isEmpty()) {
+      if (options.getOptions(KeepGoingOption.class).keepGoing) {
+        // Use the exit code with the highest priority.
+        throw new BuildFailedException(
+            null, Collections.max(exitCodes, ExitCodeComparator.INSTANCE));
+      } else {
+        throw new BuildFailedException();
       }
     }
-    // An unreported catastrophe manifests with hasError() being true but no errors visible.
-    return result.hasError() && result.errorMap().isEmpty();
   }
 
   /**
    * Process the Skyframe update, taking into account the keepGoing setting.
    *
-   * Returns false if the update() failed, but we should continue. Returns true on success.
-   * Throws on fail-fast failures.
+   * <p>Returns optional {@link ExitCode} based on following conditions: 1. null, if result had no
+   * errors. 2. Optional.absent(), if result had errors but none of the errors specified an exit
+   * code. 3. Optional.of(e), if result had errors and one of them specified exit code 'e'. Throws
+   * on fail-fast failures.
    */
-  private static boolean processResult(EvaluationResult<?> result, boolean keepGoing,
-      SkyframeExecutor skyframeExecutor) throws BuildFailedException, TestExecException {
+  @Nullable
+  private static Optional<ExitCode> processResult(
+      ExtendedEventHandler eventHandler,
+      EvaluationResult<?> result,
+      boolean keepGoing,
+      SkyframeExecutor skyframeExecutor)
+      throws BuildFailedException, TestExecException {
     if (result.hasError()) {
-      boolean hasCycles = false;
       for (Map.Entry<SkyKey, ErrorInfo> entry : result.errorMap().entrySet()) {
         Iterable<CycleInfo> cycles = entry.getValue().getCycleInfo();
-        skyframeExecutor.reportCycles(cycles, entry.getKey());
-        hasCycles |= !Iterables.isEmpty(cycles);
+        skyframeExecutor.reportCycles(eventHandler, cycles, entry.getKey());
       }
-      if (keepGoing && !resultHasCatastrophicError(result)) {
-        return false;
+
+      if (result.getCatastrophe() != null) {
+        rethrow(result.getCatastrophe());
       }
-      if (hasCycles || result.errorMap().isEmpty()) {
-        // error map may be empty in the case of a catastrophe.
-        throw new BuildFailedException();
+      if (keepGoing) {
+        // If build fails and keepGoing is true, an exit code is assigned using reported errors
+        // in the following order:
+        //   1. First infrastructure error with non-null exit code
+        //   2. First non-infrastructure error with non-null exit code
+        //   3. Null (later default to 1)
+        ExitCode exitCode = null;
+        for (Map.Entry<SkyKey, ErrorInfo> error : result.errorMap().entrySet()) {
+          Throwable cause = error.getValue().getException();
+          if (cause instanceof ActionExecutionException) {
+            ActionExecutionException actionExecutionCause = (ActionExecutionException) cause;
+            ExitCode code = actionExecutionCause.getExitCode();
+            // Update global exit code when current exit code is not null and global exit code has
+            // a lower 'reporting' priority.
+            if (ExitCodeComparator.INSTANCE.compare(code, exitCode) > 0) {
+              exitCode = code;
+            }
+          }
+        }
+
+        return Optional.fromNullable(exitCode);
+      }
+      ErrorInfo errorInfo = Preconditions.checkNotNull(result.getError(), result);
+      Exception exception = errorInfo.getException();
+      if (exception == null) {
+        Preconditions.checkState(!errorInfo.getCycleInfo().isEmpty(), errorInfo);
+        // If a keepGoing=false build found a cycle, that means there were no other errors thrown
+        // during evaluation (otherwise, it wouldn't have bothered to find a cycle). So the best
+        // we can do is throw a generic build failure exception, since we've already reported the
+        // cycles above.
+        throw new BuildFailedException(null, /* catastrophic= */ false);
       } else {
-        // Need to wrap exception for rethrowCause.
-        BuilderUtils.rethrowCause(
-          new Exception(Preconditions.checkNotNull(result.getError().getException())));
+        rethrow(exception);
       }
     }
-    return true;
+
+    return null;
+  }
+
+  /** Figure out why an action's execution failed and rethrow the right kind of exception. */
+  @VisibleForTesting
+  public static void rethrow(Throwable cause) throws BuildFailedException, TestExecException {
+    Throwable innerCause = cause.getCause();
+    if (innerCause instanceof TestExecException) {
+      throw (TestExecException) innerCause;
+    }
+    if (cause instanceof ActionExecutionException) {
+      ActionExecutionException actionExecutionCause = (ActionExecutionException) cause;
+      // Sometimes ActionExecutionExceptions are caused by Actions with no owner.
+      String message =
+          (actionExecutionCause.getLocation() != null)
+              ? (actionExecutionCause.getLocation() + " " + cause.getMessage())
+              : cause.getMessage();
+      throw new BuildFailedException(
+          message,
+          actionExecutionCause.isCatastrophe(),
+          actionExecutionCause.getAction(),
+          actionExecutionCause.getRootCauses(),
+          /*errorAlreadyShown=*/ !actionExecutionCause.showError(),
+          actionExecutionCause.getExitCode());
+    } else if (cause instanceof MissingInputFileException) {
+      throw new BuildFailedException(cause.getMessage());
+    } else if (cause instanceof BuildFileNotFoundException) {
+      // Sadly, this can happen because we may load new packages during input discovery. Any
+      // failures reading those packages shouldn't terminate the build, but in Skyframe they do.
+      LoggingUtil.logToRemote(Level.WARNING, "undesirable loading exception", cause);
+      throw new BuildFailedException(cause.getMessage());
+    } else if (cause instanceof RuntimeException) {
+      throw (RuntimeException) cause;
+    } else if (cause instanceof Error) {
+      throw (Error) cause;
+    } else {
+      // We encountered an exception we don't think we should have encountered. This can indicate
+      // a bug in our code, such as lower level exceptions not being properly handled, or in our
+      // expectations in this method.
+      throw new IllegalArgumentException(
+          "action terminated with " + "unexpected exception: " + cause.getMessage(), cause);
+    }
   }
 
   private static int countTestActions(Iterable<ConfiguredTarget> testTargets) {
@@ -209,150 +342,25 @@ public class SkyframeBuilder implements Builder {
   }
 
   /**
-   * Listener for executed actions and built artifacts. We use a listener so that we have an
-   * accurate set of successfully run actions and built artifacts, even if the build is interrupted.
+   * A comparator to determine the reporting priority of {@link ExitCode}.
+   *
+   * <p> Priority: infrastructure exit codes > non-infrastructure exit codes > null exit codes.
    */
-  private static final class ExecutionProgressReceiver implements EvaluationProgressReceiver,
-      SkyframeActionExecutor.ProgressSupplier, SkyframeActionExecutor.ActionCompletedReceiver {
-    private static final NumberFormat PROGRESS_MESSAGE_NUMBER_FORMATTER;
-
-    // Must be thread-safe!
-    private final Set<ConfiguredTarget> builtTargets;
-    private final Set<SkyKey> enqueuedActions = Sets.newConcurrentHashSet();
-    private final Set<Action> completedActions = Sets.newConcurrentHashSet();
-    private final Object activityIndicator = new Object();
-    /** Number of exclusive tests. To be accounted for in progress messages. */
-    private final int exclusiveTestsCount;
-    private final EventBus eventBus;
-
-    static {
-      PROGRESS_MESSAGE_NUMBER_FORMATTER = NumberFormat.getIntegerInstance(Locale.ENGLISH);
-      PROGRESS_MESSAGE_NUMBER_FORMATTER.setGroupingUsed(true);
-    }
-
-    /**
-     * {@code builtTargets} is accessed through a synchronized set, and so no other access to it
-     * is permitted while this receiver is active.
-     */
-    ExecutionProgressReceiver(Set<ConfiguredTarget> builtTargets, int exclusiveTestsCount,
-                              EventBus eventBus) {
-      this.builtTargets = Collections.synchronizedSet(builtTargets);
-      this.exclusiveTestsCount = exclusiveTestsCount;
-      this.eventBus = eventBus;
-    }
+  private static class ExitCodeComparator implements Comparator<ExitCode> {
+    private static final ExitCodeComparator INSTANCE = new ExitCodeComparator();
 
     @Override
-    public void invalidated(SkyValue node, InvalidationState state) {}
+    public int compare(ExitCode c1, ExitCode c2) {
+      // returns POSITIVE result when the priority of c1 is HIGHER than the priority of c2
+      return getPriority(c1) - getPriority(c2);
+    }
 
-    @Override
-    public void enqueueing(SkyKey skyKey) {
-      if (ActionExecutionValue.isReportWorthyAction(skyKey)) {
-        // Remember all enqueued actions for the benefit of progress reporting.
-        // We discover most actions early in the build, well before we start executing them.
-        // Some of these will be cache hits and won't be executed, so we'll need to account for them
-        // in the evaluated method too.
-        enqueuedActions.add(skyKey);
+    private int getPriority(ExitCode code) {
+      if (code == null) {
+        return 0;
+      } else {
+        return code.isInfrastructureFailure() ? 2 : 1;
       }
-    }
-
-    @Override
-    public void evaluated(SkyKey skyKey, SkyValue node, EvaluationState state) {
-      SkyFunctionName type = skyKey.functionName();
-      if (type == SkyFunctions.TARGET_COMPLETION && node != null) {
-        TargetCompletionValue val = (TargetCompletionValue) node;
-        ConfiguredTarget target = val.getConfiguredTarget();
-        builtTargets.add(target);
-        eventBus.post(TargetCompleteEvent.createSuccessful(target));
-      } else if (type == SkyFunctions.ACTION_EXECUTION) {
-        // Remember all completed actions, even those in error, regardless of having been cached or
-        // really executed.
-        actionCompleted((Action) skyKey.argument());
-      }
-    }
-
-    /**
-     * {@inheritDoc}
-     *
-     * <p>This method adds the action to {@link #completedActions} and notifies the
-     * {@link #activityIndicator}.
-     *
-     * <p>We could do this only in the {@link #evaluated} method too, but as it happens the action
-     * executor tells the reporter about the completed action before the node is inserted into the
-     * graph, so the reporter would find out about the completed action sooner than we could
-     * have updated {@link #completedActions}, which would result in incorrect numbers on the
-     * progress messages. However we have to store completed actions in {@link #evaluated} too,
-     * because that's the only place we get notified about completed cached actions.
-     */
-    @Override
-    public void actionCompleted(Action a) {
-      if (ActionExecutionValue.isReportWorthyAction(a)) {
-        completedActions.add(a);
-        synchronized (activityIndicator) {
-          activityIndicator.notifyAll();
-        }
-      }
-    }
-
-    @Override
-    public String getProgressString() {
-      return String.format("[%s / %s]",
-          PROGRESS_MESSAGE_NUMBER_FORMATTER.format(completedActions.size()),
-          PROGRESS_MESSAGE_NUMBER_FORMATTER.format(exclusiveTestsCount + enqueuedActions.size()));
-    }
-
-    ActionExecutionInactivityWatchdog.InactivityMonitor createInactivityMonitor(
-        final ActionExecutionStatusReporter statusReporter) {
-      return new ActionExecutionInactivityWatchdog.InactivityMonitor() {
-
-        @Override
-        public boolean hasStarted() {
-          return !enqueuedActions.isEmpty();
-        }
-
-        @Override
-        public int getPending() {
-          return statusReporter.getCount();
-        }
-
-        @Override
-        public int waitForNextCompletion(int timeoutMilliseconds) throws InterruptedException {
-          synchronized (activityIndicator) {
-            int before = completedActions.size();
-            long startTime = BlazeClock.instance().currentTimeMillis();
-            while (true) {
-              activityIndicator.wait(timeoutMilliseconds);
-
-              int completed = completedActions.size() - before;
-              long now = 0;
-              if (completed > 0 || (startTime + timeoutMilliseconds) <= (now = BlazeClock.instance()
-                  .currentTimeMillis())) {
-                // Some actions completed, or timeout fully elapsed.
-                return completed;
-              } else {
-                // Spurious Wakeup -- no actions completed and there's still time to wait.
-                timeoutMilliseconds -= now - startTime;  // account for elapsed wait time
-                startTime = now;
-              }
-            }
-          }
-        }
-      };
-    }
-
-    ActionExecutionInactivityWatchdog.InactivityReporter createInactivityReporter(
-        final ActionExecutionStatusReporter statusReporter,
-        final AtomicBoolean isBuildingExclusiveArtifacts) {
-      return new ActionExecutionInactivityWatchdog.InactivityReporter() {
-        @Override
-        public void maybeReportInactivity() {
-          // Do not report inactivity if we are currently running an exclusive test or a streaming
-          // action (in practice only tests can stream and it implicitly makes them exclusive).
-          if (!isBuildingExclusiveArtifacts.get()) {
-            statusReporter.showCurrentlyExecutingActions(
-                ExecutionProgressReceiver.this.getProgressString() + " ");
-          }
-        }
-      };
     }
   }
 }

@@ -1,4 +1,4 @@
-// Copyright 2014 Google Inc. All rights reserved.
+// Copyright 2014 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -52,6 +52,11 @@ public enum EventKind {
   PROGRESS,
 
   /**
+   * For debug messages
+   */
+  DEBUG,
+
+  /**
    * For progress messages (temporal information) relating to the start
    * and end of particular tasks.
    * (e.g. "Loading package foo", "Compiling bar", etc.)
@@ -77,6 +82,7 @@ public enum EventKind {
   PASS,
   FAIL,
   TIMEOUT,
+  CANCELLED,
 
   /**
    * For the reasoning of the dependency checker (like GNU Make "-d").
@@ -102,6 +108,7 @@ public enum EventKind {
   public static final Set<EventKind> ERRORS_AND_WARNINGS = EnumSet.of(
       EventKind.ERROR,
       EventKind.WARNING,
+      EventKind.DEBUG,
       EventKind.FAIL,
       EventKind.TIMEOUT
       );
@@ -109,6 +116,7 @@ public enum EventKind {
   public static final Set<EventKind> ERRORS_WARNINGS_AND_INFO = EnumSet.of(
       EventKind.ERROR,
       EventKind.WARNING,
+      EventKind.DEBUG,
       EventKind.PASS,
       EventKind.FAIL,
       EventKind.TIMEOUT,
@@ -126,6 +134,7 @@ public enum EventKind {
   public static final Set<EventKind> ERRORS_AND_WARNINGS_AND_OUTPUT = EnumSet.of(
       EventKind.ERROR,
       EventKind.WARNING,
+      EventKind.DEBUG,
       EventKind.FAIL,
       EventKind.TIMEOUT,
       EventKind.STDOUT,
@@ -135,6 +144,7 @@ public enum EventKind {
   public static final Set<EventKind> ERRORS_WARNINGS_AND_INFO_AND_OUTPUT = EnumSet.of(
       EventKind.ERROR,
       EventKind.WARNING,
+      EventKind.DEBUG,
       EventKind.PASS,
       EventKind.FAIL,
       EventKind.TIMEOUT,

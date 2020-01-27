@@ -1,4 +1,4 @@
-// Copyright 2014 Google Inc. All rights reserved.
+// Copyright 2014 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,32 +14,66 @@
 package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.events.Event;
+import com.google.common.collect.Interner;
+import com.google.devtools.build.lib.concurrent.BlazeInterners;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.vfs.RootedPath;
+import com.google.devtools.build.skyframe.AbstractSkyKey;
 import com.google.devtools.build.skyframe.SkyFunction;
+import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
-import com.google.devtools.build.skyframe.SkyValue;
 
-/** A value builder that has the side effect of reporting a file symlink cycle. */
-public class FileSymlinkCycleUniquenessFunction implements SkyFunction {
+/**
+ * A {@link SkyFunction} that has the side effect of reporting a file symlink cycle. This is
+ * achieved by forcing the same key for two logically equivalent cycles
+ * (e.g. ['a' -> 'b' -> 'c' -> 'a'] and ['b' -> 'c' -> 'a' -> 'b']), and letting Skyframe do its
+ * magic.
+ */
+public class FileSymlinkCycleUniquenessFunction
+    extends AbstractChainUniquenessFunction<RootedPath> {
 
-  @SuppressWarnings("unchecked")  // Cast from Object to ImmutableList<RootedPath>.
-  @Override
-  public SkyValue compute(SkyKey skyKey, Environment env) {
-    StringBuilder cycleMessage = new StringBuilder("circular symlinks detected\n");
-    cycleMessage.append("[start of symlink cycle]\n");
-    for (RootedPath rootedPath : (ImmutableList<RootedPath>) skyKey.argument()) {
-      cycleMessage.append(rootedPath.asPath() + "\n");
+  static SkyKey key(ImmutableList<RootedPath> cycle) {
+    return Key.create(ChainUniquenessUtils.canonicalize(cycle));
+  }
+
+  @AutoCodec.VisibleForSerialization
+  @AutoCodec
+  static class Key extends AbstractSkyKey<ImmutableList<RootedPath>> {
+    private static final Interner<Key> interner = BlazeInterners.newWeakInterner();
+
+    private Key(ImmutableList<RootedPath> arg) {
+      super(arg);
     }
-    cycleMessage.append("[end of symlink cycle]");
-    // The purpose of this value builder is the side effect of emitting an error message exactly
-    // once per build per unique cycle.
-    env.getListener().handle(Event.error(cycleMessage.toString()));
-    return FileSymlinkCycleUniquenessValue.INSTANCE;
+
+    @AutoCodec.VisibleForSerialization
+    @AutoCodec.Instantiator
+    static Key create(ImmutableList<RootedPath> arg) {
+      return interner.intern(new Key(arg));
+    }
+
+    @Override
+    public SkyFunctionName functionName() {
+      return SkyFunctions.FILE_SYMLINK_CYCLE_UNIQUENESS;
+    }
   }
 
   @Override
-  public String extractTag(SkyKey skyKey) {
-    return null;
+  protected String elementToString(RootedPath elt) {
+    return elt.asPath().toString();
+  }
+
+  @Override
+  protected String getConciseDescription() {
+    return "circular symlinks";
+  }
+
+  @Override
+  protected String getHeaderMessage() {
+    return "[start of symlink cycle]";
+  }
+
+  @Override
+  protected String getFooterMessage() {
+    return "[end of symlink cycle]";
   }
 }

@@ -1,4 +1,4 @@
-// Copyright 2014 Google Inc. All rights reserved.
+// Copyright 2014 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,14 +14,22 @@
 
 package com.google.devtools.build.lib.analysis;
 
+import com.google.common.base.Objects;
+import com.google.common.collect.Iterables;
+import com.google.common.collect.ListMultimap;
+import com.google.common.collect.Multimaps;
+import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
-import com.google.devtools.build.lib.packages.PackageSpecification;
+import com.google.devtools.build.lib.packages.PackageSpecification.PackageGroupContents;
 import com.google.devtools.build.lib.packages.Target;
-import com.google.devtools.build.lib.syntax.Label;
-
+import com.google.devtools.build.lib.skyframe.BuildConfigurationValue;
+import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import java.util.List;
-
+import java.util.Optional;
+import java.util.Set;
 import javax.annotation.Nullable;
 
 /**
@@ -38,29 +46,41 @@ public class TargetContext {
   private final AnalysisEnvironment env;
   private final Target target;
   private final BuildConfiguration configuration;
+
   /**
-   * This list only contains prerequisites that are not declared in rule attributes, with the
-   * exception of visibility (i.e., visibility is represented here, even though it is a rule
-   * attribute in case of a rule). Rule attributes are handled by the {@link RuleContext} subclass.
+   * This only contains prerequisites that are not declared in rule attributes, with the exception
+   * of visibility (i.e., visibility is represented here, even though it is a rule attribute in case
+   * of a rule). Rule attributes are handled by the {@link RuleContext} subclass.
    */
-  private final List<ConfiguredTarget> directPrerequisites;
-  private final NestedSet<PackageSpecification> visibility;
+  private final ListMultimap<Label, ConfiguredTargetAndData> directPrerequisites;
+
+  private final NestedSet<PackageGroupContents> visibility;
 
   /**
    * The constructor is intentionally package private.
+   *
+   * <p>directPrerequisites is expected to be ordered.
    */
-  TargetContext(AnalysisEnvironment env, Target target, BuildConfiguration configuration,
-      List<ConfiguredTarget> directPrerequisites,
-      NestedSet<PackageSpecification> visibility) {
+  TargetContext(
+      AnalysisEnvironment env,
+      Target target,
+      BuildConfiguration configuration,
+      Set<ConfiguredTargetAndData> directPrerequisites,
+      NestedSet<PackageGroupContents> visibility) {
     this.env = env;
     this.target = target;
     this.configuration = configuration;
-    this.directPrerequisites = directPrerequisites;
+    this.directPrerequisites =
+        Multimaps.index(directPrerequisites, prereq -> prereq.getTarget().getLabel());
     this.visibility = visibility;
   }
 
   public AnalysisEnvironment getAnalysisEnvironment() {
     return env;
+  }
+
+  public ActionKeyContext getActionKeyContext() {
+    return env.getActionKeyContext();
   }
 
   public Target getTarget() {
@@ -81,14 +101,36 @@ public class TargetContext {
     return configuration;
   }
 
-  public NestedSet<PackageSpecification> getVisibility() {
+  public BuildConfigurationValue.Key getConfigurationKey() {
+    return BuildConfigurationValue.key(configuration);
+  }
+
+  public NestedSet<PackageGroupContents> getVisibility() {
     return visibility;
   }
 
-  TransitiveInfoCollection findDirectPrerequisite(Label label, BuildConfiguration config) {
-    for (ConfiguredTarget prerequisite : directPrerequisites) {
-      if (prerequisite.getLabel().equals(label) && (prerequisite.getConfiguration() == config)) {
-        return prerequisite;
+  /**
+   * Returns the prerequisite with the given label and configuration, or null if no such
+   * prerequisite exists. If configuration is absent, return the first prerequisite with the given
+   * label.
+   */
+  @Nullable
+  public TransitiveInfoCollection findDirectPrerequisite(
+      Label label, Optional<BuildConfiguration> config) {
+    if (directPrerequisites.containsKey(label)) {
+      List<ConfiguredTargetAndData> prerequisites = directPrerequisites.get(label);
+      // If the config is present, find the prereq with that configuration. Otherwise, return the
+      // first.
+      if (!config.isPresent()) {
+        if (prerequisites.isEmpty()) {
+          return null;
+        }
+        return Iterables.getFirst(prerequisites, null).getConfiguredTarget();
+      }
+      for (ConfiguredTargetAndData prerequisite : prerequisites) {
+        if (Objects.equal(prerequisite.getConfiguration(), config.get())) {
+          return prerequisite.getConfiguredTarget();
+        }
       }
     }
     return null;

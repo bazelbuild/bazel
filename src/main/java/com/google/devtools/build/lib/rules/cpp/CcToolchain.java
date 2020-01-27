@@ -1,4 +1,4 @@
-// Copyright 2014 Google Inc. All rights reserved.
+// Copyright 2014 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -13,237 +13,123 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.cpp;
 
-import static com.google.devtools.build.lib.packages.Type.BOOLEAN;
-
-import com.google.common.base.Preconditions;
-import com.google.common.collect.Iterables;
-import com.google.devtools.build.lib.actions.Actions;
-import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.analysis.AnalysisUtils;
-import com.google.devtools.build.lib.analysis.CompilationHelper;
+import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
-import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.LicensesProvider;
-import com.google.devtools.build.lib.analysis.LicensesProvider.TargetLicense;
 import com.google.devtools.build.lib.analysis.MiddlemanProvider;
-import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
+import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
-import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
-import com.google.devtools.build.lib.collect.nestedset.NestedSet;
-import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.collect.nestedset.Order;
-import com.google.devtools.build.lib.packages.License;
-import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
-import com.google.devtools.build.lib.syntax.Label;
-import com.google.devtools.build.lib.vfs.PathFragment;
-
-import java.util.List;
+import com.google.devtools.build.lib.analysis.TemplateVariableInfo;
+import com.google.devtools.build.lib.analysis.config.BuildOptions;
+import com.google.devtools.build.lib.events.Location;
+import java.io.Serializable;
+import java.util.HashMap;
 
 /**
  * Implementation for the cc_toolchain rule.
  */
 public class CcToolchain implements RuleConfiguredTargetFactory {
 
+  /** Default attribute name where rules store the reference to cc_toolchain */
+  public static final String CC_TOOLCHAIN_DEFAULT_ATTRIBUTE_NAME = ":cc_toolchain";
+
+  public static final String CC_TOOLCHAIN_DEFAULT_ATTRIBUTE_NAME_FOR_STARLARK = "$cc_toolchain";
+
+  /** Default attribute name for the c++ toolchain type */
+  public static final String CC_TOOLCHAIN_TYPE_ATTRIBUTE_NAME = "$cc_toolchain_type";
+
   @Override
-  public ConfiguredTarget create(RuleContext ruleContext) {
-    final Label label = ruleContext.getLabel();
-    final NestedSet<Artifact> crosstool = ruleContext.getPrerequisite("all_files", Mode.HOST)
-        .getProvider(FileProvider.class).getFilesToBuild();
-    final NestedSet<Artifact> crosstoolMiddleman = getFiles(ruleContext, "all_files");
-    final NestedSet<Artifact> compile = getFiles(ruleContext, "compiler_files");
-    final NestedSet<Artifact> strip = getFiles(ruleContext, "strip_files");
-    final NestedSet<Artifact> objcopy = getFiles(ruleContext, "objcopy_files");
-    final NestedSet<Artifact> link = getFiles(ruleContext, "linker_files");
-    final NestedSet<Artifact> dwp = getFiles(ruleContext, "dwp_files");
-    final NestedSet<Artifact> libcLink = inputsForLibcLink(ruleContext);
-    String purposePrefix = Actions.escapeLabel(label) + "_";
-    String runtimeSolibDirBase = "_solib_" + "_" + Actions.escapeLabel(label);
-    final PathFragment runtimeSolibDir = ruleContext.getConfiguration()
-        .getBinFragment().getRelative(runtimeSolibDirBase);
-
-    CppConfiguration cppConfiguration = ruleContext.getFragment(CppConfiguration.class);
-    // Static runtime inputs.
-    TransitiveInfoCollection staticRuntimeLibDep = selectDep(ruleContext, "static_runtime_libs",
-        cppConfiguration.getStaticRuntimeLibsLabel());
-    final NestedSet<Artifact> staticRuntimeLinkInputs;
-    final Artifact staticRuntimeLinkMiddleman;
-    if (cppConfiguration.supportsEmbeddedRuntimes()) {
-      staticRuntimeLinkInputs = staticRuntimeLibDep
-          .getProvider(FileProvider.class)
-          .getFilesToBuild();
-    } else {
-      staticRuntimeLinkInputs = NestedSetBuilder.emptySet(Order.STABLE_ORDER);
+  public ConfiguredTarget create(RuleContext ruleContext)
+      throws InterruptedException, RuleErrorException, ActionConflictException {
+    if (!isAppleToolchain()) {
+      CcCommon.checkRuleLoadedThroughMacro(ruleContext);
     }
+    validateToolchain(ruleContext);
+    CcToolchainAttributesProvider attributes =
+        new CcToolchainAttributesProvider(
+            ruleContext, isAppleToolchain(), getAdditionalBuildVariablesComputer(ruleContext));
 
-    if (!staticRuntimeLinkInputs.isEmpty()) {
-      NestedSet<Artifact> staticRuntimeLinkMiddlemanSet = CompilationHelper.getAggregatingMiddleman(
-          ruleContext,
-          purposePrefix + "static_runtime_link",
-          staticRuntimeLibDep);
-      staticRuntimeLinkMiddleman = staticRuntimeLinkMiddlemanSet.isEmpty()
-          ? null : Iterables.getOnlyElement(staticRuntimeLinkMiddlemanSet);
-    } else {
-      staticRuntimeLinkMiddleman = null;
-    }
-
-    Preconditions.checkState(
-        (staticRuntimeLinkMiddleman == null) == staticRuntimeLinkInputs.isEmpty());
-
-    // Dynamic runtime inputs.
-    TransitiveInfoCollection dynamicRuntimeLibDep = selectDep(ruleContext, "dynamic_runtime_libs",
-        cppConfiguration.getDynamicRuntimeLibsLabel());
-    final NestedSet<Artifact> dynamicRuntimeLinkInputs;
-    final Artifact dynamicRuntimeLinkMiddleman;
-    if (cppConfiguration.supportsEmbeddedRuntimes()) {
-      NestedSetBuilder<Artifact> dynamicRuntimeLinkInputsBuilder = NestedSetBuilder.stableOrder();
-      for (Artifact artifact : dynamicRuntimeLibDep
-          .getProvider(FileProvider.class).getFilesToBuild()) {
-        if (CppHelper.SHARED_LIBRARY_FILETYPES.matches(artifact.getFilename())) {
-          dynamicRuntimeLinkInputsBuilder.add(SolibSymlinkAction.getCppRuntimeSymlink(
-              ruleContext, artifact, runtimeSolibDirBase,
-              ruleContext.getConfiguration()).getArtifact());
-        } else {
-          dynamicRuntimeLinkInputsBuilder.add(artifact);
-        }
-      }
-      dynamicRuntimeLinkInputs = dynamicRuntimeLinkInputsBuilder.build();
-    } else {
-      dynamicRuntimeLinkInputs = NestedSetBuilder.emptySet(Order.STABLE_ORDER);
-    }
-
-    if (!dynamicRuntimeLinkInputs.isEmpty()) {
-      List<Artifact> dynamicRuntimeLinkMiddlemanSet =
-          CppHelper.getAggregatingMiddlemanForCppRuntimes(
-              ruleContext,
-              purposePrefix + "dynamic_runtime_link",
-              dynamicRuntimeLibDep,
-              runtimeSolibDirBase,
-              ruleContext.getConfiguration());
-      dynamicRuntimeLinkMiddleman = dynamicRuntimeLinkMiddlemanSet.isEmpty()
-          ? null : Iterables.getOnlyElement(dynamicRuntimeLinkMiddlemanSet);
-    } else {
-      dynamicRuntimeLinkMiddleman = null;
-    }
-
-    Preconditions.checkState(
-        (dynamicRuntimeLinkMiddleman == null) == dynamicRuntimeLinkInputs.isEmpty());
-
-    CppCompilationContext.Builder contextBuilder =
-        new CppCompilationContext.Builder(ruleContext);
-    CppModuleMap moduleMap = createCrosstoolModuleMap(ruleContext);
-    if (moduleMap != null) {
-      contextBuilder.setCppModuleMap(moduleMap);
-    }
-    final CppCompilationContext context = contextBuilder.build();
-    boolean supportsParamFiles = ruleContext.attributes().get("supports_param_files", BOOLEAN);
-    boolean supportsHeaderParsing =
-        ruleContext.attributes().get("supports_header_parsing", BOOLEAN);
-
-    CcToolchainProvider provider = new CcToolchainProvider(
-        Preconditions.checkNotNull(ruleContext.getFragment(CppConfiguration.class)),
-        crosstool,
-        fullInputsForCrosstool(ruleContext, crosstoolMiddleman),
-        compile,
-        strip,
-        objcopy,
-        fullInputsForLink(ruleContext, link),
-        dwp,
-        libcLink,
-        staticRuntimeLinkInputs,
-        staticRuntimeLinkMiddleman,
-        dynamicRuntimeLinkInputs,
-        dynamicRuntimeLinkMiddleman,
-        runtimeSolibDir,
-        context,
-        supportsParamFiles,
-        supportsHeaderParsing);
-    RuleConfiguredTargetBuilder builder =
+    RuleConfiguredTargetBuilder ruleConfiguredTargetBuilder =
         new RuleConfiguredTargetBuilder(ruleContext)
-            .add(CcToolchainProvider.class, provider)
-            .setFilesToBuild(new NestedSetBuilder<Artifact>(Order.STABLE_ORDER).build())
-            .add(RunfilesProvider.class, RunfilesProvider.simple(Runfiles.EMPTY));
+            .addNativeDeclaredProvider(attributes)
+            .addProvider(RunfilesProvider.simple(Runfiles.EMPTY));
 
-    // If output_license is specified on the cc_toolchain rule, override the transitive licenses
-    // with that one. This is necessary because cc_toolchain is used in the target configuration,
-    // but it is sort-of-kind-of a tool, but various parts of it are linked into the output...
-    // ...so we trust the judgment of the author of the cc_toolchain rule to figure out what
-    // licenses should be propagated to C++ targets.
-    License outputLicense = ruleContext.getRule().getToolOutputLicense(ruleContext.attributes());
-    if (outputLicense != null && outputLicense != License.NO_LICENSE) {
-      final NestedSet<TargetLicense> license = NestedSetBuilder.create(Order.STABLE_ORDER,
-          new TargetLicense(ruleContext.getLabel(), outputLicense));
-      LicensesProvider licensesProvider = new LicensesProvider() {
-        @Override
-        public NestedSet<TargetLicense> getTransitiveLicenses() {
-          return license;
-        }
-      };
-
-      builder.add(LicensesProvider.class, licensesProvider);
+    if (attributes.getLicensesProvider() != null) {
+      ruleConfiguredTargetBuilder.add(LicensesProvider.class, attributes.getLicensesProvider());
     }
 
-    return builder.build();
-  }
+    if (!CppHelper.useToolchainResolution(ruleContext)) {
+      // This is not a platforms-backed build, let's provide CcToolchainAttributesProvider
+      // and have cc_toolchain_suite select one of its toolchains and create CcToolchainProvider
+      // from its attributes.
+      return ruleConfiguredTargetBuilder.build();
+    }
 
-  private NestedSet<Artifact> inputsForLibcLink(RuleContext ruleContext) {
-    TransitiveInfoCollection libcLink = ruleContext.getPrerequisite(":libc_link", Mode.HOST);
-    return libcLink != null
-        ? libcLink.getProvider(FileProvider.class).getFilesToBuild()
-        : NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER);
-  }
+    // This is a platforms-backed build, we will not analyze cc_toolchain_suite at all, and we are
+    // sure current cc_toolchain is the one selected. We can create CcToolchainProvider here.
+    CcToolchainProvider ccToolchainProvider =
+        CcToolchainProviderHelper.getCcToolchainProvider(ruleContext, attributes);
 
-  private NestedSet<Artifact> fullInputsForCrosstool(RuleContext ruleContext,
-      NestedSet<Artifact> crosstoolMiddleman) {
-    return NestedSetBuilder.<Artifact>stableOrder()
-        .addTransitive(crosstoolMiddleman)
-        // Use "libc_link" here, because it is functionally identical to the case
-        // below. If we introduce separate filegroups for compiling and linking, we
-        // need to fix that here.
-        .addTransitive(AnalysisUtils.getMiddlemanFor(ruleContext, ":libc_link"))
-        .build();
-  }
-
-  private NestedSet<Artifact> fullInputsForLink(RuleContext ruleContext, NestedSet<Artifact> link) {
-    return NestedSetBuilder.<Artifact>stableOrder()
-        .addTransitive(link)
-        .addTransitive(AnalysisUtils.getMiddlemanFor(ruleContext, ":libc_link"))
-        .add(ruleContext.getAnalysisEnvironment().getEmbeddedToolArtifact(
-            CppRuleClasses.BUILD_INTERFACE_SO))
-        .build();
-  }
-
-  private CppModuleMap createCrosstoolModuleMap(RuleContext ruleContext) {
-    if (ruleContext.getPrerequisite("module_map", Mode.HOST) == null) {
+    if (ccToolchainProvider == null) {
+      // Skyframe restart
       return null;
     }
-    Artifact moduleMapArtifact = ruleContext.getPrerequisiteArtifact("module_map", Mode.HOST);
-    if (moduleMapArtifact == null) {
-      return null;
-    }
-    return new CppModuleMap(moduleMapArtifact, "crosstool");
+
+    TemplateVariableInfo templateVariableInfo =
+        createMakeVariableProvider(
+            ccToolchainProvider,
+            ruleContext.getRule().getLocation());
+
+    ruleConfiguredTargetBuilder
+        .addNativeDeclaredProvider(ccToolchainProvider)
+        .addNativeDeclaredProvider(templateVariableInfo)
+        .setFilesToBuild(ccToolchainProvider.getAllFiles())
+        .addProvider(new MiddlemanProvider(ccToolchainProvider.getAllFilesMiddleman()));
+    return ruleConfiguredTargetBuilder.build();
   }
 
-  private TransitiveInfoCollection selectDep(
-      RuleContext ruleContext, String attribute, Label label) {
-    for (TransitiveInfoCollection dep : ruleContext.getPrerequisites(attribute, Mode.TARGET)) {
-      if (dep.getLabel().equals(label)) {
-        return dep;
-      }
-    }
+  static TemplateVariableInfo createMakeVariableProvider(
+      CcToolchainProvider toolchainProvider,
+      Location location) {
 
-    return ruleContext.getPrerequisites(attribute, Mode.TARGET).get(0);
+    HashMap<String, String> makeVariables =
+        new HashMap<>(toolchainProvider.getAdditionalMakeVariables());
+
+    // Add make variables from the toolchainProvider, also.
+    ImmutableMap.Builder<String, String> ccProviderMakeVariables = new ImmutableMap.Builder<>();
+    toolchainProvider.addGlobalMakeVariables(ccProviderMakeVariables);
+    makeVariables.putAll(ccProviderMakeVariables.build());
+
+    return new TemplateVariableInfo(ImmutableMap.copyOf(makeVariables), location);
   }
 
-  private NestedSet<Artifact> getFiles(RuleContext context, String attribute) {
-    TransitiveInfoCollection dep = context.getPrerequisite(attribute, Mode.HOST);
-    MiddlemanProvider middlemanProvider = dep.getProvider(MiddlemanProvider.class);
-    // We use the middleman if we can (if the dep is a filegroup), otherwise, just the regular
-    // filesToBuild (e.g. if it is a simple input file)
-    return middlemanProvider != null
-        ? middlemanProvider.getMiddlemanArtifact()
-        : dep.getProvider(FileProvider.class).getFilesToBuild();
+  /**
+   * This method marks that the toolchain at hand is actually apple_cc_toolchain. Good job me for
+   * object design and encapsulation.
+   */
+  protected boolean isAppleToolchain() {
+    // To be overridden in subclass.
+    return false;
+  }
+
+  /** Functional interface for a function that accepts cpu and {@link BuildOptions}. */
+  protected interface AdditionalBuildVariablesComputer {
+    CcToolchainVariables apply(BuildOptions buildOptions);
+  }
+
+  /** Returns a function that will be called to retrieve root {@link CcToolchainVariables}. */
+  protected AdditionalBuildVariablesComputer getAdditionalBuildVariablesComputer(
+      RuleContext ruleContextPossiblyInHostConfiguration) {
+    return (AdditionalBuildVariablesComputer & Serializable)
+        (options) -> CcToolchainVariables.EMPTY;
+  }
+
+  /** Will be called during analysis to ensure target attributes are set correctly. */
+  protected void validateToolchain(RuleContext ruleContext) throws RuleErrorException {
+    // To be overridden in subclass.
   }
 }

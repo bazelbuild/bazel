@@ -1,4 +1,4 @@
-// Copyright 2014 Google Inc. All rights reserved.
+// Copyright 2014 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,124 +14,229 @@
 
 package com.google.devtools.build.buildjar;
 
-import com.google.common.base.Joiner;
-import com.google.common.collect.ImmutableSet;
+import com.google.common.io.MoreFiles;
+import com.google.common.io.RecursiveDeleteOption;
+import com.google.devtools.build.buildjar.instrumentation.JacocoInstrumentationProcessor;
+import com.google.devtools.build.buildjar.jarhelper.JarCreator;
+import com.google.devtools.build.buildjar.javac.BlazeJavacMain;
+import com.google.devtools.build.buildjar.javac.BlazeJavacResult;
+import com.google.devtools.build.buildjar.javac.BlazeJavacResult.Status;
 import com.google.devtools.build.buildjar.javac.JavacRunner;
-
-import com.sun.tools.javac.main.Main.Result;
-
-import java.io.File;
+import com.google.devtools.build.buildjar.javac.statistics.BlazeJavacStatistics;
+import java.io.ByteArrayOutputStream;
+import java.io.Closeable;
 import java.io.IOException;
 import java.io.OutputStream;
-import java.io.PrintWriter;
-import java.util.ArrayList;
-import java.util.List;
+import java.nio.file.FileSystem;
+import java.nio.file.FileSystems;
+import java.nio.file.FileVisitResult;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.ProviderNotFoundException;
+import java.nio.file.SimpleFileVisitor;
+import java.nio.file.attribute.BasicFileAttributes;
+import java.util.HashMap;
+import java.util.Map;
+import javax.annotation.Nullable;
 
-/**
- * An implementation of the JavaBuilder that uses in-process javac to compile java files.
- */
-public class SimpleJavaLibraryBuilder extends AbstractJavaBuilder {
+/** An implementation of the JavaBuilder that uses in-process javac to compile java files. */
+public class SimpleJavaLibraryBuilder implements Closeable {
 
-  @Override
-  Result compileSources(JavaLibraryBuildRequest build, JavacRunner javacRunner, PrintWriter err)
+  /** The name of the protobuf meta file. */
+  private static final String PROTOBUF_META_NAME = "protobuf.meta";
+
+  /** Cache of opened zip filesystems for srcjars. */
+  private final Map<Path, FileSystem> filesystems = new HashMap<>();
+
+  BlazeJavacResult compileSources(JavaLibraryBuildRequest build, JavacRunner javacRunner)
       throws IOException {
-    String[] javacArguments = makeJavacArguments(build, build.getClassPath());
-    return javacRunner.invokeJavac(javacArguments, err);
+    BlazeJavacResult result =
+        javacRunner.invokeJavac(build.toBlazeJavacArguments(build.getClassPath()));
+
+    BlazeJavacStatistics.Builder stats =
+        result
+            .statistics()
+            .toBuilder()
+            .transitiveClasspathLength(build.getClassPath().size())
+            .reducedClasspathLength(build.getClassPath().size())
+            .transitiveClasspathFallback(false);
+    build.getProcessors().stream()
+        .map(p -> p.substring(p.lastIndexOf('.') + 1))
+        .forEachOrdered(stats::addProcessor);
+    return result.withStatistics(stats.build());
   }
 
-  @Override
   protected void prepareSourceCompilation(JavaLibraryBuildRequest build) throws IOException {
-    super.prepareSourceCompilation(build);
+    cleanupDirectory(build.getClassDir());
 
-    // Create sourceGenDir if necessary.
-    if (build.getSourceGenDir() != null) {
-      File sourceGenDir = new File(build.getSourceGenDir());
-      if (sourceGenDir.exists()) {
-        try {
-          cleanupOutputDirectory(sourceGenDir);
-        } catch (IOException e) {
-          throw new IOException("Cannot clean output directory '" + sourceGenDir + "'", e);
+    setUpSourceJars(build);
+    cleanupDirectory(build.getSourceGenDir());
+    cleanupDirectory(build.getNativeHeaderDir());
+  }
+
+  // Necessary for local builds in order to discard previous outputs
+  private static void cleanupDirectory(@Nullable Path directory) throws IOException {
+    if (directory == null) {
+      return;
+    }
+
+    if (Files.exists(directory)) {
+      try {
+        MoreFiles.deleteRecursively(directory, RecursiveDeleteOption.ALLOW_INSECURE);
+      } catch (IOException e) {
+        throw new IOException("Cannot clean '" + directory + "'", e);
+      }
+    }
+
+    Files.createDirectories(directory);
+  }
+
+  public void buildGensrcJar(JavaLibraryBuildRequest build) throws IOException {
+    JarCreator jar = new JarCreator(build.getGeneratedSourcesOutputJar());
+    try {
+      jar.setNormalize(true);
+      jar.setCompression(build.compressJar());
+      jar.addDirectory(build.getSourceGenDir());
+    } finally {
+      jar.execute();
+    }
+  }
+
+  /**
+   * Prepares a compilation run and sets everything up so that the source files in the build request
+   * can be compiled. Invokes compileSources to do the actual compilation.
+   *
+   * @param build A JavaLibraryBuildRequest request object describing what to compile
+   */
+  public BlazeJavacResult compileJavaLibrary(final JavaLibraryBuildRequest build) throws Exception {
+    prepareSourceCompilation(build);
+    if (build.getSourceFiles().isEmpty()) {
+      return BlazeJavacResult.ok();
+    }
+    return compileSources(build, BlazeJavacMain::compile);
+  }
+
+  /** Perform the build. */
+  public BlazeJavacResult run(JavaLibraryBuildRequest build) throws Exception {
+    BlazeJavacResult result = BlazeJavacResult.error("");
+    try {
+      result = compileJavaLibrary(build);
+      if (result.isOk()) {
+        buildJar(build);
+        nativeHeaderOutput(build);
+      }
+      if (!build.getProcessors().isEmpty()) {
+        if (build.getGeneratedSourcesOutputJar() != null) {
+          buildGensrcJar(build);
         }
       }
-      sourceGenDir.mkdirs();
+    } finally {
+      build
+          .getDependencyModule()
+          .emitDependencyInformation(
+              build.getClassPath(),
+              result.isOk(),
+              /* requiresFallback= */ result.status() == Status.REQUIRES_FALLBACK);
+      build.getProcessingModule().emitManifestProto();
+    }
+    return result;
+  }
+
+  public void buildJar(JavaLibraryBuildRequest build) throws IOException {
+    JarCreator jar = new JarCreator(build.getOutputJar());
+    JacocoInstrumentationProcessor processor = null;
+    try {
+      jar.setNormalize(true);
+      jar.setCompression(build.compressJar());
+      jar.addDirectory(build.getClassDir());
+      jar.setJarOwner(build.getTargetLabel(), build.getInjectingRuleKind());
+      processor = build.getJacocoInstrumentationProcessor();
+      if (processor != null) {
+        processor.processRequest(build, processor.isNewCoverageImplementation() ? jar : null);
+      }
+    } finally {
+      jar.execute();
+      if (processor != null) {
+        processor.cleanup();
+      }
+    }
+  }
+
+  public void nativeHeaderOutput(JavaLibraryBuildRequest build) throws IOException {
+    if (build.getNativeHeaderOutput() == null) {
+      return;
+    }
+    JarCreator jar = new JarCreator(build.getNativeHeaderOutput());
+    try {
+      jar.setNormalize(true);
+      jar.setCompression(build.compressJar());
+      jar.addDirectory(build.getNativeHeaderDir());
+    } finally {
+      jar.execute();
     }
   }
 
   /**
-   * For the build configuration 'build', construct a command line that
-   * can be used for a javac invocation.
+   * Extracts the all source jars from the build request into the temporary directory specified in
+   * the build request. Empties the temporary directory, if it exists.
    */
-  protected String[] makeJavacArguments(JavaLibraryBuildRequest build) {
-    return makeJavacArguments(build, build.getClassPath());
-  }
+  private void setUpSourceJars(JavaLibraryBuildRequest build) throws IOException {
+    Path sourcesDir = build.getTempDir();
 
-  /**
-   * For the build configuration 'build', construct a command line that
-   * can be used for a javac invocation.
-   */
-  protected String[] makeJavacArguments(JavaLibraryBuildRequest build, String classPath) {
-    List<String> javacArguments = createInitialJavacArgs(build, classPath);
+    cleanupDirectory(sourcesDir);
 
-    javacArguments.addAll(getAnnotationProcessingOptions(build));
-
-    for (String option : build.getJavacOpts()) {
-      if (option.startsWith("-J")) { // ignore the VM options.
-        continue;
-      }
-      if (option.equals("-processor") || option.equals("-processorpath")) {
-        throw new IllegalStateException(
-            "Using " + option + " in javacopts is no longer supported."
-            + " Use a java_plugin() rule instead.");
-      }
-      javacArguments.add(option);
+    if (build.getSourceJars().isEmpty()) {
+      return;
     }
 
-    javacArguments.addAll(build.getSourceFiles());
-    return javacArguments.toArray(new String[0]);
+    final ByteArrayOutputStream protobufMetadataBuffer = new ByteArrayOutputStream();
+    for (Path sourceJar : build.getSourceJars()) {
+      for (Path root : getJarFileSystem(sourceJar).getRootDirectories()) {
+        Files.walkFileTree(
+            root,
+            new SimpleFileVisitor<Path>() {
+              @Override
+              public FileVisitResult visitFile(Path path, BasicFileAttributes attrs)
+                  throws IOException {
+                String fileName = path.getFileName().toString();
+                if (fileName.endsWith(".java")) {
+                  build.getSourceFiles().add(path);
+                } else if (fileName.equals(PROTOBUF_META_NAME)) {
+                  Files.copy(path, protobufMetadataBuffer);
+                }
+                return FileVisitResult.CONTINUE;
+              }
+            });
+      }
+    }
+    Path output = build.getClassDir().resolve(PROTOBUF_META_NAME);
+    if (protobufMetadataBuffer.size() > 0) {
+      try (OutputStream outputStream = Files.newOutputStream(output)) {
+        protobufMetadataBuffer.writeTo(outputStream);
+      }
+    } else if (Files.exists(output)) {
+      // Delete stalled meta file.
+      Files.delete(output);
+    }
   }
 
-  /**
-   * Given a JavaLibraryBuildRequest, computes the javac options for the annotation processing
-   * requested.
-   */
-  private List<String> getAnnotationProcessingOptions(JavaLibraryBuildRequest build) {
-    List<String> args = new ArrayList<>();
-
-    // Javac treats "-processorpath ''" as setting the processor path to an empty list,
-    // whereas omitting the option is treated as not having a processor path (which causes
-    // processor path searches to fallback to the class path).
-    args.add("-processorpath");
-    args.add(
-        build.getProcessorPath().isEmpty() ? "" : build.getProcessorPath());
-
-    if (!build.getProcessors().isEmpty() && !build.getSourceFiles().isEmpty()) {
-      // ImmutableSet.copyOf maintains order
-      ImmutableSet<String> deduplicatedProcessorNames = ImmutableSet.copyOf(build.getProcessors());
-      args.add("-processor");
-      args.add(Joiner.on(',').join(deduplicatedProcessorNames));
-
-      // Set javac output directory for generated sources.
-      if (build.getSourceGenDir() != null) {
-        args.add("-s");
-        args.add(build.getSourceGenDir());
+  private FileSystem getJarFileSystem(Path sourceJar) throws IOException {
+    FileSystem fs = filesystems.get(sourceJar);
+    if (fs == null) {
+      try {
+        fs = FileSystems.newFileSystem(sourceJar, null);
+      } catch (ProviderNotFoundException e) {
+        throw new IOException(String.format("unable to open %s as a jar file", sourceJar), e);
       }
-    } else {
-      // This is necessary because some jars contain discoverable annotation processors that
-      // previously didn't run, and they break builds if the "-proc:none" option is not passed to
-      // javac.
-      args.add("-proc:none");
+      filesystems.put(sourceJar, fs);
     }
-
-    return args;
+    return fs;
   }
 
   @Override
-  public void buildGensrcJar(JavaLibraryBuildRequest build, OutputStream err)
-      throws IOException {
-    JarCreator jar = new JarCreator(build.getGeneratedSourcesOutputJar());
-    jar.setNormalize(true);
-    jar.setCompression(build.compressJar());
-    jar.addDirectory(build.getSourceGenDir());
-    jar.execute();
+  public void close() throws IOException {
+    for (FileSystem fs : filesystems.values()) {
+      fs.close();
+    }
   }
 }

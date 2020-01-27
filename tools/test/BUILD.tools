@@ -1,0 +1,67 @@
+package(default_visibility = ["//visibility:public"])
+
+# Members of this filegroup shouldn't have duplicate basenames, otherwise
+# TestRunnerAction#getRuntimeArtifact() will get confused.
+# Deprecated, do not use.
+filegroup(
+    name = "runtime",
+    srcs = ["test-setup.sh"],
+)
+
+filegroup(
+    name = "test_setup",
+    srcs = ["test-setup.sh"],
+)
+
+filegroup(
+    name = "test_xml_generator",
+    srcs = ["generate-xml.sh"],
+)
+
+filegroup(
+    name = "collect_coverage",
+    srcs = ["collect_coverage.sh"],
+)
+
+filegroup(
+    name = "collect_cc_coverage",
+    srcs = ["collect_cc_coverage.sh"],
+)
+
+filegroup(
+    name = "coverage_support",
+    srcs = ["collect_coverage.sh"],
+)
+
+alias(
+    name = "coverage_report_generator",
+    actual = "@remote_coverage_tools//:coverage_report_generator",
+)
+
+alias(
+    name = "lcov_merger",
+    actual = "@remote_coverage_tools//:lcov_merger",
+)
+
+filegroup(
+    name = "test_wrapper",
+    # "tw" is the Windows-native test wrapper. It has a short name because paths
+    # have short limits on Windows.
+    # On other platforms this binary is a no-op.
+    # See https://github.com/bazelbuild/bazel/issues/5508
+    srcs = select({
+        "@bazel_tools//src/conditions:windows": ["tw.exe"],
+        "//conditions:default": ["tw"],
+    }),
+)
+
+filegroup(
+    name = "xml_writer",
+    # "xml" is the Windows-native test XML writer. It has a short name because
+    # paths have short limits on Windows.
+    # On other platforms this binary is a no-op.
+    srcs = select({
+        "@bazel_tools//src/conditions:windows": ["xml.exe"],
+        "//conditions:default": ["xml"],
+    }),
+)

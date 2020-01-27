@@ -1,4 +1,4 @@
-// Copyright 2014 Google Inc. All rights reserved.
+// Copyright 2014 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,14 +14,20 @@
 
 package com.google.devtools.build.lib.analysis;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-
+import com.google.devtools.build.lib.buildeventstream.BuildEventContext;
+import com.google.devtools.build.lib.buildeventstream.BuildEventId;
+import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
+import com.google.devtools.build.lib.buildeventstream.BuildEventWithOrderConstraint;
+import com.google.devtools.build.lib.buildeventstream.GenericBuildEvent;
+import com.google.devtools.build.lib.events.ExtendedEventHandler;
+import java.util.Collection;
 import java.util.Map;
 
-/**
- * This event is fired once build info data is available.
- */
-public final class BuildInfoEvent {
+/** This event is fired once build info data is available. */
+public final class BuildInfoEvent
+    implements BuildEventWithOrderConstraint, ExtendedEventHandler.ProgressLike {
   private final Map<String, String> buildInfoMap;
 
   /**
@@ -36,5 +42,34 @@ public final class BuildInfoEvent {
    */
   public Map<String, String> getBuildInfoMap() {
     return buildInfoMap;
+  }
+
+  @Override
+  public BuildEventId getEventId() {
+    return BuildEventId.workspaceStatusId();
+  }
+
+  @Override
+  public Collection<BuildEventId> getChildrenEvents() {
+    return ImmutableList.<BuildEventId>of();
+  }
+
+  @Override
+  public Collection<BuildEventId> postedAfter() {
+    return ImmutableList.<BuildEventId>of(BuildEventId.buildStartedId());
+  }
+
+  @Override
+  public BuildEventStreamProtos.BuildEvent asStreamProto(BuildEventContext converters) {
+    BuildEventStreamProtos.WorkspaceStatus.Builder status =
+        BuildEventStreamProtos.WorkspaceStatus.newBuilder();
+    for (Map.Entry<String, String> entry : getBuildInfoMap().entrySet()) {
+      status.addItem(
+          BuildEventStreamProtos.WorkspaceStatus.Item.newBuilder()
+              .setKey(entry.getKey())
+              .setValue(entry.getValue())
+              .build());
+    }
+    return GenericBuildEvent.protoChaining(this).setWorkspaceStatus(status.build()).build();
   }
 }

@@ -1,4 +1,4 @@
-// Copyright 2014 Google Inc. All rights reserved.
+// Copyright 2014 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,19 +16,15 @@ package com.google.devtools.build.lib.rules.cpp;
 
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleContext;
-import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
+import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.packages.StructImpl;
+import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
+import com.google.devtools.build.lib.rules.cpp.CppConfiguration.HeadersCheckingMode;
 
-/**
- * Pluggable C++ compilation semantics.
- */
+/** Pluggable C++ compilation semantics. */
 public interface CppSemantics {
-  /**
-   * Returns the "effective source path" of a source file.
-   *
-   * <p>It is used, among other things, for computing the output path.
-   */
-  PathFragment getEffectiveSourcePath(Artifact source);
-
   /**
    * Called before a C++ compile action is built.
    *
@@ -36,14 +32,36 @@ public interface CppSemantics {
    * minute.
    */
   void finalizeCompileActionBuilder(
-      RuleContext ruleContext, CppCompileActionBuilder actionBuilder);
+      BuildConfiguration configuration,
+      FeatureConfiguration featureConfiguration,
+      CppCompileActionBuilder actionBuilder);
 
   /**
-   * Called before {@link CppCompilationContext}s are finalized.
-   *
-   * <p>Gives the semantics implementation the opportunity to change what the C++ rule propagates
-   * to dependent rules.
+   * Returns the set of includes which are not mandatory and may be pruned by include processing.
    */
-  void setupCompilationContext(
-      RuleContext ruleContext, CppCompilationContext.Builder contextBuilder);
+  NestedSet<Artifact> getAdditionalPrunableIncludes();
+
+  /** Return an alternate source of inputs for constructing the include scanning data. */
+  default Iterable<Artifact> getAlternateIncludeScanningDataInputs() {
+    return null;
+  }
+
+  /** Determines the applicable mode of headers checking for the passed in ruleContext. */
+  HeadersCheckingMode determineHeadersCheckingMode(RuleContext ruleContext);
+
+  /** Returns the include processing closure, which handles include processing for this build */
+  IncludeProcessing getIncludeProcessing();
+
+  /** Returns true iff this build should perform .d input pruning. */
+  boolean needsDotdInputPruning();
+
+  void validateAttributes(RuleContext ruleContext);
+
+  default void validateDeps(RuleContext ruleContext) {}
+
+  /** Returns true iff this build requires include validation. */
+  boolean needsIncludeValidation();
+
+  /** Provider for cc_shared_libraries * */
+  StructImpl getCcSharedLibraryInfo(TransitiveInfoCollection dep);
 }

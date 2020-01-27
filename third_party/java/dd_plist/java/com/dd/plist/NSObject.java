@@ -77,6 +77,8 @@ public abstract class NSObject {
      * Generates the binary representation of the object.
      *
      * @param out The output stream to serialize the object to.
+     * @throws java.io.IOException When an IO error occurs while writing to the stream or the object structure contains
+     *                             data that cannot be saved.
      */
     abstract void toBinary(BinaryPropertyListWriter out) throws IOException;
 
@@ -233,7 +235,7 @@ public abstract class NSObject {
      */
     public static NSObject wrap(Object o) {
         if(o == null)
-            throw new NullPointerException("A null object cannot be wrapped as a NSObject");
+            return null;
 
         if(o instanceof NSObject)
             return (NSObject)o;

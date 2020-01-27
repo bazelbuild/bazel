@@ -1,4 +1,4 @@
-// Copyright 2014 Google Inc. All rights reserved.
+// Copyright 2016 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -13,59 +13,68 @@
 // limitations under the License.
 package com.google.devtools.build.skyframe;
 
-import java.util.Collection;
-import java.util.Comparator;
-import java.util.List;
-import java.util.Set;
-import java.util.TreeSet;
+import java.util.Map;
+import javax.annotation.Nullable;
 
-/** {@link NotifyingInMemoryGraph} that returns reverse deps ordered alphabetically. */
-public class DeterministicInMemoryGraph extends NotifyingInMemoryGraph {
-  public DeterministicInMemoryGraph(Listener listener) {
-    super(listener);
-  }
-
-  public DeterministicInMemoryGraph() {
-    super(Listener.NULL_LISTENER);
+/**
+ * {@link DeterministicHelper.DeterministicProcessableGraph} that implements the {@link
+ * InMemoryGraph} interface. Sadly, cannot be a {@link NotifyingInMemoryGraph} due to Java's
+ * forbidding multiple inheritance.
+ */
+class DeterministicInMemoryGraph extends DeterministicHelper.DeterministicProcessableGraph
+    implements InMemoryGraph {
+  DeterministicInMemoryGraph(InMemoryGraph delegate, NotifyingHelper.Listener graphListener) {
+    super(delegate, graphListener);
   }
 
   @Override
-  protected DeterministicValueEntry getEntry(SkyKey key) {
-    return new DeterministicValueEntry(key);
+  public Map<SkyKey, ? extends NodeEntry> createIfAbsentBatch(
+      @Nullable SkyKey requestor, Reason reason, Iterable<SkyKey> keys) {
+    try {
+      return super.createIfAbsentBatch(requestor, reason, keys);
+    } catch (InterruptedException e) {
+      throw new IllegalStateException(e);
+    }
   }
 
-  /**
-   * This class uses TreeSet to store reverse dependencies of NodeEntry. As a result all values are
-   * lexicographically sorted.
-   */
-  private class DeterministicValueEntry extends NotifyingNodeEntry {
-    private DeterministicValueEntry(SkyKey myKey) {
-      super(myKey);
+  @Nullable
+  @Override
+  public NodeEntry get(@Nullable SkyKey requestor, Reason reason, SkyKey key) {
+    try {
+      return super.get(requestor, reason, key);
+    } catch (InterruptedException e) {
+      throw new IllegalStateException(e);
     }
+  }
 
-    final Comparator<SkyKey> valueEntryComparator = new Comparator<SkyKey>() {
-      @Override
-      public int compare(SkyKey o1, SkyKey o2) {
-        return o1.toString().compareTo(o2.toString());
-      }
-    };
-    @SuppressWarnings("unchecked")
-    @Override
-    public synchronized Iterable<SkyKey> getReverseDeps() {
-      TreeSet<SkyKey> result = new TreeSet<SkyKey>(valueEntryComparator);
-      if (reverseDeps instanceof List) {
-        result.addAll((Collection<? extends SkyKey>) reverseDeps);
-      } else {
-        result.add((SkyKey) reverseDeps);
-      }
-      return result;
+  @Override
+  public Map<SkyKey, ? extends NodeEntry> getBatch(
+      @Nullable SkyKey requestor, Reason reason, Iterable<? extends SkyKey> keys) {
+    try {
+      return super.getBatch(requestor, reason, keys);
+    } catch (InterruptedException e) {
+      throw new IllegalStateException(e);
     }
+  }
 
-    @Override
-    public synchronized Set<SkyKey> getInProgressReverseDeps() {
-      TreeSet<SkyKey> result = new TreeSet<SkyKey>(valueEntryComparator);
-      result.addAll(buildingState.getReverseDepsToSignal());
-      return result;
-    }
+  @Override
+  public Map<SkyKey, SkyValue> getValues() {
+    return ((InMemoryGraph) delegate).getValues();
+  }
+
+  @Override
+  public Map<SkyKey, SkyValue> getDoneValues() {
+    return ((InMemoryGraph) delegate).getDoneValues();
+  }
+
+
+  @Override
+  public Map<SkyKey, ? extends NodeEntry> getAllValues() {
+    return ((InMemoryGraph) delegate).getAllValues();
+  }
+
+  @Override
+  public Map<SkyKey, ? extends NodeEntry> getAllValuesMutable() {
+    return ((InMemoryGraph) delegate).getAllValuesMutable();
   }
 }

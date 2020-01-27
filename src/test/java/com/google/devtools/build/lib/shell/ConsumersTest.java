@@ -1,4 +1,4 @@
-// Copyright 2015 Google Inc. All rights reserved.
+// Copyright 2015 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,29 +14,26 @@
 package com.google.devtools.build.lib.shell;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.assertSame;
+import static com.google.common.truth.Truth.assertWithMessage;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 import static org.junit.Assert.fail;
 
 import com.google.devtools.build.lib.shell.Consumers.OutErrConsumers;
-
+import java.io.ByteArrayInputStream;
+import java.io.IOException;
+import java.io.OutputStream;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-import java.io.ByteArrayInputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
-import java.util.logging.Level;
-import java.util.logging.Logger;
-
 @RunWith(JUnit4.class)
 public class ConsumersTest {
 
   @Before
-  public void setUp() throws Exception {
-
+  public final void configureLogger() throws Exception  {
     // enable all log statements to ensure there are no problems with
     // logging code
     Logger.getLogger("com.google.devtools.build.lib.shell.Command").setLevel(Level.FINEST);
@@ -61,12 +58,8 @@ public class ConsumersTest {
     ByteArrayInputStream outInput = new ByteArrayInputStream(new byte[]{'a'});
     ByteArrayInputStream errInput = new ByteArrayInputStream(new byte[0]);
     outErr.registerInputs(outInput, errInput, false);
-    try {
-      outErr.waitForCompletion();
-      fail();
-    } catch (IOException e) {
-      assertThat(e).hasMessage(SECRET_MESSAGE);
-    }
+    IOException e = assertThrows(IOException.class, () -> outErr.waitForCompletion());
+    assertThat(e).hasMessageThat().isEqualTo(SECRET_MESSAGE);
   }
 
   /**
@@ -92,7 +85,7 @@ public class ConsumersTest {
     } catch (IOException e) {
       fail();
     } catch (OutOfMemoryError e) {
-      assertSame("OutOfMemoryError is not masked", error, e);
+      assertWithMessage("OutOfMemoryError is not masked").that(e).isSameInstanceAs(error);
     }
   }
 
@@ -112,14 +105,9 @@ public class ConsumersTest {
     ByteArrayInputStream outInput = new ByteArrayInputStream(new byte[]{'a'});
     ByteArrayInputStream errInput = new ByteArrayInputStream(new byte[0]);
     outErr.registerInputs(outInput, errInput, false);
-    try {
-      outErr.waitForCompletion();
-      fail();
-    } catch (IOException e) {
-      fail();
-    } catch (Error e) {
-      assertThat(e).hasMessage(SECRET_MESSAGE);
-    }
+    Error error = assertThrows(Error.class, () -> outErr.waitForCompletion());
+    assertThat(error).isNotInstanceOf(IOException.class);
+    assertThat(error).hasMessageThat().isEqualTo(SECRET_MESSAGE);
   }
 
   /**
@@ -139,34 +127,7 @@ public class ConsumersTest {
     ByteArrayInputStream outInput = new ByteArrayInputStream(new byte[]{'a'});
     ByteArrayInputStream errInput = new ByteArrayInputStream(new byte[0]);
     outErr.registerInputs(outInput, errInput, false);
-    try {
-      outErr.waitForCompletion();
-      fail();
-    } catch (RuntimeException e) {
-      assertThat(e).hasMessage(SECRET_MESSAGE);
-    }
+    RuntimeException e = assertThrows(RuntimeException.class, () -> outErr.waitForCompletion());
+    assertThat(e).hasMessageThat().isEqualTo(SECRET_MESSAGE);
   }
-
-  /**
-   * Basically tests that Consumers#silentClose(InputStream) works properly.
-   */
-  @Test
-  public void testSilentlyDropIOExceptionWhenClosingInputStream() {
-    InputStream in = new ByteArrayInputStream(new byte[]{'a'}){
-      @Override
-      public void close() throws IOException {
-        throw new IOException("Please ignore me!");
-      }
-    };
-    OutErrConsumers outErr = Consumers.createDiscardingConsumers();
-    outErr.registerInputs(in, in, false);
-    try {
-      outErr.waitForCompletion();
-      // yeah!
-    } catch (IOException e) {
-      fail(); // this should not throw an exception, since we're silently
-              // closing the output!
-    }
-  }
-
 }

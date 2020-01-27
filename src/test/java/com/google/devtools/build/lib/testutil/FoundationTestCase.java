@@ -1,4 +1,4 @@
-// Copyright 2014 Google Inc. All rights reserved.
+// Copyright 2014 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -13,54 +13,55 @@
 // limitations under the License.
 package com.google.devtools.build.lib.testutil;
 
-import com.google.common.io.Files;
+import static org.junit.Assert.fail;
+
+import com.google.common.eventbus.EventBus;
+import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventCollector;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.Reporter;
-import com.google.devtools.build.lib.util.BlazeClock;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
-
-import junit.framework.TestCase;
-
-import java.io.File;
-import java.io.IOException;
-import java.nio.charset.Charset;
-import java.util.List;
 import java.util.Set;
+import org.junit.After;
+import org.junit.Before;
 
 /**
- * This is a specialization of {@link TestCase} that's useful for implementing tests of the
- * "foundation" library.
+ * A helper class for implementing tests of the "foundation" library.
  */
-public abstract class FoundationTestCase extends TestCase {
-
+public abstract class FoundationTestCase {
   protected Path rootDirectory;
-
   protected Path outputBase;
-
-  protected Path actionOutputBase;
 
   // May be overridden by subclasses:
   protected Reporter reporter;
+  // The event bus of the reporter
+  protected EventBus eventBus;
   protected EventCollector eventCollector;
-
+  protected FileSystem fileSystem;
   protected Scratch scratch;
+  protected Root root;
 
+  /** Returns the Scratch instance for this test case. */
+  public Scratch getScratch() {
+    return scratch;
+  }
 
   // Individual tests can opt-out of this handler if they expect an error, by
   // calling reporter.removeHandler(failFastHandler).
-  protected static final EventHandler failFastHandler = new EventHandler() {
-      @Override
-      public void handle(Event event) {
-        if (EventKind.ERRORS.contains(event.getKind())) {
-          fail(event.toString());
+  public static final EventHandler failFastHandler =
+      new EventHandler() {
+        @Override
+        public void handle(Event event) {
+          if (EventKind.ERRORS.contains(event.getKind())) {
+            fail(event.toString());
+          }
         }
-      }
-    };
+      };
 
   protected static final EventHandler printHandler = new EventHandler() {
       @Override
@@ -69,166 +70,115 @@ public abstract class FoundationTestCase extends TestCase {
       }
     };
 
-  @Override
-  protected void setUp() throws Exception {
-    super.setUp();
-    scratch = new Scratch(createFileSystem());
+  @Before
+  public final void initializeFileSystemAndDirectories() throws Exception {
+    fileSystem = createFileSystem();
+    scratch = new Scratch(fileSystem, "/workspace");
     outputBase = scratch.dir("/usr/local/google/_blaze_jrluser/FAKEMD5/");
-    rootDirectory = scratch.dir("/" + TestConstants.TEST_WORKSPACE_DIRECTORY);
-    scratchFile(rootDirectory.getRelative("WORKSPACE").getPathString(),
-        "bind(",
-        "  name = 'objc_proto_lib',",
-        "  actual = '//objcproto:ProtocolBuffers_lib',",
-        ")");
-    copySkylarkFilesIfExist();
-    actionOutputBase = scratch.dir("/usr/local/google/_blaze_jrluser/FAKEMD5/action_out/");
-    eventCollector = new EventCollector(EventKind.ERRORS_AND_WARNINGS);
-    reporter = new Reporter(eventCollector);
+    rootDirectory = scratch.dir("/workspace");
+    scratch.file(rootDirectory.getRelative("WORKSPACE").getPathString());
+    root = Root.fromPath(rootDirectory);
+  }
+
+  @Before
+  public final void initializeLogging() throws Exception {
+    eventCollector = new EventCollector(EventKind.ERRORS_WARNINGS_AND_INFO);
+    eventBus = new EventBus();
+    reporter = new Reporter(eventBus, eventCollector);
     reporter.addHandler(failFastHandler);
   }
 
-  /*
+  @After
+  public final void clearInterrupts() throws Exception {
+    Thread.interrupted(); // Clear any interrupt pending against this thread,
+                          // so that we don't cause later tests to fail.
+  }
+
+  /**
    * Creates the file system; override to inject FS behavior.
    */
   protected FileSystem createFileSystem() {
-     return new InMemoryFileSystem(BlazeClock.instance());
-  }
-
-  private void copySkylarkFilesIfExist() throws IOException {
-    scratchFile(rootDirectory.getRelative("devtools/blaze/rules/BUILD").getPathString());
-    scratchFile(rootDirectory.getRelative("rules/BUILD").getPathString());
-    copySkylarkFilesIfExist("devtools/blaze/rules/staging", "devtools/blaze/rules/staging");
-    copySkylarkFilesIfExist("devtools/blaze/bazel/tools/build_rules", "rules");
-  }
-
-  private void copySkylarkFilesIfExist(String from, String to) throws IOException {
-    File rulesDir = new File(from);
-    if (rulesDir.exists() && rulesDir.isDirectory()) {
-      for (String fileName : rulesDir.list()) {
-        File file = new File(from + "/" + fileName);
-        if (file.isFile() && fileName.endsWith(".bzl")) {
-          String context = loadFile(file);
-          Path path = rootDirectory.getRelative(to + "/" + fileName);
-          if (path.exists()) {
-            overwriteScratchFile(path.getPathString(), context);
-          } else {
-            scratchFile(path.getPathString(), context);
-          }
-        }
-      }
-    }
-  }
-
-  @Override
-  protected void tearDown() throws Exception {
-    Thread.interrupted(); // Clear any interrupt pending against this thread,
-                          // so that we don't cause later tests to fail.
-
-    super.tearDown();
-  }
-
-  /**
-   * A scratch filesystem that is completely in-memory. Since this file system
-   * is "cached" in a private (but *not* static) field in the test class,
-   * each testFoo method in junit sees a fresh filesystem.
-   */
-  protected FileSystem scratchFS() {
-    return scratch.getFileSystem();
-  }
-
-  /**
-   * Create a scratch file in the scratch filesystem, with the given pathName,
-   * consisting of a set of lines. The method returns a Path instance for the
-   * scratch file.
-   */
-  protected Path scratchFile(String pathName, String... lines)
-      throws IOException {
-    return scratch.file(pathName, lines);
-  }
-
-  /**
-   * Like {@code scratchFile}, but the file is first deleted if it already
-   * exists.
-   */
-  protected Path overwriteScratchFile(String pathName, String... lines) throws IOException {
-    return scratch.overwriteFile(pathName, lines);
-  }
-
-  /**
-   * Create a scratch file in the given filesystem, with the given pathName,
-   * consisting of a set of lines. The method returns a Path instance for the
-   * scratch file.
-   */
-  protected Path scratchFile(FileSystem fs, String pathName, String... lines)
-      throws IOException {
-    return scratch.file(fs, pathName, lines);
-  }
-
-  /**
-   * Create a scratch file in the given filesystem, with the given pathName,
-   * consisting of a set of lines. The method returns a Path instance for the
-   * scratch file.
-   */
-  protected Path scratchFile(FileSystem fs, String pathName, byte[] content)
-      throws IOException {
-    return scratch.file(fs, pathName, content);
+    return new InMemoryFileSystem(BlazeClock.instance());
   }
 
   // Mix-in assertions:
 
   protected void assertNoEvents() {
-    JunitTestUtils.assertNoEvents(eventCollector);
+    MoreAsserts.assertNoEvents(eventCollector);
   }
 
   protected Event assertContainsEvent(String expectedMessage) {
-    return JunitTestUtils.assertContainsEvent(eventCollector,
+    return MoreAsserts.assertContainsEvent(eventCollector,
                                               expectedMessage);
   }
 
   protected Event assertContainsEvent(String expectedMessage, Set<EventKind> kinds) {
-    return JunitTestUtils.assertContainsEvent(eventCollector,
+    return MoreAsserts.assertContainsEvent(eventCollector,
                                               expectedMessage,
                                               kinds);
   }
 
   protected void assertContainsEventWithFrequency(String expectedMessage,
       int expectedFrequency) {
-    JunitTestUtils.assertContainsEventWithFrequency(eventCollector, expectedMessage,
+    MoreAsserts.assertContainsEventWithFrequency(eventCollector, expectedMessage,
         expectedFrequency);
   }
 
   protected void assertDoesNotContainEvent(String expectedMessage) {
-    JunitTestUtils.assertDoesNotContainEvent(eventCollector,
+    MoreAsserts.assertDoesNotContainEvent(eventCollector,
                                              expectedMessage);
   }
 
   protected Event assertContainsEventWithWordsInQuotes(String... words) {
-    return JunitTestUtils.assertContainsEventWithWordsInQuotes(
+    return MoreAsserts.assertContainsEventWithWordsInQuotes(
         eventCollector, words);
   }
 
   protected void assertContainsEventsInOrder(String... expectedMessages) {
-    JunitTestUtils.assertContainsEventsInOrder(eventCollector, expectedMessages);
+    MoreAsserts.assertContainsEventsInOrder(eventCollector, expectedMessages);
   }
 
-  @SuppressWarnings({"unchecked", "varargs"})
-  protected static <T> void assertContainsSublist(List<T> arguments,
-                                                  T... expectedSublist) {
-    JunitTestUtils.assertContainsSublist(arguments, expectedSublist);
-  }
-
-  @SuppressWarnings({"unchecked", "varargs"})
-  protected static <T> void assertDoesNotContainSublist(List<T> arguments,
-                                                        T... expectedSublist) {
-    JunitTestUtils.assertDoesNotContainSublist(arguments, expectedSublist);
-  }
-
-  protected static <T> void assertContainsSubset(Iterable<T> arguments,
-                                                 Iterable<T> expectedSubset) {
-    JunitTestUtils.assertContainsSubset(arguments, expectedSubset);
-  }
-
-  protected String loadFile(File file) throws IOException {
-    return Files.toString(file, Charset.defaultCharset());
+  protected void writeBuildFileForJavaToolchain() throws Exception  {
+    scratch.file("java/com/google/test/turbine_canary_deploy.jar");
+    scratch.file("java/com/google/test/turbine_graal");
+    scratch.file("java/com/google/test/tzdata.jar");
+    scratch.overwriteFile(
+        "java/com/google/test/BUILD",
+        "java_toolchain(name = 'toolchain',",
+        "    source_version = '6',",
+        "    target_version = '6',",
+        "    bootclasspath = ['rt.jar'],",
+        "    extclasspath = ['ext/lib.jar'],",
+        "    xlint = ['toto'],",
+        "    misc = ['-Xmaxerrs 500'],",
+        "    compatible_javacopts = {",
+        "        'appengine': ['-XDappengineCompatible'],",
+        "        'android': ['-XDandroidCompatible'],",
+        "    },",
+        "    javac = [':javac_canary.jar'],",
+        "    javabuilder = [':JavaBuilderCanary_deploy.jar'],",
+        "    header_compiler = [':turbine_canary_deploy.jar'],",
+        "    header_compiler_direct = [':turbine_graal'],",
+        "    singlejar = ['SingleJar_deploy.jar'],",
+        "    ijar = ['ijar'],",
+        "    genclass = ['GenClass_deploy.jar'],",
+        "    timezone_data = 'tzdata.jar',",
+        ")",
+        "constraint_value(",
+        "    name = 'constraint',",
+        "    constraint_setting = '"
+            + TestConstants.PLATFORM_PACKAGE_ROOT
+            + "/java/constraints:runtime',",
+        ")",
+        "toolchain(",
+        "    name = 'java_toolchain',",
+        "    toolchain = ':toolchain',",
+        "    toolchain_type = '" + TestConstants.TOOLS_REPOSITORY + "//tools/jdk:toolchain_type',",
+        "    target_compatible_with = [':constraint'],",
+        ")",
+        "platform(",
+        "    name = 'platform',",
+        "    constraint_values = [':constraint'],",
+        ")");
   }
 }

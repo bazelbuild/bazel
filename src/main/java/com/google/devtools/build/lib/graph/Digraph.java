@@ -1,4 +1,4 @@
-// Copyright 2014 Google Inc. All rights reserved.
+// Copyright 2014 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,10 +14,12 @@
 
 package com.google.devtools.build.lib.graph;
 
-import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Maps;
-import com.google.common.collect.Ordering;
+import static java.util.Comparator.comparing;
+import static java.util.Comparator.comparingLong;
 
+import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -29,56 +31,48 @@ import java.util.List;
 import java.util.Map;
 import java.util.PriorityQueue;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import javax.annotation.Nullable;
 
 /**
- * <p> {@code Digraph} a generic directed graph or "digraph", suitable for
- * modeling asymmetric binary relations. </p>
+ * {@code Digraph} a generic directed graph or "digraph", suitable for modeling asymmetric binary
+ * relations.
  *
- * <p> An instance <code>G = &lt;V,E&gt;</code> consists of a set of nodes or
- * vertices <code>V</code>, and a set of directed edges <code>E</code>, which
- * is a subset of <code>V &times; V</code>.  This permits self-edges but does
- * not represent multiple edges between the same pair of nodes. </p>
+ * <p>An instance <code>G = &lt;V,E&gt;</code> consists of a set of nodes or vertices <code>V</code>
+ * , and a set of directed edges <code>E</code>, which is a subset of <code>V &times; V</code>. This
+ * permits self-edges but does not represent multiple edges between the same pair of nodes.
  *
- * <p> Nodes may be labeled with values of any type (type parameter
- * T).  All nodes within a graph have distinct labels.  The null
- * pointer is not a valid label.</p>
+ * <p>Nodes may be labeled with values of any type (type parameter T). All nodes within a graph have
+ * distinct labels. The null pointer is not a valid label.
  *
- * <p> The package supports various operations for modeling partial order
- * relations, and supports input/output in AT&amp;T's 'dot' format.  See
- * http://www.research.att.com/sw/tools/graphviz/. </p>
+ * <p>The package supports various operations for modeling partial order relations, and supports
+ * input/output in AT&amp;T's 'dot' format. See http://www.research.att.com/sw/tools/graphviz/.
  *
- * <p> Some invariants: </p>
+ * <p>Some invariants:
+ *
  * <ul>
- *
- * <li> Each graph instances "owns" the nodes is creates.  The behaviour of
- * operations on nodes a graph does not own is undefined.
- *
- * <li> {@code Digraph} assumes immutability of node labels, much like {@link
- * HashMap} assumes it for keys.
- *
- * <li> Mutating the underlying graph invalidates any sets and iterators backed
- * by it.
- *
+ *   <li>Each graph instances "owns" the nodes is creates. The behaviour of operations on nodes a
+ *       graph does not own is undefined.
+ *   <li>{@code Digraph} assumes immutability of node labels, much like {@link HashMap} assumes it
+ *       for keys.
+ *   <li>Mutating the underlying graph invalidates any sets and iterators backed by it.
+ *   <li>Nodes can be added and removed concurrently. Edges can be added and removed concurrently
+ *       too. While it is thread safe to add or remove edge, these operations are not atomic. Graph
+ *       can be observable in inconsistent state during this operations, for instance: edge linked
+ *       to only one node.
+ *   <li>
  * </ul>
  *
- * <p>Each node stores successor and predecessor adjacency sets using a
- * representation that dynamically changes with size: small sets are stored as
- * arrays, large sets using hash tables.  This representation provides
- * significant space and time performance improvements upon two prior versions:
- * the earliest used only HashSets; a later version used linked lists, as
- * described in Cormen, Leiserson &amp; Rivest.
+ * <p>Each node stores successor and predecessor adjacency sets using a representation that
+ * dynamically changes with size: small sets are stored as arrays, large sets using hash tables.
+ * This representation provides significant space and time performance improvements upon two prior
+ * versions: the earliest used only HashSets; a later version used linked lists, as described in
+ * Cormen, Leiserson &amp; Rivest.
  */
 public final class Digraph<T> implements Cloneable {
 
-  /**
-   * Maps labels to nodes, which are in strict 1:1 correspondence.
-   */
-  private final HashMap<T, Node<T>> nodes = Maps.newHashMap();
-
-  /**
-   * A source of unique, deterministic hashCodes for {@link Node} instances.
-   */
-  private int nextHashCode = 0;
+  /** Maps labels to nodes, which are in strict 1:1 correspondence. */
+  private final Map<T, Node<T>> nodes = new ConcurrentHashMap<>();
 
   /**
    * Construct an empty Digraph.
@@ -120,12 +114,7 @@ public final class Digraph<T> implements Cloneable {
   public boolean addEdge(Node<T> fromNode, Node<T> toNode) {
     checkNode(fromNode);
     checkNode(toNode);
-    boolean isNewSuccessor = fromNode.addSuccessor(toNode);
-    boolean isNewPredecessor = toNode.addPredecessor(fromNode);
-    if (isNewPredecessor != isNewSuccessor) {
-      throw new IllegalStateException();
-    }
-    return isNewSuccessor;
+    return fromNode.addEdge(toNode);
   }
 
   /**
@@ -148,11 +137,7 @@ public final class Digraph<T> implements Cloneable {
   public boolean removeEdge(Node<T> fromNode, Node<T> toNode) {
     checkNode(fromNode);
     checkNode(toNode);
-    boolean changed = fromNode.removeSuccessor(toNode);
-    if (changed) {
-      toNode.removePredecessor(fromNode);
-    }
-    return changed;
+    return fromNode.removeEdge(toNode);
   }
 
   /**
@@ -246,30 +231,26 @@ public final class Digraph<T> implements Cloneable {
   @Override
   public Digraph<T> clone() {
     final Digraph<T> that = new Digraph<T>();
-    visitNodesBeforeEdges(new AbstractGraphVisitor<T>() {
-      @Override
-      public void visitEdge(Node<T> lhs, Node<T> rhs) {
-        that.addEdge(lhs.getLabel(), rhs.getLabel());
-      }
-      @Override
-      public void visitNode(Node<T> node) {
-        that.createNode(node.getLabel());
-      }
-    });
+    visitNodesBeforeEdges(
+        new AbstractGraphVisitor<T>() {
+          @Override
+          public void visitEdge(Node<T> lhs, Node<T> rhs) {
+            that.addEdge(lhs.getLabel(), rhs.getLabel());
+          }
+
+          @Override
+          public void visitNode(Node<T> node) {
+            that.createNode(node.getLabel());
+          }
+        },
+        nodes.values(),
+        null);
     return that;
   }
 
-  /**
-   * Returns a deterministic immutable view of the nodes of this graph.
-   */
-  public Collection<Node<T>> getNodes(final Comparator<T> comparator) {
-    Ordering<Node<T>> ordering = new Ordering<Node<T>>() {
-      @Override
-      public int compare(Node<T> o1, Node<T> o2) {
-        return comparator.compare(o1.getLabel(), o2.getLabel());
-      }
-    };
-    return ordering.immutableSortedCopy(nodes.values());
+  /** Returns a deterministic immutable copy of the nodes of this graph. */
+  public Collection<Node<T>> getNodes(final Comparator<? super T> comparator) {
+    return ImmutableList.sortedCopyOf(comparing(Node::getLabel, comparator), nodes.values());
   }
 
   /**
@@ -371,18 +352,16 @@ public final class Digraph<T> implements Cloneable {
   }
 
   /**
-   * Find or create a node with the specified label.  This is the <i>only</i>
-   * factory of Nodes.  The null pointer is not a valid label.
+   * Find or create a node with the specified label. This is the <i>only</i> factory of Nodes. The
+   * null pointer is not a valid label.
    */
   public Node<T> createNode(T label) {
-    if (label == null) {
-      throw new NullPointerException();
-    }
-    Node<T> n = nodes.get(label);
-    if (n == null) {
-      nodes.put(label, n = new Node<T>(label, nextHashCode++));
-    }
-    return n;
+    return nodes.computeIfAbsent(label, Digraph::createNodeNative);
+  }
+
+  private static <T> Node<T> createNodeNative(T label) {
+    Preconditions.checkNotNull(label);
+    return new Node<>(label);
   }
 
   /******************************************************************
@@ -459,13 +438,8 @@ public final class Digraph<T> implements Cloneable {
    */
   public Collection<Set<Node<T>>> getStronglyConnectedComponents() {
     final List<Set<Node<T>>> sccs = new ArrayList<>();
-    NodeSetReceiver<T> r = new NodeSetReceiver<T>() {
-      @Override
-      public void accept(Set<Node<T>> scc) {
-        sccs.add(scc);
-      }
-    };
-    SccVisitor<T> v = new SccVisitor<T>();
+    NodeSetReceiver<T> r = sccs::add;
+    SccVisitor<T> v = new SccVisitor<>();
     for (Node<T> node : nodes.values()) {
       v.visit(r, node);
     }
@@ -509,17 +483,16 @@ public final class Digraph<T> implements Cloneable {
   }
 
   /**
-   * Returns the image of this graph in a given function, expressed as a
-   * mapping from labels to some other domain.
+   * Returns the image of this graph in a given function, expressed as a mapping from labels to some
+   * other domain.
    */
-  public <IMAGE> Digraph<IMAGE>
-    createImageUnderMapping(Map<T, IMAGE> map) {
-    Digraph<IMAGE> imageGraph = new Digraph<>();
+  public <ImageT> Digraph<ImageT> createImageUnderMapping(Map<T, ImageT> map) {
+    Digraph<ImageT> imageGraph = new Digraph<>();
 
     for (Node<T> fromNode: nodes.values()) {
       T fromLabel = fromNode.getLabel();
 
-      IMAGE fromImage = map.get(fromLabel);
+      ImageT fromImage = map.get(fromLabel);
       if (fromImage == null) {
         throw new IllegalArgumentException(
             "Incomplete function: undefined for " + fromLabel);
@@ -529,7 +502,7 @@ public final class Digraph<T> implements Cloneable {
       for (Node<T> toNode: fromNode.getSuccessors()) {
         T toLabel = toNode.getLabel();
 
-        IMAGE toImage = map.get(toLabel);
+        ImageT toImage = map.get(toLabel);
         if (toImage == null) {
           throw new IllegalArgumentException(
             "Incomplete function: undefined for " + toLabel);
@@ -594,7 +567,7 @@ public final class Digraph<T> implements Cloneable {
    * list.
    */
   public static <X> List<X> getPathToTreeNode(Map<X, X> tree, X node) {
-    List<X> path = new ArrayList<X>();
+    List<X> path = new ArrayList<>();
     while (node != null) {
       path.add(node);
       node = tree.get(node); // get parent
@@ -636,10 +609,9 @@ public final class Digraph<T> implements Cloneable {
    *     are visited.
    * @return The nodes of the graph, in a topological order
    */
-  public List<Node<T>> getTopologicalOrder(
-      Comparator<T> edgeOrder) {
-    CollectingVisitor<T> visitor = new CollectingVisitor<T>();
-    DFS<T> visitation = new DFS<T>(DFS.Order.POSTORDER, edgeOrder, false);
+  public List<Node<T>> getTopologicalOrder(Comparator<? super T> edgeOrder) {
+    CollectingVisitor<T> visitor = new CollectingVisitor<>();
+    DFS<T> visitation = new DFS<>(DFS.Order.POSTORDER, edgeOrder, false);
     visitor.beginVisit();
     for (Node<T> node : getNodes(edgeOrder)) {
       visitation.visit(node, visitor);
@@ -655,7 +627,7 @@ public final class Digraph<T> implements Cloneable {
    * Returns the nodes of an acyclic graph in post-order.
    */
   public List<Node<T>> getPostorder() {
-    CollectingVisitor<T> collectingVisitor = new CollectingVisitor<T>();
+    CollectingVisitor<T> collectingVisitor = new CollectingVisitor<>();
     visitPostorder(collectingVisitor);
     return collectingVisitor.getVisitedNodes();
   }
@@ -676,7 +648,7 @@ public final class Digraph<T> implements Cloneable {
     // This method is intentionally not static, to permit future expansion.
     DFS<T> dfs = new DFS<T>(DFS.Order.PREORDER, false);
     for (Node<T> n : startNodes) {
-      dfs.visit(n, new AbstractGraphVisitor<T>());
+      dfs.visit(n, new AbstractGraphVisitor<>());
     }
     return dfs.getMarked();
   }
@@ -697,64 +669,62 @@ public final class Digraph<T> implements Cloneable {
     // This method is intentionally not static, to permit future expansion.
     DFS<T> dfs = new DFS<T>(DFS.Order.PREORDER, true);
     for (Node<T> n : startNodes) {
-      dfs.visit(n, new AbstractGraphVisitor<T>());
+      dfs.visit(n, new AbstractGraphVisitor<>());
     }
     return dfs.getMarked();
   }
 
   /**
-   * Removes the node in the graph specified by the given label.  Optionally,
-   * preserves the graph order (by connecting up the broken edges) or drop them
-   * all.  If the specified label is not the label of any node in the graph,
-   * does nothing.
-   *
-   * @param label the label of the node to remove.
-   * @param preserveOrder if true, adds edges between the neighbours
-   *   of the removed node so as to maintain the graph ordering
-   *   relation between all pairs of such nodes.  If false, simply
-   *   discards all edges from the deleted node to its neighbours.
-   * @return true iff 'label' identifies a node (i.e. the graph was changed).
-   */
-  public boolean removeNode(T label, boolean preserveOrder) {
-    Node<T> node = getNodeMaybe(label);
-    if (node != null) {
-      removeNode(node, preserveOrder);
-      return true;
-    } else {
-      return false;
-    }
-  }
-
-  /**
    * Removes the specified node in the graph.
    *
-   * @param n the node to remove (must be in the graph).
+   * <p>If preserveOrder flag is set than after removing node this method connects all predecessors
+   * and successors.
+   *
+   * <p>Let's consider graph
+   *
+   * <pre>
+   * a -> n -> c
+   * b -> n -> d
+   * </pre>
+   *
+   * After n removed the following edges will be added
+   *
+   * <pre>
+   * a -> c
+   * a -> d
+   * b -> c
+   * b -> d
+   * </pre>
+   *
+   * @param node the node to remove (must be in the graph).
    * @param preserveOrder see removeNode(T, boolean).
    */
-  public void removeNode(Node<T> n, boolean preserveOrder) {
-    checkNode(n);
-    for (Node<T> b:  n.getSuccessors()) { // edges from n
-      // exists: n -> b
-      if (preserveOrder) {
-        for (Node<T> a: n.getPredecessors()) { // edges to n
-          // exists: a -> n
-          // beware self edges: they prevent n's deletion!
-          if (a != n && b != n) {
-            addEdge(a, b); // concurrent mod?
-          }
+  public Collection<Node<T>> removeNode(Node<T> node, boolean preserveOrder) {
+    checkNode(node);
+
+    Collection<Node<T>> predecessors = node.removeAllPredecessors();
+    Collection<Node<T>> successors = node.removeAllSuccessors();
+
+    List<Node<T>> neighbours = Collections.emptyList();
+
+    if (preserveOrder) {
+      neighbours = new ArrayList<>(successors.size() + predecessors.size());
+      neighbours.addAll(successors);
+      neighbours.addAll(predecessors);
+
+      for (Node<T> p : predecessors) {
+        for (Node<T> s : successors) {
+          p.addEdge(s);
         }
       }
-      b.removePredecessor(n); // remove edge n->b in b
-    }
-    for (Node<T> a: n.getPredecessors()) { // edges to n
-      a.removeSuccessor(n); // remove edge a->n in a
     }
 
-    n.removeAllEdges(); // remove edges b->n and a->n in n
-    Object del = nodes.remove(n.getLabel());
-    if (del != n) {
-      throw new IllegalStateException(del + " " + n);
+    Object del = nodes.remove(node.getLabel());
+    if (del != node) {
+      throw new IllegalStateException(del + " " + node);
     }
+
+    return neighbours;
   }
 
   /**
@@ -775,10 +745,10 @@ public final class Digraph<T> implements Cloneable {
    * Removes all nodes from this graph except those whose label is an element of {@code keepLabels}.
    * Edges are added so as to preserve the <i>transitive</i> closure relation.
    *
-   * @param keepLabels a subset of the labels of this graph; the resulting graph
-   * will have only the nodes with these labels.
+   * @param keepLabels a subset of the labels of this graph; the resulting graph will have only the
+   *     nodes with these labels.
    */
-  public void subgraph(final Set<T> keepLabels) {
+  private void subgraph(final Set<T> keepLabels) {
     // This algorithm does the following:
     // Let keep = nodes that have labels in keepLabels.
     // Let toRemove = nodes \ keep. reachables = successors and predecessors of keep in nodes.
@@ -822,14 +792,10 @@ public final class Digraph<T> implements Cloneable {
     // number of paths of high-order nodes making the time consumption explode.
     // For perfect results we should reorder the set each time we add a new edge but this would
     // be too expensive, so this is a good enough approximation.
-    final PriorityQueue<Node<T>> reachables = new PriorityQueue<>(toRemove.size(),
-        new Comparator<Node<T>>() {
-      @Override
-      public int compare(Node<T> o1, Node<T> o2) {
-        return Long.compare((long) o1.numPredecessors() * (long) o1.numSuccessors(),
-            (long) o2.numPredecessors() * (long) o2.numSuccessors());
-      }
-    });
+    final PriorityQueue<Node<T>> reachables =
+        new PriorityQueue<>(
+            toRemove.size(),
+            comparingLong(arg -> (long) arg.numPredecessors() * (long) arg.numSuccessors()));
 
     // Construct the reachables queue with the list of successors and predecessors of keep in
     // toRemove.
@@ -839,33 +805,16 @@ public final class Digraph<T> implements Cloneable {
 
     // Remove nodes, least connected first, preserving reachability.
     while (!reachables.isEmpty()) {
+
       Node<T> node = reachables.poll();
-      for (Node<T> s : node.getSuccessors()) {
-        if (s == node) { continue; } // ignore self-edge
 
-        for (Node<T> p : node.getPredecessors()) {
-          if (p == node) { continue; } // ignore self-edge
-          addEdge(p, s);
-        }
+      Collection<Node<T>> neighbours = removeNode(node, /*preserveOrder*/ true);
 
-        // removes n -> s
-        s.removePredecessor(node);
-        if (toRemove.remove(s)) {
-          reachables.add(s);
+      for (Node<T> neighbour : neighbours) {
+        if (toRemove.remove(neighbour)) {
+          reachables.add(neighbour);
         }
       }
-
-      for (Node<T> p : node.getPredecessors()) {
-        if (p == node) { continue; } // ignore self-edge
-        p.removeSuccessor(node);
-        if (toRemove.remove(p)) {
-          reachables.add(p);
-        }
-      }
-
-      // After the node deletion, the graph is again well-formed and the original topological order
-      // is preserved.
-      nodes.remove(node.getLabel());
     }
 
     // Final cleanup for non-reachable nodes.
@@ -874,40 +823,38 @@ public final class Digraph<T> implements Cloneable {
     }
   }
 
+  @FunctionalInterface
   private interface NodeSetReceiver<T> {
     void accept(Set<Node<T>> nodes);
   }
 
   /**
-   * Find strongly connected components using path-based strong component
-   * algorithm. This has the advantage over the default method of returning
-   * the components in postorder.
+   * Find strongly connected components using path-based strong component algorithm. This has the
+   * advantage over the default method of returning the components in postorder.
    *
-   * We visit nodes depth-first, keeping track of the order that
-   * we visit them in (preorder). Our goal is to find the smallest node (in
-   * this preorder of visitation) reachable from a given node. We keep track of the
-   * smallest node pointed to so far at the top of a stack. If we ever find an
-   * already-visited node, then if it is not already part of a component, we
-   * pop nodes from that stack until we reach this already-visited node's number
-   * or an even smaller one.
+   * <p>We visit nodes depth-first, keeping track of the order that we visit them in (preorder). Our
+   * goal is to find the smallest node (in this preorder of visitation) reachable from a given node.
+   * We keep track of the smallest node pointed to so far at the top of a stack. If we ever find an
+   * already-visited node, then if it is not already part of a component, we pop nodes from that
+   * stack until we reach this already-visited node's number or an even smaller one.
    *
-   * Once the depth-first visitation of a node is complete, if this node's
-   * number is at the top of the stack, then it is the "first" element visited
-   * in its strongly connected component. Hence we pop all elements that were
-   * pushed onto the visitation stack and put them in a strongly connected
-   * component with this one, then send a passed-in {@link Digraph.NodeSetReceiver} this component.
+   * <p>Once the depth-first visitation of a node is complete, if this node's number is at the top
+   * of the stack, then it is the "first" element visited in its strongly connected component. Hence
+   * we pop all elements that were pushed onto the visitation stack and put them in a strongly
+   * connected component with this one, then send a passed-in {@link Digraph.NodeSetReceiver} this
+   * component.
    */
-  private class SccVisitor<T> {
+  private class SccVisitor<T2> {
     // Nodes already assigned to a strongly connected component.
-    private final Set<Node<T>> assigned = new HashSet<>();
+    private final Set<Node<T2>> assigned = new HashSet<>();
 
     // The order each node was visited in.
-    private final Map<Node<T>, Integer> preorder = new HashMap<>();
+    private final Map<Node<T2>, Integer> preorder = new HashMap<>();
 
     // Stack of all nodes visited whose SCC has not yet been determined. When an SCC is found,
     // that SCC is an initial segment of this stack, and is popped off. Every time a new node is
     // visited, it is put on this stack.
-    private final List<Node<T>> stack = new ArrayList<>();
+    private final List<Node<T2>> stack = new ArrayList<>();
 
     // Stack of visited indices for the first-visited nodes in each of their known-so-far
     // strongly connected components. A node pushes its index on when it is visited. If any of
@@ -926,7 +873,7 @@ public final class Digraph<T> implements Cloneable {
     // Index of node being visited.
     private int counter = 0;
 
-    private void visit(NodeSetReceiver<T> visitor, Node<T> node) {
+    private void visit(NodeSetReceiver<T2> visitor, Node<T2> node) {
       if (preorder.containsKey(node)) {
         // This can only happen if this was a non-recursive call, and a previous
         // visit call had already visited node.
@@ -936,7 +883,7 @@ public final class Digraph<T> implements Cloneable {
       stack.add(node);
       preorderStack.add(counter++);
       int preorderLength = preorderStack.size();
-      for (Node<T> succ : node.getSuccessors()) {
+      for (Node<T2> succ : node.getSuccessors()) {
         Integer succPreorder = preorder.get(succ);
         if (succPreorder == null) {
           visit(visitor, succ);
@@ -956,8 +903,8 @@ public final class Digraph<T> implements Cloneable {
         // nodes that were part of a cycle with this node. So this node is the first-visited
         // element in its strongly connected component, and we collect the component.
         preorderStack.remove(preorderStack.size() - 1);
-        Set<Node<T>> scc = new HashSet<>();
-        Node<T> compNode;
+        Set<Node<T2>> scc = new HashSet<>();
+        Node<T2> compNode;
         do {
           compNode = stack.remove(stack.size() - 1);
           assigned.add(compNode);
@@ -1026,7 +973,7 @@ public final class Digraph<T> implements Cloneable {
                               DFS.Order order,
                               boolean transpose,
                               Iterable<Node<T>> startNodes) {
-    DFS<T> visitation = new DFS<T>(order, transpose);
+    DFS<T> visitation = new DFS<>(order, transpose);
     visitor.beginVisit();
     for (Node<T> node: startNodes) {
       visitation.visit(node, visitor);
@@ -1034,19 +981,31 @@ public final class Digraph<T> implements Cloneable {
     visitor.endVisit();
   }
 
+  private static <T> Comparator<Node<T>> makeNodeComparator(
+      final Comparator<? super T> comparator) {
+    return comparing(Node::getLabel, comparator::compare);
+  }
+
   /**
-   * A visitation over the graph that visits all nodes and edges in some order
-   * such that each node is visited before any edge coming out of that node;
-   * the order is otherwise unspecified.
-   *
-   * @param startNodes the set of nodes from which to begin the visitation.
+   * Given {@code unordered}, a collection of nodes and a (possibly null) {@code comparator} for
+   * their labels, returns a sorted collection if {@code comparator} is non-null, otherwise returns
+   * {@code unordered}.
    */
-  public void visitNodesBeforeEdges(GraphVisitor<T> visitor,
-                                    Iterable<Node<T>> startNodes) {
+  private static <T> Collection<Node<T>> maybeOrderCollection(
+      Collection<Node<T>> unordered, @Nullable final Comparator<? super T> comparator) {
+    return comparator == null
+        ? unordered
+        : ImmutableList.sortedCopyOf(makeNodeComparator(comparator), unordered);
+  }
+
+  private void visitNodesBeforeEdges(
+      GraphVisitor<T> visitor,
+      Iterable<Node<T>> startNodes,
+      @Nullable Comparator<? super T> comparator) {
     visitor.beginVisit();
     for (Node<T> fromNode: startNodes) {
       visitor.visitNode(fromNode);
-      for (Node<T> toNode: fromNode.getSuccessors()) {
+      for (Node<T> toNode : maybeOrderCollection(fromNode.getSuccessors(), comparator)) {
         visitor.visitEdge(fromNode, toNode);
       }
     }
@@ -1054,10 +1013,16 @@ public final class Digraph<T> implements Cloneable {
   }
 
   /**
-   * Equivalent to {@code visitNodesBeforeEdges(visitor, getNodes())}.
+   * A visitation over the graph that visits all nodes and edges in topological order
+   * such that each node is visited before any edge coming out of that node; ties among nodes are
+   * broken using the provided {@code comparator} if not null; edges are visited in order specified
+   * by the comparator, <b>not</b> topological order of the target nodes.
    */
-  public void visitNodesBeforeEdges(GraphVisitor<T> visitor) {
-    visitNodesBeforeEdges(visitor, nodes.values());
+  public void visitNodesBeforeEdges(
+      GraphVisitor<T> visitor, @Nullable Comparator<? super T> comparator) {
+    visitNodesBeforeEdges(
+        visitor,
+        comparator == null ? getTopologicalOrder() : getTopologicalOrder(comparator),
+        comparator);
   }
-
 }

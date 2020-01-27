@@ -1,0 +1,42 @@
+// Copyright 2017 The Bazel Authors. All rights reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//    http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+//
+// This file contains the protocol buffer representation of a list of supported
+// flags for Bazel commands.
+syntax = "proto2";
+
+option java_outer_classname = "BazelFlagsProto";
+option java_package = "com.google.devtools.build.lib.runtime.commands.proto";
+// option java_api_version = 2;
+
+package bazel_flags;
+
+message FlagInfo {
+  // Name of the flag, without leading dashes.
+  required string name = 1;
+  // True if --noname exists, too.
+  optional bool has_negative_flag = 2 [default = false];
+  // Help text of the flag.
+  optional string documentation = 3;
+  // List of supported Bazel commands, e.g. ['build', 'test']
+  repeated string commands = 4;
+  // Flag name abbreviation, without leading dash.
+  optional string abbreviation = 5;
+  // True if a flag is allowed to occur multiple times in a single arg list.
+  optional bool allows_multiple = 6 [default = false];
+}
+
+message FlagCollection {
+  repeated FlagInfo flag_infos = 1;
+}

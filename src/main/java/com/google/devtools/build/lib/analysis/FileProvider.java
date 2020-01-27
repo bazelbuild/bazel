@@ -1,4 +1,4 @@
-// Copyright 2014 Google Inc. All rights reserved.
+// Copyright 2014 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,12 +16,12 @@ package com.google.devtools.build.lib.analysis;
 
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.syntax.Label;
-import com.google.devtools.build.lib.syntax.SkylarkCallable;
-import com.google.devtools.build.lib.syntax.SkylarkModule;
-
-import javax.annotation.Nullable;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.skylarkbuildapi.FileProviderApi;
+import com.google.devtools.build.lib.syntax.Depset;
 
 /**
  * A representation of the concept "this transitive info provider builds these files".
@@ -29,47 +29,37 @@ import javax.annotation.Nullable;
  * <p>Every transitive info collection contains at least this provider.
  */
 @Immutable
-@SkylarkModule(name = "file_provider", doc = "An interface for rules that provide files.")
-public final class FileProvider implements TransitiveInfoProvider {
+@AutoCodec
+public final class FileProvider implements TransitiveInfoProvider, FileProviderApi {
+  public static final FileProvider EMPTY =
+      new FileProvider(NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER));
 
-  @Nullable private final Label label;
   private final NestedSet<Artifact> filesToBuild;
 
-  public FileProvider(@Nullable Label label, NestedSet<Artifact> filesToBuild) {
-    this.label = label;
+  public FileProvider(NestedSet<Artifact> filesToBuild) {
     this.filesToBuild = filesToBuild;
-  }
-
-  /**
-   * Returns the label that is associated with this piece of information.
-   *
-   * <p>This is usually the label of the target that provides the information.
-   */
-  @SkylarkCallable(name = "label", doc = "", structField = true)
-  public Label getLabel() {
-    if (label == null) {
-      throw new UnsupportedOperationException();
-    }
-    return label;
   }
 
   /**
    * Returns the set of artifacts that are the "output" of this rule.
    *
-   * <p>The term "output" is somewhat hazily defined; it is vaguely the set of files that are
-   * passed on to dependent rules that list the rule in their {@code srcs} attribute and the
-   * set of files that are built when a rule is mentioned on the command line. It does
-   * <b>not</b> include the runfiles; that is the bailiwick of {@code FilesToRunProvider}.
+   * <p>The term "output" is somewhat hazily defined; it is vaguely the set of files that are passed
+   * on to dependent rules that list the rule in their {@code srcs} attribute and the set of files
+   * that are built when a rule is mentioned on the command line. It does <b>not</b> include the
+   * runfiles; that is the bailiwick of {@code FilesToRunProvider}.
    *
    * <p>Note that the above definition is somewhat imprecise; in particular, when a rule is
-   * mentioned on the command line, some other files are also built
-   * {@code TopLevelArtifactHelper} and dependent rules are free to filter this set of artifacts
-   * e.g. based on their extension.
+   * mentioned on the command line, some other files are also built {@code TopLevelArtifactHelper}
+   * and dependent rules are free to filter this set of artifacts e.g. based on their extension.
    *
    * <p>Also, some rules may generate artifacts that are not listed here by way of defining other
    * implicit targets, for example, deploy jars.
    */
-  @SkylarkCallable(name = "files_to_build", doc = "", structField = true)
+  @Override
+  public Depset /*<Artifact>*/ getFilesToBuildForStarlark() {
+    return Depset.of(Artifact.TYPE, filesToBuild);
+  }
+
   public NestedSet<Artifact> getFilesToBuild() {
     return filesToBuild;
   }

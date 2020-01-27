@@ -1,0 +1,59 @@
+// Copyright 2017 The Bazel Authors. All rights reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//    http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+syntax = "proto3";
+
+package blaze;
+
+option java_package = "com.google.devtools.build.lib.actions.cache";
+option java_outer_classname = "Protos";
+
+// Information about the action cache behavior during a single build.
+message ActionCacheStatistics {
+  // Size of the action cache in bytes.
+  //
+  // This is computed by the code that persists the action cache to disk and
+  // represents the size of the written files, which has no direct relation to
+  // the number of entries in the cache.
+  uint64 size_in_bytes = 1;
+
+  // Time it took to save the action cache to disk.
+  uint64 save_time_in_ms = 2;
+
+  // Reasons for not finding an action in the cache.
+  enum MissReason {
+    DIFFERENT_ACTION_KEY = 0;
+    DIFFERENT_DEPS = 1;
+    DIFFERENT_ENVIRONMENT = 2;
+    DIFFERENT_FILES = 3;
+    CORRUPTED_CACHE_ENTRY = 4;
+    NOT_CACHED = 5;
+    UNCONDITIONAL_EXECUTION = 6;
+  }
+
+  // Detailed information for a particular miss reason.
+  message MissDetail {
+    MissReason reason = 1;
+    int32 count = 2;
+  }
+
+  // Cache counters.
+  int32 hits = 3;
+  int32 misses = 4;
+
+  // Breakdown of the cache misses based on the reasons behind them.
+  repeated MissDetail miss_details = 5;
+
+  // NEXT TAG: 6
+}

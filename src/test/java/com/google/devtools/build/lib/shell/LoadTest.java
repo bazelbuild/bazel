@@ -1,4 +1,4 @@
-// Copyright 2015 Google Inc. All rights reserved.
+// Copyright 2015 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -13,15 +13,10 @@
 // limitations under the License.
 package com.google.devtools.build.lib.shell;
 
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
-
+import com.google.devtools.build.lib.util.OS;
+import com.google.devtools.build.runfiles.Runfiles;
 import java.io.File;
 import java.io.FileWriter;
-import java.io.IOException;
 import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -29,6 +24,11 @@ import java.util.List;
 import java.util.Random;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import org.junit.After;
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 /**
  * Tests {@link Command} execution under load.
@@ -39,7 +39,7 @@ public class LoadTest {
   private File tempFile;
 
   @Before
-  public void setUp() throws IOException {
+  public final void createTempFile() throws Exception  {
     // enable all log statements to ensure there are no problems with
     // logging code
     Logger.getLogger("com.google.devtools.build.lib.shell.Command").setLevel(Level.FINEST);
@@ -61,14 +61,21 @@ public class LoadTest {
   }
 
   @After
-  public void tearDown() throws Exception {
+  public final void deleteTempFile() throws Exception  {
     tempFile.delete();
   }
 
   @Test
   public void testLoad() throws Throwable {
-    final Command command = new Command(new String[] {"/bin/cat",
-                                        tempFile.getAbsolutePath()});
+    Runfiles runfiles = Runfiles.create();
+    String catBin =
+        "io_bazel/src/test/java/com/google/devtools/build/lib/shell/cat_file";
+    if (OS.getCurrent() == OS.WINDOWS) {
+      catBin += ".exe";
+    }
+    catBin = runfiles.rlocation(catBin);
+
+    final Command command = new Command(new String[] {catBin, tempFile.getAbsolutePath()});
     Thread[] threads = new Thread[10];
     List<Throwable> exceptions = Collections.synchronizedList(new ArrayList<Throwable>());
     for (int i = 0; i < threads.length; i++) {

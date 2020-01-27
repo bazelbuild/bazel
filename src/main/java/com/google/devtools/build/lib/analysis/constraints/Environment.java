@@ -1,4 +1,4 @@
-// Copyright 2015 Google Inc. All rights reserved.
+// Copyright 2015 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,19 +14,18 @@
 
 package com.google.devtools.build.lib.analysis.constraints;
 
-import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.actions.Artifact;
+import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
+import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
-import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.collect.nestedset.Order;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.EnvironmentGroup;
-import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
-import com.google.devtools.build.lib.syntax.Label;
+import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 
 /**
  * Implementation for the environment rule.
@@ -34,7 +33,8 @@ import com.google.devtools.build.lib.syntax.Label;
 public class Environment implements RuleConfiguredTargetFactory {
 
   @Override
-  public ConfiguredTarget create(RuleContext ruleContext) {
+  public ConfiguredTarget create(RuleContext ruleContext)
+      throws InterruptedException, RuleErrorException, ActionConflictException {
 
     // The main analysis work to do here is to simply fill in SupportedEnvironmentsProvider to
     // pass the environment itself to depending rules.
@@ -48,15 +48,14 @@ public class Environment implements RuleConfiguredTargetFactory {
       return null;
     }
 
+    EnvironmentCollection env =
+        new EnvironmentCollection.Builder().put(group.getEnvironmentLabels(), label).build();
     return new RuleConfiguredTargetBuilder(ruleContext)
         .addProvider(SupportedEnvironmentsProvider.class,
-            new SupportedEnvironments(
-                new EnvironmentCollection.Builder().put(group, label).build()))
+            new SupportedEnvironments(env, env, ImmutableMap.of()))
         .addProvider(RunfilesProvider.class, RunfilesProvider.EMPTY)
-        .add(FileProvider.class, new FileProvider(ruleContext.getLabel(),
-            NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER)))
-        .add(FilesToRunProvider.class, new FilesToRunProvider(ruleContext.getLabel(),
-            ImmutableList.<Artifact>of(), null, null))
+        .add(FileProvider.class, FileProvider.EMPTY)
+        .add(FilesToRunProvider.class, FilesToRunProvider.EMPTY)
         .build();
   }
 }

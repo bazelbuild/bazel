@@ -1,4 +1,4 @@
-// Copyright 2014 Google Inc. All rights reserved.
+// Copyright 2014 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,19 +14,27 @@
 
 package com.google.devtools.build.lib.actions;
 
+import com.google.common.base.Throwables;
+import com.google.devtools.build.lib.util.ExitCode;
+import java.io.IOException;
+
 /**
- * An ExecException which is results from an external problem on the user's
+ * An ExecException which is reports an issue executing an action due to an external problem on the
  * local system.
  *
- * <p>Note that this is fundamentally different exception then the higher level
- * LocalEnvironmentException, which is thrown from the BuildTool. That exception
- * is thrown when the higher levels of Blaze decide to exit.
+ * <p>This exception will result in an exit code regarded as a system error; avoid using this for
+ * problems which should be attributed to the user, e.g., a misconfigured BUILD file (use {@link
+ * UserExecException}) or an action returning a non-zero exit code (use {@link *
+ * com.google.devtools.build.lib.exec.SpawnExecException}.
  *
- * <p>This exception is thrown when a low level error is encountered in the
- * strategy or client protocol layers.  This does not necessarily mean we will
- * exit; we may just retry the action.
+ * <p>The most common use of this exception is to wrap an "unexpected" {@link IOException} thrown by
+ * an lower-level file system access or local process execution, e.g., failure to create a temporary
+ * directory or denied file system access.
  */
 public class EnvironmentalExecException extends ExecException {
+  public EnvironmentalExecException(IOException cause) {
+    super("unexpected I/O exception", cause);
+  }
 
   public EnvironmentalExecException(String message, Throwable cause) {
     super(message, cause);
@@ -36,23 +44,22 @@ public class EnvironmentalExecException extends ExecException {
     super(message);
   }
 
-  public EnvironmentalExecException(String message, Throwable cause, boolean catastrophe) {
-    super(message, cause, catastrophe);
-  }
-
-  public EnvironmentalExecException(String message, boolean catastrophe) {
-    super(message, catastrophe);
-  }
-
   @Override
-  public ActionExecutionException toActionExecutionException(String messagePrefix,
-        boolean verboseFailures, Action action) {
-    if (verboseFailures) {
-      return new ActionExecutionException(messagePrefix + " failed" + getMessage(), this, action,
-          isCatastrophic());
+  public ActionExecutionException toActionExecutionException(
+      String messagePrefix, boolean verboseFailures, Action action) {
+    if (getCause() != null) {
+      String message =
+          messagePrefix
+              + " failed due to "
+              + getMessage()
+              + "\n"
+              + Throwables.getStackTraceAsString(getCause());
+      return new ActionExecutionException(
+          message, action, isCatastrophic(), ExitCode.LOCAL_ENVIRONMENTAL_ERROR);
     } else {
-      return new ActionExecutionException(messagePrefix + " failed" + getMessage(), action,
-          isCatastrophic());
+      String message = messagePrefix + " failed due to " + getMessage();
+      return new ActionExecutionException(
+          message, action, isCatastrophic(), ExitCode.LOCAL_ENVIRONMENTAL_ERROR);
     }
   }
 }

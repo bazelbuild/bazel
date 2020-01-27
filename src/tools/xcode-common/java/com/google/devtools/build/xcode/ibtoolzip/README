@@ -1,4 +1,0 @@
-ibtoolzip runs ibtool, which compiles storyboards, and zips up the output,
-because ibtool returns an unpredictable number of output files.
-
-ibtool only runs on Darwin, so ibtoolzip only runs on Darwin.

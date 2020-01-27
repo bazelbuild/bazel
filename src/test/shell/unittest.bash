@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# Copyright 2015 Google Inc. All rights reserved.
+# Copyright 2015 The Bazel Authors. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -47,7 +47,7 @@
 # via other assertions such as expect_log().  run_suite must be called
 # at the very end.
 #
-# A test function may redefine functions "set_up" and/or "tear_down";
+# A test suite may redefine functions "set_up" and/or "tear_down";
 # these functions are executed before and after each test function,
 # respectively.  Similarly, "cleanup" and "timeout" may be redefined,
 # and these function are called upon exit (of any kind) or a timeout.
@@ -81,7 +81,176 @@
   { echo "unittest.bash only works with bash!" >&2; exit 1; }
 
 DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
-source ${DIR}/testenv.sh || { echo "testenv.sh not found!" >&2; exit 1; }
+
+export BAZEL_SHELL_TEST=1
+
+#### Configuration variables (may be overridden by testenv.sh or the suite):
+
+# This function may be called by testenv.sh or a test suite to enable errexit
+# in a way that enables us to print pretty stack traces when something fails.
+function enable_errexit() {
+  set -o errtrace
+  set -eu
+  trap __test_terminated_err ERR
+}
+
+function disable_errexit() {
+  set +o errtrace
+  set +eu
+  trap - ERR
+}
+
+#### Set up the test environment, branched from the old shell/testenv.sh
+
+# Enable errexit with pretty stack traces.
+enable_errexit
+
+cat_jvm_log () {
+  if [[ "$log_content" =~ "(error code:".*", error message: '".*"', log file: '"(.*)"')" ]]; then
+    echo >&2
+    echo "Content of ${BASH_REMATCH[1]}:" >&2
+    cat "${BASH_REMATCH[1]}" >&2
+  fi
+}
+
+# Print message in "$1" then exit with status "$2"
+die () {
+    # second argument is optional, defaulting to 1
+    local status_code=${2:-1}
+    # Stop capturing stdout/stderr, and dump captured output
+    if [ "$CAPTURED_STD_ERR" -ne 0 -o "$CAPTURED_STD_OUT" -ne 0 ]; then
+        restore_outputs
+        if [ "$CAPTURED_STD_OUT" -ne 0 ]; then
+            cat "${TEST_TMPDIR}/captured.out"
+            CAPTURED_STD_OUT=0
+        fi
+        if [ "$CAPTURED_STD_ERR" -ne 0 ]; then
+            cat "${TEST_TMPDIR}/captured.err" 1>&2
+            cat_jvm_log "$(cat "${TEST_TMPDIR}/captured.err")"
+            CAPTURED_STD_ERR=0
+        fi
+    fi
+
+    if [ -n "${1-}" ] ; then
+        echo "$1" 1>&2
+    fi
+    if [ -n "${BASH-}" ]; then
+      local caller_n=0
+      while [ $caller_n -lt 4 ] && caller_out=$(caller $caller_n 2>/dev/null); do
+        test $caller_n -eq 0 && echo "CALLER stack (max 4):"
+        echo "  $caller_out"
+        let caller_n=caller_n+1
+      done 1>&2
+    fi
+    if [ x"$status_code" != x -a x"$status_code" != x"0" ]; then
+        exit "$status_code"
+    else
+        exit 1
+    fi
+}
+
+# Print message in "$1" then record that a non-fatal error occurred in ERROR_COUNT
+ERROR_COUNT="${ERROR_COUNT:-0}"
+error () {
+    if [ -n "$1" ] ; then
+        echo "$1" 1>&2
+    fi
+    ERROR_COUNT=$(($ERROR_COUNT + 1))
+}
+
+# Die if "$1" != "$2", print $3 as death reason
+check_eq () {
+    [ "$1" = "$2" ] || die "Check failed: '$1' == '$2' ${3:+ ($3)}"
+}
+
+# Die if "$1" == "$2", print $3 as death reason
+check_ne () {
+    [ "$1" != "$2" ] || die "Check failed: '$1' != '$2' ${3:+ ($3)}"
+}
+
+# The structure of the following if statements is such that if '[' fails
+# (e.g., a non-number was passed in) then the check will fail.
+
+# Die if "$1" > "$2", print $3 as death reason
+check_le () {
+  [ "$1" -gt "$2" ] || die "Check failed: '$1' <= '$2' ${3:+ ($3)}"
+}
+
+# Die if "$1" >= "$2", print $3 as death reason
+check_lt () {
+    [ "$1" -lt "$2" ] || die "Check failed: '$1' < '$2' ${3:+ ($3)}"
+}
+
+# Die if "$1" < "$2", print $3 as death reason
+check_ge () {
+    [ "$1" -ge "$2" ] || die "Check failed: '$1' >= '$2' ${3:+ ($3)}"
+}
+
+# Die if "$1" <= "$2", print $3 as death reason
+check_gt () {
+    [ "$1" -gt "$2" ] || die "Check failed: '$1' > '$2' ${3:+ ($3)}"
+}
+
+# Die if $2 !~ $1; print $3 as death reason
+check_match ()
+{
+  expr match "$2" "$1" >/dev/null || \
+    die "Check failed: '$2' does not match regex '$1' ${3:+ ($3)}"
+}
+
+# Run command "$1" at exit. Like "trap" but multiple atexits don't
+# overwrite each other. Will break if someone does call trap
+# directly. So, don't do that.
+ATEXIT="${ATEXIT-}"
+atexit () {
+    if [ -z "$ATEXIT" ]; then
+        ATEXIT="$1"
+    else
+        ATEXIT="$1 ; $ATEXIT"
+    fi
+    trap "$ATEXIT" EXIT
+}
+
+## TEST_TMPDIR
+if [ -z "${TEST_TMPDIR:-}" ]; then
+  export TEST_TMPDIR="$(mktemp -d ${TMPDIR:-/tmp}/bazel-test.XXXXXXXX)"
+fi
+if [ ! -e "${TEST_TMPDIR}" ]; then
+  mkdir -p -m 0700 "${TEST_TMPDIR}"
+  # Clean TEST_TMPDIR on exit
+  atexit "rm -fr ${TEST_TMPDIR}"
+fi
+
+# Functions to compare the actual output of a test to the expected
+# (golden) output.
+#
+# Usage:
+#   capture_test_stdout
+#   ... do something ...
+#   diff_test_stdout "$TEST_SRCDIR/path/to/golden.out"
+
+# Redirect a file descriptor to a file.
+CAPTURED_STD_OUT="${CAPTURED_STD_OUT:-0}"
+CAPTURED_STD_ERR="${CAPTURED_STD_ERR:-0}"
+
+capture_test_stdout () {
+    exec 3>&1 # Save stdout as fd 3
+    exec 4>"${TEST_TMPDIR}/captured.out"
+    exec 1>&4
+    CAPTURED_STD_OUT=1
+}
+
+capture_test_stderr () {
+    exec 6>&2 # Save stderr as fd 6
+    exec 7>"${TEST_TMPDIR}/captured.err"
+    exec 2>&7
+    CAPTURED_STD_ERR=1
+}
+
+# Force XML_OUTPUT_FILE to an existing path
+if [ -z "${XML_OUTPUT_FILE:-}" ]; then
+  XML_OUTPUT_FILE=${TEST_TMPDIR}/ouput.xml
+fi
 
 #### Global variables:
 
@@ -92,7 +261,7 @@ TEST_log=$TEST_TMPDIR/log       # The log file over which the
                                 # be absolute to be robust against
                                 # tests invoking 'cd'!
 
-TEST_passed=true                # The result of the current test;
+TEST_passed="true"              # The result of the current test;
                                 # failed assertions cause this to
                                 # become false.
 
@@ -103,20 +272,37 @@ TESTS=()                        # A subset or "working set" of test
                                 # default, all tests called test_* are
                                 # run.
 if [ $# -gt 0 ]; then
-  TESTS=($(for i in $@; do echo $i; done | grep ^test_))
+  # Legacy behavior is to ignore missing regexp, but with errexit
+  # the following line fails without || true.
+  # TODO(dmarting): maybe we should revisit the way of selecting
+  # test with that framework (use Bazel's environment variable instead).
+  TESTS=($(for i in $@; do echo $i; done | grep ^test_ || true))
+  if (( ${#TESTS[@]} == 0 )); then
+    echo "WARNING: Arguments do not specify tests!" >&2
+  fi
+fi
+# TESTBRIDGE_TEST_ONLY contains the value of --test_filter, if any. We want to
+# preferentially use that instead of $@ to determine which tests to run.
+if [[ ${TESTBRIDGE_TEST_ONLY:-} != "" ]]; then
+  # Split TESTBRIDGE_TEST_ONLY on comma and put the results into an array.
+  IFS=',' read -r -a TESTS <<< "$TESTBRIDGE_TEST_ONLY"
 fi
 
-TEST_verbose=true               # Whether or not to be verbose.  A
+TEST_verbose="true"             # Whether or not to be verbose.  A
                                 # command; "true" or "false" are
                                 # acceptable.  The default is: true.
 
-TEST_script="$(pwd)/$0"         # Full path to test script
+TEST_script="$0"                # Full path to test script
+# Check if the script path is absolute, if not prefix the PWD.
+if [[ ! "$TEST_script" = /* ]]; then
+  TEST_script="$(pwd)/$0"
+fi
 
 #### Internal functions
 
 function __show_log() {
-    echo "-- Actual output: ------------------------------------------------------"
-    cat $TEST_log
+    echo "-- Test log: -----------------------------------------------------------"
+    [[ -e $TEST_log ]] && cat $TEST_log || echo "(Log file did not exist.)"
     echo "------------------------------------------------------------------------"
 }
 
@@ -166,7 +352,19 @@ function timeout() {
     :
 }
 
-# Usage: fail <message>
+# Usage: testenv_set_up
+# Called prior to set_up. For use by testenv.sh.
+function testenv_set_up() {
+    :
+}
+
+# Usage: testenv_tear_down
+# Called after tear_down. For use by testenv.sh.
+function testenv_tear_down() {
+    :
+}
+
+# Usage: fail <message> [<message> ...]
 # Print failure message with context information, and mark the test as
 # a failure.  The context includes a stacktrace including the longest sequence
 # of calls outside this module.  (We exclude the top and bottom portions of
@@ -174,12 +372,13 @@ function timeout() {
 # $TEST_log.
 function fail() {
     __show_log >&2
-    echo "$TEST_name FAILED: $1." >&2
-    echo "$1" >$TEST_TMPDIR/__fail
-    TEST_passed=false
+    echo "$TEST_name FAILED:" "$@" "." >&2
+    echo "$@" >$TEST_TMPDIR/__fail
+    TEST_passed="false"
     __show_stack
     # Cleanup as we are leaving the subshell now
     tear_down
+    testenv_tear_down
     exit 1
 }
 
@@ -193,7 +392,7 @@ function warn() {
     echo "$TEST_name WARNING: $1." >&2
     __show_stack
 
-    if [ -n "$TEST_WARNINGS_OUTPUT_FILE" ]; then
+    if [ -n "${TEST_WARNINGS_OUTPUT_FILE:-}" ]; then
       echo "$TEST_name WARNING: $1." >> "$TEST_WARNINGS_OUTPUT_FILE"
     fi
 }
@@ -208,15 +407,16 @@ __show_stack() {
     local trace_found=0
 
     # Skip over active calls within this module:
-    while [ "$i" -lt "${#BASH_SOURCE[@]}" -a "${BASH_SOURCE[$i]-}" = "${BASH_SOURCE[0]}" ]; do
-        i=$(($i + 1))
+    while (( i < ${#FUNCNAME[@]} )) && [[ ${BASH_SOURCE[i]:-} == ${BASH_SOURCE[0]} ]]; do
+       (( ++i ))
     done
 
     # Show all calls until the next one within this module (typically run_suite):
-    while [ "$i" -lt "${#BASH_SOURCE[@]}" -a "${BASH_SOURCE[$i]-}" != "${BASH_SOURCE[0]}" ]; do
-        # There's a bug in bash that explains the strange offsets.
-        echo "${BASH_SOURCE[$i]}:${BASH_LINENO[$i - 1]}: in call to ${FUNCNAME[$i - 1]}" >&2
-        i=$(($i + 1))
+    while (( i < ${#FUNCNAME[@]} )) && [[ ${BASH_SOURCE[i]:-} != ${BASH_SOURCE[0]} ]]; do
+        # Read online docs for BASH_LINENO to understand the strange offset.
+        # Undefined can occur in the BASH_SOURCE stack apparently when one exits from a subshell
+        echo "${BASH_SOURCE[i]:-"Unknown"}:${BASH_LINENO[i - 1]:-"Unknown"}: in call to ${FUNCNAME[i]:-"Unknown"}" >&2
+        (( ++i ))
         trace_found=1
     done
 
@@ -267,7 +467,7 @@ function expect_log_n() {
     local expectednum=${2:-1}
     local message=${3:-Expected regexp "$pattern" not found exactly $expectednum times}
     local count=$(grep -sc -- "$pattern" $TEST_log)
-    [ $count = $expectednum ] && return 0
+    [[ $count = $expectednum ]] && return 0
     fail "$message"
     return 1
 }
@@ -326,6 +526,40 @@ function expect_cmd_with_timeout() {
     return 1
 }
 
+# Usage: assert_one_of <expected_list>... <actual>
+# Asserts that actual is one of the items in expected_list
+# Example: assert_one_of ( "foo", "bar", "baz" ) actualval
+function assert_one_of() {
+    local args=("$@")
+    local last_arg_index=$((${#args[@]} - 1))
+    local actual=${args[last_arg_index]}
+    unset args[last_arg_index]
+    for expected_item in "${args[@]}"; do
+      [ "$expected_item" = "$actual" ] && return 0
+    done;
+
+    fail "Expected one of '${args[*]}', was '$actual'"
+    return 1
+}
+
+# Usage: assert_not_one_of <expected_list>... <actual>
+# Asserts that actual is not one of the items in expected_list
+# Example: assert_not_one_of ( "foo", "bar", "baz" ) actualval
+function assert_not_one_of() {
+    local args=("$@")
+    local last_arg_index=$((${#args[@]} - 1))
+    local actual=${args[last_arg_index]}
+    unset args[last_arg_index]
+    for expected_item in "${args[@]}"; do
+      if [ "$expected_item" = "$actual" ]; then
+        fail "'${args[*]}' contains '$actual'"
+        return 1
+      fi
+    done;
+
+    return 0
+}
+
 # Usage: assert_equals <expected> <actual>
 # Asserts [ expected = actual ].
 function assert_equals() {
@@ -369,7 +603,13 @@ function assert_not_contains() {
     local pattern=$1
     local file=$2
     local message=${3:-Expected regexp "$pattern" found in "$file"}
-    grep -sq -- "$pattern" "$file" || return 0
+
+    if [[ -f "$file" ]]; then
+      grep -sq -- "$pattern" "$file" || return 0
+    else
+      fail "$file is not a file: $message"
+      return 1
+    fi
 
     cat "$file" >&2
     fail "$message"
@@ -390,17 +630,45 @@ function __update_shards() {
     TESTS=$(for test in "${TESTS[@]}"; do echo "$test"; done |
       awk "NR % $TEST_TOTAL_SHARDS == $TEST_SHARD_INDEX")
 
-    [ -n "$TEST_SHARD_STATUS_FILE" ] && touch "$TEST_SHARD_STATUS_FILE"
+    [ -z "${TEST_SHARD_STATUS_FILE-}" ] || touch "$TEST_SHARD_STATUS_FILE"
 }
 
 # Usage: __test_terminated <signal-number>
 # Handler that is called when the test terminated unexpectedly
 function __test_terminated() {
-   __show_log >&2
+    __show_log >&2
     echo "$TEST_name FAILED: terminated by signal $1." >&2
-    TEST_passed=false
+    TEST_passed="false"
     __show_stack
     timeout
+    exit 1
+}
+
+# Usage: __test_terminated_err
+# Handler that is called when the test terminated unexpectedly due to "errexit".
+function __test_terminated_err() {
+    # When a subshell exits due to signal ERR, its parent shell also exits,
+    # thus the signal handler is called recursively and we print out the
+    # error message and stack trace multiple times. We're only interested
+    # in the first one though, as it contains the most information, so ignore
+    # all following.
+    if [[ -f $TEST_TMPDIR/__err_handled ]]; then
+      exit 1
+    fi
+    __show_log >&2
+    if [[ ! -z "$TEST_name" ]]; then
+      echo -n "$TEST_name "
+    fi
+    echo "FAILED: terminated because this command returned a non-zero status:" >&2
+    touch $TEST_TMPDIR/__err_handled
+    TEST_passed="false"
+    __show_stack
+    # If $TEST_name is still empty, the test suite failed before we even started
+    # to run tests, so we shouldn't call tear_down.
+    if [[ ! -z "$TEST_name" ]]; then
+      tear_down
+      testenv_tear_down
+    fi
     exit 1
 }
 
@@ -419,8 +687,7 @@ function __trap_with_arg() {
 # arguments need to be escaped.
 function __log_to_test_report() {
     local node="$1"
-    local block="${2//\}/\\\}}"
-
+    local block="$2"
     if [[ ! -e "$XML_OUTPUT_FILE" ]]; then
         local xml_header='<?xml version="1.0" encoding="UTF-8"?>'
         echo "$xml_header<testsuites></testsuites>" > $XML_OUTPUT_FILE
@@ -429,7 +696,7 @@ function __log_to_test_report() {
     # replace match on node with block and match
     # replacement expression only needs escaping for quotes
     perl -e "\
-\$input = q{$block}; \
+\$input = @ARGV[0]; \
 \$/=undef; \
 open FILE, '+<$XML_OUTPUT_FILE'; \
 \$content = <FILE>; \
@@ -437,32 +704,66 @@ if (\$content =~ /($node.*)\$/) { \
   seek FILE, 0, 0; \
   print FILE \$\` . \$input . \$1; \
 }; \
-close FILE"
+close FILE" "$block"
 }
 
 # Usage: <total> <passed>
 # Adds the test summaries to the xml nodes.
 function __finish_test_report() {
-    local total=$1
-    local passed=$2
+    local suite_name="$1"
+    local total="$2"
+    local passed="$3"
     local failed=$((total - passed))
 
-    cat $XML_OUTPUT_FILE >$XML_OUTPUT_FILE.bak | \
-    sed \
-      "s/<testsuites>/<testsuites tests=\"$total\" failures=\"0\" errors=\"$failed\">/" | \
-    sed \
-      "s/<testsuite>/<testsuite tests=\"$total\" failures=\"0\" errors=\"$failed\">/"
+    # Update the xml output with the suite name and total number of
+    # passed/failed tests.
+    cat $XML_OUTPUT_FILE | \
+      sed \
+        "s/<testsuites>/<testsuites tests=\"$total\" failures=\"0\" errors=\"$failed\">/" | \
+      sed \
+        "s/<testsuite>/<testsuite name=\"${suite_name}\" tests=\"$total\" failures=\"0\" errors=\"$failed\">/" \
+        > $XML_OUTPUT_FILE.bak
 
     rm -f $XML_OUTPUT_FILE
     mv $XML_OUTPUT_FILE.bak $XML_OUTPUT_FILE
+}
+
+# Multi-platform timestamp function
+UNAME=$(uname -s | tr 'A-Z' 'a-z')
+if [ "$UNAME" = "linux" ] || [[ "$UNAME" =~ msys_nt* ]]; then
+    function timestamp() {
+      echo $(($(date +%s%N)/1000000))
+    }
+elif [[ "$UNAME" = "openbsd" ]]; then
+    function timestamp() {
+      # OpenBSD does not have %N, so Python is the best we can do.
+      python3 -c 'import time; print(int(round(time.time() * 1000)))'
+    }
+else
+    function timestamp() {
+      # OS X and FreeBSD do not have %N, so Python is the best we can do.
+      python -c 'import time; print(int(round(time.time() * 1000)))'
+    }
+fi
+
+function get_run_time() {
+  local ts_start=$1
+  local ts_end=$2
+  run_time_ms=$((${ts_end}-${ts_start}))
+  echo $(($run_time_ms/1000)).${run_time_ms: -3}
 }
 
 # Usage: run_tests <suite-comment>
 # Must be called from the end of the user's test suite.
 # Calls exit with zero on success, non-zero otherwise.
 function run_suite() {
+    local message="$1"
+    # The name of the suite should be the script being run, under Bazel that
+    # will be the filename with the ".sh" extension removed.
+    local suite_name="$(basename $0)"
+
     echo >&2
-    echo "$1" >&2
+    echo "$message" >&2
     echo >&2
 
     __log_to_test_report "<\/testsuites>" "<testsuite></testsuite>"
@@ -476,9 +777,9 @@ function run_suite() {
     # working set), use them all.
     if [ ${#TESTS[@]} = 0 ]; then
       TESTS=$(declare -F | awk '{print $3}' | grep ^test_)
-    elif [ -n "$TEST_WARNINGS_OUTPUT_FILE" ]; then
+    elif [ -n "${TEST_WARNINGS_OUTPUT_FILE:-}" ]; then
       if grep -q "TESTS=" "$TEST_script" ; then
-        echo "TESTS variable overridden in Blaze sh_test. Please remove before submitting" \
+        echo "TESTS variable overridden in Bazel sh_test. Please remove before submitting" \
           >> "$TEST_WARNINGS_OUTPUT_FILE"
       fi
     fi
@@ -487,12 +788,15 @@ function run_suite() {
 
     for TEST_name in ${TESTS[@]}; do
       >$TEST_log # Reset the log.
-      TEST_passed=true
+      TEST_passed="true"
 
       total=$(($total + 1))
-      $TEST_verbose && __pad $TEST_name '*' >&2
+      if [[ "$TEST_verbose" == "true" ]]; then
+          __pad $TEST_name '*' >&2
+      fi
 
       local run_time="0.0"
+      rm -f $TEST_TMPDIR/{__ts_start,__ts_end}
 
       if [ "$(type -t $TEST_name)" = function ]; then
         # Save exit handlers eventually set.
@@ -500,14 +804,17 @@ function run_suite() {
         ATEXIT=
 
         # Run test in a subshell.
+        rm -f $TEST_TMPDIR/__err_handled
         __trap_with_arg __test_terminated INT KILL PIPE TERM ABRT FPE ILL QUIT SEGV
         (
+          timestamp >$TEST_TMPDIR/__ts_start
+          testenv_set_up
           set_up
-          date +%s.%N >$TEST_TMPDIR/__ts_start
           eval $TEST_name
-          date +%s.%N >$TEST_TMPDIR/__ts_end
           tear_down
-          test $TEST_passed == true
+          testenv_tear_down
+          timestamp >$TEST_TMPDIR/__ts_end
+          test $TEST_passed == "true"
         ) 2>&1 | tee $TEST_TMPDIR/__log
         # Note that tee will prevent the control flow continuing if the test
         # spawned any processes which are still running and have not closed
@@ -515,16 +822,16 @@ function run_suite() {
 
         test_subshell_status=${PIPESTATUS[0]}
         if [ "$test_subshell_status" != 0 ]; then
-          TEST_passed=false
+          TEST_passed="false"
           # Ensure that an end time is recorded in case the test subshell
           # terminated prematurely.
-          [ -f $TEST_TMPDIR/__ts_end ] || date +%s.%N >$TEST_TMPDIR/__ts_end
+          [ -f $TEST_TMPDIR/__ts_end ] || timestamp >$TEST_TMPDIR/__ts_end
         fi
 
         # Calculate run time for the testcase.
         local ts_start=$(cat $TEST_TMPDIR/__ts_start)
         local ts_end=$(cat $TEST_TMPDIR/__ts_end)
-        run_time=$(echo "${ts_end}-${ts_start}" | bc)
+        run_time=$(get_run_time $ts_start $ts_end)
 
         # Eventually restore exit handlers.
         if [ -n "$SAVED_ATEXIT" ]; then
@@ -536,22 +843,34 @@ function run_suite() {
       fi
 
       local testcase_tag=""
-      if $TEST_passed; then
-        $TEST_verbose && echo "PASSED: $TEST_name" >&2
+
+      local red='\033[0;31m'
+      local green='\033[0;32m'
+      local no_color='\033[0m'
+
+      if [[ "$TEST_passed" == "true" ]]; then
+        if [[ "$TEST_verbose" == "true" ]]; then
+          echo -e "${green}PASSED${no_color}: $TEST_name" >&2
+        fi
         passed=$(($passed + 1))
         testcase_tag="<testcase name=\"$TEST_name\" status=\"run\" time=\"$run_time\" classname=\"\"></testcase>"
       else
-        echo "FAILED: $TEST_name" >&2
+        echo -e "${red}FAILED${no_color}: $TEST_name" >&2
         # end marker in CDATA cannot be escaped, we need to split the CDATA sections
         log=$(cat $TEST_TMPDIR/__log | sed 's/]]>/]]>]]&gt;<![CDATA[/g')
-        fail_msg=$(cat $TEST_TMPDIR/__fail || echo "No failure message")
-        testcase_tag="<testcase name=\"$TEST_name\" status=\"run\" time=\"$run_time\" classname=\"\"><error message=\"$fail_msg\"><![CDATA[$log]]></error></testcase>"
+        fail_msg=$(cat $TEST_TMPDIR/__fail 2> /dev/null || echo "No failure message")
+        # Replacing '&' with '&amp;', '<' with '&lt;', '>' with '&gt;', and '"' with '&quot;'
+        escaped_fail_msg=$(echo $fail_msg | sed 's/&/\&amp;/g' | sed 's/</\&lt;/g' | sed 's/>/\&gt;/g' | sed 's/"/\&quot;/g')
+        testcase_tag="<testcase name=\"$TEST_name\" status=\"run\" time=\"$run_time\" classname=\"\"><error message=\"$escaped_fail_msg\"><![CDATA[$log]]></error></testcase>"
       fi
-      $TEST_verbose && echo >&2
-    __log_to_test_report "<\/testsuite>" "$testcase_tag"
+
+      if [[ "$TEST_verbose" == "true" ]]; then
+          echo >&2
+      fi
+      __log_to_test_report "<\/testsuite>" "$testcase_tag"
     done
 
-    __finish_test_report $total $passed
+    __finish_test_report "$suite_name" $total $passed
     __pad "$passed / $total tests passed." '*' >&2
     [ $total = $passed ] || {
       __pad "There were errors." '*'

@@ -1,4 +1,4 @@
-// Copyright 2014 Google Inc. All rights reserved.
+// Copyright 2014 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -19,10 +19,10 @@ import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 
-/**
- * A {@link TransitiveInfoProvider} that supplies runfiles for Java dependencies.
- */
+/** A {@link TransitiveInfoProvider} that supplies runfiles for Java dependencies. */
+@AutoCodec
 @Immutable
 public final class JavaRunfilesProvider implements TransitiveInfoProvider {
   private final Runfiles runfiles;
@@ -36,17 +36,12 @@ public final class JavaRunfilesProvider implements TransitiveInfoProvider {
   }
 
   /**
-   * Returns a function that gets the Java runfiles from a {@link TransitiveInfoCollection} or
-   * the empty runfiles instance if it does not contain that provider.
+   * Returns a function that gets the Java runfiles from a {@link TransitiveInfoCollection} or the
+   * empty runfiles instance if it does not contain that provider.
    */
   public static final Function<TransitiveInfoCollection, Runfiles> TO_RUNFILES =
-      new Function<TransitiveInfoCollection, Runfiles>() {
-        @Override
-        public Runfiles apply(TransitiveInfoCollection input) {
-          JavaRunfilesProvider provider = input.getProvider(JavaRunfilesProvider.class);
-          return provider == null
-              ? Runfiles.EMPTY
-              : provider.getRunfiles();
-        }
+      (TransitiveInfoCollection input) -> {
+        JavaRunfilesProvider provider = JavaInfo.getProvider(JavaRunfilesProvider.class, input);
+        return provider == null ? Runfiles.EMPTY : provider.getRunfiles();
       };
 }

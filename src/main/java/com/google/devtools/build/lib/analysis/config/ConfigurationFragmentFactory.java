@@ -1,4 +1,4 @@
-// Copyright 2014 Google Inc. All rights reserved.
+// Copyright 2014 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -13,27 +13,29 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis.config;
 
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.Fragment;
-
 import javax.annotation.Nullable;
 
 /**
- * A factory that creates configuration fragments.
+ * A factory that instantiates configuration fragments, and which knows some "static" information
+ * about these fragments.
  */
 public interface ConfigurationFragmentFactory {
   /**
-   * Creates a configuration fragment.
+   * Creates a configuration fragment from the given command-line options.
    *
-   * @param env the ConfigurationEnvironment for querying targets and paths
-   * @param buildOptions command-line options (see {@link FragmentOptions})
-   * @return the configuration fragment or null if some required dependencies are missing.
+   * <p>{@code buildOptions} is only guaranteed to hold those {@link FragmentOptions} that are
+   * listed by {@link #requiredOptions}.
+   *
+   * @return the configuration fragment, or null if some required dependencies are missing.
    */
   @Nullable
-  BuildConfiguration.Fragment create(ConfigurationEnvironment env, BuildOptions buildOptions)
-      throws InvalidConfigurationException;
+  Fragment create(BuildOptions buildOptions) throws InvalidConfigurationException;
 
-  /**
-   * @return the exact type of the fragment this factory creates.
-   */
+  /** Returns the exact type of the fragment this factory creates. */
   Class<? extends Fragment> creates();
+
+  /** Returns the option classes needed to create this fragment. */
+  ImmutableSet<Class<? extends FragmentOptions>> requiredOptions();
 }

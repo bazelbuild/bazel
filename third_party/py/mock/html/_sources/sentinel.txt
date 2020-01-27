@@ -1,0 +1,58 @@
+==========
+ Sentinel
+==========
+
+
+.. currentmodule:: mock
+
+.. testsetup::
+
+    class ProductionClass(object):
+        def something(self):
+            return self.method()
+
+    class Test(unittest2.TestCase):
+        def testSomething(self):
+            pass
+    self = Test('testSomething')
+
+
+.. data:: sentinel
+
+    The ``sentinel`` object provides a convenient way of providing unique
+    objects for your tests.
+
+    Attributes are created on demand when you access them by name. Accessing
+    the same attribute will always return the same object. The objects
+    returned have a sensible repr so that test failure messages are readable.
+
+
+.. data:: DEFAULT
+
+    The `DEFAULT` object is a pre-created sentinel (actually
+    `sentinel.DEFAULT`). It can be used by :attr:`~Mock.side_effect`
+    functions to indicate that the normal return value should be used.
+
+
+Sentinel Example
+================
+
+Sometimes when testing you need to test that a specific object is passed as an
+argument to another method, or returned. It can be common to create named
+sentinel objects to test this. `sentinel` provides a convenient way of
+creating and testing the identity of objects like this.
+
+In this example we monkey patch `method` to return
+`sentinel.some_object`:
+
+.. doctest::
+
+    >>> real = ProductionClass()
+    >>> real.method = Mock(name="method")
+    >>> real.method.return_value = sentinel.some_object
+    >>> result = real.method()
+    >>> assert result is sentinel.some_object
+    >>> sentinel.some_object
+    sentinel.some_object
+
+

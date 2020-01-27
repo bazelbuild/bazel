@@ -1,4 +1,4 @@
-// Copyright 2014 Google Inc. All rights reserved.
+// Copyright 2014 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -13,10 +13,11 @@
 // limitations under the License.
 package com.google.devtools.build.lib.vfs;
 
-import com.google.common.testing.EqualsTester;
-import com.google.devtools.build.lib.util.BlazeClock;
-import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
+import static com.google.common.truth.Truth.assertThat;
 
+import com.google.common.testing.EqualsTester;
+import com.google.devtools.build.lib.clock.BlazeClock;
+import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -31,26 +32,60 @@ public class RootedPathTest {
   private Path root;
 
   @Before
-  public void setUp() throws Exception {
+  public final void initializeFileSystem() throws Exception  {
     filesystem = new InMemoryFileSystem(BlazeClock.instance());
-    root = filesystem.getRootDirectory();
+    root = filesystem.getPath("/");
   }
 
   @Test
-  public void testEqualsAndHashCodeContract() throws Exception {
+  public void testEqualsAndHashCodeContract() {
     Path pkgRoot1 = root.getRelative("pkgroot1");
     Path pkgRoot2 = root.getRelative("pkgroot2");
-    RootedPath rootedPathA1 = RootedPath.toRootedPath(pkgRoot1, new PathFragment("foo/bar"));
-    RootedPath rootedPathA2 = RootedPath.toRootedPath(pkgRoot1, new PathFragment("foo/bar"));
-    RootedPath absolutePath1 = RootedPath.toRootedPath(root, new PathFragment("pkgroot1/foo/bar"));
-    RootedPath rootedPathB1 = RootedPath.toRootedPath(pkgRoot2, new PathFragment("foo/bar"));
-    RootedPath rootedPathB2 = RootedPath.toRootedPath(pkgRoot2, new PathFragment("foo/bar"));
-    RootedPath absolutePath2 = RootedPath.toRootedPath(root, new PathFragment("pkgroot2/foo/bar"));
+    RootedPath rootedPathA1 =
+        RootedPath.toRootedPath(Root.fromPath(pkgRoot1), PathFragment.create("foo/bar"));
+    RootedPath rootedPathA2 =
+        RootedPath.toRootedPath(Root.fromPath(pkgRoot1), PathFragment.create("foo/bar"));
+    RootedPath absolutePath1 =
+        RootedPath.toRootedPath(Root.fromPath(root), PathFragment.create("pkgroot1/foo/bar"));
+    RootedPath rootedPathB1 =
+        RootedPath.toRootedPath(Root.fromPath(pkgRoot2), PathFragment.create("foo/bar"));
+    RootedPath rootedPathB2 =
+        RootedPath.toRootedPath(Root.fromPath(pkgRoot2), PathFragment.create("foo/bar"));
+    RootedPath absolutePath2 =
+        RootedPath.toRootedPath(Root.fromPath(root), PathFragment.create("pkgroot2/foo/bar"));
     new EqualsTester()
-      .addEqualityGroup(rootedPathA1, rootedPathA2)
-      .addEqualityGroup(rootedPathB1, rootedPathB2)
-      .addEqualityGroup(absolutePath1)
-      .addEqualityGroup(absolutePath2)
-      .testEquals();
+        .addEqualityGroup(rootedPathA1, rootedPathA2)
+        .addEqualityGroup(rootedPathB1, rootedPathB2)
+        .addEqualityGroup(absolutePath1)
+        .addEqualityGroup(absolutePath2)
+        .testEquals();
+  }
+
+  @Test
+  public void testGetParentDirectory() {
+    RootedPath path = createRootedPath("root/folder", "folder1/folder2");
+
+    RootedPath parent = path.getParentDirectory();
+    assertThat(parent).isNotNull();
+    assertThat(parent.asPath().getPathString()).isEqualTo("/root/folder/folder1");
+    assertThat(parent.getRootRelativePath().getPathString()).isEqualTo("folder1");
+
+    parent = parent.getParentDirectory();
+    assertThat(parent).isNotNull();
+    assertThat(parent.asPath().getPathString()).isEqualTo("/root/folder");
+    assertThat(parent.getRootRelativePath().getPathString()).isEmpty();
+
+    assertThat(parent.getParentDirectory()).isNull();
+  }
+
+  @Test
+  public void testGetParentDirectoryOfRoot() {
+    RootedPath path = createRootedPath("root", "");
+    assertThat(path.getParentDirectory()).isNull();
+  }
+
+  private RootedPath createRootedPath(String relativeRootPath, String relativePath) {
+    return RootedPath.toRootedPath(
+        Root.fromPath(root.getRelative(relativeRootPath)), PathFragment.create(relativePath));
   }
 }

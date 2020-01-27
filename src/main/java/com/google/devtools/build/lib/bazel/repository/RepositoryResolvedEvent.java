@@ -1,0 +1,270 @@
+// Copyright 2018 The Bazel Authors. All rights reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//    http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+package com.google.devtools.build.lib.bazel.repository;
+
+import static com.google.devtools.build.lib.rules.repository.ResolvedHashesFunction.ATTRIBUTES;
+import static com.google.devtools.build.lib.rules.repository.ResolvedHashesFunction.DEFINITION_INFORMATION;
+import static com.google.devtools.build.lib.rules.repository.ResolvedHashesFunction.ORIGINAL_ATTRIBUTES;
+import static com.google.devtools.build.lib.rules.repository.ResolvedHashesFunction.ORIGINAL_RULE_CLASS;
+import static com.google.devtools.build.lib.rules.repository.ResolvedHashesFunction.OUTPUT_TREE_HASH;
+import static com.google.devtools.build.lib.rules.repository.ResolvedHashesFunction.REPOSITORIES;
+import static com.google.devtools.build.lib.rules.repository.ResolvedHashesFunction.RULE_CLASS;
+
+import com.google.common.base.Strings;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.events.ExtendedEventHandler.ResolvedEvent;
+import com.google.devtools.build.lib.packages.Attribute;
+import com.google.devtools.build.lib.packages.Rule;
+import com.google.devtools.build.lib.packages.StructImpl;
+import com.google.devtools.build.lib.syntax.EvalException;
+import com.google.devtools.build.lib.syntax.Printer;
+import com.google.devtools.build.lib.syntax.Starlark;
+import com.google.devtools.build.lib.util.Pair;
+import com.google.devtools.build.lib.vfs.Path;
+import java.io.IOException;
+import java.util.List;
+import java.util.Map;
+
+/**
+ * Event indicating that a repository rule was executed, together with the return value of the rule.
+ */
+public class RepositoryResolvedEvent implements ResolvedEvent {
+
+  /**
+   * The entry for WORSPACE.resolved corresponding to that rule invocation.
+   *
+   * <p>It will always be a dict with three entries
+   *
+   * <ul>
+   *   <li>the original rule class (as String, e.g., "@bazel_tools//:git.bzl%git_repository")
+   *   <li>the original attributes (as dict, e.g., mapping "name" to "build_bazel" and "remote" to
+   *       "https://github.com/bazelbuild/bazel.git"), and
+   *   <li>a "repositories" entry; this is a list, often a single entry, of fully resolved
+   *       repositories the rule call expanded to (in the above example, the attributes entry would
+   *       have an additional "commit" and "shallow-since" entry).
+   * </ul>
+   */
+  private Object resolvedInformation;
+  /**
+   * The builders for the resolved information.
+   *
+   * <p>As the resolved information contains a value, the hash of the output directory, that is
+   * expensive to compute, we delay computing it till its first use. In this way, we avoid the
+   * expensive operation if it is not needed, e.g., if no resolved file is generated.
+   */
+  private ImmutableMap.Builder<String, Object> resolvedInformationBuilder = ImmutableMap.builder();
+
+  private ImmutableMap.Builder<String, Object> repositoryBuilder =
+      ImmutableMap.<String, Object>builder();
+
+  private String directoryDigest;
+  private final Path outputDirectory;
+
+  private final String name;
+  private final boolean informationReturned;
+  private final String message;
+
+  public RepositoryResolvedEvent(Rule rule, StructImpl attrs, Path outputDirectory, Object result) {
+    this.outputDirectory = outputDirectory;
+
+    String originalClass =
+        rule.getRuleClassObject().getRuleDefinitionEnvironmentLabel() + "%" + rule.getRuleClass();
+    resolvedInformationBuilder.put(ORIGINAL_RULE_CLASS, originalClass);
+
+    if (!Strings.isNullOrEmpty(rule.getDefinitionInformation())) {
+      resolvedInformationBuilder.put(DEFINITION_INFORMATION, rule.getDefinitionInformation());
+    }
+
+    ImmutableMap.Builder<String, Object> origAttrBuilder = ImmutableMap.builder();
+    ImmutableMap.Builder<String, Object> defaults = ImmutableMap.builder();
+
+    for (Attribute attr : rule.getAttributes()) {
+      String name = attr.getPublicName();
+      try {
+        Object value = attrs.getValue(name, Object.class);
+        if (value != null) {
+          if (rule.isAttributeValueExplicitlySpecified(attr)) {
+            origAttrBuilder.put(name, value);
+          } else {
+            defaults.put(name, value);
+          }
+        }
+      } catch (EvalException e) {
+        // Do nothing, just ignore the value.
+      }
+    }
+    ImmutableMap<String, Object> origAttr = origAttrBuilder.build();
+    resolvedInformationBuilder.put(ORIGINAL_ATTRIBUTES, origAttr);
+
+    repositoryBuilder.put(RULE_CLASS, originalClass);
+
+    if (result == Starlark.NONE) {
+      // Rule claims to be already reproducible, so wants to be called as is.
+      repositoryBuilder.put(ATTRIBUTES, origAttr);
+      this.informationReturned = false;
+      this.message = "Repository rule '" + rule.getName() + "' finished.";
+    } else if (result instanceof Map) {
+      // Rule claims that the returned (probably changed) arguments are a reproducible
+      // version of itself.
+      repositoryBuilder.put(ATTRIBUTES, result);
+      Pair<Map<String, Object>, List<String>> diff =
+          compare(origAttr, defaults.build(), (Map<?, ?>) result);
+      if (diff.getFirst().isEmpty() && diff.getSecond().isEmpty()) {
+        this.informationReturned = false;
+        this.message = "Repository rule '" + rule.getName() + "' finished.";
+      } else {
+        this.informationReturned = true;
+        if (diff.getFirst().isEmpty()) {
+          this.message =
+              "Rule '"
+                  + rule.getName()
+                  + "' indicated that a canonical reproducible form can be obtained by"
+                  + " dropping arguments "
+                  + Printer.getPrinter().repr(diff.getSecond());
+        } else if (diff.getSecond().isEmpty()) {
+          this.message =
+              "Rule '"
+                  + rule.getName()
+                  + "' indicated that a canonical reproducible form can be obtained by"
+                  + " modifying arguments "
+                  + representModifications(diff.getFirst());
+        } else {
+          this.message =
+              "Rule '"
+                  + rule.getName()
+                  + "' indicated that a canonical reproducible form can be obtained by"
+                  + " modifying arguments "
+                  + representModifications(diff.getFirst())
+                  + " and dropping "
+                  + Printer.getPrinter().repr(diff.getSecond());
+        }
+      }
+    } else {
+      // TODO(aehlig): handle strings specially to allow encodings of the former
+      // values to be accepted as well.
+      resolvedInformationBuilder.put(REPOSITORIES, result);
+      repositoryBuilder = null; // We already added the REPOSITORIES entry
+      this.informationReturned = true;
+      this.message = "Repository rule '" + rule.getName() + "' returned: " + result;
+    }
+
+    this.name = rule.getName();
+  }
+
+  /**
+   * Ensure that the {@code resolvedInformation} and the {@code directoryDigest} fields are
+   * initialized properly. Does nothing, if the values are computed already.
+   */
+  private synchronized void finalizeResolvedInformation() {
+    if (resolvedInformation != null) {
+      return;
+    }
+    String digest = "[unavailable]";
+    try {
+      digest = outputDirectory.getDirectoryDigest();
+      repositoryBuilder.put(OUTPUT_TREE_HASH, digest);
+    } catch (IOException e) {
+      // Digest not available, but we still have to report that a repository rule
+      // was invoked. So we can do nothing, but ignore the event.
+    }
+    this.directoryDigest = digest;
+    if (repositoryBuilder != null) {
+      resolvedInformationBuilder.put(
+          REPOSITORIES, ImmutableList.<Object>of(repositoryBuilder.build()));
+    }
+    this.resolvedInformation = resolvedInformationBuilder.build();
+    this.resolvedInformationBuilder = null;
+    this.repositoryBuilder = null;
+  }
+
+  /** Return the entry for the given rule invocation in a format suitable for WORKSPACE.resolved. */
+  public Object getResolvedInformation() {
+    finalizeResolvedInformation();
+    return resolvedInformation;
+  }
+
+  /** Return the name of the rule that produced the resolvedInformation */
+  public String getName() {
+    return name;
+  }
+
+  public String getDirectoryDigest() {
+    finalizeResolvedInformation();
+    return directoryDigest;
+  }
+
+  /**
+   * True, if the return value of the repository rule contained new information with respect to the
+   * way it was called.
+   */
+  public boolean isNewInformationReturned() {
+    return informationReturned;
+  }
+
+  /** Message describing the event */
+  public String getMessage() {
+    return message;
+  }
+
+  /**
+   * Compare two maps from Strings to objects, returning a pair of the map with all entries not in
+   * the original map or in the original map, but with a different value, and the keys dropped from
+   * the original map. However, ignore changes where a value is explicitly set to its default.
+   */
+  static Pair<Map<String, Object>, List<String>> compare(
+      Map<String, Object> orig, Map<String, Object> defaults, Map<?, ?> modified) {
+    ImmutableMap.Builder<String, Object> valuesChanged = ImmutableMap.<String, Object>builder();
+    for (Map.Entry<?, ?> entry : modified.entrySet()) {
+      if (entry.getKey() instanceof String) {
+        Object value = entry.getValue();
+        String key = (String) entry.getKey();
+        Object old = orig.get(key);
+        if (old == null) {
+          Object defaultValue = defaults.get(key);
+          if (defaultValue == null || !defaultValue.equals(value)) {
+            valuesChanged.put(key, value);
+          }
+        } else {
+          if (!old.equals(entry.getValue())) {
+            valuesChanged.put(key, value);
+          }
+        }
+      }
+    }
+    ImmutableList.Builder<String> keysDropped = ImmutableList.<String>builder();
+    for (String key : orig.keySet()) {
+      if (!modified.containsKey(key)) {
+        keysDropped.add(key);
+      }
+    }
+    return Pair.of(valuesChanged.build(), keysDropped.build());
+  }
+
+  static String representModifications(Map<String, Object> changes) {
+    StringBuilder representation = new StringBuilder();
+    boolean isFirst = true;
+    for (Map.Entry<String, Object> entry : changes.entrySet()) {
+      if (!isFirst) {
+        representation.append(", ");
+      }
+      representation
+          .append(entry.getKey())
+          .append(" = ")
+          .append(Printer.getPrinter().repr(entry.getValue()));
+      isFirst = false;
+    }
+    return representation.toString();
+  }
+}

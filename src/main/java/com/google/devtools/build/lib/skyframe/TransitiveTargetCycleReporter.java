@@ -1,4 +1,4 @@
-// Copyright 2014 Google Inc. All rights reserved.
+// Copyright 2014 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,16 +14,17 @@
 package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.base.Predicate;
+import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
+import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.PackageGroup;
 import com.google.devtools.build.lib.packages.Target;
-import com.google.devtools.build.lib.pkgcache.LoadedPackageProvider;
-import com.google.devtools.build.lib.syntax.Label;
+import com.google.devtools.build.lib.pkgcache.PackageProvider;
 import com.google.devtools.build.skyframe.CycleInfo;
 import com.google.devtools.build.skyframe.SkyKey;
-
 import java.util.List;
 
 /**
@@ -31,46 +32,54 @@ import java.util.List;
  * (e.g. '//a:foo' depends on '//b:bar' and '//b:bar' depends on '//a:foo').
  */
 class TransitiveTargetCycleReporter extends AbstractLabelCycleReporter {
+  private static final Predicate<SkyKey> IS_SUPPORTED_SKY_KEY =
+      Predicates.or(
+          SkyFunctions.isSkyFunction(SkyFunctions.TRANSITIVE_TARGET),
+          SkyFunctions.isSkyFunction(SkyFunctions.PREPARE_ANALYSIS_PHASE));
 
-  private static final Predicate<SkyKey> IS_TRANSITIVE_TARGET_SKY_KEY =
-      SkyFunctions.isSkyFunction(SkyFunctions.TRANSITIVE_TARGET);
-
-  TransitiveTargetCycleReporter(LoadedPackageProvider loadedPackageProvider) {
-    super(loadedPackageProvider);
+  TransitiveTargetCycleReporter(PackageProvider packageProvider) {
+    super(packageProvider);
   }
 
   @Override
   protected boolean canReportCycle(SkyKey topLevelKey, CycleInfo cycleInfo) {
     return Iterables.all(Iterables.concat(ImmutableList.of(topLevelKey),
         cycleInfo.getPathToCycle(), cycleInfo.getCycle()),
-        IS_TRANSITIVE_TARGET_SKY_KEY);
-  }
-
-  @Override
-  public String prettyPrint(SkyKey key) {
-    return getLabel(key).toString();
+        IS_SUPPORTED_SKY_KEY);
   }
 
   @Override
   protected Label getLabel(SkyKey key) {
-    return (Label) key.argument();
+    return ((TransitiveTargetKey) key).getLabel();
   }
 
   @Override
-  protected String getAdditionalMessageAboutCycle(SkyKey topLevelKey, CycleInfo cycleInfo) {
-    Target currentTarget = getTargetForLabel(getLabel(topLevelKey));
+  protected boolean shouldSkip(SkyKey key) {
+    return SkyFunctions.PREPARE_ANALYSIS_PHASE.equals(key.functionName());
+  }
+
+  @Override
+  protected String getAdditionalMessageAboutCycle(
+      ExtendedEventHandler eventHandler, SkyKey topLevelKey, CycleInfo cycleInfo) {
     List<SkyKey> keys = Lists.newArrayList();
     if (!cycleInfo.getPathToCycle().isEmpty()) {
-      keys.add(topLevelKey);
-      keys.addAll(cycleInfo.getPathToCycle());
+      if (!shouldSkip(topLevelKey)) {
+        keys.add(topLevelKey);
+      }
+      cycleInfo.getPathToCycle()
+          .stream()
+          .filter(key -> !shouldSkip(key))
+          .forEach(keys::add);
     }
     keys.addAll(cycleInfo.getCycle());
     // Make sure we check the edge from the last element of the cycle to the first element of the
     // cycle.
     keys.add(cycleInfo.getCycle().get(0));
+
+    Target currentTarget = getTargetForLabel(eventHandler, getLabel(keys.get(0)));
     for (SkyKey nextKey : keys) {
       Label nextLabel = getLabel(nextKey);
-      Target nextTarget = getTargetForLabel(nextLabel);
+      Target nextTarget = getTargetForLabel(eventHandler, nextLabel);
       // This is inefficient but it's no big deal since we only do this when there's a cycle.
       if (currentTarget.getVisibility().getDependencyLabels().contains(nextLabel)
           && !nextTarget.getTargetKind().equals(PackageGroup.targetKind())) {

@@ -1,4 +1,4 @@
-// Copyright 2014 Google Inc. All rights reserved.
+// Copyright 2014 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -13,14 +13,16 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import com.google.devtools.build.lib.actions.FileStateValue;
+import com.google.devtools.build.lib.skyframe.ExternalFilesHelper.FileType;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.RootedPath;
+import com.google.devtools.build.lib.vfs.UnixGlob.FilesystemCalls;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
-import com.google.devtools.build.skyframe.SkyValue;
-
 import java.io.IOException;
+import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * A {@link SkyFunction} for {@link FileStateValue}s.
@@ -30,27 +32,38 @@ import java.io.IOException;
  */
 public class FileStateFunction implements SkyFunction {
 
-  private final TimestampGranularityMonitor tsgm;
+  private final AtomicReference<TimestampGranularityMonitor> tsgm;
+  private final AtomicReference<FilesystemCalls> syscallCache;
   private final ExternalFilesHelper externalFilesHelper;
 
-  public FileStateFunction(TimestampGranularityMonitor tsgm,
+  public FileStateFunction(
+      AtomicReference<TimestampGranularityMonitor> tsgm,
+      AtomicReference<FilesystemCalls> syscallCache,
       ExternalFilesHelper externalFilesHelper) {
     this.tsgm = tsgm;
+    this.syscallCache = syscallCache;
     this.externalFilesHelper = externalFilesHelper;
   }
 
   @Override
-  public SkyValue compute(SkyKey skyKey, Environment env) throws FileStateFunctionException {
+  public FileStateValue compute(SkyKey skyKey, Environment env)
+      throws FileStateFunctionException, InterruptedException {
     RootedPath rootedPath = (RootedPath) skyKey.argument();
-    externalFilesHelper.maybeAddDepOnBuildId(rootedPath, env);
-    if (env.valuesMissing()) {
-      return null;
-    }
+
     try {
-      return FileStateValue.create(rootedPath, tsgm);
+      FileType fileType = externalFilesHelper.maybeHandleExternalFile(rootedPath, false, env);
+      if (env.valuesMissing()) {
+        return null;
+      }
+      if (fileType == FileType.EXTERNAL_REPO
+          || fileType == FileType.EXTERNAL_IN_MANAGED_DIRECTORY) {
+        // do not use syscallCache as files under repositories get generated during the build
+        return FileStateValue.create(rootedPath, tsgm.get());
+      }
+      return FileStateValue.create(rootedPath, syscallCache.get(), tsgm.get());
+    } catch (ExternalFilesHelper.NonexistentImmutableExternalFileException e) {
+      return FileStateValue.NONEXISTENT_FILE_STATE_NODE;
     } catch (IOException e) {
-      throw new FileStateFunctionException(e);
-    } catch (InconsistentFilesystemException e) {
       throw new FileStateFunctionException(e);
     }
   }
@@ -65,11 +78,7 @@ public class FileStateFunction implements SkyFunction {
    * {@link FileStateFunction#compute}.
    */
   private static final class FileStateFunctionException extends SkyFunctionException {
-    public FileStateFunctionException(IOException e) {
-      super(e, Transience.TRANSIENT);
-    }
-
-    public FileStateFunctionException(InconsistentFilesystemException e) {
+    FileStateFunctionException(IOException e) {
       super(e, Transience.TRANSIENT);
     }
   }

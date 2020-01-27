@@ -1,4 +1,4 @@
-// Copyright 2014 Google Inc. All rights reserved.
+// Copyright 2014 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -19,11 +19,12 @@ import com.google.common.collect.Sets;
 import com.google.common.collect.Sets.SetView;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.Argument;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.ArgumentType;
+import com.google.devtools.build.lib.query2.engine.QueryEnvironment.CustomFunctionQueryEnvironment;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryFunction;
-
-import java.util.HashSet;
+import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryTaskCallable;
+import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryTaskFuture;
+import com.google.devtools.build.lib.query2.engine.QueryEnvironment.ThreadSafeMutableSet;
 import java.util.List;
-import java.util.Set;
 
 /**
  * A somepath(x, y) query expression, which computes the set of nodes
@@ -51,37 +52,71 @@ class SomePathFunction implements QueryFunction {
   }
 
   @Override
-  public <T> Set<T> eval(QueryEnvironment<T> env, QueryExpression expression, List<Argument> args)
-      throws QueryException {
-    Set<T> fromValue = args.get(0).getExpression().eval(env);
-    Set<T> toValue = args.get(1).getExpression().eval(env);
+  public <T> QueryTaskFuture<Void> eval(
+      final QueryEnvironment<T> env,
+      QueryExpressionContext<T> context,
+      final QueryExpression expression,
+      List<Argument> args,
+      final Callback<T> callback) {
+    final QueryTaskFuture<ThreadSafeMutableSet<T>> fromValueFuture =
+        QueryUtil.evalAll(env, context, args.get(0).getExpression());
+    final QueryTaskFuture<ThreadSafeMutableSet<T>> toValueFuture =
+        QueryUtil.evalAll(env, context, args.get(1).getExpression());
 
-    // Implementation strategy: for each x in "from", compute its forward
-    // transitive closure.  If it intersects "to", then do a path search from x
-    // to an arbitrary node in the intersection, and return the path.  This
-    // avoids computing the full transitive closure of "from" in some cases.
+    if (env instanceof CustomFunctionQueryEnvironment) {
+      return env.whenAllSucceedCall(
+          ImmutableList.of(fromValueFuture, toValueFuture),
+          new QueryTaskCallable<Void>() {
+            @Override
+            public Void call() throws QueryException, InterruptedException {
+              ThreadSafeMutableSet<T> fromValue = fromValueFuture.getIfSuccessful();
+              ThreadSafeMutableSet<T> toValue = toValueFuture.getIfSuccessful();
 
-    env.buildTransitiveClosure(expression, fromValue, Integer.MAX_VALUE);
+              env.buildTransitiveClosure(expression, fromValue, Integer.MAX_VALUE);
 
-    // This set contains all nodes whose TC does not intersect "toValue".
-    Set<T> done = new HashSet<>();
-
-    for (T x : fromValue) {
-      if (done.contains(x)) {
-        continue;
-      }
-      Set<T> xtc = env.getTransitiveClosure(ImmutableSet.of(x));
-      SetView<T> result;
-      if (xtc.size() > toValue.size()) {
-        result = Sets.intersection(toValue, xtc);
-      } else {
-        result = Sets.intersection(xtc, toValue);
-      }
-      if (!result.isEmpty()) {
-        return env.getNodesOnPath(x, result.iterator().next());
-      }
-      done.addAll(xtc);
+              ((CustomFunctionQueryEnvironment<T>) env)
+                  .somePath(fromValue, toValue, expression, callback);
+              return null;
+            }
+          });
     }
-    return ImmutableSet.of();
+    return env.whenAllSucceedCall(
+        ImmutableList.of(fromValueFuture, toValueFuture),
+        new QueryTaskCallable<Void>() {
+          @Override
+          public Void call() throws QueryException, InterruptedException {
+            // Implementation strategy: for each x in "from", compute its forward
+            // transitive closure.  If it intersects "to", then do a path search from x
+            // to an arbitrary node in the intersection, and return the path.  This
+            // avoids computing the full transitive closure of "from" in some cases.
+
+            ThreadSafeMutableSet<T> fromValue = fromValueFuture.getIfSuccessful();
+            ThreadSafeMutableSet<T> toValue = toValueFuture.getIfSuccessful();
+
+            env.buildTransitiveClosure(expression, fromValue, Integer.MAX_VALUE);
+
+            for (T x : fromValue) {
+              // TODO(b/122548314): if x was already seen as part of a previous node's tc, we should
+              // skip it here. That's subsumed by the TODO below.
+              ThreadSafeMutableSet<T> xSet = env.createThreadSafeMutableSet();
+              xSet.add(x);
+              // TODO(b/122548314): this transitive closure building should stop at any nodes that
+              // have already been visited.
+              ThreadSafeMutableSet<T> xtc = env.getTransitiveClosure(xSet, context);
+              SetView<T> result;
+              if (xtc.size() > toValue.size()) {
+                result = Sets.intersection(toValue, xtc);
+              } else {
+                result = Sets.intersection(xtc, toValue);
+              }
+              if (!result.isEmpty()) {
+                callback.process(env.getNodesOnPath(x, result.iterator().next(), context));
+                return null;
+              }
+            }
+            callback.process(ImmutableSet.<T>of());
+            return null;
+          }
+        });
   }
 }

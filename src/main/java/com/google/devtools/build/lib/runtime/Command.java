@@ -1,4 +1,4 @@
-// Copyright 2014 Google Inc. All rights reserved.
+// Copyright 2014 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.runtime;
 
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionsBase;
-
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
@@ -73,16 +72,33 @@ public @interface Command {
   boolean allowResidue() default false;
 
   /**
+   * Specifies whether the command line residue might have sensitive data, or arbitrary command
+   * line values.
+   */
+  boolean hasSensitiveResidue() default false;
+
+  /**
    * Returns true if this command wants to write binary data to stdout.
    * Enabling this flag will disable ANSI escape stripping for this command.
+   * This should be used in conjunction with {@code Reporter#switchToAnsiAllowingHandler}.
+   * See {@link RunCommand} for example usage.
    */
   boolean binaryStdOut() default false;
 
   /**
    * Returns true if this command wants to write binary data to stderr.
    * Enabling this flag will disable ANSI escape stripping for this command.
+   * This should be used in conjunction with {@code Reporter#switchToAnsiAllowingHandler}.
+   * See {@link RunCommand} for example usage.
    */
   boolean binaryStdErr() default false;
+
+  /**
+   * Returns true if this command may want to write to the command.log.
+   *
+   * <p>The clean command would typically set this to false so it can delete the command.log.
+   */
+  boolean writeCommandLog() default true;
 
   /**
    * The help message for this command.  If the value starts with "resource:",
@@ -105,4 +121,12 @@ public @interface Command {
    */
   boolean canRunInOutputDirectory() default false;
 
+  /**
+   * Returns the type completion help for this command, that is the type arguments that this command
+   * expects. It can be a whitespace separated list if the command take several arguments. The type
+   * of each arguments can be <code>label</code>, <code>path</code>, <code>string</code>, ...
+   * It can also be a comma separated list of values, e.g. <code>{value1,value2}<code>. If a command
+   * accept several argument types, they can be combined with |, e.g <code>label|path</code>.
+   */
+  String completion() default "";
 }

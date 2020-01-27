@@ -1,4 +1,4 @@
-// Copyright 2014 Google Inc. All rights reserved.
+// Copyright 2014 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,38 +14,29 @@
 package com.google.devtools.build.lib.vfs;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.testutil.MoreAsserts.assertSameContents;
-import static org.junit.Assert.fail;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
-import com.google.common.collect.Ordering;
-import com.google.devtools.build.lib.testutil.MoreAsserts;
-import com.google.devtools.build.lib.util.BlazeClock;
+import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
-
+import java.util.Collection;
+import java.util.HashSet;
+import java.util.Set;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-import java.util.Collection;
-import java.util.Collections;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
-
-/**
- * Tests {@link UnixGlob} recursive globs.
- */
+/** Tests {@link UnixGlob} recursive globs. */
 @RunWith(JUnit4.class)
 public class RecursiveGlobTest {
 
   private Path tmpPath;
   private FileSystem fileSystem;
-  
+
   @Before
-  public void setUp() throws Exception {
+  public final void initializeFileSystem() throws Exception  {
     fileSystem = new InMemoryFileSystem(BlazeClock.instance());
     tmpPath = fileSystem.getPath("/rglobtmp");
     for (String dir : ImmutableList.of("foo/bar/wiz",
@@ -85,7 +76,6 @@ public class RecursiveGlobTest {
       for (String pattern : Lists.newArrayList("**fo", "fo**", "**fo**", "fo**fo", "fo**fo**fo")) {
         assertIllegalWildcard(prefix + pattern);
         assertIllegalWildcard(pattern + suffix);
-        assertIllegalWildcard("foo", pattern + suffix);
       }
     }
   }
@@ -124,65 +114,13 @@ public class RecursiveGlobTest {
     assertGlobMatches("foo/bar/wiz/file/**" /* => nothing */);
   }
 
-  @Test
-  public void testSingleFileExclude() throws Exception {
-    assertGlobWithExcludeMatches("**", "food", ".", "foo", "foo/bar", "foo/bar/wiz", "foo/baz",
-                                 "foo/baz/quip", "foo/baz/quip/wiz", "foo/baz/wiz",
-                                 "foo/bar/wiz/file", "food/baz", "food/baz/wiz", "fool", "fool/baz",
-                                 "fool/baz/wiz");
-  }
-
-  @Test
-  public void testSingleFileExcludeForDirectoryWithChildGlob()
-      throws Exception {
-    assertGlobWithExcludeMatches("foo/**", "foo", "foo/bar", "foo/bar/wiz", "foo/baz",
-                                 "foo/baz/quip", "foo/baz/quip/wiz", "foo/baz/wiz",
-                                 "foo/bar/wiz/file");
-  }
-
-  @Test
-  public void testGlobExcludeForDirectoryWithChildGlob()
-      throws Exception {
-    assertGlobWithExcludeMatches("foo/**", "foo/*", "foo", "foo/bar/wiz", "foo/baz/quip",
-                                 "foo/baz/quip/wiz", "foo/baz/wiz", "foo/bar/wiz/file");
-  }
-
-  @Test
-  public void testExcludeAll() throws Exception {
-    assertGlobWithExcludesMatches(Lists.newArrayList("**"),
-                                  Lists.newArrayList("*", "*/*", "*/*/*", "*/*/*/*"), ".");
-  }
-
-  @Test
-  public void testManualGlobExcludeForDirectoryWithChildGlob()
-      throws Exception {
-    assertGlobWithExcludesMatches(Lists.newArrayList("foo/**"),
-                                  Lists.newArrayList("foo", "foo/*", "foo/*/*", "foo/*/*/*"));
-  }
-
   private void assertGlobMatches(String pattern, String... expecteds)
       throws Exception {
-    assertGlobWithExcludesMatches(
-        Collections.singleton(pattern), Collections.<String>emptyList(),
-        expecteds);
-  }
-
-  private void assertGlobWithExcludeMatches(String pattern, String exclude,
-                                            String... expecteds)
-      throws Exception {
-    assertGlobWithExcludesMatches(
-        Collections.singleton(pattern), Collections.singleton(exclude),
-        expecteds);
-  }
-
-  private void assertGlobWithExcludesMatches(Collection<String> pattern,
-                                             Collection<String> excludes,
-                                             String... expecteds) throws Exception {
-    assertSameContents(resolvePaths(expecteds),
+    assertThat(
         new UnixGlob.Builder(tmpPath)
             .addPatterns(pattern)
-            .addExcludes(excludes)
-            .globInterruptible());
+            .globInterruptible())
+    .containsExactlyElementsIn(resolvePaths(expecteds));
   }
 
   private Set<Path> resolvePaths(String... relativePaths) {
@@ -196,31 +134,28 @@ public class RecursiveGlobTest {
     return expectedFiles;
   }
 
-  /**
-   * Tests that a recursive glob returns files in sorted order.
-   */
   @Test
-  public void testGlobEntriesAreSorted() throws Exception {
-    List<Path> globResult = new UnixGlob.Builder(tmpPath)
+  public void testRecursiveGlobsAreOptimized() throws Exception {
+    long numGlobTasks = new UnixGlob.Builder(tmpPath)
         .addPattern("**")
         .setExcludeDirectories(false)
-        .globInterruptible();
+        .globInterruptibleAndReturnNumGlobTasksForTesting();
 
-    assertThat(Ordering.natural().sortedCopy(globResult)).containsExactlyElementsIn(globResult)
-        .inOrder();
+    // The old glob implementation used to use 41 total glob tasks.
+    // Yes, checking for an exact value here is super brittle, but it lets us catch performance
+    // regressions. In other words, if you're a developer reading this comment because this test
+    // case is failing, you should be very sure you know what you're doing before you change the
+    // expectation of the test.
+    assertThat(numGlobTasks).isEqualTo(28);
   }
 
-  private void assertIllegalWildcard(String pattern, String... excludePatterns)
+  private void assertIllegalWildcard(String pattern)
       throws Exception {
-    try {
-      new UnixGlob.Builder(tmpPath)
-          .addPattern(pattern)
-          .addExcludes(excludePatterns)
-          .globInterruptible();
-      fail();
-    } catch (IllegalArgumentException e) {
-      MoreAsserts.assertContainsRegex("recursive wildcard must be its own segment", e.getMessage());
-    }
+    IllegalArgumentException e =
+        assertThrows(
+            IllegalArgumentException.class,
+            () -> new UnixGlob.Builder(tmpPath).addPattern(pattern).globInterruptible());
+    assertThat(e).hasMessageThat().containsMatch("recursive wildcard must be its own segment");
   }
 
 }

@@ -1,4 +1,4 @@
-// Copyright 2014 Google Inc. All rights reserved.
+// Copyright 2014 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,12 +14,16 @@
 //
 // INTERNAL header file for use by C++ code in this package.
 
-#ifndef JAVA_COM_GOOGLE_DEVTOOLS_BUILD_LIB_UNIX_UNIX_JNI_H__
-#define JAVA_COM_GOOGLE_DEVTOOLS_BUILD_LIB_UNIX_UNIX_JNI_H__
+#ifndef BAZEL_SRC_MAIN_NATIVE_UNIX_JNI_H__
+#define BAZEL_SRC_MAIN_NATIVE_UNIX_JNI_H__
 
+#include <errno.h>
 #include <jni.h>
+#include <sys/stat.h>
 
 #include <string>
+
+namespace blaze_jni {
 
 #define CHECK(condition) \
     do { \
@@ -29,6 +33,25 @@
         abort(); \
       } \
     } while (0)
+
+#if defined(__APPLE__) || defined(__FreeBSD__) || defined(__OpenBSD__)
+// stat64 is deprecated on OS X/BSD.
+typedef struct stat portable_stat_struct;
+#define portable_stat ::stat
+#define portable_lstat ::lstat
+#else
+typedef struct stat64 portable_stat_struct;
+#define portable_stat ::stat64
+#define portable_lstat ::lstat64
+#endif
+
+#if !defined(ENODATA)
+# if defined(ENOATTR)
+#  define ENODATA ENOATTR
+# else
+#  error We do not know how to handle missing ENODATA
+# endif
+#endif
 
 // Posts a JNI exception to the current thread with the specified
 // message; the exception's class is determined by the specified UNIX
@@ -43,11 +66,16 @@ extern void PostException(JNIEnv *env, int error_number,
 extern void PostFileException(JNIEnv *env, int error_number,
                               const char *filename);
 
+// Like PostFileException, but with a different error message.
+extern void PostSystemException(JNIEnv *env, int error_number,
+                                const char *name);
+
 // Returns the standard error message for a given UNIX error number.
 extern std::string ErrorMessage(int error_number);
 
 // Runs fstatat(2), if available, or sets errno to ENOSYS if not.
-int portable_fstatat(int dirfd, char *name, struct stat *statbuf, int flags);
+int portable_fstatat(int dirfd, char *name, portable_stat_struct *statbuf,
+                     int flags);
 
 // Encoding for different timestamps in a struct stat{}.
 enum StatTimes {
@@ -57,17 +85,48 @@ enum StatTimes {
 };
 
 // Returns seconds from a stat buffer.
-int StatSeconds(const struct stat &statbuf, StatTimes t);
+int StatSeconds(const portable_stat_struct &statbuf, StatTimes t);
 
 // Returns nanoseconds from a stat buffer.
-int StatNanoSeconds(const struct stat &statbuf, StatTimes t);
+int StatNanoSeconds(const portable_stat_struct &statbuf, StatTimes t);
 
-// Runs getxattr(2), if available. If not, sets errno to ENOSYS.
+// Runs getxattr(2). If the attribute is not found, returns -1 and sets
+// attr_not_found to true. For all other errors, returns -1, sets attr_not_found
+// to false and leaves errno set to the error code returned by the system.
 ssize_t portable_getxattr(const char *path, const char *name, void *value,
-                          size_t size);
+                          size_t size, bool *attr_not_found);
 
-// Run lgetxattr(2), if available. If not, sets errno to ENOSYS.
+// Runs lgetxattr(2). If the attribute is not found, returns -1 and sets
+// attr_not_found to true. For all other errors, returns -1, sets attr_not_found
+// to false and leaves errno set to the error code returned by the system.
 ssize_t portable_lgetxattr(const char *path, const char *name, void *value,
-                           size_t size);
+                           size_t size, bool *attr_not_found);
 
-#endif  // JAVA_COM_GOOGLE_DEVTOOLS_BUILD_LIB_UNIX_UNIX_JNI_H__
+// Run sysctlbyname(3), only available on darwin
+int portable_sysctlbyname(const char *name_chars, long *mibp, size_t *sizep);
+
+// Used to surround an region that we want sleep disabled for.
+// push_disable_sleep to start the area.
+// pop_disable_sleep to end the area.
+// Note that this is a stack so sleep will not be reenabled until the stack
+// is empty.
+// Returns 0 on success.
+// Returns -1 if sleep is not supported.
+int portable_push_disable_sleep();
+int portable_pop_disable_sleep();
+
+// Returns the number of times that the process has been suspended (SIGSTOP,
+// computer put to sleep, etc.) since Bazel started.
+int portable_suspend_count();
+
+// Returns the number of times that the system has received a memory pressure
+// warning notification since Bazel started.
+int portable_memory_pressure_warning_count();
+
+// Returns the number of times that the system has received a memory pressure
+// critical notification since Bazel started.
+int portable_memory_pressure_critical_count();
+
+}  // namespace blaze_jni
+
+#endif  // BAZEL_SRC_MAIN_NATIVE_UNIX_JNI_H__

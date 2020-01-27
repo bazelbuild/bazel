@@ -1,4 +1,4 @@
-// Copyright 2014 Google Inc. All rights reserved.
+// Copyright 2014 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -13,8 +13,9 @@
 // limitations under the License.
 package com.google.devtools.build.lib.query2.engine;
 
+import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
+import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryTaskFuture;
 import java.util.Collection;
-import java.util.Set;
 
 /**
  * Base class for expressions in the Blaze query language, revision 2.
@@ -43,6 +44,7 @@ import java.util.Set;
  * different ways of printing out the result of a query.  Each accepts a {@code
  * Digraph} of {@code Target}s, and an output stream.
  */
+@ThreadSafe
 public abstract class QueryExpression {
 
   /**
@@ -56,24 +58,31 @@ public abstract class QueryExpression {
   protected QueryExpression() {}
 
   /**
-   * Evaluates this query in the specified environment, and returns a subgraph,
-   * concretely represented a new (possibly-immutable) set of target nodes.
+   * Returns a {@link QueryTaskFuture} representing the asynchronous evaluation of this query in the
+   * specified environment, notifying the callback with a result. Note that it is allowed to notify
+   * the callback with partial results instead of just one final result.
    *
-   * Failures resulting from evaluation of an ill-formed query cause
-   * QueryException to be thrown.
+   * <p>Failures resulting from evaluation of an ill-formed query cause QueryException to be thrown.
    *
-   * The reporting of failures arising from errors in BUILD files depends on
-   * the --keep_going flag.  If enabled (the default), then QueryException is
-   * thrown.  If disabled, evaluation will stumble on to produce a (possibly
-   * inaccurate) result, but a result nonetheless.
+   * <p>The reporting of failures arising from errors in BUILD files depends on the --keep_going
+   * flag. If enabled (the default), then QueryException is thrown. If disabled, evaluation will
+   * stumble on to produce a (possibly inaccurate) result, but a result nonetheless.
    */
-  public abstract <T> Set<T> eval(QueryEnvironment<T> env) throws QueryException;
+  public abstract <T> QueryTaskFuture<Void> eval(
+      QueryEnvironment<T> env, QueryExpressionContext<T> context, Callback<T> callback);
 
   /**
    * Collects all target patterns that are referenced anywhere within this query expression and adds
    * them to the given collection, which must be mutable.
    */
   public abstract void collectTargetPatterns(Collection<String> literals);
+
+  /* Implementations should just be {@code return visitor.visit(this, context)}. */
+  public abstract <T, C> T accept(QueryExpressionVisitor<T, C> visitor, C context);
+
+  public final <T> T accept(QueryExpressionVisitor<T, Void> visitor) {
+    return accept(visitor, /*context=*/ null);
+  }
 
   /**
    * Returns this query expression pretty-printed.

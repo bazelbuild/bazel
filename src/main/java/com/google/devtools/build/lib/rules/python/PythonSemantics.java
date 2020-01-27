@@ -1,4 +1,4 @@
-// Copyright 2014 Google Inc. All rights reserved.
+// Copyright 2014 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -13,11 +13,17 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.python;
 
+import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesSupport;
-import com.google.devtools.build.lib.rules.cpp.CcLinkParamsStore;
-import com.google.devtools.build.lib.rules.test.InstrumentedFilesCollector.InstrumentationSpec;
+import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
+import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector.InstrumentationSpec;
+import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
+import com.google.devtools.build.lib.rules.cpp.CcInfo;
+import java.util.Collection;
+import java.util.List;
 
 /**
  * Pluggable semantics for Python rules.
@@ -26,20 +32,34 @@ import com.google.devtools.build.lib.rules.test.InstrumentedFilesCollector.Instr
  * to keep state.
  */
 public interface PythonSemantics {
+
+  /** Returns the URL where documentation for the srcs_version attr lives. */
+  String getSrcsVersionDocURL();
+
   /**
-   * Called at the beginning of the analysis of {@code py_binary} rules to validate its attributes.
+   * Called at the beginning of the analysis of {@code py_binary}, {@code py_test}, and {@code
+   * py_library} targets to validate their attributes.
    */
   void validate(RuleContext ruleContext, PyCommon common);
 
   /**
-   * Extends for the default and data runfiles of {@code py_binary} rules with custom elements.
+   * Extends for the default and data runfiles of {@code py_binary} and {@code py_test} rules with
+   * custom elements.
    */
-  void collectRunfilesForBinary(RuleContext ruleContext, Runfiles.Builder builder, PyCommon common);
+  void collectRunfilesForBinary(
+      RuleContext ruleContext, Runfiles.Builder builder, PyCommon common, CcInfo ccInfo)
+      throws InterruptedException, RuleErrorException;
 
- /**
-   * Extends the default runfiles of {@code py_binary} rules with custom elements.
+  /**
+   * Extends the default runfiles of {@code py_binary} and {@code py_test} rules with custom
+   * elements.
    */
-  void collectDefaultRunfilesForBinary(RuleContext ruleContext, Runfiles.Builder builder);
+  void collectDefaultRunfilesForBinary(
+      RuleContext ruleContext, PyCommon common, Runfiles.Builder builder)
+      throws InterruptedException;
+
+  /** Collects a rule's default runfiles. */
+  void collectDefaultRunfiles(RuleContext ruleContext, Runfiles.Builder builder);
 
   /**
    * Returns the coverage instrumentation specification to be used in Python rules.
@@ -47,16 +67,30 @@ public interface PythonSemantics {
   InstrumentationSpec getCoverageInstrumentationSpec();
 
   /**
-   * Create the actual executable artifact.
-   *
-   * <p>This should create a generating action for {@code common.getExecutable()}.
+   * Utility function to compile multiple .py files to .pyc files, if required.
    */
-  void createExecutable(RuleContext ruleContext, PyCommon common,
-      CcLinkParamsStore ccLinkParamsStore);
+  Collection<Artifact> precompiledPythonFiles(
+      RuleContext ruleContext, Collection<Artifact> sources, PyCommon common);
+
+  /** Returns a list of PathFragments for the import paths specified in the imports attribute. */
+  List<String> getImports(RuleContext ruleContext);
+
+  /** Create a generating action for {@code common.getExecutable()}. */
+  void createExecutable(
+      RuleContext ruleContext, PyCommon common, CcInfo ccInfo, Runfiles.Builder runfilesBuilder)
+      throws InterruptedException, RuleErrorException;
 
   /**
-   * Called at the end of the analysis of {@code py_binary} rules.
+   * Called at the end of the analysis of {@code py_binary} and {@code py_test} targets.
+   *
+   * @throws InterruptedException
    */
-  void postInitBinary(RuleContext ruleContext, RunfilesSupport runfilesSupport,
-      PyCommon common);
+  void postInitExecutable(
+      RuleContext ruleContext,
+      RunfilesSupport runfilesSupport,
+      PyCommon common,
+      RuleConfiguredTargetBuilder builder)
+      throws InterruptedException, RuleErrorException;
+
+  CcInfo buildCcInfoProvider(Iterable<? extends TransitiveInfoCollection> deps);
 }

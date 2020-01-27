@@ -1,4 +1,4 @@
-// Copyright 2014 Google Inc. All rights reserved.
+// Copyright 2014 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -11,57 +11,48 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-
 package com.google.devtools.common.options;
 
-import com.google.devtools.common.options.OptionsParser.OptionValueDescription;
-import com.google.devtools.common.options.OptionsParser.UnparsedOptionValueDescription;
-
-import java.util.List;
+import com.google.common.collect.ImmutableMap;
+import java.util.Map;
+import javax.annotation.Nullable;
 
 /**
- * A read-only interface for options parser results, which does not allow any
- * further parsing of options.
+ * A read-only interface for options parser results, which only allows to query the options of
+ * a specific class, but not e.g. the residue any other information pertaining to the command line.
  */
-public interface OptionsProvider extends OptionsClassProvider {
+public interface OptionsProvider {
+  public static final OptionsProvider EMPTY =
+      new OptionsProvider() {
+        @Override
+        @Nullable
+        public <O extends OptionsBase> O getOptions(Class<O> optionsClass) {
+          return null;
+        }
+
+        @Override
+        public Map<String, Object> getStarlarkOptions() {
+          return ImmutableMap.of();
+        }
+      };
 
   /**
-   * Returns an immutable copy of the residue, that is, the arguments that
-   * have not been parsed.
-   */
-  List<String> getResidue();
-
-  /**
-   * Returns if the named option was specified explicitly in a call to parse.
-   */
-  boolean containsExplicitOption(String string);
-
-  /**
-   * Returns a mutable copy of the list of all options that were specified
-   * either explicitly or implicitly. These options are sorted by priority, and
-   * by the order in which they were specified. If an option was specified
-   * multiple times, it is included in the result multiple times. Does not
-   * include the residue.
+   * Returns the options instance for the given {@code optionsClass}, that is,
+   * the parsed options, or null if it is not among those available.
    *
-   * <p>The returned list can be filtered if undocumented, hidden or implicit
-   * options should not be displayed.
+   * <p>The returned options should be treated by library code as immutable and
+   * a provider is permitted to return the same options instance multiple times.
    */
-  List<UnparsedOptionValueDescription> asListOfUnparsedOptions();
+  @Nullable <O extends OptionsBase> O getOptions(Class<O> optionsClass);
 
   /**
-   * Returns a list of all explicitly specified options, suitable for logging
-   * or for displaying back to the user. These options are sorted by priority,
-   * and by the order in which they were specified. If an option was
-   * explicitly specified multiple times, it is included in the result
-   * multiple times. Does not include the residue.
+   * Returns the starlark options in a name:value map.
    *
-   * <p>The list includes undocumented options.
+   * <p>These follow the basics of the option syntax, --<name>=<value> but are parsed and stored
+   * differently than native options based on <name> starting with "//". This is a sufficient
+   * demarcation between starlark flags and native flags for now since all starlark flags are
+   * targets and are identified by their package path. But in the future when we implement short
+   * names for starlark options, this will need to change.
    */
-  public List<UnparsedOptionValueDescription> asListOfExplicitOptions();
-
-  /**
-   * Returns a list of all options, including undocumented ones, and their
-   * effective values. There is no guaranteed ordering for the result.
-   */
-  public List<OptionValueDescription> asListOfEffectiveOptions();
+  Map<String, Object> getStarlarkOptions();
 }

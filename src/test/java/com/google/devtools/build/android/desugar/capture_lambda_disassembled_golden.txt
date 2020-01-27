@@ -1,0 +1,21 @@
+final class com.google.devtools.build.android.desugar.testdata.CaptureLambda$$Lambda$0 implements java.util.function.Predicate {
+  private final java.lang.String arg$1;
+
+  com.google.devtools.build.android.desugar.testdata.CaptureLambda$$Lambda$0(java.lang.String);
+    Code:
+       0: aload_0
+       1: invokespecial #13                 // Method java/lang/Object."<init>":()V
+       4: aload_0
+       5: aload_1
+       6: putfield      #15                 // Field arg$1:Ljava/lang/String;
+       9: return
+
+  public boolean test(java.lang.Object);
+    Code:
+       0: aload_0
+       1: getfield      #15                 // Field arg$1:Ljava/lang/String;
+       4: aload_1
+       5: checkcast     #19                 // class java/lang/String
+       8: invokestatic  #25                 // Method com/google/devtools/build/android/desugar/testdata/CaptureLambda.lambda$prefixed$0$CaptureLambda:(Ljava/lang/String;Ljava/lang/String;)Z
+      11: ireturn
+}

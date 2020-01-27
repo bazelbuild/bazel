@@ -1,4 +1,4 @@
-// Copyright 2014 Google Inc. All rights reserved.
+// Copyright 2014 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,17 +14,16 @@
 
 package com.google.devtools.common.options;
 
+import com.google.common.collect.Maps;
 import com.google.common.escape.CharEscaperBuilder;
 import com.google.common.escape.Escaper;
-
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
+import java.util.Objects;
 
 /**
- * Base class for all options classes.  Extend this class, adding public
- * instance fields annotated with @Option.  Then you can create instances
- * either programmatically:
+ * Base class for all options classes. Extend this class, adding public instance fields annotated
+ * with {@link Option}. Then you can create instances either programmatically:
  *
  * <pre>
  *   X x = Options.getDefaults(X.class);
@@ -35,16 +34,17 @@ import java.util.Map.Entry;
  * or from an array of command-line arguments:
  *
  * <pre>
- *   OptionsParser parser = OptionsParser.newOptionsParser(X.class);
+ *   OptionsParser parser = OptionsParser.builder()
+ *       .optionsClasses(X.class)
+ *       .build();
  *   parser.parse("--host", "localhost", "--port", "80");
  *   X x = parser.getOptions(X.class);
  * </pre>
  *
- * <p>Subclasses of OptionsBase <b>must</b> be constructed reflectively,
- * i.e. using not {@code new MyOptions}, but one of the two methods above
- * instead.  (Direct construction creates an empty instance, not containing
- * default values.  This leads to surprising behavior and often
- * NullPointerExceptions, etc.)
+ * <p>Subclasses of {@code OptionsBase} <i>must</i> be constructed reflectively, i.e. using not
+ * {@code new MyOptions()}, but one of the above methods instead. (Direct construction creates an
+ * empty instance, not containing default values. This leads to surprising behavior and often {@code
+ * NullPointerExceptions}, etc.)
  */
 public abstract class OptionsBase {
 
@@ -61,13 +61,26 @@ public abstract class OptionsBase {
   }
 
   /**
-   * Returns this options object in the form of a (new) mapping from option
-   * names, including inherited ones, to option values.  If the public fields
-   * are mutated, this will be reflected in subsequent calls to {@code asMap}.
-   * Mutation of this map by the caller does not affect this options object.
+   * Returns a mapping from option names to values, for each option on this object, including
+   * inherited ones. The mapping is a copy, so subsequent mutations to it or to this object are
+   * independent. Entries are sorted alphabetically.
    */
   public final Map<String, Object> asMap() {
-    return OptionsParserImpl.optionsAsMap(this);
+    List<OptionDefinition> definitions = OptionsData.getAllOptionDefinitionsForClass(getClass());
+    Map<String, Object> map = Maps.newLinkedHashMapWithExpectedSize(definitions.size());
+    for (OptionDefinition definition : definitions) {
+      map.put(definition.getOptionName(), getValueFromDefinition(definition));
+    }
+    return map;
+  }
+
+  /** Returns the value of the option described by {@code definition}. */
+  public final Object getValueFromDefinition(OptionDefinition definition) {
+    try {
+      return definition.getField().get(this);
+    } catch (IllegalAccessException e) {
+      throw new IllegalStateException("All options fields of options classes should be public", e);
+    }
   }
 
   @Override
@@ -81,8 +94,13 @@ public abstract class OptionsBase {
    */
   public final String cacheKey() {
     StringBuilder result = new StringBuilder(getClass().getName()).append("{");
+    result.append(mapToCacheKey(asMap()));
+    return result.append("}").toString();
+  }
 
-    for (Entry<String, Object> entry : asMap().entrySet()) {
+  public static String mapToCacheKey(Map<String, Object> optionsMap) {
+    StringBuilder result = new StringBuilder();
+    for (Map.Entry<String, Object> entry : optionsMap.entrySet()) {
       result.append(entry.getKey()).append("=");
 
       Object value = entry.getValue();
@@ -100,15 +118,25 @@ public abstract class OptionsBase {
       }
       result.append(", ");
     }
-
-    return result.append("}").toString();
+    return result.toString();
   }
 
   @Override
+  @SuppressWarnings("EqualsGetClass") // Options can only be equal if they are of the same type.
   public final boolean equals(Object that) {
-    return that != null &&
-        this.getClass() == that.getClass() &&
-        this.asMap().equals(((OptionsBase) that).asMap());
+    if (this == that) {
+      return true;
+    }
+    if (that == null || !getClass().equals(that.getClass())) {
+      return false;
+    }
+    OptionsBase other = (OptionsBase) that;
+    for (OptionDefinition def : OptionsParser.getOptionDefinitions(getClass())) {
+      if (!Objects.equals(getValueFromDefinition(def), other.getValueFromDefinition(def))) {
+        return false;
+      }
+    }
+    return true;
   }
 
   @Override

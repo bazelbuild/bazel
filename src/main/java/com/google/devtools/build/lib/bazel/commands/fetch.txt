@@ -1,0 +1,6 @@
+
+Usage: %{product} %{command} [<option> ...] <targets>
+
+Fetches all external dependencies for the targets given.
+
+%{options}

@@ -1,4 +1,4 @@
-// Copyright 2014 Google Inc. All rights reserved.
+// Copyright 2014 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,9 +15,10 @@
 package com.google.devtools.build.lib.analysis;
 
 import com.google.common.base.Function;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Target;
-import com.google.devtools.build.lib.syntax.Label;
 
 import java.util.Collection;
 
@@ -26,19 +27,14 @@ import java.util.Collection;
  */
 public class AnalysisPhaseStartedEvent {
 
-  private final Iterable<Label> labels;
+  private final ImmutableSet<Target> targets;
 
   /**
    * Construct the event.
    * @param targets The set of active targets that remain.
    */
   public AnalysisPhaseStartedEvent(Collection<Target> targets) {
-    this.labels = Iterables.transform(targets, new Function<Target, Label>() {
-      @Override
-      public Label apply(Target input) {
-        return input.getLabel();
-      }
-    });
+    this.targets = ImmutableSet.copyOf(targets);
   }
 
   /**
@@ -46,6 +42,15 @@ public class AnalysisPhaseStartedEvent {
    *     of the targets we attempted to load.
    */
   public Iterable<Label> getLabels() {
-    return labels;
+    return Iterables.transform(targets, new Function<Target, Label>() {
+      @Override
+      public Label apply(Target input) {
+        return input.getLabel();
+      }
+    });
+  }
+
+  public ImmutableSet<Target> getTargets() {
+    return targets;
   }
 }

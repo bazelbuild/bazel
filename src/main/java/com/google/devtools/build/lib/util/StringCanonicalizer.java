@@ -1,4 +1,4 @@
-// Copyright 2014 Google Inc. All rights reserved.
+// Copyright 2014 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,7 +14,7 @@
 package com.google.devtools.build.lib.util;
 
 import com.google.common.collect.Interner;
-import com.google.common.collect.Interners;
+import com.google.devtools.build.lib.concurrent.BlazeInterners;
 
 /**
  * Static singleton holder for the string interning pool.  Doesn't use {@link String#intern}
@@ -22,7 +22,7 @@ import com.google.common.collect.Interners;
  */
 public final class StringCanonicalizer {
 
-  private static final Interner<String> interner = Interners.newWeakInterner();
+  private static final Interner<String> interner = BlazeInterners.newWeakInterner();
 
   private StringCanonicalizer() {
   }
@@ -30,7 +30,7 @@ public final class StringCanonicalizer {
   /**
    * Interns a String.
    */
-  public final static String intern(String arg) {
+  public static final String intern(String arg) {
     return interner.intern(arg);
   }
 }

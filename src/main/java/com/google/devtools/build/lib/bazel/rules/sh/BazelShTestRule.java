@@ -1,4 +1,4 @@
-// Copyright 2014 Google Inc. All rights reserved.
+// Copyright 2014 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -13,12 +13,15 @@
 // limitations under the License.
 package com.google.devtools.build.lib.bazel.rules.sh;
 
+import static com.google.devtools.build.lib.packages.Attribute.attr;
+import static com.google.devtools.build.lib.packages.BuildType.LABEL;
+
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
+import com.google.devtools.build.lib.analysis.config.HostTransition;
 import com.google.devtools.build.lib.bazel.rules.sh.BazelShRuleClasses.ShRule;
 import com.google.devtools.build.lib.packages.RuleClass;
-import com.google.devtools.build.lib.packages.RuleClass.Builder;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 
 /**
@@ -26,7 +29,21 @@ import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
  */
 public final class BazelShTestRule implements RuleDefinition {
   @Override
-  public RuleClass build(Builder builder, RuleDefinitionEnvironment environment) {
+  public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment environment) {
+    // TODO(bazel-team): Add :lcov_merger to every test rule as opposed to particular rules.
+    builder
+        .add(attr(":lcov_merger", LABEL).value(BaseRuleClasses.getCoverageOutputGeneratorLabel()))
+        .add(
+            attr("$launcher", LABEL)
+                .cfg(HostTransition.createFactory())
+                .value(environment.getToolsLabel("//tools/launcher:launcher")))
+        // Add the script as an attribute in order for sh_test to output code coverage results for
+        // code covered by CC binaries invocations.
+        .add(
+            attr("$collect_cc_coverage", LABEL)
+                .cfg(HostTransition.createFactory())
+                .singleArtifact()
+                .value(environment.getToolsLabel("//tools/test:collect_cc_coverage")));
     return builder.build();
   }
 
@@ -43,13 +60,10 @@ public final class BazelShTestRule implements RuleDefinition {
 
 /*<!-- #BLAZE_RULE (NAME = sh_test, TYPE = TEST, FAMILY = Shell) -->
 
-${ATTRIBUTE_SIGNATURE}
-
 <p>A <code>sh_test()</code> rule creates a test written as a Bourne shell script.</p>
 
-${ATTRIBUTE_DEFINITION}
-
-<p>See the <a href="#common-attributes-tests">attributes common to all test rules (*_test)</a>.</p>
+<p>See the <a href="${link common-definitions#common-attributes-tests}">
+attributes common to all test rules (*_test)</a>.</p>
 
 <h4 id="sh_test_examples">Examples</h4>
 

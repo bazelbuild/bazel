@@ -1,4 +1,4 @@
-// Copyright 2014 Google Inc. All rights reserved.
+// Copyright 2014 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,90 +14,91 @@
 
 package com.google.devtools.build.lib.util;
 
+import com.google.common.base.Preconditions;
+import com.google.common.base.StandardSystemProperty;
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.Converter;
-import com.google.devtools.common.options.Converters;
-import com.google.devtools.common.options.OptionsParser.UnparsedOptionValueDescription;
 import com.google.devtools.common.options.OptionsParsingException;
-import com.google.devtools.common.options.OptionsProvider;
-
-import java.util.ArrayList;
-import java.util.Collections;
+import com.google.devtools.common.options.OptionsParsingResult;
+import com.google.devtools.common.options.ParsedOptionDescription;
 import java.util.List;
 
-/**
- * Blaze-specific option utilities.
- */
+/** Blaze-specific option utilities. */
 public final class OptionsUtils {
 
   /**
    * Returns a string representation of the non-hidden specified options; option values are
    * shell-escaped.
    */
-  public static String asShellEscapedString(Iterable<UnparsedOptionValueDescription> optionsList) {
+  public static String asShellEscapedString(Iterable<ParsedOptionDescription> optionsList) {
     StringBuilder result = new StringBuilder();
-    for (UnparsedOptionValueDescription option : optionsList) {
+    for (ParsedOptionDescription option : optionsList) {
       if (option.isHidden()) {
         continue;
       }
       if (result.length() != 0) {
         result.append(' ');
       }
-      String value = option.getUnparsedValue();
-      if (option.isBooleanOption()) {
-        boolean isEnabled = false;
-        try {
-          isEnabled = new Converters.BooleanConverter().convert(value);
-        } catch (OptionsParsingException e) {
-          throw new RuntimeException("Unexpected parsing exception", e);
-        }
-        result.append(isEnabled ? "--" : "--no").append(option.getName());
-      } else {
-        result.append("--").append(option.getName());
-        if (value != null) { // Can be null for Void options.
-          result.append("=").append(ShellEscaper.escapeString(value));
-        }
-      }
+      result.append(option.getCanonicalFormWithValueEscaper(ShellEscaper::escapeString));
     }
     return result.toString();
   }
 
   /**
-   * Returns a string representation of the non-hidden explicitly or implicitly
-   * specified options; option values are shell-escaped.
+   * Returns a string representation of the non-hidden explicitly or implicitly specified options;
+   * option values are shell-escaped.
    */
-  public static String asShellEscapedString(OptionsProvider options) {
-    return asShellEscapedString(options.asListOfUnparsedOptions());
+  public static String asShellEscapedString(OptionsParsingResult options) {
+    return asShellEscapedString(options.asCompleteListOfParsedOptions());
   }
 
   /**
-   * Returns a string representation of the non-hidden explicitly or implicitly
-   * specified options, filtering out any sensitive options; option values are
-   * shell-escaped.
+   * Return a representation of the non-hidden specified options, as a list of string. No escaping
+   * is done.
    */
-  public static String asFilteredShellEscapedString(OptionsProvider options,
-      Iterable<UnparsedOptionValueDescription> optionsList) {
+  public static List<String> asArgumentList(Iterable<ParsedOptionDescription> optionsList) {
+    ImmutableList.Builder<String> builder = ImmutableList.builder();
+    for (ParsedOptionDescription option : optionsList) {
+      if (option.isHidden()) {
+        continue;
+      }
+      builder.add(option.getCanonicalForm());
+    }
+    return builder.build();
+  }
+
+  /**
+   * Return a representation of the non-hidden specified options, as a list of string. No escaping
+   * is done.
+   */
+  public static List<String> asArgumentList(OptionsParsingResult options) {
+    return asArgumentList(options.asCompleteListOfParsedOptions());
+  }
+
+  /**
+   * Returns a string representation of the non-hidden explicitly or implicitly specified options,
+   * filtering out any sensitive options; option values are shell-escaped.
+   */
+  public static String asFilteredShellEscapedString(
+      OptionsParsingResult options, Iterable<ParsedOptionDescription> optionsList) {
     return asShellEscapedString(optionsList);
   }
 
   /**
-   * Returns a string representation of the non-hidden explicitly or implicitly
-   * specified options, filtering out any sensitive options; option values are
-   * shell-escaped.
+   * Returns a string representation of the non-hidden explicitly or implicitly specified options,
+   * filtering out any sensitive options; option values are shell-escaped.
    */
-  public static String asFilteredShellEscapedString(OptionsProvider options) {
-    return asFilteredShellEscapedString(options, options.asListOfUnparsedOptions());
+  public static String asFilteredShellEscapedString(OptionsParsingResult options) {
+    return asFilteredShellEscapedString(options, options.asCompleteListOfParsedOptions());
   }
 
-  /**
-   * Converter from String to PathFragment.
-   */
-  public static class PathFragmentConverter
-      implements Converter<PathFragment> {
+  /** Converter from String to PathFragment. */
+  public static class PathFragmentConverter implements Converter<PathFragment> {
 
     @Override
     public PathFragment convert(String input) {
-      return new PathFragment(input);
+      return convertOptionsPathFragment(Preconditions.checkNotNull(input));
     }
 
     @Override
@@ -106,49 +107,54 @@ public final class OptionsUtils {
     }
   }
 
-  /**
-   * Converter from String to PathFragment.
-   *
-   * <p>Complains if the path is not absolute.
-   */
-  public static class AbsolutePathFragmentConverter
-      implements Converter<PathFragment> {
+  /** Converter from String to PathFragment. If the input is empty returns {@code null} instead. */
+  public static class EmptyToNullRelativePathFragmentConverter implements Converter<PathFragment> {
 
     @Override
     public PathFragment convert(String input) throws OptionsParsingException {
-      PathFragment pathFragment = new PathFragment(input);
-      if (!pathFragment.isAbsolute()) {
-        throw new OptionsParsingException("Expected absolute path, found " + input);
+      if (input.isEmpty()) {
+        return null;
       }
+
+      PathFragment pathFragment = convertOptionsPathFragment(input);
+
+      if (pathFragment.isAbsolute()) {
+        throw new OptionsParsingException("Expected relative path but got '" + input + "'.");
+      }
+
       return pathFragment;
     }
 
     @Override
     public String getTypeDescription() {
-      return "an absolute path";
+      return "a relative path";
     }
   }
 
-  /**
-   * Converts from a colon-separated list of strings into a list of PathFragment instances.
-   */
-  public static class PathFragmentListConverter
-      implements Converter<List<PathFragment>> {
+  /** Converts from a colon-separated list of strings into a list of PathFragment instances. */
+  public static class PathFragmentListConverter implements Converter<ImmutableList<PathFragment>> {
 
     @Override
-    public List<PathFragment> convert(String input) {
-      List<PathFragment> list = new ArrayList<>();
+    public ImmutableList<PathFragment> convert(String input) {
+      ImmutableList.Builder<PathFragment> result = ImmutableList.builder();
       for (String piece : input.split(":")) {
         if (!piece.isEmpty()) {
-          list.add(new PathFragment(piece));
+          result.add(convertOptionsPathFragment(piece));
         }
       }
-      return Collections.unmodifiableList(list);
+      return result.build();
     }
 
     @Override
     public String getTypeDescription() {
       return "a colon-separated list of paths";
     }
+  }
+
+  private static PathFragment convertOptionsPathFragment(String path) {
+    if (!path.isEmpty() && path.startsWith("~/")) {
+      path = path.replace("~", StandardSystemProperty.USER_HOME.value());
+    }
+    return PathFragment.create(path);
   }
 }

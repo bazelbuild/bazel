@@ -1,4 +1,4 @@
-// Copyright 2014 Google Inc. All rights reserved.
+// Copyright 2014 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -13,185 +13,250 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.java;
 
-import com.google.common.base.Joiner;
+
+import com.google.common.base.Ascii;
+import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap.Builder;
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.Fragment;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration.StrictDepsMode;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
+import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.StrictDepsMode;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
+import com.google.devtools.build.lib.analysis.skylark.annotations.SkylarkConfigurationField;
+import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
-import com.google.devtools.build.lib.syntax.Label;
-import com.google.devtools.build.lib.syntax.Label.SyntaxException;
-import com.google.devtools.build.lib.syntax.SkylarkCallable;
-import com.google.devtools.build.lib.syntax.SkylarkModule;
+import com.google.devtools.build.lib.skylarkbuildapi.java.JavaConfigurationApi;
 import com.google.devtools.common.options.TriState;
+import java.util.Map;
+import javax.annotation.Nullable;
 
-import java.util.List;
-
-/**
- * A java compiler configuration containing the flags required for compilation.
- */
+/** A java compiler configuration containing the flags required for compilation. */
 @Immutable
-@SkylarkModule(name = "java_configuration", doc = "A java compiler configuration")
-public final class JavaConfiguration extends Fragment {
-  /**
-   * Values for the --experimental_java_classpath option
-   */
-  public static enum JavaClasspathMode {
+public final class JavaConfiguration extends Fragment implements JavaConfigurationApi {
+
+  /** Values for the --java_classpath option */
+  public enum JavaClasspathMode {
     /** Use full transitive classpaths, the default behavior. */
     OFF,
     /** JavaBuilder computes the reduced classpath before invoking javac. */
     JAVABUILDER,
-    /** Blaze computes the reduced classpath before invoking JavaBuilder. */
-    BLAZE
+    /** Bazel computes the reduced classpath and tries it in a separate action invocation. */
+    BAZEL
+  }
+
+  /** Values for the --experimental_one_version_enforcement option */
+  public enum OneVersionEnforcementLevel {
+    /** Don't attempt to check for one version violations (the default) */
+    OFF,
+    /**
+     * Check for one version violations, emit warnings to stderr if any are found, but don't break
+     * the binary.
+     */
+    WARNING,
+    /**
+     * Check for one version violations, emit warnings to stderr if any are found, and break the
+     * rule if it's found.
+     */
+    ERROR
+  }
+
+  /** Values for the --experimental_import_deps_checking option */
+  public enum ImportDepsCheckingLevel {
+    /** Turn off the import_deps checking. */
+    OFF,
+    /** Emit warnings when the dependencies of java_import/aar_import are not complete. */
+    WARNING,
+    /** Emit errors when the dependencies of java_import/aar_import are not complete. */
+    ERROR
   }
 
   private final ImmutableList<String> commandLineJavacFlags;
   private final Label javaLauncherLabel;
-  private final Label javaBuilderTop;
-  private final ImmutableList<String> defaultJavaBuilderJvmOpts;
-  private final Label javaLangtoolsJar;
   private final boolean useIjars;
+  private final boolean useHeaderCompilation;
   private final boolean generateJavaDeps;
-  private final JavaClasspathMode experimentalJavaClasspath;
-  private final ImmutableList<String> javaWarns;
+  private final boolean strictDepsJavaProtos;
+  private final boolean isDisallowStrictDepsForJpl;
+  private final OneVersionEnforcementLevel enforceOneVersion;
+  private final boolean enforceOneVersionOnJavaTests;
+  private final ImportDepsCheckingLevel importDepsCheckingLevel;
+  private final boolean allowRuntimeDepsOnNeverLink;
+  private final JavaClasspathMode javaClasspath;
+  private final boolean inmemoryJdepsFiles;
   private final ImmutableList<String> defaultJvmFlags;
   private final ImmutableList<String> checkedConstraints;
   private final StrictDepsMode strictJavaDeps;
-  private final Label javacBootclasspath;
-  private final ImmutableList<String> javacOpts;
+  private final String fixDepsTool;
+  private final Label proguardBinary;
+  private final ImmutableList<Label> extraProguardSpecs;
   private final TriState bundleTranslations;
   private final ImmutableList<Label> translationTargets;
-  private final String javaCpu;
+  private final ImmutableMap<String, Optional<Label>> bytecodeOptimizers;
+  private final boolean enforceProguardFileExtension;
+  private final Label toolchainLabel;
+  private final Label runtimeLabel;
+  private final boolean explicitJavaTestDeps;
+  private final boolean jplPropagateCcLinkParamsStore;
+  private final boolean addTestSupportToCompileTimeDeps;
+  private final boolean isJlplStrictDepsEnforced;
+  private final ImmutableList<Label> pluginList;
+  private final boolean requireJavaToolchainHeaderCompilerDirect;
+  private final boolean disallowResourceJars;
+  private final boolean loadJavaRulesFromBzl;
+  private final boolean disallowLegacyJavaToolchainFlags;
+  private final boolean experimentalTurbineAnnotationProcessing;
 
-  private final String cacheKey;
-  private Label javaToolchain;
+  // TODO(dmarting): remove once we have a proper solution for #2539
+  private final boolean useLegacyBazelJavaTest;
 
-  JavaConfiguration(boolean generateJavaDeps,
-      List<String> defaultJvmFlags, JavaOptions javaOptions, Label javaToolchain, String javaCpu,
-      ImmutableList<String> defaultJavaBuilderJvmOpts) throws InvalidConfigurationException {
+  JavaConfiguration(JavaOptions javaOptions) throws InvalidConfigurationException {
     this.commandLineJavacFlags =
         ImmutableList.copyOf(JavaHelper.tokenizeJavaOptions(javaOptions.javacOpts));
     this.javaLauncherLabel = javaOptions.javaLauncher;
-    this.javaBuilderTop = javaOptions.javaBuilderTop;
-    this.defaultJavaBuilderJvmOpts = defaultJavaBuilderJvmOpts;
-    this.javaLangtoolsJar = javaOptions.javaLangtoolsJar;
     this.useIjars = javaOptions.useIjars;
-    this.generateJavaDeps = generateJavaDeps;
-    this.experimentalJavaClasspath = javaOptions.experimentalJavaClasspath;
-    this.javaWarns = ImmutableList.copyOf(javaOptions.javaWarns);
-    this.defaultJvmFlags = ImmutableList.copyOf(defaultJvmFlags);
+    this.useHeaderCompilation = javaOptions.headerCompilation;
+    this.generateJavaDeps =
+        javaOptions.javaDeps || javaOptions.javaClasspath != JavaClasspathMode.OFF;
+    this.javaClasspath = javaOptions.javaClasspath;
+    this.inmemoryJdepsFiles = javaOptions.inmemoryJdepsFiles;
+    this.defaultJvmFlags = ImmutableList.copyOf(javaOptions.jvmOpts);
     this.checkedConstraints = ImmutableList.copyOf(javaOptions.checkedConstraints);
     this.strictJavaDeps = javaOptions.strictJavaDeps;
-    this.javacBootclasspath = javaOptions.javacBootclasspath;
-    this.javacOpts = ImmutableList.copyOf(javaOptions.javacOpts);
+    this.fixDepsTool = javaOptions.fixDepsTool;
+    this.proguardBinary = javaOptions.proguard;
+    this.extraProguardSpecs = ImmutableList.copyOf(javaOptions.extraProguardSpecs);
+    this.enforceProguardFileExtension = javaOptions.enforceProguardFileExtension;
     this.bundleTranslations = javaOptions.bundleTranslations;
-    this.javaCpu = javaCpu;
-    this.javaToolchain = javaToolchain;
+    this.toolchainLabel = javaOptions.javaToolchain;
+    this.runtimeLabel = javaOptions.javaBase;
+    this.useLegacyBazelJavaTest = javaOptions.legacyBazelJavaTest;
+    this.strictDepsJavaProtos = javaOptions.strictDepsJavaProtos;
+    this.isDisallowStrictDepsForJpl = javaOptions.isDisallowStrictDepsForJpl;
+    this.enforceOneVersion = javaOptions.enforceOneVersion;
+    this.enforceOneVersionOnJavaTests = javaOptions.enforceOneVersionOnJavaTests;
+    this.importDepsCheckingLevel = javaOptions.importDepsCheckingLevel;
+    this.allowRuntimeDepsOnNeverLink = javaOptions.allowRuntimeDepsOnNeverLink;
+    this.explicitJavaTestDeps = javaOptions.explicitJavaTestDeps;
+    this.jplPropagateCcLinkParamsStore = javaOptions.jplPropagateCcLinkParamsStore;
+    this.isJlplStrictDepsEnforced = javaOptions.isJlplStrictDepsEnforced;
+    this.disallowResourceJars = javaOptions.disallowResourceJars;
+    this.loadJavaRulesFromBzl = javaOptions.loadJavaRulesFromBzl;
+    this.addTestSupportToCompileTimeDeps = javaOptions.addTestSupportToCompileTimeDeps;
 
     ImmutableList.Builder<Label> translationsBuilder = ImmutableList.builder();
     for (String s : javaOptions.translationTargets) {
       try {
-        Label label = Label.parseAbsolute(s);
+        Label label = Label.parseAbsolute(s, ImmutableMap.of());
         translationsBuilder.add(label);
-      } catch (SyntaxException e) {
-        throw new InvalidConfigurationException("Invalid translations target '" + s + "', make " +
-            "sure it uses correct absolute path syntax.", e);
+      } catch (LabelSyntaxException e) {
+        throw new InvalidConfigurationException(
+            "Invalid translations target '"
+                + s
+                + "', make "
+                + "sure it uses correct absolute path syntax.",
+            e);
       }
     }
     this.translationTargets = translationsBuilder.build();
 
-    this.cacheKey = Joiner.on(" ").join(commandLineJavacFlags);
+    ImmutableMap.Builder<String, Optional<Label>> optimizersBuilder = ImmutableMap.builder();
+    for (Map.Entry<String, Label> optimizer : javaOptions.bytecodeOptimizers.entrySet()) {
+      String mnemonic = optimizer.getKey();
+      if (optimizer.getValue() == null && !"Proguard".equals(mnemonic)) {
+        throw new InvalidConfigurationException("Must supply label for optimizer " + mnemonic);
+      }
+      optimizersBuilder.put(mnemonic, Optional.fromNullable(optimizer.getValue()));
+    }
+    this.bytecodeOptimizers = optimizersBuilder.build();
+    this.pluginList = ImmutableList.copyOf(javaOptions.pluginList);
+    this.requireJavaToolchainHeaderCompilerDirect =
+        javaOptions.requireJavaToolchainHeaderCompilerDirect;
+    this.disallowLegacyJavaToolchainFlags = javaOptions.disallowLegacyJavaToolchainFlags;
+    this.experimentalTurbineAnnotationProcessing =
+        javaOptions.experimentalTurbineAnnotationProcessing;
+
+    if (javaOptions.disallowLegacyJavaToolchainFlags) {
+      if (!javaOptions.javaBase.equals(javaOptions.defaultJavaBase())) {
+        throw new InvalidConfigurationException(
+            String.format(
+                "--javabase=%s is no longer supported, use --platforms instead (see #7849)",
+                javaOptions.javaBase));
+      }
+      if (!javaOptions.getHostJavaBase().equals(javaOptions.defaultHostJavaBase())) {
+        throw new InvalidConfigurationException(
+            String.format(
+                "--host_javabase=%s is no longer supported, use --platforms instead (see #7849)",
+                javaOptions.getHostJavaBase()));
+      }
+      if (!javaOptions.javaToolchain.equals(javaOptions.defaultJavaToolchain())) {
+        throw new InvalidConfigurationException(
+            String.format(
+                "--java_toolchain=%s is no longer supported, use --platforms instead (see #7849)",
+                javaOptions.javaToolchain));
+      }
+      if (!javaOptions.hostJavaToolchain.equals(javaOptions.defaultJavaToolchain())) {
+        throw new InvalidConfigurationException(
+            String.format(
+                "--host_java_toolchain=%s is no longer supported, use --platforms instead (see"
+                    + " #7849)",
+                javaOptions.hostJavaToolchain));
+      }
+    }
   }
 
-  @SkylarkCallable(name = "default_javac_flags", structField = true,
-      doc = "The default flags for the Java compiler.")
+  @Override
   // TODO(bazel-team): this is the command-line passed options, we should remove from skylark
   // probably.
-  public List<String> getDefaultJavacFlags() {
+  public ImmutableList<String> getDefaultJavacFlags() {
     return commandLineJavacFlags;
   }
 
   @Override
-  public String cacheKey() {
-    return cacheKey;
+  public String getStrictJavaDepsName() {
+    return Ascii.toLowerCase(strictJavaDeps.name());
   }
 
   @Override
   public void reportInvalidOptions(EventHandler reporter, BuildOptions buildOptions) {
     if ((bundleTranslations == TriState.YES) && translationTargets.isEmpty()) {
-      reporter.handle(Event.error("Translations enabled, but no message translations specified. " +
-          "Use '--message_translations' to select the message translations to use"));
+      reporter.handle(
+          Event.error(
+              "Translations enabled, but no message translations specified. "
+                  + "Use '--message_translations' to select the message translations to use"));
     }
   }
 
-  @Override
-  public void addGlobalMakeVariables(Builder<String, String> globalMakeEnvBuilder) {
-    globalMakeEnvBuilder.put("JAVA_TRANSLATIONS", buildTranslations() ? "1" : "0");
-    globalMakeEnvBuilder.put("JAVA_CPU", javaCpu);
-  }
-
-  /**
-   * Returns the Java cpu.
-   */
-  public String getJavaCpu() {
-    return javaCpu;
-  }
-
-  /**
-   * Returns the default javabuilder jar
-   */
-  public Label getDefaultJavaBuilderJar() {
-    return javaBuilderTop;
-  }
-
-  /**
-   * Returns the default JVM flags to be used when invoking javabuilder.
-   */
-  public ImmutableList<String> getDefaultJavaBuilderJvmFlags() {
-    return defaultJavaBuilderJvmOpts;
-  }
-
-  /**
-   * Returns the default java langtools jar
-   */
-  public Label getDefaultJavaLangtoolsJar() {
-    return javaLangtoolsJar;
-  }
-
-  /**
-   * Returns true iff Java compilation should use ijars.
-   */
+  /** Returns true iff Java compilation should use ijars. */
   public boolean getUseIjars() {
     return useIjars;
   }
 
-  /**
-   * Returns true iff dependency information is generated after compilation.
-   */
+  /** Returns true iff Java header compilation is enabled. */
+  public boolean useHeaderCompilation() {
+    return useHeaderCompilation;
+  }
+
+  /** Returns true iff dependency information is generated after compilation. */
   public boolean getGenerateJavaDeps() {
     return generateJavaDeps;
   }
 
   public JavaClasspathMode getReduceJavaClasspath() {
-    return experimentalJavaClasspath;
+    return javaClasspath;
   }
 
-  /**
-   * Returns the extra warnings enabled for Java compilation.
-   */
-  public List<String> getJavaWarns() {
-    return javaWarns;
+  public boolean inmemoryJdepsFiles() {
+    return inmemoryJdepsFiles;
   }
 
-  public List<String> getDefaultJvmFlags() {
+  public ImmutableList<String> getDefaultJvmFlags() {
     return defaultJvmFlags;
   }
 
-  public List<String> getCheckedConstraints() {
+  public ImmutableList<String> getCheckedConstraints() {
     return checkedConstraints;
   }
 
@@ -205,56 +270,157 @@ public final class JavaConfiguration extends Fragment {
       case STRICT:
       case DEFAULT:
         return StrictDepsMode.ERROR;
-      default:   // OFF, WARN, ERROR
+      default: // OFF, WARN, ERROR
         return strict;
     }
   }
 
-  /**
-   * @return proper label only if --java_launcher= is specified, otherwise null.
-   */
+  /** Which tool to use for fixing dependency errors. */
+  public String getFixDepsTool() {
+    return fixDepsTool;
+  }
+
+  /** @return proper label only if --java_launcher= is specified, otherwise null. */
   public Label getJavaLauncherLabel() {
     return javaLauncherLabel;
   }
 
-  public Label getJavacBootclasspath() {
-    return javacBootclasspath;
+  /** Returns the label provided with --proguard_top, if any. */
+  @SkylarkConfigurationField(
+      name = "proguard_top",
+      doc = "Returns the label provided with --proguard_top, if any.",
+      defaultInToolRepository = true)
+  @Nullable
+  public Label getProguardBinary() {
+    return proguardBinary;
   }
 
-  public List<String> getJavacOpts() {
-    return javacOpts;
+  /** Returns all labels provided with --extra_proguard_specs. */
+  public ImmutableList<Label> getExtraProguardSpecs() {
+    return extraProguardSpecs;
   }
 
-  @Override
-  public String getName() {
-    return "Java";
+  /** Returns whether ProGuard configuration files are required to use a *.pgcfg extension. */
+  public boolean enforceProguardFileExtension() {
+    return enforceProguardFileExtension;
   }
 
-  /**
-   * Returns the raw translation targets.
-   */
-  public List<Label> getTranslationTargets() {
+  /** Returns the raw translation targets. */
+  public ImmutableList<Label> getTranslationTargets() {
     return translationTargets;
   }
 
-  /**
-   * Returns true if the we should build translations.
-   */
+  /** Returns true if the we should build translations. */
   public boolean buildTranslations() {
     return (bundleTranslations != TriState.NO) && !translationTargets.isEmpty();
   }
 
-  /**
-   * Returns whether translations were explicitly disabled.
-   */
+  /** Returns whether translations were explicitly disabled. */
   public boolean isTranslationsDisabled() {
     return bundleTranslations == TriState.NO;
   }
 
-  /**
-   * Returns the label of the default java_toolchain rule
-   */
+  /** Returns the label of the default java_toolchain rule */
+  @SkylarkConfigurationField(
+      name = "java_toolchain",
+      doc = "Returns the label of the default java_toolchain rule.",
+      defaultLabel = "//tools/jdk:toolchain",
+      defaultInToolRepository = true)
   public Label getToolchainLabel() {
-    return javaToolchain;
+    if (disallowLegacyJavaToolchainFlags) {
+      throw new IllegalStateException("--java_toolchain is no longer supported");
+    }
+    return toolchainLabel;
+  }
+
+  /** Returns the label of the {@code java_runtime} rule representing the JVM in use. */
+  public Label getRuntimeLabel() {
+    return runtimeLabel;
+  }
+
+  /** Returns ordered list of optimizers to run. */
+  public ImmutableMap<String, Optional<Label>> getBytecodeOptimizers() {
+    return bytecodeOptimizers;
+  }
+
+  /**
+   * Returns true if java_test in Bazel should behave in legacy mode that existed before we
+   * open-sourced our test runner.
+   */
+  public boolean useLegacyBazelJavaTest() {
+    return useLegacyBazelJavaTest;
+  }
+
+
+  /**
+   * Make it mandatory for java_test targets to explicitly declare any JUnit or Hamcrest
+   * dependencies instead of accidentally obtaining them from the TestRunner's dependencies.
+   */
+  public boolean explicitJavaTestDeps() {
+    return explicitJavaTestDeps;
+  }
+
+  /**
+   * Returns an enum representing whether or not Bazel should attempt to enforce one-version
+   * correctness on java_binary rules using the 'oneversion' tool in the java_toolchain.
+   *
+   * <p>One-version correctness will inspect for multiple non-identical versions of java classes in
+   * the transitive dependencies for a java_binary.
+   */
+  public OneVersionEnforcementLevel oneVersionEnforcementLevel() {
+    return enforceOneVersion;
+  }
+
+  public boolean enforceOneVersionOnJavaTests() {
+    return enforceOneVersionOnJavaTests;
+  }
+
+  public ImportDepsCheckingLevel getImportDepsCheckingLevel() {
+    return importDepsCheckingLevel;
+  }
+
+  public boolean getAllowRuntimeDepsOnNeverLink() {
+    return allowRuntimeDepsOnNeverLink;
+  }
+
+  public boolean strictDepsJavaProtos() {
+    return strictDepsJavaProtos;
+  }
+
+  public boolean isDisallowStrictDepsForJpl() {
+    return isDisallowStrictDepsForJpl;
+  }
+
+  public boolean jplPropagateCcLinkParamsStore() {
+    return jplPropagateCcLinkParamsStore;
+  }
+
+  public boolean addTestSupportToCompileTimeDeps() {
+    return addTestSupportToCompileTimeDeps;
+  }
+
+  public boolean isJlplStrictDepsEnforced() {
+    return isJlplStrictDepsEnforced;
+  }
+
+  @Override
+  public ImmutableList<Label> getPlugins() {
+    return pluginList;
+  }
+
+  public boolean requireJavaToolchainHeaderCompilerDirect() {
+    return requireJavaToolchainHeaderCompilerDirect;
+  }
+
+  public boolean disallowResourceJars() {
+    return disallowResourceJars;
+  }
+
+  public boolean loadJavaRulesFromBzl() {
+    return loadJavaRulesFromBzl;
+  }
+
+  public boolean experimentalTurbineAnnotationProcessing() {
+    return experimentalTurbineAnnotationProcessing;
   }
 }

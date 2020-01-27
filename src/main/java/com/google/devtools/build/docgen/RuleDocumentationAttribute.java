@@ -1,4 +1,4 @@
-// Copyright 2014 Google Inc. All rights reserved.
+// Copyright 2014 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,49 +16,61 @@ package com.google.devtools.build.docgen;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Attribute;
+import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.TriState;
 import com.google.devtools.build.lib.packages.Type;
-import com.google.devtools.build.lib.syntax.Label;
-
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.Map;
 import java.util.Set;
 
 /**
- * A class storing a rule attribute documentation along with some meta information.
- * The class provides functionality to compute the ancestry level of this attribute's
- * generator rule definition class compared to other rule definition classes.
+ * A class storing a rule attribute documentation along with some meta information. The class
+ * provides functionality to compute the ancestry level of this attribute's generator rule
+ * definition class compared to other rule definition classes.
  *
  * <p>Warning, two RuleDocumentationAttribute objects are equal based on only the attributeName.
  */
-class RuleDocumentationAttribute implements Comparable<RuleDocumentationAttribute> {
+public class RuleDocumentationAttribute
+    implements Comparable<RuleDocumentationAttribute>, Cloneable {
 
-  private static final Map<Type<?>, String> TYPE_DESC = ImmutableMap.<Type<?>, String>builder()
-      .put(Type.BOOLEAN, "Boolean")
-      .put(Type.INTEGER, "Integer")
-      .put(Type.INTEGER_LIST, "List of integers")
-      .put(Type.STRING, "String")
-      .put(Type.STRING_LIST, "List of strings")
-      .put(Type.TRISTATE, "Integer")
-      .put(Type.LABEL, "<a href=\"build-ref.html#labels\">Label</a>")
-      .put(Type.LABEL_LIST, "List of <a href=\"build-ref.html#labels\">labels</a>")
-      .put(Type.LABEL_LIST_DICT,
-          "Dictionary mapping strings to lists of <a href=\"build-ref.html#labels\">labels</a>")
-      .put(Type.NODEP_LABEL, "<a href=\"build-ref.html#name\">Name</a>")
-      .put(Type.NODEP_LABEL_LIST, "List of <a href=\"build-ref.html#name\">names</a>")
-      .put(Type.OUTPUT, "<a href=\"build-ref.html#filename\">Filename</a>")
-      .put(Type.OUTPUT_LIST, "List of <a href=\"build-ref.html#filename\">filenames</a>")
-      .build();
+  private static final ImmutableMap<Type<?>, String> TYPE_DESC =
+      ImmutableMap.<Type<?>, String>builder()
+          .put(Type.BOOLEAN, "Boolean")
+          .put(Type.INTEGER, "Integer")
+          .put(Type.INTEGER_LIST, "List of integers")
+          .put(Type.STRING, "String")
+          .put(Type.STRING_DICT, "Dictionary: String -> String")
+          .put(Type.STRING_LIST, "List of strings")
+          .put(BuildType.TRISTATE, "Integer")
+          .put(BuildType.LABEL, "<a href=\"../build-ref.html#labels\">Label</a>")
+          .put(BuildType.LABEL_LIST, "List of <a href=\"../build-ref.html#labels\">labels</a>")
+          .put(
+              BuildType.LABEL_DICT_UNARY,
+              "Dictionary mapping strings to <a href=\"../build-ref.html#labels\">labels</a>")
+          .put(BuildType.LICENSE, "Licence type")
+          .put(BuildType.NODEP_LABEL, "<a href=\"../build-ref.html#name\">Name</a>")
+          .put(BuildType.NODEP_LABEL_LIST, "List of <a href=\"../build-ref.html#name\">names</a>")
+          .put(BuildType.OUTPUT, "<a href=\"../build-ref.html#filename\">Filename</a>")
+          .put(
+              BuildType.OUTPUT_LIST, "List of <a href=\"../build-ref.html#filename\">filenames</a>")
+          .build();
 
   private final Class<? extends RuleDefinition> definitionClass;
   private final String attributeName;
   private final String htmlDocumentation;
   private final String commonType;
+  // Used to expand rule link references in the attribute documentation.
+  private RuleLinkExpander linkExpander;
   private int startLineCnt;
+  private String fileName;
   private Set<String> flags;
+  private Attribute attribute;
+
 
   /**
    * Creates common RuleDocumentationAttribute such as deps or data.
@@ -67,7 +79,7 @@ class RuleDocumentationAttribute implements Comparable<RuleDocumentationAttribut
   static RuleDocumentationAttribute create(
       String attributeName, String commonType, String htmlDocumentation) {
     RuleDocumentationAttribute docAttribute = new RuleDocumentationAttribute(
-        null, attributeName, htmlDocumentation, 0, ImmutableSet.<String>of(), commonType);
+        null, attributeName, htmlDocumentation, 0, "", ImmutableSet.<String>of(), commonType);
     return docAttribute;
   }
 
@@ -76,14 +88,15 @@ class RuleDocumentationAttribute implements Comparable<RuleDocumentationAttribut
    * defined rule attributes.
    */
   static RuleDocumentationAttribute create(Class<? extends RuleDefinition> definitionClass,
-      String attributeName, String htmlDocumentation, int startLineCnt, Set<String> flags) {
+      String attributeName, String htmlDocumentation, int startLineCnt, String fileName,
+      Set<String> flags) {
     return new RuleDocumentationAttribute(definitionClass, attributeName, htmlDocumentation,
-        startLineCnt, flags, null);
+        startLineCnt, fileName, flags, null);
   }
 
   private RuleDocumentationAttribute(Class<? extends RuleDefinition> definitionClass,
-      String attributeName, String htmlDocumentation, int startLineCnt, Set<String> flags,
-      String commonType) {
+      String attributeName, String htmlDocumentation, int startLineCnt, String fileName,
+      Set<String> flags, String commonType) {
     Preconditions.checkNotNull(attributeName, "AttributeName must not be null.");
     this.definitionClass = definitionClass;
     this.attributeName = attributeName;
@@ -91,44 +104,81 @@ class RuleDocumentationAttribute implements Comparable<RuleDocumentationAttribut
     this.startLineCnt = startLineCnt;
     this.flags = flags;
     this.commonType = commonType;
+    this.fileName = fileName;
+  }
+
+  @Override
+  protected Object clone() throws CloneNotSupportedException {
+    return super.clone();
+  }
+
+  /**
+   * Sets the Attribute object that this documents.
+   */
+  void setAttribute(Attribute attribute) {
+    this.attribute = attribute;
   }
 
   /**
    * Returns the name of the rule attribute.
    */
-  String getAttributeName() {
+  public String getAttributeName() {
     return attributeName;
   }
 
-  /**
-   * Returns the raw html documentation of the rule attribute.
-   */
-  String getHtmlDocumentation(Attribute attribute, String ruleName) {
-    // TODO(bazel-team): this is needed for common type attributes. Fix those and remove this.
-    if (attribute == null) {
-      return htmlDocumentation;
-    }
-    StringBuilder sb = new StringBuilder()
-        .append("<i>(")
-        .append(TYPE_DESC.get(attribute.getType()))
-        .append("; " + (attribute.isMandatory() ? "required" : "optional"))
-        .append(getDefaultValue(attribute))
-        .append(")</i><br/>\n");
-    String synposisVar = "${" + DocgenConsts.VAR_SYNOPSIS + "}";
-    if (!flags.contains(DocgenConsts.FLAG_DEPRECATED) && !htmlDocumentation.contains(synposisVar)) {
-      System.err.println("WARNING: No synopsis found for " + ruleName + "." + attributeName);
-    }
-    return htmlDocumentation.replace(synposisVar, sb.toString());
+  /** Returns the file name where the rule attribute is defined. */
+  public String getFileName() {
+    return fileName;
   }
 
-  private String getDefaultValue(Attribute attribute) {
+  /**
+   * Returns whether this attribute is marked as deprecated.
+   */
+  public boolean isDeprecated() {
+    return hasFlag(DocgenConsts.FLAG_DEPRECATED);
+  }
+
+  /**
+   * Sets the {@link RuleLinkExpander} to be used to expand links in the HTML documentation.
+   */
+  public void setRuleLinkExpander(RuleLinkExpander linkExpander) {
+    this.linkExpander = linkExpander;
+  }
+
+  /**
+   * Returns the html documentation of the rule attribute.
+   */
+  public String getHtmlDocumentation() throws BuildEncyclopediaDocException {
+    String expandedHtmlDoc = htmlDocumentation;
+    if (linkExpander != null) {
+      try {
+        expandedHtmlDoc = linkExpander.expand(expandedHtmlDoc);
+      } catch (IllegalArgumentException e) {
+        throw new BuildEncyclopediaDocException(fileName, startLineCnt, e.getMessage());
+      }
+    }
+    return expandedHtmlDoc;
+  }
+
+  /** Returns whether the param is required or optional. */
+  public boolean isMandatory() {
+    if (attribute == null) {
+      return false;
+    }
+    return attribute.isMandatory();
+  }
+
+  private String getDefaultValue() {
+    if (attribute == null) {
+      return "";
+    }
     String prefix = "; default is ";
-    Object value = attribute.getDefaultValueForTesting();
+    Object value = attribute.getDefaultValueUnchecked();
     if (value instanceof Boolean) {
-      return prefix + ((Boolean) value ? "1" : "0");
+      return prefix + ((Boolean) value ? "True" : "False");
     } else if (value instanceof Integer) {
       return prefix + String.valueOf(value);
-    } else if (value instanceof String && !(((String) value).isEmpty())) {
+    } else if (value instanceof String && !((String) value).isEmpty()) {
       return prefix + "\"" + value + "\"";
     } else if (value instanceof TriState) {
       switch((TriState) value) {
@@ -146,6 +196,24 @@ class RuleDocumentationAttribute implements Comparable<RuleDocumentationAttribut
   }
 
   /**
+   * Returns a string containing the synopsis for this attribute.
+   */
+  public String getSynopsis() {
+    if (attribute == null) {
+      return "";
+    }
+    StringBuilder sb = new StringBuilder()
+        .append(TYPE_DESC.get(attribute.getType()))
+        .append("; " + (attribute.isMandatory() ? "required" : "optional"))
+        .append(!attribute.isConfigurable()
+            ? String.format("; <a href=\"%s#configurable-attributes\">nonconfigurable</a>",
+                RuleDocumentation.COMMON_DEFINITIONS_PAGE)
+            : "")
+        .append(getDefaultValue());
+    return sb.toString();
+  }
+
+  /**
    * Returns the number of first line of the attribute documentation in its declaration file.
    */
   int getStartLineCnt() {
@@ -155,7 +223,7 @@ class RuleDocumentationAttribute implements Comparable<RuleDocumentationAttribut
   /**
    * Returns true if the attribute doc is of a common attribute type.
    */
-  boolean isCommonType() {
+  public boolean isCommonType() {
     return commonType != null;
   }
 
@@ -179,7 +247,8 @@ class RuleDocumentationAttribute implements Comparable<RuleDocumentationAttribut
    * RuleDocumentationAttribute in the rule definition ancestry graph. Returns -1
    * if definitionClass is not the ancestor (transitively) of usingClass.
    */
-  int getDefinitionClassAncestryLevel(Class<? extends RuleDefinition> usingClass) {
+  int getDefinitionClassAncestryLevel(Class<? extends RuleDefinition> usingClass,
+      ConfiguredRuleClassProvider ruleClassProvider) {
     if (usingClass.equals(definitionClass)) {
       return 0;
     }
@@ -191,7 +260,7 @@ class RuleDocumentationAttribute implements Comparable<RuleDocumentationAttribut
     // Searching the shortest path from usingClass to this.definitionClass using BFS
     do {
       Class<? extends RuleDefinition> ancestor = toVisit.removeFirst();
-      visitAncestor(ancestor, visited, toVisit);
+      visitAncestor(ancestor, visited, toVisit, ruleClassProvider);
       if (ancestor.equals(definitionClass)) {
         return visited.get(ancestor);
       }
@@ -202,19 +271,27 @@ class RuleDocumentationAttribute implements Comparable<RuleDocumentationAttribut
   private void visitAncestor(
       Class<? extends RuleDefinition> usingClass,
       Map<Class<? extends RuleDefinition>, Integer> visited,
-      LinkedList<Class<? extends RuleDefinition>> toVisit) {
-    RuleDefinition instance;
-    try {
-      instance = usingClass.newInstance();
-    } catch (IllegalAccessException | InstantiationException e) {
-      throw new IllegalStateException(e);
-    }
+      LinkedList<Class<? extends RuleDefinition>> toVisit,
+      ConfiguredRuleClassProvider ruleClassProvider) {
+    RuleDefinition instance = getRuleDefinition(usingClass, ruleClassProvider);
     for (Class<? extends RuleDefinition> ancestor : instance.getMetadata().ancestors()) {
       if (!visited.containsKey(ancestor)) {
         toVisit.addLast(ancestor);
         visited.put(ancestor, visited.get(usingClass) + 1);
       }
     }
+  }
+
+  private RuleDefinition getRuleDefinition(Class<? extends RuleDefinition> usingClass,
+      ConfiguredRuleClassProvider ruleClassProvider) {
+    if (ruleClassProvider == null) {
+      try {
+        return usingClass.getConstructor().newInstance();
+      } catch (ReflectiveOperationException | IllegalArgumentException e) {
+        throw new IllegalStateException(e);
+      }
+    }
+    return ruleClassProvider.getRuleClassDefinition(usingClass.getName());
   }
 
   private int getAttributeOrderingPriority(RuleDocumentationAttribute attribute) {

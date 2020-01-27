@@ -1,6 +1,4 @@
-// Copyright 2001,2007 Alan Donovan. All rights reserved.
-//
-// Author: Alan Donovan <adonovan@google.com>
+// Copyright 2015 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -23,6 +21,11 @@
 #include <stddef.h>
 #include <stdint.h>
 #include <string.h>
+
+#ifdef _WIN32
+#define PATH_MAX 4096
+typedef int mode_t;
+#endif  // _WIN32
 
 namespace devtools_ijar {
 
@@ -61,6 +64,13 @@ inline u4 get_u4le(const u1 *&p) {
     return x;
 }
 
+inline u8 get_u8le(const u1 *&p) {
+  u4 lo = get_u4le(p);
+  u4 hi = get_u4le(p);
+  u8 x = ((u8)hi << 32) | lo;
+  return x;
+}
+
 inline void put_u1(u1 *&p, u1 x) {
     *p++ = x;
 }
@@ -89,29 +99,18 @@ inline void put_u4le(u1 *&p, u4 x) {
     *p++ = x >> 24;
 }
 
+inline void put_u8le(u1 *&p, u8 x) {
+  put_u4le(p, x & 0xffffffff);
+  put_u4le(p, (x >> 32) & 0xffffffff);
+}
+
 // Copy n bytes from src to p, and advance p.
 inline void put_n(u1 *&p, const u1 *src, size_t n) {
   memcpy(p, src, n);
   p += n;
 }
 
-
-// Opens "file_in" (a .jar file) for reading, and writes an interface
-// .jar to "file_out".  Returns zero on success.
-int OpenFilesAndProcessJar(const char *file_out, const char *file_in);
-
-
-// Reads a JVM class from classdata_in (of the specified length), and
-// writes out a simplified class to classdata_out, advancing the
-// pointer.
-void StripClass(u1 *&classdata_out, const u1 *classdata_in, size_t in_length);
-
 extern bool verbose;
-
-// Given the data in the zip file, returns the offset of the central
-// directory and the number of files contained in it in *offset and
-// *entries, respectively.  Returns true on success, or false on error.
-bool FindZipCentralDirectory(const u1* bytes, size_t in_length, u4* offset);
 
 }  // namespace devtools_ijar
 

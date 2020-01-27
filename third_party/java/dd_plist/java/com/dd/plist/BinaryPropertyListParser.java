@@ -23,51 +23,44 @@
 
 package com.dd.plist;
 
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.IOException;
-import java.io.InputStream;
+import java.io.*;
 import java.math.BigInteger;
 
 /**
  * Parses property lists that are in Apple's binary format.
  * Use this class when you are sure about the format of the property list.
  * Otherwise use the PropertyListParser class.
- * <p/>
+ *
  * Parsing is done by calling the static <code>parse</code> methods.
  *
  * @author Daniel Dreibrodt
  */
 public class BinaryPropertyListParser {
 
-    private int majorVersion, minorVersion;
+    /**
+     * Major version of the property list format
+     */
+    @SuppressWarnings("FieldCanBeLocal") //Useful when the features of different format versions are implemented
+    private int majorVersion;
 
     /**
-     * property list in bytes *
+     * Minor version of the property list format
+     */
+    @SuppressWarnings("FieldCanBeLocal") //Useful when the features of different format versions are implemented
+    private int minorVersion;
+
+    /**
+     * property list in bytes
      */
     private byte[] bytes;
+
     /**
-     * Length of an offset definition in bytes *
-     */
-    private int offsetSize;
-    /**
-     * Length of an object reference in bytes *
+     * Length of an object reference in bytes
      */
     private int objectRefSize;
+
     /**
-     * Number of objects stored in this property list *
-     */
-    private int numObjects;
-    /**
-     * Reference to the top object of the property list *
-     */
-    private int topObject;
-    /**
-     * Offset of the offset table from the beginning of the file *
-     */
-    private int offsetTableOffset;
-    /**
-     * The table holding the information at which offset each object is found *
+     * The table holding the information at which offset each object is found
      */
     private int[] offsetTable;
 
@@ -85,10 +78,11 @@ public class BinaryPropertyListParser {
      * Parses a binary property list from a byte array.
      *
      * @param data The binary property list's data.
-     * @return The root object of the property list. This is usally a NSDictionary but can also be a NSArray.
-     * @throws Exception When an error occurs during parsing.
+     * @return The root object of the property list. This is usually a NSDictionary but can also be a NSArray.
+     * @throws PropertyListFormatException When the property list's format could not be parsed.
+     * @throws java.io.UnsupportedEncodingException When a NSString object could not be decoded.
      */
-    public static NSObject parse(byte[] data) throws IOException, PropertyListFormatException {
+    public static NSObject parse(byte[] data) throws PropertyListFormatException, UnsupportedEncodingException {
         BinaryPropertyListParser parser = new BinaryPropertyListParser();
         return parser.doParse(data);
     }
@@ -97,10 +91,11 @@ public class BinaryPropertyListParser {
      * Parses a binary property list from a byte array.
      *
      * @param data The binary property list's data.
-     * @return The root object of the property list. This is usally a NSDictionary but can also be a NSArray.
-     * @throws Exception When an error occurs during parsing.
+     * @return The root object of the property list. This is usually a NSDictionary but can also be a NSArray.
+     * @throws PropertyListFormatException When the property list's format could not be parsed.
+     * @throws java.io.UnsupportedEncodingException When a NSString object could not be decoded.
      */
-    private NSObject doParse(byte[] data) throws IOException, PropertyListFormatException {
+    private NSObject doParse(byte[] data) throws PropertyListFormatException, UnsupportedEncodingException {
         bytes = data;
         String magic = new String(copyOfRange(bytes, 0, 8));
         if (!magic.startsWith("bplist")) {
@@ -119,6 +114,7 @@ public class BinaryPropertyListParser {
         if (majorVersion > 0) {
             throw new IllegalArgumentException("Unsupported binary property list format: v" + majorVersion + "." + minorVersion + ". " +
                     "Version 1.0 and later are not yet supported.");
+            //Version 1.0+ is not even supported by OS X's own parser
         }
 
         /*
@@ -126,16 +122,12 @@ public class BinaryPropertyListParser {
          */
         byte[] trailer = copyOfRange(bytes, bytes.length - 32, bytes.length);
         //6 null bytes (index 0 to 5)
-        offsetSize = (int) parseUnsignedInt(trailer, 6, 7);
-        //System.out.println("offsetSize: "+offsetSize);
+
+        int offsetSize = (int) parseUnsignedInt(trailer, 6, 7);
         objectRefSize = (int) parseUnsignedInt(trailer, 7, 8);
-        //System.out.println("objectRefSize: "+objectRefSize);
-        numObjects = (int) parseUnsignedInt(trailer, 8, 16);
-        //System.out.println("numObjects: "+numObjects);
-        topObject = (int) parseUnsignedInt(trailer, 16, 24);
-        //System.out.println("topObject: "+topObject);
-        offsetTableOffset = (int) parseUnsignedInt(trailer, 24, 32);
-        //System.out.println("offsetTableOffset: "+offsetTableOffset);
+        int numObjects = (int) parseUnsignedInt(trailer, 8, 16);
+        int topObject = (int) parseUnsignedInt(trailer, 16, 24);
+        int offsetTableOffset = (int) parseUnsignedInt(trailer, 24, 32);
 
         /*
          * Handle offset table
@@ -143,11 +135,7 @@ public class BinaryPropertyListParser {
         offsetTable = new int[numObjects];
 
         for (int i = 0; i < numObjects; i++) {
-            byte[] offsetBytes = copyOfRange(bytes, offsetTableOffset + i * offsetSize, offsetTableOffset + (i + 1) * offsetSize);
-            offsetTable[i] = (int) parseUnsignedInt(offsetBytes);
-            /*System.out.print("Offset for Object #"+i+" is "+offsetTable[i]+" [");
-            for(byte b:offsetBytes) System.out.print(Integer.toHexString(b)+" ");
-            System.out.println("]");*/
+            offsetTable[i] = (int) parseUnsignedInt(bytes, offsetTableOffset + i * offsetSize, offsetTableOffset + (i + 1) * offsetSize);
         }
 
         return parseObject(topObject);
@@ -157,13 +145,12 @@ public class BinaryPropertyListParser {
      * Parses a binary property list from an input stream.
      *
      * @param is The input stream that points to the property list's data.
-     * @return The root object of the property list. This is usally a NSDictionary but can also be a NSArray.
-     * @throws Exception When an error occurs during parsing.
+     * @return The root object of the property list. This is usually a NSDictionary but can also be a NSArray.
+     * @throws PropertyListFormatException When the property list's format could not be parsed.
+     * @throws java.io.IOException When a NSString object could not be decoded or an InputStream IO error occurs.
      */
     public static NSObject parse(InputStream is) throws IOException, PropertyListFormatException {
-        //Read all bytes into a list
         byte[] buf = PropertyListParser.readAll(is);
-        is.close();
         return parse(buf);
     }
 
@@ -171,27 +158,26 @@ public class BinaryPropertyListParser {
      * Parses a binary property list file.
      *
      * @param f The binary property list file
-     * @return The root object of the property list. This is usally a NSDictionary but can also be a NSArray.
-     * @throws Exception When an error occurs during parsing.
+     * @return The root object of the property list. This is usually a NSDictionary but can also be a NSArray.
+     * @throws PropertyListFormatException When the property list's format could not be parsed.
+     * @throws java.io.UnsupportedEncodingException When a NSString object could not be decoded or a file IO error occurs.
      */
     public static NSObject parse(File f) throws IOException, PropertyListFormatException {
-        if (f.length() > Runtime.getRuntime().freeMemory()) {
-            throw new OutOfMemoryError("To little heap space available! Wanted to read " + f.length() + " bytes, but only " + Runtime.getRuntime().freeMemory() + " are available.");
-        }
         return parse(new FileInputStream(f));
     }
 
     /**
      * Parses an object inside the currently parsed binary property list.
      * For the format specification check
-     * <a href="http://www.opensource.apple.com/source/CF/CF-744/CFBinaryPList.c">
+     * <a href="http://www.opensource.apple.com/source/CF/CF-855.17/CFBinaryPList.c">
      * Apple's binary property list parser implementation</a>.
      *
      * @param obj The object ID.
      * @return The parsed object.
-     * @throws java.lang.Exception When an error occurs during parsing.
+     * @throws PropertyListFormatException When the property list's format could not be parsed.
+     * @throws java.io.UnsupportedEncodingException When a NSString object could not be decoded.
      */
-    private NSObject parseObject(int obj) throws IOException, PropertyListFormatException {
+    private NSObject parseObject(int obj) throws PropertyListFormatException, UnsupportedEncodingException {
         int offset = offsetTable[obj];
         byte type = bytes[offset];
         int objType = (type & 0xF0) >> 4; //First  4 bits
@@ -214,182 +200,140 @@ public class BinaryPropertyListParser {
                     }
                     case 0xC: {
                         //URL with no base URL (v1.0 and later)
-                        //TODO
-                        break;
+                        //TODO Implement binary URL parsing (not yet even implemented in Core Foundation as of revision 855.17)
+                        throw new UnsupportedOperationException("The given binary property list contains a URL object. Parsing of this object type is not yet implemented.");
                     }
                     case 0xD: {
                         //URL with base URL (v1.0 and later)
-                        //TODO
-                        break;
+                        //TODO Implement binary URL parsing (not yet even implemented in Core Foundation as of revision 855.17)
+                        throw new UnsupportedOperationException("The given binary property list contains a URL object. Parsing of this object type is not yet implemented.");
                     }
                     case 0xE: {
                         //16-byte UUID (v1.0 and later)
-                        //TODO
-                        break;
+                        //TODO Implement binary UUID parsing (not yet even implemented in Core Foundation as of revision 855.17)
+                        throw new UnsupportedOperationException("The given binary property list contains a UUID object. Parsing of this object type is not yet implemented.");
                     }
-                    case 0xF: {
-                        //filler byte
-                        return null;
+                    default: {
+                        throw new PropertyListFormatException("The given binary property list contains an object of unknown type (" + objType + ")");
                     }
                 }
-                break;
             }
             case 0x1: {
                 //integer
                 int length = (int) Math.pow(2, objInfo);
-                if (length < Runtime.getRuntime().freeMemory()) {
-                    return new NSNumber(copyOfRange(bytes, offset + 1, offset + 1 + length), NSNumber.INTEGER);
-                } else {
-                    throw new OutOfMemoryError("To little heap space available! Wanted to read " + length + " bytes, but only " + Runtime.getRuntime().freeMemory() + " are available.");
-                }
+                return new NSNumber(bytes, offset + 1, offset + 1 + length, NSNumber.INTEGER);
             }
             case 0x2: {
                 //real
                 int length = (int) Math.pow(2, objInfo);
-                if (length < Runtime.getRuntime().freeMemory()) {
-                    return new NSNumber(copyOfRange(bytes, offset + 1, offset + 1 + length), NSNumber.REAL);
-                } else {
-                    throw new OutOfMemoryError("To little heap space available! Wanted to read " + length + " bytes, but only " + Runtime.getRuntime().freeMemory() + " are available.");
-                }
+                return new NSNumber(bytes, offset + 1, offset + 1 + length, NSNumber.REAL);
             }
             case 0x3: {
                 //Date
                 if (objInfo != 0x3) {
                     throw new PropertyListFormatException("The given binary property list contains a date object of an unknown type ("+objInfo+")");
                 }
-                return new NSDate(copyOfRange(bytes, offset + 1, offset + 9));
+                return new NSDate(bytes, offset + 1, offset + 9);
             }
             case 0x4: {
                 //Data
-                int[] lenAndoffset = readLengthAndOffset(objInfo, offset);
-                int length = lenAndoffset[0];
-                int dataoffset = lenAndoffset[1];
-
-                if (length < Runtime.getRuntime().freeMemory()) {
-                    return new NSData(copyOfRange(bytes, offset + dataoffset, offset + dataoffset + length));
-                } else {
-                    throw new OutOfMemoryError("To little heap space available! Wanted to read " + length + " bytes, but only " + Runtime.getRuntime().freeMemory() + " are available.");
-                }
+                int[] lengthAndOffset = readLengthAndOffset(objInfo, offset);
+                int length = lengthAndOffset[0];
+                int dataOffset = lengthAndOffset[1];
+                return new NSData(copyOfRange(bytes, offset + dataOffset, offset + dataOffset + length));
             }
             case 0x5: {
-                //ASCII String
-                int[] lenAndoffset = readLengthAndOffset(objInfo, offset);
-                int length = lenAndoffset[0];
-                int stroffset = lenAndoffset[1];
-
-                if (length < Runtime.getRuntime().freeMemory()) {
-                    return new NSString(copyOfRange(bytes, offset + stroffset, offset + stroffset + length), "ASCII");
-                } else {
-                    throw new OutOfMemoryError("To little heap space available! Wanted to read " + length + " bytes, but only " + Runtime.getRuntime().freeMemory() + " are available.");
-                }
+                //ASCII string
+                int[] lengthAndOffset = readLengthAndOffset(objInfo, offset);
+                int length = lengthAndOffset[0];  //Each character is 1 byte
+                int strOffset = lengthAndOffset[1];
+                return new NSString(bytes, offset + strOffset, offset + strOffset + length, "ASCII");
             }
             case 0x6: {
-                //UTF-16-BE String
-                int[] lenAndoffset = readLengthAndOffset(objInfo, offset);
-                int length = lenAndoffset[0];
-                int stroffset = lenAndoffset[1];
-
-                //length is String length -> to get byte length multiply by 2, as 1 character takes 2 bytes in UTF-16
-                length *= 2;
-                if (length < Runtime.getRuntime().freeMemory()) {
-                    return new NSString(copyOfRange(bytes, offset + stroffset, offset + stroffset + length), "UTF-16BE");
-                } else {
-                    throw new OutOfMemoryError("To little heap space available! Wanted to read " + length + " bytes, but only " + Runtime.getRuntime().freeMemory() + " are available.");
-                }
+                //UTF-16-BE string
+                int[] lengthAndOffset = readLengthAndOffset(objInfo, offset);
+                int characters = lengthAndOffset[0];
+                int strOffset = lengthAndOffset[1];
+                //UTF-16 characters can have variable length, but the Core Foundation reference implementation
+                //assumes 2 byte characters, thus only covering the Basic Multilingual Plane
+                int length = characters * 2;
+                return new NSString(bytes, offset + strOffset, offset + strOffset + length, "UTF-16BE");
+            }
+            case 0x7: {
+                //UTF-8 string (v1.0 and later)
+                int[] lengthAndOffset = readLengthAndOffset(objInfo, offset);
+                int strOffset = lengthAndOffset[1];
+                int characters = lengthAndOffset[0];
+                //UTF-8 characters can have variable length, so we need to calculate the byte length dynamically
+                //by reading the UTF-8 characters one by one
+                int length = calculateUtf8StringLength(bytes, offset + strOffset, characters);
+                return new NSString(bytes, offset + strOffset, offset + strOffset + length, "UTF-8");
             }
             case 0x8: {
-                //UID
+                //UID (v1.0 and later)
                 int length = objInfo + 1;
-                if (length < Runtime.getRuntime().freeMemory()) {
-                    return new UID(String.valueOf(obj), copyOfRange(bytes, offset + 1, offset + 1 + length));
-                } else {
-                    throw new OutOfMemoryError("To little heap space available! Wanted to read " + length + " bytes, but only " + Runtime.getRuntime().freeMemory() + " are available.");
-                }
+                return new UID(String.valueOf(obj), copyOfRange(bytes, offset + 1, offset + 1 + length));
             }
             case 0xA: {
                 //Array
-                int[] lenAndoffset = readLengthAndOffset(objInfo, offset);
-                int length = lenAndoffset[0];
-                int arrayoffset = lenAndoffset[1];
+                int[] lengthAndOffset = readLengthAndOffset(objInfo, offset);
+                int length = lengthAndOffset[0];
+                int arrayOffset = lengthAndOffset[1];
 
-                if (length * objectRefSize > Runtime.getRuntime().freeMemory()) {
-                    throw new OutOfMemoryError("To little heap space available!");
-                }
                 NSArray array = new NSArray(length);
                 for (int i = 0; i < length; i++) {
-                    int objRef = (int) parseUnsignedInt(copyOfRange(bytes,
-                            offset + arrayoffset + i * objectRefSize,
-                            offset + arrayoffset + (i + 1) * objectRefSize));
+                    int objRef = (int) parseUnsignedInt(bytes, offset + arrayOffset + i * objectRefSize, offset + arrayOffset + (i + 1) * objectRefSize);
                     array.setValue(i, parseObject(objRef));
                 }
                 return array;
-
             }
             case 0xB: {
-                //Ordered set
-                int[] lenAndoffset = readLengthAndOffset(objInfo, offset);
-                int length = lenAndoffset[0];
-                int contentOffset = lenAndoffset[1];
+                //Ordered set (v1.0 and later)
+                int[] lengthAndOffset = readLengthAndOffset(objInfo, offset);
+                int length = lengthAndOffset[0];
+                int contentOffset = lengthAndOffset[1];
 
-                if (length * objectRefSize > Runtime.getRuntime().freeMemory()) {
-                    throw new OutOfMemoryError("To little heap space available!");
-                }
                 NSSet set = new NSSet(true);
                 for (int i = 0; i < length; i++) {
-                    int objRef = (int) parseUnsignedInt(copyOfRange(bytes,
-                            offset + contentOffset + i * objectRefSize,
-                            offset + contentOffset + (i + 1) * objectRefSize));
+                    int objRef = (int) parseUnsignedInt(bytes, offset + contentOffset + i * objectRefSize, offset + contentOffset + (i + 1) * objectRefSize);
                     set.addObject(parseObject(objRef));
                 }
                 return set;
             }
             case 0xC: {
-                //Set
-                int[] lenAndoffset = readLengthAndOffset(objInfo, offset);
-                int length = lenAndoffset[0];
-                int contentOffset = lenAndoffset[1];
+                //Set (v1.0 and later)
+                int[] lengthAndOffset = readLengthAndOffset(objInfo, offset);
+                int length = lengthAndOffset[0];
+                int contentOffset = lengthAndOffset[1];
 
-                if (length * objectRefSize > Runtime.getRuntime().freeMemory()) {
-                    throw new OutOfMemoryError("To little heap space available!");
-                }
                 NSSet set = new NSSet();
                 for (int i = 0; i < length; i++) {
-                    int objRef = (int) parseUnsignedInt(copyOfRange(bytes,
-                            offset + contentOffset + i * objectRefSize,
-                            offset + contentOffset + (i + 1) * objectRefSize));
+                    int objRef = (int) parseUnsignedInt(bytes, offset + contentOffset + i * objectRefSize, offset + contentOffset + (i + 1) * objectRefSize);
                     set.addObject(parseObject(objRef));
                 }
                 return set;
             }
             case 0xD: {
                 //Dictionary
-                int[] lenAndoffset = readLengthAndOffset(objInfo, offset);
-                int length = lenAndoffset[0];
-                int contentOffset = lenAndoffset[1];
+                int[] lengthAndOffset = readLengthAndOffset(objInfo, offset);
+                int length = lengthAndOffset[0];
+                int contentOffset = lengthAndOffset[1];
 
-                if (length * 2 * objectRefSize > Runtime.getRuntime().freeMemory()) {
-                    throw new OutOfMemoryError("To little heap space available!");
-                }
-                //System.out.println("Parsing dictionary #"+obj);
                 NSDictionary dict = new NSDictionary();
                 for (int i = 0; i < length; i++) {
-                    int keyRef = (int) parseUnsignedInt(copyOfRange(bytes,
-                            offset + contentOffset + i * objectRefSize,
-                            offset + contentOffset + (i + 1) * objectRefSize));
-                    int valRef = (int) parseUnsignedInt(copyOfRange(bytes,
-                            offset + contentOffset + (length * objectRefSize) + i * objectRefSize,
-                            offset + contentOffset + (length * objectRefSize) + (i + 1) * objectRefSize));
+                    int keyRef = (int) parseUnsignedInt(bytes, offset + contentOffset + i * objectRefSize, offset + contentOffset + (i + 1) * objectRefSize);
+                    int valRef = (int) parseUnsignedInt(bytes, offset + contentOffset + (length * objectRefSize) + i * objectRefSize, offset + contentOffset + (length * objectRefSize) + (i + 1) * objectRefSize);
                     NSObject key = parseObject(keyRef);
                     NSObject val = parseObject(valRef);
+                    assert key != null; //Encountering a null object at this point would either be a fundamental error in the parser or an error in the property list
                     dict.put(key.toString(), val);
                 }
                 return dict;
             }
             default: {
-                System.err.println("WARNING: The given binary property list contains an object of unknown type (" + objType + ")");
+                throw new PropertyListFormatException("The given binary property list contains an object of unknown type (" + objType + ")");
             }
         }
-        return null;
     }
 
     /**
@@ -400,8 +344,8 @@ public class BinaryPropertyListParser {
      * @return An array with the length two. First entry is the length, second entry the offset at which the content starts.
      */
     private int[] readLengthAndOffset(int objInfo, int offset) {
-        int length = objInfo;
-        int stroffset = 1;
+        int lengthValue = objInfo;
+        int offsetValue = 1;
         if (objInfo == 0xF) {
             int int_type = bytes[offset + 1];
             int intType = (int_type & 0xF0) >> 4;
@@ -410,14 +354,57 @@ public class BinaryPropertyListParser {
             }
             int intInfo = int_type & 0x0F;
             int intLength = (int) Math.pow(2, intInfo);
-            stroffset = 2 + intLength;
+            offsetValue = 2 + intLength;
             if (intLength < 3) {
-                length = (int) parseUnsignedInt(copyOfRange(bytes, offset + 2, offset + 2 + intLength));
+                lengthValue = (int) parseUnsignedInt(bytes, offset + 2, offset + 2 + intLength);
             } else {
-                length = new BigInteger(copyOfRange(bytes, offset + 2, offset + 2 + intLength)).intValue();
+                lengthValue = new BigInteger(copyOfRange(bytes, offset + 2, offset + 2 + intLength)).intValue();
             }
         }
-        return new int[]{length, stroffset};
+        return new int[]{lengthValue, offsetValue};
+    }
+
+    private int calculateUtf8StringLength(byte[] bytes, int offset, int numCharacters) {
+        int length = 0;
+        for(int i = 0; i < numCharacters; i++) {
+            int tempOffset = offset + length;
+            if(bytes.length <= tempOffset) {
+                //WARNING: Invalid UTF-8 string, fall back to length = number of characters
+                return numCharacters;
+            }
+            if(bytes[tempOffset] < 0x80) {
+                length++;
+            }
+            if(bytes[tempOffset] < 0xC2) {
+                //Invalid value (marks continuation byte), fall back to length = number of characters
+                return numCharacters;
+            }
+            else if(bytes[tempOffset] < 0xE0) {
+                if((bytes[tempOffset + 1] & 0xC0) != 0x80) {
+                    //Invalid continuation byte, fall back to length = number of characters
+                    return numCharacters;
+                }
+                length += 2;
+            }
+            else if(bytes[tempOffset] < 0xF0) {
+                if((bytes[tempOffset + 1] & 0xC0) != 0x80
+                        || (bytes[tempOffset + 2] & 0xC0) != 0x80) {
+                    //Invalid continuation byte, fall back to length = number of characters
+                    return numCharacters;
+                }
+                length += 3;
+            }
+            else if(bytes[tempOffset] < 0xF5) {
+                if((bytes[tempOffset + 1] & 0xC0) != 0x80
+                        || (bytes[tempOffset + 2] & 0xC0) != 0x80
+                        || (bytes[tempOffset + 3] & 0xC0) != 0x80) {
+                    //Invalid continuation byte, fall back to length = number of characters
+                    return numCharacters;
+                }
+                length += 4;
+            }
+        }
+        return length;
     }
 
     /**
@@ -426,14 +413,9 @@ public class BinaryPropertyListParser {
      * @param bytes The byte array containing the unsigned integer.
      * @return The unsigned integer represented by the given bytes.
      */
+    @SuppressWarnings("unused")
     public static long parseUnsignedInt(byte[] bytes) {
-        long l = 0;
-        for (byte b : bytes) {
-            l <<= 8;
-            l |= b & 0xFF;
-        }
-        l &= 0xFFFFFFFFL;
-        return l;
+        return parseUnsignedInt(bytes, 0, bytes.length);
     }
 
     /**
@@ -460,13 +442,9 @@ public class BinaryPropertyListParser {
      * @param bytes The bytes representing the long integer.
      * @return The long integer represented by the given bytes.
      */
+    @SuppressWarnings("unused")
     public static long parseLong(byte[] bytes) {
-        long l = 0;
-        for (byte b : bytes) {
-            l <<= 8;
-            l |= b & 0xFF;
-        }
-        return l;
+        return parseLong(bytes, 0, bytes.length);
     }
 
     /**
@@ -492,14 +470,9 @@ public class BinaryPropertyListParser {
      * @param bytes The bytes representing the double.
      * @return The double represented by the given bytes.
      */
+    @SuppressWarnings("unused")
     public static double parseDouble(byte[] bytes) {
-        if (bytes.length == 8) {
-            return Double.longBitsToDouble(parseLong(bytes));
-        } else if (bytes.length == 4) {
-            return Float.intBitsToFloat((int) parseLong(bytes));
-        } else {
-            throw new IllegalArgumentException("bad byte array length " + bytes.length);
-        }
+        return parseDouble(bytes, 0, bytes.length);
     }
 
     /**

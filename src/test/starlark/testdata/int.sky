@@ -1,0 +1,138 @@
+# Tests of Skylark 'int'
+
+# basic arithmetic
+assert_eq(0 - 1, -1)
+assert_eq(1 + 1, 2)
+assert_eq(5 + 7, 12)
+assert_eq(5 * 7, 35)
+assert_eq(5 - 7, -2)
+
+# truth
+assert_(123)
+assert_(-1)
+assert_(not 0)
+
+# comparisons
+assert_(5 > 2)
+assert_(2 + 1 == 3)
+assert_(2 + 1 >= 3)
+assert_(not (2 + 1 > 3))
+assert_(2 + 2 <= 5)
+assert_(not (2 + 1 < 3))
+
+# division
+assert_eq(100 // 7, 14)
+assert_eq(100 // -7, -15)
+assert_eq(-100 // 7, -15) # NB: different from Go / Java
+assert_eq(-100 // -7, 14) # NB: different from Go / Java
+assert_eq(98 // 7, 14)
+assert_eq(98 // -7, -14)
+assert_eq(-98 // 7, -14)
+assert_eq(-98 // -7, 14)
+
+# remainder
+assert_eq(100 % 7, 2)
+assert_eq(100 % -7, -5) # NB: different from Go / Java
+assert_eq(-100 % 7, 5) # NB: different from Go / Java
+assert_eq(-100 % -7, -2)
+assert_eq(98 % 7, 0)
+assert_eq(98 % -7, 0)
+assert_eq(-98 % 7, 0)
+assert_eq(-98 % -7, 0)
+
+# precedence
+assert_eq(5 - 7 * 2 + 3, -6)
+assert_eq(4 * 5 // 2 + 5 // 2 * 4, 18)
+
+# compound assignment
+def compound():
+  x = 1
+  x += 1
+  assert_eq(x, 2)
+  x -= 3
+  assert_eq(x, -1)
+  x *= 10
+  assert_eq(x, -10)
+  x //= -2
+  assert_eq(x, 5)
+  x %= 3
+  assert_eq(x, 2)
+
+compound()
+
+
+# unary operators
+
+assert_eq(+4, 4)
+assert_eq(-4, -4)
+assert_eq(++4, 4)
+assert_eq(+-4, -4)
+assert_eq(-+-4, 4)
+
+---
+1 // 0  ### integer division by zero
+---
+1 % 0  ### integer modulo by zero
+---
+
+# bitwise
+
+def f():
+  x = 2
+  x &= 1
+  assert_eq(x, 0)
+  x = 0
+  x |= 2
+  assert_eq(x, 2)
+  x ^= 3
+  assert_eq(x, 1)
+  x <<= 2
+  assert_eq(x, 4)
+  x >>=2
+  assert_eq(x, 1)
+
+f()
+---
+assert_eq(1 | 2, 3)
+assert_eq(3 | 6, 7)
+assert_eq(7 | 0, 7)
+assert_eq(7 & 0, 0)
+assert_eq(7 & 7, 7)
+assert_eq(7 & 2, 2)
+assert_eq((1|2) & (2|4), 2)
+assert_eq(1 ^ 2, 3)
+assert_eq(2 ^ 2, 0)
+assert_eq(-6 ^ 0, -6)
+assert_eq(1 | 0 ^ 1, 1) # check | and ^ operators precedence
+assert_eq(~1, -2)
+assert_eq(~-2, 1)
+assert_eq(~0, -1)
+assert_eq(~6, -7)
+assert_eq(~0, -1)
+assert_eq(~2147483647, -2147483647 - 1);
+assert_eq(1 << 2, 4)
+assert_eq(7 << 0, 7)
+assert_eq(-1 << 31, -2147483647 - 1)
+assert_eq(2 >> 1, 1)
+assert_eq(7 >> 0, 7)
+assert_eq(0 >> 0, 0)
+assert_eq(1000 >> 100, 0)
+assert_eq(-10 >> 1000, -1)
+
+# precedence
+
+assert_eq(8 | 3 ^ 4 & -2, 15)
+assert_eq(~8 >> 1 | 3 ^ 4 & -2 << 2 * 3 + 4 // -2, -5)
+
+---
+1 & False ### unsupported binary operation: int & bool
+---
+"a" ^ 5 ### unsupported binary operation: string ^ int
+---
+~False ### unsupported unary operation: ~bool
+---
+1 << 31 ### integer overflow
+---
+1 << -4 ### negative shift count: -4
+---
+2 >> -1 ### negative shift count: -1

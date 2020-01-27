@@ -8,7 +8,7 @@ For example, to show all C++ test rules in the strings package, use:
 
   % %{product} query 'kind("cc_.*test", strings:*)'
 
-or to find all dependencies of chubby lockserver, use:
+or to find all dependencies of //path/to/package:target, use:
 
   % %{product} query 'deps(//path/to/package:target)'
 

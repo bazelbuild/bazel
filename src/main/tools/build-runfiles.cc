@@ -1,4 +1,4 @@
-// Copyright 2014 Google Inc. All rights reserved.
+// Copyright 2014 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -155,7 +155,8 @@ class RunfilesCreator {
       if (!s) {
         DIE("missing field delimiter at line %d: '%s'\n", lineno, buf);
       } else if (strchr(s+1, ' ')) {
-        DIE("link or target filename contains space on line %d: '%s'\n", lineno, buf);
+        DIE("link or target filename contains space on line %d: '%s'\n",
+            lineno, buf);
       }
       std::string link(buf, s-buf);
       const char *target = s+1;
@@ -240,12 +241,12 @@ class RunfilesCreator {
 
     errno = 0;
     const std::string prefix = (path == "." ? "" : path + "/");
-    while ((entry = readdir(dh)) != NULL) {
+    while ((entry = readdir(dh)) != nullptr) {
       if (!strcmp(entry->d_name, ".") || !strcmp(entry->d_name, "..")) continue;
 
       std::string entry_path = prefix + entry->d_name;
       FileInfo actual_info;
-      actual_info.type = DentryToFileType(entry_path, entry->d_type);
+      actual_info.type = DentryToFileType(entry_path, entry);
 
       if (actual_info.type == FILE_TYPE_SYMLINK) {
         ReadLinkOrDie(entry_path, &actual_info.symlink_target);
@@ -254,7 +255,15 @@ class RunfilesCreator {
       FileInfoMap::iterator expected_it = manifest_.find(entry_path);
       if (expected_it == manifest_.end() ||
           expected_it->second != actual_info) {
+#if !defined(__CYGWIN__)
         DelTree(entry_path, actual_info.type);
+#else
+        // On Windows, if deleting failed, lamely assume that
+        // the link points to the right place.
+        if (!DelTree(entry_path, actual_info.type)) {
+          manifest_.erase(expected_it);
+        }
+#endif
       } else {
         manifest_.erase(expected_it);
         if (actual_info.type == FILE_TYPE_DIRECTORY) {
@@ -290,17 +299,30 @@ class RunfilesCreator {
           }
           break;
         case FILE_TYPE_SYMLINK:
-          if (symlink(it->second.symlink_target.c_str(), path.c_str()) != 0) {
-            PDIE("symlinking '%s' -> '%s'", path.c_str(),
-                 it->second.symlink_target.c_str());
+          {
+            const std::string& target = it->second.symlink_target;
+            if (symlink(target.c_str(), path.c_str()) != 0) {
+              PDIE("symlinking '%s' -> '%s'", path.c_str(), target.c_str());
+            }
           }
           break;
       }
     }
   }
 
-  FileType DentryToFileType(const std::string &path, char d_type) {
-    if (d_type == DT_UNKNOWN) {
+  FileType DentryToFileType(const std::string &path, struct dirent *ent) {
+#ifdef _DIRENT_HAVE_D_TYPE
+    if (ent->d_type != DT_UNKNOWN) {
+      if (ent->d_type == DT_DIR) {
+        return FILE_TYPE_DIRECTORY;
+      } else if (ent->d_type == DT_LNK) {
+        return FILE_TYPE_SYMLINK;
+      } else {
+        return FILE_TYPE_REGULAR;
+      }
+    } else  // NOLINT (the brace is in the next line)
+#endif
+    {
       struct stat st;
       LStatOrDie(path, &st);
       if (S_ISDIR(st.st_mode)) {
@@ -310,17 +332,17 @@ class RunfilesCreator {
       } else {
         return FILE_TYPE_REGULAR;
       }
-    } else if (d_type == DT_DIR) {
-      return FILE_TYPE_DIRECTORY;
-    } else if (d_type == DT_LNK) {
-      return FILE_TYPE_SYMLINK;
-    } else {
-      return FILE_TYPE_REGULAR;
     }
   }
 
   void LStatOrDie(const std::string &path, struct stat *st) {
     if (lstat(path.c_str(), st) != 0) {
+      PDIE("lstating file '%s'", path.c_str());
+    }
+  }
+
+  void StatOrDie(const std::string &path, struct stat *st) {
+    if (stat(path.c_str(), st) != 0) {
       PDIE("stating file '%s'", path.c_str());
     }
   }
@@ -340,19 +362,22 @@ class RunfilesCreator {
     struct stat st;
     LStatOrDie(path, &st);
     if ((st.st_mode & kMode) != kMode) {
-      int new_mode = (st.st_mode | kMode) & ALLPERMS;
+      int new_mode = st.st_mode | kMode;
       if (chmod(path.c_str(), new_mode) != 0) {
         PDIE("chmod '%s'", path.c_str());
       }
     }
   }
 
-  void DelTree(const std::string &path, FileType file_type) {
+  bool DelTree(const std::string &path, FileType file_type) {
     if (file_type != FILE_TYPE_DIRECTORY) {
       if (unlink(path.c_str()) != 0) {
+#if !defined(__CYGWIN__)
         PDIE("unlinking '%s'", path.c_str());
+#endif
+        return false;
       }
-      return;
+      return true;
     }
 
     EnsureDirReadAndWritePerms(path);
@@ -363,10 +388,10 @@ class RunfilesCreator {
       PDIE("opendir '%s'", path.c_str());
     }
     errno = 0;
-    while ((entry = readdir(dh)) != NULL) {
+    while ((entry = readdir(dh)) != nullptr) {
       if (!strcmp(entry->d_name, ".") || !strcmp(entry->d_name, "..")) continue;
       const std::string entry_path = path + '/' + entry->d_name;
-      FileType entry_file_type = DentryToFileType(entry_path, entry->d_type);
+      FileType entry_file_type = DentryToFileType(entry_path, entry);
       DelTree(entry_path, entry_file_type);
       errno = 0;
     }
@@ -377,6 +402,7 @@ class RunfilesCreator {
     if (rmdir(path.c_str()) != 0) {
       PDIE("rmdir '%s'", path.c_str());
     }
+    return true;
   }
 
  private:
@@ -407,7 +433,9 @@ int main(int argc, char **argv) {
   }
 
   if (argc != 2) {
-    fprintf(stderr, "usage: %s [--allow_relative] INPUT RUNFILES\n",
+    fprintf(stderr, "usage: %s "
+            "[--allow_relative] [--use_metadata] "
+            "INPUT RUNFILES\n",
             argv0);
     return 1;
   }
@@ -418,7 +446,7 @@ int main(int argc, char **argv) {
   std::string manifest_file = input_filename;
   if (input_filename[0] != '/') {
     char cwd_buf[PATH_MAX];
-    if (getcwd(cwd_buf, sizeof(cwd_buf)) == NULL) {
+    if (getcwd(cwd_buf, sizeof(cwd_buf)) == nullptr) {
       PDIE("getcwd failed");
     }
     manifest_file = std::string(cwd_buf) + '/' + manifest_file;

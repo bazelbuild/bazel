@@ -1,0 +1,137 @@
+# Edits and changes made to Region from the S3 SDK. This allows
+# The S3 Region code to be used without the rest of the S3 SDK
+diff -Nau8r ./src/main/java/com/amazonaws/services/s3/model/Region.java /home/greg/projects/bazel/third_party/aws-sdk-auth-lite/src/main/java/com/amazonaws/services/s3/model/Region.java
+--- ./src/main/java/com/amazonaws/services/s3/model/Region.java	2018-03-16 22:25:14.000000000 -0700
++++ /home/greg/projects/bazel/third_party/aws-sdk-auth-lite/src/main/java/com/amazonaws/services/s3/model/Region.java	2018-05-18 12:34:53.562356667 -0700
+@@ -9,19 +9,16 @@
+  *
+  * or in the "license" file accompanying this file. This file is distributed
+  * on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
+  * express or implied. See the License for the specific language governing
+  * permissions and limitations under the License.
+  */
+ package com.amazonaws.services.s3.model;
+ 
+-import com.amazonaws.regions.RegionUtils;
+-import com.amazonaws.services.s3.AmazonS3Client;
+-
+ import java.util.Arrays;
+ import java.util.List;
+ import java.util.regex.Pattern;
+ 
+ 
+ /**
+  * Specifies constants that define Amazon S3 Regions.
+  * <p>
+@@ -46,16 +43,28 @@
+      * <a href="https://aws.amazon.com/s3/faqs/">Amazon Simple Storage Service (S3) FAQs</a> for more information.
+      * <p>
+      * This is the default Amazon S3 Region. All requests sent to <code>s3.amazonaws.com</code> go
+      * to this region unless a location constraint is specified when creating a bucket.
+      */
+     US_Standard((String[]) null),
+ 
+     /**
++     * The US-East-1 (Virginia) Region. This region
++     * uses Amazon S3 servers located in Virginia.
++     * <p>
++     * When using buckets in this region, set the client
++     * endpoint to <code>s3.us-east-2.amazonaws.com</code> on all requests to these buckets
++     * to reduce any latency experienced after the first hour of
++     * creating a bucket in this region.
++     * </p>
++     */
++    US_East_1("us-east-1"),
++
++    /**
+      * The US-East-2 (Ohio) Region. This region
+      * uses Amazon S3 servers located in Ohio.
+      * <p>
+      * When using buckets in this region, set the client
+      * endpoint to <code>s3.us-east-2.amazonaws.com</code> on all requests to these buckets
+      * to reduce any latency experienced after the first hour of
+      * creating a bucket in this region.
+      * </p>
+@@ -230,27 +239,27 @@
+      * located in Ningxia.
+      * <p>
+      * When using buckets in this region, you must set the client endpoint to
+      * <code>s3.cn-northwest-1.amazonaws.com.cn</code>.
+      * </p>
+      */
+     CN_Northwest_1("cn-northwest-1");
+ 
+-   /**
+-    * Used to extract the S3 regional id from an S3 end point.
+-    * Note this pattern will not match the S3 US standard endpoint by intent.
+-    * Exampless:
+-    * <pre>
+-    * s3-eu-west-1.amazonaws.com
+-    * s3.cn-north-1.amazonaws.com.cn
+-    * </pre>
+-    */
++    /**
++     * Used to extract the S3 regional id from an S3 end point.
++     * Note this pattern will not match the S3 US standard endpoint by intent.
++     * Exampless:
++     * <pre>
++     * s3-eu-west-1.amazonaws.com
++     * s3.cn-north-1.amazonaws.com.cn
++     * </pre>
++     */
+     public static final Pattern S3_REGIONAL_ENDPOINT_PATTERN =
+-            Pattern.compile("s3[-.]([^.]+)\\.amazonaws\\.com(\\.[^.]*)?");
++        Pattern.compile("s3[-.]([^.]+)\\.amazonaws\\.com(\\.[^.]*)?");
+ 
+     /** The list of ID's representing each region. */
+     private final List<String> regionIds;
+ 
+     /**
+      * Constructs a new region with the specified region ID's.
+      *
+      * @param regionIds
+@@ -274,17 +283,17 @@
+      * Returns the first region id or null for {@link #US_Standard}.
+      */
+     public String getFirstRegionId() {
+         return getFirstRegionId0();
+     }
+ 
+     private String getFirstRegionId0() {
+         return this.regionIds == null || regionIds.size() == 0
+-             ? null : this.regionIds.get(0);
++            ? null : this.regionIds.get(0);
+     }
+ 
+     /**
+      * Returns the Amazon S3 Region enumeration value representing the specified Amazon
+      * S3 Region ID string. If specified string doesn't map to a known Amazon S3
+      * Region, then an <code>IllegalArgumentException</code> is thrown.
+      *
+      * @param s3RegionId
+@@ -306,24 +315,10 @@
+             List<String> regionIds = region.regionIds;
+             if (regionIds != null && regionIds.contains(s3RegionId))
+                 return region;
+         }
+ 
+         throw new IllegalArgumentException(
+                 "Cannot create enum from " + s3RegionId + " value!");
+     }
+-
+-    /**
+-     * Returns the respective AWS region.
+-     */
+-    public com.amazonaws.regions.Region toAWSRegion() {
+-        String s3regionId = getFirstRegionId();
+-        if ( s3regionId == null ) { // US Standard
+-            // TODO This is a bit of a hack but customers are relying on this returning us-east-1 rather then
+-            // aws-global. For now we'll keep the legacy behavior and consider changing it in the next major version
+-            // bump. See TT0073140598
+-            return RegionUtils.getRegion("us-east-1");
+-        } else {
+-            return RegionUtils.getRegion(s3regionId);
+-        }
+-    }
+ }
++

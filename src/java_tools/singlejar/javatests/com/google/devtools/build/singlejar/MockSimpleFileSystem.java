@@ -1,4 +1,4 @@
-// Copyright 2015 Google Inc. All rights reserved.
+// Copyright 2015 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,17 +14,18 @@
 
 package com.google.devtools.build.singlejar;
 
+import static com.google.common.truth.Truth.assertThat;
 import static java.nio.charset.StandardCharsets.UTF_8;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertNull;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
+import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.nio.file.Files;
+import java.nio.file.StandardCopyOption;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -58,8 +59,8 @@ public final class MockSimpleFileSystem implements SimpleFileSystem {
 
   @Override
   public OutputStream getOutputStream(String filename) {
-    assertEquals(outputFileName, filename);
-    assertNull(out);
+    assertThat(filename).isEqualTo(outputFileName);
+    assertThat(out).isNull();
     out = new ByteArrayOutputStream();
     return out;
   }
@@ -74,15 +75,26 @@ public final class MockSimpleFileSystem implements SimpleFileSystem {
   }
 
   @Override
+  public File getFile(String filename) throws IOException {
+    byte[] data = files.get(filename);
+    if (data == null) {
+      throw new FileNotFoundException();
+    }
+    File file = File.createTempFile(filename, null);
+    Files.copy(new ByteArrayInputStream(data), file.toPath(), StandardCopyOption.REPLACE_EXISTING);
+    return file;
+  }
+
+  @Override
   public boolean delete(String filename) {
-    assertEquals(outputFileName, filename);
-    assertNotNull(out);
+    assertThat(filename).isEqualTo(outputFileName);
+    assertThat(out).isNotNull();
     out = null;
     return true;
   }
 
   public byte[] toByteArray() {
-    assertNotNull(out);
+    assertThat(out).isNotNull();
     return out.toByteArray();
   }
 }

@@ -1,0 +1,624 @@
+#if (!$singlePage)
+---
+layout: documentation
+title: Functions
+---
+#end
+#if (!$singlePage)
+#parse("com/google/devtools/build/docgen/templates/be/header.vm")
+#end
+
+<h1>Functions</h1>
+
+#if (!$singlePage)
+<div class="toc">
+  <h1>Contents</h1>
+  <ul>
+    <li><a href="#package">package</a></li>
+    <li><a href="#package_group">package_group</a></li>
+    <li><a href="#exports_files">exports_files</a></li>
+    <li><a href="#glob">glob</a></li>
+    <li><a href="#select">select</a></li>
+  </ul>
+</div>
+#end
+<!-- =================================================================
+                              package()
+     =================================================================
+-->
+
+<h2 id="package">package</h2>
+
+<pre>
+package(default_deprecation, default_testonly, default_visibility, features)
+</pre>
+<p>This function declares metadata that applies to every subsequent rule in the
+package. It is used at most once within a package (BUILD file).</p>
+
+<p>The package() function should be called right after all the load() statements at the top of the
+file, before any rule.</p>
+
+<h3 id="package_args">Arguments</h3>
+
+<table class="table table-condensed table-bordered table-params">
+  <colgroup>
+    <col class="col-param" />
+    <col class="param-description" />
+  </colgroup>
+  <thead>
+    <tr>
+      <th>Attribute</th>
+      <th>Description</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td id="package.default_visibility"><code>default_visibility</code></td>
+      <td>
+        <p><code>List of <a href="../build-ref.html#labels">labels</a>; optional</code></p>
+        <p>The default visibility of the rules in this package.</p>
+        <p>Every rule in this package has the visibility specified in this
+        attribute, unless otherwise specified in the <code>visibility</code>
+        attribute of the rule. For detailed information about the syntax of this
+        attribute, see the documentation of the
+        <a href="common-definitions.html#common.visibility">visibility</a>
+        attribute. The package default visibility does not apply to
+        <a href="#exports_files">exports_files</a>, which is
+        public by default.</p>
+      </td>
+    </tr>
+    <tr>
+      <td id="package.default_deprecation"><code>default_deprecation</code></td>
+      <td>
+        <p><code>String; optional</code></p>
+        <p>Sets the default <a href="common-definitions.html#common.deprecation">
+        <code>deprecation</code></a> message for all rules in this package.</p>
+      </td>
+    </tr>
+    <tr>
+      <td id="package.default_testonly"><code>default_testonly</code></td>
+      <td>
+        <p><code>Boolean; optional; default is 0 except as noted</code></p>
+        <p>Sets the default <a href="common-definitions.html#common.testonly">
+        <code>testonly</code></a> property for all rules in this package.</p>
+        <p>In packages under <code>javatests</code> the default value is 1.</p>
+      </td>
+    </tr>
+    <tr>
+      <td id="package.features"><code>features</code></td>
+      <td>
+        <p><code>List strings; optional</code></p>
+        <p>Sets various flags that affect the semantics of this BUILD file.</p>
+        <p>This feature is mainly used by the people working on the build system to
+        tag packages that need some kind of special handling. Do not use this unless
+        explicitly requested by someone working on the build system.</p>
+
+      </td>
+    </tr>
+
+  </tbody>
+</table>
+
+<h3 id="package_example">Examples</h3>
+
+The declaration below declares that the rules in this package are
+visible only to members of package
+group <code>//foo:target</code>. Individual visibility declarations
+on a rule, if present, override this specification.
+
+<pre class="code">
+package(default_visibility = ["//foo:target"])
+</pre>
+
+<!-- =================================================================
+                              package_group()
+     =================================================================
+-->
+
+<h2 id="package_group">package_group</h2>
+
+<pre>package_group(name, packages, includes)</pre>
+
+<p>This function defines a set of packages and assigns a label to the
+group. The label can be referenced in <code>visibility</code> attributes.</p>
+
+<p>Package groups are used for visibility control.  You can grant access to a rule
+to one or more package groups, every rule in the entire source tree, or only to rules declared
+in the same package. For more detailed description of the visibility system, see
+the <a href="common-definitions.html#common.visibility">visibility</a> attribute.
+
+<h3 id="package_group_args">Arguments</h3>
+
+<table class="table table-condensed table-bordered table-params">
+  <colgroup>
+    <col class="col-param" />
+    <col class="param-description" />
+  </colgroup>
+  <thead>
+    <tr>
+      <th>Attribute</th>
+      <th>Description</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td id="package_group.name"><code>name</code></td>
+      <td>
+        <p><code><a href="../build-ref.html#name">Name</a>; required</code></p>
+        <p>A unique name for this target.</p>
+      </td>
+    </tr>
+    <tr>
+      <td id="package_group.packages"><code>packages</code></td>
+      <td>
+        <p><code>List of <a href="../build-ref.html#packages">Package</a>; optional</code></p>
+        <p>A complete enumeration of packages in this group.</p>
+
+        <p>Packages should be referred to using their full names,
+        starting with a double slash. For
+        example, <code>//foo/bar/main</code> is a valid element
+        of this list.</p>
+
+        <p>You can also specify wildcards: the specification
+        <code>//foo/...</code> specifies every package under
+        <code>//foo</code>, including <code>//foo</code> itself.</p>
+
+        <p>Package specifications can be prefixed with <code>-</code> to
+        indicate negation: the specification <code>-//foo/bar/...</code>
+        excludes all packages under <code>//foo/bar</code> that would
+        otherwise have been matched by the package patterns in the
+        current <code>package_group</code>. When used together with
+        <code>includes</code>, the set of packages for each package group
+        is computed and then the results are unioned: negative patterns
+        in one package group do not affect the result of included package
+        groups.
+
+        <p>If this attribute is missing, the package group itself will contain
+        no packages (but it can still include other package groups).</p>
+      </td>
+    </tr>
+    <tr>
+      <td id="package_group.includes"><code>includes</code></td>
+      <td>
+        <p><code>List of <a href="../build-ref.html#labels">labels</a>; optional</code></p>
+        <p>Other package groups that are included in this one.</p>
+
+        <p>The labels in this attribute must refer to other package
+        groups. Packages in referenced package groups are taken to be part
+        of this package group. This is transitive, that is, if package
+        group <code>a</code> contains package group <code>b</code>,
+        and <code>b</code> contains package group <code>c</code>, every
+        package in <code>c</code> will also be a member of <code>a</code>.</p>
+      </td>
+    </tr>
+  </tbody>
+</table>
+
+<h3 id="package_group_example">Examples</h3>
+
+<p>The following <code>package_group</code> declaration specifies a
+package group called "tropical" that contains tropical fruits.</p>
+
+<pre class="code">
+package_group(
+    name = "tropical",
+    packages = [
+        "//fruits/mango",
+        "//fruits/orange",
+        "//fruits/papaya/...",
+    ],
+)
+</pre>
+
+<p>The following declarations specify the package groups of a fictional
+application:</p>
+
+<pre class="code">
+package_group(
+    name = "fooapp",
+    includes = [
+        ":controller",
+        ":model",
+        ":view",
+    ],
+)
+
+package_group(
+    name = "model",
+    packages = ["//fooapp/database"],
+)
+
+package_group(
+    name = "view",
+    packages = [
+        "//fooapp/swingui",
+        "//fooapp/webui",
+    ],
+)
+
+package_group(
+    name = "controller",
+    packages = ["//fooapp/algorithm"],
+)
+</pre>
+
+<!-- =================================================================
+                        exports_files([label, ...])
+     =================================================================
+  -->
+
+<h2 id="exports_files">exports_files</h2>
+
+<pre>exports_files([<i>label</i>, ...], visibility, licenses)</pre>
+
+<p>
+  <code>exports_files()</code> specifies a list of files belonging to
+  this package that are exported to other packages but not otherwise
+  mentioned in the BUILD file.
+</p>
+
+<p>
+  The BUILD file for a package may only refer to files belonging to another
+  package if they are mentioned somewhere in the other packages's BUILD file,
+  whether as an input to a rule or an explicit or implicit output from a rule.
+  The remaining files are not associated with a specific rule but are just "data",
+  and for these, <code>exports_files</code> ensures that they may be referenced by
+  other packages.  (One kind of data for which this is particularly useful are
+  shell scripts.)
+</p>
+
+<h3 id="exports_files_args">Arguments</h3>
+
+<p>
+  The argument is a list of names of files within the current package. A
+  visibility declaration can also be specified; in this case, the files will be
+  visible to the targets specified. If no visibility is specified, the files
+  will be visible to every package, even if a package default visibility was
+  specified in the <code><a href="functions.html#package">package</a></code>
+  function. The <a href="common-definitions.html#common.licenses">licenses</a>
+  can also be specified.
+</p>
+
+<h3 id="exports_files_example">Example</h3>
+
+<p>
+  The following example exports <code>golden.txt</code>, a
+  text file from the <code>test_data</code> package, so that other
+  packages may use it, for example, in the <code>data</code> attribute
+  of tests.
+</p>
+
+<pre class="code">
+# from //test_data/BUILD
+
+exports_files(["golden.txt"])
+</pre>
+
+<!-- =================================================================
+                               glob()
+     =================================================================
+  -->
+
+<h2 id="glob">glob</h2>
+
+<pre>glob(include, exclude=[], exclude_directories=1)</pre>
+
+<p>
+Glob is a helper function that can be used anywhere a list of filenames
+is expected.  It takes one or two lists of filename patterns containing
+the <code>*</code> wildcard: as per the Unix shell, this wildcard
+matches any string excluding the directory separator <code>/</code>.
+In addition filename patterns can contain the recursive <code>**</code>
+wildcard. This wildcard will match zero or more complete
+path segments separated by the directory separator <code>/</code>.
+This wildcard can only be used as a complete path segment. For example,
+<code>"x/**/*.java"</code> is valid, but <code>"test**/testdata.xml"</code>
+and <code>"**.java"</code> are both invalid. No other wildcards are supported.
+</p>
+<p>
+Glob returns a sorted list of every file in the current package that:
+</p>
+<ul>
+  <li>Matches at least one pattern in <code>include</code>. </li>
+  <li>Does not match any of the patterns in <code>exclude</code> (default []).</li>
+</ul>
+<p>
+If the <code>exclude_directories</code> argument is enabled (set to 1), files of
+type directory will be omitted from the results (default 1).
+</p>
+<p>
+There are several important limitations and caveats:
+</p>
+
+<ol>
+  <li>
+    Since <code>glob()</code> runs during BUILD file evaluation,
+    <code>glob()</code> matches files only in your source tree, never
+    generated files.  If you are building a target that requires both
+    source and generated files, create a list of generated
+    files. This list can be specified by using the labels for the generated
+    files or using the label
+    for the target that produces the generated files.
+    Use <code>+</code> to add the list of
+    generated files to the result of the <code>glob()</code> call as shown in
+    the <a href="#glob_example">example</a>
+    below with the target <code>:gen_java_srcs</code>.
+  </li>
+
+  <li>
+    Globs may match files in subdirectories.  And subdirectory names
+    may be wildcarded.  However...
+  </li>
+
+  <li>
+    Labels are not allowed to cross the package boundary and glob does
+    not match files in subpackages.
+
+    For example, the glob expression <code>**/*.cc</code> in package
+    <code>x</code> does not include <code>x/y/z.cc</code> if
+    <code>x/y</code> exists as a package (either as
+    <code>x/y/BUILD</code>, or somewhere else on the package-path). This
+    means that the result of the glob expression actually depends on the
+    existence of BUILD files &mdash; that is, the same glob expression would
+    include <code>x/y/z.cc</code> if there was no package called
+    <code>x/y</code> or it was marked as deleted using the
+    <a href="../user-manual.html#flag--deleted_packages">--deleted_packages</a>
+    flag.
+
+  </li>
+
+  <li>
+    The restriction above applies to all glob expressions,
+    no matter which wildcards they use.
+  </li>
+  <li>
+    A hidden file with filename starting with <code>.</code> is completely matched by
+    both the <code>**</code> and the <code>*</code> wildcards. If you want to match a hidden file
+    with a compound pattern, your pattern needs to begin with a <code>.</code>. For example,
+    <code>*</code> and <code>.*.txt</code> will match <code>.foo.txt</code>, but <code>*.txt</code>
+    will not.
+  </li>
+  <li>
+    If a rule and a source file with the same name both exist in the package, the glob will
+    return the outputs of the rule instead of the source file.
+  </li>
+
+  <li>
+    The "**" wildcard has one corner case: the pattern
+    <code>"**"</code> doesn't match the package's directory path. That is to
+    say, <code>glob(["**"], exclude_directories = 0)</code> matches all files
+    and directories transitively strictly under the current package's directory
+    (but of course not going into directories of subpackages - see the previous
+    note about that).
+  </li>
+</ol>
+
+<p>
+In general, you should <b>try to provide an appropriate extension (e.g. *.html)
+instead of using a bare '*'</b> for a glob pattern. The more explicit name
+is both self documenting and ensures that you don't accidentally match backup
+files, or emacs/vi/... auto-save files.
+</p>
+
+<p>
+When writing build rules you can enumerate the elements of the glob. This
+enables generating individual rules for every input, for example. See the
+<a href="#expanded_glob_example">expanded glob example</a> section below.
+</p>
+
+<h3 id="glob_example">Glob Examples</h3>
+
+<p> Create a Java library built from all java files in this directory,
+and all files generated by the <code>:gen_java_srcs</code> rule.</p>
+<pre class="code">
+java_library(
+    name = "mylib",
+    srcs = glob(["*.java"]) + [":gen_java_srcs"],
+    deps = "...",
+)
+
+genrule(
+    name = "gen_java_srcs",
+    outs = [
+        "Foo.java",
+        "Bar.java",
+    ],
+    ...
+)
+</pre>
+
+<p>Include all txt files in directory testdata except experimental.txt.
+Note that files in subdirectories of testdata will not be included. If
+you want those files to be included, use a recursive glob (**).</p>
+<pre class="code">
+sh_test(
+    name = "mytest",
+    srcs = ["mytest.sh"],
+    data = glob(
+        ["testdata/*.txt"],
+        exclude = ["testdata/experimental.txt"],
+    ),
+)
+</pre>
+
+<h3 id="recursive_glob_example">Recursive Glob Examples</h3>
+
+<p>Make the test depend on all txt files in the testdata directory and any
+   of its subdirectories (and their subdirectories, and so on).
+   Subdirectories containing a BUILD file are ignored. (See limitations
+   and caveats above.)</p>
+<pre class="code">
+sh_test(
+    name = "mytest",
+    srcs = ["mytest.sh"],
+    data = glob(["testdata/**/*.txt"]),
+)
+</pre>
+
+<p>Create a library built from all java files in this directory and all
+subdirectories except those whose path includes a directory named testing.
+<b>This pattern should be avoided if possible, as it can reduce build
+incrementality and therefore increase build times.</b>
+</p>
+<pre class="code">
+java_library(
+    name = "mylib",
+    srcs = glob(
+        ["**/*.java"],
+        exclude = ["**/testing/**"],
+    ),
+)
+</pre>
+
+<h3 id="expanded_glob_example">Expanded Glob Examples</h3>
+
+<p>
+Create an individual genrule for *_test.cc in the current directory
+that counts the number of lines in the file.
+</p>
+
+<pre class="code">
+# Conveniently, the build language supports list comprehensions.
+[genrule(
+    name = "count_lines_" + f[:-3],  # strip ".cc"
+    srcs = [f],
+    outs = ["%s-linecount.txt" % f[:-3]],
+    cmd = "wc -l $&lt; &gt;$@",
+ ) for f in glob(["*_test.cc"])]
+</pre>
+
+<p>
+If the BUILD file above is in package //foo and the package contains three
+matching files, a_test.cc, b_test.cc and c_test.cc then running
+<code>bazel query '//foo:all'</code> will list all rules that were generated:
+
+<pre>
+$ bazel query '//foo:all' | sort
+//foo:count_lines_a_test
+//foo:count_lines_b_test
+//foo:count_lines_c_test
+</pre>
+
+<!-- =================================================================
+                              select()
+     =================================================================
+-->
+
+<h2 id="select">select</h2>
+
+<pre>
+select(
+    {conditionA: valuesA, conditionB: valuesB, ...},
+    no_match_error = "custom message"
+)
+</pre>
+
+<p><code>select()</code> is the helper function that makes a rule attribute
+  <a href="common-definitions.html#configurable-attributes">configurable</a>.
+  It can replace the right-hand side of
+
+  <i>almost</i>
+  any attribute assignment so its value depends on command-line Bazel flags.
+  This can be used, for example, to define platform-specific dependencies or to
+  embed different resources depending on whether a rule is built in "developer"
+  vs. "release" mode.
+</p>
+
+<p>Basic usage is as follows:</p>
+
+<pre class="code">
+sh_binary(
+    name = "myrule",
+    srcs = select({
+        ":conditionA": ["myrule_a.sh"],
+        ":conditionB": ["myrule_b.sh"],
+        "//conditions:default": ["myrule_default.sh"]
+    })
+)
+</pre>
+
+<p>This makes the <code>srcs</code> attribute of
+  a <code>sh_binary</code> configurable by replacing its normal label
+  list assignment with a <code>select</code> call that maps
+  configuration conditions to matching values. Each condition is a label
+  reference to
+  a <code><a href="general.html#config_setting">config_setting</a></code> instance,
+  which "matches" if the rule's configuration matches an expected set of
+  values. The value of <code>myrule#srcs</code> then becomes whichever
+  label list matches the current invocation.
+</p>
+
+<p>Further notes:</p>
+
+<ul>
+  <li>Exactly one condition is selected on any invocation.
+  </li>
+  <li>If multiple conditions match and one is a specialization of the others,
+    the specialization takes precedence. Condition B is considered a
+    specialization of condition A if B has all the same flags as A plus some
+    additional flags. However, the number of constraint values that A and B have
+    are not considered in this comparison -- one condition cannot match a
+    platform <i>more than</i> another condition does.
+  </li>
+  <li>If multiple conditions match and one is not a specialization of all the
+    others, Bazel fails with an error.
+  </li>
+  <li>The special pseudo-label <code>//conditions:default</code> is
+    considered to match if no other condition matches. If this condition
+    is left out, some other rule must match to avoid an error.
+  </li>
+  <li><code>select</code> can be embedded <i>inside</i> a larger
+    attribute assignment. So <code>srcs = ["common.sh"]
+    + select({ ":conditionA": ["myrule_a.sh"], ...})</code> and <code>
+    srcs = select({ ":conditionA": ["a.sh"]}) + select({ ":conditionB":
+    ["b.sh"]})</code> are valid expressions.
+  </li>
+  <li><code>select</code> works with most, but not all, attributes. Incompatible
+  attributes are marked <code>nonconfigurable</code> in their documentation.
+
+  </li>
+</ul>
+
+By default, Bazel produces the following error when no conditions match:
+<pre class="code">
+Configurable attribute "foo" doesn't match this configuration (would a default
+condition help?).
+Conditions checked:
+ //pkg:conditionA.
+ //pkg:conditionB.
+</pre>
+
+<code>no_match_error</code> can be used to signal more precise errors.
+
+<h3 id="select_example">Examples</h3>
+
+<pre class="code">
+config_setting(
+    name = "windows",
+    values = {
+        "crosstool_top": "//crosstools/windows",
+    },
+)
+
+cc_binary(
+    name = "multiplatform_app",
+    ...
+    linkopts = select({
+        ":windows": [
+            "-Wl,windows_support1.lib",
+            "-Wl,windows_support2.lib",
+        ],
+        "//conditions:default": [],
+    ...
+)
+</pre>
+
+<p>In the above example, <code>multiplatform_app</code> links with additional
+  options when invoked with <code>bazel build //pkg:multiplatform_app
+  --crosstool_top=//crosstools/windows </code>.
+
+<p>
+
+#if (!$singlePage)
+#parse("com/google/devtools/build/docgen/templates/be/footer.vm")
+#end

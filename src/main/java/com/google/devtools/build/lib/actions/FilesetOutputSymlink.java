@@ -1,4 +1,4 @@
-// Copyright 2014 Google Inc. All rights reserved.
+// Copyright 2014 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -13,69 +13,133 @@
 // limitations under the License.
 package com.google.devtools.build.lib.actions;
 
+import com.google.auto.value.AutoValue;
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Objects;
-import com.google.common.base.Preconditions;
+import com.google.devtools.build.lib.util.BigIntegerFingerprint;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import java.math.BigInteger;
 
 /** Definition of a symlink in the output tree of a Fileset rule. */
-public final class FilesetOutputSymlink {
-  private static final String STRIPPED_METADATA = "<stripped-for-testing>";
+@AutoValue
+public abstract class FilesetOutputSymlink {
 
   /** Final name of the symlink relative to the Fileset's output directory. */
-  public final PathFragment name;
+  public abstract PathFragment getName();
 
-  /** Target of the symlink. Depending on FilesetEntry.symlinks it may be relative or absolute. */
-  public final PathFragment target;
+  /**
+   * Target of the symlink.
+   *
+   * <p>This path is one of the following:
+   *
+   * <ol>
+   *   <li>Relative to the execution root, in which case {@link #isRelativeToExecRoot} will return
+   *       {@code true}.
+   *   <li>An absolute path to the source tree.
+   *   <li>A relative path that should be considered relative to the link.
+   * </ol>
+   */
+  public abstract PathFragment getTargetPath();
 
-  /** Opaque metadata about the link and its target; should change if either of them changes. */
-  public final String metadata;
+  /**
+   * Return the best effort metadata about the target. Currently this will be a FileStateValue for
+   * source targets. For generated targets we try to return a FileArtifactValue when possible, or
+   * else this will be a synthetic digest of the target.
+   */
+  public abstract HasDigest getMetadata();
+
+  /** true if the target is a generated artifact */
+  public abstract boolean isGeneratedTarget();
+
+  /** Returns {@code true} if this symlink is relative to the execution root. */
+  public abstract boolean isRelativeToExecRoot();
+
+  /**
+   * Reconstitutes the original target path of this symlink.
+   *
+   * <p>This method essentially performs the inverse of what is done in {@link #create}. If the
+   * execution root was stripped originally, it is re-prepended.
+   */
+  public final PathFragment reconstituteTargetPath(PathFragment execRoot) {
+    return isRelativeToExecRoot() ? execRoot.getRelative(getTargetPath()) : getTargetPath();
+  }
+
+  @Override
+  public final String toString() {
+    if (getMetadata() == HasDigest.EMPTY) {
+      return String.format(
+          "FilesetOutputSymlink(%s -> %s)",
+          getName().getPathString(), getTargetPath().getPathString());
+    } else {
+      return String.format(
+          "FilesetOutputSymlink(%s -> %s | metadataHash=%s)",
+          getName().getPathString(), getTargetPath().getPathString(), getMetadata());
+    }
+  }
+
+  public BigInteger getFingerprint() {
+    return new BigIntegerFingerprint()
+        .addPath(getName())
+        .addPath(getTargetPath())
+        .addBoolean(isGeneratedTarget())
+        .addBoolean(isRelativeToExecRoot())
+        .getFingerprint();
+  }
 
   @VisibleForTesting
-  public FilesetOutputSymlink(PathFragment name, PathFragment target) {
-    this.name = name;
-    this.target = target;
-    this.metadata = STRIPPED_METADATA;
+  public static FilesetOutputSymlink createForTesting(
+      PathFragment name, PathFragment target, PathFragment execRoot) {
+    return create(name, target, HasDigest.EMPTY, false, execRoot);
+  }
+
+  @VisibleForTesting
+  public static FilesetOutputSymlink createAlreadyRelativizedForTesting(
+      PathFragment name, PathFragment target, boolean isRelativeToExecRoot) {
+    return createAlreadyRelativized(name, target, HasDigest.EMPTY, false, isRelativeToExecRoot);
   }
 
   /**
+   * Creates a {@link FilesetOutputSymlink}.
+   *
+   * <p>To facilitate cross-device sharing, {@code target} will have the machine-local {@code
+   * execRoot} stripped if necessary. If this happens, {@link #isRelativeToExecRoot} will return
+   * {@code true}.
+   *
    * @param name relative path under the Fileset's output directory, including FilesetEntry.destdir
-   *        with and FilesetEntry.strip_prefix applied (if applicable)
+   *     with and FilesetEntry.strip_prefix applied (if applicable)
    * @param target relative or absolute value of the link
-   * @param metadata opaque metadata about the link and its target; should change if either the link
-   *        or its target changes
+   * @param metadata metadata corresponding to the target.
+   * @param isGeneratedTarget true if the target is generated.
+   * @param execRoot the execution root
    */
-  public FilesetOutputSymlink(PathFragment name, PathFragment target, String metadata) {
-    this.name = Preconditions.checkNotNull(name);
-    this.target = Preconditions.checkNotNull(target);
-    this.metadata = Preconditions.checkNotNull(metadata);
+  public static FilesetOutputSymlink create(
+      PathFragment name,
+      PathFragment target,
+      HasDigest metadata,
+      boolean isGeneratedTarget,
+      PathFragment execRoot) {
+    boolean isRelativeToExecRoot = false;
+    // Check if the target is under the execution root. This is not always the case because the
+    // target may point to a source artifact or it may point to another symlink, in which case the
+    // target path is already relative.
+    if (target.startsWith(execRoot)) {
+      target = target.relativeTo(execRoot);
+      isRelativeToExecRoot = true;
+    }
+    return createAlreadyRelativized(
+        name, target, metadata, isGeneratedTarget, isRelativeToExecRoot);
   }
 
-  @Override
-  public boolean equals(Object obj) {
-    if (this == obj) {
-      return true;
-    }
-    if (obj == null || !obj.getClass().equals(getClass())) {
-      return false;
-    }
-    FilesetOutputSymlink o = (FilesetOutputSymlink) obj;
-    return name.equals(o.name) && target.equals(o.target) && metadata.equals(o.metadata);
-  }
-
-  @Override
-  public int hashCode() {
-    return Objects.hashCode(name, target, metadata);
-  }
-
-  @Override
-  public String toString() {
-    if (metadata.equals(STRIPPED_METADATA)) {
-      return String.format("FilesetOutputSymlink(%s -> %s)",
-          name.getPathString(), target.getPathString());
-    } else {
-      return String.format("FilesetOutputSymlink(%s -> %s | metadata=%s)",
-          name.getPathString(), target.getPathString(), metadata);
-    }
+  /**
+   * Same as {@link #create}, except assumes that {@code target} already had the execution root
+   * stripped if necessary.
+   */
+  public static FilesetOutputSymlink createAlreadyRelativized(
+      PathFragment name,
+      PathFragment target,
+      HasDigest metadata,
+      boolean isGeneratedTarget,
+      boolean isRelativeToExecRoot) {
+    return new AutoValue_FilesetOutputSymlink(
+        name, target, metadata, isGeneratedTarget, isRelativeToExecRoot);
   }
 }

@@ -1,4 +1,4 @@
-// Copyright 2014 Google Inc. All rights reserved.
+// Copyright 2014 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -13,16 +13,17 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
+import com.google.common.collect.Interner;
+import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.vfs.Dirent;
-import com.google.devtools.build.lib.vfs.Dirent.Type;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.lib.vfs.Symlinks;
-import com.google.devtools.build.skyframe.SkyKey;
+import com.google.devtools.build.skyframe.AbstractSkyKey;
+import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyValue;
-
 import java.io.IOException;
 import java.io.Serializable;
 import java.util.Arrays;
@@ -31,13 +32,15 @@ import java.util.Collection;
 import java.util.Comparator;
 import java.util.Iterator;
 import java.util.Objects;
+import javax.annotation.Nullable;
 
 /**
  * Encapsulates the filesystem operations needed to get the directory entries of a directory.
  *
  * <p>This class is an implementation detail of {@link DirectoryListingValue}.
  */
-final class DirectoryListingStateValue implements SkyValue {
+@AutoCodec.VisibleForSerialization
+public final class DirectoryListingStateValue implements SkyValue {
 
   private final CompactSortedDirents compactSortedDirents;
 
@@ -45,19 +48,40 @@ final class DirectoryListingStateValue implements SkyValue {
     this.compactSortedDirents = CompactSortedDirents.create(dirents);
   }
 
-  @VisibleForTesting
-  public static DirectoryListingStateValue createForTesting(Collection<Dirent> dirents) {
+  @AutoCodec.Instantiator
+  public static DirectoryListingStateValue create(Collection<Dirent> dirents) {
     return new DirectoryListingStateValue(dirents);
   }
 
   public static DirectoryListingStateValue create(RootedPath dirRootedPath) throws IOException {
     Collection<Dirent> dirents = dirRootedPath.asPath().readdir(Symlinks.NOFOLLOW);
-    return new DirectoryListingStateValue(dirents);
+    return create(dirents);
   }
 
   @ThreadSafe
-  public static SkyKey key(RootedPath rootedPath) {
-    return new SkyKey(SkyFunctions.DIRECTORY_LISTING_STATE, rootedPath);
+  public static Key key(RootedPath rootedPath) {
+    return Key.create(rootedPath);
+  }
+
+  @AutoCodec.VisibleForSerialization
+  @AutoCodec
+  static class Key extends AbstractSkyKey<RootedPath> {
+    private static final Interner<Key> interner = BlazeInterners.newWeakInterner();
+
+    private Key(RootedPath arg) {
+      super(arg);
+    }
+
+    @AutoCodec.VisibleForSerialization
+    @AutoCodec.Instantiator
+    static Key create(RootedPath arg) {
+      return interner.intern(new Key(arg));
+    }
+
+    @Override
+    public SkyFunctionName functionName() {
+      return SkyFunctions.DIRECTORY_LISTING_STATE;
+    }
   }
 
   /**
@@ -65,7 +89,7 @@ final class DirectoryListingStateValue implements SkyValue {
    *
    * <p>Symlinks are not expanded.
    */
-  public Iterable<Dirent> getDirents() {
+  public Dirents getDirents() {
     return compactSortedDirents;
   }
 
@@ -87,7 +111,7 @@ final class DirectoryListingStateValue implements SkyValue {
   }
 
   /** A space-efficient, sorted, immutable dirent structure. */
-  private static class CompactSortedDirents implements Iterable<Dirent>, Serializable {
+  private static class CompactSortedDirents implements Dirents, Serializable {
 
     private final String[] names;
     private final BitSet packedTypes;
@@ -107,7 +131,7 @@ final class DirectoryListingStateValue implements SkyValue {
           new Comparator<Integer>() {
             @Override
             public int compare(Integer o1, Integer o2) {
-              return direntArray[o1].getName().compareTo(direntArray[o2].getName());
+              return direntArray[o1].compareTo(direntArray[o2]);
             }
           });
       String[] names = new String[dirents.size()];
@@ -138,6 +162,13 @@ final class DirectoryListingStateValue implements SkyValue {
     }
 
     @Override
+    @Nullable
+    public Dirent maybeGetDirent(String baseName) {
+      int pos = Arrays.binarySearch(names, baseName);
+      return pos < 0 ? null : direntAt(pos);
+    }
+
+    @Override
     public Iterator<Dirent> iterator() {
       return new Iterator<Dirent>() {
 
@@ -160,7 +191,8 @@ final class DirectoryListingStateValue implements SkyValue {
       };
     }
 
-    private int size() {
+    @Override
+    public int size() {
       return names.length;
     }
 
@@ -170,13 +202,13 @@ final class DirectoryListingStateValue implements SkyValue {
       boolean upper = packedTypes.get(start);
       boolean lower = packedTypes.get(start + 1);
       if (!upper && !lower) {
-        return Type.FILE;
+        return Dirent.Type.FILE;
       } else if (!upper && lower){
-        return Type.DIRECTORY;
+        return Dirent.Type.DIRECTORY;
       } else if (upper && !lower) {
-        return Type.SYMLINK;
+        return Dirent.Type.SYMLINK;
       } else {
-        return Type.UNKNOWN;
+        return Dirent.Type.UNKNOWN;
       }
     }
 

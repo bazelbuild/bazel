@@ -1,4 +1,4 @@
-// Copyright 2014 Google Inc. All rights reserved.
+// Copyright 2014 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -13,9 +13,16 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import com.google.devtools.build.lib.packages.BuildFileNotFoundException;
+import java.io.IOException;
+
 /** Indicates some sort of IO error while dealing with a Skylark extension. */
 public class ErrorReadingSkylarkExtensionException extends Exception {
-  public ErrorReadingSkylarkExtensionException(String message) {
-    super(message);
+  public ErrorReadingSkylarkExtensionException(BuildFileNotFoundException e) {
+    super(e.getMessage(), e);
+  }
+
+  public ErrorReadingSkylarkExtensionException(IOException e) {
+    super(e.getMessage(), e);
   }
 }

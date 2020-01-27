@@ -1,4 +1,4 @@
-// Copyright 2014 Google Inc. All rights reserved.
+// Copyright 2014 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,19 +14,28 @@
 
 package com.google.devtools.build.lib.rules.objc;
 
-import static com.google.devtools.build.lib.rules.objc.XcodeProductType.LIBRARY_STATIC;
-
-import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
-import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
+import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
+import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.packages.SymbolGenerator;
 import com.google.devtools.build.lib.packages.Type;
-import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
-import com.google.devtools.build.lib.rules.objc.ObjcCommon.CompilationAttributes;
-import com.google.devtools.build.lib.rules.objc.ObjcCommon.ResourceAttributes;
+import com.google.devtools.build.lib.rules.cpp.CcCommon;
+import com.google.devtools.build.lib.rules.cpp.CcCompilationContext;
+import com.google.devtools.build.lib.rules.cpp.CcInfo;
+import com.google.devtools.build.lib.rules.cpp.CcLinkingContext;
+import com.google.devtools.build.lib.rules.cpp.CcLinkingContext.LinkOptions;
+import com.google.devtools.build.lib.rules.cpp.LibraryToLink;
+import com.google.devtools.build.lib.vfs.FileSystemUtils;
+import java.util.Map;
+import java.util.TreeMap;
 
 /**
  * Implementation for {@code objc_library}.
@@ -34,91 +43,150 @@ import com.google.devtools.build.lib.rules.objc.ObjcCommon.ResourceAttributes;
 public class ObjcLibrary implements RuleConfiguredTargetFactory {
 
   /**
-   * An {@link IterableWrapper} containing extra library {@link Artifact}s to be linked into the
-   * final ObjC application bundle.
+   * Constructs an {@link ObjcCommon} instance based on the attributes of the given rule context.
    */
-  static final class ExtraImportLibraries extends IterableWrapper<Artifact> {
-
-    ExtraImportLibraries(Artifact... extraImportLibraries) {
-      super(extraImportLibraries);
-    }
-
-    ExtraImportLibraries(Iterable<Artifact> extraImportLibraries) {
-      super(extraImportLibraries);
-    }
-  }
-
-  /**
-   * Constructs an {@link ObjcCommon} instance based on the attributes of the given rule. The rule
-   * should inherit from {@link ObjcLibraryRule}..
-   */
-  static ObjcCommon common(RuleContext ruleContext, Iterable<SdkFramework> extraSdkFrameworks,
-      boolean alwayslink, ExtraImportLibraries extraImportLibraries,
-      Iterable<ObjcProvider> extraDepObjcProviders) {
-    CompilationArtifacts compilationArtifacts =
-        CompilationSupport.compilationArtifacts(ruleContext);
-
+  private ObjcCommon common(RuleContext ruleContext) throws InterruptedException {
     return new ObjcCommon.Builder(ruleContext)
-        .setCompilationAttributes(new CompilationAttributes(ruleContext))
-        .setResourceAttributes(new ResourceAttributes(ruleContext))
-        .addExtraSdkFrameworks(extraSdkFrameworks)
-        .addDefines(ruleContext.getTokenizedStringListAttr("defines"))
-        .setCompilationArtifacts(compilationArtifacts)
-        .addDepObjcProviders(ruleContext.getPrerequisites("deps", Mode.TARGET, ObjcProvider.class))
-        .addDepObjcProviders(
-            ruleContext.getPrerequisites("bundles", Mode.TARGET, ObjcProvider.class))
-        .addNonPropagatedDepObjcProviders(ruleContext.getPrerequisites("non_propagated_deps",
-            Mode.TARGET, ObjcProvider.class))
+        .setCompilationAttributes(
+            CompilationAttributes.Builder.fromRuleContext(ruleContext).build())
+        .setCompilationArtifacts(CompilationSupport.compilationArtifacts(ruleContext))
+        .addDeps(ruleContext.getPrerequisiteConfiguredTargetAndTargets("deps", Mode.TARGET))
+        .addRuntimeDeps(ruleContext.getPrerequisites("runtime_deps", Mode.TARGET))
         .setIntermediateArtifacts(ObjcRuleClasses.intermediateArtifacts(ruleContext))
-        .setAlwayslink(alwayslink)
-        .addExtraImportLibraries(extraImportLibraries)
-        .addDepObjcProviders(extraDepObjcProviders)
+        .setAlwayslink(ruleContext.attributes().get("alwayslink", Type.BOOLEAN))
+        .setHasModuleMap()
         .build();
   }
 
   @Override
-  public ConfiguredTarget create(RuleContext ruleContext) throws InterruptedException {
-    ObjcCommon common = common(
-        ruleContext, ImmutableList.<SdkFramework>of(),
-        ruleContext.attributes().get("alwayslink", Type.BOOLEAN), new ExtraImportLibraries(),
-        ImmutableList.<ObjcProvider>of());
-    OptionsProvider optionsProvider = optionsProvider(ruleContext);
+  public ConfiguredTarget create(RuleContext ruleContext)
+      throws InterruptedException, RuleErrorException, ActionConflictException {
+    CcCommon.checkRuleLoadedThroughMacro(ruleContext);
+    validateAttributes(ruleContext);
 
-    XcodeProvider.Builder xcodeProviderBuilder = new XcodeProvider.Builder();
+    ObjcCommon common = common(ruleContext);
+
     NestedSetBuilder<Artifact> filesToBuild = NestedSetBuilder.<Artifact>stableOrder()
         .addAll(common.getCompiledArchive().asSet());
 
-    new CompilationSupport(ruleContext)
-        .registerCompileAndArchiveActions(common, optionsProvider)
-        .addXcodeSettings(xcodeProviderBuilder, common, optionsProvider)
+    Map<String, NestedSet<Artifact>> outputGroupCollector = new TreeMap<>();
+    ImmutableList.Builder<Artifact> objectFilesCollector = ImmutableList.builder();
+    CompilationSupport compilationSupport =
+        new CompilationSupport.Builder()
+            .setRuleContext(ruleContext)
+            .setOutputGroupCollector(outputGroupCollector)
+            .setObjectFilesCollector(objectFilesCollector)
+            .build();
+
+    compilationSupport
+        .registerCompileAndArchiveActions(common)
+        .registerFullyLinkAction(
+            common.getObjcProvider(),
+            ruleContext.getImplicitOutputArtifact(CompilationSupport.FULLY_LINKED_LIB))
         .validateAttributes();
 
-    new ResourceSupport(ruleContext)
-        .registerActions(common.getStoryboards())
-        .validateAttributes()
-        .addXcodeSettings(xcodeProviderBuilder);
+    J2ObjcMappingFileProvider j2ObjcMappingFileProvider = J2ObjcMappingFileProvider.union(
+            ruleContext.getPrerequisites("deps", Mode.TARGET, J2ObjcMappingFileProvider.class));
+    J2ObjcEntryClassProvider j2ObjcEntryClassProvider = new J2ObjcEntryClassProvider.Builder()
+      .addTransitive(ruleContext.getPrerequisites("deps", Mode.TARGET,
+          J2ObjcEntryClassProvider.class)).build();
+    ObjcProvider objcProvider = common.getObjcProvider();
+    CcCompilationContext ccCompilationContext =
+        CcCompilationContext.builder(
+                ruleContext, ruleContext.getConfiguration(), ruleContext.getLabel())
+            .addDeclaredIncludeSrcs(
+                CompilationAttributes.Builder.fromRuleContext(ruleContext).build().hdrs().toList())
+            .addTextualHdrs(common.getTextualHdrs())
+            .addDeclaredIncludeSrcs(common.getTextualHdrs())
+            .setPurpose(
+                compilationSupport
+                    .createObjcCppSemantics(
+                        objcProvider, /* privateHdrs= */ ImmutableList.of(), /* pchHdr= */ null)
+                    .getPurpose())
+            .build();
 
-    new XcodeSupport(ruleContext)
-        .addFilesToBuild(filesToBuild)
-        .addXcodeSettings(xcodeProviderBuilder, common.getObjcProvider(), LIBRARY_STATIC)
-        .addDependencies(xcodeProviderBuilder, new Attribute("bundles", Mode.TARGET))
-        .addDependencies(xcodeProviderBuilder, new Attribute("deps", Mode.TARGET))
-        .addDependencies(xcodeProviderBuilder, new Attribute("non_propagated_deps", Mode.TARGET))
-        .registerActions(xcodeProviderBuilder.build());
+    CcLinkingContext ccLinkingContext =
+        buildCcLinkingContext(ruleContext.getLabel(), common, ruleContext.getSymbolGenerator());
 
-    return common.configuredTarget(
-        filesToBuild.build(),
-        Optional.of(xcodeProviderBuilder.build()),
-        Optional.of(common.getObjcProvider()),
-        Optional.<XcTestAppProvider>absent(),
-        Optional.of(ObjcRuleClasses.j2ObjcSrcsProvider(ruleContext)));
+    return ObjcRuleClasses.ruleConfiguredTarget(ruleContext, filesToBuild.build())
+        .addNativeDeclaredProvider(objcProvider)
+        .addSkylarkTransitiveInfo(ObjcProvider.SKYLARK_NAME, objcProvider)
+        .addProvider(J2ObjcEntryClassProvider.class, j2ObjcEntryClassProvider)
+        .addProvider(J2ObjcMappingFileProvider.class, j2ObjcMappingFileProvider)
+        .addNativeDeclaredProvider(
+            compilationSupport.getInstrumentedFilesProvider(objectFilesCollector.build()))
+        .addNativeDeclaredProvider(
+            CcInfo.builder()
+                .setCcCompilationContext(ccCompilationContext)
+                .setCcLinkingContext(ccLinkingContext)
+                .build())
+        .addOutputGroups(outputGroupCollector)
+        .build();
   }
 
-  private OptionsProvider optionsProvider(RuleContext ruleContext) {
-    return new OptionsProvider.Builder()
-        .addCopts(ruleContext.getTokenizedStringListAttr("copts"))
-        .addTransitive(Optional.fromNullable(
-            ruleContext.getPrerequisite("options", Mode.TARGET, OptionsProvider.class)))
-        .build();
+  private CcLinkingContext buildCcLinkingContext(
+      Label label, ObjcCommon common, SymbolGenerator<?> symbolGenerator) {
+    ImmutableSet.Builder<LibraryToLink> libraries = new ImmutableSet.Builder<>();
+    ObjcProvider objcProvider = common.getObjcProvider();
+    for (Artifact library : objcProvider.get(ObjcProvider.LIBRARY).toList()) {
+      libraries.add(
+          LibraryToLink.builder()
+              .setStaticLibrary(library)
+              .setLibraryIdentifier(
+                  FileSystemUtils.removeExtension(library.getRootRelativePathString()))
+              .build());
+    }
+
+    libraries.addAll(
+        convertLibrariesToStaticLibraries(objcProvider.get(ObjcProvider.CC_LIBRARY).toList()));
+
+    CcLinkingContext.Builder ccLinkingContext =
+        CcLinkingContext.builder()
+            .setOwner(label)
+            .addLibraries(ImmutableList.copyOf(libraries.build()));
+
+    ImmutableList.Builder<LinkOptions> userLinkFlags = ImmutableList.builder();
+    for (SdkFramework sdkFramework : objcProvider.get(ObjcProvider.SDK_FRAMEWORK).toList()) {
+      userLinkFlags.add(
+          LinkOptions.of(ImmutableList.of("-framework", sdkFramework.getName()), symbolGenerator));
+    }
+    ccLinkingContext.addUserLinkFlags(userLinkFlags.build());
+
+    return ccLinkingContext.build();
+  }
+
+  /**
+   * This method removes dynamic libraries from LibraryToLink objects coming from C++ dependencies.
+   * The reason for this is that objective-C rules do not support linking the dynamic version of the
+   * libraries.
+   */
+  private ImmutableList<LibraryToLink> convertLibrariesToStaticLibraries(
+      Iterable<LibraryToLink> librariesToLink) {
+    ImmutableList.Builder<LibraryToLink> libraries = ImmutableList.builder();
+    for (LibraryToLink libraryToLink : librariesToLink) {
+      LibraryToLink.Builder staticLibraryToLink = libraryToLink.toBuilder();
+      if (libraryToLink.getPicStaticLibrary() != null || libraryToLink.getStaticLibrary() != null) {
+        staticLibraryToLink.setDynamicLibrary(null);
+        staticLibraryToLink.setResolvedSymlinkDynamicLibrary(null);
+        staticLibraryToLink.setInterfaceLibrary(null);
+        staticLibraryToLink.setResolvedSymlinkInterfaceLibrary(null);
+      }
+      libraries.add(staticLibraryToLink.build());
+    }
+    return libraries.build();
+  }
+
+  /** Throws errors or warnings for bad attribute state. */
+  private static void validateAttributes(RuleContext ruleContext) throws RuleErrorException {
+    // TODO(b/129469095): objc_library cannot handle target names with slashes.  Rather than
+    // crashing bazel, we emit a useful error message.
+    if (ruleContext.getTarget().getName().indexOf('/') != -1) {
+      ruleContext.attributeError("name", "this attribute has unsupported character '/'");
+    }
+    for (String copt : ObjcCommon.getNonCrosstoolCopts(ruleContext)) {
+      if (copt.contains("-fmodules-cache-path")) {
+        ruleContext.ruleWarning(CompilationSupport.MODULES_CACHE_PATH_WARNING);
+      }
+    }
   }
 }

@@ -1,4 +1,4 @@
-// Copyright 2014 Google Inc. All rights reserved.
+// Copyright 2014 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,10 +14,9 @@
 package com.google.devtools.build.lib.skyframe;
 
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
-import com.google.devtools.build.lib.vfs.Path;
-
+import com.google.devtools.build.lib.vfs.Root;
+import com.google.devtools.common.options.OptionsProvider;
 import java.io.Closeable;
-
 import javax.annotation.Nullable;
 
 /**
@@ -37,11 +36,11 @@ public interface DiffAwareness extends Closeable {
      * Returns a {@link DiffAwareness} instance suitable for managing changes to files under the
      * given package path entry, or {@code null} if this factory cannot create such an instance.
      *
-     * <p> Skyframe has a collection of factories, and will create a {@link DiffAwareness} instance
+     * <p>Skyframe has a collection of factories, and will create a {@link DiffAwareness} instance
      * per package path entry using one of the factories that returns a non-null value.
      */
     @Nullable
-    DiffAwareness maybeCreate(Path pathEntry);
+    DiffAwareness maybeCreate(Root pathEntry);
   }
 
   /** Opaque view of the filesystem under a package path entry at a specific point in time. */
@@ -55,7 +54,7 @@ public interface DiffAwareness extends Closeable {
    *     {@link DiffAwareness} instance. The {@link DiffAwareness} is expected to close itself in
    *     this case.
    */
-  View getCurrentView() throws BrokenDiffAwarenessException;
+  View getCurrentView(OptionsProvider options) throws BrokenDiffAwarenessException;
 
   /**
    * Returns the set of files of interest that have been modified between the given two views.
@@ -72,6 +71,9 @@ public interface DiffAwareness extends Closeable {
    */
   ModifiedFileSet getDiff(View oldView, View newView)
       throws IncompatibleViewException, BrokenDiffAwarenessException;
+
+  /** @return the name of this implementation */
+  String name();
 
   /**
    * Must be called whenever the {@link DiffAwareness} object is to be discarded. Using a

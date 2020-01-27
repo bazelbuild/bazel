@@ -1,4 +1,4 @@
-// Copyright 2014 Google Inc. All rights reserved.
+// Copyright 2014 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -13,17 +13,20 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.vfs.RootedPath;
 
 /** Exception indicating that a cycle was found in the filesystem. */
-public class FileSymlinkCycleException extends Exception {
-
+@VisibleForSerialization
+public class FileSymlinkCycleException extends FileSymlinkException {
   private final ImmutableList<RootedPath> pathToCycle;
   private final ImmutableList<RootedPath> cycle;
 
-  FileSymlinkCycleException(ImmutableList<RootedPath> pathToCycle,
-      ImmutableList<RootedPath> cycle) {
+  public FileSymlinkCycleException(
+      ImmutableList<RootedPath> pathToCycle, ImmutableList<RootedPath> cycle) {
     // The cycle itself has already been reported by FileSymlinkCycleUniquenessValue, but we still
     // want to have a readable #getMessage.
     super("Symlink cycle");
@@ -35,15 +38,22 @@ public class FileSymlinkCycleException extends Exception {
    * The symlink path to the symlink cycle. For example, suppose 'a' -> 'b' -> 'c' -> 'd' -> 'c'.
    * The path to the cycle is 'a', 'b'.
    */
-  ImmutableList<RootedPath> getPathToCycle() {
+  @VisibleForSerialization
+  public ImmutableList<RootedPath> getPathToCycle() {
     return pathToCycle;
   }
 
   /**
-   * The symlink cycle. For example, suppose 'a' -> 'b' -> 'c' -> 'd' -> 'c'.
-   * The cycle is 'c', 'd'.
+   * The symlink cycle. For example, suppose 'a' -> 'b' -> 'c' -> 'd' -> 'c'. The cycle is 'c', 'd'.
    */
-  ImmutableList<RootedPath> getCycle() {
+  @VisibleForSerialization
+  public ImmutableList<RootedPath> getCycle() {
     return cycle;
+  }
+
+  @Override
+  public String getUserFriendlyMessage() {
+    return "Symlink cycle: "
+        + Joiner.on("- > ").join(Iterables.transform(cycle, RootedPath::asPath));
   }
 }

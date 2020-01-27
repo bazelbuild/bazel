@@ -1,4 +1,4 @@
-// Copyright 2014 Google Inc. All rights reserved.
+// Copyright 2014 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,13 +15,20 @@
 package com.google.devtools.build.lib.packages;
 
 import com.google.common.base.Splitter;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableRangeMap;
 import com.google.common.collect.Maps;
+import com.google.common.collect.Range;
+import com.google.common.collect.RangeMap;
 import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.OptionsParsingException;
-
+import java.time.Duration;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.EnumMap;
+import java.util.Iterator;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 
@@ -31,23 +38,79 @@ import java.util.Set;
 public enum TestTimeout {
 
   // These symbolic labels are used in the build files.
-  SHORT(0, 60, 60),
-  MODERATE(30, 300, 300),
-  LONG(300, 900, 900),
-  ETERNAL(900, 365 * 24 * 60 /* One year */, 3600);
+  SHORT(60),
+  MODERATE(300),
+  LONG(900),
+  ETERNAL(3600);
 
   /**
    * Default --test_timeout flag, used when collecting code coverage.
    */
-  public static String COVERAGE_CMD_TIMEOUT = "--test_timeout=300,600,1200,3600";
+  public static final String COVERAGE_CMD_TIMEOUT = "--test_timeout=300,600,1200,3600";
 
-  private final Integer rangeMin;
-  private final Integer rangeMax;
-  private final Integer timeout;
+  /** Map from test time to suggested TestTimeout. */
+  private static final RangeMap<Integer, TestTimeout> SUGGESTED_TIMEOUT;
 
-  private TestTimeout(Integer rangeMin, Integer rangeMax, Integer timeout) {
-    this.rangeMin = rangeMin;
-    this.rangeMax = rangeMax;
+  /**
+   * Map from TestTimeout to fuzzy range.
+   *
+   * <p>The fuzzy range is used to check whether the actual timeout is close to the upper bound of
+   * the current timeout or much smaller than the next shorter timeout. This is used to give
+   * suggestions to developers to update their timeouts.
+   */
+  private static final Map<TestTimeout, Range<Integer>> TIMEOUT_FUZZY_RANGE;
+
+  static {
+    // For the largest timeout, cap suggested and fuzzy ranges at one year.
+    final int maxTimeout = 365 * 24 * 60 * 60 /* One year */;
+
+    ImmutableRangeMap.Builder<Integer, TestTimeout> suggestedTimeoutBuilder =
+        ImmutableRangeMap.builder();
+    ImmutableMap.Builder<TestTimeout, Range<Integer>> timeoutFuzzyRangeBuilder =
+        ImmutableMap.builder();
+
+    int previousMaxSuggested = 0;
+    int previousTimeout = 0;
+
+    Iterator<TestTimeout> timeoutIterator = Arrays.asList(values()).iterator();
+    while (timeoutIterator.hasNext()) {
+      TestTimeout timeout = timeoutIterator.next();
+
+      // Set up time ranges for suggested timeouts and fuzzy timeouts. Fuzzy timeout ranges should
+      // be looser than suggested timeout ranges in order to make sure that after a test size is
+      // adjusted, it's difficult for normal time variance to push it outside the fuzzy timeout
+      // range.
+
+      // This should be exactly the previous max because there should be exactly one suggested
+      // timeout for any given time.
+      final int minSuggested = previousMaxSuggested;
+      // Only suggest timeouts that are less than 75% of the actual timeout (unless there are no
+      // higher timeouts). This should be low enough to prevent suggested times from causing test
+      // timeout flakiness.
+      final int maxSuggested =
+          timeoutIterator.hasNext() ? (int) (timeout.timeout * 0.75) : maxTimeout;
+
+      // Set fuzzy minimum timeout to half the previous timeout. If the test is that fast, it should
+      // be safe to use the shorter timeout.
+      final int minFuzzy = previousTimeout / 2;
+      // Set fuzzy maximum timeout to 90% of the timeout. A test this close to the limit can easily
+      // become timeout flaky.
+      final int maxFuzzy = timeoutIterator.hasNext() ? (int) (timeout.timeout * 0.9) : maxTimeout;
+
+      timeoutFuzzyRangeBuilder.put(timeout, Range.closedOpen(minFuzzy, maxFuzzy));
+
+      suggestedTimeoutBuilder.put(Range.closedOpen(minSuggested, maxSuggested), timeout);
+
+      previousMaxSuggested = maxSuggested;
+      previousTimeout = timeout.timeout;
+    }
+    SUGGESTED_TIMEOUT = suggestedTimeoutBuilder.build();
+    TIMEOUT_FUZZY_RANGE = timeoutFuzzyRangeBuilder.build();
+  }
+
+  private final int timeout;
+
+  private TestTimeout(int timeout) {
     this.timeout = timeout;
   }
 
@@ -60,7 +123,7 @@ public enum TestTimeout {
       return null;
     }
     try {
-      return TestTimeout.valueOf(attr.toUpperCase());
+      return TestTimeout.valueOf(attr.toUpperCase(Locale.ENGLISH));
     } catch (IllegalArgumentException e) {
       return null;
     }
@@ -78,36 +141,34 @@ public enum TestTimeout {
     return super.toString().toUpperCase();
   }
 
-  public Integer getTimeout() {
+  @Deprecated // use getTimeout instead
+  public int getTimeoutSeconds() {
     return timeout;
   }
-  /**
-   * Returns true iff the given time in seconds is exactly in the range of valid
-   * execution times for this TestSize.
-   */
-  public boolean isInRangeExact(Integer timeInSeconds) {
-    return timeInSeconds >= rangeMin && timeInSeconds < rangeMax;
+
+  public Duration getTimeout() {
+    return Duration.ofSeconds(timeout);
   }
 
   /**
-   * Returns true iff the given time in seconds is approximately (+/- 75%) in the range of valid
-   * execution times for this TestSize.
+   * Returns true iff the given time is not close to the upper bound timeout and is so short that it
+   * should be assigned a different timeout.
+   *
+   * <p>This is used to give suggestions to developers to update their timeouts. If this returns
+   * true, a more reasonable timeout can be selected with {@link #getSuggestedTestTimeout(int)}
    */
-  public boolean isInRangeFuzzy(Integer timeInSeconds) {
-    return timeInSeconds >= rangeMin - (rangeMin * .75)
-        && (this == ETERNAL || timeInSeconds <= rangeMax + (rangeMax * .75));
+  public boolean isInRangeFuzzy(int timeInSeconds) {
+    return TIMEOUT_FUZZY_RANGE.get(this).contains(timeInSeconds);
   }
 
   /**
    * Returns suggested test size for the given time in seconds.
+   *
+   * <p>Will suggest times that are unlikely to result in timeout flakiness even if the test has a
+   * significant amount of time variance.
    */
-  public static TestTimeout getSuggestedTestTimeout(Integer timeInSeconds) {
-    for (TestTimeout testTimeout : values()) {
-      if (testTimeout.isInRangeExact(timeInSeconds)) {
-        return testTimeout;
-      }
-    }
-    return ETERNAL;
+  public static TestTimeout getSuggestedTestTimeout(int timeInSeconds) {
+    return SUGGESTED_TIMEOUT.get(timeInSeconds);
   }
 
   /**
@@ -120,7 +181,7 @@ public enum TestTimeout {
       return null;  // attribute values must be lowercase
     }
     try {
-      return TestTimeout.valueOf(attr.toUpperCase());
+      return TestTimeout.valueOf(attr.toUpperCase(Locale.ENGLISH));
     } catch (IllegalArgumentException e) {
       return null;
     }
@@ -129,25 +190,25 @@ public enum TestTimeout {
   /**
    * Converter for the --test_timeout option.
    */
-  public static class TestTimeoutConverter implements Converter<Map<TestTimeout, Integer>> {
+  public static class TestTimeoutConverter implements Converter<Map<TestTimeout, Duration>> {
     public TestTimeoutConverter() {}
 
     @Override
-    public Map<TestTimeout, Integer> convert(String input) throws OptionsParsingException {
-      List<Integer> values = new ArrayList<>();
+    public Map<TestTimeout, Duration> convert(String input) throws OptionsParsingException {
+      List<Duration> values = new ArrayList<>();
       for (String token : Splitter.on(',').limit(6).split(input)) {
         // Handle the case of "2," which is accepted as legal... Because Splitter.split is lazy,
         // there's no way of knowing if an empty string is a trailing or an intermediate one,
         // so we can't fully emulate String.split(String, 0).
         if (!token.isEmpty() || values.size() > 1) {
           try {
-            values.add(Integer.valueOf(token));
+            values.add(Duration.ofSeconds(Integer.valueOf(token)));
           } catch (NumberFormatException e) {
             throw new OptionsParsingException("'" + input + "' is not an int");
           }
         }
       }
-      EnumMap<TestTimeout, Integer> timeouts = Maps.newEnumMap(TestTimeout.class);
+      EnumMap<TestTimeout, Duration> timeouts = Maps.newEnumMap(TestTimeout.class);
       if (values.size() == 1) {
         timeouts.put(SHORT, values.get(0));
         timeouts.put(MODERATE, values.get(0));
@@ -162,7 +223,7 @@ public enum TestTimeout {
         throw new OptionsParsingException("Invalid number of comma-separated entries");
       }
       for (TestTimeout label : values()) {
-        if (!timeouts.containsKey(label) || timeouts.get(label) <= 0) {
+        if (!timeouts.containsKey(label) || timeouts.get(label).compareTo(Duration.ZERO) <= 0) {
           timeouts.put(label, label.getTimeout());
         }
       }

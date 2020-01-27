@@ -1,4 +1,4 @@
-// Copyright 2014 Google Inc. All rights reserved.
+// Copyright 2014 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,55 +14,58 @@
 
 package com.google.devtools.build.lib.syntax;
 
+import javax.annotation.Nullable;
+
 /**
- * Syntax node for an assignment statement.
+ * Syntax node for an assignment statement ({@code lhs = rhs}) or augmented assignment statement
+ * ({@code lhs op= rhs}).
  */
 public final class AssignmentStatement extends Statement {
 
-  private final LValue lvalue;
-
-  private final Expression expression;
+  private final Expression lhs; // = IDENTIFIER | DOT | INDEX | LIST_EXPR
+  @Nullable private final TokenKind op;
+  private final Expression rhs;
 
   /**
-   *  Constructs an assignment: "lvalue := value".
+   * Constructs an assignment statement. For an ordinary assignment ({@code op == null}), the LHS
+   * expression must be of the form {@code id}, {@code x.y}, {@code x[i]}, {@code [e, ...]}, or
+   * {@code (e, ...)}, where x, i, and e are arbitrary expressions. For an augmented assignment, the
+   * list and tuple forms are disallowed.
    */
-  AssignmentStatement(Expression lvalue, Expression expression) {
-    this.lvalue = new LValue(lvalue);
-    this.expression = expression;
+  AssignmentStatement(Expression lhs, @Nullable TokenKind op, Expression rhs) {
+    this.lhs = lhs;
+    this.op = op;
+    this.rhs = rhs;
   }
 
-  /**
-   *  Returns the LHS of the assignment.
-   */
-  public LValue getLValue() {
-    return lvalue;
+  /** Returns the LHS of the assignment. */
+  public Expression getLHS() {
+    return lhs;
   }
 
-  /**
-   *  Returns the RHS of the assignment.
-   */
-  public Expression getExpression() {
-    return expression;
+  /** Returns the operator of an augmented assignment, or null for an ordinary assignment. */
+  @Nullable
+  public TokenKind getOperator() {
+    return op;
+  }
+
+  /** Reports whether this is an augmented assignment ({@code getOperator() != null}). */
+  public boolean isAugmented() {
+    return op != null;
+  }
+
+  /** Returns the RHS of the assignment. */
+  public Expression getRHS() {
+    return rhs;
   }
 
   @Override
-  public String toString() {
-    return lvalue + " = " + expression + '\n';
-  }
-
-  @Override
-  void exec(Environment env) throws EvalException, InterruptedException {
-    Object rvalue = expression.eval(env);
-    lvalue.assign(env, getLocation(), rvalue);
-  }
-
-  @Override
-  public void accept(SyntaxTreeVisitor visitor) {
+  public void accept(NodeVisitor visitor) {
     visitor.visit(this);
   }
 
   @Override
-  void validate(ValidationEnvironment env) throws EvalException {
-    lvalue.validate(env, getLocation(), expression.validate(env));
+  public Kind kind() {
+    return Kind.ASSIGNMENT;
   }
 }

@@ -1,4 +1,4 @@
-// Copyright 2014 Google Inc. All rights reserved.
+// Copyright 2014 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -13,71 +13,92 @@
 // limitations under the License.
 package com.google.devtools.build.lib.syntax;
 
-import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.vfs.PathFragment;
-
 import java.util.List;
 
-/**
- * Syntax node for an import statement.
- */
+/** Syntax node for an import statement. */
 public final class LoadStatement extends Statement {
 
-  public static final String PATH_ERROR_MSG = "Path '%s' is not valid. "
-      + "It should either start with a slash or refer to a file in the current directory.";
-  private final ImmutableList<Ident> symbols;
-  private final PathFragment importPath;
-
   /**
-   * Constructs an import statement.
+   * Binding represents a binding in a load statement. load("...", local = "orig")
+   *
+   * <p>If there's no alias, a single Identifier can be used for both local and orig.
    */
-  LoadStatement(String path, List<Ident> symbols) {
-    this.symbols = ImmutableList.copyOf(symbols);
-    this.importPath = new PathFragment(path + ".bzl");
-  }
+  public static final class Binding {
+    private final Identifier local;
+    private final Identifier orig;
 
-  public ImmutableList<Ident> getSymbols() {
-    return symbols;
-  }
+    public Identifier getLocalName() {
+      return local;
+    }
 
-  public PathFragment getImportPath() {
-    return importPath;
-  }
+    public Identifier getOriginalName() {
+      return orig;
+    }
 
-  @Override
-  public String toString() {
-    return String.format("load(\"%s\", %s)", importPath, Joiner.on(", ").join(symbols));
-  }
-
-  @Override
-  void exec(Environment env) throws EvalException, InterruptedException {
-    for (Ident i : symbols) {
-      try {
-        if (i.getName().startsWith("_")) {
-          throw new EvalException(getLocation(), "symbol '" + i + "' is private and cannot "
-              + "be imported");
-        }
-        env.importSymbol(getImportPath(), i.getName());
-      } catch (Environment.NoSuchVariableException | Environment.LoadFailedException e) {
-        throw new EvalException(getLocation(), e.getMessage());
-      }
+    Binding(Identifier localName, Identifier originalName) {
+      this.local = localName;
+      this.orig = originalName;
     }
   }
 
+  private final ImmutableList<Binding> bindings;
+  private final StringLiteral imp;
+  private final boolean mayLoadInternalSymbols;
+
+  /**
+   * Constructs an import statement.
+   *
+   * <p>{@code bindings} maps a symbol to the original name under which it was defined in the bzl
+   * file that should be loaded. If aliasing is used, the value differs from its key's {@code
+   * symbol.getName()}. Otherwise, both values are identical.
+   *
+   * <p>Import statements generated this way are bound to the usual restriction that private symbols
+   * cannot be loaded.
+   */
+  LoadStatement(StringLiteral imp, List<Binding> bindings) {
+    this.imp = imp;
+    this.bindings = ImmutableList.copyOf(bindings);
+    this.mayLoadInternalSymbols = false;
+  }
+
+  private LoadStatement(StringLiteral imp, List<Binding> bindings, boolean mayLoadInternalSymbols) {
+    this.imp = imp;
+    this.bindings = ImmutableList.copyOf(bindings);
+    this.mayLoadInternalSymbols = mayLoadInternalSymbols;
+  }
+
+  /**
+   * Out of a {@code LoadStatement} construct a new one loading the same symbols, but free from the
+   * usual visibility restriction of not being able to load private symbols.
+   */
+  public static LoadStatement allowLoadingOfInternalSymbols(LoadStatement load) {
+    return new LoadStatement(load.getImport(), load.getBindings(), true);
+  }
+
+  public ImmutableList<Binding> getBindings() {
+    return bindings;
+  }
+
+  public StringLiteral getImport() {
+    return imp;
+  }
+
+  /**
+   * Indicate whether this import statement is exempt from the restriction that private symbols may
+   * not be loaded.
+   */
+  public boolean mayLoadInternalSymbols() {
+    return mayLoadInternalSymbols;
+  }
+
   @Override
-  public void accept(SyntaxTreeVisitor visitor) {
+  public void accept(NodeVisitor visitor) {
     visitor.visit(this);
   }
 
   @Override
-  void validate(ValidationEnvironment env) throws EvalException {
-    if (!importPath.isAbsolute() && importPath.segmentCount() > 1) {
-      throw new EvalException(getLocation(), String.format(PATH_ERROR_MSG, importPath));
-    }
-    // TODO(bazel-team): implement semantical check.
-    for (Ident symbol : symbols) {
-      env.update(symbol.getName(), SkylarkType.UNKNOWN, getLocation());
-    }
+  public Kind kind() {
+    return Kind.LOAD;
   }
 }

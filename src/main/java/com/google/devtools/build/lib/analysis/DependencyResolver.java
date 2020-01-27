@@ -1,4 +1,4 @@
-// Copyright 2014 Google Inc. All rights reserved.
+// Copyright 2014 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -13,45 +13,48 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis;
 
-import com.google.common.base.Function;
+import com.google.auto.value.AutoValue;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
-import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.ListMultimap;
-import com.google.common.collect.Sets;
+import com.google.devtools.build.lib.analysis.AspectCollection.AspectCycleOnPathException;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
-import com.google.devtools.build.lib.collect.ImmutableSortedKeyListMultimap;
-import com.google.devtools.build.lib.packages.AspectDefinition;
-import com.google.devtools.build.lib.packages.AspectFactory;
+import com.google.devtools.build.lib.analysis.config.HostTransition;
+import com.google.devtools.build.lib.analysis.config.TransitionResolver;
+import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
+import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
+import com.google.devtools.build.lib.analysis.config.transitions.NullTransition;
+import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
+import com.google.devtools.build.lib.causes.Cause;
+import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.events.Location;
+import com.google.devtools.build.lib.packages.Aspect;
+import com.google.devtools.build.lib.packages.AspectClass;
+import com.google.devtools.build.lib.packages.AspectDescriptor;
 import com.google.devtools.build.lib.packages.Attribute;
-import com.google.devtools.build.lib.packages.Attribute.ConfigurationTransition;
 import com.google.devtools.build.lib.packages.Attribute.LateBoundDefault;
-import com.google.devtools.build.lib.packages.Attribute.SplitTransition;
 import com.google.devtools.build.lib.packages.AttributeMap;
+import com.google.devtools.build.lib.packages.AttributeTransitionData;
+import com.google.devtools.build.lib.packages.BuildType;
+import com.google.devtools.build.lib.packages.ConfiguredAttributeMapper;
 import com.google.devtools.build.lib.packages.EnvironmentGroup;
 import com.google.devtools.build.lib.packages.InputFile;
-import com.google.devtools.build.lib.packages.NoSuchThingException;
 import com.google.devtools.build.lib.packages.OutputFile;
 import com.google.devtools.build.lib.packages.PackageGroup;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.Target;
-import com.google.devtools.build.lib.packages.Type;
-import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.Label;
-
+import com.google.devtools.build.lib.util.OrderedSetMultimap;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
-import java.util.regex.Pattern;
-import java.util.regex.PatternSyntaxException;
-
 import javax.annotation.Nullable;
 
 /**
@@ -60,69 +63,113 @@ import javax.annotation.Nullable;
  * <p>Includes logic to derive the right configurations depending on transition type.
  */
 public abstract class DependencyResolver {
+
   /**
-   * A dependency of a configured target through a label.
+   * A kind of dependency.
    *
-   * <p>Includes the target and the configuration of the dependency configured target and any
-   * aspects that may be required.
-   *
-   * <p>Note that the presence of an aspect here does not necessarily mean that it will be created.
-   * They will be filtered based on the {@link TransitiveInfoProvider} instances their associated
-   * configured targets have (we cannot do that here because the configured targets are not
-   * available yet). No error or warning is reported in this case, because it is expected that rules
-   * sometimes over-approximate the providers they supply in their definitions.
+   * <p>Usually an attribute, but other special-cased kinds exist, for example, for visibility or
+   * toolchains.
    */
-  public static final class Dependency {
+  public interface DependencyKind {
 
     /**
-     * Returns the {@link ConfiguredTargetKey} for a direct dependency.
+     * The attribute through which a dependency arises.
      *
-     * <p>Essentially the same information as {@link Dependency} minus the aspects.
+     * <p>Returns {@code null} for visibility, the dependency pointing from an output file to its
+     * generating rule and toolchain dependencies.
      */
-    public static final Function<Dependency, ConfiguredTargetKey>
-        TO_CONFIGURED_TARGET_KEY = new Function<Dependency, ConfiguredTargetKey>() {
-          @Override
-          public ConfiguredTargetKey apply(Dependency input) {
-            return new ConfiguredTargetKey(input.getLabel(), input.getConfiguration());
-          }
-        };
+    @Nullable
+    Attribute getAttribute();
 
-    private final Label label;
-    private final BuildConfiguration configuration;
-    private final ImmutableSet<Class<? extends ConfiguredAspectFactory>> aspects;
+    /**
+     * The aspect owning the attribute through which the dependency arises.
+     *
+     * <p>Should only be called for dependency kinds representing an attribute.
+     */
+    @Nullable
+    AspectClass getOwningAspect();
+  }
 
-    public Dependency(Label label, BuildConfiguration configuration,
-        ImmutableSet<Class<? extends ConfiguredAspectFactory>> aspects) {
-      this.label = label;
-      this.configuration = configuration;
-      this.aspects = aspects;
+  /** A dependency caused by something that's not an attribute. Special cases enumerated below. */
+  private static final class NonAttributeDependencyKind implements DependencyKind {
+    private final String name;
+
+    private NonAttributeDependencyKind(String name) {
+      this.name = name;
     }
 
-    public Dependency(Label label, BuildConfiguration configuration) {
-      this(label, configuration, ImmutableSet.<Class<? extends ConfiguredAspectFactory>>of());
+    @Override
+    public Attribute getAttribute() {
+      return null;
     }
 
-    public Label getLabel() {
-      return label;
+    @Nullable
+    @Override
+    public AspectClass getOwningAspect() {
+      throw new IllegalStateException();
     }
 
-    public BuildConfiguration getConfiguration() {
-      return configuration;
-    }
-
-    public ImmutableSet<Class<? extends ConfiguredAspectFactory>> getAspects() {
-      return aspects;
+    @Override
+    public String toString() {
+      return String.format("%s(%s)", getClass().getSimpleName(), this.name);
     }
   }
 
-  protected DependencyResolver() {
+  /** A dependency for visibility. */
+  public static final DependencyKind VISIBILITY_DEPENDENCY =
+      new NonAttributeDependencyKind("VISIBILITY");
+
+  /** The dependency on the rule that creates a given output file. */
+  public static final DependencyKind OUTPUT_FILE_RULE_DEPENDENCY =
+      new NonAttributeDependencyKind("OUTPUT_FILE");
+
+  /** A dependency on a resolved toolchain. */
+  public static final DependencyKind TOOLCHAIN_DEPENDENCY =
+      new NonAttributeDependencyKind("TOOLCHAIN");
+
+  /** A dependency through an attribute, either that of an aspect or the rule itself. */
+  @AutoValue
+  public abstract static class AttributeDependencyKind implements DependencyKind {
+    @Override
+    public abstract Attribute getAttribute();
+
+    @Override
+    @Nullable
+    public abstract AspectClass getOwningAspect();
+
+    public static AttributeDependencyKind forRule(Attribute attribute) {
+      return new AutoValue_DependencyResolver_AttributeDependencyKind(attribute, null);
+    }
+
+    public static AttributeDependencyKind forAspect(Attribute attribute, AspectClass owningAspect) {
+      return new AutoValue_DependencyResolver_AttributeDependencyKind(
+          attribute, Preconditions.checkNotNull(owningAspect));
+    }
+  }
+
+  /**
+   * What we know about a dependency edge after factoring in the properties of the configured target
+   * that the edge originates from, but not the properties of target it points to.
+   */
+  @AutoValue
+  abstract static class PartiallyResolvedDependency {
+    public abstract Label getLabel();
+
+    public abstract ConfigurationTransition getTransition();
+
+    public abstract ImmutableList<Aspect> getPropagatingAspects();
+
+    static PartiallyResolvedDependency of(
+        Label label, ConfigurationTransition transition, ImmutableList<Aspect> propagatingAspects) {
+      return new AutoValue_DependencyResolver_PartiallyResolvedDependency(
+          label, transition, propagatingAspects);
+    }
   }
 
   /**
    * Returns ids for dependent nodes of a given node, sorted by attribute. Note that some
    * dependencies do not have a corresponding attribute here, and we use the null attribute to
-   * represent those edges. Visibility attributes are only visited if {@code visitVisibility} is
-   * {@code true}.
+   * represent those edges.
    *
    * <p>If {@code aspect} is null, returns the dependent nodes of the configured target node
    * representing the given target and configuration, otherwise that of the aspect node accompanying
@@ -136,65 +183,262 @@ public abstract class DependencyResolver {
    * <p>The long-term goal is that most configuration transitions be applied here. However, in order
    * to do that, we first have to eliminate transitions that depend on the rule class of the
    * dependency.
+   *
+   * @param node the target/configuration being evaluated
+   * @param hostConfig the configuration this target would use if it was evaluated as a host tool.
+   *     This is needed to support {@link LateBoundDefault#useHostConfiguration()}.
+   * @param aspect the aspect applied to this target (if any)
+   * @param configConditions resolver for config_setting labels
+   * @param toolchainContext the toolchain context for this target
+   * @param trimmingTransitionFactory the transition factory used to trim rules (note: this is a
+   *     temporary feature; see the corresponding methods in ConfiguredRuleClassProvider)
+   * @return a mapping of each attribute in this rule or aspects to its dependent nodes
    */
-  public final ListMultimap<Attribute, Dependency> dependentNodeMap(
-      TargetAndConfiguration node, AspectDefinition aspect,
-      Set<ConfigMatchingProvider> configConditions)
-      throws EvalException {
-    Target target = node.getTarget();
-    BuildConfiguration config = node.getConfiguration();
-    ListMultimap<Attribute, Dependency> outgoingEdges = ArrayListMultimap.create();
-    if (target instanceof OutputFile) {
-      Preconditions.checkNotNull(config);
-      visitTargetVisibility(node, outgoingEdges.get(null));
-      Rule rule = ((OutputFile) target).getGeneratingRule();
-      outgoingEdges.put(null, new Dependency(rule.getLabel(), config));
-    } else if (target instanceof InputFile) {
-      visitTargetVisibility(node, outgoingEdges.get(null));
-    } else if (target instanceof EnvironmentGroup) {
-      visitTargetVisibility(node, outgoingEdges.get(null));
-    } else if (target instanceof Rule) {
-      Preconditions.checkNotNull(config);
-      visitTargetVisibility(node, outgoingEdges.get(null));
-      Rule rule = (Rule) target;
-      ListMultimap<Attribute, LabelAndConfiguration> labelMap =
-          resolveAttributes(rule, aspect, config, configConditions);
-      visitRule(rule, aspect, labelMap, outgoingEdges);
-    } else if (target instanceof PackageGroup) {
-      visitPackageGroup(node, (PackageGroup) target, outgoingEdges.get(null));
-    } else {
-      throw new IllegalStateException(target.getLabel().toString());
+  public final OrderedSetMultimap<DependencyKind, Dependency> dependentNodeMap(
+      TargetAndConfiguration node,
+      BuildConfiguration hostConfig,
+      @Nullable Aspect aspect,
+      ImmutableMap<Label, ConfigMatchingProvider> configConditions,
+      @Nullable ToolchainContext toolchainContext,
+      @Nullable TransitionFactory<Rule> trimmingTransitionFactory)
+      throws EvalException, InterruptedException, InconsistentAspectOrderException {
+    NestedSetBuilder<Cause> rootCauses = NestedSetBuilder.stableOrder();
+    OrderedSetMultimap<DependencyKind, Dependency> outgoingEdges =
+        dependentNodeMap(
+            node,
+            hostConfig,
+            aspect != null ? ImmutableList.of(aspect) : ImmutableList.<Aspect>of(),
+            configConditions,
+            toolchainContext,
+            rootCauses,
+            trimmingTransitionFactory);
+    if (!rootCauses.isEmpty()) {
+      throw new IllegalStateException(rootCauses.build().toList().iterator().next().toString());
     }
     return outgoingEdges;
   }
 
-  private ListMultimap<Attribute, LabelAndConfiguration> resolveAttributes(
-      Rule rule, AspectDefinition aspect, BuildConfiguration configuration,
-      Set<ConfigMatchingProvider> configConditions)
-      throws EvalException {
-    ConfiguredAttributeMapper attributeMap = ConfiguredAttributeMapper.of(rule, configConditions);
-    attributeMap.validateAttributes();
-    List<Attribute> attributes;
-    if (aspect == null) {
-      attributes = rule.getRuleClassObject().getAttributes();
+  /**
+   * Returns ids for dependent nodes of a given node, sorted by attribute. Note that some
+   * dependencies do not have a corresponding attribute here, and we use the null attribute to
+   * represent those edges.
+   *
+   * <p>If {@code aspects} is empty, returns the dependent nodes of the configured target node
+   * representing the given target and configuration.
+   *
+   * <p>Otherwise {@code aspects} represents an aspect path. The function returns dependent nodes of
+   * the entire path applied to given target and configuration. These are the depenent nodes of the
+   * last aspect in the path.
+   *
+   * <p>This also implements the first step of applying configuration transitions, namely, split
+   * transitions. This needs to be done before the labels are resolved because late bound attributes
+   * depend on the configuration. A good example for this is @{code :cc_toolchain}.
+   *
+   * <p>The long-term goal is that most configuration transitions be applied here. However, in order
+   * to do that, we first have to eliminate transitions that depend on the rule class of the
+   * dependency.
+   *
+   * @param node the target/configuration being evaluated
+   * @param hostConfig the configuration this target would use if it was evaluated as a host tool.
+   *     This is needed to support {@link LateBoundDefault#useHostConfiguration()}.
+   * @param aspects the aspects applied to this target (if any)
+   * @param configConditions resolver for config_setting labels
+   * @param toolchainContext the toolchain context for this target
+   * @param trimmingTransitionFactory the transition factory used to trim rules (note: this is a
+   *     temporary feature; see the corresponding methods in ConfiguredRuleClassProvider)
+   * @param rootCauses collector for dep labels that can't be (loading phase) loaded
+   * @return a mapping of each attribute in this rule or aspects to its dependent nodes
+   */
+  public final OrderedSetMultimap<DependencyKind, Dependency> dependentNodeMap(
+      TargetAndConfiguration node,
+      BuildConfiguration hostConfig,
+      Iterable<Aspect> aspects,
+      ImmutableMap<Label, ConfigMatchingProvider> configConditions,
+      @Nullable ToolchainContext toolchainContext,
+      NestedSetBuilder<Cause> rootCauses,
+      @Nullable TransitionFactory<Rule> trimmingTransitionFactory)
+      throws EvalException, InterruptedException, InconsistentAspectOrderException {
+    Target target = node.getTarget();
+    BuildConfiguration config = node.getConfiguration();
+    OrderedSetMultimap<DependencyKind, Label> outgoingLabels = OrderedSetMultimap.create();
+
+    // TODO(bazel-team): Figure out a way to implement the below using LabelVisitationUtils.
+    if (target instanceof OutputFile) {
+      Preconditions.checkNotNull(config);
+      visitTargetVisibility(node, outgoingLabels);
+      Rule rule = ((OutputFile) target).getGeneratingRule();
+      outgoingLabels.put(OUTPUT_FILE_RULE_DEPENDENCY, rule.getLabel());
+    } else if (target instanceof InputFile) {
+      visitTargetVisibility(node, outgoingLabels);
+    } else if (target instanceof EnvironmentGroup) {
+      visitTargetVisibility(node, outgoingLabels);
+    } else if (target instanceof Rule) {
+      visitRule(node, hostConfig, aspects, configConditions, toolchainContext, outgoingLabels);
+    } else if (target instanceof PackageGroup) {
+      outgoingLabels.putAll(VISIBILITY_DEPENDENCY, ((PackageGroup) target).getIncludes());
     } else {
-      attributes = new ArrayList<>();
-      attributes.addAll(rule.getRuleClassObject().getAttributes());
-      if (aspect != null) {
-        attributes.addAll(aspect.getAttributes().values());
-      }
+      throw new IllegalStateException(target.getLabel().toString());
     }
 
-    ImmutableSortedKeyListMultimap.Builder<Attribute, LabelAndConfiguration> result =
-        ImmutableSortedKeyListMultimap.builder();
+    Rule fromRule = target instanceof Rule ? (Rule) target : null;
+    ConfiguredAttributeMapper attributeMap =
+        fromRule == null ? null : ConfiguredAttributeMapper.of(fromRule, configConditions);
 
-    resolveExplicitAttributes(rule, configuration, attributeMap, result);
-    resolveImplicitAttributes(rule, configuration, attributeMap, attributes, result);
-    resolveLateBoundAttributes(rule, configuration, attributeMap, attributes, result);
+    Map<Label, Target> targetMap = getTargets(outgoingLabels, target, rootCauses);
+    if (targetMap == null) {
+      // Dependencies could not be resolved. Try again when they are loaded by Skyframe.
+      return OrderedSetMultimap.create();
+    }
+
+    OrderedSetMultimap<DependencyKind, PartiallyResolvedDependency> partiallyResolvedDeps =
+        partiallyResolveDependencies(
+            outgoingLabels, fromRule, attributeMap, toolchainContext, aspects);
+
+    OrderedSetMultimap<DependencyKind, Dependency> outgoingEdges =
+        fullyResolveDependencies(
+            partiallyResolvedDeps, targetMap, node.getConfiguration(), trimmingTransitionFactory);
+
+    return outgoingEdges;
+  }
+
+  /**
+   * Factor in the properties of the current rule into the dependency edge calculation.
+   *
+   * <p>The target of the dependency edges depends on two things: the rule that depends on them and
+   * the type of target they depend on. This function takes the rule into account. Accordingly, it
+   * should <b>NOT</b> get the {@link Target} instances representing the targets of the dependency
+   * edges as an argument.
+   */
+  private OrderedSetMultimap<DependencyKind, PartiallyResolvedDependency>
+      partiallyResolveDependencies(
+          OrderedSetMultimap<DependencyKind, Label> outgoingLabels,
+          Rule fromRule,
+          ConfiguredAttributeMapper attributeMap,
+          @Nullable ToolchainContext toolchainContext,
+          Iterable<Aspect> aspects) {
+    OrderedSetMultimap<DependencyKind, PartiallyResolvedDependency> partiallyResolvedDeps =
+        OrderedSetMultimap.create();
+
+    for (Map.Entry<DependencyKind, Label> entry : outgoingLabels.entries()) {
+      Label toLabel = entry.getValue();
+
+      if (entry.getKey() == TOOLCHAIN_DEPENDENCY) {
+        // This dependency is a toolchain. Its package has not been loaded and therefore we can't
+        // determine which aspects and which rule configuration transition we should use, so just
+        // use sensible defaults. Not depending on their package makes the error message reporting
+        // a missing toolchain a bit better.
+        // TODO(lberki): This special-casing is weird. Find a better way to depend on toolchains.
+        partiallyResolvedDeps.put(
+            TOOLCHAIN_DEPENDENCY,
+            PartiallyResolvedDependency.of(
+                toLabel,
+                // TODO(jcater): Replace this with a proper transition for the execution platform.
+                HostTransition.INSTANCE,
+                ImmutableList.of()));
+        continue;
+      }
+
+      if (entry.getKey() == VISIBILITY_DEPENDENCY) {
+        partiallyResolvedDeps.put(
+            VISIBILITY_DEPENDENCY,
+            PartiallyResolvedDependency.of(toLabel, NullTransition.INSTANCE, ImmutableList.of()));
+        continue;
+      }
+
+      if (entry.getKey() == OUTPUT_FILE_RULE_DEPENDENCY) {
+        partiallyResolvedDeps.put(
+            OUTPUT_FILE_RULE_DEPENDENCY,
+            PartiallyResolvedDependency.of(toLabel, NoTransition.INSTANCE, ImmutableList.of()));
+        continue;
+      }
+
+      Attribute attribute = entry.getKey().getAttribute();
+      ImmutableList.Builder<Aspect> propagatingAspects = ImmutableList.builder();
+      propagatingAspects.addAll(attribute.getAspects(fromRule));
+      collectPropagatingAspects(
+          aspects, attribute.getName(), entry.getKey().getOwningAspect(), propagatingAspects);
+
+      Label executionPlatformLabel = null;
+      if (toolchainContext != null && toolchainContext.executionPlatform() != null) {
+        executionPlatformLabel = toolchainContext.executionPlatform().label();
+      }
+      AttributeTransitionData attributeTransitionData =
+          AttributeTransitionData.builder()
+              .attributes(attributeMap)
+              .executionPlatform(executionPlatformLabel)
+              .build();
+      ConfigurationTransition attributeTransition =
+          attribute.getTransitionFactory().create(attributeTransitionData);
+      partiallyResolvedDeps.put(
+          entry.getKey(),
+          PartiallyResolvedDependency.of(toLabel, attributeTransition, propagatingAspects.build()));
+    }
+    return partiallyResolvedDeps;
+  }
+
+  /**
+   * Factor in the properties of the target where the dependency points to in the dependency edge
+   * calculation.
+   *
+   * <p>The target of the dependency edges depends on two things: the rule that depends on them and
+   * the type of target they depend on. This function takes the rule into account. Accordingly, it
+   * should <b>NOT</b> get the {@link Rule} instance representing the rule whose dependencies are
+   * being calculated as an argument or its attributes and it should <b>NOT</b> do anything with the
+   * keys of {@code partiallyResolvedDeps} other than passing them on to the output map.
+   */
+  private OrderedSetMultimap<DependencyKind, Dependency> fullyResolveDependencies(
+      OrderedSetMultimap<DependencyKind, PartiallyResolvedDependency> partiallyResolvedDeps,
+      Map<Label, Target> targetMap,
+      BuildConfiguration originalConfiguration,
+      @Nullable TransitionFactory<Rule> trimmingTransitionFactory)
+      throws InconsistentAspectOrderException {
+    OrderedSetMultimap<DependencyKind, Dependency> outgoingEdges = OrderedSetMultimap.create();
+
+    for (Map.Entry<DependencyKind, PartiallyResolvedDependency> entry :
+        partiallyResolvedDeps.entries()) {
+      PartiallyResolvedDependency dep = entry.getValue();
+
+      Target toTarget = targetMap.get(dep.getLabel());
+      if (toTarget == null) {
+        // Dependency pointing to non-existent target. This error was reported in getTargets(), so
+        // we can just ignore this dependency.
+        continue;
+      }
+
+      ConfigurationTransition transition =
+          TransitionResolver.evaluateTransition(
+              originalConfiguration, dep.getTransition(), toTarget, trimmingTransitionFactory);
+
+      AspectCollection requiredAspects =
+          filterPropagatingAspects(dep.getPropagatingAspects(), toTarget);
+
+      outgoingEdges.put(
+          entry.getKey(),
+          Dependency.withTransitionAndAspects(dep.getLabel(), transition, requiredAspects));
+    }
+    return outgoingEdges;
+  }
+
+  private void visitRule(
+      TargetAndConfiguration node,
+      BuildConfiguration hostConfig,
+      Iterable<Aspect> aspects,
+      ImmutableMap<Label, ConfigMatchingProvider> configConditions,
+      @Nullable ToolchainContext toolchainContext,
+      OrderedSetMultimap<DependencyKind, Label> outgoingLabels)
+      throws EvalException {
+    Preconditions.checkArgument(node.getTarget() instanceof Rule, node);
+    BuildConfiguration ruleConfig = Preconditions.checkNotNull(node.getConfiguration(), node);
+    Rule rule = (Rule) node.getTarget();
+
+    ConfiguredAttributeMapper attributeMap = ConfiguredAttributeMapper.of(rule, configConditions);
+    attributeMap.validateAttributes();
+
+    visitTargetVisibility(node, outgoingLabels);
+    resolveAttributes(outgoingLabels, rule, attributeMap, aspects, ruleConfig, hostConfig);
 
     // Add the rule's visibility labels (which may come from the rule or from package defaults).
-    addExplicitDeps(result, rule, "visibility", rule.getVisibility().getDependencyLabels(),
-        configuration);
+    addExplicitDeps(outgoingLabels, rule, "visibility", rule.getVisibility().getDependencyLabels());
 
     // Add package default constraints when the rule doesn't explicitly declare them.
     //
@@ -220,335 +464,241 @@ public abstract class DependencyResolver {
     // above). But within the scope of a single package it seems better to keep the model simple and
     // make the user responsible for resolving ambiguities.
     if (!rule.isAttributeValueExplicitlySpecified(RuleClass.COMPATIBLE_ENVIRONMENT_ATTR)) {
-      addExplicitDeps(result, rule, RuleClass.COMPATIBLE_ENVIRONMENT_ATTR,
-          rule.getPackage().getDefaultCompatibleWith(), configuration);
+      addExplicitDeps(
+          outgoingLabels,
+          rule,
+          RuleClass.COMPATIBLE_ENVIRONMENT_ATTR,
+          rule.getPackage().getDefaultCompatibleWith());
     }
     if (!rule.isAttributeValueExplicitlySpecified(RuleClass.RESTRICTED_ENVIRONMENT_ATTR)) {
-      addExplicitDeps(result, rule, RuleClass.RESTRICTED_ENVIRONMENT_ATTR,
-          rule.getPackage().getDefaultRestrictedTo(), configuration);
+      addExplicitDeps(
+          outgoingLabels,
+          rule,
+          RuleClass.RESTRICTED_ENVIRONMENT_ATTR,
+          rule.getPackage().getDefaultRestrictedTo());
     }
 
-    return result.build();
+    if (toolchainContext != null) {
+      outgoingLabels.putAll(TOOLCHAIN_DEPENDENCY, toolchainContext.resolvedToolchainLabels());
+    }
+  }
+
+  private void resolveAttributes(
+      OrderedSetMultimap<DependencyKind, Label> outgoingLabels,
+      Rule rule,
+      ConfiguredAttributeMapper attributeMap,
+      Iterable<Aspect> aspects,
+      BuildConfiguration ruleConfig,
+      BuildConfiguration hostConfig) {
+    Label ruleLabel = rule.getLabel();
+    for (AttributeDependencyKind dependencyKind : getAttributes(rule, aspects)) {
+      Attribute attribute = dependencyKind.getAttribute();
+      if (!attribute.getCondition().apply(attributeMap)
+          // Not only is resolving CONFIG_SETTING_DEPS_ATTRIBUTE deps here wasteful, since the only
+          // place they're used is in ConfiguredTargetFunction.getConfigConditions, but it actually
+          // breaks trimming as shown by
+          // FeatureFlagManualTrimmingTest#featureFlagInUnusedSelectBranchButNotInTransitiveConfigs_DoesNotError
+          // because it resolves a dep that trimming (correctly) doesn't account for because it's
+          // part of an unchosen select() branch.
+          || attribute.getName().equals(RuleClass.CONFIG_SETTING_DEPS_ATTRIBUTE)) {
+        continue;
+      }
+
+      if (attribute.getType() == BuildType.OUTPUT
+          || attribute.getType() == BuildType.OUTPUT_LIST
+          || attribute.getType() == BuildType.NODEP_LABEL
+          || attribute.getType() == BuildType.NODEP_LABEL_LIST) {
+        // These types invoke visitLabels() so that they are reported in "bazel query" but do not
+        // create a dependency. Maybe it's better to remove that, but then the labels() query
+        // function would need to be rethought.
+        continue;
+      }
+
+      Object attributeValue;
+      if (attribute.isImplicit()) {
+        // Since the attributes that come from aspects do not appear in attributeMap, we have to
+        // get their values from somewhere else. This incidentally means that aspects attributes
+        // are not configurable. It would be nice if that wasn't the case, but we'd have to revamp
+        // how attribute mapping works, which is a large chunk of work.
+        attributeValue =
+            dependencyKind.getOwningAspect() == null
+                ? attributeMap.get(attribute.getName(), attribute.getType())
+                : attribute.getDefaultValue(rule);
+      } else if (attribute.isLateBound()) {
+        attributeValue =
+            resolveLateBoundDefault(rule, attributeMap, attribute, ruleConfig, hostConfig);
+      } else if (attributeMap.has(attribute.getName())) {
+        // This condition is false for aspect attributes that do not give rise to dependencies
+        // because attributes that come from aspects do not appear in attributeMap (see the
+        // comment in the case that handles implicit attributes)
+        attributeValue = attributeMap.get(attribute.getName(), attribute.getType());
+      } else {
+        continue;
+      }
+
+      if (attributeValue == null) {
+        continue;
+      }
+
+      List<Label> labels = new ArrayList<>();
+      attribute
+          .getType()
+          .visitLabels(
+              (depLabel, ctx) -> {
+                labels.add(ruleLabel.resolveRepositoryRelative(depLabel));
+              },
+              attributeValue,
+              null);
+
+      outgoingLabels.putAll(dependencyKind, labels);
+    }
+  }
+
+  @VisibleForTesting(/* used to test LateBoundDefaults' default values */ )
+  public static <FragmentT> Object resolveLateBoundDefault(
+      Rule rule,
+      AttributeMap attributeMap,
+      Attribute attribute,
+      BuildConfiguration ruleConfig,
+      BuildConfiguration hostConfig) {
+    Preconditions.checkState(!attribute.getTransitionFactory().isSplit());
+    @SuppressWarnings("unchecked")
+    LateBoundDefault<FragmentT, ?> lateBoundDefault =
+        (LateBoundDefault<FragmentT, ?>) attribute.getLateBoundDefault();
+    BuildConfiguration attributeConfig =
+        lateBoundDefault.useHostConfiguration() ? hostConfig : ruleConfig;
+
+    Class<FragmentT> fragmentClass = lateBoundDefault.getFragmentClass();
+    // TODO(b/65746853): remove this when nothing uses it anymore
+    if (BuildConfiguration.class.equals(fragmentClass)) {
+      return lateBoundDefault.resolve(rule, attributeMap, fragmentClass.cast(attributeConfig));
+    }
+    if (Void.class.equals(fragmentClass)) {
+      return lateBoundDefault.resolve(rule, attributeMap, null);
+
+    }
+    @SuppressWarnings("unchecked")
+    FragmentT fragment =
+        fragmentClass.cast(
+            attributeConfig.getFragment(
+                (Class<? extends BuildConfiguration.Fragment>) fragmentClass));
+    if (fragment == null) {
+      return null;
+    }
+    return lateBoundDefault.resolve(rule, attributeMap, fragment);
   }
 
   /**
    * Adds new dependencies to the given rule under the given attribute name
    *
-   * @param result the builder for the attribute --> dependency labels map
-   * @param rule the rule being evaluated
    * @param attrName the name of the attribute to add dependency labels to
    * @param labels the dependencies to add
-   * @param configuration the configuration to apply to those dependencies
    */
   private void addExplicitDeps(
-      ImmutableSortedKeyListMultimap.Builder<Attribute, LabelAndConfiguration> result, Rule rule,
-      String attrName, Iterable<Label> labels, BuildConfiguration configuration) {
-    if (!rule.isAttrDefined(attrName, Type.LABEL_LIST)
-        && !rule.isAttrDefined(attrName, Type.NODEP_LABEL_LIST)) {
+      OrderedSetMultimap<DependencyKind, Label> outgoingLabels,
+      Rule rule,
+      String attrName,
+      Collection<Label> labels) {
+    if (!rule.isAttrDefined(attrName, BuildType.LABEL_LIST)
+        && !rule.isAttrDefined(attrName, BuildType.NODEP_LABEL_LIST)) {
       return;
     }
     Attribute attribute = rule.getRuleClassObject().getAttributeByName(attrName);
-    for (Label label : labels) {
-      // The configuration must be the configuration after the first transition step (applying
-      // split configurations). The proper configuration (null) for package groups will be set
-      // later.
-      result.put(attribute, LabelAndConfiguration.of(label, configuration));
-    }
-  }
-
-  private void resolveExplicitAttributes(Rule rule, final BuildConfiguration configuration,
-      AttributeMap attributes,
-      final ImmutableSortedKeyListMultimap.Builder<Attribute, LabelAndConfiguration> builder) {
-    attributes.visitLabels(
-        new AttributeMap.AcceptsLabelAttribute() {
-          @Override
-          public void acceptLabelAttribute(Label label, Attribute attribute) {
-            String attributeName = attribute.getName();
-            if (attributeName.equals("abi_deps")) {
-              // abi_deps is handled specially: we visit only the branch that
-              // needs to be taken based on the configuration.
-              return;
-            }
-
-            if (attribute.getType() == Type.NODEP_LABEL) {
-              return;
-            }
-
-            if (attribute.isImplicit() || attribute.isLateBound()) {
-              return;
-            }
-
-            builder.put(attribute, LabelAndConfiguration.of(label, configuration));
-          }
-        });
-
-    // TODO(bazel-team): Remove this in favor of the new configurable attributes.
-    if (attributes.getAttributeDefinition("abi_deps") != null) {
-      Attribute depsAttribute = attributes.getAttributeDefinition("deps");
-      MakeVariableExpander.Context context = new ConfigurationMakeVariableContext(
-          rule.getPackage(), configuration);
-      String abi = null;
-      try {
-        abi = MakeVariableExpander.expand(attributes.get("abi", Type.STRING), context);
-      } catch (MakeVariableExpander.ExpansionException e) {
-        // Ignore this. It will be handled during the analysis phase.
-      }
-
-      if (abi != null) {
-        for (Map.Entry<String, List<Label>> entry
-            : attributes.get("abi_deps", Type.LABEL_LIST_DICT).entrySet()) {
-          try {
-            if (Pattern.matches(entry.getKey(), abi)) {
-              for (Label label : entry.getValue()) {
-                builder.put(depsAttribute, LabelAndConfiguration.of(label, configuration));
-              }
-            }
-          } catch (PatternSyntaxException e) {
-            // Ignore this. It will be handled during the analysis phase.
-          }
-        }
-      }
-    }
-  }
-
-  private void resolveImplicitAttributes(Rule rule, BuildConfiguration configuration,
-      AttributeMap attributeMap, Iterable<Attribute> attributes,
-      ImmutableSortedKeyListMultimap.Builder<Attribute, LabelAndConfiguration> builder) {
-    // Since the attributes that come from aspects do not appear in attributeMap, we have to get
-    // their values from somewhere else. This incidentally means that aspects attributes are not
-    // configurable. It would be nice if that wasn't the case, but we'd have to revamp how
-    // attribute mapping works, which is a large chunk of work.
-    ImmutableSet<String> mappedAttributes = ImmutableSet.copyOf(attributeMap.getAttributeNames());
-    for (Attribute attribute : attributes) {
-      if (!attribute.isImplicit() || !attribute.getCondition().apply(attributeMap)) {
-        continue;
-      }
-
-      if (attribute.getType() == Type.LABEL) {
-        Label label = mappedAttributes.contains(attribute.getName())
-            ? attributeMap.get(attribute.getName(), Type.LABEL)
-            : Type.LABEL.cast(attribute.getDefaultValue(rule));
-
-        if (label != null) {
-          builder.put(attribute, LabelAndConfiguration.of(label, configuration));
-        }
-      } else if (attribute.getType() == Type.LABEL_LIST) {
-        List<Label> labelList = mappedAttributes.contains(attribute.getName())
-            ? attributeMap.get(attribute.getName(), Type.LABEL_LIST)
-            : Type.LABEL_LIST.cast(attribute.getDefaultValue(rule));
-
-        for (Label label : labelList) {
-          builder.put(attribute, LabelAndConfiguration.of(label, configuration));
-        }
-      }
-    }
-  }
-
-  private void resolveLateBoundAttributes(Rule rule, BuildConfiguration configuration,
-      AttributeMap attributeMap, Iterable<Attribute> attributes,
-      ImmutableSortedKeyListMultimap.Builder<Attribute, LabelAndConfiguration> builder)
-      throws EvalException {
-    for (Attribute attribute : attributes) {
-      if (!attribute.isLateBound() || !attribute.getCondition().apply(attributeMap)) {
-        continue;
-      }
-
-      List<BuildConfiguration> actualConfigurations = ImmutableList.of(configuration);
-      if (attribute.getConfigurationTransition() instanceof SplitTransition<?>) {
-        Preconditions.checkState(attribute.getConfigurator() == null);
-        // TODO(bazel-team): This ends up applying the split transition twice, both here and in the
-        // visitRule method below - this is not currently a problem, because the configuration graph
-        // never contains nested split transitions, so the second application is idempotent.
-        actualConfigurations = configuration.getSplitConfigurations(
-            (SplitTransition<?>) attribute.getConfigurationTransition());
-      }
-
-      for (BuildConfiguration actualConfig : actualConfigurations) {
-        @SuppressWarnings("unchecked")
-        LateBoundDefault<BuildConfiguration> lateBoundDefault =
-            (LateBoundDefault<BuildConfiguration>) attribute.getLateBoundDefault();
-        if (lateBoundDefault.useHostConfiguration()) {
-          actualConfig =
-              actualConfig.getConfiguration(ConfigurationTransition.HOST);
-        }
-        // TODO(bazel-team): This might be too expensive - can we cache this somehow?
-        if (!lateBoundDefault.getRequiredConfigurationFragments().isEmpty()) {
-          if (!actualConfig.hasAllFragments(lateBoundDefault.getRequiredConfigurationFragments())) {
-            continue;
-          }
-        }
-
-        // TODO(bazel-team): We should check if the implementation tries to access an undeclared
-        // fragment.
-        Object actualValue = lateBoundDefault.getDefault(rule, actualConfig);
-        if (attribute.getType() == Type.LABEL) {
-          Label label;
-          label = Type.LABEL.cast(actualValue);
-          if (label != null) {
-            builder.put(attribute, LabelAndConfiguration.of(label, actualConfig));
-          }
-        } else if (attribute.getType() == Type.LABEL_LIST) {
-          for (Label label : Type.LABEL_LIST.cast(actualValue)) {
-            builder.put(attribute, LabelAndConfiguration.of(label, actualConfig));
-          }
-        } else {
-          throw new IllegalStateException(String.format(
-              "Late bound attribute '%s' is not a label or a label list", attribute.getName()));
-        }
-      }
-    }
+    outgoingLabels.putAll(AttributeDependencyKind.forRule(attribute), labels);
   }
 
   /**
-   * A variant of {@link #dependentNodeMap} that only returns the values of the resulting map, and
-   * also converts any internally thrown {@link EvalException} instances into {@link
-   * IllegalStateException}.
-   */
-  public final Collection<Dependency> dependentNodes(
-      TargetAndConfiguration node, Set<ConfigMatchingProvider> configConditions) {
-    try {
-      return dependentNodeMap(node, null, configConditions).values();
-    } catch (EvalException e) {
-      throw new IllegalStateException(e);
-    }
-  }
-
-  /**
-   * Converts the given multimap of attributes to labels into a multi map of attributes to
-   * {@link Dependency} objects using the proper configuration transition for each attribute.
+   * Collects the aspects from {@code aspectPath} that need to be propagated along the attribute
+   * {@code attributeName}.
    *
-   * @throws IllegalArgumentException if the {@code node} does not refer to a {@link Rule} instance
+   * <p>It can happen that some of the aspects cannot be propagated if the dependency doesn't have a
+   * provider that's required by them. These will be filtered out after the rule class of the
+   * dependency is known.
    */
-  public final Collection<Dependency> resolveRuleLabels(
-      TargetAndConfiguration node, AspectDefinition aspect, ListMultimap<Attribute,
-      LabelAndConfiguration> labelMap) {
-    Preconditions.checkArgument(node.getTarget() instanceof Rule);
-    Rule rule = (Rule) node.getTarget();
-    ListMultimap<Attribute, Dependency> outgoingEdges = ArrayListMultimap.create();
-    visitRule(rule, aspect, labelMap, outgoingEdges);
-    return outgoingEdges.values();
-  }
+  private static void collectPropagatingAspects(
+      Iterable<Aspect> aspectPath,
+      String attributeName,
+      @Nullable AspectClass aspectOwningAttribute,
+      ImmutableList.Builder<Aspect> filteredAspectPath) {
+    for (Aspect aspect : aspectPath) {
+      if (aspect.getAspectClass().equals(aspectOwningAttribute)) {
+        // Do not propagate over the aspect's own attributes.
+        continue;
+      }
 
-  private void visitPackageGroup(TargetAndConfiguration node, PackageGroup packageGroup,
-      Collection<Dependency> outgoingEdges) {
-    for (Label label : packageGroup.getIncludes()) {
-      try {
-        Target target = getTarget(label);
-        if (target == null) {
-          return;
-        }
-        if (!(target instanceof PackageGroup)) {
-          // Note that this error could also be caught in PackageGroupConfiguredTarget, but since
-          // these have the null configuration, visiting the corresponding target would trigger an
-          // analysis of a rule with a null configuration, which doesn't work.
-          invalidPackageGroupReferenceHook(node, label);
-          continue;
-        }
-
-        outgoingEdges.add(new Dependency(label, node.getConfiguration()));
-      } catch (NoSuchThingException e) {
-        // Don't visit targets that don't exist (--keep_going)
+      if (aspect.getDefinition().propagateAlong(attributeName)) {
+        filteredAspectPath.add(aspect);
       }
     }
   }
 
-  private ImmutableSet<Class<? extends ConfiguredAspectFactory>> requiredAspects(
-      AspectDefinition aspect, Attribute attribute, Target target) {
-    if (!(target instanceof Rule)) {
-      return ImmutableSet.of();
-    }
+  /** Returns the attributes that should be visited for this rule/aspect combination. */
+  private List<AttributeDependencyKind> getAttributes(Rule rule, Iterable<Aspect> aspects) {
+    ImmutableList.Builder<AttributeDependencyKind> result = ImmutableList.builder();
+    // If processing aspects, aspect attribute names may conflict with the attribute names of
+    // rules they attach to. If this occurs, the highest-level aspect attribute takes precedence.
+    LinkedHashSet<String> aspectProcessedAttributes = new LinkedHashSet<>();
 
-    RuleClass ruleClass = ((Rule) target).getRuleClassObject();
-
-    // The order of this set will be deterministic. This is necessary because this order eventually
-    // influences the order in which aspects are merged into the main configured target, which in
-    // turn influences which aspect takes precedence if two emit the same provider (maybe this
-    // should be an error)
-    Set<Class<? extends AspectFactory<?, ?, ?>>> aspectCandidates = new LinkedHashSet<>();
-    aspectCandidates.addAll(attribute.getAspects());
-    if (aspect != null) {
-      aspectCandidates.addAll(aspect.getAttributeAspects().get(attribute.getName()));
-    }
-
-    ImmutableSet.Builder<Class<? extends ConfiguredAspectFactory>> result = ImmutableSet.builder();
-    for (Class<? extends AspectFactory<?, ?, ?>> candidateClass : aspectCandidates) {
-      ConfiguredAspectFactory candidate =
-          (ConfiguredAspectFactory) AspectFactory.Util.create(candidateClass);
-      if (Sets.difference(
-          candidate.getDefinition().getRequiredProviders(),
-          ruleClass.getAdvertisedProviders()).isEmpty()) {
-        result.add(candidateClass.asSubclass(ConfiguredAspectFactory.class));
+    for (Aspect aspect : aspects) {
+      for (Attribute attribute : aspect.getDefinition().getAttributes().values()) {
+        if (!aspectProcessedAttributes.contains(attribute.getName())) {
+          result.add(AttributeDependencyKind.forAspect(attribute, aspect.getAspectClass()));
+          aspectProcessedAttributes.add(attribute.getName());
+        }
       }
     }
-
+    List<Attribute> ruleDefs = rule.getRuleClassObject().getAttributes();
+    for (Attribute attribute : ruleDefs) {
+      if (!aspectProcessedAttributes.contains(attribute.getName())) {
+        result.add(AttributeDependencyKind.forRule(attribute));
+      }
+    }
     return result.build();
   }
 
-  private void visitRule(Rule rule, AspectDefinition aspect,
-      ListMultimap<Attribute, LabelAndConfiguration> labelMap,
-      ListMultimap<Attribute, Dependency> outgoingEdges) {
-    Preconditions.checkNotNull(labelMap);
-    for (Map.Entry<Attribute, Collection<LabelAndConfiguration>> entry :
-        labelMap.asMap().entrySet()) {
-      Attribute attribute = entry.getKey();
-      for (LabelAndConfiguration dep : entry.getValue()) {
-        Label label = dep.getLabel();
-        BuildConfiguration config = dep.getConfiguration();
-
-        Target toTarget;
-        try {
-          toTarget = getTarget(label);
-        } catch (NoSuchThingException e) {
-          throw new IllegalStateException("not found: " + label + " from " + rule + " in "
-              + attribute.getName());
-        }
-        if (toTarget == null) {
-          continue;
-        }
-        Iterable<BuildConfiguration> toConfigurations = config.evaluateTransition(
-            rule, attribute, toTarget);
-        for (BuildConfiguration toConfiguration : toConfigurations) {
-          outgoingEdges.put(
-              entry.getKey(),
-              new Dependency(label, toConfiguration, requiredAspects(aspect, attribute, toTarget)));
-        }
-      }
-    }
-  }
-
-  private void visitTargetVisibility(TargetAndConfiguration node,
-      Collection<Dependency> outgoingEdges) {
-    for (Label label : node.getTarget().getVisibility().getDependencyLabels()) {
-      try {
-        Target visibilityTarget = getTarget(label);
-        if (visibilityTarget == null) {
-          return;
-        }
-        if (!(visibilityTarget instanceof PackageGroup)) {
-          // Note that this error could also be caught in
-          // AbstractConfiguredTarget.convertVisibility(), but we have an
-          // opportunity here to avoid dependency cycles that result from
-          // the visibility attribute of a rule referring to a rule that
-          // depends on it (instead of its package)
-          invalidVisibilityReferenceHook(node, label);
-          continue;
-        }
-
-        // Visibility always has null configuration
-        outgoingEdges.add(new Dependency(label, null));
-      } catch (NoSuchThingException e) {
-        // Don't visit targets that don't exist (--keep_going)
-      }
-    }
-  }
-
   /**
-   * Hook for the error case when an invalid visibility reference is found.
-   *
-   * @param node the node with the visibility attribute
-   * @param label the invalid visibility reference
+   * Filter the set of aspects that are to be propagated according to the dependency type and the
+   * set of advertised providers of the dependency.
    */
-  protected abstract void invalidVisibilityReferenceHook(TargetAndConfiguration node, Label label);
+  private AspectCollection filterPropagatingAspects(ImmutableList<Aspect> aspects, Target toTarget)
+      throws InconsistentAspectOrderException {
+    if (toTarget instanceof OutputFile) {
+      aspects =
+          aspects.stream()
+              .filter(aspect -> aspect.getDefinition().applyToGeneratingRules())
+              .collect(ImmutableList.toImmutableList());
+      toTarget = ((OutputFile) toTarget).getGeneratingRule();
+    }
+
+    if (!(toTarget instanceof Rule) || aspects.isEmpty()) {
+      return AspectCollection.EMPTY;
+    }
+
+    Rule toRule = (Rule) toTarget;
+    ImmutableList.Builder<Aspect> filteredAspectPath = ImmutableList.builder();
+    ImmutableSet.Builder<AspectDescriptor> visibleAspects = ImmutableSet.builder();
+
+    for (Aspect aspect : aspects) {
+      if (aspect
+          .getDefinition()
+          .getRequiredProviders()
+          .isSatisfiedBy(toRule.getRuleClassObject().getAdvertisedProviders())) {
+        filteredAspectPath.add(aspect);
+        visibleAspects.add(aspect.getDescriptor());
+      }
+    }
+    try {
+      return AspectCollection.create(filteredAspectPath.build(), visibleAspects.build());
+    } catch (AspectCycleOnPathException e) {
+      throw new InconsistentAspectOrderException(toTarget, e);
+    }
+  }
+
+  private void visitTargetVisibility(
+      TargetAndConfiguration node, OrderedSetMultimap<DependencyKind, Label> outgoingLabels) {
+    Target target = node.getTarget();
+    outgoingLabels.putAll(VISIBILITY_DEPENDENCY, target.getVisibility().getDependencyLabels());
+  }
 
   /**
    * Hook for the error case when an invalid package group reference is found.
@@ -560,15 +710,36 @@ public abstract class DependencyResolver {
       Label label);
 
   /**
-   * Returns the target by the given label.
+   * Returns the targets for the given labels.
    *
-   * <p>Throws {@link NoSuchThingException} if the target is known not to exist.
-   *
-   * <p>Returns null if the target is not ready to be returned at this moment. If getTarget returns
-   * null once or more during a {@link #dependentNodeMap} call, the results of that call will be
-   * incomplete. For use within Skyframe, where several iterations may be needed to discover
-   * all dependencies.
+   * <p>Returns null if any targets are not ready to be returned at this moment because of missing
+   * Skyframe dependencies. If getTargets returns null once or more during a {@link
+   * #dependentNodeMap} call, the results of that call will be incomplete. As is usual in these
+   * situation, the caller must return control to Skyframe and wait for the SkyFunction to be
+   * restarted, at which point the requested dependencies will be available.
    */
-  @Nullable
-  protected abstract Target getTarget(Label label) throws NoSuchThingException;
+  protected abstract Map<Label, Target> getTargets(
+      OrderedSetMultimap<DependencyKind, Label> labelMap,
+      Target fromTarget,
+      NestedSetBuilder<Cause> rootCauses)
+      throws InterruptedException;
+
+  /**
+   * Signals an inconsistency on aspect path: an aspect occurs twice on the path and
+   * the second occurrence sees a different set of aspects.
+   *
+   * {@see AspectCycleOnPathException}
+   */
+  public class InconsistentAspectOrderException extends Exception {
+    private final Location location;
+
+    public InconsistentAspectOrderException(Target target, AspectCycleOnPathException e) {
+      super(String.format("%s (when propagating to %s)", e.getMessage(), target.getLabel()));
+      this.location = target.getLocation();
+    }
+
+    public Location getLocation() {
+      return location;
+    }
+  }
 }

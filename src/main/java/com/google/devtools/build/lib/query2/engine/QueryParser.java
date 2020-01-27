@@ -1,4 +1,4 @@
-// Copyright 2014 Google Inc. All rights reserved.
+// Copyright 2014 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -19,7 +19,6 @@ import com.google.devtools.build.lib.query2.engine.Lexer.TokenKind;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.Argument;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.ArgumentType;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryFunction;
-
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -46,7 +45,7 @@ import java.util.Map;
  *        | SET '(' WORD * ')'
  * </pre>
  */
-final class QueryParser {
+public final class QueryParser {
 
   private Lexer.Token token; // current lookahead token
   private final List<Lexer.Token> tokens;
@@ -56,22 +55,27 @@ final class QueryParser {
   /**
    * Scan and parse the specified query expression.
    */
-  static QueryExpression parse(String query, QueryEnvironment<?> env) throws QueryException {
-    QueryParser parser = new QueryParser(
-        Lexer.scan(query.toCharArray()), env);
+  public static QueryExpression parse(String query, QueryEnvironment<?> env) throws QueryException {
+    HashMap<String, QueryFunction> functions = new HashMap<>();
+    for (QueryFunction queryFunction : env.getFunctions()) {
+      functions.put(queryFunction.getName(), queryFunction);
+    }
+    return parse(query, functions);
+  }
+
+  public static QueryExpression parse(String query, Map<String, QueryFunction> functions)
+      throws QueryException {
+    QueryParser parser = new QueryParser(Lexer.scan(query), functions);
     QueryExpression expr = parser.parseExpression();
     if (parser.token.kind != TokenKind.EOF) {
       throw new QueryException("unexpected token '" + parser.token
-                               + "' after query expression '" + expr +  "'");
+          + "' after query expression '" + expr +  "'");
     }
     return expr;
   }
 
-  private QueryParser(List<Lexer.Token> tokens, QueryEnvironment<?> env) {
-    this.functions = new HashMap<>();
-    for (QueryFunction queryFunction : env.getFunctions()) {
-      this.functions.put(queryFunction.getName(), queryFunction);
-    }
+  public QueryParser(List<Lexer.Token> tokens, Map<String, QueryFunction> functions) {
+    this.functions = functions;
     this.tokens = tokens;
     this.tokenIterator = tokens.iterator();
     nextToken();
@@ -175,14 +179,11 @@ final class QueryParser {
 
   /**
    * primary ::= WORD
+   *           | WORD '(' arg ( ',' arg ) * ')'
    *           | LET WORD = expr IN expr
    *           | '(' expr ')'
-   *           | WORD '(' expr ( ',' expr ) * ')'
-   *           | DEPS '(' expr ')'
-   *           | DEPS '(' expr ',' WORD ')'
-   *           | RDEPS '(' expr ',' expr ')'
-   *           | RDEPS '(' expr ',' expr ',' WORD ')'
    *           | SET '(' WORD * ')'
+   * arg ::= expr | WORD | INT
    */
   private QueryExpression parsePrimary() throws QueryException {
     switch (token.kind) {
@@ -226,7 +227,7 @@ final class QueryParser {
           consume(TokenKind.RPAREN);
           return new FunctionExpression(function, args);
         } else {
-          return new TargetLiteral(word);
+            return validateTargetLiteral(word);
         }
       }
       case LET: {
@@ -249,7 +250,7 @@ final class QueryParser {
         consume(TokenKind.LPAREN);
         List<TargetLiteral> words = new ArrayList<>();
         while (token.kind == TokenKind.WORD) {
-          words.add(new TargetLiteral(consume(TokenKind.WORD)));
+            words.add(validateTargetLiteral(consume(TokenKind.WORD)));
         }
         consume(TokenKind.RPAREN);
         return new SetExpression(words);
@@ -257,5 +258,17 @@ final class QueryParser {
       default:
         throw syntaxError(token);
     }
+  }
+
+  /**
+   * Unquoted words may not start with a hyphen or asterisk, even though relative target names may
+   * start with those characters.
+   */
+  private static TargetLiteral validateTargetLiteral(String word) throws QueryException {
+    if (word.startsWith("-") || word.startsWith("*")) {
+      throw new QueryException(
+          "target literal must not begin with " + "(" + word.charAt(0) + "): " + word);
+    }
+    return new TargetLiteral(word);
   }
 }

@@ -1,0 +1,2266 @@
+# Edits and changes made against the source tree for bazel
+# The following edits are made here:
+#  * Remove any code that relates to things cut from the SDK
+#  * Replace Joda-Time with javax.time
+#  * Replace Jackson with GSON
+#  * Replace certain AWS common utils with guava
+diff -Nau8r ./src/main/java/com/amazonaws/AmazonClientException.java /home/greg/projects/bazel/third_party/aws-sdk-auth-lite/src/main/java/com/amazonaws/AmazonClientException.java
+--- ./src/main/java/com/amazonaws/AmazonClientException.java	2018-03-16 22:25:16.000000000 -0700
++++ /home/greg/projects/bazel/third_party/aws-sdk-auth-lite/src/main/java/com/amazonaws/AmazonClientException.java	2018-05-17 15:33:11.489351621 -0700
+@@ -9,18 +9,16 @@
+  * 
+  * or in the "license" file accompanying this file. This file is distributed
+  * on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
+  * express or implied. See the License for the specific language governing
+  * permissions and limitations under the License.
+  */
+ package com.amazonaws;
+ 
+-import com.amazonaws.annotation.SdkInternalApi;
+-
+ /**
+  * Base exception class for any errors that occur while attempting to use an AWS
+  * client from AWS SDK for Java to make service calls to Amazon Web Services.
+  *
+  * Error responses from services will be handled as AmazonServiceExceptions.
+  * This class is primarily for errors that occur when unable to get a response
+  * from a service, or when the client is unable to parse the response from a
+  * service. For example, if a caller tries to use a client to make a service
+@@ -63,20 +61,9 @@
+     public AmazonClientException(String message) {
+         super(message);
+     }
+ 
+     public AmazonClientException(Throwable t) {
+         super(t);
+     }
+ 
+-    /**
+-     * Returns a hint as to whether it makes sense to retry upon this exception.
+-     * Default is true, but subclass may override.
+-     *
+-     * This method is internal to the SDK. Users should not depend on this method to decide
+-     * if an exception from a service should be retried.
+-     */
+-    @SdkInternalApi
+-    public boolean isRetryable() {
+-        return true;
+-    }
+ }
+diff -Nau8r ./src/main/java/com/amazonaws/AmazonServiceException.java /home/greg/projects/bazel/third_party/aws-sdk-auth-lite/src/main/java/com/amazonaws/AmazonServiceException.java
+--- ./src/main/java/com/amazonaws/AmazonServiceException.java	2018-03-16 22:25:16.000000000 -0700
++++ /home/greg/projects/bazel/third_party/aws-sdk-auth-lite/src/main/java/com/amazonaws/AmazonServiceException.java	2018-05-17 15:33:11.489351621 -0700
+@@ -9,20 +9,16 @@
+  *
+  * or in the "license" file accompanying this file. This file is distributed
+  * on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
+  * express or implied. See the License for the specific language governing
+  * permissions and limitations under the License.
+  */
+ package com.amazonaws;
+ 
+-import com.amazonaws.util.StringUtils;
+-
+-import java.util.Map;
+-
+ /**
+  * Extension of SdkClientException that represents an error response returned
+  * by an Amazon web service. Receiving an exception of this type indicates that
+  * the caller's request was correctly transmitted to the service, but for some
+  * reason, the service was not able to process it, and returned an error
+  * response instead.
+  * <p>
+  * AmazonServiceException provides callers several pieces of
+@@ -30,90 +26,42 @@
+  * why it occurred. In particular, the errorType field can be used to determine
+  * if the caller's request was invalid, or the service encountered an error on
+  * the server side while processing it.
+  */
+ public class AmazonServiceException extends SdkClientException {
+     private static final long serialVersionUID = 1L;
+ 
+     /**
+-     * Indicates who is responsible (if known) for a failed request.
+-     *
+-     * <p>For example, if a client is using an invalid AWS access key,
+-     * the returned exception will indicate that there is an error in the
+-     * request the caller is sending. Retrying that same request will *not*
+-     * result in a successful response. The Client ErrorType indicates that
+-     * there is a problem in the request the user is sending (ex: incorrect
+-     * access keys, invalid parameter value, missing parameter, etc.), and that
+-     * the caller must take some action to correct the request before it should
+-     * be resent. Client errors are typically associated an HTTP error code in
+-     * the 4xx range.
+-     *
+-     * <p>The Service ErrorType indicates that although the request the
+-     * caller sent was valid, the service was unable to fulfill the request
+-     * because of problems on the service's side. These types of errors can be
+-     * retried by the caller since the caller's request was valid and the
+-     * problem occurred while processing the request on the service side.
+-     * Service errors will be accompanied by an HTTP error code in the 5xx
+-     * range.
+-     *
+-     * <p>Finally, if there isn't enough information to determine who's
+-     * fault the error response is, an Unknown ErrorType will be set.
+-     */
+-    public enum ErrorType {
+-        Client,
+-        Service,
+-        Unknown
+-    }
+-
+-    /**
+      * The unique AWS identifier for the service request the caller made. The
+      * AWS request ID can uniquely identify the AWS request, and is used for
+      * reporting an error to AWS support team.
+      */
+     private String requestId;
+ 
+     /**
+      * The AWS error code represented by this exception (ex:
+      * InvalidParameterValue).
+      */
+     private String errorCode;
+ 
+     /**
+-     * Indicates (if known) whether this exception was the fault of the caller
+-     * or the service.
+-     *
+-     * @see ErrorType
+-     */
+-    private ErrorType errorType = ErrorType.Unknown;
+-
+-    /**
+      * The error message as returned by the service.
+      */
+     private String errorMessage;
+ 
+     /** The HTTP status code that was returned with this error */
+     private int statusCode;
+ 
+     /**
+      * The name of the Amazon service that sent this error response.
+      */
+     private String serviceName;
+ 
+     /**
+-     * All HTTP headers in the response for additional context and debugging.
+-     */
+-    private Map<String, String> httpHeaders;
+-
+-    /**
+-     * The raw response payload.
+-     */
+-    private byte[] rawResponse;
+-
+-    /**
+      * Constructs a new AmazonServiceException with the specified message.
+      *
+      * @param errorMessage
+      *            An error message describing what went wrong.
+      */
+     public AmazonServiceException(String errorMessage) {
+         super((String)null);
+         this.errorMessage = errorMessage;
+@@ -129,47 +77,27 @@
+      *            The root exception that caused this exception to be thrown.
+      */
+     public AmazonServiceException(String errorMessage, Exception cause) {
+         super(null, cause);
+         this.errorMessage = errorMessage;
+     }
+ 
+     /**
+-     * Sets the AWS requestId for this exception.
+-     *
+-     * @param requestId
+-     *            The unique identifier for the service request the caller made.
+-     */
+-    public void setRequestId(String requestId) {
+-        this.requestId = requestId;
+-    }
+-
+-    /**
+      * Returns the AWS request ID that uniquely identifies the service request
+      * the caller made.
+      *
+      * @return The AWS request ID that uniquely identifies the service request
+      *         the caller made.
+      */
+     public String getRequestId() {
+         return requestId;
+     }
+ 
+     /**
+-     * Sets the name of the service that sent this error response.
+-     *
+-     * @param serviceName
+-     *            The name of the service that sent this error response.
+-     */
+-    public void setServiceName(String serviceName) {
+-        this.serviceName = serviceName;
+-    }
+-
+-    /**
+      * Returns the name of the service that sent this error response.
+      *
+      * @return The name of the service that sent this error response.
+      */
+     public String getServiceName() {
+         return serviceName;
+     }
+ 
+@@ -188,60 +116,23 @@
+      *
+      * @return The AWS error code represented by this exception.
+      */
+     public String getErrorCode() {
+         return errorCode;
+     }
+ 
+     /**
+-     * Sets the type of error represented by this exception (sender, receiver,
+-     * or unknown), indicating if this exception was the caller's fault, or the
+-     * service's fault.
+-     *
+-     * @param errorType
+-     *            The type of error represented by this exception (sender or
+-     *            receiver), indicating if this exception was the caller's fault
+-     *            or the service's fault.
+-     */
+-    public void setErrorType(ErrorType errorType) {
+-        this.errorType = errorType;
+-    }
+-
+-    /**
+-     * Indicates who is responsible for this exception (caller, service,
+-     * or unknown).
+-     *
+-     * @return A value indicating who is responsible for this exception (caller, service, or unknown).
+-     */
+-    public ErrorType getErrorType() {
+-        return errorType;
+-    }
+-
+-    /**
+      * @return the human-readable error message provided by the service
+      */
+     public String getErrorMessage() {
+         return errorMessage;
+     }
+ 
+     /**
+-     * Sets the human-readable error message provided by the service.
+-     *
+-     * NOTE: errorMessage by default is set to the same as the message value
+-     * passed to the constructor of AmazonServiceException.
+-     *
+-     * @see AmazonServiceException#AmazonServiceException(String)
+-     * @see AmazonServiceException#AmazonServiceException(String, Exception))
+-     */
+-    public void setErrorMessage(String value) {
+-        errorMessage = value;
+-    }
+-
+-    /**
+      * Sets the HTTP status code that was returned with this service exception.
+      *
+      * @param statusCode
+      *            The HTTP status code that was returned with this service
+      *            exception.
+      */
+     public void setStatusCode(int statusCode) {
+         this.statusCode = statusCode;
+@@ -262,54 +153,9 @@
+     public String getMessage() {
+         return getErrorMessage()
+             + " (Service: " + getServiceName()
+             + "; Status Code: " + getStatusCode()
+             + "; Error Code: " + getErrorCode()
+             + "; Request ID: " + getRequestId() + ")";
+     }
+ 
+-    /**
+-     * Typically only useful for debugging purpose if for some reason the SDK cannot parse the HTTP
+-     * response from a service
+-     *
+-     * @return The raw content of the HTTP response as a String.
+-     */
+-    public String getRawResponseContent() {
+-        return rawResponse == null ? null : new String(rawResponse, StringUtils.UTF8);
+-    }
+-
+-    /**
+-     * Sets the raw response content.
+-     */
+-    public void setRawResponseContent(String rawResponseContent) {
+-        this.rawResponse = rawResponseContent == null ? null : rawResponseContent.getBytes
+-                (StringUtils.UTF8);
+-    }
+-
+-    /**
+-     * Returns the response payload as bytes.
+-     */
+-    public byte[] getRawResponse() {
+-        return rawResponse == null ? null : rawResponse.clone();
+-    }
+-
+-    /**
+-     * Sets the raw response content.
+-     */
+-    public void setRawResponse(byte[] rawResponse) {
+-        this.rawResponse = rawResponse == null ? null : rawResponse.clone();
+-    }
+-
+-    /**
+-     * @return A Map of HTTP headers associated with the error response.
+-     */
+-    public Map<String, String> getHttpHeaders() {
+-        return httpHeaders;
+-    }
+-
+-    /**
+-     * Sets the headers present in the error response.
+-     */
+-    public void setHttpHeaders(Map<String, String> httpHeaders) {
+-        this.httpHeaders = httpHeaders;
+-    }
+ }
+diff -Nau8r ./src/main/java/com/amazonaws/auth/AWSStaticCredentialsProvider.java /home/greg/projects/bazel/third_party/aws-sdk-auth-lite/src/main/java/com/amazonaws/auth/AWSStaticCredentialsProvider.java
+--- ./src/main/java/com/amazonaws/auth/AWSStaticCredentialsProvider.java	2018-03-16 22:25:16.000000000 -0700
++++ /home/greg/projects/bazel/third_party/aws-sdk-auth-lite/src/main/java/com/amazonaws/auth/AWSStaticCredentialsProvider.java	2018-05-17 15:33:11.491351629 -0700
+@@ -9,27 +9,27 @@
+  *
+  * or in the "license" file accompanying this file. This file is distributed
+  * on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
+  * express or implied. See the License for the specific language governing
+  * permissions and limitations under the License.
+  */
+ package com.amazonaws.auth;
+ 
+-import com.amazonaws.util.ValidationUtils;
++import com.google.common.base.Preconditions;
+ 
+ /**
+  * Simple implementation of AWSCredentialsProvider that just wraps static AWSCredentials.
+  */
+ public class AWSStaticCredentialsProvider implements AWSCredentialsProvider {
+ 
+     private final AWSCredentials credentials;
+ 
+     public AWSStaticCredentialsProvider(AWSCredentials credentials) {
+-        this.credentials = ValidationUtils.assertNotNull(credentials, "credentials");
++      this.credentials = Preconditions.checkNotNull(credentials, "%s cannot be null", "credentials");
+     }
+ 
+     public AWSCredentials getCredentials() {
+         return credentials;
+     }
+ 
+     public void refresh() {
+     }
+diff -Nau8r ./src/main/java/com/amazonaws/auth/EC2CredentialsFetcher.java /home/greg/projects/bazel/third_party/aws-sdk-auth-lite/src/main/java/com/amazonaws/auth/EC2CredentialsFetcher.java
+--- ./src/main/java/com/amazonaws/auth/EC2CredentialsFetcher.java	2018-03-16 22:25:16.000000000 -0700
++++ /home/greg/projects/bazel/third_party/aws-sdk-auth-lite/src/main/java/com/amazonaws/auth/EC2CredentialsFetcher.java	2018-05-17 15:33:11.491351629 -0700
+@@ -13,27 +13,25 @@
+  * limitations under the License.
+  */
+ package com.amazonaws.auth;
+ 
+ import java.io.IOException;
+ import java.net.URISyntaxException;
+ import java.util.Date;
+ 
++import com.google.gson.*;
+ import org.apache.commons.logging.Log;
+ import org.apache.commons.logging.LogFactory;
+ 
+ import com.amazonaws.SdkClientException;
+ import com.amazonaws.annotation.SdkInternalApi;
+ import com.amazonaws.internal.CredentialsEndpointProvider;
+ import com.amazonaws.internal.EC2CredentialsUtils;
+ import com.amazonaws.util.DateUtils;
+-import com.amazonaws.util.json.Jackson;
+-import com.fasterxml.jackson.databind.JsonMappingException;
+-import com.fasterxml.jackson.databind.JsonNode;
+ 
+ /**
+  * Helper class that contains the common behavior of the
+  * CredentialsProviders that loads the credentials from a
+  * local endpoint on an EC2 instance.
+  */
+ @SdkInternalApi
+ class EC2CredentialsFetcher {
+@@ -106,62 +104,64 @@
+     }
+ 
+     /**
+      * Fetches the credentials from the endpoint.
+      */
+     private synchronized void fetchCredentials() {
+         if (!needsToLoadCredentials()) return;
+ 
+-        JsonNode accessKey;
+-        JsonNode secretKey;
+-        JsonNode node;
+-        JsonNode token;
++        JsonElement accessKey;
++        JsonElement secretKey;
++        JsonObject node;
++        JsonElement token;
+         try {
+             lastInstanceProfileCheck = new Date();
+ 
+             String credentialsResponse = EC2CredentialsUtils.getInstance().readResource(
+                 credentialsEndpointProvider.getCredentialsEndpoint(),
+                 credentialsEndpointProvider.getRetryPolicy(),
+                 credentialsEndpointProvider.getHeaders());
+ 
+-            node = Jackson.jsonNodeOf(credentialsResponse);
++            JsonParser parser = new JsonParser();
++
++            node = parser.parse(credentialsResponse).getAsJsonObject();
+             accessKey = node.get(ACCESS_KEY_ID);
+             secretKey = node.get(SECRET_ACCESS_KEY);
+             token = node.get(TOKEN);
+ 
+             if (null == accessKey || null == secretKey) {
+                 throw new SdkClientException("Unable to load credentials.");
+             }
+ 
+             if (null != token) {
+-                credentials = new BasicSessionCredentials(accessKey.asText(),
+-                        secretKey.asText(), token.asText());
++                credentials = new BasicSessionCredentials(accessKey.getAsString(),
++                        secretKey.getAsString(), token.getAsString());
+             } else {
+-                credentials = new BasicAWSCredentials(accessKey.asText(),
+-                        secretKey.asText());
++                credentials = new BasicAWSCredentials(accessKey.getAsString(),
++                        secretKey.getAsString());
+             }
+ 
+-            JsonNode expirationJsonNode = node.get("Expiration");
++            JsonElement expirationJsonNode = node.get("Expiration");
+             if (null != expirationJsonNode) {
+                 /*
+                  * TODO: The expiration string comes in a different format
+                  * than what we deal with in other parts of the SDK, so we
+                  * have to convert it to the ISO8601 syntax we expect.
+                  */
+-                String expiration = expirationJsonNode.asText();
++                String expiration = expirationJsonNode.getAsString();
+                 expiration = expiration.replaceAll("\\+0000$", "Z");
+ 
+                 try {
+                     credentialsExpiration = DateUtils.parseISO8601Date(expiration);
+                 } catch(Exception ex) {
+                     handleError("Unable to parse credentials expiration date from Amazon EC2 instance", ex);
+                 }
+             }
+-        } catch (JsonMappingException e) {
++        } catch (JsonSyntaxException e) {
+             handleError("Unable to parse response returned from service endpoint", e);
+         } catch (IOException e) {
+             handleError("Unable to load credentials from service endpoint", e);
+         } catch (URISyntaxException e) {
+             handleError("Unable to load credentials from service endpoint", e);
+         }
+     }
+
+diff -Nau8r ./src/main/java/com/amazonaws/auth/profile/internal/securitytoken/ProfileCredentialsService.java /home/greg/projects/bazel/third_party/aws-sdk-auth-lite/src/main/java/com/amazonaws/auth/profile/internal/securitytoken/ProfileCredentialsService.java
+--- ./src/main/java/com/amazonaws/auth/profile/internal/securitytoken/ProfileCredentialsService.java	2018-03-16 22:25:16.000000000 -0700
++++ /home/greg/projects/bazel/third_party/aws-sdk-auth-lite/src/main/java/com/amazonaws/auth/profile/internal/securitytoken/ProfileCredentialsService.java	2018-05-17 15:33:11.493351638 -0700
+@@ -9,16 +9,15 @@
+  *
+  * or in the "license" file accompanying this file. This file is distributed
+  * on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
+  * express or implied. See the License for the specific language governing
+  * permissions and limitations under the License.
+  */
+ package com.amazonaws.auth.profile.internal.securitytoken;
+ 
+-import com.amazonaws.annotation.SdkInternalApi;
+ import com.amazonaws.annotation.SdkProtectedApi;
+ import com.amazonaws.auth.AWSCredentialsProvider;
+ 
+ @SdkProtectedApi
+ public interface ProfileCredentialsService {
+     AWSCredentialsProvider getAssumeRoleCredentialsProvider(RoleInfo targetRoleInfo);
+ }
+diff -Nau8r ./src/main/java/com/amazonaws/auth/profile/ProfilesConfigFile.java /home/greg/projects/bazel/third_party/aws-sdk-auth-lite/src/main/java/com/amazonaws/auth/profile/ProfilesConfigFile.java
+--- ./src/main/java/com/amazonaws/auth/profile/ProfilesConfigFile.java	2018-03-16 22:25:16.000000000 -0700
++++ /home/greg/projects/bazel/third_party/aws-sdk-auth-lite/src/main/java/com/amazonaws/auth/profile/ProfilesConfigFile.java	2018-05-17 15:33:11.492351633 -0700
+@@ -23,17 +23,17 @@
+ import com.amazonaws.auth.profile.internal.BasicProfileConfigLoader;
+ import com.amazonaws.auth.profile.internal.Profile;
+ import com.amazonaws.auth.profile.internal.ProfileAssumeRoleCredentialsProvider;
+ import com.amazonaws.auth.profile.internal.ProfileStaticCredentialsProvider;
+ import com.amazonaws.auth.profile.internal.securitytoken.ProfileCredentialsService;
+ import com.amazonaws.auth.profile.internal.securitytoken.STSProfileCredentialsServiceLoader;
+ import com.amazonaws.internal.StaticCredentialsProvider;
+ import com.amazonaws.profile.path.AwsProfileFileLocationProvider;
+-import com.amazonaws.util.ValidationUtils;
++import com.google.common.base.Preconditions;
+ 
+ import java.io.File;
+ import java.util.HashMap;
+ import java.util.Map;
+ import java.util.concurrent.ConcurrentHashMap;
+ 
+ /**
+  * Loads the local AWS credential profiles from the standard location (~/.aws/credentials), which
+@@ -134,17 +134,17 @@
+     }
+ 
+     /**
+      * Loads the AWS credential profiles from the file. The reference to the file is specified as a
+      * parameter to the constructor.
+      */
+     public ProfilesConfigFile(File file, ProfileCredentialsService credentialsService) throws
+             SdkClientException {
+-        profileFile = ValidationUtils.assertNotNull(file, "profile file");
++        profileFile = Preconditions.checkNotNull(file, "%s cannot be null", "profile file");
+         profileCredentialsService = credentialsService;
+         profileFileLastModified = file.lastModified();
+         allProfiles = loadProfiles(profileFile);
+     }
+ 
+     /**
+      * Returns the AWS credentials for the specified profile.
+      */
+diff -Nau8r ./src/main/java/com/amazonaws/internal/EC2CredentialsUtils.java /home/greg/projects/bazel/third_party/aws-sdk-auth-lite/src/main/java/com/amazonaws/internal/EC2CredentialsUtils.java
+--- ./src/main/java/com/amazonaws/internal/EC2CredentialsUtils.java	2018-03-16 22:25:16.000000000 -0700
++++ /home/greg/projects/bazel/third_party/aws-sdk-auth-lite/src/main/java/com/amazonaws/internal/EC2CredentialsUtils.java	2018-05-17 15:33:11.493351638 -0700
+@@ -11,32 +11,37 @@
+  * OR CONDITIONS OF ANY KIND, either express or implied. See the
+  * License for the specific language governing permissions and
+  * limitations under the License.
+  */
+ package com.amazonaws.internal;
+ 
+ import java.io.IOException;
+ import java.io.InputStream;
++import java.io.InputStreamReader;
++import java.io.Reader;
+ import java.net.HttpURLConnection;
+ import java.net.URI;
+ import java.util.HashMap;
+ import java.util.Map;
+ 
++import com.google.common.base.Charsets;
++import com.google.common.io.CharStreams;
++import com.google.common.io.Closeables;
++import com.google.gson.JsonElement;
++import com.google.gson.JsonObject;
++import com.google.gson.JsonParser;
+ import org.apache.commons.logging.Log;
+ import org.apache.commons.logging.LogFactory;
+ 
+ import com.amazonaws.SdkClientException;
+ import com.amazonaws.AmazonServiceException;
+ import com.amazonaws.annotation.SdkInternalApi;
+ import com.amazonaws.retry.internal.CredentialsEndpointRetryParameters;
+ import com.amazonaws.retry.internal.CredentialsEndpointRetryPolicy;
+-import com.amazonaws.util.IOUtils;
+-import com.amazonaws.util.json.Jackson;
+-import com.fasterxml.jackson.databind.JsonNode;
+ 
+ @SdkInternalApi
+ public final class EC2CredentialsUtils {
+ 
+     private static final Log LOG = LogFactory.getLog(EC2CredentialsUtils.class);
+ 
+     private static EC2CredentialsUtils instance;
+ 
+@@ -106,52 +111,55 @@
+         while (true) {
+             try {
+                 HttpURLConnection connection = connectionUtils.connectToEndpoint(endpoint, headers);
+ 
+                 int statusCode = connection.getResponseCode();
+ 
+                 if (statusCode == HttpURLConnection.HTTP_OK) {
+                     inputStream = connection.getInputStream();
+-                    return IOUtils.toString(inputStream);
++                    try (Reader successReader = new InputStreamReader(inputStream, Charsets.UTF_8)) {
++                      return CharStreams.toString(successReader);
++                    }
+                 } else if (statusCode == HttpURLConnection.HTTP_NOT_FOUND) {
+                     // This is to preserve existing behavior of EC2 Instance metadata service.
+                     throw new SdkClientException("The requested metadata is not found at " + connection.getURL());
+                 } else {
+                     if (!retryPolicy.shouldRetry(retriesAttempted++, CredentialsEndpointRetryParameters.builder().withStatusCode(statusCode).build())) {
+                         inputStream = connection.getErrorStream();
+                         handleErrorResponse(inputStream, statusCode, connection.getResponseMessage());
+                     }
+                 }
+             } catch (IOException ioException) {
+                 if (!retryPolicy.shouldRetry(retriesAttempted++, CredentialsEndpointRetryParameters.builder().withException(ioException).build())) {
+                     throw ioException;
+                 }
+                 LOG.debug("An IOException occured when connecting to service endpoint: " + endpoint  + "\n Retrying to connect again.");
+             } finally {
+-                IOUtils.closeQuietly(inputStream, LOG);
++                Closeables.closeQuietly(inputStream);
+             }
+         }
+ 
+     }
+ 
+     private void handleErrorResponse(InputStream errorStream, int statusCode, String responseMessage) throws IOException {
+         String errorCode = null;
+ 
+         // Parse the error stream returned from the service.
+         if(errorStream != null) {
+-            String errorResponse = IOUtils.toString(errorStream);
+-
+-            try {
+-                JsonNode node = Jackson.jsonNodeOf(errorResponse);
+-                JsonNode code = node.get("code");
+-                JsonNode message = node.get("message");
++            try (Reader errorReader = new InputStreamReader(errorStream, Charsets.UTF_8)) {
++                String errorResponse = CharStreams.toString(errorReader);
++                JsonParser parser = new JsonParser();
++
++                JsonObject node = parser.parse(errorResponse).getAsJsonObject();
++                JsonElement code = node.get("code");
++                JsonElement message = node.get("message");
+                 if (code != null && message != null) {
+-                    errorCode = code.asText();
+-                    responseMessage = message.asText();
++                    errorCode = code.getAsString();
++                    responseMessage = message.getAsString();
+                 }
+             } catch (Exception exception) {
+                 LOG.debug("Unable to parse error stream");
+             }
+         }
+ 
+         AmazonServiceException ase = new AmazonServiceException(responseMessage);
+         ase.setStatusCode(statusCode);
+diff -Nau8r ./src/main/java/com/amazonaws/SDKGlobalConfiguration.java /home/greg/projects/bazel/third_party/aws-sdk-auth-lite/src/main/java/com/amazonaws/SDKGlobalConfiguration.java
+--- ./src/main/java/com/amazonaws/SDKGlobalConfiguration.java	2018-03-16 22:25:16.000000000 -0700
++++ /home/greg/projects/bazel/third_party/aws-sdk-auth-lite/src/main/java/com/amazonaws/SDKGlobalConfiguration.java	2018-05-17 15:33:11.490351625 -0700
+@@ -15,115 +15,35 @@
+ package com.amazonaws;
+ 
+ /**
+  * SDKGlobalConfiguration is to configure any global settings
+  */
+ public class SDKGlobalConfiguration {
+     /////////////////////// System Properties ///////////////////////
+ 
+-    /**
+-     * Disable validation of server certificates when using the HTTPS protocol. This should ONLY be
+-     * used to do quick smoke tests against endpoints which don't yet have valid certificates; it
+-     * should NEVER be used in production. This property is meant to be used as a flag (i.e.
+-     * -Dcom.amazonaws.sdk.disableCertChecking) rather then taking a value
+-     * (-Dcom.amazonaws.sdk.disableCertChecking=true). This property is treated as false by default
+-     * (i.e. check certificates by default)
+-     */
+-    public static final String DISABLE_CERT_CHECKING_SYSTEM_PROPERTY =
+-        "com.amazonaws.sdk.disableCertChecking";
+-
+-    /**
+-     * System property used when starting up the JVM to enable the default
+-     * metrics collected by the AWS SDK, which uploads the derived statistics
+-     * to Amazon CloudWatch.
+-     *
+-     * <pre>
+-     * Example:
+-     *  -Dcom.amazonaws.sdk.enableDefaultMetrics
+-     * </pre>
+-     */
+-    public static final String DEFAULT_METRICS_SYSTEM_PROPERTY =
+-        "com.amazonaws.sdk.enableDefaultMetrics";
+-
+     /** System property name for the AWS access key ID */
+     public static final String ACCESS_KEY_SYSTEM_PROPERTY = "aws.accessKeyId";
+ 
+     /** System property name for the AWS secret key */
+     public  static final String SECRET_KEY_SYSTEM_PROPERTY = "aws.secretKey";
+ 
+     /**
+      * System property name for the AWS session token
+      */
+     public static final String SESSION_TOKEN_SYSTEM_PROPERTY = "aws.sessionToken";
+ 
+     /**
+-     * System property for the AWS region to use when creating clients.
+-     * See {@link com.amazonaws.regions.DefaultAwsRegionProviderChain}.
+-     */
+-    public static final String AWS_REGION_SYSTEM_PROPERTY = "aws.region";
+-
+-    /**
+      * System property for overriding the Amazon EC2 Instance Metadata Service
+      * endpoint.
+      */
+     public static final String EC2_METADATA_SERVICE_OVERRIDE_SYSTEM_PROPERTY =
+         "com.amazonaws.sdk.ec2MetadataServiceEndpointOverride";
+ 
+     /**
+-     * System property for enabling retry throttling.
+-     * <p>
+-     * Retry throttling is a feature which intelligently throttles retry attempts when a
+-     * large percentage of requests are failing and retries are unsuccessful, particularly
+-     * in scenarios of degraded service health.  In these situations the client will drain its
+-     * internal retry capacity and slowly roll off from retry attempts until requests begin
+-     * to succeed again.  At that point the retry capacity pool will begin to refill and
+-     * retries will once again be permitted
+-     * </p>
+-     * <p>
+-     * In situations where retries have been throttled this feature will effectively result in
+-     * fail-fast behavior from the client.  Because retries are circumvented exceptions will
+-     * be immediately returned to the caller if the initial request is unsuccessful.  This
+-     * will result in a greater number of exceptions being returned up front but prevents
+-     * requests being tied up attempting subsequent retries which are also likely to fail.
+-     * </p>
+-     */
+-    public static final String RETRY_THROTTLING_SYSTEM_PROPERTY =
+-            "com.amazonaws.sdk.enableThrottledRetry";
+-
+-    /**
+-     * Path to an override file for the region metadata loaded by the SDK
+-     * that maps service/region pairs to endpoints and vice versa.
+-     */
+-    public static final String REGIONS_FILE_OVERRIDE_SYSTEM_PROPERTY =
+-        "com.amazonaws.regions.RegionUtils.fileOverride";
+-
+-    /**
+-     * By default, the SDK will attempt to download an up-to-date set of
+-     * region metadata from Amazon CloudFront when first required. This allows
+-     * you to look up information about new regions and services without having
+-     * to download a new version of the SDK every time.
+-     * <p>
+-     * If the SDK cannot download region metadata from Amazon CloudFront, it
+-     * will fall back to loading the region metadata bundled with the SDK when
+-     * it was released, which may be out of date.
+-     * <p>
+-     * Setting this system property to anything other than {@code null} will
+-     * <i>disable</i> this remote fetching, and will <i>only</i> load region
+-     * metadata that was bundled with the SDK. This gives you control over
+-     * when new region metadata will be picked up by your application, and
+-     * isolates you from potential issues if your application depends on being
+-     * able to load metadata about a region which is not included in your
+-     * version of the SDK and therefore may not be available in the event of
+-     * network outages.
+-     */
+-    public static final String DISABLE_REMOTE_REGIONS_FILE_SYSTEM_PROPERTY =
+-        "com.amazonaws.regions.RegionUtils.disableRemote";
+-
+-    /**
+      * By default, the AmazonS3Client will continue to use the legacy
+      * S3Signer to authenticate requests it makes to S3 in regions that
+      * support the older protocol. Setting this property to anything other
+      * than null will cause the client to upgrade to Signature Version 4
+      * whenever it has been configured with an explicit region (which is a
+      * required parameter for Signature Version 4). The client will continue
+      * to use the older signature protocol when not configured with a region
+      * to avoid breaking existing applications.
+@@ -144,48 +64,16 @@
+      * but will cause authentication failures in code that accesses buckets in
+      * regions other than US Standard without explicitly configuring a region.
+      */
+     @Deprecated
+     public static final String ENFORCE_S3_SIGV4_SYSTEM_PROPERTY =
+         "com.amazonaws.services.s3.enforceV4";
+ 
+     /**
+-     * By default, the S3 client constructor does not set a region.
+-     * <p>
+-     * If the client is not configured with an explicit region, bucket operations
+-     * (eg. {@code listObjects}) will attempt to determine the bucket's region the first
+-     * time that bucket is seen. This may result in a cross-region call.
+-     * <p>
+-     * Setting this system property to anything other than {@code null} or
+-     * {@code false} will <i>disable</i> this implicit fixed-region invocation,
+-     * and any attempt to use a regionless client will fail with an IllegalStateException.
+-     * This allows SDK users to force all S3 clients to be created with a region defined,
+-     * so that calls to unintended regions are avoided.
+-     * <p>
+-     * Note: Even with this option enabled, SDK users can still create clients not
+-     * attached to fixed regions using specific opt-in methods on the S3 client builder.
+-     * For instance, the {@code enableGlobalBucketAccess} option explicitly allows
+-     * creation of a client that will automatically identify the location of a bucket via
+-     * a call to a single, fixed region.
+-     */
+-    public static final String DISABLE_S3_IMPLICIT_GLOBAL_CLIENTS_SYSTEM_PROPERTY =
+-            "com.amazonaws.services.s3.disableImplicitGlobalClients";
+-
+-    /**
+-     * Overrides the client default {@link ClientConfiguration} to use
+-     * configuration with values tailored towards clients operating in the
+-     * same AWS region as the service endpoint they call.  Timeouts in
+-     * in-region optimized configurations are generally set much lower than
+-     * the client standard configuration.
+-     */
+-    public static final String ENABLE_IN_REGION_OPTIMIZED_MODE =
+-            "com.amazonaws.sdk.enableInRegionOptimizedMode";
+-
+-    /**
+      * @deprecated with {@link AmazonWebServiceRequest#getRequestClientOptions()}
+      * and {@link RequestClientOptions#setReadLimit(int)}.
+      * <p>
+      * The default size of the buffer when uploading data from a stream. A
+      * buffer of this size will be created and filled with the first bytes from
+      * a stream being uploaded so that any transmit errors that occur in that
+      * section of the data can be automatically retried without the caller's
+      * intervention.
+@@ -217,51 +105,22 @@
+ 
+     /** Alternate environment variable name for the AWS secret key */
+     public static final String ALTERNATE_SECRET_KEY_ENV_VAR = "AWS_SECRET_ACCESS_KEY";
+ 
+     /** Environment variable name for the AWS session token */
+     public static final String AWS_SESSION_TOKEN_ENV_VAR = "AWS_SESSION_TOKEN";
+ 
+     /**
+-     * Environment variable containing region used to configure clients.
+-     */
+-    public static final String AWS_REGION_ENV_VAR = "AWS_REGION";
+-
+-    /**
+      * Environment variable to set an alternate path to the shared config file (default path is
+      * ~/.aws/config).
+      */
+     public static final String AWS_CONFIG_FILE_ENV_VAR = "AWS_CONFIG_FILE";
+ 
+     /**
+-     * Environment variable to disable CBOR protocol. This forces the request
+-     * to be sent over the wire as a AWS JSON.
+-     */
+-    public static final String AWS_CBOR_DISABLE_ENV_VAR = "AWS_CBOR_DISABLE";
+-
+-    /**
+-     * System property to disable CBOR protocol. This forces the request to be sent over the wire
+-     * as a AWS JSON
+-     */
+-    public static final String AWS_CBOR_DISABLE_SYSTEM_PROPERTY = "com.amazonaws.sdk.disableCbor";
+-
+-    /**
+-     * Environment variable to disable Ion binary protocol. This forces the request
+-     * to be sent over the wire as Ion text.
+-     */
+-    public static final String AWS_ION_BINARY_DISABLE_ENV_VAR = "AWS_ION_BINARY_DISABLE";
+-
+-    /**
+-     * System property to disable Ion binary protocol. This forces the request to be sent over the wire
+-     * as Ion text
+-     */
+-    public static final String AWS_ION_BINARY_DISABLE_SYSTEM_PROPERTY = "com.amazonaws.sdk.disableIonBinary";
+-
+-    /**
+      * Environment variable to disable loading credentials or regions from EC2 Metadata instance service.
+      */
+     public static final String AWS_EC2_METADATA_DISABLED_ENV_VAR = "AWS_EC2_METADATA_DISABLED";
+ 
+     /**
+      * System property to disable loading credentials or regions from EC2 Metadata instance service.
+      */
+     public static final String AWS_EC2_METADATA_DISABLED_SYSTEM_PROPERTY = "com.amazonaws.sdk.disableEc2Metadata";
+@@ -278,46 +137,20 @@
+     /**
+      * @deprecated by {@link SDKGlobalTime#getGlobalTimeOffset()}
+      */
+     @Deprecated
+     public static int getGlobalTimeOffset() {
+         return SDKGlobalTime.getGlobalTimeOffset();
+     }
+ 
+-    public static boolean isInRegionOptimizedModeEnabled() {
+-        return isPropertyEnabled(System.getProperty(ENABLE_IN_REGION_OPTIMIZED_MODE));
+-    }
+-
+-    public static boolean isCertCheckingDisabled() {
+-        return isPropertyEnabled(System.getProperty(DISABLE_CERT_CHECKING_SYSTEM_PROPERTY));
+-    }
+-
+-    public static boolean isCborDisabled() {
+-        return isPropertyEnabled(System.getProperty(AWS_CBOR_DISABLE_SYSTEM_PROPERTY)) ||
+-                isPropertyEnabled(System.getenv(AWS_CBOR_DISABLE_ENV_VAR));
+-    }
+-
+-    public static boolean isIonBinaryDisabled() {
+-        return isPropertyEnabled(System.getProperty(AWS_ION_BINARY_DISABLE_SYSTEM_PROPERTY)) ||
+-                isPropertyEnabled(System.getenv(AWS_ION_BINARY_DISABLE_ENV_VAR));
+-    }
+-
+     public static boolean isEc2MetadataDisabled() {
+         return isPropertyTrue(System.getProperty(AWS_EC2_METADATA_DISABLED_SYSTEM_PROPERTY)) ||
+                isPropertyTrue(System.getenv(AWS_EC2_METADATA_DISABLED_ENV_VAR));
+     }
+ 
+-    private static boolean isPropertyEnabled(final String property) {
+-        if (property == null || property.equalsIgnoreCase("false")) {
+-            return false;
+-        } else {
+-            return true;
+-        }
+-    }
+-
+     private static boolean isPropertyTrue(final String property) {
+         if (property != null && property.equalsIgnoreCase("true")) {
+             return true;
+         }
+         return false;
+     }
+ }
+diff -Nau8r ./src/main/java/com/amazonaws/util/CollectionUtils.java /home/greg/projects/bazel/third_party/aws-sdk-auth-lite/src/main/java/com/amazonaws/util/CollectionUtils.java
+--- ./src/main/java/com/amazonaws/util/CollectionUtils.java	2018-03-16 22:25:16.000000000 -0700
++++ /home/greg/projects/bazel/third_party/aws-sdk-auth-lite/src/main/java/com/amazonaws/util/CollectionUtils.java	2018-05-17 15:33:11.495351646 -0700
+@@ -10,40 +10,24 @@
+  * or in the "license" file accompanying this file. This file is distributed
+  * on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
+  * express or implied. See the License for the specific language governing
+  * permissions and limitations under the License.
+  */
+ package com.amazonaws.util;
+ 
+ import java.util.Collection;
+-import java.util.LinkedList;
+-import java.util.List;
+ 
+ public class CollectionUtils {
+ 
+     public static <T> boolean isNullOrEmpty(Collection<T> collection) {
+         return collection == null || collection.isEmpty();
+     }
+ 
+     /**
+-     * Returns a new list containing the second list appended to the first list.
+-     */
+-    public static <T> List<T> mergeLists(List<T> list1, List<T> list2) {
+-        List<T> merged = new LinkedList<T>();
+-        if (list1 != null) {
+-            merged.addAll(list1);
+-        }
+-        if (list2 != null) {
+-            merged.addAll(list2);
+-        }
+-        return merged;
+-    }
+-
+-    /**
+      * Joins a collection of strings with the given separator into a single string.
+      *
+      * @param toJoin    Collection containing items to join.
+      * @param separator String to join items with.
+      * @return Empty string if collection is null or empty. Otherwise joins all strings in the collection with the separator.
+      */
+     public static String join(Collection<String> toJoin, String separator) {
+         if (isNullOrEmpty(toJoin)) {
+diff -Nau8r ./src/main/java/com/amazonaws/util/DateUtils.java /home/greg/projects/bazel/third_party/aws-sdk-auth-lite/src/main/java/com/amazonaws/util/DateUtils.java
+--- ./src/main/java/com/amazonaws/util/DateUtils.java	2018-03-16 22:25:16.000000000 -0700
++++ /home/greg/projects/bazel/third_party/aws-sdk-auth-lite/src/main/java/com/amazonaws/util/DateUtils.java	2018-05-17 15:33:11.495351646 -0700
+@@ -12,263 +12,72 @@
+  *
+  * or in the "license" file accompanying this file. This file is distributed
+  * on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
+  * express or implied. See the License for the specific language governing
+  * permissions and limitations under the License.
+  */
+ package com.amazonaws.util;
+ 
+-import java.math.BigDecimal;
+-import java.util.Date;
+-import java.util.Locale;
+-import java.util.concurrent.TimeUnit;
+-
+-import org.joda.time.DateTime;
+-import org.joda.time.DateTimeZone;
+-import org.joda.time.format.DateTimeFormat;
+-import org.joda.time.format.DateTimeFormatter;
+-import org.joda.time.format.ISODateTimeFormat;
+-import org.joda.time.tz.FixedDateTimeZone;
+-
+-import com.amazonaws.SdkClientException;
+ import com.amazonaws.annotation.ThreadSafe;
+ 
++import java.time.LocalDateTime;
++import java.time.format.DateTimeFormatter;
++import java.time.ZoneId;
++import java.util.Date;
++
+ /**
+  * Utilities for parsing and formatting dates.
+  */
+ @ThreadSafe
+ public class DateUtils {
+-    private static final DateTimeZone GMT = new FixedDateTimeZone("GMT", "GMT", 0, 0);
+-    private static final long MILLI_SECONDS_OF_365_DAYS = 365L*24*60*60*1000;
+ 
+-    private static final int AWS_DATE_MILLI_SECOND_PRECISION = 3;
++    private static final ZoneId GMT = ZoneId.of("GMT");
+ 
+     /** ISO 8601 format */
+     protected static final DateTimeFormatter iso8601DateFormat =
+-        ISODateTimeFormat.dateTime().withZone(GMT);
++        DateTimeFormatter.ISO_DATE_TIME.withZone(GMT);
+ 
+     /** Alternate ISO 8601 format without fractional seconds */
+     protected static final DateTimeFormatter alternateIso8601DateFormat =
+-        DateTimeFormat.forPattern("yyyy-MM-dd'T'HH:mm:ss'Z'").withZone(GMT);
+-
+-    /** RFC 822 format */
+-    protected static final DateTimeFormatter rfc822DateFormat =
+-        DateTimeFormat.forPattern("EEE, dd MMM yyyy HH:mm:ss 'GMT'")
+-                      .withLocale(Locale.US)
+-                      .withZone(GMT);
+-
+-    /**
+-     * This is another ISO 8601 format that's used in clock skew error response
+-     */
+-    protected static final DateTimeFormatter compressedIso8601DateFormat =
+-            DateTimeFormat.forPattern("yyyyMMdd'T'HHmmss'Z'")
+-            .withZone(GMT);
++        DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss'Z'").withZone(GMT);
+ 
+     /**
+      * Parses the specified date string as an ISO 8601 date and returns the Date
+      * object.
+      *
+      * @param dateString
+      *            The date string to parse.
+      *
+      * @return The parsed Date object.
+      */
+     public static Date parseISO8601Date(String dateString) {
+-        try {
+-            return doParseISO8601Date(dateString);
+-        } catch(RuntimeException ex) {
+-            throw handleException(ex);
+-        }
++        return doParseISO8601Date(dateString);
+     }
+ 
+     static Date doParseISO8601Date(final String dateStringOrig) {
+         String dateString = dateStringOrig;
+ 
+         // For EC2 Spot Fleet.
+         if (dateString.endsWith("+0000")) {
+             dateString = dateString
+                     .substring(0, dateString.length() - 5)
+                     .concat("Z");
+         }
+ 
+-        // https://github.com/aws/aws-sdk-java/issues/233
+-        String temp = tempDateStringForJodaTime(dateString);
+         try {
+-            if (temp.equals(dateString)) {
+-                // Normal case: nothing special here
+-                return new Date(iso8601DateFormat.parseMillis(dateString));
+-            }
+-            // Handling edge case:
+-            // Joda-time can only handle up to year 292278993 but we are given
+-            // 292278994;  So we parse the date string by first adjusting
+-            // the year to 292278993. Then we add 1 year back afterwards.
+-            final long milliLess365Days = iso8601DateFormat.parseMillis(temp);
+-            final long milli = milliLess365Days + MILLI_SECONDS_OF_365_DAYS;
+-            if (milli < 0) { // overflow!
+-                // re-parse the original date string using JodaTime so as to
+-                // throw  an exception with a consistent message
+-                return new Date(iso8601DateFormat.parseMillis(dateString));
+-            }
+-            return new Date(milli);
++          // Normal case: nothing special here
++          final LocalDateTime ldt = LocalDateTime.parse(dateString, iso8601DateFormat);
++          return Date.from(ldt.atZone(ZoneId.systemDefault()).toInstant());
+         } catch (IllegalArgumentException e) {
+             try {
+-                return new Date(alternateIso8601DateFormat.parseMillis(dateString));
++                final LocalDateTime ldt = LocalDateTime.parse(dateString, alternateIso8601DateFormat);
++                return Date.from(ldt.atZone(ZoneId.systemDefault()).toInstant());
+                 // If the first ISO 8601 parser didn't work, try the alternate
+                 // version which doesn't include fractional seconds
+             } catch(Exception oops) {
+                 // no the alternative route doesn't work; let's bubble up the original exception
+                 throw e;
+             }
+         }
+     }
+ 
+-    /**
+-     * Returns a date string with the prefix temporarily substituted, if
+-     * applicable, so that JodaTime can handle it.  Otherwise, if not applicable,
+-     * the original date string is returned.
+-     * <p>
+-     * See https://github.com/aws/aws-sdk-java/issues/233
+-     */
+-    private static String tempDateStringForJodaTime(String dateString) {
+-        final String fromPrefix = "292278994-";
+-        final String toPrefix   = "292278993-";
+-        return dateString.startsWith(fromPrefix)
+-             ? toPrefix + dateString.substring(fromPrefix.length())
+-             : dateString;
+-    }
+-
+-    /**
+-     * Returns the original runtime exception iff the joda-time being used
+-     * at runtime behaves as expected.
+-     *
+-     * @throws IllegalStateException if the joda-time being used at runtime
+-     * doens't appear to be of the right version.
+-     */
+-    private static <E extends RuntimeException> E handleException(E ex) {
+-        if (JodaTime.hasExpectedBehavior())
+-            return ex;
+-        throw new IllegalStateException("Joda-time 2.2 or later version is required, but found version: " + JodaTime.getVersion(), ex);
+-    }
+-
+-    /**
+-     * Formats the specified date as an ISO 8601 string.
+-     *
+-     * @param date
+-     *            The date to format.
+-     *
+-     * @return The ISO 8601 string representing the specified date.
+-     */
+-    public static String formatISO8601Date(Date date) {
+-        try {
+-            return iso8601DateFormat.print(date.getTime());
+-        } catch(RuntimeException ex) {
+-            throw handleException(ex);
+-        }
+-    }
+-
+-    /**
+-     * Formats the specified date as an ISO 8601 string.
+-     *
+-     * @param date the date to format
+-     * @return the ISO-8601 string representing the specified date
+-     */
+-    public static String formatISO8601Date(DateTime date) {
+-        try {
+-            return iso8601DateFormat.print(date);
+-        } catch (RuntimeException ex) {
+-            throw handleException(ex);
+-        }
+-    }
+-
+-    /**
+-     * Parses the specified date string as an RFC 822 date and returns the Date
+-     * object.
+-     *
+-     * @param dateString
+-     *            The date string to parse.
+-     *
+-     * @return The parsed Date object.
+-     */
+-    public static Date parseRFC822Date(String dateString) {
+-        if (dateString == null) {
+-            return null;
+-        }
+-        try {
+-            return new Date(rfc822DateFormat.parseMillis(dateString));
+-        } catch(RuntimeException ex) {
+-            throw handleException(ex);
+-        }
+-    }
+-
+-    /**
+-     * Formats the specified date as an RFC 822 string.
+-     *
+-     * @param date
+-     *            The date to format.
+-     *
+-     * @return The RFC 822 string representing the specified date.
+-     */
+-    public static String formatRFC822Date(Date date) {
+-        try {
+-            return rfc822DateFormat.print(date.getTime());
+-        } catch(RuntimeException ex) {
+-            throw handleException(ex);
+-        }
+-    }
+-
+-    /**
+-     * Parses the specified date string as a compressedIso8601DateFormat ("yyyyMMdd'T'HHmmss'Z'") and returns the Date
+-     * object.
+-     *
+-     * @param dateString
+-     *            The date string to parse.
+-     *
+-     * @return The parsed Date object.
+-     */
+-    public static Date parseCompressedISO8601Date(String dateString) {
+-        try {
+-            return new Date(compressedIso8601DateFormat.parseMillis(dateString));
+-        } catch (RuntimeException ex) {
+-            throw handleException(ex);
+-        }
+-   }
+-
+-    /**
+-     * Parses the given date string returned by the AWS service into a Date
+-     * object.
+-     */
+-    public static Date parseServiceSpecificDate(String dateString) {
+-        if (dateString == null)
+-            return null;
+-        try {
+-            BigDecimal dateValue = new BigDecimal(dateString);
+-            return new Date(dateValue.scaleByPowerOfTen(
+-                    AWS_DATE_MILLI_SECOND_PRECISION).longValue());
+-        } catch (NumberFormatException nfe) {
+-            throw new SdkClientException("Unable to parse date : "
+-                    + dateString, nfe);
+-        }
+-    }
+-
+-    /**
+-     * Formats the give date object into an AWS Service format.
+-     */
+-    public static String formatServiceSpecificDate(Date date) {
+-        if (date == null)
+-            return null;
+-        BigDecimal dateValue = BigDecimal.valueOf(date.getTime());
+-        return dateValue.scaleByPowerOfTen(0 - AWS_DATE_MILLI_SECOND_PRECISION)
+-                .toPlainString();
+-    }
+-
+-    public static Date cloneDate(Date date) {
+-        return date == null ? null : new Date(date.getTime());
+-    }
+-
+-    /**
+-     * Returns the number of days since epoch with respect to the given number
+-     * of milliseconds since epoch.
+-     */
+-    public static long numberOfDaysSinceEpoch(long milliSinceEpoch) {
+-        return TimeUnit.MILLISECONDS.toDays(milliSinceEpoch);
+-    }
+ }
+diff -Nau8r ./src/main/java/com/amazonaws/util/EC2MetadataUtils.java /home/greg/projects/bazel/third_party/aws-sdk-auth-lite/src/main/java/com/amazonaws/util/EC2MetadataUtils.java
+--- ./src/main/java/com/amazonaws/util/EC2MetadataUtils.java	2018-03-16 22:25:16.000000000 -0700
++++ /home/greg/projects/bazel/third_party/aws-sdk-auth-lite/src/main/java/com/amazonaws/util/EC2MetadataUtils.java	2018-05-17 15:33:11.495351646 -0700
+@@ -11,37 +11,17 @@
+  * on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
+  * express or implied. See the License for the specific language governing
+  * permissions and limitations under the License.
+  */
+ package com.amazonaws.util;
+ 
+ import static com.amazonaws.SDKGlobalConfiguration.EC2_METADATA_SERVICE_OVERRIDE_SYSTEM_PROPERTY;
+ 
+-import com.amazonaws.AmazonClientException;
+ import com.amazonaws.SDKGlobalConfiguration;
+-import com.amazonaws.SdkClientException;
+-import com.amazonaws.internal.EC2CredentialsUtils;
+-import com.amazonaws.util.json.Jackson;
+-import com.fasterxml.jackson.annotation.JsonCreator;
+-import com.fasterxml.jackson.annotation.JsonProperty;
+-import com.fasterxml.jackson.databind.DeserializationFeature;
+-import com.fasterxml.jackson.databind.JsonNode;
+-import com.fasterxml.jackson.databind.ObjectMapper;
+-import com.fasterxml.jackson.databind.PropertyNamingStrategy;
+-import java.net.URI;
+-import java.util.Arrays;
+-import java.util.Collections;
+-import java.util.HashMap;
+-import java.util.LinkedList;
+-import java.util.List;
+-import java.util.Map;
+-import java.util.concurrent.ConcurrentHashMap;
+-import org.apache.commons.logging.Log;
+-import org.apache.commons.logging.LogFactory;
+ 
+ /**
+  * Utility class for retrieving Amazon EC2 instance metadata.<br>
+  * You can use the data to build more generic AMIs that can be modified by
+  * configuration files supplied at launch time. For example, if you run web
+  * servers for various small businesses, they can all use the same AMI and
+  * retrieve their content from the Amazon S3 bucket you specify at launch. To
+  * add a new customer at any time, simply create a bucket for the customer, add
+@@ -55,693 +35,23 @@
+  * More information about Amazon EC2 Metadata
+  *
+  * @see <a
+  *      href="http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/AESDG-chapter-instancedata.html">Amazon
+  *      EC2 User Guide: Instance Metadata</a>
+  */
+ public class EC2MetadataUtils {
+ 
+-    private static final String REGION = "region";
+-    private static final String INSTANCE_IDENTITY_DOCUMENT = "instance-identity/document";
+-    private static final String EC2_METADATA_ROOT = "/latest/meta-data";
+-    private static final String EC2_USERDATA_ROOT = "/latest/user-data/";
+-    private static final String EC2_DYNAMICDATA_ROOT = "/latest/dynamic/";
+-
+     /** Default endpoint for the Amazon EC2 Instance Metadata Service. */
+     private static final String EC2_METADATA_SERVICE_URL = "http://169.254.169.254";
+ 
+     /** Default resource path for credentials in the Amazon EC2 Instance Metadata Service. */
+     public static final String SECURITY_CREDENTIALS_RESOURCE = "/latest/meta-data/iam/security-credentials/";
+ 
+-    private static final int DEFAULT_QUERY_RETRIES = 3;
+-    private static final int MINIMUM_RETRY_WAIT_TIME_MILLISECONDS = 250;
+-    private static Map<String, String> cache = new ConcurrentHashMap<String, String>();
+-
+-    private static final ObjectMapper mapper = new ObjectMapper();
+-    static {
+-        mapper.configure(
+-                DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
+-
+-        mapper
+-                .setPropertyNamingStrategy(PropertyNamingStrategy.PASCAL_CASE_TO_CAMEL_CASE);
+-    }
+-
+-    private static final Log log = LogFactory.getLog(EC2MetadataUtils.class);
+-
+-    /**
+-     * Get the AMI ID used to launch the instance.
+-     */
+-    public static String getAmiId() {
+-        return fetchData(EC2_METADATA_ROOT + "/ami-id");
+-    }
+-
+-    /**
+-     * Get the index of this instance in the reservation.
+-     */
+-    public static String getAmiLaunchIndex() {
+-        return fetchData(EC2_METADATA_ROOT + "/ami-launch-index");
+-    }
+-
+-    /**
+-     * Get the manifest path of the AMI with which the instance was launched.
+-     */
+-    public static String getAmiManifestPath() {
+-        return fetchData(EC2_METADATA_ROOT + "/ami-manifest-path");
+-    }
+-
+-    /**
+-     * Get the list of AMI IDs of any instances that were rebundled to created
+-     * this AMI. Will only exist if the AMI manifest file contained an
+-     * ancestor-amis key.
+-     */
+-    public static List<String> getAncestorAmiIds() {
+-        return getItems(EC2_METADATA_ROOT + "/ancestor-ami-ids");
+-    }
+-
+-    /**
+-     * Notifies the instance that it should reboot in preparation for bundling.
+-     * Valid values: none | shutdown | bundle-pending.
+-     */
+-    public static String getInstanceAction() {
+-        return fetchData(EC2_METADATA_ROOT + "/instance-action");
+-    }
+-
+-    /**
+-     * Get the ID of this instance.
+-     */
+-    public static String getInstanceId() {
+-        return fetchData(EC2_METADATA_ROOT + "/instance-id");
+-    }
+-
+-    /**
+-     * Get the type of the instance.
+-     */
+-    public static String getInstanceType() {
+-        return fetchData(EC2_METADATA_ROOT + "/instance-type");
+-    }
+-
+-    /**
+-     * Get the local hostname of the instance. In cases where multiple network
+-     * interfaces are present, this refers to the eth0 device (the device for
+-     * which device-number is 0).
+-     */
+-    public static String getLocalHostName() {
+-        return fetchData(EC2_METADATA_ROOT + "/local-hostname");
+-    }
+-
+-    /**
+-     * Get the MAC address of the instance. In cases where multiple network
+-     * interfaces are present, this refers to the eth0 device (the device for
+-     * which device-number is 0).
+-     */
+-    public static String getMacAddress() {
+-        return fetchData(EC2_METADATA_ROOT + "/mac");
+-    }
+-
+-    /**
+-     * Get the private IP address of the instance. In cases where multiple
+-     * network interfaces are present, this refers to the eth0 device (the
+-     * device for which device-number is 0).
+-     */
+-    public static String getPrivateIpAddress() {
+-        return fetchData(EC2_METADATA_ROOT + "/local-ipv4");
+-    }
+-
+-    /**
+-     * Get the Availability Zone in which the instance launched.
+-     */
+-    public static String getAvailabilityZone() {
+-        return fetchData(EC2_METADATA_ROOT + "/placement/availability-zone");
+-    }
+-
+-    /**
+-     * Get the list of product codes associated with the instance, if any.
+-     */
+-    public static List<String> getProductCodes() {
+-        return getItems(EC2_METADATA_ROOT + "/product-codes");
+-    }
+-
+-    /**
+-     * Get the public key. Only available if supplied at instance launch time.
+-     */
+-    public static String getPublicKey() {
+-        return fetchData(EC2_METADATA_ROOT + "/public-keys/0/openssh-key");
+-    }
+-
+-    /**
+-     * Get the ID of the RAM disk specified at launch time, if applicable.
+-     */
+-    public static String getRamdiskId() {
+-        return fetchData(EC2_METADATA_ROOT + "/ramdisk-id");
+-    }
+-
+-    /**
+-     * Get the ID of the reservation.
+-     */
+-    public static String getReservationId() {
+-        return fetchData(EC2_METADATA_ROOT + "/reservation-id");
+-    }
+-
+-    /**
+-     * Get the list of names of the security groups applied to the instance.
+-     */
+-    public static List<String> getSecurityGroups() {
+-        return getItems(EC2_METADATA_ROOT + "/security-groups");
+-    }
+-
+-    /**
+-     * Get information about the last time the instance profile was updated,
+-     * including the instance's LastUpdated date, InstanceProfileArn, and
+-     * InstanceProfileId.
+-     */
+-    public static IAMInfo getIAMInstanceProfileInfo() {
+-        String json = getData(EC2_METADATA_ROOT + "/iam/info");
+-        if (null == json) {
+-            return null;
+-        }
+-
+-        try {
+-
+-            return mapper.readValue(json, IAMInfo.class);
+-
+-        } catch (Exception e) {
+-            log.warn("Unable to parse IAM Instance profile info (" + json
+-                    + "): " + e.getMessage(), e);
+-            return null;
+-        }
+-    }
+-
+-    /**
+-     * The instance info is only guaranteed to be a JSON document per
+-     * http://docs
+-     * .aws.amazon.com/AWSEC2/latest/UserGuide/ec2-instance-metadata.html
+-     * <p>
+-     * This method is only a best attempt to capture the instance info as a
+-     * typed object.
+-     * <p>
+-     * Get an InstanceInfo object with dynamic information about this instance.
+-     */
+-    public static InstanceInfo getInstanceInfo() {
+-        return doGetInstanceInfo(getData(
+-                EC2_DYNAMICDATA_ROOT + INSTANCE_IDENTITY_DOCUMENT));
+-    }
+-
+-    static InstanceInfo doGetInstanceInfo(String json) {
+-        if (null != json) {
+-            try {
+-                InstanceInfo instanceInfo = Jackson.fromJsonString(json,
+-                        InstanceInfo.class);
+-                return instanceInfo;
+-            } catch (Exception e) {
+-                log.warn("Unable to parse dynamic EC2 instance info (" + json
+-                        + ") : " + e.getMessage(), e);
+-            }
+-        }
+-        return null;
+-    }
+-
+-    /**
+-     * Returns the current region of this running EC2 instance; or null if
+-     * it is unable to do so. The method avoids interpreting other parts of the
+-     * instance info JSON document to minimize potential failure.
+-     * <p>
+-     * The instance info is only guaranteed to be a JSON document per
+-     * http://docs
+-     * .aws.amazon.com/AWSEC2/latest/UserGuide/ec2-instance-metadata.html
+-     */
+-    public static String getEC2InstanceRegion() {
+-        return doGetEC2InstanceRegion(getData(
+-                EC2_DYNAMICDATA_ROOT + INSTANCE_IDENTITY_DOCUMENT));
+-    }
+-
+-    static String doGetEC2InstanceRegion(final String json) {
+-        if (null != json) {
+-            try {
+-                JsonNode node = mapper.readTree(json.getBytes(StringUtils.UTF8));
+-                JsonNode region = node.findValue(REGION);
+-                return region.asText();
+-            } catch (Exception e) {
+-                log.warn("Unable to parse EC2 instance info (" + json
+-                        + ") : " + e.getMessage(), e);
+-            }
+-        }
+-        return null;
+-    }
+-
+-    /**
+-     * Returns the temporary security credentials (AccessKeyId, SecretAccessKey,
+-     * SessionToken, and Expiration) associated with the IAM roles on the
+-     * instance.
+-     */
+-    public static Map<String, IAMSecurityCredential> getIAMSecurityCredentials() {
+-        Map<String, IAMSecurityCredential> credentialsInfoMap = new HashMap<String, IAMSecurityCredential>();
+-
+-        List<String> credentials = getItems(EC2_METADATA_ROOT + "/iam/security-credentials");
+-
+-        if (credentials != null) {
+-            for (String credential : credentials) {
+-                String json = getData(EC2_METADATA_ROOT + "/iam/security-credentials/" + credential);
+-                try {
+-                    IAMSecurityCredential credentialInfo = mapper.readValue(json, IAMSecurityCredential.class);
+-                    credentialsInfoMap.put(credential, credentialInfo);
+-                } catch (Exception e) {
+-                    log.warn("Unable to process the credential (" + credential + "). " + e.getMessage(), e);
+-                }
+-            }
+-        }
+-        return credentialsInfoMap;
+-    }
+-
+-    /**
+-     * Get the virtual devices associated with the ami, root, ebs, and swap.
+-     */
+-    public static Map<String, String> getBlockDeviceMapping() {
+-        Map<String, String> blockDeviceMapping = new HashMap<String, String>();
+-
+-        List<String> devices = getItems(EC2_METADATA_ROOT + "/block-device-mapping");
+-        if (devices != null) {
+-            for (String device : devices) {
+-                blockDeviceMapping.put(device, getData(EC2_METADATA_ROOT
+-                                                       + "/block-device-mapping/" + device));
+-            }
+-        }
+-        return blockDeviceMapping;
+-    }
+-
+-    /**
+-     * Get the list of network interfaces on the instance.
+-     */
+-    public static List<NetworkInterface> getNetworkInterfaces() {
+-        List<NetworkInterface> networkInterfaces = new LinkedList<NetworkInterface>();
+-
+-        List<String> macs = getItems(EC2_METADATA_ROOT + "/network/interfaces/macs/");
+-        if (macs != null) {
+-            for (String mac : macs) {
+-                String key = mac.trim();
+-                if (key.endsWith("/")) {
+-                    key = key.substring(0, key.length() - 1);
+-                }
+-                networkInterfaces.add(new NetworkInterface(key));
+-            }
+-        }
+-        return networkInterfaces;
+-    }
+-
+-    /**
+-     * Get the metadata sent to the instance
+-     */
+-    public static String getUserData() {
+-        return getData(EC2_USERDATA_ROOT);
+-    }
+-
+-    public static String getData(String path) {
+-        return getData(path, DEFAULT_QUERY_RETRIES);
+-    }
+-
+-    public static String getData(String path, int tries) {
+-        List<String> items = getItems(path, tries, true);
+-        if (null != items && items.size() > 0)
+-            return items.get(0);
+-        return null;
+-    }
+-
+-    /**
+-     * @param path Path to query.
+-     * @return List of items for given path or null if path does not exist.
+-     */
+-    public static List<String> getItems(String path) {
+-        return getItems(path, DEFAULT_QUERY_RETRIES, false);
+-    }
+-
+-    /**
+-     * @param path  Path to query.
+-     * @param tries Number of attempts to query EC2 metadata service for items.
+-     * @return List of items for given path or null if path does not exist.
+-     */
+-    public static List<String> getItems(String path, int tries) {
+-        return getItems(path, tries, false);
+-    }
+-
+-    private static List<String> getItems(String path, int tries, boolean slurp) {
+-        if (tries == 0)
+-            throw new SdkClientException(
+-                    "Unable to contact EC2 metadata service.");
+-
+-        List<String> items;
+-        try {
+-            String hostAddress = getHostAddressForEC2MetadataService();
+-            String response = EC2CredentialsUtils.getInstance().readResource(new URI(hostAddress + path));
+-            if (slurp)
+-                items = Collections.singletonList(response);
+-            else
+-                items = Arrays.asList(response.split("\n"));
+-            return items;
+-        } catch (AmazonClientException ace) {
+-            log.warn("Unable to retrieve the requested metadata.");
+-            return null;
+-        } catch (Exception e) {
+-            // Retry on any other exceptions
+-            int pause = (int) (Math.pow(2, DEFAULT_QUERY_RETRIES - tries) * MINIMUM_RETRY_WAIT_TIME_MILLISECONDS);
+-            try {
+-                Thread.sleep(pause < MINIMUM_RETRY_WAIT_TIME_MILLISECONDS ? MINIMUM_RETRY_WAIT_TIME_MILLISECONDS
+-                        : pause);
+-            } catch (InterruptedException e1) {
+-                Thread.currentThread().interrupt();
+-            }
+-            return getItems(path, tries - 1, slurp);
+-        }
+-    }
+-
+-    private static String fetchData(String path) {
+-        return fetchData(path, false);
+-    }
+-
+-    private static String fetchData(String path, boolean force) {
+-        try {
+-            if (force || !cache.containsKey(path))
+-                cache.put(path, getData(path));
+-            return cache.get(path);
+-        } catch (Exception e) {
+-            return null;
+-        }
+-    }
+-
+     /**
+      * Returns the host address of the Amazon EC2 Instance Metadata Service.
+      */
+     public static String getHostAddressForEC2MetadataService() {
+         String host = System.getProperty(EC2_METADATA_SERVICE_OVERRIDE_SYSTEM_PROPERTY);
+         return host != null ? host : EC2_METADATA_SERVICE_URL;
+     }
+ 
+-    /**
+-     * Information about the last time the instance profile was updated,
+-     * including the instance's LastUpdated date, InstanceProfileArn, and
+-     * InstanceProfileId.
+-     */
+-    public static class IAMInfo {
+-        public String code;
+-        public String message;
+-        public String lastUpdated;
+-        public String instanceProfileArn;
+-        public String instanceProfileId;
+-    }
+-
+-    /**
+-     * The temporary security credentials (AccessKeyId, SecretAccessKey,
+-     * SessionToken, and Expiration) associated with the IAM role.
+-     */
+-    public static class IAMSecurityCredential {
+-        public String code;
+-        public String message;
+-        public String lastUpdated;
+-        public String type;
+-        public String accessKeyId;
+-        public String secretAccessKey;
+-        public String token;
+-        public String expiration;
+-
+-        /**
+-         * @deprecated because it is spelled incorrectly
+-         * @see #accessKeyId
+-         */
+-        @Deprecated
+-        public String secretAcessKey;
+-    }
+-
+-    /**
+-     * This POJO is a best attempt to capture the instance info which is only
+-     * guaranteed to be a JSON document per
+-     * http://docs.aws.amazon.com/AWSEC2/latest
+-     * /UserGuide/ec2-instance-metadata.html
+-     *
+-     * Instance info includes dynamic information about the current instance
+-     * such as region, instanceId, private IP address, etc.
+-     */
+-    public static class InstanceInfo {
+-        private final String pendingTime;
+-        private final String instanceType;
+-        private final String imageId;
+-        private final String instanceId;
+-        private final String[] billingProducts;
+-        private final String architecture;
+-        private final String accountId;
+-        private final String kernelId;
+-        private final String ramdiskId;
+-        private final String region;
+-        private final String version;
+-        private final String availabilityZone;
+-        private final String privateIp;
+-        private final String[] devpayProductCodes;
+-
+-        @JsonCreator
+-        public InstanceInfo(
+-                @JsonProperty(value = "pendingTime", required = true) String pendingTime,
+-                @JsonProperty(value = "instanceType", required = true) String instanceType,
+-                @JsonProperty(value = "imageId", required = true) String imageId,
+-                @JsonProperty(value = "instanceId", required = true) String instanceId,
+-                @JsonProperty(value = "billingProducts", required = false) String[] billingProducts,
+-                @JsonProperty(value = "architecture", required = true) String architecture,
+-                @JsonProperty(value = "accountId", required = true) String accountId,
+-                @JsonProperty(value = "kernelId", required = true) String kernelId,
+-                @JsonProperty(value = "ramdiskId", required = false) String ramdiskId,
+-                @JsonProperty(value = REGION, required = true) String region,
+-                @JsonProperty(value = "version", required = true) String version,
+-                @JsonProperty(value = "availabilityZone", required = true) String availabilityZone,
+-                @JsonProperty(value = "privateIp", required = true) String privateIp,
+-                @JsonProperty(value = "devpayProductCodes", required = false) String[] devpayProductCodes) {
+-            this.pendingTime = pendingTime;
+-            this.instanceType = instanceType;
+-            this.imageId = imageId;
+-            this.instanceId = instanceId;
+-            this.billingProducts = billingProducts == null
+-                    ? null : billingProducts.clone();
+-            this.architecture = architecture;
+-            this.accountId = accountId;
+-            this.kernelId = kernelId;
+-            this.ramdiskId = ramdiskId;
+-            this.region = region;
+-            this.version = version;
+-            this.availabilityZone = availabilityZone;
+-            this.privateIp = privateIp;
+-            this.devpayProductCodes = devpayProductCodes == null
+-                    ? null : devpayProductCodes.clone();
+-        }
+-
+-        public String getPendingTime() {
+-            return pendingTime;
+-        }
+-
+-        public String getInstanceType() {
+-            return instanceType;
+-        }
+-
+-        public String getImageId() {
+-            return imageId;
+-        }
+-
+-        public String getInstanceId() {
+-            return instanceId;
+-        }
+-
+-        public String[] getBillingProducts() {
+-            return billingProducts == null ? null : billingProducts.clone();
+-        }
+-
+-        public String getArchitecture() {
+-            return architecture;
+-        }
+-
+-        public String getAccountId() {
+-            return accountId;
+-        }
+-
+-        public String getKernelId() {
+-            return kernelId;
+-        }
+-
+-        public String getRamdiskId() {
+-            return ramdiskId;
+-        }
+-
+-        public String getRegion() {
+-            return region;
+-        }
+-
+-        public String getVersion() {
+-            return version;
+-        }
+-
+-        public String getAvailabilityZone() {
+-            return availabilityZone;
+-        }
+-
+-        public String getPrivateIp() {
+-            return privateIp;
+-        }
+-
+-        public String[] getDevpayProductCodes() {
+-            return devpayProductCodes == null ? null : devpayProductCodes.clone();
+-        }
+-    }
+-
+-    /**
+-     * All of the metadata associated with a network interface on the instance.
+-     */
+-    public static class NetworkInterface {
+-        private String path;
+-        private String mac;
+-
+-        private List<String> availableKeys;
+-        private Map<String, String> data = new HashMap<String, String>();
+-
+-        public NetworkInterface(String macAddress) {
+-            mac = macAddress;
+-            path = "/network/interfaces/macs/" + mac + "/";
+-        }
+-
+-        /**
+-         * The interface's Media Acess Control (mac) address
+-         */
+-        public String getMacAddress() {
+-            return mac;
+-        }
+-
+-        /**
+-         * The ID of the owner of the network interface.<br>
+-         * In multiple-interface environments, an interface can be attached by a
+-         * third party, such as Elastic Load Balancing. Traffic on an interface
+-         * is always billed to the interface owner.
+-         */
+-        public String getOwnerId() {
+-            return getData("owner-id");
+-        }
+-
+-        /**
+-         * The interface's profile.
+-         */
+-        public String getProfile() {
+-            return getData("profile");
+-        }
+-
+-        /**
+-         * The interface's local hostname.
+-         */
+-        public String getHostname() {
+-            return getData("local-hostname");
+-        }
+-
+-        /**
+-         * The private IP addresses associated with the interface.
+-         */
+-        public List<String> getLocalIPv4s() {
+-            return getItems("local-ipv4s");
+-        }
+-
+-        /**
+-         * The interface's public hostname.
+-         */
+-        public String getPublicHostname() {
+-            return getData("public-hostname");
+-        }
+-
+-        /**
+-         * The elastic IP addresses associated with the interface.<br>
+-         * There may be multiple IP addresses on an instance.
+-         */
+-        public List<String> getPublicIPv4s() {
+-            return getItems("public-ipv4s");
+-        }
+-
+-        /**
+-         * Security groups to which the network interface belongs.
+-         */
+-        public List<String> getSecurityGroups() {
+-            return getItems("security-groups");
+-        }
+-
+-        /**
+-         * IDs of the security groups to which the network interface belongs.
+-         * Returned only for Amazon EC2 instances launched into a VPC.
+-         */
+-        public List<String> getSecurityGroupIds() {
+-            return getItems("security-group-ids");
+-        }
+-
+-        /**
+-         * The CIDR block of the Amazon EC2-VPC subnet in which the interface
+-         * resides.<br>
+-         * Returned only for Amazon EC2 instances launched into a VPC.
+-         */
+-        public String getSubnetIPv4CidrBlock() {
+-            return getData("subnet-ipv4-cidr-block");
+-        }
+-
+-        /**
+-         * ID of the subnet in which the interface resides.<br>
+-         * Returned only for Amazon EC2 instances launched into a VPC.
+-         */
+-         public String getSubnetId() {
+-             return getData("subnet-id");
+-         }
+-
+-        /**
+-         * The CIDR block of the Amazon EC2-VPC in which the interface
+-         * resides.<br>
+-         * Returned only for Amazon EC2 instances launched into a VPC.
+-         */
+-         public String getVpcIPv4CidrBlock() {
+-             return getData("vpc-ipv4-cidr-block");
+-         }
+-
+-        /**
+-         * ID of the Amazon EC2-VPC in which the interface resides.<br>
+-         * Returned only for Amazon EC2 instances launched into a VPC.
+-         */
+-        public String getVpcId() {
+-            return getData("vpc-id");
+-        }
+-
+-        /**
+-         * Get the private IPv4 address(es) that are associated with the
+-         * public-ip address and assigned to that interface.
+-         *
+-         * @param publicIp
+-         *            The public IP address
+-         * @return Private IPv4 address(es) associated with the public IP
+-         *         address.
+-         */
+-        public List<String> getIPv4Association(String publicIp) {
+-            return EC2MetadataUtils.getItems(EC2_METADATA_ROOT + path
+-                    + "ipv4-associations/" + publicIp);
+-        }
+-
+-        private String getData(String key) {
+-            if (data.containsKey(key))
+-                return data.get(key);
+-
+-            // Since the keys are variable, cache a list of which ones are available to prevent unnecessary trips to the service.
+-            if (null == availableKeys) {
+-                availableKeys = EC2MetadataUtils.getItems(EC2_METADATA_ROOT + path);
+-            }
+-
+-            if (availableKeys != null && availableKeys.contains(key)) {
+-                data.put(key, EC2MetadataUtils.getData(EC2_METADATA_ROOT + path + key));
+-                return data.get(key);
+-            } else {
+-                return null;
+-            }
+-        }
+-
+-        private List<String> getItems(String key) {
+-            if (null == availableKeys) {
+-                availableKeys = EC2MetadataUtils.getItems(EC2_METADATA_ROOT + path);
+-            }
+-
+-            if (availableKeys != null && availableKeys.contains(key)) {
+-                return EC2MetadataUtils.getItems(EC2_METADATA_ROOT + path + key);
+-            } else {
+-                return new LinkedList<String>();
+-            }
+-        }
+-    }
+ }
+diff -Nau8r ./src/main/java/com/amazonaws/util/StringUtils.java /home/greg/projects/bazel/third_party/aws-sdk-auth-lite/src/main/java/com/amazonaws/util/StringUtils.java
+--- ./src/main/java/com/amazonaws/util/StringUtils.java	2018-03-16 22:25:16.000000000 -0700
++++ /home/greg/projects/bazel/third_party/aws-sdk-auth-lite/src/main/java/com/amazonaws/util/StringUtils.java	2018-05-17 15:33:11.495351646 -0700
+@@ -9,177 +9,27 @@
+  *
+  * or in the "license" file accompanying this file. This file is distributed
+  * on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
+  * express or implied. See the License for the specific language governing
+  * permissions and limitations under the License.
+  */
+ package com.amazonaws.util;
+ 
+-import static com.amazonaws.util.BinaryUtils.copyBytesFrom;
+-
+-import java.math.BigDecimal;
+-import java.math.BigInteger;
+-import java.nio.ByteBuffer;
+ import java.nio.charset.Charset;
+-import java.text.Collator;
+-import java.util.Date;
+-import java.util.Locale;
+ 
+ /**
+  * Utilities for converting objects to strings.
+  */
+ public class StringUtils {
+ 
+     private static final String DEFAULT_ENCODING = "UTF-8";
+ 
+-    public static final String COMMA_SEPARATOR = ",";
+-
+     public static final Charset UTF8 = Charset.forName(DEFAULT_ENCODING);
+ 
+-    private static final Locale LOCALE_ENGLISH = Locale.ENGLISH;
+-
+-    // white space character that match Pattern.compile("\\s")
+-    private static final char CHAR_SPACE = ' ';
+-    private static final char CHAR_TAB = '\t';
+-    private static final char CHAR_NEW_LINE = '\n';
+-    private static final char CHAR_VERTICAL_TAB = '\u000b';
+-    private static final char CHAR_CARRIAGE_RETURN = '\r';
+-    private static final char CHAR_FORM_FEED = '\f';
+-
+-    public static Integer toInteger(StringBuilder value) {
+-        return Integer.parseInt(value.toString());
+-    }
+-
+-    public static String toString(StringBuilder value) {
+-        return value.toString();
+-    }
+-
+-    public static Boolean toBoolean(StringBuilder value) {
+-        return Boolean.getBoolean(value.toString());
+-    }
+-
+-    public static String fromInteger(Integer value) {
+-        return Integer.toString(value);
+-    }
+-
+-    public static String fromLong(Long value) {
+-        return Long.toString(value);
+-    }
+-
+-    public static String fromString(String value) {
+-        return value;
+-    }
+-
+-    public static String fromBoolean(Boolean value) {
+-        return Boolean.toString(value);
+-    }
+-
+-    public static String fromBigInteger(BigInteger value) {
+-        return value.toString();
+-    }
+-
+-    public static String fromBigDecimal(BigDecimal value) {
+-        return value.toString();
+-    }
+-
+-
+-    public static BigInteger toBigInteger(String s) {
+-        return new BigInteger(s);
+-    }
+-
+-    public static BigDecimal toBigDecimal(String s) {
+-        return new BigDecimal(s);
+-    }
+-
+-    public static String fromFloat(Float value) {
+-        return Float.toString(value);
+-    }
+-
+-    /**
+-     * Converts the specified date to an ISO 8601 timestamp string and returns
+-     * it.
+-     *
+-     * @param value
+-     *            The date to format as an ISO 8601 timestamp string.
+-     *
+-     * @return An ISO 8601 timestamp string created from the specified date.
+-     */
+-    public static String fromDate(Date value) {
+-        return DateUtils.formatISO8601Date(value);
+-    }
+-
+-    /**
+-     * Returns the string representation of the specified double.
+-     *
+-     * @param d
+-     *            The double to represent as a string.
+-     *
+-     * @return The string representation of the specified double.
+-     */
+-    public static String fromDouble(Double d) {
+-        return Double.toString(d);
+-    }
+-
+-    /**
+-     * Returns the string representation of the specified Byte.
+-     *
+-     * @param b
+-     *            The Byte to represent as a string.
+-     *
+-     * @return The string representation of the specified Byte.
+-     */
+-    public static String fromByte(Byte b) {
+-        return Byte.toString(b);
+-    }
+-
+-    /**
+-     * Base64 encodes the data in the specified byte buffer (from the current
+-     * position to the buffer's limit) and returns it as a base64 encoded
+-     * string.
+-     *
+-     * @param byteBuffer
+-     *            The data to base64 encode and return as a string; must not be
+-     *            null.
+-     *
+-     * @return The base64 encoded contents of the specified byte buffer.
+-     */
+-    public static String fromByteBuffer(ByteBuffer byteBuffer) {
+-        return Base64.encodeAsString(copyBytesFrom(byteBuffer));
+-    }
+-
+-    public static String replace( String originalString, String partToMatch, String replacement ) {
+-        StringBuilder buffer = new StringBuilder( originalString.length() );
+-        buffer.append( originalString );
+-
+-        int indexOf = buffer.indexOf( partToMatch );
+-        while (indexOf != -1) {
+-            buffer = buffer.replace(indexOf, indexOf + partToMatch.length(), replacement);
+-            indexOf = buffer.indexOf(partToMatch, indexOf + replacement.length());
+-        }
+-
+-        return buffer.toString();
+-    }
+-
+-    /**
+-     * Joins the strings in parts with joiner between each string
+-     * @param joiner the string to insert between the strings in parts
+-     * @param parts the parts to join
+-     */
+-    public static String join(String joiner, String... parts) {
+-        StringBuilder builder = new StringBuilder();
+-        for (int i = 0; i < parts.length; i++) {
+-            builder.append(parts[i]);
+-            if (i < parts.length - 1) {
+-                builder.append(joiner);
+-            }
+-        }
+-        return builder.toString();
+-    }
+-
+     /**
+      * A null-safe trim method. If the input string is null, returns null;
+      * otherwise returns a trimmed version of the input.
+      */
+     public static String trim(String value) {
+         if (value == null) {
+             return null;
+         }
+@@ -187,116 +37,9 @@
+     }
+ 
+     /**
+      * @return true if the given value is either null or the empty string
+      */
+     public static boolean isNullOrEmpty(String value) {
+         return value == null || value.isEmpty();
+     }
+-
+-    /**
+-     * @return true if the given value is non-null and non-empty
+-     */
+-    public static boolean hasValue(String str) {
+-        return !isNullOrEmpty(str);
+-    }
+-
+-    /**
+-     * Converts a given String to lower case with Locale.ENGLISH
+-     *
+-     * @param str the string to be converted to lower case
+-     * @return the lower case of string, or itself if string is null/empty
+-     */
+-    public static String lowerCase(String str) {
+-        if(isNullOrEmpty(str)) {
+-            return str;
+-        }
+-        return str.toLowerCase(LOCALE_ENGLISH);
+-    }
+-
+-    /**
+-     * Converts a given String to upper case with Locale.ENGLISH
+-     *
+-     * @param str the string to be converted to upper case
+-     * @return the upper case of string, or itself if string is null/empty
+-     */
+-    public static String upperCase(String str) {
+-        if(isNullOrEmpty(str)) {
+-            return str;
+-        }
+-        return str.toUpperCase(LOCALE_ENGLISH);
+-    }
+-
+-    /**
+-     * Compare two strings with Locale.ENGLISH
+-     * This method is preferred over String.compareTo() method.
+-     * @param str1 String 1
+-     * @param str2 String 2
+-     * @return negative integer if str1 lexicographically precedes str2
+-     * 		   positive integer if str1 lexicographically follows str2
+-     * 			0 if both strings are equal
+-     * @throws IllegalArgumentException throws exception if both or either of the strings is null
+-     */
+-    public static int compare(String str1, String str2) {
+-        if( str1 == null || str2 == null) {
+-            throw new IllegalArgumentException("Arguments cannot be null");
+-        }
+-
+-        Collator collator = Collator.getInstance(LOCALE_ENGLISH);
+-        return collator.compare(str1, str2);
+-    }
+-
+-    /**
+-     * Tests a char to see if is it whitespace.
+-     * This method considers the same characters to be white
+-     * space as the Pattern class does when matching \s
+-     *
+-     * @param ch the character to be tested
+-     * @return true if the character is white  space, false otherwise.
+-     */
+-    private static boolean isWhiteSpace(final char ch) {
+-        if (ch == CHAR_SPACE) return true;
+-        if (ch == CHAR_TAB) return true;
+-        if (ch == CHAR_NEW_LINE) return true;
+-        if (ch == CHAR_VERTICAL_TAB) return true;
+-        if (ch == CHAR_CARRIAGE_RETURN) return true;
+-        if (ch == CHAR_FORM_FEED) return true;
+-        return false;
+-    }
+-
+-    /**
+-     * This method appends a string to a string builder and collapses contiguous
+-     * white space is a single space.
+-     *
+-     * This is equivalent to:
+-     *      destination.append(source.replaceAll("\\s+", " "))
+-     * but does not create a Pattern object that needs to compile the match
+-     * string; it also prevents us from having to make a Matcher object as well.
+-     *
+-     */
+-    public static void appendCompactedString(final StringBuilder destination, final String source) {
+-        boolean previousIsWhiteSpace = false;
+-        int length = source.length();
+-
+-        for (int i = 0; i < length; i++) {
+-            char ch = source.charAt(i);
+-            if (isWhiteSpace(ch)) {
+-                if (previousIsWhiteSpace) {
+-                    continue;
+-                }
+-                destination.append(CHAR_SPACE);
+-                previousIsWhiteSpace = true;
+-            } else {
+-                destination.append(ch);
+-                previousIsWhiteSpace = false;
+-            }
+-        }
+-    }
+-
+-    /**
+-     * Performs a case insensitive comparison and returns true if the data
+-     * begins with the given sequence. 
+-     */
+-    public static boolean beginsWithIgnoreCase(final String data, final String seq) {
+-      return data.regionMatches(true, 0, seq, 0, seq.length());
+-    }
+ }

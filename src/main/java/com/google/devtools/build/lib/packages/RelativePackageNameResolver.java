@@ -1,4 +1,4 @@
-// Copyright 2014 Google Inc. All rights reserved.
+// Copyright 2014 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.packages;
 
 import com.google.common.base.Preconditions;
+import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
 /**
@@ -56,23 +57,24 @@ public class RelativePackageNameResolver {
       isAbsolute = true;
       relativePkg = pkg.substring(2);
     } else if (pkg.startsWith("/")) {
-      throw new InvalidPackageNameException(pkg,
+      throw new InvalidPackageNameException(
+          PackageIdentifier.createInMainRepo(pkg),
           "package name cannot start with a single slash");
     } else {
       isAbsolute = false;
       relativePkg = pkg;
     }
 
-    PathFragment relative = new PathFragment(relativePkg);
+    PathFragment relative = PathFragment.create(relativePkg);
 
     if (discardBuild && relative.getBaseName().equals("BUILD")) {
       relative = relative.getParentDirectory();
     }
 
     PathFragment result = isAbsolute ? relative : offset.getRelative(relative);
-    result = result.normalize();
     if (result.containsUplevelReferences()) {
-      throw new InvalidPackageNameException(pkg,
+      throw new InvalidPackageNameException(
+          PackageIdentifier.createInMainRepo(pkg),
           "package name contains too many '..' segments");
     }
 

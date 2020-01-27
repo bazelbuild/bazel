@@ -1,4 +1,4 @@
-// Copyright 2014 Google Inc. All rights reserved.
+// Copyright 2016 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,65 +15,137 @@
 package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.base.Objects;
-import com.google.devtools.build.lib.packages.PackageIdentifier.RepositoryName;
+import com.google.common.base.Preconditions;
+import com.google.common.collect.Interner;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.google.devtools.build.lib.concurrent.BlazeInterners;
+import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.vfs.Path;
-import com.google.devtools.build.skyframe.SkyKey;
+import com.google.devtools.build.skyframe.AbstractSkyKey;
+import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyValue;
 
-/**
- * A local view of an external repository.
- */
-public class RepositoryValue implements SkyValue {
-  private final Path path;
+/** A repository's name and directory. */
+public abstract class RepositoryValue implements SkyValue {
+  public abstract boolean repositoryExists();
 
-  /**
-   * If path is a symlink, this will keep track of what the symlink actually points to (for
-   * checking equality).
-   */
-  private final FileValue details;
+  /** Returns the path to the repository. */
+  public abstract Path getPath();
 
-  public RepositoryValue(Path path, FileValue repositoryDirectory) {
-    this.path = path;
-    this.details = repositoryDirectory;
-  }
+  /** Successful lookup value. */
+  public static final class SuccessfulRepositoryValue extends RepositoryValue {
+    private final RepositoryName repositoryName;
+    private final RepositoryDirectoryValue repositoryDirectory;
 
-  /**
-   * Returns the path to the directory containing the repository's contents. This directory is
-   * guaranteed to exist.  It may contain a full Bazel repository (with a WORKSPACE file,
-   * directories, and BUILD files) or simply contain a file (or set of files) for, say, a jar from
-   * Maven.
-   */
-  public Path getPath() {
-    return path;
-  }
+    /** Creates a repository with a given name in a certain directory. */
+    public SuccessfulRepositoryValue(
+        RepositoryName repositoryName, RepositoryDirectoryValue repository) {
+      Preconditions.checkArgument(repository.repositoryExists());
+      this.repositoryName = repositoryName;
+      this.repositoryDirectory = repository;
+    }
 
-  public FileValue getRepositoryDirectory() {
-    return details;
-  }
-
-  @Override
-  public boolean equals(Object other) {
-    if (this == other) {
+    @Override
+    public boolean repositoryExists() {
       return true;
     }
 
-    if (other instanceof RepositoryValue) {
-      RepositoryValue otherValue = (RepositoryValue) other;
-      return path.equals(otherValue.path) && details.equals(otherValue.details);
+    @Override
+    public Path getPath() {
+      return repositoryDirectory.getPath();
     }
-    return false;
+
+    @Override
+    public boolean equals(Object other) {
+      if (this == other) {
+        return true;
+      }
+      if (other == null || getClass() != other.getClass()) {
+        return false;
+      }
+
+      SuccessfulRepositoryValue that = (SuccessfulRepositoryValue) other;
+      return Objects.equal(repositoryName, that.repositoryName)
+          && Objects.equal(repositoryDirectory, that.repositoryDirectory);
+    }
+
+    @Override
+    public int hashCode() {
+      return Objects.hashCode(repositoryName, repositoryDirectory);
+    }
   }
 
-  @Override
-  public int hashCode() {
-    return Objects.hashCode(path, details);
+  /** Repository could not be resolved. */
+  public static final class NoRepositoryValue extends RepositoryValue {
+    private final RepositoryName repositoryName;
+
+    private NoRepositoryValue(RepositoryName repositoryName) {
+      this.repositoryName = repositoryName;
+    }
+
+    @Override
+    public boolean repositoryExists() {
+      return false;
+    }
+
+    @Override
+    public Path getPath() {
+      throw new IllegalStateException();
+    }
+
+    @Override
+    public boolean equals(Object other) {
+      if (this == other) {
+        return true;
+      }
+      if (other == null || getClass() != other.getClass()) {
+        return false;
+      }
+
+      NoRepositoryValue that = (NoRepositoryValue) other;
+      return Objects.equal(repositoryName, that.repositoryName);
+    }
+
+    @Override
+    public int hashCode() {
+      return repositoryName.hashCode();
+    }
   }
 
-  /**
-   * Creates a key from the given repository name.
-   */
-  public static SkyKey key(RepositoryName repository) {
-    return new SkyKey(SkyFunctions.REPOSITORY, repository);
+  public static RepositoryValue success(
+      RepositoryName repositoryName, RepositoryDirectoryValue repository) {
+    return new SuccessfulRepositoryValue(repositoryName, repository);
   }
 
+  public static RepositoryValue notFound(RepositoryName repositoryName) {
+    // TODO(ulfjack): Store the cause here? The two possible causes are that the external package
+    // contains errors, or that the repository with the given name does not exist.
+    return new NoRepositoryValue(repositoryName);
+  }
+
+  public static Key key(RepositoryName repositoryName) {
+    return Key.create(repositoryName);
+  }
+
+  @AutoCodec.VisibleForSerialization
+  @AutoCodec
+  static class Key extends AbstractSkyKey<RepositoryName> {
+    private static final Interner<Key> interner = BlazeInterners.newWeakInterner();
+
+    private Key(RepositoryName arg) {
+      super(arg);
+    }
+
+    @AutoCodec.VisibleForSerialization
+    @AutoCodec.Instantiator
+    static Key create(RepositoryName arg) {
+      return interner.intern(new Key(arg));
+    }
+
+    @Override
+    public SkyFunctionName functionName() {
+      return SkyFunctions.REPOSITORY;
+    }
+  }
 }

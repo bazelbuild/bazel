@@ -1,4 +1,4 @@
-// Copyright 2015 Google Inc. All rights reserved.
+// Copyright 2015 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -23,18 +23,19 @@ import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
 import com.google.devtools.build.lib.actions.FilesetTraversalParams;
 import com.google.devtools.build.lib.actions.FilesetTraversalParams.DirectTraversal;
+import com.google.devtools.build.lib.actions.HasDigest;
 import com.google.devtools.build.lib.skyframe.RecursiveFilesystemTraversalFunction.DanglingSymlinkException;
 import com.google.devtools.build.lib.skyframe.RecursiveFilesystemTraversalFunction.RecursiveFilesystemTraversalException;
 import com.google.devtools.build.lib.skyframe.RecursiveFilesystemTraversalValue.ResolvedFile;
+import com.google.devtools.build.lib.skyframe.RecursiveFilesystemTraversalValue.TraversalRequest;
+import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-
 import java.util.LinkedHashMap;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Set;
 import java.util.TreeMap;
 
@@ -49,168 +50,167 @@ public final class FilesetEntryFunction implements SkyFunction {
     }
   }
 
+  private final Function<String, Path> getExecRoot;
+
+  public FilesetEntryFunction(Function<String, Path> getExecRoot) {
+    this.getExecRoot = getExecRoot;
+  }
+
   @Override
-  public SkyValue compute(SkyKey key, Environment env) throws FilesetEntryFunctionException {
+  public SkyValue compute(SkyKey key, Environment env)
+      throws FilesetEntryFunctionException, InterruptedException {
+    WorkspaceNameValue workspaceNameValue =
+        (WorkspaceNameValue) env.getValue(WorkspaceNameValue.key());
+    if (workspaceNameValue == null) {
+      return null;
+    }
+
     FilesetTraversalParams t = (FilesetTraversalParams) key.argument();
     Preconditions.checkState(
-        t.getNestedTraversal().isPresent() != t.getDirectTraversal().isPresent(),
-        "Exactly one of the nested and direct traversals must be specified: %s", t);
-
-    // Create the set of excluded files. Only top-level files can be excluded, i.e. ones that are
-    // directly under the root if the root is a directory.
-    Set<String> exclusions = createExclusionSet(t.getExcludedFiles());
+        t.getDirectTraversal().isPresent() && t.getNestedArtifact() == null,
+        "FilesetEntry does not support nested traversal: %s", t);
 
     // The map of output symlinks. Each key is the path of a output symlink that the Fileset must
     // create, relative to the Fileset.out directory, and each value specifies extra information
     // about the link (its target, associated metadata and again its name).
     Map<PathFragment, FilesetOutputSymlink> outputSymlinks = new LinkedHashMap<>();
 
-    if (t.getNestedTraversal().isPresent()) {
-      // The "nested" traversal parameters are present if and only if FilesetEntry.srcdir specifies
-      // another Fileset (a "nested" one).
-      FilesetEntryValue nested = (FilesetEntryValue) env.getValue(
-          FilesetEntryValue.key(t.getNestedTraversal().get()));
-      if (env.valuesMissing()) {
-        return null;
-      }
+    // The "direct" traversal params are present, which is the case when the FilesetEntry
+    // specifies a package's BUILD file, a directory or a list of files.
 
-      for (FilesetOutputSymlink s : nested.getSymlinks()) {
-        maybeStoreSymlink(s, t.getDestPath(), exclusions, outputSymlinks);
-      }
-    } else {
-      // The "nested" traversal params are absent if and only if the "direct" traversal params are
-      // present, which is the case when the FilesetEntry specifies a package's BUILD file, a
-      // directory or a list of files.
+    // The root of the direct traversal is defined as follows.
+    //
+    // If FilesetEntry.files is specified, then a TraversalRequest is created for each entry, the
+    // root being the respective entry itself. These are all traversed for they may be
+    // directories or symlinks to directories, and we need to establish Skyframe dependencies on
+    // their contents for incremental correctness. If an entry is indeed a directory (but not when
+    // it's a symlink to one) then we have to create symlinks to each of their children.
+    // (NB: there seems to be no good reason for this, it's just how legacy Fileset works. We may
+    // want to consider creating a symlink just for the directory and not for its child elements.)
+    //
+    // If FilesetEntry.files is not specified, then srcdir refers to either a BUILD file or a
+    // directory. For the former, the root will be the parent of the BUILD file. For the latter,
+    // the root will be srcdir itself.
+    DirectTraversal direct = t.getDirectTraversal().get();
 
-      // The root of the direct traversal is defined as follows.
-      //
-      // If FilesetEntry.files is specified, then a TraversalRequest is created for each entry, the
-      // root being the respective entry itself. These are all traversed for they may be
-      // directories or symlinks to directories, and we need to establish Skyframe dependencies on
-      // their contents for incremental correctness. If an entry is indeed a directory (but not when
-      // it's a symlink to one) then we have to create symlinks to each of their childen.
-      // (NB: there seems to be no good reason for this, it's just how legacy Fileset works. We may
-      // want to consider creating a symlink just for the directory and not for its child elements.)
-      //
-      // If FilesetEntry.files is not specified, then srcdir refers to either a BUILD file or a
-      // directory. For the former, the root will be the parent of the BUILD file. For the latter,
-      // the root will be srcdir itself.
-      DirectTraversal direct = t.getDirectTraversal().get();
+    RecursiveFilesystemTraversalValue rftv;
+    try {
+      // Traverse the filesystem to establish skyframe dependencies.
+      rftv = traverse(env, createErrorInfo(t), direct);
+    } catch (MissingDepException e) {
+      return null;
+    }
 
-      RecursiveFilesystemTraversalValue rftv;
-      try {
-        // Traverse the filesystem to establish skyframe dependencies.
-        rftv = traverse(env, createErrorInfo(t), direct);
-      } catch (MissingDepException e) {
-        return null;
-      }
+    // The root can only be absent for the EMPTY rftv instance.
+    if (!rftv.getResolvedRoot().isPresent()) {
+      return FilesetEntryValue.EMPTY;
+    }
 
-      // The root can only be absent for the EMPTY rftv instance.
-      if (!rftv.getResolvedRoot().isPresent()) {
-        return FilesetEntryValue.EMPTY;
-      }
+    ResolvedFile resolvedRoot = rftv.getResolvedRoot().get();
 
-      ResolvedFile resolvedRoot = rftv.getResolvedRoot().get();
+    // Handle dangling symlinks gracefully be returning empty results.
+    if (!resolvedRoot.getType().exists()) {
+      return FilesetEntryValue.EMPTY;
+    }
 
-      // Handle dangling symlinks gracefully be returning empty results.
-      if (!resolvedRoot.type.exists()) {
-        return FilesetEntryValue.EMPTY;
-      }
+    // The prefix to remove is the entire path of the root. This is OK:
+    // - when the root is a file, this removes the entire path, but the traversal's destination
+    //   path is actually the name of the output symlink, so this works out correctly
+    // - when the root is a directory or a symlink to one then we need to strip off the
+    //   directory's path from every result (this is how the output symlinks must be created)
+    //   before making them relative to the destination path
+    PathFragment prefixToRemove = direct.getRoot().getRelativePart();
 
-      // The prefix to remove is the entire path of the root. This is OK:
-      // - when the root is a file, this removes the entire path, but the traversal's destination
-      //   path is actually the name of the output symlink, so this works out correctly
-      // - when the root is a directory or a symlink to one then we need to strip off the
-      //   directory's path from every result (this is how the output symlinks must be created)
-      //   before making them relative to the destination path
-      PathFragment prefixToRemove = direct.getRoot().getRelativePart();
+    Iterable<ResolvedFile> results = null;
 
-      Iterable<ResolvedFile> results = null;
-
-      if (direct.isRecursive()
-          || (resolvedRoot.type.isDirectory() && !resolvedRoot.type.isSymlink())) {
-        // The traversal is recursive (requested for an entire FilesetEntry.srcdir) or it was
-        // requested for a FilesetEntry.files entry which turned out to be a directory. We need to
-        // create an output symlink for every file in it and all of its subdirectories. Only
-        // exception is when the subdirectory is really a symlink to a directory -- no output
-        // shall be created for the contents of those.
-        // Now we create Dir objects to model the filesystem tree. The object employs a trick to
-        // find directory symlinks: directory symlinks have corresponding ResolvedFile entries and
-        // are added as files too, while their children, also added as files, contain the path of
-        // the parent. Finding and discarding the children is easy if we traverse the tree from
-        // root to leaf.
-        DirectoryTree root = new DirectoryTree();
-        for (ResolvedFile f : rftv.getTransitiveFiles().toCollection()) {
-          PathFragment path = f.getNameInSymlinkTree().relativeTo(prefixToRemove);
-          if (path.segmentCount() > 0) {
-            path = t.getDestPath().getRelative(path);
-            DirectoryTree dir = root;
-            for (int i = 0; i < path.segmentCount() - 1; ++i) {
-              dir = dir.addOrGetSubdir(path.getSegment(i));
-            }
-            dir.maybeAddFile(f);
+    if (direct.isRecursive()
+        || (resolvedRoot.getType().isDirectory() && !resolvedRoot.getType().isSymlink())) {
+      // The traversal is recursive (requested for an entire FilesetEntry.srcdir) or it was
+      // requested for a FilesetEntry.files entry which turned out to be a directory. We need to
+      // create an output symlink for every file in it and all of its subdirectories. Only
+      // exception is when the subdirectory is really a symlink to a directory -- no output
+      // shall be created for the contents of those.
+      // Now we create Dir objects to model the filesystem tree. The object employs a trick to
+      // find directory symlinks: directory symlinks have corresponding ResolvedFile entries and
+      // are added as files too, while their children, also added as files, contain the path of
+      // the parent. Finding and discarding the children is easy if we traverse the tree from
+      // root to leaf.
+      DirectoryTree root = new DirectoryTree();
+      for (ResolvedFile f : rftv.getTransitiveFiles().toList()) {
+        PathFragment path = f.getNameInSymlinkTree().relativeTo(prefixToRemove);
+        if (!path.isEmpty()) {
+          path = t.getDestPath().getRelative(path);
+          DirectoryTree dir = root;
+          for (int i = 0; i < path.segmentCount() - 1; ++i) {
+            dir = dir.addOrGetSubdir(path.getSegment(i));
           }
+          dir.maybeAddFile(f);
         }
-        // Here's where the magic happens. The returned iterable will yield all files in the
-        // directory that are not under symlinked directories, as well as all directory symlinks.
-        results = root.iterateFiles();
-      } else {
-        // If we're on this branch then the traversal was done for just one entry in
-        // FilesetEntry.files (which was not a directory, so it was either a file, a symlink to one
-        // or a symlink to a directory), meaning we'll have only one output symlink.
-        results = ImmutableList.of(resolvedRoot);
+      }
+      // Here's where the magic happens. The returned iterable will yield all files in the
+      // directory that are not under symlinked directories, as well as all directory symlinks.
+      results = root.iterateFiles();
+    } else {
+      // If we're on this branch then the traversal was done for just one entry in
+      // FilesetEntry.files (which was not a directory, so it was either a file, a symlink to one
+      // or a symlink to a directory), meaning we'll have only one output symlink.
+      results = ImmutableList.of(resolvedRoot);
+    }
+
+    // Create the set of excluded files. Only top-level files can be excluded, i.e. ones that are
+    // directly under the root if the root is a directory.
+    Set<String> exclusions =
+        Sets.filter(t.getExcludedFiles(), e -> PathFragment.create(e).segmentCount() == 1);
+
+    // Create one output symlink for each entry in the results.
+    for (ResolvedFile f : results) {
+      // The linkName has to be under the traversal's root, which is also the prefix to remove.
+      PathFragment linkName = f.getNameInSymlinkTree().relativeTo(prefixToRemove);
+
+      // Check whether the symlink is excluded before attempting to resolve it.
+      // It may be dangling, but excluding it is still fine.
+      // TODO(b/64754128): Investigate if we could have made the exclude earlier before
+      //                   unnecessarily iterating over all the files in an excluded directory.
+      if (linkName.segmentCount() > 0 && exclusions.contains(linkName.getSegment(0))) {
+        continue;
       }
 
-      // Create one output symlink for each entry in the results.
-      for (ResolvedFile f : results) {
-        PathFragment targetName;
-        try {
-          targetName = f.getTargetInSymlinkTree(direct.isFollowingSymlinks());
-        } catch (DanglingSymlinkException e) {
-          throw new FilesetEntryFunctionException(e);
-        }
-
-        // Metadata field must be present. It can only be absent when stripped by tests.
-        String metadata = Integer.toHexString(f.metadata.get().hashCode());
-
-        // The linkName has to be under the traversal's root, which is also the prefix to remove.
-        PathFragment linkName = f.getNameInSymlinkTree().relativeTo(prefixToRemove);
-        maybeStoreSymlink(linkName, targetName, metadata, t.getDestPath(), exclusions,
-            outputSymlinks);
+      PathFragment targetName;
+      try {
+        targetName = f.getTargetInSymlinkTree(direct.isFollowingSymlinks());
+      } catch (DanglingSymlinkException e) {
+        throw new FilesetEntryFunctionException(e);
       }
+
+      maybeStoreSymlink(
+          linkName,
+          targetName,
+          f.getMetadata(),
+          t.getDestPath(),
+          direct.isGenerated(),
+          outputSymlinks,
+          getExecRoot.apply(workspaceNameValue.getName()));
     }
 
     return FilesetEntryValue.of(ImmutableSet.copyOf(outputSymlinks.values()));
   }
 
-  /** Stores an output symlink unless it's excluded or would overwrite an existing one. */
-  private static void maybeStoreSymlink(FilesetOutputSymlink nestedLink, PathFragment destPath,
-      Set<String> exclusions, Map<PathFragment, FilesetOutputSymlink> result) {
-    maybeStoreSymlink(nestedLink.name, nestedLink.target, nestedLink.metadata, destPath,
-        exclusions, result);
-  }
-
-  /** Stores an output symlink unless it's excluded or would overwrite an existing one. */
-  private static void maybeStoreSymlink(PathFragment linkName, PathFragment linkTarget,
-      String metadata, PathFragment destPath, Set<String> exclusions,
-      Map<PathFragment, FilesetOutputSymlink> result) {
-    if (!exclusions.contains(linkName.getPathString())) {
-      linkName = destPath.getRelative(linkName);
-      if (!result.containsKey(linkName)) {
-        result.put(linkName, new FilesetOutputSymlink(linkName, linkTarget, metadata));
-      }
+  /** Stores an output symlink unless it would overwrite an existing one. */
+  private void maybeStoreSymlink(
+      PathFragment linkName,
+      PathFragment linkTarget,
+      HasDigest metadata,
+      PathFragment destPath,
+      boolean isGenerated,
+      Map<PathFragment, FilesetOutputSymlink> result,
+      Path execRoot) {
+    linkName = destPath.getRelative(linkName);
+    if (!result.containsKey(linkName)) {
+      result.put(
+          linkName,
+          FilesetOutputSymlink.create(
+              linkName, linkTarget, metadata, isGenerated, execRoot.asFragment()));
     }
-  }
-
-  private static Set<String> createExclusionSet(Set<String> input) {
-    return Sets.filter(input, new Predicate<String>() {
-      @Override
-      public boolean apply(String e) {
-        // Keep the top-level exclusions only. Do not look for "/" but count the path segments
-        // instead, in anticipation of future Windows support.
-        return new PathFragment(e).segmentCount() == 1;
-      }
-    });
   }
 
   @Override
@@ -218,13 +218,43 @@ public final class FilesetEntryFunction implements SkyFunction {
     return null;
   }
 
-  private RecursiveFilesystemTraversalValue traverse(Environment env, String errorInfo,
-      DirectTraversal traversal) throws MissingDepException {
-    SkyKey depKey = RecursiveFilesystemTraversalValue.key(
-        new RecursiveFilesystemTraversalValue.TraversalRequest(traversal.getRoot().asRootedPath(),
-            traversal.isGenerated(), traversal.getPackageBoundaryMode(), traversal.isPackage(),
-            errorInfo));
-    RecursiveFilesystemTraversalValue v = (RecursiveFilesystemTraversalValue) env.getValue(depKey);
+  /**
+   * Returns the {@link TraversalRequest} node used to compute the Skyframe value for {@code
+   * filesetEntryKey}. Should only be called to determine which nodes need to be rewound, and only
+   * when {@code filesetEntryKey.isGenerated()}.
+   */
+  public static TraversalRequest getDependencyForRewinding(FilesetEntryKey filesetEntryKey) {
+    FilesetTraversalParams t = filesetEntryKey.argument();
+    Preconditions.checkState(
+        t.getDirectTraversal().isPresent() && t.getNestedArtifact() == null,
+        "FilesetEntry does not support nested traversal: %s",
+        t);
+    Preconditions.checkState(
+        t.getDirectTraversal().get().isGenerated(),
+        "Rewinding is only supported for outputs: %s",
+        t);
+    // Traversals in the output tree inline any recursive TraversalRequest evaluations, i.e. there
+    // won't be any transitively depended-on TraversalRequests.
+    return createTraversalRequestKey(createErrorInfo(t), t.getDirectTraversal().get());
+  }
+
+  private static TraversalRequest createTraversalRequestKey(
+      String errorInfo, DirectTraversal traversal) {
+    return TraversalRequest.create(
+        traversal.getRoot(),
+        traversal.isGenerated(),
+        traversal.getPackageBoundaryMode(),
+        traversal.isStrictFilesetOutput(),
+        traversal.isPackage(),
+        errorInfo);
+  }
+
+  private static RecursiveFilesystemTraversalValue traverse(
+      Environment env, String errorInfo, DirectTraversal traversal)
+      throws MissingDepException, InterruptedException {
+    RecursiveFilesystemTraversalValue v =
+        (RecursiveFilesystemTraversalValue)
+            env.getValue(createTraversalRequestKey(errorInfo, traversal));
     if (env.valuesMissing()) {
       throw new MissingDepException();
     }
@@ -234,11 +264,14 @@ public final class FilesetEntryFunction implements SkyFunction {
   private static String createErrorInfo(FilesetTraversalParams t) {
     if (t.getDirectTraversal().isPresent()) {
       DirectTraversal direct = t.getDirectTraversal().get();
-      return String.format("Fileset '%s' traversing %s '%s'", t.getOwnerLabel(),
+      return String.format(
+          "Fileset '%s' traversing %s '%s'",
+          t.getOwnerLabelForErrorMessages(),
           direct.isPackage() ? "package" : "file (or directory)",
           direct.getRoot().getRelativePart().getPathString());
     } else {
-      return String.format("Fileset '%s' traversing another Fileset", t.getOwnerLabel());
+      return String.format(
+          "Fileset '%s' traversing another Fileset", t.getOwnerLabelForErrorMessages());
     }
   }
 
@@ -303,13 +336,15 @@ public final class FilesetEntryFunction implements SkyFunction {
           });
 
       // 2. Extract the iterables of the true subdirectories.
-      Iterable<Iterable<ResolvedFile>> subdirIters = Iterables.transform(noDirSymlinkes,
-          new Function<Map.Entry<String, DirectoryTree>, Iterable<ResolvedFile>>() {
-            @Override
-            public Iterable<ResolvedFile> apply(Entry<String, DirectoryTree> input) {
-              return input.getValue().iterateFiles();
-            }
-          });
+      Iterable<Iterable<ResolvedFile>> subdirIters =
+          Iterables.transform(
+              noDirSymlinkes,
+              new Function<Map.Entry<String, DirectoryTree>, Iterable<ResolvedFile>>() {
+                @Override
+                public Iterable<ResolvedFile> apply(Map.Entry<String, DirectoryTree> input) {
+                  return input.getValue().iterateFiles();
+                }
+              });
 
       // 3. Just concat all subdirectory iterations for one, seamless iteration.
       Iterable<ResolvedFile> dirsIter = Iterables.concat(subdirIters);

@@ -1,4 +1,4 @@
-// Copyright 2014 Google Inc. All rights reserved.
+// Copyright 2014 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,21 +14,20 @@
 package com.google.devtools.build.lib.runtime.commands;
 
 import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.pkgcache.PackageCacheOptions;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.runtime.BlazeCommand;
-import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.CommonCommandOptions;
 import com.google.devtools.build.lib.runtime.ProjectFile;
-import com.google.devtools.build.lib.util.AbruptExitException;
-import com.google.devtools.build.lib.util.ExitCode;
+import com.google.devtools.build.lib.skyframe.BazelSkyframeExecutorConstants;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import com.google.devtools.common.options.OptionPriority;
+import com.google.devtools.build.lib.vfs.Root;
+import com.google.devtools.common.options.OptionPriority.PriorityCategory;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
-import com.google.devtools.common.options.OptionsProvider;
-
+import com.google.devtools.common.options.OptionsParsingResult;
 import java.util.List;
 
 /**
@@ -44,36 +43,43 @@ public final class ProjectFileSupport {
    * accordingly. If project files cannot be read or if they contain unparsable options, or if they
    * are not enabled, then it throws an exception instead.
    */
-  public static void handleProjectFiles(BlazeRuntime runtime, OptionsParser optionsParser,
-      String command) throws AbruptExitException {
+  public static void handleProjectFiles(
+      ExtendedEventHandler eventHandler, ProjectFile.Provider projectFileProvider,
+      Path workspaceDir, Path workingDir, OptionsParser optionsParser, String command)
+          throws OptionsParsingException {
     List<String> targets = optionsParser.getResidue();
-    ProjectFile.Provider projectFileProvider = runtime.getProjectFileProvider();
     if (projectFileProvider != null && !targets.isEmpty()
         && targets.get(0).startsWith(PROJECT_FILE_PREFIX)) {
       if (targets.size() > 1) {
-        throw new AbruptExitException("Cannot handle more than one +<file> argument yet",
-            ExitCode.COMMAND_LINE_ERROR);
+        throw new OptionsParsingException("Cannot handle more than one +<file> argument yet");
       }
       if (!optionsParser.getOptions(CommonCommandOptions.class).allowProjectFiles) {
-        throw new AbruptExitException("project file support is not enabled",
-            ExitCode.COMMAND_LINE_ERROR);
+        throw new OptionsParsingException("project file support is not enabled. "
+                                          + "Pass --experimental_allow_project_files to enable.");
       }
       // TODO(bazel-team): This is currently treated as a path relative to the workspace - if the
       // cwd is a subdirectory of the workspace, that will be surprising, and we should interpret it
       // relative to the cwd instead.
-      PathFragment projectFilePath = new PathFragment(targets.get(0).substring(1));
-      List<Path> packagePath = PathPackageLocator.create(
-          optionsParser.getOptions(PackageCacheOptions.class).packagePath, runtime.getReporter(),
-          runtime.getWorkspace(), runtime.getWorkingDirectory()).getPathEntries();
-      ProjectFile projectFile = projectFileProvider.getProjectFile(packagePath, projectFilePath);
-      runtime.getReporter().handle(Event.info("Using " + projectFile.getName()));
+      PathFragment projectFilePath = PathFragment.create(targets.get(0).substring(1));
+      List<Root> packagePath =
+          PathPackageLocator.create(
+                  // We only need a non-null outputBase for the PathPackageLocator if we support
+                  // external
+                  // repositories, which we don't for project files.
+                  null,
+                  optionsParser.getOptions(PackageCacheOptions.class).packagePath,
+                  eventHandler,
+                  workspaceDir,
+                  workingDir,
+                  BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY)
+              .getPathEntries();
+      ProjectFile projectFile = projectFileProvider.getProjectFile(
+          workingDir, packagePath, projectFilePath, optionsParser);
+      eventHandler.handle(Event.info("Using " + projectFile.getName()));
 
-      try {
-        optionsParser.parse(
-            OptionPriority.RC_FILE, projectFile.getName(), projectFile.getCommandLineFor(command));
-      } catch (OptionsParsingException e) {
-        throw new AbruptExitException(e.getMessage(), ExitCode.COMMAND_LINE_ERROR);
-      }
+      optionsParser.parse(
+          PriorityCategory.RC_FILE, projectFile.getName(), projectFile.getCommandLineFor(command));
+      eventHandler.post(new GotProjectFileEvent(projectFile.getName()));
     }
   }
 
@@ -82,9 +88,10 @@ public final class ProjectFileSupport {
    * argument, it will be ignored, on the assumption that handleProjectFiles() has been called to
    * process it.
    */
-  public static List<String> getTargets(BlazeRuntime runtime, OptionsProvider options) {
+  public static List<String> getTargets(
+      ProjectFile.Provider projectFileProvider, OptionsParsingResult options) {
     List<String> targets = options.getResidue();
-    if (runtime.getProjectFileProvider() != null && !targets.isEmpty()
+    if (projectFileProvider != null && !targets.isEmpty()
         && targets.get(0).startsWith(PROJECT_FILE_PREFIX)) {
       return targets.subList(1, targets.size());
     }

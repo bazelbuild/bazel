@@ -1,0 +1,17 @@
+<p><code>List of <a href="../build-ref.html#labels">labels</a>; optional</code></p>
+
+<p>
+The set of
+<a href="../toolchains.html">toolchains</a>
+this rule has access to.
+</p>
+
+</p>Targets listed here are the set of toolchains whose <a href="${link make-variables}">Make
+variables</a> the rule is allowed to access.</a> These rules are either rules that provide
+the <code>TemplateVariableInfo</code> provider or special targets for toolchain types built into
+Bazel. These include:
+
+<ul>
+    <li><code>@bazel_tools//tools/cpp:current_cc_toolchain</code>
+  <li><code>@bazel_tools//tools/cpp:current_java_runtime</code>
+  </ul>

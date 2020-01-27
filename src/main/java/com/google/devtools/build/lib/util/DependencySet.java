@@ -1,4 +1,4 @@
-// Copyright 2014 Google Inc. All rights reserved.
+// Copyright 2014 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,24 +14,22 @@
 
 package com.google.devtools.build.lib.util;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
-import com.google.devtools.build.lib.vfs.PathFragment;
-
 import java.io.IOException;
 import java.io.PrintStream;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
+import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * Representation of a set of file dependencies for a given output file. There
  * are generally one input dependency and a bunch of include dependencies. The
- * files are stored as {@code PathFragment}s and may be relative or absolute.
+ * files are stored as {@code Path}s and may be relative or absolute.
  * <p>
  * The serialized format read and written is equivalent and compatible with the
  * ".d" file produced by the -MM for a given out (.o) file.
@@ -50,16 +48,12 @@ import java.util.regex.Pattern;
  */
 public final class DependencySet {
 
-  private static final Pattern DOTD_MERGED_LINE_SEPARATOR = Pattern.compile("\\\\[\n\r]+");
-  private static final Pattern DOTD_LINE_SEPARATOR = Pattern.compile("[\n\r]+");
-  private static final Pattern DOTD_DEP = Pattern.compile("(?:[^\\s\\\\]++|\\\\ |\\\\)+");
-
   /**
-   * The set of dependent files that this DependencySet embodies. May be
-   * relative or absolute PathFragments.  A tree set is used to ensure that we
+   * The set of dependent files that this DependencySet embodies. They are all
+   * Path with the same FileSystem  A tree set is used to ensure that we
    * write them out in a consistent order.
    */
-  private final Collection<PathFragment> dependencies = new ArrayList<>();
+  private final Collection<Path> dependencies = new ArrayList<>();
 
   private final Path root;
   private String outputFileName;
@@ -74,7 +68,7 @@ public final class DependencySet {
   public void setOutputFileName(String outputFileName) {
     this.outputFileName = outputFileName;
   }
-  
+
   /**
    * Constructs a new empty DependencySet instance.
    */
@@ -83,10 +77,10 @@ public final class DependencySet {
   }
 
   /**
-   * Gets an unmodifiable view of the set of dependencies in PathFragment form
+   * Gets an unmodifiable view of the set of dependencies in {@link Path} form
    * from this DependencySet instance.
    */
-  public Collection<PathFragment> getDependencies() {
+  public Collection<Path> getDependencies() {
     return Collections.unmodifiableCollection(dependencies);
   }
 
@@ -94,25 +88,40 @@ public final class DependencySet {
    * Adds a given collection of dependencies in Path form to this DependencySet
    * instance. Paths are converted to root-relative
    */
+  @VisibleForTesting // only called from DependencySetTest
   public void addDependencies(Collection<Path> deps) {
     for (Path d : deps) {
-      addDependency(d.relativeTo(root));
+      Preconditions.checkArgument(d.startsWith(root));
+      dependencies.add(d);
     }
   }
 
   /**
-   * Adds a given dependency in PathFragment form to this DependencySet
-   * instance.
+   * Adds a given dependency to this DependencySet instance.
    */
-  public void addDependency(PathFragment dep) {
-    dependencies.add(Preconditions.checkNotNull(dep));
+  private void addDependency(String dep) {
+    dep = translatePath(dep);
+    Path depPath = root.getRelative(dep);
+    dependencies.add(depPath);
+  }
+
+  private String translatePath(String path) {
+    if (OS.getCurrent() != OS.WINDOWS) {
+      return path;
+    }
+    return WindowsPath.translateWindowsPath(path);
   }
 
   /**
    * Reads a dotd file into this DependencySet instance.
    */
   public DependencySet read(Path dotdFile) throws IOException {
-    return process(FileSystemUtils.readContent(dotdFile));
+    byte[] content = FileSystemUtils.readContent(dotdFile);
+    try {
+      return process(content);
+    } catch (IOException e) {
+      throw new IOException("Error processing " + dotdFile + ": " + e.getMessage());
+    }
   }
 
   /**
@@ -121,72 +130,99 @@ public final class DependencySet {
    * <p>Performance-critical! In large C++ builds there are lots of .d files to read, and some of
    * them reach into hundreds of kilobytes.
    */
-  public DependencySet process(byte[] content) {
-    // true if there is a CR in the input.
-    boolean cr = content.length > 0 && content[0] == '\r';
-    // true if there is more than one line in the input, not counting \-wrapped lines.
-    boolean multiline = false;
-
-    byte prevByte = ' ';
-    for (int i = 1; i < content.length; i++) {
-      byte b = content[i];
-      if (cr || b == '\r') {
-        // CR found, abort since our little loop here does not deal with CR/LFs.
-        cr = true;
-        break;
-      }
-      if (b == '\n') {
-        // Merge lines wrapped using backslashes.
-        if (prevByte == '\\') {
-          content[i] = ' ';
-          content[i - 1] = ' ';
-        } else {
-          multiline = true;
-        }
-      }
-      prevByte = b;
+  public DependencySet process(byte[] content) throws IOException {
+    final int n = content.length;
+    if (n > 0 && content[n - 1] != '\n') {
+      throw new IOException("File does not end in a newline");
+      // From now on, we can safely peek ahead one character when not at a newline.
     }
+    // Our write position in content[]; we use the prefix as working space to build strings.
+    int w = 0;
+    // Have we seen a leading "mumble.o:" on this line yet?  If not, we ignore
+    // any dependencies we parse.  This is bug-for-bug compatibility with our
+    // MSVC wrapper, which generates invalid .d files :(
+    boolean sawTarget = false;
+    for (int r = 0; r < n; ) {
+      final byte c = content[r++];
+      switch (c) {
 
-    if (!cr && content.length > 0 && content[content.length - 1] == '\n') {
-      content[content.length - 1] = ' ';
-    }
+        case ' ':
+          // If we haven't yet seen the colon delimiting the target name,
+          // keep scanning.  We do this to cope with "foo.o : \" which is
+          // valid Makefile syntax produced by the cuda compiler.
+          if (sawTarget && w > 0) {
+            addDependency(new String(content, 0, w, StandardCharsets.UTF_8));
+            w = 0;
+          }
+          continue;
 
-    String s = new String(content, StandardCharsets.UTF_8);
-    if (cr) {
-      s = DOTD_MERGED_LINE_SEPARATOR.matcher(s).replaceAll(" ").trim();
-      multiline = true;
-    }
-    return process(s, multiline);
-  }
+        case '\r':
+          // Ignore, should be followed by a \n.
+          continue;
 
-  private DependencySet process(String contents, boolean multiline) {
-    String[] lines;
-    if (!multiline) {
-      // Microoptimization: skip the usually unnecessary expensive-ish splitting step if there is
-      // only one target. This saves about 20% of CPU time.
-      lines = new String[] { contents };
-    } else {
-      lines = DOTD_LINE_SEPARATOR.split(contents);
-    }
+        case '\n':
+          // This closes a filename.
+          // (Arguably if !sawTarget && w > 0 we should report an error,
+          // as that suggests the .d file is malformed.)
+          if (sawTarget && w > 0) {
+            addDependency(new String(content, 0, w, StandardCharsets.UTF_8));
+          }
+          w = 0;
+          sawTarget = false;  // reset for new line
+          continue;
 
-    for (String line : lines) {
-      // Split off output file name.
-      int pos = line.indexOf(':');
-      if (pos == -1) {
-        continue;
-      }
-      outputFileName = line.substring(0, pos);
-      
-      String deps = line.substring(pos + 1);
+        case ':':
+          // Normally this indicates the target name, but it might be part of a
+          // filename on Windows.  Peek ahead at the next character.
+          switch (content[r]) {
+            case ' ':
+            case '\n':
+            case '\r':
+              if (w > 0) {
+                outputFileName = new String(content, 0, w, StandardCharsets.UTF_8);
+                w = 0;
+                sawTarget = true;
+              }
+              continue;
+            default:
+              content[w++] = c;  // copy a colon to filename
+              continue;
+          }
 
-      Matcher m = DOTD_DEP.matcher(deps);
-      while (m.find()) {
-        String token = m.group();
-        // Process escaped spaces.
-        if (token.contains("\\ ")) {
-          token = token.replace("\\ ", " ");
-        }
-        dependencies.add(new PathFragment(token).normalize());
+        case '\\':
+          // Peek ahead at the next character.
+          switch (content[r]) {
+            // Backslashes are taken literally except when followed by whitespace.
+            // See the Windows tests for some of the nonsense we have to tolerate.
+            case ' ':
+              content[w++] = ' ';  // copy a space to the filename
+              ++r;  // skip over the space
+              continue;
+            case '\n':
+              ++r;  // skip over the newline
+              continue;
+            case '\r':
+              // One backslash can escape \r\n, so peek one more character.
+              if (content[++r] == '\n') {
+                ++r;
+              }
+              continue;
+            default:
+              content[w++] = c;  // copy a backlash to the filename
+              continue;
+          }
+
+        case '$':
+          if (content[r] == '$') {
+            content[w++] = '$';
+            ++r;
+            continue;
+          }
+          // I don't think this can ever happen, but fall through nevertheless...
+
+        default:
+          content[w++] = c;
+
       }
     }
     return this;
@@ -200,15 +236,12 @@ public final class DependencySet {
     Path dotdFile =
         outFile.getRelative(FileSystemUtils.replaceExtension(outFile.asFragment(), suffix));
 
-    PrintStream out = new PrintStream(dotdFile.getOutputStream());
-    try {
+    try (PrintStream out = new PrintStream(dotdFile.getOutputStream())) {
       out.print(outFile.relativeTo(root) + ": ");
-      for (PathFragment d : dependencies) {
+      for (Path d : dependencies) {
         out.print(" \\\n  " + d.getPathString());  // should already be root relative
       }
       out.println();
-    } finally {
-      out.close();
     }
   }
 
@@ -221,5 +254,65 @@ public final class DependencySet {
   @Override
   public int hashCode() {
     return dependencies.hashCode();
+  }
+
+  private static final class WindowsPath {
+    private static final AtomicReference<String> UNIX_ROOT = new AtomicReference<>(null);
+
+    private static String translateWindowsPath(String path) {
+      int n = path.length();
+      if (n == 0 || path.charAt(0) != '/') {
+        return path;
+      }
+      if (n >= 2 && isAsciiLetter(path.charAt(1)) && (n == 2 || path.charAt(2) == '/')) {
+        StringBuilder sb = new StringBuilder(path.length());
+        sb.append(Character.toUpperCase(path.charAt(1)));
+        sb.append(":/");
+        sb.append(path, 2, path.length());
+        return sb.toString();
+      } else {
+        String unixRoot = getUnixRoot();
+        return unixRoot + path;
+      }
+    }
+
+    private static boolean isAsciiLetter(char c) {
+      return (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z');
+    }
+
+    private static String getUnixRoot() {
+      String value = UNIX_ROOT.get();
+      if (value == null) {
+        String jvmFlag = "bazel.windows_unix_root";
+        value = determineUnixRoot(jvmFlag);
+        if (value == null) {
+          throw new IllegalStateException(
+              String.format(
+                  "\"%1$s\" JVM flag is not set. Use the --host_jvm_args flag. "
+                      + "For example: "
+                      + "\"--host_jvm_args=-D%1$s=c:/tools/msys64\".",
+                  jvmFlag));
+        }
+        value = value.replace('\\', '/');
+        if (value.length() > 3 && value.endsWith("/")) {
+          value = value.substring(0, value.length() - 1);
+        }
+        UNIX_ROOT.set(value);
+      }
+      return value;
+    }
+
+    private static String determineUnixRoot(String jvmArgName) {
+      // Get the path from a JVM flag, if specified.
+      String path = System.getProperty(jvmArgName);
+      if (path == null) {
+        return null;
+      }
+      path = path.trim();
+      if (path.isEmpty()) {
+        return null;
+      }
+      return path;
+    }
   }
 }

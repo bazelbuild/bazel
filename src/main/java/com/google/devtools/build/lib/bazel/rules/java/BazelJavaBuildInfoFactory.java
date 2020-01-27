@@ -1,4 +1,4 @@
-// Copyright 2014 Google Inc. All rights reserved.
+// Copyright 2014 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,45 +15,51 @@
 package com.google.devtools.build.lib.bazel.rules.java;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.analysis.BuildInfo;
 import com.google.devtools.build.lib.rules.java.BuildInfoPropertiesTranslator;
 import com.google.devtools.build.lib.rules.java.GenericBuildInfoPropertiesTranslator;
 import com.google.devtools.build.lib.rules.java.JavaBuildInfoFactory;
-
-import java.util.Map;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 
 /**
  * BuildInfoFactory for Java.
  */
 public class BazelJavaBuildInfoFactory extends JavaBuildInfoFactory {
-  private static final Map<String, String> VOLATILE_KEYS = ImmutableMap
-      .<String, String>builder()
-      .put("build.time", "%BUILD_TIME%")
-      .put("build.timestamp.as.int", "%BUILD_TIMESTAMP%")
-      .put("build.timestamp", "%BUILD_TIMESTAMP%")
-      .build();
+  @AutoCodec @AutoCodec.VisibleForSerialization
+  static final GenericBuildInfoPropertiesTranslator VOLATILE_KEYS =
+      new GenericBuildInfoPropertiesTranslator(
+          ImmutableMap.<String, String>builder()
+              .put("build.time", "%BUILD_TIME%")
+              .put("build.timestamp.as.int", "%BUILD_TIMESTAMP%")
+              .put("build.timestamp", "%BUILD_TIMESTAMP%")
+              .build());
 
-  private static final Map<String, String> NONVOLATILE_KEYS = ImmutableMap.of();
+  @AutoCodec @AutoCodec.VisibleForSerialization
+  static final GenericBuildInfoPropertiesTranslator NONVOLATILE_KEYS =
+      new GenericBuildInfoPropertiesTranslator(
+          ImmutableMap.of("build.label", "%" + BuildInfo.BUILD_EMBED_LABEL + "|%"));
 
-  private static final Map<String, String> REDACTED_KEYS = ImmutableMap
-      .<String, String>builder()
-      .put("build.time", "Thu Jan 01 00:00:00 1970 (0)")
-      .put("build.timestamp.as.int", "0")
-      .put("build.timestamp", "Thu Jan 01 00:00:00 1970 (0)")
-      .build();
+  @AutoCodec @AutoCodec.VisibleForSerialization
+  static final GenericBuildInfoPropertiesTranslator REDACTED_KEYS =
+      new GenericBuildInfoPropertiesTranslator(
+          ImmutableMap.<String, String>builder()
+              .put("build.time", "Thu Jan 01 00:00:00 1970 (0)")
+              .put("build.timestamp.as.int", "0")
+              .put("build.timestamp", "Thu Jan 01 00:00:00 1970 (0)")
+              .build());
 
   @Override
   protected BuildInfoPropertiesTranslator createVolatileTranslator() {
-    return new GenericBuildInfoPropertiesTranslator(VOLATILE_KEYS);
+    return VOLATILE_KEYS;
   }
 
   @Override
   protected BuildInfoPropertiesTranslator createNonVolatileTranslator() {
-    return new GenericBuildInfoPropertiesTranslator(NONVOLATILE_KEYS);
+    return NONVOLATILE_KEYS;
   }
 
   @Override
   protected BuildInfoPropertiesTranslator createRedactedTranslator() {
-    return new GenericBuildInfoPropertiesTranslator(REDACTED_KEYS);
+    return REDACTED_KEYS;
   }
-
 }

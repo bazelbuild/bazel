@@ -1,4 +1,4 @@
-// Copyright 2014 Google Inc. All rights reserved.
+// Copyright 2014 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -13,27 +13,35 @@
 // limitations under the License.
 package com.google.devtools.build.lib.bazel.rules.sh;
 
+import static com.google.devtools.build.lib.packages.Attribute.attr;
+import static com.google.devtools.build.lib.packages.BuildType.LABEL;
+
+import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
-import com.google.devtools.build.lib.bazel.rules.BazelBaseRuleClasses;
+import com.google.devtools.build.lib.analysis.config.HostTransition;
 import com.google.devtools.build.lib.bazel.rules.sh.BazelShRuleClasses.ShRule;
 import com.google.devtools.build.lib.packages.RuleClass;
-import com.google.devtools.build.lib.packages.RuleClass.Builder;
 
 /**
  * Rule definition for the sh_binary rule.
  */
 public final class BazelShBinaryRule implements RuleDefinition {
   @Override
-  public RuleClass build(Builder builder, RuleDefinitionEnvironment environment) {
-    return builder.build();
+  public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment environment) {
+    return builder
+        .add(
+            attr("$launcher", LABEL)
+                .cfg(HostTransition.createFactory())
+                .value(environment.getToolsLabel("//tools/launcher:launcher")))
+        .build();
   }
 
   @Override
   public Metadata getMetadata() {
     return RuleDefinition.Metadata.builder()
         .name("sh_binary")
-        .ancestors(ShRule.class, BazelBaseRuleClasses.BinaryBaseRule.class)
+        .ancestors(ShRule.class, BaseRuleClasses.BinaryBaseRule.class)
         .factoryClass(ShBinary.class)
         .build();
   }
@@ -49,13 +57,9 @@ public final class BazelShBinaryRule implements RuleDefinition {
   the extension (e.g. <code>.sh</code>); do not give the rule and the file the same name.
 </p>
 
-${ATTRIBUTE_SIGNATURE}
-
-${ATTRIBUTE_DEFINITION}
-
 <h4 id="sh_binary_examples">Example</h4>
 
-<p>For a simple shell script with no dependencies or data:
+<p>For a simple shell script with no dependencies and some data files:
 </p>
 
 <pre class="code">

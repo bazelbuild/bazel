@@ -1,4 +1,4 @@
-// Copyright 2014 Google Inc. All rights reserved.
+// Copyright 2014 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,21 +14,26 @@
 
 package com.google.devtools.build.lib.analysis.actions;
 
-import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.AbstractAction;
+import com.google.devtools.build.lib.actions.ActionContext;
+import com.google.devtools.build.lib.actions.ActionContinuationOrResult;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionOwner;
+import com.google.devtools.build.lib.actions.ActionResult;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
-import com.google.devtools.build.lib.actions.Executor;
-import com.google.devtools.build.lib.actions.ResourceSet;
-import com.google.devtools.build.lib.events.EventHandler;
-import com.google.devtools.build.lib.syntax.Label;
-
+import com.google.devtools.build.lib.actions.SpawnContinuation;
+import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.protobuf.ByteString;
 import java.io.IOException;
 import java.io.OutputStream;
+import javax.annotation.Nullable;
 
 /**
  * Abstract Action to write to a file.
@@ -43,13 +48,12 @@ public abstract class AbstractFileWriteAction extends AbstractAction {
    * @param owner the action owner.
    * @param inputs the Artifacts that this Action depends on
    * @param output the Artifact that will be created by executing this Action.
-   * @param makeExecutable iff true will change the output file to be
-   *   executable.
+   * @param makeExecutable iff true will change the output file to be executable.
    */
-  public AbstractFileWriteAction(ActionOwner owner,
-      Iterable<Artifact> inputs, Artifact output, boolean makeExecutable) {
+  public AbstractFileWriteAction(
+      ActionOwner owner, NestedSet<Artifact> inputs, Artifact output, boolean makeExecutable) {
     // There is only one output, and it is primary.
-    super(owner, inputs, ImmutableList.of(output));
+    super(owner, inputs, ImmutableSet.of(output));
     this.makeExecutable = makeExecutable;
   }
 
@@ -58,50 +62,78 @@ public abstract class AbstractFileWriteAction extends AbstractAction {
   }
 
   @Override
-  public final void execute(ActionExecutionContext actionExecutionContext)
+  public final ActionContinuationOrResult beginExecution(
+      ActionExecutionContext actionExecutionContext)
       throws ActionExecutionException, InterruptedException {
     try {
-      getStrategy(actionExecutionContext.getExecutor()).exec(actionExecutionContext.getExecutor(),
-          this, actionExecutionContext.getFileOutErr(), actionExecutionContext);
+      DeterministicWriter deterministicWriter;
+      try {
+        deterministicWriter = newDeterministicWriter(actionExecutionContext);
+      } catch (IOException e) {
+        // Message is a bit misleading but is good enough for the end user.
+        throw new EnvironmentalExecException(
+            "Failed to write '" + getPrimaryOutput().prettyPrint() + "'", e);
+      }
+
+      FileWriteActionContext context = getStrategy(actionExecutionContext);
+      SpawnContinuation first =
+          context.beginWriteOutputToFile(
+              AbstractFileWriteAction.this,
+              actionExecutionContext,
+              deterministicWriter,
+              makeExecutable,
+              isRemotable());
+      return new ActionContinuationOrResult() {
+        private SpawnContinuation spawnContinuation = first;
+
+        @Nullable
+        @Override
+        public ListenableFuture<?> getFuture() {
+          return spawnContinuation.getFuture();
+        }
+
+        @Override
+        public ActionContinuationOrResult execute()
+            throws ActionExecutionException, InterruptedException {
+          SpawnContinuation nextContinuation;
+          try {
+            nextContinuation = spawnContinuation.execute();
+            if (!nextContinuation.isDone()) {
+              spawnContinuation = nextContinuation;
+              return this;
+            }
+          } catch (ExecException e) {
+            throw e.toActionExecutionException(
+                "Writing file for rule '" + Label.print(getOwner().getLabel()) + "'",
+                actionExecutionContext.getVerboseFailures(),
+                AbstractFileWriteAction.this);
+          }
+          afterWrite(actionExecutionContext);
+          return ActionContinuationOrResult.of(ActionResult.create(nextContinuation.get()));
+        }
+      };
     } catch (ExecException e) {
       throw e.toActionExecutionException(
           "Writing file for rule '" + Label.print(getOwner().getLabel()) + "'",
-          actionExecutionContext.getExecutor().getVerboseFailures(), this);
+          actionExecutionContext.getVerboseFailures(),
+          this);
     }
-    afterWrite(actionExecutionContext.getExecutor());
   }
 
   /**
    * Produce a DeterministicWriter that can write the file to an OutputStream deterministically.
    *
-   * @param eventHandler destination for warning messages.  (Note that errors should
-   *        still be indicated by throwing an exception; reporter.error() will
-   *        not cause action execution to fail.)
-   * @param executor the Executor.
-   * @throws IOException if the content cannot be written to the output stream
+   * @param ctx context for use with creating the writer.  
    */
-  public abstract DeterministicWriter newDeterministicWriter(EventHandler eventHandler,
-      Executor executor) throws IOException, InterruptedException, ExecException;
+  public abstract DeterministicWriter newDeterministicWriter(ActionExecutionContext ctx)
+      throws IOException, InterruptedException, ExecException;
 
   /**
    * This hook is called after the File has been successfully written to disk.
    *
-   * @param executor the Executor.
+   * @param actionExecutionContext the execution context
    */
-  protected void afterWrite(Executor executor) {
-  }
-
-  // We're mainly doing I/O, so estimate very low CPU usage, e.g. 1%. Just a guess.
-  private static final ResourceSet DEFAULT_FILEWRITE_LOCAL_ACTION_RESOURCE_SET =
-      ResourceSet.createWithRamCpuIo(/*memoryMb=*/0.0, /*cpuUsage=*/0.01, /*ioUsage=*/0.2);
-
-  @Override
-  public ResourceSet estimateResourceConsumption(Executor executor) {
-    return executor.getContext(FileWriteActionContext.class).estimateResourceConsumption(this);
-  }
-
-  public ResourceSet estimateResourceConsumptionLocal() {
-    return DEFAULT_FILEWRITE_LOCAL_ACTION_RESOURCE_SET;
+  protected void afterWrite(ActionExecutionContext actionExecutionContext) {
   }
 
   @Override
@@ -123,13 +155,9 @@ public abstract class AbstractFileWriteAction extends AbstractAction {
     return true;
   }
 
-  @Override
-  public final String describeStrategy(Executor executor) {
-    return executor.getContext(FileWriteActionContext.class).strategyLocality(this);
-  }
-
-  private FileWriteActionContext getStrategy(Executor executor) {
-    return executor.getContext(FileWriteActionContext.class);
+  private FileWriteActionContext getStrategy(
+      ActionContext.ActionContextRegistry actionContextRegistry) {
+    return actionContextRegistry.getContext(FileWriteActionContext.class);
   }
 
   /**
@@ -137,6 +165,16 @@ public abstract class AbstractFileWriteAction extends AbstractAction {
    * on every invocation of writeOutputFile().
    */
   public interface DeterministicWriter {
-    public void writeOutputFile(OutputStream out) throws IOException;
+    void writeOutputFile(OutputStream out) throws IOException;
+
+    /**
+     * Returns the contents that would be written, as a {@link ByteString}. Used when the caller
+     * wants a {@link ByteString} in the end, to avoid making unnecessary copies.
+     */
+    default ByteString getBytes() throws IOException {
+      ByteString.Output out = ByteString.newOutput();
+      writeOutputFile(out);
+      return out.toByteString();
+    }
   }
 }

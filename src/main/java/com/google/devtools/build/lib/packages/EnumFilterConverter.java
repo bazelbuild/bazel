@@ -1,4 +1,4 @@
-// Copyright 2014 Google Inc. All rights reserved.
+// Copyright 2014 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -71,7 +71,7 @@ class EnumFilterConverter<E extends Enum<E>> implements Converter<Set<E>> {
         throw new OptionsParsingException("Invalid " + prettyEnumName + " filter '" + value +
             "' in the input '" + input + "'");
       }
-      (excludeFlag ? excludedSet : includedSet).add(E.valueOf(typeClass, s));
+      (excludeFlag ? excludedSet : includedSet).add(Enum.valueOf(typeClass, s));
     }
     if (includedSet.isEmpty()) {
       includedSet = EnumSet.complementOf(excludedSet);

@@ -1,4 +1,4 @@
-// Copyright 2014 Google Inc. All rights reserved.
+// Copyright 2014 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,95 +14,76 @@
 
 package com.google.devtools.build.lib.rules.java;
 
+import com.google.auto.value.AutoValue;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import java.util.LinkedHashSet;
 import java.util.Set;
-
 import javax.annotation.Nullable;
 
 /**
- * A collection of artifacts for java compilations. It concisely describes the
- * outputs of a java-related rule, with runtime jars, compile-time jars,
- * unfiltered compile-time jars (these are run through ijar if they are
- * dependent upon by another target), source ijars, and instrumentation
- * manifests. Not all rules generate all kinds of artifacts. Each java-related
- * rule should add both a runtime jar and either a compile-time jar or an
- * unfiltered compile-time jar.
+ * A collection of artifacts for java compilations. It concisely describes the outputs of a
+ * java-related rule, with runtime jars, compile-time jars, unfiltered compile-time jars (these are
+ * run through ijar if they are dependent upon by another target), source ijars, and instrumentation
+ * manifests. Not all rules generate all kinds of artifacts. Each java-related rule should add both
+ * a runtime jar and either a compile-time jar or an unfiltered compile-time jar.
  *
- * <p>An instance of this class only collects the data for the current target,
- * not for the transitive closure of targets, so these still need to be
- * collected using some other mechanism, such as the {@link
- * JavaCompilationArgsProvider}.
+ * <p>An instance of this class only collects the data for the current target, not for the
+ * transitive closure of targets, so these still need to be collected using some other mechanism,
+ * such as the {@link JavaCompilationArgsProvider}.
  */
+@AutoCodec
 @Immutable
-public final class JavaCompilationArtifacts {
+@AutoValue
+public abstract class JavaCompilationArtifacts {
+  @AutoCodec public static final JavaCompilationArtifacts EMPTY = new Builder().build();
 
-  public static final JavaCompilationArtifacts EMPTY = new Builder().build();
+  public abstract ImmutableList<Artifact> getRuntimeJars();
 
-  private final ImmutableList<Artifact> runtimeJars;
-  private final ImmutableList<Artifact> compileTimeJars;
-  private final ImmutableList<Artifact> instrumentationMetadata;
-  private final Artifact compileTimeDependencyArtifact;
-  private final Artifact runTimeDependencyArtifact;
-  private final Artifact instrumentedJar;
+  public abstract ImmutableList<Artifact> getCompileTimeJars();
 
-  private JavaCompilationArtifacts(ImmutableList<Artifact> runtimeJars,
+  abstract ImmutableList<Artifact> getFullCompileTimeJars();
+
+  @Nullable
+  public abstract Artifact getCompileTimeDependencyArtifact();
+
+  /** Returns a builder for a {@link JavaCompilationArtifacts}. */
+  public static Builder builder() {
+    return new Builder();
+  }
+
+  @AutoCodec.VisibleForSerialization
+  @AutoCodec.Instantiator
+  static JavaCompilationArtifacts create(
+      ImmutableList<Artifact> runtimeJars,
       ImmutableList<Artifact> compileTimeJars,
-      ImmutableList<Artifact> instrumentationMetadata,
-      Artifact compileTimeDependencyArtifact, Artifact runTimeDependencyArtifact,
-      Artifact instrumentedJar) {
-    this.runtimeJars = runtimeJars;
-    this.compileTimeJars = compileTimeJars;
-    this.instrumentationMetadata = instrumentationMetadata;
-    this.compileTimeDependencyArtifact = compileTimeDependencyArtifact;
-    this.runTimeDependencyArtifact = runTimeDependencyArtifact;
-    this.instrumentedJar = instrumentedJar;
+      ImmutableList<Artifact> fullCompileTimeJars,
+      Artifact compileTimeDependencyArtifact) {
+    return new AutoValue_JavaCompilationArtifacts(
+        ImmutableList.copyOf(runtimeJars),
+        ImmutableList.copyOf(compileTimeJars),
+        ImmutableList.copyOf(fullCompileTimeJars),
+        compileTimeDependencyArtifact);
   }
 
-  public ImmutableList<Artifact> getRuntimeJars() {
-    return runtimeJars;
-  }
-
-  public ImmutableList<Artifact> getCompileTimeJars() {
-    return compileTimeJars;
-  }
-
-  public ImmutableList<Artifact> getInstrumentationMetadata() {
-    return instrumentationMetadata;
-  }
-
-  public Artifact getCompileTimeDependencyArtifact() {
-    return compileTimeDependencyArtifact;
-  }
-
-  public Artifact getRunTimeDependencyArtifact() {
-    return runTimeDependencyArtifact;
-  }
-
-  public Artifact getInstrumentedJar() {
-    return instrumentedJar;
-  }
-
-  /**
-   * A builder for {@link JavaCompilationArtifacts}.
-   */
+  /** A builder for {@link JavaCompilationArtifacts}. */
   public static final class Builder {
     private final Set<Artifact> runtimeJars = new LinkedHashSet<>();
     private final Set<Artifact> compileTimeJars = new LinkedHashSet<>();
-    private final Set<Artifact> instrumentationMetadata = new LinkedHashSet<>();
+    private final Set<Artifact> fullCompileTimeJars = new LinkedHashSet<>();
     private Artifact compileTimeDependencies;
-    private Artifact runTimeDependencies;
-    private Artifact instrumentedJar;
 
     public JavaCompilationArtifacts build() {
-      return new JavaCompilationArtifacts(ImmutableList.copyOf(runtimeJars),
+      Preconditions.checkState(fullCompileTimeJars.size() == compileTimeJars.size());
+      return create(
+          ImmutableList.copyOf(runtimeJars),
           ImmutableList.copyOf(compileTimeJars),
-          ImmutableList.copyOf(instrumentationMetadata),
-          compileTimeDependencies, runTimeDependencies, instrumentedJar);
+          ImmutableList.copyOf(fullCompileTimeJars),
+          compileTimeDependencies);
     }
 
     public Builder addRuntimeJar(Artifact jar) {
@@ -115,33 +96,30 @@ public final class JavaCompilationArtifacts {
       return this;
     }
 
-    public Builder addCompileTimeJar(Artifact jar) {
-      this.compileTimeJars.add(jar);
+    public Builder addInterfaceJarWithFullJar(Artifact ijar, Artifact fullJar) {
+      this.compileTimeJars.add(ijar);
+      this.fullCompileTimeJars.add(fullJar);
       return this;
     }
 
-    public Builder addCompileTimeJars(Iterable<Artifact> jars) {
+    public Builder addCompileTimeJarAsFullJar(Artifact jar) {
+      this.compileTimeJars.add(jar);
+      this.fullCompileTimeJars.add(jar);
+      return this;
+    }
+
+    public Builder addInterfaceJars(Iterable<Artifact> jars) {
       Iterables.addAll(this.compileTimeJars, jars);
       return this;
     }
 
-    public Builder addInstrumentationMetadata(Artifact instrumentationMetadata) {
-      this.instrumentationMetadata.add(instrumentationMetadata);
+    Builder addFullCompileTimeJars(Iterable<Artifact> jars) {
+      Iterables.addAll(this.fullCompileTimeJars, jars);
       return this;
     }
 
     public Builder setCompileTimeDependencies(@Nullable Artifact compileTimeDependencies) {
       this.compileTimeDependencies = compileTimeDependencies;
-      return this;
-    }
-
-    public Builder setRunTimeDependencies(@Nullable Artifact runTimeDependencies) {
-      this.runTimeDependencies = runTimeDependencies;
-      return this;
-    }
-
-    public Builder setInstrumentedJar(@Nullable Artifact instrumentedJar) {
-      this.instrumentedJar = instrumentedJar;
       return this;
     }
   }

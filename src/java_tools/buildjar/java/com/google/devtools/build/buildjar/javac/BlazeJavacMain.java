@@ -1,4 +1,4 @@
-// Copyright 2014 Google Inc. All rights reserved.
+// Copyright 2014 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,187 +14,297 @@
 
 package com.google.devtools.build.buildjar.javac;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.Iterables.getOnlyElement;
+import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.util.Comparator.comparing;
+
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.buildjar.InvalidCommandLineException;
+import com.google.devtools.build.buildjar.javac.BlazeJavacResult.Status;
+import com.google.devtools.build.buildjar.javac.FormattedDiagnostic.Listener;
 import com.google.devtools.build.buildjar.javac.plugins.BlazeJavaCompilerPlugin;
-import com.google.devtools.build.buildjar.javac.plugins.BlazeJavaCompilerPlugin.PluginException;
-
-import com.sun.source.util.TaskEvent;
-import com.sun.source.util.TaskListener;
-import com.sun.tools.javac.api.JavacTaskImpl;
+import com.google.devtools.build.buildjar.javac.statistics.BlazeJavacStatistics;
+import com.sun.source.util.JavacTask;
+import com.sun.tools.javac.api.ClientCodeWrapper.Trusted;
 import com.sun.tools.javac.api.JavacTool;
-import com.sun.tools.javac.api.MultiTaskListener;
-import com.sun.tools.javac.main.Main;
-import com.sun.tools.javac.main.Main.Result;
+import com.sun.tools.javac.file.CacheFSInfo;
+import com.sun.tools.javac.file.JavacFileManager;
+import com.sun.tools.javac.main.JavaCompiler;
 import com.sun.tools.javac.util.Context;
-import com.sun.tools.javac.util.Options;
 import com.sun.tools.javac.util.PropagatedException;
-
+import java.io.IOError;
+import java.io.IOException;
 import java.io.PrintWriter;
-import java.util.Arrays;
+import java.io.StringWriter;
+import java.net.URL;
+import java.net.URLClassLoader;
+import java.nio.file.Path;
+import java.util.Collection;
 import java.util.List;
-
-import javax.annotation.processing.Processor;
-import javax.tools.DiagnosticListener;
-import javax.tools.JavaFileManager;
-import javax.tools.JavaFileObject;
+import javax.tools.Diagnostic;
+import javax.tools.StandardLocation;
 
 /**
  * Main class for our custom patched javac.
  *
- * <p> This main class tweaks the standard javac log class by changing the
- * compiler's context to use our custom log class. This custom log class
- * modifies javac's output to list all errors after all warnings.
+ * <p>This main class tweaks the standard javac log class by changing the compiler's context to use
+ * our custom log class. This custom log class modifies javac's output to list all errors after all
+ * warnings.
  */
 public class BlazeJavacMain {
 
   /**
-   * Compose {@link com.sun.tools.javac.main.Main} and perform custom setup before deferring to
-   * its compile() method.
-   *
-   * Historically BlazeJavacMain extended javac's Main and overrode methods to get the desired
-   * custom behaviour. That approach created incompatibilities when upgrading to newer versions of
-   * javac, so composition is preferred.
-   */
-  private List<BlazeJavaCompilerPlugin> plugins;
-  private final PrintWriter errOutput;
-  private final String compilerName;
-
-  public BlazeJavacMain(PrintWriter errOutput, List<BlazeJavaCompilerPlugin> plugins) {
-    this.compilerName = "blaze javac";
-    this.errOutput = errOutput;
-    this.plugins = plugins;
-  }
-
-  /**
-   * Installs the BlazeJavaCompiler within the provided context. Enables
-   * plugins based on field values.
+   * Sets up a BlazeJavaCompiler with the given plugins within the given context.
    *
    * @param context JavaCompiler's associated Context
    */
-  void setupBlazeJavaCompiler(Context context) {
-    preRegister(context, plugins);
-  }
-
-  public void preRegister(Context context, List<BlazeJavaCompilerPlugin> plugins) {
-    this.plugins = plugins;
+  @VisibleForTesting
+  static void setupBlazeJavaCompiler(
+      ImmutableList<BlazeJavaCompilerPlugin> plugins, Context context) {
     for (BlazeJavaCompilerPlugin plugin : plugins) {
       plugin.initializeContext(context);
     }
-
     BlazeJavaCompiler.preRegister(context, plugins);
   }
 
-  public Result compile(String[] argv) {
-    // set up a fresh Context with our custom bindings for JavaCompiler
-    Context context = new Context();
-    // disable faulty Zip optimizations
-    Options options = Options.instance(context);
-    options.put("useOptimizedZip", "false");
+  public static BlazeJavacResult compile(BlazeJavacArguments arguments) {
 
-    // enable Java 8-style type inference features
-    //
-    // This is currently duplicated in JAVABUILDER. That's deliberate for now, because
-    // (1) JavaBuilder's integration test coverage for default options isn't very good, and
-    // (2) the migration from JAVABUILDER to java_toolchain configs is in progress so blaze
-    // integration tests for defaults options are also not trustworthy.
-    //
-    // TODO(bazel-team): removed duplication with JAVABUILDER
-    options.put("usePolyAttribution", "true");
-    options.put("useStrictMethodClashCheck", "true");
-    options.put("useStructuralMostSpecificResolution", "true");
-    options.put("useGraphInference", "true");
-
-    String[] processedArgs;
-
+    List<String> javacArguments = arguments.javacOptions();
     try {
-      processedArgs = processPluginArgs(argv);
+      javacArguments = processPluginArgs(arguments.plugins(), javacArguments);
     } catch (InvalidCommandLineException e) {
-      errOutput.println(e.getMessage());
-      return Result.CMDERR;
+      return BlazeJavacResult.error(e.getMessage());
     }
 
-    setupBlazeJavaCompiler(context);
-    return compile(processedArgs, context);
-  }
+    Context context = new Context();
+    BlazeJavacStatistics.preRegister(context);
+    CacheFSInfo.preRegister(context);
+    setupBlazeJavaCompiler(arguments.plugins(), context);
+    BlazeJavacStatistics.Builder builder = context.get(BlazeJavacStatistics.Builder.class);
 
-  @VisibleForTesting
-  public Result compile(String[] argv, Context context) {
-    enableEndPositions(context);
-    try {
-      return new Main(compilerName, errOutput).compile(argv, context);
-    } catch (PropagatedException e) {
-      if (e.getCause() instanceof PluginException) {
-        PluginException pluginException = (PluginException) e.getCause();
-        errOutput.println(pluginException.getMessage());
-        return pluginException.getResult();
+    Status status = Status.ERROR;
+    StringWriter errOutput = new StringWriter();
+    // TODO(cushon): where is this used when a diagnostic listener is registered? Consider removing
+    // it and handling exceptions directly in callers.
+    PrintWriter errWriter = new PrintWriter(errOutput);
+    Listener diagnostics = new Listener(context);
+    BlazeJavaCompiler compiler;
+
+    try (JavacFileManager fileManager =
+        new ClassloaderMaskingFileManager(arguments.builtinProcessors())) {
+      JavacTask task =
+          JavacTool.create()
+              .getTask(
+                  errWriter,
+                  fileManager,
+                  diagnostics,
+                  javacArguments,
+                  /* classes= */ ImmutableList.of(),
+                  fileManager.getJavaFileObjectsFromPaths(arguments.sourceFiles()),
+                  context);
+      if (arguments.processors() != null) {
+        task.setProcessors(arguments.processors());
       }
-      e.printStackTrace(errOutput);
-      return Result.ABNORMAL;
+      fileManager.setContext(context);
+      setLocations(fileManager, arguments);
+      try {
+        status = task.call() ? Status.OK : Status.ERROR;
+      } catch (PropagatedException e) {
+        throw e.getCause();
+      }
+    } catch (Throwable t) {
+      t.printStackTrace(errWriter);
+      status = Status.ERROR;
+    } finally {
+      compiler = (BlazeJavaCompiler) JavaCompiler.instance(context);
+      if (status == Status.OK) {
+        // There could be situations where we incorrectly skip Error Prone and the compilation
+        // ends up succeeding, e.g., if there are errors that are fixed by subsequent round of
+        // annotation processing.  This check ensures that if there were any flow events at all,
+        // then plugins were run.  There may legitimately not be any flow events, e.g. -proc:only
+        // or empty source files.
+        if (compiler.skippedFlowEvents() > 0 && compiler.flowEvents() == 0) {
+          errWriter.println("Expected at least one FLOW event");
+          status = Status.ERROR;
+        }
+      }
     }
+    errWriter.flush();
+    return BlazeJavacResult.createFullResult(
+        status,
+        filterDiagnostics(diagnostics.build()),
+        errOutput.toString(),
+        compiler,
+        builder.build());
   }
 
-  // javac9 removes the ability to pass lists of {@link JavaFileObject}s or {@link Processors}s to
-  // it's 'Main' class (i.e. the entry point for command-line javac). Having BlazeJavacMain
-  // continue to call into javac's Main has the nice property that it keeps JavaBuilder's
-  // behaviour closer to stock javac, but it makes it harder to write integration tests. This class
-  // provides a compile method that accepts file objects and processors, but it isn't
-  // guaranteed to behave exactly the same way as JavaBuilder does when used from the command-line.
-  // TODO(bazel-team): either stop using Main and commit to using the the API for everything, or
-  // re-write integration tests for JavaBuilder to use the real compile() method.
+  private static final ImmutableSet<String> IGNORED_DIAGNOSTIC_CODES =
+      ImmutableSet.of(
+          "compiler.note.deprecated.filename",
+          "compiler.note.deprecated.plural",
+          "compiler.note.deprecated.recompile",
+          "compiler.note.deprecated.filename.additional",
+          "compiler.note.deprecated.plural.additional",
+          "compiler.note.unchecked.filename",
+          "compiler.note.unchecked.plural",
+          "compiler.note.unchecked.recompile",
+          "compiler.note.unchecked.filename.additional",
+          "compiler.note.unchecked.plural.additional",
+          "compiler.warn.sun.proprietary",
+          // avoid warning spam when enabling processor options for an entire tree, only a subset
+          // of which actually runs the processor
+          "compiler.warn.proc.unmatched.processor.options",
+          // don't want about v54 class files when running javac9 on JDK 10
+          // TODO(cushon): remove after the next javac update
+          "compiler.warn.big.major.version",
+          // don't want about incompatible processor source versions when running javac9 on JDK 10
+          // TODO(cushon): remove after the next javac update
+          "compiler.warn.proc.processor.incompatible.source.version",
+          // https://github.com/bazelbuild/bazel/issues/5985
+          "compiler.warn.unknown.enum.constant",
+          "compiler.warn.unknown.enum.constant.reason");
+
+  private static ImmutableList<FormattedDiagnostic> filterDiagnostics(
+      ImmutableList<FormattedDiagnostic> diagnostics) {
+    boolean werror =
+        diagnostics.stream().anyMatch(d -> d.getCode().equals("compiler.err.warnings.and.werror"));
+    return diagnostics.stream()
+        .filter(d -> shouldReportDiagnostic(werror, d))
+        // Print errors last to make them more visible.
+        .sorted(comparing(FormattedDiagnostic::getKind).reversed())
+        .collect(toImmutableList());
+  }
+
+  private static boolean shouldReportDiagnostic(boolean werror, FormattedDiagnostic diagnostic) {
+    if (!IGNORED_DIAGNOSTIC_CODES.contains(diagnostic.getCode())) {
+      return true;
+    }
+    // show compiler.warn.sun.proprietary if we're running with -Werror
+    if (werror && diagnostic.getKind() != Diagnostic.Kind.NOTE) {
+      return true;
+    }
+    return false;
+  }
+
+  /** Processes Plugin-specific arguments and removes them from the args array. */
   @VisibleForTesting
-  @Deprecated
-  public Result compile(
-      String[] argv,
-      Context context,
-      JavaFileManager fileManager,
-      DiagnosticListener<? super JavaFileObject> diagnosticListener,
-      List<JavaFileObject> javaFileObjects,
-      Iterable<? extends Processor> processors) {
-
-    JavacTool tool = JavacTool.create();
-    JavacTaskImpl task = (JavacTaskImpl) tool.getTask(
-        errOutput,
-        fileManager,
-        diagnosticListener,
-        Arrays.asList(argv),
-        null,
-        javaFileObjects,
-        context);
-    if (processors != null) {
-      task.setProcessors(processors);
-    }
-
-    try {
-      return task.doCall();
-    } catch (PluginException e) {
-      errOutput.println(e.getMessage());
-      return e.getResult();
-    }
-  }
-
-  private static final TaskListener EMPTY_LISTENER = new TaskListener() {
-    @Override public void started(TaskEvent e) {}
-    @Override public void finished(TaskEvent e) {}
-  };
-
-  /**
-   * Convinces javac to run in 'API mode', and collect end position information needed by
-   * error-prone.
-   */
-  private static void enableEndPositions(Context context) {
-    MultiTaskListener.instance(context).add(EMPTY_LISTENER);
-  }
-
-  /**
-   * Processes Plugin-specific arguments and removes them from the args array.
-   */
-  @VisibleForTesting
-  String[] processPluginArgs(String[] args) throws InvalidCommandLineException {
-    List<String> processedArgs = Arrays.asList(args);
+  static List<String> processPluginArgs(
+      ImmutableList<BlazeJavaCompilerPlugin> plugins, List<String> args)
+      throws InvalidCommandLineException {
+    List<String> processedArgs = args;
     for (BlazeJavaCompilerPlugin plugin : plugins) {
       processedArgs = plugin.processArgs(processedArgs);
     }
-    return processedArgs.toArray(new String[processedArgs.size()]);
+    return processedArgs;
   }
+
+  private static void setLocations(JavacFileManager fileManager, BlazeJavacArguments arguments) {
+    try {
+      fileManager.setLocationFromPaths(StandardLocation.CLASS_PATH, arguments.classPath());
+      // modular dependencies must be on the module path, not the classpath
+      fileManager.setLocationFromPaths(
+          StandardLocation.locationFor("MODULE_PATH"), arguments.classPath());
+
+      fileManager.setLocationFromPaths(
+          StandardLocation.CLASS_OUTPUT, ImmutableList.of(arguments.classOutput()));
+      if (arguments.nativeHeaderOutput() != null) {
+        fileManager.setLocationFromPaths(
+            StandardLocation.NATIVE_HEADER_OUTPUT,
+            ImmutableList.of(arguments.nativeHeaderOutput()));
+      }
+
+      ImmutableList<Path> sourcePath = arguments.sourcePath();
+      if (sourcePath.isEmpty()) {
+        // javac expects a module-info-relative source path to be set when compiling modules,
+        // otherwise it reports an error:
+        // "file should be on source path, or on patch path for module"
+        ImmutableList<Path> moduleInfos =
+            arguments.sourceFiles().stream()
+                .filter(f -> f.getFileName().toString().equals("module-info.java"))
+                .collect(toImmutableList());
+        if (moduleInfos.size() == 1) {
+          sourcePath = ImmutableList.of(getOnlyElement(moduleInfos).getParent());
+        }
+      }
+      fileManager.setLocationFromPaths(StandardLocation.SOURCE_PATH, sourcePath);
+
+      // The bootclasspath may legitimately be empty if --release is being used.
+      Collection<Path> bootClassPath = arguments.bootClassPath();
+      if (!bootClassPath.isEmpty()) {
+        fileManager.setLocationFromPaths(StandardLocation.PLATFORM_CLASS_PATH, bootClassPath);
+      }
+      fileManager.setLocationFromPaths(
+          StandardLocation.ANNOTATION_PROCESSOR_PATH, arguments.processorPath());
+      if (arguments.sourceOutput() != null) {
+        fileManager.setLocationFromPaths(
+            StandardLocation.SOURCE_OUTPUT, ImmutableList.of(arguments.sourceOutput()));
+      }
+    } catch (IOException e) {
+      throw new IOError(e);
+    }
+  }
+
+  /**
+   * When Bazel invokes JavaBuilder, it puts javac.jar on the bootstrap class path and
+   * JavaBuilder_deploy.jar on the user class path. We need Error Prone to be available on the
+   * annotation processor path, but we want to mask out any other classes to minimize class version
+   * skew.
+   */
+  @Trusted
+  private static class ClassloaderMaskingFileManager extends JavacFileManager {
+
+    private final ImmutableSet<String> builtinProcessors;
+
+    private static Context getContext() {
+      Context context = new Context();
+      CacheFSInfo.preRegister(context);
+      return context;
+    }
+
+    public ClassloaderMaskingFileManager(ImmutableSet<String> builtinProcessors) {
+      super(getContext(), false, UTF_8);
+      this.builtinProcessors = builtinProcessors;
+    }
+
+    @Override
+    protected ClassLoader getClassLoader(URL[] urls) {
+      return new URLClassLoader(
+          urls,
+          new ClassLoader(getPlatformClassLoader()) {
+            @Override
+            protected Class<?> findClass(String name) throws ClassNotFoundException {
+              if (name.startsWith("com.google.errorprone.")
+                  || name.startsWith("com.google.common.collect.")
+                  || name.startsWith("com.google.common.base.")
+                  || name.startsWith("com.google.common.graph.")
+                  || name.startsWith("org.checkerframework.dataflow.")
+                  || name.startsWith("com.sun.source.")
+                  || name.startsWith("com.sun.tools.")
+                  || name.startsWith("com.google.devtools.build.buildjar.javac.statistics.")
+                  || name.startsWith("dagger.model.")
+                  || name.startsWith("dagger.spi.")
+                  || builtinProcessors.contains(name)) {
+                return Class.forName(name);
+              }
+              throw new ClassNotFoundException(name);
+            }
+          });
+    }
+  }
+
+  public static ClassLoader getPlatformClassLoader() {
+    try {
+      // In JDK 9+, all platform classes are visible to the platform class loader:
+      // https://docs.oracle.com/javase/9/docs/api/java/lang/ClassLoader.html#getPlatformClassLoader--
+      return (ClassLoader) ClassLoader.class.getMethod("getPlatformClassLoader").invoke(null);
+    } catch (ReflectiveOperationException e) {
+      // In earlier releases, set 'null' as the parent to delegate to the boot class loader.
+      return null;
+    }
+  }
+
+  private BlazeJavacMain() {}
 }

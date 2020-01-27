@@ -1,0 +1,182 @@
+// Copyright 2019 The Bazel Authors. All rights reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//    http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+//
+// Protos for Stardoc data.
+//
+// Stardoc collects information about Starlark functions, providers, and rules.
+syntax = "proto3";
+
+package stardoc_output;
+
+// option java_api_version = 2;
+option java_package = "com.google.devtools.build.skydoc.rendering.proto";
+option java_outer_classname = "StardocOutputProtos";
+
+// The root output proto of Stardoc. A single invocation of Stardoc will output
+// exactly one instance of this proto, representing all documentation for
+// the input Starlark file.
+message ModuleInfo {
+  repeated RuleInfo rule_info = 1;
+
+  repeated ProviderInfo provider_info = 2;
+
+  repeated StarlarkFunctionInfo func_info = 3;
+
+  repeated AspectInfo aspect_info = 4;
+
+  // The docstring present at the top of the input Starlark file.
+  string module_docstring = 5;
+}
+
+// Representation of a Starlark rule attribute type. These generally
+// have a one-to-one correspondence with functions defined at
+// https://docs.bazel.build/versions/master/skylark/lib/attr.html.
+enum AttributeType {
+  UNKNOWN = 0;
+  // A special case of STRING; all rules have exactly one implicit
+  // attribute "name" of type NAME.
+  NAME = 1;
+  INT = 2;
+  LABEL = 3;
+  STRING = 4;
+  STRING_LIST = 5;
+  INT_LIST = 6;
+  LABEL_LIST = 7;
+  BOOLEAN = 8;
+  LABEL_STRING_DICT = 9;
+  STRING_DICT = 10;
+  STRING_LIST_DICT = 11;
+  OUTPUT = 12;
+  OUTPUT_LIST = 13;
+}
+
+// Representation of a Starlark rule definition.
+message RuleInfo {
+  // The name of the rule.
+  string rule_name = 1;
+
+  // The documentation string of the rule.
+  string doc_string = 2;
+
+  // The attributes of the rule.
+  repeated AttributeInfo attribute = 3;
+}
+
+// Representation of a Starlark rule attribute definition, comprised of an
+// attribute name, and a schema defined by a call to one of the 'attr' module
+// methods enumerated at
+// https://docs.bazel.build/versions/master/skylark/lib/attr.html
+message AttributeInfo {
+  // The name of the attribute.
+  string name = 1;
+
+  // The documentation string of the attribute, supplied via the 'doc'
+  // parameter to the schema-creation call.
+  string doc_string = 2;
+
+  // The type of the attribute, defined generally by which function is invoked
+  // in the attr module.
+  AttributeType type = 3;
+
+  // If true, all targets of the rule must specify a value for this attribute.
+  bool mandatory = 4;
+
+  // The target(s) in this attribute must define all the providers of at least
+  // one of the ProviderNameGroups in this list. If the Attribute Type is not a
+  // label, a label list, or a label-keyed string dictionary, the field will be
+  // left empty.
+  repeated ProviderNameGroup provider_name_group = 5;
+
+  // The string representation of the default value of this attribute.
+  string default_value = 6;
+}
+
+// Representation of a set of providers that a rule attribute may be required to
+// have.
+message ProviderNameGroup {
+  // The names of the providers that must be given by any dependency appearing
+  // in this attribute. The name will be "Unknown Provider" if the name is
+  // unidentifiable, for example, if the provider is part of a namespace.
+  // TODO(kendalllane): Fix documentation of providers from namespaces.
+  repeated string provider_name = 1;
+}
+
+// Representation of Starlark function definition.
+message StarlarkFunctionInfo {
+  // The name of the function.
+  string function_name = 1;
+
+  // The parameters for the function.
+  repeated FunctionParamInfo parameter = 2;
+
+  // The documented description of the function (if specified in the function's
+  // docstring).
+  string doc_string = 3;
+}
+
+// Representation of a Starlark function parameter definition.
+message FunctionParamInfo {
+  // The name of the parameter.
+  string name = 1;
+
+  // The documented description of the parameter (if specified in the function's
+  // docstring).
+  string doc_string = 2;
+
+  // If not an empty string, the default value of the parameter displayed
+  // as a string.
+  string default_value = 3;
+
+  // If true, the default value is unset and a value is needed for this
+  // parameter. This might be false even if defaultValue is empty in the case of
+  // special parameter such as *args and **kwargs"
+  bool mandatory = 4;
+}
+
+// Representation of a Starlark provider field definition, comprised of
+// the field name and provider description.
+message ProviderFieldInfo {
+  // The name of the field.
+  string name = 1;
+
+  // The description of the provider.
+  string doc_string = 2;
+}
+
+// Representation of a Starlark provider definition.
+message ProviderInfo {
+  // The name of the provider.
+  string provider_name = 1;
+
+  // The description of the provider.
+  string doc_string = 2;
+
+  // The fields of the provider.
+  repeated ProviderFieldInfo field_info = 3;
+}
+
+// Representation of a Starlark aspect definition.
+message AspectInfo {
+  // The name of the aspect.
+  string aspect_name = 1;
+
+  // The documentation string of the aspect.
+  string doc_string = 2;
+
+  // The rule attributes along which the aspect propagates.
+  repeated string aspect_attribute = 3;
+
+  // The attributes of the aspect.
+  repeated AttributeInfo attribute = 4;
+}

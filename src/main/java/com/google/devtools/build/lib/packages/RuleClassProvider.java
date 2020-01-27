@@ -1,4 +1,4 @@
-// Copyright 2014 Google Inc. All rights reserved.
+// Copyright 2014 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,45 +14,108 @@
 
 package com.google.devtools.build.lib.packages;
 
-import com.google.devtools.build.lib.events.EventHandler;
-import com.google.devtools.build.lib.syntax.SkylarkEnvironment;
-import com.google.devtools.build.lib.syntax.ValidationEnvironment;
-import com.google.devtools.build.lib.vfs.PathFragment;
-
-import java.util.List;
+import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.analysis.RuleDefinitionContext;
+import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.google.devtools.build.lib.packages.RuleClass.Builder.ThirdPartyLicenseExistencePolicy;
+import com.google.devtools.build.lib.syntax.ClassObject;
+import com.google.devtools.build.lib.syntax.Mutability;
+import com.google.devtools.build.lib.syntax.StarlarkSemantics;
+import com.google.devtools.build.lib.syntax.StarlarkThread;
+import com.google.devtools.build.lib.syntax.StarlarkThread.Extension;
 import java.util.Map;
+import javax.annotation.Nullable;
 
 /**
- * The collection of the supported build rules. Provides an Environment for Skylark rule creation.
+ * The collection of the supported build rules. Provides an StarlarkThread for Skylark rule
+ * creation.
  */
-public interface RuleClassProvider {
+public interface RuleClassProvider extends RuleDefinitionContext {
+
+  /**
+   * Label referencing the prelude file.
+   */
+  Label getPreludeLabel();
+
+  /**
+   * The default runfiles prefix (may be overwritten by the WORKSPACE file).
+   */
+  String getRunfilesPrefix();
+
   /**
    * Returns a map from rule names to rule class objects.
    */
   Map<String, RuleClass> getRuleClassMap();
 
   /**
-   * Returns a new Skylark Environment instance for rule creation. Implementations need to be
-   * thread safe.
+   * Returns a new StarlarkThread for initialization of a .bzl file loaded on behalf of a BUILD or
+   * WORKSPACE file. Implementations need to be thread safe. Be sure to close() the mutability
+   * before you return the results of evaluation.
+   *
+   * <p>A .bzl file loaded by (or indirectly by) a BUILD file may differ semantically from the same
+   * file loaded on behalf of a WORKSPACE file, because of the repository mapping and native module;
+   * these differences much be accounted for by caching.
+   *
+   * @param label the label of the .bzl file
+   * @param mutability the Mutability for the .bzl module globals
+   * @param starlarkSemantics the semantics options that modify the interpreter
+   * @param printHandler defines the behavior of Starlark print statements
+   * @param astFileContentHashCode the hash code identifying this environment.
+   * @param importMap map from import string to Extension
+   * @param nativeModule the appropriate {@code native} module for this environment.
+   * @param repoMapping map of RepositoryNames to be remapped
+   * @return the StarlarkThread in which to initualize the .bzl module
    */
-  SkylarkEnvironment createSkylarkRuleClassEnvironment(
-      EventHandler eventHandler, String astFileContentHashCode);
+  StarlarkThread createRuleClassStarlarkThread(
+      Label label,
+      Mutability mutability,
+      StarlarkSemantics starlarkSemantics,
+      StarlarkThread.PrintHandler printHandler,
+      @Nullable String astFileContentHashCode,
+      @Nullable Map<String, Extension> importMap,
+      ClassObject nativeModule,
+      ImmutableMap<RepositoryName, RepositoryName> repoMapping);
 
   /**
-   * Returns a validation environment for static analysis of skylark files.
-   * The environment has to contain all built-in functions and objects.
+   * Returns the predeclared environment for a loading-phase thread. Includes "native", though its
+   * value may be inappropriate for a WORKSPACE file. Includes the universal bindings (e.g. True,
+   * len), though that will soon change.
    */
-  ValidationEnvironment getSkylarkValidationEnvironment();
+  // TODO(adonovan): update doc comment.
+  ImmutableMap<String, Object> getEnvironment();
 
   /**
-   * Returns the Skylark module to register the native rules with.
+   * Returns a map from aspect names to aspect factory objects.
    */
-  Object getNativeModule();
+  Map<String, NativeAspectClass> getNativeAspectClassMap();
 
   /**
-   * Returns paths to the WORKSPACE files needed to provide external dependencies for built-in
-   * rules.  The PathFragments are relative to Bazel's install directory. Returns an empty list if
-   * there are none defined.
+   * Returns the default content that should be added at the beginning of the WORKSPACE file.
+   *
+   * <p>Used to provide external dependencies for built-in rules. Rules defined here can be
+   * overwritten in the WORKSPACE file in the actual workspace.
    */
-  List<PathFragment> getWorkspaceFiles();
+  String getDefaultWorkspacePrefix();
+
+  /**
+   * Returns the default content that should be added at the end of the WORKSPACE file.
+   *
+   * <p>Used to load skylark repository in the bazel_tools repository.
+   */
+  String getDefaultWorkspaceSuffix();
+
+  /**
+   * Retrieves an aspect from the aspect factory map using the key provided
+   */
+  NativeAspectClass getNativeAspectClass(String key);
+
+  /**
+   * Retrieves a {@link Map} from skylark configuration fragment name to configuration fragment
+   * class.
+   */
+  Map<String, Class<?>> getConfigurationFragmentMap();
+
+  /** Returns the policy on checking that third-party rules have licenses. */
+  ThirdPartyLicenseExistencePolicy getThirdPartyLicenseExistencePolicy();
 }

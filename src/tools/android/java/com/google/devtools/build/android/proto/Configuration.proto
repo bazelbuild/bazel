@@ -1,0 +1,206 @@
+/*
+ * Copyright 2017 The Bazel Authors. All rights reserved.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+syntax = "proto3";
+
+package aapt.pb;
+
+option java_package = "com.android.aapt";
+
+// A description of the requirements a device must have in order for a
+// resource to be matched and selected.
+message Configuration {
+  enum LayoutDirection {
+    LAYOUT_DIRECTION_UNSET = 0;
+    LAYOUT_DIRECTION_LTR = 1;
+    LAYOUT_DIRECTION_RTL = 2;
+  }
+
+  enum ScreenLayoutSize {
+    SCREEN_LAYOUT_SIZE_UNSET = 0;
+    SCREEN_LAYOUT_SIZE_SMALL = 1;
+    SCREEN_LAYOUT_SIZE_NORMAL = 2;
+    SCREEN_LAYOUT_SIZE_LARGE = 3;
+    SCREEN_LAYOUT_SIZE_XLARGE = 4;
+  }
+
+  enum ScreenLayoutLong {
+    SCREEN_LAYOUT_LONG_UNSET = 0;
+    SCREEN_LAYOUT_LONG_LONG = 1;
+    SCREEN_LAYOUT_LONG_NOTLONG = 2;
+  }
+
+  enum ScreenRound {
+    SCREEN_ROUND_UNSET = 0;
+    SCREEN_ROUND_ROUND = 1;
+    SCREEN_ROUND_NOTROUND = 2;
+  }
+
+  enum WideColorGamut {
+    WIDE_COLOR_GAMUT_UNSET = 0;
+    WIDE_COLOR_GAMUT_WIDECG = 1;
+    WIDE_COLOR_GAMUT_NOWIDECG = 2;
+  }
+
+  enum Hdr {
+    HDR_UNSET = 0;
+    HDR_HIGHDR = 1;
+    HDR_LOWDR = 2;
+  }
+
+  enum Orientation {
+    ORIENTATION_UNSET = 0;
+    ORIENTATION_PORT = 1;
+    ORIENTATION_LAND = 2;
+    ORIENTATION_SQUARE = 3;
+  }
+
+  enum UiModeType {
+    UI_MODE_TYPE_UNSET = 0;
+    UI_MODE_TYPE_NORMAL = 1;
+    UI_MODE_TYPE_DESK = 2;
+    UI_MODE_TYPE_CAR = 3;
+    UI_MODE_TYPE_TELEVISION = 4;
+    UI_MODE_TYPE_APPLIANCE = 5;
+    UI_MODE_TYPE_WATCH = 6;
+    UI_MODE_TYPE_VRHEADSET = 7;
+  }
+
+  enum UiModeNight {
+    UI_MODE_NIGHT_UNSET = 0;
+    UI_MODE_NIGHT_NIGHT = 1;
+    UI_MODE_NIGHT_NOTNIGHT = 2;
+  }
+
+  enum Touchscreen {
+    TOUCHSCREEN_UNSET = 0;
+    TOUCHSCREEN_NOTOUCH = 1;
+    TOUCHSCREEN_STYLUS = 2;
+    TOUCHSCREEN_FINGER = 3;
+  }
+
+  enum KeysHidden {
+    KEYS_HIDDEN_UNSET = 0;
+    KEYS_HIDDEN_KEYSEXPOSED = 1;
+    KEYS_HIDDEN_KEYSHIDDEN = 2;
+    KEYS_HIDDEN_KEYSSOFT = 3;
+  }
+
+  enum Keyboard {
+    KEYBOARD_UNSET = 0;
+    KEYBOARD_NOKEYS = 1;
+    KEYBOARD_QWERTY = 2;
+    KEYBOARD_TWELVEKEY = 3;
+  }
+
+  enum NavHidden {
+    NAV_HIDDEN_UNSET = 0;
+    NAV_HIDDEN_NAVEXPOSED = 1;
+    NAV_HIDDEN_NAVHIDDEN = 2;
+  }
+
+  enum Navigation {
+    NAVIGATION_UNSET = 0;
+    NAVIGATION_NONAV = 1;
+    NAVIGATION_DPAD = 2;
+    NAVIGATION_TRACKBALL = 3;
+    NAVIGATION_WHEEL = 4;
+  }
+
+  //
+  // Axis/dimensions that are understood by the runtime.
+  //
+
+  // Mobile country code.
+  uint32 mcc = 1;
+
+  // Mobile network code.
+  uint32 mnc = 2;
+
+  // BCP-47 locale tag.
+  string locale = 3;
+
+  // Left-to-right, right-to-left...
+  LayoutDirection layout_direction = 4;
+
+  // Screen width in pixels. Prefer screen_width_dp.
+  uint32 screen_width = 5;
+
+  // Screen height in pixels. Prefer screen_height_dp.
+  uint32 screen_height = 6;
+
+  // Screen width in density independent pixels (dp).
+  uint32 screen_width_dp = 7;
+
+  // Screen height in density independent pixels (dp).
+  uint32 screen_height_dp = 8;
+
+  // The smallest screen dimension, regardless of orientation, in dp.
+  uint32 smallest_screen_width_dp = 9;
+
+  // Whether the device screen is classified as small, normal, large, xlarge.
+  ScreenLayoutSize screen_layout_size = 10;
+
+  // Whether the device screen is long.
+  ScreenLayoutLong screen_layout_long = 11;
+
+  // Whether the screen is round (Android Wear).
+  ScreenRound screen_round = 12;
+
+  // Whether the screen supports wide color gamut.
+  WideColorGamut wide_color_gamut = 13;
+
+  // Whether the screen has high dynamic range.
+  Hdr hdr = 14;
+
+  // Which orientation the device is in (portrait, landscape).
+  Orientation orientation = 15;
+
+  // Which type of UI mode the device is in (television, car, etc.).
+  UiModeType ui_mode_type = 16;
+
+  // Whether the device is in night mode.
+  UiModeNight ui_mode_night = 17;
+
+  // The device's screen density in dots-per-inch (dpi).
+  uint32 density = 18;
+
+  // Whether a touchscreen exists, supports a stylus, or finger.
+  Touchscreen touchscreen = 19;
+
+  // Whether the keyboard hardware keys are currently hidden, exposed, or
+  // if the keyboard is a software keyboard.
+  KeysHidden keys_hidden = 20;
+
+  // The type of keyboard present (none, QWERTY, 12-key).
+  Keyboard keyboard = 21;
+
+  // Whether the navigation is exposed or hidden.
+  NavHidden nav_hidden = 22;
+
+  // The type of navigation present on the device
+  // (trackball, wheel, dpad, etc.).
+  Navigation navigation = 23;
+
+  // The minimum SDK version of the device.
+  uint32 sdk_version = 24;
+
+  //
+  // Build-time only dimensions.
+  //
+
+  string product = 25;
+}

@@ -1,4 +1,4 @@
-// Copyright 2014 Google Inc. All rights reserved.
+// Copyright 2014 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -13,13 +13,16 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
-import com.google.common.base.Function;
+import com.google.auto.value.AutoValue;
+import com.google.common.collect.Interner;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
-import com.google.devtools.build.lib.analysis.LabelAndConfiguration;
+import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
+import com.google.devtools.build.lib.concurrent.BlazeInterners;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-
 import java.util.Collection;
 
 /**
@@ -31,36 +34,57 @@ public class TestCompletionValue implements SkyValue {
 
   private TestCompletionValue() { }
 
-  public static SkyKey key(LabelAndConfiguration lac, boolean exclusive) {
-    return new SkyKey(SkyFunctions.TEST_COMPLETION, new TestCompletionKey(lac, exclusive));
+  @Override
+  public boolean dataIsShareable() {
+    return false;
+  }
+
+  public static SkyKey key(
+      ConfiguredTargetKey lac,
+      final TopLevelArtifactContext topLevelArtifactContext,
+      final boolean exclusiveTesting) {
+    return TestCompletionKey.create(lac, topLevelArtifactContext, exclusiveTesting);
   }
 
   public static Iterable<SkyKey> keys(Collection<ConfiguredTarget> targets,
-                                      final boolean exclusive) {
-    return Iterables.transform(targets, new Function<ConfiguredTarget, SkyKey>() {
-      @Override
-      public SkyKey apply(ConfiguredTarget ct) {
-        return new SkyKey(SkyFunctions.TEST_COMPLETION, 
-            new TestCompletionKey(new LabelAndConfiguration(ct), exclusive));
-      }
-    });
+                                      final TopLevelArtifactContext topLevelArtifactContext,
+                                      final boolean exclusiveTesting) {
+    return Iterables.transform(
+        targets,
+        ct ->
+            TestCompletionKey.create(
+                // Tests are never in host configuration.
+                ConfiguredTargetKey.of(
+                    ct, ct.getConfigurationKey(), /*isHostConfiguration=*/ false),
+                topLevelArtifactContext,
+                exclusiveTesting));
   }
-  
-  static class TestCompletionKey {
-    private final LabelAndConfiguration lac;
-    private final boolean exclusiveTesting;
 
-    TestCompletionKey(LabelAndConfiguration lac, boolean exclusive) {
-      this.lac = lac;
-      this.exclusiveTesting = exclusive;
+  /** Key for {@link TestCompletionValue} nodes. */
+  @AutoCodec
+  @AutoValue
+  public abstract static class TestCompletionKey implements SkyKey {
+    private static final Interner<TestCompletionKey> interner = BlazeInterners.newWeakInterner();
+
+    @AutoCodec.VisibleForSerialization
+    @AutoCodec.Instantiator
+    static TestCompletionKey create(
+        ConfiguredTargetKey configuredTargetKey,
+        TopLevelArtifactContext topLevelArtifactContext,
+        boolean exclusiveTesting) {
+      return interner.intern(
+          new AutoValue_TestCompletionValue_TestCompletionKey(
+              configuredTargetKey, topLevelArtifactContext, exclusiveTesting));
     }
 
-    public LabelAndConfiguration getLabelAndConfiguration() {
-      return lac;
-    }
+    abstract ConfiguredTargetKey configuredTargetKey();
 
-    public boolean isExclusiveTesting() {
-      return exclusiveTesting;
+    public abstract TopLevelArtifactContext topLevelArtifactContext();
+    public abstract boolean exclusiveTesting();
+
+    @Override
+    public SkyFunctionName functionName() {
+      return SkyFunctions.TEST_COMPLETION;
     }
   }
 }

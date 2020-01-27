@@ -1,0 +1,41 @@
+commit 17ea13b242e4cbcc27a6ef745939ebb7dcccea10 (HEAD -> master)
+Author: John Doe <john@example.com>
+Date:   Fri Dec 29 18:36:06 2017 -0500
+
+    Move BUILD into a subdirectory
+
+diff --git a/BUILD b/gdir/BUILD
+similarity index 100%
+rename from BUILD
+rename to gdir/BUILD
+
+commit db134ae9b644d8237954a8e6f1ef80fcfd85d521
+Author: John Doe <john@example.com>
+Date:   Wed Nov 25 13:20:07 2015 +0100
+
+    Change 1 to 2
+
+diff --git a/BUILD b/BUILD
+index 335b1cf..07034a3 100644
+--- a/BUILD
++++ b/BUILD
+@@ -1 +1 @@
+-genrule(name="g", srcs=[], outs=["go"], cmd="echo GIT 1 > $@")
++genrule(name="g", srcs=[], outs=["go"], cmd="echo GIT 2 > $@")
+
+commit 22095302abaf776886879efa5129aa4d44c53017
+Author: John Doe <john@example.com>
+Date:   Wed Nov 25 13:19:52 2015 +0100
+
+    Initial checkin.
+
+diff --git a/BUILD b/BUILD
+new file mode 100644
+index 0000000..335b1cf
+--- /dev/null
++++ b/BUILD
+@@ -0,0 +1 @@
++genrule(name="g", srcs=[], outs=["go"], cmd="echo GIT 1 > $@")
+diff --git a/WORKSPACE b/WORKSPACE
+new file mode 100644
+index 0000000..e69de29

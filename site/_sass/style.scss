@@ -1,0 +1,182 @@
+// Bazel logo colors
+$bazel-green: #43a047;
+$bazel-green-light: #76d275;
+$bazel-green-dark-left: #00701a;
+$bazel-green-dark-right: #004300;
+$color-on-bazel-green: #fff;
+
+$body-font-family: 'RobotoDraft', 'Helvetica Neue', Helvetica, Arial,
+                   sans-serif;
+$code-font-family: 'Source Code Pro', monospace;
+
+$link-color: $bazel-green;
+$link-hover-color: darken($link-color, 10%);
+$well-color: #f9f9f9;
+$text-color: #444;
+
+$vpad: 20px;
+
+$table-bg: #fff;
+$table-cell-padding: 5px;
+$table-border-color: $bazel-green;
+$text-muted: $color-on-bazel-green;
+$line-height-base: 20px;
+$line-height-computed: 20px;
+
+html {
+  position: relative;
+  min-height: 100%;
+}
+
+body {
+  padding-top: 50px;
+  color: $text-color;
+  font-family: $body-font-family;
+}
+
+a {
+  color: $link-color;
+
+  &:hover,
+  &:focus {
+    color: $link-hover-color;
+  }
+
+  code {
+    color: $link-color;
+  }
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  color: $text-color;
+  font-weight: 400;
+  margin-top: 30px;
+  margin-bottom: 15px;
+}
+
+h1 code,
+h2 code,
+h3 code,
+h4 code,
+h5 code,
+h6 code {
+  color: $text-color;
+  background: transparent;
+}
+
+h1 {
+  margin-top: 40px;
+}
+
+h2 {
+  font-size: 24px;
+  margin-top: 30px;
+
+  code {
+    font-size: 24px;
+  }
+}
+
+h3 {
+  font-size: 20px;
+
+  code {
+    font-size: 20px;
+  }
+}
+
+h4 {
+  font-size: 18px;
+
+  code {
+    font-size: 18px;
+  }
+}
+
+p,
+li {
+  font-size: 14px;
+  line-height: 22px;
+}
+
+pre {
+  padding: 8px 16px;
+  font-family: $code-font-family;
+  background-color: $well-color;
+  border: 0;
+  font-size: 13px;
+  line-height: 20px;
+}
+
+code {
+  font-family: $code-font-family;
+  font-size: 13px;
+  background-color: $well-color;
+}
+
+
+// Imitate material design buttons
+.btn-lg {
+  font-size: 14px;
+  text-transform: uppercase;
+}
+
+$md-shadow-1: rgba(0, 0, 0, .14);
+$md-shadow-2: rgba(0, 0, 0, .2);
+$md-shadow-3: rgba(0, 0, 0, .12);
+
+.btn-success {
+  border-radius: 2px;
+  box-shadow: 0 2px 2px 0 $md-shadow-1, 0 3px 1px -2px $md-shadow-2, 0 1px 5px 0 $md-shadow-3;
+  border: 0;
+}
+
+.well {
+  background-color: $well-color;
+  border-color: $well-color;
+  box-shadow: none;
+}
+
+// Shared
+.vpad {
+  padding-top: $vpad;
+}
+
+.page-title-bar {
+  background-color: $bazel-green-light;
+  padding-top: 20px;
+  padding-bottom: 20px;
+
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    margin: 8px 0 4px;
+    color: $color-on-bazel-green;
+  }
+}
+
+.gsc-control-cse {
+  *,
+  *::before,
+  *::after {
+    -webkit-box-sizing: content-box !important;
+    -moz-box-sizing: content-box !important;
+    box-sizing: content-box !important;
+  }
+}
+
+// Used for the Command-line Reference flag anchors. Linkifying the flag name
+// causes it to turn $link-color (green), but we turn it red here to be consistent
+// with the rest of the code block.
+dd > code > a,
+dl > dt > code > a {
+  color: #c7254e;
+}

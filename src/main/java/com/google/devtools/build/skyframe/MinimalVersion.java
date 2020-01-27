@@ -1,4 +1,4 @@
-// Copyright 2014 Google Inc. All rights reserved.
+// Copyright 2014 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -13,18 +13,14 @@
 // limitations under the License.
 package com.google.devtools.build.skyframe;
 
-import java.io.Serializable;
-
 /**
- * A Version "less than" all other versions, other than itself.
- *
- * <p>Only use in custom evaluator implementations.
+ * A Version "less than" all other versions, other than itself. Only used as initializer in node
+ * entry.
  */
-public class MinimalVersion implements Version, Serializable {
-  public static final MinimalVersion INSTANCE = new MinimalVersion();
+final class MinimalVersion implements Version {
+  static final MinimalVersion INSTANCE = new MinimalVersion();
 
-  private MinimalVersion() {
-  }
+  private MinimalVersion() {}
 
   @Override
   public boolean atMost(Version other) {

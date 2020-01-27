@@ -1,4 +1,4 @@
-// Copyright 2014 Google Inc. All rights reserved.
+// Copyright 2014 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,27 +14,38 @@
 package com.google.devtools.build.lib.analysis.buildinfo;
 
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.actions.Action;
+import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.Artifact;
-
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import java.util.List;
 
-/**
- * A collection of build-info files for both stamped and unstamped modes.
- */
+/** A collection of build-info files for both stamped and unstamped modes. */
+@AutoCodec
 public final class BuildInfoCollection {
-  private final ImmutableList<Action> actions;
+  private final ImmutableList<ActionAnalysisMetadata> actions;
   private final ImmutableList<Artifact> stampedBuildInfo;
   private final ImmutableList<Artifact> redactedBuildInfo;
 
-  public BuildInfoCollection(List<? extends Action> actions, List<Artifact> stampedBuildInfo,
-      List<Artifact> redactedBuildInfo) {
-    this.actions = ImmutableList.copyOf(actions);
-    this.stampedBuildInfo = ImmutableList.copyOf(stampedBuildInfo);
-    this.redactedBuildInfo = ImmutableList.copyOf(redactedBuildInfo);
+  public BuildInfoCollection(List<? extends ActionAnalysisMetadata> actions,
+      List<Artifact> stampedBuildInfo, List<Artifact> redactedBuildInfo) {
+    this(
+        ImmutableList.copyOf(actions),
+        ImmutableList.copyOf(stampedBuildInfo),
+        ImmutableList.copyOf(redactedBuildInfo));
   }
 
-  public ImmutableList<Action> getActions() {
+  @AutoCodec.Instantiator
+  @AutoCodec.VisibleForSerialization
+  BuildInfoCollection(
+      ImmutableList<ActionAnalysisMetadata> actions,
+      ImmutableList<Artifact> stampedBuildInfo,
+      ImmutableList<Artifact> redactedBuildInfo) {
+    this.actions = actions;
+    this.stampedBuildInfo = stampedBuildInfo;
+    this.redactedBuildInfo = redactedBuildInfo;
+  }
+
+  public ImmutableList<ActionAnalysisMetadata> getActions() {
     return actions;
   }
 

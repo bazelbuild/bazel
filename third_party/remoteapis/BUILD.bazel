@@ -1,0 +1,74 @@
+load("@rules_java//java:defs.bzl", "java_proto_library")
+load("@rules_proto//proto:defs.bzl", "proto_library")
+
+package(default_visibility = ["//visibility:public"])
+
+licenses(["notice"])
+
+exports_files(["LICENSE"])
+
+load("@io_bazel//third_party/grpc:build_defs.bzl", "java_grpc_library")
+load("@io_bazel//tools/build_rules:utilities.bzl", "java_library_srcs")
+
+filegroup(
+    name = "srcs",
+    srcs = glob(["**"]),
+    visibility = ["@//third_party:__pkg__"],
+)
+
+JAVA_LIBRARY_PROTOS = [
+    "build_bazel_semver_semver",
+    "build_bazel_remote_execution_v2_remote_execution",
+]
+
+[java_library_srcs(
+    name = proto + "_java_proto_srcs",
+    deps = [":" + proto + "_java_proto"],
+) for proto in JAVA_LIBRARY_PROTOS]
+
+# for bootstrapping
+filegroup(
+    name = "dist_jars",
+    srcs = [":" + proto + "_java_proto_srcs" for proto in JAVA_LIBRARY_PROTOS] + [
+        ":build_bazel_remote_execution_v2_remote_execution_java_grpc_srcs",
+    ],
+    visibility = ["@//src:__pkg__"],
+)
+
+proto_library(
+    name = "build_bazel_remote_execution_v2_remote_execution_proto",
+    srcs = ["build/bazel/remote/execution/v2/remote_execution.proto"],
+    deps = [
+        ":build_bazel_semver_semver_proto",
+        "@com_google_protobuf//:duration_proto",
+        "@com_google_protobuf//:timestamp_proto",
+        "@googleapis//:google_api_annotations_proto",
+        "@googleapis//:google_api_http_proto",
+        "@googleapis//:google_longrunning_operations_proto",
+        "@googleapis//:google_rpc_status_proto",
+    ],
+)
+
+proto_library(
+    name = "build_bazel_semver_semver_proto",
+    srcs = ["build/bazel/semver/semver.proto"],
+)
+
+java_proto_library(
+    name = "build_bazel_remote_execution_v2_remote_execution_java_proto",
+    deps = [":build_bazel_remote_execution_v2_remote_execution_proto"],
+)
+
+java_proto_library(
+    name = "build_bazel_semver_semver_java_proto",
+    deps = [":build_bazel_semver_semver_proto"],
+)
+
+java_grpc_library(
+    name = "build_bazel_remote_execution_v2_remote_execution_java_grpc",
+    srcs = [":build_bazel_remote_execution_v2_remote_execution_proto"],
+    deps = [
+        ":build_bazel_remote_execution_v2_remote_execution_java_proto",
+        "@googleapis//:google_longrunning_operations_java_proto",
+    ],
+)

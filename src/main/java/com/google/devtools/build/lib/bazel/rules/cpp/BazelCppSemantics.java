@@ -1,4 +1,4 @@
-// Copyright 2014 Google Inc. All rights reserved.
+// Copyright 2014 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,37 +16,104 @@ package com.google.devtools.build.lib.bazel.rules.cpp;
 
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleContext;
-import com.google.devtools.build.lib.rules.cpp.CppCompilationContext.Builder;
+import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
+import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
+import com.google.devtools.build.lib.packages.Provider;
+import com.google.devtools.build.lib.packages.SkylarkProvider.SkylarkKey;
+import com.google.devtools.build.lib.packages.StructImpl;
+import com.google.devtools.build.lib.rules.cpp.AspectLegalCppSemantics;
+import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
+import com.google.devtools.build.lib.rules.cpp.CcToolchainProvider;
+import com.google.devtools.build.lib.rules.cpp.CppActionNames;
 import com.google.devtools.build.lib.rules.cpp.CppCompileActionBuilder;
-import com.google.devtools.build.lib.rules.cpp.CppCompileActionContext;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
-import com.google.devtools.build.lib.rules.cpp.CppHelper;
-import com.google.devtools.build.lib.rules.cpp.CppSemantics;
-import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.rules.cpp.CppConfiguration.HeadersCheckingMode;
+import com.google.devtools.build.lib.rules.cpp.IncludeProcessing;
+import com.google.devtools.build.lib.rules.cpp.NoProcessing;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 
-/**
- * C++ compilation semantics.
- */
-public class BazelCppSemantics implements CppSemantics {
-  public static final CppSemantics INSTANCE = new BazelCppSemantics();
+/** C++ compilation semantics. */
+public class BazelCppSemantics implements AspectLegalCppSemantics {
+  @AutoCodec public static final BazelCppSemantics INSTANCE = new BazelCppSemantics();
+
+  // TODO(#10338): We need to check for both providers. With and without the @rules_cc repo name.
+  //  The reason for that is that when we are in a target inside @rules_cc, the provider won't have
+  // the repo name set.
+  public static final Provider.Key CC_SHARED_INFO_PROVIDER_RULES_CC =
+      new SkylarkKey(
+          Label.parseAbsoluteUnchecked("@rules_cc//examples:experimental_cc_shared_library.bzl"),
+          "CcSharedLibraryInfo");
+
+  public static final Provider.Key CC_SHARED_INFO_PROVIDER =
+      new SkylarkKey(
+          Label.parseAbsoluteUnchecked("//examples:experimental_cc_shared_library.bzl"),
+          "CcSharedLibraryInfo");
+
+  private final IncludeProcessing includeProcessing;
 
   private BazelCppSemantics() {
-  }
-
-  @Override
-  public PathFragment getEffectiveSourcePath(Artifact source) {
-    return source.getRootRelativePath();
+    this.includeProcessing = NoProcessing.INSTANCE;
   }
 
   @Override
   public void finalizeCompileActionBuilder(
-      RuleContext ruleContext, CppCompileActionBuilder actionBuilder) {
-    actionBuilder.setCppConfiguration(ruleContext.getFragment(CppConfiguration.class));
-    actionBuilder.setActionContext(CppCompileActionContext.class);
-    actionBuilder.addTransitiveMandatoryInputs(CppHelper.getToolchain(ruleContext).getCompile());
+      BuildConfiguration configuration,
+      FeatureConfiguration featureConfiguration,
+      CppCompileActionBuilder actionBuilder) {
+    CcToolchainProvider toolchain = actionBuilder.getToolchain();
+    actionBuilder
+        .addTransitiveMandatoryInputs(
+            configuration.getFragment(CppConfiguration.class).useSpecificToolFiles()
+                ? (actionBuilder.getActionName().equals(CppActionNames.ASSEMBLE)
+                    ? toolchain.getAsFiles()
+                    : toolchain.getCompilerFiles())
+                : toolchain.getAllFiles())
+        .setShouldScanIncludes(false);
   }
 
   @Override
-  public void setupCompilationContext(RuleContext ruleContext, Builder contextBuilder) {
+  public NestedSet<Artifact> getAdditionalPrunableIncludes() {
+    return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
+  }
+
+  @Override
+  public HeadersCheckingMode determineHeadersCheckingMode(RuleContext ruleContext) {
+    return HeadersCheckingMode.STRICT;
+  }
+
+  @Override
+  public IncludeProcessing getIncludeProcessing() {
+    return includeProcessing;
+  }
+
+  @Override
+  public boolean needsDotdInputPruning() {
+    return true;
+  }
+
+  @Override
+  public void validateAttributes(RuleContext ruleContext) {
+  }
+
+  @Override
+  public boolean needsIncludeValidation() {
+    return true;
+  }
+
+  @Override
+  public StructImpl getCcSharedLibraryInfo(TransitiveInfoCollection dep) {
+    StructImpl ccSharedLibraryInfo = (StructImpl) dep.get(CC_SHARED_INFO_PROVIDER);
+    if (ccSharedLibraryInfo != null) {
+      return ccSharedLibraryInfo;
+    }
+    ccSharedLibraryInfo = (StructImpl) dep.get(CC_SHARED_INFO_PROVIDER_RULES_CC);
+    if (ccSharedLibraryInfo != null) {
+      return ccSharedLibraryInfo;
+    }
+    return null;
   }
 }

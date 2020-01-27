@@ -1,4 +1,4 @@
-// Copyright 2014 Google Inc. All rights reserved.
+// Copyright 2014 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -13,22 +13,26 @@
 // limitations under the License.
 package com.google.devtools.build.lib.syntax;
 
-/**
- * Syntax node for an integer literal.
- */
-public final class IntegerLiteral extends Literal<Integer> {
 
-  public IntegerLiteral(Integer value) {
-    super(value);
+/** Syntax node for an integer literal. */
+public final class IntegerLiteral extends Expression {
+  private final int value;
+
+  IntegerLiteral(int value) {
+    this.value = value;
+  }
+
+  public int getValue() {
+    return value;
   }
 
   @Override
-  public void accept(SyntaxTreeVisitor visitor) {
+  public void accept(NodeVisitor visitor) {
     visitor.visit(this);
   }
 
   @Override
-  SkylarkType validate(ValidationEnvironment env) throws EvalException {
-    return SkylarkType.INT;
+  public Kind kind() {
+    return Kind.INTEGER_LITERAL;
   }
 }

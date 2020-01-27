@@ -1,0 +1,1693 @@
+<!doctype html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<html>
+<head>
+<meta http-equiv="content-type" content="text/html; charset=iso-8859-1">
+<meta http-equiv="content-style-type" content="text/css">
+<link rel="stylesheet" type="text/css" href="style.css">
+<title>ProGuard Examples</title>
+</head>
+<body>
+
+<script type="text/javascript" language="JavaScript">
+<!--
+if (window.self==window.top)
+  document.write('<a class="largebutton" target="_top" href="../index.html#manual/examples.html">ProGuard index</a> <a class="largebutton" target="_top" href="http://www.guardsquare.com/dexguard">DexGuard</a> <a class="largebutton" target="_top" href="http://www.guardsquare.com/">GuardSquare</a> <a class="largebutton" target="other" href="http://sourceforge.net/projects/proguard/">Sourceforge</a>')
+//-->
+</script>
+<noscript>
+<a class="largebutton" target="_top"  href="../index.html#manual/examples.html">ProGuard index</a>
+<a class="largebutton" target="_top"  href="http://www.guardsquare.com/dexguard">DexGuard</a>
+<a class="largebutton" target="_top"  href="http://www.guardsquare.com/">GuardSquare</a>
+<a class="largebutton" target="other" href="http://sourceforge.net/projects/proguard/">Sourceforge</a>
+</noscript>
+
+<h2>Examples</h2>
+
+Some typical useful configurations:
+<ol>
+<li><a href="#application">A typical application</a></li>
+<li><a href="#applet">A typical applet</a></li>
+<li><a href="#midlet">A typical midlet</a></li>
+<li><a href="#jcapplet">A typical Java Card applet</a></li>
+<li><a href="#xlet">A typical xlet</a></li>
+<li><a href="#androidactivity">A simple Android activity</a></li>
+<li><a href="#androidapplication">A complete Android application</a></li>
+<li><a href="#library">A typical library</a></li>
+<li><a href="#applications">All possible applications in the input jars</a></li>
+<li><a href="#applets">All possible applets in the input jars</a></li>
+<li><a href="#midlets">All possible midlets in the input jars</a></li>
+<li><a href="#jcapplets">All possible Java Card applets in the input jars</a></li>
+<li><a href="#xlets">All possible xlets in the input jars</a></li>
+<li><a href="#servlets">All possible servlets in the input jars</a></li>
+<li><a href="#scala">Scala applications with the Scala runtime</a></li>
+<li><a href="#native">Processing native methods</a></li>
+<li><a href="#callback">Processing callback methods</a></li>
+<li><a href="#enumerations">Processing enumeration classes</a></li>
+<li><a href="#serializable">Processing serializable classes</a></li>
+<li><a href="#beans">Processing bean classes</a></li>
+<li><a href="#annotations">Processing annotations</a></li>
+<li><a href="#database">Processing database drivers</a></li>
+<li><a href="#componentui">Processing ComponentUI classes</a></li>
+<li><a href="#rmi">Processing RMI code</a></li>
+<li><a href="#injection">Processing dependency injection</a></li>
+<li><a href="#dagger">Processing Dagger code</a></li>
+<li><a href="#butterknife">Processing Butterknife code</a></li>
+<li><a href="#resourcefiles">Processing resource files</a></li>
+<li><a href="#manifestfiles">Processing manifest files</a></li>
+<li><a href="#stacktrace">Producing useful obfuscated stack traces</a></li>
+<li><a href="#repackaging">Obfuscating package names</a></li>
+<li><a href="#logging">Removing logging code</a></li>
+<li><a href="#restructuring">Restructuring the output archives</a></li>
+<li><a href="#filtering">Filtering the input and the output</a></li>
+<li><a href="#multiple">Processing multiple applications at once</a></li>
+<li><a href="#incremental">Incremental obfuscation</a></li>
+<li><a href="#microedition">Preverifying class files for Java Micro Edition</a></li>
+<li><a href="#upgrade">Upgrading class files to Java 6</a></li>
+<li><a href="#deadcode">Finding dead code</a></li>
+<li><a href="#structure">Printing out the internal structure of class files</a></li>
+<li><a href="#annotated">Using annotations to configure ProGuard</a></li>
+</ol>
+
+You can find some sample configuration files in the <code>examples</code>
+directory of the ProGuard distribution.
+
+<h3><a name="application">A typical application</a></h3>
+
+To shrink, optimize, and obfuscate a simple Java application, you typically
+create a configuration file like <code>myconfig.pro</code>, which can be used
+with
+<pre>
+bin/proguard @myconfig.pro
+</pre>
+<p>
+The configuration file specifies the input, the output, and the entry points
+of the application:
+<pre>
+-injars       myapplication.jar
+-outjars      myapplication_out.jar
+-libraryjars  &lt;java.home&gt;/lib/rt.jar
+-printmapping myapplication.map
+
+-keep public class mypackage.MyMain {
+    public static void main(java.lang.String[]);
+}
+</pre>
+<p>
+Note the use of the <code>&lt;java.home&gt;</code> system property. ProGuard
+automatically replaces it when parsing the file.
+<p>
+The <a href="usage.html#keep"><code>-keep</code></a> option specifies the
+entry point of the application that has to be preserved.
+The access modifiers <code>public</code> and <code>static</code> are not
+really required in this case, since we know a priori that the specified class
+and method have the proper access flags. It just looks more familiar this way.
+<p>
+Note that all type names are fully specified:
+<code>mypackage.MyMain</code> and <code>java.lang.String[]</code>.
+<p>
+We're writing out an obfuscation mapping file with <a
+href="usage.html#printmapping"><code>-printmapping</code></a>, for
+de-obfuscating any stack traces later on, or for incremental obfuscation of
+extensions.
+<p>
+We can further improve the results with a few additional options:
+<pre>
+-optimizationpasses 3
+-overloadaggressively
+-repackageclasses ''
+-allowaccessmodification
+</pre>
+These options are not required; they just shave off some extra bytes from the
+output jar, by performing up to 3 optimization passes, and by aggressively
+obfuscating class members and <a href="#repackaging">package names</a>.
+<p>
+In general, you might need a few additional options for processing <a
+href="#native">native methods</a>, <a href="#callback">callback methods</a>,
+<a href="#enumerations">enumerations</a>, <a href="#serializable">serializable
+classes</a>, <a href="#beans">bean classes</a>, <a
+href="#annotations">annotations</a>, and <a href="#resourcefiles">resource
+files</a>.
+
+<h3><a name="applet">A typical applet</a></h3>
+
+These options shrink, optimize, and obfuscate the applet
+<code>mypackage.MyApplet</code>:
+<pre>
+-injars      in.jar
+-outjars     out.jar
+-libraryjars &lt;java.home&gt;/lib/rt.jar
+
+-keep public class mypackage.MyApplet
+</pre>
+<p>
+The typical applet methods will be preserved automatically, since
+<code>mypackage.MyApplet</code> is an extension of the <code>Applet</code>
+class in the library <code>rt.jar</code>.
+<p>
+If applicable, you should add options for processing <a href="#native">native
+methods</a>, <a href="#callback">callback methods</a>, <a
+href="#enumerations">enumerations</a>, <a href="#serializable">serializable
+classes</a>, <a href="#beans">bean classes</a>, <a
+href="#annotations">annotations</a>, and <a href="#resourcefiles">resource
+files</a>.
+
+<h3><a name="midlet">A typical midlet</a></h3>
+
+These options shrink, optimize, obfuscate, and preverify the midlet
+<code>mypackage.MyMIDlet</code>:
+<pre>
+-injars      in.jar
+-outjars     out.jar
+-libraryjars /usr/local/java/wtk2.5.2/lib/midpapi20.jar
+-libraryjars /usr/local/java/wtk2.5.2/lib/cldcapi11.jar
+-overloadaggressively
+-repackageclasses ''
+-allowaccessmodification
+-microedition
+
+-keep public class mypackage.MyMIDlet
+</pre>
+<p>
+Note how we're now targeting the Java Micro Edition run-time environment of
+<code>midpapi20.jar</code> and <code>cldcapi11.jar</code>, instead of the Java
+Standard Edition run-time environment <code>rt.jar</code>. You can target
+other JME environments by picking the appropriate jars.
+<p>
+The typical midlet methods will be preserved automatically, since
+<code>mypackage.MyMIDlet</code> is an extension of the <code>MIDlet</code>
+class in the library <code>midpapi20.jar</code>.
+<p>
+The <a href="usage.html#microedition"><code>-microedition</code></a> option
+makes sure the class files are preverified for Java Micro Edition, producing
+compact <code>StackMap</code> attributes. It is no longer necessary to run an
+external preverifier.
+<p>
+Be careful if you do use the external <code>preverify</code> tool on a platform
+with a case-insensitive filing system, such as Windows. Because this tool
+unpacks your processed jars, you should then use ProGuard's <a
+href="usage.html#dontusemixedcaseclassnames"><code>-dontusemixedcaseclassnames</code></a>
+option.
+<p>
+If applicable, you should add options for processing <a href="#native">native
+methods</a> and <a href="#resourcefiles">resource files</a>.
+<p>
+Note that you will still have to adapt the midlet jar size in the
+corresponding jad file; ProGuard doesn't do that for you.
+
+<h3><a name="jcapplet">A typical Java Card applet</a></h3>
+
+These options shrink, optimize, and obfuscate the Java Card applet
+<code>mypackage.MyApplet</code>:
+<pre>
+-injars      in.jar
+-outjars     out.jar
+-libraryjars /usr/local/java/javacard2.2.2/lib/api.jar
+-dontwarn    java.lang.Class
+-overloadaggressively
+-repackageclasses ''
+-allowaccessmodification
+
+-keep public class mypackage.MyApplet
+</pre>
+<p>
+The configuration is very similar to the configuration for midlets, except that
+it now targets the Java Card run-time environment. This environment doesn't
+have java.lang.Class, so we're telling ProGuard not to worry about it.
+
+<h3><a name="xlet">A typical xlet</a></h3>
+
+These options shrink, optimize, and obfuscate the xlet
+<code>mypackage.MyXlet</code>:
+<pre>
+-injars      in.jar
+-outjars     out.jar
+-libraryjars /usr/local/java/jtv1.1/javatv.jar
+-libraryjars /usr/local/java/cdc1.1/lib/cdc.jar
+-libraryjars /usr/local/java/cdc1.1/lib/btclasses.zip
+-overloadaggressively
+-repackageclasses ''
+-allowaccessmodification
+
+-keep public class mypackage.MyXlet
+</pre>
+<p>
+The configuration is very similar to the configuration for midlets, except that
+it now targets the CDC run-time environment with the Java TV API.
+
+<h3><a name="androidactivity">A simple Android activity</a></h3>
+
+These options shrink, optimize, and obfuscate the single Android
+activity <code>mypackage.MyActivity</code>:
+<pre>
+-injars      bin/classes
+-outjars     bin/classes-processed.jar
+-libraryjars /usr/local/java/android-sdk/platforms/android-9/android.jar
+
+-dontpreverify
+-repackageclasses ''
+-allowaccessmodification
+-optimizations !code/simplification/arithmetic
+
+-keep public class mypackage.MyActivity
+</pre>
+<p>
+We're targeting the Android run-time and keeping the activity as an entry
+point.
+<p>
+Preverification is irrelevant for the dex compiler and the Dalvik VM, so we
+can switch it off with the
+<a href="usage.html#dontpreverify"><code>-dontpreverify</code></a> option.
+<p>
+The <a href="usage.html#optimizations"><code>-optimizations</code></a> option
+disables some arithmetic simplifications that Dalvik 1.0 and 1.5 can't handle.
+Note that the Dalvik VM also can't
+handle <a href="usage.html#overloadaggressively">aggressive overloading</a>
+(of static fields).
+<p>
+If applicable, you should add options for processing <a href="#native">native
+methods</a>, <a href="#callback">callback methods</a>,
+<a href="#enumerations">enumerations</a>,
+<a href="#annotations">annotations</a>, and
+<a href="#resourcefiles">resource files</a>.
+
+<h3><a name="androidapplication">A complete Android application</a></h3>
+
+<img class="float" src="attention.gif" width="64" height="64" alt="attention"
+/> The standard build processes of the Android SDK (with Ant, Gradle, Android
+Studio, and Eclipse) already integrate ProGuard with all the proper settings.
+You only need to enable ProGuard by uncommenting the line
+"<code>proguard.config=.....</code>" in the
+file <code>project.properties</code> (created or updated by Android SDK
+revision 17 or higher) or by adapting your <code>build.gradle</code> file. You
+then <em>don't</em> need any of the configuration below.
+<p>
+Notes:
+<ul>
+<li>In case of problems, you may want to check if the configuration files that
+    are listed on this line (<code>proguard-project.txt</code>,...) contain
+    the necessary settings for your application.</li>
+<li>Android SDK revision 20 and higher have a different configuration file for
+    enabling optimization:
+    <code>${sdk.dir}/tools/proguard/proguard-android-optimize.txt</code>
+    instead of the default
+    <code>${sdk.dir}/tools/proguard/proguard-android.txt</code>.</li>
+<li>The build processes are already setting the necessary program jars,
+    library jars, and output jars for you &mdash; don't specify them again.</li>
+<li>If you get warnings about missing referenced classes: it's all too common
+    that libraries refer to missing classes.
+    See <a href="troubleshooting.html#unresolvedclass">"Warning: can't find
+    referenced class"</a> in the Troubleshooting section.</li>
+</ul>
+<p>
+For more information, you can consult the official <a target="other"
+href="http://developer.android.com/guide/developing/tools/proguard.html">Developer
+Guide</a> in the Android SDK.
+<p>
+If you're constructing a build process <em>from scratch</em>: these options
+shrink, optimize, and obfuscate all public activities, services, broadcast
+receivers, and content providers from the compiled classes and external
+libraries:
+<pre>
+-injars      bin/classes
+-injars      libs
+-outjars     bin/classes-processed.jar
+-libraryjars /usr/local/java/android-sdk/platforms/android-9/android.jar
+
+-dontpreverify
+-repackageclasses ''
+-allowaccessmodification
+-optimizations !code/simplification/arithmetic
+-keepattributes *Annotation*
+
+-keep public class * extends android.app.Activity
+-keep public class * extends android.app.Application
+-keep public class * extends android.app.Service
+-keep public class * extends android.content.BroadcastReceiver
+-keep public class * extends android.content.ContentProvider
+
+-keep public class * extends android.view.View {
+    public &lt;init&gt;(android.content.Context);
+    public &lt;init&gt;(android.content.Context, android.util.AttributeSet);
+    public &lt;init&gt;(android.content.Context, android.util.AttributeSet, int);
+    public void set*(...);
+}
+
+-keepclasseswithmembers class * {
+    public &lt;init&gt;(android.content.Context, android.util.AttributeSet);
+}
+
+-keepclasseswithmembers class * {
+    public &lt;init&gt;(android.content.Context, android.util.AttributeSet, int);
+}
+
+-keepclassmembers class * extends android.content.Context {
+   public void *(android.view.View);
+   public void *(android.view.MenuItem);
+}
+
+-keepclassmembers class * implements android.os.Parcelable {
+    static ** CREATOR;
+}
+
+-keepclassmembers class **.R$* {
+    public static &lt;fields&gt;;
+}
+
+-keepclassmembers class * {
+    @android.webkit.JavascriptInterface &lt;methods&gt;;
+}
+</pre>
+<p>
+Most importantly, we're keeping all fundamental classes that may be referenced
+by the <code>AndroidManifest.xml</code> file of the application. If your
+manifest file contains other classes and methods, you may have to specify
+those as well.
+<p>
+We're keeping annotations, since they might be used by custom
+<code>RemoteViews</code>.
+<p>
+We're keeping any custom <code>View</code> extensions and other classes with
+typical constructors, since they might be referenced from XML layout files.
+<p>
+We're also keeping possible <code>onClick</code> handlers in
+custom <code>Context</code> extensions, since they might be referenced from
+XML layout files.
+<p>
+We're also keeping the required static fields in <code>Parcelable</code>
+implementations, since they are accessed by introspection.
+<p>
+We're keeping the static fields of referenced inner classes of auto-generated
+ <code>R</code> classes, just in case your code is accessing those fields by
+introspection. Note that the compiler already inlines primitive fields, so
+ProGuard can generally remove all these classes entirely anyway (because the
+classes are not referenced and therefore not required).
+<p>
+Finally, we're keeping annotated Javascript interface methods, so they can be
+exported and accessed by their original names. Javascript interface methods
+that are not annotated (in code targeted at Android versions older than 4.2)
+still need to be preserved manually.
+<p>
+If you're using additional Google APIs, you'll have to specify
+those as well, for instance:
+<pre>
+-libraryjars /usr/local/android-sdk/add-ons/google_apis-7_r01/libs/maps.jar
+</pre>
+<p>
+If you're using Google's optional License Verification Library, you can
+obfuscate its code along with your own code. You do have to preserve
+its <code>ILicensingService</code> interface for the library to work:
+<pre>
+-keep public interface com.android.vending.licensing.ILicensingService
+</pre>
+<p>
+If you're using the Android Compatibility library, you should add the
+following line, to let ProGuard know it's ok that the library references some
+classes that are not available in all versions of the API:
+<pre>
+-dontwarn android.support.**
+</pre>
+<p>
+If applicable, you should add options for processing <a href="#native">native
+methods</a>, <a href="#callback">callback methods</a>,
+<a href="#enumerations">enumerations</a>,
+and <a href="#resourcefiles">resource files</a>. You may also want to add
+options for producing <a href="#stacktrace">useful stack traces</a> and
+to <a href="#logging">remove logging</a>. You can find a complete sample
+configuration in <code>examples/android.pro</code> in the ProGuard
+distribution.
+
+<h3><a name="library">A typical library</a></h3>
+
+These options shrink, optimize, and obfuscate an entire library, keeping all
+public and protected classes and class members, native method names, and
+serialization code. The processed version of the library can then still be
+used as such, for developing code based on its public API.
+<pre>
+-injars       in.jar
+-outjars      out.jar
+-libraryjars  &lt;java.home&gt;/lib/rt.jar
+-printmapping out.map
+
+-keepparameternames
+-renamesourcefileattribute SourceFile
+-keepattributes Exceptions,InnerClasses,Signature,Deprecated,
+                SourceFile,LineNumberTable,*Annotation*,EnclosingMethod
+
+-keep public class * {
+    public protected *;
+}
+
+-keepclassmembernames class * {
+    java.lang.Class class$(java.lang.String);
+    java.lang.Class class$(java.lang.String, boolean);
+}
+
+-keepclasseswithmembernames,includedescriptorclasses class * {
+    native &lt;methods&gt;;
+}
+
+-keepclassmembers,allowoptimization enum * {
+    public static **[] values();
+    public static ** valueOf(java.lang.String);
+}
+
+-keepclassmembers class * implements java.io.Serializable {
+    static final long serialVersionUID;
+    private static final java.io.ObjectStreamField[] serialPersistentFields;
+    private void writeObject(java.io.ObjectOutputStream);
+    private void readObject(java.io.ObjectInputStream);
+    java.lang.Object writeReplace();
+    java.lang.Object readResolve();
+}
+</pre>
+<p>
+This configuration should preserve everything we'll ever want to access in the
+library. Only if there are any other non-public classes or methods that are
+invoked dynamically, they should be specified using additional <a
+href="usage.html#keep"><code>-keep</code></a> options.
+<p>
+The <a
+href="usage.html#keepclassmembernames"><code>-keepclassmembernames</code></a>
+option for the <code>class$</code> methods is not strictly necessary. These
+methods are inserted by the <code>javac</code> compiler and the
+<code>jikes</code> compiler respectively, in JDK 1.2 and older, to implement
+the <code>.class</code> construct. ProGuard will automatically detect them and
+deal with them, even when their names have been obfuscated. However, other
+obfuscators may rely on the original method names. It may therefore be helpful
+to preserve them, in case these other obfuscators are ever used for further
+obfuscation of the library.
+<p>
+The "Exceptions" attribute has to be preserved, so the compiler knows which
+exceptions methods may throw.
+<p>
+The "InnerClasses" attribute (or more precisely, its source name part) has to
+be preserved too, for any inner classes that can be referenced from outside the
+library. The <code>javac</code> compiler would be unable to find the inner
+classes otherwise.
+<p>
+The "Signature" attribute is required to be able to access generic types when
+compiling in JDK 5.0 and higher.
+<p>
+The <a href="usage.html#keepparameternames"><code>-keepparameternames</code></a>
+option keeps the parameter names in the "LocalVariableTable" and
+"LocalVariableTypeTable" attributes of public library methods. Some IDEs can
+present these names to the developers who use the library.
+<p>
+Finally, we're keeping the "Deprecated" attribute and the attributes for
+producing <a href="#stacktrace">useful stack traces</a>.
+<p>
+We've also added some options for for processing <a href="#native">native
+methods</a>, <a href="#enumerations">enumerations</a>, <a
+href="#serializable">serializable classes</a>, and <a
+href="#annotations">annotations</a>, which are all discussed in their
+respective examples.
+
+<h3><a name="applications">All possible applications in the input jars</a></h3>
+
+These options shrink, optimize, and obfuscate all public applications in
+<code>in.jar</code>:
+<pre>
+-injars      in.jar
+-outjars     out.jar
+-libraryjars &lt;java.home&gt;/lib/rt.jar
+-printseeds
+
+-keepclasseswithmembers public class * {
+    public static void main(java.lang.String[]);
+}
+</pre>
+<p>
+Note the use of <a
+href="usage.html#keepclasseswithmembers"><code>-keepclasseswithmembers</code></a>.
+We don't want to preserve all classes, just all classes that have main
+methods, and those methods.
+<p>
+The <a href="usage.html#printseeds"><code>-printseeds</code></a> option prints
+out which classes exactly will be preserved, so we know for sure we're getting
+what we want.
+<p>
+If applicable, you should add options for processing <a href="#native">native
+methods</a>, <a href="#callback">callback methods</a>, <a
+href="#enumerations">enumerations</a>, <a href="#serializable">serializable
+classes</a>, <a href="#beans">bean classes</a>, <a
+href="#annotations">annotations</a>, and <a href="#resourcefiles">resource
+files</a>.
+
+<h3><a name="applets">All possible applets in the input jars</a></h3>
+
+These options shrink, optimize, and obfuscate all public applets in
+<code>in.jar</code>:
+<pre>
+-injars      in.jar
+-outjars     out.jar
+-libraryjars &lt;java.home&gt;/lib/rt.jar
+-printseeds
+
+-keep public class * extends java.applet.Applet
+</pre>
+<p>
+We're simply keeping all classes that extend the <code>Applet</code> class.
+<p>
+Again, the <a href="usage.html#printseeds"><code>-printseeds</code></a> option
+prints out which applets exactly will be preserved.
+<p>
+If applicable, you should add options for processing <a href="#native">native
+methods</a>, <a href="#callback">callback methods</a>, <a
+href="#enumerations">enumerations</a>, <a href="#serializable">serializable
+classes</a>, <a href="#beans">bean classes</a>, <a
+href="#annotations">annotations</a>, and <a href="#resourcefiles">resource
+files</a>.
+
+<h3><a name="midlets">All possible midlets in the input jars</a></h3>
+
+These options shrink, optimize, obfuscate, and preverify all public midlets in
+<code>in.jar</code>:
+<pre>
+-injars      in.jar
+-outjars     out.jar
+-libraryjars /usr/local/java/wtk2.5.2/lib/midpapi20.jar
+-libraryjars /usr/local/java/wtk2.5.2/lib/cldcapi11.jar
+-overloadaggressively
+-repackageclasses ''
+-allowaccessmodification
+-microedition
+-printseeds
+
+-keep public class * extends javax.microedition.midlet.MIDlet
+</pre>
+<p>
+We're simply keeping all classes that extend the <code>MIDlet</code> class.
+<p>
+The <a href="usage.html#microedition"><code>-microedition</code></a> option
+makes sure the class files are preverified for Java Micro Edition, producing
+compact <code>StackMap</code> attributes. It is no longer necessary to run an
+external preverifier.
+<p>
+Be careful if you do use the external <code>preverify</code> tool on a platform
+with a case-insensitive filing system, such as Windows. Because this tool
+unpacks your processed jars, you should then use ProGuard's <a
+href="usage.html#dontusemixedcaseclassnames"><code>-dontusemixedcaseclassnames</code></a>
+option.
+<p>
+The <a href="usage.html#printseeds"><code>-printseeds</code></a> option prints
+out which midlets exactly will be preserved.
+<p>
+If applicable, you should add options for processing <a href="#native">native
+methods</a> and <a href="#resourcefiles">resource files</a>.
+<p>
+Note that you will still have to adapt the midlet jar size in the
+corresponding jad file; ProGuard doesn't do that for you.
+
+<h3><a name="jcapplets">All possible Java Card applets in the input jars</a></h3>
+
+These options shrink, optimize, and obfuscate all public Java Card applets in
+<code>in.jar</code>:
+<pre>
+-injars      in.jar
+-outjars     out.jar
+-libraryjars /usr/local/java/javacard2.2.2/lib/api.jar
+-dontwarn    java.lang.Class
+-overloadaggressively
+-repackageclasses ''
+-allowaccessmodification
+-printseeds
+
+-keep public class * implements javacard.framework.Applet
+</pre>
+<p>
+We're simply keeping all classes that implement the <code>Applet</code>
+interface.
+<p>
+The <a href="usage.html#printseeds"><code>-printseeds</code></a> option prints
+out which applets exactly will be preserved.
+
+<h3><a name="xlets">All possible xlets in the input jars</a></h3>
+
+These options shrink, optimize, and obfuscate all public xlets in
+<code>in.jar</code>:
+<pre>
+-injars      in.jar
+-outjars     out.jar
+-libraryjars /usr/local/java/jtv1.1/javatv.jar
+-libraryjars /usr/local/java/cdc1.1/lib/cdc.jar
+-libraryjars /usr/local/java/cdc1.1/lib/btclasses.zip
+-overloadaggressively
+-repackageclasses ''
+-allowaccessmodification
+-printseeds
+
+-keep public class * implements javax.tv.xlet.Xlet
+</pre>
+<p>
+We're simply keeping all classes that implement the <code>Xlet</code> interface.
+<p>
+The <a href="usage.html#printseeds"><code>-printseeds</code></a> option prints
+out which xlets exactly will be preserved.
+
+<h3><a name="servlets">All possible servlets in the input jars</a></h3>
+
+These options shrink, optimize, and obfuscate all public servlets in
+<code>in.jar</code>:
+<pre>
+-injars      in.jar
+-outjars     out.jar
+-libraryjars &lt;java.home&gt;/lib/rt.jar
+-libraryjars /usr/local/java/servlet/servlet.jar
+-printseeds
+
+-keep public class * implements javax.servlet.Servlet
+</pre>
+<p>
+Keeping all servlets is very similar to keeping all applets. The servlet API
+is not part of the standard run-time jar, so we're specifying it as a library.
+Don't forget to use the right path name.
+<p>
+We're then keeping all classes that implement the <code>Servlet</code>
+interface. We're using the <code>implements</code> keyword because it looks
+more familiar in this context, but it is equivalent to <code>extends</code>,
+as far as ProGuard is concerned.
+<p>
+The <a href="usage.html#printseeds"><code>-printseeds</code></a> option prints
+out which servlets exactly will be preserved.
+<p>
+If applicable, you should add options for processing <a href="#native">native
+methods</a>, <a href="#callback">callback methods</a>, <a
+href="#enumerations">enumerations</a>, <a href="#serializable">serializable
+classes</a>, <a href="#beans">bean classes</a>, <a
+href="#annotations">annotations</a>, and <a href="#resourcefiles">resource
+files</a>.
+
+<h3><a name="scala">Scala applications with the Scala runtime</a></h3>
+
+These options shrink, optimize, and obfuscate all public Scala applications in
+<code>in.jar</code>:
+<pre>
+-injars      in.jar
+-injars      /usr/local/java/scala-2.9.1/lib/scala-library.jar
+-outjars     out.jar
+-libraryjars &lt;java.home&gt;/lib/rt.jar
+
+-dontwarn scala.**
+
+-keepclasseswithmembers public class * {
+    public static void main(java.lang.String[]);
+}
+
+-keep class * implements org.xml.sax.EntityResolver
+
+-keepclassmembers class * {
+    ** MODULE$;
+}
+
+-keepclassmembernames class scala.concurrent.forkjoin.ForkJoinPool {
+    long eventCount;
+    int  workerCounts;
+    int  runControl;
+    scala.concurrent.forkjoin.ForkJoinPool$WaitQueueNode syncStack;
+    scala.concurrent.forkjoin.ForkJoinPool$WaitQueueNode spareStack;
+}
+
+-keepclassmembernames class scala.concurrent.forkjoin.ForkJoinWorkerThread {
+    int base;
+    int sp;
+    int runState;
+}
+
+-keepclassmembernames class scala.concurrent.forkjoin.ForkJoinTask {
+    int status;
+}
+
+-keepclassmembernames class scala.concurrent.forkjoin.LinkedTransferQueue {
+    scala.concurrent.forkjoin.LinkedTransferQueue$PaddedAtomicReference head;
+    scala.concurrent.forkjoin.LinkedTransferQueue$PaddedAtomicReference tail;
+    scala.concurrent.forkjoin.LinkedTransferQueue$PaddedAtomicReference cleanMe;
+}
+</pre>
+<p>
+The configuration is essentially the same as
+for <a href="#applications">processing applications</a>, because Scala is
+compiled to ordinary Java bytecode. However, the example processes the Scala
+runtime library as well. The processed jar can be an order of magnitude
+smaller and a few times faster than the original code (for the Scala code
+examples, for instance).
+<p>
+The <a href="usage.html#dontwarn"><code>-dontwarn</code></a> option tells
+ProGuard not to complain about some artefacts in the Scala runtime, the way it
+is compiled by the <code>scalac</code> compiler (at least in Scala 2.9.1 and
+older). Note that this option should always be used with care.
+<p>
+The additional <a href="usage.html#keepoverview"><code>-keep</code></a>
+options make sure that some classes and some fields that are accessed by means
+of introspection are not removed or renamed.
+<p>
+If applicable, you should add options for processing <a href="#native">native
+methods</a>, <a href="#callback">callback methods</a>, <a
+href="#enumerations">enumerations</a>, <a href="#serializable">serializable
+classes</a>, <a href="#beans">bean classes</a>, <a
+href="#annotations">annotations</a>, and <a href="#resourcefiles">resource
+files</a>.
+<h3><a name="native">Processing native methods</a></h3>
+
+If your application, applet, servlet, library, etc., contains native methods,
+you'll want to preserve their names and their classes' names, so they can
+still be linked to the native library. The following additional option will
+ensure that:
+<pre>
+-keepclasseswithmembernames,includedescriptorclasses class * {
+    native &lt;methods&gt;;
+}
+</pre>
+<p>
+Note the use of
+<a href="usage.html#keepclasseswithmembernames"><code>-keepclasseswithmembernames</code></a>.
+We don't want to preserve all classes or all native methods; we just want to
+keep the relevant names from being obfuscated. The modifier
+<a href="usage.html#includedescriptorclasses">includedescriptorclasses</a>
+additionally makes sure that the return types and parameter types aren't
+renamed either, so the entire signatures remain compatible with the native
+libraries.
+<p>
+ProGuard doesn't look at your native code, so it won't automatically preserve
+the classes or class members that are invoked by the native code. These are
+entry points, which you'll have to specify explicitly.  <a
+href="callback">Callback methods</a> are discussed below as a typical example.
+
+<h3><a name="callback">Processing callback methods</a></h3>
+
+If your application, applet, servlet, library, etc., contains callback
+methods, which are called from external code (native code, scripts,...),
+you'll want to preserve them, and probably their classes too. They are just
+entry points to your code, much like, say, the main method of an application.
+If they aren't preserved by other <code>-keep</code> options, something like
+the following option will keep the callback class and method:
+<pre>
+-keep class mypackage.MyCallbackClass {
+    void myCallbackMethod(java.lang.String);
+}
+</pre>
+<p>
+This will preserve the given class and method from being removed or renamed.
+
+<h3><a name="enumerations">Processing enumeration classes</a></h3>
+
+If your application, applet, servlet, library, etc., contains enumeration
+classes, you'll have to preserve some special methods. Enumerations were
+introduced in Java 5. The java compiler translates enumerations into classes
+with a special structure. Notably, the classes contain implementations of some
+static methods that the run-time environment accesses by introspection (Isn't
+that just grand? Introspection is the self-modifying code of a new
+generation). You have to specify these explicitly, to make sure they aren't
+removed or obfuscated:
+<pre>
+-keepclassmembers,allowoptimization enum * {
+    public static **[] values();
+    public static ** valueOf(java.lang.String);
+}
+</pre>
+
+<h3><a name="serializable">Processing serializable classes</a></h3>
+
+More complex applications, applets, servlets, libraries, etc., may contain
+classes that are serialized. Depending on the way in which they are used, they
+may require special attention:
+<ul>
+
+<li>Often, serialization is simply a means of transporting data, without
+    long-term storage. Classes that are shrunk and obfuscated should then
+    continue to function fine with the following additional options:
+
+<pre>
+-keepclassmembers class * implements java.io.Serializable {
+    private static final java.io.ObjectStreamField[] serialPersistentFields;
+    private void writeObject(java.io.ObjectOutputStream);
+    private void readObject(java.io.ObjectInputStream);
+    java.lang.Object writeReplace();
+    java.lang.Object readResolve();
+}
+</pre>
+<p>
+
+    The <a
+    href="usage.html#keepclassmembers"><code>-keepclassmembers</code></a>
+    option makes sure that any serialization methods are kept. By using this
+    option instead of the basic <code>-keep</code> option, we're not
+    forcing preservation of <i>all</i> serializable classes, just preservation
+    of the listed members of classes that are actually used.</li>
+
+<li>Sometimes, the serialized data are stored, and read back later into newer
+    versions of the serializable classes. One then has to take care the classes
+    remain compatible with their unprocessed versions and with future
+    processed versions. In such cases, the relevant classes will most likely
+    have <code>serialVersionUID</code> fields. The following options should
+    then be sufficient to ensure compatibility over time:
+
+<pre>
+-keepnames class * implements java.io.Serializable
+
+-keepclassmembers class * implements java.io.Serializable {
+    static final long serialVersionUID;
+    private static final java.io.ObjectStreamField[] serialPersistentFields;
+    !static !transient &lt;fields&gt;;
+    private void writeObject(java.io.ObjectOutputStream);
+    private void readObject(java.io.ObjectInputStream);
+    java.lang.Object writeReplace();
+    java.lang.Object readResolve();
+}
+</pre>
+<p>
+
+    The <code>serialVersionUID</code> and <code>serialPersistentFields</code>
+    lines makes sure those fields are preserved, if they are present.
+    The <code>&lt;fields&gt;</code> line preserves all non-static,
+    non-transient fields, with their original names. The introspection of the
+    serialization process and the de-serialization process will then find
+    consistent names.</li>
+
+<li>Occasionally, the serialized data have to remain compatible, but the
+    classes involved lack <code>serialVersionUID</code> fields. I imagine the
+    original code will then be hard to maintain, since the serial version UID
+    is then computed from a list of features the serializable class. Changing
+    the class ever so slightly may change the computed serial version UID. The
+    list of features is specified in the section on <a
+    href="http://docs.oracle.com/javase/8/docs/platform/serialization/spec/class.html#a4100">Stream
+    Unique Identifiers</a> of Sun's <a
+    href="http://docs.oracle.com/javase/8/docs/platform/serialization/spec/serialTOC.html">Java
+    Object Serialization Specification</a>. The following directives should at
+    least partially ensure compatibility with the original classes:
+
+<pre>
+-keepnames class * implements java.io.Serializable
+
+-keepclassmembers class * implements java.io.Serializable {
+    static final long serialVersionUID;
+    private static final java.io.ObjectStreamField[] serialPersistentFields;
+    !static !transient &lt;fields&gt;;
+    !private &lt;fields&gt;;
+    !private &lt;methods&gt;;
+    private void writeObject(java.io.ObjectOutputStream);
+    private void readObject(java.io.ObjectInputStream);
+    java.lang.Object writeReplace();
+    java.lang.Object readResolve();
+}
+</pre>
+<p>
+
+    The new options force preservation of the elements involved in the UID
+    computation. In addition, the user will have to manually specify all
+    interfaces of the serializable classes (using something like "<code>-keep
+    interface MyInterface</code>"), since these names are also used when
+    computing the UID. A fast but sub-optimal alternative would be simply
+    keeping all interfaces with "<code>-keep interface *</code>".</li>
+
+<li>In the rare event that you are serializing lambda expressions in Java 8 or
+    higher, you need to preserve some methods and adapt the hard-coded names
+    of the classes in which they occur:
+
+<pre>
+-keepclassmembers class * {
+    private static synthetic java.lang.Object $deserializeLambda$(java.lang.invoke.SerializedLambda);
+}
+
+-keepclassmembernames class * {
+    private static synthetic *** lambda$*(...);
+}
+
+-adaptclassstrings com.example.Test
+</pre>
+<p>
+
+    This should satisfy the reflection in the deserialization code of the
+    Java run-time.
+
+</ul>
+<p>
+
+Note that the above options may preserve more classes and class members
+than strictly necessary. For instance, a large number of classes may implement
+the <code>Serialization</code> interface, yet only a small number may actually
+ever be serialized. Knowing your application and tuning the configuration
+often produces more compact results.
+
+<h3><a name="beans">Processing bean classes</a></h3>
+
+If your application, applet, servlet, library, etc., makes extensive use of
+introspection on bean classes to find bean editor classes, or getter and
+setter methods, then configuration may become painful. There's not much else
+you can do than making sure the bean class names, or the getter and setter
+names don't change. For instance:
+<pre>
+-keep public class mypackage.MyBean {
+    public void setMyProperty(int);
+    public int getMyProperty();
+}
+
+-keep public class mypackage.MyBeanEditor
+</pre>
+<p>
+If there are too many elements to list explicitly, wildcards in class names
+and method signatures might be helpful. This example preserves all possible
+setters and getters in classes in the package <code>mybeans</code>:
+<pre>
+-keep class mybeans.** {
+    void set*(***);
+    void set*(int, ***);
+
+    boolean is*(); 
+    boolean is*(int);
+
+    *** get*();
+    *** get*(int);
+}
+</pre>
+<p>
+The '<code>***</code>' wildcard matches any type (primitive or non-primitive,
+array or non-array). The methods with the '<code>int</code>' arguments matches
+properties that are lists.
+
+<h3><a name="annotations">Processing annotations</a></h3>
+
+If your application, applet, servlet, library, etc., uses annotations, you may
+want to preserve them in the processed output. Annotations are represented by
+attributes that have no direct effect on the execution of the code. However,
+their values can be retrieved through introspection, allowing developers to
+adapt the execution behavior accordingly. By default, ProGuard treats
+annotation attributes as optional, and removes them in the obfuscation step.
+If they are required, you'll have to specify this explicitly:
+<pre>
+-keepattributes *Annotation*
+</pre>
+<p>
+For brevity, we're specifying a wildcarded attribute name, which will match
+<code>RuntimeVisibleAnnotations</code>,
+<code>RuntimeInvisibleAnnotations</code>,
+<code>RuntimeVisibleParameterAnnotations</code>,
+<code>RuntimeInvisibleParameterAnnotations</code>, and
+<code>AnnotationDefault</code>. Depending on the purpose of the processed
+code, you could refine this selection, for instance not keeping the run-time
+invisible annotations (which are only used at compile-time).
+<p>
+Some code may make further use of introspection to figure out the enclosing
+methods of anonymous inner classes. In that case, the corresponding attribute
+has to be preserved as well:
+<pre>
+-keepattributes EnclosingMethod
+</pre>
+
+<h3><a name="database">Processing database drivers</a></h3>
+
+Database drivers are implementations of the <code>Driver</code> interface.
+Since they are often created dynamically, you may want to preserve any
+implementations that you are processing as entry points:
+<pre>
+-keep class * implements java.sql.Driver
+</pre>
+<p>
+This option also gets rid of the note that ProGuard prints out about
+<code>(java.sql.Driver)Class.forName</code> constructs, if you are
+instantiating a driver in your code (without necessarily implementing any
+drivers yourself).
+
+<h3><a name="componentui">Processing ComponentUI classes</a></h3>
+
+Swing UI look and feels are implemented as extensions of the
+<code>ComponentUI</code> class. For some reason, these have to contain a
+static method <code>createUI</code>, which the Swing API invokes using
+introspection. You should therefore always preserve the method as an entry
+point, for instance like this:
+<pre>
+-keep class * extends javax.swing.plaf.ComponentUI {
+    public static javax.swing.plaf.ComponentUI createUI(javax.swing.JComponent);
+}
+</pre>
+<p>
+This option also keeps the classes themselves.
+
+<h3><a name="rmi">Processing RMI code</a></h3>
+
+Reportedly, the easiest way to handle RMI code is to process the code with
+ProGuard first and then invoke the <code>rmic</code> tool. If that is not
+possible, you may want to try something like this:
+<pre>
+-keepattributes Exceptions
+
+-keep interface * extends java.rmi.Remote {
+    &lt;methods&gt;;
+}
+
+-keep class * implements java.rmi.Remote {
+    &lt;init&gt;(java.rmi.activation.ActivationID, java.rmi.MarshalledObject);
+}
+</pre>
+<p>
+The first <code>-keep</code> option keeps all your Remote interfaces and their
+methods. The second one keeps all the implementations, along with their
+particular RMI constructors, if any.
+<p>
+The <code>Exceptions</code> attribute has to be kept too, because the RMI
+handling code performs introspection to check whether the method signatures
+are compatible.
+
+<h3><a name="injection">Processing dependency injection</a></h3>
+
+If your application is using JEE-style dependency injection, the application
+container will automatically assign instances of resource classes to fields and
+methods that are annotated with <code>@Resource</code>. The container applies
+introspection, even accessing private class members directly. It typically
+constructs a resource name based on the type name and the class member name.
+We then have to avoid that such class members are removed or renamed:
+<pre>
+-keepclassmembers class * {
+    @javax.annotation.Resource *;
+}
+</pre>
+<p>
+The Spring framework has another similar annotation <code>@Autowired</code>:
+<pre>
+-keepclassmembers class * {
+    @org.springframework.beans.factory.annotation.Autowired *;
+}
+</pre>
+
+<h3><a name="dagger">Processing Dagger code</a></h3>
+
+If your Android application includes Dagger for dependency injection, you need
+a few lines of configuration, since Dagger heavily relies on reflection to tie
+together the code at runtime. You need to preserve the annotated class
+members, the generated classes, and a utility class:
+<pre>
+-keepclassmembers,allowobfuscation class * {
+    @dagger.** *;
+}
+
+-keep class **$$ModuleAdapter
+-keep class **$$InjectAdapter
+-keep class **$$StaticInjection
+
+-keepnames class dagger.Lazy
+</pre>
+<p>
+Unfortunately, you still need to explicitly preserve the corresponding base
+classes from your project. For example, for a generated class like
+<code>com.example.SomeClass$$ModuleAdapter</code>, you still need to specify:
+<pre>
+-keep class com.example.SomeClass
+</pre>
+<p>
+Dagger can then still combine the corresponding pairs of classes, based on
+their names. You can figure out the base classes by listing the generated
+classes in the <code>gen</code> directory of your project (e.g.
+<code>com/examples/SomeClass$$ModuleAdapter.class</code>).
+<p>
+Dagger 2 no longer relies on reflection with these naming conventions, which
+makes life a lot easier.
+
+<h3><a name="butterknife">Processing Butterknife code</a></h3>
+
+If your Android application includes Butterknife to inject views, you also
+need a few lines of configuration, since Butterknife relies on reflection to
+tie together the code at runtime:
+<pre>
+-keep @interface butterknife.*
+
+-keepclasseswithmembers class * {
+    @butterknife.* &lt;fields&gt;;
+}
+
+-keepclasseswithmembers class * {
+    @butterknife.* &lt;methods&gt;;
+}
+
+-keepclasseswithmembers class * {
+    @butterknife.On* &lt;methods&gt;;
+}
+
+-keep class **$$ViewInjector {
+    public static void inject(...);
+    public static void reset(...);
+}
+
+-keep class **$$ViewBinder {
+    public static void bind(...);
+    public static void unbind(...);
+}
+</pre>
+<p>
+These settings preserve the Butterknife annotations, the annotated fields and
+methods, and the generated classes and methods that Butterknife accesses by
+reflection.
+
+<h3><a name="resourcefiles">Processing resource files</a></h3>
+
+If your application, applet, servlet, library, etc., contains resource files,
+it may be necessary to adapt their names and/or their contents when the
+application is obfuscated. The following two options can achieve this
+automatically:
+<pre>
+-adaptresourcefilenames    **.properties,**.gif,**.jpg
+-adaptresourcefilecontents **.properties,META-INF/MANIFEST.MF
+</pre>
+<p>
+The <a href="usage.html#adaptresourcefilenames">-adaptresourcefilenames</a>
+option in this case renames properties files and image files in the processed
+output, based on the obfuscated names of their corresponding class files (if
+any). The <a
+href="usage.html#adaptresourcefilecontents">-adaptresourcefilecontents</a>
+option looks for class names in properties files and in the manifest file, and
+replaces these names by the obfuscated names (if any). You'll probably want to
+adapt the filters to suit your application.
+
+<h3><a name="manifestfiles">Processing manifest files</a></h3>
+
+As illustrated in the previous section, manifest files can be treated like
+ordinary resource files. ProGuard can adapt obfuscated class names in the
+files, but it won't make any other changes. If you want anything else, you
+should apply an external tool. For instance, if a manifest file contains
+signing information, you should sign the jar again after it has been
+processed.
+<p>
+If you're merging several input jars into a single output jar, you'll have to 
+pick one, typically by specifying <a href="usage.html#filters">filters</a>:
+<pre>
+-injars  in1.jar
+-injars  in2.jar(!META-INF/MANIFEST.MF)
+-injars  in3.jar(!META-INF/MANIFEST.MF)
+-outjars out.jar
+</pre>
+<p>
+The filters will let ProGuard copy the manifest file from the first jar and
+ignore any manifest files in the second and third input jars. Note that
+ProGuard will leave the order of the files in the jars unchanged; manifest
+files are not necessarily put first.
+
+<h3><a name="stacktrace">Producing useful obfuscated stack traces</a></h3>
+
+These options let obfuscated applications or libraries produce stack traces
+that can still be deciphered later on:
+<pre>
+-printmapping out.map
+
+-renamesourcefileattribute SourceFile
+-keepattributes SourceFile,LineNumberTable
+</pre>
+<p>
+We're keeping all source file attributes, but we're replacing their values by
+the string "SourceFile". We could use any string. This string is already
+present in all class files, so it doesn't take up any extra space. If you're
+working with J++, you'll want to keep the "SourceDir" attribute as well.
+<p>
+We're also keeping the line number tables of all methods.
+<p>
+Whenever both of these attributes are present, the Java run-time environment
+will include line number information when printing out exception stack traces.
+<p>
+The information will only be useful if we can map the obfuscated names back to
+their original names, so we're saving the mapping to a file
+<code>out.map</code>. The information can then be used by the <a
+href="retrace/index.html">ReTrace</a> tool to restore the original stack trace.
+
+<h3><a name="repackaging">Obfuscating package names</a></h3>
+
+Package names can be obfuscated in various ways, with increasing levels of
+obfuscation and compactness. For example, consider the following classes:
+<pre>
+mycompany.myapplication.MyMain
+mycompany.myapplication.Foo
+mycompany.myapplication.Bar
+mycompany.myapplication.extra.FirstExtra
+mycompany.myapplication.extra.SecondExtra
+mycompany.util.FirstUtil
+mycompany.util.SecondUtil
+</pre>
+<p>
+Let's assume the class name <code>mycompany.myapplication.MyMain</code> is the
+main application class that is kept by the configuration. All other class names
+can be obfuscated.
+<p>
+By default, packages that contain classes that can't be renamed aren't renamed
+either, and the package hierarchy is preserved. This results in obfuscated
+class names like these:
+<pre>
+mycompany.myapplication.MyMain
+mycompany.myapplication.a
+mycompany.myapplication.b
+mycompany.myapplication.a.a
+mycompany.myapplication.a.b
+mycompany.a.a
+mycompany.a.b
+</pre>
+<p>
+The <a
+href="usage.html#flattenpackagehierarchy"><code>-flattenpackagehierarchy</code></a>
+option obfuscates the package names further, by flattening the package
+hierarchy of obfuscated packages:
+<pre>
+-flattenpackagehierarchy 'myobfuscated'
+</pre>
+<p>
+The obfuscated class names then look as follows:
+<pre>
+mycompany.myapplication.MyMain
+mycompany.myapplication.a
+mycompany.myapplication.b
+myobfuscated.a.a
+myobfuscated.a.b
+myobfuscated.b.a
+myobfuscated.b.b
+</pre>
+<p>
+Alternatively, the <a
+href="usage.html#repackageclasses"><code>-repackageclasses</code></a> option
+obfuscates the entire packaging, by combining obfuscated classes into a single
+package:
+<pre>
+-repackageclasses 'myobfuscated'
+</pre>
+The obfuscated class names then look as follows:
+<pre>
+mycompany.myapplication.MyMain
+mycompany.myapplication.a
+mycompany.myapplication.b
+myobfuscated.a
+myobfuscated.b
+myobfuscated.c
+myobfuscated.d
+</pre>
+<p>
+Additionally specifying the <a
+href="usage.html#allowaccessmodification"><code>-allowaccessmodification</code></a>
+option allows access permissions of classes and class members to
+be broadened, opening up the opportunity to repackage all obfuscated classes:
+<pre>
+-repackageclasses 'myobfuscated'
+-allowaccessmodification
+</pre>
+The obfuscated class names then look as follows:
+<pre>
+mycompany.myapplication.MyMain
+myobfuscated.a
+myobfuscated.b
+myobfuscated.c
+myobfuscated.d
+myobfuscated.e
+myobfuscated.f
+</pre>
+<p>
+The specified target package can always be the root package. For instance:
+<pre>
+-repackageclasses ''
+-allowaccessmodification
+</pre>
+The obfuscated class names are then the shortest possible names:
+<pre>
+mycompany.myapplication.MyMain
+a
+b
+c
+d
+e
+f
+</pre>
+<p>
+Note that not all levels of obfuscation of package names may be acceptable for
+all code. Notably, you may have to take into account that your application may
+contain <a href="#resourcefiles">resource files</a> that have to be adapted.
+
+<h3><a name="logging">Removing logging code</a></h3>
+
+You can let ProGuard remove logging code. The trick is to specify that the
+logging methods don't have side-effects &mdash; even though they actually do,
+since they write to the console or to a log file. ProGuard will take your word
+for it and remove the invocations (in the optimization step) and if possible
+the logging classes and methods themselves (in the shrinking step).
+<p>
+For example, this configuration removes invocations of the Android logging
+methods:
+<pre>
+-assumenosideeffects class android.util.Log {
+    public static boolean isLoggable(java.lang.String, int);
+    public static int v(...);
+    public static int i(...);
+    public static int w(...);
+    public static int d(...);
+    public static int e(...);
+}
+</pre>
+<p>
+The wildcards are a shortcut to match all versions of the methods. Be careful
+not to use a <code>*</code> wildcard to match all methods, because it would
+also match methods like <code>wait()</code>, higher up the hierarchy. Removing
+those invocations will generally break your code.
+<p>
+Note that you generally can't remove logging code that uses
+<code>System.out.println</code>, since you would be removing all invocations
+of <code>java.io.PrintStream#println</code>, which could break your
+application. You can work around it by creating your own logging methods and
+let ProGuard remove those.
+
+<h3><a name="restructuring">Restructuring the output archives</a></h3>
+
+In simple applications, all output classes and resources files are merged into
+a single jar. For example:
+<pre>
+-injars  classes
+-injars  in1.jar
+-injars  in2.jar
+-injars  in3.jar
+-outjars out.jar
+</pre>
+<p>
+This configuration merges the processed versions of the files in the
+<code>classes</code> directory and the three jars into a single output jar
+<code>out.jar</code>.
+<p>
+If you want to preserve the structure of your input jars (and/or wars, ears,
+zips, or directories), you can specify an output directory (or a war, an ear,
+or a zip). For example:
+<pre>
+-injars  in1.jar
+-injars  in2.jar
+-injars  in3.jar
+-outjars out
+</pre>
+<p>
+The input jars will then be reconstructed in the directory <code>out</code>,
+with their original names.
+<p>
+You can also combine archives into higher level archives. For example:
+<pre>
+-injars  in1.jar
+-injars  in2.jar
+-injars  in3.jar
+-outjars out.war
+</pre>
+<p>
+The other way around, you can flatten the archives inside higher level
+archives into simple archives:
+<pre>
+-injars  in.war
+-outjars out.jar
+</pre>
+<p>
+This configuration puts the processed contents of all jars inside
+<code>in.war</code> (plus any other contents of <code>in.war</code>) into
+<code>out.jar</code>.
+<p>
+If you want to combine input jars (and/or wars, ears, zips, or directories)
+into output jars (and/or wars, ears, zips, or directories), you can group the
+<a href="usage.html#injars"><code>-injars</code></a> and <a
+href="usage.html#outjars"><code>-outjars</code></a> options. For example:
+<pre>
+-injars base_in1.jar
+-injars base_in2.jar
+-injars base_in3.jar
+-outjars base_out.jar
+
+-injars  extra_in.jar
+-outjars extra_out.jar
+</pre>
+<p>
+This configuration puts the processed results of all <code>base_in*.jar</code>
+jars into <code>base_out.jar</code>, and the processed results of the
+<code>extra_in.jar</code> into <code>extra_out.jar</code>. Note that only the
+order of the options matters; the additional whitespace is just for clarity.
+<p>
+This grouping, archiving, and flattening can be arbitrarily complex. ProGuard
+always tries to package output archives in a sensible way, reconstructing the
+input entries as much as required.
+
+<h3><a name="filtering">Filtering the input and the output</a></h3>
+
+If you want even greater control, you can add
+<a href="usage.html#filters">filters</a> to the input and the output,
+filtering out zips, ears, wars, jars, and/or ordinary files. For example, if
+you want to disregard certain files from an input jar:
+<pre>
+-injars  in.jar(!images/**)
+-outjars out.jar
+</pre>
+<p>
+This configuration removes any files in the <code>images</code> directory and
+its subdirectories.
+<p>
+Such filters can be convenient for avoiding warnings about duplicate files in
+the output. For example, only keeping the manifest file from a first input jar:
+<pre>
+-injars  in1.jar
+-injars  in2.jar(!META-INF/MANIFEST.MF)
+-injars  in3.jar(!META-INF/MANIFEST.MF)
+-outjars out.jar
+</pre>
+<p>
+Another useful application is speeding up the processing by ProGuard, by
+disregarding a large number of irrelevant classes in the runtime library jar:
+<pre>
+-libraryjars &lt;java.home&gt;/lib/rt.jar(java/**,javax/**)
+</pre>
+<p>
+The filter makes ProGuard disregard <code>com.sun.**</code> classes, for
+instance , which don't affect the processing of ordinary applications.
+<p>
+It is also possible to filter the jars (and/or wars, ears, zips) themselves,
+based on their names. For example:
+<pre>
+-injars  in(**/acme_*.jar;)
+-outjars out.jar
+</pre>
+<p>
+Note the semi-colon in the filter; the filter in front of it applies to jar
+names. In this case, only <code>acme_*.jar</code> jars are read from the
+directory <code>in</code> and its subdirectories. Filters for war names, ear
+names, and zip names can be prefixed with additional semi-colons. All types of
+filters can be combined. They are orthogonal.
+<p>
+On the other hand, you can also filter the output, in order to control what
+content goes where. For example:
+<pre>
+-injars  in.jar
+-outjars code_out.jar(**.class)
+-outjars resources_out.jar
+</pre>
+<p>
+This configuration splits the processed output, sending <code>**.class</code>
+files to <code>code_out.jar</code>, and all remaining files to
+<code>resources_out.jar</code>.
+<p>
+Again, the filtering can be arbitrarily complex, especially when combined with
+grouping input and output.
+
+<h3><a name="multiple">Processing multiple applications at once</a></h3>
+
+You can process several dependent or independent applications (or applets,
+midlets,...) in one go, in order to save time and effort. ProGuard's input and
+output handling offers various ways to keep the output nicely structured.
+<p>
+The easiest way is to specify your input jars (and/or wars, ears, zips, and
+directories) and a single output directory. ProGuard will then reconstruct the
+input in this directory, using the original jar names. For example, showing
+just the input and output options:
+<pre>
+-injars  application1.jar
+-injars  application2.jar
+-injars  application3.jar
+-outjars processed_applications
+</pre>
+<p>
+After processing, the directory <code>processed_applications</code> will
+contain processed versions of application jars, with their original names.
+
+<h3><a name="incremental">Incremental obfuscation</a></h3>
+
+After having <a href="#application">processed an application</a>, e.g.
+ProGuard itself, you can still incrementally add other pieces of code that
+depend on it, e.g. the ProGuard GUI:
+<pre>
+-injars       proguardgui.jar
+-outjars      proguardgui_out.jar
+-injars       proguard.jar
+-outjars      proguard_out.jar
+-libraryjars  &lt;java.home&gt;/lib/rt.jar
+-applymapping proguard.map
+
+-keep public class proguard.gui.ProGuardGUI {
+    public static void main(java.lang.String[]);
+}
+</pre>
+<p>
+We're reading both unprocessed jars as input. Their processed contents will go
+to the respective output jars. The <a
+href="usage.html#applymapping"><code>-applymapping</code></a> option then
+makes sure the ProGuard part of the code gets the previously produced
+obfuscation mapping. The final application will consist of the obfuscated
+ProGuard jar and the additional obfuscated GUI jar.
+<p>
+The added code in this example is straightforward; it doesn't affect the
+original code. The <code>proguard_out.jar</code> will be identical to the one
+produced in the initial processing step. If you foresee adding more complex
+extensions to your code, you should specify the options <a
+href="usage.html#useuniqueclassmembernames"><code>-useuniqueclassmembernames</code></a>,
+<a href="usage.html#dontshrink"><code>-dontshrink</code></a>, and <a
+href="usage.html#dontoptimize"><code>-dontoptimize</code></a> <i>in the
+original processing step</i>. These options ensure that the obfuscated base
+jar will always remain usable without changes. You can then specify the base
+jar as a library jar:
+<pre>
+-injars       proguardgui.jar
+-outjars      proguardgui_out.jar
+-libraryjars  proguard.jar
+-libraryjars  &lt;java.home&gt;/lib/rt.jar
+-applymapping proguard.map
+
+-keep public class proguard.gui.ProGuardGUI {
+    public static void main(java.lang.String[]);
+}
+</pre>
+
+<h3><a name="microedition">Preverifying class files for Java Micro Edition</a></h3>
+
+Even if you're not interested in shrinking, optimizing, and obfuscating your
+midlets, as shown in the <a href="#midlets">midlets example</a>, you can still
+use ProGuard to preverify the class files for Java Micro Edition. ProGuard
+produces slightly more compact results than the traditional external
+preverifier.
+<pre>
+-injars      in.jar
+-outjars     out.jar
+-libraryjars /usr/local/java/wtk2.5.2/lib/midpapi20.jar
+-libraryjars /usr/local/java/wtk2.5.2/lib/cldcapi11.jar
+
+-dontshrink
+-dontoptimize
+-dontobfuscate
+
+-microedition
+</pre>
+<p>
+We're not processing the input, just making sure the class files are
+preverified by targeting them at Java Micro Edition with the <a
+href="usage.html#microedition"><code>-microedition</code></a> option. Note
+that we don't need any <code>-keep</code> options to specify entry points; all
+class files are simply preverified.
+
+<h3><a name="upgrade">Upgrading class files to Java 6</a></h3>
+
+The following options upgrade class files to Java 6, by updating their
+internal version numbers and preverifying them. The class files can then be
+loaded more efficiently by the Java 6 Virtual Machine.
+<pre>
+-injars      in.jar
+-outjars     out.jar
+-libraryjars &lt;java.home&gt;/lib/rt.jar
+
+-dontshrink
+-dontoptimize
+-dontobfuscate
+
+-target 1.6
+</pre>
+<p>
+We're not processing the input, just retargeting the class files with the <a
+href="usage.html#target"><code>-target</code></a> option. They will
+automatically be preverified for Java 6 as a result. Note that we don't need
+any <code>-keep</code> options to specify entry points; all class files are
+simply updated and preverified.
+
+<h3><a name="deadcode">Finding dead code</a></h3>
+
+These options list unused classes, fields, and methods in the application
+<code>mypackage.MyApplication</code>:
+<pre>
+-injars      in.jar
+-libraryjars &lt;java.home&gt;/lib/rt.jar
+
+-dontoptimize
+-dontobfuscate
+-dontpreverify
+-printusage
+
+-keep public class mypackage.MyApplication {
+    public static void main(java.lang.String[]);
+}
+</pre>
+<p>
+We're not specifying an output jar, just printing out some results. We're
+saving some processing time by skipping the other processing steps.
+<p>
+The java compiler inlines primitive constants and String constants
+(<code>static final</code> fields). ProGuard would therefore list such fields
+as not being used in the class files that it analyzes, even if they <i>are</i>
+used in the source files. We can add a <a
+href="usage.html#keepclassmembers"><code>-keepclassmembers</code></a> option
+that keeps those fields a priori, in order to avoid having them listed:
+<pre>
+-keepclassmembers class * {
+    static final %                *;
+    static final java.lang.String *;
+}
+</pre>
+
+<h3><a name="structure">Printing out the internal structure of class files</a></h3>
+
+These options print out the internal structure of all class files in the input
+jar:
+<pre>
+-injars in.jar
+
+-dontshrink
+-dontoptimize
+-dontobfuscate
+-dontpreverify
+
+-dump
+</pre>
+<p>
+Note how we don't need to specify the Java run-time jar, because we're not
+processing the input jar at all.
+
+<h3><a name="annotated">Using annotations to configure ProGuard</a></h3>
+
+The traditional ProGuard configuration allows to keep a clean separation
+between the code and the configuration for shrinking, optimization, and
+obfuscation. However, it is also possible to define specific annotations,
+and then annotate the code to configure the processing.
+<p>
+You can find a set of such predefined annotations in the directory
+<code>examples/annotations/lib</code> in the ProGuard distribution.
+The annotation classes are defined in <code>annotations.jar</code>. The
+corresponding ProGuard configuration (or meta-configuration, if you prefer)
+is specified in <code>annotations.pro</code>. With these files, you can start
+annotating your code. For instance, a java source file
+<code>Application.java</code> can be annotated as follows:
+<pre>
+@KeepApplication
+public class Application {
+  ....
+}
+</pre>
+<p>
+The ProGuard configuration file for the application can then be simplified by
+leveraging off these annotations:
+<pre>
+-injars      in.jar
+-outjars     out.jar
+-libraryjars &lt;java.home&gt;/lib/rt.jar
+
+-include lib/annotations.pro
+</pre>
+<p>
+The annotations are effectively replacing the application-dependent
+<code>-keep</code> options. You may still wish to add traditional
+<code>-keep</code> options for processing <a href="#native">native
+methods</a>, <a href="#enumerations">enumerations</a>, <a
+href="#serializable">serializable classes</a>, and <a
+href="#annotations">annotations</a>.
+<p>
+The directory <code>examples/annotations</code> contains more examples that
+illustrate some of the possibilities.
+
+<hr />
+<address>
+Copyright &copy; 2002-2017
+<a target="other" href="http://www.lafortune.eu/">Eric Lafortune</a> @ <a target="top" href="http://www.guardsquare.com/">GuardSquare</a>.
+</address>
+</body>
+</html>

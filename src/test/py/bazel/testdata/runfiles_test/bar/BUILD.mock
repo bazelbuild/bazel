@@ -1,0 +1,31 @@
+package(default_visibility = ["//visibility:public"])
+
+py_binary(
+    name = "bar-py",
+    srcs = ["bar.py"],
+    data = ["bar-py-data.txt"],
+    main = "bar.py",
+    deps = ["@bazel_tools//tools/python/runfiles"],
+)
+
+java_binary(
+    name = "bar-java",
+    srcs = ["Bar.java"],
+    data = ["bar-java-data.txt"],
+    main_class = "Bar",
+    deps = ["@bazel_tools//tools/java/runfiles"],
+)
+
+sh_binary(
+    name = "bar-sh",
+    srcs = ["bar.sh"],
+    data = ["bar-sh-data.txt"],
+    deps = ["@bazel_tools//tools/bash/runfiles"],
+)
+
+cc_binary(
+    name = "bar-cc",
+    srcs = ["bar.cc"],
+    data = ["bar-cc-data.txt"],
+    deps = ["@bazel_tools//tools/cpp/runfiles"],
+)

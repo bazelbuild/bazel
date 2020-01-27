@@ -1,4 +1,4 @@
-// Copyright 2014 Google Inc. All rights reserved.
+// Copyright 2014 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -13,16 +13,18 @@
 // limitations under the License.
 package com.google.devtools.build.lib.query2.engine;
 
+import com.google.common.base.Function;
+import com.google.common.base.Predicate;
+import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.Argument;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.ArgumentType;
-import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryFunction;
-
-import java.util.ArrayList;
+import com.google.devtools.build.lib.query2.engine.QueryEnvironment.CustomFunctionQueryEnvironment;
+import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryTaskCallable;
+import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryTaskFuture;
+import com.google.devtools.build.lib.query2.engine.QueryEnvironment.ThreadSafeMutableSet;
 import java.util.Collection;
-import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Set;
 
 /**
  * An "rdeps" query expression, which computes the reverse dependencies of the argument within the
@@ -32,9 +34,8 @@ import java.util.Set;
  * <pre>expr ::= RDEPS '(' expr ',' expr ')'</pre>
  * <pre>       | RDEPS '(' expr ',' expr ',' WORD ')'</pre>
  */
-final class RdepsFunction implements QueryFunction {
-  RdepsFunction() {
-  }
+public final class RdepsFunction extends AllRdepsFunction {
+  public RdepsFunction() {}
 
   @Override
   public String getName() {
@@ -43,57 +44,91 @@ final class RdepsFunction implements QueryFunction {
 
   @Override
   public int getMandatoryArguments() {
-    return 2;  // last argument is optional
+    return super.getMandatoryArguments() + 1;  // +1 for the universe.
   }
 
   @Override
   public List<ArgumentType> getArgumentTypes() {
-    return ImmutableList.of(
-        ArgumentType.EXPRESSION, ArgumentType.EXPRESSION, ArgumentType.INTEGER);
+    return ImmutableList.<ArgumentType>builder()
+        .add(ArgumentType.EXPRESSION).addAll(super.getArgumentTypes()).build();
+  }
+
+  @Override
+  public <T> QueryTaskFuture<Void> eval(
+      QueryEnvironment<T> env,
+      QueryExpressionContext<T> context,
+      QueryExpression expression,
+      List<Argument> args,
+      Callback<T> callback) {
+    boolean isDepthUnbounded = args.size() == 2;
+    int depth = isDepthUnbounded ? Integer.MAX_VALUE : args.get(2).getInteger();
+    QueryExpression universeExpression = args.get(0).getExpression();
+    QueryExpression argumentExpression = args.get(1).getExpression();
+    if (env instanceof StreamableQueryEnvironment) {
+      StreamableQueryEnvironment<T> streamableEnv = (StreamableQueryEnvironment<T>) env;
+      return isDepthUnbounded
+          ? streamableEnv.getRdepsUnboundedParallel(
+              argumentExpression, universeExpression, context, callback)
+          : streamableEnv.getRdepsBoundedParallel(
+              argumentExpression, depth, universeExpression, context, callback);
+    } else {
+      return evalWithBoundedDepth(
+          env, expression, context, argumentExpression, depth, universeExpression, callback);
+    }
   }
 
   /**
    * Compute the transitive closure of the universe, then breadth-first search from the argument
    * towards the universe while staying within the transitive closure.
    */
-  @Override
-  public <T> Set<T> eval(QueryEnvironment<T> env, QueryExpression expression, List<Argument> args)
-      throws QueryException {
-    Set<T> universeValue = args.get(0).getExpression().eval(env);
-    Set<T> argumentValue = args.get(1).getExpression().eval(env);
-    int depthBound = args.size() > 2 ? args.get(2).getInteger() : Integer.MAX_VALUE;
+  private static <T> QueryTaskFuture<Void> evalWithBoundedDepth(
+      QueryEnvironment<T> env,
+      QueryExpression rdepsFunctionExpressionForErrorMessages,
+      QueryExpressionContext<T> context,
+      QueryExpression argumentExpression,
+      int depth,
+      QueryExpression universeExpression,
+      Callback<T> callback) {
+    QueryTaskFuture<ThreadSafeMutableSet<T>> universeValueFuture =
+        QueryUtil.evalAll(env, context, universeExpression);
 
-    env.buildTransitiveClosure(expression, universeValue, Integer.MAX_VALUE);
-
-    Set<T> visited = new LinkedHashSet<>();
-    Set<T> reachableFromUniverse = env.getTransitiveClosure(universeValue);
-    Collection<T> current = argumentValue;
-
-    // We need to iterate depthBound + 1 times.
-    for (int i = 0; i <= depthBound; i++) {
-      List<T> next = new ArrayList<>();
-      for (T node : current) {
-        if (!reachableFromUniverse.contains(node)) {
-          // Traversed outside the transitive closure of the universe.
-          continue;
-        }
-
-        if (!visited.add(node)) {
-          // Already visited; if we see a node in a later round, then we don't need to visit it
-          // again, because the depth at which we see it at must be greater than or equal to the
-          // last visit.
-          continue;
-        }
-
-        next.addAll(env.getReverseDeps(node));
-      }
-      if (next.isEmpty()) {
-        // Exit when there are no more nodes to visit.
-        break;
-      }
-      current = next;
+    if (env instanceof CustomFunctionQueryEnvironment) {
+      QueryTaskFuture<ThreadSafeMutableSet<T>> fromValueFuture =
+          QueryUtil.evalAll(env, context, argumentExpression);
+      return env.whenAllSucceedCall(
+          ImmutableList.of(fromValueFuture, universeValueFuture),
+          new QueryTaskCallable<Void>() {
+            @Override
+            public Void call() throws QueryException, InterruptedException {
+              Collection<T> fromValue = fromValueFuture.getIfSuccessful();
+              Collection<T> universeValue = universeValueFuture.getIfSuccessful();
+              ((CustomFunctionQueryEnvironment<T>) env)
+                  .rdeps(
+                      fromValue,
+                      universeValue,
+                      depth,
+                      rdepsFunctionExpressionForErrorMessages,
+                      callback);
+              return null;
+            }
+          });
     }
 
-    return visited;
+    Function<ThreadSafeMutableSet<T>, QueryTaskFuture<Void>> evalInUniverseAsyncFunction =
+        universeValue -> {
+          Predicate<T> universe;
+          try {
+            env.buildTransitiveClosure(
+                rdepsFunctionExpressionForErrorMessages, universeValue, Integer.MAX_VALUE);
+            universe = Predicates.in(env.getTransitiveClosure(universeValue, context));
+          } catch (InterruptedException e) {
+            return env.immediateCancelledFuture();
+          } catch (QueryException e) {
+            return env.immediateFailedFuture(e);
+          }
+
+          return AllRdepsFunction.eval(env, argumentExpression, universe, context, callback, depth);
+        };
+    return env.transformAsync(universeValueFuture, evalInUniverseAsyncFunction);
   }
 }

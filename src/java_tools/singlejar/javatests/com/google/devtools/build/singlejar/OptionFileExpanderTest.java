@@ -1,4 +1,4 @@
-// Copyright 2015 Google Inc. All rights reserved.
+// Copyright 2015 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,16 +14,11 @@
 
 package com.google.devtools.build.singlejar;
 
+import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 import static java.nio.charset.StandardCharsets.UTF_8;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.fail;
 
 import com.google.devtools.build.singlejar.OptionFileExpander.OptionFileProvider;
-
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
-
 import java.io.ByteArrayInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -31,6 +26,9 @@ import java.io.InputStream;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 /**
  * Unit tests for {@link OptionFileExpander}.
@@ -59,8 +57,8 @@ public class OptionFileExpanderTest {
   @Test
   public void testNoExpansion() throws IOException {
     OptionFileExpander expander = new OptionFileExpander(new StoredOptionFileProvider());
-    assertEquals(Arrays.asList("--some", "option", "list"),
-        expander.expandArguments(Arrays.asList("--some", "option", "list")));
+    assertThat(expander.expandArguments(Arrays.asList("--some", "option", "list")))
+        .isEqualTo(Arrays.asList("--some", "option", "list"));
   }
 
   @Test
@@ -68,8 +66,8 @@ public class OptionFileExpanderTest {
     StoredOptionFileProvider provider = new StoredOptionFileProvider();
     provider.addFile("options", "--some option list");
     OptionFileExpander expander = new OptionFileExpander(provider);
-    assertEquals(Arrays.asList("--some", "option", "list"),
-        expander.expandArguments(Arrays.asList("@options")));
+    assertThat(expander.expandArguments(Arrays.asList("@options")))
+        .isEqualTo(Arrays.asList("--some", "option", "list"));
   }
 
   @Test
@@ -77,11 +75,6 @@ public class OptionFileExpanderTest {
     StoredOptionFileProvider provider = new StoredOptionFileProvider();
     provider.addFile("options", "'missing apostrophe");
     OptionFileExpander expander = new OptionFileExpander(provider);
-    try {
-      expander.expandArguments(Arrays.asList("@options"));
-      fail();
-    } catch (IOException e) {
-      // Expected exception.
-    }
+    assertThrows(IOException.class, () -> expander.expandArguments(Arrays.asList("@options")));
   }
 }

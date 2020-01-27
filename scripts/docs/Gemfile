@@ -1,0 +1,20 @@
+gem 'jekyll', '3.1.6'
+
+# Jekyll 3.1.6 automatically depends on these Gems:
+# (see https://github.com/jekyll/jekyll/blob/v3.1.6/jekyll.gemspec)
+#
+# 'liquid',       '~> 3.0'
+# 'kramdown',     '~> 1.3'
+# 'mercenary',    '~> 0.3.3'
+# 'safe_yaml',    '~> 1.0'
+# 'colorator',    '~> 0.1'
+# 'rouge',        '~> 1.7'
+# 'jekyll-sass-converter', '~> 1.0'
+# 'jekyll-watch', '~> 1.1'
+
+# These are additional Gems whose versions I fixed to the ones mentioned in Jekyll 3.1.6's Gemfile.
+# (see https://github.com/jekyll/jekyll/blob/v3.1.6/Gemfile#L55)
+
+gem 'jekyll-paginate', '~> 1.0'
+gem 'pygments.rb', '~> 0.6.0'
+gem 'redcarpet', '~> 3.2', '>= 3.2.3'

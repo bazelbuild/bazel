@@ -1,4 +1,4 @@
-// Copyright 2014 Google Inc. All rights reserved.
+// Copyright 2014 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,17 +15,27 @@ package com.google.devtools.build.lib.bazel.rules.sh;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
-import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
+import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.RunfilesSupport;
-import com.google.devtools.build.lib.analysis.actions.ExecutableSymlinkAction;
+import com.google.devtools.build.lib.analysis.ShToolchain;
+import com.google.devtools.build.lib.analysis.actions.LauncherFileWriteAction;
+import com.google.devtools.build.lib.analysis.actions.LauncherFileWriteAction.LaunchInfo;
+import com.google.devtools.build.lib.analysis.actions.SymlinkAction;
+import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
+import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector;
+import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector.InstrumentationSpec;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
+import com.google.devtools.build.lib.collect.nestedset.Order;
+import com.google.devtools.build.lib.util.FileTypeSet;
+import com.google.devtools.build.lib.util.OS;
+import com.google.devtools.build.lib.vfs.PathFragment;
 
 /**
  * Implementation for the sh_binary rule.
@@ -33,7 +43,8 @@ import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
 public class ShBinary implements RuleConfiguredTargetFactory {
 
   @Override
-  public ConfiguredTarget create(RuleContext ruleContext) {
+  public ConfiguredTarget create(RuleContext ruleContext)
+      throws InterruptedException, RuleErrorException, ActionConflictException {
     ImmutableList<Artifact> srcs = ruleContext.getPrerequisiteArtifacts("srcs", Mode.TARGET).list();
     if (srcs.size() != 1) {
       ruleContext.attributeError("srcs", "you must specify exactly one file in 'srcs'");
@@ -50,22 +61,88 @@ public class ShBinary implements RuleConfiguredTargetFactory {
     // happens when srcs = ['x', 'y'] but 'x' is an empty filegroup?). This is a pervasive
     // problem in Blaze.
     ruleContext.registerAction(
-        new ExecutableSymlinkAction(ruleContext.getActionOwner(), src, symlink));
+        SymlinkAction.toExecutable(
+            ruleContext.getActionOwner(), src, symlink, "Symlinking " + ruleContext.getLabel()));
 
-    NestedSet<Artifact> filesToBuild = NestedSetBuilder.<Artifact>stableOrder()
-        .add(src)
-        .add(symlink)
-        .build();
-    Runfiles runfiles = new Runfiles.Builder()
-        .addTransitiveArtifacts(filesToBuild)
-        .addRunfiles(ruleContext, RunfilesProvider.DEFAULT_RUNFILES)
-        .build();
-    RunfilesSupport runfilesSupport = RunfilesSupport.withExecutable(
-        ruleContext, runfiles, symlink);
+    NestedSetBuilder<Artifact> filesToBuildBuilder =
+        NestedSetBuilder.<Artifact>stableOrder().add(src).add(symlink);
+    Runfiles.Builder runfilesBuilder =
+        new Runfiles.Builder(
+            ruleContext.getWorkspaceName(),
+            ruleContext.getConfiguration().legacyExternalRunfiles());
+
+    Artifact mainExecutable =
+        (OS.getCurrent() == OS.WINDOWS) ? launcherForWindows(ruleContext, symlink, src) : symlink;
+    if (!symlink.equals(mainExecutable)) {
+      filesToBuildBuilder.add(mainExecutable);
+      runfilesBuilder.addArtifact(symlink);
+    }
+    NestedSet<Artifact> filesToBuild = filesToBuildBuilder.build();
+    Runfiles runfiles =
+        runfilesBuilder
+            .addTransitiveArtifacts(filesToBuild)
+            .addRunfiles(ruleContext, RunfilesProvider.DEFAULT_RUNFILES)
+            .build();
+
+    // Create the RunfilesSupport with the mainExecutable's name. On Windows, this way the runfiles
+    // directory's name is derived from the launcher (yielding "%{name}.cmd.runfiles" or
+    // "%{name}.exe.runfiles").
+    RunfilesSupport runfilesSupport =
+        RunfilesSupport.withExecutable(ruleContext, runfiles, mainExecutable);
     return new RuleConfiguredTargetBuilder(ruleContext)
         .setFilesToBuild(filesToBuild)
-        .setRunfilesSupport(runfilesSupport, symlink)
+        .setRunfilesSupport(runfilesSupport, mainExecutable)
         .addProvider(RunfilesProvider.class, RunfilesProvider.simple(runfiles))
+        .addNativeDeclaredProvider(
+            InstrumentedFilesCollector.collectTransitive(
+                ruleContext,
+                new InstrumentationSpec(FileTypeSet.ANY_FILE, "srcs", "deps", "data"),
+                /* reportedToActualSources= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER)))
         .build();
+  }
+
+  private static boolean isWindowsExecutable(Artifact artifact) {
+    return artifact.getExtension().equals("exe")
+        || artifact.getExtension().equals("cmd")
+        || artifact.getExtension().equals("bat");
+  }
+
+  private static Artifact createWindowsExeLauncher(
+      RuleContext ruleContext, PathFragment shExecutable) throws RuleErrorException {
+    Artifact bashLauncher =
+        ruleContext.getImplicitOutputArtifact(ruleContext.getTarget().getName() + ".exe");
+
+    LaunchInfo launchInfo =
+        LaunchInfo.builder()
+            .addKeyValuePair("binary_type", "Bash")
+            .addKeyValuePair("workspace_name", ruleContext.getWorkspaceName())
+            .addKeyValuePair(
+                "symlink_runfiles_enabled",
+                ruleContext.getConfiguration().runfilesEnabled() ? "1" : "0")
+            .addKeyValuePair("bash_bin_path", shExecutable.getPathString())
+            .build();
+
+    LauncherFileWriteAction.createAndRegister(ruleContext, bashLauncher, launchInfo);
+
+    return bashLauncher;
+  }
+
+  private static Artifact launcherForWindows(
+      RuleContext ruleContext, Artifact primaryOutput, Artifact mainFile)
+      throws RuleErrorException {
+    if (isWindowsExecutable(mainFile)) {
+      if (mainFile.getExtension().equals(primaryOutput.getExtension())) {
+        return primaryOutput;
+      } else {
+        // If the extensions don't match, we should always respect mainFile's extension.
+        ruleContext.ruleError(
+            "Source file is a Windows executable file,"
+                + " target name extension should match source file extension");
+        throw new RuleErrorException();
+      }
+    }
+
+    PathFragment shExecutable = ShToolchain.getPathOrError(ruleContext);
+    return createWindowsExeLauncher(ruleContext, shExecutable);
   }
 }

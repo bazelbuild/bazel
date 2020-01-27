@@ -1,4 +1,4 @@
-// Copyright 2014 Google Inc. All rights reserved.
+// Copyright 2014 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,13 +14,16 @@
 
 package com.google.devtools.build.singlejar;
 
+import static com.google.devtools.build.singlejar.ZipCombiner.DOS_EPOCH;
+
 import com.google.devtools.build.singlejar.DefaultJarEntryFilter.PathFilter;
 import com.google.devtools.build.singlejar.ZipCombiner.OutputMode;
-
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
+import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Date;
@@ -30,7 +33,6 @@ import java.util.Properties;
 import java.util.jar.Attributes;
 import java.util.jar.JarFile;
 import java.util.jar.Manifest;
-
 import javax.annotation.concurrent.NotThreadSafe;
 
 /**
@@ -74,16 +76,17 @@ public class SingleJar {
 
   /** Indicates whether to set all timestamps to a fixed value. */
   private boolean normalize = false;
+  private boolean checkDesugarDeps = false;
   private OutputMode outputMode = OutputMode.FORCE_STORED;
 
   /** Whether to include build-data.properties file */
   protected boolean includeBuildData = true;
 
   /** List of build information properties files */
-  protected List<String> buildInformationFiles = new ArrayList<String>();
+  protected List<String> buildInformationFiles = new ArrayList<>();
 
   /** Extraneous build informations (key=value) */
-  protected List<String> buildInformations = new ArrayList<String>();
+  protected List<String> buildInformations = new ArrayList<>();
 
   /** The (optional) native executable that will be prepended to this JAR. */
   private String launcherBin = null;
@@ -157,7 +160,7 @@ public class SingleJar {
     }
 
     // finally add generic information
-    // TODO(bazel-team) do we need to resolve the path to be absolute or canonical?
+    // TODO(b/28294322): do we need to resolve the path to be absolute or canonical?
     properties.put("build.target", outputJar);
     if (mainClass != null) {
       properties.put("main.class", mainClass);
@@ -177,9 +180,8 @@ public class SingleJar {
     InputStream buildInfo = createBuildData();
 
     ZipCombiner combiner = null;
-    try {
-      combiner = new ZipCombiner(outputMode, createEntryFilter(normalize, allowedPaths),
-          fileSystem.getOutputStream(outputJar));
+    try (OutputStream out = fileSystem.getOutputStream(outputJar)) {
+      combiner = new ZipCombiner(outputMode, createEntryFilterHelper(), out);
       if (launcherBin != null) {
         combiner.prependExecutable(fileSystem.getInputStream(launcherBin));
       }
@@ -206,7 +208,8 @@ public class SingleJar {
 
       // Copy the resources into the jar file.
       for (String resource : resources) {
-        String from, to;
+        String from;
+        String to;
         int i = resource.indexOf(':');
         if (i < 0) {
           to = from = resource;
@@ -218,26 +221,24 @@ public class SingleJar {
           System.err.println("File " + from + " at " + to + " clashes with a previous file");
           continue;
         }
+
+        // Add parent directory entries.
+        int idx = to.indexOf('/');
+        while (idx != -1) {
+          String dir = to.substring(0, idx + 1);
+          if (!combiner.containsFile(dir)) {
+            combiner.addDirectory(dir, DOS_EPOCH);
+          }
+          idx = to.indexOf('/', idx + 1);
+        }
+
         combiner.addFile(to, date, fileSystem.getInputStream(from));
       }
 
       // Copy the jars into the jar file.
       for (String inputJar : inputJars) {
-        InputStream in = fileSystem.getInputStream(inputJar);
-        try {
-          combiner.addZip(inputJar, in);
-          InputStream inToClose = in;
-          in = null;
-          inToClose.close();
-        } finally {
-          if (in != null) {
-            try {
-              in.close();
-            } catch (IOException e) {
-              // Preserve original exception.
-            }
-          }
-        }
+        File jar = fileSystem.getFile(inputJar);
+        combiner.addZip(jar);
       }
 
       // Close the output file. If something goes wrong here, delete the file.
@@ -258,6 +259,31 @@ public class SingleJar {
       }
     }
     return 0;
+  }
+
+  private ZipEntryFilter createEntryFilterHelper() {
+    ZipEntryFilter result = createEntryFilter(normalize, allowedPaths);
+    if (checkDesugarDeps) {
+      // Invocation is done through reflection so that this code will work in bazel open source
+      // as well. SingleJar is used for bootstrap and thus can not depend on protos (used in
+      // Java8DesugarDepsJarEntryFilter).
+      try {
+        return (ZipEntryFilter)
+            Class.forName("com.google.devtools.build.singlejar.Java8DesugarDepsJarEntryFilter")
+                .getConstructor(ZipEntryFilter.class).newInstance(result);
+      } catch (ReflectiveOperationException e) {
+        throw new IllegalStateException("Couldn't instantiate desugar deps checker", e);
+      }
+    } else {
+      return (filename, callback) -> {
+        if ("META-INF/desugar_deps".equals(filename)) {
+          callback.skip();  // We never want these files in the output
+        } else {
+          result.accept(filename, callback);
+        }
+      };
+    }
+
   }
 
   protected ZipEntryFilter createEntryFilter(boolean normalize, PathFilter allowedPaths) {
@@ -348,6 +374,8 @@ public class SingleJar {
       } else if (arg.equals("--java_launcher")) {
         launcherBin = getArgument(args, i, arg);
         i++;
+      } else if (arg.equals("--check_desugar_deps")) {
+        checkDesugarDeps = true;
       } else {
         throw new IOException("unknown option : '" + arg + "'");
       }
@@ -389,13 +417,53 @@ public class SingleJar {
     allowedPaths = new PrefixListPathFilter(prefixes);
   }
 
+  static int singleRun(String[] args) throws IOException {
+    SingleJar singlejar = new SingleJar(new JavaIoFileSystem());
+    return singlejar.run(Arrays.asList(args));
+  }
+
   public static void main(String[] args) {
+    if (shouldRunInWorker(args)) {
+      if (!canRunInWorker()) {
+        System.err.println("Asked to run in a worker, but no worker support");
+        System.exit(1);
+      }
+      try {
+        runWorker(args);
+      } catch (Exception e) {
+        System.err.println("Error running worker : " + e.getMessage());
+        System.exit(1);
+      }
+      return;
+    }
+
     try {
-      SingleJar singlejar = new SingleJar(new JavaIoFileSystem());
-      System.exit(singlejar.run(Arrays.asList(args)));
+      System.exit(singleRun(args));
     } catch (IOException e) {
       System.err.println("SingleJar threw exception : " + e.getMessage());
       System.exit(1);
     }
   }
+
+  private static void runWorker(String[] args) throws Exception {
+    // Invocation is done through reflection so that this code will work in bazel open source
+    // as well. SingleJar is used for bootstrap and thus can not depend on protos (used in
+    // SingleJarWorker).
+    Class<?> workerClass = Class.forName("com.google.devtools.build.singlejar.SingleJarWorker");
+    workerClass.getMethod("main", String[].class).invoke(null, (Object) args);
+  }
+
+  protected static boolean shouldRunInWorker(String[] args) {
+    return Arrays.asList(args).contains("--persistent_worker");
+  }
+
+  private static boolean canRunInWorker() {
+    try {
+      Class.forName("com.google.devtools.build.singlejar.SingleJarWorker");
+      return true;
+    } catch (ClassNotFoundException e1) {
+      return false;
+    }
+  }
+  
 }

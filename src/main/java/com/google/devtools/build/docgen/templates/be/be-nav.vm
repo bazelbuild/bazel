@@ -1,0 +1,51 @@
+#set ($path = "/versions/{{ site.version }}/be")
+#set ($bazelbuildGithub = "https://github.com/bazelbuild")
+
+<h3>Build Encyclopedia</h3>
+
+<ul class="sidebar-nav">
+  <li><a href="${path}/overview.html">Overview</a></li>
+
+  <li>
+
+    <a data-toggle="collapse" href="#be-menu" aria-expanded="false"
+        aria-controls="be-menu">
+      Concepts <span class="caret"></span>
+    </a>
+    <ul class="collapse sidebar-nav sidebar-submenu" id="be-menu">
+      <li><a href="${path}/common-definitions.html">Common Definitions</a></li>
+      <li><a href="${path}/make-variables.html">"Make" variables</a></li>
+    </ul>
+  </li>
+
+  <li>
+
+    <a data-toggle="collapse" href="#be-rules" aria-expanded="false"
+        aria-controls="be-rules">
+      Rules <span class="caret"></span>
+    </a>
+    <ul class="collapse sidebar-nav sidebar-submenu" id="be-rules">
+  <li><a href="${path}/functions.html">Functions</a></li>
+#foreach ($ruleFamily in $ruleFamilies)
+  #if ($ruleFamily.size() > 0)
+  <li><a href="${path}/${ruleFamily.id}.html">${ruleFamily.name}</a></li>
+  #end
+#end
+
+  <li><a href="${bazelbuildGithub}/rules_appengine" target="_blank">AppEngine</a></li>
+  <li><a href="${bazelbuildGithub}/rules_apple" target="_blank">Apple (Swift, iOS, macOS, tvOS, watchOS)</a></li>
+  <li><a href="${bazelbuildGithub}/rules_dotnet" target="_blank">C#</a></li>
+  <li><a href="${bazelbuildGithub}/rules_d" target="_blank">D</a></li>
+  <li><a href="${bazelbuildGithub}/rules_docker" target="_blank">Docker</a></li>
+  <li><a href="${bazelbuildGithub}/rules_groovy" target="_blank">Groovy</a></li>
+  <li><a href="${bazelbuildGithub}/rules_go" target="_blank">Go</a></li>
+  <li><a href="${bazelbuildGithub}/rules_closure" target="_blank">JavaScript (Closure)</a></li>
+  <li><a href="${bazelbuildGithub}/rules_jsonnet" target="_blank">Jsonnet</a></li>
+  <li><a href="${path}/pkg.html">Packaging</a></li>
+  <li><a href="${bazelbuildGithub}/rules_rust" target="_blank">Rust</a></li>
+  <li><a href="${bazelbuildGithub}/rules_sass" target="_blank">Sass</a></li>
+  <li><a href="${bazelbuildGithub}/rules_scala" target="_blank">Scala</a></li>
+  </ul>
+  </li>
+
+</ul>

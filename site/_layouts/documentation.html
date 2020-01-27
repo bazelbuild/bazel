@@ -1,0 +1,362 @@
+---
+nav: docs
+---
+
+<!-- /versions/master/foo/bar -> ["master", "foo", "bar"] -->
+<!-- /versions/0.12.3/baz.md -> ["0.12.3", "baz.md"] -->
+{% assign versioned_url_parts = page.url | split: '/' | shift | shift %}
+{% assign current_version = versioned_url_parts.first %}
+{% assign version_components = current_version | split: '.' %}
+{% if version_components.size < 2 %}
+{%   assign major_version = "master" %}
+{%   assign minor_version = "master" %}
+{% else %}
+{%   assign major_version = version_components[0] | plus:0 %}
+{%   assign minor_version = version_components[1] | plus:0 %}
+{% endif %}
+
+<!DOCTYPE html>
+<html lang="en" itemscope itemtype="https://schema.org/WebPage">
+  {% include head.html current_version=current_version %}
+  <body>
+    {% include header.html %}
+
+    <div class="page-title-bar">
+      <div class="container">
+        <h1>Documentation</h1>
+      </div>
+    </div>
+
+    <div class="container vpad">
+      <div class="row">
+        <div class="col-md-3">
+          <a class="btn btn-default btn-lg btn-block sidebar-toggle"
+              data-toggle="collapse" href="#sidebar-nav" aria-expanded="false"
+              aria-controls="sidebar-nav">
+            <i class="glyphicon glyphicon-menu-hamburger"></i> Navigation
+          </a>
+
+          <nav class="sidebar collapse" id="sidebar-nav">
+            <select onchange="location.href=this.value">
+                <option value="" selected disabled hidden>Version: {{ current_version }}</option>
+                {% for doc_version in site.doc_versions %}
+                <!-- reconstruct absolute url for the current page for each doc version -->
+                <option value="/{{ versioned_url_parts | shift | unshift: doc_version | unshift: 'versions' | join: '/' }}">
+                    {{ doc_version }}
+                </option>
+                {% endfor %}
+            </select>
+
+            <h3>Home</h3>
+            <ul class="sidebar-nav">
+              <li><a href="/versions/{{ current_version }}/bazel-overview.html">Bazel Overview</a></li>
+              <li><a href="/versions/{{ current_version }}/bazel-vision.html">Bazel Vision</a></li>
+              <li><a href="/versions/{{ current_version }}/getting-started.html">Getting Started</a></li>
+              <li><a href="/versions/{{ current_version }}/backward-compatibility.html">Backward Compatibility</a></li>
+            </ul>
+
+            <h3>Installing and Using Bazel</h3>
+            <ul class="sidebar-nav">
+
+              <li>
+                <a class="sidebar-nav-heading" data-toggle="collapse"
+                    href="#installing-menu" aria-expanded="false"
+                    aria-controls="installing-menu">
+                  Installing Bazel<span class="caret"></span>
+                </a>
+                <ul class="collapse sidebar-nav sidebar-submenu" id="installing-menu">
+                   <li><a href="/versions/{{ current_version }}/install.html">Installation Overview</a></li>
+                   <li><a href="/versions/{{ current_version }}/install-ubuntu.html">Installing on Ubuntu</a></li>
+                   <li><a href="/versions/{{ current_version }}/install-redhat.html">Installing on Fedora/CentOS</a></li>
+                   <li><a href="/versions/{{ current_version }}/install-os-x.html">Installing on macOS</a></li>
+                   <li><a href="/versions/{{ current_version }}/install-windows.html">Installing on Windows</a></li>
+                   <li><a href="/versions/{{ current_version }}/install-compile-source.html">Compiling from Source</a></li>
+                   <li><a href="/versions/{{ current_version }}/completion.html">Command-Line Completion</a></li>
+                   <li><a href="/versions/{{ current_version }}/ide.html">Integrating with IDEs</a></li>
+                </ul>
+              </li>
+
+              {% if major_version == "master" or major_version > 0 or minor_version > 28 %}
+              <li class="sidebar-nav">
+                <a href="/versions/{{ current_version }}/updating-bazel.html">Updating Bazel</a>
+              </li>
+              {% endif %}
+
+              <li>
+                <a class="sidebar-nav-heading" data-toggle="collapse"
+                    href="#using-menu" aria-expanded="false"
+                    aria-controls="using-menu">
+                  Using Bazel<span class="caret"></span>
+                </a>
+                <ul class="collapse sidebar-nav sidebar-submenu" id="using-menu">
+                  <li><a href="/versions/{{ current_version }}/build-ref.html">Bazel Concepts</a></li>
+                  <li><a href="/versions/{{ current_version }}/guide.html">User's Guide (Bazel commands)</a></li>
+                  <li><a href="/versions/{{ current_version }}/external.html">External Dependencies</a></li>
+                  <li><a href="/versions/{{ current_version }}/configurable-attributes.html">Configurable Attributes</a></li>
+                  <li><a href="/versions/{{ current_version }}/best-practices.html">Best Practices</a></li>
+                  <li><a href="/versions/{{ current_version }}/memory-saving-mode.html">Memory-saving Mode</a></li>
+                  <li><a href="/versions/{{ current_version }}/windows.html">Using Bazel on Windows</a></li>
+                </ul>
+              </li>
+
+              <li>
+                <a class="sidebar-nav-heading" data-toggle="collapse"
+                    href="#build-files-menu" aria-expanded="false"
+                    aria-controls="build-files-menu">
+                  BUILD files<span class="caret"></span>
+                </a>
+                <ul class="collapse sidebar-nav sidebar-submenu" id="build-files-menu">
+                  <li><a href="/versions/{{ current_version }}/be/functions.html">Functions</a></li>
+                  <li><a href="/versions/{{ current_version }}/be/common-definitions.html">Common Definitions</a></li>
+                  <li><a href="/versions/{{ current_version }}/be/make-variables.html">"Make" Variables</a></li>
+                  <li><a href="/versions/{{ current_version }}/skylark/tutorial-sharing-variables.html">Sharing Variables</a></li>
+                  <li><a href="/versions/{{ current_version }}/skylark/tutorial-creating-a-macro.html">Creating a Macro</a></li>
+                </ul>
+              </li>
+
+              {% if major_version != 0 %}
+                <li><a href="/versions/{{ current_version }}/rules.html">Rules</a></li>
+              {% endif %}
+
+              <li>
+                <a class="sidebar-nav-heading" data-toggle="collapse"
+                    href="#query-menu" aria-expanded="false"
+                    aria-controls="query-menu">
+                  Queries<span class="caret"></span>
+                </a>
+                <ul class="collapse sidebar-nav sidebar-submenu" id="query-menu">
+                  <li><a href="/versions/{{ current_version }}/query-how-to.html">Bazel query</a></li>
+                  <li><a href="/versions/{{ current_version }}/cquery.html">Bazel cquery</a></li>
+                  <li><a href="/versions/{{ current_version }}/aquery.html">Bazel aquery</a></li>
+                  <li><a href="/versions/{{ current_version }}/query.html">Query Language</a></li>
+                </ul>
+              </li>
+
+              <li>
+                <a class="sidebar-nav-heading" data-toggle="collapse"
+                    href="#remote-execution-menu" aria-expanded="false"
+                    aria-controls="remote-execution-menu">
+                  Remote Execution<span class="caret"></span>
+                </a>
+                <ul class="collapse sidebar-nav sidebar-submenu" id="remote-execution-menu">
+                   <li><a href="/versions/{{ current_version }}/remote-execution.html">Remote Execution Overview</a></li>
+                   <li><a href="/versions/{{ current_version }}/remote-execution-rules.html">Guidelines for Remote Execution</a></li>
+                   <li>
+                      <a class="sidebar-nav-heading" data-toggle="collapse"
+                          href="#troubleshoot-remote-execution-menu" aria-expanded="false"
+                          aria-controls="troubleshoot-remote-execution-menu">
+                        Troubleshooting Remote Execution<span class="caret"></span>
+                      </a>
+                      <ul class="collapse sidebar-nav sidebar-submenu" id="troubleshoot-remote-execution-menu">
+                         <li><a href="/versions/{{ current_version }}/remote-execution-sandbox.html">Troubleshooting Remote Execution with Bazel Sandbox</a></li>
+                         <li><a href="/versions/{{ current_version }}/workspace-log.html">Finding non-hermetic behavior in WORKSPACE rules</a></li>
+                         <li><a href="/versions/{{ current_version }}/remote-execution-caching-debug.html">Debugging Remote Cache Hit Rate</a></li>
+                      </ul>
+                  </li>
+                   <li><a href="/versions/{{ current_version }}/remote-execution-ci.html">Configuring Bazel CI for Remote Execution Rule Testing</a></li>
+                 </ul>
+              </li>
+
+              <li>
+                  <a class="sidebar-nav-heading" data-toggle="collapse"
+                      href="#remote-caching-menu" aria-expanded="false"
+                      aria-controls="remote-caching-menu">
+                    Remote Caching<span class="caret"></span>
+                  </a>
+                  <ul class="collapse sidebar-nav sidebar-submenu" id="remote-caching-menu">
+                     <li><a href="/versions/{{ current_version }}/remote-caching.html">Remote Caching Overview</a></li>
+                     <li><a href="/versions/{{ current_version }}/remote-caching-debug.html">Debugging Remote Cache Hit Rate for Local Execution</a></li>
+                  </ul>
+              </li>
+              {% if major_version == "master" or major_version > 1 or major_version == 1 and minor_version >= 1 %}
+              <li><a href="/versions/master/platforms-intro.html">Building With Platforms</a></li>
+              {% endif %}
+             </ul>
+
+           {% if major_version == 0 %}
+           <h3>Rules</h3>
+           <ul class="sidebar-nav">
+             <li><a href="/versions/{{ current_version }}/be/overview.html">Build Encyclopedia</a></li>
+
+              <li>
+                <a class="sidebar-nav-heading" data-toggle="collapse"
+                    href="#android-menu" aria-expanded="false"
+                    aria-controls="android-menu">
+                  Android<span class="caret"></span>
+                </a>
+                <ul class="collapse sidebar-nav sidebar-submenu" id="android-menu">
+                  <li><a href="/versions/{{ current_version }}/tutorial/android-app.html">Tutorial</a></li>
+                  <li><a href="/versions/{{ current_version }}/bazel-and-android.html">Android Resources</a></li>
+                  <li><a href="/versions/{{ current_version }}/mobile-install.html">Using mobile-install</a></li>
+                  <li><a href="/versions/{{ current_version }}/android-instrumentation-test.html">Android Instrumentation Tests</a></li>
+                  <li><a href="/versions/{{ current_version }}/android-ndk.html">Android NDK</a></li>
+                  <li><a href="https://plugins.jetbrains.com/plugin/9185-bazel">Android Studio Plugin</a></li>
+                </ul>
+              </li>
+
+               <li>
+                <a class="sidebar-nav-heading" data-toggle="collapse"
+                    href="#apple-menu" aria-expanded="false"
+                    aria-controls="apple-menu">
+                  Apple<span class="caret"></span>
+                </a>
+                <ul class="collapse sidebar-nav sidebar-submenu" id="apple-menu">
+                  <li><a href="/versions/{{ current_version }}/tutorial/ios-app.html">Tutorial</a></li>
+                  <li><a href="/versions/{{ current_version }}/bazel-and-apple.html">Apple Resources</a></li>
+                  <li><a href="/versions/{{ current_version }}/migrate-xcode.html">Migrating from Xcode</a></li>
+                  <li><a href="/versions/{{ current_version }}/migrate-cocoapods.html">Converting CocoaPods</a></li>
+                </ul>
+              </li>
+
+              <li>
+                <a class="sidebar-nav-heading" data-toggle="collapse"
+                    href="#cpp-menu" aria-expanded="false"
+                    aria-controls="cpp-menu">
+                  C++<span class="caret"></span>
+                </a>
+                <ul class="collapse sidebar-nav sidebar-submenu" id="cpp-menu">
+                  <li><a href="/versions/{{ current_version }}/tutorial/cpp.html">Tutorial</a></li>
+                  <li><a href="/versions/{{ current_version }}/bazel-and-cpp.html">C++ Resources</a></li>
+                  <li><a href="/versions/{{ current_version }}/cpp-use-cases.html">C++ Use Cases</a></li>
+                  <li>
+                    <a href="/versions/{{ current_version }}/cc-toolchain-config-reference.html">
+                      C++ Toolchain Configuration
+                    </a>
+                  </li>
+                  <li>
+                    <a href="/versions/{{ current_version }}/tutorial/cc-toolchain-config.html">
+                      Tutorial: Configuring C++ Toolchains
+                    </a>
+                  </li>
+                  <li>
+                    <a href="/versions/{{ current_version }}/integrating-with-rules-cc.html">
+                      Integrating with C++ rules
+                    </a>
+                  </li>
+                </ul>
+              </li>
+
+              <li>
+                <a class="sidebar-nav-heading" data-toggle="collapse"
+                    href="#java-menu" aria-expanded="false"
+                    aria-controls="java-menu">
+                  Java<span class="caret"></span>
+                </a>
+                <ul class="collapse sidebar-nav sidebar-submenu" id="java-menu">
+                  <li><a href="/versions/{{ current_version }}/tutorial/java.html">Tutorial</a></li>
+                  <li><a href="/versions/{{ current_version }}/bazel-and-java.html">Java Resources</a></li>
+                  <li><a href="/versions/{{ current_version }}/migrate-maven.html">Migrating from Maven</a></li>
+                  <li><a href="/versions/{{ current_version }}/generate-workspace.html">Converting Maven Dependencies</a></li>
+                </ul>
+              </li>
+
+              <li>
+                <a class="sidebar-nav-heading" data-toggle="collapse"
+                    href="#javascript-menu" aria-expanded="false"
+                    aria-controls="javascript-menu">
+                  JavaScript<span class="caret"></span>
+                </a>
+                <ul class="collapse sidebar-nav sidebar-submenu" id="javascript-menu">
+                  <li><a href="/versions/{{ current_version }}/bazel-and-javascript.html">JavaScript Resources</a></li>
+                  <li><a href="/versions/{{ current_version }}/build-javascript.html">Building JavaScript</a></li>
+                </ul>
+              </li>
+
+           </ul>
+           {% endif %}
+
+           <h3>Reference</h3>
+           <ul class="sidebar-nav">
+             <li><a href="/versions/{{ current_version }}/user-manual.html">Commands and Options</a></li>
+             <li><a href="/versions/{{ current_version }}/skylark/build-style.html">BUILD Style Guide</a></li>
+             <li><a href="/versions/{{ current_version }}/command-line-reference.html">Command Line Reference</a></li>
+             <li><a href="/versions/{{ current_version }}/test-encyclopedia.html">Writing Tests</a></li>
+             <li><a href="/versions/{{ current_version }}/build-event-protocol.html">Build Event Protocol</a></li>
+             <li><a href="/versions/{{ current_version }}/output_directories.html">Output Directory Layout</a></li>
+             <li><a href="/versions/{{ current_version }}/platforms.html">Platforms</a></li>
+             <li><a href="/versions/{{ current_version }}/toolchains.html">Toolchains</a></li>
+           </ul>
+
+            <h3>Extending Bazel</h3>
+           <ul class="sidebar-nav">
+              <li><a href="/versions/{{ current_version }}/skylark/concepts.html">Extension Overview</a></li>
+
+              <li>
+                <a class="sidebar-nav-heading" data-toggle="collapse"
+                    href="#starlark-concepts" aria-expanded="false"
+                    aria-controls="starlark-concepts">
+                  Concepts<span class="caret"></span>
+                </a>
+                <ul class="collapse sidebar-nav sidebar-submenu" id="starlark-concepts">
+                  <li><a href="/versions/{{ current_version }}/skylark/macros.html">Macros</a></li>
+                  <li><a href="/versions/{{ current_version }}/skylark/rules.html">Rules</a></li>
+                  <li><a href="/versions/{{ current_version }}/skylark/depsets.html">Depsets</a></li>
+                  <li><a href="/versions/{{ current_version }}/skylark/aspects.html">Aspects</a></li>
+                  <li><a href="/versions/{{ current_version }}/skylark/repository_rules.html">Repository Rules</a></li>
+                  <li><a href="/versions/{{ current_version }}/skylark/config.html">Configurations</a></li>
+                  <li><a href="/versions/{{ current_version }}/skylark/faq.html">FAQ</a></li>
+                </ul>
+              </li>
+
+              <li>
+                <a class="sidebar-nav-heading" data-toggle="collapse"
+                    href="#starlark-practices" aria-expanded="false"
+                    aria-controls="starlark-practices">
+                  Best Practices<span class="caret"></span>
+                </a>
+                <ul class="collapse sidebar-nav sidebar-submenu" id="starlark-practices">
+                  <li><a href="/versions/{{ current_version }}/skylark/bzl-style.html">.bzl Style Guide</a></li>
+                  <li><a href="/versions/{{ current_version }}/skylark/testing.html">Testing</a></li>
+                  <li><a href="https://skydoc.bazel.build" target="_blank">Documenting Rules</a></li>
+                  <li><a href="https://github.com/bazelbuild/buildtools/tree/master/buildifier">Linter</a></li>
+                  <li><a href="/versions/{{ current_version }}/skylark/performance.html">Optimizing Performance</a></li>
+                  <li><a href="/versions/{{ current_version }}/skylark/deploying.html">Deploying Rules</a></li>
+                  <li><a href="/versions/{{ current_version }}/skylark/windows_tips.html">Writing rules on Windows</a></li>
+                </ul>
+              </li>
+
+              <li><a href="https://github.com/bazelbuild/examples/tree/master/rules">Examples</a></li>
+              <li><a href="/versions/{{ current_version }}/skylark/lib/skylark-overview.html">API Reference</a></li>
+              <li><a href="/versions/{{ current_version }}/skylark/language.html">Starlark Language</a></li>
+            </ul>
+          </nav>
+        </div>
+
+        <div class="col-md-9">
+          <a id="gh-edit" class="gh-edit default-hidden"><i class="fa fa-pencil" aria-hidden="true"></i> Edit</a>
+          <script>
+            var versionDocsURLRegex = /\/versions\/[\w\.]+\/(.*)/;
+            var ghDocsBazeURL = 'https://github.com/bazelbuild/bazel/tree/master/site/docs/';
+            var editButton = document.getElementById('gh-edit');
+            // if there is an edit button and we are not in the Build Encyclopedia
+            // or other generated files.
+            if (editButton
+                && window.location.pathname.match(versionDocsURLRegex)
+                && window.location.pathname.lastIndexOf('/be/') == -1
+                && window.location.pathname.lastIndexOf('/repo/') == -1
+                && window.location.pathname.lastIndexOf('/skylark/lib/') == -1) {
+              var docFile = window.location.pathname.match(versionDocsURLRegex)[1];
+              // some pages are not using markdown :(
+              if (docFile !== 'user-manual.html'
+                  && docFile !== 'build-ref.html'
+                  && docFile !== 'query.html'
+                  && docFile !== 'test-encyclopedia.html') {
+                docFile = docFile.replace('html', 'md');
+              }
+              editButton.href = ghDocsBazeURL + docFile;
+              editButton.style.visibility = 'visible';
+            }
+          </script>
+
+          {{ content }}
+        </div>
+      </div>
+    </div>
+
+    <!-- Satisfaction Survey -->
+    <script async="" defer="" src="//www.google.com/insights/consumersurveys/async_survey?site=hihwpyy5e5kllsq62elzjrcgn4"></script>
+
+    {% include footer.html %}
+  </body>
+</html>
+

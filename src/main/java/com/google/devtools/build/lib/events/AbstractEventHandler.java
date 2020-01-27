@@ -1,4 +1,4 @@
-// Copyright 2014 Google Inc. All rights reserved.
+// Copyright 2014 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,11 +16,10 @@ package com.google.devtools.build.lib.events;
 import java.util.Set;
 
 /**
- * An abstract event handler that keeps track of the event mask. Events
- * matching the mask will be handled.
+ * An abstract event handler that keeps track of the event mask. Events matching the mask will be
+ * handled.
  */
 public abstract class AbstractEventHandler implements EventHandler {
-
   private final Set<EventKind> mask;
 
   /**

@@ -1,4 +1,4 @@
-// Copyright 2014 Google Inc. All rights reserved.
+// Copyright 2014 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,44 +14,74 @@
 
 package com.google.devtools.build.lib.analysis;
 
-import com.google.common.base.Joiner;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
-import com.google.common.collect.ListMultimap;
+import com.google.common.base.Verify;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.actions.ActionLookupValue;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.Artifact.SourceArtifact;
 import com.google.devtools.build.lib.actions.ArtifactFactory;
-import com.google.devtools.build.lib.actions.ArtifactOwner;
 import com.google.devtools.build.lib.actions.FailAction;
-import com.google.devtools.build.lib.actions.Root;
+import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
+import com.google.devtools.build.lib.analysis.DependencyResolver.DependencyKind;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.Fragment;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
+import com.google.devtools.build.lib.analysis.config.CoreOptions;
+import com.google.devtools.build.lib.analysis.config.FragmentOptions;
+import com.google.devtools.build.lib.analysis.configuredtargets.EnvironmentGroupConfiguredTarget;
+import com.google.devtools.build.lib.analysis.configuredtargets.InputFileConfiguredTarget;
+import com.google.devtools.build.lib.analysis.configuredtargets.OutputFileConfiguredTarget;
+import com.google.devtools.build.lib.analysis.configuredtargets.PackageGroupConfiguredTarget;
+import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
+import com.google.devtools.build.lib.analysis.skylark.SkylarkRuleConfiguredTargetUtil;
+import com.google.devtools.build.lib.analysis.test.AnalysisFailure;
+import com.google.devtools.build.lib.analysis.test.AnalysisFailureInfo;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.packages.AdvertisedProviderSet;
+import com.google.devtools.build.lib.packages.Aspect;
 import com.google.devtools.build.lib.packages.Attribute;
+import com.google.devtools.build.lib.packages.ConfigurationFragmentPolicy;
+import com.google.devtools.build.lib.packages.ConfigurationFragmentPolicy.MissingFragmentPolicy;
 import com.google.devtools.build.lib.packages.ConstantRuleVisibility;
+import com.google.devtools.build.lib.packages.EnvironmentGroup;
 import com.google.devtools.build.lib.packages.InputFile;
 import com.google.devtools.build.lib.packages.OutputFile;
 import com.google.devtools.build.lib.packages.PackageGroup;
 import com.google.devtools.build.lib.packages.PackageGroupsRuleVisibility;
 import com.google.devtools.build.lib.packages.PackageSpecification;
+import com.google.devtools.build.lib.packages.PackageSpecification.PackageGroupContents;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
+import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.RuleVisibility;
+import com.google.devtools.build.lib.packages.SkylarkProviderIdentifier;
 import com.google.devtools.build.lib.packages.Target;
-import com.google.devtools.build.lib.rules.SkylarkRuleConfiguredTargetBuilder;
+import com.google.devtools.build.lib.profiler.memory.CurrentRuleTracker;
+import com.google.devtools.build.lib.skyframe.AspectFunction.AspectFunctionException;
+import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
-import com.google.devtools.build.lib.syntax.Label;
-import com.google.devtools.build.lib.vfs.PathFragment;
-
-import java.util.ArrayList;
+import com.google.devtools.build.lib.util.ClassName;
+import com.google.devtools.build.lib.util.OrderedSetMultimap;
+import java.util.Collection;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
-
+import java.util.TreeSet;
+import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 
 /**
@@ -73,24 +103,26 @@ public final class ConfiguredTargetFactory {
    * Returns the visibility of the given target. Errors during package group resolution are reported
    * to the {@code AnalysisEnvironment}.
    */
-  private NestedSet<PackageSpecification> convertVisibility(
-      ListMultimap<Attribute, ConfiguredTarget> prerequisiteMap, EventHandler reporter,
-      Target target, BuildConfiguration packageGroupConfiguration) {
+  private NestedSet<PackageGroupContents> convertVisibility(
+      OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> prerequisiteMap,
+      EventHandler reporter,
+      Target target,
+      BuildConfiguration packageGroupConfiguration) {
     RuleVisibility ruleVisibility = target.getVisibility();
     if (ruleVisibility instanceof ConstantRuleVisibility) {
       return ((ConstantRuleVisibility) ruleVisibility).isPubliclyVisible()
-          ? NestedSetBuilder.<PackageSpecification>create(
-              Order.STABLE_ORDER, PackageSpecification.EVERYTHING)
-          : NestedSetBuilder.<PackageSpecification>emptySet(Order.STABLE_ORDER);
+          ? NestedSetBuilder.create(
+              Order.STABLE_ORDER,
+              PackageGroupContents.create(ImmutableList.of(PackageSpecification.everything())))
+          : NestedSetBuilder.emptySet(Order.STABLE_ORDER);
     } else if (ruleVisibility instanceof PackageGroupsRuleVisibility) {
       PackageGroupsRuleVisibility packageGroupsVisibility =
           (PackageGroupsRuleVisibility) ruleVisibility;
 
-      NestedSetBuilder<PackageSpecification> packageSpecifications =
-          NestedSetBuilder.stableOrder();
+      NestedSetBuilder<PackageGroupContents> result = NestedSetBuilder.stableOrder();
       for (Label groupLabel : packageGroupsVisibility.getPackageGroups()) {
         // PackageGroupsConfiguredTargets are always in the package-group configuration.
-        ConfiguredTarget group =
+        TransitiveInfoCollection group =
             findPrerequisite(prerequisiteMap, groupLabel, packageGroupConfiguration);
         PackageSpecificationProvider provider = null;
         // group == null can only happen if the package group list comes
@@ -105,95 +137,220 @@ public final class ConfiguredTargetFactory {
           provider = group.getProvider(PackageSpecificationProvider.class);
         }
         if (provider != null) {
-          packageSpecifications.addTransitive(provider.getPackageSpecifications());
+          result.addTransitive(provider.getPackageSpecifications());
         } else {
           reporter.handle(Event.error(target.getLocation(),
               String.format("Label '%s' does not refer to a package group", groupLabel)));
         }
       }
 
-      packageSpecifications.addAll(packageGroupsVisibility.getDirectPackages());
-      return packageSpecifications.build();
+      result.add(packageGroupsVisibility.getDirectPackages());
+      return result.build();
     } else {
       throw new IllegalStateException("unknown visibility");
     }
   }
 
-  private ConfiguredTarget findPrerequisite(
-      ListMultimap<Attribute, ConfiguredTarget> prerequisiteMap, Label label,
+  private TransitiveInfoCollection findPrerequisite(
+      OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> prerequisiteMap,
+      Label label,
       BuildConfiguration config) {
-    for (ConfiguredTarget prerequisite : prerequisiteMap.get(null)) {
-      if (prerequisite.getLabel().equals(label) && (prerequisite.getConfiguration() == config)) {
-        return prerequisite;
+    for (ConfiguredTargetAndData prerequisite :
+        prerequisiteMap.get(DependencyResolver.VISIBILITY_DEPENDENCY)) {
+      if (prerequisite.getTarget().getLabel().equals(label)
+          && Objects.equals(prerequisite.getConfiguration(), config)) {
+        return prerequisite.getConfiguredTarget();
       }
     }
     return null;
   }
 
-  private Artifact getOutputArtifact(OutputFile outputFile, BuildConfiguration configuration,
-      boolean isFileset, ArtifactFactory artifactFactory) {
-    Rule rule = outputFile.getAssociatedRule();
-    Root root = rule.hasBinaryOutput()
-        ? configuration.getBinDirectory()
-        : configuration.getGenfilesDirectory();
-    ArtifactOwner owner =
-        new ConfiguredTargetKey(rule.getLabel(), configuration.getArtifactOwnerConfiguration());
-    PathFragment rootRelativePath = Util.getWorkspaceRelativePath(outputFile);
-    Artifact result = isFileset
-        ? artifactFactory.getFilesetArtifact(rootRelativePath, root, owner)
-        : artifactFactory.getDerivedArtifact(rootRelativePath, root, owner);
-    // The associated rule should have created the artifact.
-    Preconditions.checkNotNull(result, "no artifact for %s", rootRelativePath);
-    return result;
-  }
-
   /**
    * Invokes the appropriate constructor to create a {@link ConfiguredTarget} instance.
+   *
    * <p>For use in {@code ConfiguredTargetFunction}.
    *
    * <p>Returns null if Skyframe deps are missing or upon certain errors.
    */
   @Nullable
-  public final ConfiguredTarget createConfiguredTarget(AnalysisEnvironment analysisEnvironment,
-      ArtifactFactory artifactFactory, Target target, BuildConfiguration config,
-      ListMultimap<Attribute, ConfiguredTarget> prerequisiteMap,
-      Set<ConfigMatchingProvider> configConditions)
-      throws InterruptedException {
+  public final ConfiguredTarget createConfiguredTarget(
+      AnalysisEnvironment analysisEnvironment,
+      ArtifactFactory artifactFactory,
+      Target target,
+      BuildConfiguration config,
+      BuildConfiguration hostConfig,
+      ConfiguredTargetKey configuredTargetKey,
+      OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> prerequisiteMap,
+      ImmutableMap<Label, ConfigMatchingProvider> configConditions,
+      @Nullable ResolvedToolchainContext toolchainContext)
+      throws InterruptedException, ActionConflictException {
     if (target instanceof Rule) {
-      return createRule(
-          analysisEnvironment, (Rule) target, config, prerequisiteMap, configConditions);
+      try {
+        CurrentRuleTracker.beginConfiguredTarget(((Rule) target).getRuleClassObject());
+        return createRule(
+            analysisEnvironment,
+            (Rule) target,
+            config,
+            hostConfig,
+            configuredTargetKey,
+            prerequisiteMap,
+            configConditions,
+            toolchainContext);
+      } finally {
+        CurrentRuleTracker.endConfiguredTarget();
+      }
     }
 
     // Visibility, like all package groups, doesn't have a configuration
-    NestedSet<PackageSpecification> visibility = convertVisibility(
-        prerequisiteMap, analysisEnvironment.getEventHandler(), target, null);
-    TargetContext targetContext = new TargetContext(analysisEnvironment, target, config,
-        prerequisiteMap.get(null), visibility);
+    NestedSet<PackageGroupContents> visibility =
+        convertVisibility(prerequisiteMap, analysisEnvironment.getEventHandler(), target, null);
     if (target instanceof OutputFile) {
       OutputFile outputFile = (OutputFile) target;
-      boolean isFileset = outputFile.getGeneratingRule().getRuleClass().equals("Fileset");
-      Artifact artifact = getOutputArtifact(outputFile, config, isFileset, artifactFactory);
-      TransitiveInfoCollection rule = targetContext.findDirectPrerequisite(
-          outputFile.getGeneratingRule().getLabel(), config);
-      if (isFileset) {
-        return new FilesetOutputConfiguredTarget(targetContext, outputFile, rule, artifact);
-      } else {
-        return new OutputFileConfiguredTarget(targetContext, outputFile, rule, artifact);
+      TargetContext targetContext =
+          new TargetContext(
+              analysisEnvironment,
+              target,
+              config,
+              prerequisiteMap.get(DependencyResolver.OUTPUT_FILE_RULE_DEPENDENCY),
+              visibility);
+      if (analysisEnvironment.getSkyframeEnv().valuesMissing()) {
+        return null;
       }
+      RuleConfiguredTarget rule =
+          (RuleConfiguredTarget)
+              targetContext.findDirectPrerequisite(
+                  outputFile.getGeneratingRule().getLabel(),
+                  // Don't pass a specific configuration, as we don't care what configuration the
+                  // generating rule is in. There can only be one actual dependency here, which is
+                  // the target that generated the output file.
+                  Optional.empty());
+      Verify.verifyNotNull(rule);
+      Artifact artifact = rule.getArtifactByOutputLabel(outputFile.getLabel());
+      return new OutputFileConfiguredTarget(targetContext, outputFile, rule, artifact);
     } else if (target instanceof InputFile) {
       InputFile inputFile = (InputFile) target;
-      Artifact artifact = artifactFactory.getSourceArtifact(
-          inputFile.getExecPath(),
-          Root.asSourceRoot(inputFile.getPackage().getSourceRoot()),
-          new ConfiguredTargetKey(target.getLabel(), config));
-
+      TargetContext targetContext =
+          new TargetContext(
+              analysisEnvironment,
+              target,
+              config,
+              prerequisiteMap.get(DependencyResolver.OUTPUT_FILE_RULE_DEPENDENCY),
+              visibility);
+      SourceArtifact artifact =
+          artifactFactory.getSourceArtifact(
+              inputFile.getExecPath(),
+              inputFile.getPackage().getSourceRoot(),
+              ConfiguredTargetKey.of(target.getLabel(), config));
       return new InputFileConfiguredTarget(targetContext, inputFile, artifact);
     } else if (target instanceof PackageGroup) {
       PackageGroup packageGroup = (PackageGroup) target;
+      TargetContext targetContext =
+          new TargetContext(
+              analysisEnvironment,
+              target,
+              config,
+              prerequisiteMap.get(DependencyResolver.VISIBILITY_DEPENDENCY),
+              visibility);
       return new PackageGroupConfiguredTarget(targetContext, packageGroup);
+    } else if (target instanceof EnvironmentGroup) {
+      TargetContext targetContext =
+          new TargetContext(analysisEnvironment, target, config, ImmutableSet.of(), visibility);
+      return new EnvironmentGroupConfiguredTarget(targetContext);
     } else {
       throw new AssertionError("Unexpected target class: " + target.getClass().getName());
     }
+  }
+
+  /**
+   * Returns a set of user-friendly strings identifying <i>almost</i> all of the pieces of config
+   * state that are required by this rule.
+   *
+   * <p>The returned config state includes things that are known to be required at the time when the
+   * rule's dependencies have already been analyzed but before the rule itself has been analyzed.
+   * See {@link RuleConfiguredTargetBuilder#maybeAddRequiredConfigFragmentsProvider} for the
+   * remaining pieces of config state.
+   *
+   * <p>The strings can be names of {@link BuildConfiguration.Fragment}s, names of {@link
+   * FragmentOptions}, and labels of user-defined options such as Starlark flags and Android feature
+   * flags.
+   *
+   * <p>If {@code configuration} is {@link CoreOptions.IncludeConfigFragmentsEnum#DIRECT}, the
+   * result includes only the config state considered to be directly required by this rule. If it's
+   * {@link CoreOptions.IncludeConfigFragmentsEnum#TRANSITIVE}, it also includes config state needed
+   * by transitive dependencies. If it's {@link CoreOptions.IncludeConfigFragmentEnum#OFF}, this
+   * method just returns an empty set.
+   *
+   * <p>{@code select()}s and toolchain dependencies are considered when looking at what config
+   * state is required.
+   *
+   * <p>TODO: This doesn't yet support fragments required by either native or Starlark transitions.
+   *
+   * @param rule The rule this is for
+   * @param configuration the configuration for this rule
+   * @param universallyRequiredFragments fragments that are always required even if not explicitly
+   *     specified for this rule
+   * @param directlyRequiredFragments fragments directly required by this rule's definition
+   * @param configConditions {@link FragmentOptions} required by {@code select}s on this rule. This
+   *     is a different type than the others: options and fragments are different concepts. There's
+   *     some subtlety to their relationship (e.g. a {@link FragmentOptions} can be associated with
+   *     multiple {@link BuildConfiguration.Fragment}s). Rather than trying to merge all results
+   *     into a pure set of {@link BuildConfiguration.Fragment}s we just allow the mix. In practice
+   *     the conceptual dependencies remain clear enough without trying to resolve these subtleties.
+   * @param prerequisites all prerequisties of this rule
+   * @return An alphabetically ordered set of required fragments, options, and labels of
+   *     user-defined options.
+   */
+  private static ImmutableSet<String> getRequiredConfigFragments(
+      Rule rule,
+      BuildConfiguration configuration,
+      Collection<Class<? extends BuildConfiguration.Fragment>> universallyRequiredFragments,
+      Collection<Class<?>> directlyRequiredFragments,
+      Collection<ConfigMatchingProvider> configConditions,
+      Iterable<ConfiguredTargetAndData> prerequisites) {
+    TreeSet<String> requiredFragments = new TreeSet<>();
+
+    CoreOptions coreOptions = configuration.getOptions().get(CoreOptions.class);
+    if (coreOptions.includeRequiredConfigFragmentsProvider
+        == CoreOptions.IncludeConfigFragmentsEnum.OFF) {
+      return ImmutableSet.of();
+    }
+
+    // Add directly required fragments:
+
+    // Fragments explicitly required by this rule:
+    directlyRequiredFragments.forEach(
+        fragment -> requiredFragments.add(ClassName.getSimpleNameWithOuter(fragment)));
+    // Fragments universally required by all rules:
+    universallyRequiredFragments.forEach(
+        fragment -> requiredFragments.add(ClassName.getSimpleNameWithOuter(fragment)));
+    // Fragments required by config_conditions this rule select()s on:
+    configConditions.forEach(
+        configCondition -> requiredFragments.addAll(configCondition.getRequiredFragmentOptions()));
+    // We consider build settings (which are both rules and configuration) to require themselves:
+    if (rule.isBuildSetting()) {
+      requiredFragments.add(rule.getLabel().toString());
+    }
+
+    for (ConfiguredTargetAndData prereq : prerequisites) {
+      // If the rule depends on a Starlark build setting, conceptually that means the rule directly
+      // requires that as an option (even though it's technically a dependency).
+      BuildSettingProvider buildSettingProvider =
+          prereq.getConfiguredTarget().getProvider(BuildSettingProvider.class);
+      if (buildSettingProvider != null) {
+        requiredFragments.add(buildSettingProvider.getLabel().toString());
+      }
+      if (coreOptions.includeRequiredConfigFragmentsProvider
+          == CoreOptions.IncludeConfigFragmentsEnum.TRANSITIVE) {
+        // Add fragments only required because the rule's transitive deps need them.
+        RequiredConfigFragmentsProvider depProvider =
+            prereq.getConfiguredTarget().getProvider(RequiredConfigFragmentsProvider.class);
+        if (depProvider != null) {
+          requiredFragments.addAll(depProvider.getRequiredConfigFragments());
+        }
+      }
+    }
+
+    return ImmutableSet.copyOf(requiredFragments);
   }
 
   /**
@@ -202,45 +359,163 @@ public final class ConfiguredTargetFactory {
    */
   @Nullable
   private ConfiguredTarget createRule(
-      AnalysisEnvironment env, Rule rule, BuildConfiguration configuration,
-      ListMultimap<Attribute, ConfiguredTarget> prerequisiteMap,
-      Set<ConfigMatchingProvider> configConditions) throws InterruptedException {
+      AnalysisEnvironment env,
+      Rule rule,
+      BuildConfiguration configuration,
+      BuildConfiguration hostConfiguration,
+      ConfiguredTargetKey configuredTargetKey,
+      OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> prerequisiteMap,
+      ImmutableMap<Label, ConfigMatchingProvider> configConditions,
+      @Nullable ResolvedToolchainContext toolchainContext)
+      throws InterruptedException, ActionConflictException {
+    ConfigurationFragmentPolicy configurationFragmentPolicy =
+        rule.getRuleClassObject().getConfigurationFragmentPolicy();
     // Visibility computation and checking is done for every rule.
-    RuleContext ruleContext = new RuleContext.Builder(env, rule, configuration,
-        ruleClassProvider.getPrerequisiteValidator())
-        .setVisibility(convertVisibility(prerequisiteMap, env.getEventHandler(), rule, null))
-        .setPrerequisites(prerequisiteMap)
-        .setConfigConditions(configConditions)
-        .build();
-    if (ruleContext.hasErrors()) {
-      return null;
+    RuleContext ruleContext =
+        new RuleContext.Builder(
+                env,
+                rule,
+                ImmutableList.of(),
+                configuration,
+                hostConfiguration,
+                ruleClassProvider.getPrerequisiteValidator(),
+                configurationFragmentPolicy,
+                configuredTargetKey)
+            .setVisibility(convertVisibility(prerequisiteMap, env.getEventHandler(), rule, null))
+            .setPrerequisites(transformPrerequisiteMap(prerequisiteMap, rule))
+            .setConfigConditions(configConditions)
+            .setUniversalFragments(ruleClassProvider.getUniversalFragments())
+            .setToolchainContext(toolchainContext)
+            .setConstraintSemantics(ruleClassProvider.getConstraintSemantics())
+            .setRequiredConfigFragments(
+                getRequiredConfigFragments(
+                    rule,
+                    configuration,
+                    ruleClassProvider.getUniversalFragments(),
+                    configurationFragmentPolicy.getRequiredConfigurationFragments(),
+                    configConditions.values(),
+                    prerequisiteMap.values()))
+            .build();
+
+    List<NestedSet<AnalysisFailure>> analysisFailures = depAnalysisFailures(ruleContext);
+    if (!analysisFailures.isEmpty()) {
+      return erroredConfiguredTargetWithFailures(ruleContext, analysisFailures);
     }
-    if (!rule.getRuleClassObject().getRequiredConfigurationFragments().isEmpty()) {
-      if (!configuration.hasAllFragments(
-          rule.getRuleClassObject().getRequiredConfigurationFragments())) {
-        if (rule.getRuleClassObject().failIfMissingConfigurationFragment()) {
-          ruleContext.ruleError(missingFragmentError(ruleContext));
+    if (ruleContext.hasErrors()) {
+      return erroredConfiguredTarget(ruleContext);
+    }
+
+    MissingFragmentPolicy missingFragmentPolicy =
+        configurationFragmentPolicy.getMissingFragmentPolicy();
+
+    try {
+      if (missingFragmentPolicy != MissingFragmentPolicy.IGNORE
+          && !configuration.hasAllFragments(
+              configurationFragmentPolicy.getRequiredConfigurationFragments())) {
+        if (missingFragmentPolicy == MissingFragmentPolicy.FAIL_ANALYSIS) {
+          ruleContext.ruleError(
+              missingFragmentError(
+                  ruleContext, configurationFragmentPolicy, configuration.checksum()));
           return null;
         }
+        // Otherwise missingFragmentPolicy == MissingFragmentPolicy.CREATE_FAIL_ACTIONS:
         return createFailConfiguredTarget(ruleContext);
       }
-    }
-    if (rule.getRuleClassObject().isSkylarkExecutable()) {
-      // TODO(bazel-team): maybe merge with RuleConfiguredTargetBuilder?
-      return SkylarkRuleConfiguredTargetBuilder.buildRule(
-          ruleContext, rule.getRuleClassObject().getConfiguredTargetFunction());
-    } else {
-      RuleClass.ConfiguredTargetFactory<ConfiguredTarget, RuleContext> factory =
-          rule.getRuleClassObject().<ConfiguredTarget, RuleContext>getConfiguredTargetFactory();
-      Preconditions.checkNotNull(factory, rule.getRuleClassObject());
-      return factory.create(ruleContext);
+      if (rule.getRuleClassObject().isSkylark()) {
+        // TODO(bazel-team): maybe merge with RuleConfiguredTargetBuilder?
+        ConfiguredTarget target =
+            SkylarkRuleConfiguredTargetUtil.buildRule(
+                ruleContext,
+                rule.getRuleClassObject().getAdvertisedProviders(),
+                rule.getRuleClassObject().getConfiguredTargetFunction(),
+                rule.getLocation(),
+                env.getSkylarkSemantics(),
+                ruleClassProvider.getToolsRepository());
+
+        return target != null ? target : erroredConfiguredTarget(ruleContext);
+      } else {
+        RuleClass.ConfiguredTargetFactory<ConfiguredTarget, RuleContext, ActionConflictException>
+            factory =
+                rule.getRuleClassObject()
+                    .<ConfiguredTarget, RuleContext, ActionConflictException>
+                        getConfiguredTargetFactory();
+        Preconditions.checkNotNull(factory, rule.getRuleClassObject());
+        return factory.create(ruleContext);
+      }
+    } catch (RuleErrorException ruleErrorException) {
+      // Returning null in this method is an indication a rule error occurred. Exceptions are not
+      // propagated, as this would show a nasty stack trace to users, and only provide info
+      // on one specific failure with poor messaging. By returning null, the caller can
+      // inspect ruleContext for multiple errors and output thorough messaging on each.
+      return erroredConfiguredTarget(ruleContext);
     }
   }
 
-  private String missingFragmentError(RuleContext ruleContext) {
+  private List<NestedSet<AnalysisFailure>> depAnalysisFailures(RuleContext ruleContext) {
+    if (ruleContext.getConfiguration().allowAnalysisFailures()) {
+      ImmutableList.Builder<NestedSet<AnalysisFailure>> analysisFailures = ImmutableList.builder();
+      Iterable<? extends TransitiveInfoCollection> infoCollections =
+          ruleContext.getConfiguredTargetMap().values();
+      for (TransitiveInfoCollection infoCollection : infoCollections) {
+        AnalysisFailureInfo failureInfo =
+            infoCollection.get(AnalysisFailureInfo.SKYLARK_CONSTRUCTOR);
+        if (failureInfo != null) {
+          analysisFailures.add(failureInfo.getCausesNestedSet());
+        }
+      }
+      return analysisFailures.build();
+    }
+    // Analysis failures are only created and propagated if --allow_analysis_failures is
+    // enabled, otherwise these result in actual rule errors which are not caught.
+    return ImmutableList.of();
+  }
+
+  private ConfiguredTarget erroredConfiguredTargetWithFailures(
+      RuleContext ruleContext, List<NestedSet<AnalysisFailure>> analysisFailures)
+      throws ActionConflictException {
+    RuleConfiguredTargetBuilder builder = new RuleConfiguredTargetBuilder(ruleContext);
+    builder.addNativeDeclaredProvider(AnalysisFailureInfo.forAnalysisFailureSets(analysisFailures));
+    builder.addProvider(RunfilesProvider.class, RunfilesProvider.simple(Runfiles.EMPTY));
+    return builder.build();
+  }
+
+  /**
+   * Returns a {@link ConfiguredTarget} which indicates that an analysis error occurred in
+   * processing the target. In most cases, this returns null, which signals to callers that
+   * the target failed to build and thus the build should fail. However, if analysis failures
+   * are allowed in this build, this returns a stub {@link ConfiguredTarget} which contains
+   * information about the failure.
+   */
+  @Nullable
+  private ConfiguredTarget erroredConfiguredTarget(RuleContext ruleContext)
+      throws ActionConflictException {
+    if (ruleContext.getConfiguration().allowAnalysisFailures()) {
+      ImmutableList.Builder<AnalysisFailure> analysisFailures = ImmutableList.builder();
+
+      for (String errorMessage : ruleContext.getSuppressedErrorMessages()) {
+        analysisFailures.add(new AnalysisFailure(ruleContext.getLabel(), errorMessage));
+      }
+      RuleConfiguredTargetBuilder builder = new RuleConfiguredTargetBuilder(ruleContext);
+      builder.addNativeDeclaredProvider(
+          AnalysisFailureInfo.forAnalysisFailures(analysisFailures.build()));
+      builder.addProvider(RunfilesProvider.class, RunfilesProvider.simple(Runfiles.EMPTY));
+      return builder.build();
+    } else {
+      // Returning a null ConfiguredTarget is an indication a rule error occurred. Exceptions are
+      // not propagated, as this would show a nasty stack trace to users, and only provide info
+      // on one specific failure with poor messaging. By returning null, the caller can
+      // inspect ruleContext for multiple errors and output thorough messaging on each.
+      return null;
+    }
+  }
+
+  private String missingFragmentError(
+      RuleContext ruleContext,
+      ConfigurationFragmentPolicy configurationFragmentPolicy,
+      String configurationId) {
     RuleClass ruleClass = ruleContext.getRule().getRuleClassObject();
     Set<Class<?>> missingFragments = new LinkedHashSet<>();
-    for (Class<?> fragment : ruleClass.getRequiredConfigurationFragments()) {
+    for (Class<?> fragment : configurationFragmentPolicy.getRequiredConfigurationFragments()) {
       if (!ruleContext.getConfiguration().hasFragment(fragment.asSubclass(Fragment.class))) {
         missingFragments.add(fragment);
       }
@@ -248,49 +523,163 @@ public final class ConfiguredTargetFactory {
     Preconditions.checkState(!missingFragments.isEmpty());
     StringBuilder result = new StringBuilder();
     result.append("all rules of type " + ruleClass.getName() + " require the presence of ");
-    List<String> names = new ArrayList<>();
-    for (Class<?> fragment : missingFragments) {
-      // TODO(bazel-team): Using getSimpleName here is sub-optimal, but we don't have anything
-      // better right now.
-      names.add(fragment.getSimpleName());
-    }
     result.append("all of [");
-    Joiner.on(",").appendTo(result, names);
-    result.append("], but these were all disabled");
+    result.append(
+        missingFragments.stream().map(Class::getSimpleName).collect(Collectors.joining(",")));
+    result.append("], but these were all disabled in configuration ").append(configurationId);
     return result.toString();
   }
 
+  @VisibleForTesting
+  public static OrderedSetMultimap<Attribute, ConfiguredTargetAndData> transformPrerequisiteMap(
+      OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> map, Target target) {
+    OrderedSetMultimap<Attribute, ConfiguredTargetAndData> result = OrderedSetMultimap.create();
+    for (Map.Entry<DependencyKind, ConfiguredTargetAndData> entry : map.entries()) {
+      if (entry.getKey() == DependencyResolver.TOOLCHAIN_DEPENDENCY) {
+        continue;
+      }
+      Attribute attribute = entry.getKey().getAttribute();
+      result.put(attribute, entry.getValue());
+    }
+
+    return result;
+  }
+
   /**
-   * Constructs an {@link Aspect}. Returns null if an error occurs; in that case,
-   * {@code aspectFactory} should call one of the error reporting methods of {@link RuleContext}.
+   * Constructs an {@link ConfiguredAspect}. Returns null if an error occurs; in that case, {@code
+   * aspectFactory} should call one of the error reporting methods of {@link RuleContext}.
    */
-  public Aspect createAspect(
-      AnalysisEnvironment env, RuleConfiguredTarget associatedTarget,
+  public ConfiguredAspect createAspect(
+      AnalysisEnvironment env,
+      ConfiguredTargetAndData associatedTarget,
+      ImmutableList<Aspect> aspectPath,
       ConfiguredAspectFactory aspectFactory,
-      ListMultimap<Attribute, ConfiguredTarget> prerequisiteMap,
-      Set<ConfigMatchingProvider> configConditions) {
-    RuleContext.Builder builder = new RuleContext.Builder(env,
-        associatedTarget.getTarget(),
-        associatedTarget.getConfiguration(),
-        ruleClassProvider.getPrerequisiteValidator());
-    RuleContext ruleContext = builder
-        .setVisibility(convertVisibility(
-            prerequisiteMap, env.getEventHandler(), associatedTarget.getTarget(), null))
-        .setPrerequisites(prerequisiteMap)
-        .setConfigConditions(configConditions)
-        .build();
-    if (ruleContext.hasErrors()) {
+      Aspect aspect,
+      OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> prerequisiteMap,
+      ImmutableMap<Label, ConfigMatchingProvider> configConditions,
+      @Nullable ResolvedToolchainContext toolchainContext,
+      BuildConfiguration aspectConfiguration,
+      BuildConfiguration hostConfiguration,
+      ActionLookupValue.ActionLookupKey aspectKey)
+      throws AspectFunctionException, InterruptedException {
+
+    RuleContext.Builder builder =
+        new RuleContext.Builder(
+            env,
+            associatedTarget.getTarget(),
+            aspectPath,
+            aspectConfiguration,
+            hostConfiguration,
+            ruleClassProvider.getPrerequisiteValidator(),
+            aspect.getDefinition().getConfigurationFragmentPolicy(),
+            aspectKey);
+
+    Map<String, Attribute> aspectAttributes = mergeAspectAttributes(aspectPath);
+
+    RuleContext ruleContext =
+        builder
+            .setVisibility(
+                convertVisibility(
+                    prerequisiteMap, env.getEventHandler(), associatedTarget.getTarget(), null))
+            .setPrerequisites(
+                transformPrerequisiteMap(prerequisiteMap, associatedTarget.getTarget()))
+            .setAspectAttributes(aspectAttributes)
+            .setConfigConditions(configConditions)
+            .setUniversalFragments(ruleClassProvider.getUniversalFragments())
+            .setToolchainContext(toolchainContext)
+            .setConstraintSemantics(ruleClassProvider.getConstraintSemantics())
+            .build();
+
+    // If allowing analysis failures, targets should be created as normal as possible, and errors
+    // will be propagated via a hook elsewhere as AnalysisFailureInfo.
+    boolean allowAnalysisFailures = ruleContext.getConfiguration().allowAnalysisFailures();
+
+    if (ruleContext.hasErrors() && !allowAnalysisFailures) {
       return null;
     }
 
-    return aspectFactory.create(associatedTarget, ruleContext);
+    ConfiguredAspect configuredAspect;
+    try {
+      configuredAspect =
+          aspectFactory.create(
+              associatedTarget,
+              ruleContext,
+              aspect.getParameters(),
+              ruleClassProvider.getToolsRepository());
+    } catch (ActionConflictException e) {
+      throw new AspectFunctionException(e);
+    }
+    if (configuredAspect != null) {
+      validateAdvertisedProviders(
+          configuredAspect, aspect.getDefinition().getAdvertisedProviders(),
+          associatedTarget.getTarget(),
+          env.getEventHandler()
+      );
+    }
+    return configuredAspect;
+  }
+
+  private ImmutableMap<String, Attribute> mergeAspectAttributes(ImmutableList<Aspect> aspectPath) {
+    if (aspectPath.isEmpty()) {
+      return ImmutableMap.of();
+    } else if (aspectPath.size() == 1) {
+      return aspectPath.get(0).getDefinition().getAttributes();
+    } else {
+
+      LinkedHashMap<String, Attribute> aspectAttributes = new LinkedHashMap<>();
+      for (Aspect underlyingAspect : aspectPath) {
+        ImmutableMap<String, Attribute> currentAttributes = underlyingAspect.getDefinition()
+            .getAttributes();
+        for (Map.Entry<String, Attribute> kv : currentAttributes.entrySet()) {
+          if (!aspectAttributes.containsKey(kv.getKey())) {
+            aspectAttributes.put(kv.getKey(), kv.getValue());
+          }
+        }
+      }
+      return ImmutableMap.copyOf(aspectAttributes);
+    }
+  }
+
+  private void validateAdvertisedProviders(
+      ConfiguredAspect configuredAspect,
+      AdvertisedProviderSet advertisedProviders, Target target,
+      EventHandler eventHandler) {
+    if (advertisedProviders.canHaveAnyProvider()) {
+      return;
+    }
+    for (Class<?> aClass : advertisedProviders.getNativeProviders()) {
+      if (configuredAspect.getProvider(aClass.asSubclass(TransitiveInfoProvider.class)) == null) {
+        eventHandler.handle(Event.error(
+            target.getLocation(),
+            String.format(
+                "Aspect '%s', applied to '%s', does not provide advertised provider '%s'",
+                configuredAspect.getName(),
+                target.getLabel(),
+                aClass.getSimpleName()
+            )));
+      }
+    }
+
+    for (SkylarkProviderIdentifier providerId : advertisedProviders.getSkylarkProviders()) {
+      if (configuredAspect.getProvider(providerId) == null) {
+        eventHandler.handle(Event.error(
+            target.getLocation(),
+            String.format(
+                "Aspect '%s', applied to '%s', does not provide advertised provider '%s'",
+                configuredAspect.getName(),
+                target.getLabel(),
+                providerId
+            )));
+      }
+    }
   }
 
   /**
    * A pseudo-implementation for configured targets that creates fail actions for all declared
    * outputs, both implicit and explicit.
    */
-  private static ConfiguredTarget createFailConfiguredTarget(RuleContext ruleContext) {
+  private static ConfiguredTarget createFailConfiguredTarget(RuleContext ruleContext)
+      throws RuleErrorException, ActionConflictException {
     RuleConfiguredTargetBuilder builder = new RuleConfiguredTargetBuilder(ruleContext);
     if (!ruleContext.getOutputArtifacts().isEmpty()) {
       ruleContext.registerAction(new FailAction(ruleContext.getActionOwner(),

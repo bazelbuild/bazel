@@ -1,0 +1,30 @@
+<a name="#${providerName}"></a>
+
+#[[##]]# ${providerName}
+
+<pre>
+${util.providerSummary($providerName, $providerInfo)}
+</pre>
+
+${util.htmlEscape($providerInfo.docString)}
+
+#if (!$providerInfo.fieldInfoList.isEmpty())
+#[[###]]# Fields
+
+<table class="params-table">
+  <colgroup>
+    <col class="col-param" />
+    <col class="col-description" />
+  </colgroup>
+  <tbody>
+#foreach ($field in $providerInfo.fieldInfoList)
+    <tr id="${providerName}-${field.name}">
+      <td><code>${field.name}</code></td>
+      <td>
+        <p>${field.docString}</p>
+      </td>
+    </tr>
+#end
+  </tbody>
+</table>
+#end

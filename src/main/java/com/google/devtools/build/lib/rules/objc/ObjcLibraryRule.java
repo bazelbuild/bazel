@@ -1,4 +1,4 @@
-// Copyright 2014 Google Inc. All rights reserved.
+// Copyright 2014 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -18,7 +18,9 @@ import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.packages.RuleClass;
-import com.google.devtools.build.lib.packages.RuleClass.Builder;
+import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
+import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
+import com.google.devtools.build.lib.rules.cpp.CppRuleClasses;
 
 /**
  * Rule definition for objc_library.
@@ -26,15 +28,19 @@ import com.google.devtools.build.lib.packages.RuleClass.Builder;
 public class ObjcLibraryRule implements RuleDefinition {
 
   @Override
-  public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
+  public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
     return builder
+        .requiresConfigurationFragments(
+            ObjcConfiguration.class, AppleConfiguration.class, CppConfiguration.class)
         /*<!-- #BLAZE_RULE(objc_library).IMPLICIT_OUTPUTS -->
         <ul>
-         <li><code><var>name</var>.xcodeproj/project.pbxproj</code>: An Xcode project file which
-             can be used to develop or build on a Mac.</li>
+         <li><code><var>name</var>_fully_linked.a</code>: A fully linked static library that
+             contains the full transitive closure of library dependencies.</li>
         </ul>
         <!-- #END_BLAZE_RULE.IMPLICIT_OUTPUTS -->*/
-        .setImplicitOutputsFunction(XcodeSupport.PBXPROJ)
+        .setImplicitOutputsFunction(CompilationSupport.FULLY_LINKED_LIB)
+        .cfg(AppleCrosstoolTransition.APPLE_CROSSTOOL_TRANSITION)
+        .addRequiredToolchains(CppRuleClasses.ccToolchainTypeAttribute(env))
         .build();
   }
 
@@ -44,19 +50,15 @@ public class ObjcLibraryRule implements RuleDefinition {
         .name("objc_library")
         .factoryClass(ObjcLibrary.class)
         .ancestors(BaseRuleClasses.BaseRule.class, ObjcRuleClasses.CompilingRule.class,
-            ObjcRuleClasses.AlwaysLinkRule.class, ObjcRuleClasses.XcodegenRule.class)
+            ObjcRuleClasses.AlwaysLinkRule.class, BaseRuleClasses.MakeVariableExpandingRule.class)
         .build();
   }
 }
 
 /*<!-- #BLAZE_RULE (NAME = objc_library, TYPE = LIBRARY, FAMILY = Objective-C) -->
 
-${ATTRIBUTE_SIGNATURE}
-
 <p>This rule produces a static library from the given Objective-C source files.</p>
 
 ${IMPLICIT_OUTPUTS}
-
-${ATTRIBUTE_DEFINITION}
 
 <!-- #END_BLAZE_RULE -->*/

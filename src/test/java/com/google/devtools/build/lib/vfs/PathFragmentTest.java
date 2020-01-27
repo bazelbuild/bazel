@@ -1,4 +1,4 @@
-// Copyright 2014 Google Inc. All rights reserved.
+// Copyright 2014 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -13,447 +13,561 @@
 // limitations under the License.
 package com.google.devtools.build.lib.vfs;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNull;
-import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.fail;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
+import static com.google.devtools.build.lib.vfs.PathFragment.create;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 import com.google.common.testing.EqualsTester;
-import com.google.devtools.build.lib.testutil.MoreAsserts;
+import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationTester;
 import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
-
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
-
 import java.io.File;
 import java.util.Collections;
 import java.util.List;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 /**
  * This class tests the functionality of the PathFragment.
  */
 @RunWith(JUnit4.class)
 public class PathFragmentTest {
-  @Test
-  public void testMergeFourPathsWithAbsolute() {
-    assertEquals(new PathFragment("x/y/z/a/b/c/d/e"),
-        new PathFragment(new PathFragment("x/y"), new PathFragment("z/a"),
-            new PathFragment("/b/c"), // absolute!
-            new PathFragment("d/e")));
-  }
 
   @Test
   public void testEqualsAndHashCode() {
     InMemoryFileSystem filesystem = new InMemoryFileSystem();
 
     new EqualsTester()
-        .addEqualityGroup(new PathFragment("../relative/path"),
-                          new PathFragment("../relative/path"),
-                          new PathFragment(new File("../relative/path")))
-        .addEqualityGroup(new PathFragment("something/else"))
-        .addEqualityGroup(new PathFragment("/something/else"))
-        .addEqualityGroup(new PathFragment("/"),
-                          new PathFragment("//////"))
-        .addEqualityGroup(new PathFragment(""))
-        .addEqualityGroup(filesystem.getRootDirectory())  // A Path object.
+        .addEqualityGroup(
+            create("../relative/path"),
+            create("..").getRelative("relative").getRelative("path"),
+            create(new File("../relative/path").getPath()))
+        .addEqualityGroup(create("something/else"))
+        .addEqualityGroup(create("/something/else"))
+        .addEqualityGroup(create("/"), create("//////"))
+        .addEqualityGroup(create(""), PathFragment.EMPTY_FRAGMENT)
+        .addEqualityGroup(filesystem.getPath("/")) // A Path object.
         .testEquals();
   }
 
   @Test
   public void testHashCodeCache() {
-    PathFragment relativePath = new PathFragment("../relative/path");
-    PathFragment rootPath = new PathFragment("/");
+    PathFragment relativePath = create("../relative/path");
+    PathFragment rootPath = create("/");
 
     int oldResult = relativePath.hashCode();
     int rootResult = rootPath.hashCode();
-    assertEquals(oldResult, relativePath.hashCode());
-    assertEquals(rootResult, rootPath.hashCode());
-  }
-
-  private void checkRelativeTo(String path, String base) {
-    PathFragment relative = new PathFragment(path).relativeTo(base);
-    assertEquals(new PathFragment(path), new PathFragment(base).getRelative(relative).normalize());
+    assertThat(relativePath.hashCode()).isEqualTo(oldResult);
+    assertThat(rootPath.hashCode()).isEqualTo(rootResult);
   }
 
   @Test
   public void testRelativeTo() {
-    assertPath("bar/baz", new PathFragment("foo/bar/baz").relativeTo("foo"));
-    assertPath("bar/baz", new PathFragment("/foo/bar/baz").relativeTo("/foo"));
-    assertPath("baz", new PathFragment("foo/bar/baz").relativeTo("foo/bar"));
-    assertPath("baz", new PathFragment("/foo/bar/baz").relativeTo("/foo/bar"));
-    assertPath("foo", new PathFragment("/foo").relativeTo("/"));
-    assertPath("foo", new PathFragment("foo").relativeTo(""));
-    assertPath("foo/bar", new PathFragment("foo/bar").relativeTo(""));
-
-    checkRelativeTo("foo/bar/baz", "foo");
-    checkRelativeTo("/foo/bar/baz", "/foo");
-    checkRelativeTo("foo/bar/baz", "foo/bar");
-    checkRelativeTo("/foo/bar/baz", "/foo/bar");
-    checkRelativeTo("/foo", "/");
-    checkRelativeTo("foo", "");
-    checkRelativeTo("foo/bar", "");
+    assertThat(create("foo/bar/baz").relativeTo("foo").getPathString()).isEqualTo("bar/baz");
+    assertThat(create("/foo/bar/baz").relativeTo("/foo").getPathString()).isEqualTo("bar/baz");
+    assertThat(create("foo/bar/baz").relativeTo("foo/bar").getPathString()).isEqualTo("baz");
+    assertThat(create("/foo/bar/baz").relativeTo("/foo/bar").getPathString()).isEqualTo("baz");
+    assertThat(create("/foo").relativeTo("/").getPathString()).isEqualTo("foo");
+    assertThat(create("foo").relativeTo("").getPathString()).isEqualTo("foo");
+    assertThat(create("foo/bar").relativeTo("").getPathString()).isEqualTo("foo/bar");
   }
 
   @Test
   public void testIsAbsolute() {
-    assertTrue(new PathFragment("/absolute/test").isAbsolute());
-    assertFalse(new PathFragment("relative/test").isAbsolute());
-    assertTrue(new PathFragment(new File("/absolute/test")).isAbsolute());
-    assertFalse(new PathFragment(new File("relative/test")).isAbsolute());
+    assertThat(create("/absolute/test").isAbsolute()).isTrue();
+    assertThat(create("relative/test").isAbsolute()).isFalse();
+    assertThat(create(new File("/absolute/test").getPath()).isAbsolute()).isTrue();
+    assertThat(create(new File("relative/test").getPath()).isAbsolute()).isFalse();
   }
 
   @Test
   public void testIsNormalized() {
-    assertTrue(new PathFragment("/absolute/path").isNormalized());
-    assertTrue(new PathFragment("some//path").isNormalized());
-    assertFalse(new PathFragment("some/./path").isNormalized());
-    assertFalse(new PathFragment("../some/path").isNormalized());
-    assertFalse(new PathFragment("some/other/../path").isNormalized());
-    assertTrue(new PathFragment("some/other//tricky..path..").isNormalized());
-    assertTrue(new PathFragment("/some/other//tricky..path..").isNormalized());
+    assertThat(PathFragment.isNormalized("/absolute/path")).isTrue();
+    assertThat(PathFragment.isNormalized("some//path")).isTrue();
+    assertThat(PathFragment.isNormalized("some/./path")).isFalse();
+    assertThat(PathFragment.isNormalized("../some/path")).isFalse();
+    assertThat(PathFragment.isNormalized("./some/path")).isFalse();
+    assertThat(PathFragment.isNormalized("some/path/..")).isFalse();
+    assertThat(PathFragment.isNormalized("some/path/.")).isFalse();
+    assertThat(PathFragment.isNormalized("some/other/../path")).isFalse();
+    assertThat(PathFragment.isNormalized("some/other//tricky..path..")).isTrue();
+    assertThat(PathFragment.isNormalized("/some/other//tricky..path..")).isTrue();
+  }
+
+  @Test
+  public void testContainsUpLevelReferences() {
+    assertThat(PathFragment.containsUplevelReferences("/absolute/path")).isFalse();
+    assertThat(PathFragment.containsUplevelReferences("some//path")).isFalse();
+    assertThat(PathFragment.containsUplevelReferences("some/./path")).isFalse();
+    assertThat(PathFragment.containsUplevelReferences("../some/path")).isTrue();
+    assertThat(PathFragment.containsUplevelReferences("./some/path")).isFalse();
+    assertThat(PathFragment.containsUplevelReferences("some/path/..")).isTrue();
+    assertThat(PathFragment.containsUplevelReferences("some/path/.")).isFalse();
+    assertThat(PathFragment.containsUplevelReferences("some/other/../path")).isTrue();
+    assertThat(PathFragment.containsUplevelReferences("some/other//tricky..path..")).isFalse();
+    assertThat(PathFragment.containsUplevelReferences("/some/other//tricky..path..")).isFalse();
+
+    // Normalization cannot remove leading uplevel references, so this will be true
+    assertThat(create("../some/path").containsUplevelReferences()).isTrue();
+    // Normalization will remove these, so no uplevel references left
+    assertThat(create("some/path/..").containsUplevelReferences()).isFalse();
   }
 
   @Test
   public void testRootNodeReturnsRootString() {
-    PathFragment rootFragment = new PathFragment("/");
-    assertEquals("/", rootFragment.getPathString());
-  }
-
-  @Test
-  public void testGetPathFragmentDoesNotNormalize() {
-    String nonCanonicalPath = "/a/weird/noncanonical/../path/.";
-    assertEquals(nonCanonicalPath,
-        new PathFragment(nonCanonicalPath).getPathString());
+    PathFragment rootFragment = create("/");
+    assertThat(rootFragment.getPathString()).isEqualTo("/");
   }
 
   @Test
   public void testGetRelative() {
-    assertEquals("a/b", new PathFragment("a").getRelative("b").getPathString());
-    assertEquals("a/b/c/d", new PathFragment("a/b").getRelative("c/d").getPathString());
-    assertEquals("/a/b", new PathFragment("c/d").getRelative("/a/b").getPathString());
-    assertEquals("a", new PathFragment("a").getRelative("").getPathString());
-    assertEquals("/", new PathFragment("/").getRelative("").getPathString());
+    assertThat(create("a").getRelative("b").getPathString()).isEqualTo("a/b");
+    assertThat(create("a/b").getRelative("c/d").getPathString()).isEqualTo("a/b/c/d");
+    assertThat(create("c/d").getRelative("/a/b").getPathString()).isEqualTo("/a/b");
+    assertThat(create("a").getRelative("").getPathString()).isEqualTo("a");
+    assertThat(create("/").getRelative("").getPathString()).isEqualTo("/");
+    assertThat(create("a/b").getRelative("../foo").getPathString()).isEqualTo("a/foo");
+    assertThat(create("/a/b").getRelative("../foo").getPathString()).isEqualTo("/a/foo");
+
+    // Make sure any fast path of PathFragment#getRelative(PathFragment) works
+    assertThat(create("a/b").getRelative(create("../foo")).getPathString()).isEqualTo("a/foo");
+    assertThat(create("/a/b").getRelative(create("../foo")).getPathString()).isEqualTo("/a/foo");
+
+    // Make sure any fast path of PathFragment#getRelative(PathFragment) works
+    assertThat(create("c/d").getRelative(create("/a/b")).getPathString()).isEqualTo("/a/b");
+
+    // Test normalization
+    assertThat(create("a").getRelative(".").getPathString()).isEqualTo("a");
+  }
+
+  @Test
+  public void testIsNormalizedRelativePath() {
+    assertThat(PathFragment.isNormalizedRelativePath("/a")).isFalse();
+    assertThat(PathFragment.isNormalizedRelativePath("a///b")).isFalse();
+    assertThat(PathFragment.isNormalizedRelativePath("../a")).isFalse();
+    assertThat(PathFragment.isNormalizedRelativePath("a/../b")).isFalse();
+    assertThat(PathFragment.isNormalizedRelativePath("a/b")).isTrue();
+    assertThat(PathFragment.isNormalizedRelativePath("ab")).isTrue();
+  }
+
+  @Test
+  public void testContainsSeparator() {
+    assertThat(PathFragment.containsSeparator("/a")).isTrue();
+    assertThat(PathFragment.containsSeparator("a///b")).isTrue();
+    assertThat(PathFragment.containsSeparator("../a")).isTrue();
+    assertThat(PathFragment.containsSeparator("a/../b")).isTrue();
+    assertThat(PathFragment.containsSeparator("a/b")).isTrue();
+    assertThat(PathFragment.containsSeparator("ab")).isFalse();
   }
 
   @Test
   public void testGetChildWorks() {
-    PathFragment pf = new PathFragment("../some/path");
-    assertEquals(new PathFragment("../some/path/hi"), pf.getChild("hi"));
+    PathFragment pf = create("../some/path");
+    assertThat(pf.getChild("hi")).isEqualTo(create("../some/path/hi"));
   }
 
   @Test
   public void testGetChildRejectsInvalidBaseNames() {
-    PathFragment pf = new PathFragment("../some/path");
-    assertGetChildFails(pf, ".");
-    assertGetChildFails(pf, "..");
-    assertGetChildFails(pf, "x/y");
-    assertGetChildFails(pf, "/y");
-    assertGetChildFails(pf, "y/");
-    assertGetChildFails(pf, "");
-  }
-
-  private void assertGetChildFails(PathFragment pf, String baseName) {
-    try {
-      pf.getChild(baseName);
-      fail();
-    } catch (Exception e) { /* Expected. */ }
-  }
-
-  // Tests after here test the canonicalization
-  private void assertRegular(String expected, String actual) {
-    assertEquals(expected, new PathFragment(actual).getPathString()); // compare string forms
-    assertEquals(new PathFragment(expected), new PathFragment(actual)); // compare fragment forms
+    PathFragment pf = create("../some/path");
+    assertThrows(IllegalArgumentException.class, () -> pf.getChild("."));
+    assertThrows(IllegalArgumentException.class, () -> pf.getChild(".."));
+    assertThrows(IllegalArgumentException.class, () -> pf.getChild("x/y"));
+    assertThrows(IllegalArgumentException.class, () -> pf.getChild("/y"));
+    assertThrows(IllegalArgumentException.class, () -> pf.getChild("y/"));
+    assertThrows(IllegalArgumentException.class, () -> pf.getChild(""));
   }
 
   @Test
   public void testEmptyPathToEmptyPath() {
-    assertRegular("/", "/");
-    assertRegular("", "");
+    assertThat(create("/").getPathString()).isEqualTo("/");
+    assertThat(create("").getPathString()).isEqualTo("");
   }
 
   @Test
   public void testRedundantSlashes() {
-    assertRegular("/", "///");
-    assertRegular("/foo/bar", "/foo///bar");
-    assertRegular("/foo/bar", "////foo//bar");
+    assertThat(create("///").getPathString()).isEqualTo("/");
+    assertThat(create("/foo///bar").getPathString()).isEqualTo("/foo/bar");
+    assertThat(create("////foo//bar").getPathString()).isEqualTo("/foo/bar");
   }
 
   @Test
   public void testSimpleNameToSimpleName() {
-    assertRegular("/foo", "/foo");
-    assertRegular("foo", "foo");
+    assertThat(create("/foo").getPathString()).isEqualTo("/foo");
+    assertThat(create("foo").getPathString()).isEqualTo("foo");
   }
 
   @Test
   public void testSimplePathToSimplePath() {
-    assertRegular("/foo/bar", "/foo/bar");
-    assertRegular("foo/bar", "foo/bar");
+    assertThat(create("/foo/bar").getPathString()).isEqualTo("/foo/bar");
+    assertThat(create("foo/bar").getPathString()).isEqualTo("foo/bar");
   }
 
   @Test
   public void testStripsTrailingSlash() {
-    assertRegular("/foo/bar", "/foo/bar/");
+    assertThat(create("/foo/bar/").getPathString()).isEqualTo("/foo/bar");
   }
 
   @Test
   public void testGetParentDirectory() {
-    PathFragment fooBarWiz = new PathFragment("foo/bar/wiz");
-    PathFragment fooBar = new PathFragment("foo/bar");
-    PathFragment foo = new PathFragment("foo");
-    PathFragment empty = new PathFragment("");
-    assertEquals(fooBar, fooBarWiz.getParentDirectory());
-    assertEquals(foo, fooBar.getParentDirectory());
-    assertEquals(empty, foo.getParentDirectory());
-    assertNull(empty.getParentDirectory());
+    PathFragment fooBarWiz = create("foo/bar/wiz");
+    PathFragment fooBar = create("foo/bar");
+    PathFragment foo = create("foo");
+    PathFragment empty = create("");
+    assertThat(fooBarWiz.getParentDirectory()).isEqualTo(fooBar);
+    assertThat(fooBar.getParentDirectory()).isEqualTo(foo);
+    assertThat(foo.getParentDirectory()).isEqualTo(empty);
+    assertThat(empty.getParentDirectory()).isNull();
 
-    PathFragment fooBarWizAbs = new PathFragment("/foo/bar/wiz");
-    PathFragment fooBarAbs = new PathFragment("/foo/bar");
-    PathFragment fooAbs = new PathFragment("/foo");
-    PathFragment rootAbs = new PathFragment("/");
-    assertEquals(fooBarAbs, fooBarWizAbs.getParentDirectory());
-    assertEquals(fooAbs, fooBarAbs.getParentDirectory());
-    assertEquals(rootAbs, fooAbs.getParentDirectory());
-    assertNull(rootAbs.getParentDirectory());
-
-    // Note, this is surprising but correct behavior:
-    assertEquals(fooBarAbs,
-                 new PathFragment("/foo/bar/..").getParentDirectory());
+    PathFragment fooBarWizAbs = create("/foo/bar/wiz");
+    PathFragment fooBarAbs = create("/foo/bar");
+    PathFragment fooAbs = create("/foo");
+    PathFragment rootAbs = create("/");
+    assertThat(fooBarWizAbs.getParentDirectory()).isEqualTo(fooBarAbs);
+    assertThat(fooBarAbs.getParentDirectory()).isEqualTo(fooAbs);
+    assertThat(fooAbs.getParentDirectory()).isEqualTo(rootAbs);
+    assertThat(rootAbs.getParentDirectory()).isNull();
   }
-  
+
   @Test
   public void testSegmentsCount() {
-    assertEquals(2, new PathFragment("foo/bar").segmentCount());
-    assertEquals(2, new PathFragment("/foo/bar").segmentCount());
-    assertEquals(2, new PathFragment("foo//bar").segmentCount());
-    assertEquals(2, new PathFragment("/foo//bar").segmentCount());
-    assertEquals(1, new PathFragment("foo/").segmentCount());
-    assertEquals(1, new PathFragment("/foo/").segmentCount());
-    assertEquals(1, new PathFragment("foo").segmentCount());
-    assertEquals(1, new PathFragment("/foo").segmentCount());
-    assertEquals(0, new PathFragment("/").segmentCount());
-    assertEquals(0, new PathFragment("").segmentCount());
+    assertThat(create("foo/bar").segmentCount()).isEqualTo(2);
+    assertThat(create("/foo/bar").segmentCount()).isEqualTo(2);
+    assertThat(create("foo//bar").segmentCount()).isEqualTo(2);
+    assertThat(create("/foo//bar").segmentCount()).isEqualTo(2);
+    assertThat(create("foo/").segmentCount()).isEqualTo(1);
+    assertThat(create("/foo/").segmentCount()).isEqualTo(1);
+    assertThat(create("foo").segmentCount()).isEqualTo(1);
+    assertThat(create("/foo").segmentCount()).isEqualTo(1);
+    assertThat(create("/").segmentCount()).isEqualTo(0);
+    assertThat(create("").segmentCount()).isEqualTo(0);
   }
 
 
   @Test
   public void testGetSegment() {
-    assertEquals("foo", new PathFragment("foo/bar").getSegment(0));
-    assertEquals("bar", new PathFragment("foo/bar").getSegment(1));
-    assertEquals("foo", new PathFragment("/foo/bar").getSegment(0));
-    assertEquals("bar", new PathFragment("/foo/bar").getSegment(1));
-    assertEquals("foo", new PathFragment("foo/").getSegment(0));
-    assertEquals("foo", new PathFragment("/foo/").getSegment(0));
-    assertEquals("foo", new PathFragment("foo").getSegment(0));
-    assertEquals("foo", new PathFragment("/foo").getSegment(0));
+    assertThat(create("foo/bar").getSegment(0)).isEqualTo("foo");
+    assertThat(create("foo/bar").getSegment(1)).isEqualTo("bar");
+    assertThat(create("/foo/bar").getSegment(0)).isEqualTo("foo");
+    assertThat(create("/foo/bar").getSegment(1)).isEqualTo("bar");
+    assertThat(create("foo/").getSegment(0)).isEqualTo("foo");
+    assertThat(create("/foo/").getSegment(0)).isEqualTo("foo");
+    assertThat(create("foo").getSegment(0)).isEqualTo("foo");
+    assertThat(create("/foo").getSegment(0)).isEqualTo("foo");
   }
 
   @Test
   public void testBasename() throws Exception {
-    assertEquals("bar", new PathFragment("foo/bar").getBaseName());
-    assertEquals("bar", new PathFragment("/foo/bar").getBaseName());
-    assertEquals("foo", new PathFragment("foo/").getBaseName());
-    assertEquals("foo", new PathFragment("/foo/").getBaseName());
-    assertEquals("foo", new PathFragment("foo").getBaseName());
-    assertEquals("foo", new PathFragment("/foo").getBaseName());
-    assertThat(new PathFragment("/").getBaseName()).isEmpty();
-    assertThat(new PathFragment("").getBaseName()).isEmpty();
+    assertThat(create("foo/bar").getBaseName()).isEqualTo("bar");
+    assertThat(create("/foo/bar").getBaseName()).isEqualTo("bar");
+    assertThat(create("foo/").getBaseName()).isEqualTo("foo");
+    assertThat(create("/foo/").getBaseName()).isEqualTo("foo");
+    assertThat(create("foo").getBaseName()).isEqualTo("foo");
+    assertThat(create("/foo").getBaseName()).isEqualTo("foo");
+    assertThat(create("/").getBaseName()).isEmpty();
+    assertThat(create("").getBaseName()).isEmpty();
   }
 
-  private static void assertPath(String expected, PathFragment actual) {
-    assertEquals(expected, actual.getPathString());
+  @Test
+  public void testFileExtension() throws Exception {
+    assertThat(create("foo.bar").getFileExtension()).isEqualTo("bar");
+    assertThat(create("foo.barr").getFileExtension()).isEqualTo("barr");
+    assertThat(create("foo.b").getFileExtension()).isEqualTo("b");
+    assertThat(create("foo.").getFileExtension()).isEmpty();
+    assertThat(create("foo").getFileExtension()).isEmpty();
+    assertThat(create(".").getFileExtension()).isEmpty();
+    assertThat(create("").getFileExtension()).isEmpty();
+    assertThat(create("foo/bar.baz").getFileExtension()).isEqualTo("baz");
+    assertThat(create("foo.bar.baz").getFileExtension()).isEqualTo("baz");
+    assertThat(create("foo.bar/baz").getFileExtension()).isEmpty();
   }
 
   @Test
   public void testReplaceName() throws Exception {
-    assertPath("foo/baz", new PathFragment("foo/bar").replaceName("baz"));
-    assertPath("/foo/baz", new PathFragment("/foo/bar").replaceName("baz"));
-    assertPath("foo", new PathFragment("foo/bar").replaceName(""));
-    assertPath("baz", new PathFragment("foo/").replaceName("baz"));
-    assertPath("/baz", new PathFragment("/foo/").replaceName("baz"));
-    assertPath("baz", new PathFragment("foo").replaceName("baz"));
-    assertPath("/baz", new PathFragment("/foo").replaceName("baz"));
-    assertNull(new PathFragment("/").replaceName("baz"));
-    assertNull(new PathFragment("/").replaceName(""));
-    assertNull(new PathFragment("").replaceName("baz"));
-    assertNull(new PathFragment("").replaceName(""));
+    assertThat(create("foo/bar").replaceName("baz").getPathString()).isEqualTo("foo/baz");
+    assertThat(create("/foo/bar").replaceName("baz").getPathString()).isEqualTo("/foo/baz");
+    assertThat(create("foo/bar").replaceName("").getPathString()).isEqualTo("foo");
+    assertThat(create("foo/").replaceName("baz").getPathString()).isEqualTo("baz");
+    assertThat(create("/foo/").replaceName("baz").getPathString()).isEqualTo("/baz");
+    assertThat(create("foo").replaceName("baz").getPathString()).isEqualTo("baz");
+    assertThat(create("/foo").replaceName("baz").getPathString()).isEqualTo("/baz");
+    assertThat(create("/").replaceName("baz")).isNull();
+    assertThat(create("/").replaceName("")).isNull();
+    assertThat(create("").replaceName("baz")).isNull();
+    assertThat(create("").replaceName("")).isNull();
 
-    assertPath("foo/bar/baz", new PathFragment("foo/bar").replaceName("bar/baz"));
-    assertPath("foo/bar/baz", new PathFragment("foo/bar").replaceName("bar/baz/"));
+    assertThat(create("foo/bar").replaceName("bar/baz").getPathString()).isEqualTo("foo/bar/baz");
+    assertThat(create("foo/bar").replaceName("bar/baz/").getPathString()).isEqualTo("foo/bar/baz");
 
     // Absolute path arguments will clobber the original path.
-    assertPath("/absolute", new PathFragment("foo/bar").replaceName("/absolute"));
-    assertPath("/", new PathFragment("foo/bar").replaceName("/"));
+    assertThat(create("foo/bar").replaceName("/absolute").getPathString()).isEqualTo("/absolute");
+    assertThat(create("foo/bar").replaceName("/").getPathString()).isEqualTo("/");
   }
   @Test
   public void testSubFragment() throws Exception {
-    assertPath("/foo/bar/baz",
-               new PathFragment("/foo/bar/baz").subFragment(0, 3));
-    assertPath("foo/bar/baz",
-               new PathFragment("foo/bar/baz").subFragment(0, 3));
-    assertPath("/foo/bar",
-               new PathFragment("/foo/bar/baz").subFragment(0, 2));
-    assertPath("bar/baz",
-               new PathFragment("/foo/bar/baz").subFragment(1, 3));
-    assertPath("/foo",
-               new PathFragment("/foo/bar/baz").subFragment(0, 1));
-    assertPath("bar",
-               new PathFragment("/foo/bar/baz").subFragment(1, 2));
-    assertPath("baz", new PathFragment("/foo/bar/baz").subFragment(2, 3));
-    assertPath("/", new PathFragment("/foo/bar/baz").subFragment(0, 0));
-    assertPath("", new PathFragment("foo/bar/baz").subFragment(0, 0));
-    assertPath("", new PathFragment("foo/bar/baz").subFragment(1, 1));
-    try {
-      fail("unexpectedly succeeded: " + new PathFragment("foo/bar/baz").subFragment(3, 2));
-    } catch (IndexOutOfBoundsException e) { /* Expected. */ }
-    try {
-      fail("unexpectedly succeeded: " + new PathFragment("foo/bar/baz").subFragment(4, 4));
-    } catch (IndexOutOfBoundsException e) { /* Expected. */ }
+    assertThat(create("/foo/bar/baz").subFragment(0, 3).getPathString()).isEqualTo("/foo/bar/baz");
+    assertThat(create("foo/bar/baz").subFragment(0, 3).getPathString()).isEqualTo("foo/bar/baz");
+    assertThat(create("/foo/bar/baz").subFragment(0, 2).getPathString()).isEqualTo("/foo/bar");
+    assertThat(create("/foo/bar/baz").subFragment(1, 3).getPathString()).isEqualTo("bar/baz");
+    assertThat(create("/foo/bar/baz").subFragment(0, 1).getPathString()).isEqualTo("/foo");
+    assertThat(create("/foo/bar/baz").subFragment(1, 2).getPathString()).isEqualTo("bar");
+    assertThat(create("/foo/bar/baz").subFragment(2, 3).getPathString()).isEqualTo("baz");
+    assertThat(create("/foo/bar/baz").subFragment(0, 0).getPathString()).isEqualTo("/");
+    assertThat(create("foo/bar/baz").subFragment(0, 0).getPathString()).isEqualTo("");
+    assertThat(create("foo/bar/baz").subFragment(1, 1).getPathString()).isEqualTo("");
+
+    assertThat(create("/foo/bar/baz").subFragment(0).getPathString()).isEqualTo("/foo/bar/baz");
+    assertThat(create("foo/bar/baz").subFragment(0).getPathString()).isEqualTo("foo/bar/baz");
+    assertThat(create("/foo/bar/baz").subFragment(1).getPathString()).isEqualTo("bar/baz");
+    assertThat(create("foo/bar/baz").subFragment(1).getPathString()).isEqualTo("bar/baz");
+    assertThat(create("foo/bar/baz").subFragment(2).getPathString()).isEqualTo("baz");
+    assertThat(create("foo/bar/baz").subFragment(3).getPathString()).isEqualTo("");
+
+    assertThrows(IndexOutOfBoundsException.class, () -> create("foo/bar/baz").subFragment(3, 2));
+    assertThrows(IndexOutOfBoundsException.class, () -> create("foo/bar/baz").subFragment(4, 4));
+    assertThrows(IndexOutOfBoundsException.class, () -> create("foo/bar/baz").subFragment(3, 2));
+    assertThrows(IndexOutOfBoundsException.class, () -> create("foo/bar/baz").subFragment(4));
   }
 
   @Test
   public void testStartsWith() {
-    PathFragment foobar = new PathFragment("/foo/bar");
-    PathFragment foobarRelative = new PathFragment("foo/bar");
+    PathFragment foobar = create("/foo/bar");
+    PathFragment foobarRelative = create("foo/bar");
 
     // (path, prefix) => true
-    assertTrue(foobar.startsWith(foobar));
-    assertTrue(foobar.startsWith(new PathFragment("/")));
-    assertTrue(foobar.startsWith(new PathFragment("/foo")));
-    assertTrue(foobar.startsWith(new PathFragment("/foo/")));
-    assertTrue(foobar.startsWith(new PathFragment("/foo/bar/")));  // Includes trailing slash.
+    assertThat(foobar.startsWith(foobar)).isTrue();
+    assertThat(foobar.startsWith(create("/"))).isTrue();
+    assertThat(foobar.startsWith(create("/foo"))).isTrue();
+    assertThat(foobar.startsWith(create("/foo/"))).isTrue();
+    assertThat(foobar.startsWith(create("/foo/bar/"))).isTrue(); // Includes trailing slash.
 
     // (prefix, path) => false
-    assertFalse(new PathFragment("/foo").startsWith(foobar));
-    assertFalse(new PathFragment("/").startsWith(foobar));
+    assertThat(create("/foo").startsWith(foobar)).isFalse();
+    assertThat(create("/").startsWith(foobar)).isFalse();
 
     // (absolute, relative) => false
-    assertFalse(foobar.startsWith(foobarRelative));
-    assertFalse(foobarRelative.startsWith(foobar));
+    assertThat(foobar.startsWith(foobarRelative)).isFalse();
+    assertThat(foobarRelative.startsWith(foobar)).isFalse();
 
     // (relative path, relative prefix) => true
-    assertTrue(foobarRelative.startsWith(foobarRelative));
-    assertTrue(foobarRelative.startsWith(new PathFragment("foo")));
-    assertTrue(foobarRelative.startsWith(new PathFragment("")));
+    assertThat(foobarRelative.startsWith(foobarRelative)).isTrue();
+    assertThat(foobarRelative.startsWith(create("foo"))).isTrue();
+    assertThat(foobarRelative.startsWith(create(""))).isTrue();
 
     // (path, sibling) => false
-    assertFalse(new PathFragment("/foo/wiz").startsWith(foobar));
-    assertFalse(foobar.startsWith(new PathFragment("/foo/wiz")));
+    assertThat(create("/foo/wiz").startsWith(foobar)).isFalse();
+    assertThat(foobar.startsWith(create("/foo/wiz"))).isFalse();
+  }
 
-    // Does not normalize.
-    PathFragment foodotbar = new PathFragment("foo/./bar");
-    assertTrue(foodotbar.startsWith(foodotbar));
-    assertTrue(foodotbar.startsWith(new PathFragment("foo/.")));
-    assertTrue(foodotbar.startsWith(new PathFragment("foo/./")));
-    assertTrue(foodotbar.startsWith(new PathFragment("foo/./bar")));
-    assertFalse(foodotbar.startsWith(new PathFragment("foo/bar")));
+  @Test
+  public void testCheckAllPathsStartWithButAreNotEqualTo() {
+    // Check passes:
+    PathFragment.checkAllPathsAreUnder(toPathsSet("a/b", "a/c"), create("a"));
+
+    // Check trivially passes:
+    PathFragment.checkAllPathsAreUnder(ImmutableList.<PathFragment>of(), create("a"));
+
+    // Check fails when some path does not start with startingWithPath:
+    assertThrows(
+        IllegalArgumentException.class,
+        () -> PathFragment.checkAllPathsAreUnder(toPathsSet("a/b", "b/c"), create("a")));
+
+    // Check fails when some path is equal to startingWithPath:
+    assertThrows(
+        IllegalArgumentException.class,
+        () -> PathFragment.checkAllPathsAreUnder(toPathsSet("a/b", "a"), create("a")));
   }
 
   @Test
   public void testEndsWith() {
-    PathFragment foobar = new PathFragment("/foo/bar");
-    PathFragment foobarRelative = new PathFragment("foo/bar");
+    PathFragment foobar = create("/foo/bar");
+    PathFragment foobarRelative = create("foo/bar");
 
     // (path, suffix) => true
-    assertTrue(foobar.endsWith(foobar));
-    assertTrue(foobar.endsWith(new PathFragment("bar")));
-    assertTrue(foobar.endsWith(new PathFragment("foo/bar")));
-    assertTrue(foobar.endsWith(new PathFragment("/foo/bar")));
-    assertFalse(foobar.endsWith(new PathFragment("/bar")));
+    assertThat(foobar.endsWith(foobar)).isTrue();
+    assertThat(foobar.endsWith(create("bar"))).isTrue();
+    assertThat(foobar.endsWith(create("foo/bar"))).isTrue();
+    assertThat(foobar.endsWith(create("/foo/bar"))).isTrue();
+    assertThat(foobar.endsWith(create("/bar"))).isFalse();
 
     // (prefix, path) => false
-    assertFalse(new PathFragment("/foo").endsWith(foobar));
-    assertFalse(new PathFragment("/").endsWith(foobar));
+    assertThat(create("/foo").endsWith(foobar)).isFalse();
+    assertThat(create("/").endsWith(foobar)).isFalse();
 
     // (suffix, path) => false
-    assertFalse(new PathFragment("/bar").endsWith(foobar));
-    assertFalse(new PathFragment("bar").endsWith(foobar));
-    assertFalse(new PathFragment("").endsWith(foobar));
+    assertThat(create("/bar").endsWith(foobar)).isFalse();
+    assertThat(create("bar").endsWith(foobar)).isFalse();
+    assertThat(create("").endsWith(foobar)).isFalse();
 
     // (absolute, relative) => true
-    assertTrue(foobar.endsWith(foobarRelative));
+    assertThat(foobar.endsWith(foobarRelative)).isTrue();
 
     // (relative, absolute) => false
-    assertFalse(foobarRelative.endsWith(foobar));
+    assertThat(foobarRelative.endsWith(foobar)).isFalse();
 
     // (relative path, relative prefix) => true
-    assertTrue(foobarRelative.endsWith(foobarRelative));
-    assertTrue(foobarRelative.endsWith(new PathFragment("bar")));
-    assertTrue(foobarRelative.endsWith(new PathFragment("")));
+    assertThat(foobarRelative.endsWith(foobarRelative)).isTrue();
+    assertThat(foobarRelative.endsWith(create("bar"))).isTrue();
+    assertThat(foobarRelative.endsWith(create(""))).isTrue();
 
     // (path, sibling) => false
-    assertFalse(new PathFragment("/foo/wiz").endsWith(foobar));
-    assertFalse(foobar.endsWith(new PathFragment("/foo/wiz")));
+    assertThat(create("/foo/wiz").endsWith(foobar)).isFalse();
+    assertThat(foobar.endsWith(create("/foo/wiz"))).isFalse();
+  }
+
+  @Test
+  public void testToRelative() {
+    assertThat(create("/foo/bar").toRelative()).isEqualTo(create("foo/bar"));
+    assertThat(create("/").toRelative()).isEqualTo(create(""));
+    assertThrows(IllegalArgumentException.class, () -> create("foo").toRelative());
+  }
+
+  @Test
+  public void testGetDriveStr() {
+    assertThat(create("/foo/bar").getDriveStr()).isEqualTo("/");
+    assertThat(create("/").getDriveStr()).isEqualTo("/");
+    assertThrows(IllegalArgumentException.class, () -> create("foo").getDriveStr());
   }
 
   static List<PathFragment> toPaths(List<String> strs) {
     List<PathFragment> paths = Lists.newArrayList();
     for (String s : strs) {
-      paths.add(new PathFragment(s));
+      paths.add(create(s));
     }
     return paths;
   }
 
+  static ImmutableSet<PathFragment> toPathsSet(String... strs) {
+    ImmutableSet.Builder<PathFragment> builder = ImmutableSet.builder();
+    for (String str : strs) {
+      builder.add(create(str));
+    }
+    return builder.build();
+  }
+
   @Test
   public void testCompareTo() throws Exception {
-    List<String> pathStrs = ImmutableList.of(
-        "", "/", "//", ".", "/./", "foo/.//bar", "foo", "/foo", "foo/bar", "foo/Bar", "Foo/bar");
+    List<String> pathStrs =
+        ImmutableList.of(
+            "",
+            "/",
+            "foo",
+            "/foo",
+            "foo/bar",
+            "foo.bar",
+            "foo/bar.baz",
+            "foo/bar/baz",
+            "foo/barfile",
+            "foo/Bar",
+            "Foo/bar");
     List<PathFragment> paths = toPaths(pathStrs);
     // First test that compareTo is self-consistent.
     for (PathFragment x : paths) {
       for (PathFragment y : paths) {
         for (PathFragment z : paths) {
           // Anti-symmetry
-          assertEquals(Integer.signum(x.compareTo(y)),
-                       -1 * Integer.signum(y.compareTo(x)));
+          assertThat(-1 * Integer.signum(y.compareTo(x))).isEqualTo(Integer.signum(x.compareTo(y)));
           // Transitivity
           if (x.compareTo(y) > 0 && y.compareTo(z) > 0) {
-            MoreAsserts.assertGreaterThan(0, x.compareTo(z));
+            assertThat(x.compareTo(z)).isGreaterThan(0);
           }
           // "Substitutability"
           if (x.compareTo(y) == 0) {
-            assertEquals(Integer.signum(x.compareTo(z)), Integer.signum(y.compareTo(z)));
+            assertThat(Integer.signum(y.compareTo(z))).isEqualTo(Integer.signum(x.compareTo(z)));
           }
           // Consistency with equals
-          assertEquals((x.compareTo(y) == 0), x.equals(y));
+          assertThat(x.equals(y)).isEqualTo((x.compareTo(y) == 0));
         }
       }
     }
-    // Now test that compareTo does what we expect.  The exact ordering here doesn't matter much,
-    // but there are three things to notice: 1. absolute < relative, 2. comparison is lexicographic
-    // 3. repeated slashes are ignored. (PathFragment("//") prints as "/").
+    // Now test that compareTo does what we expect.  The exact ordering here doesn't matter much.
     Collections.shuffle(paths);
     Collections.sort(paths);
-    List<PathFragment> expectedOrder = toPaths(ImmutableList.of(
-        "/", "//", "/./", "/foo", "", ".", "Foo/bar", "foo", "foo/.//bar", "foo/Bar", "foo/bar"));
-    assertEquals(expectedOrder, paths);
+    List<PathFragment> expectedOrder =
+        toPaths(
+            ImmutableList.of(
+                "",
+                "/",
+                "/foo",
+                "Foo/bar",
+                "foo",
+                "foo.bar",
+                "foo/Bar",
+                "foo/bar",
+                "foo/bar.baz",
+                "foo/bar/baz",
+                "foo/barfile"));
+    assertThat(paths).isEqualTo(expectedOrder);
   }
 
   @Test
   public void testGetSafePathString() {
-    assertEquals("/", new PathFragment("/").getSafePathString());
-    assertEquals("/abc", new PathFragment("/abc").getSafePathString());
-    assertEquals(".", new PathFragment("").getSafePathString());
-    assertEquals(".", PathFragment.EMPTY_FRAGMENT.getSafePathString());
-    assertEquals("abc/def", new PathFragment("abc/def").getSafePathString());
+    assertThat(create("/").getSafePathString()).isEqualTo("/");
+    assertThat(create("/abc").getSafePathString()).isEqualTo("/abc");
+    assertThat(create("").getSafePathString()).isEqualTo(".");
+    assertThat(PathFragment.EMPTY_FRAGMENT.getSafePathString()).isEqualTo(".");
+    assertThat(create("abc/def").getSafePathString()).isEqualTo("abc/def");
   }
-  
+
   @Test
   public void testNormalize() {
-    assertEquals(new PathFragment("/a/b"), new PathFragment("/a/b").normalize());
-    assertEquals(new PathFragment("/a/b"), new PathFragment("/a/./b").normalize());
-    assertEquals(new PathFragment("/b"), new PathFragment("/a/../b").normalize());
-    assertEquals(new PathFragment("a/b"), new PathFragment("a/b").normalize());
-    assertEquals(new PathFragment("../b"), new PathFragment("a/../../b").normalize());
-    assertEquals(new PathFragment(".."), new PathFragment("a/../..").normalize());
-    assertEquals(new PathFragment("b"), new PathFragment("a/../b").normalize());
-    assertEquals(new PathFragment("a/b"), new PathFragment("a/b/../b").normalize());
-    assertEquals(new PathFragment("/.."), new PathFragment("/..").normalize());
+    assertThat(create("/a/b")).isEqualTo(create("/a/b"));
+    assertThat(create("/a/./b")).isEqualTo(create("/a/b"));
+    assertThat(create("/a/../b")).isEqualTo(create("/b"));
+    assertThat(create("a/b")).isEqualTo(create("a/b"));
+    assertThat(create("a/../../b")).isEqualTo(create("../b"));
+    assertThat(create("a/../..")).isEqualTo(create(".."));
+    assertThat(create("a/../b")).isEqualTo(create("b"));
+    assertThat(create("a/b/../b")).isEqualTo(create("a/b"));
+    assertThat(create("/..")).isEqualTo(create("/.."));
+    assertThat(create("..")).isEqualTo(create(".."));
+  }
+
+  @Test
+  public void testSegments() {
+    assertThat(create("").segmentCount()).isEqualTo(0);
+    assertThat(create("a").segmentCount()).isEqualTo(1);
+    assertThat(create("a/b").segmentCount()).isEqualTo(2);
+    assertThat(create("a/b/c").segmentCount()).isEqualTo(3);
+    assertThat(create("/").segmentCount()).isEqualTo(0);
+    assertThat(create("/a").segmentCount()).isEqualTo(1);
+    assertThat(create("/a/b").segmentCount()).isEqualTo(2);
+    assertThat(create("/a/b/c").segmentCount()).isEqualTo(3);
+
+    assertThat(create("").getSegments()).isEmpty();
+    assertThat(create("a").getSegments()).containsExactly("a").inOrder();
+    assertThat(create("a/b").getSegments()).containsExactly("a", "b").inOrder();
+    assertThat(create("a/b/c").getSegments()).containsExactly("a", "b", "c").inOrder();
+    assertThat(create("/").getSegments()).isEmpty();
+    assertThat(create("/a").getSegments()).containsExactly("a").inOrder();
+    assertThat(create("/a/b").getSegments()).containsExactly("a", "b").inOrder();
+    assertThat(create("/a/b/c").getSegments()).containsExactly("a", "b", "c").inOrder();
+
+    assertThat(create("a").getSegment(0)).isEqualTo("a");
+    assertThat(create("a/b").getSegment(0)).isEqualTo("a");
+    assertThat(create("a/b").getSegment(1)).isEqualTo("b");
+    assertThat(create("a/b/c").getSegment(2)).isEqualTo("c");
+    assertThat(create("/a").getSegment(0)).isEqualTo("a");
+    assertThat(create("/a/b").getSegment(0)).isEqualTo("a");
+    assertThat(create("/a/b").getSegment(1)).isEqualTo("b");
+    assertThat(create("/a/b/c").getSegment(2)).isEqualTo("c");
+
+    assertThrows(IllegalArgumentException.class, () -> create("").getSegment(0));
+    assertThrows(IllegalArgumentException.class, () -> create("a/b").getSegment(2));
+  }
+
+  @Test
+  public void testCodec() throws Exception {
+    new SerializationTester(
+            ImmutableList.of("", "a", "/foo", "foo/bar/baz", "/a/path/fragment/with/lots/of/parts")
+                .stream()
+                .map(PathFragment::create)
+                .collect(toImmutableList()))
+        .runTests();
   }
 
   @Test
@@ -472,11 +586,11 @@ public class PathFragmentTest {
   }
 
   private void checkSerialization(String pathFragmentString, int expectedSize) throws Exception {
-    PathFragment a = new PathFragment(pathFragmentString);
+    PathFragment a = create(pathFragmentString);
     byte[] sa = TestUtils.serializeObject(a);
-    assertEquals(expectedSize, sa.length);
+    assertThat(sa).hasLength(expectedSize);
 
     PathFragment a2 = (PathFragment) TestUtils.deserializeObject(sa);
-    assertEquals(a, a2);
+    assertThat(a2).isEqualTo(a);
   }
 }

@@ -1,4 +1,4 @@
-// Copyright 2014 Google Inc. All rights reserved.
+// Copyright 2014 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,7 +14,7 @@
 
 package com.google.devtools.common.options;
 
-import static org.junit.Assert.assertEquals;
+import static com.google.common.truth.Truth.assertThat;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -52,9 +52,10 @@ public class GenericTypeHelperTest {
 
   private static void assertDoIt(Class<?> expected,
       Class<? extends DoSomething<?>> implementingClass) throws Exception {
-    assertEquals(expected,
-        GenericTypeHelper.getActualReturnType(implementingClass,
-            implementingClass.getMethod("doIt")));
+    assertThat(
+            GenericTypeHelper.getActualReturnType(
+                implementingClass, implementingClass.getMethod("doIt")))
+        .isEqualTo(expected);
   }
 
   @Test

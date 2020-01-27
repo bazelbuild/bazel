@@ -1,0 +1,63 @@
+<!doctype html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<html>
+<head>
+<meta http-equiv="content-type" content="text/html; charset=iso-8859-1">
+<meta http-equiv="content-style-type" content="text/css">
+<link rel="stylesheet" type="text/css" href="style.css">
+<title>ProGuard Limitations</title>
+</head>
+<body>
+
+<script type="text/javascript" language="JavaScript">
+<!--
+if (window.self==window.top)
+  document.write('<a class="largebutton" target="_top" href="../index.html#manual/limitations.html">ProGuard index</a> <a class="largebutton" target="_top" href="http://www.guardsquare.com/dexguard">DexGuard</a> <a class="largebutton" target="_top" href="http://www.guardsquare.com/">GuardSquare</a> <a class="largebutton" target="other" href="http://sourceforge.net/projects/proguard/">Sourceforge</a>')
+//-->
+</script>
+<noscript>
+<a class="largebutton" target="_top"  href="../index.html#manual/limitations.html">ProGuard index</a>
+<a class="largebutton" target="_top"  href="http://www.guardsquare.com/dexguard">DexGuard</a>
+<a class="largebutton" target="_top"  href="http://www.guardsquare.com/">GuardSquare</a>
+<a class="largebutton" target="other" href="http://sourceforge.net/projects/proguard/">Sourceforge</a>
+</noscript>
+
+<h2>Limitations</h2>
+
+When using ProGuard, you should be aware of a few technical issues, all of
+which are easily avoided or resolved:
+<p>
+<ul class="spacious">
+
+<li>For best results, ProGuard's optimization algorithms assume that the
+    processed code never <b>intentionally throws NullPointerExceptions</b> or
+    ArrayIndexOutOfBoundsExceptions, or even OutOfMemoryErrors or
+    StackOverflowErrors, in order to achieve something useful. For instance,
+    it may remove a method call <code>myObject.myMethod()</code> if that call
+    wouldn't have any effect. It ignores the possibility that
+    <code>myObject</code> might be null, causing a NullPointerException. In
+    some way this is a good thing: optimized code may throw fewer exceptions.
+    Should this entire assumption be false, you'll have to switch off
+    optimization using the <code>-dontoptimize</code> option.</li>
+
+<li>ProGuard's optimization algorithms currently also assume that the
+    processed code never creates <b>busy-waiting loops</b> without at least
+    testing on a volatile field. Again, it may remove such loops. Should this
+    assumption be false, you'll have to switch off optimization using
+    the <code>-dontoptimize</code> option.</li>
+
+<li>When obfuscating, ProGuard writes out class files named
+    "<code>a.class</code>", "<code>b.class</code>", etc. If a package contains
+    a large number of classes, ProGuard may also write out
+    <b>"<code>aux.class</code>"</b>. Inconveniently, Windows refuses to create
+    files with this reserved name (among a few other names). It's generally
+    better to write the output to a jar, in order to avoid such problems.</li>
+
+</ul>
+
+<hr />
+<address>
+Copyright &copy; 2002-2017
+<a target="other" href="http://www.lafortune.eu/">Eric Lafortune</a> @ <a target="top" href="http://www.guardsquare.com/">GuardSquare</a>.
+</address>
+</body>
+</html>

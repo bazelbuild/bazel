@@ -1,4 +1,4 @@
-// Copyright 2014 Google Inc. All rights reserved.
+// Copyright 2014 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.util;
 
+import static com.google.common.base.StandardSystemProperty.JAVA_IO_TMPDIR;
+
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.CharMatcher;
 import com.google.common.base.Joiner;
@@ -24,7 +26,6 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.shell.Command;
 import com.google.devtools.build.lib.vfs.Path;
-
 import java.io.File;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -45,7 +46,7 @@ import java.util.Map;
  */
 public final class CommandBuilder {
 
-  private static final List<String> SHELLS = ImmutableList.of("/bin/sh", "/bin/bash");
+  private static final ImmutableList<String> SHELLS = ImmutableList.of("/bin/sh", "/bin/bash");
 
   private static final Splitter ARGV_SPLITTER = Splitter.on(CharMatcher.anyOf(" \t"));
 
@@ -104,7 +105,7 @@ public final class CommandBuilder {
   }
 
   public CommandBuilder useTempDir() {
-    workingDir = new File(System.getProperty("java.io.tmpdir"));
+    workingDir = new File(JAVA_IO_TMPDIR.value());
     return this;
   }
 
@@ -141,10 +142,12 @@ public final class CommandBuilder {
       // args can contain whitespace, so figure out the first word
       String argv0 = modifiedArgv.get(0);
       String command = ARGV_SPLITTER.split(argv0).iterator().next();
-      
+
       // Automatically enable CMD.EXE use if we are executing something else besides "*.exe" file.
+      // When use CMD.EXE to invoke a bat/cmd file, the file path must have '\' instead of '/'
       if (!command.toLowerCase().endsWith(".exe")) {
         useShell = true;
+        modifiedArgv.set(0, argv0.replace('/', '\\'));
       }
     } else {
       // This is degenerate "/bin/sh -c" case. We ensure that Windows behavior is identical
@@ -158,7 +161,7 @@ public final class CommandBuilder {
       // /D - ignore AutoRun registry entries.
       // /C - execute command. This must be the last option before the command itself.
       return new String[] { "CMD.EXE", "/S", "/E:ON", "/V:ON", "/D", "/C",
-          "\"" + Joiner.on(' ').join(modifiedArgv) + "\"" };
+          Joiner.on(' ').join(modifiedArgv) };
     } else {
       return modifiedArgv.toArray(new String[argv.size()]);
     }

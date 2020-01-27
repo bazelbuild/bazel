@@ -1,4 +1,4 @@
-// Copyright 2014 Google Inc. All rights reserved.
+// Copyright 2014 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,14 +14,15 @@
 
 package com.google.devtools.build.lib.util;
 
+import static java.util.Map.Entry.comparingByKey;
+
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Ordering;
-
+import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import java.io.File;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.Map;
-
 import javax.annotation.Nullable;
 
 /**
@@ -38,7 +39,7 @@ public class CommandFailureUtils {
     void describeCommandBeginIsolate(StringBuilder message);
     void describeCommandEndIsolate(StringBuilder message);
     void describeCommandCwd(String cwd, StringBuilder message);
-    void describeCommandEnvPrefix(StringBuilder message);
+    void describeCommandEnvPrefix(StringBuilder message, boolean isolated);
     void describeCommandEnvVar(StringBuilder message, Map.Entry<String, String> entry);
     void describeCommandElement(StringBuilder message, String commandElement);
     void describeCommandExec(StringBuilder message);
@@ -62,8 +63,10 @@ public class CommandFailureUtils {
     }
 
     @Override
-    public void describeCommandEnvPrefix(StringBuilder message) {
-      message.append("env - \\\n  ");
+    public void describeCommandEnvPrefix(StringBuilder message, boolean isolated) {
+      message.append(isolated
+          ? "env - \\\n  "
+          : "env \\\n  ");
     }
 
     @Override
@@ -103,7 +106,7 @@ public class CommandFailureUtils {
     }
 
     @Override
-    public void describeCommandEnvPrefix(StringBuilder message) { }
+    public void describeCommandEnvPrefix(StringBuilder message, boolean isolated) { }
 
     @Override
     public void describeCommandEnvVar(StringBuilder message, Map.Entry<String, String> entry) {
@@ -125,17 +128,9 @@ public class CommandFailureUtils {
   private static final DescribeCommandImpl describeCommandImpl =
       OS.getCurrent() == OS.WINDOWS ? new WindowsDescribeCommandImpl()
                                     : new LinuxDescribeCommandImpl();
+  private static final int APPROXIMATE_MAXIMUM_MESSAGE_LENGTH = 200;
 
   private CommandFailureUtils() {} // Prevent instantiation.
-
-  private static Comparator<Map.Entry<String, String>> mapEntryComparator =
-      new Comparator<Map.Entry<String, String>>() {
-        @Override
-        public int compare(Map.Entry<String, String> x, Map.Entry<String, String> y) {
-          // A map can never have two keys with the same value, so we only need to compare the keys.
-          return x.getKey().compareTo(y.getKey());
-        }
-      };
 
   /**
    * Construct a string that describes the command.
@@ -146,17 +141,22 @@ public class CommandFailureUtils {
    * @param form Form of the command to generate; see the documentation of the
    * {@link CommandDescriptionForm} values.
    */
-  public static String describeCommand(CommandDescriptionForm form,
+  public static String describeCommand(
+      CommandDescriptionForm form,
+      boolean prettyPrintArgs,
       Collection<String> commandLineElements,
-      @Nullable Map<String, String> environment, @Nullable String cwd) {
+      @Nullable Map<String, String> environment,
+      @Nullable String cwd) {
+
     Preconditions.checkNotNull(form);
-    final int APPROXIMATE_MAXIMUM_MESSAGE_LENGTH = 200;
     StringBuilder message = new StringBuilder();
     int size = commandLineElements.size();
     int numberRemaining = size;
+
     if (form == CommandDescriptionForm.COMPLETE) {
       describeCommandImpl.describeCommandBeginIsolate(message);
     }
+
     if (form != CommandDescriptionForm.ABBREVIATED) {
       if (cwd != null) {
         describeCommandImpl.describeCommandCwd(cwd, message);
@@ -191,7 +191,10 @@ public class CommandFailureUtils {
        * (in ProcessEnvironment.StringEnvironment.toEnvironmentBlock()).
        */
       if (environment != null) {
-        describeCommandImpl.describeCommandEnvPrefix(message);
+        describeCommandImpl.describeCommandEnvPrefix(
+            message, form != CommandDescriptionForm.COMPLETE_UNISOLATED);
+        // A map can never have two keys with the same value, so we only need to compare the keys.
+        Comparator<Map.Entry<String, String>> mapEntryComparator = comparingByKey();
         for (Map.Entry<String, String> entry :
             Ordering.from(mapEntryComparator).sortedCopy(environment.entrySet())) {
           message.append("  ");
@@ -199,54 +202,74 @@ public class CommandFailureUtils {
         }
       }
     }
+
     for (String commandElement : commandLineElements) {
-      if (form == CommandDescriptionForm.ABBREVIATED &&
-          message.length() + commandElement.length() > APPROXIMATE_MAXIMUM_MESSAGE_LENGTH) {
+      if (form == CommandDescriptionForm.ABBREVIATED
+          && message.length() + commandElement.length() > APPROXIMATE_MAXIMUM_MESSAGE_LENGTH) {
         message.append(
             " ... (remaining " + numberRemaining + " argument(s) skipped)");
         break;
       } else {
         if (numberRemaining < size) {
-          message.append(' ');
+          message.append(prettyPrintArgs ? " \\\n    " : " ");
         }
         describeCommandImpl.describeCommandElement(message, commandElement);
         numberRemaining--;
       }
     }
+
     if (form == CommandDescriptionForm.COMPLETE) {
       describeCommandImpl.describeCommandEndIsolate(message);
     }
+
     return message.toString();
   }
 
   /**
-   * Construct an error message that describes a failed command invocation.
-   * Currently this returns a message of the form "error executing command foo
-   * bar baz".
+   * Construct an error message that describes a failed command invocation. Currently this returns a
+   * message of the form "error executing command foo bar baz".
    */
-  public static String describeCommandError(boolean verbose,
-                                            Collection<String> commandLineElements,
-                                            Map<String, String> env, String cwd) {
+  public static String describeCommandError(
+      boolean verbose,
+      Collection<String> commandLineElements,
+      Map<String, String> env,
+      String cwd,
+      @Nullable PlatformInfo executionPlatform) {
+
     CommandDescriptionForm form = verbose
         ? CommandDescriptionForm.COMPLETE
         : CommandDescriptionForm.ABBREVIATED;
-    return "error executing command " + (verbose ? "\n  " : "")
-        + describeCommand(form, commandLineElements, env, cwd);
+
+    StringBuilder output = new StringBuilder();
+    output.append("error executing command ");
+    if (verbose) {
+      output.append("\n  ");
+    }
+    output.append(
+        describeCommand(form, /* prettyPrintArgs= */ false, commandLineElements, env, cwd));
+    if (verbose && executionPlatform != null) {
+      output.append("\n");
+      output.append("Execution platform: ").append(executionPlatform.label());
+    }
+    return output.toString();
   }
 
   /**
-   * Construct an error message that describes a failed command invocation.
-   * Currently this returns a message of the form "foo failed: error executing
-   * command /dir/foo bar baz".
+   * Construct an error message that describes a failed command invocation. Currently this returns a
+   * message of the form "foo failed: error executing command /dir/foo bar baz".
    */
-  public static String describeCommandFailure(boolean verbose,
-                                              Collection<String> commandLineElements,
-                                              Map<String, String> env, String cwd) {
+  public static String describeCommandFailure(
+      boolean verbose,
+      Collection<String> commandLineElements,
+      Map<String, String> env,
+      String cwd,
+      @Nullable PlatformInfo executionPlatform) {
+
     String commandName = commandLineElements.iterator().next();
     // Extract the part of the command name after the last "/", if any.
     String shortCommandName = new File(commandName).getName();
-    return shortCommandName + " failed: " +
-        describeCommandError(verbose, commandLineElements, env, cwd);
+    return shortCommandName
+        + " failed: "
+        + describeCommandError(verbose, commandLineElements, env, cwd, executionPlatform);
   }
-
 }

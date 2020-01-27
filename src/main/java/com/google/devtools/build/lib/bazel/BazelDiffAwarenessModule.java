@@ -1,4 +1,4 @@
-// Copyright 2014 Google Inc. All rights reserved.
+// Copyright 2014 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,21 +14,27 @@
 package com.google.devtools.build.lib.bazel;
 
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.runtime.BlazeModule;
+import com.google.devtools.build.lib.runtime.BlazeRuntime;
+import com.google.devtools.build.lib.runtime.WorkspaceBuilder;
 import com.google.devtools.build.lib.skyframe.DiffAwareness;
 import com.google.devtools.build.lib.skyframe.LocalDiffAwareness;
+import com.google.devtools.common.options.OptionsBase;
 
 /**
  * Provides the {@link DiffAwareness} implementation that uses the Java watch service.
  */
 public class BazelDiffAwarenessModule extends BlazeModule {
+  @Override
+  public void workspaceInit(
+      BlazeRuntime runtime, BlazeDirectories directories, WorkspaceBuilder builder) {
+    // Order here is important - LocalDiffAwareness creation always succeeds, so it must be last.
+    builder.addDiffAwarenessFactory(new LocalDiffAwareness.Factory(ImmutableList.<String>of()));
+  }
 
   @Override
-  public Iterable<DiffAwareness.Factory> getDiffAwarenessFactories(boolean watchFS) {
-    ImmutableList.Builder<DiffAwareness.Factory> builder = ImmutableList.builder();
-    if (watchFS) {
-      builder.add(new LocalDiffAwareness.Factory());
-    }
-    return builder.build();
+  public Iterable<Class<? extends OptionsBase>> getCommonCommandOptions() {
+    return ImmutableList.<Class<? extends OptionsBase>>of(LocalDiffAwareness.Options.class);
   }
 }

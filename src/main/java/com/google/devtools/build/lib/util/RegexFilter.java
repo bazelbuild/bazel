@@ -1,4 +1,4 @@
-// Copyright 2014 Google Inc. All rights reserved.
+// Copyright 2014 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,40 +15,41 @@
 package com.google.devtools.build.lib.util;
 
 import com.google.common.base.Joiner;
+import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.OptionsParsingException;
-
-import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.regex.Pattern;
 import java.util.regex.PatternSyntaxException;
+import javax.annotation.Nullable;
 
 /**
- * Handles options that specify list of included/excluded regex expressions.
- * Validates whether string is included in that filter.
+ * Handles options that specify list of included/excluded regex expressions. Validates whether
+ * string is included in that filter.
  *
- * String is considered to be included into the filter if it does not match
- * any of the excluded regex expressions and if it matches at least one
- * included regex expression.
+ * <p>String is considered to be included into the filter if it does not match any of the excluded
+ * regex expressions and if it matches at least one included regex expression.
  */
-public class RegexFilter implements Serializable {
-  private final Pattern inclusionPattern;
-  private final Pattern exclusionPattern;
+@AutoCodec
+@Immutable
+public final class RegexFilter {
+  // Null inclusion or exclusion pattern means those patterns are not used.
+  @Nullable private final Pattern inclusionPattern;
+  @Nullable private final Pattern exclusionPattern;
   private final int hashCode;
 
   /**
-   * Converts from a colon-separated list of regex expressions with optional
-   * -/+ prefix into the RegexFilter. Colons prefixed with backslash are
-   * considered to be part of regex definition and not a delimiter between
-   * separate regex expressions.
+   * Converts from a comma-separated list of regex expressions with optional -/+ prefix into the
+   * RegexFilter. Commas prefixed with backslash are considered to be part of regex definition and
+   * not a delimiter between separate regex expressions.
    *
-   * Order of expressions is not important. Empty entries are ignored.
-   * '-' marks an excluded expression.
+   * <p>Order of expressions is not important. Empty entries are ignored. '-' marks an excluded
+   * expression.
    */
-  public static class RegexFilterConverter
-      implements Converter<RegexFilter> {
+  public static class RegexFilterConverter implements Converter<RegexFilter> {
 
     @Override
     public RegexFilter convert(String input) throws OptionsParsingException {
@@ -79,33 +80,45 @@ public class RegexFilter implements Serializable {
       return "a comma-separated list of regex expressions with prefix '-' specifying"
           + " excluded paths";
     }
-
   }
 
   /**
-   * Creates new RegexFilter using provided inclusion and exclusion path lists.
+   * Constructor taking regexes directly.
+   *
+   * <p>Null {@code inclusionPattern} or {@code exclusionPattern} means that inclusion or exclusion
+   * matching will not be applied, respectively.
    */
+  @AutoCodec.Instantiator
+  RegexFilter(@Nullable Pattern inclusionPattern, @Nullable Pattern exclusionPattern) {
+    this.inclusionPattern = inclusionPattern;
+    this.exclusionPattern = exclusionPattern;
+    this.hashCode =
+        Objects.hash(
+            inclusionPattern == null ? null : inclusionPattern.pattern(),
+            exclusionPattern == null ? null : exclusionPattern.pattern());
+  }
+
+  /** Creates new RegexFilter using provided inclusion and exclusion path lists. */
   public RegexFilter(List<String> inclusions, List<String> exclusions) {
-    inclusionPattern = convertRegexListToPattern(inclusions);
-    exclusionPattern = convertRegexListToPattern(exclusions);
-    hashCode = Objects.hash(inclusions, exclusions);
+    this(takeUnionOfRegexes(inclusions), takeUnionOfRegexes(exclusions));
   }
 
   /**
-   * Converts list of regex expressions into one compiled regex expression.
+   * Converts a list of regex expressions into a single regex representing its union or null when
+   * the list is empty.
    */
-  private static Pattern convertRegexListToPattern(List<String> regexList) {
+  private static Pattern takeUnionOfRegexes(List<String> regexList) {
     if (regexList.isEmpty()) {
       return null;
     }
-    // Wrap each individual regex in the independent group, combine them using '|' and
-    // wrap in the non-capturing group.
+    // Wraps each individual regex into an independent group, then combines them using '|' and
+    // wraps the result in a non-capturing group.
     return Pattern.compile("(?:(?>" + Joiner.on(")|(?>").join(regexList) + "))");
   }
 
   /**
-   * @return true iff given string is included (it is does not match exclusion
-   *         pattern (if any) and matches inclusionPatter (if any).
+   * @return true iff given string is included (it does not match exclusion pattern (if any) and
+   *     matches inclusionPatter (if any)).
    */
   public boolean isIncluded(String value) {
     if (exclusionPattern != null && exclusionPattern.matcher(value).find()) {
@@ -115,6 +128,16 @@ public class RegexFilter implements Serializable {
       return true;
     }
     return inclusionPattern.matcher(value).find();
+  }
+
+  @Nullable
+  public String getInclusionRegex() {
+    return inclusionPattern == null ? null : inclusionPattern.pattern();
+  }
+
+  @Nullable
+  public String getExclusionRegex() {
+    return exclusionPattern == null ? null : exclusionPattern.pattern();
   }
 
   @Override
@@ -132,7 +155,7 @@ public class RegexFilter implements Serializable {
     }
     return builder.toString();
   }
-  
+
   @Override
   public boolean equals(Object other) {
     if (this == other) {
@@ -142,7 +165,7 @@ public class RegexFilter implements Serializable {
       return false;
     }
 
-    RegexFilter otherFilter = (RegexFilter) other; 
+    RegexFilter otherFilter = (RegexFilter) other;
     if (this.exclusionPattern == null ^ otherFilter.exclusionPattern == null) {
       return false;
     }
@@ -159,7 +182,7 @@ public class RegexFilter implements Serializable {
     }
     return true;
   }
-  
+
   @Override
   public int hashCode() {
     return hashCode;

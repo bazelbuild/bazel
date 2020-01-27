@@ -1,4 +1,4 @@
-// Copyright 2014 Google Inc. All rights reserved.
+// Copyright 2014 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -13,21 +13,20 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.python;
 
-import com.google.common.base.Function;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.Root;
+import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
-import com.google.devtools.build.lib.analysis.RuleConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.analysis.Runfiles;
+import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
+import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.vfs.PathFragment;
-
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -35,25 +34,28 @@ import java.util.Set;
  * Various utility methods for Python support.
  */
 public final class PythonUtils {
-  public static final PathFragment INIT_PY = new PathFragment("__init__.py");
+  public static final PathFragment INIT_PY = PathFragment.create("__init__.py");
+  public static final PathFragment INIT_PYC = PathFragment.create("__init__.pyc");
+  public static final PathFragment PYCACHE = PathFragment.create("__pycache__");
 
   private static final FileType REQUIRES_INIT_PY = FileType.of(".py", ".so", ".pyc");
 
-  public static final Function<Map<PathFragment, Artifact>, Map<PathFragment, Artifact>>
-      GET_INIT_PY_FILES = new Function<Map<PathFragment, Artifact>, Map<PathFragment, Artifact>>()
-      {
+  static class GetInitPyFiles implements Runfiles.EmptyFilesSupplier {
     @Override
-    public Map<PathFragment, Artifact> apply(Map<PathFragment, Artifact> input) {
-      return getInitDotPyFiles(input);
+    public Iterable<PathFragment> getExtraPaths(Set<PathFragment> manifestPaths) {
+      return getInitPyFiles(manifestPaths);
     }
-  };
+  }
+
+  @AutoCodec
+  public static final Runfiles.EmptyFilesSupplier GET_INIT_PY_FILES = new GetInitPyFiles();
 
   private PythonUtils() {
     // This is a utility class, not to be instantiated
   }
 
   /**
-   * Returns the set of empty __init__.py files to be added to a given set of files to allow
+   * Returns the set of empty __init__.py(c) files to be added to a given set of files to allow
    * the Python runtime to find the <code>.py</code> and <code>.so</code> files present in the
    * tree.
    */
@@ -62,15 +64,19 @@ public final class PythonUtils {
 
     for (PathFragment source : manifestFiles) {
       // If we have a python or .so file at this level...
-      if (!REQUIRES_INIT_PY.matches(source)) {
-        continue;
-      }
-      // ...then record that we need an __init__.py in this directory...
-      while (source.segmentCount() > 1) {
-        source = source.getParentDirectory();
-        PathFragment initpy = source.getRelative(INIT_PY);
-        if (!manifestFiles.contains(initpy)) {
-          result.add(initpy);
+      if (REQUIRES_INIT_PY.matches(source)) {
+        // ...then record that we need an __init__.py in this and all parents directories...
+        while (source.segmentCount() > 1) {
+          source = source.getParentDirectory();
+          // ...unless it's a Python .pyc cache or we already have __init__ there.
+          if (!source.endsWith(PYCACHE)) {
+            PathFragment initpy = source.getRelative(INIT_PY);
+            PathFragment initpyc = source.getRelative(INIT_PYC);
+
+            if (!manifestFiles.contains(initpy) && !manifestFiles.contains(initpyc)) {
+              result.add(initpy);
+            }
+          }
         }
       }
     }
@@ -79,34 +85,14 @@ public final class PythonUtils {
   }
 
   /**
-   * Creates a new map that contains all the <code>__init__.py</code> files that are necessary for
-   * Python to find the <code>.py</code> and <code>.so</code> files in it.
-   *
-   * @param inputManifest The input mapping of source files to absolute paths on disk.
-   * @return The revised mapping. Contains <code>null</code> values for the added
-   * <code>__init.py__</code> files.
-   */
-  private static Map<PathFragment, Artifact> getInitDotPyFiles(
-      Map<PathFragment, Artifact> inputManifest) {
-    Map<PathFragment, Artifact> newManifest = new HashMap<>();
-
-    for (PathFragment initpy : getInitPyFiles(inputManifest.keySet())) {
-      if (newManifest.get(initpy) == null) {
-        newManifest.put(initpy, null);
-      }
-    }
-
-    return newManifest;
-  }
-
-  /**
-   * Get the artifact generated by the 2to3 action. The artifact is in a python3
-   * subdirectory to avoid conflicts (eg. when the input file is generated).
+   * Get the artifact generated by the 2to3 action.
+   * (There might be conflicts eg. when the input file is generated, but that case is unsupported
+   *  because 2to3 is obsolete).
    */
   private static Artifact get2to3OutputArtifact(RuleContext ruleContext, Artifact input) {
-    Root root = ruleContext.getConfiguration().getGenfilesDirectory();
-    PathFragment path = new PathFragment("python3").getRelative(input.getRootRelativePath());
-    return ruleContext.getAnalysisEnvironment().getDerivedArtifact(path, root);
+    ArtifactRoot root =
+        ruleContext.getConfiguration().getGenfilesDirectory(ruleContext.getRule().getRepository());
+    return ruleContext.getDerivedArtifact(input.getRootRelativePath(), root);
   }
 
   /**
@@ -130,23 +116,24 @@ public final class PythonUtils {
     FilesToRunProvider py2to3converter =
         ruleContext.getExecutablePrerequisite("$python2to3", RuleConfiguredTarget.Mode.HOST);
     Artifact output = get2to3OutputArtifact(ruleContext, input);
-    List<String> argv = new ArrayList<>();
-    argv.add("--no-diffs");
-    argv.add("--nobackups");
-    argv.add("--write");
-    argv.add("--output-dir");
-    argv.add(output.getExecPath().getParentDirectory().toString());
-    argv.add("--write-unchanged-files");
-    argv.add(input.getExecPathString());
+    CustomCommandLine.Builder commandLine =
+        CustomCommandLine.builder()
+            .add("--no-diffs")
+            .add("--nobackups")
+            .add("--write")
+            .addPath("--output-dir", output.getExecPath().getParentDirectory())
+            .add("--write-unchanged-files")
+            .addExecPath(input);
 
-    ruleContext.registerAction(new SpawnAction.Builder()
-        .addInput(input)
-        .addOutput(output)
-        .setExecutable(py2to3converter)
-        .addArguments(argv)
-        .setProgressMessage("Converting to Python 3: " + input.prettyPrint())
-        .setMnemonic("2to3")
-        .build(ruleContext));
+    ruleContext.registerAction(
+        new SpawnAction.Builder()
+            .addInput(input)
+            .addOutput(output)
+            .setExecutable(py2to3converter)
+            .setProgressMessage("Converting to Python 3: %s", input.prettyPrint())
+            .setMnemonic("2to3")
+            .addCommandLine(commandLine.build())
+            .build(ruleContext));
     return output;
   }
 }

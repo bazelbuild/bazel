@@ -1,0 +1,239 @@
+#if (!$singlePage)
+---
+layout: documentation
+title: Common Definitions
+---
+#end
+#if (!$singlePage)
+#parse("com/google/devtools/build/docgen/templates/be/header.vm")
+#end
+
+<h1 id="common-definitions">Common definitions</h1>
+
+<p>This section defines various terms and concepts that are common to
+many functions or build rules below.
+</p>
+
+#if (!$singlePage)
+<div class="toc">
+  <h1>Contents</h1>
+  <ul>
+    <li><a href="#sh-tokenization">Bourne shell tokenization</a></li>
+    <li><a href="#label-expansion">Label Expansion</a></li>
+    <li><a href="#common-attributes">Attributes common to all build rules</a></li>
+    <li><a href="#common-attributes-tests">Attributes common to all test rules (*_test)</a></li>
+    <li><a href="#common-attributes-binaries">Attributes common to all binary rules (*_binary)</a></li>
+    <li><a href="#configurable-attributes">Configurable attributes</a></li>
+    <li><a href="#implicit-outputs">Implicit output targets</a></li>
+  </ul>
+</div>
+#end
+<h2 id='sh-tokenization'>Bourne shell tokenization</h2>
+<p>
+  Certain string attributes of some rules are split into multiple
+  words according to the tokenization rules of the Bourne shell:
+  unquoted spaces delimit separate words, and single- and
+  double-quotes characters and backslashes are used to prevent
+  tokenization.
+</p>
+<p>
+  Those attributes that are subject to this tokenization are
+  explicitly indicated as such in their definitions in this document.
+</p>
+<p>
+  Attributes subject to "Make" variable expansion and Bourne shell
+  tokenization are typically used for passing arbitrary options to
+  compilers and other tools. Examples of such attributes are
+  <code>cc_library.copts</code> and <code>java_library.javacopts</code>.
+  Together these substitutions allow a
+  single string variable to expand into a configuration-specific list
+  of option words.
+</p>
+
+<h2 id='label-expansion'>Label expansion</h2>
+<p>
+  Some string attributes of a very few rules are subject to label
+  expansion: if those strings contain a valid label as a
+  substring, such as <code>//mypkg:target</code>, and that label is a
+  declared prerequisite of the current rule, it is expanded into the
+  pathname of the file represented by the target <code>//mypkg:target</code>.
+</p>
+
+<p>
+  Example attributes include <code>genrule.cmd</code> and
+  <code>cc_binary.linkopts</code>.  The details may vary significantly in
+  each case, over such issues as: whether relative labels are
+  expanded; how labels that expand to multiple files are
+  treated, etc.  Consult the rule attribute documentation for
+  specifics.
+</p>
+
+<h2 id="common-attributes">Attributes common to all build rules</h2>
+
+#macro(commonAttributeDoc $type $attributeMap)
+  <table class="table table-condensed table-bordered table-params">
+    <colgroup>
+      <col class="col-param" />
+      <col class="param-description" />
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Attribute</th>
+        <th>Description</th>
+      </tr>
+    </thead>
+    <tbody>
+  #foreach ($name in $attributeMap.keySet())
+      <tr>
+        <td id="${type}.${name}"><code>${name}</code></td>
+        <td>${attributeMap.get($name).htmlDocumentation}</td>
+      </tr>
+  #end
+    </tbody>
+  </table>
+#end
+
+<p>This section describes attributes that are common to all build rules.<br/>
+Please note that it is an error to list the same label twice in a list of
+labels attribute.
+</p>
+
+#commonAttributeDoc("common" $commonAttributes)
+
+<h2 id="common-attributes-tests">Attributes common to all test rules (*_test)</h2>
+
+<p>This section describes attributes that are common to all test rules.</p>
+
+#commonAttributeDoc("test" $testAttributes)
+
+<h2 id="common-attributes-binaries">Attributes common to all binary rules (*_binary)</h2>
+
+<p>This section describes attributes that are common to all binary rules.</p>
+
+#commonAttributeDoc("binary" $binaryAttributes)
+
+<h2 id="configurable-attributes">Configurable attributes</h2>
+
+<p>
+  Most attributes are "configurable", meaning that their values may change when
+  the target is built in different ways. Specifically, configurable attributes
+  may vary based on the flags passed to the Bazel command line, or what
+  downstream dependency is requesting the target. This can be used, for
+  instance, to customize the target for multiple platforms or compilation modes.
+</p>
+
+<p>
+  The following example declares different sources for different target
+  architectures. Running <code>bazel build :multiplatform_lib --cpu x86</code>
+  will build the target using <code>x86_impl.cc</code>, while substituting
+  <code>--cpu arm</code> will instead cause it to use <code>arm_impl.cc</code>.
+</p>
+
+<pre class="code">
+cc_library(
+    name = "multiplatform_lib",
+    srcs = select({
+        ":x86_mode": ["x86_impl.cc"],
+        ":arm_mode": ["arm_impl.cc"]
+    })
+)
+config_setting(
+    name = "x86_mode",
+    values = { "cpu": "x86" }
+)
+config_setting(
+    name = "arm_mode",
+    values = { "cpu": "arm" }
+)
+</pre>
+
+<p>
+  The <a href="$expander.expandRef("select")"><code>select()</code></a> function
+  chooses among different alternative values for a configurable attribute based
+  on which <a href="$expander.expandRef("config_setting")">
+  <code>config_setting</code></a> criteria is satisfied in the current
+  configuration.
+</p>
+
+<p>
+  Configurable attributes are evaluated after the processing of macros and
+  before the processing of rules (technically, between the
+  <a href="https://docs.bazel.build/versions/master/skylark/concepts.html#evaluation-model">
+  loading and analysis phases</a>.
+  Any processing that Bazel does before the <code>select()</code> is evaluated
+  will not know which branch will be chosen. In particular, macros can't change
+  their behavior based on the chosen branch, and <code>bazel query</code> can
+  only make conservative guesses about the configurable dependencies of a
+  target. Conversely, when authoring a new type of rule, you do not need to
+  worry about the ambiguity of configurable attributes because all
+  <code>select()</code> expressions have already been replaced by their resolved
+  values. See
+  <a href="https://docs.bazel.build/versions/master/configurable-attributes.html#faq">
+  this FAQ</a>
+  for more on using <code>select()</code> with rules and macros.
+</p>
+
+<p>
+  Attributes marked <code>nonconfigurable</code> in their documentation cannot
+  use this feature. Usually an attribute is nonconfigurable because Bazel
+  internally needs to know its value before it can determine how to choose the
+  <code>select()</code> branch.
+</p>
+
+<p>
+  See <a href="https://docs.bazel.build/versions/master/configurable-attributes.html">
+  Configurable Build Attributes</a> for more information.
+</p>
+
+<h2 id="implicit-outputs">Implicit output targets</h2>
+
+<p>When you define a build rule in a BUILD file, you are explicitly
+  declaring a new, named rule target in a package.  Many build rule
+  functions also <i>implicitly</i> entail one or more output file
+  targets, whose contents and meaning are rule-specific.
+
+  For example, when you explicitly declare a
+  <code>java_binary(name='foo', ...)</code> rule, you are also
+  <i>implicitly</i> declaring an output file
+  target <code>foo_deploy.jar</code> as a member of the same package.
+  (This particular target is a self-contained Java archive suitable
+  for deployment.)
+</p>
+
+<p>
+  Implicit output targets are first-class members of the global
+  target graph.  Just like other targets, they are built on demand,
+  either when specified in the top-level built command, or when they
+  are necessary prerequisites for other build targets.  They can be
+  referenced as dependencies in BUILD files, and can be observed in
+  the output of analysis tools such as <code>bazel query</code>.
+</p>
+
+<p>
+  For each kind of build rule, the rule's documentation contains a
+  special section detailing the names and contents of any implicit
+  outputs entailed by a declaration of that kind of rule.
+</p>
+
+<p>
+  An important but somewhat subtle distinction between the
+  two namespaces used by the build system:
+  <a href="../build-ref.html#labels">labels</a> identify <em>targets</em>,
+  which may be rules or files, and file targets may be divided into
+  either source (or input) file targets and derived (or output) file
+  targets.  These are the things you can mention in BUILD files,
+  build from the command-line, or examine using <code>bazel query</code>;
+  this is the <em>target namespace</em>.  Each file target corresponds
+  to one actual file on disk (the "file system namespace"); each rule
+  target may correspond to zero, one or more actual files on disk.
+  There may be files on disk that have no corresponding target; for
+  example, <code>.o</code> object files produced during C++ compilation
+  cannot be referenced from within BUILD files or from the command line.
+  In this way, the build tool may hide certain implementation details of
+  how it does its job. This is explained more fully in
+  the <a href="../build-ref.html">BUILD Concept Reference</a>.
+</p>
+
+#if (!$singlePage)
+#parse("com/google/devtools/build/docgen/templates/be/footer.vm")
+#end

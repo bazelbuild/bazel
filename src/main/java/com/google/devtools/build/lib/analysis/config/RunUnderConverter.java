@@ -1,4 +1,4 @@
-// Copyright 2014 Google Inc. All rights reserved.
+// Copyright 2014 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -13,13 +13,15 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis.config;
 
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.shell.ShellUtils;
 import com.google.devtools.build.lib.shell.ShellUtils.TokenizationException;
-import com.google.devtools.build.lib.syntax.Label;
-import com.google.devtools.build.lib.syntax.Label.SyntaxException;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.OptionsParsingException;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -40,34 +42,57 @@ public class RunUnderConverter implements Converter<RunUnder> {
       throw new OptionsParsingException("Empty command");
     }
     final String runUnderCommand = runUnderList.get(0);
-    if (runUnderCommand.startsWith("//")) {
+    ImmutableList<String> runUnderSuffix =
+        ImmutableList.copyOf(runUnderList.subList(1, runUnderList.size()));
+    if (runUnderCommand.startsWith("//") || runUnderCommand.startsWith("@")) {
       try {
-        final Label runUnderLabel = Label.parseAbsolute(runUnderCommand);
-        return new RunUnderLabel(input, runUnderLabel, runUnderList);
-      } catch (SyntaxException e) {
+        final Label runUnderLabel = Label.parseAbsolute(runUnderCommand, ImmutableMap.of());
+        return new RunUnderLabel(input, runUnderLabel, runUnderSuffix);
+      } catch (LabelSyntaxException e) {
         throw new OptionsParsingException("Not a valid label " + e.getMessage());
       }
     } else {
-      return new RunUnderCommand(input, runUnderCommand, runUnderList);
+      return new RunUnderCommand(input, runUnderCommand, runUnderSuffix);
     }
   }
 
-  private static final class RunUnderLabel implements RunUnder {
+  @AutoCodec
+  static final class RunUnderLabel implements RunUnder {
     private final String input;
     private final Label runUnderLabel;
-    private final List<String> runUnderList;
+    private final ImmutableList<String> runUnderList;
 
-    public RunUnderLabel(String input, Label runUnderLabel, List<String> runUnderList) {
+    @AutoCodec.Instantiator
+    RunUnderLabel(String input, Label runUnderLabel, ImmutableList<String> runUnderList) {
       this.input = input;
       this.runUnderLabel = runUnderLabel;
-      this.runUnderList = new ArrayList<>(runUnderList.subList(1, runUnderList.size()));
+      this.runUnderList = runUnderList;
     }
 
-    @Override public String getValue() { return input; }
-    @Override public Label getLabel() { return runUnderLabel; }
-    @Override public String getCommand() { return null; }
-    @Override public List<String> getOptions() { return runUnderList; }
-    @Override public String toString() { return input; }
+    @Override
+    public String getValue() {
+      return input;
+    }
+
+    @Override
+    public Label getLabel() {
+      return runUnderLabel;
+    }
+
+    @Override
+    public String getCommand() {
+      return null;
+    }
+
+    @Override
+    public ImmutableList<String> getOptions() {
+      return runUnderList;
+    }
+
+    @Override
+    public String toString() {
+      return input;
+    }
 
     @Override
     public boolean equals(Object other) {
@@ -85,27 +110,47 @@ public class RunUnderConverter implements Converter<RunUnder> {
 
     @Override
     public int hashCode() {
-      return Objects.hash(input, runUnderLabel, runUnderList); 
+      return Objects.hash(input, runUnderLabel, runUnderList);
     }
   }
 
-  private static final class RunUnderCommand implements RunUnder {
+  @AutoCodec
+  static final class RunUnderCommand implements RunUnder {
     private final String input;
     private final String runUnderCommand;
-    private final List<String> runUnderList;
+    private final ImmutableList<String> runUnderList;
 
-    public RunUnderCommand(String input, String runUnderCommand, List<String> runUnderList) {
+    @AutoCodec.Instantiator
+    RunUnderCommand(String input, String runUnderCommand, ImmutableList<String> runUnderList) {
       this.input = input;
       this.runUnderCommand = runUnderCommand;
-      this.runUnderList = new ArrayList<>(runUnderList.subList(1, runUnderList.size()));
+      this.runUnderList = runUnderList;
     }
 
-    @Override public String getValue() { return input; }
-    @Override public Label getLabel() { return null; }
-    @Override public String getCommand() { return runUnderCommand; }
-    @Override public List<String> getOptions() { return runUnderList; }
-    @Override public String toString() { return input; }
-    
+    @Override
+    public String getValue() {
+      return input;
+    }
+
+    @Override
+    public Label getLabel() {
+      return null;
+    }
+
+    @Override
+    public String getCommand() {
+      return runUnderCommand;
+    }
+
+    @Override
+    public ImmutableList<String> getOptions() {
+      return runUnderList;
+    }
+
+    @Override
+    public String toString() {
+      return input;
+    }
 
     @Override
     public boolean equals(Object other) {
@@ -123,7 +168,7 @@ public class RunUnderConverter implements Converter<RunUnder> {
 
     @Override
     public int hashCode() {
-      return Objects.hash(input, runUnderCommand, runUnderList); 
+      return Objects.hash(input, runUnderCommand, runUnderList);
     }
   }
   @Override

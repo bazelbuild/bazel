@@ -1,4 +1,4 @@
-// Copyright 2014 Google Inc. All rights reserved.
+// Copyright 2014 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -13,6 +13,11 @@
 // limitations under the License.
 package com.google.devtools.build.lib.syntax;
 
+import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Iterables;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import java.util.Map;
 
 /**
@@ -27,19 +32,58 @@ import java.util.Map;
  *       })
  * </pre>
  */
-public final class SelectorValue {
-  Map<?, ?> dictionary;
+@SkylarkModule(
+    name = "selector",
+    doc = "A selector between configuration-dependent entities.",
+    documented = false)
+@AutoCodec
+public final class SelectorValue implements StarlarkValue, HasBinary {
 
-  public SelectorValue(Map<?, ?> dictionary) {
-    this.dictionary = dictionary;
+  // TODO(adonovan): move to lib.packages.
+  // TODO(adonovan): combine Selector{List,Value}. There's no need for two data types.
+
+  private final ImmutableMap<?, ?> dictionary;
+  private final Class<?> type;
+  private final String noMatchError;
+
+  public SelectorValue(Map<?, ?> dictionary, String noMatchError) {
+    Preconditions.checkArgument(!dictionary.isEmpty());
+    this.dictionary = ImmutableMap.copyOf(dictionary);
+    this.type = Iterables.get(dictionary.values(), 0).getClass();
+    this.noMatchError = noMatchError;
   }
 
-  public Map<?, ?> getDictionary() {
+  public ImmutableMap<?, ?> getDictionary() {
     return dictionary;
+  }
+
+  Class<?> getType() {
+    return type;
+  }
+
+  /**
+   * Returns a custom error message for this select when no condition matches, or an empty
+   * string if no such message is declared.
+   */
+  public String getNoMatchError() {
+    return noMatchError;
   }
 
   @Override
   public String toString() {
-    return "selector({...})";
+    return Starlark.repr(this);
+  }
+
+  @Override
+  public SelectorList binaryOp(TokenKind op, Object that, boolean thisLeft) throws EvalException {
+    if (op == TokenKind.PLUS) {
+      return thisLeft ? SelectorList.concat(this, that) : SelectorList.concat(that, this);
+    }
+    return null;
+  }
+
+  @Override
+  public void repr(Printer printer) {
+    printer.format("select(%r)", dictionary);
   }
 }

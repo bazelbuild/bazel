@@ -1,4 +1,4 @@
-// Copyright 2015 Google Inc. All rights reserved.
+// Copyright 2015 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,79 +16,117 @@ package com.google.devtools.build.lib.analysis.actions;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.NULL_ACTION_OWNER;
 
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
+import com.google.devtools.build.lib.actions.ActionExecutionContext.LostInputsCheck;
+import com.google.devtools.build.lib.actions.ActionInputPrefetcher;
 import com.google.devtools.build.lib.actions.ActionOwner;
+import com.google.devtools.build.lib.actions.ActionResult;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.analysis.util.ActionTester;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
+import com.google.devtools.build.lib.events.StoredEventHandler;
+import com.google.devtools.build.lib.exec.BinTools;
 import com.google.devtools.build.lib.exec.util.TestExecutorBuilder;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
-
 import java.util.Collection;
+import org.junit.Before;
 
+/** Test cases for {@link FileWriteAction}. */
 public abstract class FileWriteActionTestCase extends BuildViewTestCase {
 
   private Action action;
   private Artifact outputArtifact;
   private Path output;
   private Executor executor;
-  private ActionExecutionContext context;
+  protected ActionExecutionContext context;
 
-  @Override
-  public void setUp() throws Exception {
-    super.setUp();
+  @Before
+  public final void createAction() throws Exception {
     outputArtifact = getBinArtifactWithNoOwner("destination.txt");
     output = outputArtifact.getPath();
     FileSystemUtils.createDirectoryAndParents(output.getParentDirectory());
     action = createAction(NULL_ACTION_OWNER, outputArtifact, "Hello World", false);
-    executor = new TestExecutorBuilder(directories, binTools).build();
-    context = new ActionExecutionContext(executor, null, null, new FileOutErr(), null);
   }
 
   protected abstract Action createAction(
       ActionOwner actionOwner, Artifact outputArtifact, String data, boolean makeExecutable);
 
+  @Before
+  public final void createExecutorAndContext() throws Exception {
+    BinTools binTools = BinTools.forUnitTesting(directories, analysisMock.getEmbeddedTools());
+    executor = new TestExecutorBuilder(fileSystem, directories, binTools).build();
+    context =
+        new ActionExecutionContext(
+            executor,
+            /*actionInputFileCache=*/ null,
+            ActionInputPrefetcher.NONE,
+            actionKeyContext,
+            /*metadataHandler=*/ null,
+            LostInputsCheck.NONE,
+            new FileOutErr(),
+            new StoredEventHandler(),
+            /*clientEnv=*/ ImmutableMap.of(),
+            /*topLevelFilesets=*/ ImmutableMap.of(),
+            /*artifactExpander=*/ null,
+            /*actionFileSystem=*/ null,
+            /*skyframeDepsResult=*/ null);
+  }
+
   protected void checkNoInputsByDefault() {
-    assertThat(action.getInputs()).isEmpty();
-    assertNull(action.getPrimaryInput());
+    assertThat(action.getInputs().toList()).isEmpty();
+    assertThat(action.getPrimaryInput()).isNull();
   }
 
   protected void checkDestinationArtifactIsOutput() {
     Collection<Artifact> outputs = action.getOutputs();
-    assertEquals(Sets.newHashSet(outputArtifact), Sets.newHashSet(outputs));
-    assertEquals(outputArtifact, action.getPrimaryOutput());
+    assertThat(Sets.newHashSet(outputs)).isEqualTo(Sets.newHashSet(outputArtifact));
+    assertThat(action.getPrimaryOutput()).isEqualTo(outputArtifact);
   }
 
   protected void checkCanWriteNonExecutableFile() throws Exception {
-    action.execute(context);
+    ActionResult actionResult = action.execute(context);
+    assertThat(actionResult.spawnResults()).isEmpty();
     String content = new String(FileSystemUtils.readContentAsLatin1(output));
-    assertEquals("Hello World", content);
-    assertFalse(output.isExecutable());
+    assertThat(content).isEqualTo("Hello World");
+    assertThat(output.isExecutable()).isFalse();
   }
 
   protected void checkCanWriteExecutableFile() throws Exception {
     Artifact outputArtifact = getBinArtifactWithNoOwner("hello");
     Path output = outputArtifact.getPath();
     Action action = createAction(NULL_ACTION_OWNER, outputArtifact, "echo 'Hello World'", true);
-    action.execute(context);
+    ActionResult actionResult = action.execute(context);
+    assertThat(actionResult.spawnResults()).isEmpty();
     String content = new String(FileSystemUtils.readContentAsLatin1(output));
-    assertEquals("echo 'Hello World'", content);
-    assertTrue(output.isExecutable());
+    assertThat(content).isEqualTo("echo 'Hello World'");
+    assertThat(output.isExecutable()).isTrue();
+  }
+
+  private enum KeyAttributes {
+    DATA,
+    MAKE_EXECUTABLE
   }
 
   protected void checkComputesConsistentKeys() throws Exception {
-    ActionTester.runTest(4, new ActionTester.ActionCombinationFactory() {
-      @Override
-      public Action generate(int i) {
-        return createAction(NULL_ACTION_OWNER, outputArtifact,
-            (i & 1) == 0 ? "0" : "1",
-            (i & 2) == 0);
-      }
-    });
+    ActionTester.runTest(
+        KeyAttributes.class,
+        new ActionTester.ActionCombinationFactory<KeyAttributes>() {
+          @Override
+          public Action generate(ImmutableSet<KeyAttributes> attributesToFlip) {
+            return createAction(
+                NULL_ACTION_OWNER,
+                outputArtifact,
+                attributesToFlip.contains(KeyAttributes.DATA) ? "0" : "1",
+                attributesToFlip.contains(KeyAttributes.MAKE_EXECUTABLE));
+          }
+        },
+        actionKeyContext);
   }
 }

@@ -1,4 +1,4 @@
-// Copyright 2014 Google Inc. All rights reserved.
+// Copyright 2014 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,21 +16,21 @@ package com.google.devtools.build.lib.analysis;
 
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.packages.PackageSpecification;
+import com.google.devtools.build.lib.packages.PackageSpecification.PackageGroupContents;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 
-/**
- * Visibility provider implementation.
- */
+/** Visibility provider implementation. */
 @Immutable
+@AutoCodec
 public final class VisibilityProviderImpl implements VisibilityProvider {
-  private final NestedSet<PackageSpecification> visibility;
+  private final NestedSet<PackageGroupContents> visibility;
 
-  public VisibilityProviderImpl(NestedSet<PackageSpecification> visibility) {
+  public VisibilityProviderImpl(NestedSet<PackageGroupContents> visibility) {
     this.visibility = visibility;
   }
 
   @Override
-  public NestedSet<PackageSpecification> getVisibility() {
+  public NestedSet<PackageGroupContents> getVisibility() {
     return visibility;
   }
 }

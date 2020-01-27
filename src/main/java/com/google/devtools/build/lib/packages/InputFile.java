@@ -1,4 +1,4 @@
-// Copyright 2014 Google Inc. All rights reserved.
+// Copyright 2014 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,10 +15,10 @@
 package com.google.devtools.build.lib.packages;
 
 import com.google.common.base.Preconditions;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.events.Location;
-import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
@@ -71,8 +71,13 @@ public final class InputFile extends FileTarget {
     }
   }
 
+  @Override
+  public boolean isConfigurable() {
+    return false;
+  }
+
   public boolean isLicenseSpecified() {
-    return license != null && license != License.NO_LICENSE;
+    return license != null && license.isSpecified();
   }
 
   @Override
@@ -99,17 +104,12 @@ public final class InputFile extends FileTarget {
    * Returns the exec path of the file, i.e. the path relative to the package source root.
    */
   public PathFragment getExecPath() {
-    return label.getPackageIdentifier().getPathFragment().getRelative(label.getName());
-  }
-
-  @Override
-  public int hashCode() {
-    return label.hashCode();
+    return label.getPackageIdentifier().getSourceRoot().getRelative(label.getName());
   }
 
   @Override
   public String getTargetKind() {
-    return "source file";
+    return targetKind();
   }
 
   @Override
@@ -120,5 +120,10 @@ public final class InputFile extends FileTarget {
   @Override
   public Location getLocation() {
     return location;
+  }
+
+  /** Returns the target kind for all input files. */
+  public static String targetKind() {
+    return "source file";
   }
 }

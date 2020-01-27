@@ -1,4 +1,4 @@
-// Copyright 2014 Google Inc. All rights reserved.
+// Copyright 2014 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,9 +14,7 @@
 package com.google.devtools.build.lib.vfs;
 
 import com.google.common.base.Preconditions;
-
 import java.io.IOException;
-
 import javax.annotation.Nullable;
 
 /**
@@ -42,6 +40,11 @@ public class FileStatusWithDigestAdapter implements FileStatusWithDigest {
   @Override
   public boolean isFile() {
     return stat.isFile();
+  }
+
+  @Override
+  public boolean isSpecialFile() {
+    return stat.isSpecialFile();
   }
 
   @Override

@@ -1,0 +1,483 @@
+<!doctype html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<html>
+<head>
+<meta http-equiv="content-type" content="text/html; charset=iso-8859-1">
+<meta http-equiv="content-style-type" content="text/css">
+<link rel="stylesheet" type="text/css" href="style.css">
+<title>ProGuard GUI</title>
+</head>
+<body>
+
+<script type="text/javascript" language="JavaScript">
+<!--
+if (window.self==window.top)
+  document.write('<a class="largebutton" target="_top" href="../index.html#manual/gui.html">ProGuard index</a> <a class="largebutton" target="_top" href="http://www.guardsquare.com/dexguard">DexGuard</a> <a class="largebutton" target="_top" href="http://www.guardsquare.com/">GuardSquare</a> <a class="largebutton" target="other" href="http://sourceforge.net/projects/proguard/">Sourceforge</a>')
+//-->
+</script>
+<noscript>
+<a class="largebutton" target="_top"  href="../index.html#manual/gui.html">ProGuard index</a>
+<a class="largebutton" target="_top"  href="http://www.guardsquare.com/dexguard">DexGuard</a>
+<a class="largebutton" target="_top"  href="http://www.guardsquare.com/">GuardSquare</a>
+<a class="largebutton" target="other" href="http://sourceforge.net/projects/proguard/">Sourceforge</a>
+</noscript>
+
+<h2>Graphical User Interface</h2>
+
+You can find the ProGuard GUI jar in the <code>lib</code> directory of the
+ProGuard distribution. To run the ProGuard graphical user interface, just type:
+<p class="code">
+<code><b>java -jar proguardgui.jar</b> [-nosplash] </code>[<i>configuration_file</i>]
+</p>
+Alternatively, the <code>bin</code> directory contains some short Linux and
+Windows scripts containing this command. The GUI will pop up in a window. With
+the <code>-nosplash</code> option, you can switch off the short opening
+animation. If you have specified a ProGuard configuration file, it will be
+loaded. The GUI works like a wizard. You can edit the configuration and
+execute ProGuard through a few tabs:
+<p>
+
+<table cellspacing="5" cellpadding="5">
+<tr><td class="button"><a href="#proguard">ProGuard</a></td>
+    <td>Optionally load an existing configuration file.</td></tr>
+<tr><td class="button"><a href="#inputoutput">Input/Output</a></td>
+    <td>Specify the program jars and library jars.</td></tr>
+<tr><td class="button"><a href="#shrinking">Shrinking</a></td>
+    <td>Specify the shrinking options.</td></tr>
+<tr><td class="button"><a href="#obfuscation">Obfuscation</a></td>
+    <td>Specify the obfuscation options.</td></tr>
+<tr><td class="button"><a href="#optimization">Optimization</a></td>
+    <td>Specify the optimization options.</td></tr>
+<tr><td class="button"><a href="#information">Information</a></td>
+    <td>Specify some options to get information.</td></tr>
+<tr><td class="button"><a href="#process">Process</a></td>
+    <td>View and save the resulting configuration, and run ProGuard.</td></tr>
+</table>
+<p>
+
+In addition, there is a tab to execute ReTrace interactively:
+<p>
+
+<table cellspacing="5" cellpadding="5">
+<tr><td class="button"><a href="#retrace">ReTrace</a></td>
+    <td>Set up and run ReTrace, to de-obfuscate stack traces.</td></tr>
+</table>
+<p>
+
+You can freely toggle between the tabs by means of the buttons on the
+left-hand side of the window, or by means of the <b>Previous</b> and
+<b>Next</b> buttons at the bottom of the tabs. Tool tips briefly explain the
+purpose of the numerous options and text fields, although a basic
+understanding of the shrinking/optimization/obfuscation/preverification
+process is assumed. Please refer to the <a
+href="introduction.html">Introduction</a> of this manual.
+<p>
+
+<h2><a name="proguard">The ProGuard Tab</a></h2>
+
+The <i>ProGuard</i> tab presents a welcome message and one important button at
+the bottom:
+<p>
+
+<table cellspacing="5" cellpadding="5">
+<tr><td class="button">Load configuration...</td>
+    <td>opens a file chooser to load an existing ProGuard configuration
+    file.</td></tr>
+</table>
+<p>
+
+If you don't want to load an existing configuration, you can just continue
+creating a new configuration from scratch.
+<p>
+
+<h2><a name="inputoutput">The Input/Output Tab</a></h2>
+
+The <i>Input/Output</i> tab contains two lists, respectively to specify the
+program jars (or aars, wars, ears, zips, apks, or directories), and the
+library jars (or aars, wars, ears, zips, apks, or directories).
+
+<ul>
+<li>The list of program jars contains input entries and output entries. Input
+    entries contain the class files and resource files to be processed. Output
+    entries specify the destinations to which the processed results will be
+    written. They are preceded by arrows, to distinguish them from input
+    entries. The results of each consecutive list of input entries will be
+    written to the subsequent consecutive list of output entries.</li>
+
+<li>The library jars are not copied to the output jars; they contain class
+    files that are used by class files in the program jars and that are
+    necessary for correct processing. This list typically at least contains the
+    targeted Java runtime jar.</li>
+</ul>
+<p>
+
+Each of these lists can be edited by means of a couple of buttons on the
+right-hand side:
+<p>
+
+<table cellspacing="5" cellpadding="5">
+<tr><td class="button">Add input...</td> <td>opens a file chooser to add an
+    input entry to the list of program jars.</td></tr>
+<tr><td class="button">Add output...</td> <td>opens a file chooser to add an
+    output entry to the list of program jars.</td></tr>
+<tr><td class="button">Add...</td>
+    <td>opens a file chooser to add an entry to the list of library
+    jars.</td></tr>
+<tr><td class="button">Edit...</td>
+    <td>opens a file chooser to edit the selected entry in the list.</td></tr>
+<tr><td class="button">Filter...</td>
+    <td>opens a text entry field to add or edit the filters of the selected
+    entries in the list.</td></tr>
+<tr><td class="button">Remove</td>
+    <td>removes the selected entries from the list.</td></tr>
+<tr><td class="button">Move up</td>
+    <td>moves the selected entries one position up the list.</td></tr>
+<tr><td class="button">Move down</td>
+    <td>moves the selected entries one position down the list.</td></tr>
+<tr><td class="button">Move to libraries</td>
+    <td>moves the selected entries in the list of program jars to the list of
+    library jars.</td></tr>
+<tr><td class="button">Move to program</td>
+    <td>moves the selected entries in the list of library jars to the list of
+    program jars.</td></tr>
+</table>
+<p>
+
+Filters allow to filter files based on their names. You can specify filters
+for class file names and resource file names, for jar file names, for aar file
+names, for war file names, for ear file names, for zip file names, and for
+apk file names. Multiple entries in the program list only make sense when
+combined with filters; each output file is written to the first entry with a
+matching filter.
+<p>
+
+Input entries that are currently not readable are colored red.
+<p>
+
+The order of the entries in each list may matter, as the first occurrence of
+any duplicate entries gets precedence, just as in conventional class paths.
+<p>
+
+Corresponding configuration options:
+<ul type="none">
+<li>-<a href="usage.html#injars">injars</a></li>
+<li>-<a href="usage.html#outjars">outjars</a></li>
+<li>-<a href="usage.html#libraryjars">libraryjars</a></li>
+<li><a href="usage.html#classpath"><i>class_path</i></a></li>
+<li><a href="usage.html#filters"><i>filters</i></a></li>
+</ul>
+<p>
+
+<h2><a name="shrinking">The Shrinking Tab</a></h2>
+
+The <i>Shrinking</i> tab presents a number of options that affect the
+shrinking step. The basic options are followed by a few lists of classes and
+class members (fields and methods) that must be protected from shrinking (and
+implicitly from obfuscation as well).
+<p>
+
+The fixed lists contain predefined entries that are typically useful for many
+applications. Each of these entries can be toggled by means of a check box.
+The text field following each entry allows to constrain the applicable classes
+by means of a comma-separated list of wildcarded, fully-qualified class
+names. The default is "*", which means that all input classes of the
+corresponding type are considered.
+<p>
+
+For example, checking the <b>Applications</b> entry and filling in
+"myapplications.**" after it would mean: keep all classes that have main
+methods in the "myapplications" package and all of its subpackages.
+<p>
+
+The variable list at the bottom allows to define additional entries
+yourself. The list can be edited by means of a couple of buttons on the
+right-hand side:
+<p>
+
+<table cellspacing="5" cellpadding="5">
+<tr><td class="button">Add...</td>
+    <td>opens a window to add a new entry to the list.</td></tr>
+<tr><td class="button">Edit...</td>
+    <td>opens a window to edit the selected entry in the list.</td></tr>
+<tr><td class="button">Remove</td>
+    <td>removes the selected entries from the list.</td></tr>
+<tr><td class="button">Move up</td>
+    <td>moves the selected entries one position up the list.</td></tr>
+<tr><td class="button">Move down</td>
+    <td>moves the selected entries one position down the list.</td></tr>
+</table>
+<p>
+
+The interface windows allow to specify classes, fields, and methods. They
+contain text fields and check boxes to constrain these items. They have
+<b>Ok</b> and <b>Cancel</b> buttons to apply or to cancel the operation.
+<p>
+
+For example, your application may be creating some classes dynamically using
+<code>Class.forName</code>. You should then specify them here, so they are kept
+by their original names. Press the <b>Add...</b> button to open the class
+window. Fill out the fully-qualified class name in the <b>Code</b> text field,
+and press the <b>Ok</b> button. Repeat this for all required classes. Wildcards
+can be helpful to specify a large number of related classes in one go. If you
+want to specify all implementations of a certain interface, fill out the
+fully qualified interface name in the <b>Extends/implements class</b> instead.
+<p>
+
+For more advanced settings, it is advisable to become familiar with ProGuard's
+configuration options through the <a href="usage.html">Usage section</a> and
+the <a href="examples.html">Examples section</a>.  We'll suffice with a brief
+overview of the three dialogs provided by the GUI.
+<p>
+
+The <i>keep class</i> dialog appears when adding or editing new special keep
+entries. It has text fields and selections for specifying and constraining
+classes and class members to keep. The <b>Advanced options</b> / <b>Basic
+options</b> button at the bottom of the dialog allows to toggle showing the
+advanced options.
+
+<ul>
+<li>The <b>Comments</b> text field allows to add optional comments to this
+    entry. The comments will identify the entry in the list and they will
+    appear as comments in the configuration file.</li>
+
+<li>The <b>Keep</b> selection allows to specify whether you want to protect
+    the specified classes and their specified class members, or just the
+    specified class members from the specified classes, or the specified
+    classes and the specified class members, if the class members are present.
+    Note that class members will only be protected if they are explicitly
+    specified, even if only by means of a wildcard.</li>
+
+<li>The <b>Allow</b> selection allows to specify whether you want to allow the
+    the specified classes and their specified class members to be shrunk,
+    optimized and/or obfuscated.</li>
+
+<li>The <b>Access</b> selections allows to specify constraints on the class or
+    classes, based on their access modifiers.</li>
+
+<li>The <b>Annotation</b> text field takes the fully-qualified name of an
+    annotation that is required for matching classes. The annotation name can
+    contain wildcards. This is an advanced option for defining <i>keep</i>
+    annotations.</li>
+
+<li>The <b>Class</b> text field takes the fully-qualified name of the class or
+    classes. The class name can contain wildcards.</li>
+
+<li>The <b>Annotation</b> text field takes the fully-qualified name of an
+    annotation that is required for the class or interface that the above
+    class must extend. The annotation name can contain wildcards. This is an
+    advanced option for defining <i>keep</i> annotations.</li>
+
+<li>The <b>Extends/implements class</b> text field takes the fully-qualified
+    name of the class or interface that the above classes must extend.</li>
+
+<li>The <b>Class members</b> list allows to specify a list of fields and
+    methods to keep. It can be edited by means of a list of buttons on the
+    right-hand side.</li>
+</ul>
+<p>
+
+The <i>keep field</i> dialog appears when adding or editing fields within the
+above dialog. It has text fields and selections for specifying and
+constraining fields to keep. Again, the <b>Advanced options</b> / <b>Basic
+options</b> button at the bottom of the dialog allows to toggle showing the
+advanced options.
+
+<ul>
+<li>The <b>Access</b> selections allows to specify constraints on the field or
+    fields, based on their access modifiers.</li>
+
+<li>The <b>Annotation</b> text field takes the fully-qualified name of an
+    annotation that is required for matching fields. The annotation name can
+    contain wildcards. This is an advanced option for defining <i>keep</i>
+    annotations.</li>
+
+<li>The <b>Return type</b> text field takes the fully-qualified type of the
+    field or fields. The type can contain wildcards.</li>
+
+<li>The <b>Name</b> text field takes the name of the field or fields. The field
+    name can contain wildcards.</li>
+</ul>
+<p>
+
+Similarly, the <i>keep method</i> dialog appears when adding or editing
+methods within the keep class dialog. It has text fields and selections for
+specifying and constraining methods to keep. Again, the <b>Advanced
+options</b> / <b>Basic options</b> button at the bottom of the dialog allows
+to toggle showing the advanced options.
+
+<ul>
+<li>The <b>Access</b> selections allows to specify constraints on the method or
+    methods, based on their access modifiers.</li>
+
+<li>The <b>Annotation</b> text field takes the fully-qualified name of an
+    annotation that is required for matching methods. The annotation name can
+    contain wildcards. This is an advanced option for defining <i>keep</i>
+    annotations.</li>
+
+<li>The <b>Return type</b> text field takes the fully-qualified type of the         method or methods. The type can contain wildcards.</li>
+
+<li>The <b>Name</b> text field takes the name of the method or methods. The
+    method name can contain wildcards.</li>
+
+<li>The <b>Arguments</b> text field takes the comma-separated list of
+    fully-qualified method arguments. Each of these arguments can contain
+    wildcards.</li>
+</ul>
+<p>
+
+Corresponding configuration options:
+<ul type="none">
+<li>-<a href="usage.html#dontshrink">dontshrink</a></li>
+<li>-<a href="usage.html#printusage">printusage</a></li>
+<li>-<a href="usage.html#keep">keep</a></li>
+<li>-<a href="usage.html#keepclassmembers">keepclassmembers</a></li>
+<li>-<a href="usage.html#keepclasseswithmembers">keepclasseswithmembers</a></li>
+</ul>
+<p>
+
+<h2><a name="obfuscation">The Obfuscation Tab</a></h2>
+
+The <i>Obfuscation</i> tab presents a number of options that affect the
+obfuscation step. The basic options are followed by a few lists of classes and
+class members (fields and methods) that must be protected from obfuscation
+(but not necessarily from shrinking).
+<p>
+
+The lists are manipulated in the same way as in the <a
+href="#shrinking">Shrinking Tab</a>.
+<p>
+
+Corresponding configuration options:
+<ul type="none">
+<li>-<a href="usage.html#dontobfuscate">dontobfuscate</a></li>
+<li>-<a href="usage.html#printmapping">printmapping</a></li>
+<li>-<a href="usage.html#applymapping">applymapping</a></li>
+<li>-<a href="usage.html#obfuscationdictionary">obfuscationdictionary</a></li>
+<li>-<a href="usage.html#classobfuscationdictionary">classobfuscationdictionary</a></li>
+<li>-<a href="usage.html#packageobfuscationdictionary">packageobfuscationdictionary</a></li>
+<li>-<a href="usage.html#overloadaggressively">overloadaggressively</a></li>
+<li>-<a href="usage.html#useuniqueclassmembernames">useuniqueclassmembernames</a></li>
+<li>-<a href="usage.html#dontusemixedcaseclassnames">dontusemixedcaseclassnames</a></li>
+<li>-<a href="usage.html#keeppackagenames">keeppackagenames</a></li>
+<li>-<a href="usage.html#flattenpackagehierarchy">flattenpackagehierarchy</a></li>
+<li>-<a href="usage.html#repackageclasses">repackageclasses</a></li>
+<li>-<a href="usage.html#keepattributes">keepattributes</a></li>
+<li>-<a href="usage.html#keepparameternames">keepparameternames</a></li>
+<li>-<a href="usage.html#renamesourcefileattribute">renamesourcefileattribute</a></li>
+<li>-<a href="usage.html#adaptclassstrings">adaptclassstrings</a></li>
+<li>-<a href="usage.html#adaptresourcefilenames">adaptresourcefilenames</a></li>
+<li>-<a href="usage.html#adaptresourcefilecontents">adaptresourcefilecontents</a></li>
+<li>-<a href="usage.html#keepnames">keepnames</a></li>
+<li>-<a href="usage.html#keepclassmembernames">keepclassmembernames</a></li>
+<li>-<a href="usage.html#keepclasseswithmembernames">keepclasseswithmembernames</a></li>
+<li><a href="usage.html#classspecification"><i>class_specification</i></a></li>
+</ul>
+<p>
+
+<h2><a name="optimization">The Optimization Tab</a></h2>
+
+The <i>Optimization</i> tab presents a number of options that affect the
+optimization step. The basic options are followed by a few lists of class
+method calls that can be removed if ProGuard can determine that their results
+are not being used.
+<p>
+
+The lists are manipulated in much the same way as in the <a
+href="#shrinking">Shrinking Tab</a>.
+<p>
+
+Corresponding configuration options:
+<ul type="none">
+<li>-<a href="usage.html#dontoptimize">dontoptimize</a></li>
+<li>-<a href="usage.html#optimizations">optimizations</a></li>
+<li>-<a href="usage.html#optimizationpasses">optimizationpasses</a></li>
+<li>-<a href="usage.html#allowaccessmodification">allowaccessmodification</a></li>
+<li>-<a href="usage.html#mergeinterfacesaggressively">mergeinterfacesaggressively</a></li>
+<li>-<a href="usage.html#assumenosideeffects">assumenosideeffects</a></li>
+<li><a href="usage.html#classspecification"><i>class_specification</i></a></li>
+</ul>
+<p>
+
+<h2><a name="information">The Information Tab</a></h2>
+
+The <i>Information</i> tab presents a number of options for preverification
+and targeting, and for the information that ProGuard returns when processing
+your code. The bottom list allows you to query ProGuard about why given
+classes and class members are being kept in the shrinking step.
+<p>
+
+Corresponding configuration options:
+<ul type="none">
+<li>-<a href="usage.html#dontpreverify">dontpreverify</a></li>
+<li>-<a href="usage.html#microedition">microedition</a></li>
+<li>-<a href="usage.html#target">target</a></li>
+<li>-<a href="usage.html#verbose">verbose</a></li>
+<li>-<a href="usage.html#dontnote">dontnote</a></li>
+<li>-<a href="usage.html#dontwarn">dontwarn</a></li>
+<li>-<a href="usage.html#ignorewarnings">ignorewarnings</a></li>
+<li>-<a href="usage.html#skipnonpubliclibraryclasses">skipnonpubliclibraryclasses</a></li>
+<li>-<a href="usage.html#dontskipnonpubliclibraryclasses">dontskipnonpubliclibraryclasses</a></li>
+<li>-<a href="usage.html#dontskipnonpubliclibraryclassmembers">dontskipnonpubliclibraryclassmembers</a></li>
+<li>-<a href="usage.html#keepdirectories">keepdirectories</a></li>
+<li>-<a href="usage.html#forceprocessing">forceprocessing</a></li>
+<li>-<a href="usage.html#printseeds">printseeds</a></li>
+<li>-<a href="usage.html#printconfiguration">printconfiguration</a></li>
+<li>-<a href="usage.html#dump">dump</a></li>
+<li>-<a href="usage.html#whyareyoukeeping">whyareyoukeeping</a></li>
+</ul>
+<p>
+
+<h2><a name="process">The Process Tab</a></h2>
+
+The <i>Process</i> tab has an output console for displaying the configuration
+and the messages while processing. There are three important buttons at the
+bottom:
+<p>
+
+<table cellspacing="5" cellpadding="5">
+<tr><td class="button">View configuration</td>
+    <td>displays the current ProGuard configuration in the console.</td></tr>
+<tr><td class="button">Save configuration...</td>
+    <td>opens a file chooser to save the current ProGuard
+    configuration.</td></tr>
+<tr><td class="button">Process!</td>
+    <td>executes ProGuard with the current configuration.</td></tr>
+</table>
+<p>
+
+<h2><a name="retrace">The ReTrace Tab</a></h2>
+
+The <i>ReTrace</i> tab has a panel with a few settings, an input text area for
+the obfuscated stack trace, and an output console to view the de-obfuscated
+stack trace:
+
+<ul>
+<li>The <b>Verbose</b> check box in the settings panel allows to toggle between
+    normal mode and verbose mode.</li>
+
+<li>The <b>Mapping file</b> text field takes the name of the required mapping
+    file that ProGuard wrote while processing the original code. The file name
+    can be entered manually or by means of the <b>Browse...</b> button that
+    opens a file chooser.</li>
+
+<li>The <b>Obfuscated stack trace</b> text area allows to enter the stack
+    trace, typically by copying and pasting it from elsewhere. Alternatively,
+    it can be loaded from a file by means of the load button below.</li>
+</ul>
+
+There are two buttons at the bottom:
+<p>
+
+<table cellspacing="5" cellpadding="5">
+<tr><td class="button">Load stack trace...</td>
+    <td>opens a file chooser to load an obfuscated stack trace.</td></tr>
+<tr><td class="button">ReTrace!</td>
+    <td>executes ReTrace with the current settings.</td></tr>
+</table>
+
+<hr />
+<address>
+Copyright &copy; 2002-2017
+<a target="other" href="http://www.lafortune.eu/">Eric Lafortune</a> @ <a target="top" href="http://www.guardsquare.com/">GuardSquare</a>.
+</address>
+</body>
+</html>

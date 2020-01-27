@@ -1,4 +1,4 @@
-// Copyright 2014 Google Inc. All rights reserved.
+// Copyright 2014 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -13,11 +13,14 @@
 // limitations under the License.
 package com.google.devtools.build.lib.vfs.inmemoryfs;
 
-import com.google.common.collect.MapMaker;
+import com.google.common.base.Preconditions;
+import com.google.common.collect.Collections2;
+import com.google.devtools.build.lib.clock.Clock;
+import com.google.devtools.build.lib.concurrent.ThreadSafety;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
-import com.google.devtools.build.lib.util.Clock;
-
-import java.util.Set;
+import com.google.devtools.build.lib.vfs.OsPathPolicy;
+import java.util.Collection;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
 /**
@@ -25,9 +28,8 @@ import java.util.concurrent.ConcurrentMap;
  */
 @ThreadSafe
 class InMemoryDirectoryInfo extends InMemoryContentInfo {
-
-  private final ConcurrentMap<String, InMemoryContentInfo> directoryContent =
-      new MapMaker().makeMap();
+  private final ConcurrentMap<InMemoryFileName, InMemoryContentInfo> directoryContent =
+      new ConcurrentHashMap<>();
 
   InMemoryDirectoryInfo(Clock clock) {
     this(clock, true);
@@ -45,9 +47,9 @@ class InMemoryDirectoryInfo extends InMemoryContentInfo {
    * ensure that no entry of that name exists already.
    */
   synchronized void addChild(String name, InMemoryContentInfo inode) {
-    if (name == null) { throw new NullPointerException(); }
-    if (inode == null) { throw new NullPointerException(); }
-    if (directoryContent.put(name, inode) != null) {
+    Preconditions.checkNotNull(name);
+    Preconditions.checkNotNull(inode);
+    if (directoryContent.put(new InMemoryFileName(name), inode) != null) {
       throw new IllegalArgumentException("File already exists: " + name);
     }
     markModificationTime();
@@ -58,7 +60,7 @@ class InMemoryDirectoryInfo extends InMemoryContentInfo {
    * Returns null if the child is not found.
    */
   synchronized InMemoryContentInfo getChild(String name) {
-    return directoryContent.get(name);
+    return directoryContent.get(new InMemoryFileName(name));
   }
 
   /**
@@ -66,19 +68,20 @@ class InMemoryDirectoryInfo extends InMemoryContentInfo {
    * object.
    */
   synchronized void removeChild(String name) {
-    if (directoryContent.remove(name) == null) {
+    if (directoryContent.remove(new InMemoryFileName(name)) == null) {
       throw new IllegalArgumentException(name + " is not a member of this directory");
     }
     markModificationTime();
   }
 
   /**
-   * This function returns the content of a directory. For now, it returns a set
-   * to reflect the semantics of the value returned (ie. unordered, no
-   * duplicates). If thats too slow, it should be changed later.
+   * This function returns the content of a directory. For now, it returns a set to reflect the
+   * semantics of the value returned (ie. unordered, no duplicates). If thats too slow, it should be
+   * changed later.
    */
-  Set<String> getAllChildren() {
-    return directoryContent.keySet();
+  Collection<String> getAllChildren() {
+    return Collections2.transform(
+        directoryContent.keySet(), inMemoryFileName -> inMemoryFileName.value);
   }
 
   @Override
@@ -96,6 +99,11 @@ class InMemoryDirectoryInfo extends InMemoryContentInfo {
     return false;
   }
 
+  @Override
+  public boolean isSpecialFile() {
+    return false;
+  }
+
   /**
    * In the InMemory hierarchy, the getSize on a directory always returns the
    * number of children in the directory.
@@ -105,4 +113,28 @@ class InMemoryDirectoryInfo extends InMemoryContentInfo {
     return directoryContent.size();
   }
 
+  @ThreadSafety.Immutable
+  private static final class InMemoryFileName {
+    private final String value;
+
+    private InMemoryFileName(String value) {
+      this.value = value;
+    }
+
+    @Override
+    public int hashCode() {
+      return OsPathPolicy.getFilePathOs().hash(value);
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+      if (obj == this) {
+        return true;
+      }
+      if (!(obj instanceof InMemoryFileName)) {
+        return false;
+      }
+      return OsPathPolicy.getFilePathOs().equals(this.value, ((InMemoryFileName) obj).value);
+    }
+  }
 }

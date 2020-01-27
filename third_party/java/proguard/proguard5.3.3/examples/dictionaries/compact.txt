@@ -1,0 +1,18 @@
+#
+# This obfuscation dictionary contains strings that are already present
+# in many class files. Since these strings can be shared, the resulting
+# obfuscated class files will generally be a little bit more compact.
+# Usage:
+#     java -jar proguard.jar ..... -obfuscationdictionary compact.txt
+#
+
+Code
+V
+I
+Z
+B
+C
+S
+F
+D
+L

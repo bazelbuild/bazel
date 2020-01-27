@@ -1,4 +1,4 @@
-// Copyright 2014 Google Inc. All rights reserved.
+// Copyright 2014 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,31 +14,30 @@
 package com.google.devtools.build.lib.bazel.rules.sh;
 
 import static com.google.devtools.build.lib.packages.Attribute.attr;
-import static com.google.devtools.build.lib.packages.Type.LABEL_LIST;
+import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
 
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.bazel.rules.sh.BazelShRuleClasses.ShRule;
 import com.google.devtools.build.lib.packages.RuleClass;
-import com.google.devtools.build.lib.packages.RuleClass.Builder;
+import com.google.devtools.build.lib.util.FileTypeSet;
 
 /**
  * Rule definition for the sh_library rule.
  */
 public final class BazelShLibraryRule implements RuleDefinition {
   @Override
-  public RuleClass build(Builder builder, RuleDefinitionEnvironment environment) {
+  public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment environment) {
     return builder
         /* <!-- #BLAZE_RULE(sh_library).ATTRIBUTE(srcs) -->
         The list of input files.
-        ${SYNOPSIS}
         <p>
           This attribute should be used to list shell script source files that belong to
           this library. Scripts can load other scripts using the shell's <code>source</code>
           or <code>.</code> command.
         </p>
         <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
-        .override(attr("srcs", LABEL_LIST).allowedFileTypes(BazelShRuleClasses.SH_FILES))
+        .override(attr("srcs", LABEL_LIST).allowedFileTypes(FileTypeSet.ANY_FILE))
         .build();
   }
 
@@ -54,8 +53,6 @@ public final class BazelShLibraryRule implements RuleDefinition {
 
 /*<!-- #BLAZE_RULE (NAME = sh_library, TYPE = LIBRARY, FAMILY = Shell) -->
 
-${ATTRIBUTE_SIGNATURE}
-
 <p>
   The main use for this rule is to aggregate together a logical
   "library" consisting of related scripts&mdash;programs in an
@@ -67,7 +64,8 @@ ${ATTRIBUTE_SIGNATURE}
 </p>
 
 <p>
-  You can use the <a href="#filegroup"><code>filegroup</code></a> rule to aggregate data files.
+  You can use the <a href="${link filegroup}"><code>filegroup</code></a> rule to aggregate data
+  files.
 </p>
 
 <p>
@@ -80,8 +78,6 @@ ${ATTRIBUTE_SIGNATURE}
   All three attributes accept rules, source files and generated files.
   It is however good practice to use the attributes for their usual purpose (as with other rules).
 </p>
-
-${ATTRIBUTE_DEFINITION}
 
 <h4 id="sh_library_examples">Examples</h4>
 

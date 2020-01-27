@@ -1,0 +1,61 @@
+// Copyright 2018 The Bazel Authors. All rights reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//    http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+package com.google.devtools.build.lib.unsafe;
+
+import static com.google.common.truth.Truth.assertThat;
+
+import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
+
+/** Tests for {@link StringUnsafe}. */
+@RunWith(JUnit4.class)
+public class StringUnsafeTest {
+
+  @Test
+  public void testGetCoder() {
+    if (!StringUnsafe.canUse()) {
+      return;
+    }
+    StringUnsafe stringUnsafe = StringUnsafe.getInstance();
+    assertThat(stringUnsafe.getCoder("")).isEqualTo(StringUnsafe.LATIN1);
+    assertThat(stringUnsafe.getCoder("hello")).isEqualTo(StringUnsafe.LATIN1);
+    assertThat(stringUnsafe.getCoder("lambda λ")).isEqualTo(StringUnsafe.UTF16);
+  }
+
+  @Test
+  public void testGetBytes() {
+    if (!StringUnsafe.canUse()) {
+      return;
+    }
+    StringUnsafe stringUnsafe = StringUnsafe.getInstance();
+    assertThat(ByteBuffer.wrap(stringUnsafe.getByteArray("hello")))
+        .isEqualTo(StandardCharsets.ISO_8859_1.encode("hello"));
+    assertThat(ByteBuffer.wrap(stringUnsafe.getByteArray("lambda λ")))
+        .isEqualTo(StandardCharsets.UTF_16LE.encode("lambda λ"));
+  }
+
+  @Test
+  public void testNewInstance() throws Exception {
+    if (!StringUnsafe.canUse()) {
+      return;
+    }
+    StringUnsafe stringUnsafe = StringUnsafe.getInstance();
+    String s = "hello";
+    assertThat(stringUnsafe.newInstance(stringUnsafe.getByteArray(s), stringUnsafe.getCoder(s)))
+        .isEqualTo("hello");
+  }
+}

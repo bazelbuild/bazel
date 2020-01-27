@@ -1,4 +1,4 @@
-// Copyright 2014 Google Inc. All rights reserved.
+// Copyright 2014 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -19,23 +19,25 @@ import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.actions.Action;
-import com.google.devtools.build.lib.analysis.BlazeDirectories;
-import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
-import com.google.devtools.build.lib.analysis.WorkspaceStatusAction;
+import com.google.common.collect.Interner;
+import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoFactory;
 import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoFactory.BuildInfoKey;
+import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.packages.RuleVisibility;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
+import com.google.devtools.build.lib.remote.options.RemoteOutputsMode;
 import com.google.devtools.build.lib.skyframe.SkyframeActionExecutor.ConflictException;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.syntax.StarlarkSemantics;
+import com.google.devtools.build.skyframe.AbstractSkyKey;
 import com.google.devtools.build.skyframe.Injectable;
 import com.google.devtools.build.skyframe.SkyFunction;
+import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-
 import java.util.Map;
 import java.util.UUID;
-
 import javax.annotation.Nullable;
 
 /**
@@ -43,12 +45,13 @@ import javax.annotation.Nullable;
  * "precomputed" from skyframe's perspective and so the graph needs to be prepopulated with them
  * (e.g. via injection).
  */
+@AutoCodec
 public class PrecomputedValue implements SkyValue {
   /**
    * An externally-injected precomputed value. Exists so that modules can inject precomputed values
    * into Skyframe's graph.
    *
-   * <p>{@see com.google.devtools.build.lib.blaze.BlazeModule#getPrecomputedValues}.
+   * @see com.google.devtools.build.lib.runtime.BlazeModule#getPrecomputedValues
    */
   public static final class Injected {
     private final Precomputed<?> precomputed;
@@ -59,8 +62,13 @@ public class PrecomputedValue implements SkyValue {
       this.supplier = supplier;
     }
 
-    void inject(Injectable injectable) {
-      injectable.inject(ImmutableMap.of(precomputed.key, new PrecomputedValue(supplier.get())));
+    public void inject(Injectable injectable) {
+      injectable.inject(precomputed.key, new PrecomputedValue(supplier.get()));
+    }
+
+    @Override
+    public String toString() {
+      return precomputed + ": " + supplier.get();
     }
   }
 
@@ -72,41 +80,45 @@ public class PrecomputedValue implements SkyValue {
     return new Injected(precomputed, Suppliers.ofInstance(value));
   }
 
-  static final Precomputed<String> DEFAULTS_PACKAGE_CONTENTS =
-      new Precomputed<>(new SkyKey(SkyFunctions.PRECOMPUTED, "default_pkg"));
+  public static final Precomputed<RuleVisibility> DEFAULT_VISIBILITY =
+      new Precomputed<>(Key.create("default_visibility"));
 
-  static final Precomputed<RuleVisibility> DEFAULT_VISIBILITY =
-      new Precomputed<>(new SkyKey(SkyFunctions.PRECOMPUTED, "default_visibility"));
+  public static final Precomputed<StarlarkSemantics> STARLARK_SEMANTICS =
+      new Precomputed<>(Key.create("skylark_semantics"));
 
   static final Precomputed<UUID> BUILD_ID =
-      new Precomputed<>(new SkyKey(SkyFunctions.PRECOMPUTED, "build_id"));
+      new Precomputed<>(Key.create("build_id"), /*shareable=*/ false);
 
-  static final Precomputed<WorkspaceStatusAction> WORKSPACE_STATUS_KEY =
-      new Precomputed<>(new SkyKey(SkyFunctions.PRECOMPUTED, "workspace_status_action"));
+  public static final Precomputed<Map<String, String>> ACTION_ENV =
+      new Precomputed<>(Key.create("action_env"));
 
-  static final Precomputed<ImmutableList <Action>> COVERAGE_REPORT_KEY =
-      new Precomputed<>(new SkyKey(SkyFunctions.PRECOMPUTED, "coverage_report_actions"));
+  public static final Precomputed<Map<String, String>> REPO_ENV =
+      new Precomputed<>(Key.create("repo_env"));
 
-  static final Precomputed<TopLevelArtifactContext> TOP_LEVEL_CONTEXT =
-      new Precomputed<>(new SkyKey(SkyFunctions.PRECOMPUTED, "top_level_context"));
+  static final Precomputed<ImmutableList<ActionAnalysisMetadata>> COVERAGE_REPORT_KEY =
+      new Precomputed<>(Key.create("coverage_report_actions"));
 
-  static final Precomputed<Map<BuildInfoKey, BuildInfoFactory>> BUILD_INFO_FACTORIES =
-      new Precomputed<>(new SkyKey(SkyFunctions.PRECOMPUTED, "build_info_factories"));
+  public static final Precomputed<Map<BuildInfoKey, BuildInfoFactory>> BUILD_INFO_FACTORIES =
+      new Precomputed<>(Key.create("build_info_factories"));
 
-  static final Precomputed<Map<String, String>> TEST_ENVIRONMENT_VARIABLES =
-      new Precomputed<>(new SkyKey(SkyFunctions.PRECOMPUTED, "test_environment"));
-
-  static final Precomputed<BlazeDirectories> BLAZE_DIRECTORIES =
-      new Precomputed<>(new SkyKey(SkyFunctions.PRECOMPUTED, "blaze_directories"));
-
-  static final Precomputed<ImmutableMap<Action, ConflictException>> BAD_ACTIONS =
-      new Precomputed<>(new SkyKey(SkyFunctions.PRECOMPUTED, "bad_actions"));
+  static final Precomputed<ImmutableMap<ActionAnalysisMetadata, ConflictException>> BAD_ACTIONS =
+      new Precomputed<>(Key.create("bad_actions"));
 
   public static final Precomputed<PathPackageLocator> PATH_PACKAGE_LOCATOR =
-      new Precomputed<>(new SkyKey(SkyFunctions.PRECOMPUTED, "path_package_locator"));
+      new Precomputed<>(Key.create("path_package_locator"));
+
+  public static final Precomputed<RemoteOutputsMode> REMOTE_OUTPUTS_MODE =
+      new Precomputed<>(Key.create("remote_outputs_mode"));
+
+  public static final Precomputed<Map<String, String>> REMOTE_DEFAULT_PLATFORM_PROPERTIES =
+      new Precomputed<>(Key.create("remote_default_platform_properties"));
+
+  public static final Precomputed<Boolean> REMOTE_EXECUTION_ENABLED =
+      new Precomputed<>(Key.create("remote_execution_enabled"));
 
   private final Object value;
 
+  @AutoCodec.Instantiator
   public PrecomputedValue(Object value) {
     this.value = Preconditions.checkNotNull(value);
   }
@@ -137,7 +149,7 @@ public class PrecomputedValue implements SkyValue {
     return "<BuildVariable " + value + ">";
   }
 
-  public static final void dependOnBuildId(SkyFunction.Environment env) {
+  public static void dependOnBuildId(SkyFunction.Environment env) throws InterruptedException {
     BUILD_ID.get(env);
   }
 
@@ -147,14 +159,20 @@ public class PrecomputedValue implements SkyValue {
    * <p>Instances do not have internal state.
    */
   public static final class Precomputed<T> {
-    private final SkyKey key;
+    private final Key key;
+    private final boolean shareable;
 
-    public Precomputed(SkyKey key) {
+    public Precomputed(Key key) {
+      this(key, /*shareable=*/ true);
+    }
+
+    private Precomputed(Key key, boolean shareable) {
       this.key = key;
+      this.shareable = shareable;
     }
 
     @VisibleForTesting
-    SkyKey getKeyForTesting() {
+    public Key getKeyForTesting() {
       return key;
     }
 
@@ -165,7 +183,7 @@ public class PrecomputedValue implements SkyValue {
      */
     @Nullable
     @SuppressWarnings("unchecked")
-    public T get(SkyFunction.Environment env) {
+    public T get(SkyFunction.Environment env) throws InterruptedException {
       PrecomputedValue value = (PrecomputedValue) env.getValue(key);
       if (value == null) {
         return null;
@@ -173,11 +191,42 @@ public class PrecomputedValue implements SkyValue {
       return (T) value.get();
     }
 
-    /**
-     * Injects a new variable value.
-     */
-    void set(Injectable injectable, T value) {
-      injectable.inject(ImmutableMap.of(key, new PrecomputedValue(value)));
+    /** Injects a new variable value. */
+    public void set(Injectable injectable, T value) {
+      injectable.inject(
+          key, shareable ? new PrecomputedValue(value) : new UnshareablePrecomputedValue(value));
+    }
+  }
+
+  /** An unshareable version of {@link PrecomputedValue}. */
+  private static final class UnshareablePrecomputedValue extends PrecomputedValue {
+    private UnshareablePrecomputedValue(Object value) {
+      super(value);
+    }
+
+    @Override
+    public boolean dataIsShareable() {
+      return false;
+    }
+  }
+
+  /** {@link SkyKey} for {@code PrecomputedValue}. */
+  @AutoCodec
+  public static class Key extends AbstractSkyKey<String> {
+    private static final Interner<Key> interner = BlazeInterners.newWeakInterner();
+
+    private Key(String arg) {
+      super(arg);
+    }
+
+    @AutoCodec.Instantiator
+    public static Key create(String arg) {
+      return interner.intern(new Key(arg));
+    }
+
+    @Override
+    public SkyFunctionName functionName() {
+      return SkyFunctions.PRECOMPUTED;
     }
   }
 }

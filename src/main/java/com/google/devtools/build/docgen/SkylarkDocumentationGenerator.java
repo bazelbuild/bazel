@@ -1,4 +1,4 @@
-// Copyright 2014 Google Inc. All rights reserved.
+// Copyright 2014 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,6 +14,8 @@
 package com.google.devtools.build.docgen;
 
 
+import java.util.Arrays;
+
 /**
  * The main class for the skylark documentation generator.
  */
@@ -21,7 +23,7 @@ public class SkylarkDocumentationGenerator {
 
   private static boolean checkArgs(String[] args) {
     if (args.length < 1) {
-      System.err.println("There has to be one input parameter\n"
+      System.err.println("There has to be at least one input parameter\n"
           + " - an output file.");
       return false;
     }
@@ -38,10 +40,11 @@ public class SkylarkDocumentationGenerator {
 
   public static void main(String[] args) {
     if (checkArgs(args)) {
-      System.out.println("Generating Skylark documentation...");
-      SkylarkDocumentationProcessor processor = new SkylarkDocumentationProcessor(); 
+      System.out.println("Generating Starlark documentation...");
       try {
-        processor.generateDocumentation(args[0]);
+        SkylarkDocumentationProcessor.generateDocumentation(
+            args[0],
+            Arrays.copyOfRange(args, 1, args.length));
       } catch (Throwable e) {
         fail(e, true);
       }

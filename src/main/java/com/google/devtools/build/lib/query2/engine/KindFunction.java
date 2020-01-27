@@ -1,4 +1,4 @@
-// Copyright 2014 Google Inc. All rights reserved.
+// Copyright 2014 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,7 +16,7 @@ package com.google.devtools.build.lib.query2.engine;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.Argument;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.ArgumentType;
-
+import com.google.devtools.build.lib.query2.engine.QueryEnvironment.FilteringQueryFunction;
 import java.util.List;
 
 /**
@@ -39,13 +39,22 @@ import java.util.List;
  * (e.g.) "filegroup rule".
  */
 class KindFunction extends RegexFilterExpression {
-
   KindFunction() {
+    super(/*invert=*/ false);
+  }
+
+  private KindFunction(boolean invert) {
+    super(invert);
+  }
+
+  @Override
+  public FilteringQueryFunction invert() {
+    return new KindFunction(!invert);
   }
 
   @Override
   public String getName() {
-    return "kind";
+    return (invert ? "no" : "") + "kind";
   }
 
   @Override

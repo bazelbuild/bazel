@@ -1,0 +1,135 @@
+<?xml version='1.0' encoding='windows-1252'?>
+<!--
+  Copyright 2019 The Bazel Authors. All rights reserved.
+
+  Licensed under the Apache License, Version 2.0 (the "License");
+  you may not use this file except in compliance with the License.
+  You may obtain a copy of the License at
+
+     http://www.apache.org/licenses/LICENSE-2.0
+
+  Unless required by applicable law or agreed to in writing, software
+  distributed under the License is distributed on an "AS IS" BASIS,
+  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  See the License for the specific language governing permissions and
+  limitations under the License.
+-->
+<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
+  <!-- Product/@Id is auto-generated so every Bazel version (including release
+       candidates) has a unique product GUID. This is fine, all upgrades are
+       "Major upgrades" (see
+       https://www.firegiant.com/wix/tutorial/upgrades-and-modularization/).
+
+       IMPORTANT: to see the Product GUID of an .msi file:
+         1. install the Windows SDK
+         2. find the Orca installer underneath (Orca-x86_en-us.msi) and run it
+         3. open the .msi file with Orca
+         4. open the "Property" table: the "ProductCode" property is the
+            generated Product/@Id GUID
+  -->
+
+  <!-- IMPORTANT: Product/@UpgradeCode must be the same for backwards-compatible
+       versions, but a new code is needed when an incompatible release comes.
+
+       Versions with the same UpgradeCode are upgraded: higher versions replace
+       lower versions (e.g. version 1.5.2 replaces version 1.0.3). Downgrading
+       is not permitted.
+       Versions with different UpgradeCodes can co-exist (e.g version 2.0.4rc5
+       can co-exist with version 1.2.0).
+  -->
+  <Product
+      Name="Bazel $(var.RELEASE_NAME)"
+      Codepage="1252"
+      Id="*"
+      Language="1033"
+      Manufacturer="The Bazel Authors (https://bazel.build)"
+      UpgradeCode="$(var.UPGRADE_GUID)"
+      Version="$(var.VERSION)">
+    <!-- Package/@Id is auto-generated. This is standard practice with WiX,
+         although it makes the compilation step ("candle.exe")
+         non-deterministic.
+         Even if we used a fixed GUID though, the linking step ("light.exe")
+         would still be non-deterministic.
+    -->
+    <Package
+        AdminImage="no"
+        Compressed="yes"
+        Description="Bazel $(var.RELEASE_NAME) installer"
+        Id="*"
+        InstallPrivileges="limited"
+        InstallScope="perUser"
+        InstallerVersion="200"
+        Languages="1033"
+        Manufacturer="The Bazel Authors (https://bazel.build)"
+        Platform="x64"
+        SummaryCodepage="1252" />
+    <Media Id="1" Cabinet="bazel.cab" EmbedCab="yes" />
+
+    <Directory Id="TARGETDIR" Name="SourceDir">
+      <Directory Id="InstallDirRoot" Name="bazel">
+        <Directory Id="INSTALLDIR" Name="$(var.RELEASE_NAME)">
+          <!-- RANDOM_GUID_1: can't use "*" because we'd get LGHT0231 from
+               light.exe -->
+          <Component
+              Guid="$(var.RANDOM_GUID_1)"
+              Id="MainExecutable"
+              Win64="yes">
+            <File
+                Name="bazel.exe"
+                Id="BazelExe"
+                KeyPath="yes"
+                Source="$(var.BAZEL_EXE)"
+                Vital="yes" />
+            <Environment
+                Name="PATH"
+                Action="set"
+                Id="UpdatePathEnv"
+                Part="first"
+                System="no"
+                Value="[INSTALLDIR]" />
+          </Component>
+          <!-- RANDOM_GUID_2: can't use "*" because we'd get LGHT0230 from
+               light.exe -->
+          <Component
+              Guid="$(var.RANDOM_GUID_2)"
+              Id="InstallDirRoot">
+            <RemoveFolder Id="InstallDirRoot" On="uninstall" />
+          </Component>
+        </Directory>
+      </Directory>
+    </Directory>
+
+    <Property Id="WIXUI_INSTALLDIR" Value="INSTALLDIR" />
+    <UIRef Id="WixUI_InstallDir" />
+
+    <Icon Id="BazelIcon" SourceFile="$(var.ICON)" />
+    <Property Id="ARPPRODUCTICON" Value="BazelIcon" />
+
+    <Condition
+        Message="Bazel requires 64 bit Windows 7 or newer (64 bit Windows 10 recommended)">
+      <![CDATA[VersionNT64 >= 601]]>
+    </Condition>
+
+    <Feature
+        Absent="disallow"
+        AllowAdvertise="no"
+        ConfigurableDirectory="INSTALLDIR"
+        Display="expand"
+        Id="Complete"
+        Level="1">
+      <ComponentRef Id="InstallDirRoot" />
+      <ComponentRef Id="MainExecutable" />
+    </Feature>
+
+    <!-- AllowSameVersionUpgrades is enabled, so we can install RC versions,
+         e.g. install 0.28.0rc3 then 0.28.0. Unfortunately we can't easily
+         prevent upgrading a release version to its RC version, or upgrading an
+         RC with an older RC (because their VERSION and UPGRADE_GUID are both
+         the same) but that's an acceptable flaw. -->
+    <MajorUpgrade
+        AllowDowngrades="no"
+        IgnoreRemoveFailure="no"
+        AllowSameVersionUpgrades="yes"
+        DowngradeErrorMessage="A newer and backwards-compatible version is already installed" />
+  </Product>
+</Wix>

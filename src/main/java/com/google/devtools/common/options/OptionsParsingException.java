@@ -1,4 +1,4 @@
-// Copyright 2014 Google Inc. All rights reserved.
+// Copyright 2014 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@ package com.google.devtools.common.options;
 /**
  * An exception that's thrown when the {@link OptionsParser} fails.
  *
- * @see OptionsParser#parse(OptionPriority,String,java.util.List)
+ * @see OptionsParser#parse(OptionPriority.PriorityCategory,String,java.util.List)
  */
 public class OptionsParsingException extends Exception {
   private final String invalidArgument;

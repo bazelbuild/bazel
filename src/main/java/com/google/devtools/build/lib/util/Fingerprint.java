@@ -1,4 +1,4 @@
-// Copyright 2014 Google Inc. All rights reserved.
+// Copyright 2014 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,263 +14,243 @@
 
 package com.google.devtools.build.lib.util;
 
-import static java.nio.charset.StandardCharsets.UTF_8;
-
-import com.google.common.collect.Iterables;
+import com.google.common.io.ByteStreams;
+import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
-
+import com.google.protobuf.ByteString;
+import com.google.protobuf.CodedOutputStream;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.security.DigestException;
+import java.security.DigestOutputStream;
 import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.util.Map;
 import java.util.UUID;
+import java.util.function.Consumer;
+import javax.annotation.Nullable;
 
 /**
- * Simplified wrapper for MD5 message digests. See also
- * com.google.math.crypto.MD5HMAC for a similar interface.
+ * Simplified wrapper for computing message digests.
  *
  * @see java.security.MessageDigest
  */
-public final class Fingerprint {
+public final class Fingerprint implements Consumer<String> {
 
-  private final MessageDigest md;
+  // Make novel use of a CodedOutputStream, which is good at efficiently serializing data. By
+  // flushing at the end of each digest we can continue to use the stream.
+  private final CodedOutputStream codedOut;
+  private final MessageDigest messageDigest;
 
-  /**
-   * Creates and initializes a new MD5 object; if this fails, Java must be
-   * installed incorrectly.
-   */
+  /** Creates and initializes a new instance. */
+  public Fingerprint(DigestHashFunction digestFunction) {
+    messageDigest = digestFunction.cloneOrCreateMessageDigest();
+    // This is a lot of indirection, but CodedOutputStream does a reasonable job of converting
+    // strings to bytes without creating a whole bunch of garbage, which pays off.
+    codedOut =
+        CodedOutputStream.newInstance(
+            new DigestOutputStream(ByteStreams.nullOutputStream(), messageDigest),
+            /*bufferSize=*/ 1024);
+  }
+
   public Fingerprint() {
-    try {
-      md = MessageDigest.getInstance("md5");
-    } catch (NoSuchAlgorithmException e) {
-      throw new RuntimeException("MD5 not available");
-    }
+    // TODO(b/112460990): Use the value from DigestHashFunction.getDefault(), but check for
+    // contention.
+    this(DigestHashFunction.SHA256);
+  }
+
+  /** Return the length of the fingerprint in bytes. */
+  public int getDigestLength() {
+    return messageDigest.getDigestLength();
   }
 
   /**
-   * Completes the hash computation by doing final operations, e.g., padding.
+   * Completes the hash computation by doing final operations and resets the underlying state,
+   * allowing this instance to be used again.
    *
-   * <p>This method has the side-effect of resetting the underlying digest computer.
-   *
-   * @return the MD5 digest as a 16-byte array
+   * @return the digest as a 16-byte array
    * @see java.security.MessageDigest#digest()
    */
   public byte[] digestAndReset() {
-    return md.digest();
+    try {
+      codedOut.flush();
+    } catch (IOException e) {
+      throw new IllegalStateException("failed to flush", e);
+    }
+    return messageDigest.digest();
   }
 
   /**
-   * Completes the hash computation and returns the digest as a string.
+   * Completes the hash computation by doing final operations and resets the underlying state,
+   * allowing this instance to be used again.
    *
-   * <p>This method has the side-effect of resetting the underlying digest computer.
+   * <p>Instead of returning a digest, this method writes the digest straight into the supplied byte
+   * array, at the given offset.
    *
-   * @return the MD5 digest as a 32-character string of hexadecimal digits
-   * @see com.google.math.crypto.MD5HMAC#toString()
+   * @see java.security.MessageDigest#digest()
    */
+  public void digestAndReset(byte[] buf, int offset, int len) {
+    try {
+      codedOut.flush();
+      messageDigest.digest(buf, offset, len);
+    } catch (IOException e) {
+      throw new IllegalStateException("failed to flush", e);
+    } catch (DigestException e) {
+      throw new IllegalStateException("failed to digest", e);
+    }
+  }
+
+  /** Same as {@link #digestAndReset()}, except returns the digest in hex string form. */
   public String hexDigestAndReset() {
     return hexDigest(digestAndReset());
   }
 
   /**
-   * Returns a string representation of an MD5 digest.
-   *
-   * @param digest the MD5 digest, perhaps from a previous call to digest
-   * @return the digest as a 32-character string of hexadecimal digits
+   * Updates the digest with 0 or more bytes. Same as {@link #addBytes(byte[])}, but potentially
+   * more performant when only a {@link ByteString} is available.
    */
-  public static String hexDigest(byte[] digest) {
-    StringBuilder b = new StringBuilder(32);
-    for (int i = 0; i < digest.length; i++) {
-      int n = digest[i];
-      b.append("0123456789abcdef".charAt((n >> 4) & 0xF));
-      b.append("0123456789abcdef".charAt(n & 0xF));
-    }
-    return b.toString();
-  }
-
-  /**
-   * Override of Object.toString to return a string for the MD5 digest without
-   * finalizing the digest computation. Calling hexDigest() instead will
-   * finalize the digest computation.
-   *
-   * @return the string returned by hexDigest()
-   */
-  @Override
-  public String toString() {
+  public Fingerprint addBytes(ByteString bytes) {
     try {
-      // MD5 does support cloning, so this should not fail
-      return hexDigest(((MessageDigest) md.clone()).digest());
-    } catch (CloneNotSupportedException e) {
-      // MessageDigest does not support cloning,
-      // so just return the toString() on the MessageDigest.
-      return md.toString();
+      codedOut.writeRawBytes(bytes);
+    } catch (IOException e) {
+      throw new IllegalStateException("failed to write bytes", e);
     }
+    return this;
   }
 
-  /**
-   * Updates the digest with 0 or more bytes.
-   *
-   * @param input the array of bytes with which to update the digest
-   * @see java.security.MessageDigest#update(byte[])
-   */
+  /** Updates the digest with 0 or more bytes. */
   public Fingerprint addBytes(byte[] input) {
-    md.update(input);
+    addBytes(input, 0, input.length);
     return this;
   }
 
-  /**
-   * Updates the digest with the specified number of bytes starting at offset.
-   *
-   * @param input the array of bytes with which to update the digest
-   * @param offset the offset into the array
-   * @param len the number of bytes to use
-   * @see java.security.MessageDigest#update(byte[], int, int)
-   */
+  /** Updates the digest with the specified number of bytes starting at offset. */
   public Fingerprint addBytes(byte[] input, int offset, int len) {
-    md.update(input, offset, len);
+    try {
+      codedOut.write(input, offset, len);
+    } catch (IOException e) {
+      throw new IllegalStateException("failed to write bytes", e);
+    }
     return this;
   }
 
-  /**
-   * Updates the digest with a boolean value.
-   */
+  /** Updates the digest with a boolean value. */
   public Fingerprint addBoolean(boolean input) {
-    addBytes(new byte[] { (byte) (input ? 1 : 0) });
+    try {
+      codedOut.writeBoolNoTag(input);
+    } catch (IOException e) {
+      throw new IllegalStateException(e);
+    }
     return this;
   }
 
-  /**
-   * Updates the digest with the little-endian bytes of a given int value.
-   *
-   * @param input the integer with which to update the digest
-   */
+  /** Same as {@link #addBoolean(boolean)}, except considers nullability. */
+  public Fingerprint addNullableBoolean(Boolean input) {
+    if (input == null) {
+      addBoolean(false);
+    } else {
+      addBoolean(true);
+      addBoolean(input);
+    }
+    return this;
+  }
+
+  /** Updates the digest with the varint representation of input. */
   public Fingerprint addInt(int input) {
-    md.update(new byte[] {
-        (byte) input,
-        (byte) (input >>  8),
-        (byte) (input >> 16),
-        (byte) (input >> 24),
-    });
-
+    try {
+      codedOut.writeInt32NoTag(input);
+    } catch (IOException e) {
+      throw new IllegalStateException(e);
+    }
     return this;
   }
 
-  /**
-   * Updates the digest with the little-endian bytes of a given long value.
-   *
-   * @param input the long with which to update the digest
-   */
+  /** Updates the digest with the signed varint representation of input. */
+  Fingerprint addSInt(int input) {
+    try {
+      codedOut.writeSInt32NoTag(input);
+    } catch (IOException e) {
+      throw new IllegalStateException(e);
+    }
+    return this;
+  }
+
+  /** Updates the digest with the varint representation of a long value. */
   public Fingerprint addLong(long input) {
-    md.update(new byte[]{
-        (byte) input,
-        (byte) (input >> 8),
-        (byte) (input >> 16),
-        (byte) (input >> 24),
-        (byte) (input >> 32),
-        (byte) (input >> 40),
-        (byte) (input >> 48),
-        (byte) (input >> 56),
-    });
-
+    try {
+      codedOut.writeInt64NoTag(input);
+    } catch (IOException e) {
+      throw new IllegalStateException("failed to write long", e);
+    }
     return this;
   }
 
-  /**
-   * Updates the digest with a UUID.
-   *
-   * @param uuid the UUID with which to update the digest. Must not be null.
-   */
+  /** Same as {@link #addInt(int)}, except considers nullability. */
+  public Fingerprint addNullableInt(@Nullable Integer input) {
+    if (input == null) {
+      addBoolean(false);
+    } else {
+      addBoolean(true);
+      addInt(input);
+    }
+    return this;
+  }
+
+  /** Updates the digest with a UUID. */
   public Fingerprint addUUID(UUID uuid) {
     addLong(uuid.getLeastSignificantBits());
     addLong(uuid.getMostSignificantBits());
     return this;
   }
 
-  /**
-   * Updates the digest with a String using its length plus its UTF8 encoded bytes.
-   *
-   * @param input the String with which to update the digest
-   * @see java.security.MessageDigest#update(byte[])
-   */
+  /** Updates the digest with a String using UTF8 encoding. */
   public Fingerprint addString(String input) {
-    byte[] bytes = input.getBytes(UTF_8);
-    addInt(bytes.length);
-    md.update(bytes);
-    return this;
-  }
-
-  /**
-   * Updates the digest with a String using its length and content.
-   *
-   * @param input the String with which to update the digest
-   * @see java.security.MessageDigest#update(byte[])
-   */
-  public Fingerprint addStringLatin1(String input) {
-    addInt(input.length());
-    byte[] bytes = new byte[input.length()];
-    for (int i = 0; i < input.length(); i++) {
-      bytes[i] = (byte) input.charAt(i);
+    try {
+      codedOut.writeStringNoTag(input);
+    } catch (IOException e) {
+      throw new IllegalStateException("failed to write string", e);
     }
-    md.update(bytes);
     return this;
   }
 
-  /**
-   * Updates the digest with a Path.
-   *
-   * @param input the Path with which to update the digest.
-   */
+  /** Same as {@link #addString(String)}, except considers nullability. */
+  public Fingerprint addNullableString(@Nullable String input) {
+    if (input == null) {
+      addBoolean(false);
+    } else {
+      addBoolean(true);
+      addString(input);
+    }
+    return this;
+  }
+
+  /** Updates the digest with a {@link Path}. */
   public Fingerprint addPath(Path input) {
-    addStringLatin1(input.getPathString());
+    addString(input.getPathString());
     return this;
   }
 
-  /**
-   * Updates the digest with a Path.
-   *
-   * @param input the Path with which to update the digest.
-   */
+  /** Updates the digest with a {@link PathFragment}. */
   public Fingerprint addPath(PathFragment input) {
-    addStringLatin1(input.getPathString());
-    return this;
+    return addString(input.getPathString());
   }
 
   /**
-   * Updates the digest with inputs by iterating over them and invoking
-   * {@code #addString(String)} on each element.
-   *
-   * @param inputs the inputs with which to update the digest
+   * Add the supplied sequence of {@link String}s to the digest as an atomic unit, that is this is
+   * different from adding them each individually.
    */
   public Fingerprint addStrings(Iterable<String> inputs) {
-    addInt(Iterables.size(inputs));
+    int count = 0;
     for (String input : inputs) {
       addString(input);
+      count++;
     }
+    addInt(count);
 
     return this;
   }
 
-  /**
-   * Updates the digest with inputs by iterating over them and invoking
-   * {@code #addString(String)} on each element.
-   *
-   * @param inputs the inputs with which to update the digest
-   */
-  public Fingerprint addStrings(String... inputs) {
-    addInt(inputs.length);
-    for (String input : inputs) {
-      addString(input);
-    }
-
-    return this;
-  }
-
-  /**
-   * Updates the digest with inputs which are pairs in a map, by iterating over
-   * the map entries and invoking {@code #addString(String)} on each key and
-   * value.
-   *
-   * @param inputs the inputs in a map with which to update the digest
-   */
+  /**  Updates the digest with the supplied map. */
   public Fingerprint addStringMap(Map<String, String> inputs) {
     addInt(inputs.size());
     for (Map.Entry<String, String> entry : inputs.entrySet()) {
@@ -282,38 +262,52 @@ public final class Fingerprint {
   }
 
   /**
-   * Updates the digest with a list of paths by iterating over them and
-   * invoking {@link #addPath(PathFragment)} on each element.
+   * Add the supplied sequence of {@link PathFragment}s to the digest as an atomic unit, that is
+   * this is different from adding each item individually.
    *
    * @param inputs the paths with which to update the digest
    */
   public Fingerprint addPaths(Iterable<PathFragment> inputs) {
-    addInt(Iterables.size(inputs));
+    int count = 0;
     for (PathFragment path : inputs) {
       addPath(path);
+      count++;
     }
+    addInt(count);
 
     return this;
   }
 
-  /**
-   * Reset the Fingerprint for additional use as though previous digesting had not been done.
-   */
-  public void reset() {
-    md.reset();
+  private static String hexDigest(byte[] digest) {
+    StringBuilder b = new StringBuilder(32);
+    for (int i = 0; i < digest.length; i++) {
+      int n = digest[i];
+      b.append("0123456789abcdef".charAt((n >> 4) & 0xF));
+      b.append("0123456789abcdef".charAt(n & 0xF));
+    }
+    return b.toString();
   }
 
   // -------- Convenience methods ----------------------------
 
   /**
-   * Computes the hex digest from a String using UTF8 encoding and returning
-   * the hexDigest().
+   * Computes the hex digest from a String using UTF8 encoding and returning the hexDigest().
    *
    * @param input the String from which to compute the digest
    */
-  public static String md5Digest(String input) {
-    Fingerprint f = new Fingerprint();
-    f.addBytes(input.getBytes(UTF_8));
-    return f.hexDigestAndReset();
+  public static String getHexDigest(String input) {
+    // TODO(b/112460990): This convenience method should
+    // use the value from DigestHashFunction.getDefault(). However, this gets called during class
+    // loading in a few places, before setDefault() has been called, so these call-sites should be
+    // removed before this can be done safely.
+    return hexDigest(
+        DigestHashFunction.SHA256
+            .cloneOrCreateMessageDigest()
+            .digest(input.getBytes(StandardCharsets.UTF_8)));
+  }
+
+  @Override
+  public void accept(String s) {
+    addString(s);
   }
 }

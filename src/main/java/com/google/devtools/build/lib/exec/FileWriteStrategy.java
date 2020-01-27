@@ -1,4 +1,4 @@
-// Copyright 2014 Google Inc. All rights reserved.
+// Copyright 2014 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,59 +15,55 @@
 package com.google.devtools.build.lib.exec;
 
 import com.google.common.collect.Iterables;
+import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
-import com.google.devtools.build.lib.actions.ExecException;
-import com.google.devtools.build.lib.actions.ExecutionStrategy;
-import com.google.devtools.build.lib.actions.Executor;
-import com.google.devtools.build.lib.actions.ResourceSet;
+import com.google.devtools.build.lib.actions.RunningActionEvent;
+import com.google.devtools.build.lib.actions.SpawnContinuation;
 import com.google.devtools.build.lib.analysis.actions.AbstractFileWriteAction;
+import com.google.devtools.build.lib.analysis.actions.AbstractFileWriteAction.DeterministicWriter;
 import com.google.devtools.build.lib.analysis.actions.FileWriteActionContext;
-import com.google.devtools.build.lib.events.EventHandler;
-import com.google.devtools.build.lib.util.io.FileOutErr;
+import com.google.devtools.build.lib.profiler.AutoProfiler;
 import com.google.devtools.build.lib.vfs.Path;
-
 import java.io.BufferedOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.util.logging.Logger;
 
 /**
  * A strategy for executing an {@link AbstractFileWriteAction}.
  */
-@ExecutionStrategy(name = { "local" }, contextType = FileWriteActionContext.class)
 public final class FileWriteStrategy implements FileWriteActionContext {
-
+  private static final Logger logger = Logger.getLogger(FileWriteStrategy.class.getName());
   public static final Class<FileWriteStrategy> TYPE = FileWriteStrategy.class;
 
-  public FileWriteStrategy() {
-  }
-
   @Override
-  public void exec(Executor executor, AbstractFileWriteAction action, FileOutErr outErr,
-      ActionExecutionContext actionExecutionContext) throws ExecException, InterruptedException {
-    EventHandler reporter = executor == null ? null : executor.getEventHandler();
-    try {
-      Path outputPath = Iterables.getOnlyElement(action.getOutputs()).getPath();
-      try (OutputStream out = new BufferedOutputStream(outputPath.getOutputStream())) {
-        action.newDeterministicWriter(reporter, executor).writeOutputFile(out);
+  public SpawnContinuation beginWriteOutputToFile(
+      AbstractAction action,
+      ActionExecutionContext actionExecutionContext,
+      DeterministicWriter deterministicWriter,
+      boolean makeExecutable,
+      boolean isRemotable) {
+    actionExecutionContext.getEventHandler().post(new RunningActionEvent(action, "local"));
+    // TODO(ulfjack): Consider acquiring local resources here before trying to write the file.
+    try (AutoProfiler p =
+        AutoProfiler.logged(
+            "running write for action " + action.prettyPrint(),
+            logger,
+            /*minTimeForLoggingInMilliseconds=*/ 100)) {
+      Path outputPath =
+          actionExecutionContext.getInputPath(Iterables.getOnlyElement(action.getOutputs()));
+      try {
+        try (OutputStream out = new BufferedOutputStream(outputPath.getOutputStream())) {
+          deterministicWriter.writeOutputFile(out);
+        }
+        if (makeExecutable) {
+          outputPath.setExecutable(true);
+        }
+      } catch (IOException e) {
+        return SpawnContinuation.failedWithExecException(new EnvironmentalExecException(e));
       }
-      if (action.makeExecutable()) {
-        outputPath.setExecutable(true);
-      }
-    } catch (IOException e) {
-      throw new EnvironmentalExecException("failed to create file '"
-          + Iterables.getOnlyElement(action.getOutputs()).prettyPrint()
-          + "' due to I/O error: " + e.getMessage(), e);
     }
-  }
-
-  @Override
-  public ResourceSet estimateResourceConsumption(AbstractFileWriteAction action) {
-    return action.estimateResourceConsumptionLocal();
-  }
-
-  @Override
-  public String strategyLocality(AbstractFileWriteAction action) {
-    return "local";
+    return SpawnContinuation.immediate();
   }
 }

@@ -1,0 +1,493 @@
+<!doctype html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<html>
+<head>
+<meta http-equiv="content-type" content="text/html; charset=iso-8859-1">
+<meta http-equiv="content-style-type" content="text/css">
+<link rel="stylesheet" type="text/css" href="style.css">
+<title>ProGuard Reference Card</title>
+</head>
+<body>
+
+<script type="text/javascript" language="JavaScript">
+<!--
+if (window.self==window.top)
+  document.write('<a class="largebutton" target="_top" href="../index.html#manual/refcard.html">ProGuard index</a> <a class="largebutton" target="_top" href="http://www.guardsquare.com/dexguard">DexGuard</a> <a class="largebutton" target="_top" href="http://www.guardsquare.com/">GuardSquare</a> <a class="largebutton" target="other" href="http://sourceforge.net/projects/proguard/">Sourceforge</a>')
+//-->
+</script>
+<noscript>
+<a class="largebutton" target="_top"  href="../index.html#manual/refcard.html">ProGuard index</a>
+<a class="largebutton" target="_top"  href="http://www.guardsquare.com/dexguard">DexGuard</a>
+<a class="largebutton" target="_top"  href="http://www.guardsquare.com/">GuardSquare</a>
+<a class="largebutton" target="other" href="http://sourceforge.net/projects/proguard/">Sourceforge</a>
+</noscript>
+
+<h1>ProGuard Reference Card</h1>
+
+<h2>Usage</h2>
+
+<code><b>java -jar proguard.jar </b></code><i>options</i> ...
+<p>
+&nbsp;&nbsp;Typically:
+<p>
+<code><b>java -jar proguard.jar @myconfig.pro</b></code>
+<p>
+
+<h2>Options</h2>
+
+<table cellspacing="10">
+
+<tr>
+<td valign="top"><a href="usage.html#at"><code><b>@</b></code></a><a href="usage.html#filename"><i>filename</i></a></td>
+
+<td>Short for '<code>-include</code> <i>filename</i>'.</td>
+</tr>
+
+<tr>
+<td valign="top"><a href="usage.html#include"><code><b>-include</b></code></a>
+                 <a href="usage.html#filename"><i>filename</i></a></td>
+
+<td>Read configuration options from the given file.</td>
+</tr>
+
+<tr>
+<td valign="top"><a href="usage.html#basedirectory"><code><b>-basedirectory</b></code></a>
+                 <a href="usage.html#filename"><i>directoryname</i></a></td>
+
+<td>Specifies the base directory for subsequent relative file names.</td>
+</tr>
+
+<tr>
+<td valign="top"><a href="usage.html#injars"><code><b>-injars</b></code></a>
+                 <a href="usage.html#classpath"><i>class_path</i></a></td>
+<td>Specifies the program jars (or wars, ears, zips, or directories).</td>
+</tr>
+
+<tr>
+<td valign="top"><a href="usage.html#outjars"><code><b>-outjars</b></code></a>
+                 <a href="usage.html#classpath"><i>class_path</i></a></td>
+<td>Specifies the names of the output jars (or wars, ears, zips, or
+    directories).</td>
+</tr>
+
+<tr>
+<td valign="top"><a href="usage.html#libraryjars"><code><b>-libraryjars</b></code></a>
+                 <a href="usage.html#classpath"><i>class_path</i></a></td>
+<td>Specifies the library jars (or wars, ears, zips, or directories).</td>
+</tr>
+
+<tr>
+<td valign="top"><a href="usage.html#skipnonpubliclibraryclasses"><code><b>-skipnonpubliclibraryclasses</b></code></a></td>
+<td>Ignore non-public library classes.</td>
+</tr>
+
+<tr>
+<td valign="top"><a href="usage.html#dontskipnonpubliclibraryclasses"><code><b>-dontskipnonpubliclibraryclasses</b></code></a></td>
+<td>Don't ignore non-public library classes (the default).</td>
+</tr>
+
+<tr>
+<td valign="top"><a href="usage.html#dontskipnonpubliclibraryclassmembers"><code><b>-dontskipnonpubliclibraryclassmembers</b></code></a></td>
+<td>Don't ignore package visible library class members.</td>
+</tr>
+
+<tr>
+<td valign="top"><a href="usage.html#keepdirectories"><code><b>-keepdirectories</b></code></a>
+                 [<a href="usage.html#filters"><i>directory_filter</i></a>]</td>
+<td>Keep the specified directories in the output jars (or wars, ears, zips, or
+    directories).</td>
+</tr>
+
+<tr>
+<td valign="top"><a href="usage.html#target"><code><b>-target</b></code></a>
+                 <i>version</i></td>
+<td>Set the given version number in the processed classes.</td>
+</tr>
+
+<tr>
+<td valign="top"><a href="usage.html#forceprocessing"><code><b>-forceprocessing</b></code></a></td>
+<td>Process the input, even if the output seems up to date.</td>
+</tr>
+
+<tr>
+<td valign="top"><a href="usage.html#keep"><code><b>-keep</b></code></a>
+                 [<a href="usage.html#keepoptionmodifiers">,<i>modifier</i></a>,...]
+                 <a href="usage.html#classspecification"><i>class_specification</i></a></td>
+<td>Preserve the specified classes <i>and</i> class members.</td>
+
+</tr>
+<tr>
+<td valign="top"><a href="usage.html#keepclassmembers"><code><b>-keepclassmembers</b></code></a>
+                 [<a href="usage.html#keepoptionmodifiers">,<i>modifier</i></a>,...]
+                 <a href="usage.html#classspecification"><i>class_specification</i></a></td>
+<td>Preserve the specified class members, if their classes are preserved as
+    well.</td>
+</tr>
+
+<tr>
+<td valign="top"><a href="usage.html#keepclasseswithmembers"><code><b>-keepclasseswithmembers</b></code></a>
+                 [<a href="usage.html#keepoptionmodifiers">,<i>modifier</i></a>,...]
+                 <a href="usage.html#classspecification"><i>class_specification</i></a></td>
+<td>Preserve the specified classes <i>and</i> class members, if all of the
+    specified class members are present.</td>
+</tr>
+
+<tr>
+<td valign="top"><a href="usage.html#keepnames"><code><b>-keepnames</b></code></a>
+                 <a href="usage.html#classspecification"><i>class_specification</i></a></td>
+<td>Preserve the names of the specified classes <i>and</i> class members (if
+    they aren't removed in the shrinking step).</td>
+</tr>
+
+<tr>
+<td valign="top"><a href="usage.html#keepclassmembernames"><code><b>-keepclassmembernames</b></code></a>
+                 <a href="usage.html#classspecification"><i>class_specification</i></a></td>
+<td>Preserve the names of the specified class members (if they aren't removed
+    in the shrinking step).</td>
+</tr>
+
+<tr>
+<td valign="top"><a href="usage.html#keepclasseswithmembernames"><code><b>-keepclasseswithmembernames</b></code></a>
+                 <a href="usage.html#classspecification"><i>class_specification</i></a></td>
+<td>Preserve the names of the specified classes <i>and</i> class members, if
+    all of the specified class members are present (after the shrinking
+    step).</td>
+</tr>
+
+<tr>
+<td valign="top"><a href="usage.html#printseeds"><code><b>-printseeds</b></code></a>
+                 [<a href="usage.html#filename"><i>filename</i></a>]</td>
+<td>List classes and class members matched by the various <code>-keep</code>
+    options, to the standard output or to the given file.</td>
+</tr>
+
+<tr>
+<td valign="top"><a href="usage.html#dontshrink"><code><b>-dontshrink</b></code></a></td>
+<td>Don't shrink the input class files.</td>
+</tr>
+
+<tr>
+<td valign="top"><a href="usage.html#printusage"><code><b>-printusage</b></code></a>
+                 [<a href="usage.html#filename"><i>filename</i></a>]</td>
+<td>List dead code of the input class files, to the standard output or to the
+    given file.</td>
+</tr>
+
+<tr>
+<td valign="top"><a href="usage.html#whyareyoukeeping"><code><b>-whyareyoukeeping</b></code></a>
+                 <a href="usage.html#classspecification"><i>class_specification</i></a></td>
+<td>Print details on why the given classes and class members are being kept in
+    the shrinking step.</td>
+</tr>
+
+<tr>
+<td valign="top"><a href="usage.html#dontoptimize"><code><b>-dontoptimize</b></code></a></td>
+<td>Don't optimize the input class files.</td>
+</tr>
+
+<tr>
+<td valign="top"><a href="usage.html#optimizations"><code><b>-optimizations</b></code></a>
+                 <a href="optimizations.html"><i>optimization_filter</i></a></td>
+<td>The optimizations to be enabled and disabled.</td>
+</tr>
+
+<tr>
+<td valign="top"><a href="usage.html#optimizationpasses"><code><b>-optimizationpasses</b></code></a>
+                 <i>n</i></td>
+<td>The number of optimization passes to be performed.</td>
+</tr>
+
+<tr>
+<td valign="top"><a href="usage.html#assumenosideeffects"><code><b>-assumenosideeffects</b></code></a>
+                 <a href="usage.html#classspecification"><i>class_specification</i></a></td>
+<td>Assume that the specified methods don't have any side effects, while
+    optimizing.</td>
+</tr>
+
+<tr>
+<td valign="top"><a href="usage.html#allowaccessmodification"><code><b>-allowaccessmodification</b></code></a></td>
+<td>Allow the access modifiers of classes and class members to be modified,
+    while optimizing.</td>
+</tr>
+
+<tr>
+<td valign="top"><a href="usage.html#mergeinterfacesaggressively"><code><b>-mergeinterfacesaggressively</b></code></a></td>
+<td>Allow any interfaces to be merged, while optimizing.</td>
+</tr>
+
+<tr>
+<td valign="top"><a href="usage.html#dontobfuscate"><code><b>-dontobfuscate</b></code></a></td>
+<td>Don't obfuscate the input class files.</td>
+</tr>
+
+<tr>
+<td valign="top"><a href="usage.html#printmapping"><code><b>-printmapping</b></code></a>
+                 [<a href="usage.html#filename"><i>filename</i></a>]</td>
+<td>Print the mapping from old names to new names for classes and class members
+    that have been renamed, to the standard output or to the given file.</td>
+</tr>
+
+<tr>
+<td valign="top"><a href="usage.html#applymapping"><code><b>-applymapping</b></code></a>
+                 <a href="usage.html#filename"><i>filename</i></a></td>
+<td>Reuse the given mapping, for incremental obfuscation.</td>
+</tr>
+
+<tr>
+<td valign="top"><a href="usage.html#obfuscationdictionary"><code><b>-obfuscationdictionary</b></code></a>
+                 <a href="usage.html#filename"><i>filename</i></a></td>
+<td>Use the words in the given text file as obfuscated field names and method names.</td>
+</tr>
+
+<tr>
+<td valign="top"><a href="usage.html#classobfuscationdictionary"><code><b>-classobfuscationdictionary</b></code></a>
+                 <a href="usage.html#filename"><i>filename</i></a></td>
+<td>Use the words in the given text file as obfuscated class names.</td>
+</tr>
+
+<tr>
+<td valign="top"><a href="usage.html#packageobfuscationdictionary"><code><b>-packageobfuscationdictionary</b></code></a>
+                 <a href="usage.html#filename"><i>filename</i></a></td>
+<td>Use the words in the given text file as obfuscated package names.</td>
+</tr>
+
+<tr>
+<td valign="top"><a href="usage.html#overloadaggressively"><code><b>-overloadaggressively</b></code></a></td>
+<td>Apply aggressive overloading while obfuscating.</td>
+</tr>
+
+<tr>
+<td valign="top"><a href="usage.html#useuniqueclassmembernames"><code><b>-useuniqueclassmembernames</b></code></a></td>
+<td>Ensure uniform obfuscated class member names for subsequent incremental
+    obfuscation.</td> </tr>
+
+<tr>
+<td valign="top"><a href="usage.html#dontusemixedcaseclassnames"><code><b>-dontusemixedcaseclassnames</b></code></a></td>
+<td>Don't generate mixed-case class names while obfuscating.</td>
+</tr>
+
+<tr>
+<td valign="top"><a href="usage.html#keeppackagenames"><code><b>-keeppackagenames</b></code></a>
+                 [<i><a href="usage.html#filters">package_filter</a></i>]</td>
+<td>Keep the specified package names from being obfuscated.</td>
+</tr>
+
+<tr>
+<td valign="top"><a href="usage.html#flattenpackagehierarchy"><code><b>-flattenpackagehierarchy</b></code></a>
+                 [<i>package_name</i>]</td>
+<td>Repackage all packages that are renamed into the single given parent
+    package.</td>
+</tr>
+
+<tr>
+<td valign="top"><a href="usage.html#repackageclasses"><code><b>-repackageclasses</b></code></a>
+                 [<i>package_name</i>]</td>
+<td>Repackage all class files that are renamed into the single given
+    package.</td>
+</tr>
+
+<tr>
+<td valign="top"><a href="usage.html#keepattributes"><code><b>-keepattributes</b></code></a>
+                 [<i><a href="usage.html#filters">attribute_filter</a></i>]</td>
+<td>Preserve the given optional attributes; typically
+    <code>Exceptions</code>, <code>InnerClasses</code>,
+    <code>Signature</code>, <code>Deprecated</code>,
+    <code>SourceFile</code>, <code>SourceDir</code>,
+    <code>LineNumberTable</code>,
+    <code>LocalVariableTable</code>, <code>LocalVariableTypeTable</code>,
+    <code>Synthetic</code>, <code>EnclosingMethod</code>, and
+    <code>*Annotation*</code>.</td>
+</tr>
+
+<tr>
+<td valign="top"><a href="usage.html#keepparameternames"><code><b>-keepparameternames</b></code></a></td>
+<td>Keep the parameter names and types of methods that are kept.</td>
+</tr>
+
+<tr>
+<td valign="top"><a href="usage.html#renamesourcefileattribute"><code><b>-renamesourcefileattribute</b></code></a>
+                 [<i>string</i>]</td>
+<td>Put the given constant string in the <code>SourceFile</code>
+    attributes.</td>
+</tr>
+
+<tr>
+<td valign="top"><a href="usage.html#adaptclassstrings"><code><b>-adaptclassstrings</b></code></a>
+                 [<a href="usage.html#filters"><i>class_filter</i></a>]</td>
+<td>Adapt string constants in the specified classes, based on the obfuscated
+    names of any corresponding classes.</td>
+</tr>
+
+<tr>
+<td valign="top"><a href="usage.html#adaptresourcefilenames"><code><b>-adaptresourcefilenames</b></code></a>
+                 [<a href="usage.html#filefilters"><i>file_filter</i></a>]</td>
+<td>Rename the specified resource files, based on the obfuscated names of the
+    corresponding class files.</td>
+</tr>
+
+<tr>
+<td valign="top"><a href="usage.html#adaptresourcefilecontents"><code><b>-adaptresourcefilecontents</b></code></a>
+                 [<a href="usage.html#filefilters"><i>file_filter</i></a>]</td>
+<td>Update the contents of the specified resource files, based on the
+    obfuscated names of the processed classes.</td>
+</tr>
+
+<tr>
+<td valign="top"><a href="usage.html#dontpreverify"><code><b>-dontpreverify</b></code></a></td>
+<td>Don't preverify the processed class files.</td>
+</tr>
+
+<tr>
+<td valign="top"><a href="usage.html#microedition"><code><b>-microedition</b></code></a></td>
+<td>Target the processed class files at Java Micro Edition.</td>
+</tr>
+
+<tr>
+<td valign="top"><a href="usage.html#verbose"><code><b>-verbose</b></code></a></td>
+<td>Write out some more information during processing.</td>
+</tr>
+
+<tr>
+<td valign="top"><a href="usage.html#dontnote"><code><b>-dontnote</b></code></a>
+                 [<a href="usage.html#filters"><i>class_filter</i></a>]</td>
+<td>Don't print notes about potential mistakes or omissions in the
+    configuration.</td>
+</tr>
+
+<tr>
+<td valign="top"><a href="usage.html#dontwarn"><code><b>-dontwarn</b></code></a>
+                 [<a href="usage.html#filters"><i>class_filter</i></a>]</td>
+<td>Don't warn about unresolved references at all.</td>
+</tr>
+
+<tr>
+<td valign="top"><a href="usage.html#ignorewarnings"><code><b>-ignorewarnings</b></code></a></td>
+<td>Print warnings about unresolved references, but continue processing
+    anyhow.</td>
+</tr>
+
+<tr>
+<td valign="top"><a href="usage.html#printconfiguration"><code><b>-printconfiguration</b></code></a>
+                 [<a href="usage.html#filename"><i>filename</i></a>]</td>
+<td>Write out the entire configuration in traditional ProGuard style, to the
+    standard output or to the given file.</td>
+</tr>
+
+<tr>
+<td valign="top"><a href="usage.html#dump"><code><b>-dump</b></code></a>
+                 [<a href="usage.html#filename"><i>filename</i></a>]</td>
+<td>Write out the internal structure of the processed class files, to the
+    standard output or to the given file.</td>
+</tr>
+
+</table>
+<p>
+Notes:
+<ul>
+
+<li><i>class_path</i> is a list of jars, wars, ears, zips, and directories,
+    with optional filters, separated by path separators.</li>
+<li><i>filename</i> can contain Java system properties delimited by
+    '<b>&lt;</b>' and '<b>&gt;</b>'.</li>
+<li>If <i>filename</i> contains special characters, the entire name
+    should be quoted with single or double quotes.</li>
+</ul>
+<p>
+
+<h2>Overview of <code>Keep</code> Options</h2>
+
+<table cellpadding="5">
+
+<tr>
+<th>Keep</th>
+<td>From being removed or renamed</td>
+<td>From being renamed</td>
+</tr>
+
+<tr>
+<td>Classes and class members</td>
+<td bgcolor="#E0E0E0"><a href="usage.html#keep"><code>-keep</code></a></td>
+<td bgcolor="#E0E0E0"><a href="usage.html#keepnames"><code>-keepnames</code></a></td>
+</tr>
+
+<tr>
+<td>Class members only</td>
+<td bgcolor="#E0E0E0"><a href="usage.html#keepclassmembers"><code>-keepclassmembers</code></a></td>
+<td bgcolor="#E0E0E0"><a href="usage.html#keepclassmembernames"><code>-keepclassmembernames</code></a></td>
+</tr>
+
+<tr>
+<td>Classes and class members, if class members present</td>
+<td bgcolor="#E0E0E0"><a href="usage.html#keepclasseswithmembers"><code>-keepclasseswithmembers</code></a></td>
+<td bgcolor="#E0E0E0"><a href="usage.html#keepclasseswithmembernames"><code>-keepclasseswithmembernames</code></a></td>
+</tr>
+
+</table>
+<p>
+
+<h2>Keep Option Modifiers</h2>
+
+<table cellspacing="10">
+
+<tr>
+<td valign="top"><a href="usage.html#includedescriptorclasses"><code><b>includedescriptorclasses</b></code></a></td>
+<td>Also keep any classes in the descriptors of specified fields and methods.
+</tr>
+
+<tr>
+<td valign="top"><a href="usage.html#allowshrinking"><code><b>allowshrinking</b></code></a></td>
+<td>Allow the specified entry points to be removed in the shrinking step.</td>
+</tr>
+
+<tr>
+<td valign="top"><a href="usage.html#allowoptimization"><code><b>allowoptimization</b></code></a></td>
+<td>Allow the specified entry points to be modified in the optimization
+    step.</td>
+</tr>
+
+<tr>
+<td valign="top"><a href="usage.html#allowobfuscation"><code><b>allowobfuscation</b></code></a></td>
+<td>Allow the specified entry points to be renamed in the obfuscation step.</td>
+</tr>
+
+</table>
+<p>
+
+<h2>Class Specifications</h2>
+
+<pre>
+[<b>@</b><i>annotationtype</i>] [[<b>!</b>]<b>public</b>|<b>final</b>|<b>abstract</b> ...] [<b>!</b>]<b>interface</b>|<b>class</b> <i>classname</i>
+    [<b>extends</b>|<b>implements</b> [<b>@</b><i>annotationtype</i>] <i>classname</i>]
+[<b>{</b>
+    [<b>@</b><i>annotationtype</i>] [[<b>!</b>]<b>public</b>|<b>private</b>|<b>protected</b>|<b>static</b>|<b>volatile</b>|<b>transient</b> ...] <b>&lt;fields&gt;</b> |
+                                                                      (<i>fieldtype fieldname</i>)<b>;</b>
+    [<b>@</b><i>annotationtype</i>] [[<b>!</b>]<b>public</b>|<b>private</b>|<b>protected</b>|<b>static</b>|<b>synchronized</b>|<b>native</b>|<b>abstract</b>|<b>strictfp</b> ...] <b>&lt;methods&gt;</b> |
+                                                                                           <b>&lt;init&gt;(</b><i>argumenttype,...</i><b>)</b> |
+                                                                                           <i>classname</i><b>(</b><i>argumenttype,...</i><b>)</b> |
+                                                                                           (<i>returntype methodname</i><b>(</b><i>argumenttype,...</i><b>)</b>)<b>;</b>
+    [<b>@</b><i>annotationtype</i>] [[<b>!</b>]<b>public</b>|<b>private</b>|<b>protected</b>|<b>static</b> ... ] <b>*;</b>
+    ...
+<b>}</b>]
+</pre>
+<p>
+Notes:
+<ul>
+<li>Class names must always be fully qualified, i.e. including their package
+    names.</li>
+<li>Types in <i>classname</i>, <i>annotationtype</i>, <i>returntype</i>, and
+    <i>argumenttype</i> can contain wildcards: '<code><b>?</b></code>' for a
+    single character, '<code><b>*</b></code>' for any number of characters
+    (but not the package separator), '<code><b>**</b></code>' for any number
+    of (any) characters, '<code><b>%</b></code>' for any primitive type,
+    '<code><b>***</b></code>' for any type, and '<code><b>...</b></code>' for       any number of arguments.</li>
+<li><i>fieldname</i> and <i>methodname</i> can contain wildcards as well:
+    '<code><b>?</b></code>' for a single character and '<code><b>*</b></code>'
+    for any number of characters.</li>
+</ul>
+
+<hr />
+<address>
+Copyright &copy; 2002-2017
+<a target="other" href="http://www.lafortune.eu/">Eric Lafortune</a> @ <a target="top" href="http://www.guardsquare.com/">GuardSquare</a>.
+</address>
+</body>
+</html>

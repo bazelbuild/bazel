@@ -1,4 +1,4 @@
-// Copyright 2014 Google Inc. All rights reserved.
+// Copyright 2014 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -23,6 +23,10 @@ public class UserExecException extends ExecException {
   public UserExecException(String message) {
     super(message);
   }
+  
+  public UserExecException(Throwable cause) {
+    super(cause);
+  }
 
   public UserExecException(String message, Throwable cause) {
     super(message, cause);
@@ -31,11 +35,8 @@ public class UserExecException extends ExecException {
   @Override
   public ActionExecutionException toActionExecutionException(String messagePrefix,
         boolean verboseFailures, Action action) {
-    String message = messagePrefix + " failed: " + getMessage();
-    if (verboseFailures) {
-      return new ActionExecutionException(message, this, action, isCatastrophic());
-    } else {
-      return new ActionExecutionException(message, action, isCatastrophic());
-    }
+    String message = messagePrefix + " failed";
+    return new ActionExecutionException(
+        message + ": " + getMessage(), this, action, isCatastrophic());
   }
 }

@@ -1,4 +1,4 @@
-// Copyright 2014 Google Inc. All rights reserved.
+// Copyright 2014 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,34 +14,31 @@
 
 package com.google.devtools.build.lib.packages;
 
-import com.google.common.annotations.VisibleForTesting;
-import com.google.common.collect.HashBasedTable;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.ImmutableTable;
 import com.google.common.collect.Sets;
-import com.google.common.collect.Table;
+import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
-import com.google.devtools.build.lib.events.Event;
-import com.google.devtools.build.lib.events.EventHandler;
-import com.google.devtools.build.lib.events.Location;
-import com.google.devtools.build.lib.syntax.Label;
-import com.google.devtools.build.lib.syntax.Label.SyntaxException;
-
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
+import com.google.devtools.build.lib.skylarkbuildapi.LicenseApi;
+import com.google.devtools.build.lib.syntax.Printer;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.EnumSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Set;
 
-/**
- * Support for license and distribution checking.
- */
-@Immutable @ThreadSafe
-public final class License {
-
-  private final Set<LicenseType> licenseTypes;
-  private final Set<Label> exceptions;
+/** Support for license and distribution checking. */
+@Immutable
+@ThreadSafe
+@AutoCodec
+public final class License implements LicenseApi {
+  private final ImmutableSet<LicenseType> licenseTypes;
+  private final ImmutableSet<Label> exceptions;
 
   /**
    * The error that's thrown if a build file contains an invalid license string.
@@ -71,24 +68,24 @@ public final class License {
   }
 
   /**
-   * Gets the least restrictive license type from the list of licenses declared
-   * for a target. For the purposes of license checking, the license type set of
-   * a declared license can be reduced to its least restrictive member.
+   * Gets the least restrictive license type from the list of licenses declared for a target. For
+   * the purposes of license checking, the license type set of a declared license can be reduced to
+   * its least restrictive member.
    *
    * @param types a collection of license types
    * @return the least restrictive license type
    */
-  @VisibleForTesting
-  static LicenseType leastRestrictive(Collection<LicenseType> types) {
+  public static LicenseType leastRestrictive(Collection<LicenseType> types) {
+    // TODO(gregce): move this method to LicenseCheckingModule when Bazel's tests no longer use it
     return types.isEmpty() ? LicenseType.BY_EXCEPTION_ONLY : Collections.max(types);
   }
 
   /**
-   * An instance of LicenseType.None with no exceptions, used for packages
-   * outside of third_party which have no license clause in their BUILD files.
+   * An instance of LicenseType.None with no exceptions, used for packages outside of third_party
+   * which have no license clause in their BUILD files.
    */
   public static final License NO_LICENSE =
-      new License(ImmutableSet.of(LicenseType.NONE), Collections.<Label>emptySet());
+      new License(ImmutableSet.of(LicenseType.NONE), ImmutableSet.of());
 
   /**
    * A default instance of Distributions which is used for packages which
@@ -124,7 +121,7 @@ public final class License {
       Set<DistributionType> result = EnumSet.noneOf(DistributionType.class);
       for (String distStr : distStrings) {
         try {
-          DistributionType dist = DistributionType.valueOf(distStr.toUpperCase());
+          DistributionType dist = DistributionType.valueOf(distStr.toUpperCase(Locale.ENGLISH));
           result.add(dist);
         } catch (IllegalArgumentException e) {
           throw new LicenseParsingException("Invalid distribution type '" + distStr + "'");
@@ -134,52 +131,17 @@ public final class License {
     }
   }
 
-  private static final Object MARKER = new Object();
-
-  /**
-   * The license incompatibility set. This contains the set of
-   * (Distribution,License) pairs that should generate errors.
-   */
-  private static Table<DistributionType, LicenseType, Object> LICENSE_INCOMPATIBILIES =
-      createLicenseIncompatibilitySet();
-
-  private static Table<DistributionType, LicenseType, Object> createLicenseIncompatibilitySet() {
-    Table<DistributionType, LicenseType, Object> result = HashBasedTable.create();
-    result.put(DistributionType.CLIENT, LicenseType.RESTRICTED, MARKER);
-    result.put(DistributionType.EMBEDDED, LicenseType.RESTRICTED, MARKER);
-    result.put(DistributionType.INTERNAL, LicenseType.BY_EXCEPTION_ONLY, MARKER);
-    result.put(DistributionType.CLIENT, LicenseType.BY_EXCEPTION_ONLY, MARKER);
-    result.put(DistributionType.WEB, LicenseType.BY_EXCEPTION_ONLY, MARKER);
-    result.put(DistributionType.EMBEDDED, LicenseType.BY_EXCEPTION_ONLY, MARKER);
-    return ImmutableTable.copyOf(result);
-  }
-
-  /**
-   * The license warning set. This contains the set of
-   * (Distribution,License) pairs that should generate warnings when the user
-   * requests verbose license checking.
-   */
-  private static Table<DistributionType, LicenseType, Object> LICENSE_WARNINGS =
-      createLicenseWarningsSet();
-
-  private static Table<DistributionType, LicenseType, Object> createLicenseWarningsSet() {
-    Table<DistributionType, LicenseType, Object> result = HashBasedTable.create();
-    result.put(DistributionType.CLIENT, LicenseType.RECIPROCAL, MARKER);
-    result.put(DistributionType.EMBEDDED, LicenseType.RECIPROCAL, MARKER);
-    result.put(DistributionType.CLIENT, LicenseType.NOTICE, MARKER);
-    result.put(DistributionType.EMBEDDED, LicenseType.NOTICE, MARKER);
-    return ImmutableTable.copyOf(result);
-  }
-
-  private License(Set<LicenseType> licenseTypes, Set<Label> exceptions) {
+  @AutoCodec.Instantiator
+  @VisibleForSerialization
+  License(ImmutableSet<LicenseType> licenseTypes, ImmutableSet<Label> exceptions) {
     // Defensive copy is done in .of()
     this.licenseTypes = licenseTypes;
     this.exceptions = exceptions;
   }
 
   public static License of(Collection<LicenseType> licenses, Collection<Label> exceptions) {
-    Set<LicenseType> licenseSet = ImmutableSet.copyOf(licenses);
-    Set<Label> exceptionSet = ImmutableSet.copyOf(exceptions);
+    ImmutableSet<LicenseType> licenseSet = ImmutableSet.copyOf(licenses);
+    ImmutableSet<Label> exceptionSet = ImmutableSet.copyOf(exceptions);
 
     if (exceptionSet.isEmpty() && licenseSet.equals(ImmutableSet.of(LicenseType.NONE))) {
       return License.NO_LICENSE;
@@ -207,14 +169,15 @@ public final class License {
     for (String str : licStrings) {
       if (str.startsWith("exception=")) {
         try {
-          Label label = Label.parseAbsolute(str.substring("exception=".length()));
+          Label label =
+              Label.parseAbsolute(str.substring("exception=".length()), ImmutableMap.of());
           exceptions.add(label);
-        } catch (SyntaxException e) {
+        } catch (LabelSyntaxException e) {
           throw new LicenseParsingException(e.getMessage());
         }
       } else {
         try {
-          licenseTypes.add(LicenseType.valueOf(str.toUpperCase()));
+          licenseTypes.add(LicenseType.valueOf(str.toUpperCase(Locale.ENGLISH)));
         } catch (IllegalArgumentException e) {
           throw new LicenseParsingException("invalid license type: '" + str + "'");
         }
@@ -222,55 +185,6 @@ public final class License {
     }
 
     return License.of(licenseTypes, exceptions);
-  }
-
-  /**
-   * Checks if this license is compatible with distributing a particular target
-   * in some set of distribution modes.
-   *
-   * @param dists the modes of distribution
-   * @param target the target which is being checked, and which will be used for
-   *        checking exceptions
-   * @param licensedTarget the target which declared the license being checked.
-   * @param eventHandler a reporter where any licensing issues discovered should be
-   *        reported
-   * @param staticallyLinked whether the target is statically linked under this command
-   * @return true if the license is compatible with the distributions
-   */
-  public boolean checkCompatibility(Set<DistributionType> dists,
-      Target target, Label licensedTarget, EventHandler eventHandler,
-      boolean staticallyLinked) {
-    Location location = (target instanceof Rule) ? ((Rule) target).getLocation() : null;
-
-    LicenseType leastRestrictiveLicense;
-    if (licenseTypes.contains(LicenseType.RESTRICTED_IF_STATICALLY_LINKED)) {
-      Set<LicenseType> tempLicenses = EnumSet.copyOf(licenseTypes);
-      tempLicenses.remove(LicenseType.RESTRICTED_IF_STATICALLY_LINKED);
-      if (staticallyLinked) {
-        tempLicenses.add(LicenseType.RESTRICTED);
-      } else {
-        tempLicenses.add(LicenseType.UNENCUMBERED);
-      }
-      leastRestrictiveLicense = leastRestrictive(tempLicenses);
-    } else {
-      leastRestrictiveLicense = leastRestrictive(licenseTypes);
-    }
-    for (DistributionType dt : dists) {
-      if (LICENSE_INCOMPATIBILIES.contains(dt, leastRestrictiveLicense)) {
-        if (!exceptions.contains(target.getLabel())) {
-          eventHandler.handle(Event.error(location, "Build target '" + target.getLabel()
-              + "' is not compatible with license '" + this + "' from target '"
-                  + licensedTarget + "'"));
-          return false;
-        }
-      } else if (LICENSE_WARNINGS.contains(dt, leastRestrictiveLicense)) {
-        eventHandler.handle(
-            Event.warn(location, "Build target '" + target
-                + "' has a potential licensing issue "
-                + "with a '" + this + "' license from target '" + licensedTarget + "'"));
-      }
-    }
-    return true;
   }
 
   /**
@@ -287,6 +201,11 @@ public final class License {
    */
   public Set<Label> getExceptions() {
     return exceptions;
+  }
+
+  @SuppressWarnings("ReferenceEquality")
+  public boolean isSpecified() {
+    return this != License.NO_LICENSE;
   }
 
   /**
@@ -310,10 +229,9 @@ public final class License {
    */
   @Override
   public boolean equals(Object o) {
-    return o == this ||
-        o instanceof License &&
-        ((License) o).licenseTypes.equals(this.licenseTypes) &&
-        ((License) o).exceptions.equals(this.exceptions);
+    return o == this || (o instanceof License
+        && ((License) o).licenseTypes.equals(this.licenseTypes)
+        && ((License) o).exceptions.equals(this.exceptions));
   }
 
   /**
@@ -323,5 +241,10 @@ public final class License {
   @Override
   public int hashCode() {
     return licenseTypes.hashCode() * 43 + exceptions.hashCode();
+  }
+
+  @Override
+  public void repr(Printer printer) {
+    printer.append("<license object>");
   }
 }

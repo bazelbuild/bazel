@@ -1,4 +1,4 @@
-// Copyright 2014 Google Inc. All rights reserved.
+// Copyright 2014 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -11,10 +11,12 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-#ifndef DEVTOOLS_BLAZE_MAIN_UTIL_PORT_H_
-#define DEVTOOLS_BLAZE_MAIN_UTIL_PORT_H_
+#ifndef BAZEL_SRC_MAIN_CPP_UTIL_PORT_H_
+#define BAZEL_SRC_MAIN_CPP_UTIL_PORT_H_
 
-#include <stddef.h>  // For size_t
+#include <stddef.h>  // For size_t on Linux, Darwin
+
+#include <cinttypes>  // For size_t on Windows
 
 // GCC-specific features
 #if (defined(COMPILER_GCC3) || defined(__APPLE__)) && !defined(SWIG)
@@ -32,19 +34,42 @@
   __attribute__((__format__ \
     (__printf__, string_index, first_to_check)))
 
-//
-// Tell the compiler that a given function never returns
-//
-#define ATTRIBUTE_NORETURN __attribute__((noreturn))
-#define ATTRIBUTE_UNUSED __attribute__ ((unused))
+#define ATTRIBUTE_UNUSED __attribute__ ((__unused__))
 
 #else  // Not GCC
 
 #define PRINTF_ATTRIBUTE(string_index, first_to_check)
-#define ATTRIBUTE_NORETURN
 #define ATTRIBUTE_UNUSED
 
 #endif  // GCC
+
+// HAVE_ATTRIBUTE
+//
+// A function-like feature checking macro that is a wrapper around
+// `__has_attribute`, which is defined by GCC 5+ and Clang and evaluates to a
+// nonzero constant integer if the attribute is supported or 0 if not.
+//
+// It evaluates to zero if `__has_attribute` is not defined by the compiler.
+//
+// GCC: https://gcc.gnu.org/gcc-5/changes.html
+// Clang: https://clang.llvm.org/docs/LanguageExtensions.html
+#ifdef __has_attribute
+#define HAVE_ATTRIBUTE(x) __has_attribute(x)
+#else
+#define HAVE_ATTRIBUTE(x) (0)
+#endif
+
+// ATTRIBUTE_NORETURN
+//
+// Tells the compiler that a given function never returns.
+#if defined(SWIG)
+#define ATTRIBUTE_NORETURN
+#elif HAVE_ATTRIBUTE(noreturn) || (defined(__GNUC__) && !defined(__clang__))
+#define ATTRIBUTE_NORETURN __attribute__((noreturn))
+#else
+#define ATTRIBUTE_NORETURN
+#endif
+
 
 // Linux I/O priorities support is available only in later versions of glibc.
 // Therefore, we include some of the needed definitions here.  May need to
@@ -95,12 +120,6 @@ int sys_ioprio_set(int which, int who, int ioprio);
 // The expression is a compile-time constant, and therefore can be
 // used in defining new arrays, for example.  If you use arraysize on
 // a pointer by mistake, you will get a compile-time error.
-//
-// One caveat is that, for C++03, arraysize() doesn't accept any array of
-// an anonymous type or a type defined inside a function.  In these rare
-// cases, you have to use the unsafe ARRAYSIZE() macro below.  This is
-// due to a limitation in C++03's template system.  The limitation has
-// been removed in C++11.
 
 // This template function declaration is used in defining arraysize.
 // Note that the function doesn't need an implementation, as we only
@@ -116,4 +135,12 @@ char (&ArraySizeHelper(const T (&array)[N]))[N];
 
 #define arraysize(array) (sizeof(ArraySizeHelper(array)))
 
-#endif  // DEVTOOLS_BLAZE_MAIN_UTIL_PORT_H_
+#ifdef _WIN32
+// TODO(laszlocsomor) 2016-11-28: move pid_t usage out of global_variables.h and
+// wherever else it appears. Find some way to not have to declare a pid_t here,
+// either by making PID handling platform-independent or some other idea; remove
+// the following typedef afterwards.
+typedef int pid_t;
+#endif  // _WIN32
+
+#endif  // BAZEL_SRC_MAIN_CPP_UTIL_PORT_H_

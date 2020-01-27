@@ -1,4 +1,4 @@
-// Copyright 2014 Google Inc. All rights reserved.
+// Copyright 2014 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,6 +17,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.SetMultimap;
 
 /**
  * Dedupes C candidate cycles of size O(L) in O(CL) time and memory in the common case and
@@ -27,7 +28,7 @@ import com.google.common.collect.ImmutableSet;
  */
 class CycleDeduper<T> {
 
-  private HashMultimap<ImmutableSet<T>, ImmutableList<T>> knownCyclesByMembers =
+  private SetMultimap<ImmutableSet<T>, ImmutableList<T>> knownCyclesByMembers =
       HashMultimap.create();
 
   /**

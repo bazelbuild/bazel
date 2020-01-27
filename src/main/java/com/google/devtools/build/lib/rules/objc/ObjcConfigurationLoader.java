@@ -1,4 +1,4 @@
-// Copyright 2014 Google Inc. All rights reserved.
+// Copyright 2014 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,15 +14,13 @@
 
 package com.google.devtools.build.lib.rules.objc;
 
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration.Options;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
-import com.google.devtools.build.lib.analysis.config.ConfigurationEnvironment;
 import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactory;
+import com.google.devtools.build.lib.analysis.config.CoreOptions;
+import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
-import com.google.devtools.build.lib.packages.NoSuchPackageException;
-import com.google.devtools.build.lib.packages.NoSuchTargetException;
-import com.google.devtools.build.lib.syntax.Label;
 
 /**
  * A loader that creates ObjcConfiguration instances based on Objective-C configurations and
@@ -30,29 +28,10 @@ import com.google.devtools.build.lib.syntax.Label;
  */
 public class ObjcConfigurationLoader implements ConfigurationFragmentFactory {
   @Override
-  public ObjcConfiguration create(ConfigurationEnvironment env, BuildOptions buildOptions)
-      throws InvalidConfigurationException {
-    Options options = buildOptions.get(BuildConfiguration.Options.class);
+  public ObjcConfiguration create(BuildOptions buildOptions) throws InvalidConfigurationException {
+    CoreOptions options = buildOptions.get(CoreOptions.class);
     ObjcCommandLineOptions objcOptions = buildOptions.get(ObjcCommandLineOptions.class);
-
-    // TODO(danielwh): Replace these labels with something from an objc_toolchain when it exists
-    Label gcovLabel = null;
-    if (options.collectCodeCoverage) {
-      gcovLabel = forceLoad(env, "//third_party/gcov:gcov_for_xcode");
-    }
-
-    Label dumpSymsLabel = null;
-    if (objcOptions.generateDebugSymbols) {
-      dumpSymsLabel = forceLoad(env, "//tools/objc:dump_syms");
-    }
-
-    Label defaultProvisioningProfileLabel = null;
-    if (Platform.forArch(objcOptions.iosCpu) == Platform.DEVICE) {
-      defaultProvisioningProfileLabel = forceLoad(env, "//tools/objc:default_provisioning_profile");
-    }
-
-    return new ObjcConfiguration(
-        objcOptions, options, gcovLabel, dumpSymsLabel, defaultProvisioningProfileLabel);
+    return new ObjcConfiguration(objcOptions, options);
   }
 
   @Override
@@ -60,16 +39,8 @@ public class ObjcConfigurationLoader implements ConfigurationFragmentFactory {
     return ObjcConfiguration.class;
   }
 
-  private static Label forceLoad(ConfigurationEnvironment env, String target)
-      throws InvalidConfigurationException {
-    Label label = null;
-    try {
-      label = Label.parseAbsolute(target);
-      env.getTarget(label);
-      return label;
-    } catch (Label.SyntaxException | NoSuchPackageException | NoSuchTargetException e) {
-      throw new InvalidConfigurationException("Error parsing or loading " + target + ": "
-          + e.getMessage(), e);
-    }
+  @Override
+  public ImmutableSet<Class<? extends FragmentOptions>> requiredOptions() {
+    return ImmutableSet.<Class<? extends FragmentOptions>>of(ObjcCommandLineOptions.class);
   }
 }

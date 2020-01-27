@@ -1,4 +1,4 @@
-// Copyright 2015 Google Inc. All rights reserved.
+// Copyright 2015 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -13,47 +13,70 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
-import com.google.devtools.build.lib.cmdline.LabelValidator;
+import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
+
+import com.google.common.base.Throwables;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
+import com.google.common.collect.Sets;
+import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.ListeningExecutorService;
+import com.google.common.util.concurrent.MoreExecutors;
+import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.PackageIdentifier;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.cmdline.ResolvedTargets;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.cmdline.TargetPatternResolver;
+import com.google.devtools.build.lib.concurrent.BatchCallback;
+import com.google.devtools.build.lib.concurrent.MultisetSemaphore;
+import com.google.devtools.build.lib.concurrent.ParallelVisitor.UnusedException;
+import com.google.devtools.build.lib.concurrent.ThreadSafeBatchCallback;
+import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
 import com.google.devtools.build.lib.events.Event;
-import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchThingException;
 import com.google.devtools.build.lib.packages.Package;
-import com.google.devtools.build.lib.packages.PackageIdentifier;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.pkgcache.FilteringPolicies;
 import com.google.devtools.build.lib.pkgcache.FilteringPolicy;
-import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.pkgcache.RecursivePackageProvider;
 import com.google.devtools.build.lib.pkgcache.TargetPatternResolverUtil;
-import com.google.devtools.build.lib.syntax.Label;
-import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import com.google.devtools.build.lib.vfs.RootedPath;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutionException;
 
 /**
  * A {@link TargetPatternResolver} backed by a {@link RecursivePackageProvider}.
  */
+@ThreadCompatible
 public class RecursivePackageProviderBackedTargetPatternResolver
-    implements TargetPatternResolver<Target> {
+    extends TargetPatternResolver<Target> {
 
+  // TODO(janakr): Move this to a more generic place and unify with SkyQueryEnvironment's value?
+  static final int MAX_PACKAGES_BULK_GET = 1000;
+
+  protected final FilteringPolicy policy;
   private final RecursivePackageProvider recursivePackageProvider;
-  private final EventHandler eventHandler;
-  private final FilteringPolicy policy;
-  private final PathPackageLocator pkgPath;
+  private final ExtendedEventHandler eventHandler;
+  private final MultisetSemaphore<PackageIdentifier> packageSemaphore;
 
   public RecursivePackageProviderBackedTargetPatternResolver(
-      final RecursivePackageProvider recursivePackageProvider,
-      EventHandler eventHandler,
+      RecursivePackageProvider recursivePackageProvider,
+      ExtendedEventHandler eventHandler,
       FilteringPolicy policy,
-      PathPackageLocator pkgPath) {
+      MultisetSemaphore<PackageIdentifier> packageSemaphore) {
     this.recursivePackageProvider = recursivePackageProvider;
     this.eventHandler = eventHandler;
     this.policy = policy;
-    this.pkgPath = pkgPath;
+    this.packageSemaphore = packageSemaphore;
   }
 
   @Override
@@ -67,35 +90,29 @@ public class RecursivePackageProviderBackedTargetPatternResolver
    */
   private Package getPackage(PackageIdentifier pkgIdentifier)
       throws NoSuchPackageException, InterruptedException {
-    Package pkg;
-    try {
-      pkg = recursivePackageProvider.getPackage(eventHandler, pkgIdentifier);
-    } catch (NoSuchPackageException e) {
-      pkg = e.getPackage();
-      if (pkg == null) {
-        throw e;
-      }
-    }
-    return pkg;
+    return recursivePackageProvider.getPackage(eventHandler, pkgIdentifier);
+  }
+
+  private Map<PackageIdentifier, Package> bulkGetPackages(Iterable<PackageIdentifier> pkgIds)
+          throws NoSuchPackageException, InterruptedException {
+    return recursivePackageProvider.bulkGetPackages(pkgIds);
   }
 
   @Override
-  public Target getTargetOrNull(String targetName) throws InterruptedException {
+  public Target getTargetOrNull(Label label) throws InterruptedException {
     try {
-      Label label = Label.parseAbsolute(targetName);
-      if (!isPackage(label.getPackageName())) {
+      if (!isPackage(label.getPackageIdentifier())) {
         return null;
       }
       return recursivePackageProvider.getTarget(eventHandler, label);
-    } catch (Label.SyntaxException | NoSuchThingException e) {
+    } catch (NoSuchThingException e) {
       return null;
     }
   }
 
   @Override
-  public ResolvedTargets<Target> getExplicitTarget(String targetName)
+  public ResolvedTargets<Target> getExplicitTarget(Label label)
       throws TargetParsingException, InterruptedException {
-    Label label = TargetPatternResolverUtil.label(targetName);
     try {
       Target target = recursivePackageProvider.getTarget(eventHandler, label);
       return policy.shouldRetain(target, true)
@@ -107,47 +124,48 @@ public class RecursivePackageProviderBackedTargetPatternResolver
   }
 
   @Override
-  public ResolvedTargets<Target> getTargetsInPackage(String originalPattern, String packageName,
-                                                     boolean rulesOnly)
+  public Collection<Target> getTargetsInPackage(
+      String originalPattern, PackageIdentifier packageIdentifier, boolean rulesOnly)
       throws TargetParsingException, InterruptedException {
     FilteringPolicy actualPolicy = rulesOnly
         ? FilteringPolicies.and(FilteringPolicies.RULES_ONLY, policy)
         : policy;
-    return getTargetsInPackage(originalPattern, new PathFragment(packageName), actualPolicy);
-  }
-
-  private ResolvedTargets<Target> getTargetsInPackage(String originalPattern,
-      PathFragment packageNameFragment, FilteringPolicy policy)
-      throws TargetParsingException, InterruptedException {
-    String packageName = packageNameFragment.toString();
-
-    // It's possible for this check to pass, but for
-    // Label.validatePackageNameFull to report an error because the
-    // package name is illegal.  That's a little weird, but we can live with
-    // that for now--see test case: testBadPackageNameButGoodEnoughForALabel.
-    if (LabelValidator.validatePackageName(packageName) != null) {
-      throw new TargetParsingException("'" + packageName + "' is not a valid package name");
-    }
-    if (!isPackage(packageName)) {
-      throw new TargetParsingException(
-          TargetPatternResolverUtil.getParsingErrorMessage(
-              "no such package '" + packageName + "': BUILD file not found on package path",
-              originalPattern));
-    }
-
     try {
-      Package pkg = getPackage(PackageIdentifier.createInDefaultRepo(packageNameFragment));
-      return TargetPatternResolverUtil.resolvePackageTargets(pkg, policy);
+      Package pkg = getPackage(packageIdentifier);
+      return TargetPatternResolverUtil.resolvePackageTargets(pkg, actualPolicy);
     } catch (NoSuchThingException e) {
       String message = TargetPatternResolverUtil.getParsingErrorMessage(
-          "package contains errors", originalPattern);
+          e.getMessage(), originalPattern);
       throw new TargetParsingException(message, e);
     }
   }
 
+  private Map<PackageIdentifier, Collection<Target>> bulkGetTargetsInPackage(
+      String originalPattern, Iterable<PackageIdentifier> pkgIds, FilteringPolicy policy)
+      throws InterruptedException {
+    try {
+      Map<PackageIdentifier, Package> pkgs = bulkGetPackages(pkgIds);
+      if (pkgs.size() != Iterables.size(pkgIds)) {
+        throw new IllegalStateException("Bulk package retrieval missing results: "
+            + Sets.difference(ImmutableSet.copyOf(pkgIds), pkgs.keySet()));
+      }
+      ImmutableMap.Builder<PackageIdentifier, Collection<Target>> result = ImmutableMap.builder();
+      for (PackageIdentifier pkgId : pkgIds) {
+        Package pkg = pkgs.get(pkgId);
+        result.put(pkgId,  TargetPatternResolverUtil.resolvePackageTargets(pkg, policy));
+      }
+      return result.build();
+    } catch (NoSuchThingException e) {
+      String message = TargetPatternResolverUtil.getParsingErrorMessage(
+              e.getMessage(), originalPattern);
+      throw new IllegalStateException(
+          "Mismatch: Expected given pkgIds to correspond to valid Packages. " + message, e);
+    }
+  }
+
   @Override
-  public boolean isPackage(String packageName) {
-    return recursivePackageProvider.isPackage(eventHandler, packageName);
+  public boolean isPackage(PackageIdentifier packageIdentifier) throws InterruptedException {
+    return recursivePackageProvider.isPackage(eventHandler, packageIdentifier);
   }
 
   @Override
@@ -155,52 +173,172 @@ public class RecursivePackageProviderBackedTargetPatternResolver
     return target.getTargetKind();
   }
 
-  @Override
-  public ResolvedTargets<Target> findTargetsBeneathDirectory(
-      String originalPattern, String pathPrefix, boolean rulesOnly)
-      throws TargetParsingException, InterruptedException {
-    FilteringPolicy actualPolicy = rulesOnly
-        ? FilteringPolicies.and(FilteringPolicies.RULES_ONLY, policy)
-        : policy;
+  /**
+   * A {@link ThreadSafeBatchCallback} that trivially delegates to a {@link BatchCallback} in a
+   * synchronized manner.
+   */
+  private static class SynchronizedBatchCallback<T, E extends Exception>
+      implements ThreadSafeBatchCallback<T, E> {
+    private final BatchCallback<T, E> delegate;
 
-    PathFragment directory = new PathFragment(pathPrefix);
-    if (directory.containsUplevelReferences()) {
-      throw new TargetParsingException("up-level references are not permitted: '"
-          + directory.getPathString() + "'");
-    }
-    if (!pathPrefix.isEmpty() && (LabelValidator.validatePackageName(pathPrefix) != null)) {
-      throw new TargetParsingException("'" + pathPrefix + "' is not a valid package name");
+    SynchronizedBatchCallback(BatchCallback<T, E> delegate) {
+      this.delegate = delegate;
     }
 
-    ResolvedTargets.Builder<Target> builder = ResolvedTargets.builder();
-
-    for (Path root : pkgPath.getPathEntries()) {
-      RootedPath rootedPath = RootedPath.toRootedPath(root, directory);
-      Iterable<PathFragment> packagesUnderDirectory = recursivePackageProvider
-          .getPackagesUnderDirectory(rootedPath);
-      for (PathFragment pkg : packagesUnderDirectory) {
-        builder.merge(getTargetsInPackage(originalPattern, pkg, FilteringPolicies.NO_FILTER));
-      }
+    @Override
+    public synchronized void process(Iterable<T> partialResult) throws E, InterruptedException {
+      delegate.process(partialResult);
     }
-
-    if (builder.isEmpty()) {
-      throw new TargetParsingException("no targets found beneath '" + directory + "'");
-    }
-
-    // Apply the transform after the check so we only return the
-    // error if the tree really contains no targets.
-    ResolvedTargets<Target> intermediateResult = builder.build();
-    ResolvedTargets.Builder<Target> filteredBuilder = ResolvedTargets.builder();
-    if (intermediateResult.hasError()) {
-      filteredBuilder.setError();
-    }
-    for (Target target : intermediateResult.getTargets()) {
-      if (actualPolicy.shouldRetain(target, false)) {
-        filteredBuilder.add(target);
-      }
-    }
-    return filteredBuilder.build();
   }
 
+  @Override
+  public <E extends Exception> void findTargetsBeneathDirectory(
+      final RepositoryName repository,
+      final String originalPattern,
+      String directory,
+      boolean rulesOnly,
+      ImmutableSet<PathFragment> blacklistedSubdirectories,
+      ImmutableSet<PathFragment> excludedSubdirectories,
+      BatchCallback<Target, E> callback,
+      Class<E> exceptionClass)
+      throws TargetParsingException, E, InterruptedException {
+    try {
+      findTargetsBeneathDirectoryAsyncImpl(
+          repository,
+          originalPattern,
+          directory,
+          rulesOnly,
+          blacklistedSubdirectories,
+          excludedSubdirectories,
+          new SynchronizedBatchCallback<Target, E>(callback),
+          MoreExecutors.newDirectExecutorService()).get();
+    } catch (ExecutionException e) {
+      Throwable cause = e.getCause();
+      Throwables.propagateIfPossible(cause, TargetParsingException.class, exceptionClass);
+      throw new IllegalStateException(e.getCause());
+    }
+  }
+
+  @Override
+  public <E extends Exception> ListenableFuture<Void> findTargetsBeneathDirectoryAsync(
+      RepositoryName repository,
+      String originalPattern,
+      String directory,
+      boolean rulesOnly,
+      ImmutableSet<PathFragment> blacklistedSubdirectories,
+      ImmutableSet<PathFragment> excludedSubdirectories,
+      ThreadSafeBatchCallback<Target, E> callback,
+      Class<E> exceptionClass,
+      ListeningExecutorService executor) {
+    return findTargetsBeneathDirectoryAsyncImpl(
+        repository,
+        originalPattern,
+        directory,
+        rulesOnly,
+        blacklistedSubdirectories,
+        excludedSubdirectories,
+        callback,
+        executor);
+  }
+
+  private <E extends Exception> ListenableFuture<Void> findTargetsBeneathDirectoryAsyncImpl(
+      RepositoryName repository,
+      String pattern,
+      String directory,
+      boolean rulesOnly,
+      ImmutableSet<PathFragment> blacklistedSubdirectories,
+      ImmutableSet<PathFragment> excludedSubdirectories,
+      ThreadSafeBatchCallback<Target, E> callback,
+      ListeningExecutorService executor) {
+    FilteringPolicy actualPolicy =
+        rulesOnly ? FilteringPolicies.and(FilteringPolicies.RULES_ONLY, policy) : policy;
+
+    ArrayList<ListenableFuture<Void>> futures = new ArrayList<>();
+    ThreadSafeBatchCallback<PackageIdentifier, UnusedException> getPackageTargetsCallback =
+        (pkgIdBatch) ->
+            futures.add(
+                executor.submit(
+                    new GetTargetsInPackagesTask<>(pkgIdBatch, pattern, actualPolicy, callback)));
+
+    PathFragment pathFragment;
+    try (PackageIdentifierBatchingCallback batchingCallback =
+        new PackageIdentifierBatchingCallback(getPackageTargetsCallback, MAX_PACKAGES_BULK_GET)) {
+      pathFragment = TargetPatternResolverUtil.getPathFragment(directory);
+      recursivePackageProvider.streamPackagesUnderDirectory(
+          batchingCallback,
+          eventHandler,
+          repository,
+          pathFragment,
+          blacklistedSubdirectories,
+          excludedSubdirectories);
+    } catch (TargetParsingException e) {
+      return Futures.immediateFailedFuture(e);
+    } catch (InterruptedException e) {
+      return Futures.immediateCancelledFuture();
+    }
+
+    if (futures.isEmpty()) {
+      return Futures.immediateFailedFuture(
+          new TargetParsingException("no targets found beneath '" + pathFragment + "'"));
+    }
+
+    return Futures.whenAllSucceed(futures).call(() -> null, directExecutor());
+  }
+
+  /**
+   * Task to get all matching targets in the given packages, filter them, and pass them to the
+   * target batch callback.
+   */
+  private class GetTargetsInPackagesTask<E extends Exception> implements Callable<Void> {
+
+    private final Iterable<PackageIdentifier> packageIdentifiers;
+    private final String originalPattern;
+    private final FilteringPolicy actualPolicy;
+    private final ThreadSafeBatchCallback<Target, E> callback;
+
+    GetTargetsInPackagesTask(
+        Iterable<PackageIdentifier> packageIdentifiers,
+        String originalPattern,
+        FilteringPolicy actualPolicy,
+        ThreadSafeBatchCallback<Target, E> callback) {
+      this.packageIdentifiers = packageIdentifiers;
+      this.originalPattern = originalPattern;
+      this.actualPolicy = actualPolicy;
+      this.callback = callback;
+    }
+
+    @Override
+    public Void call() throws Exception {
+      ImmutableSet<PackageIdentifier> pkgIdBatchSet = ImmutableSet.copyOf(packageIdentifiers);
+      packageSemaphore.acquireAll(pkgIdBatchSet);
+      try {
+        Iterable<Collection<Target>> resolvedTargets =
+            RecursivePackageProviderBackedTargetPatternResolver.this
+                .bulkGetTargetsInPackage(originalPattern, packageIdentifiers, actualPolicy)
+                .values();
+        List<Target> filteredTargets = new ArrayList<>(calculateSize(resolvedTargets));
+        for (Collection<Target> targets : resolvedTargets) {
+          filteredTargets.addAll(targets);
+        }
+        // TODO(bazel-core): Invoking the callback while holding onto the package
+        // semaphore can lead to deadlocks. Also, if the semaphore has a small count,
+        // acquireAll can also lead to problems if we don't batch appropriately.
+        // Although we default to an unbounded semaphore for SkyQuery and this is an
+        // unreported issue, consider refactoring so that the code is strictly correct.
+        callback.process(filteredTargets);
+      } finally {
+        packageSemaphore.releaseAll(pkgIdBatchSet);
+      }
+      return null;
+    }
+  }
+
+  private static <T> int calculateSize(Iterable<Collection<T>> resolvedTargets) {
+    int size = 0;
+    for (Collection<T> targets : resolvedTargets) {
+      size += targets.size();
+    }
+    return size;
+  }
 }
 

@@ -1,0 +1,48 @@
+// Copyright 2017 The Bazel Authors. All rights reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//    http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+syntax = "proto3";
+
+package tools.protos;
+
+option java_package = "com.google.devtools.build.lib.shell";
+option java_outer_classname = "Protos";
+option optimize_for = LITE_RUNTIME;
+
+// Verbatim representation of the rusage structure returned by getrusage(2).
+// For further details on all these cryptic names, see that manual page.
+message ResourceUsage {
+  int64 utime_sec = 1;   // user CPU time used, seconds part
+  int64 utime_usec = 2;  // user CPU time used, microseconds part
+  int64 stime_sec = 3;   // system CPU time used, seconds part
+  int64 stime_usec = 4;  // system CPU time used, microseconds part
+  int64 maxrss = 5;      // maximum resident set size
+  int64 ixrss = 6;       // integral shared memory size
+  int64 idrss = 7;       // integral unshared data size
+  int64 isrss = 8;       // integral unshared stack size
+  int64 minflt = 9;      // page reclaims (soft page faults)
+  int64 majflt = 10;     // page faults (hard page faults)
+  int64 nswap = 11;      // swaps
+  int64 inblock = 12;    // block input operations
+  int64 oublock = 13;    // block output operations
+  int64 msgsnd = 14;     // IPC messages sent
+  int64 msgrcv = 15;     // IPC messages received
+  int64 nsignals = 16;   // signals received
+  int64 nvcsw = 17;      // voluntary context switches
+  int64 nivcsw = 18;     // involuntary context switches
+}
+
+message ExecutionStatistics {
+  ResourceUsage resource_usage = 1;
+}

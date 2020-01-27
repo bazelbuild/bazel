@@ -1,4 +1,4 @@
-// Copyright 2014 Google Inc. All rights reserved.
+// Copyright 2014 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,430 +14,183 @@
 package com.google.devtools.build.docgen;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Function;
-import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Iterables;
-import com.google.devtools.build.docgen.SkylarkJavaInterfaceExplorer.SkylarkBuiltinMethod;
-import com.google.devtools.build.docgen.SkylarkJavaInterfaceExplorer.SkylarkJavaMethod;
-import com.google.devtools.build.docgen.SkylarkJavaInterfaceExplorer.SkylarkModuleDoc;
-import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
-import com.google.devtools.build.lib.packages.MethodLibrary;
-import com.google.devtools.build.lib.rules.SkylarkModules;
-import com.google.devtools.build.lib.rules.SkylarkRuleContext;
-import com.google.devtools.build.lib.syntax.Environment;
-import com.google.devtools.build.lib.syntax.Environment.NoneType;
-import com.google.devtools.build.lib.syntax.EvalUtils;
-import com.google.devtools.build.lib.syntax.SkylarkBuiltin;
-import com.google.devtools.build.lib.syntax.SkylarkBuiltin.Param;
-import com.google.devtools.build.lib.syntax.SkylarkCallable;
-import com.google.devtools.build.lib.syntax.SkylarkModule;
-
-import java.io.BufferedWriter;
+import com.google.devtools.build.docgen.skylark.SkylarkDocUtils;
+import com.google.devtools.build.docgen.skylark.SkylarkMethodDoc;
+import com.google.devtools.build.docgen.skylark.SkylarkModuleDoc;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import com.google.devtools.build.lib.util.Classpath;
+import com.google.devtools.build.lib.util.Classpath.ClassPathException;
 import java.io.File;
-import java.io.FileWriter;
 import java.io.IOException;
-import java.lang.reflect.Field;
-import java.lang.reflect.Method;
+import java.text.Collator;
 import java.util.ArrayList;
-import java.util.HashMap;
+import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
-import java.util.Map.Entry;
-import java.util.TreeMap;
 
 /**
  * A class to assemble documentation for Skylark.
  */
-public class SkylarkDocumentationProcessor {
+public final class SkylarkDocumentationProcessor {
 
-  private static final String TOP_LEVEL_ID = "_top_level";
+  private static final ImmutableList<SkylarkModuleCategory> GLOBAL_CATEGORIES =
+      ImmutableList.<SkylarkModuleCategory>of(
+          SkylarkModuleCategory.NONE, SkylarkModuleCategory.TOP_LEVEL_TYPE);
 
-  private static final boolean USE_TEMPLATE = false;
+  // Common prefix of packages that may contain Skylark modules.
+  @VisibleForTesting static final String MODULES_PACKAGE_PREFIX = "com/google/devtools/build";
 
-  @SkylarkModule(name = "Global objects, functions and modules",
-      doc = "Objects, functions and modules registered in the global environment.")
-  private static final class TopLevelModule {}
-
-  static SkylarkModule getTopLevelModule() {
-    return TopLevelModule.class.getAnnotation(SkylarkModule.class);
-  }
+  private SkylarkDocumentationProcessor() {}
 
   /**
    * Generates the Skylark documentation to the given output directory.
    */
-  public void generateDocumentation(String outputPath) throws IOException,
-      BuildEncyclopediaDocException {
-    BufferedWriter bw = null;
-    File skylarkDocPath = new File(outputPath);
-    try {
-      bw = new BufferedWriter(new FileWriter(skylarkDocPath));
-      if (USE_TEMPLATE) {
-        bw.write(SourceFileReader.readTemplateContents(DocgenConsts.SKYLARK_BODY_TEMPLATE,
-            ImmutableMap.<String, String>of(
-                DocgenConsts.VAR_SECTION_SKYLARK_BUILTIN, generateAllBuiltinDoc())));
-      } else {
-        bw.write(generateAllBuiltinDoc());
-      }
-      System.out.println("Skylark documentation generated: " + skylarkDocPath.getAbsolutePath());
-    } finally {
-      if (bw != null) {
-        bw.close();
-      }
-    }
-  }
+  public static void generateDocumentation(String outputDir, String... args)
+      throws IOException, ClassPathException {
+    parseOptions(args);
 
-  @VisibleForTesting
-  Map<String, SkylarkModuleDoc> collectModules() {
-    Map<String, SkylarkModuleDoc> modules = new TreeMap<>();
-    Map<String, SkylarkModuleDoc> builtinModules = collectBuiltinModules();
-    Map<SkylarkModule, Class<?>> builtinJavaObjects = collectBuiltinJavaObjects();
+    Map<String, SkylarkModuleDoc> modules =
+        SkylarkDocumentationCollector.collectModules(Classpath.findClasses(MODULES_PACKAGE_PREFIX));
 
-    modules.putAll(builtinModules);
-    SkylarkJavaInterfaceExplorer explorer = new SkylarkJavaInterfaceExplorer();
-    for (SkylarkModuleDoc builtinObject : builtinModules.values()) {
-      // Check the return type for built-in functions, it can be a module previously not added.
-      for (SkylarkBuiltinMethod builtinMethod : builtinObject.getBuiltinMethods().values()) {
-        Class<?> type = builtinMethod.annotation.returnType();
-        if (type.isAnnotationPresent(SkylarkModule.class)) {
-          explorer.collect(type.getAnnotation(SkylarkModule.class), type, modules);
-        }
-      }
-      explorer.collect(builtinObject.getAnnotation(), builtinObject.getClassObject(), modules);
-    }
-    for (Entry<SkylarkModule, Class<?>> builtinModule : builtinJavaObjects.entrySet()) {
-      explorer.collect(builtinModule.getKey(), builtinModule.getValue(), modules);
-    }
-    return modules;
-  }
-
-  private String generateAllBuiltinDoc() {
-    Map<String, SkylarkModuleDoc> modules = collectModules();
-
-    StringBuilder sb = new StringBuilder();
     // Generate the top level module first in the doc
-    SkylarkModuleDoc topLevelModule = modules.remove(getTopLevelModule().name());
-    generateModuleDoc(topLevelModule, sb);
+    SkylarkModuleDoc topLevelModule = modules.remove(
+        SkylarkDocumentationCollector.getTopLevelModule().name());
+    writePage(outputDir, topLevelModule);
+
+    // Use a LinkedHashMap to preserve ordering of categories, as the output iterates over
+    // this map's entry set to determine category ordering.
+    Map<SkylarkModuleCategory, List<SkylarkModuleDoc>> modulesByCategory = new LinkedHashMap<>();
+    for (SkylarkModuleCategory c : SkylarkModuleCategory.values()) {
+      modulesByCategory.put(c, new ArrayList<SkylarkModuleDoc>());
+    }
+
+    modulesByCategory.get(topLevelModule.getAnnotation().category()).add(topLevelModule);
+
     for (SkylarkModuleDoc module : modules.values()) {
-      if (!module.getAnnotation().hidden()) {
-        sb.append("<hr>");
-        generateModuleDoc(module, sb);
+      if (module.getAnnotation().documented()) {
+        writePage(outputDir, module);
+        modulesByCategory.get(module.getAnnotation().category()).add(module);
       }
     }
-    return sb.toString();
-  }
-
-  private void generateModuleDoc(SkylarkModuleDoc module, StringBuilder sb) {
-    SkylarkModule annotation = module.getAnnotation();
-    sb.append(String.format("<h2 id=\"modules.%s\">%s</h2>\n",
-          getModuleId(annotation),
-          annotation.name()))
-      .append(annotation.doc())
-      .append("\n");
-    sb.append("<ul>");
-    // Sort Java and SkylarkBuiltin methods together. The map key is only used for sorting.
-    TreeMap<String, Object> methodMap = new TreeMap<>();
-    for (SkylarkJavaMethod method : module.getJavaMethods()) {
-      methodMap.put(method.name + method.method.getParameterTypes().length, method);
+    Collator us = Collator.getInstance(Locale.US);
+    for (List<SkylarkModuleDoc> module : modulesByCategory.values()) {
+      Collections.sort(module, (doc1, doc2) -> us.compare(doc1.getTitle(), doc2.getTitle()));
     }
-    for (SkylarkBuiltinMethod builtin : module.getBuiltinMethods().values()) {
-      methodMap.put(builtin.annotation.name(), builtin);
-    }
-    for (Object object : methodMap.values()) {
-      if (object instanceof SkylarkJavaMethod) {
-        SkylarkJavaMethod method = (SkylarkJavaMethod) object;
-        generateDirectJavaMethodDoc(annotation.name(), method.name, method.method,
-            method.callable, sb);
-      }
-      if (object instanceof SkylarkBuiltinMethod) {
-        generateBuiltinItemDoc(getModuleId(annotation), (SkylarkBuiltinMethod) object, sb);
-      }
-    }
-    sb.append("</ul>");
-  }
+    writeCategoryPage(SkylarkModuleCategory.CONFIGURATION_FRAGMENT, outputDir, modulesByCategory);
+    writeCategoryPage(SkylarkModuleCategory.BUILTIN, outputDir, modulesByCategory);
+    writeCategoryPage(SkylarkModuleCategory.PROVIDER, outputDir, modulesByCategory);
+    writeNavPage(outputDir, modulesByCategory.get(SkylarkModuleCategory.TOP_LEVEL_TYPE));
 
-  private String getModuleId(SkylarkModule annotation) {
-    if (annotation == getTopLevelModule()) {
-      return TOP_LEVEL_ID;
-    } else {
-      return annotation.name();
-    }
-  }
+    // In the code, there are two SkylarkModuleCategory instances that have no heading:
+    // TOP_LEVEL_TYPE and NONE.
 
-  private void generateBuiltinItemDoc(
-      String moduleId, SkylarkBuiltinMethod method, StringBuilder sb) {
-    SkylarkBuiltin annotation = method.annotation;
-    if (annotation.hidden()) {
-      return;
-    }
-    sb.append(String.format("<li><h3 id=\"modules.%s.%s\">%s</h3>\n",
-          moduleId,
-          annotation.name(),
-          annotation.name()));
-
-    if (com.google.devtools.build.lib.syntax.Function.class.isAssignableFrom(method.fieldClass)) {
-      sb.append(getSignature(moduleId, annotation));
-    } else {
-      if (!annotation.returnType().equals(Object.class)) {
-        sb.append("<code>" + getTypeAnchor(annotation.returnType()) + "</code><br>");
-      }
-    }
-
-    sb.append(annotation.doc() + "\n");
-    printParams(moduleId, annotation, sb);
-  }
-
-  private void printParams(String moduleId, SkylarkBuiltin annotation, StringBuilder sb) {
-    if (annotation.mandatoryParams().length + annotation.optionalParams().length > 0) {
-      sb.append("<h4>Parameters</h4>\n");
-      printParams(moduleId, annotation.name(), annotation.mandatoryParams(), sb);
-      printParams(moduleId, annotation.name(), annotation.optionalParams(), sb);
-    } else {
-      sb.append("<br/>\n");
-    }
-  }
-
-  private void generateDirectJavaMethodDoc(String objectName, String methodName,
-      Method method, SkylarkCallable annotation, StringBuilder sb) {
-    if (annotation.hidden()) {
-      return;
-    }
-
-    sb.append(String.format("<li><h3 id=\"modules.%s.%s\">%s</h3>\n%s\n",
-            objectName,
-            methodName,
-            methodName,
-            getSignature(objectName, methodName, method)))
-        .append(annotation.doc())
-        .append(getReturnTypeExtraMessage(annotation))
-        .append("\n");
-  }
-
-  private String getReturnTypeExtraMessage(SkylarkCallable annotation) {
-    if (annotation.allowReturnNones()) {
-      return " May return <code>None</code>.\n";
-    }
-    return "";
-  }
-
-  private String getSignature(String objectName, String methodName, Method method) {
-    String args = method.getAnnotation(SkylarkCallable.class).structField()
-        ? "" : "(" + getParameterString(method) + ")";
-
-    return String.format("<code>%s %s.%s%s</code><br>",
-        getTypeAnchor(method.getReturnType()), objectName, methodName, args);
-  }
-
-  private String getSignature(String objectName, SkylarkBuiltin method) {
-    List<String> argList = new ArrayList<>();
-    for (Param param : method.mandatoryParams()) {
-      argList.add(param.name());
-    }
-    for (Param param : method.optionalParams()) {
-      argList.add(param.name() + "?");
-    }
-    String args = "(" + Joiner.on(", ").join(argList) + ")";
-    if (!objectName.equals(TOP_LEVEL_ID)) {
-      return String.format("<code>%s %s.%s%s</code><br>\n",
-          getTypeAnchor(method.returnType()), objectName, method.name(), args);
-    } else {
-      return String.format("<code>%s %s%s</code><br>\n",
-          getTypeAnchor(method.returnType()), method.name(), args);
-    }
-  }
-
-  private String getTypeAnchor(Class<?> returnType, Class<?> generic1) {
-    return getTypeAnchor(returnType) + " of " + getTypeAnchor(generic1) + "s";
-  }
-
-  private String getTypeAnchor(Class<?> type) {
-    if (type.equals(Boolean.class) || type.equals(boolean.class)) {
-      return "<a class=\"anchor\" href=\"#modules._top_level.bool\">bool</a>";
-    } else if (type.equals(String.class)) {
-      return "<a class=\"anchor\" href=\"#modules.string\">string</a>";
-    } else if (Map.class.isAssignableFrom(type)) {
-      return "<a class=\"anchor\" href=\"#modules.dict\">dict</a>";
-    } else if (List.class.isAssignableFrom(type)) {
-      // Annotated Java methods can return simple java.util.Lists (which get auto-converted).
-      return "<a class=\"anchor\" href=\"#modules.list\">list</a>";
-    } else if (type.equals(Void.TYPE) || type.equals(NoneType.class)) {
-      return "<a class=\"anchor\" href=\"#modules." + TOP_LEVEL_ID + ".None\">None</a>";
-    } else if (type.isAnnotationPresent(SkylarkModule.class)) {
-      // TODO(bazel-team): this can produce dead links for types don't show up in the doc.
-      // The correct fix is to generate those types (e.g. SkylarkFileType) too.
-      String module = type.getAnnotation(SkylarkModule.class).name();
-      return "<a class=\"anchor\" href=\"#modules." + module + "\">" + module + "</a>";
-    } else {
-      return EvalUtils.getDataTypeNameFromClass(type);
-    }
-  }
-
-  private String getParameterString(Method method) {
-    return Joiner.on(", ").join(Iterables.transform(
-        ImmutableList.copyOf(method.getParameterTypes()), new Function<Class<?>, String>() {
-          @Override
-          public String apply(Class<?> input) {
-            return getTypeAnchor(input);
-          }
-        }));
-  }
-
-  private void printParams(String moduleId, String methodName,
-      Param[] params, StringBuilder sb) {
-    if (params.length > 0) {
-      sb.append("<ul>\n");
-      for (Param param : params) {
-        String paramType = param.type().equals(Object.class) ? ""
-            : (param.generic1().equals(Object.class)
-                ? " (" + getTypeAnchor(param.type()) + ")"
-                : " (" + getTypeAnchor(param.type(), param.generic1()) + ")");
-        sb.append(String.format("\t<li id=\"modules.%s.%s.%s\"><code>%s%s</code>: ",
-            moduleId,
-            methodName,
-            param.name(),
-            param.name(),
-            paramType))
-          .append(param.doc())
-          .append("\n\t</li>\n");
-      }
-      sb.append("</ul>\n");
-    }
-  }
-
-  private Map<String, SkylarkModuleDoc> collectBuiltinModules() {
-    Map<String, SkylarkModuleDoc> modules = new HashMap<>();
-    collectBuiltinDoc(modules, Environment.class.getDeclaredFields());
-    collectBuiltinDoc(modules, MethodLibrary.class.getDeclaredFields());
-    for (Class<?> moduleClass : SkylarkModules.MODULES) {
-      collectBuiltinDoc(modules, moduleClass.getDeclaredFields());
-    }
-    return modules;
-  }
-
-  private Map<SkylarkModule, Class<?>> collectBuiltinJavaObjects() {
-    Map<SkylarkModule, Class<?>> modules = new HashMap<>();
-    collectBuiltinModule(modules, SkylarkRuleContext.class);
-    collectBuiltinModule(modules, TransitiveInfoCollection.class);
-    return modules;
-  }
-
-  /**
-   * Returns the top level modules and functions with their documentation in a command-line
-   * printable format.
-   */
-  public Map<String, String> collectTopLevelModules() {
-    Map<String, String> modules = new TreeMap<>();
-    for (SkylarkModuleDoc doc : collectBuiltinModules().values()) {
-      if (doc.getAnnotation() == getTopLevelModule()) {
-        for (Map.Entry<String, SkylarkBuiltinMethod> entry : doc.getBuiltinMethods().entrySet()) {
-          if (!entry.getValue().annotation.hidden()) {
-            modules.put(entry.getKey(),
-                DocgenConsts.toCommandLineFormat(entry.getValue().annotation.doc()));
-          }
-        }
-      } else {
-        modules.put(doc.getAnnotation().name(),
-            DocgenConsts.toCommandLineFormat(doc.getAnnotation().doc()));
-      }
-    }
-    return modules;
-  }
-
-  /**
-   * Returns the API doc for the specified Skylark object in a command line printable format,
-   * params[0] identifies either a module or a top-level object, the optional params[1] identifies a
-   * method in the module.<br>
-   * Returns null if no Skylark object is found.
-   */
-  public String getCommandLineAPIDoc(String[] params) {
-    Map<String, SkylarkModuleDoc> modules = collectModules();
-    SkylarkModuleDoc toplevelModuleDoc = modules.get(getTopLevelModule().name());
-    if (modules.containsKey(params[0])) {
-      // Top level module
-      SkylarkModuleDoc module = modules.get(params[0]);
-      if (params.length == 1) {
-        String moduleName = module.getAnnotation().name();
-        StringBuilder sb = new StringBuilder();
-        sb.append(moduleName).append("\n\t").append(module.getAnnotation().doc()).append("\n");
-        // Print the signature of all built-in methods
-        for (SkylarkBuiltinMethod method : module.getBuiltinMethods().values()) {
-          printBuiltinFunctionDoc(moduleName, method.annotation, sb);
-        }
-        // Print all Java methods
-        for (SkylarkJavaMethod method : module.getJavaMethods()) {
-          printJavaFunctionDoc(moduleName, method, sb);
-        }
-        return DocgenConsts.toCommandLineFormat(sb.toString());
-      } else {
-        return getFunctionDoc(module.getAnnotation().name(), params[1], module);
-      }
-    } else if (toplevelModuleDoc.getBuiltinMethods().containsKey(params[0])){
-      // Top level object / function
-      return getFunctionDoc(null, params[0], toplevelModuleDoc);
-    }
-    return null;
-  }
-
-  private String getFunctionDoc(String moduleName, String methodName, SkylarkModuleDoc module) {
-    if (module.getBuiltinMethods().containsKey(methodName)) {
-      // Create the doc for the built-in function
-      SkylarkBuiltinMethod method = module.getBuiltinMethods().get(methodName);
-      StringBuilder sb = new StringBuilder();
-      printBuiltinFunctionDoc(moduleName, method.annotation, sb);
-      printParams(moduleName, method.annotation, sb);
-      return DocgenConsts.removeDuplicatedNewLines(DocgenConsts.toCommandLineFormat(sb.toString()));
-    } else {
-      // Search if there are matching Java functions
-      StringBuilder sb = new StringBuilder();
-      boolean foundMatchingMethod = false;
-      for (SkylarkJavaMethod method : module.getJavaMethods()) {
-        if (method.name.equals(methodName)) {
-          printJavaFunctionDoc(moduleName, method, sb);
-          foundMatchingMethod = true;
+    // TOP_LEVEL_TYPE also contains the "global" module.
+    // We remove both categories and the "global" module from the map and display them manually:
+    // - Methods in the "global" module are displayed under "Global Methods and Constants".
+    // - Modules in both categories are displayed under "Global Modules" (except for the global
+    // module itself).
+    List<String> globalFunctions = new ArrayList<>();
+    List<String> globalConstants = new ArrayList<>();
+    SkylarkModuleDoc globalModule = findGlobalModule(modulesByCategory);
+    for (SkylarkMethodDoc method : globalModule.getMethods()) {
+      if (method.documented()) {
+        if (method.isCallable()) {
+          globalFunctions.add(method.getName());
+        } else {
+          globalConstants.add(method.getName());
         }
       }
-      if (foundMatchingMethod) {
-        return DocgenConsts.toCommandLineFormat(sb.toString()); 
+    }
+
+    List<SkylarkModuleDoc> globalModules = new ArrayList<>();
+    for (SkylarkModuleCategory globalCategory : GLOBAL_CATEGORIES) {
+      for (SkylarkModuleDoc module : modulesByCategory.remove(globalCategory)) {
+        if (!module.getName().equals(globalModule.getName())) {
+          globalModules.add(module);
+        }
       }
     }
-    return null;
+
+    Collections.sort(globalModules, (doc1, doc2) -> us.compare(doc1.getName(), doc2.getName()));
+    writeOverviewPage(
+        outputDir,
+        globalModule.getName(),
+        globalFunctions,
+        globalConstants,
+        globalModules,
+        modulesByCategory);
   }
 
-  private void printBuiltinFunctionDoc(
-      String moduleName, SkylarkBuiltin annotation, StringBuilder sb) {
-    if (moduleName != null) {
-      sb.append(moduleName).append(".");
+  private static SkylarkModuleDoc findGlobalModule(
+      Map<SkylarkModuleCategory, List<SkylarkModuleDoc>> modulesByCategory) {
+    List<SkylarkModuleDoc> topLevelModules =
+        modulesByCategory.get(SkylarkModuleCategory.TOP_LEVEL_TYPE);
+    String globalModuleName = SkylarkDocumentationCollector.getTopLevelModule().name();
+    for (SkylarkModuleDoc module : topLevelModules) {
+      if (module.getName().equals(globalModuleName)) {
+        return module;
+      }
     }
-    sb.append(annotation.name()).append("\n\t").append(annotation.doc()).append("\n");
+
+    throw new IllegalStateException("No globals module in the top level category.");
   }
 
-  private void printJavaFunctionDoc(String moduleName, SkylarkJavaMethod method, StringBuilder sb) {
-    sb.append(getSignature(moduleName, method.name, method.method))
-      .append("\t").append(method.callable.doc()).append("\n");
+  private static void writePage(String outputDir, SkylarkModuleDoc module) throws IOException {
+    File skylarkDocPath = new File(outputDir + "/" + module.getName() + ".html");
+    Page page = TemplateEngine.newPage(DocgenConsts.SKYLARK_LIBRARY_TEMPLATE);
+    page.add("module", module);
+    page.write(skylarkDocPath);
   }
 
-  private void collectBuiltinModule(
-      Map<SkylarkModule, Class<?>> modules, Class<?> moduleClass) {
-    if (moduleClass.isAnnotationPresent(SkylarkModule.class)) {
-      SkylarkModule skylarkModule = moduleClass.getAnnotation(SkylarkModule.class);
-      modules.put(skylarkModule, moduleClass);
-    }
+  private static void writeCategoryPage(
+      SkylarkModuleCategory category,
+      String outputDir,
+      Map<SkylarkModuleCategory, List<SkylarkModuleDoc>> modules) throws IOException {
+    File skylarkDocPath = new File(String.format("%s/skylark-%s.html",
+        outputDir, category.getTemplateIdentifier()));
+    Page page = TemplateEngine.newPage(DocgenConsts.SKYLARK_MODULE_CATEGORY_TEMPLATE);
+    page.add("category", category);
+    page.add("modules", modules.get(category));
+    page.add("description", SkylarkDocUtils.substituteVariables(category.getDescription()));
+    page.write(skylarkDocPath);
   }
 
-  private void collectBuiltinDoc(Map<String, SkylarkModuleDoc> modules, Field[] fields) {
-    for (Field field : fields) {
-      if (field.isAnnotationPresent(SkylarkBuiltin.class)) {
-        SkylarkBuiltin skylarkBuiltin = field.getAnnotation(SkylarkBuiltin.class);
-        Class<?> moduleClass = skylarkBuiltin.objectType();
-        SkylarkModule skylarkModule = moduleClass.equals(Object.class)
-            ? getTopLevelModule()
-            : moduleClass.getAnnotation(SkylarkModule.class);
-        if (!modules.containsKey(skylarkModule.name())) {
-          modules.put(skylarkModule.name(), new SkylarkModuleDoc(skylarkModule, moduleClass));
-        }
-        modules.get(skylarkModule.name()).getBuiltinMethods()
-            .put(skylarkBuiltin.name(), new SkylarkBuiltinMethod(skylarkBuiltin, field.getType()));
+  private static void writeNavPage(String outputDir, List<SkylarkModuleDoc> navModules)
+      throws IOException {
+    File navFile = new File(outputDir + "/skylark-nav.html");
+    Page page = TemplateEngine.newPage(DocgenConsts.SKYLARK_NAV_TEMPLATE);
+    page.add("modules", navModules);
+    page.write(navFile);
+  }
+
+  private static void writeOverviewPage(
+      String outputDir,
+      String globalModuleName,
+      List<String> globalFunctions,
+      List<String> globalConstants,
+      List<SkylarkModuleDoc> globalModules,
+      Map<SkylarkModuleCategory, List<SkylarkModuleDoc>> modulesPerCategory)
+      throws IOException {
+    File skylarkDocPath = new File(outputDir + "/skylark-overview.html");
+    Page page = TemplateEngine.newPage(DocgenConsts.SKYLARK_OVERVIEW_TEMPLATE);
+    page.add("global_name", globalModuleName);
+    page.add("global_functions", globalFunctions);
+    page.add("global_constants", globalConstants);
+    page.add("global_modules", globalModules);
+    page.add("modules", modulesPerCategory);
+    page.write(skylarkDocPath);
+  }
+
+  private static void parseOptions(String... args) {
+    for (String arg : args) {
+      if (arg.startsWith("--be_root=")) {
+        DocgenConsts.BeDocsRoot = arg.split("--be_root=", 2)[1];
+      }
+      if (arg.startsWith("--doc_extension=")) {
+        DocgenConsts.documentationExtension = arg.split("--doc_extension=", 2)[1];
       }
     }
   }

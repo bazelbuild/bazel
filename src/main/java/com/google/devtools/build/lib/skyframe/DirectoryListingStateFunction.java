@@ -1,4 +1,4 @@
-// Copyright 2014 Google Inc. All rights reserved.
+// Copyright 2014 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -13,13 +13,14 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import com.google.devtools.build.lib.skyframe.ExternalFilesHelper.FileType;
 import com.google.devtools.build.lib.vfs.RootedPath;
+import com.google.devtools.build.lib.vfs.UnixGlob.FilesystemCalls;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
-import com.google.devtools.build.skyframe.SkyValue;
-
 import java.io.IOException;
+import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * A {@link SkyFunction} for {@link DirectoryListingStateValue}s.
@@ -31,20 +32,41 @@ public class DirectoryListingStateFunction implements SkyFunction {
 
   private final ExternalFilesHelper externalFilesHelper;
 
-  public DirectoryListingStateFunction(ExternalFilesHelper externalFilesHelper) {
+  /**
+   * A file-system abstraction to use. This can e.g. be a {@link PerBuildSyscallCache} which helps
+   * re-use the results of expensive readdir() operations, that are likely already executed for
+   * evaluating globs.
+   */
+  private final AtomicReference<FilesystemCalls> syscallCache;
+
+  public DirectoryListingStateFunction(
+      ExternalFilesHelper externalFilesHelper, AtomicReference<FilesystemCalls> syscallCache) {
     this.externalFilesHelper = externalFilesHelper;
+    this.syscallCache = syscallCache;
   }
 
   @Override
-  public SkyValue compute(SkyKey skyKey, Environment env)
-      throws DirectoryListingStateFunctionException {
+  public DirectoryListingStateValue compute(SkyKey skyKey, Environment env)
+      throws DirectoryListingStateFunctionException, InterruptedException {
     RootedPath dirRootedPath = (RootedPath) skyKey.argument();
-    externalFilesHelper.maybeAddDepOnBuildId(dirRootedPath, env);
-    if (env.valuesMissing()) {
-      return null;
-    }
+
     try {
-      return DirectoryListingStateValue.create(dirRootedPath);
+      FileType fileType = externalFilesHelper.maybeHandleExternalFile(dirRootedPath, true, env);
+      if (env.valuesMissing()) {
+        return null;
+      }
+      if (fileType == FileType.EXTERNAL_REPO
+          || fileType == FileType.EXTERNAL_IN_MANAGED_DIRECTORY) {
+        // Do not use syscallCache as files under repositories get generated during the build,
+        // while syscallCache is used independently from Skyframe and generally assumes
+        // the file system is frozen at the beginning of the build command.
+        return DirectoryListingStateValue.create(dirRootedPath);
+      }
+      return DirectoryListingStateValue.create(syscallCache.get().readdir(dirRootedPath.asPath()));
+    } catch (ExternalFilesHelper.NonexistentImmutableExternalFileException e) {
+      // DirectoryListingStateValue.key assumes the path exists. This exception here is therefore
+      // indicative of a programming bug.
+      throw new IllegalStateException(dirRootedPath.toString(), e);
     } catch (IOException e) {
       throw new DirectoryListingStateFunctionException(e);
     }

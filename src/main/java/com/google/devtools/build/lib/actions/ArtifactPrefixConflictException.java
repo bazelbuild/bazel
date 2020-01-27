@@ -1,4 +1,4 @@
-// Copyright 2014 Google Inc. All rights reserved.
+// Copyright 2014 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -13,7 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.actions;
 
-import com.google.devtools.build.lib.syntax.Label;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
 /**
@@ -22,12 +22,13 @@ import com.google.devtools.build.lib.vfs.PathFragment;
  * lead to an error if both actions were executed in the same build.
  */
 public class ArtifactPrefixConflictException extends Exception {
-  public ArtifactPrefixConflictException(PathFragment firstPath, PathFragment secondPath,
-      Label firstOwner, Label secondOwner) {
-    super(String.format(
-        "output path '%s' (belonging to %s) is a prefix of output path '%s' (belonging to %s). "
-        + "These actions cannot be simultaneously present; please rename one of the output files "
-        + "or, as a last resort, run 'blaze clean' and then build just one of them",
-        firstPath, firstOwner, secondPath, secondOwner));
+  public ArtifactPrefixConflictException(
+      PathFragment firstPath, PathFragment secondPath, Label firstOwner, Label secondOwner) {
+    super(
+        String.format(
+            "output path '%s' (belonging to %s) is a prefix of output path '%s' (belonging to %s). "
+                + "These actions cannot be simultaneously present; please rename one of the output "
+                + "files or build just one of them",
+            firstPath, firstOwner, secondPath, secondOwner));
   }
 }

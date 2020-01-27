@@ -1,4 +1,4 @@
-// Copyright 2014 Google Inc. All rights reserved.
+// Copyright 2014 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -24,9 +24,15 @@ package com.google.devtools.build.skyframe;
  * node is done and written to the graph. Any attempt to access the edges once the node is done will
  * fail the build fast.
  */
-class EdgelessInMemoryNodeEntry extends InMemoryNodeEntry {
+public class EdgelessInMemoryNodeEntry extends InMemoryNodeEntry {
   @Override
-  public boolean keepEdges() {
-    return false;
+  public KeepEdgesPolicy keepEdges() {
+    return KeepEdgesPolicy.NONE;
+  }
+
+  @Override
+  protected void postProcessAfterDone() {
+    this.directDeps = null;
+    this.reverseDeps = null;
   }
 }

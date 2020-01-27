@@ -1,4 +1,4 @@
-// Copyright 2014 Google Inc. All rights reserved.
+// Copyright 2014 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -13,47 +13,74 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import com.google.common.collect.Interner;
+import com.google.devtools.build.lib.actions.FileValue;
+import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
-import com.google.devtools.build.lib.vfs.Dirent;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.vfs.RootedPath;
-import com.google.devtools.build.skyframe.SkyKey;
+import com.google.devtools.build.skyframe.AbstractSkyKey;
+import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyValue;
-
 import java.util.Objects;
 
 /**
- * A value that represents the list of files in a given directory under a given package path root.
- * Anything in Skyframe that cares about the contents of a directory should have a dependency
- * on the corresponding {@link DirectoryListingValue}.
+ * A value that represents the dirents (name and type of child entries) in a given directory under a
+ * given package path root, fully accounting for symlinks in the directory's path. Anything in
+ * Skyframe that cares about the contents of a directory should have a dependency on the
+ * corresponding {@link DirectoryListingValue}.
  *
- * <p>This value only depends on the FileValue corresponding to the directory. In particular, note
- * that it does not depend on any of its child entries.
- *
- * <p>Note that symlinks in dirents are <b>not</b> expanded. Dependents of the value are responsible
- * for expanding the symlink entries by referring to FileValues that correspond to the symlinks.
+ * <p>Note that dirents that are themselves symlinks are <b>not</b> resolved. Consumers of such a
+ * dirent are responsible for resolving the symlink entry via an appropriate {@link FileValue}.
  * This is a little onerous, but correct: we do not need to reread the directory when a symlink
- * inside it changes, therefore this value should not be invalidated in that case.
+ * inside it changes (or, more generally, when the *contents* of a dirent changes), therefore the
+ * {@link DirectoryListingValue} value should not be invalidated in that case.
  */
 @Immutable
 @ThreadSafe
-abstract class DirectoryListingValue implements SkyValue {
+public abstract class DirectoryListingValue implements SkyValue {
 
   /**
    * Returns the directory entries for this directory, in a stable order.
    *
    * <p>Symlinks are not expanded.
    */
-  public abstract Iterable<Dirent> getDirents();
+  public Dirents getDirents() {
+    return getDirectoryListingStateValue().getDirents();
+  }
+
+  public abstract DirectoryListingStateValue getDirectoryListingStateValue();
 
   /**
-   * Returns a {@link SkyKey} for getting the directory entries of the given directory. The
-   * given path is assumed to be an existing directory (e.g. via {@link FileValue#isDirectory} or
-   * from a directory listing on its parent directory).
+   * Returns a {@link Key} for getting the directory entries of the given directory. The given path
+   * is assumed to be an existing directory (e.g. via {@link FileValue#isDirectory} or from a
+   * directory listing on its parent directory).
    */
   @ThreadSafe
-  static SkyKey key(RootedPath directoryUnderRoot) {
-    return new SkyKey(SkyFunctions.DIRECTORY_LISTING, directoryUnderRoot);
+  public static Key key(RootedPath directoryUnderRoot) {
+    return Key.create(directoryUnderRoot);
+  }
+
+  @AutoCodec.VisibleForSerialization
+  @AutoCodec
+  static class Key extends AbstractSkyKey<RootedPath> {
+    private static final Interner<Key> interner = BlazeInterners.newWeakInterner();
+
+    private Key(RootedPath arg) {
+      super(arg);
+    }
+
+    @AutoCodec.VisibleForSerialization
+    @AutoCodec.Instantiator
+    static Key create(RootedPath arg) {
+      return interner.intern(new Key(arg));
+    }
+
+    @Override
+    public SkyFunctionName functionName() {
+      return SkyFunctions.DIRECTORY_LISTING;
+    }
   }
 
   static DirectoryListingValue value(RootedPath dirRootedPath, FileValue dirFileValue,
@@ -64,18 +91,19 @@ abstract class DirectoryListingValue implements SkyValue {
             realDirectoryListingStateValue);
   }
 
+  /** Normal {@link DirectoryListingValue}. */
   @ThreadSafe
-  private static final class RegularDirectoryListingValue extends DirectoryListingValue {
+  public static final class RegularDirectoryListingValue extends DirectoryListingValue {
 
     private final DirectoryListingStateValue directoryListingStateValue;
 
-    private RegularDirectoryListingValue(DirectoryListingStateValue directoryListingStateValue) {
+    public RegularDirectoryListingValue(DirectoryListingStateValue directoryListingStateValue) {
       this.directoryListingStateValue = directoryListingStateValue;
     }
 
     @Override
-    public Iterable<Dirent> getDirents() {
-      return directoryListingStateValue.getDirents();
+    public DirectoryListingStateValue getDirectoryListingStateValue() {
+      return directoryListingStateValue;
     }
 
     @Override
@@ -96,21 +124,26 @@ abstract class DirectoryListingValue implements SkyValue {
     }
   }
 
+  /** A {@link DirectoryListingValue} with a different root. */
   @ThreadSafe
-  private static final class DifferentRealPathDirectoryListingValue extends DirectoryListingValue {
+  public static final class DifferentRealPathDirectoryListingValue extends DirectoryListingValue {
 
     private final RootedPath realDirRootedPath;
     private final DirectoryListingStateValue directoryListingStateValue;
 
-    private DifferentRealPathDirectoryListingValue(RootedPath realDirRootedPath,
+    public DifferentRealPathDirectoryListingValue(RootedPath realDirRootedPath,
         DirectoryListingStateValue directoryListingStateValue) {
       this.realDirRootedPath = realDirRootedPath;
       this.directoryListingStateValue = directoryListingStateValue;
     }
 
+    public RootedPath getRealDirRootedPath() {
+      return realDirRootedPath;
+    }
+
     @Override
-    public Iterable<Dirent> getDirents() {
-      return directoryListingStateValue.getDirents();
+    public DirectoryListingStateValue getDirectoryListingStateValue() {
+      return directoryListingStateValue;
     }
 
     @Override

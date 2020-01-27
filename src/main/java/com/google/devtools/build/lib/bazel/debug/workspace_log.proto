@@ -1,0 +1,161 @@
+// Copyright 2018 The Bazel Authors. All rights reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//    http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+syntax = "proto3";
+
+package workspace_log;
+
+option java_package = "com.google.devtools.build.lib.bazel.debug.proto";
+option java_outer_classname = "WorkspaceLogProtos";
+
+// Information on "Execute" event in repository_ctx.
+message ExecuteEvent {
+  // Command line arguments, with the first one being the command to execute.
+  repeated string arguments = 2;
+
+  // Timeout used for the command
+  int32 timeout_seconds = 3;
+
+  // Environment variables set for the execution. Note that this includes
+  // variables specified by the user (as an input to Execute command),
+  // as well as variables set indirectly through the rule environment
+  map<string, string> environment = 4;
+
+  // True if quiet execution was requested.
+  bool quiet = 5;
+
+  // Directory that would contain the output of the command.
+  string output_directory = 6;
+}
+
+// Information on "Download" event in repository_ctx.
+message DownloadEvent {
+  // Url to download from. If multiple, treated as mirrors
+  repeated string url = 1;
+  // Output file
+  string output = 2;
+  // sha256, if specified
+  string sha256 = 3;
+  // whether to make the resulting file executable
+  bool executable = 4;
+  // checksum in Subresource Integrity format, if specified
+  string integrity = 5;
+}
+
+message ExtractEvent {
+  // Path to the archive file
+  string archive = 1;
+  // Path to the output directory
+  string output = 2;
+  // A directory prefix to strip from extracted files.
+  string strip_prefix = 3;
+}
+
+message DownloadAndExtractEvent {
+  // Url(s) to download from
+  repeated string url = 1;
+  // Output file
+  string output = 2;
+  // sha256, if specified
+  string sha256 = 3;
+  // Archive type, if specified. Otherwise, inferred from URL.
+  string type = 4;
+  // A directory prefix to strip from extracted files.
+  string strip_prefix = 5;
+  // checksum in Subresource Integrity format, if specified
+  string integrity = 6;
+}
+
+// Information on "file" event in repository_ctx.
+message FileEvent {
+  // Path to the created file
+  string path = 1;
+  // Content of the created file
+  string content = 2;
+  // Whether the file is executable
+  bool executable = 3;
+}
+
+// Information on "read" event in repository_ctx.
+message ReadEvent {
+  // Path to the file to read
+  string path = 1;
+}
+
+// Information on "delete" event in repository_ctx.
+message DeleteEvent {
+  // Path to the file to delete
+  string path = 1;
+}
+
+// Information on "patch" event in repository_ctx.
+message PatchEvent {
+  // Path to the patch file
+  string patch_file = 1;
+  // Number of leading components to strip from file names
+  int32 strip = 2;
+}
+
+// Information on "os" event in repository_ctx.
+message OsEvent {
+  // Takes no inputs
+}
+
+// Information on "symlink" event in repository_ctx.
+message SymlinkEvent {
+  // path to which the symlink will point to
+  string target = 1;
+  // path of the symlink
+  string path = 2;
+}
+
+// Information on "template" event in repository_ctx.
+message TemplateEvent {
+  // path of the file to create
+  string path = 1;
+  // path to the template file
+  string template = 2;
+  // a map of substitutions to make
+  map<string, string> substitutions = 3;
+  // Whether to set executable flag
+  bool executable = 4;
+}
+
+// Information on "which" event in repository_ctx.
+message WhichEvent {
+  // Program to find in the path
+  string program = 1;
+}
+
+message WorkspaceEvent {
+  // Location in the code (.bzl file) where the event originates.
+  string location = 1;
+
+  // Label of the rule whose evaluation caused this event.
+  string rule = 2;
+
+  oneof event {
+    ExecuteEvent execute_event = 3;
+    DownloadEvent download_event = 4;
+    DownloadAndExtractEvent download_and_extract_event = 5;
+    FileEvent file_event = 6;
+    OsEvent os_event = 7;
+    SymlinkEvent symlink_event = 8;
+    TemplateEvent template_event = 9;
+    WhichEvent which_event = 10;
+    ExtractEvent extract_event = 11;
+    ReadEvent read_event = 12;
+    DeleteEvent delete_event = 13;
+    PatchEvent patch_event = 14;
+  }
+}

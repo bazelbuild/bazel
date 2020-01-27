@@ -1,4 +1,4 @@
-// Copyright 2014 Google Inc. All rights reserved.
+// Copyright 2014 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -13,131 +13,116 @@
 // limitations under the License.
 package com.google.devtools.build.lib.exec;
 
-import static java.nio.charset.StandardCharsets.US_ASCII;
-
-import com.google.common.base.Preconditions;
+import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
-import com.google.common.cache.CacheLoader;
-import com.google.common.cache.LoadingCache;
-import com.google.common.collect.Maps;
-import com.google.common.io.BaseEncoding;
 import com.google.devtools.build.lib.actions.ActionInput;
-import com.google.devtools.build.lib.actions.ActionInputFileCache;
+import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.DigestOfDirectoryException;
-import com.google.devtools.build.lib.util.Pair;
+import com.google.devtools.build.lib.actions.FileArtifactValue;
+import com.google.devtools.build.lib.actions.MetadataProvider;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
-import com.google.protobuf.ByteString;
-
-import java.io.File;
+import com.google.devtools.build.lib.vfs.Symlinks;
 import java.io.IOException;
-import java.util.Map;
-
+import java.util.concurrent.ExecutionException;
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.ThreadSafe;
 
 /**
  * An in-memory cache to ensure we do I/O for source files only once during a single build.
  *
- * <p>Simply maintains a two-way cached mapping from digest <--> filename that may be populated
- * only once.
+ * <p>Simply maintains a cached mapping from filename to metadata that may be populated only once.
  */
 @ThreadSafe
-public class SingleBuildFileCache implements ActionInputFileCache {
-
-  private final String cwd;
-  private final FileSystem fs;
+public class SingleBuildFileCache implements MetadataProvider {
+  private final Path execRoot;
 
   public SingleBuildFileCache(String cwd, FileSystem fs) {
-    this.fs = Preconditions.checkNotNull(fs);
-    this.cwd = Preconditions.checkNotNull(cwd);
+    this.execRoot = fs.getPath(cwd);
   }
 
   // If we can't get the digest, we store the exception. This avoids extra file IO for files
   // that are allowed to be missing, as we first check a likely non-existent content file
   // first.  Further we won't need to unwrap the exception in getDigest().
-  private final LoadingCache<ActionInput, Pair<ByteString, IOException>> pathToDigest =
+  private final Cache<String, ActionInputMetadata> pathToMetadata =
       CacheBuilder.newBuilder()
-      // We default to 10 disk read threads, but we don't expect them all to edit the map
-      // simultaneously.
-      .concurrencyLevel(8)
-      // Even small-ish builds, as of 11/21/2011 typically have over 10k artifacts, so it's
-      // unlikely that this default will adversely affect memory in most cases.
-      .initialCapacity(10000)
-      .build(new CacheLoader<ActionInput, Pair<ByteString, IOException>>() {
-        @Override
-        public Pair<ByteString, IOException> load(ActionInput input) {
-          Path path = null;
-          try {
-            path = fs.getPath(fullPath(input));
-            BaseEncoding hex = BaseEncoding.base16().lowerCase();
-            ByteString digest = ByteString.copyFrom(
-                hex.encode(path.getMD5Digest())
-                   .getBytes(US_ASCII));
-            pathToBytes.put(input, path.getFileSize());
-            // Inject reverse mapping. Doing this unconditionally in getDigest() showed up
-            // as a hotspot in CPU profiling.
-            digestToPath.put(digest, input);
-            return Pair.of(digest, null);
-          } catch (IOException e) {
-            if (path != null && path.isDirectory()) {
-              pathToBytes.put(input, 0L);
-              return Pair.<ByteString, IOException>of(null, new DigestOfDirectoryException(
-                  "Input is a directory: " + input.getExecPathString()));
-            }
+          // We default to 10 disk read threads, but we don't expect them all to edit the map
+          // simultaneously.
+          .concurrencyLevel(8)
+          // Even small-ish builds, as of 11/21/2011 typically have over 10k artifacts, so it's
+          // unlikely that this default will adversely affect memory in most cases.
+          .initialCapacity(10000)
+          .build();
 
-            // Put value into size map to avoid trying to read file again later.
-            pathToBytes.put(input, 0L);
-            return Pair.of(null, e);
-          }
-        }
-      });
+  @Override
+  public FileArtifactValue getMetadata(ActionInput input) throws IOException {
+    try {
+      return pathToMetadata
+          .get(
+              input.getExecPathString(),
+              () -> {
+                Path path = ActionInputHelper.toInputPath(input, execRoot);
+                try {
+                  FileArtifactValue metadata =
+                      FileArtifactValue.createFromStat(path, path.stat(Symlinks.FOLLOW), true);
+                  if (metadata.getType().isDirectory()) {
+                    throw new DigestOfDirectoryException(
+                        "Input is a directory: " + input.getExecPathString());
+                  }
+                  return new ActionInputMetadata(input, metadata);
+                } catch (IOException e) {
+                  return new ActionInputMetadata(input, e);
+                }
+              })
+          .getMetadata();
+    } catch (ExecutionException e) {
+      throw new IllegalStateException("Unexpected cache loading error", e); // Should never happen.
+    }
+  }
 
-  private final Map<ByteString, ActionInput> digestToPath = Maps.newConcurrentMap();
-
-  private final Map<ActionInput, Long> pathToBytes = Maps.newConcurrentMap();
-
+  @Override
   @Nullable
-  @Override
-  public File getFileFromDigest(ByteString digest) {
-    ActionInput relPath = digestToPath.get(digest);
-    return relPath == null ? null : new File(fullPath(relPath));
-  }
-
-  @Override
-  public long getSizeInBytes(ActionInput input) throws IOException {
-    // TODO(bazel-team): this only works if pathToDigest has already been called.
-    Long sz = pathToBytes.get(input);
-    if (sz != null) {
-      return sz;
+  public ActionInput getInput(String execPath) {
+    ActionInputMetadata metadata = pathToMetadata.getIfPresent(execPath);
+    if (metadata == null) {
+      return null;
     }
-    Path path = fs.getPath(fullPath(input));
-    sz = path.getFileSize();
-    pathToBytes.put(input, sz);
-    return sz;
+    return metadata.getInput();
   }
 
-  @Override
-  public ByteString getDigest(ActionInput input) throws IOException {
-    Pair<ByteString, IOException> result = pathToDigest.getUnchecked(input);
-    if (result.second != null) {
-      throw result.second;
+  /** Container class for caching I/O around ActionInputs. */
+  private static class ActionInputMetadata {
+    private final ActionInput input;
+    private final FileArtifactValue metadata;
+    private final IOException exceptionOnAccess;
+
+    /** Constructor for a successful lookup. */
+    ActionInputMetadata(ActionInput input, FileArtifactValue metadata) {
+      this.input = input;
+      this.metadata = metadata;
+      this.exceptionOnAccess = null;
     }
-    return result.first;
-  }
 
-  @Override
-  public boolean contentsAvailableLocally(ByteString digest) {
-    return digestToPath.containsKey(digest);
-  }
+    /** Constructor for a failed lookup, size will be 0. */
+    ActionInputMetadata(ActionInput input, IOException exceptionOnAccess) {
+      this.input = input;
+      this.exceptionOnAccess = exceptionOnAccess;
+      this.metadata = null;
+    }
 
-  /**
-   * Creates a File object that refers to fileName, if fileName is an absolute path. Otherwise,
-   * returns a File object that refers to the fileName appended to the (absolute) current working
-   * directory.
-   */
-  private String fullPath(ActionInput input) {
-    String relPath = input.getExecPathString();
-    return relPath.startsWith("/") ? relPath : new File(cwd, relPath).getPath();
+    FileArtifactValue getMetadata() throws IOException {
+      maybeRaiseException();
+      return metadata;
+    }
+
+    ActionInput getInput() {
+      return input;
+    }
+
+    private void maybeRaiseException() throws IOException {
+      if (exceptionOnAccess != null) {
+        throw exceptionOnAccess;
+      }
+    }
   }
 }

@@ -1,4 +1,4 @@
-// Copyright 2014 Google Inc. All rights reserved.
+// Copyright 2014 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -13,50 +13,30 @@
 // limitations under the License.
 package com.google.devtools.build.lib.runtime.commands;
 
-import com.google.common.base.Joiner;
-import com.google.common.base.Predicate;
-import com.google.common.base.Predicates;
 import com.google.common.base.Supplier;
-import com.google.common.collect.Iterables;
-import com.google.devtools.build.lib.Constants;
-import com.google.devtools.build.lib.analysis.BlazeVersionInfo;
+import com.google.common.base.Suppliers;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.analysis.NoBuildEvent;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.events.Event;
-import com.google.devtools.build.lib.packages.Attribute;
-import com.google.devtools.build.lib.packages.ProtoUtils;
-import com.google.devtools.build.lib.packages.RuleClass;
-import com.google.devtools.build.lib.packages.RuleClassProvider;
-import com.google.devtools.build.lib.packages.Type;
-import com.google.devtools.build.lib.pkgcache.PackageCacheOptions;
-import com.google.devtools.build.lib.query2.proto.proto2api.Build.AllowedRuleClassInfo;
-import com.google.devtools.build.lib.query2.proto.proto2api.Build.AttributeDefinition;
-import com.google.devtools.build.lib.query2.proto.proto2api.Build.BuildLanguage;
-import com.google.devtools.build.lib.query2.proto.proto2api.Build.RuleDefinition;
 import com.google.devtools.build.lib.runtime.BlazeCommand;
-import com.google.devtools.build.lib.runtime.BlazeCommandDispatcher;
-import com.google.devtools.build.lib.runtime.BlazeModule;
+import com.google.devtools.build.lib.runtime.BlazeCommandResult;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.Command;
+import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.ExitCode;
-import com.google.devtools.build.lib.util.OsUtils;
-import com.google.devtools.build.lib.util.StringUtilities;
 import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.common.options.Option;
+import com.google.devtools.common.options.OptionDocumentationCategory;
+import com.google.devtools.common.options.OptionEffectTag;
+import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.OptionsBase;
-import com.google.devtools.common.options.OptionsParser;
-import com.google.devtools.common.options.OptionsProvider;
-
-import java.io.ByteArrayOutputStream;
+import com.google.devtools.common.options.OptionsParsingResult;
 import java.io.IOException;
-import java.io.PrintWriter;
-import java.lang.management.GarbageCollectorMXBean;
-import java.lang.management.ManagementFactory;
-import java.lang.management.MemoryMXBean;
-import java.lang.management.MemoryUsage;
 import java.nio.charset.StandardCharsets;
-import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
@@ -73,6 +53,7 @@ import java.util.TreeMap;
          help = "resource:info.txt",
          shortDescription = "Displays runtime info about the %{product} server.",
          options = { InfoCommand.Options.class },
+         completion = "info-key",
          // We have InfoCommand inherit from {@link BuildCommand} because we want all
          // configuration defaults specified in ~/.blazerc for {@code build} to apply to
          // {@code info} too, even though it doesn't actually do a build.
@@ -83,12 +64,25 @@ import java.util.TreeMap;
          inherits = { BuildCommand.class })
 public class InfoCommand implements BlazeCommand {
 
+  /** Options for the info command. */
   public static class Options extends OptionsBase {
-    @Option(name = "show_make_env",
-            defaultValue = "false",
-            category = "misc",
-            help = "Include the \"Make\" environment in the output.")
+    @Option(
+      name = "show_make_env",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.LOGGING,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.TERMINAL_OUTPUT},
+      help = "Include the \"Make\" environment in the output."
+    )
     public boolean showMakeEnvironment;
+
+    @Option(
+        name = "experimental_supports_info_crosstool_configuration",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        metadataTags = {OptionMetadataTag.HIDDEN},
+        help = "Noop.")
+    public boolean experimentalSupportsInfoCrosstoolConfiguration;
   }
 
   /**
@@ -113,336 +107,149 @@ public class InfoCommand implements BlazeCommand {
     }
   }
 
-  private static class HardwiredInfoItem implements BlazeModule.InfoItem {
-    private final InfoKey key;
-    private final BlazeRuntime runtime;
-    private final OptionsProvider commandOptions;
-
-    private HardwiredInfoItem(InfoKey key, BlazeRuntime runtime, OptionsProvider commandOptions) {
-      this.key = key;
-      this.runtime = runtime;
-      this.commandOptions = commandOptions;
-    }
-
-    @Override
-    public String getName() {
-      return key.getName();
-    }
-
-    @Override
-    public String getDescription() {
-      return key.getDescription();
-    }
-
-    @Override
-    public boolean isHidden() {
-      return key.isHidden();
-    }
-
-    @Override
-    public byte[] get(Supplier<BuildConfiguration> configurationSupplier) {
-      return print(getInfoItem(runtime, key, configurationSupplier, commandOptions));
-    }
-  }
-
-  private static class MakeInfoItem implements BlazeModule.InfoItem {
-    private final String name;
-    private final String value;
-
-    private MakeInfoItem(String name, String value) {
-      this.name = name;
-      this.value = value;
-    }
-
-    @Override
-    public String getName() {
-      return name;
-    }
-
-    @Override
-    public String getDescription() {
-      return "Make environment variable '" + name + "'";
-    }
-
-    @Override
-    public boolean isHidden() {
-      return false;
-    }
-
-    @Override
-    public byte[] get(Supplier<BuildConfiguration> configurationSupplier) {
-      return print(value);
-    }
-  }
-
   @Override
-  public void editOptions(BlazeRuntime runtime, OptionsParser optionsParser) { }
-
-  @Override
-  public ExitCode exec(final BlazeRuntime runtime, final OptionsProvider optionsProvider) {
-    Options infoOptions = optionsProvider.getOptions(Options.class);
-
-    OutErr outErr = runtime.getReporter().getOutErr();
+  public BlazeCommandResult exec(
+      final CommandEnvironment env, final OptionsParsingResult optionsParsingResult) {
+    final BlazeRuntime runtime = env.getRuntime();
+    env.getReporter().switchToAnsiAllowingHandler();
+    Options infoOptions = optionsParsingResult.getOptions(Options.class);
+    OutErr outErr = env.getReporter().getOutErr();
     // Creating a BuildConfiguration is expensive and often unnecessary. Delay the creation until
-    // it is needed.
-    Supplier<BuildConfiguration> configurationSupplier = new Supplier<BuildConfiguration>() {
-      private BuildConfiguration configuration;
-      @Override
-      public BuildConfiguration get() {
-        if (configuration != null) {
-          return configuration;
-        }
-        try {
-          // In order to be able to answer configuration-specific queries, we need to setup the
-          // package path. Since info inherits all the build options, all the necessary information
-          // is available here.
-          runtime.setupPackageCache(
-              optionsProvider.getOptions(PackageCacheOptions.class),
-              runtime.getDefaultsPackageContent(optionsProvider));
-          // TODO(bazel-team): What if there are multiple configurations? [multi-config]
-          configuration = runtime
-              .getConfigurations(optionsProvider)
-              .getTargetConfigurations().get(0);
-          return configuration;
-        } catch (InvalidConfigurationException e) {
-          runtime.getReporter().handle(Event.error(e.getMessage()));
-          throw new ExitCausingRuntimeException(ExitCode.COMMAND_LINE_ERROR);
-        } catch (AbruptExitException e) {
-          throw new ExitCausingRuntimeException("unknown error: " + e.getMessage(),
-              e.getExitCode());
-        } catch (InterruptedException e) {
-          runtime.getReporter().handle(Event.error("interrupted"));
-          throw new ExitCausingRuntimeException(ExitCode.INTERRUPTED);
-        }
-      }
-    };
+    // it is needed. We memoize so that it's cached intra-command (it's still created freshly on
+    // every command since the configuration can change across commands).
+    Supplier<BuildConfiguration> configurationSupplier =
+        Suppliers.memoize(
+            () -> {
+              try {
+                // In order to be able to answer configuration-specific queries, we need to set up
+                // the package path. Since info inherits all the build options, all the necessary
+                // information is available here.
+                env.setupPackageCache(optionsParsingResult);
+                // TODO(bazel-team): What if there are multiple configurations? [multi-config]
+                return env.getSkyframeExecutor()
+                    .getConfiguration(
+                        env.getReporter(),
+                        runtime.createBuildOptions(optionsParsingResult),
+                        /*keepGoing=*/ true);
+              } catch (InvalidConfigurationException e) {
+                env.getReporter().handle(Event.error(e.getMessage()));
+                throw new ExitCausingRuntimeException(ExitCode.COMMAND_LINE_ERROR);
+              } catch (AbruptExitException e) {
+                throw new ExitCausingRuntimeException(
+                    "unknown error: " + e.getMessage(), e.getExitCode());
+              } catch (InterruptedException e) {
+                env.getReporter().handle(Event.error("interrupted"));
+                throw new ExitCausingRuntimeException(ExitCode.INTERRUPTED);
+              }
+            });
 
-    Map<String, BlazeModule.InfoItem> items = getInfoItemMap(runtime, optionsProvider);
+    Map<String, InfoItem> items = getInfoItemMap(env, optionsParsingResult);
 
     try {
       if (infoOptions.showMakeEnvironment) {
         Map<String, String> makeEnv = configurationSupplier.get().getMakeEnvironment();
         for (Map.Entry<String, String> entry : makeEnv.entrySet()) {
-          BlazeModule.InfoItem item = new MakeInfoItem(entry.getKey(), entry.getValue());
+          InfoItem item = new InfoItem.MakeInfoItem(entry.getKey(), entry.getValue());
           items.put(item.getName(), item);
         }
       }
 
-      List<String> residue = optionsProvider.getResidue();
+      List<String> residue = optionsParsingResult.getResidue();
       if (residue.size() > 1) {
-        runtime.getReporter().handle(Event.error("at most one key may be specified"));
-        return ExitCode.COMMAND_LINE_ERROR;
+        env.getReporter().handle(Event.error("at most one key may be specified"));
+        return BlazeCommandResult.exitCode(ExitCode.COMMAND_LINE_ERROR);
       }
 
       String key = residue.size() == 1 ? residue.get(0) : null;
+      env.getEventBus().post(new NoBuildEvent());
       if (key != null) { // print just the value for the specified key:
         byte[] value;
         if (items.containsKey(key)) {
-          value = items.get(key).get(configurationSupplier);
+          value = items.get(key).get(configurationSupplier, env);
         } else {
-          runtime.getReporter().handle(Event.error("unknown key: '" + key + "'"));
-          return ExitCode.COMMAND_LINE_ERROR;
+          env.getReporter().handle(Event.error("unknown key: '" + key + "'"));
+          return BlazeCommandResult.exitCode(ExitCode.COMMAND_LINE_ERROR);
         }
         try {
           outErr.getOutputStream().write(value);
           outErr.getOutputStream().flush();
         } catch (IOException e) {
-          runtime.getReporter().handle(Event.error("Cannot write info block: " + e.getMessage()));
-          return ExitCode.ANALYSIS_FAILURE;
+          env.getReporter().handle(Event.error("Cannot write info block: " + e.getMessage()));
+          return BlazeCommandResult.exitCode(ExitCode.ANALYSIS_FAILURE);
         }
       } else { // print them all
         configurationSupplier.get();  // We'll need this later anyway
-        for (BlazeModule.InfoItem infoItem : items.values()) {
+        for (InfoItem infoItem : items.values()) {
           if (infoItem.isHidden()) {
             continue;
           }
           outErr.getOutputStream().write(
               (infoItem.getName() + ": ").getBytes(StandardCharsets.UTF_8));
-          outErr.getOutputStream().write(infoItem.get(configurationSupplier));
+          outErr.getOutputStream().write(infoItem.get(configurationSupplier, env));
         }
       }
     } catch (AbruptExitException e) {
-      return e.getExitCode();
+      return BlazeCommandResult.exitCode(e.getExitCode());
     } catch (ExitCausingRuntimeException e) {
-      return e.getExitCode();
+      return BlazeCommandResult.exitCode(e.getExitCode());
     } catch (IOException e) {
-      return ExitCode.LOCAL_ENVIRONMENTAL_ERROR;
+      return BlazeCommandResult.exitCode(ExitCode.LOCAL_ENVIRONMENTAL_ERROR);
+    } catch (InterruptedException e) {
+      return BlazeCommandResult.exitCode(ExitCode.INTERRUPTED);
     }
-    return ExitCode.SUCCESS;
+    return BlazeCommandResult.exitCode(ExitCode.SUCCESS);
   }
 
-  /**
-   * Compute and return the info for the given key. Only keys that are not hidden are supported
-   * here.
-   */
-  private static Object getInfoItem(BlazeRuntime runtime, InfoKey key,
-      Supplier<BuildConfiguration> configurationSupplier, OptionsProvider options) {
-    switch (key) {
-      // directories
-      case WORKSPACE : return runtime.getWorkspace();
-      case INSTALL_BASE : return runtime.getDirectories().getInstallBase();
-      case OUTPUT_BASE : return runtime.getOutputBase();
-      case EXECUTION_ROOT : return runtime.getExecRoot();
-      case OUTPUT_PATH : return runtime.getDirectories().getOutputPath();
-      // These are the only (non-hidden) info items that require a configuration, because the
-      // corresponding paths contain the short name. Maybe we should recommend using the symlinks
-      // or make them hidden by default?
-      case BLAZE_BIN : return configurationSupplier.get().getBinDirectory().getPath();
-      case BLAZE_GENFILES : return configurationSupplier.get().getGenfilesDirectory().getPath();
-      case BLAZE_TESTLOGS : return configurationSupplier.get().getTestLogsDirectory().getPath();
-
-      // logs
-      case COMMAND_LOG : return BlazeCommandDispatcher.getCommandLogPath(runtime.getOutputBase());
-      case MESSAGE_LOG :
-        // NB: Duplicated in EventLogModule
-        return runtime.getOutputBase().getRelative("message.log");
-
-      // misc
-      case RELEASE : return BlazeVersionInfo.instance().getReleaseName();
-      case SERVER_PID : return OsUtils.getpid();
-      case PACKAGE_PATH : return getPackagePath(options);
-
-      // memory statistics
-      case GC_COUNT :
-      case GC_TIME :
-        // The documentation is not very clear on what it means to have more than
-        // one GC MXBean, so we just sum them up.
-        int gcCount = 0;
-        int gcTime = 0;
-        for (GarbageCollectorMXBean gcBean : ManagementFactory.getGarbageCollectorMXBeans()) {
-          gcCount += gcBean.getCollectionCount();
-          gcTime += gcBean.getCollectionTime();
-        }
-        if (key == InfoKey.GC_COUNT) {
-          return gcCount + "";
-        } else {
-          return gcTime + "ms";
-        }
-
-      case MAX_HEAP_SIZE :
-        return StringUtilities.prettyPrintBytes(getMemoryUsage().getMax());
-      case USED_HEAP_SIZE :
-      case COMMITTED_HEAP_SIZE :
-        return StringUtilities.prettyPrintBytes(key == InfoKey.USED_HEAP_SIZE ?
-            getMemoryUsage().getUsed() : getMemoryUsage().getCommitted());
-
-      case USED_HEAP_SIZE_AFTER_GC :
-        // Note that this info value is not printed by default, but only when explicitly requested.
-        System.gc();
-        return StringUtilities.prettyPrintBytes(getMemoryUsage().getUsed());
-
-      case DEFAULTS_PACKAGE:
-        return runtime.getDefaultsPackageContent();
-
-      case BUILD_LANGUAGE:
-        return getBuildLanguageDefinition(runtime.getRuleClassProvider());
-
-      case DEFAULT_PACKAGE_PATH:
-        return Joiner.on(":").join(Constants.DEFAULT_PACKAGE_PATH);
-
-      default:
-        throw new IllegalArgumentException("missing implementation for " + key);
-    }
-  }
-
-  private static MemoryUsage getMemoryUsage() {
-    MemoryMXBean memBean = ManagementFactory.getMemoryMXBean();
-    return memBean.getHeapMemoryUsage();
-  }
-
-  /**
-   * Get the package_path variable for the given set of options.
-   */
-  private static String getPackagePath(OptionsProvider options) {
-    PackageCacheOptions packageCacheOptions =
-        options.getOptions(PackageCacheOptions.class);
-    return Joiner.on(":").join(packageCacheOptions.packagePath);
-  }
-
-  private static AllowedRuleClassInfo getAllowedRuleClasses(
-      Collection<RuleClass> ruleClasses, Attribute attr) {
-    AllowedRuleClassInfo.Builder info = AllowedRuleClassInfo.newBuilder();
-    info.setPolicy(AllowedRuleClassInfo.AllowedRuleClasses.ANY);
-
-    if (attr.isStrictLabelCheckingEnabled()) {
-      if (attr.getAllowedRuleClassesPredicate() != Predicates.<RuleClass>alwaysTrue()) {
-        info.setPolicy(AllowedRuleClassInfo.AllowedRuleClasses.SPECIFIED);
-        Predicate<RuleClass> filter = attr.getAllowedRuleClassesPredicate();
-        for (RuleClass otherClass : Iterables.filter(
-            ruleClasses, filter)) {
-          if (otherClass.isDocumented()) {
-            info.addAllowedRuleClass(otherClass.getName());
-          }
-        }
-      }
-    }
-
-    return info.build();
-  }
-
-  /**
-   * Returns a byte array containing a proto-buffer describing the build language.
-   */
-  private static byte[] getBuildLanguageDefinition(RuleClassProvider provider) {
-    BuildLanguage.Builder resultPb = BuildLanguage.newBuilder();
-    Collection<RuleClass> ruleClasses = provider.getRuleClassMap().values();
-    for (RuleClass ruleClass : ruleClasses) {
-      if (!ruleClass.isDocumented()) {
-        continue;
-      }
-
-      RuleDefinition.Builder rulePb = RuleDefinition.newBuilder();
-      rulePb.setName(ruleClass.getName());
-      for (Attribute attr : ruleClass.getAttributes()) {
-        if (!attr.isDocumented()) {
-          continue;
-        }
-
-        AttributeDefinition.Builder attrPb = AttributeDefinition.newBuilder();
-        attrPb.setName(attr.getName());
-        // The protocol compiler, in its infinite wisdom, generates the field as one of the
-        // integer type and the getTypeEnum() method is missing. WTF?
-        attrPb.setType(ProtoUtils.getDiscriminatorFromType(attr.getType()));
-        attrPb.setMandatory(attr.isMandatory());
-
-        if (Type.isLabelType(attr.getType())) {
-          attrPb.setAllowedRuleClasses(getAllowedRuleClasses(ruleClasses, attr));
-        }
-
-        rulePb.addAttribute(attrPb);
-      }
-
-      resultPb.addRule(rulePb);
-    }
-
-    return resultPb.build().toByteArray();
-  }
-
-  private static byte[] print(Object value) {
-    if (value instanceof byte[]) {
-      return (byte[]) value;
-    }
-    ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
-    PrintWriter writer = new PrintWriter(outputStream);
-    writer.print(value + "\n");
-    writer.flush();
-    return outputStream.toByteArray();
-  }
-
-  static Map<String, BlazeModule.InfoItem> getInfoItemMap(
-      BlazeRuntime runtime, OptionsProvider commandOptions) {
-    Map<String, BlazeModule.InfoItem> result = new TreeMap<>();  // order by key
-    for (BlazeModule module : runtime.getBlazeModules()) {
-      for (BlazeModule.InfoItem item : module.getInfoItems()) {
-        result.put(item.getName(), item);
-      }
-    }
-
-    for (InfoKey key : InfoKey.values()) {
-      BlazeModule.InfoItem item = new HardwiredInfoItem(key, runtime, commandOptions);
+  private static Map<String, InfoItem> getHardwiredInfoItemMap(
+      OptionsParsingResult commandOptions, String productName) {
+    List<InfoItem> hardwiredInfoItems =
+        ImmutableList.<InfoItem>of(
+            new InfoItem.WorkspaceInfoItem(),
+            new InfoItem.InstallBaseInfoItem(),
+            new InfoItem.OutputBaseInfoItem(productName),
+            new InfoItem.ExecutionRootInfoItem(),
+            new InfoItem.OutputPathInfoItem(),
+            new InfoItem.ClientEnv(),
+            new InfoItem.BlazeBinInfoItem(productName),
+            new InfoItem.BlazeGenfilesInfoItem(productName),
+            new InfoItem.BlazeTestlogsInfoItem(productName),
+            new InfoItem.ReleaseInfoItem(productName),
+            new InfoItem.ServerPidInfoItem(productName),
+            new InfoItem.ServerLogInfoItem(productName),
+            new InfoItem.PackagePathInfoItem(commandOptions),
+            new InfoItem.UsedHeapSizeInfoItem(),
+            new InfoItem.UsedHeapSizeAfterGcInfoItem(),
+            new InfoItem.CommitedHeapSizeInfoItem(),
+            new InfoItem.MaxHeapSizeInfoItem(),
+            new InfoItem.GcTimeInfoItem(),
+            new InfoItem.GcCountInfoItem(),
+            new InfoItem.JavaRuntimeInfoItem(),
+            new InfoItem.JavaVirtualMachineInfoItem(),
+            new InfoItem.JavaHomeInfoItem(),
+            new InfoItem.CharacterEncodingInfoItem(),
+            new InfoItem.DefaultsPackageInfoItem(),
+            new InfoItem.BuildLanguageInfoItem(),
+            new InfoItem.DefaultPackagePathInfoItem(commandOptions),
+            new InfoItem.StarlarkSemanticsInfoItem(commandOptions));
+    ImmutableMap.Builder<String, InfoItem> result = new ImmutableMap.Builder<>();
+    for (InfoItem item : hardwiredInfoItems) {
       result.put(item.getName(), item);
     }
+    return result.build();
+  }
 
-    return result;
+  public static List<String> getHardwiredInfoItemNames(String productName) {
+    ImmutableList.Builder<String> result = new ImmutableList.Builder<>();
+    for (String name : InfoCommand.getHardwiredInfoItemMap(null, productName).keySet()) {
+      result.add(name);
+    }
+    return result.build();
+  }
+
+  static Map<String, InfoItem> getInfoItemMap(
+      CommandEnvironment env, OptionsParsingResult optionsParsingResult) {
+    Map<String, InfoItem> items = new TreeMap<>(env.getRuntime().getInfoItems());
+    items.putAll(getHardwiredInfoItemMap(optionsParsingResult, env.getRuntime().getProductName()));
+    return items;
   }
 }

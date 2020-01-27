@@ -1,4 +1,4 @@
-// Copyright 2014 Google Inc. All rights reserved.
+// Copyright 2014 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib;
 
+import com.google.devtools.build.lib.util.OS;
+
 import java.io.File;
 
 /**
@@ -22,7 +24,9 @@ import java.io.File;
 public class UnixJniLoader {
   public static void loadJni() {
     try {
-      System.loadLibrary("unix");
+      if (OS.getCurrent() != OS.WINDOWS) {
+        System.loadLibrary("unix");
+      }
     } catch (UnsatisfiedLinkError ex) {
       // We are probably in tests, let's try to find the library relative to where we are.
       File cwd = new File(System.getProperty("user.dir"));

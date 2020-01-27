@@ -1,4 +1,4 @@
-// Copyright 2014 Google Inc. All rights reserved.
+// Copyright 2014 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.shell;
 
+import com.google.common.base.Preconditions;
+import com.google.common.util.concurrent.Uninterruptibles;
 import java.io.ByteArrayOutputStream;
 import java.io.Closeable;
 import java.io.IOException;
@@ -23,53 +25,46 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
 /**
  * This class provides convenience methods for consuming (actively reading)
  * output and error streams with different consumption policies:
- * discarding ({@link #createDiscardingConsumers()},
  * accumulating ({@link #createAccumulatingConsumers()},
  * and streaming ({@link #createStreamingConsumers(OutputStream, OutputStream)}).
  */
-class Consumers {
+final class Consumers {
 
-  private static final Logger log =
-    Logger.getLogger("com.google.devtools.build.lib.shell.Command");
+  private static final Logger logger =
+      Logger.getLogger("com.google.devtools.build.lib.shell.Command");
 
   private Consumers() {}
 
   private static final ExecutorService pool =
     Executors.newCachedThreadPool(new AccumulatorThreadFactory());
 
-  static OutErrConsumers createDiscardingConsumers() {
-    return new OutErrConsumers(new DiscardingConsumer(),
-                               new DiscardingConsumer());
-  }
-
   static OutErrConsumers createAccumulatingConsumers() {
-    return new OutErrConsumers(new AccumulatingConsumer(),
-                               new AccumulatingConsumer());
+    return new OutErrConsumers(new AccumulatingConsumer(), new AccumulatingConsumer());
   }
 
-  static OutErrConsumers createStreamingConsumers(OutputStream out,
-                                                  OutputStream err) {
-    return new OutErrConsumers(new StreamingConsumer(out),
-                               new StreamingConsumer(err));
+  static OutErrConsumers createStreamingConsumers(OutputStream out, OutputStream err) {
+    Preconditions.checkNotNull(out);
+    Preconditions.checkNotNull(err);
+    return new OutErrConsumers(new StreamingConsumer(out), new StreamingConsumer(err));
   }
 
   static class OutErrConsumers {
-
     private final OutputConsumer out;
     private final OutputConsumer err;
 
-    private OutErrConsumers(final OutputConsumer out, final OutputConsumer err){
+    private OutErrConsumers(final OutputConsumer out, final OutputConsumer err) {
       this.out = out;
       this.err = err;
     }
 
-    void registerInputs(InputStream outInput, InputStream errInput, boolean closeStreams){
+    void registerInputs(InputStream outInput, InputStream errInput, boolean closeStreams) {
       out.registerInput(outInput, closeStreams);
       err.registerInput(errInput, closeStreams);
     }
@@ -128,8 +123,7 @@ class Consumers {
   /**
    * This consumer sends the input to a stream while consuming it.
    */
-  private static class StreamingConsumer extends FutureConsumption
-                                         implements OutputConsumer {
+  private static class StreamingConsumer extends FutureConsumption {
     private OutputStream out;
 
     StreamingConsumer(OutputStream out) {
@@ -143,7 +137,7 @@ class Consumers {
 
     @Override
     public void logConsumptionStrategy() {
-      log.finer("Output will be sent to streams provided by client");
+      logger.finer("Output will be sent to streams provided by client");
     }
 
     @Override protected Runnable createConsumingAndClosingSink(InputStream in,
@@ -157,8 +151,7 @@ class Consumers {
    * while consuming it. This accumulated stream can be obtained by
    * calling {@link #getAccumulatedOut()}.
    */
-  private static class AccumulatingConsumer extends FutureConsumption
-                                            implements OutputConsumer {
+  private static class AccumulatingConsumer extends FutureConsumption {
     private ByteArrayOutputStream out = new ByteArrayOutputStream();
 
     @Override
@@ -168,7 +161,7 @@ class Consumers {
 
     @Override
     public void logConsumptionStrategy() {
-      log.finer("Output will be accumulated (promptly read off) and returned");
+      logger.finer("Output will be accumulated (promptly read off) and returned");
     }
 
     @Override public Runnable createConsumingAndClosingSink(InputStream in, boolean closeConsumer) {
@@ -179,8 +172,7 @@ class Consumers {
   /**
    * This consumer just discards whatever it reads.
    */
-  private static class DiscardingConsumer extends FutureConsumption
-                                          implements OutputConsumer {
+  private static class DiscardingConsumer extends FutureConsumption {
     private DiscardingConsumer() {
     }
 
@@ -191,7 +183,7 @@ class Consumers {
 
     @Override
     public void logConsumptionStrategy() {
-      log.finer("Output will be ignored");
+      logger.finer("Output will be ignored");
     }
 
     @Override public Runnable createConsumingAndClosingSink(InputStream in, boolean closeConsumer) {
@@ -223,75 +215,49 @@ class Consumers {
 
     @Override
     public void waitForCompletion() throws IOException {
-      boolean wasInterrupted = false;
       try {
-        while (true) {
-          try {
-            future.get();
-            break;
-          } catch (InterruptedException ie) {
-            wasInterrupted = true;
-            // continue waiting
-          } catch (ExecutionException ee) {
-            // Runnable threw a RuntimeException
-            Throwable nested = ee.getCause();
-            if (nested instanceof RuntimeException) {
-              final RuntimeException re = (RuntimeException) nested;
-              // The stream sink classes, unfortunately, tunnel IOExceptions
-              // out of run() in a RuntimeException. If that's the case,
-              // unpack and re-throw the IOException. Otherwise, re-throw
-              // this unexpected RuntimeException
-              final Throwable cause = re.getCause();
-              if (cause instanceof IOException) {
-                throw (IOException) cause;
-              } else {
-                throw re;
-              }
-            } else if (nested instanceof OutOfMemoryError) {
-              // OutOfMemoryError does not support exception chaining.
-              throw (OutOfMemoryError) nested;
-            } else if (nested instanceof Error) {
-              throw new Error("unhandled Error in worker thread", ee);
-            } else {
-              throw new RuntimeException("unknown execution problem", ee);
-            }
+        Uninterruptibles.getUninterruptibly(future);
+      } catch (ExecutionException ee) {
+        // Runnable threw a RuntimeException
+        Throwable nested = ee.getCause();
+        if (nested instanceof RuntimeException) {
+          final RuntimeException re = (RuntimeException) nested;
+          // The stream sink classes, unfortunately, tunnel IOExceptions
+          // out of run() in a RuntimeException. If that's the case,
+          // unpack and re-throw the IOException. Otherwise, re-throw
+          // this unexpected RuntimeException
+          final Throwable cause = re.getCause();
+          if (cause instanceof IOException) {
+            throw (IOException) cause;
+          } else {
+            throw re;
           }
-        }
-      } finally {
-        // Read this for detailed explanation:
-        // http://www-128.ibm.com/developerworks/java/library/j-jtp05236.html
-        if (wasInterrupted) {
-          Thread.currentThread().interrupt(); // preserve interrupted status
+        } else if (nested instanceof OutOfMemoryError) {
+          // OutOfMemoryError does not support exception chaining.
+          throw (OutOfMemoryError) nested;
+        } else if (nested instanceof Error) {
+          throw new Error("unhandled Error in worker thread", ee);
+        } else {
+          throw new RuntimeException("unknown execution problem", ee);
         }
       }
     }
   }
 
-  /**
-   * Factory which produces threads with a 32K stack size.
-   */
   private static class AccumulatorThreadFactory implements ThreadFactory {
 
-    private static final int THREAD_STACK_SIZE = 32 * 1024;
-
-    private static int threadInitNumber;
-
-    private static synchronized int nextThreadNum() {
-      return threadInitNumber++;
-    }
+    private static AtomicInteger threadInitNumber = new AtomicInteger(0);
 
     @Override
     public Thread newThread(final Runnable runnable) {
       final Thread t =
         new Thread(null,
                    runnable,
-                   "Command-Accumulator-Thread-" + nextThreadNum(),
-                   THREAD_STACK_SIZE);
+                   "Command-Accumulator-Thread-" + threadInitNumber.getAndIncrement());
       // Don't let this thread hold up JVM exit
       t.setDaemon(true);
       return t;
     }
-
   }
 
   /**
@@ -352,7 +318,7 @@ class Consumers {
       closeable.close();
     } catch (IOException ioe) {
       String message = "Unexpected exception while closing input stream";
-      log.log(Level.WARNING, message, ioe);
+      logger.log(Level.WARNING, message, ioe);
     }
   }
 

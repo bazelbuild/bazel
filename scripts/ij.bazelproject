@@ -1,0 +1,22 @@
+# Setup IntelliJ for Bazel development using the IntelliJ Bazel Plugin.
+# See https://github.com/bazelbuild/intellij for installation instructions.
+directories:
+  .
+
+test_sources:
+  src/java_tools/buildjar/javatests/*
+  src/java_tools/junitrunner/javatests/*
+  src/java_tools/singlejar/javatests/*
+  src/test/*
+
+targets:
+  //src:bazel
+  //src/java_tools/buildjar:JavaBuilder
+  //src/java_tools/buildjar:VanillaJavaBuilder
+  //src/java_tools/buildjar/javatests/...
+  //src/java_tools/junitrunner/java/com/google/testing/junit/runner:Runner
+  //src/java_tools/junitrunner/javatests/...
+  //src/java_tools/singlejar:SingleJar
+  //src/test/...
+  //src/tools/remote/...
+  //src/tools/skylark/...

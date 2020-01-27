@@ -1,4 +1,4 @@
-// Copyright 2014 Google Inc. All rights reserved.
+// Copyright 2014 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,469 +12,706 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "option_processor.h"
+#include "src/main/cpp/option_processor.h"
+#include "src/main/cpp/option_processor-internal.h"
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <unistd.h>
 #include <algorithm>
 #include <cassert>
+#include <iterator>
+#include <set>
+#include <sstream>
 #include <utility>
 
-#include "blaze_util.h"
-#include "blaze_util_platform.h"
-#include "util/file.h"
-#include "util/strings.h"
-
-using std::list;
-using std::map;
-using std::vector;
+#include "src/main/cpp/blaze_util.h"
+#include "src/main/cpp/blaze_util_platform.h"
+#include "src/main/cpp/util/file.h"
+#include "src/main/cpp/util/logging.h"
+#include "src/main/cpp/util/path.h"
+#include "src/main/cpp/util/path_platform.h"
+#include "src/main/cpp/util/strings.h"
+#include "src/main/cpp/workspace_layout.h"
 
 // On OSX, there apparently is no header that defines this.
+#ifndef environ
 extern char **environ;
+#endif
 
 namespace blaze {
 
-OptionProcessor::RcOption::RcOption(int rcfile_index, const string& option) {
-  rcfile_index_ = rcfile_index;
-  option_ = option;
+using std::map;
+using std::set;
+using std::string;
+using std::vector;
+
+constexpr char WorkspaceLayout::WorkspacePrefix[];
+static constexpr const char* kRcBasename = ".bazelrc";
+static std::vector<std::string> GetProcessedEnv();
+
+OptionProcessor::OptionProcessor(
+    const WorkspaceLayout* workspace_layout,
+    std::unique_ptr<StartupOptions> default_startup_options)
+    : workspace_layout_(workspace_layout),
+      startup_options_(std::move(default_startup_options)),
+      parse_options_called_(false),
+      system_bazelrc_path_(BAZEL_SYSTEM_BAZELRC_PATH) {}
+
+OptionProcessor::OptionProcessor(
+    const WorkspaceLayout* workspace_layout,
+    std::unique_ptr<StartupOptions> default_startup_options,
+    const std::string& system_bazelrc_path)
+    : workspace_layout_(workspace_layout),
+      startup_options_(std::move(default_startup_options)),
+      parse_options_called_(false),
+      system_bazelrc_path_(system_bazelrc_path) {}
+
+std::string OptionProcessor::GetLowercaseProductName() const {
+  return startup_options_->GetLowercaseProductName();
 }
 
+std::unique_ptr<CommandLine> OptionProcessor::SplitCommandLine(
+    vector<string> args, string* error) const {
+  const string lowercase_product_name = GetLowercaseProductName();
 
-OptionProcessor::RcFile::RcFile(const string& filename, int index) {
-  filename_ = filename;
-  index_ = index;
-}
-
-blaze_exit_code::ExitCode OptionProcessor::RcFile::Parse(
-    vector<RcFile>* rcfiles,
-    map<string, vector<RcOption> >* rcoptions,
-    string* error) {
-  list<string> initial_import_stack;
-  initial_import_stack.push_back(filename_);
-  return Parse(
-      filename_, index_, rcfiles, rcoptions, &initial_import_stack, error);
-}
-
-blaze_exit_code::ExitCode OptionProcessor::RcFile::Parse(
-    string filename, const int index,
-    vector<RcFile>* rcfiles,
-    map<string, vector<RcOption> >* rcoptions,
-    list<string>* import_stack,
-    string* error) {
-  string contents;
-  if (!ReadFile(filename, &contents)) {
-    // We checked for file readability before, so this is unexpected.
+  if (args.empty()) {
     blaze_util::StringPrintf(error,
-        "Unexpected error reading .blazerc file '%s'", filename.c_str());
-    return blaze_exit_code::INTERNAL_ERROR;
+                             "Unable to split command line, args is empty");
+    return nullptr;
   }
 
-  // A '\' at the end of a line continues the line.
-  blaze_util::Replace("\\\r\n", "", &contents);
-  blaze_util::Replace("\\\n", "", &contents);
-  vector<string> startup_options;
+  string& path_to_binary = args[0];
 
-  vector<string> lines = blaze_util::Split(contents, '\n');
-  for (int line = 0; line < lines.size(); ++line) {
-    blaze_util::StripWhitespace(&lines[line]);
+  // Process the startup options.
+  vector<string> startup_args;
+  vector<string>::size_type i = 1;
+  while (i < args.size() && IsArg(args[i])) {
+    string& current_arg = args[i];
+    // If the current argument is a valid nullary startup option such as
+    // --master_bazelrc or --nomaster_bazelrc proceed to examine the next
+    // argument.
+    if (startup_options_->IsNullary(current_arg)) {
+      startup_args.push_back(current_arg);
+      i++;
+    } else if (startup_options_->IsUnary(current_arg)) {
+      // If the current argument is a valid unary startup option such as
+      // --bazelrc there are two cases to consider.
 
-    // Check for an empty line.
-    if (lines[line].empty()) {
-      continue;
-    }
-
-    vector<string> words;
-
-    // This will treat "#" as a comment, and properly
-    // quote single and double quotes, and treat '\'
-    // as an escape character.
-    // TODO(bazel-team): This function silently ignores
-    // dangling backslash escapes and missing end-quotes.
-    blaze_util::Tokenize(lines[line], '#', &words);
-
-    if (words.empty()) {
-      // Could happen if line starts with "#"
-      continue;
-    }
-
-    string command = words[0];
-
-    if (command == "import") {
-      if (words.size() != 2) {
-        blaze_util::StringPrintf(error,
-            "Invalid import declaration in .blazerc file '%s': '%s'",
-            filename.c_str(), lines[line].c_str());
-        return blaze_exit_code::BAD_ARGV;
-      }
-
-      if (std::find(import_stack->begin(), import_stack->end(), words[1]) !=
-          import_stack->end()) {
-        string loop;
-        for (list<string>::const_iterator imported_rc = import_stack->begin();
-             imported_rc != import_stack->end(); ++imported_rc) {
-          loop += "  " + *imported_rc + "\n";
+      // The option is of the form '--bazelrc=value', hence proceed to
+      // examine the next argument.
+      if (current_arg.find("=") != string::npos) {
+        startup_args.push_back(std::move(current_arg));
+        i++;
+      } else {
+        // Otherwise, the option is of the form '--bazelrc value', hence
+        // skip the next argument and proceed to examine the argument located
+        // two places after.
+        if (i + 1 >= args.size()) {
+          blaze_util::StringPrintf(
+              error,
+              "Startup option '%s' expects a value.\n"
+              "Usage: '%s=somevalue' or '%s somevalue'.\n"
+              "  For more info, run '%s help startup_options'.",
+              current_arg.c_str(), current_arg.c_str(), current_arg.c_str(),
+              lowercase_product_name.c_str());
+          return nullptr;
         }
-        blaze_util::StringPrintf(error,
-            "Import loop detected:\n%s", loop.c_str());
-        return blaze_exit_code::BAD_ARGV;
+        // In this case we transform it to the form '--bazelrc=value'.
+        startup_args.push_back(std::move(current_arg) + "=" +
+                               std::move(args[i + 1]));
+        i += 2;
       }
-
-      rcfiles->push_back(RcFile(words[1], rcfiles->size()));
-      import_stack->push_back(words[1]);
-      blaze_exit_code::ExitCode parse_exit_code = RcFile::Parse(
-          rcfiles->back().Filename(), rcfiles->back().Index(),
-          rcfiles, rcoptions, import_stack, error);
-      if (parse_exit_code != blaze_exit_code::SUCCESS) {
-        return parse_exit_code;
-      }
-      import_stack->pop_back();
     } else {
-      for (int word = 1; word < words.size(); ++word) {
-        (*rcoptions)[command].push_back(RcOption(index, words[word]));
-        if (command == "startup") {
-          startup_options.push_back(words[word]);
-        }
-      }
+      // If the current argument is not a valid unary or nullary startup option
+      // then fail.
+      blaze_util::StringPrintf(
+          error,
+          "Unknown startup option: '%s'.\n"
+          "  For more info, run '%s help startup_options'.",
+          current_arg.c_str(), lowercase_product_name.c_str());
+      return nullptr;
     }
   }
 
-  if (!startup_options.empty()) {
-    string startup_args;
-    blaze_util::JoinStrings(startup_options, ' ', &startup_args);
-    fprintf(stderr, "INFO: Reading 'startup' options from %s: %s\n",
-            filename.c_str(), startup_args.c_str());
+  // The command is the arg right after the startup options.
+  if (i == args.size()) {
+    return std::unique_ptr<CommandLine>(new CommandLine(
+        std::move(path_to_binary), std::move(startup_args), "", {}));
   }
-  return blaze_exit_code::SUCCESS;
+  string& command = args[i];
+
+  // The rest are the command arguments.
+  vector<string> command_args(std::make_move_iterator(args.begin() + i + 1),
+                              std::make_move_iterator(args.end()));
+
+  return std::unique_ptr<CommandLine>(
+      new CommandLine(std::move(path_to_binary), std::move(startup_args),
+                      std::move(command), std::move(command_args)));
 }
 
-OptionProcessor::OptionProcessor()
-    : initialized_(false), parsed_startup_options_(new BlazeStartupOptions()) {
-}
+namespace internal {
 
-// Return the path of the depot .blazerc file.
-string OptionProcessor::FindDepotBlazerc(const string& workspace) {
-  // Package semantics are ignored here, but that's acceptable because
-  // blaze.blazerc is a configuration file.
-  vector<string> candidates;
-  BlazeStartupOptions::WorkspaceRcFileSearchPath(&candidates);
-  for (const auto& candidate : candidates) {
-    string blazerc = blaze_util::JoinPath(workspace, candidate);
-    if (!access(blazerc.c_str(), R_OK)) {
-      return blazerc;
+std::string FindLegacyUserBazelrc(const char* cmd_line_rc_file,
+                                  const std::string& workspace) {
+  if (cmd_line_rc_file != nullptr) {
+    string rcFile = blaze::AbsolutePathFromFlag(cmd_line_rc_file);
+    if (!blaze_util::CanReadFile(rcFile)) {
+      // The actual rc file reading will catch this - we ignore this here in the
+      // legacy version since this is just a warning. Exit eagerly though.
+      return "";
+    }
+    return rcFile;
+  }
+
+  string workspaceRcFile = blaze_util::JoinPath(workspace, kRcBasename);
+  if (blaze_util::CanReadFile(workspaceRcFile)) {
+    return workspaceRcFile;
+  }
+
+  string home = blaze::GetHomeDir();
+  if (!home.empty()) {
+    string userRcFile = blaze_util::JoinPath(home, kRcBasename);
+    if (blaze_util::CanReadFile(userRcFile)) {
+      return userRcFile;
     }
   }
-
   return "";
 }
 
-// Return the path of the .blazerc file that sits alongside the binary.
-// This allows for canary or cross-platform Blazes operating on the same depot
-// to have customized behavior.
-string OptionProcessor::FindAlongsideBinaryBlazerc(const string& cwd,
-                                                   const string& arg0) {
-  string path = arg0[0] == '/' ? arg0 : blaze_util::JoinPath(cwd, arg0);
-  string base = blaze_util::Basename(arg0);
-  string binary_blazerc_path = path + "." + base + "rc";
-  if (!access(binary_blazerc_path.c_str(), R_OK)) {
+std::set<std::string> GetOldRcPaths(
+    const WorkspaceLayout* workspace_layout, const std::string& workspace,
+    const std::string& cwd, const std::string& path_to_binary,
+    const std::vector<std::string>& startup_args,
+    const std::string& system_bazelrc_path) {
+  // Find the old list of rc files that would have been loaded here, so we can
+  // provide a useful warning about old rc files that might no longer be read.
+  std::vector<std::string> candidate_bazelrc_paths;
+  if (SearchNullaryOption(startup_args, "master_bazelrc", true)) {
+    const std::string workspace_rc =
+        workspace_layout->GetWorkspaceRcPath(workspace, startup_args);
+    const std::string binary_rc =
+        internal::FindRcAlongsideBinary(cwd, path_to_binary);
+    candidate_bazelrc_paths = {workspace_rc, binary_rc, system_bazelrc_path};
+  }
+  string user_bazelrc_path = internal::FindLegacyUserBazelrc(
+      SearchUnaryOption(startup_args, "--bazelrc", /* warn_if_dupe */ true),
+      workspace);
+  if (!user_bazelrc_path.empty()) {
+    candidate_bazelrc_paths.push_back(user_bazelrc_path);
+  }
+  // DedupeBlazercPaths returns paths whose canonical path could be computed,
+  // therefore these paths must exist.
+  const std::vector<std::string> deduped_existing_blazerc_paths =
+      internal::DedupeBlazercPaths(candidate_bazelrc_paths);
+  return std::set<std::string>(deduped_existing_blazerc_paths.begin(),
+                               deduped_existing_blazerc_paths.end());
+}
+
+// Deduplicates the given paths based on their canonical form.
+// Computes the canonical form using blaze_util::MakeCanonical.
+// Returns the unique paths in their original form (not the canonical one).
+std::vector<std::string> DedupeBlazercPaths(
+    const std::vector<std::string>& paths) {
+  std::set<std::string> canonical_paths;
+  std::vector<std::string> result;
+  for (const std::string& path : paths) {
+    const std::string canonical_path = blaze_util::MakeCanonical(path.c_str());
+    if (canonical_path.empty()) {
+      // MakeCanonical returns an empty string when it fails. We ignore this
+      // failure since blazerc paths may point to invalid locations.
+    } else if (canonical_paths.find(canonical_path) == canonical_paths.end()) {
+      result.push_back(path);
+      canonical_paths.insert(canonical_path);
+    }
+  }
+  return result;
+}
+
+std::string FindSystemWideRc(const std::string& system_bazelrc_path) {
+  const std::string path =
+      blaze_util::MakeAbsoluteAndResolveEnvvars(system_bazelrc_path);
+  if (blaze_util::CanReadFile(path)) {
+    return path;
+  }
+  return "";
+}
+
+std::string FindRcAlongsideBinary(const std::string& cwd,
+                                  const std::string& path_to_binary) {
+  const std::string path = blaze_util::IsAbsolute(path_to_binary)
+                               ? path_to_binary
+                               : blaze_util::JoinPath(cwd, path_to_binary);
+  const std::string base = blaze_util::Basename(path_to_binary);
+  const std::string binary_blazerc_path = path + "." + base + "rc";
+  if (blaze_util::CanReadFile(binary_blazerc_path)) {
     return binary_blazerc_path;
   }
   return "";
 }
 
+blaze_exit_code::ExitCode ParseErrorToExitCode(RcFile::ParseError parse_error) {
+  switch (parse_error) {
+    case RcFile::ParseError::NONE:
+      return blaze_exit_code::SUCCESS;
+    case RcFile::ParseError::UNREADABLE_FILE:
+      // We check readability before parsing, so this is unexpected for
+      // top-level rc files, so is an INTERNAL_ERROR. It can happen for imported
+      // files, however, which should be BAD_ARGV, but we don't currently
+      // differentiate.
+      // TODO(bazel-team): fix RcFile to reclassify unreadable files that were
+      // read from a recursive call due to a malformed import.
+      return blaze_exit_code::INTERNAL_ERROR;
+    case RcFile::ParseError::INVALID_FORMAT:
+    case RcFile::ParseError::IMPORT_LOOP:
+      return blaze_exit_code::BAD_ARGV;
+    default:
+      return blaze_exit_code::INTERNAL_ERROR;
+  }
+}
 
-// Return the path the the user rc file.  If cmdLineRcFile != NULL,
-// use it, dying if it is not readable.  Otherwise, return the first
-// readable file called rc_basename from [workspace, $HOME]
-//
-// If no readable .blazerc file is found, return the empty string.
-blaze_exit_code::ExitCode OptionProcessor::FindUserBlazerc(
-    const char* cmdLineRcFile,
-    const string& rc_basename,
-    const string& workspace,
-    string* blaze_rc_file,
-    string* error) {
-  if (cmdLineRcFile != NULL) {
-    string rcFile = MakeAbsolute(cmdLineRcFile);
-    if (access(rcFile.c_str(), R_OK)) {
-      blaze_util::StringPrintf(error,
-          "Error: Unable to read .blazerc file '%s'.", rcFile.c_str());
+void WarnAboutDuplicateRcFiles(const std::set<std::string>& read_files,
+                               const std::deque<std::string>& loaded_rcs) {
+  // The first rc file in the queue is the top-level one, the one that would
+  // have imported all the others in the queue. The top-level rc is one of the
+  // default locations (system, workspace, home) or the explicit path passed by
+  // --bazelrc.
+  const std::string& top_level_rc = loaded_rcs.front();
+
+  const std::set<std::string> unique_loaded_rcs(loaded_rcs.begin(),
+                                                loaded_rcs.end());
+  // First check if each of the newly loaded rc files was already read.
+  for (const std::string& loaded_rc : unique_loaded_rcs) {
+    if (read_files.count(loaded_rc) > 0) {
+      if (loaded_rc == top_level_rc) {
+        BAZEL_LOG(WARNING)
+            << "Duplicate rc file: " << loaded_rc
+            << " is read multiple times, it is a standard rc file location "
+               "but must have been unnecessarily imported earlier.";
+      } else {
+        BAZEL_LOG(WARNING)
+            << "Duplicate rc file: " << loaded_rc
+            << " is read multiple times, most recently imported from "
+            << top_level_rc;
+      }
+    }
+    // Now check if the top-level rc file loads up its own duplicates (it can't
+    // be a cycle, since that would be an error and we would have already
+    // exited, but it could have a diamond dependency of some sort.)
+    if (std::count(loaded_rcs.begin(), loaded_rcs.end(), loaded_rc) > 1) {
+      BAZEL_LOG(WARNING) << "Duplicate rc file: " << loaded_rc
+                         << " is imported multiple times from " << top_level_rc;
+    }
+  }
+}
+
+std::vector<std::string> GetLostFiles(
+    const std::set<std::string>& old_files,
+    const std::set<std::string>& read_files_canon) {
+  std::vector<std::string> result;
+  for (const auto& old : old_files) {
+    std::string old_canon = blaze_util::MakeCanonical(old.c_str());
+    if (!old_canon.empty() &&
+        read_files_canon.find(old_canon) == read_files_canon.end()) {
+      result.push_back(old);
+    }
+  }
+  return result;
+}
+
+}  // namespace internal
+
+// TODO(#4502) Consider simplifying result_rc_files to a vector of RcFiles, no
+// unique_ptrs.
+blaze_exit_code::ExitCode OptionProcessor::GetRcFiles(
+    const WorkspaceLayout* workspace_layout, const std::string& workspace,
+    const std::string& cwd, const CommandLine* cmd_line,
+    std::vector<std::unique_ptr<RcFile>>* result_rc_files,
+    std::string* error) const {
+  assert(cmd_line != nullptr);
+  assert(result_rc_files != nullptr);
+
+  std::vector<std::string> rc_files;
+
+  // Get the system rc (unless --nosystem_rc).
+  if (SearchNullaryOption(cmd_line->startup_args, "system_rc", true)) {
+    // MakeAbsoluteAndResolveEnvvars will standardize the form of the
+    // provided path. This also means we accept relative paths, which is
+    // is convenient for testing.
+    const std::string system_rc =
+        blaze_util::MakeAbsoluteAndResolveEnvvars(system_bazelrc_path_);
+    rc_files.push_back(system_rc);
+  }
+
+  // Get the workspace rc: %workspace%/.bazelrc (unless --noworkspace_rc), but
+  // only if we are in a workspace: invoking commands like "help" from outside
+  // a workspace should work.
+  if (!workspace.empty() &&
+      SearchNullaryOption(cmd_line->startup_args, "workspace_rc", true)) {
+    const std::string workspaceRcFile =
+        blaze_util::JoinPath(workspace, kRcBasename);
+    rc_files.push_back(workspaceRcFile);
+  }
+
+  // Get the user rc: $HOME/.bazelrc (unless --nohome_rc)
+  if (SearchNullaryOption(cmd_line->startup_args, "home_rc", true)) {
+    const std::string home = blaze::GetHomeDir();
+    if (!home.empty()) {
+      rc_files.push_back(blaze_util::JoinPath(home, kRcBasename));
+    }
+  }
+
+  // Get the command-line provided rc, passed as --bazelrc or nothing if the
+  // flag is absent.
+  const char* cmd_line_rc_file =
+      SearchUnaryOption(cmd_line->startup_args, "--bazelrc",
+                        /* warn_if_dupe */ true);
+  if (cmd_line_rc_file != nullptr) {
+    string absolute_cmd_line_rc = blaze::AbsolutePathFromFlag(cmd_line_rc_file);
+    // Unlike the previous 3 paths, where we ignore it if the file does not
+    // exist or is unreadable, since this path is explicitly passed, this is an
+    // error. Check this condition here.
+    if (!blaze_util::CanReadFile(absolute_cmd_line_rc)) {
+      BAZEL_LOG(ERROR) << "Error: Unable to read .bazelrc file '"
+                       << absolute_cmd_line_rc << "'.";
       return blaze_exit_code::BAD_ARGV;
     }
-    *blaze_rc_file = rcFile;
-    return blaze_exit_code::SUCCESS;
+    rc_files.push_back(absolute_cmd_line_rc);
   }
 
-  string workspaceRcFile = blaze_util::JoinPath(workspace, rc_basename);
-  if (!access(workspaceRcFile.c_str(), R_OK)) {
-    *blaze_rc_file = workspaceRcFile;
-    return blaze_exit_code::SUCCESS;
+  // Log which files we're looking for before removing duplicates and
+  // non-existent files, so that this can serve to debug why a certain file is
+  // not being read. The final files which are read will be logged as they are
+  // parsed, and can be found using --announce_rc.
+  std::string joined_rcs;
+  blaze_util::JoinStrings(rc_files, ',', &joined_rcs);
+  BAZEL_LOG(INFO) << "Looking for the following rc files: " << joined_rcs;
+
+  // It's possible that workspace == home, that files are symlinks for each
+  // other, or that the --bazelrc flag is a duplicate. Dedupe them to minimize
+  // the likelihood of repeated options. Since bazelrcs can include one another,
+  // this isn't sufficient to prevent duplicate options, so we also warn if we
+  // discover duplicate loads later. This also has the effect of removing paths
+  // that don't point to real files.
+  rc_files = internal::DedupeBlazercPaths(rc_files);
+
+  std::set<std::string> read_files_canonical_paths;
+  // Parse these potential files, in priority order;
+  for (const std::string& top_level_bazelrc_path : rc_files) {
+    std::unique_ptr<RcFile> parsed_rc;
+    blaze_exit_code::ExitCode parse_rcfile_exit_code = ParseRcFile(
+        workspace_layout, workspace, top_level_bazelrc_path, &parsed_rc, error);
+    if (parse_rcfile_exit_code != blaze_exit_code::SUCCESS) {
+      return parse_rcfile_exit_code;
+    }
+
+    // Check that none of the rc files loaded this time are duplicate.
+    const std::deque<std::string>& sources =
+        parsed_rc->canonical_source_paths();
+    internal::WarnAboutDuplicateRcFiles(read_files_canonical_paths, sources);
+    read_files_canonical_paths.insert(sources.begin(), sources.end());
+
+    result_rc_files->push_back(std::move(parsed_rc));
   }
 
-  const char* home = getenv("HOME");
-  if (home == NULL) {
-    *blaze_rc_file = "";
-    return blaze_exit_code::SUCCESS;
+  // Provide a warning for any old file that might have been missed with the new
+  // expectations. This compares "canonical" paths to one another, so should not
+  // require additional transformation.
+  // TODO(b/36168162): Remove this warning along with
+  // internal::GetOldRcPaths and internal::FindLegacyUserBazelrc after
+  // the transition period has passed.
+  const std::set<std::string> old_files = internal::GetOldRcPaths(
+      workspace_layout, workspace, cwd, cmd_line->path_to_binary,
+      cmd_line->startup_args, internal::FindSystemWideRc(system_bazelrc_path_));
+
+  std::vector<std::string> lost_files =
+      internal::GetLostFiles(old_files, read_files_canonical_paths);
+  if (!lost_files.empty()) {
+    std::string joined_lost_rcs;
+    blaze_util::JoinStrings(lost_files, '\n', &joined_lost_rcs);
+    BAZEL_LOG(WARNING)
+        << "The following rc files are no longer being read, please transfer "
+           "their contents or import their path into one of the standard rc "
+           "files:\n"
+        << joined_lost_rcs;
   }
 
-  string userRcFile = blaze_util::JoinPath(home, rc_basename);
-  if (!access(userRcFile.c_str(), R_OK)) {
-    *blaze_rc_file = userRcFile;
-    return blaze_exit_code::SUCCESS;
+  return blaze_exit_code::SUCCESS;
+}
+
+blaze_exit_code::ExitCode ParseRcFile(const WorkspaceLayout* workspace_layout,
+                                      const std::string& workspace,
+                                      const std::string& rc_file_path,
+                                      std::unique_ptr<RcFile>* result_rc_file,
+                                      std::string* error) {
+  assert(!rc_file_path.empty());
+  assert(result_rc_file != nullptr);
+
+  RcFile::ParseError parse_error;
+  std::unique_ptr<RcFile> parsed_file = RcFile::Parse(
+      rc_file_path, workspace_layout, workspace, &parse_error, error);
+  if (parsed_file == nullptr) {
+    return internal::ParseErrorToExitCode(parse_error);
   }
-  *blaze_rc_file = "";
+  *result_rc_file = std::move(parsed_file);
   return blaze_exit_code::SUCCESS;
 }
 
 blaze_exit_code::ExitCode OptionProcessor::ParseOptions(
-    const vector<string>& args,
-    const string& workspace,
-    const string& cwd,
+    const vector<string>& args, const string& workspace, const string& cwd,
     string* error) {
-  assert(!initialized_);
-  initialized_ = true;
+  assert(!parse_options_called_);
+  parse_options_called_ = true;
+  cmd_line_ = SplitCommandLine(args, error);
+  if (cmd_line_ == nullptr) {
+    return blaze_exit_code::BAD_ARGV;
+  }
 
-  const char* blazerc = NULL;
-  bool use_master_blazerc = true;
-
-  // Check if there is a blazerc related option given
-  args_ = args;
-  for (int i= 1; i < args.size(); i++) {
-    const char* arg_chr = args[i].c_str();
-    const char* next_arg_chr = (i + 1) < args.size()
-        ? args[i + 1].c_str()
-        : NULL;
-    if (blazerc == NULL) {
-      blazerc = GetUnaryOption(arg_chr, next_arg_chr, "--blazerc");
-    }
-    if (use_master_blazerc &&
-        GetNullaryOption(arg_chr, "--nomaster_blazerc")) {
-      use_master_blazerc = false;
+  // Read the rc files, unless --ignore_all_rc_files was provided on the command
+  // line. This depends on the startup options in argv since these may contain
+  // other rc-modifying options. For all other options, the precedence of
+  // options will be rc first, then command line options, though, despite this
+  // exception.
+  std::vector<std::unique_ptr<RcFile>> rc_files;
+  if (!SearchNullaryOption(cmd_line_->startup_args, "ignore_all_rc_files",
+                           false)) {
+    const blaze_exit_code::ExitCode rc_parsing_exit_code = GetRcFiles(
+        workspace_layout_, workspace, cwd, cmd_line_.get(), &rc_files, error);
+    if (rc_parsing_exit_code != blaze_exit_code::SUCCESS) {
+      return rc_parsing_exit_code;
     }
   }
 
-  // Parse depot and user blazerc files.
-  // This is not a little ineffective (copying a multimap around), but it is a
-  // small one and this way I don't have to care about memory management.
-  if (use_master_blazerc) {
-    string depot_blazerc_path = FindDepotBlazerc(workspace);
-    if (!depot_blazerc_path.empty()) {
-      blazercs_.push_back(RcFile(depot_blazerc_path, blazercs_.size()));
-      blaze_exit_code::ExitCode parse_exit_code =
-          blazercs_.back().Parse(&blazercs_, &rcoptions_, error);
-      if (parse_exit_code != blaze_exit_code::SUCCESS) {
-        return parse_exit_code;
-      }
-    }
-    string alongside_binary_blazerc = FindAlongsideBinaryBlazerc(cwd, args[0]);
-    if (!alongside_binary_blazerc.empty()) {
-      blazercs_.push_back(RcFile(alongside_binary_blazerc, blazercs_.size()));
-      blaze_exit_code::ExitCode parse_exit_code =
-          blazercs_.back().Parse(&blazercs_, &rcoptions_, error);
-      if (parse_exit_code != blaze_exit_code::SUCCESS) {
-        return parse_exit_code;
-      }
-    }
-  }
-
-  string user_blazerc_path;
-  blaze_exit_code::ExitCode find_blazerc_exit_code = FindUserBlazerc(
-      blazerc, BlazeStartupOptions::RcBasename(), workspace, &user_blazerc_path,
-      error);
-  if (find_blazerc_exit_code != blaze_exit_code::SUCCESS) {
-    return find_blazerc_exit_code;
-  }
-  if (!user_blazerc_path.empty()) {
-    blazercs_.push_back(RcFile(user_blazerc_path, blazercs_.size()));
-    blaze_exit_code::ExitCode parse_exit_code =
-        blazercs_.back().Parse(&blazercs_, &rcoptions_, error);
-    if (parse_exit_code != blaze_exit_code::SUCCESS) {
-      return parse_exit_code;
-    }
-  }
-
-  blaze_exit_code::ExitCode parse_startup_options_exit_code =
-      ParseStartupOptions(error);
+  // Parse the startup options in the correct priority order.
+  const blaze_exit_code::ExitCode parse_startup_options_exit_code =
+      ParseStartupOptions(rc_files, error);
   if (parse_startup_options_exit_code != blaze_exit_code::SUCCESS) {
     return parse_startup_options_exit_code;
   }
 
-  // Determine command
-  if (startup_args_ + 1 >= args.size()) {
-    command_ = "";
-    return blaze_exit_code::SUCCESS;
+  blazerc_and_env_command_args_ =
+      GetBlazercAndEnvCommandArgs(cwd, rc_files, GetProcessedEnv());
+  return blaze_exit_code::SUCCESS;
+}
+
+static void PrintStartupOptions(const std::string& source,
+                                const std::vector<std::string>& options) {
+  if (!source.empty()) {
+    std::string startup_args;
+    blaze_util::JoinStrings(options, ' ', &startup_args);
+    fprintf(stderr, "INFO: Reading 'startup' options from %s: %s\n",
+            source.c_str(), startup_args.c_str());
+  }
+}
+
+void OptionProcessor::PrintStartupOptionsProvenanceMessage() const {
+  StartupOptions* parsed_startup_options = GetParsedStartupOptions();
+
+  // Print the startup flags in the order they are parsed, to keep the
+  // precedence clear. In order to minimize the number of lines of output in
+  // the terminal, group sequential flags by origin. Note that an rc file may
+  // turn up multiple times in this list, if, for example, it imports another
+  // rc file and contains startup options on either side of the import
+  // statement. This is done intentionally to make option priority clear.
+  std::string command_line_source;
+  std::string& most_recent_blazerc = command_line_source;
+  std::vector<std::string> accumulated_options;
+  for (const auto& flag : parsed_startup_options->original_startup_options_) {
+    if (flag.source == most_recent_blazerc) {
+      accumulated_options.push_back(flag.value);
+    } else {
+      PrintStartupOptions(most_recent_blazerc, accumulated_options);
+      // Start accumulating again.
+      accumulated_options.clear();
+      accumulated_options.push_back(flag.value);
+      most_recent_blazerc = flag.source;
+    }
+  }
+  // Don't forget to print out the last ones.
+  PrintStartupOptions(most_recent_blazerc, accumulated_options);
+}
+
+blaze_exit_code::ExitCode OptionProcessor::ParseStartupOptions(
+    const std::vector<std::unique_ptr<RcFile>> &rc_files,
+    std::string *error) {
+  // Rc files can import other files at any point, and these imported rcs are
+  // expanded in place. Here, we isolate just the startup options but keep the
+  // file they came from attached for the option_sources tracking and for
+  // sending to the server.
+  std::vector<RcStartupFlag> rcstartup_flags;
+
+  for (const auto& blazerc : rc_files) {
+    const auto iter = blazerc->options().find("startup");
+    if (iter == blazerc->options().end()) continue;
+
+    for (const RcOption& option : iter->second) {
+      rcstartup_flags.push_back({*option.source_path, option.option});
+    }
   }
 
-  command_ = args[startup_args_ + 1];
+  for (const std::string& arg : cmd_line_->startup_args) {
+    if (!IsArg(arg)) {
+      break;
+    }
+    rcstartup_flags.push_back(RcStartupFlag("", arg));
+  }
 
-#if __APPLE__
-  // This is a temporary hack until we work out how to actually reference the
-  // system JDK in a sound way.
-  if (command_ == "build" ||
-      command_ == "test" ||
-      command_ == "coverage" ||
-      command_ == "run" ||
-      command_ == "info" ||
-      command_ == "version") {
-    string javabase = blaze::GetDefaultHostJavabase();
-    command_arguments_.push_back("--javabase=" + javabase);
-    command_arguments_.push_back("--host_javabase=" + javabase);
+  return startup_options_->ProcessArgs(rcstartup_flags, error);
+}
+
+static bool IsValidEnvName(const char* p) {
+#if defined(_WIN32) || defined(__CYGWIN__)
+  for (; *p && *p != '='; ++p) {
+    if (!((*p >= 'a' && *p <= 'z') || (*p >= 'A' && *p <= 'Z') ||
+          (*p >= '0' && *p <= '9') || *p == '_')) {
+      return false;
+    }
   }
 #endif
+  return true;
+}
 
-  AddRcfileArgsAndOptions(parsed_startup_options_->batch, cwd);
-  for (unsigned int cmd_arg = startup_args_ + 2;
-       cmd_arg < args.size(); cmd_arg++) {
-    command_arguments_.push_back(args[cmd_arg]);
+#if defined(_WIN32)
+static void PreprocessEnvString(string* env_str) {
+  static constexpr const char* vars_to_uppercase[] = {"PATH", "SYSTEMROOT",
+                                                      "SYSTEMDRIVE",
+                                                      "TEMP", "TEMPDIR", "TMP"};
+
+  int pos = env_str->find_first_of('=');
+  if (pos == string::npos) return;
+
+  string name = env_str->substr(0, pos);
+  // We do not care about locale. All variable names are ASCII.
+  std::transform(name.begin(), name.end(), name.begin(), ::toupper);
+  if (std::find(std::begin(vars_to_uppercase), std::end(vars_to_uppercase),
+                name) != std::end(vars_to_uppercase)) {
+    env_str->assign(name + "=" + env_str->substr(pos + 1));
   }
-  return blaze_exit_code::SUCCESS;
 }
 
-blaze_exit_code::ExitCode OptionProcessor::ParseOptions(
-    int argc,
-    const char* argv[],
-    const string& workspace,
-    const string& cwd,
-    string* error) {
-  vector<string> args(argc);
-  for (int arg = 0; arg < argc; arg++) {
-    args[arg] = argv[arg];
+#elif defined(__CYGWIN__)  // not defined(_WIN32)
+
+static void PreprocessEnvString(string* env_str) {
+  int pos = env_str->find_first_of('=');
+  if (pos == string::npos) return;
+  string name = env_str->substr(0, pos);
+  if (name == "PATH") {
+    env_str->assign("PATH=" + env_str->substr(pos + 1));
+  } else if (name == "TMP") {
+    // A valid Windows path "c:/foo" is also a valid Unix path list of
+    // ["c", "/foo"] so must use ConvertPath here. See GitHub issue #1684.
+    env_str->assign("TMP=" + blaze_util::ConvertPath(env_str->substr(pos + 1)));
+  }
+}
+
+#else  // Non-Windows platforms.
+
+static void PreprocessEnvString(const string* env_str) {
+  // do nothing.
+}
+#endif  // defined(_WIN32)
+
+static std::vector<std::string> GetProcessedEnv() {
+  std::vector<std::string> processed_env;
+  for (char** env = environ; *env != NULL; env++) {
+    string env_str(*env);
+    if (IsValidEnvName(*env)) {
+      PreprocessEnvString(&env_str);
+      processed_env.push_back(std::move(env_str));
+    }
+  }
+  return processed_env;
+}
+
+// IMPORTANT: The options added here do not come from the user. In order for
+// their source to be correctly tracked, the options must either be passed
+// as --default_override=0, 0 being "client", or must be listed in
+// BlazeOptionHandler.INTERNAL_COMMAND_OPTIONS!
+std::vector<std::string> OptionProcessor::GetBlazercAndEnvCommandArgs(
+    const std::string& cwd,
+    const std::vector<std::unique_ptr<RcFile>>& blazercs,
+    const std::vector<std::string>& env) {
+  // Provide terminal options as coming from the least important rc file.
+  std::vector<std::string> result = {
+      "--rc_source=client",
+      "--default_override=0:common=--isatty=" +
+          ToString(IsStandardTerminal()),
+      "--default_override=0:common=--terminal_columns=" +
+          ToString(GetTerminalColumns())};
+  if (IsEmacsTerminal()) {
+    result.push_back("--default_override=0:common=--emacs");
   }
 
-  return ParseOptions(args, workspace, cwd, error);
-}
+  EnsurePythonPathOption(&result);
 
-static bool IsArg(const string& arg) {
-  return blaze_util::starts_with(arg, "-") && (arg != "--help")
-      && (arg != "-help") && (arg != "-h");
-}
+  // Map .blazerc numbers to filenames. The indexes here start at 1 because #0
+  // is reserved the "client" options created by this function.
+  int cur_index = 1;
+  std::map<std::string, int> rcfile_indexes;
+  for (const auto& blazerc : blazercs) {
+    for (const std::string& source_path : blazerc->canonical_source_paths()) {
+      // Deduplicate the rc_source list because the same file might be included
+      // from multiple places.
+      if (rcfile_indexes.find(source_path) != rcfile_indexes.end()) continue;
 
-blaze_exit_code::ExitCode OptionProcessor::ParseStartupOptions(string *error) {
-  // Process rcfile startup options
-  map< string, vector<RcOption> >::const_iterator it =
-      rcoptions_.find("startup");
-  blaze_exit_code::ExitCode process_arg_exit_code;
-  bool is_space_separated;
-  if (it != rcoptions_.end()) {
-    const vector<RcOption>& startup_options = it->second;
-    int i = 0;
-    // Process all elements except the last one.
-    for (; i < startup_options.size() - 1; i++) {
-      const RcOption& option = startup_options[i];
-      const string& blazerc = blazercs_[option.rcfile_index()].Filename();
-      process_arg_exit_code = parsed_startup_options_->ProcessArg(
-          option.option(), startup_options[i + 1].option(), blazerc,
-          &is_space_separated, error);
-      if (process_arg_exit_code != blaze_exit_code::SUCCESS) {
-          return process_arg_exit_code;
+      result.push_back("--rc_source=" + blaze_util::ConvertPath(source_path));
+      rcfile_indexes[source_path] = cur_index;
+      cur_index++;
+    }
+  }
+
+  // Add RcOptions as default_overrides.
+  for (const auto& blazerc : blazercs) {
+    for (const auto& command_options : blazerc->options()) {
+      const string& command = command_options.first;
+      // Skip startup flags, which are already parsed by the client.
+      if (command == "startup") continue;
+
+      for (const RcOption& rcoption : command_options.second) {
+        std::ostringstream oss;
+        oss << "--default_override=" << rcfile_indexes[*rcoption.source_path]
+            << ':' << command << '=' << rcoption.option;
+        result.push_back(oss.str());
       }
-      if (is_space_separated) {
-        i++;
-      }
-    }
-    // Process last element, if any.
-    if (i < startup_options.size()) {
-      const RcOption& option = startup_options[i];
-      if (IsArg(option.option())) {
-        const string& blazerc = blazercs_[option.rcfile_index()].Filename();
-        process_arg_exit_code = parsed_startup_options_->ProcessArg(
-            option.option(), "", blazerc, &is_space_separated, error);
-        if (process_arg_exit_code != blaze_exit_code::SUCCESS) {
-          return process_arg_exit_code;
-        }
-      }
     }
   }
 
-  // Process command-line args next, so they override any of the same options
-  // from .blazerc. Stop on first non-arg, this includes --help
-  unsigned int i = 1;
-  if (!args_.empty()) {
-    for (;  (i < args_.size() - 1) && IsArg(args_[i]); i++) {
-      process_arg_exit_code = parsed_startup_options_->ProcessArg(
-          args_[i], args_[i + 1], "", &is_space_separated, error);
-      if (process_arg_exit_code != blaze_exit_code::SUCCESS) {
-          return process_arg_exit_code;
-      }
-      if (is_space_separated) {
-        i++;
-      }
-    }
-    if (i < args_.size() && IsArg(args_[i])) {
-      process_arg_exit_code = parsed_startup_options_->ProcessArg(
-          args_[i], "", "", &is_space_separated, error);
-      if (process_arg_exit_code != blaze_exit_code::SUCCESS) {
-          return process_arg_exit_code;
-      }
-      i++;
-    }
+  // Pass the client environment to the server.
+  for (const string& env_var : env) {
+    result.push_back("--client_env=" + env_var);
   }
-  startup_args_ = i -1;
-
-  return blaze_exit_code::SUCCESS;
+  result.push_back("--client_cwd=" + blaze_util::ConvertPath(cwd));
+  return result;
 }
 
-// Appends the command and arguments from argc/argv to the end of arg_vector,
-// and also splices in some additional terminal and environment options between
-// the command and the arguments. NB: Keep the options added here in sync with
-// BlazeCommandDispatcher.INTERNAL_COMMAND_OPTIONS!
-void OptionProcessor::AddRcfileArgsAndOptions(bool batch, const string& cwd) {
-  // Push the options mapping .blazerc numbers to filenames.
-  for (int i_blazerc = 0; i_blazerc < blazercs_.size(); i_blazerc++) {
-    const RcFile& blazerc = blazercs_[i_blazerc];
-    command_arguments_.push_back("--rc_source=" + blazerc.Filename());
+std::vector<std::string> OptionProcessor::GetCommandArguments() const {
+  assert(cmd_line_ != nullptr);
+  // When the user didn't specify a command, the server expects the command
+  // arguments to be empty in order to display the help message.
+  if (cmd_line_->command.empty()) {
+    return {};
   }
 
-  // Push the option defaults
-  for (map<string, vector<RcOption> >::const_iterator it = rcoptions_.begin();
-       it != rcoptions_.end(); ++it) {
-    if (it->first == "startup") {
-      // Skip startup options, they are parsed in the C++ wrapper
-      continue;
-    }
-
-    for (int ii = 0; ii < it->second.size(); ii++) {
-      const RcOption& rcoption = it->second[ii];
-      command_arguments_.push_back(
-          "--default_override=" + std::to_string(rcoption.rcfile_index()) + ":"
-          + it->first + "=" + rcoption.option());
-    }
-  }
-
-  // Splice the terminal options.
-  command_arguments_.push_back(
-      "--isatty=" + std::to_string(IsStandardTerminal()));
-  command_arguments_.push_back(
-      "--terminal_columns=" + std::to_string(GetTerminalColumns()));
-
-  // Pass the client environment to the server in server mode.
-  if (batch) {
-    command_arguments_.push_back("--ignore_client_env");
-  } else {
-    for (char** env = environ; *env != NULL; env++) {
-      command_arguments_.push_back("--client_env=" + string(*env));
-    }
-  }
-  command_arguments_.push_back("--client_cwd=" + cwd);
-
-  const char *emacs = getenv("EMACS");
-  if (emacs != NULL && strcmp(emacs, "t") == 0) {
-    command_arguments_.push_back("--emacs");
-  }
+  std::vector<std::string> command_args = blazerc_and_env_command_args_;
+  command_args.insert(command_args.end(),
+                      cmd_line_->command_args.begin(),
+                      cmd_line_->command_args.end());
+  return command_args;
 }
 
-void OptionProcessor::GetCommandArguments(vector<string>* result) const {
-  result->insert(result->end(),
-                 command_arguments_.begin(),
-                 command_arguments_.end());
+std::vector<std::string> OptionProcessor::GetExplicitCommandArguments() const {
+  assert(cmd_line_ != nullptr);
+  return cmd_line_->command_args;
 }
 
-const string& OptionProcessor::GetCommand() const {
-  return command_;
+std::string OptionProcessor::GetCommand() const {
+  assert(cmd_line_ != nullptr);
+  return cmd_line_->command;
 }
 
-const BlazeStartupOptions& OptionProcessor::GetParsedStartupOptions() const {
-  return *parsed_startup_options_.get();
+StartupOptions* OptionProcessor::GetParsedStartupOptions() const {
+  assert(parse_options_called_);
+  return startup_options_.get();
 }
+
 }  // namespace blaze

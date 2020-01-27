@@ -1,4 +1,4 @@
-// Copyright 2014 Google Inc. All rights reserved.
+// Copyright 2014 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,155 +16,91 @@ package com.google.devtools.build.lib.syntax;
 import javax.annotation.Nullable;
 
 /**
- * Syntax node for a Parameter in a function (or lambda) definition; it's a subclass of Argument,
- * and contrasts with the class Argument.Passed of arguments in a function call.
+ * Syntax node for a parameter in a function definition.
  *
- * <p>There are four concrete subclasses of Parameter: Mandatory, Optional, Star, StarStar.
+ * <p>Parameters may be of four forms, as in {@code def f(a, b=c, *args, **kwargs)}. They are
+ * represented by the subclasses Mandatory, Optional, Star, and StarStar.
  *
- * <p>See FunctionSignature for how a valid list of Parameter's is organized as a signature, e.g.
- * def foo(mandatory, optional = e1, *args, mandatorynamedonly, optionalnamedonly = e2, **kw): ...
+ * <p>See FunctionSignature for how a valid list of Parameters is organized as a signature, e.g. def
+ * foo(mandatory, optional = e1, *args, mandatorynamedonly, optionalnamedonly = e2, **kw): ...
  *
- * <p>V is the class of a defaultValue (Expression at compile-time, Object at runtime),
- * T is the class of a type (Expression at compile-time, SkylarkType at runtime).
+ * <p>V is the class of a defaultValue (Expression at compile-time, Object at runtime), T is the
+ * class of a type (Expression at compile-time, SkylarkType at runtime).
  */
-public abstract class Parameter<V, T> extends Argument {
+public abstract class Parameter extends Node {
 
-  @Nullable protected String name;
-  @Nullable protected final T type;
+  @Nullable private final Identifier identifier;
 
-  private Parameter(@Nullable String name, @Nullable T type) {
-    this.name = name;
-    this.type = type;
-  }
-  private Parameter(@Nullable String name) {
-    this.name = name;
-    this.type = null;
+  private Parameter(@Nullable Identifier identifier) {
+    this.identifier = identifier;
   }
 
-  public boolean isMandatory() {
-    return false;
+  @Nullable
+  public String getName() {
+    return identifier != null ? identifier.getName() : null;
   }
-  public boolean isOptional() {
-    return false;
+
+  @Nullable
+  public Identifier getIdentifier() {
+    return identifier;
   }
-  public boolean isStar() {
-    return false;
-  }
-  public boolean isStarStar() {
-    return false;
-  }
-  @Nullable public String getName() {
-    return name;
-  }
-  public boolean hasName() {
-    return true;
-  }
-  @Nullable public T getType() {
-    return type;
-  }
-  @Nullable public V getDefaultValue() {
+
+  @Nullable
+  public Expression getDefaultValue() {
     return null;
   }
 
-  /** mandatory parameter (positional or key-only depending on position): Ident */
-  public static class Mandatory<V, T> extends Parameter<V, T> {
-
-    public Mandatory(String name) {
-      super(name);
-    }
-
-    public Mandatory(String name, @Nullable T type) {
-      super(name, type);
-    }
-
-    @Override public boolean isMandatory() {
-      return true;
-    }
-
-    @Override
-    public String toString() {
-      return name.toString();
+  /**
+   * Syntax node for a mandatory parameter, {@code f(id)}. It may be positional or keyword-only
+   * depending on its position.
+   */
+  public static final class Mandatory extends Parameter {
+    Mandatory(Identifier identifier) {
+      super(identifier);
     }
   }
 
-  /** optional parameter (positional or key-only depending on position): Ident = Value */
-  public static class Optional<V, T> extends Parameter<V, T> {
-    public final V defaultValue;
+  /**
+   * Syntax node for an optional parameter, {@code f(id=expr).}. It may be positional or
+   * keyword-only depending on its position.
+   */
+  public static final class Optional extends Parameter {
 
-    public Optional(String name, @Nullable V defaultValue) {
-      super(name);
+    public final Expression defaultValue;
+
+    Optional(Identifier identifier, @Nullable Expression defaultValue) {
+      super(identifier);
       this.defaultValue = defaultValue;
     }
 
-    public Optional(String name, @Nullable T type, @Nullable V defaultValue) {
-      super(name, type);
-      this.defaultValue = defaultValue;
-    }
-
-    @Override @Nullable public V getDefaultValue() {
+    @Override
+    @Nullable
+    public Expression getDefaultValue() {
       return defaultValue;
     }
 
-    @Override public boolean isOptional() {
-      return true;
-    }
-
     @Override
     public String toString() {
-      return name + "=" + defaultValue;
+      return getName() + "=" + defaultValue;
     }
   }
 
-  /** extra positionals parameter (star): *identifier */
-  public static class Star<V, T> extends Parameter<V, T> {
-    public Star(@Nullable String name, @Nullable T type) {
-      super(name, type);
-    }
-
-    public Star(@Nullable String name) {
-      super(name);
-    }
-
-    @Override
-    public boolean hasName() {
-      return name != null;
-    }
-
-    @Override public boolean isStar() {
-      return true;
-    }
-
-    @Override public String toString() {
-      if (name == null) {
-        return "*";
-      } else {
-        return "*" + name;
-      }
+  /** Syntax node for a star parameter, {@code f(*identifier)} or or {@code f(..., *, ...)}. */
+  public static final class Star extends Parameter {
+    Star(@Nullable Identifier identifier) {
+      super(identifier);
     }
   }
 
-  /** extra keywords parameter (star_star): **identifier */
-  public static class StarStar<V, T> extends Parameter<V, T> {
-    public StarStar(String name, @Nullable T type) {
-      super(name, type);
-    }
-
-    public StarStar(String name) {
-      super(name);
-    }
-
-    @Override public boolean isStarStar() {
-      return true;
-    }
-
-    @Override
-    public String toString() {
-      return "**" + name;
+  /** Syntax node for a parameter of the form {@code f(**identifier)}. */
+  public static final class StarStar extends Parameter {
+    StarStar(Identifier identifier) {
+      super(identifier);
     }
   }
 
   @Override
-  public void accept(SyntaxTreeVisitor visitor) {
+  public void accept(NodeVisitor visitor) {
     visitor.visit(this);
   }
 }

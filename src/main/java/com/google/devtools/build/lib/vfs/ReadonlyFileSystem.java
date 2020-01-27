@@ -1,4 +1,4 @@
-// Copyright 2014 Google Inc. All rights reserved.
+// Copyright 2014 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -13,29 +13,34 @@
 // limitations under the License.
 package com.google.devtools.build.lib.vfs;
 
+import com.google.devtools.build.lib.vfs.DigestHashFunction.DefaultHashFunctionNotSetException;
 import java.io.IOException;
 import java.io.OutputStream;
 
 /**
- * An abstract partial implementation of FileSystem for read-only
- * implementations.
+ * An abstract partial implementation of FileSystem for read-only implementations.
  *
  * <p>Any ReadonlyFileSystem does not support the following:
+ *
  * <ul>
- * <li>{@link #createDirectory(Path)}</li>
- * <li>{@link #createSymbolicLink(Path, PathFragment)}</li>
- * <li>{@link #delete(Path)}</li>
- * <li>{@link #getOutputStream(Path)}</li>
- * <li>{@link #renameTo(Path, Path)}</li>
- * <li>{@link #setExecutable(Path, boolean)}</li>
- * <li>{@link #setLastModifiedTime(Path, long)}</li>
- * <li>{@link #setWritable(Path, boolean)}</li>
+ *   <li>{@link #createDirectory(Path)}
+ *   <li>{@link #createSymbolicLink(Path, PathFragment)}
+ *   <li>{@link #delete(Path)}
+ *   <li>{@link #getOutputStream(Path)}
+ *   <li>{@link #renameTo(Path, Path)}
+ *   <li>{@link #setExecutable(Path, boolean)}
+ *   <li>{@link #setLastModifiedTime(Path, long)}
+ *   <li>{@link #setWritable(Path, boolean)}
  * </ul>
+ *
  * The above calls will always result in an {@link IOException}.
  */
-public abstract class ReadonlyFileSystem extends FileSystem {
+public abstract class ReadonlyFileSystem extends AbstractFileSystem {
 
-  protected ReadonlyFileSystem() {
+  protected ReadonlyFileSystem() throws DefaultHashFunctionNotSetException {}
+
+  public ReadonlyFileSystem(DigestHashFunction digestFunction) {
+    super(digestFunction);
   }
 
   protected IOException modificationException() {
@@ -56,7 +61,7 @@ public abstract class ReadonlyFileSystem extends FileSystem {
   }
 
   @Override
-  protected void setWritable(Path path, boolean writable) throws IOException {
+  public void setWritable(Path path, boolean writable) throws IOException {
     throw modificationException();
   }
 
@@ -66,17 +71,32 @@ public abstract class ReadonlyFileSystem extends FileSystem {
   }
 
   @Override
-  public boolean supportsModifications() {
+  public boolean supportsModifications(Path path) {
     return false;
   }
 
   @Override
-  public boolean supportsSymbolicLinks() {
+  public boolean supportsSymbolicLinksNatively(Path path) {
     return false;
   }
 
   @Override
-  protected boolean createDirectory(Path path) throws IOException {
+  public boolean supportsHardLinksNatively(Path path) {
+    return false;
+  }
+
+  @Override
+  public boolean isFilePathCaseSensitive() {
+    return true;
+  }
+
+  @Override
+  public boolean createDirectory(Path path) throws IOException {
+    throw modificationException();
+  }
+
+  @Override
+  public void createDirectoryAndParents(Path path) throws IOException {
     throw modificationException();
   }
 
@@ -86,18 +106,23 @@ public abstract class ReadonlyFileSystem extends FileSystem {
   }
 
   @Override
-  protected void renameTo(Path sourcePath, Path targetPath) throws IOException {
+  public void renameTo(Path sourcePath, Path targetPath) throws IOException {
     throw modificationException();
   }
 
   @Override
-  protected boolean delete(Path path) throws IOException {
+  public boolean delete(Path path) throws IOException {
     throw modificationException();
   }
 
   @Override
-  protected void setLastModifiedTime(Path path, long newTime) throws IOException {
+  public void setLastModifiedTime(Path path, long newTime) throws IOException {
     throw modificationException();
   }
 
+  @Override
+  protected void createFSDependentHardLink(Path linkPath, Path originalPath)
+      throws IOException {
+    throw modificationException();
+  }
 }

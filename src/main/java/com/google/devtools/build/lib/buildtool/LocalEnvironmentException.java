@@ -1,4 +1,4 @@
-// Copyright 2014 Google Inc. All rights reserved.
+// Copyright 2014 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -19,7 +19,7 @@ import com.google.devtools.build.lib.util.ExitCode;
 
 /**
  * An exception that signals that something is wrong with the user's environment
- * that he can fix. Used to report the problem of having no free space left in
+ * that they can fix. Used to report the problem of having no free space left in
  * the blaze output directory.
  *
  * <p>Note that this is a much higher level exception then the similarly named

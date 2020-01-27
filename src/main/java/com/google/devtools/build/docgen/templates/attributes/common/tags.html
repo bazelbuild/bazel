@@ -1,18 +1,111 @@
-List of arbitrary text tags.  Tags may be any valid string; default is the
-empty list.<br/>
-<i>Tags</i> can be used on any rule; but <i>tags</i> are most useful
-on test and <code>test_suite</code> rules.  Tags on non-test rules
-are only useful to humans and/or external programs.
-<i>Tags</i> are generally used to annotate a test's role in your debug
-and release process.  Typically, tags are most useful for C++ and
-Python tests, which
-lack any runtime annotation ability.  The use of tags and size elements
-gives flexibility in assembling suites of tests based around codebase
-check-in policy.
 <p>
-A few tags have special meaning to the build tool, such as
-indicating that a particular test cannot be run remotely, for
-example. Consult
-the <a href='bazel-user-manual.html#tags_keywords'>Bazel
-documentation</a> for details.
+  <code>List of arbitrary text tags.  Tags may be any valid string; default is
+  the empty list.</code>
 </p>
+
+<p>
+  <i>Tags</i> can be used on any rule. <i>Tags</i> on test and
+  <code>test_suite</code> rules are useful for categorizing the tests.
+  <i>Tags</i> on non-test rules are used to control sandboxed execution of
+  <code>genrule</code>s and
+
+<a href="/versions/{{ site.version }}/skylark/index.html">Starlark</a>
+  actions, and for parsing by humans and/or external tools.
+</p>
+
+<p>
+  Bazel modifies the behavior of its sandboxing code if it finds the following
+  keywords in the <code>tags</code> attribute of any test rule or
+  <code>genrule</code>, or the keys of <code>execution_requirements</code> for
+  any Starlark action.
+</p>
+
+<ul>
+  <li><code>no-sandbox</code> keyword results in the action or test never being
+    <a href="../user-manual.html#sandboxing">sandboxed</a>; it can still be
+    cached or run remotely - use <code>no-cache</code> or <code>no-remote</code>
+    to prevent either or both of those.
+  </li>
+
+  <li><code>no-cache</code> keyword results in the action or test never being
+    cached (remotely or locally)
+  </li>
+
+  <li><code>no-remote-cache</code> keyword results in the action or test never being
+    cached remotely (but it may be cached locally; it may also be executed remotely).
+    Note: for the purposes of this tag, the disk-cache is considered a local cache, whereas
+    the http and gRPC caches are considered remote.
+    If a combined cache is specified (i.e. a cache with local and remote components),
+    it's treated as a remote cache and disabled entirely.
+  </li>
+
+  <li><code>no-remote-exec</code> keyword results in the action or test never being
+    executed remotely (but it may be cached remotely).
+  </li>
+
+  <li><code>no-remote</code> keyword prevents the action or test from being executed remotely
+    or cached remotely. This is equivalent to using both no-remote-cache and no-remote-exec.
+  </li>
+
+  <li><code>local</code> keyword precludes the action or test from being remotely cached,
+    remotely executed, or run inside the
+    <a href="../user-manual.html#sandboxing">sandbox</a>.
+    For genrules and tests, marking the rule with the <code>local = True</code>
+    attribute has the same effect.
+  </li>
+
+  <li><code>requires-network</code> keyword allows access to the external
+    network from inside the sandbox.  This tag only has an effect if sandboxing
+    is enabled.
+  </li>
+
+  <li><code>block-network</code> keyword blocks access to the external
+    network from inside the sandbox. In this case, only communication
+    with localhost is allowed. This tag only has an effect if sandboxing is
+    enabled.
+  </li>
+
+  <li><code>requires-fakeroot</code> runs the test or action as uid and gid 0 (i.e., the root
+    user). This is only supported on Linux. This tag takes precedence over the
+    <code class='flag'>--sandbox_fake_username</code> command-line option.
+  </li>
+</ul>
+
+<p>
+  <i>Tags</i> on tests are generally used to annotate a test's role in your
+  debug and release process.  Typically, tags are most useful for C++ and Python
+  tests, which lack any runtime annotation ability.  The use of tags and size
+  elements gives flexibility in assembling suites of tests based around codebase
+  check-in policy.
+</p>
+
+<p>
+  Bazel modifies test running behavior if it finds the following keywords in the
+  <code>tags</code> attribute of the test rule:
+</p>
+
+<ul>
+  <li><code>exclusive</code> keyword will force the test to be run in the
+    &quot;exclusive&quot; mode, ensuring that no other tests are running at the
+    same time. Such tests will be executed in serial fashion after all build
+    activity and non-exclusive tests have been completed. They will also always
+    run locally and thus without sandboxing.
+  </li>
+
+  <li><code>manual</code> keyword will force the test target to not be included in target pattern
+    wildcards (<code>...</code>, <code>:*</code>, <code>:all</code>, etc); the test target will be
+    neither built nor run. It will also be ignored by the <code>test_suite</code> rules that do not
+    mention this test explicitly. The only way to build or run such a test is to specify it via an
+    explicit target pattern on the command line. Bazel query does not honour
+    the <code>manual</code> tag.
+
+  </li>
+
+  <li><code>external</code> keyword will force test to be unconditionally
+    executed (regardless of <code class='flag'>--cache_test_results</code>
+    value).
+  </li>
+</ul>
+
+See <a href="../test-encyclopedia.html#tag-conventions">Tag Conventions</a> in the
+Test Encyclopedia for more conventions on tags attached to test rules.

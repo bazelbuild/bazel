@@ -1,4 +1,4 @@
-// Copyright 2014 Google Inc. All rights reserved.
+// Copyright 2014 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -13,13 +13,18 @@
 // limitations under the License.
 package com.google.devtools.build.lib.collect;
 
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static java.util.stream.Collectors.toCollection;
+
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.devtools.build.lib.collect.nestedset.NestedSet;
-
+import com.google.common.collect.Iterables;
+import com.google.common.collect.Maps;
+import com.google.devtools.build.lib.collect.compacthashset.CompactHashSet;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.EnumSet;
@@ -27,6 +32,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 
 /**
@@ -51,7 +57,7 @@ public final class CollectionUtils {
    * @return a collection of sets of elements that are equivalent under the
    *   specified relation.
    */
-  public static <T> Collection<Set<T>> partition(Collection<T> elements,
+  public static <T> Collection<Set<T>> partitionWithComparator(Collection<T> elements,
       Comparator<T> equivalenceRelation) {
     //  TODO(bazel-team): (2009) O(n*m) where n=|elements| and m=|eqClasses|; i.e.,
     //  quadratic.  Use Tarjan's algorithm instead.
@@ -80,12 +86,7 @@ public final class CollectionUtils {
    */
   public static <T> Collection<Set<T>> partition(Collection<T> elements,
       final EquivalenceRelation<T> equivalenceRelation) {
-    return partition(elements, new Comparator<T>() {
-      @Override
-      public int compare(T o1, T o2) {
-        return equivalenceRelation.compare(o1, o2);
-      }
-    });
+    return partitionWithComparator(elements, (Comparator<T>) equivalenceRelation::compare);
   }
 
   /**
@@ -93,30 +94,29 @@ public final class CollectionUtils {
    * @param input some collection.
    * @return the set of repeated elements.  May return an empty set, but never null.
    */
-  public static <T> Set<T> duplicatedElementsOf(Collection<T> input) {
-    Set<T> duplicates = new HashSet<>();
-    Set<T> elementSet = new HashSet<>();
+  public static <T> Set<T> duplicatedElementsOf(Iterable<T> input) {
+    int count = Iterables.size(input);
+    if (count < 2) {
+      return ImmutableSet.of();
+    }
+    Set<T> duplicates = null;
+    Set<T> elementSet = CompactHashSet.createWithExpectedSize(count);
     for (T el : input) {
       if (!elementSet.add(el)) {
+        if (duplicates == null) {
+          duplicates = new HashSet<>();
+        }
         duplicates.add(el);
       }
     }
-    return duplicates;
+    return duplicates == null ? ImmutableSet.of() : duplicates;
   }
 
   /**
-   * Returns an immutable list of all non-null parameters in the order in which
-   * they are specified.
+   * Returns an immutable set of all non-null parameters in the order in which they are specified.
    */
-  @SuppressWarnings("unchecked")
-  public static <T> ImmutableList<T> asListWithoutNulls(T... elements) {
-    ImmutableList.Builder<T> builder = ImmutableList.builder();
-    for (T element : elements) {
-      if (element != null) {
-        builder.add(element);
-      }
-    }
-    return builder.build();
+  public static <T> ImmutableSet<T> asSetWithoutNulls(T... elements) {
+    return Arrays.stream(elements).filter(Objects::nonNull).collect(toImmutableSet());
   }
 
   /**
@@ -128,7 +128,6 @@ public final class CollectionUtils {
     return iterable instanceof ImmutableList<?>
         || iterable instanceof ImmutableSet<?>
         || iterable instanceof IterablesChain<?>
-        || iterable instanceof NestedSet<?>
         || iterable instanceof ImmutableIterable<?>;
   }
 
@@ -143,11 +142,7 @@ public final class CollectionUtils {
    * Given an iterable, returns an immutable iterable with the same contents.
    */
   public static <T> Iterable<T> makeImmutable(Iterable<T> iterable) {
-    if (isImmutable(iterable)) {
-      return iterable;
-    } else {
-      return ImmutableList.copyOf(iterable);
-    }
+    return isImmutable(iterable) ? iterable : ImmutableList.copyOf(iterable);
   }
 
   /**
@@ -170,7 +165,6 @@ public final class CollectionUtils {
    * Converts a set of enum values to a bit field. Requires that the enum contains at most 32
    * elements.
    */
-  @SuppressWarnings("unchecked")
   public static <T extends Enum<T>> int toBits(T... values) {
     return toBits(ImmutableSet.copyOf(values));
   }
@@ -182,14 +176,9 @@ public final class CollectionUtils {
   public static <T extends Enum<T>> EnumSet<T> fromBits(int value, Class<T> clazz) {
     T[] elements = clazz.getEnumConstants();
     Preconditions.checkArgument(elements.length <= 32);
-    ArrayList<T> result = new ArrayList<>();
-    for (T element : elements) {
-      if ((value & (1 << element.ordinal())) != 0) {
-        result.add(element);
-      }
-    }
-
-    return result.isEmpty() ? EnumSet.noneOf(clazz) : EnumSet.copyOf(result);
+    return Arrays.stream(elements)
+        .filter(element -> (value & (1 << element.ordinal())) != 0)
+        .collect(toCollection(() -> EnumSet.noneOf(clazz)));
   }
 
   /**
@@ -204,11 +193,7 @@ public final class CollectionUtils {
    */
   public static <KEY_1, KEY_2, VALUE> ImmutableMap<KEY_1, ImmutableMap<KEY_2, VALUE>> toImmutable(
       Map<KEY_1, Map<KEY_2, VALUE>> map) {
-    ImmutableMap.Builder<KEY_1, ImmutableMap<KEY_2, VALUE>> builder = ImmutableMap.builder();
-    for (Map.Entry<KEY_1, Map<KEY_2, VALUE>> entry : map.entrySet()) {
-      builder.put(entry.getKey(), ImmutableMap.copyOf(entry.getValue()));
-    }
-    return builder.build();
+    return ImmutableMap.copyOf(Maps.transformValues(map, ImmutableMap::copyOf));
   }
 
   /**
@@ -216,10 +201,15 @@ public final class CollectionUtils {
    */
   public static <KEY_1, KEY_2, VALUE> Map<KEY_1, Map<KEY_2, VALUE>> copyOf(
       Map<KEY_1, ? extends Map<KEY_2, VALUE>> map) {
-    Map<KEY_1, Map<KEY_2, VALUE>> result = new HashMap<>();
-    for (Map.Entry<KEY_1, ? extends Map<KEY_2, VALUE>> entry : map.entrySet()) {
-      result.put(entry.getKey(), new HashMap<>(entry.getValue()));
-    }
-    return result;
+    return new HashMap<>(Maps.transformValues(map, HashMap::new));
+  }
+
+  /**
+   * A variant of {@link com.google.common.collect.Iterables#isEmpty} that avoids expanding nested
+   * sets.
+   */
+  public static <T> boolean isEmpty(Iterable<T> iterable) {
+    // Only caller is IterablesChain.
+    return Iterables.isEmpty(iterable);
   }
 }

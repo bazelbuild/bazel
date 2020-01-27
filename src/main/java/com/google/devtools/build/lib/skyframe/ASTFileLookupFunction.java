@@ -1,4 +1,4 @@
-// Copyright 2014 Google Inc. All rights reserved.
+// Copyright 2014 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,147 +14,119 @@
 
 package com.google.devtools.build.lib.skyframe;
 
-import com.google.devtools.build.lib.packages.CachingPackageLocator;
+import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.actions.FileValue;
+import com.google.devtools.build.lib.actions.InconsistentFilesystemException;
+import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.packages.BuildFileNotFoundException;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
-import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
-import com.google.devtools.build.lib.syntax.BuildFileAST;
+import com.google.devtools.build.lib.syntax.Module;
+import com.google.devtools.build.lib.syntax.ParserInput;
+import com.google.devtools.build.lib.syntax.StarlarkFile;
+import com.google.devtools.build.lib.syntax.StarlarkSemantics;
+import com.google.devtools.build.lib.syntax.ValidationEnvironment;
+import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
-import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-
 import java.io.IOException;
-import java.util.concurrent.atomic.AtomicReference;
-
 import javax.annotation.Nullable;
 
 /**
- * A SkyFunction for {@link ASTFileLookupValue}s. Tries to locate a file and load it as a
- * syntax tree and cache the resulting {@link BuildFileAST}. If the file doesn't exist
- * the function doesn't fail but returns a specific NO_FILE ASTLookupValue.
+ * A SkyFunction for {@link ASTFileLookupValue}s.
+ *
+ * <p>Given a {@link Label} referencing a Skylark file, loads it as a syntax tree ({@link
+ * StarlarkFile}). The Label must be absolute, and must not reference the special {@code external}
+ * package. If the file (or the package containing it) doesn't exist, the function doesn't fail, but
+ * instead returns a specific {@code NO_FILE} {@link ASTFileLookupValue}.
  */
 public class ASTFileLookupFunction implements SkyFunction {
 
-  private abstract static class FileLookupResult {
-    /** Returns whether the file lookup was successful. */
-    public abstract boolean lookupSuccessful();
-
-    /** If {@code lookupSuccessful()}, returns the {@link RootedPath} to the file. */
-    public abstract RootedPath rootedPath();
-
-    static FileLookupResult noFile() {
-      return UnsuccessfulFileResult.INSTANCE;
-    }
-
-    static FileLookupResult file(RootedPath rootedPath) {
-      return new SuccessfulFileResult(rootedPath);
-    }
-
-    private static class SuccessfulFileResult extends FileLookupResult {
-      private final RootedPath rootedPath;
-
-      private SuccessfulFileResult(RootedPath rootedPath) {
-        this.rootedPath = rootedPath;
-      }
-
-      @Override
-      public boolean lookupSuccessful() {
-        return true;
-      }
-
-      @Override
-      public RootedPath rootedPath() {
-        return rootedPath;
-      }
-    }
-
-    private static class UnsuccessfulFileResult extends FileLookupResult {
-      private static final UnsuccessfulFileResult INSTANCE = new UnsuccessfulFileResult();
-      private UnsuccessfulFileResult() {
-      }
-
-      @Override
-      public boolean lookupSuccessful() {
-        return false;
-      }
-
-      @Override
-      public RootedPath rootedPath() {
-        throw new IllegalStateException("unsucessful lookup");
-      }
-    }
-  }
-
-  private final AtomicReference<PathPackageLocator> pkgLocator;
   private final RuleClassProvider ruleClassProvider;
-  private final CachingPackageLocator packageManager;
 
-  public ASTFileLookupFunction(AtomicReference<PathPackageLocator> pkgLocator,
-      CachingPackageLocator packageManager,
-      RuleClassProvider ruleClassProvider) {
-    this.pkgLocator = pkgLocator;
-    this.packageManager = packageManager;
+  public ASTFileLookupFunction(RuleClassProvider ruleClassProvider) {
     this.ruleClassProvider = ruleClassProvider;
   }
 
   @Override
   public SkyValue compute(SkyKey skyKey, Environment env) throws SkyFunctionException,
       InterruptedException {
-    PathFragment astFilePathFragment = (PathFragment) skyKey.argument();
-    FileLookupResult lookupResult = getASTFile(env, astFilePathFragment);
-    if (lookupResult == null) {
+    Label fileLabel = (Label) skyKey.argument();
+
+    // Determine whether the package designated by fileLabel exists.
+    // TODO(bazel-team): After --incompatible_disallow_load_labels_to_cross_package_boundaries is
+    // removed and the new behavior is unconditional, we can instead safely assume the package
+    // exists and pass in the Root in the SkyKey and therefore this dep can be removed.
+    SkyKey pkgSkyKey = PackageLookupValue.key(fileLabel.getPackageIdentifier());
+    PackageLookupValue pkgLookupValue = null;
+    try {
+      pkgLookupValue = (PackageLookupValue) env.getValueOrThrow(
+          pkgSkyKey, BuildFileNotFoundException.class, InconsistentFilesystemException.class);
+    } catch (BuildFileNotFoundException e) {
+      throw new ASTLookupFunctionException(
+          new ErrorReadingSkylarkExtensionException(e), Transience.PERSISTENT);
+    } catch (InconsistentFilesystemException e) {
+      throw new ASTLookupFunctionException(e, Transience.PERSISTENT);
+    }
+    if (pkgLookupValue == null) {
+      return null;
+    }
+    if (!pkgLookupValue.packageExists()) {
+      return ASTFileLookupValue.forBadPackage(fileLabel, pkgLookupValue.getErrorMsg());
+    }
+
+    // Determine whether the file designated by fileLabel exists.
+    Root packageRoot = pkgLookupValue.getRoot();
+    RootedPath rootedPath = RootedPath.toRootedPath(packageRoot, fileLabel.toPathFragment());
+    SkyKey fileSkyKey = FileValue.key(rootedPath);
+    FileValue fileValue = null;
+    try {
+      fileValue = (FileValue) env.getValueOrThrow(fileSkyKey, IOException.class);
+    } catch (InconsistentFilesystemException e) {
+      throw new ASTLookupFunctionException(e, Transience.PERSISTENT);
+    } catch (IOException e) {
+      throw new ASTLookupFunctionException(
+          new ErrorReadingSkylarkExtensionException(e), Transience.PERSISTENT);
+    }
+    if (fileValue == null) {
+      return null;
+    }
+    if (!fileValue.exists()) {
+      return ASTFileLookupValue.forMissingFile(fileLabel);
+    }
+    if (!fileValue.isFile()) {
+      return ASTFileLookupValue.forBadFile(fileLabel);
+    }
+    StarlarkSemantics starlarkSemantics = PrecomputedValue.STARLARK_SEMANTICS.get(env);
+    if (starlarkSemantics == null) {
       return null;
     }
 
-    BuildFileAST ast = null;
-    if (!lookupResult.lookupSuccessful()) {
-      return ASTFileLookupValue.noFile();
-    } else {
-      Path path = lookupResult.rootedPath().asPath();
-      // Skylark files end with bzl.
-      boolean parseAsSkylark = astFilePathFragment.getPathString().endsWith(".bzl");
-      try {
-        ast = parseAsSkylark
-            ? BuildFileAST.parseSkylarkFile(path, env.getListener(),
-                packageManager, ruleClassProvider.getSkylarkValidationEnvironment().clone())
-            : BuildFileAST.parseBuildFile(path, env.getListener(),
-                packageManager, false);
-      } catch (IOException e) {
-        throw new ASTLookupFunctionException(new ErrorReadingSkylarkExtensionException(
-            e.getMessage()), Transience.TRANSIENT);
-      }
+    // Both the package and the file exist; load and parse the file.
+    Path path = rootedPath.asPath();
+    StarlarkFile file = null;
+    try {
+      byte[] bytes = FileSystemUtils.readWithKnownFileSize(path, fileValue.getSize());
+      ParserInput input = ParserInput.create(bytes, path.toString());
+      file = StarlarkFile.parseWithDigest(input, path.getDigest());
+    } catch (IOException e) {
+      throw new ASTLookupFunctionException(new ErrorReadingSkylarkExtensionException(e),
+          Transience.TRANSIENT);
     }
 
-    return ASTFileLookupValue.withFile(ast);
-  }
+    // validate (and soon, compile)
+    ImmutableMap<String, Object> predeclared = ruleClassProvider.getEnvironment();
+    ValidationEnvironment.validateFile(
+        file, Module.createForBuiltins(predeclared), starlarkSemantics, /*isBuildFile=*/ false);
+    Event.replayEventsOn(env.getListener(), file.errors()); // TODO(adonovan): fail if !ok()?
 
-  private FileLookupResult getASTFile(Environment env, PathFragment astFilePathFragment)
-      throws ASTLookupFunctionException {
-    for (Path packagePathEntry : pkgLocator.get().getPathEntries()) {
-      RootedPath rootedPath = RootedPath.toRootedPath(packagePathEntry, astFilePathFragment);
-      SkyKey fileSkyKey = FileValue.key(rootedPath);
-      FileValue fileValue = null;
-      try {
-        fileValue = (FileValue) env.getValueOrThrow(fileSkyKey, IOException.class,
-            FileSymlinkCycleException.class, InconsistentFilesystemException.class);
-      } catch (IOException | FileSymlinkCycleException e) {
-        throw new ASTLookupFunctionException(new ErrorReadingSkylarkExtensionException(
-            e.getMessage()), Transience.PERSISTENT);
-      } catch (InconsistentFilesystemException e) {
-        throw new ASTLookupFunctionException(e, Transience.PERSISTENT);
-      }
-      if (fileValue == null) {
-        return null;
-      }
-      if (fileValue.isFile()) {
-        return FileLookupResult.file(rootedPath);
-      }
-    }
-    return FileLookupResult.noFile();
+    return ASTFileLookupValue.withFile(file);
   }
 
   @Nullable

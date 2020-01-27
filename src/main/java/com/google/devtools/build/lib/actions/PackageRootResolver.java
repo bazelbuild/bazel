@@ -1,4 +1,4 @@
-// Copyright 2014 Google Inc. All rights reserved.
+// Copyright 2014 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,9 +15,8 @@
 package com.google.devtools.build.lib.actions;
 
 import com.google.devtools.build.lib.vfs.PathFragment;
-
+import com.google.devtools.build.lib.vfs.Root;
 import java.util.Map;
-
 import javax.annotation.Nullable;
 
 /**
@@ -26,9 +25,14 @@ import javax.annotation.Nullable;
 public interface PackageRootResolver {
 
   /**
-   * Returns mapping from execPath to Root. Some roots can equal null if the corresponding
-   * package can't be found. Returns null if for some reason we can't evaluate it.
+   * Returns mapping from execPath to Root. Root will be null if the path has no containing package.
+   *
+   * @param execPaths the paths to find {@link Root}s for. The search for a containing package will
+   *     start with the path's parent directory, since the path is assumed to be a file.
+   * @return mappings from {@code execPath} to {@link Root}, or null if for some reason we cannot
+   *     determine the result at this time (such as when used within a SkyFunction)
    */
   @Nullable
-  Map<PathFragment, Root> findPackageRoots(Iterable<PathFragment> execPaths);
+  Map<PathFragment, Root> findPackageRootsForFiles(Iterable<PathFragment> execPaths)
+      throws InterruptedException;
 }

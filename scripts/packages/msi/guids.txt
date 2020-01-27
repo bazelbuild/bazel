@@ -1,0 +1,45 @@
+# Copyright 2019 The Bazel Authors. All rights reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# Product/@UpgradeCode GUIDs for Bazel.
+# Each UpgradeCode represents an upgradeable group.
+# Products with the same upgrade code can be upgraded (higher version replaces
+# lower version) but not downgraded.
+# Products with different upgrade codes can co-exist.
+
+# IMPORTANT: Never ever modify GUIDs that were once added here and used for
+# building .msi files, as that would break the upgradeability of compatible
+# versions.
+
+# IMPORTANT: If building the .msi yields an error like this:
+#
+#   UpgradeGuid for 0.28.0 not found in scripts\packages\msi\guids.txt
+#
+# ...then you have to add more GUIDs to this file.
+#
+# Each line is a key-value pair, separated by space.
+# Key: version prefix to match.
+#      E.g. the "0.29" prefix matches version "0.29.0" and "0.29.2rc11", and
+#           the "1" prefix matches every "1.*" version and their RCs
+# Value: UpgradeCode GUID to use.
+
+0.26 6D62E4DF-1533-4862-8CB7-CE858E004CCC
+0.27 4FEC9BA1-4CDD-4545-BA6B-8AEBC6DBC1D3
+0.28 B7864F52-FA13-402E-8334-5CF8FE168728
+0.29 BE8D4238-4EF4-4927-A771-8A0BB4BB4283
+1 68CCBF54-5048-4A1E-A425-A632FBB6D2D8
+2 E178166E-B73E-4585-AAEA-7E95769F2CB9
+3 756D74A1-0FFD-487C-AEA1-18BAD5E60E32
+4 F94D9042-6CD7-4918-BD2A-C75A9467BE89
+5 235EEC7E-9958-46CA-B014-B52604654D9E

@@ -1,0 +1,77 @@
+commit 8753495c2536c9e24fa764f06bf3015758461dd4 (HEAD -> master, tag: 3-subdir-bare)
+Author: John Doe <john@example.com>
+Date:   Fri Dec 29 20:33:35 2017 -0500
+
+    Remove BUILD and WORKSPACE files
+
+diff --git a/WORKSPACE b/WORKSPACE
+deleted file mode 100644
+index e69de29..0000000
+diff --git a/pluto/BUILD b/pluto/BUILD
+deleted file mode 100644
+index 874e03f..0000000
+--- a/pluto/BUILD
++++ /dev/null
+@@ -1,5 +0,0 @@
+-filegroup(
+-    name = "pluto",
+-    srcs = ["info"],
+-    visibility = ["//visibility:public"],
+-)
+
+commit dbf9236251a9ea01b7a2eb563ca8e911060fc97c (tag: 2-subdir)
+Author: John Doe <john@example.com>
+Date:   Wed Dec 27 20:54:31 2017 +0000
+
+    Move pluto files into pluto subdirectory
+
+diff --git a/BUILD b/pluto/BUILD
+similarity index 100%
+rename from BUILD
+rename to pluto/BUILD
+diff --git a/info b/pluto/info
+similarity index 100%
+rename from info
+rename to pluto/info
+
+commit 52f9a3f87a2dd17ae0e5847bbae9734f09354afd (tag: 1-build)
+Author: John Doe <john@example.com>
+Date:   Thu Jul 16 04:50:53 2015 -0700
+
+    Add WORKSPACE and BUILD file. Update info because Pluto is no longer a planet.
+
+diff --git a/BUILD b/BUILD
+new file mode 100644
+index 0000000..874e03f
+--- /dev/null
++++ b/BUILD
+@@ -0,0 +1,5 @@
++filegroup(
++    name = "pluto",
++    srcs = ["info"],
++    visibility = ["//visibility:public"],
++)
+diff --git a/WORKSPACE b/WORKSPACE
+new file mode 100644
+index 0000000..e69de29
+diff --git a/info b/info
+index 8f442be..36cbae4 100644
+--- a/info
++++ b/info
+@@ -1 +1 @@
+-Pluto is a planet
++Pluto is a dwarf planet
+
+commit dc948ef26ccac814b7b77f38d263f09778973b57 (tag: 0-initial)
+Author: John Doe <john@example.com>
+Date:   Thu Jul 16 04:49:35 2015 -0700
+
+    Initial commit.
+
+diff --git a/info b/info
+new file mode 100644
+index 0000000..8f442be
+--- /dev/null
++++ b/info
+@@ -0,0 +1 @@
++Pluto is a planet

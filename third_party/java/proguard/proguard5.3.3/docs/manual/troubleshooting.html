@@ -1,0 +1,933 @@
+<!doctype html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<html>
+<head>
+<meta http-equiv="content-type" content="text/html; charset=iso-8859-1">
+<meta http-equiv="content-style-type" content="text/css">
+<link rel="stylesheet" type="text/css" href="style.css">
+<title>ProGuard Troubleshooting</title>
+</head>
+<body>
+
+<script type="text/javascript" language="JavaScript">
+<!--
+if (window.self==window.top)
+  document.write('<a class="largebutton" target="_top" href="../index.html#manual/troubleshooting.html">ProGuard index</a> <a class="largebutton" target="_top" href="http://www.guardsquare.com/dexguard">DexGuard</a> <a class="largebutton" target="_top" href="http://www.guardsquare.com/">GuardSquare</a> <a class="largebutton" target="other" href="http://sourceforge.net/projects/proguard/">Sourceforge</a>')
+//-->
+</script>
+<noscript>
+<a class="largebutton" target="_top"  href="../index.html#manual/troubleshooting.html">ProGuard index</a>
+<a class="largebutton" target="_top"  href="http://www.guardsquare.com/dexguard">DexGuard</a>
+<a class="largebutton" target="_top"  href="http://www.guardsquare.com/">GuardSquare</a>
+<a class="largebutton" target="other" href="http://sourceforge.net/projects/proguard/">Sourceforge</a>
+</noscript>
+
+<h2>Troubleshooting</h2>
+
+While preparing a configuration for processing your code, you may bump into a
+few problems. The following sections discuss some common issues and solutions:
+
+<h3><a href="#processing">Problems while processing</a></h3>
+<ul>
+<li><a href="#dynamicalclass">Note: can't find dynamically referenced class ...</a></li>
+<li><a href="#dynamicalclasscast">Note: ... calls '(...)Class.forName(variable).newInstance()'</a></li>
+<li><a href="#dynamicalclassmember">Note: ... accesses a field/method '...' dynamically</a></li>
+<li><a href="#attributes">Note: ... calls 'Class.get...', 'Field.get...', or 'Method.get...'</a></li>
+<li><a href="#unknownclass">Note: the configuration refers to the unknown class  '...'</a></li>
+<li><a href="#descriptorclass">Note: the configuration keeps the entry point '...', but not the descriptor class '...'</a></li>
+<li><a href="#libraryclass">Note: the configuration explicitly specifies '...' to keep library class '...'</a></li>
+<li><a href="#classmembers">Note: the configuration doesn't specify which class members to keep for class '...'</a></li>
+<li><a href="#nosideeffects">Note: the configuration specifies that none of the methods of class '...' have any side effects</a></li>
+<li><a href="#duplicateclass">Note: duplicate definition of program/library class</a></li>
+<li><a href="#duplicatezipentry">Warning: can't write resource ... Duplicate zip entry</a></li>
+<li><a href="#unresolvedclass">Warning: can't find superclass or interface</a></li>
+<li><a href="#unresolvedclass">Warning: can't find referenced class</a></li>
+<li><a href="#superclass">Error: Can't find any super classes of ... (not even immediate super class ...)</a></li>
+<li><a href="#superclass">Error: Can't find common super class of ... and ...</a></li>
+<li><a href="#unresolvedprogramclassmember">Warning: can't find referenced field/method '...' in program class ...</a></li>
+<li><a href="#unresolvedlibraryclassmember">Warning: can't find referenced field/method '...' in library class ...</a></li>
+<li><a href="#unresolvedenclosingmethod">Warning: can't find enclosing class/method</a></li>
+<li><a href="#dependency">Warning: library class ... depends on program class ...</a></li>
+<li><a href="#unexpectedclass">Warning: class file ... unexpectedly contains class ...</a></li>
+<li><a href="#mappingconflict1">Warning: ... is not being kept as ..., but remapped to ...</a></li>
+<li><a href="#mappingconflict2">Warning: field/method ... can't be mapped to ...</a></li>
+<li><a href="#unsupportedclassversion">Error: Unsupported class version number</a></li>
+<li><a href="#keep">Error: You have to specify '-keep' options</a></li>
+<li><a href="#filename">Error: Expecting class path separator ';' before 'Files\Java\...' (in Windows)</a></li>
+<li><a href="#macosx">Error: Can't read [.../lib/rt.jar] (No such file or directory) (in MacOS X)</a></li>
+<li><a href="#cantread">Error: Can't read ...</a></li>
+<li><a href="#cantwrite">Error: Can't write ...</a></li>
+<li><a href="#startinggui">Internal problem starting the ProGuard GUI (Cannot write XdndAware property) (in Linux)</a></li>
+<li><a href="#outofmemoryerror">OutOfMemoryError</a></li>
+<li><a href="#stackoverflowerror">StackOverflowError</a></li>
+<li><a href="#unexpectederror">Unexpected error</a></li>
+<li><a href="#otherwise">Otherwise...</a></li>
+</ul>
+
+<h3><a href="#afterprocessing">Unexpected observations after processing</a></h3>
+<ul>
+<li><a href="#disappearingclasses">Disappearing classes</a></li>
+<li><a href="#notkept">Classes or class members not being kept</a></li>
+<li><a href="#notobfuscated">Variable names not being obfuscated</a></li>
+</ul>
+
+<h3><a href="#dalvik">Problems while converting to Android Dalvik bytecode</a></h3>
+
+<ul>
+<li><a href="#simexception">SimException: local variable type mismatch</a></li>
+<li><a href="#conversionerror">Conversion to Dalvik format failed with error 1</a></li>
+</ul>
+
+<h3><a href="#preverifying">Problems while preverifying for Java Micro Edition</a></h3>
+
+<ul>
+<li><a href="#invalidclassexception1">InvalidClassException, class loading error, or verification error</a></li>
+</ul>
+
+<h3><a href="#runtime">Problems at run-time</a></h3>
+<ul>
+<li><a href="#stacktraces">Stack traces without class names or line numbers</a></li>
+<li><a href="#noclassdeffounderror">NoClassDefFoundError</a></li>
+<li><a href="#classnotfoundexception">ClassNotFoundException</a></li>
+<li><a href="#nosuchfieldexception">NoSuchFieldException</a></li>
+<li><a href="#nosuchmethodexception">NoSuchMethodException</a></li>
+<li><a href="#missingresourceexception">MissingResourceException or NullPointerException</a></li>
+<li><a href="#disappearingannotations">Disappearing annotations</a></li>
+<li><a href="#invalidjarfile">Invalid or corrupt jarfile</a></li>
+<li><a href="#invalidjarindexexception">InvalidJarIndexException: Invalid index</a></li>
+<li><a href="#invalidclassexception2">InvalidClassException, class loading error, or verification error (in Java Micro Edition)</a></li>
+<li><a href="#nosuchfieldormethod">Error: No Such Field or Method, Error verifying method (in a Java Micro Edition emulator)</a></li>
+<li><a href="#failingmidlets">Failing midlets (on a Java Micro Edition device)</a></li>
+<li><a href="#disappearingloops">Disappearing loops</a></li>
+<li><a href="#securityexception">SecurityException: SHA1 digest error</a></li>
+<li><a href="#classcastexception">ClassCastException: class not an enum</a></li><li><a href="#classcastexception">IllegalArgumentException: class not an enum type</a></li>
+<li><a href="#arraystoreexception">ArrayStoreException: sun.reflect.annotation.EnumConstantNotPresentExceptionProxy</a></li>
+<li><a href="#illegalargumentexception">IllegalArgumentException: methods with same signature but incompatible return types</a></li>
+<li><a href="#compilererror">CompilerError: duplicate addition</a></li>
+<li><a href="#classformaterror1">ClassFormatError: repetitive field name/signature</a></li>
+<li><a href="#classformaterror2">ClassFormatError: Invalid index in LocalVariableTable in class file</a></li>
+<li><a href="#nosuchmethoderror">NoSuchMethodError or AbstractMethodError</a></li>
+<li><a href="#verifyerror">VerifyError</a></li>
+</ul>
+
+
+<h2><a name="processing">Problems while processing</a></h2>
+
+ProGuard may print out some notes and non-fatal warnings:
+
+<dl>
+<dt><a name="dynamicalclass"><b>Note: can't find dynamically referenced class ...</b></a></dt>
+
+<dd>ProGuard can't find a class or interface that your code is accessing by
+    means of introspection. You should consider adding the jar that contains
+    this class.</dd>
+
+<dt><a name="dynamicalclasscast"><b>Note: ... calls '(...)Class.forName(variable).newInstance()'</b></a></dt>
+
+<dd>Your code uses reflection to dynamically create class instances, with a
+    construct like
+    "<code>(MyClass)Class.forName(variable).newInstance()</code>". Depending
+    on your application, you may need to keep the mentioned classes with an
+    option like "<code>-keep class MyClass</code>", or their implementations
+    with an option like "<code>-keep class * implements MyClass</code>". You
+    can switch off these notes by specifying the
+    <a href="usage.html#dontnote"><code>-dontnote</code></a> option.</dd>
+
+<dt><a name="dynamicalclassmember"><b>Note: ... accesses a field/method '...' dynamically</b></a></dt>
+
+<dd>Your code uses reflection to find a fields or a method, with a construct
+    like "<code>.getField("myField")</code>". Depending on your application,
+    you may need to figure out where the mentioned class members are defined
+    and keep them with an option like "<code>-keep class MyClass { MyFieldType
+    myField; }</code>". Otherwise, ProGuard might remove or obfuscate the
+    class members, since it can't know which ones they are exactly. It does
+    list possible candidates, for your information. You can switch off these
+    notes by specifying
+    the <a href="usage.html#dontnote"><code>-dontnote</code></a> option.</dd>
+
+<dt><a name="attributes"><b>Note: ... calls 'Class.get...'</b>, <b>'Field.get...'</b>, or <b>'Method.get...'</b></a></dt>
+<dd>Your code uses reflection to access metadata from the code, with an
+    invocation like "<code>class.getAnnotations()</code>". You then generally
+    need to preserve optional <a href="attributes.html">class file
+    attributes</a>, which ProGuard removes by default. The attributes contain
+    information about annotations, enclosing classes, enclosing methods, etc.
+    In a summary in the log, ProGuard provides a suggested configuration,
+    like <a href="usage.html#keepattributes"><code>-keepattributes
+    *Annotation*</code></a>. If you're sure the attributes are not necessary,
+    you can switch off these notes by specifying
+    the <a href="usage.html#dontnote"><code>-dontnote</code></a> option.</dd>
+
+<dt><a name="unknownclass"><b>Note: the configuration refers to the unknown class  '...'</b></a></dt>
+
+<dd>Your configuration refers to the name of a class that is not present in
+    the program jars or library jars. You should check whether the name is
+    correct. Notably, you should make sure that you always specify
+    fully-qualified names, not forgetting the package names.</dd>
+
+<dt><a name="descriptorclass"><b>Note: the configuration keeps the entry point '...', but not the descriptor class '...'</b></a></dt>
+
+<dd>Your configuration contains a <code>-keep</code> option to preserve the
+    given method (or field), but no <code>-keep</code> option for the given
+    class that is an argument type or return type in the method's descriptor.
+    You may then want to keep the class too. Otherwise, ProGuard will
+    obfuscate its name, thus changing the method's signature. The method might
+    then become unfindable as an entry point, e.g. if it is part of a public
+    API. You can automatically keep such descriptor classes with
+    the <code>-keep</code> option modifier
+    <a href="usage.html#includedescriptorclasses"><code>includedescriptorclasses</code></a>
+    (<code>-keep,includedescriptorclasses</code> ...). You can switch off
+    these notes by specifying
+    the <a href="usage.html#dontnote"><code>-dontnote</code></a> option.</dd>
+
+<dt><a name="libraryclass"><b>Note: the configuration explicitly specifies '...' to keep library class '...'</b></a></dt>
+
+<dd>Your configuration contains a <code>-keep</code> option to preserve the
+    given library class. However, you don't need to keep any library classes.
+    ProGuard always leaves underlying libraries unchanged. You can switch off
+    these notes by specifying the
+    <a href="usage.html#dontnote"><code>-dontnote</code></a> option.</dd>
+
+<dt><a name="classmembers"><b>Note: the configuration doesn't specify which class members to keep for class '...'</b></a></dt>
+
+<dd>Your configuration contains a
+    <a href="usage.html#keepclassmembers"><code>-keepclassmembers</code></a>/<a href="usage.html#keepclasseswithmembers"><code>-keepclasseswithmembers</code></a>
+    option to preserve fields or methods in the given class, but it doesn't
+    specify which fields or methods. This way, the option simply won't have
+    any effect. You probably want to specify one or more fields or methods, as
+    usual between curly braces. You can specify all fields or methods with a
+    wildcard "<code>*;</code>". You should also consider if you just need the
+    more common <a href="usage.html#keep"><code>-keep</code></a> option, which
+    preserves all specified classes <i>and</i> class members.
+    The <a href="usage.html#keepoverview">overview of all <code>keep</code>
+    options</a> can help. You can switch off these notes by specifying
+    the <a href="usage.html#dontnote"><code>-dontnote</code></a> option.</dd>
+
+<dt><a name="nosideeffects"><b>Note: the configuration specifies that none of the methods of class '...' have any side effects</b></a></dt>
+
+<dd>Your configuration contains an option
+    <a href="usage.html#assumenosideeffects"><code>-assumenosideeffects</code></a>
+    to indicate that the specified methods don't have any side effects.
+    However, the configuration tries to match <i>all</i> methods, by using a
+    wildcard like "<code>*;</code>". This includes methods
+    from <code>java.lang.Object</code>, such as <code>wait()</code> and
+    <code>notify()</code>. Removing invocations of those methods will most
+    likely break your application. You should list the methods without side
+    effects more conservatively. You can switch off these notes by specifying
+    the <a href="usage.html#dontnote"><code>-dontnote</code></a> option.</dd>
+
+<dt><a name="duplicateclass"><b>Note: duplicate definition of program/library class</b></a></dt>
+
+<dd>Your program jars or library jars contain multiple definitions of the
+    listed classes. ProGuard continues processing as usual, only considering
+    the first definitions. The warning may be an indication of some problem
+    though, so it's advisable to remove the duplicates. A convenient way to do
+    so is by specifying filters on the input jars or library jars. You can
+    switch off these notes by specifying the <a
+    href="usage.html#dontnote"><code>-dontnote</code></a> option.
+    <p>
+    <img class="float" src="android_small.png" width="32" height="32"
+    alt="android" /> The standard Android build process automatically
+    specifies the input jars for you. There may not be an easy way to filter
+    them to remove these notes. You could remove the duplicate classes
+    manually from your libraries. You should never explicitly specify the
+    input jars yourself (with <code>-injars</code> or
+    <code>-libraryjars</code>), since you'll then get duplicate definitions.
+    You should also not add libraries to your application that are already
+    part of the Android run-time (notably <code>org.w3c.dom</code>,
+    <code>org.xml.sax</code>, <code>org.xmlpull.v1</code>,
+    <code>org.apache.commons.logging.Log</code>, <code>org.apache.http</code>,
+    and <code>org.json</code>). They are possibly inconsistent, and the
+    run-time libraries would get precedence anyway.</dd>
+
+<dt><a name="duplicatezipentry"><b>Warning: can't write resource ... Duplicate zip entry</b></a></dt>
+
+<dd>Your input jars contain multiple resource files with the same name.
+    ProGuard continues copying the resource files as usual, skipping any files
+    with previously used names. Once more, the warning may be an indication of
+    some problem though, so it's advisable to remove the duplicates. A
+    convenient way to do so is by specifying filters on the input jars. There
+    is no option to switch off these warnings.
+    <p>
+    <img class="float" src="android_small.png" width="32" height="32"
+    alt="android" /> The standard Android build process automatically
+    specifies the input jars for you. There may not be an easy way to filter
+    them to remove these warnings. You could remove the duplicate resource files
+    manually from the input and the libraries.</dd>
+
+</dl>
+<p>
+
+ProGuard may terminate when it encounters parsing errors or I/O errors, or
+some more serious warnings:
+
+<dl>
+<dt><a name="unresolvedclass"><b>Warning: can't find superclass or interface</b><br/><b>Warning: can't find referenced class</b></a></dt>
+
+<dd>A class in one of your program jars or library jars is referring to a
+    class or interface that is missing from the input. The warning lists both
+    the referencing class(es) and the missing referenced class(es). There can
+    be a few reasons, with their own solutions:
+    <p>
+    <ol>
+    <li>If the missing class is referenced from your own code, you may have
+        forgotten to specify an essential library. Just like when compiling
+        all code from scratch, you must specify all libraries that the code is
+        referencing, directly or indirectly. If the library should be
+        processed and included in the output, you should specify it with
+        <a href="usage.html#injars"><code>-injars</code></a>, otherwise you
+        should specify it with
+        <a href="usage.html#libraryjars"><code>-libraryjars</code></a>.
+        <p>
+        For example, if ProGuard complains that it can't find a
+        <code>java.lang</code> class, you have to make sure that you are
+        specifying the run-time library of your platform. For JSE, these are
+        typically packaged in <code>lib/rt.jar</code> (<code>vm.jar</code> for
+        IBM's JVM, and <code>classes.jar</code> in MacOS X). Other platforms
+        like JME and Android have their own run-time libraries.
+        The <a href="examples.html">examples section</a> provides more details
+        for the various platforms.
+        <p>
+        If ProGuard still complains that it can't find a
+        <code>javax.crypto</code> class, you probably still have to specify
+        <code>jce.jar</code>, next to the more common <code>rt.jar</code>.</li>
+    <li>If the missing class is referenced from a pre-compiled third-party
+        library, and your original code runs fine without it, then the missing
+        dependency doesn't seem to hurt. The cleanest solution is to
+        <a href="usage.html#filters">filter out</a> the <i>referencing</i>
+        class or classes from the input, with a filter like "<code>-libraryjars
+        mylibrary.jar(!somepackage/SomeUnusedReferencingClass.class)</code>".
+        ProGuard will then skip this class entirely in the input, and it will
+        not bump into the problem of its missing reference. However, you may
+        then have to filter out other classes that are in turn referencing the
+        removed class. In practice, this works best if you can filter out
+        entire unused packages at once, with a wildcard filter like
+        "<code>-libraryjars
+        mylibrary.jar(!someunusedpackage/**)</code>".<p></li>
+    <li>If you don't feel like filtering out the problematic classes, you can
+        try your luck with the <a
+        href="usage.html#ignorewarnings"><code>-ignorewarnings</code></a>
+        option, or even
+        the <a href="usage.html#dontwarn"><code>-dontwarn</code></a> option.
+        Only use these options if you really know what you're doing though.</li>
+    </ol>
+    <p>
+    <img class="float" src="android_small.png" width="32" height="32"
+    alt="android" /> The standard Android build process automatically
+    specifies the input jars for you. Unfortunately, many pre-compiled
+    third-party libraries refer to other libraries that are not actually used
+    and therefore not present. This works fine in debug builds, but in release
+    builds, ProGuard expects all libraries, so it can perform a proper static
+    analysis. For example, if ProGuard complains that it can't find
+    a <code>java.awt</code> class, then some library that you are using is
+    referring to <code>java.awt</code>. This is a bit shady, since Android
+    doesn't have this package at all, but if your application works anyway,
+    you can let ProGuard accept it with "<code>-dontwarn java.awt.**</code>",
+    for instance.
+    <p>
+    If the missing class is an Android run-time class, you should make sure
+    that you are building against an Android run-time that is sufficiently
+    recent. You may need to change the build target in your
+    <code>project.properties</code> file or <code>build.gradle</code> file to
+    that recent version. You can still specify a different
+    <code>minSdkVersion</code> and a different <code>targetSdkVersion</code>
+    in your <code>AndroidManifest.xml</code> file.</dd>
+
+<dt><a name="superclass"><b>Error: Can't find any super classes of ... (not even immediate super class ...)</b><br/><b>Error: Can't find common super class of ... and ...</b></a></dt>
+
+<dd>It seems like you tried to avoid the warnings from the previous paragraph
+    by specifying
+    <a href="usage.html#ignorewarnings"><code>-ignorewarnings</code></a>
+    or <a href="usage.html#dontwarn"><code>-dontwarn</code></a>, but it didn't
+    work out. ProGuard's optimization step and preverification step really
+    need the missing classes to make sense of the code. Preferably, you would
+    solve the problem by adding the missing library, as discussed. If you're
+    sure the class that references the missing class isn't used either, you
+    could also try filtering it out from the input, by adding a filter to the
+    corresponding <a href="usage.html#injars"><code>-injars</code></a> option:
+    "<code>-injars
+    myapplication.jar(!somepackage/SomeUnusedClass.class)</code>". As a final
+    solution, you could switch off optimization
+    (<a href="usage.html#dontoptimize"><code>-dontoptimize</code></a>) and
+    preverification
+    (<a href="usage.html#dontpreverify"><code>-dontpreverify</code></a>).</dd>
+
+<dt><a name="unresolvedprogramclassmember"><b>Warning: can't find referenced field/method '...' in program class ...</b></a></dt>
+
+<dd>A program class is referring to a field or a method that is missing from
+    another program class. The warning lists both the referencing class and
+    the missing referenced class member. Your compiled class files are most
+    likely inconsistent. Possibly, some class file didn't get recompiled
+    properly, or some class file was left behind after its source file was
+    removed. Try removing all compiled class files and rebuilding your
+    project.</dd>
+
+<dt><a name="unresolvedlibraryclassmember"><b>Warning: can't find referenced field/method '...' in library class ...</b></a></dt>
+
+<dd>A program class is referring to a field or a method that is missing from a
+    library class. The warning lists both the referencing class and the
+    missing referenced class member. Your compiled class files are
+    inconsistent with the libraries. You may need to recompile the class
+    files, or otherwise upgrade the libraries to consistent versions.
+    <p>
+    <img class="float" src="android_small.png" width="32" height="32"
+    alt="android" /> If you're developing for Android and ProGuard complains
+    that it can't find a method that is only available in a recent version of
+    the Android run-time, you should change the build target in your
+    <code>project.properties</code> file or <code>build.gradle</code> file to
+    that recent version. You can still specify a different
+    <code>minSdkVersion</code> and a different <code>targetSdkVersion</code>
+    in your <code>AndroidManifest.xml</code> file.
+    <p>
+    Alternatively, you may get away with ignoring the inconsistency with the
+    options
+    <a href="usage.html#ignorewarnings"><code>-ignorewarnings</code></a> or
+    even
+    <a href="usage.html#dontwarn"><code>-dontwarn</code></a>. For instance, you
+    can specify "<code>-dontwarn mypackage.MyInconsistentClass</code>".
+    <p>
+    Finally, should your program classes reside in the same packages as
+    library classes and should they refer to their package visible class
+    members, then you should also specify the
+    <a href="usage.html#dontskipnonpubliclibraryclassmembers"><code>-dontskipnonpubliclibraryclassmembers</code></a>
+    option.</dd>
+
+<dt><a name="unresolvedenclosingmethod"><b>Warning: can't find enclosing class/method</b></a></dt>
+
+<dd>If there are unresolved references to classes that are defined inside
+    methods in your input, once more, your compiled class files are most likely
+    inconsistent. Possibly, some class file didn't get recompiled properly, or
+    some class file was left behind after its source file was removed. Try
+    removing all compiled class files and rebuilding your project.</dd>
+
+<dt><a name="dependency"><b>Warning: library class ... depends on program class ...</b></a></dt>
+
+<dd>If any of your library classes depend on your program classes, by
+    extending, implementing or just referencing them, your processed code will
+    generally be unusable. Program classes can depend on library classes, but
+    not the other way around. Program classes are processed, while library
+    classes always remain unchanged. It is therefore impossible to adapt
+    references from library classes to program classes, for instance if the
+    program classes are renamed. You should define a clean separation between
+    program code (specified with <a
+    href="usage.html#injars"><code>-injars</code></a>) and library code
+    (specified with <a
+    href="usage.html#libraryjars"><code>-libraryjars</code></a>), and try
+    again.
+    <p>
+    <img class="float" src="android_small.png" width="32" height="32"
+    alt="android" /> In Android development, sloppy libraries may contain
+    duplicates of classes that are already present in the Android run-time
+    (notably <code>org.w3c.dom</code>, <code>org.xml.sax</code>,
+    <code>org.xmlpull.v1</code>, <code>org.apache.commons.logging.Log</code>,
+    <code>org.apache.http</code>, and <code>org.json</code>). You must remove
+    these classes from your libraries, since they are possibly inconsistent,
+    and the run-time libraries would get precedence anyway.</dd>
+
+<dt><a name="unexpectedclass"><b>Warning: class file ... unexpectedly contains class ...</b></a></dt>
+
+<dd>The given class file contains a definition for the given class, but the
+    directory name of the file doesn't correspond to the package name of the
+    class. ProGuard will accept the class definition, but the current
+    implementation will not write out the processed version. Please make sure
+    your input classes are packaged correctly. Notably, class files that are
+    in the <code>WEB-INF/classes</code> directory in a war should be packaged
+    in a jar and put in the <code>WEB-INF/lib</code> directory. If you don't
+    mind these classes not being written to the output, you can specify the <a
+    href="usage.html#ignorewarnings"><code>-ignorewarnings</code></a> option,
+    or even the <a href="usage.html#dontwarn"><code>-dontwarn</code></a>
+    option.</dd>
+
+<dt><a name="mappingconflict1"><b>Warning: ... is not being kept as ..., but remapped to ...</b></a></dt>
+
+<dd>There is a conflict between a <code>-keep</code> option in the
+    configuration, and the mapping file, in the obfuscation step. The given
+    class name or class member name can't be kept by its original name, as
+    specified in the configuration, but it has to be mapped to the other given
+    name, as specified in the mapping file. You should adapt your
+    configuration or your mapping file to remove the conflict. Alternatively,
+    if you're sure the renaming won't hurt, you can specify the <a
+    href="usage.html#ignorewarnings"><code>-ignorewarnings</code></a> option,
+    or even the <a href="usage.html#dontwarn"><code>-dontwarn</code></a>
+    option.</dd>
+
+<dt><a name="mappingconflict2"><b>Warning: field/method ... can't be mapped to ...</b></a></dt>
+
+<dd>There is a conflict between some new program code and the mapping file, in
+    the obfuscation step. The given class member can't be mapped to the given
+    name, because it would conflict with another class member that is already
+    being mapped to the same name. This can happen if you are performing
+    incremental obfuscation, applying an obfuscation mapping file from an
+    initial obfuscation step. For instance, some new class may have been added
+    that extends two existing classes, introducing a conflict in the name
+    space of its class members. If you're sure the class member receiving
+    another name than the one specified won't hurt, you can specify the <a
+    href="usage.html#ignorewarnings"><code>-ignorewarnings</code></a> option,
+    or even the <a href="usage.html#dontwarn"><code>-dontwarn</code></a>
+    option. Note that you should always use the <a
+    href="usage.html#useuniqueclassmembernames"><code>-useuniqueclassmembernames</code></a>
+    option in the initial obfuscation step, in order to reduce the risk of
+    conflicts.</dd>
+
+<dt><a name="unsupportedclassversion"><b>Error: Unsupported class version number</b></a></dt>
+
+<dd>You are trying to process class files compiled for a recent version of
+    Java that your copy of ProGuard doesn't support yet. You
+    should <a href="http://proguard.sourceforge.net/downloads.html">check
+    on-line</a> if there is a more recent release.</dd>
+
+<dt><a name="keep"><b>Error: You have to specify '-keep' options</b></a></dt>
+
+<dd>You either forgot to specify <a
+    href="usage.html#keep"><code>-keep</code></a> options, or you mistyped the
+    class names. ProGuard has to know exactly what you want to keep: an
+    application, an applet, a servlet, a midlet,..., or any combination of
+    these. Without the proper seed specifications, ProGuard would shrink,
+    optimize, or obfuscate all class files away.</dd>
+
+<dt><a name="filename"><b>Error: Expecting class path separator ';' before 'Files\Java\</b>...<b>'</b> (in Windows)</a></dt>
+
+<dd>If the path of your run-time jar contains spaces, like in "Program Files",
+    you have to enclose it with single or double quotes, as explained in the
+    section on <a href="usage.html#filename">file names</a>. This is actually
+    true for all file names containing special characters, on all
+    platforms.</dd>
+
+<dt><a name="macosx"><b>Error: Can't read [</b>...<b>/lib/rt.jar] (No such file or directory)</b> (in MacOS X)</a></dt>
+
+<dd>In MacOS X, the run-time classes may be in a different place than on most
+    other platforms. You'll then have to adapt your configuration, replacing
+    the path <code>&lt;java.home&gt;/lib/rt.jar</code> by
+    <code>&lt;java.home&gt;/../Classes/classes.jar</code>.</dd>
+
+<dt><a name="cantread"><b>Error: Can't read ...</b></a></dt>
+
+<dd>ProGuard can't read the specified file or directory. Double-check that the
+    name is correct in your configuration, that the file is readable, and that
+    it is not corrupt. An additional message "Unexpected end of ZLIB input
+    stream" suggests that the file is truncated. You should then make sure
+    that the file is complete on disk when ProGuard starts (asynchronous
+    copying? unflushed buffer or cache?), and that it is not somehow
+    overwritten by ProGuard's own output.</dd>
+
+<dt><a name="cantwrite"><b>Error: Can't write ...</b></a></dt>
+
+<dd>ProGuard can't write the specified file or directory. Double-check that
+    the name is correct in your configuration and that the file is
+    writable.</dd>
+
+<dt><a name="startinggui"><b>Internal problem starting the ProGuard GUI (Cannot write XdndAware property)</b> (in Linux)</a></dt>
+
+<dd>In Linux, at least with Java 6, the GUI may not start properly, due to
+    <a href="http://bugs.sun.com/view_bug.do?bug_id=7027598">Sun
+    Bug #7027598</a>. The work-around at this time is to specify the JVM
+   option <code>-DsuppressSwingDropSupport=true</code> when running the
+   GUI.</dd>
+
+</dl>
+<p>
+
+Should ProGuard crash while processing your application:
+
+<dl>
+<dt><a name="outofmemoryerror"><b>OutOfMemoryError</b></a></dt>
+
+<dd>You can try increasing the heap size of the Java virtual machine, with the
+    usual <code>-Xmx</code> option:
+    <ul>
+    <li>In Java, specify the option as an argument to the JVM: <code>java
+        -Xmx1024m</code> ...
+    <li>In Ant, set the environment variable <code>ANT_OPTS=-Xmx1024m</code>
+    <li>In Gradle, set the environment variable
+        <code>GRADLE_OPTS=-Xmx1024m</code>
+    <li>In Maven, set the environment variable
+        <code>MAVEN_OPTS=-Xmx1024m</code>
+    <li>In Eclipse, add the line  <code>-Xmx1024m</code> to the file
+        <code>eclipse.ini</code> inside your Eclipse install.
+    </ul>
+    You can also reduce the amount of memory that ProGuard needs by removing
+    unnecessary library jars from your configuration, or by filtering out
+    unused library packages and classes.</dd>
+
+<dt><a name="stackoverflowerror"><b>StackOverflowError</b></a></dt>
+
+<dd>This error might occur when processing a large code base on Windows
+    (surprisingly, not so easily on Linux). In theory, increasing the stack
+    size of the Java virtual machine (with the usual <code>-Xss</code> option)
+    should help too. In practice however, the <code>-Xss</code> setting
+    doesn't have any effect on the main thread, due to <a
+    href="http://bugs.sun.com/view_bug.do?bug_id=4362291">Sun Bug
+    #4362291</a>. As a result, this solution will only work when running
+    ProGuard in a different thread, e.g. from its GUI.</dd>
+
+<dt><a name="unexpectederror"><b>Unexpected error</b></a></dt>
+
+<dd>ProGuard has encountered an unexpected condition, typically in the
+    optimization step. It may or may not recover. You should be able to avoid
+    it using the <a
+    href="usage.html#dontoptimize"><code>-dontoptimize</code></a> option. In
+    any case, please report the problem, preferably with the simplest example
+    that causes ProGuard to crash.</dd>
+
+<dt><a name="otherwise"><b>Otherwise...</b></a></dt>
+
+<dd>Maybe your class files are corrupt. See if recompiling them and trying
+    again helps. If not, please report the problem, preferably with the
+    simplest example that causes ProGuard to crash.</dd>
+
+</dl>
+<p>
+
+<h2><a name="afterprocessing">Unexpected observations after processing</a></h2>
+
+If ProGuard seems to run fine, but your processed code doesn't look right,
+there might be a couple of reasons:
+
+<dl>
+<dt><a name="disappearingclasses"><b>Disappearing classes</b></a></dt>
+
+<dd>If you are working on Windows and it looks like some classes have
+    disappeared from your output, you should make sure you're not writing your
+    output class files to a directory (or unpacking the output jar). On
+    platforms with case-insensitive file systems, such as Windows, unpacking
+    tools often let class files with similar lower-case and upper-case names
+    overwrite each other. If you really can't switch to a different operating
+    system, you could consider using ProGuard's <a
+    href="usage.html#dontusemixedcaseclassnames"><code>-dontusemixedcaseclassnames</code></a>
+    option.
+    <p>
+    Also, you should make sure your class files are in directories that
+    correspond to their package names. ProGuard will read misplaced class
+    files, but it will currently not write their processed versions. Notably,
+    class files that are in the <code>WEB-INF/classes</code> directory in a
+    war should be packaged in a jar and put in the <code>WEB-INF/lib</code>
+    directory.</dd>
+
+<dt><a name="notkept"><b>Classes or class members not being kept</b></a></dt>
+
+<dd>If ProGuard is not keeping the right classes or class members, make sure
+    you are using fully qualified class names. If the package name of some
+    class is missing, ProGuard won't match the elements that you might be
+    expecting. It may help to double-check for typos too. You can use the <a
+    href="usage.html#printseeds"><code>-printseeds</code></a> option to see
+    which elements are being kept exactly.
+    <p>
+    If you are using marker interfaces to keep other classes, the marker
+    interfaces themselves are probably being removed in the shrinking step.
+    You should therefore always explicitly keep any marker interfaces, with
+    an option like "<code>-keep interface MyMarkerInterface</code>".
+    <p>
+    Similarly, if you are keeping classes based on annotations, you may have
+    to avoid that the annotation classes themselves are removed in the
+    shrinking step. You should package the annotation classes as a library, or
+    explicitly keep them in your program code with an option like "<code>-keep
+    @interface *</code>".</dd>
+
+<dt><a name="notobfuscated"><b>Variable names not being obfuscated</b></a></dt>
+
+<dd>If the names of the local variables and parameters in your obfuscated code
+    don't look obfuscated, because they suspiciously resemble the names of
+    their types, it's probably because the decompiler that you are using is
+    coming up with those names. ProGuard's obfuscation step does remove the
+    original names entirely, unless you explicitly keep the
+    <code>LocalVariableTable</code> or <code>LocalVariableTypeTable</code>
+    attributes.</dd>
+
+</dl>
+
+<h2><a name="dalvik">Problems while converting to Android Dalvik bytecode</a></h2>
+
+If ProGuard seems to run fine, but the dx tool in the Android SDK subsequently
+fails with an error:
+
+<dl>
+<dt><a name="simexception"><b>SimException: local variable type mismatch</b></a></dt>
+
+<dd>This error indicates that ProGuard's optimization step has not been able
+    to maintain the correct debug information about local variables. This can
+    happen if some code is optimized radically. Possible work-arounds: let the
+    java compiler not produce debug information (<code>-g:none</code>), or let
+    ProGuard's obfuscation step remove the debug information again
+    (by <i>not</i> keeping the attributes <code>LocalVariableTable</code>
+    and <code>LocalVariableTypeTable</code>
+    with <a href="usage.html#keepattributes"><code>-keepattributes</code></a>),
+    or otherwise just disable optimization
+    (<a href="usage.html#dontoptimize"><code>-dontoptimize</code></a>).</dd>
+
+<dt><a name="conversionerror"><b>Conversion to Dalvik format failed with error 1</b></a></dt>
+
+<dd>This error may have various causes, but if dx is tripping over some code
+    processed by ProGuard, you should make sure that you are using the latest
+    version of ProGuard. You can just copy the ProGuard jars
+    to <code>android-sdk/tools/proguard/lib</code>. If that doesn't help,
+    please report the problem, preferably with the simplest example that still
+    brings out the error.</dd>
+
+</dl>
+
+<h2><a name="preverifying">Problems while preverifying for Java Micro Edition</a></h2>
+
+If ProGuard seems to run fine, but the external preverifier subsequently
+produces errors, it's usually for a single reason:
+
+<dl>
+<dt><a name="invalidclassexception1"><b>InvalidClassException</b>, <b>class loading error</b>, or <b>verification error</b></a></dt>
+
+<dd>If you get any such message from the preverifier, you are probably working
+    on a platform with a case-insensitive file system, such as Windows. The
+    <code>preverify</code> tool always unpacks the jars, so class files with
+    similar lower-case and upper-case names overwrite each other. You can use
+    ProGuard's <a
+    href="usage.html#dontusemixedcaseclassnames"><code>-dontusemixedcaseclassnames</code></a>
+    option to work around this problem.
+    <p>
+    If the above doesn't help, there is probably a bug in the optimization
+    step of ProGuard. Make sure you are using the latest version. You should
+    be able to work around the problem by using the <a
+    href="usage.html#dontoptimize"><code>-dontoptimize</code></a> option. You
+    can check the bug database to see if it is a known problem (often with a
+    fix). Otherwise, please report it, preferably with the simplest example on
+    which you can find ProGuard to fail.</dd>
+
+</dl>
+
+Note that it is no longer necessary to use an external preverifier. With the
+<a href="usage.html#microedition"><code>-microedition</code></a> option,
+ProGuard will preverify the class files for Java Micro Edition.
+<p>
+
+<h2><a name="runtime">Problems at run-time</a></h2>
+
+If ProGuard runs fine, but your processed application doesn't work, there
+might be several reasons:
+
+<dl>
+<dt><a name="stacktraces"><b>Stack traces without class names or line numbers</b></a></dt>
+
+<dd>If your stack traces don't contain any class names or lines numbers,
+    even though you are keeping the proper attributes, make sure this debugging
+    information is present in your compiled code to start with. Notably the Ant
+    javac task has debugging information switched off by default.</dd>
+
+<dt><a name="noclassdeffounderror"><b>NoClassDefFoundError</b></a></dt>
+
+<dd>Your class path is probably incorrect. It should at least contain all
+    library jars and, of course, your processed program jar.</dd>
+
+<dt><a name="classnotfoundexception"><b>ClassNotFoundException</b></a></dt>
+
+<dd>Your code is probably calling <code>Class.forName</code>, trying to create
+    the missing class dynamically. ProGuard can only detect constant name
+    arguments, like <code>Class.forName("mypackage.MyClass")</code>. For
+    variable name arguments like <code>Class.forName(someClass)</code>, you
+    have to keep all possible classes using the appropriate <a
+    href="usage.html#keep"><code>-keep</code></a> option, e.g. "<code>-keep
+    class mypackage.MyClass</code>" or "<code>-keep class * implements
+    mypackage.MyInterface</code>".</dd>
+
+<dt><a name="nosuchfieldexception"><b>NoSuchFieldException</b></a></dt>
+
+<dd>Your code is probably calling something like
+    <code>myClass.getField</code>, trying to find some field dynamically.
+    Since ProGuard can't always detect this automatically, you have to keep
+    the missing field in using the
+    appropriate <a href="usage.html#keep"><code>-keep</code></a> option, e.g.
+    "<code>-keepclassmembers class mypackage.MyClass { int myField;
+    }</code>".</dd>
+
+<dt><a name="nosuchmethodexception"><b>NoSuchMethodException</b></a></dt>
+
+<dd>Your code is probably calling something like
+    <code>myClass.getMethod</code>, trying to find some method dynamically.
+    Since ProGuard can't always detect this automatically, you have to keep
+    the missing method in using the
+    appropriate <a href="usage.html#keep"><code>-keep</code></a> option, e.g.
+    "<code>-keepclassmembers class mypackage.MyClass { void myMethod();
+    }</code>".
+    <p>
+    More specifically, if the method reported as missing is
+    <code>values</code> or <code>valueOf</code>, you probably have to keep
+    some methods related to <a
+    href="examples.html#enumerations">enumerations</a>.</dd>
+
+<dt><a name="missingresourceexception"><b>MissingResourceException</b> or <b>NullPointerException</b></a></dt>
+
+<dd>Your processed code may be unable to find some resource files. ProGuard
+    simply copies resource files over from the input jars to the output jars.
+    Their names and contents remain unchanged, unless you specify the options
+    <a
+    href="usage.html#adaptresourcefilenames"><code>-adaptresourcefilenames</code></a>
+    and/or <a
+    href="usage.html#adaptresourcefilecontents"><code>-adaptresourcefilecontents</code></a>.
+    <p>
+    Furthermore, directory entries in jar files aren't copied, unless you
+    specify the option <a
+    href="usage.html#keepdirectories"><code>-keepdirectories</code></a>.
+    Note that Sun advises against calling <code>Class.getResource()</code> for
+    directories (<a href="http://bugs.sun.com/view_bug.do?bug_id=4761949">Sun
+    Bug #4761949</a>).</dd>
+
+<dt><a name="disappearingannotations"><b>Disappearing annotations</b></a></dt>
+
+<dd>By default, the obfuscation step removes all annotations. If your
+    application relies on annotations to function properly, you should
+    explicitly keep them with
+    <code><a href="usage.html#keepattributes">-keepattributes</a>
+    *Annotation*</code>.</dd>
+
+<dt><a name="invalidjarfile"><b>Invalid or corrupt jarfile</b></a></dt>
+
+<dd>You are probably starting your application with the java option
+    <code>-jar</code> instead of the option <code>-classpath</code>. The java
+    virtual machine returns with this error message if your jar doesn't
+    contain a manifest file (<code>META-INF/MANIFEST.MF</code>), if the
+    manifest file doesn't specify a main class (<code>Main-Class:</code> ...),
+    or if the jar doesn't contain this main class. You should then make sure
+    that the input jar contains a valid manifest file to start with, that this
+    manifest file is the one that is copied (the first manifest file that is
+    encountered), and that the main class is kept in your configuration,</dd>
+
+<dt><a name="invalidjarindexexception"><b>InvalidJarIndexException: Invalid index</b></a></dt>
+
+<dd>At least one of your processed jar files contains an index file
+    <code>META-INF/INDEX.LIST</code>, listing all class files in the jar.
+    ProGuard by default copies files like these unchanged. ProGuard may however
+    remove or rename classes, thus invalidating the file. You should filter the
+    index file out of the input
+    (<code>-injars in.jar(!META-INF/INDEX.LIST)</code>) or update the file
+    after having applied ProGuard (<code>jar -i out.jar</code>).
+    </dd>
+
+<dt><a name="invalidclassexception2"><b>InvalidClassException</b>, <b>class loading error</b>, or <b>verification error</b> (in Java Micro Edition)</a></dt>
+
+<dd>If you get such an error in Java Micro Edition, you may have forgotten to
+    specify the <a
+    href="usage.html#microedition"><code>-microedition</code></a> option, so
+    the processed class files are preverified properly.</dd>
+
+<dt><a name="nosuchfieldormethod"><b>Error: No Such Field or Method</b>, <b>Error verifying method</b> (in a Java Micro Edition emulator)</a></dt>
+
+<dd>If you get such a message in a Motorola or Sony Ericsson phone emulator,
+    it's because these emulators don't like packageless classes and/or
+    overloaded fields and methods. You can work around it by not using the
+    options <code><a href="usage.html#repackageclasses">-repackageclasses</a>
+    ''</code> and <a
+    href="usage.html#overloadaggressively"><code>-overloadaggressively</code></a>.
+    If you're using the JME WTK plugin, you can adapt the configuration
+    <code>proguard/wtk/default.pro</code> that's inside the
+    <code>proguard.jar</code>.</dd>
+
+<dt><a name="failingmidlets"><b>Failing midlets</b> (on a Java Micro Edition device)</a></dt>
+
+<dd>If your midlet runs in an emulator and on some devices, but not on some
+    other devices, this is probably due to a bug in the latter devices. For
+    some older Motorola and Nokia phones, you might try specifying the <a
+    href="usage.html#useuniqueclassmembernames"><code>-useuniqueclassmembernames</code></a>
+    option. It avoids overloading class member names, which triggers a bug in
+    their java virtual machine.
+    <p>
+    You might also try using the <a
+    href="usage.html#dontusemixedcaseclassnames"><code>-dontusemixedcaseclassnames</code></a>
+    option. Even if the midlet has been properly processed and then
+    preverified on a case-sensitive file system, the device itself might not
+    like the mixed-case class names. Notably, the Nokia N-Gage emulator works
+    fine, but the actual device seems to exhibit this problem.</dd>
+
+<dt><a name="disappearingloops"><b>Disappearing loops</b></a></dt>
+
+<dd>If your code contains empty busy-waiting loops, ProGuard's optimization
+    step may remove them. More specifically, this happens if a loop
+    continuously checks the value of a non-volatile field that is changed in a
+    different thread. The specifications of the Java Virtual Machine require
+    that you always mark fields that are accessed across different threads
+    without further synchronization as <code>volatile</code>. If this is not
+    possible for some reason, you'll have to switch off optimization using the
+    <a href="usage.html#dontoptimize"><code>-dontoptimize</code></a>
+    option.</dd>
+
+<dt><a name="securityexception"><b>SecurityException: SHA1 digest error</b></a></dt>
+
+<dd>You may have forgotten to sign your program jar <i>after</i> having
+    processed it with ProGuard.</dd>
+
+<dt><a name="classcastexception"><b>ClassCastException: class not an enum</b>, or <br /><b>IllegalArgumentException: class not an enum type</b></a></dt>
+
+<dd>You should make sure you're preserving the special methods of enumeration
+    types, which the run-time environment calls by introspection. The required
+    options are shown in the <a
+    href="examples.html#enumerations">examples</a>.</dd>
+
+<dt><a name="arraystoreexception"><b>ArrayStoreException: sun.reflect.annotation.EnumConstantNotPresentExceptionProxy</b></a></dt>
+
+<dd>You are probably processing annotations involving enumerations. Again, you
+    should make sure you're preserving the special methods of the enumeration
+    type, as shown in the examples.</dd>
+
+<dt><a name="illegalargumentexception"><b>IllegalArgumentException: methods with same signature but incompatible return types</b></a></dt>
+
+<dd>You are probably running some code that has been obfuscated
+    with the <a
+    href="usage.html#overloadaggressively"><code>-overloadaggressively</code></a>
+    option. The class <code>java.lang.reflect.Proxy</code> can't handle
+    classes that contain methods with the same names and signatures, but
+    different return types. Its method <code>newProxyInstance</code> then
+    throws this exception. You can avoid the problem by not using the
+    option.</dd>
+
+<dt><a name="compilererror"><b>CompilerError: duplicate addition</b></a></dt>
+
+<dd>You are probably compiling or running some code that has been obfuscated
+    with the <a
+    href="usage.html#overloadaggressively"><code>-overloadaggressively</code></a>
+    option. This option triggers a bug in
+    <code>sun.tools.java.MethodSet.add</code> in Sun's JDK 1.2.2, which is
+    used for (dynamic) compilation. You should then avoid this option.</dd>
+
+<dt><a name="classformaterror1"><b>ClassFormatError: repetitive field name/signature</b></a></dt>
+
+<dd>You are probably processing some code that has been obfuscated before with
+    the <a
+    href="usage.html#overloadaggressively"><code>-overloadaggressively</code></a>
+    option. You should then use the same option again in the second processing
+    round.</dd>
+
+<dt><a name="classformaterror2"><b>ClassFormatError: Invalid index in LocalVariableTable in class file</b></a></dt>
+
+<dd>If you are keeping the <code>LocalVariableTable</code> or
+    <code>LocalVariableTypeTable</code> attributes, ProGuard's optimizing step
+    is sometimes unable to update them consistently. You should then let the
+    obfuscation step remove these attributes or disable the optimization
+    step.</dd>
+
+<dt><a name="nosuchmethoderror"><b>NoSuchMethodError</b> or <b>AbstractMethodError</b></a></dt>
+
+<dd>You should make sure you're not writing your output class files to a
+    directory on a platform with a case-insensitive file system, such as
+    Windows. Please refer to the section about <a
+    href="#disappearingclasses">disappearing classes</a> for details.
+    <p>
+    Furthermore, you should check whether you have specified your program jars
+    and library jars properly. Program classes can refer to library classes,
+    but not the other way around.
+    <p>
+    If all of this seems ok, perhaps there's a bug in ProGuard (gasp!). If so,
+    please report it, preferably with the simplest example on which you can
+    find ProGuard to fail.</dd>
+
+<dt><a name="verifyerror"><b>VerifyError</b></a></dt>
+
+<dd>Verification errors when executing a program are almost certainly the
+    result of a bug in the optimization step of ProGuard. Make sure you are
+    using the latest version. You should be able to work around the problem by
+    using the <a href="usage.html#dontoptimize"><code>-dontoptimize</code></a>
+    option. You can check the bug database to see if it is a known problem
+    (often with a fix). Otherwise, please report it, preferably with the
+    simplest example on which ProGuard fails.</dd>
+
+</dl>
+
+<hr />
+<address>
+Copyright &copy; 2002-2017
+<a target="other" href="http://www.lafortune.eu/">Eric Lafortune</a> @ <a target="top" href="http://www.guardsquare.com/">GuardSquare</a>.
+</address>
+</body>
+</html>

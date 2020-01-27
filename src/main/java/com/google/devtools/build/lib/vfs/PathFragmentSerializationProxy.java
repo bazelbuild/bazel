@@ -1,4 +1,4 @@
-// Copyright 2014 Google Inc. All rights reserved.
+// Copyright 2014 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.vfs;
 import java.io.Externalizable;
 import java.io.IOException;
 import java.io.ObjectOutput;
-
 
 /**
  * A helper proxy for serializing immutable {@link PathFragment} objects.
@@ -44,7 +43,7 @@ public final class PathFragmentSerializationProxy implements Externalizable {
   }
 
   private Object readResolve() {
-    return new PathFragment(pathFragmentString);
+    return PathFragment.createAlreadyNormalized(pathFragmentString);
   }
 }
 

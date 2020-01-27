@@ -1,4 +1,4 @@
-// Copyright 2014 Google Inc. All rights reserved.
+// Copyright 2014 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,31 +16,37 @@ package com.google.devtools.build.lib.runtime.commands;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
-import com.google.devtools.build.lib.analysis.OutputGroupProvider;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
+import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
 import com.google.devtools.build.lib.buildtool.BuildResult;
+import com.google.devtools.build.lib.buildtool.BuildTool;
+import com.google.devtools.build.lib.buildtool.InstrumentationFilterSupport;
+import com.google.devtools.build.lib.buildtool.OutputDirectoryLinksUtils;
+import com.google.devtools.build.lib.buildtool.PathPrettyPrinter;
+import com.google.devtools.build.lib.buildtool.buildevent.TestingCompleteEvent;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
-import com.google.devtools.build.lib.rules.test.TestStrategy;
-import com.google.devtools.build.lib.rules.test.TestStrategy.TestOutputFormat;
+import com.google.devtools.build.lib.exec.TestStrategy;
+import com.google.devtools.build.lib.exec.TestStrategy.TestOutputFormat;
 import com.google.devtools.build.lib.runtime.AggregatingTestListener;
 import com.google.devtools.build.lib.runtime.BlazeCommand;
-import com.google.devtools.build.lib.runtime.BlazeCommandEventHandler;
+import com.google.devtools.build.lib.runtime.BlazeCommandResult;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.Command;
+import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.TerminalTestResultNotifier;
 import com.google.devtools.build.lib.runtime.TerminalTestResultNotifier.TestSummaryOptions;
-import com.google.devtools.build.lib.runtime.TestResultAnalyzer;
 import com.google.devtools.build.lib.runtime.TestResultNotifier;
-import com.google.devtools.build.lib.util.AbruptExitException;
+import com.google.devtools.build.lib.runtime.TestSummaryPrinter.TestLogPathFormatter;
+import com.google.devtools.build.lib.runtime.UiOptions;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.io.AnsiTerminalPrinter;
-import com.google.devtools.common.options.OptionPriority;
+import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.common.options.OptionPriority.PriorityCategory;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
-import com.google.devtools.common.options.OptionsProvider;
-
+import com.google.devtools.common.options.OptionsParsingResult;
 import java.util.Collection;
 import java.util.List;
 
@@ -53,31 +59,24 @@ import java.util.List;
          options = { TestSummaryOptions.class },
          shortDescription = "Builds and runs the specified test targets.",
          help = "resource:test.txt",
+         completion = "label-test",
          allowResidue = true)
 public class TestCommand implements BlazeCommand {
-  private AnsiTerminalPrinter printer;
+  /** Returns the name of the command to ask the project file for. */
+  // TODO(hdm): move into BlazeRuntime?  It feels odd to duplicate the annotation here.
+  protected String commandName() {
+    return "test";
+  }
 
   @Override
-  public void editOptions(BlazeRuntime runtime, OptionsParser optionsParser)
-      throws AbruptExitException {
-    ProjectFileSupport.handleProjectFiles(runtime, optionsParser, "test");
-
+  public void editOptions(OptionsParser optionsParser) {
     TestOutputFormat testOutput = optionsParser.getOptions(ExecutionOptions.class).testOutput;
-
     try {
       if (testOutput == TestStrategy.TestOutputFormat.STREAMED) {
-        runtime.getReporter().handle(Event.warn(
-            "Streamed test output requested so all tests will be run locally, without sharding, " +
-             "one at a time"));
-          optionsParser.parse(OptionPriority.SOFTWARE_REQUIREMENT,
-              "streamed output requires locally run tests, without sharding",
-              ImmutableList.of("--test_sharding_strategy=disabled", "--test_strategy=exclusive"));
-      }
-
-      if (optionsParser.getOptions(BuildConfiguration.Options.class).collectCodeCoverage) {
-        optionsParser.parse(OptionPriority.SOFTWARE_REQUIREMENT,
-            "baseline coverage artifacts are built with running tests with coverage collection",
-            ImmutableList.of("--output_groups=" + OutputGroupProvider.BASELINE_COVERAGE));
+        optionsParser.parse(
+            PriorityCategory.SOFTWARE_REQUIREMENT,
+            "streamed output requires locally run tests, without sharding",
+            ImmutableList.of("--test_sharding_strategy=disabled", "--test_strategy=exclusive"));
       }
     } catch (OptionsParsingException e) {
       throw new IllegalStateException("Known options failed to parse", e);
@@ -85,36 +84,50 @@ public class TestCommand implements BlazeCommand {
   }
 
   @Override
-  public ExitCode exec(BlazeRuntime runtime, OptionsProvider options) {
-    TestResultAnalyzer resultAnalyzer = new TestResultAnalyzer(
-        runtime.getExecRoot(),
-        options.getOptions(TestSummaryOptions.class),
-        options.getOptions(ExecutionOptions.class),
-        runtime.getEventBus());
+  public BlazeCommandResult exec(CommandEnvironment env, OptionsParsingResult options) {
+    TestOutputFormat testOutput = options.getOptions(ExecutionOptions.class).testOutput;
+    if (testOutput == TestStrategy.TestOutputFormat.STREAMED) {
+      env.getReporter().handle(Event.warn(
+          "Streamed test output requested. All tests will be run locally, without sharding, "
+          + "one at a time"));
+    }
 
-    printer = new AnsiTerminalPrinter(runtime.getReporter().getOutErr().getOutputStream(),
-        options.getOptions(BlazeCommandEventHandler.Options.class).useColor());
+    AnsiTerminalPrinter printer =
+        new AnsiTerminalPrinter(
+            env.getReporter().getOutErr().getOutputStream(),
+            options.getOptions(UiOptions.class).useColor());
 
     // Initialize test handler.
-    AggregatingTestListener testListener = new AggregatingTestListener(
-        resultAnalyzer, runtime.getEventBus(), runtime.getReporter());
+    AggregatingTestListener testListener =
+        new AggregatingTestListener(
+            options.getOptions(TestSummaryOptions.class),
+            options.getOptions(ExecutionOptions.class),
+            env.getEventBus());
 
-    runtime.getEventBus().register(testListener);
-    return doTest(runtime, options, testListener);
+    env.getEventBus().register(testListener);
+    return doTest(env, options, testListener, printer);
   }
 
-  private ExitCode doTest(BlazeRuntime runtime,
-      OptionsProvider options,
-      AggregatingTestListener testListener) {
+  private BlazeCommandResult doTest(
+      CommandEnvironment env,
+      OptionsParsingResult options,
+      AggregatingTestListener testListener,
+      AnsiTerminalPrinter printer) {
+    BlazeRuntime runtime = env.getRuntime();
     // Run simultaneous build and test.
-    List<String> targets = ProjectFileSupport.getTargets(runtime, options);
+    List<String> targets = ProjectFileSupport.getTargets(runtime.getProjectFileProvider(), options);
     BuildRequest request = BuildRequest.create(
         getClass().getAnnotation(Command.class).name(), options,
         runtime.getStartupOptionsProvider(), targets,
-        runtime.getReporter().getOutErr(), runtime.getCommandId(), runtime.getCommandStartTime());
+        env.getReporter().getOutErr(), env.getCommandId(), env.getCommandStartTime());
     request.setRunTests();
+    if (options.getOptions(CoreOptions.class).collectCodeCoverage
+        && !options.containsExplicitOption(
+            InstrumentationFilterSupport.INSTRUMENTATION_FILTER_FLAG)) {
+      request.setNeedsInstrumentationFilter(true);
+    }
 
-    BuildResult buildResult = runtime.getBuildTool().processRequest(request, null);
+    BuildResult buildResult = new BuildTool(env).processRequest(request, null);
 
     Collection<ConfiguredTarget> testTargets = buildResult.getTestTargets();
     // TODO(bazel-team): don't handle isEmpty here or fix up a bunch of tests
@@ -122,42 +135,89 @@ public class TestCommand implements BlazeCommand {
       // This can happen if there were errors in the target parsing or loading phase
       // (original exitcode=BUILD_FAILURE) or if there weren't but --noanalyze was given
       // (original exitcode=SUCCESS).
-      runtime.getReporter().handle(Event.error("Couldn't start the build. Unable to run tests"));
-      return buildResult.getSuccess() ? ExitCode.PARSING_FAILURE : buildResult.getExitCondition();
+      env.getReporter().handle(Event.error("Couldn't start the build. Unable to run tests"));
+      ExitCode exitCode =
+          buildResult.getSuccess() ? ExitCode.PARSING_FAILURE : buildResult.getExitCondition();
+      env.getEventBus()
+          .post(
+              new TestingCompleteEvent(
+                  exitCode, buildResult.getStopTime(), buildResult.getWasSuspended()));
+      return BlazeCommandResult.exitCode(exitCode);
     }
     // TODO(bazel-team): the check above shadows NO_TESTS_FOUND, but switching the conditions breaks
     // more tests
     if (testTargets.isEmpty()) {
-      runtime.getReporter().handle(Event.error(
+      env.getReporter().handle(Event.error(
           null, "No test targets were found, yet testing was requested"));
-      return buildResult.getSuccess() ? ExitCode.NO_TESTS_FOUND : buildResult.getExitCondition();
+
+      ExitCode exitCode =
+          buildResult.getSuccess() ? ExitCode.NO_TESTS_FOUND : buildResult.getExitCondition();
+      env.getEventBus()
+          .post(
+              new NoTestsFound(exitCode, buildResult.getStopTime(), buildResult.getWasSuspended()));
+      return BlazeCommandResult.exitCode(exitCode);
     }
 
     boolean buildSuccess = buildResult.getSuccess();
-    boolean testSuccess = analyzeTestResults(testTargets, testListener, options);
+    boolean testSuccess =
+        analyzeTestResults(
+            testTargets, buildResult.getSkippedTargets(), testListener, options, env, printer);
 
     if (testSuccess && !buildSuccess) {
       // If all tests run successfully, test summary should include warning if
       // there were build errors not associated with the test targets.
       printer.printLn(AnsiTerminalPrinter.Mode.ERROR
-          + "One or more non-test targets failed to build.\n"
+          + "All tests passed but there were other errors during the build.\n"
           + AnsiTerminalPrinter.Mode.DEFAULT);
     }
 
-    return buildSuccess ?
-           (testSuccess ? ExitCode.SUCCESS : ExitCode.TESTS_FAILED)
-           : buildResult.getExitCondition();
+    ExitCode exitCode = buildSuccess
+        ? (testSuccess ? ExitCode.SUCCESS : ExitCode.TESTS_FAILED)
+        : buildResult.getExitCondition();
+    env.getEventBus()
+        .post(
+            new TestingCompleteEvent(
+                exitCode, buildResult.getStopTime(), buildResult.getWasSuspended()));
+    return BlazeCommandResult.exitCode(exitCode);
   }
 
   /**
-   * Analyzes test results and prints summary information.
-   * Returns true if and only if all tests were successful.
+   * Analyzes test results and prints summary information. Returns true if and only if all tests
+   * were successful.
    */
-  private boolean analyzeTestResults(Collection<ConfiguredTarget> testTargets,
-                                     AggregatingTestListener listener,
-                                     OptionsProvider options) {
-    TestResultNotifier notifier = new TerminalTestResultNotifier(printer, options);
-    return listener.getAnalyzer().differentialAnalyzeAndReport(
-        testTargets, listener, notifier);
+  private boolean analyzeTestResults(
+      Collection<ConfiguredTarget> testTargets,
+      Collection<ConfiguredTarget> skippedTargets,
+      AggregatingTestListener listener,
+      OptionsParsingResult options,
+      CommandEnvironment env,
+      AnsiTerminalPrinter printer) {
+    TestResultNotifier notifier = new TerminalTestResultNotifier(
+        printer,
+        makeTestLogPathFormatter(options, env),
+        options);
+    return listener.differentialAnalyzeAndReport(testTargets, skippedTargets, notifier);
+  }
+
+  private static TestLogPathFormatter makeTestLogPathFormatter(
+      OptionsParsingResult options,
+      CommandEnvironment env) {
+    BlazeRuntime runtime = env.getRuntime();
+    TestSummaryOptions summaryOptions = options.getOptions(TestSummaryOptions.class);
+    if (!summaryOptions.printRelativeTestLogPaths) {
+      return Path::getPathString;
+    }
+    String productName = runtime.getProductName();
+    BuildRequestOptions requestOptions = env.getOptions().getOptions(BuildRequestOptions.class);
+    // requestOptions.printWorkspaceInOutputPathsIfNeeded is antithetical with
+    // summaryOptions.printRelativeTestLogPaths, so we completely ignore it.
+    PathPrettyPrinter pathPrettyPrinter =
+        OutputDirectoryLinksUtils.getPathPrettyPrinter(
+            runtime.getRuleClassProvider().getSymlinkDefinitions(),
+            requestOptions.getSymlinkPrefix(productName),
+            productName,
+            env.getWorkspace(),
+            env.getWorkspace());
+    return path -> pathPrettyPrinter.getPrettyPath(path).getPathString();
   }
 }

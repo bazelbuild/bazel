@@ -1,4 +1,4 @@
-// Copyright 2014 Google Inc. All rights reserved.
+// Copyright 2014 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -18,15 +18,19 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.skylarkbuildapi.java.JavaRuntimeClasspathProviderApi;
+import com.google.devtools.build.lib.syntax.Depset;
 
 /**
  * Provider for the runtime classpath contributions of a Java binary.
  *
- * Used to exclude already-available artifacts from related binaries
- * (e.g. plugins).
+ * <p>Used to exclude already-available artifacts from related binaries (e.g. plugins).
  */
 @Immutable
-public final class JavaRuntimeClasspathProvider implements TransitiveInfoProvider {
+@AutoCodec
+public final class JavaRuntimeClasspathProvider
+    implements TransitiveInfoProvider, JavaRuntimeClasspathProviderApi {
 
   private final NestedSet<Artifact> runtimeClasspath;
 
@@ -34,10 +38,13 @@ public final class JavaRuntimeClasspathProvider implements TransitiveInfoProvide
     this.runtimeClasspath = runtimeClasspath;
   }
 
-  /**
-   * Returns the artifacts included on the runtime classpath of this binary.
-   */
-  public NestedSet<Artifact> getRuntimeClasspath() {
+  /** Returns the artifacts included on the runtime classpath of this binary. */
+  @Override
+  public Depset /*<Artifact>*/ getRuntimeClasspath() {
+    return Depset.of(Artifact.TYPE, runtimeClasspath);
+  }
+
+  public NestedSet<Artifact> getRuntimeClasspathNestedSet() {
     return runtimeClasspath;
   }
 }

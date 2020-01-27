@@ -1,4 +1,4 @@
-// Copyright 2014 Google Inc. All rights reserved.
+// Copyright 2014 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -22,7 +22,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Multiset;
-
+import com.google.common.primitives.Ints;
 import java.util.AbstractCollection;
 import java.util.AbstractMap;
 import java.util.AbstractMap.SimpleImmutableEntry;
@@ -32,9 +32,7 @@ import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Set;
-
 import javax.annotation.Nullable;
 
 /**
@@ -122,10 +120,7 @@ public final class ImmutableSortedKeyListMultimap<K extends Comparable<K>, V>
     }
 
     public Builder<K, V> putAll(Multimap<? extends K, ? extends V> multimap) {
-      for (Map.Entry<? extends K, ? extends Collection<? extends V>> entry
-          : multimap.asMap().entrySet()) {
-        putAll(entry.getKey(), entry.getValue());
-      }
+      multimap.asMap().forEach((key, collectionValue) -> putAll(key, collectionValue));
       return this;
     }
   }
@@ -169,10 +164,10 @@ public final class ImmutableSortedKeyListMultimap<K extends Comparable<K>, V>
     }
 
     @Override
-    public Set<Entry<K, Collection<V>>> entrySet() {
-      ImmutableSet.Builder<Entry<K, Collection<V>>> builder = ImmutableSet.builder();
+    public Set<Map.Entry<K, Collection<V>>> entrySet() {
+      ImmutableSet.Builder<Map.Entry<K, Collection<V>>> builder = ImmutableSet.builder();
       for (int i = 0; i < sortedKeys.length; i++) {
-        builder.add(new SimpleImmutableEntry<K, Collection<V>>(sortedKeys[i], values[i]));
+        builder.add(new SimpleImmutableEntry<>(sortedKeys[i], values[i]));
       }
       return builder.build();
     }
@@ -255,11 +250,7 @@ public final class ImmutableSortedKeyListMultimap<K extends Comparable<K>, V>
 
   @Override
   public int size() {
-    int result = 0;
-    for (List<V> list : values) {
-      result += list.size();
-    }
-    return result;
+    return Ints.saturatedCast(Arrays.stream(values).mapToLong(List::size).sum());
   }
 
   @Override
@@ -275,21 +266,13 @@ public final class ImmutableSortedKeyListMultimap<K extends Comparable<K>, V>
 
   @Override
   public boolean containsValue(Object value) {
-    for (List<V> list : values) {
-      if (list.contains(value)) {
-        return true;
-      }
-    }
-    return false;
+    return Arrays.stream(values).anyMatch(list -> list.contains(value));
   }
 
   @Override
   public boolean containsEntry(Object key, Object value) {
     int index = Arrays.binarySearch(sortedKeys, key);
-    if (index >= 0) {
-      return values[index].contains(value);
-    }
-    return false;
+    return index >= 0 && values[index].contains(value);
   }
 
   @Override
@@ -330,7 +313,7 @@ public final class ImmutableSortedKeyListMultimap<K extends Comparable<K>, V>
   @Override
   public List<V> get(K key) {
     int index = Arrays.binarySearch(sortedKeys, key);
-    return index >= 0 ? values[index] : ImmutableList.<V>of();
+    return index >= 0 ? values[index] : ImmutableList.of();
   }
 
   @Override
@@ -349,11 +332,11 @@ public final class ImmutableSortedKeyListMultimap<K extends Comparable<K>, V>
   }
 
   @Override
-  public Collection<Entry<K, V>> entries() {
-    ImmutableList.Builder<Entry<K, V>> builder = ImmutableList.builder();
+  public Collection<Map.Entry<K, V>> entries() {
+    ImmutableList.Builder<Map.Entry<K, V>> builder = ImmutableList.builder();
     for (int i = 0; i < sortedKeys.length; i++) {
       for (V value : values[i]) {
-        builder.add(new SimpleImmutableEntry<K, V>(sortedKeys[i], value));
+        builder.add(new SimpleImmutableEntry<>(sortedKeys[i], value));
       }
     }
     return builder.build();

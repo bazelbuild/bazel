@@ -1,4 +1,4 @@
-// Copyright 2014 Google Inc. All rights reserved.
+// Copyright 2014 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -13,25 +13,19 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
-import com.google.common.collect.Lists;
+import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.analysis.BlazeDirectories;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
-import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
-import com.google.devtools.build.lib.packages.PackageIdentifier;
-import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
-import com.google.devtools.build.lib.vfs.Dirent;
-import com.google.devtools.build.lib.vfs.Dirent.Type;
-import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-
-import java.util.List;
 import java.util.Map;
-
 import javax.annotation.Nullable;
 
 /**
@@ -42,105 +36,78 @@ import javax.annotation.Nullable;
  * "foo/subpkg".
  */
 public class RecursivePkgFunction implements SkyFunction {
+  private final BlazeDirectories directories;
 
-  private static final Order ORDER = Order.STABLE_ORDER;
+  public RecursivePkgFunction(BlazeDirectories directories) {
+    this.directories = directories;
+  }
 
+  /** N.B.: May silently throw {@link NoSuchPackageException} in nokeep_going mode! */
   @Override
-  public SkyValue compute(SkyKey skyKey, Environment env) {
-    RootedPath rootedPath = (RootedPath) skyKey.argument();
-    Path root = rootedPath.getRoot();
-    PathFragment rootRelativePath = rootedPath.getRelativePath();
+  public SkyValue compute(SkyKey skyKey, Environment env) throws InterruptedException {
+    return new MyTraversalFunction().visitDirectory((RecursivePkgKey) skyKey.argument(), env);
+  }
 
-    SkyKey fileKey = FileValue.key(rootedPath);
-    FileValue fileValue = (FileValue) env.getValue(fileKey);
-    if (fileValue == null) {
-      return null;
+  private class MyTraversalFunction
+      extends RecursiveDirectoryTraversalFunction<MyPackageDirectoryConsumer, RecursivePkgValue> {
+
+    private MyTraversalFunction() {
+      super(directories);
     }
 
-    if (!fileValue.isDirectory()) {
-      return new RecursivePkgValue(NestedSetBuilder.<String>emptySet(ORDER));
+    @Override
+    protected MyPackageDirectoryConsumer getInitialConsumer() {
+      return new MyPackageDirectoryConsumer();
     }
 
-    if (fileValue.isSymlink()) {
-      // We do not follow directory symlinks when we look recursively for packages. It also
-      // prevents symlink loops.
-      return new RecursivePkgValue(NestedSetBuilder.<String>emptySet(ORDER));
+    @Override
+    protected SkyKey getSkyKeyForSubdirectory(RepositoryName repository, RootedPath subdirectory,
+        ImmutableSet<PathFragment> excludedSubdirectoriesBeneathSubdirectory) {
+      return RecursivePkgValue.key(
+          repository, subdirectory, excludedSubdirectoriesBeneathSubdirectory);
     }
 
-    PackageIdentifier packageId = PackageIdentifier.createInDefaultRepo(
-        rootRelativePath.getPathString());
-    PackageLookupValue pkgLookupValue =
-        (PackageLookupValue) env.getValue(PackageLookupValue.key(packageId));
-    if (pkgLookupValue == null) {
-      return null;
-    }
-
-    NestedSetBuilder<String> packages = new NestedSetBuilder<>(ORDER);
-
-    if (pkgLookupValue.packageExists()) {
-      if (pkgLookupValue.getRoot().equals(root)) {
-        try {
-          PackageValue pkgValue = (PackageValue)
-              env.getValueOrThrow(PackageValue.key(packageId),
-                  NoSuchPackageException.class);
-          if (pkgValue == null) {
-            return null;
-          }
-          packages.add(pkgValue.getPackage().getName());
-        } catch (NoSuchPackageException e) {
-          // The package had errors, but don't fail-fast as there might subpackages below the
-          // current directory.
-          env.getListener().handle(Event.error(
-              "package contains errors: " + rootRelativePath.getPathString()));
-          if (e.getPackage() != null) {
-            packages.add(e.getPackage().getName());
-          }
+    @Override
+    protected RecursivePkgValue aggregateWithSubdirectorySkyValues(
+        MyPackageDirectoryConsumer consumer, Map<SkyKey, SkyValue> subdirectorySkyValues) {
+      // Aggregate the transitive subpackages.
+      for (SkyValue childValue : subdirectorySkyValues.values()) {
+        consumer.addTransitivePackages(((RecursivePkgValue) childValue).getPackages());
+        if (((RecursivePkgValue) childValue).hasErrors()) {
+          consumer.addTransitiveErrors();
         }
       }
-      // The package lookup succeeded, but was under a different root. We still, however, need to
-      // recursively consider subdirectories. For example:
-      //
-      //  Pretend --package_path=rootA/workspace:rootB/workspace and these are the only files:
-      //    rootA/workspace/foo/
-      //    rootA/workspace/foo/bar/BUILD
-      //    rootB/workspace/foo/BUILD
-      //  If we're doing a recursive package lookup under 'rootA/workspace' starting at 'foo', note
-      //  that even though the package 'foo' is under 'rootB/workspace', there is still a package
-      //  'foo/bar' under 'rootA/workspace'.
+      return consumer.createRecursivePkgValue();
+    }
+  }
+
+  private static class MyPackageDirectoryConsumer
+      implements RecursiveDirectoryTraversalFunction.PackageDirectoryConsumer {
+
+    private final NestedSetBuilder<String> packages = new NestedSetBuilder<>(Order.STABLE_ORDER);
+    private boolean hasErrors = false;
+
+    @Override
+    public void notePackage(PathFragment pkgPath) {
+      packages.add(pkgPath.getPathString());
     }
 
-    DirectoryListingValue dirValue = (DirectoryListingValue)
-        env.getValue(DirectoryListingValue.key(rootedPath));
-    if (dirValue == null) {
-      return null;
+    @Override
+    public void notePackageError(String noSuchPackageExceptionErrorMessage) {
+      hasErrors = true;
     }
 
-    List<SkyKey> childDeps = Lists.newArrayList();
-    for (Dirent dirent : dirValue.getDirents()) {
-      if (dirent.getType() != Type.DIRECTORY) {
-        // Non-directories can never host packages, and we do not follow symlinks (see above).
-        continue;
-      }
-      String basename = dirent.getName();
-      if (rootRelativePath.equals(PathFragment.EMPTY_FRAGMENT)
-          && PathPackageLocator.DEFAULT_TOP_LEVEL_EXCLUDES.contains(basename)) {
-        continue;
-      }
-      SkyKey req = RecursivePkgValue.key(RootedPath.toRootedPath(root,
-          rootRelativePath.getRelative(basename)));
-      childDeps.add(req);
+    void addTransitivePackages(NestedSet<String> transitivePackages) {
+      packages.addTransitive(transitivePackages);
     }
-    Map<SkyKey, SkyValue> childValueMap = env.getValues(childDeps);
-    if (env.valuesMissing()) {
-      return null;
+
+    void addTransitiveErrors() {
+      hasErrors = true;
     }
-    // Aggregate the transitive subpackages.
-    for (SkyValue childValue : childValueMap.values()) {
-      if (childValue != null) {
-        packages.addTransitive(((RecursivePkgValue) childValue).getPackages());
-      }
+
+    RecursivePkgValue createRecursivePkgValue() {
+      return RecursivePkgValue.create(packages, hasErrors);
     }
-    return new RecursivePkgValue(packages.build());
   }
 
   @Nullable

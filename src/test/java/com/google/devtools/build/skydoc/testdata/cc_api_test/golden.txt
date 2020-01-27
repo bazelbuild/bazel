@@ -1,0 +1,97 @@
+<!-- Generated with Stardoc: http://skydoc.bazel.build -->
+
+<a name="#cpp_related_rule"></a>
+
+## cpp_related_rule
+
+<pre>
+cpp_related_rule(<a href="#cpp_related_rule-name">name</a>, <a href="#cpp_related_rule-first">first</a>, <a href="#cpp_related_rule-fourth">fourth</a>, <a href="#cpp_related_rule-second">second</a>, <a href="#cpp_related_rule-third">third</a>)
+</pre>
+
+This rule does C++-related things.
+
+### Attributes
+
+<table class="params-table">
+  <colgroup>
+    <col class="col-param" />
+    <col class="col-description" />
+  </colgroup>
+  <tbody>
+    <tr id="cpp_related_rule-name">
+      <td><code>name</code></td>
+      <td>
+        <a href="https://bazel.build/docs/build-ref.html#name">Name</a>; required
+        <p>
+          A unique name for this target.
+        </p>
+      </td>
+    </tr>
+    <tr id="cpp_related_rule-first">
+      <td><code>first</code></td>
+      <td>
+        <a href="https://bazel.build/docs/build-ref.html#labels">Label</a>; required
+      </td>
+    </tr>
+    <tr id="cpp_related_rule-fourth">
+      <td><code>fourth</code></td>
+      <td>
+        Boolean; optional
+      </td>
+    </tr>
+    <tr id="cpp_related_rule-second">
+      <td><code>second</code></td>
+      <td>
+        <a href="https://bazel.build/docs/skylark/lib/dict.html">Dictionary: String -> String</a>; required
+      </td>
+    </tr>
+    <tr id="cpp_related_rule-third">
+      <td><code>third</code></td>
+      <td>
+        <a href="https://bazel.build/docs/build-ref.html#labels">Label</a>; required
+      </td>
+    </tr>
+  </tbody>
+</table>
+
+
+<a name="#exercise_the_api"></a>
+
+## exercise_the_api
+
+<pre>
+exercise_the_api()
+</pre>
+
+
+
+
+
+<a name="#my_rule_impl"></a>
+
+## my_rule_impl
+
+<pre>
+my_rule_impl(<a href="#my_rule_impl-ctx">ctx</a>)
+</pre>
+
+
+
+### Parameters
+
+<table class="params-table">
+  <colgroup>
+    <col class="col-param" />
+    <col class="col-description" />
+  </colgroup>
+  <tbody>
+    <tr id="my_rule_impl-ctx">
+      <td><code>ctx</code></td>
+      <td>
+        required.
+      </td>
+    </tr>
+  </tbody>
+</table>
+
+

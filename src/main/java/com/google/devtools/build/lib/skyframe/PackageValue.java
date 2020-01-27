@@ -1,4 +1,4 @@
-// Copyright 2014 Google Inc. All rights reserved.
+// Copyright 2014 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,28 +14,38 @@
 package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.base.Preconditions;
+import com.google.common.collect.Interner;
+import com.google.devtools.build.lib.cmdline.PackageIdentifier;
+import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
+import com.google.devtools.build.lib.packages.BuildFileContainsErrorsException;
 import com.google.devtools.build.lib.packages.Package;
-import com.google.devtools.build.lib.packages.PackageIdentifier;
-import com.google.devtools.build.lib.vfs.PathFragment;
-import com.google.devtools.build.lib.vfs.RootedPath;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.skyframe.AbstractSkyKey;
+import com.google.devtools.build.skyframe.NotComparableSkyValue;
+import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
-import com.google.devtools.build.skyframe.SkyValue;
+import java.util.ArrayList;
+import java.util.List;
 
-/**
- * A Skyframe value representing a package.
- */
+/** A Skyframe value representing a package. */
+@AutoCodec(explicitlyAllowClass = Package.class)
 @Immutable
 @ThreadSafe
-public class PackageValue implements SkyValue {
-
+public class PackageValue implements NotComparableSkyValue {
   private final Package pkg;
 
-  PackageValue(Package pkg) {
+  public PackageValue(Package pkg) {
     this.pkg = Preconditions.checkNotNull(pkg);
   }
 
+  /**
+   * Returns the package. This package may contain errors, in which case the caller should throw
+   * a {@link BuildFileContainsErrorsException} if an error-free package is needed. See also
+   * {@link PackageErrorFunction} for the case where encountering a package with errors should shut
+   * down the build but the caller can handle packages with errors.
+   */
   public Package getPackage() {
     return pkg;
   }
@@ -45,19 +55,38 @@ public class PackageValue implements SkyValue {
     return "<PackageValue name=" + pkg.getName() + ">";
   }
 
-  @ThreadSafe
-  public static SkyKey key(PathFragment pkgName) {
-    return key(PackageIdentifier.createInDefaultRepo(pkgName));
+  public static Key key(PackageIdentifier pkgIdentifier) {
+    Preconditions.checkArgument(!pkgIdentifier.getRepository().isDefault());
+    return Key.create(pkgIdentifier);
   }
 
-  public static SkyKey key(PackageIdentifier pkgIdentifier) {
-    return new SkyKey(SkyFunctions.PACKAGE, pkgIdentifier);
+  /** Skyframe key for packages */
+  @AutoCodec.VisibleForSerialization
+  @AutoCodec
+  public static class Key extends AbstractSkyKey<PackageIdentifier> {
+    private static final Interner<Key> interner = BlazeInterners.newWeakInterner();
+
+    private Key(PackageIdentifier arg) {
+      super(arg);
+    }
+
+    @AutoCodec.VisibleForSerialization
+    @AutoCodec.Instantiator
+    static Key create(PackageIdentifier arg) {
+      return interner.intern(new Key(arg));
+    }
+
+    @Override
+    public SkyFunctionName functionName() {
+      return SkyFunctions.PACKAGE;
+    }
   }
 
-  /**
-   * Returns a SkyKey to find the WORKSPACE file at the given path.
-   */
-  public static SkyKey workspaceKey(RootedPath workspacePath) {
-    return new SkyKey(SkyFunctions.WORKSPACE_FILE, workspacePath);
+  public static List<SkyKey> keys(Iterable<PackageIdentifier> pkgIdentifiers) {
+    List<SkyKey> keys = new ArrayList<>();
+    for (PackageIdentifier pkgIdentifier : pkgIdentifiers) {
+      keys.add(key(pkgIdentifier));
+    }
+    return keys;
   }
 }

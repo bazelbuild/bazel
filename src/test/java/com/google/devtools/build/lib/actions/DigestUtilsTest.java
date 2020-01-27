@@ -1,4 +1,4 @@
-// Copyright 2015 Google Inc. All rights reserved.
+// Copyright 2015 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -13,29 +13,29 @@
 // limitations under the License.
 package com.google.devtools.build.lib.actions;
 
-
-import static org.junit.Assert.assertArrayEquals;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotSame;
-import static org.junit.Assert.assertTrue;
+import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.base.Strings;
+import com.google.common.cache.CacheStats;
 import com.google.devtools.build.lib.actions.cache.DigestUtils;
+import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.testutil.TestThread;
 import com.google.devtools.build.lib.testutil.TestUtils;
-import com.google.devtools.build.lib.util.BlazeClock;
+import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
-
+import java.io.IOException;
+import java.util.Arrays;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
+import javax.annotation.CheckReturnValue;
+import org.junit.After;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
-
-import java.io.IOException;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.TimeUnit;
 
 /**
  * Tests for DigestUtils.
@@ -43,61 +43,57 @@ import java.util.concurrent.TimeUnit;
 @RunWith(JUnit4.class)
 public class DigestUtilsTest {
 
-  private static void assertMd5CalculationConcurrency(boolean expectConcurrent,
-      final boolean fastDigest, final int fileSize1, final int fileSize2) throws Exception {
+  @After
+  public void tearDown() {
+    DigestUtils.configureCache(0);
+  }
+
+  private static void assertDigestCalculationConcurrency(
+      boolean expectConcurrent,
+      final boolean fastDigest,
+      final int fileSize1,
+      final int fileSize2,
+      DigestHashFunction hf)
+      throws Exception {
     final CountDownLatch barrierLatch = new CountDownLatch(2); // Used to block test threads.
     final CountDownLatch readyLatch = new CountDownLatch(1);   // Used to block main thread.
 
-    FileSystem myfs = new InMemoryFileSystem(BlazeClock.instance()) {
-        @Override
-        protected byte[] getMD5Digest(Path path) throws IOException {
-          try {
-            barrierLatch.countDown();
-            readyLatch.countDown();
-            // Either both threads will be inside getMD5Digest at the same time or they
-            // both will be blocked.
-            barrierLatch.await();
-          } catch (Exception e) {
-            throw new IOException(e);
+    FileSystem myfs =
+        new InMemoryFileSystem(BlazeClock.instance(), hf) {
+          @Override
+          protected byte[] getDigest(Path path) throws IOException {
+            try {
+              barrierLatch.countDown();
+              readyLatch.countDown();
+              // Either both threads will be inside getDigest at the same time or they
+              // both will be blocked.
+              barrierLatch.await();
+            } catch (Exception e) {
+              throw new IOException(e);
+            }
+            return super.getDigest(path);
           }
-          return super.getMD5Digest(path);
-        }
 
-        @Override
-        protected String getFastDigestFunctionType(Path path) {
-          return "MD5";
-        }
-
-        @Override
-        protected byte[] getFastDigest(Path path) throws IOException {
-          return fastDigest ? super.getMD5Digest(path) : null;
-        }
-    };
+          @Override
+          protected byte[] getFastDigest(Path path) throws IOException {
+            return fastDigest ? super.getDigest(path) : null;
+          }
+        };
 
     final Path myFile1 = myfs.getPath("/f1.dat");
     final Path myFile2 = myfs.getPath("/f2.dat");
     FileSystemUtils.writeContentAsLatin1(myFile1, Strings.repeat("a", fileSize1));
     FileSystemUtils.writeContentAsLatin1(myFile2, Strings.repeat("b", fileSize2));
 
-     TestThread thread1 = new TestThread () {
-       @Override public void runTest() throws Exception {
-         DigestUtils.getDigestOrFail(myFile1, fileSize1);
-       }
-     };
-
-     TestThread thread2 = new TestThread () {
-       @Override public void runTest() throws Exception {
-         DigestUtils.getDigestOrFail(myFile2, fileSize2);
-       }
-     };
-
+    TestThread thread1 = new TestThread(() -> DigestUtils.getDigestOrFail(myFile1, fileSize1));
+    TestThread thread2 = new TestThread(() -> DigestUtils.getDigestOrFail(myFile2, fileSize2));
      thread1.start();
      thread2.start();
      if (!expectConcurrent) { // Synchronized case.
-       // Wait until at least one thread reached getMD5Digest().
-       assertTrue(readyLatch.await(TestUtils.WAIT_TIMEOUT_SECONDS, TimeUnit.SECONDS));
-       // Only 1 thread should be inside getMD5Digest().
-       assertEquals(1, barrierLatch.getCount());
+      // Wait until at least one thread reached getDigest().
+      assertThat(readyLatch.await(TestUtils.WAIT_TIMEOUT_SECONDS, TimeUnit.SECONDS)).isTrue();
+      // Only 1 thread should be inside getDigest().
+      assertThat(barrierLatch.getCount()).isEqualTo(1);
        barrierLatch.countDown(); // Release barrier latch, allowing both threads to proceed.
      }
      // Test successful execution within 5 seconds.
@@ -106,40 +102,112 @@ public class DigestUtilsTest {
   }
 
   /**
-   * Ensures that MD5 calculation is synchronized for files
-   * greater than 4096 bytes if MD5 is not available cheaply,
-   * so machines with rotating drives don't become unusable.
+   * Ensures that digest calculation is synchronized for files greater than
+   * {@link DigestUtils#MULTI_THREADED_DIGEST_MAX_FILE_SIZE} bytes if the digest is not
+   * available cheaply, so machines with rotating drives don't become unusable.
    */
   @Test
-  public void testMd5CalculationConcurrency() throws Exception {
-    assertMd5CalculationConcurrency(true, true, 4096, 4096);
-    assertMd5CalculationConcurrency(true, true, 4097, 4097);
-    assertMd5CalculationConcurrency(true, false, 4096, 4096);
-    assertMd5CalculationConcurrency(false, false, 4097, 4097);
-    assertMd5CalculationConcurrency(true, false, 1024, 4097);
-    assertMd5CalculationConcurrency(true, false, 1024, 1024);
+  public void testCalculationConcurrency() throws Exception {
+    final int small = DigestUtils.MULTI_THREADED_DIGEST_MAX_FILE_SIZE;
+    final int large = DigestUtils.MULTI_THREADED_DIGEST_MAX_FILE_SIZE + 1;
+    for (DigestHashFunction hf :
+        Arrays.asList(DigestHashFunction.SHA256, DigestHashFunction.SHA1)) {
+      assertDigestCalculationConcurrency(true, true, small, small, hf);
+      assertDigestCalculationConcurrency(true, true, large, large, hf);
+      assertDigestCalculationConcurrency(true, false, small, small, hf);
+      assertDigestCalculationConcurrency(true, false, small, large, hf);
+      assertDigestCalculationConcurrency(false, false, large, large, hf);
+    }
+  }
+
+  /** Helper class to assert the cache statistics. */
+  private static class CacheStatsChecker {
+    /** Cache statistics, grabbed at construction time. */
+    private final CacheStats stats;
+
+    private int expectedEvictionCount;
+    private int expectedHitCount;
+    private int expectedMissCount;
+
+    CacheStatsChecker() {
+      this.stats = DigestUtils.getCacheStats();
+    }
+
+    @CheckReturnValue
+    CacheStatsChecker evictionCount(int count) {
+      expectedEvictionCount = count;
+      return this;
+    }
+
+    @CheckReturnValue
+    CacheStatsChecker hitCount(int count) {
+      expectedHitCount = count;
+      return this;
+    }
+
+    @CheckReturnValue
+    CacheStatsChecker missCount(int count) {
+      expectedMissCount = count;
+      return this;
+    }
+
+    void check() throws Exception {
+      assertThat(stats.evictionCount()).isEqualTo(expectedEvictionCount);
+      assertThat(stats.hitCount()).isEqualTo(expectedHitCount);
+      assertThat(stats.missCount()).isEqualTo(expectedMissCount);
+    }
   }
 
   @Test
-  public void testRecoverFromMalformedDigest() throws Exception {
-    final byte[] malformed = {0, 0, 0};
-    FileSystem myFS = new InMemoryFileSystem(BlazeClock.instance()) {
-      @Override
-      protected String getFastDigestFunctionType(Path path) {
-        return "MD5";
-      }
+  public void testCache() throws Exception {
+    final AtomicInteger getFastDigestCounter = new AtomicInteger(0);
+    final AtomicInteger getDigestCounter = new AtomicInteger(0);
 
-      @Override
-      protected byte[] getFastDigest(Path path) throws IOException {
-        // MD5 digests are supposed to be 16 bytes.
-        return malformed;
-      }
-    };
-    Path path = myFS.getPath("/file");
-    FileSystemUtils.writeContentAsLatin1(path, "a");
-    byte[] result = DigestUtils.getDigestOrFail(path, 1);
-    assertArrayEquals(path.getMD5Digest(), result);
-    assertNotSame(malformed, result);
-    assertEquals(16, result.length);
+    FileSystem tracingFileSystem =
+        new InMemoryFileSystem(BlazeClock.instance()) {
+          @Override
+          protected byte[] getFastDigest(Path path) throws IOException {
+            getFastDigestCounter.incrementAndGet();
+            return null;
+          }
+
+          @Override
+          protected byte[] getDigest(Path path) throws IOException {
+            getDigestCounter.incrementAndGet();
+            return super.getDigest(path);
+          }
+        };
+
+    DigestUtils.configureCache(2);
+
+    final Path file1 = tracingFileSystem.getPath("/1.txt");
+    final Path file2 = tracingFileSystem.getPath("/2.txt");
+    final Path file3 = tracingFileSystem.getPath("/3.txt");
+    FileSystemUtils.writeContentAsLatin1(file1, "some contents");
+    FileSystemUtils.writeContentAsLatin1(file2, "some other contents");
+    FileSystemUtils.writeContentAsLatin1(file3, "and something else");
+
+    byte[] digest1 = DigestUtils.getDigestOrFail(file1, file1.getFileSize());
+    assertThat(getFastDigestCounter.get()).isEqualTo(1);
+    assertThat(getDigestCounter.get()).isEqualTo(1);
+    new CacheStatsChecker().evictionCount(0).hitCount(0).missCount(1).check();
+
+    byte[] digest2 = DigestUtils.getDigestOrFail(file1, file1.getFileSize());
+    assertThat(getFastDigestCounter.get()).isEqualTo(2);
+    assertThat(getDigestCounter.get()).isEqualTo(1);
+    new CacheStatsChecker().evictionCount(0).hitCount(1).missCount(1).check();
+
+    assertThat(digest2).isEqualTo(digest1);
+
+    // Evict the digest for the previous file.
+    DigestUtils.getDigestOrFail(file2, file2.getFileSize());
+    DigestUtils.getDigestOrFail(file3, file3.getFileSize());
+    new CacheStatsChecker().evictionCount(1).hitCount(1).missCount(3).check();
+
+    // And now try to recompute it.
+    byte[] digest3 = DigestUtils.getDigestOrFail(file1, file1.getFileSize());
+    new CacheStatsChecker().evictionCount(2).hitCount(1).missCount(4).check();
+
+    assertThat(digest3).isEqualTo(digest1);
   }
 }

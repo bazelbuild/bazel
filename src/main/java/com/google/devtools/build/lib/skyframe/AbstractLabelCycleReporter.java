@@ -1,4 +1,4 @@
-// Copyright 2014 Google Inc. All rights reserved.
+// Copyright 2014 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,56 +17,92 @@ import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
+import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.concurrent.Uninterruptibles;
 import com.google.devtools.build.lib.events.Event;
-import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.events.ExtendedEventHandler;
+import com.google.devtools.build.lib.packages.NoSuchPackageException;
+import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.NoSuchThingException;
 import com.google.devtools.build.lib.packages.Target;
-import com.google.devtools.build.lib.pkgcache.LoadedPackageProvider;
-import com.google.devtools.build.lib.syntax.Label;
+import com.google.devtools.build.lib.pkgcache.PackageProvider;
 import com.google.devtools.build.skyframe.CycleInfo;
 import com.google.devtools.build.skyframe.CyclesReporter;
 import com.google.devtools.build.skyframe.SkyKey;
+import java.util.concurrent.Callable;
 
 /** Reports cycles between skyframe values whose keys contains {@link Label}s. */
 abstract class AbstractLabelCycleReporter implements CyclesReporter.SingleCycleReporter {
 
-  private final LoadedPackageProvider loadedPackageProvider;
+  private final PackageProvider packageProvider;
 
-  AbstractLabelCycleReporter(LoadedPackageProvider loadedPackageProvider) {
-    this.loadedPackageProvider = loadedPackageProvider;
+  AbstractLabelCycleReporter(PackageProvider packageProvider) {
+    this.packageProvider = packageProvider;
   }
-
-  /** Returns the String representation of the {@code SkyKey}. */
-  protected abstract String prettyPrint(SkyKey key);
 
   /** Returns the associated Label of the SkyKey. */
   protected abstract Label getLabel(SkyKey key);
 
   protected abstract boolean canReportCycle(SkyKey topLevelKey, CycleInfo cycleInfo);
 
-  protected String getAdditionalMessageAboutCycle(SkyKey topLevelKey, CycleInfo cycleInfo) {
+  /** Returns the String representation of the {@code SkyKey}. */
+  protected String prettyPrint(SkyKey key) {
+    return getLabel(key).toString();
+  }
+
+  /**
+   * Can be used to skip individual keys on the path to cycle.
+   *
+   * @param key
+   */
+  protected boolean shouldSkip(SkyKey key) {
+    return false;
+  }
+
+  /**
+   * Can be used to report an additional message about the cycle.
+   *
+   * @param eventHandler
+   * @param topLevelKey
+   * @param cycleInfo
+   */
+  protected String getAdditionalMessageAboutCycle(
+      ExtendedEventHandler eventHandler, SkyKey topLevelKey, CycleInfo cycleInfo) {
     return "";
   }
 
   @Override
-  public boolean maybeReportCycle(SkyKey topLevelKey, CycleInfo cycleInfo,
-      boolean alreadyReported, EventHandler eventHandler) {
+  public boolean maybeReportCycle(
+      SkyKey topLevelKey,
+      CycleInfo cycleInfo,
+      boolean alreadyReported,
+      ExtendedEventHandler eventHandler) {
     Preconditions.checkNotNull(eventHandler);
     if (!canReportCycle(topLevelKey, cycleInfo)) {
       return false;
     }
 
     if (alreadyReported) {
-      Label label = getLabel(topLevelKey);
-      Target target = getTargetForLabel(label);
-      eventHandler.handle(Event.error(target.getLocation(),
-          "in " + target.getTargetKind() + " " + label +
-              ": cycle in dependency graph: target depends on an already-reported cycle"));
+      if (!shouldSkip(topLevelKey)) {
+        Label label = getLabel(topLevelKey);
+        Target target = getTargetForLabel(eventHandler, label);
+        eventHandler.handle(
+            Event.error(
+                target.getLocation(),
+                "in "
+                    + target.getTargetKind()
+                    + " "
+                    + label
+                    + ": cycle in dependency graph: target depends on an already-reported cycle"));
+      }
     } else {
       StringBuilder cycleMessage = new StringBuilder("cycle in dependency graph:");
       ImmutableList<SkyKey> pathToCycle = cycleInfo.getPathToCycle();
       ImmutableList<SkyKey> cycle = cycleInfo.getCycle();
       for (SkyKey value : pathToCycle) {
+        if (shouldSkip(value)) {
+          continue;
+        }
         cycleMessage.append("\n    ");
         cycleMessage.append(prettyPrint(value));
       }
@@ -78,10 +114,10 @@ abstract class AbstractLabelCycleReporter implements CyclesReporter.SingleCycleR
         }
       });
 
-      cycleMessage.append(getAdditionalMessageAboutCycle(topLevelKey, cycleInfo));
+      cycleMessage.append(getAdditionalMessageAboutCycle(eventHandler, topLevelKey, cycleInfo));
 
       Label label = getLabel(cycleValue);
-      Target target = getTargetForLabel(label);
+      Target target = getTargetForLabel(eventHandler, label);
       eventHandler.handle(Event.error(
           target.getLocation(),
           "in " + target.getTargetKind() + " " + label + ": " + cycleMessage));
@@ -99,31 +135,43 @@ abstract class AbstractLabelCycleReporter implements CyclesReporter.SingleCycleR
         ? Iterables.concat(cycle, ImmutableList.of(cycle.get(0))) : cycle;
     SkyKey cycleValue = null;
     for (SkyKey value : valuesToPrint) {
-      if (cycleValue == null) {
+      if (cycleValue == null) { // first item
         cycleValue = value;
-      }
-      if (value == cycleValue) {
-        cycleMessage.append("\n  * ");
+        cycleMessage.append("\n.-> ");
       } else {
-        cycleMessage.append("\n    ");
+        if (value == cycleValue) { // last item of the cycle
+          cycleMessage.append("\n`-- ");
+        } else {
+          cycleMessage.append("\n|   ");
+        }
       }
       cycleMessage.append(printFunction.apply(value));
     }
 
     if (cycle.size() == 1) {
       cycleMessage.append(" [self-edge]");
+      cycleMessage.append("\n`--");
     }
 
     return cycleValue;
   }
 
-  protected final Target getTargetForLabel(Label label) {
+  protected final Target getTargetForLabel(
+      final ExtendedEventHandler eventHandler, final Label label) {
     try {
-      return loadedPackageProvider.getLoadedTarget(label);
+      return Uninterruptibles.callUninterruptibly(new Callable<Target>() {
+        @Override
+        public Target call()
+            throws NoSuchPackageException, NoSuchTargetException, InterruptedException {
+          return packageProvider.getTarget(eventHandler, label);
+        }
+      });
     } catch (NoSuchThingException e) {
       // This method is used for getting the target from a label in a circular dependency.
       // If we have a cycle that means that we need to have accessed the target (to get its
       // dependencies). So all the labels in a dependency cycle need to exist.
+      throw new IllegalStateException(e);
+    } catch (Exception e) {
       throw new IllegalStateException(e);
     }
   }

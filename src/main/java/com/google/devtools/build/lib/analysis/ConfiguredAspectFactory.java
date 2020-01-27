@@ -1,4 +1,4 @@
-// Copyright 2014 Google Inc. All rights reserved.
+// Copyright 2014 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -13,16 +13,28 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis;
 
-import com.google.devtools.build.lib.packages.AspectFactory;
+import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
+import com.google.devtools.build.lib.packages.AspectParameters;
+import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 
 /**
- * Instantiation of {@link AspectFactory} with the actual types.
- *
- * <p>This is needed because {@link AspectFactory} is needed in the {@code packages} package to
- * do loading phase things properly and to be able to specify them on attributes, but the actual
- * classes are in the {@code view} package, which is not available there.
+ * Creates the Skyframe node of an aspect.
  */
-public interface ConfiguredAspectFactory
-    extends AspectFactory<ConfiguredTarget, RuleContext, Aspect> {
-
+public interface ConfiguredAspectFactory {
+  /**
+   * Creates the aspect based on the configured target of the associated rule.
+   *
+   * @param ctadBase the ConfiguredTargetAndData of the associated rule
+   * @param context the context of the associated configured target plus all the attributes the
+   *     aspect itself has defined
+   * @param parameters information from attributes of the rule that have requested this
+   * @param toolsRepository string representing the name of the tools repository such as
+   *     "@bazel_tools"
+   */
+  ConfiguredAspect create(
+      ConfiguredTargetAndData ctadBase,
+      RuleContext context,
+      AspectParameters parameters,
+      String toolsRepository)
+      throws ActionConflictException, InterruptedException;
 }

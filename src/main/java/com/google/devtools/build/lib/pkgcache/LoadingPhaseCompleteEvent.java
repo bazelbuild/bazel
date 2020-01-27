@@ -1,4 +1,4 @@
-// Copyright 2014 Google Inc. All rights reserved.
+// Copyright 2014 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -13,74 +13,43 @@
 // limitations under the License.
 package com.google.devtools.build.lib.pkgcache;
 
-import com.google.common.base.Function;
-import com.google.common.collect.Iterables;
-import com.google.devtools.build.lib.packages.Target;
-import com.google.devtools.build.lib.syntax.Label;
-
-import java.util.Collection;
+import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.events.ExtendedEventHandler;
 
 /**
  * This event is fired after the loading phase is complete.
  */
-public class LoadingPhaseCompleteEvent {
-  private final Collection<Target> targets;
-  private final Collection<Target> filteredTargets;
-  private final PackageManager.PackageManagerStatistics pkgManagerStats;
-  private final long timeInMs;
+public final class LoadingPhaseCompleteEvent implements ExtendedEventHandler.Postable {
+  private final ImmutableSet<Label> labels;
+  private final ImmutableSet<Label> filteredLabels;
 
   /**
    * Construct the event.
    *
-   * @param targets the set of active targets that remain
-   * @param pkgManagerStats statistics about the package cache
+   * @param labels the set of active targets that remain
+   * @param filteredLabels the set of filtered targets
    */
-  public LoadingPhaseCompleteEvent(Collection<Target> targets, Collection<Target> filteredTargets,
-      PackageManager.PackageManagerStatistics pkgManagerStats, long timeInMs) {
-    this.targets = targets;
-    this.filteredTargets = filteredTargets;
-    this.pkgManagerStats = pkgManagerStats;
-    this.timeInMs = timeInMs;
-  }
-
-  /**
-   * @return The set of active targets remaining, which is a subset of the
-   *         targets we attempted to load.
-   */
-  public Collection<Target> getTargets() {
-    return targets;
-  }
-
-  /**
-   * @return The set of filtered targets.
-   */
-  public Collection<Target> getFilteredTargets() {
-    return filteredTargets;
+  public LoadingPhaseCompleteEvent(
+      ImmutableSet<Label> labels,
+      ImmutableSet<Label> filteredLabels) {
+    this.labels = Preconditions.checkNotNull(labels);
+    this.filteredLabels = Preconditions.checkNotNull(filteredLabels);
   }
 
   /**
    * @return The set of active target labels remaining, which is a subset of the
    *         targets we attempted to load.
    */
-  public Iterable<Label> getLabels() {
-    return Iterables.transform(targets, TO_LABEL);
-  }
-  
-  public long getTimeInMs() {
-    return timeInMs;
+  public ImmutableSet<Label> getLabels() {
+    return labels;
   }
 
   /**
-   * Returns the PackageCache statistics.
+   * @return The set of filtered targets.
    */
-  public PackageManager.PackageManagerStatistics getPkgManagerStats() {
-    return pkgManagerStats;
+  public ImmutableSet<Label> getFilteredLabels() {
+    return filteredLabels;
   }
-
-  private static final Function<Target, Label> TO_LABEL = new Function<Target, Label>() {
-    @Override
-    public Label apply(Target input) {
-      return input.getLabel();
-    }
-  };
 }

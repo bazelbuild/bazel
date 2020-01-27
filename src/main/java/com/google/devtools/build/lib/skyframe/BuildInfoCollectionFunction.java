@@ -1,4 +1,4 @@
-// Copyright 2014 Google Inc. All rights reserved.
+// Copyright 2014 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -13,20 +13,28 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import com.google.common.base.Preconditions;
 import com.google.common.base.Supplier;
+import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.actions.ActionKeyContext;
+import com.google.devtools.build.lib.actions.Actions;
+import com.google.devtools.build.lib.actions.Actions.GeneratingActions;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactFactory;
-import com.google.devtools.build.lib.actions.Root;
+import com.google.devtools.build.lib.actions.ArtifactRoot;
+import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
+import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoCollection;
 import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoFactory;
 import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoFactory.BuildInfoContext;
 import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoFactory.BuildInfoKey;
 import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoFactory.BuildInfoType;
+import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.skyframe.BuildInfoCollectionValue.BuildInfoKeyAndConfig;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-
 import java.util.Map;
 
 /**
@@ -35,48 +43,68 @@ import java.util.Map;
  * injected value.
  */
 public class BuildInfoCollectionFunction implements SkyFunction {
+  private final ActionKeyContext actionKeyContext;
   // Supplier only because the artifact factory has not yet been created at constructor time.
   private final Supplier<ArtifactFactory> artifactFactory;
-  private final Root buildDataDirectory;
 
-  BuildInfoCollectionFunction(Supplier<ArtifactFactory> artifactFactory,
-      Root buildDataDirectory) {
+  BuildInfoCollectionFunction(
+      ActionKeyContext actionKeyContext, Supplier<ArtifactFactory> artifactFactory) {
+    this.actionKeyContext = actionKeyContext;
     this.artifactFactory = artifactFactory;
-    this.buildDataDirectory = buildDataDirectory;
   }
 
   @Override
-  public SkyValue compute(SkyKey skyKey, Environment env) {
+  public SkyValue compute(SkyKey skyKey, Environment env) throws InterruptedException {
     final BuildInfoKeyAndConfig keyAndConfig = (BuildInfoKeyAndConfig) skyKey.argument();
-    WorkspaceStatusValue infoArtifactValue =
-        (WorkspaceStatusValue) env.getValue(WorkspaceStatusValue.SKY_KEY);
-    if (infoArtifactValue == null) {
+    ImmutableSet<SkyKey> keysToRequest =
+        ImmutableSet.of(
+            WorkspaceStatusValue.BUILD_INFO_KEY,
+            WorkspaceNameValue.key(),
+            keyAndConfig.getConfigKey());
+    Map<SkyKey, SkyValue> result = env.getValues(keysToRequest);
+    if (env.valuesMissing()) {
       return null;
     }
+    WorkspaceStatusValue infoArtifactValue =
+        (WorkspaceStatusValue) result.get(WorkspaceStatusValue.BUILD_INFO_KEY);
+    WorkspaceNameValue nameValue = (WorkspaceNameValue) result.get(WorkspaceNameValue.key());
+    RepositoryName repositoryName = RepositoryName.createFromValidStrippedName(
+        nameValue.getName());
+
+    BuildConfiguration config =
+        ((BuildConfigurationValue) result.get(keyAndConfig.getConfigKey())).getConfiguration();
     Map<BuildInfoKey, BuildInfoFactory> buildInfoFactories =
         PrecomputedValue.BUILD_INFO_FACTORIES.get(env);
-    if (buildInfoFactories == null) {
-      return null;
-    }
+    BuildInfoFactory buildInfoFactory = buildInfoFactories.get(keyAndConfig.getInfoKey());
+    Preconditions.checkState(buildInfoFactory.isEnabled(config));
+
     final ArtifactFactory factory = artifactFactory.get();
-    BuildInfoContext context = new BuildInfoContext() {
-      @Override
-      public Artifact getBuildInfoArtifact(PathFragment rootRelativePath, Root root,
-          BuildInfoType type) {
-        return type == BuildInfoType.NO_REBUILD
-            ? factory.getConstantMetadataArtifact(rootRelativePath, root, keyAndConfig)
-            : factory.getDerivedArtifact(rootRelativePath, root, keyAndConfig);
-      }
-
-      @Override
-      public Root getBuildDataDirectory() {
-        return buildDataDirectory;
-      }
-    };
-
-    return new BuildInfoCollectionValue(buildInfoFactories.get(
-        keyAndConfig.getInfoKey()).create(context, keyAndConfig.getConfig(),
-            infoArtifactValue.getStableArtifact(), infoArtifactValue.getVolatileArtifact()));
+    BuildInfoContext context =
+        new BuildInfoContext() {
+          @Override
+          public Artifact getBuildInfoArtifact(
+              PathFragment rootRelativePath, ArtifactRoot root, BuildInfoType type) {
+            return type == BuildInfoType.NO_REBUILD
+                ? factory.getConstantMetadataArtifact(rootRelativePath, root, keyAndConfig)
+                : factory.getDerivedArtifact(rootRelativePath, root, keyAndConfig);
+          }
+        };
+    BuildInfoCollection collection =
+        buildInfoFactory.create(
+            context,
+            config,
+            infoArtifactValue.getStableArtifact(),
+            infoArtifactValue.getVolatileArtifact(),
+            repositoryName);
+    GeneratingActions generatingActions;
+    try {
+      generatingActions =
+          Actions.assignOwnersAndFilterSharedActionsAndThrowActionConflict(
+              actionKeyContext, collection.getActions(), keyAndConfig, /*outputFiles=*/ null);
+    } catch (ActionConflictException e) {
+      throw new IllegalStateException("Action conflicts not expected in build info: " + skyKey, e);
+    }
+    return new BuildInfoCollectionValue(collection, generatingActions);
   }
 
   @Override

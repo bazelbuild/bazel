@@ -1,4 +1,4 @@
-// Copyright 2015 Google Inc. All rights reserved.
+// Copyright 2015 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,48 +17,40 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.shell.ShellUtils.prettyPrintArgv;
 import static com.google.devtools.build.lib.shell.ShellUtils.shellEscape;
 import static com.google.devtools.build.lib.shell.ShellUtils.tokenize;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.fail;
-
-import com.google.common.collect.Lists;
-
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
-/**
- * Tests for ShellUtils.
- *
- */
+/** Tests for ShellUtils. */
 @RunWith(JUnit4.class)
 public class ShellUtilsTest {
 
   @Test
   public void testShellEscape() throws Exception {
-    assertEquals("''", shellEscape(""));
-    assertEquals("foo", shellEscape("foo"));
-    assertEquals("'foo bar'", shellEscape("foo bar"));
-    assertEquals("''\\''foo'\\'''", shellEscape("'foo'"));
-    assertEquals("'\\'\\''foo\\'\\'''", shellEscape("\\'foo\\'"));
-    assertEquals("'${filename%.c}.o'", shellEscape("${filename%.c}.o"));
-    assertEquals("'<html!>'", shellEscape("<html!>"));
+    assertThat(shellEscape("")).isEqualTo("''");
+    assertThat(shellEscape("foo")).isEqualTo("foo");
+    assertThat(shellEscape("foo bar")).isEqualTo("'foo bar'");
+    assertThat(shellEscape("'foo'")).isEqualTo("''\\''foo'\\'''");
+    assertThat(shellEscape("\\'foo\\'")).isEqualTo("'\\'\\''foo\\'\\'''");
+    assertThat(shellEscape("${filename%.c}.o")).isEqualTo("'${filename%.c}.o'");
+    assertThat(shellEscape("<html!>")).isEqualTo("'<html!>'");
   }
 
   @Test
   public void testPrettyPrintArgv() throws Exception {
-    assertEquals("echo '$US' 100",
-                 prettyPrintArgv(Arrays.asList("echo", "$US", "100")));
+    assertThat(prettyPrintArgv(Arrays.asList("echo", "$US", "100"))).isEqualTo("echo '$US' 100");
   }
 
   private void assertTokenize(String copts, String... expectedTokens)
       throws Exception {
     List<String> actualTokens = new ArrayList<>();
     tokenize(actualTokens, copts);
-    assertEquals(Arrays.asList(expectedTokens), actualTokens);
+    assertThat(actualTokens).isEqualTo(Arrays.asList(expectedTokens));
   }
 
   @Test
@@ -123,12 +115,10 @@ public class ShellUtilsTest {
   }
 
   private void assertTokenizeFails(String copts, String expectedError) {
-    try {
-      tokenize(new ArrayList<String>(), copts);
-      fail();
-    } catch (ShellUtils.TokenizationException e) {
-      assertThat(e).hasMessage(expectedError);
-    }
+    ShellUtils.TokenizationException e =
+        assertThrows(
+            ShellUtils.TokenizationException.class, () -> tokenize(new ArrayList<String>(), copts));
+    assertThat(e).hasMessageThat().isEqualTo(expectedError);
   }
 
   @Test
@@ -143,61 +133,56 @@ public class ShellUtilsTest {
     assertTokenizeFails("-Dfoo=\"b'ar", "unterminated quotation");
   }
 
-  private void assertTokenizeIsDualToPrettyPrint(String... args) throws Exception {
-    List<String> in = Arrays.asList(args);
-    String shellCommand = prettyPrintArgv(in);
-
-    // Assert that pretty-print is correct, i.e. dual to the actual /bin/sh
-    // tokenization.  This test assumes no newlines in the input:
-    String[] execArgs =  {
-      "/bin/sh",
-      "-c",
-      "for i in " + shellCommand + "; do echo \"$i\"; done"  // tokenize, one word per line
-    };
-    String stdout = null;
-    try {
-      stdout = new String(new Command(execArgs).execute().getStdout());
-    } catch (Exception e) {
-      fail("/bin/sh failed:\n" + in + "\n" + shellCommand + "\n" + e.getMessage());
-    }
-    // We can't use stdout.split("\n") here,
-    // because String.split() ignores trailing empty strings.
-    ArrayList<String> words = Lists.newArrayList();
-    int index;
-    while ((index = stdout.indexOf('\n')) >= 0) {
-      words.add(stdout.substring(0, index));
-      stdout = stdout.substring(index + 1);
-    }
-    assertEquals(in, words);
-
-    // Assert that tokenize is dual to pretty-print:
-    List<String> out = new ArrayList<>();
-    try {
-      tokenize(out, shellCommand);
-    } finally {
-      if (out.isEmpty()) { // i.e. an exception
-        System.err.println(in);
-      }
-    }
-    assertEquals(in, out);
+  private void assertWindowsEscapeArg(String arg, String expected) {
+    assertThat(ShellUtils.windowsEscapeArg(arg)).isEqualTo(expected);
   }
 
   @Test
-  public void testTokenizeIsDualToPrettyPrint() throws Exception {
-    // tokenize() is the inverse of prettyPrintArgv().  (However, the reverse
-    // is not true, since there are many ways to escape the same string,
-    // e.g. "foo" and 'foo'.)
-
-    assertTokenizeIsDualToPrettyPrint("foo");
-    assertTokenizeIsDualToPrettyPrint("foo bar");
-    assertTokenizeIsDualToPrettyPrint("foo bar", "wiz");
-    assertTokenizeIsDualToPrettyPrint("'foo'");
-    assertTokenizeIsDualToPrettyPrint("\\'foo\\'");
-    assertTokenizeIsDualToPrettyPrint("${filename%.c}.o");
-    assertTokenizeIsDualToPrettyPrint("<html!>");
-
-    assertTokenizeIsDualToPrettyPrint("");
-    assertTokenizeIsDualToPrettyPrint("!@#$%^&*()");
-    assertTokenizeIsDualToPrettyPrint("x'y\" z");
+  public void testEscapeCreateProcessArg() {
+    assertWindowsEscapeArg("", "\"\"");
+    assertWindowsEscapeArg(" ", "\" \"");
+    assertWindowsEscapeArg("\"", "\"\\\"\"");
+    assertWindowsEscapeArg("\"\\", "\"\\\"\\\\\"");
+    assertWindowsEscapeArg("\\", "\\");
+    assertWindowsEscapeArg("\\\"", "\"\\\\\\\"\"");
+    assertWindowsEscapeArg("with space", "\"with space\"");
+    assertWindowsEscapeArg("with^caret", "with^caret");
+    assertWindowsEscapeArg("space ^caret", "\"space ^caret\"");
+    assertWindowsEscapeArg("caret^ space", "\"caret^ space\"");
+    assertWindowsEscapeArg("with\"quote", "\"with\\\"quote\"");
+    assertWindowsEscapeArg("with\\backslash", "with\\backslash");
+    assertWindowsEscapeArg("one\\ backslash and \\space", "\"one\\ backslash and \\space\"");
+    assertWindowsEscapeArg("two\\\\backslashes", "two\\\\backslashes");
+    assertWindowsEscapeArg(
+        "two\\\\ backslashes \\\\and space", "\"two\\\\ backslashes \\\\and space\"");
+    assertWindowsEscapeArg("one\\\"x", "\"one\\\\\\\"x\"");
+    assertWindowsEscapeArg("two\\\\\"x", "\"two\\\\\\\\\\\"x\"");
+    assertWindowsEscapeArg("a \\ b", "\"a \\ b\"");
+    assertWindowsEscapeArg("a \\\" b", "\"a \\\\\\\" b\"");
+    assertWindowsEscapeArg("A", "A");
+    assertWindowsEscapeArg("\"a\"", "\"\\\"a\\\"\"");
+    assertWindowsEscapeArg("B C", "\"B C\"");
+    assertWindowsEscapeArg("\"b c\"", "\"\\\"b c\\\"\"");
+    assertWindowsEscapeArg("D\"E", "\"D\\\"E\"");
+    assertWindowsEscapeArg("\"d\"e\"", "\"\\\"d\\\"e\\\"\"");
+    assertWindowsEscapeArg("C:\\F G", "\"C:\\F G\"");
+    assertWindowsEscapeArg("\"C:\\f g\"", "\"\\\"C:\\f g\\\"\"");
+    assertWindowsEscapeArg("C:\\H\"I", "\"C:\\H\\\"I\"");
+    assertWindowsEscapeArg("\"C:\\h\"i\"", "\"\\\"C:\\h\\\"i\\\"\"");
+    assertWindowsEscapeArg("C:\\J\\\"K", "\"C:\\J\\\\\\\"K\"");
+    assertWindowsEscapeArg("\"C:\\j\\\"k\"", "\"\\\"C:\\j\\\\\\\"k\\\"\"");
+    assertWindowsEscapeArg("C:\\L M ", "\"C:\\L M \"");
+    assertWindowsEscapeArg("\"C:\\l m \"", "\"\\\"C:\\l m \\\"\"");
+    assertWindowsEscapeArg("C:\\N O\\", "\"C:\\N O\\\\\"");
+    assertWindowsEscapeArg("\"C:\\n o\\\"", "\"\\\"C:\\n o\\\\\\\"\"");
+    assertWindowsEscapeArg("C:\\P Q\\ ", "\"C:\\P Q\\ \"");
+    assertWindowsEscapeArg("\"C:\\p q\\ \"", "\"\\\"C:\\p q\\ \\\"\"");
+    assertWindowsEscapeArg("C:\\R\\S\\", "C:\\R\\S\\");
+    assertWindowsEscapeArg("C:\\R x\\S\\", "\"C:\\R x\\S\\\\\"");
+    assertWindowsEscapeArg("\"C:\\r\\s\\\"", "\"\\\"C:\\r\\s\\\\\\\"\"");
+    assertWindowsEscapeArg("\"C:\\r x\\s\\\"", "\"\\\"C:\\r x\\s\\\\\\\"\"");
+    assertWindowsEscapeArg("C:\\T U\\W\\", "\"C:\\T U\\W\\\\\"");
+    assertWindowsEscapeArg("\"C:\\t u\\w\\\"", "\"\\\"C:\\t u\\w\\\\\\\"\"");
+    assertWindowsEscapeArg("\"a", "\"\\\"a\"");
   }
 }
