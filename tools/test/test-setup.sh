@@ -63,13 +63,19 @@ is_absolute "$TEST_UNDECLARED_OUTPUTS_ANNOTATIONS_DIR" ||
 
 is_absolute "$TEST_SRCDIR" || TEST_SRCDIR="$PWD/$TEST_SRCDIR"
 is_absolute "$TEST_TMPDIR" || TEST_TMPDIR="$PWD/$TEST_TMPDIR"
-is_absolute "$HOME" || HOME="$TEST_TMPDIR"
+is_absolute "$HOME" || export HOME="$TEST_TMPDIR"
 is_absolute "$XML_OUTPUT_FILE" || XML_OUTPUT_FILE="$PWD/$XML_OUTPUT_FILE"
 
 # Set USER to the current user, unless passed by Bazel via --test_env.
 if [[ -z "$USER" ]]; then
   export USER=$(whoami)
 fi
+# Set LOGNAME to USER, unless passed by Bazel via --test_env.
+if [[ -z "$LOGNAME" ]]; then
+  export LOGNAME=$USER
+fi
+# SHLVL should always be set to 2
+export SHLVL=2
 
 # The test shard status file is only set for sharded tests.
 if [[ -n "$TEST_SHARD_STATUS_FILE" ]]; then

@@ -104,6 +104,14 @@ cc_test(
     }),
 )
 
+cc_test(
+    name = "testsetup_test",
+    srcs = ["testsetup_test.cc"],
+    deps = [
+        "@com_google_googletest//:gtest_main",
+    ],
+)
+
 filegroup(
     name = "srcs",
     srcs = glob(["**"]),
