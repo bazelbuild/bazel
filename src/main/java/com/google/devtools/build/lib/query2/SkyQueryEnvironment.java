@@ -605,10 +605,10 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
 
     Map<SkyKey, Target> targetMap = new HashMap<>();
     Set<SkyKey> depLabels = ImmutableSet.copyOf(Iterables.concat(keyToDepKeys.values()));
-    for (Map.Entry<SkyKey, Collection<Target>> entry : targetDepMap.entrySet()) {
-      for (Target target : entry.getValue()) {
-        targetMap.putIfAbsent(target.getLabel(), target);
-        toAddTo.add(target);
+    for (Collection<Target> depTargets : targetDepMap.values()) {
+      for (Target depTarget : depTargets) {
+        targetMap.putIfAbsent(depTarget.getLabel(), depTarget);
+        toAddTo.add(depTarget);
       }
     }
     reportUnsuccessfulOrMissingTargets(targetMap, depLabels, caller);
