@@ -39,7 +39,6 @@ import com.google.devtools.build.lib.actions.SpawnStrategy;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
-import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.PrintingEventHandler;
@@ -49,10 +48,9 @@ import com.google.devtools.build.lib.exec.BlazeExecutor;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.exec.RunfilesTreeUpdater;
 import com.google.devtools.build.lib.exec.SingleBuildFileCache;
-import com.google.devtools.build.lib.exec.SpawnActionContextMaps;
-import com.google.devtools.build.lib.exec.local.LocalEnvProvider;
 import com.google.devtools.build.lib.exec.local.LocalExecutionOptions;
 import com.google.devtools.build.lib.exec.local.LocalSpawnRunner;
+import com.google.devtools.build.lib.exec.util.TestExecutorBuilder;
 import com.google.devtools.build.lib.integration.util.IntegrationMock;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.testutil.TestUtils;
@@ -67,7 +65,6 @@ import java.io.IOException;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -142,35 +139,22 @@ public class StandaloneSpawnStrategyTest {
     resourceManager.setAvailableResources(
         ResourceSet.create(/*memoryMb=*/1, /*cpuUsage=*/1, /*localTestCount=*/1));
     Path execRoot = directories.getExecRoot(TestConstants.WORKSPACE_NAME);
-    this.executor =
-        new BlazeExecutor(
-            fileSystem,
+    BinTools binTools = BinTools.forIntegrationTesting(directories, ImmutableList.of());
+    StandaloneSpawnStrategy strategy =
+        new StandaloneSpawnStrategy(
             execRoot,
-            reporter,
-            BlazeClock.instance(),
-            optionsParser,
-            SpawnActionContextMaps.createStub(
-                ImmutableMap.of(),
-                ImmutableMap.of(
-                    "",
-                    ImmutableList.of(
-                        new StandaloneSpawnStrategy(
-                            execRoot,
-                            new LocalSpawnRunner(
-                                execRoot,
-                                localExecutionOptions,
-                                resourceManager,
-                                new LocalEnvProvider() {
-                                  @Override
-                                  public ImmutableMap<String, String> rewriteLocalEnv(
-                                      Map<String, String> env,
-                                      BinTools binTools,
-                                      String fallbackTmpDir) {
-                                    return ImmutableMap.copyOf(env);
-                                  }
-                                },
-                                BinTools.forIntegrationTesting(directories, ImmutableList.of()),
-                                Mockito.mock(RunfilesTreeUpdater.class)))))));
+            new LocalSpawnRunner(
+                execRoot,
+                localExecutionOptions,
+                resourceManager,
+                (env, binTools1, fallbackTmpDir) -> ImmutableMap.copyOf(env),
+                binTools,
+                Mockito.mock(RunfilesTreeUpdater.class)));
+    this.executor =
+        new TestExecutorBuilder(fileSystem, directories, binTools)
+            .addStrategy(SpawnStrategy.class, strategy, "standalone")
+            .setExecution("", "standalone")
+            .build();
 
     executor.getExecRoot().createDirectoryAndParents();
   }
