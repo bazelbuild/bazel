@@ -358,6 +358,12 @@ public class JavaTargetAttributes {
     public boolean hasSources() {
       return !sourceFiles.isEmpty() || !sourceJars.isEmpty();
     }
+
+    /** @deprecated prefer {@link JavaTargetAttributes#getSourceFiles} */
+    @Deprecated
+    public boolean hasSourceFiles() {
+      return !sourceFiles.isEmpty();
+    }
   }
 
   //
