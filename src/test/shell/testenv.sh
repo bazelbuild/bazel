@@ -274,6 +274,9 @@ common --color=no --curses=no
 # TODO(#7899): Remove once we flip the flag default.
 build --incompatible_use_python_toolchains=true
 
+# Prevent SIGBUS during JVM actions.
+build --sandbox_tmpfs_path=/tmp
+
 build --incompatible_skip_genfiles_symlink=false
 
 ${EXTRA_BAZELRC:-}
