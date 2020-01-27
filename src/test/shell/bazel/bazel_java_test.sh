@@ -61,38 +61,44 @@ add_to_bazelrc "build --host_java_toolchain=${JAVA_TOOLCHAIN}"
 
 JAVA_TOOLS_ZIP="$1"; shift
 if [[ "${JAVA_TOOLS_ZIP}" != "released" ]]; then
-    if [[ "${JAVA_TOOLS_ZIP}" == file* ]]; then
-        JAVA_TOOLS_ZIP_FILE_URL="${JAVA_TOOLS_ZIP}"
-    elif "$is_windows"; then
-        JAVA_TOOLS_ZIP_FILE_URL="file:///$(rlocation io_bazel/$JAVA_TOOLS_ZIP)"
-    else
-        JAVA_TOOLS_ZIP_FILE_URL="file://$(rlocation io_bazel/$JAVA_TOOLS_ZIP)"
-    fi
+  if [[ "${JAVA_TOOLS_ZIP}" == file* ]]; then
+    JAVA_TOOLS_ZIP_FILE_URL="${JAVA_TOOLS_ZIP}"
+  elif "$is_windows"; then
+    JAVA_TOOLS_ZIP_FILE_URL="file:///$(rlocation io_bazel/$JAVA_TOOLS_ZIP)"
+  else
+    JAVA_TOOLS_ZIP_FILE_URL="file://$(rlocation io_bazel/$JAVA_TOOLS_ZIP)"
+  fi
 fi
 JAVA_TOOLS_ZIP_FILE_URL=${JAVA_TOOLS_ZIP_FILE_URL:-}
 
 if [[ $# -gt 0 ]]; then
-    JAVABASE_VALUE="$1"; shift
-    add_to_bazelrc "build --javabase=${JAVABASE_VALUE}"
-    add_to_bazelrc "build --host_javabase=${JAVABASE_VALUE}"
+  JAVABASE_VALUE="$1"; shift
+  add_to_bazelrc "build --javabase=${JAVABASE_VALUE}"
+  add_to_bazelrc "build --host_javabase=${JAVABASE_VALUE}"
 fi
 
+export TESTENV_DONT_BAZEL_CLEAN=1
+
 function set_up() {
-    cat >>WORKSPACE <<EOF
+  cat >>WORKSPACE <<EOF
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 # java_tools versions only used to test Bazel with various JDK toolchains.
 EOF
 
-    if [[ ! -z "${JAVA_TOOLS_ZIP_FILE_URL}" ]]; then
+  if [[ ! -z "${JAVA_TOOLS_ZIP_FILE_URL}" ]]; then
     cat >>WORKSPACE <<EOF
 http_archive(
     name = "local_java_tools",
     urls = ["${JAVA_TOOLS_ZIP_FILE_URL}"]
 )
 EOF
-    fi
+  fi
 
-    cat $(rlocation io_bazel/src/test/shell/bazel/testdata/jdk_http_archives) >> WORKSPACE
+  cat $(rlocation io_bazel/src/test/shell/bazel/testdata/jdk_http_archives) >> WORKSPACE
+}
+
+function tear_down() {
+  rm -rf "$(bazel info bazel-bin)/java"
 }
 
 function write_hello_library_files() {
@@ -382,11 +388,6 @@ EOF
 }
 
  function test_java_common_compile_sourcepath() {
-   # TODO(bazel-team): Enable this for Java 7 when VanillaJavaBuilder supports --sourcepath.
-   JAVA_VERSION="1.$(bazel query  --output=build '@bazel_tools//tools/jdk:remote_toolchain' | grep source_version | cut -d '"' -f 2)"
-   if [ "${JAVA_VERSION}" = "1.7" ]; then
-     return 0
-   fi
    mkdir -p g
    cat >g/A.java <<'EOF'
 package g;
@@ -458,11 +459,6 @@ EOF
  }
 
 function test_java_common_compile_sourcepath_with_implicit_class() {
-   # TODO(bazel-team): Enable this for Java 7 when VanillaJavaBuilder supports --sourcepath.
-   JAVA_VERSION="1.$(bazel query  --output=build '@bazel_tools//tools/jdk:remote_toolchain' | grep source_version | cut -d '"' -f 2)"
-   if [ "${JAVA_VERSION}" = "1.7" ]; then
-     return 0
-   fi
    mkdir -p g
    cat >g/A.java <<'EOF'
 package g;
@@ -544,11 +540,6 @@ function test_build_and_run_hello_world_without_runfiles() {
 }
 
 function test_errorprone_error_fails_build_by_default() {
-  JAVA_VERSION="1.$(bazel query  --output=build '@bazel_tools//tools/jdk:remote_toolchain' | grep source_version | cut -d '"' -f 2)"
-  if [ "${JAVA_VERSION}" = "1.7" ]; then
-    return 0
-  fi
-
   write_hello_library_files
   # Trigger an error-prone error by comparing two arrays via #equals().
   cat >java/hello_library/HelloLibrary.java <<EOF
@@ -567,11 +558,6 @@ EOF
 }
 
 function test_extrachecks_off_disables_errorprone() {
-  JAVA_VERSION="1.$(bazel query  --output=build '@bazel_tools//tools/jdk:remote_toolchain' | grep source_version | cut -d '"' -f 2)"
-  if [ "${JAVA_VERSION}" = "1.7" ]; then
-    return 0
-  fi
-
   write_hello_library_files
   # Trigger an error-prone error by comparing two arrays via #equals().
   cat >java/hello_library/HelloLibrary.java <<EOF
