@@ -474,7 +474,7 @@ java_library(
 
 java_test(
     name = "vfs_inmemoryfs_test",
-    size = "small",
+    size = "medium",
     srcs = glob(["vfs/inmemoryfs/*.java"]),
     tags = [
         "foundations",
