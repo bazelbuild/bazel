@@ -271,20 +271,26 @@ final class Eval {
    * Updates the environment bindings, and possibly mutates objects, so as to assign the given value
    * to the given expression. May throw an EvalException without location.
    */
-  private static void assign(StarlarkThread.Frame fr, Expression expr, Object value)
+  private static void assign(StarlarkThread.Frame fr, Expression lhs, Object value)
       throws EvalException, InterruptedException {
-    if (expr instanceof Identifier) {
-      assignIdentifier(fr, (Identifier) expr, value);
-    } else if (expr instanceof IndexExpression) {
-      Object object = eval(fr, ((IndexExpression) expr).getObject());
-      Object key = eval(fr, ((IndexExpression) expr).getKey());
-      assignItem(object, key, value);
-    } else if (expr instanceof ListExpression) {
-      ListExpression list = (ListExpression) expr;
+    if (lhs instanceof Identifier) {
+      // x = ...
+      assignIdentifier(fr, (Identifier) lhs, value);
+
+    } else if (lhs instanceof IndexExpression) {
+      // x[i] = ...
+      Object object = eval(fr, ((IndexExpression) lhs).getObject());
+      Object key = eval(fr, ((IndexExpression) lhs).getKey());
+      EvalUtils.setIndex(object, key, value);
+
+    } else if (lhs instanceof ListExpression) {
+      // a, b, c = ...
+      ListExpression list = (ListExpression) lhs;
       assignList(fr, list.getElements(), value);
+
     } else {
       // Not possible for validated ASTs.
-      throw Starlark.errorf("cannot assign to '%s'", expr);
+      throw Starlark.errorf("cannot assign to '%s'", lhs);
     }
   }
 
@@ -324,31 +330,6 @@ final class Eval {
         break;
       default:
         throw new IllegalStateException(scope.toString());
-    }
-  }
-
-  /**
-   * Adds or changes an object-key-value relationship for a list or dict.
-   *
-   * <p>For a list, the key is an in-range index. For a dict, it is a hashable value.
-   *
-   * @throws EvalException if the object is not a list or dict
-   */
-  private static void assignItem(Object object, Object key, Object value) throws EvalException {
-    if (object instanceof Dict) {
-      @SuppressWarnings("unchecked")
-      Dict<Object, Object> dict = (Dict<Object, Object>) object;
-      dict.put(key, value, /*loc=*/ null);
-    } else if (object instanceof StarlarkList) {
-      @SuppressWarnings("unchecked")
-      StarlarkList<Object> list = (StarlarkList<Object>) object;
-      int index = Starlark.toInt(key, "list index");
-      index = EvalUtils.getSequenceIndex(index, list.size());
-      list.set(index, value, /*loc=*/ null);
-    } else {
-      throw Starlark.errorf(
-          "can only assign an element in a dictionary or a list, not in a '%s'",
-          Starlark.type(object));
     }
   }
 
@@ -407,7 +388,7 @@ final class Eval {
       Object y = eval(fr, rhs);
       Object z = inplaceBinaryOp(fr, op, x, y);
       try {
-        assignItem(object, key, z);
+        EvalUtils.setIndex(object, key, z);
       } catch (EvalException ex) {
         Location loc = stmt.getStartLocation(); // TODO(adonovan): use operator location
         throw ex.ensureLocation(loc);
@@ -505,7 +486,7 @@ final class Eval {
             Object v = eval(fr, entry.getValue());
             int before = dict.size();
             try {
-              dict.put(k, v, /*loc=*/ null);
+              dict.put(k, v, (Location) null);
             } catch (EvalException ex) {
               // TODO(adonovan): use colon location
               throw ex.ensureLocation(entry.getKey().getStartLocation());
@@ -804,7 +785,7 @@ final class Eval {
           EvalUtils.checkHashable(k);
           Object v = eval(fr, body.getValue());
           try {
-            dict.put(k, v, /*loc=*/ null);
+            dict.put(k, v, (Location) null);
           } catch (EvalException ex) {
             // TODO(adonovan): use colon location
             throw ex.ensureLocation(comp.getStartLocation());

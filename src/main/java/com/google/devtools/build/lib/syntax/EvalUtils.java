@@ -722,6 +722,31 @@ public final class EvalUtils {
   }
 
   /**
+   * Updates an object as if by the Starlark statement {@code object[key] = value}.
+   *
+   * @throws EvalException if the object is not a list or dict.
+   */
+  static void setIndex(Object object, Object key, Object value) throws EvalException {
+    if (object instanceof Dict) {
+      @SuppressWarnings("unchecked")
+      Dict<Object, Object> dict = (Dict<Object, Object>) object;
+      dict.put(key, value, (Location) null);
+
+    } else if (object instanceof StarlarkList) {
+      @SuppressWarnings("unchecked")
+      StarlarkList<Object> list = (StarlarkList<Object>) object;
+      int index = Starlark.toInt(key, "list index");
+      index = EvalUtils.getSequenceIndex(index, list.size());
+      list.set(index, value, (Location) null);
+
+    } else {
+      throw Starlark.errorf(
+          "can only assign an element in a dictionary or a list, not in a '%s'",
+          Starlark.type(object));
+    }
+  }
+
+  /**
    * Parses the input as a file, validates it in the {@code thread.getGlobals} environment using
    * options defined by {@code thread.getSemantics}, and returns the syntax tree. It uses Starlark
    * (not BUILD) validation semantics.

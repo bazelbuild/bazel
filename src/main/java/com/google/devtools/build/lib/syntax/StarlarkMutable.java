@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.syntax;
 
-import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.syntax.Mutability.Freezable;
 import com.google.devtools.build.lib.syntax.Mutability.MutabilityException;
 
@@ -22,7 +21,7 @@ import com.google.devtools.build.lib.syntax.Mutability.MutabilityException;
  * Marker interface for indicating a freezable Starlark value whose mutation operations check a
  * {@link Mutability}.
  */
-// TODO(adonovan): merge with Freezable once StarlarkThread and Frame no longer implement Freezable.
+// TODO(adonovan): merge into Freezable.
 public interface StarlarkMutable extends Freezable, StarlarkValue {
 
   /**
@@ -34,11 +33,11 @@ public interface StarlarkMutable extends Freezable, StarlarkValue {
    *     this.mutability()} is frozen, or because it is temporarily locked by an active loop
    *     iteration.
    */
-  default void checkMutable(Location loc) throws EvalException {
+  default void checkMutable() throws EvalException {
     try {
       Mutability.checkMutable(this, mutability());
     } catch (MutabilityException ex) {
-      throw new EvalException(loc, ex);
+      throw new EvalException(null, ex.getMessage());
     }
   }
 }
