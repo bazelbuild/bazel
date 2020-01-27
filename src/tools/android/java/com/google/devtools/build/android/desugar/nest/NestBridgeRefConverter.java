@@ -37,12 +37,16 @@ public final class NestBridgeRefConverter extends MethodVisitor {
   private final MethodToBridgeRedirector methodToBridgeRedirector;
 
   NestBridgeRefConverter(
-      @Nullable MethodVisitor methodVisitor, MethodKey methodKey, ClassMemberRecord bridgeOrigins) {
+      @Nullable MethodVisitor methodVisitor,
+      MethodKey methodKey,
+      ClassMemberRecord bridgeOrigins,
+      NestCompanions nestCompanions) {
     super(Opcodes.ASM7, methodVisitor);
     this.enclosingMethodKey = methodKey;
     this.bridgeOrigins = bridgeOrigins;
+
     directFieldAccessReplacer = new FieldAccessToBridgeRedirector();
-    methodToBridgeRedirector = new MethodToBridgeRedirector();
+    methodToBridgeRedirector = new MethodToBridgeRedirector(nestCompanions);
   }
 
   @Override
@@ -74,6 +78,12 @@ public final class NestBridgeRefConverter extends MethodVisitor {
   static class MethodToBridgeRedirector
       implements MethodInstrVisitor<MethodKey, MethodKey, MethodVisitor> {
 
+    private final NestCompanions nestCompanions;
+
+    MethodToBridgeRedirector(NestCompanions nestCompanions) {
+      this.nestCompanions = nestCompanions;
+    }
+
     @Override
     public MethodKey visitInvokeVirtual(MethodKey methodKey, MethodVisitor mv) {
       MethodKey bridgeMethodKey = methodKey.bridgeOfClassInstanceMethod();
@@ -100,7 +110,8 @@ public final class NestBridgeRefConverter extends MethodVisitor {
 
     @Override
     public MethodKey visitConstructorInvokeSpecial(MethodKey methodKey, MethodVisitor mv) {
-      MethodKey constructorBridge = methodKey.bridgeOfConstructor();
+      String nestCompanion = nestCompanions.nestCompanion(methodKey.owner());
+      MethodKey constructorBridge = methodKey.bridgeOfConstructor(nestCompanion);
       mv.visitInsn(Opcodes.ACONST_NULL);
       mv.visitMethodInsn(
           Opcodes.INVOKESPECIAL,

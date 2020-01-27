@@ -36,6 +36,12 @@ import org.objectweb.asm.Type;
 final class MethodAccessorEmitter
     implements MethodDeclVisitor<MethodVisitor, MethodDeclInfo, ClassVisitor> {
 
+  private final NestCompanions nestCompanions;
+
+  MethodAccessorEmitter(NestCompanions nestCompanions) {
+    this.nestCompanions = nestCompanions;
+  }
+
   /**
    * Emits a synthetic overloaded constructor which delegates the construction logic to the source
    * constructor. For example,
@@ -53,7 +59,8 @@ final class MethodAccessorEmitter
    */
   @Override
   public MethodVisitor visitClassConstructor(MethodDeclInfo methodDeclInfo, ClassVisitor cv) {
-    MethodKey constructorBridge = methodDeclInfo.methodKey.bridgeOfConstructor();
+    String nestCompanion = nestCompanions.nestCompanion(methodDeclInfo.methodKey.owner());
+    MethodKey constructorBridge = methodDeclInfo.methodKey.bridgeOfConstructor(nestCompanion);
     MethodVisitor mv =
         cv.visitMethod(
             (methodDeclInfo.memberAccess & ~ACC_PRIVATE) | ACC_SYNTHETIC,

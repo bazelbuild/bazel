@@ -16,7 +16,6 @@
 
 package com.google.devtools.build.android.desugar.langmodel;
 
-import static com.google.devtools.build.android.desugar.langmodel.LangModelConstants.NEST_COMPANION_CLASS_SIMPLE_NAME;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -61,25 +60,6 @@ public final class LangModelHelper {
           .put(1, 2, Opcodes.DUP_X2)
           .put(2, 2, Opcodes.DUP2_X2)
           .build();
-
-  /**
-   * Returns the internal name of the nest host class for a given class.
-   *
-   * <p>e.g. The nest host of a/b/C$D is a/b/C
-   */
-  public static String nestHost(String classInternalName) {
-    int index = classInternalName.indexOf('$');
-    return index > 0 ? classInternalName.substring(0, index) : classInternalName;
-  }
-
-  /**
-   * Returns the internal name of the nest companion class for a given class.
-   *
-   * <p>e.g. The nest host of a/b/C$D is a/b/C$NestCC
-   */
-  public static String nestCompanion(String classInternalName) {
-    return nestHost(classInternalName) + '$' + NEST_COMPANION_CLASS_SIMPLE_NAME;
-  }
 
   /** Whether the given type is a primitive type */
   public static boolean isPrimitive(Type type) {

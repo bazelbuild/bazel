@@ -19,6 +19,7 @@ import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.android.desugar.io.FileContentProvider;
+import com.google.devtools.build.android.desugar.langmodel.ClassAttributeRecord;
 import com.google.devtools.build.android.desugar.langmodel.ClassMemberRecord;
 import com.google.devtools.build.android.desugar.testing.junit.DesugarRule;
 import com.google.devtools.build.android.desugar.testing.junit.DesugarRunner;
@@ -52,12 +53,15 @@ public final class NestAnalyzerTest {
           .build();
 
   private final ClassMemberRecord classMemberRecord = ClassMemberRecord.create();
-  private final NestCompanions nestCompanions = NestCompanions.create(classMemberRecord);
+  private final ClassAttributeRecord classAttributeRecord = ClassAttributeRecord.create();
+  private final NestCompanions nestCompanions =
+      NestCompanions.create(classMemberRecord, classAttributeRecord);
 
   @Test
   public void emptyInputFiles() throws IOException {
     NestAnalyzer nestAnalyzer =
-        new NestAnalyzer(ImmutableList.of(), nestCompanions, classMemberRecord);
+        new NestAnalyzer(
+            ImmutableList.of(), nestCompanions, classMemberRecord, classAttributeRecord);
     nestAnalyzer.analyze();
     assertThat(nestCompanions.getAllCompanionClasses()).isEmpty();
   }
@@ -80,7 +84,8 @@ public final class NestAnalyzerTest {
                             entry.getName(), () -> getJarEntryInputStream(jarFile, entry)))
                 .collect(toImmutableList()),
             nestCompanions,
-            classMemberRecord);
+            classMemberRecord,
+            classAttributeRecord);
 
     nestAnalyzer.analyze();
 
