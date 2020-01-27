@@ -934,3 +934,8 @@ objc_library(
     non_arc_srcs = OBJC_SRCS,
     visibility = ["//visibility:public"],
 )
+
+exports_files(
+    ["WORKSPACE"],
+    visibility = ["//visibility:public"],
+)
