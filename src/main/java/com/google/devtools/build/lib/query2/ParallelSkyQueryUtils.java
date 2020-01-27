@@ -119,7 +119,7 @@ public class ParallelSkyQueryUtils {
                                 aggregateAllCallback)
                             .create();
                     visitor.visitAndWaitForCompletion(
-                        SkyQueryEnvironment.makeTransitiveTraversalKeysStrict(universeValue));
+                        SkyQueryEnvironment.makeLabelsStrict(universeValue));
                     return Predicates.in(aggregateAllCallback.getResult());
                   });
             };
@@ -162,12 +162,13 @@ public class ParallelSkyQueryUtils {
       QueryExpression expression,
       QueryExpressionContext<Target> context,
       Callback<Target> callback,
-      boolean depsNeedFiltering) {
+      boolean depsNeedFiltering,
+      QueryExpression caller) {
     return env.eval(
         expression,
         context,
         ParallelVisitorUtils.createParallelVisitorCallback(
-            new DepsUnboundedVisitor.Factory(env, callback, depsNeedFiltering, context)));
+            new DepsUnboundedVisitor.Factory(env, callback, depsNeedFiltering, context, caller)));
   }
 
   static class DepAndRdep {
