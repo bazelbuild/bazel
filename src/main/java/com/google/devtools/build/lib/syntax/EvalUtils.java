@@ -217,10 +217,6 @@ public final class EvalUtils {
         Depset set = (Depset) object;
         return "depset of " + set.getContentType() + "s";
       }
-      if (object instanceof SelectorList) {
-        SelectorList list = (SelectorList) object;
-        return "select of " + getDataTypeNameFromClass(list.getType());
-      }
     }
     return getDataTypeNameFromClass(object.getClass());
   }

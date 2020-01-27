@@ -125,8 +125,7 @@ public final class SelectorList implements StarlarkValue {
             location,
             String.format(
                 "'+' operator applied to incompatible types (%s, %s)",
-                EvalUtils.getDataTypeName(firstValue, true),
-                EvalUtils.getDataTypeName(value, true)));
+                getTypeName(firstValue), getTypeName(value)));
       }
     }
 
@@ -134,6 +133,16 @@ public final class SelectorList implements StarlarkValue {
   }
 
   private static final Class<?> NATIVE_LIST_TYPE = List.class;
+
+  private static String getTypeName(Object x) {
+    if (x instanceof SelectorList) {
+      return "select of " + EvalUtils.getDataTypeNameFromClass(((SelectorList) x).getType());
+    } else if (x instanceof SelectorValue) {
+      return "select of " + EvalUtils.getDataTypeNameFromClass(((SelectorValue) x).getType());
+    } else {
+      return Starlark.type(x);
+    }
+  }
 
   private static Class<?> getNativeType(Object value) {
     if (value instanceof SelectorList) {
