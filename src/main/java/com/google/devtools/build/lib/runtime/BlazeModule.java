@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.runtime;
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.actions.ActionContext;
 import com.google.devtools.build.lib.actions.ExecutorInitException;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.BlazeVersionInfo;
@@ -29,6 +30,8 @@ import com.google.devtools.build.lib.buildtool.BuildRequest;
 import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.exec.ExecutorBuilder;
+import com.google.devtools.build.lib.exec.ModuleActionContextRegistry;
+import com.google.devtools.build.lib.exec.SpawnStrategyRegistry;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.skyframe.AspectValue;
@@ -288,6 +291,37 @@ public abstract class BlazeModule {
    * @param builder the builder to add action context providers and consumers to
    */
   public void executorInit(CommandEnvironment env, BuildRequest request, ExecutorBuilder builder)
+      throws ExecutorInitException {}
+
+  /**
+   * Registers any action contexts this module provides with the execution phase. They will be
+   * available for {@linkplain ActionContext.ActionContextRegistry#getContext querying} to actions
+   * and other action contexts.
+   *
+   * <p>This method is invoked before actions are executed but after {@link #executorInit}.
+   *
+   * @param registryBuilder builder with which to register action contexts
+   * @param env environment for the current command
+   * @param buildRequest the current build request
+   * @throws ExecutorInitException if there are fatal issues creating or registering action contexts
+   */
+  public void registerActionContexts(
+      ModuleActionContextRegistry.Builder registryBuilder,
+      CommandEnvironment env,
+      BuildRequest buildRequest)
+      throws ExecutorInitException {}
+
+  /**
+   * Registers any spawn strategies this module provides with the execution phase.
+   *
+   * <p>This method is invoked before actions are executed but after {@link #executorInit}.
+   *
+   * @param registryBuilder builder with which to register strategies
+   * @param env environment for the current command
+   * @throws ExecutorInitException if there are fatal issues creating or registering strategies
+   */
+  public void registerSpawnStrategies(
+      SpawnStrategyRegistry.Builder registryBuilder, CommandEnvironment env)
       throws ExecutorInitException {}
 
   /**

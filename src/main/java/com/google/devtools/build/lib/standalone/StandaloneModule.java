@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.standalone;
 
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.actions.SpawnStrategy;
 import com.google.devtools.build.lib.analysis.actions.FileWriteActionContext;
 import com.google.devtools.build.lib.analysis.actions.LocalTemplateExpansionStrategy;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionContext;
@@ -22,10 +21,11 @@ import com.google.devtools.build.lib.analysis.test.TestActionContext;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
 import com.google.devtools.build.lib.dynamic.DynamicExecutionOptions;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
-import com.google.devtools.build.lib.exec.ExecutorBuilder;
 import com.google.devtools.build.lib.exec.FileWriteStrategy;
+import com.google.devtools.build.lib.exec.ModuleActionContextRegistry;
 import com.google.devtools.build.lib.exec.RunfilesTreeUpdater;
 import com.google.devtools.build.lib.exec.SpawnRunner;
+import com.google.devtools.build.lib.exec.SpawnStrategyRegistry;
 import com.google.devtools.build.lib.exec.StandaloneTestStrategy;
 import com.google.devtools.build.lib.exec.TestStrategy;
 import com.google.devtools.build.lib.exec.local.LocalEnvProvider;
@@ -65,11 +65,14 @@ public class StandaloneModule extends BlazeModule {
   }
 
   @Override
-  public void executorInit(CommandEnvironment env, BuildRequest request, ExecutorBuilder builder) {
+  public void registerActionContexts(
+      ModuleActionContextRegistry.Builder registryBuilder,
+      CommandEnvironment env,
+      BuildRequest buildRequest) {
     // TODO(ulfjack): Move this to another module.
-    builder.addActionContext(
-        CppIncludeExtractionContext.class, new DummyCppIncludeExtractionContext(env));
-    builder.addActionContext(CppIncludeScanningContext.class, new DummyCppIncludeScanningContext());
+    registryBuilder
+        .register(CppIncludeExtractionContext.class, new DummyCppIncludeExtractionContext(env))
+        .register(CppIncludeScanningContext.class, new DummyCppIncludeScanningContext());
 
     ExecutionOptions executionOptions = env.getOptions().getOptions(ExecutionOptions.class);
     Path testTmpRoot =
@@ -80,6 +83,17 @@ public class StandaloneModule extends BlazeModule {
             env.getBlazeWorkspace().getBinTools(),
             testTmpRoot);
 
+    registryBuilder.register(TestActionContext.class, testStrategy, "standalone");
+    registryBuilder.register(
+        TestActionContext.class, new ExclusiveTestStrategy(testStrategy), "exclusive");
+    registryBuilder.register(FileWriteActionContext.class, new FileWriteStrategy(), "local");
+    registryBuilder.register(
+        TemplateExpansionContext.class, new LocalTemplateExpansionStrategy(), "local");
+  }
+
+  @Override
+  public void registerSpawnStrategies(
+      SpawnStrategyRegistry.Builder registryBuilder, CommandEnvironment env) {
     SpawnRunner localSpawnRunner =
         new LocalSpawnRunner(
             env.getExecRoot(),
@@ -93,24 +107,11 @@ public class StandaloneModule extends BlazeModule {
     // Order of strategies passed to builder is significant - when there are many strategies that
     // could potentially be used and a spawnActionContext doesn't specify which one it wants, the
     // last one from strategies list will be used
-    builder.addActionContext(
-        SpawnStrategy.class,
-        new StandaloneSpawnStrategy(env.getExecRoot(), localSpawnRunner),
-        "standalone",
-        "local");
-    builder.addActionContext(TestActionContext.class, testStrategy, "standalone");
-    builder.addActionContext(
-        TestActionContext.class, new ExclusiveTestStrategy(testStrategy), "exclusive");
-    builder.addActionContext(FileWriteActionContext.class, new FileWriteStrategy(), "local");
-    builder.addActionContext(
-        TemplateExpansionContext.class, new LocalTemplateExpansionStrategy(), "local");
+    registryBuilder.registerStrategy(
+        new StandaloneSpawnStrategy(env.getExecRoot(), localSpawnRunner), "standalone", "local");
 
-    // This makes the "sandboxed" strategy the default Spawn strategy, unless it is overridden by a
+    // This makes the "standalone" strategy the default Spawn strategy, unless it is overridden by a
     // later BlazeModule.
-    builder.addStrategyByMnemonic("", ImmutableList.of("standalone"));
-
-    // This makes the "standalone" strategy available via --spawn_strategy=standalone, but it is not
-    // necessarily the default.
-    builder.addStrategyByContext(SpawnStrategy.class, "standalone");
+    registryBuilder.setDefaultStrategies(ImmutableList.of("standalone"));
   }
 }

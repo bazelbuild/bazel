@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.BaseSpawn;
+import com.google.devtools.build.lib.actions.DynamicStrategyRegistry;
 import com.google.devtools.build.lib.actions.EmptyRunfilesSupplier;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.Executor;
@@ -46,8 +47,8 @@ import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil.NullAction;
 import com.google.devtools.build.lib.exec.BlazeExecutor;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
-import com.google.devtools.build.lib.exec.ExecutorBuilder;
-import com.google.devtools.build.lib.exec.SpawnActionContextMaps;
+import com.google.devtools.build.lib.exec.ModuleActionContextRegistry;
+import com.google.devtools.build.lib.exec.SpawnStrategyRegistry;
 import com.google.devtools.build.lib.testutil.TestThread;
 import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.util.io.FileOutErr;
@@ -156,7 +157,7 @@ public class DynamicSpawnStrategyTest {
     public ImmutableList<SpawnResult> exec(
         Spawn spawn,
         ActionExecutionContext actionExecutionContext,
-        @Nullable StopConcurrentSpawns stopConcurrentSpawns)
+        @Nullable SandboxedSpawnStrategy.StopConcurrentSpawns stopConcurrentSpawns)
         throws ExecException, InterruptedException {
       executedSpawn = spawn;
 
@@ -194,7 +195,7 @@ public class DynamicSpawnStrategyTest {
     }
 
     @Override
-    public boolean canExec(Spawn spawn, ActionContextRegistry actionContextRegistry) {
+    public boolean canExec(Spawn spawn, ActionContext.ActionContextRegistry actionContextRegistry) {
       return true;
     }
 
@@ -316,18 +317,25 @@ public class DynamicSpawnStrategyTest {
     checkState(executorServiceForCleanup == null);
     executorServiceForCleanup = executorService;
 
-    ExecutorBuilder executorBuilder =
-        new ExecutorBuilder()
-            .addActionContext(SpawnStrategy.class, localStrategy, "mock-local")
-            .addActionContext(SpawnStrategy.class, remoteStrategy, "mock-remote");
+    SpawnStrategyRegistry.Builder spawnRegistryBuilder =
+        new SpawnStrategyRegistry.Builder()
+            .registerStrategy(localStrategy, "mock-local")
+            .registerStrategy(remoteStrategy, "mock-remote")
+            .addMnemonicFilter("RunDynamic", ImmutableList.of("dynamic"));
 
     if (sandboxedStrategy != null) {
-      executorBuilder.addActionContext(SpawnStrategy.class, sandboxedStrategy, "mock-sandboxed");
+      spawnRegistryBuilder.registerStrategy(sandboxedStrategy, "mock-sandboxed");
     }
 
-    new DynamicExecutionModule(executorService).initStrategies(executorBuilder, options);
-    SpawnActionContextMaps spawnActionContextMaps = executorBuilder.getSpawnActionContextMaps();
+    new DynamicExecutionModule(executorService)
+        .registerSpawnStrategies(spawnRegistryBuilder, options);
 
+    SpawnStrategyRegistry strategyRegistry = spawnRegistryBuilder.build();
+    ModuleActionContextRegistry contextRegistry =
+        new ModuleActionContextRegistry.Builder()
+            .register(DynamicStrategyRegistry.class, strategyRegistry)
+            .register(SpawnStrategyRegistry.class, strategyRegistry)
+            .build();
     Executor executor =
         new BlazeExecutor(
             null,
@@ -337,7 +345,8 @@ public class DynamicSpawnStrategyTest {
             OptionsParser.builder()
                 .optionsClasses(ImmutableList.of(ExecutionOptions.class))
                 .build(),
-            spawnActionContextMaps);
+            contextRegistry,
+            strategyRegistry);
 
     ActionExecutionContext actionExecutionContext =
         ActionsTestUtil.createContext(
@@ -349,8 +358,12 @@ public class DynamicSpawnStrategyTest {
             /*metadataHandler=*/ null,
             /*actionGraph=*/ null);
 
-    Optional<ActionContext> optionalContext =
-        spawnActionContextMaps.allContexts().stream()
+    List<? extends SpawnStrategy> dynamicStrategies =
+        strategyRegistry.getStrategies(
+            newCustomSpawn("RunDynamic", ImmutableMap.of()), event -> {});
+
+    Optional<? extends SpawnStrategy> optionalContext =
+        dynamicStrategies.stream()
             .filter(
                 c -> c instanceof DynamicSpawnStrategy || c instanceof LegacyDynamicSpawnStrategy)
             .findAny();
