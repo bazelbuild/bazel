@@ -816,9 +816,10 @@ public abstract class Artifact
    */
   public final PathFragment getRunfilesPath() {
     PathFragment relativePath = getRootRelativePath();
-    if (relativePath.startsWith(LabelConstants.EXTERNAL_PATH_PREFIX)) {
+    // TODO(jingwen-external): add conditional
+    if (relativePath.startsWith(LabelConstants.EXPERIMENTAL_EXTERNAL_PATH_PREFIX)) {
       // Turn external/repo/foo into ../repo/foo.
-      relativePath = relativePath.relativeTo(LabelConstants.EXTERNAL_PATH_PREFIX);
+      relativePath = relativePath.relativeTo(LabelConstants.EXPERIMENTAL_EXTERNAL_PATH_PREFIX);
       relativePath = PathFragment.create("..").getRelative(relativePath);
     }
     return relativePath;

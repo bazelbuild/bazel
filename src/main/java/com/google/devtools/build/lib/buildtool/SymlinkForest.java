@@ -126,9 +126,10 @@ public class SymlinkForest {
 
     // Path execrootLink = execroot.getRelative(repository.getPathUnderExecRoot());
     Path execrootLink = execroot.getRelative(repository.getPathAboveExecRoot());
-    if (externalRepoLinks.isEmpty()) {
-      execroot.getRelative(LabelConstants.EXTERNAL_PACKAGE_NAME).createDirectoryAndParents();
-    }
+//    if (externalRepoLinks.isEmpty()) {
+//      execroot.createDirectoryAndParents();
+//      execroot.getRelative(LabelConstants.EXTERNAL_PACKAGE_NAME).createDirectoryAndParents();
+//    }
     if (!externalRepoLinks.add(execrootLink)) {
       return;
     }
@@ -138,6 +139,7 @@ public class SymlinkForest {
   private void plantSymlinkForestWithFullMainRepository(Path mainRepoRoot) throws IOException {
     // For the main repo top-level directory, generate symlinks to everything in the directory
     // instead of the directory itself.
+    execroot.createDirectory();
     for (Path target : mainRepoRoot.getDirectoryEntries()) {
       String baseName = target.getBaseName();
       if (this.notSymlinkedInExecrootDirectories.contains(baseName)) {
@@ -146,8 +148,9 @@ public class SymlinkForest {
       Path execPath = execroot.getRelative(baseName);
       // Create any links that don't start with bazel-, and ignore external/ directory if
       // user has it in the source tree because it conflicts with external repository location.
-      if (!baseName.startsWith(prefix)
-          && !baseName.equals(LabelConstants.EXTERNAL_PATH_PREFIX.getBaseName())) {
+      // TODO(jingwen-external): add conditional.
+      if (!baseName.startsWith(prefix)) {
+//          && !baseName.equals(LabelConstants.EXTERNAL_PATH_PREFIX.getBaseName())) {
         execPath.createSymbolicLink(target);
       }
     }

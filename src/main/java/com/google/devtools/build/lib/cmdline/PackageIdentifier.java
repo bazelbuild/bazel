@@ -176,6 +176,7 @@ public final class PackageIdentifier implements Comparable<PackageIdentifier>, S
   }
 
   public PathFragment getPathUnderExecRoot() {
+    // TODO(jingwen-external): add conditional
     // return repository.getPathUnderExecRoot().getRelative(pkgName);
     return repository.getPathAboveExecRoot().getRelative(pkgName);
   }
