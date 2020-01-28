@@ -123,7 +123,7 @@ public abstract class AbstractContainerizingSandboxedSpawn implements SandboxedS
             outputs.files(),
             outputs.dirs())) {
       Preconditions.checkArgument(!path.isAbsolute());
-      Preconditions.checkArgument(!path.containsUplevelReferences());
+//      Preconditions.checkArgument(!path.containsUplevelReferences());
       for (int i = 0; i < path.segmentCount(); i++) {
         dirsToCreate.add(sandboxExecRoot.getRelative(path.subFragment(0, i)));
       }

@@ -20,6 +20,7 @@ import com.google.common.util.concurrent.Striped;
 import com.google.devtools.build.lib.actions.ActionLookupValue.ActionLookupKey;
 import com.google.devtools.build.lib.actions.Artifact.SourceArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifactType;
+import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
@@ -332,12 +333,14 @@ public class ArtifactFactory implements ArtifactResolver {
     }
 
     // Double-checked locking to avoid locking cost when possible.
-    SourceArtifact artifact = sourceArtifactCache.getArtifact(execPath);
+//    SourceArtifact artifact = sourceArtifactCache.getArtifact(execPath);
+    PathFragment execPathAccountingForExternalRepos = root.getExecPath().getRelative(execPath);
+    SourceArtifact artifact = sourceArtifactCache.getArtifact(execPathAccountingForExternalRepos);
     if (artifact == null || artifact.differentOwnerOrRoot(owner, root)) {
-      Lock lock = STRIPED_LOCK.get(execPath);
+      Lock lock = STRIPED_LOCK.get(execPathAccountingForExternalRepos);
       lock.lock();
       try {
-        artifact = sourceArtifactCache.getArtifact(execPath);
+        artifact = sourceArtifactCache.getArtifact(execPathAccountingForExternalRepos);
         if (artifact == null || artifact.differentOwnerOrRoot(owner, root)) {
           // There really should be a safety net that makes it impossible to create two Artifacts
           // with the same exec path but a different Owner, but we also need to reuse Artifacts from
@@ -345,7 +348,7 @@ public class ArtifactFactory implements ArtifactResolver {
           artifact =
               (SourceArtifact)
                   createArtifact(root, execPath, owner, type, /*contentBasedPath=*/ false);
-          sourceArtifactCache.putArtifact(execPath, artifact);
+          sourceArtifactCache.putArtifact(execPathAccountingForExternalRepos, artifact);
         }
       } finally {
         lock.unlock();
@@ -397,6 +400,9 @@ public class ArtifactFactory implements ArtifactResolver {
         !relativePath.isEmpty(), "%s %s %s", relativePath, baseExecPath, baseRoot);
     PathFragment execPath =
         baseExecPath != null ? baseExecPath.getRelative(relativePath) : relativePath;
+    if (execPath.startsWith(LabelConstants.EXPERIMENTAL_EXTERNAL_PATH_PREFIX)) {
+      execPath = execPath.relativeTo(LabelConstants.EXPERIMENTAL_EXTERNAL_PATH_PREFIX);
+    }
     if (execPath.containsUplevelReferences()) {
       // Source exec paths cannot escape the source root.
       return null;
