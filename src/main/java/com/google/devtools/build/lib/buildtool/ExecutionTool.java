@@ -66,6 +66,7 @@ import com.google.devtools.build.lib.exec.ExecutorBuilder;
 import com.google.devtools.build.lib.exec.ExecutorLifecycleListener;
 import com.google.devtools.build.lib.exec.SpawnActionContextMaps;
 import com.google.devtools.build.lib.exec.SymlinkTreeStrategy;
+import com.google.devtools.build.lib.packages.StarlarkSemanticsOptions;
 import com.google.devtools.build.lib.profiler.AutoProfiler;
 import com.google.devtools.build.lib.profiler.ProfilePhase;
 import com.google.devtools.build.lib.profiler.Profiler;
@@ -78,9 +79,7 @@ import com.google.devtools.build.lib.skyframe.AspectValue;
 import com.google.devtools.build.lib.skyframe.AspectValue.AspectKey;
 import com.google.devtools.build.lib.skyframe.Builder;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
-import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
-import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.LoggingUtil;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
@@ -434,7 +433,8 @@ public class ExecutionTool {
                 packageRootMap.get(),
                 getExecRoot(),
                 runtime.getProductName(),
-                nonSymlinkedDirectoriesUnderExecRoot);
+                nonSymlinkedDirectoriesUnderExecRoot,
+                request.getOptions(StarlarkSemanticsOptions.class).experimentalAllowExternalDirectory);
         symlinkForest.plantSymlinkForest();
       } catch (IOException e) {
         throw new ExecutorInitException("Source forest creation failed", e);

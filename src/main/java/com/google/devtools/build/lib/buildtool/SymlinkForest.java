@@ -25,15 +25,14 @@ import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.concurrent.ThreadSafety;
 import com.google.devtools.build.lib.events.Location;
-import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.syntax.Sequence;
-import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
+
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -53,11 +52,12 @@ public class SymlinkForest {
   private final String productName;
   private final String prefix;
   private final ImmutableSortedSet<String> notSymlinkedInExecrootDirectories;
+  private final boolean allowExternalDirectory;
 
   /** Constructor for a symlink forest creator without non-symlinked directories parameter. */
   public SymlinkForest(
-      ImmutableMap<PackageIdentifier, Root> packageRoots, Path execroot, String productName) {
-    this(packageRoots, execroot, productName, ImmutableSortedSet.of());
+          ImmutableMap<PackageIdentifier, Root> packageRoots, Path execroot, String productName) {
+    this(packageRoots, execroot, productName, ImmutableSortedSet.of(), false);
   }
 
   /**
@@ -76,12 +76,14 @@ public class SymlinkForest {
       ImmutableMap<PackageIdentifier, Root> packageRoots,
       Path execroot,
       String productName,
-      ImmutableSortedSet<String> notSymlinkedInExecrootDirectories) {
+      ImmutableSortedSet<String> notSymlinkedInExecrootDirectories,
+      boolean allowExternalDirectory) {
     this.packageRoots = packageRoots;
     this.execroot = execroot;
     this.productName = productName;
     this.prefix = productName + "-";
     this.notSymlinkedInExecrootDirectories = notSymlinkedInExecrootDirectories;
+    this.allowExternalDirectory = allowExternalDirectory;
   }
 
   /**
@@ -125,14 +127,17 @@ public class SymlinkForest {
     // directory.
     // From <output_base>/execroot/<main repo name>/external/<external repo name>
     // to   <output_base>/external/<external repo name>
+    //
+    // If --experimental_allow_external_directory is true, symlink:
+    // From <output_base>/execroot/<external repo name>
+    // to   <output_base>/external/<external repo name>
+    Path execrootLink = execroot.getRelative(repository.getExecPath(allowExternalDirectory));
 
-    // Path execrootLink = execroot.getRelative(repository.getPathUnderExecRoot());
-    // TODO(jingwen-external): plumb --allow_external_directory
-    Path execrootLink = execroot.getRelative(repository.getExecPath(true));
-//    if (externalRepoLinks.isEmpty()) {
-//      execroot.createDirectoryAndParents();
-//      execroot.getRelative(LabelConstants.EXTERNAL_PACKAGE_NAME).createDirectoryAndParents();
-//    }
+    if (!allowExternalDirectory && externalRepoLinks.isEmpty()) {
+      execroot.createDirectoryAndParents();
+      execroot.getRelative(LabelConstants.EXTERNAL_PACKAGE_NAME).createDirectoryAndParents();
+    }
+
     if (!externalRepoLinks.add(execrootLink)) {
       return;
     }
@@ -142,7 +147,9 @@ public class SymlinkForest {
   private void plantSymlinkForestWithFullMainRepository(Path mainRepoRoot) throws IOException {
     // For the main repo top-level directory, generate symlinks to everything in the directory
     // instead of the directory itself.
-    execroot.createDirectory();
+    if (allowExternalDirectory) {
+      execroot.createDirectory();
+    }
     for (Path target : mainRepoRoot.getDirectoryEntries()) {
       String baseName = target.getBaseName();
       if (this.notSymlinkedInExecrootDirectories.contains(baseName)) {
@@ -151,9 +158,9 @@ public class SymlinkForest {
       Path execPath = execroot.getRelative(baseName);
       // Create any links that don't start with bazel-, and ignore external/ directory if
       // user has it in the source tree because it conflicts with external repository location.
-      // TODO(jingwen-external): add conditional.
-      if (!baseName.startsWith(prefix)) {
-//          && !baseName.equals(LabelConstants.EXTERNAL_PATH_PREFIX.getBaseName())) {
+      if (!baseName.startsWith(prefix)
+          && (allowExternalDirectory
+              || !baseName.equals(LabelConstants.EXTERNAL_PATH_PREFIX.getBaseName()))) {
         execPath.createSymbolicLink(target);
       }
     }
@@ -213,17 +220,14 @@ public class SymlinkForest {
     for (PackageIdentifier dir : dirsParentsFirst) {
       if (!dir.getRepository().isMain()) {
         execroot
-            // TODO(jingwen-external): plumb --allow_external_directory
-            .getRelative(dir.getRepository().getExecPath(true))
+            .getRelative(dir.getRepository().getExecPath(allowExternalDirectory))
             .createDirectoryAndParents();
       }
       if (dirRootsMap.get(dir).size() > 1) {
         if (LOG_FINER) {
-          // TODO(jingwen-external): plumb --allow_external_directory
-          logger.finer("mkdir " + execroot.getRelative(dir.getExecPath(true)));
+          logger.finer("mkdir " + execroot.getRelative(dir.getExecPath(allowExternalDirectory)));
         }
-        // TODO(jingwen-external): plumb --allow_external_directory
-        execroot.getRelative(dir.getExecPath(true)).createDirectoryAndParents();
+        execroot.getRelative(dir.getExecPath(allowExternalDirectory)).createDirectoryAndParents();
       }
     }
 
@@ -239,15 +243,13 @@ public class SymlinkForest {
         // This is the top-most dir that can be linked to a single root. Make it so.
         Root root = roots.iterator().next(); // lone root in set
         if (LOG_FINER) {
-          // TODO(jingwen-external): plumb --allow_external_directory
           logger.finer(
               "ln -s "
                   + root.getRelative(dir.getSourceRoot())
                   + " "
-                  + execroot.getRelative(dir.getExecPath(true)));
+                  + execroot.getRelative(dir.getExecPath(allowExternalDirectory)));
         }
-        // TODO(jingwen-external): plumb --allow_external_directory
-        execroot.getRelative(dir.getExecPath(true))
+        execroot.getRelative(dir.getExecPath(allowExternalDirectory))
             .createSymbolicLink(root.getRelative(dir.getSourceRoot()));
       }
     }
@@ -288,8 +290,7 @@ public class SymlinkForest {
       if (!pkgId.getPackageFragment().equals(PathFragment.EMPTY_FRAGMENT)) {
         continue;
       }
-      // TODO(jingwen-external): plumb --allow_external_directory
-      Path execrootDirectory = execroot.getRelative(pkgId.getExecPath(true));
+      Path execrootDirectory = execroot.getRelative(pkgId.getExecPath(allowExternalDirectory));
       // If there were no subpackages, this directory might not exist yet.
       if (!execrootDirectory.exists()) {
         execrootDirectory.createDirectoryAndParents();
@@ -310,10 +311,12 @@ public class SymlinkForest {
 
   /** Performs the filesystem operations to plant the symlink forest. */
   public void plantSymlinkForest() throws IOException, AbruptExitException {
-    // TODO(jingwen-external): plumb --allow_external_directory
-//    deleteTreesBelowNotPrefixed(execroot, prefix);
-    // Delete execroot/.. because we now symlink external repositories there.
-    deleteTreesBelowNotPrefixed(execroot.getParentDirectory(), prefix);
+    if (allowExternalDirectory) {
+      // Delete execroot/.. because we now symlink external repositories there.
+      deleteTreesBelowNotPrefixed(execroot.getParentDirectory(), prefix);
+    } else {
+      deleteTreesBelowNotPrefixed(execroot, prefix);
+    }
 
     boolean shouldLinkAllTopLevelItems = false;
     Map<Path, Path> mainRepoLinks = Maps.newLinkedHashMap();
