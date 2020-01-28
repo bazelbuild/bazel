@@ -246,17 +246,20 @@ public final class RepositoryName implements Serializable {
   /**
    * Returns the runfiles/execRoot path for this repository. If we don't know the name of this repo
    * (i.e., it is in the main repository), return an empty path fragment.
+   *
+   * If --experimental_allow_external_directory is true, return "$execroot/../repo" (sibling of __main__), instead of
+   * "$execroot/external/repo".
    */
-  public PathFragment getPathUnderExecRoot() {
-    return isDefault() || isMain()
-        ? PathFragment.EMPTY_FRAGMENT
-        : LabelConstants.EXPERIMENTAL_EXTERNAL_PATH_PREFIX.getRelative(strippedName());
-  }
+  public PathFragment getExecPath(boolean allowExternalDir) {
+    if (isDefault() || isMain()) {
+      return PathFragment.EMPTY_FRAGMENT;
+    }
 
-  public PathFragment getPathAboveExecRoot() {
-    return isDefault() || isMain()
-        ? PathFragment.EMPTY_FRAGMENT
-        : LabelConstants.EXPERIMENTAL_EXTERNAL_PATH_PREFIX.getRelative(strippedName());
+    if (allowExternalDir) {
+      return LabelConstants.EXPERIMENTAL_EXTERNAL_PATH_PREFIX.getRelative(strippedName());
+    }
+
+    return LabelConstants.EXTERNAL_PATH_PREFIX.getRelative(strippedName());
   }
 
   /**

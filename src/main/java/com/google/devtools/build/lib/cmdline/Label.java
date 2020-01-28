@@ -380,7 +380,7 @@ public final class Label
   )
   public String getWorkspaceRoot(StarlarkSemantics semantics) {
     if (semantics.experimentalAllowExternalDirectory()) {
-      return packageIdentifier.getRepository().getPathAboveExecRoot().toString();
+      return packageIdentifier.getRepository().getExecPath(true).toString();
     } else {
       return packageIdentifier.getRepository().getSourceRoot().toString();
     }

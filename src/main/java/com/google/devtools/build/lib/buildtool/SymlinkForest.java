@@ -25,7 +25,9 @@ import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.concurrent.ThreadSafety;
 import com.google.devtools.build.lib.events.Location;
+import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.syntax.Sequence;
+import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.ExitCode;
@@ -125,7 +127,8 @@ public class SymlinkForest {
     // to   <output_base>/external/<external repo name>
 
     // Path execrootLink = execroot.getRelative(repository.getPathUnderExecRoot());
-    Path execrootLink = execroot.getRelative(repository.getPathAboveExecRoot());
+    // TODO(jingwen-external): plumb --allow_external_directory
+    Path execrootLink = execroot.getRelative(repository.getExecPath(true));
 //    if (externalRepoLinks.isEmpty()) {
 //      execroot.createDirectoryAndParents();
 //      execroot.getRelative(LabelConstants.EXTERNAL_PACKAGE_NAME).createDirectoryAndParents();
@@ -210,15 +213,17 @@ public class SymlinkForest {
     for (PackageIdentifier dir : dirsParentsFirst) {
       if (!dir.getRepository().isMain()) {
         execroot
-            // .getRelative(dir.getRepository().getPathUnderExecRoot())
-            .getRelative(dir.getRepository().getPathAboveExecRoot())
+            // TODO(jingwen-external): plumb --allow_external_directory
+            .getRelative(dir.getRepository().getExecPath(true))
             .createDirectoryAndParents();
       }
       if (dirRootsMap.get(dir).size() > 1) {
         if (LOG_FINER) {
-          logger.finer("mkdir " + execroot.getRelative(dir.getPathUnderExecRoot()));
+          // TODO(jingwen-external): plumb --allow_external_directory
+          logger.finer("mkdir " + execroot.getRelative(dir.getExecPath(true)));
         }
-        execroot.getRelative(dir.getPathUnderExecRoot()).createDirectoryAndParents();
+        // TODO(jingwen-external): plumb --allow_external_directory
+        execroot.getRelative(dir.getExecPath(true)).createDirectoryAndParents();
       }
     }
 
@@ -234,13 +239,15 @@ public class SymlinkForest {
         // This is the top-most dir that can be linked to a single root. Make it so.
         Root root = roots.iterator().next(); // lone root in set
         if (LOG_FINER) {
+          // TODO(jingwen-external): plumb --allow_external_directory
           logger.finer(
               "ln -s "
                   + root.getRelative(dir.getSourceRoot())
                   + " "
-                  + execroot.getRelative(dir.getPathUnderExecRoot()));
+                  + execroot.getRelative(dir.getExecPath(true)));
         }
-        execroot.getRelative(dir.getPathUnderExecRoot())
+        // TODO(jingwen-external): plumb --allow_external_directory
+        execroot.getRelative(dir.getExecPath(true))
             .createSymbolicLink(root.getRelative(dir.getSourceRoot()));
       }
     }
@@ -281,7 +288,8 @@ public class SymlinkForest {
       if (!pkgId.getPackageFragment().equals(PathFragment.EMPTY_FRAGMENT)) {
         continue;
       }
-      Path execrootDirectory = execroot.getRelative(pkgId.getPathUnderExecRoot());
+      // TODO(jingwen-external): plumb --allow_external_directory
+      Path execrootDirectory = execroot.getRelative(pkgId.getExecPath(true));
       // If there were no subpackages, this directory might not exist yet.
       if (!execrootDirectory.exists()) {
         execrootDirectory.createDirectoryAndParents();
@@ -302,7 +310,8 @@ public class SymlinkForest {
 
   /** Performs the filesystem operations to plant the symlink forest. */
   public void plantSymlinkForest() throws IOException, AbruptExitException {
-    deleteTreesBelowNotPrefixed(execroot, prefix);
+    // TODO(jingwen-external): plumb --allow_external_directory
+//    deleteTreesBelowNotPrefixed(execroot, prefix);
     // Delete execroot/.. because we now symlink external repositories there.
     deleteTreesBelowNotPrefixed(execroot.getParentDirectory(), prefix);
 

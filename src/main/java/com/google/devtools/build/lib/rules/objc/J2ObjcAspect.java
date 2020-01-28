@@ -14,12 +14,6 @@
 
 package com.google.devtools.build.lib.rules.objc;
 
-import static com.google.common.base.Preconditions.checkNotNull;
-import static com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode.TARGET;
-import static com.google.devtools.build.lib.packages.Attribute.attr;
-import static com.google.devtools.build.lib.packages.BuildType.LABEL;
-import static java.nio.charset.StandardCharsets.ISO_8859_1;
-
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -78,11 +72,18 @@ import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.vfs.PathFragment;
+
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.stream.Collectors;
+
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode.TARGET;
+import static com.google.devtools.build.lib.packages.Attribute.attr;
+import static com.google.devtools.build.lib.packages.BuildType.LABEL;
+import static java.nio.charset.StandardCharsets.ISO_8859_1;
 
 /** J2ObjC transpilation aspect for Java and proto rules. */
 public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectFactory {
@@ -616,7 +617,7 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
       ProtoLangToolchainProvider protoToolchain,
       RuleContext ruleContext,
       ImmutableList<Artifact> filteredProtoSources,
-      J2ObjcSource j2ObjcSource) {
+      J2ObjcSource j2ObjcSource) throws InterruptedException {
     ImmutableList<Artifact> outputHeaderMappingFiles =
         ProtoCommon.getGeneratedOutputs(ruleContext, filteredProtoSources, ".j2objc.mapping");
     ImmutableList<Artifact> outputClassMappingFiles =
@@ -753,7 +754,7 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
   }
 
   private static J2ObjcSource protoJ2ObjcSource(
-      RuleContext ruleContext, ImmutableList<Artifact> protoSources) {
+      RuleContext ruleContext, ImmutableList<Artifact> protoSources) throws InterruptedException {
     PathFragment objcFileRootExecPath = getProtoOutputRoot(ruleContext);
 
     List<PathFragment> headerSearchPaths =
@@ -768,13 +769,21 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
         headerSearchPaths);
   }
 
-  private static PathFragment getProtoOutputRoot(RuleContext ruleContext) {
+  private static PathFragment getProtoOutputRoot(RuleContext ruleContext) throws InterruptedException {
     return ruleContext
         .getConfiguration()
         .getGenfilesFragment()
         .getRelative(
             // ruleContext.getLabel().getPackageIdentifier().getRepository().getPathUnderExecRoot());
-            ruleContext.getLabel().getPackageIdentifier().getRepository().getPathAboveExecRoot());
+            ruleContext
+                .getLabel()
+                .getPackageIdentifier()
+                .getRepository()
+                .getExecPath(
+                    ruleContext
+                        .getAnalysisEnvironment()
+                        .getSkylarkSemantics()
+                        .experimentalAllowExternalDirectory()));
   }
 
   private static boolean isProtoRule(ConfiguredTarget base) {

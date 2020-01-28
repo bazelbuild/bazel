@@ -21,9 +21,10 @@ import com.google.common.collect.Interner;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.vfs.PathFragment;
+
+import javax.annotation.concurrent.Immutable;
 import java.io.Serializable;
 import java.util.Objects;
-import javax.annotation.concurrent.Immutable;
 
 /**
  * Uniquely identifies a package, given a repository name and a package's path fragment.
@@ -175,10 +176,8 @@ public final class PackageIdentifier implements Comparable<PackageIdentifier>, S
     return repository.getSourceRoot().getRelative(pkgName);
   }
 
-  public PathFragment getPathUnderExecRoot() {
-    // TODO(jingwen-external): add conditional
-    // return repository.getPathUnderExecRoot().getRelative(pkgName);
-    return repository.getPathAboveExecRoot().getRelative(pkgName);
+  public PathFragment getExecPath(boolean allowExternalDirectory) {
+    return repository.getExecPath(allowExternalDirectory).getRelative(pkgName);
   }
 
   /**

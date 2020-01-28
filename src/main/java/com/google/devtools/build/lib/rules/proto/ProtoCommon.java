@@ -14,10 +14,6 @@
 
 package com.google.devtools.build.lib.rules.proto;
 
-import static com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode.TARGET;
-import static com.google.devtools.build.lib.collect.nestedset.Order.STABLE_ORDER;
-import static com.google.devtools.build.lib.packages.Type.STRING;
-
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -38,7 +34,12 @@ import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
+
 import javax.annotation.Nullable;
+
+import static com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode.TARGET;
+import static com.google.devtools.build.lib.collect.nestedset.Order.STABLE_ORDER;
+import static com.google.devtools.build.lib.packages.Type.STRING;
 
 /**
  * Utility functions for proto_library and proto aspect implementations.
@@ -214,14 +215,17 @@ public class ProtoCommon {
   // ProtoInfo so it's not an easy change :(
   @Nullable
   private static Library createLibraryWithoutVirtualSourceRoot(
-      RuleContext ruleContext, ImmutableList<Artifact> directSources) {
+      RuleContext ruleContext, ImmutableList<Artifact> directSources) throws InterruptedException {
     String protoSourceRoot =
         ruleContext
             .getLabel()
             .getPackageIdentifier()
             .getRepository()
-            // .getPathUnderExecRoot()
-            .getPathAboveExecRoot()
+            .getExecPath(
+                ruleContext
+                    .getAnalysisEnvironment()
+                    .getSkylarkSemantics()
+                    .experimentalAllowExternalDirectory())
             .getPathString();
 
     ImmutableList.Builder<Pair<Artifact, String>> builder = ImmutableList.builder();
@@ -316,8 +320,15 @@ public class ProtoCommon {
     } else {
       // Has generated sources, but neither strip_import_prefix nor import_prefix
       stripImportPrefix =
-          // ruleContext.getLabel().getPackageIdentifier().getRepository().getPathUnderExecRoot();
-          ruleContext.getLabel().getPackageIdentifier().getRepository().getPathAboveExecRoot();
+          ruleContext
+              .getLabel()
+              .getPackageIdentifier()
+              .getRepository()
+              .getExecPath(
+                  ruleContext
+                      .getAnalysisEnvironment()
+                      .getSkylarkSemantics()
+                      .experimentalAllowExternalDirectory());
 
       importPrefix = PathFragment.EMPTY_FRAGMENT;
     }

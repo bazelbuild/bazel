@@ -14,8 +14,6 @@
 
 package com.google.devtools.build.lib.rules.cpp;
 
-import static java.util.stream.Collectors.toCollection;
-
 import com.google.common.base.Function;
 import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
@@ -53,6 +51,8 @@ import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
+
+import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -64,7 +64,8 @@ import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.stream.Collectors;
-import javax.annotation.Nullable;
+
+import static java.util.stream.Collectors.toCollection;
 
 /**
  * A class to create C/C++ compile actions in a way that is consistent with cc_library. Rules that
@@ -335,7 +336,7 @@ public final class CcCompilationHelper {
   }
 
   /** Sets fields that overlap for cc_library and cc_binary rules. */
-  public CcCompilationHelper fromCommon(CcCommon common, ImmutableList<String> additionalCopts) {
+  public CcCompilationHelper fromCommon(CcCommon common, ImmutableList<String> additionalCopts) throws InterruptedException {
     Preconditions.checkNotNull(additionalCopts);
 
     setCopts(ImmutableList.copyOf(Iterables.concat(common.getCopts(), additionalCopts)));
@@ -754,7 +755,7 @@ public final class CcCompilationHelper {
    *
    * @throws RuleErrorException
    */
-  public CompilationInfo compile() throws RuleErrorException {
+  public CompilationInfo compile() throws RuleErrorException, InterruptedException {
 
     if (!generatePicAction && !generateNoPicAction) {
       ruleErrorConsumer.ruleError("Either PIC or no PIC actions have to be created.");
@@ -947,7 +948,7 @@ public final class CcCompilationHelper {
   /**
    * Create {@code CcCompilationContext} for cc compile action from generated inputs.
    */
-  private CcCompilationContext initializeCcCompilationContext() {
+  private CcCompilationContext initializeCcCompilationContext() throws InterruptedException {
     CcCompilationContext.Builder ccCompilationContextBuilder =
         CcCompilationContext.builder(actionConstructionContext, configuration, label);
 
@@ -961,7 +962,14 @@ public final class CcCompilationHelper {
     // we might pick up stale generated files.
     PathFragment repositoryPath =
         // label.getPackageIdentifier().getRepository().getPathUnderExecRoot();
-        label.getPackageIdentifier().getRepository().getPathAboveExecRoot();
+        label
+            .getPackageIdentifier()
+            .getRepository()
+            .getExecPath(
+                actionConstructionContext
+                    .getAnalysisEnvironment()
+                    .getSkylarkSemantics()
+                    .experimentalAllowExternalDirectory());
     ccCompilationContextBuilder.addQuoteIncludeDir(repositoryPath);
     ccCompilationContextBuilder.addQuoteIncludeDir(
         configuration.getGenfilesFragment().getRelative(repositoryPath));
