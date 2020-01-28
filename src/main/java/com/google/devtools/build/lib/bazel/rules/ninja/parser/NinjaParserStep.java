@@ -250,7 +250,7 @@ public class NinjaParserStep {
    */
   public NinjaTarget parseNinjaTarget(NinjaScope fileScope, int offset)
       throws GenericParsingException {
-    NinjaTarget.Builder builder = NinjaTarget.builder(fileScope.getNinjaScopeId(), offset);
+    NinjaTarget.Builder builder = NinjaTarget.builder(fileScope, offset);
     parseExpected(NinjaToken.BUILD);
 
     Map<InputOutputKind, List<NinjaVariableValue>> pathValuesMap =

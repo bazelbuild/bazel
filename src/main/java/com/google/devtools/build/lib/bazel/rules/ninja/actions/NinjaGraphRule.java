@@ -36,7 +36,7 @@ import com.google.devtools.build.lib.util.FileTypeSet;
  * describing it.
  *
  * Important aspect is relation to non-symlinked-under-execroot-directories:
- * {@link com.google.devtools.build.lib.skylarkbuildapi.WorkspaceGlobalsApi#dontSymlinkDirectoriesInExecroot(Sequence, Location, StarlarkThread)}
+ * {@link com.google.devtools.build.lib.skylarkbuildapi.WorkspaceGlobalsApi#dontSymlinkDirectoriesInExecroot(Sequence, StarlarkThread)}
  * All the outputs of Ninja actions are expected to be under the directory, specified in output_root
  * of this rule.
  * All the input files under output_root should be listed in output_root_inputs attribute,
@@ -47,8 +47,10 @@ public class NinjaGraphRule implements RuleDefinition {
   @Override
   public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment environment) {
     return builder
+        .add(attr("ninja_srcs", LABEL_LIST).allowedFileTypes(FileTypeSet.ANY_FILE)
+          .setDoc("All included or subninja Ninja files describing the action graph."))
         .add(attr("srcs", LABEL_LIST).allowedFileTypes(FileTypeSet.ANY_FILE)
-        .setDoc("All Ninja files describing the action graph."))
+          .setDoc("Source files requested by Ninja graph actions."))
         .add(attr("main", LABEL).allowedFileTypes(FileTypeSet.ANY_FILE)
         .setDoc("Main Ninja file."))
         .add(attr("output_root", STRING)

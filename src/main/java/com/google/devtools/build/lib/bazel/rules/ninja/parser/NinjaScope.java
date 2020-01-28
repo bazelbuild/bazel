@@ -47,21 +47,18 @@ public class NinjaScope {
   private final NavigableMap<Integer, NinjaScope> subNinjaScopes;
   private Map<String, List<Pair<Integer, String>>> expandedVariables;
   private final Map<String, List<Pair<Integer, NinjaRule>>> rules;
-  private final NinjaScopeId ninjaScopeId;
 
   public NinjaScope() {
-    this(null, null, NinjaScopeId.createNewScope());
+    this(null, null);
   }
 
-  private NinjaScope(@Nullable NinjaScope parentScope, @Nullable Integer includePoint,
-      NinjaScopeId ninjaScopeId) {
+  private NinjaScope(@Nullable NinjaScope parentScope, @Nullable Integer includePoint) {
     this.parentScope = parentScope;
     this.includePoint = includePoint;
     this.rules = Maps.newTreeMap();
     this.includedScopes = Maps.newTreeMap();
     this.subNinjaScopes = Maps.newTreeMap();
     this.expandedVariables = Maps.newHashMap();
-    this.ninjaScopeId = ninjaScopeId;
   }
 
   public void setRules(Map<String, List<Pair<Integer, NinjaRule>>> rules) {
@@ -79,10 +76,6 @@ public class NinjaScope {
 
   public Collection<NinjaScope> getSubNinjaScopes() {
     return subNinjaScopes.values();
-  }
-
-  public NinjaScopeId getNinjaScopeId() {
-    return ninjaScopeId;
   }
 
   /**
@@ -106,13 +99,13 @@ public class NinjaScope {
   }
 
   public NinjaScope addIncluded(int offset) {
-    NinjaScope scope = new NinjaScope(this, offset, ninjaScopeId.createChild());
+    NinjaScope scope = new NinjaScope(this, offset);
     includedScopes.put(offset, scope);
     return scope;
   }
 
   public NinjaScope addSubNinja(int offset) {
-    NinjaScope scope = new NinjaScope(this, offset, ninjaScopeId.createChild());
+    NinjaScope scope = new NinjaScope(this, offset);
     subNinjaScopes.put(offset, scope);
     return scope;
   }
@@ -218,7 +211,7 @@ public class NinjaScope {
 
   public NinjaScope createTargetsScope(
       ImmutableSortedMap<String, List<Pair<Integer, String>>> expandedVariables) {
-    NinjaScope scope = new NinjaScope(this, Integer.MAX_VALUE, ninjaScopeId.createChild());
+    NinjaScope scope = new NinjaScope(this, Integer.MAX_VALUE);
     scope.expandedVariables.putAll(expandedVariables);
     return scope;
   }

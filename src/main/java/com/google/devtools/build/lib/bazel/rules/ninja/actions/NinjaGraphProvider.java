@@ -14,18 +14,11 @@
 
 package com.google.devtools.build.lib.bazel.rules.ninja.actions;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSortedMap;
-import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
-import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
-import com.google.devtools.build.lib.bazel.rules.ninja.parser.NinjaScope;
-import com.google.devtools.build.lib.bazel.rules.ninja.parser.NinjaTarget;
-import com.google.devtools.build.lib.cmdline.RepositoryName;
-import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import java.util.List;
+import javax.annotation.Nullable;
 
 /**
  * Provider to pass the information between the parsing of Ninja graph in ninja_graph
@@ -34,20 +27,14 @@ import java.util.List;
 public class NinjaGraphProvider implements TransitiveInfoProvider {
   private final String outputRoot;
   private final String workingDirectory;
-  private final NinjaScope scope;
-  private final ImmutableSortedMap<PathFragment, NinjaTarget> targets;
-  private final ImmutableList<Artifact> symlinkedUnderOutputRoot;
+  private final ImmutableSortedMap<PathFragment, NestedSet<PathFragment>> phonyTargets;
 
   NinjaGraphProvider(String outputRoot,
       String workingDirectory,
-      NinjaScope scope,
-      ImmutableSortedMap<PathFragment, NinjaTarget> targets,
-      ImmutableList<Artifact> symlinkedUnderOutputRoot) {
+      ImmutableSortedMap<PathFragment, NestedSet<PathFragment>> phonyTargets) {
     this.outputRoot = outputRoot;
     this.workingDirectory = workingDirectory;
-    this.scope = scope;
-    this.targets = targets;
-    this.symlinkedUnderOutputRoot = symlinkedUnderOutputRoot;
+    this.phonyTargets = phonyTargets;
   }
 
   public String getOutputRoot() {
@@ -58,15 +45,8 @@ public class NinjaGraphProvider implements TransitiveInfoProvider {
     return workingDirectory;
   }
 
-  public NinjaScope getScope() {
-    return scope;
-  }
-
-  public ImmutableSortedMap<PathFragment, NinjaTarget> getTargets() {
-    return targets;
-  }
-
-  public ImmutableList<Artifact> getSymlinkedUnderOutputRoot() {
-    return symlinkedUnderOutputRoot;
+  @Nullable
+  public NestedSet<PathFragment> getPhonyArtifacts(PathFragment fragment) {
+    return phonyTargets.get(fragment);
   }
 }

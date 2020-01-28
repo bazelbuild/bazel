@@ -31,13 +31,13 @@ public final class NinjaTarget {
     private String ruleName;
     private final ImmutableSortedKeyListMultimap.Builder<InputKind, PathFragment> inputsBuilder;
     private final ImmutableSortedKeyListMultimap.Builder<OutputKind, PathFragment> outputsBuilder;
-    private final NinjaScopeId scopeId;
+    private final NinjaScope scope;
     private final int offset;
 
     private final ImmutableSortedMap.Builder<String, String> variablesBuilder;
 
-    private Builder(NinjaScopeId scopeId, int offset) {
-      this.scopeId = scopeId;
+    private Builder(NinjaScope scope, int offset) {
+      this.scope = scope;
       this.offset = offset;
       inputsBuilder = ImmutableSortedKeyListMultimap.builder();
       outputsBuilder = ImmutableSortedKeyListMultimap.builder();
@@ -68,7 +68,7 @@ public final class NinjaTarget {
       Preconditions.checkNotNull(ruleName);
       return new NinjaTarget(
           ruleName, inputsBuilder.build(), outputsBuilder.build(), variablesBuilder.build(),
-          scopeId, offset);
+          scope, offset);
     }
   }
 
@@ -98,7 +98,7 @@ public final class NinjaTarget {
   private final ImmutableSortedKeyListMultimap<InputKind, PathFragment> inputs;
   private final ImmutableSortedKeyListMultimap<OutputKind, PathFragment> outputs;
   private final ImmutableSortedMap<String, String> variables;
-  private final NinjaScopeId scopeId;
+  private final NinjaScope scope;
   private final int offset;
 
   public NinjaTarget(
@@ -106,12 +106,12 @@ public final class NinjaTarget {
       ImmutableSortedKeyListMultimap<InputKind, PathFragment> inputs,
       ImmutableSortedKeyListMultimap<OutputKind, PathFragment> outputs,
       ImmutableSortedMap<String, String> variables,
-      NinjaScopeId scopeId, int offset) {
+      NinjaScope scope, int offset) {
     this.ruleName = ruleName;
     this.inputs = inputs;
     this.outputs = outputs;
     this.variables = variables;
-    this.scopeId = scopeId;
+    this.scope = scope;
     this.offset = offset;
   }
 
@@ -155,16 +155,16 @@ public final class NinjaTarget {
     return inputs.get(InputKind.ORDER_ONLY);
   }
 
-  public NinjaScopeId getScopeId() {
-    return scopeId;
+  public NinjaScope getScope() {
+    return scope;
   }
 
   public int getOffset() {
     return offset;
   }
 
-  public static Builder builder(NinjaScopeId scopeId, int offset) {
-    return new Builder(scopeId, offset);
+  public static Builder builder(NinjaScope scope, int offset) {
+    return new Builder(scope, offset);
   }
 
   public String prettyPrint() {
