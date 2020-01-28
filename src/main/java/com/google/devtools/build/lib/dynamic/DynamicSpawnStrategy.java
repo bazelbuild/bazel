@@ -23,7 +23,6 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.SettableFuture;
-import com.google.devtools.build.lib.actions.ActionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.DynamicStrategyRegistry;
 import com.google.devtools.build.lib.actions.ExecException;
@@ -328,7 +327,7 @@ public class DynamicSpawnStrategy implements SpawnStrategy {
   }
 
   @Override
-  public boolean canExec(Spawn spawn, ActionContext.ActionContextRegistry actionContextRegistry) {
+  public boolean canExec(Spawn spawn, ActionContextRegistry actionContextRegistry) {
     DynamicStrategyRegistry dynamicStrategyRegistry =
         actionContextRegistry.getContext(DynamicStrategyRegistry.class);
     for (SandboxedSpawnStrategy strategy :
@@ -349,10 +348,10 @@ public class DynamicSpawnStrategy implements SpawnStrategy {
   }
 
   @Override
-  public void usedContext(ActionContext.ActionContextRegistry actionContextRegistry) {
-    actionContextRegistry
+  public void usedContext(ActionContextRegistry actionExecutionContext) {
+    actionExecutionContext
         .getContext(DynamicStrategyRegistry.class)
-        .notifyUsedDynamic(actionContextRegistry);
+        .notifyUsedDynamic(actionExecutionContext);
   }
 
   private static FileOutErr getSuffixedFileOutErr(FileOutErr fileOutErr, String suffix) {
@@ -367,7 +366,7 @@ public class DynamicSpawnStrategy implements SpawnStrategy {
   private static ImmutableList<SpawnResult> runLocally(
       Spawn spawn,
       ActionExecutionContext actionExecutionContext,
-      @Nullable SandboxedSpawnStrategy.StopConcurrentSpawns stopConcurrentSpawns)
+      @Nullable StopConcurrentSpawns stopConcurrentSpawns)
       throws ExecException, InterruptedException {
     DynamicStrategyRegistry dynamicStrategyRegistry =
         actionExecutionContext.getContext(DynamicStrategyRegistry.class);
@@ -384,7 +383,7 @@ public class DynamicSpawnStrategy implements SpawnStrategy {
   private static ImmutableList<SpawnResult> runRemotely(
       Spawn spawn,
       ActionExecutionContext actionExecutionContext,
-      @Nullable SandboxedSpawnStrategy.StopConcurrentSpawns stopConcurrentSpawns)
+      @Nullable StopConcurrentSpawns stopConcurrentSpawns)
       throws ExecException, InterruptedException {
     DynamicStrategyRegistry dynamicStrategyRegistry =
         actionExecutionContext.getContext(DynamicStrategyRegistry.class);

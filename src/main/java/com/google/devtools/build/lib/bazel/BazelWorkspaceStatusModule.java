@@ -36,7 +36,7 @@ import com.google.devtools.build.lib.buildtool.BuildRequest;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.Event;
-import com.google.devtools.build.lib.exec.ModuleActionContextRegistry;
+import com.google.devtools.build.lib.exec.ExecutorBuilder;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.Command;
@@ -351,11 +351,9 @@ public class BazelWorkspaceStatusModule extends BlazeModule {
   }
 
   @Override
-  public void registerActionContexts(
-      ModuleActionContextRegistry.Builder registryBuilder,
-      CommandEnvironment env,
-      BuildRequest buildRequest) {
-    registryBuilder.register(
+  public void executorInit(CommandEnvironment env, BuildRequest request, ExecutorBuilder builder) {
+    builder.addActionContext(
         WorkspaceStatusAction.Context.class, new BazelWorkspaceStatusActionContext(env));
   }
+
 }

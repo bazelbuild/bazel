@@ -60,7 +60,7 @@ import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.NullEventHandler;
 import com.google.devtools.build.lib.events.util.EventCollectionApparatus;
 import com.google.devtools.build.lib.exec.BinTools;
-import com.google.devtools.build.lib.exec.ModuleActionContextRegistry;
+import com.google.devtools.build.lib.exec.ExecutorBuilder;
 import com.google.devtools.build.lib.includescanning.IncludeScanningModule;
 import com.google.devtools.build.lib.integration.util.IntegrationMock;
 import com.google.devtools.build.lib.network.ConnectivityStatusProvider;
@@ -304,11 +304,9 @@ public abstract class BuildIntegrationTestCase {
       }
 
       @Override
-      public void registerActionContexts(
-          ModuleActionContextRegistry.Builder registryBuilder,
-          CommandEnvironment env,
-          BuildRequest buildRequest) {
-        registryBuilder.register(
+      public void executorInit(
+          CommandEnvironment env, BuildRequest request, ExecutorBuilder builder) {
+        builder.addActionContext(
             WorkspaceStatusAction.Context.class, new DummyWorkspaceStatusActionContext());
       }
     };

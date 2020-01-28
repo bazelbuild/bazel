@@ -60,8 +60,7 @@ public final class BlazeExecutor implements Executor {
       Reporter reporter,
       Clock clock,
       OptionsProvider options,
-      ModuleActionContextRegistry actionContextRegistry,
-      SpawnStrategyRegistry spawnStrategyRegistry) {
+      SpawnActionContextMaps spawnActionContextMaps) {
     ExecutionOptions executionOptions = options.getOptions(ExecutionOptions.class);
     this.verboseFailures = executionOptions.verboseFailures;
     this.showSubcommands = executionOptions.showSubcommands;
@@ -69,15 +68,13 @@ public final class BlazeExecutor implements Executor {
     this.execRoot = execRoot;
     this.clock = clock;
     this.options = options;
-    this.actionContextRegistry = actionContextRegistry;
+    this.actionContextRegistry = spawnActionContextMaps;
 
     if (executionOptions.debugPrintActionContexts) {
-      spawnStrategyRegistry.writeSpawnStrategiesTo(reporter);
-      actionContextRegistry.writeActionContextsTo(reporter);
+      spawnActionContextMaps.debugPrintSpawnActionContextMaps(reporter);
     }
 
-    actionContextRegistry.notifyUsed();
-    spawnStrategyRegistry.notifyUsed(actionContextRegistry);
+    spawnActionContextMaps.notifyUsed();
   }
 
   @Override

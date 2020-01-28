@@ -29,7 +29,6 @@ import com.google.devtools.build.lib.actions.ActionGraph;
 import com.google.devtools.build.lib.actions.ActionInputPrefetcher;
 import com.google.devtools.build.lib.actions.ArtifactFactory;
 import com.google.devtools.build.lib.actions.BuildFailedException;
-import com.google.devtools.build.lib.actions.DynamicStrategyRegistry;
 import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.actions.ExecutorInitException;
 import com.google.devtools.build.lib.actions.LocalHostCapacity;
@@ -43,6 +42,7 @@ import com.google.devtools.build.lib.analysis.AnalysisResult;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactHelper;
+import com.google.devtools.build.lib.analysis.WorkspaceStatusAction;
 import com.google.devtools.build.lib.analysis.actions.SymlinkTreeActionContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
@@ -64,10 +64,7 @@ import com.google.devtools.build.lib.exec.CheckUpToDateFilter;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.exec.ExecutorBuilder;
 import com.google.devtools.build.lib.exec.ExecutorLifecycleListener;
-import com.google.devtools.build.lib.exec.ModuleActionContextRegistry;
-import com.google.devtools.build.lib.exec.RemoteLocalFallbackRegistry;
-import com.google.devtools.build.lib.exec.SpawnStrategyRegistry;
-import com.google.devtools.build.lib.exec.SpawnStrategyResolver;
+import com.google.devtools.build.lib.exec.SpawnActionContextMaps;
 import com.google.devtools.build.lib.exec.SymlinkTreeStrategy;
 import com.google.devtools.build.lib.profiler.AutoProfiler;
 import com.google.devtools.build.lib.profiler.ProfilePhase;
@@ -125,9 +122,8 @@ public class ExecutionTool {
   private final BuildRequest request;
   private BlazeExecutor executor;
   private final ActionInputPrefetcher prefetcher;
-  private final SpawnStrategyRegistry spawnStrategyRegistry;
-  private final ModuleActionContextRegistry actionContextRegistry;
   private final ImmutableSet<ExecutorLifecycleListener> executorLifecycleListeners;
+  private final SpawnActionContextMaps spawnActionContextMaps;
 
   ExecutionTool(CommandEnvironment env, BuildRequest request) throws ExecutorInitException {
     this.env = env;
@@ -140,47 +136,33 @@ public class ExecutionTool {
       throw new ExecutorInitException("Execroot creation failed", e);
     }
 
-    ExecutionOptions options = request.getOptions(ExecutionOptions.class);
     ExecutorBuilder builder = new ExecutorBuilder();
-    ModuleActionContextRegistry.Builder actionContextRegistryBuilder =
-        new ModuleActionContextRegistry.Builder()
-            // TODO(philwo): ExecutionTool should not modify action contexts on its own, instead
-            // these should be added and restricted in modules.
-            .restrictTo(TestActionContext.class, options.testStrategy)
-            .register(
-                SymlinkTreeActionContext.class,
-                new SymlinkTreeStrategy(
-                    env.getOutputService(), env.getBlazeWorkspace().getBinTools()))
-            .register(SpawnStrategyResolver.class, new SpawnStrategyResolver());
-    SpawnStrategyRegistry.Builder spawnStrategyRegistryBuilder =
-        new SpawnStrategyRegistry.Builder()
-            // TODO: Wrap in incompatible flag.
-            .useLegacyDescriptionFilterPrecedence();
     for (BlazeModule module : runtime.getBlazeModules()) {
-      try (SilentCloseable ignored = Profiler.instance().profile(module + ".executorInit")) {
+      try (SilentCloseable closeable = Profiler.instance().profile(module + ".executorInit")) {
         module.executorInit(env, request, builder);
       }
-
-      try (SilentCloseable ignored =
-          Profiler.instance().profile(module + ".registerActionContexts")) {
-        module.registerActionContexts(actionContextRegistryBuilder, env, request);
-      }
-
-      try (SilentCloseable ignored =
-          Profiler.instance().profile(module + ".registerSpawnStrategies")) {
-        module.registerSpawnStrategies(spawnStrategyRegistryBuilder, env);
-      }
     }
-
-    spawnStrategyRegistry = spawnStrategyRegistryBuilder.build();
-    actionContextRegistryBuilder.register(SpawnStrategyRegistry.class, spawnStrategyRegistry);
-    actionContextRegistryBuilder.register(DynamicStrategyRegistry.class, spawnStrategyRegistry);
-    actionContextRegistryBuilder.register(RemoteLocalFallbackRegistry.class, spawnStrategyRegistry);
-
-    actionContextRegistry = actionContextRegistryBuilder.build();
-    executorLifecycleListeners = builder.getExecutorLifecycleListeners();
+    builder.addActionContext(
+        SymlinkTreeActionContext.class,
+        new SymlinkTreeStrategy(env.getOutputService(), env.getBlazeWorkspace().getBinTools()));
+    // TODO(philwo) - the ExecutionTool should not add arbitrary dependencies on its own, instead
+    // these dependencies should be added to the ActionContextConsumer of the module that actually
+    // depends on them.
+    builder
+        .addStrategyByContext(WorkspaceStatusAction.Context.class, "")
+        .addStrategyByContext(SymlinkTreeActionContext.class, "");
 
     this.prefetcher = builder.getActionInputPrefetcher();
+    this.executorLifecycleListeners = builder.getExecutorLifecycleListeners();
+
+    // There are many different SpawnActions, and we want to control the action context they use
+    // independently from each other, for example, to run genrules locally and Java compile action
+    // in prod. Thus, for SpawnActions, we decide the action context to use not only based on the
+    // context class, but also the mnemonic of the action.
+    ExecutionOptions options = request.getOptions(ExecutionOptions.class);
+    // TODO(jmmv): This should live in some testing-related Blaze module, not here.
+    builder.addStrategyByContext(TestActionContext.class, options.testStrategy);
+    spawnActionContextMaps = builder.getSpawnActionContextMaps();
 
     if (options.availableResources != null && options.removeLocalResources) {
       throw new ExecutorInitException(
@@ -207,8 +189,7 @@ public class ExecutionTool {
         getReporter(),
         runtime.getClock(),
         request,
-        actionContextRegistry,
-        spawnStrategyRegistry);
+        spawnActionContextMaps);
   }
 
   void init() throws ExecutorInitException {

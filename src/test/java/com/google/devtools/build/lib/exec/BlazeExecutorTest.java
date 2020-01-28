@@ -15,10 +15,10 @@ package com.google.devtools.build.lib.exec;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.eventbus.EventBus;
-import com.google.devtools.build.lib.actions.ActionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnResult;
@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.testutil.TestSpec;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.devtools.common.options.OptionsParser;
+import javax.annotation.Nullable;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -78,11 +79,18 @@ public class BlazeExecutorTest {
         .setReporter(reporter)
         .setOptionsParser(parser)
         .setExecution("fake", "fake")
-        .addStrategy(new FakeSpawnStrategy(), "fake")
+        .addStrategy(SpawnStrategy.class, new FakeSpawnStrategy(), "fake")
         .build();
 
     Event event =
-        Iterables.find(storedEventHandler.getEvents(), e -> e.getMessage().contains("\"fake\" = "));
+        Iterables.find(
+            storedEventHandler.getEvents(),
+            new Predicate<Event>() {
+              @Override
+              public boolean apply(@Nullable Event event) {
+                return event.getMessage().contains("SpawnActionContextMap: \"fake\" = ");
+              }
+            });
     assertThat(event).isNotNull();
     assertThat(event.getMessage())
         .contains("\"fake\" = [" + strategy.getClass().getSimpleName() + "]");
@@ -97,7 +105,7 @@ public class BlazeExecutorTest {
     }
 
     @Override
-    public boolean canExec(Spawn spawn, ActionContext.ActionContextRegistry actionContextRegistry) {
+    public boolean canExec(Spawn spawn, ActionContextRegistry actionContextRegistry) {
       return false;
     }
   }
