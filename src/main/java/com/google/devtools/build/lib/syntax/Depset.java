@@ -40,7 +40,10 @@ import javax.annotation.Nullable;
  * elements must have the same type. An empty depset has type {@code SkylarkType.TOP}, and may be
  * combined with any other depset.
  */
-// TODO(adonovan): move to lib.packages, as this is a Bazelism.
+// TODO(adonovan): move to lib.packages, as this is a Bazelism. Requires:
+// - moving the function to StarlarkLibrary.COMMON.
+// - making SkylarkType.getGenericArgType extensible somehow
+// - relaxing StarlarkThread.checkStateEquals (or defining Depset.equals)
 @SkylarkModule(
     name = "depset",
     category = SkylarkModuleCategory.BUILTIN,

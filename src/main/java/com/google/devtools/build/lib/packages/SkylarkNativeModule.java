@@ -399,7 +399,7 @@ public class SkylarkNativeModule implements SkylarkNativeModuleApi {
       // Even though this is clearly imperfect, we return this value because otherwise
       // native.rules() fails if there is any rule using a select() in the BUILD file.
       //
-      // To remedy this, we should return a syntax.SelectorList. To do so, we have to
+      // To remedy this, we should return a SelectorList. To do so, we have to
       // 1) recurse into the Selector contents of SelectorList, so those values are skylarkified too
       // 2) get the right Class<?> value. We could probably get at that by looking at
       //    ((SelectorList)val).getSelectors().first().getEntries().first().getClass().

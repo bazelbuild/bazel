@@ -11,17 +11,23 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-package com.google.devtools.build.lib.syntax;
+package com.google.devtools.build.lib.packages;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
+import com.google.devtools.build.lib.syntax.EvalException;
+import com.google.devtools.build.lib.syntax.HasBinary;
+import com.google.devtools.build.lib.syntax.Printer;
+import com.google.devtools.build.lib.syntax.Starlark;
+import com.google.devtools.build.lib.syntax.StarlarkValue;
+import com.google.devtools.build.lib.syntax.TokenKind;
 import java.util.Map;
 
 /**
- * The value passed to a select({...}) statement, e.g.:
+ * The value returned by a call to {@code select({...})}, for example:
  *
  * <pre>
  *   rule(
@@ -34,29 +40,31 @@ import java.util.Map;
  */
 @SkylarkModule(
     name = "selector",
-    doc = "A selector between configuration-dependent entities.",
+    doc = "A selector between configuration-dependent values.",
     documented = false)
 @AutoCodec
 public final class SelectorValue implements StarlarkValue, HasBinary {
 
-  // TODO(adonovan): move to lib.packages.
-  // TODO(adonovan): combine Selector{List,Value}. There's no need for two data types.
+  // TODO(adonovan): combine Selector{List,Value} and BuildType.SelectorList.
+  // We don't need three classes for the same concept.
 
   private final ImmutableMap<?, ?> dictionary;
   private final Class<?> type;
   private final String noMatchError;
 
-  public SelectorValue(Map<?, ?> dictionary, String noMatchError) {
+  SelectorValue(Map<?, ?> dictionary, String noMatchError) {
     Preconditions.checkArgument(!dictionary.isEmpty());
     this.dictionary = ImmutableMap.copyOf(dictionary);
-    this.type = Iterables.get(dictionary.values(), 0).getClass();
+    // TODO(adonovan): doesn't this assume all the elements have the same type?
+    this.type = Iterables.getFirst(dictionary.values(), null).getClass();
     this.noMatchError = noMatchError;
   }
 
-  public ImmutableMap<?, ?> getDictionary() {
+  ImmutableMap<?, ?> getDictionary() {
     return dictionary;
   }
 
+  // TODO(adonovan): use SkylarkType not Class, like Depset.
   Class<?> getType() {
     return type;
   }
@@ -65,7 +73,7 @@ public final class SelectorValue implements StarlarkValue, HasBinary {
    * Returns a custom error message for this select when no condition matches, or an empty string if
    * no such message is declared.
    */
-  public String getNoMatchError() {
+  String getNoMatchError() {
     return noMatchError;
   }
 
