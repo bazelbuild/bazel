@@ -282,19 +282,79 @@ build --incompatible_skip_genfiles_symlink=false
 ${EXTRA_BAZELRC:-}
 EOF
 
+  if [[ -n ${TEST_REPOSITORY_HOME:-} ]]; then
+    echo "testenv.sh: Using shared repositories from $TEST_REPOSITORY_HOME."
+
+    repos=(
+        "android_tools_for_testing"
+        "bazel_toolchains"
+        "com_google_protobuf"
+        "openjdk10_darwin_archive"
+        "openjdk10_linux_archive"
+        "openjdk10_windows_archive"
+        "openjdk11_darwin_archive"
+        "openjdk11_linux_archive"
+        "openjdk11_windows_archive"
+        "openjdk12_darwin_archive"
+        "openjdk12_linux_archive"
+        "openjdk12_windows_archive"
+        "openjdk9_darwin_archive"
+        "openjdk9_linux_archive"
+        "openjdk9_windows_archive"
+        "openjdk_linux_aarch64_minimal"
+        "openjdk_linux_minimal"
+        "openjdk_macos_minimal"
+        "openjdk_win_minimal"
+        "remote_coverage_tools_for_testing"
+        "remote_java_tools_darwin_for_testing"
+        "remote_java_tools_javac10_test_darwin"
+        "remote_java_tools_javac10_test_linux"
+        "remote_java_tools_javac10_test_windows"
+        "remote_java_tools_javac11_test_darwin"
+        "remote_java_tools_javac11_test_linux"
+        "remote_java_tools_javac11_test_windows"
+        "remote_java_tools_javac12_test_darwin"
+        "remote_java_tools_javac12_test_linux"
+        "remote_java_tools_javac12_test_windows"
+        "remote_java_tools_javac9_test_darwin"
+        "remote_java_tools_javac9_test_linux"
+        "remote_java_tools_javac9_test_windows"
+        "remote_java_tools_linux_for_testing"
+        "remote_java_tools_windows_for_testing"
+        "remotejdk10_linux_for_testing"
+        "remotejdk10_linux_aarch64_for_testing"
+        "remotejdk10_macos_for_testing"
+        "remotejdk10_win_for_testing"
+        "remotejdk11_linux_for_testing"
+        "remotejdk11_linux_aarch64_for_testing"
+        "remotejdk11_macos_for_testing"
+        "remotejdk11_win_for_testing"
+        "remotejdk_linux_for_testing"
+        "remotejdk_linux_aarch64_for_testing"
+        "remotejdk_macos_for_testing"
+        "remotejdk_win_for_testing"
+        "rules_cc"
+        "rules_java"
+        "rules_pkg"
+        "rules_proto"
+        "rules_python"
+    )
+    for repo in "${repos[@]}"; do
+      reponame="${repo%"_for_testing"}"
+      echo "common --override_repository=$reponame=$TEST_REPOSITORY_HOME/$repo" >> $TEST_TMPDIR/bazelrc
+    done
+  fi
+
   if [[ -n ${REPOSITORY_CACHE:-} ]]; then
     echo "testenv.sh: Using repository cache at $REPOSITORY_CACHE."
     cat >>$TEST_TMPDIR/bazelrc <<EOF
-sync --repository_cache=$REPOSITORY_CACHE --experimental_repository_cache_hardlinks
-fetch --repository_cache=$REPOSITORY_CACHE --experimental_repository_cache_hardlinks
-build --repository_cache=$REPOSITORY_CACHE --experimental_repository_cache_hardlinks
-query --repository_cache=$REPOSITORY_CACHE --experimental_repository_cache_hardlinks
+common --repository_cache=$REPOSITORY_CACHE --experimental_repository_cache_hardlinks
 EOF
   fi
 
-  if [[ -n ${INSTALL_BASE:-} ]]; then
-    echo "testenv.sh: Using shared install base at $INSTALL_BASE."
-    echo "startup --install_base=$INSTALL_BASE" >> $TEST_TMPDIR/bazelrc
+  if [[ -n ${TEST_INSTALL_BASE:-} ]]; then
+    echo "testenv.sh: Using shared install base at $TEST_INSTALL_BASE."
+    echo "startup --install_base=$TEST_INSTALL_BASE" >> $TEST_TMPDIR/bazelrc
   fi
 }
 
