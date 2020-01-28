@@ -17,10 +17,10 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 
 /** Constants associated with {@code Label}s */
 public class LabelConstants {
-  public static final PathFragment EXTERNAL_PACKAGE_NAME = PathFragment.create("external");
+  public static final PathFragment EXTERNAL_PACKAGE_NAME = PathFragment.create("__external__");
   public static final PackageIdentifier EXTERNAL_PACKAGE_IDENTIFIER =
       PackageIdentifier.createInMainRepo(EXTERNAL_PACKAGE_NAME);
-  public static final PathFragment EXTERNAL_PATH_PREFIX = PathFragment.create("external");
+  public static final PathFragment EXTERNAL_PATH_PREFIX = PathFragment.create("__external__");
   public static final PathFragment WORKSPACE_FILE_NAME = PathFragment.create("WORKSPACE");
   public static final PathFragment WORKSPACE_DOT_BAZEL_FILE_NAME =
       PathFragment.create("WORKSPACE.bazel");
