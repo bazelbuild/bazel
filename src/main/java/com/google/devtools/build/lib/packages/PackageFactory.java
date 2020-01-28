@@ -875,7 +875,7 @@ public final class PackageFactory {
 
   private void populateEnvironment(ImmutableMap.Builder<String, Object> env) {
     env.putAll(Starlark.UNIVERSE);
-    env.putAll(StarlarkLibrary.BUILD); // e.g. rule, select, depset
+    env.putAll(StarlarkBuildLibrary.BINDINGS);
     env.putAll(SkylarkNativeModule.BINDINGS_FOR_BUILD_FILES);
     env.put("package", newPackageFunction(packageArguments));
     env.putAll(ruleFunctions);

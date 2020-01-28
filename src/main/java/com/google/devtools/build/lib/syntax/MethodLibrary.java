@@ -1090,6 +1090,45 @@ class MethodLibrary {
     return o instanceof Sequence && ((Sequence) o).isEmpty();
   }
 
+  /**
+   * Returns a function-value implementing "select" (i.e. configurable attributes) in the specified
+   * package context.
+   */
+  @SkylarkCallable(
+      name = "select",
+      doc =
+          "<code>select()</code> is the helper function that makes a rule attribute "
+              + "<a href=\"$BE_ROOT/common-definitions.html#configurable-attributes\">"
+              + "configurable</a>. See "
+              + "<a href=\"$BE_ROOT/functions.html#select\">build encyclopedia</a> for details.",
+      parameters = {
+        @Param(
+            name = "x",
+            type = Dict.class,
+            doc = "The parameter to convert.",
+            // TODO(cparsons): This parameter should be positional-only.
+            legacyNamed = true),
+        @Param(
+            name = "no_match_error",
+            type = String.class,
+            defaultValue = "''",
+            doc = "Optional custom error to report if no condition matches.",
+            named = true)
+      })
+  public Object select(Dict<?, ?> dict, String noMatchError) throws EvalException {
+    if (dict.isEmpty()) {
+      throw Starlark.errorf(
+          "select({}) with an empty dictionary can never resolve because it includes no conditions"
+              + " to match");
+    }
+    for (Object key : dict.keySet()) {
+      if (!(key instanceof String)) {
+        throw Starlark.errorf("Invalid key: %s. select keys must be label references", key);
+      }
+    }
+    return SelectorList.of(new SelectorValue(dict, noMatchError));
+  }
+
   @SkylarkCallable(
       name = "zip",
       doc =

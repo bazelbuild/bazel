@@ -125,6 +125,7 @@ public final class StarlarkThreadTest extends EvaluationTestCase {
                 "range",
                 "repr",
                 "reversed",
+                "select",
                 "sorted",
                 "str",
                 "tuple",

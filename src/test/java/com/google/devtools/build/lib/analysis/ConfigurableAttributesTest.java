@@ -401,7 +401,8 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
         "    name = 'int_key',",
         "    srcs = select({123: ['a.java']})",
         ")");
-    assertTargetError("//java/foo:int_key", "select: got int for dict key, want a label string");
+    assertTargetError(
+        "//java/foo:int_key", "Invalid key: 123. select keys must be label references");
   }
 
   @Test
@@ -413,7 +414,8 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
         "    name = 'bool_key',",
         "    srcs = select({True: ['a.java']})",
         ")");
-    assertTargetError("//java/foo:bool_key", "select: got bool for dict key, want a label string");
+    assertTargetError(
+        "//java/foo:bool_key", "Invalid key: true. select keys must be label references");
   }
 
   @Test
@@ -426,7 +428,7 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
         "    srcs = select({None: ['a.java']})",
         ")");
     assertTargetError(
-        "//java/foo:none_key", "select: got NoneType for dict key, want a label string");
+        "//java/foo:none_key", "Invalid key: None. select keys must be label references");
   }
 
   @Test

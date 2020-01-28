@@ -113,6 +113,8 @@ java_library(
         "ParamDescriptor.java",
         "Printer.java",
         "RangeList.java",
+        "SelectorList.java",
+        "SelectorValue.java",
         "Sequence.java",
         "SkylarkClassObject.java",
         "SkylarkIndexable.java",

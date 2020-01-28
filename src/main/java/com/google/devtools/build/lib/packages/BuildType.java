@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Printer;
 import com.google.devtools.build.lib.syntax.Printer.BasePrinter;
+import com.google.devtools.build.lib.syntax.SelectorValue;
 import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.syntax.StarlarkValue;
 import java.util.ArrayList;
@@ -144,9 +145,9 @@ public final class BuildType {
   public static <T> Object selectableConvert(
       Type<T> type, Object x, Object what, LabelConversionContext context)
       throws ConversionException {
-    if (x instanceof com.google.devtools.build.lib.packages.SelectorList) {
+    if (x instanceof com.google.devtools.build.lib.syntax.SelectorList) {
       return new SelectorList<T>(
-          ((com.google.devtools.build.lib.packages.SelectorList) x).getElements(),
+          ((com.google.devtools.build.lib.syntax.SelectorList) x).getElements(),
           what,
           context,
           type);
@@ -492,8 +493,6 @@ public final class BuildType {
    * rawValue + select(...) + select(...) + ..."} syntax. For consistency's sake, raw values are
    * stored as selects with only a default condition.
    */
-  // TODO(adonovan): merge with packages.Selector{List,Value}.
-  // We don't need three classes for the same concept.
   public static final class SelectorList<T> implements StarlarkValue {
     private final Type<T> originalType;
     private final List<Selector<T>> elements;
@@ -571,7 +570,7 @@ public final class BuildType {
         selectorValueList.add(new SelectorValue(element.getEntries(), element.getNoMatchError()));
       }
       try {
-        printer.repr(com.google.devtools.build.lib.packages.SelectorList.of(selectorValueList));
+        printer.repr(com.google.devtools.build.lib.syntax.SelectorList.of(selectorValueList));
       } catch (EvalException e) {
         throw new IllegalStateException("this list should have been validated on creation");
       }
