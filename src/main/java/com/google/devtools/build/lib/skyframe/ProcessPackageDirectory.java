@@ -194,7 +194,7 @@ public final class ProcessPackageDirectory {
       PathFragment subdirectory = rootRelativePath.getRelative(basename);
       if (subdirectory.equals(LabelConstants.EXTERNAL_PACKAGE_NAME)) {
         // Not a real package.
-//        continue;
+        continue;
       }
 
       // If this subdirectory is one of the excluded paths, don't recurse into it.
