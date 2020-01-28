@@ -533,4 +533,28 @@ end_of_record"
   assert_coverage_result "$coverage_result_orange_lib" "$coverage_file_path"
 }
 
+function test_coverage_as_tree_artifact() {
+  cat <<'EOF' > BUILD
+sh_test(
+    name = "pull",
+    srcs = ["pull-test.sh"],
+)
+EOF
+  cat <<'EOF' > pull-test.sh
+#!/bin/bash
+touch $COVERAGE_DIR/foo.txt
+# We need a non-empty coverage.dat file for the checks below to work.
+echo "FN:2,com/google/orange/orangeLib::<init> ()V" > $COVERAGE_OUTPUT_FILE
+exit 0
+EOF
+  chmod +x pull-test.sh
+
+  bazel coverage --test_output=all --experimental_fetch_all_coverage_outputs //:pull &>$TEST_log \
+      || fail "Coverage failed"
+
+  local coverage_file_path="$(dirname $( get_coverage_file_path_from_test_log ))/_coverage/foo.txt"
+  [[ -e $coverage_file_path ]] || fail "Cannot find extra file"
+}
+
+
 run_suite "test tests"

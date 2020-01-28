@@ -382,10 +382,15 @@ public final class TestActionBuilder {
             ruleContext.getPackageRelativeArtifact(dir.getRelative("test.cache_status"), root);
 
         Artifact.DerivedArtifact coverageArtifact = null;
+        Artifact coverageDirectory = null;
         if (collectCodeCoverage) {
           coverageArtifact =
               ruleContext.getPackageRelativeArtifact(dir.getRelative("coverage.dat"), root);
           coverageArtifacts.add(coverageArtifact);
+          if (testConfiguration.fetchAllCoverageOutputs()) {
+            coverageDirectory =
+                ruleContext.getPackageRelativeTreeArtifact(dir.getRelative("_coverage"), root);
+          }
         }
 
         boolean cancelConcurrentTests =
@@ -422,6 +427,7 @@ public final class TestActionBuilder {
                 testLog,
                 cacheStatus,
                 coverageArtifact,
+                coverageDirectory,
                 testProperties,
                 extraTestEnv,
                 executionSettings,
