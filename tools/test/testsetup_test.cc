@@ -1,5 +1,4 @@
 #include <stdio.h>
-#include <string.h>
 #include <sys/stat.h>
 #include "googletest/include/gtest/gtest.h"
 
@@ -80,11 +79,10 @@ TEST(TestSetup, Env) {
 
   EXPECT_NE(getenv("PATH"), nullptr);
 
-  // PWD is recommended, and should be $TEST_SRCDIR/workspace-name
+  // PWD is recommended, but is only set on *nix systems, and should
+  // be $TEST_SRCDIR/workspace-name
   char *pwd = getenv("PWD");
-  EXPECT_NE(pwd, nullptr);
-  EXPECT_TRUE(IsDirectory(pwd, MUST_EXIST));
-  EXPECT_EQ(strstr(pwd, testSrcDir), pwd); // should be prefix
+  EXPECT_TRUE(IsDirectory(pwd, OPTIONAL));
 
   EXPECT_STREQ(getenv("SHLVL"), "2");
   EXPECT_TRUE(IsFile(getenv("TEST_PREMATURE_EXIT_FILE"), OPTIONAL));
