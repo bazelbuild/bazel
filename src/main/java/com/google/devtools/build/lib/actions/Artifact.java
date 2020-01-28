@@ -822,6 +822,7 @@ public abstract class Artifact
     if (relativePath.startsWith(LabelConstants.EXTERNAL_PATH_PREFIX)) {
       // Turn external/repo/foo into ../repo/foo.
       relativePath = relativePath.relativeTo(LabelConstants.EXTERNAL_PATH_PREFIX);
+      relativePath = PathFragment.create("..").getRelative(relativePath);
     }
     return relativePath;
   }

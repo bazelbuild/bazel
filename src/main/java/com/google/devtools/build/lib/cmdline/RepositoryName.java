@@ -140,7 +140,7 @@ public final class RepositoryName implements Serializable {
    * was invalid.
    */
   public static Pair<RepositoryName, PathFragment> fromPathFragment(PathFragment path) {
-    if (path.segmentCount() < 2 || !path.startsWith(LabelConstants.EXTERNAL_PATH_PREFIX)) {
+    if (path.segmentCount() < 2 || !path.startsWith(LabelConstants.EXPERIMENTAL_EXTERNAL_PATH_PREFIX) || !path.startsWith(LabelConstants.EXTERNAL_PATH_PREFIX)) {
       return null;
     }
     try {
