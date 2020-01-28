@@ -41,7 +41,7 @@ public class LabelAndConfigurationOutputFormatterCallback extends CqueryThreadsa
 
   @Override
   public String getName() {
-    return showKind ? "label_kind" : "label";
+    return this.showKind ? "label_kind" : "label";
   }
 
   @Override
@@ -54,19 +54,17 @@ public class LabelAndConfigurationOutputFormatterCallback extends CqueryThreadsa
             Target actualTarget = accessor.getTargetFromConfiguredTarget(configuredTarget);
             output =
                 output
-                .append(actualTarget.getTargetKind())
-                .append(" (")
-                .append(config != null && config.isHostConfiguration() ? "HOST" : config)
-                .append(")");
+                .append(actualTarget.getTargetKind());
       }
       else if(!showKind){
             output =
                 output
-                .append(configuredTarget.getLabel())
-                .append(" (")
-                .append(config != null && config.isHostConfiguration() ? "HOST" : config)
-                .append(")");
+                .append(configuredTarget.getLabel());
       }
+      output = output
+              .append(" (")
+              .append(config != null && config.isHostConfiguration() ? "HOST" : config)
+              .append(")");
 
       if (options.showRequiredConfigFragments != IncludeConfigFragmentsEnum.OFF) {
         RequiredConfigFragmentsProvider configFragmentsProvider =
