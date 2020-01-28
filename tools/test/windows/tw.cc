@@ -1882,7 +1882,8 @@ int TestWrapperMain(int argc, wchar_t** argv) {
   if (!ParseArgs(argc, argv, &argv0, &test_path_arg, &args) ||
       !PrintTestLogStartMarker() || !GetCwd(&exec_root) ||
       !FindTestBinary(argv0, exec_root, test_path_arg, &test_path) ||
-      !ExportUserName() || !ExportSrcPath(exec_root, &srcdir) ||
+      !ExportUserName() || !ExportLogName() ||
+      !ExportSrcPath(exec_root, &srcdir) ||
       !ChdirToRunfiles(exec_root, srcdir) ||
       !ExportTmpPath(exec_root, &tmpdir) || !ExportHome(tmpdir) ||
       !ExportRunfiles(exec_root, srcdir) || !ExportShardStatusFile(exec_root) ||
