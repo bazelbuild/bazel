@@ -20,7 +20,7 @@ static bool IsDirectory(const char *path, bool optional) {
     return optional;
   }
   return (st.st_mode & S_IFDIR) == S_IFDIR;
-} 
+}
 
 
 // Return true if the path is a regular file; if optional,
@@ -41,6 +41,8 @@ static bool IsFile(const char *path, bool optional) {
 // <https://docs.bazel.build/versions/master/test-encyclopedia.html>
 TEST(TestSetup, Env) {
   // Test values in same order as in the Test Encyclopedia.
+  // Only test optional values that are files or directories to
+  // verify that they are indeed files or directories.
 
   // TEST_SRCDIR and TEST_TMPDIR are tested out-of-order as several
   // other values are based on their values.
@@ -70,7 +72,6 @@ TEST(TestSetup, Env) {
   // JAVA_RUNFILES is marked as deprecated
   EXPECT_NE(getenv("JAVA_RUNFILES"), nullptr);
   EXPECT_TRUE(IsDirectory(getenv("JAVA_RUNFILES"), MUST_EXIST));
-  EXPECT_STREQ(getenv("JAVA_RUNFILES"), testSrcDir);
 
   // LOGNAME should be set to USER
   EXPECT_NE(getenv("USER"), nullptr);
@@ -79,12 +80,10 @@ TEST(TestSetup, Env) {
 
   EXPECT_NE(getenv("PATH"), nullptr);
 
-  // PWD is recommended, but is only set on *nix systems, and should
-  // be $TEST_SRCDIR/workspace-name
-  char *pwd = getenv("PWD");
-  EXPECT_TRUE(IsDirectory(pwd, OPTIONAL));
+  // PWD is recommended, but is only set on *nix systems
+  EXPECT_TRUE(IsDirectory(getenv("PWD"), OPTIONAL));
 
-  EXPECT_STREQ(getenv("SHLVL"), "2");
+  // SHLVL is recommended as 2 but is unset on Windows
   EXPECT_TRUE(IsFile(getenv("TEST_PREMATURE_EXIT_FILE"), OPTIONAL));
   // TEST_RANDOM_SEED is optional
   // TEST_TARGET is optional
@@ -96,7 +95,7 @@ TEST(TestSetup, Env) {
   // TEST_TOTAL_SHARDS is optional
   // TEST_TMPDIR already tested
   EXPECT_TRUE(IsFile(getenv("TEST_WARNINGS_OUTPUT_FILE"), OPTIONAL));
-  // TESTBRIDGE_TEST_ONLY: is optional
+  // TESTBRIDGE_TEST_ONLY is optional
   EXPECT_STREQ(getenv("TZ"), "UTC");
   // USER already tested
   EXPECT_TRUE(IsFile(getenv("XML_OUTPUT_FILE"), OPTIONAL));
