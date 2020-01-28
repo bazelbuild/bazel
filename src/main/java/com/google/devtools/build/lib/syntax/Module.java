@@ -93,6 +93,22 @@ public final class Module implements ValidationEnvironment.Module {
     this.exportedBindings = new HashSet<>();
   }
 
+  /**
+   * Returns the module (file) of the innermost enclosing Starlark function on the call stack, or
+   * null if none of the active calls are functions defined in Starlark.
+   *
+   * <p>The name of this function is intentionally horrible to make you feel bad for using it.
+   */
+  @Nullable
+  public static Module ofInnermostEnclosingStarlarkFunction(StarlarkThread thread) {
+    for (Debug.Frame fr : thread.getDebugCallStack().reverse()) {
+      if (fr.getFunction() instanceof StarlarkFunction) {
+        return ((StarlarkFunction) fr.getFunction()).getModule();
+      }
+    }
+    return null;
+  }
+
   Module(
       Mutability mutability,
       @Nullable Module universe,

@@ -85,6 +85,7 @@ import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.FunctionSignature;
 import com.google.devtools.build.lib.syntax.Identifier;
+import com.google.devtools.build.lib.syntax.Module;
 import com.google.devtools.build.lib.syntax.Printer;
 import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.SkylarkType;
@@ -356,7 +357,8 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
             hostFragments.getContents(String.class, "host_fragments"));
     builder.setConfiguredTargetFunction(implementation);
     builder.setRuleDefinitionEnvironmentLabelAndHashCode(
-        (Label) thread.getGlobals().getLabel(), thread.getTransitiveContentHashCode());
+        (Label) Module.ofInnermostEnclosingStarlarkFunction(thread).getLabel(),
+        thread.getTransitiveContentHashCode());
 
     builder.addRequiredToolchains(
         collectToolchainLabels(
@@ -836,9 +838,8 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
       // rule or aspect implementation thread, or null otherwise.
       parentLabel = context.getAnalysisRuleLabel();
     } else {
-      // This is the label of the BUILD/.bzl file on the top of the current call stack.
-      // (Function enter/exit changes getGlobals.)
-      parentLabel = (Label) thread.getGlobals().getLabel();
+      // This is the label of the innermost BUILD/.bzl file on the current call stack.
+      parentLabel = (Label) Module.ofInnermostEnclosingStarlarkFunction(thread).getLabel();
     }
 
     try {

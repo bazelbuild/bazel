@@ -123,16 +123,9 @@ public final class StarlarkThread {
 
     @Nullable private SilentCloseable profileSpan; // current span of walltime profiler
 
-    // Note that the inherited design is off-by-one:
-    // the following fields are logically facts about the _enclosing_ frame.
-    // TODO(adonovan): fix that.
-
-    private final Module savedModule; // the saved module of the parent (TODO(adonovan): eliminate)
-
-    private Frame(StarlarkThread thread, StarlarkCallable fn, Module savedModule) {
+    private Frame(StarlarkThread thread, StarlarkCallable fn) {
       this.thread = thread;
       this.fn = fn;
-      this.savedModule = savedModule;
     }
 
     // Updates the PC location in this frame.
@@ -194,7 +187,7 @@ public final class StarlarkThread {
       // Legacy behavior: all symbols from the global Frame are exported (including symbols
       // introduced by load).
       this(
-          ImmutableMap.copyOf(thread.globalFrame.getExportedBindings()),
+          ImmutableMap.copyOf(thread.module.getExportedBindings()),
           thread.getTransitiveContentHashCode());
     }
 
@@ -325,11 +318,20 @@ public final class StarlarkThread {
     }
   }
 
-  // Global environment of the current topmost call frame,
-  // or of the file about to be initialized if no calls are active.
-  // TODO(adonovan): eliminate once we represent even toplevel statements
-  // as a StarlarkFunction that closes over its Module.
-  private Module globalFrame;
+  // The module initialized by this Starlark thread.
+  //
+  // TODO(adonovan): eliminate. First we need to simplify the set-up sequence like so:
+  //
+  //    // Filter predeclaredEnv based on semantics,
+  //    // create a mutability, and retain the semantics:
+  //    Module module = new Module(semantics, predeclaredEnv);
+  //
+  //    // Create a thread that takes its semantics and mutability
+  //    // (and only them) from the Module.
+  //    StarlarkThread thread = StarlarkThread.toInitializeModule(module);
+  //
+  // Then clients that call thread.getGlobals() should use 'module' directly.
+  private final Module module;
 
   /** The semantics options that affect how Skylark code is evaluated. */
   private final StarlarkSemantics semantics;
@@ -350,7 +352,7 @@ public final class StarlarkThread {
 
   /** Pushes a function onto the call stack. */
   void push(StarlarkCallable fn) {
-    Frame fr = new Frame(this, fn, this.globalFrame);
+    Frame fr = new Frame(this, fn);
     callstack.add(fr);
 
     // Push the function onto the allocation tracker's stack.
@@ -363,16 +365,10 @@ public final class StarlarkThread {
     if (fn instanceof StarlarkFunction) {
       StarlarkFunction sfn = (StarlarkFunction) fn;
       fr.locals = Maps.newLinkedHashMapWithExpectedSize(sfn.getSignature().numParameters());
-      this.globalFrame = sfn.getModule();
       taskKind = ProfilerTask.STARLARK_USER_FN;
     } else {
       // built-in function
       fr.locals = ImmutableMap.of();
-      // this.globalFrame is left as is.
-      // For built-ins, thread.globals() returns the module
-      // of the file from which the built-in was called.
-      // Really they have no business knowing about that.
-
       taskKind = ProfilerTask.STARLARK_BUILTIN_FN;
     }
 
@@ -390,7 +386,6 @@ public final class StarlarkThread {
     int last = callstack.size() - 1;
     Frame top = callstack.get(last);
     callstack.remove(last); // pop
-    this.globalFrame = top.savedModule;
 
     // end profile span
     if (top.profileSpan != null) {
@@ -408,11 +403,13 @@ public final class StarlarkThread {
     return mutability;
   }
 
-  /** Returns the global variables for the StarlarkThread (not including dynamic bindings). */
+  /** Returns the module initialized by this StarlarkThread. */
   // TODO(adonovan): get rid of this. Logically, a thread doesn't have module, but every
-  // Starlark source function does.
+  // Starlark source function does. If you want to know the module of the innermost
+  // enclosing call from a function defined in Starlark source code, use
+  // Module.ofInnermostEnclosingStarlarkFunction.
   public Module getGlobals() {
-    return globalFrame;
+    return module;
   }
 
   /**
@@ -488,19 +485,19 @@ public final class StarlarkThread {
   /**
    * Constructs a StarlarkThread. This is the main, most basic constructor.
    *
-   * @param globalFrame a frame for the global StarlarkThread
+   * @param module the module initialized by this StarlarkThread
    * @param eventHandler an EventHandler for warnings, errors, etc
    * @param importedExtensions Extensions from which to import bindings with load()
    * @param fileContentHashCode a hash for the source file being evaluated, if any
    */
   private StarlarkThread(
-      Module globalFrame,
+      Module module,
       StarlarkSemantics semantics,
       Map<String, Extension> importedExtensions,
       @Nullable String fileContentHashCode) {
-    this.globalFrame = Preconditions.checkNotNull(globalFrame);
-    this.mutability = globalFrame.mutability();
-    Preconditions.checkArgument(!globalFrame.mutability().isFrozen());
+    this.module = Preconditions.checkNotNull(module);
+    this.mutability = module.mutability();
+    Preconditions.checkArgument(!module.mutability().isFrozen());
     this.semantics = semantics;
     this.importedExtensions = importedExtensions;
     this.transitiveHashCode =
@@ -590,11 +587,11 @@ public final class StarlarkThread {
       // filtered out.
       parent = Module.filterOutRestrictedBindings(mutability, parent, semantics);
 
-      Module globalFrame = new Module(mutability, parent);
+      Module module = new Module(mutability, parent);
       if (importedExtensions == null) {
         importedExtensions = ImmutableMap.of();
       }
-      return new StarlarkThread(globalFrame, semantics, importedExtensions, fileContentHashCode);
+      return new StarlarkThread(module, semantics, importedExtensions, fileContentHashCode);
     }
   }
 
@@ -633,7 +630,7 @@ public final class StarlarkThread {
     if (!callstack.isEmpty()) {
       vars.addAll(frame(0).locals.keySet());
     }
-    vars.addAll(globalFrame.getTransitiveBindings().keySet());
+    vars.addAll(module.getTransitiveBindings().keySet());
     return vars;
   }
 
