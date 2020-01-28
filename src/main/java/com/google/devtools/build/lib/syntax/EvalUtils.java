@@ -252,8 +252,6 @@ public final class EvalUtils {
     } else if (StarlarkCallable.class.isAssignableFrom(c)) {
       // TODO(adonovan): each StarlarkCallable should report its own type string.
       return "function";
-    } else if (c.equals(SelectorValue.class)) {
-      return "select";
     } else {
       if (c.getSimpleName().isEmpty()) {
         return c.getName();

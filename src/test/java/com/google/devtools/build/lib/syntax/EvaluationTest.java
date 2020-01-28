@@ -21,7 +21,6 @@ import com.google.devtools.build.lib.events.EventCollector;
 import com.google.devtools.build.lib.syntax.util.EvaluationTestCase;
 import com.google.devtools.build.lib.testutil.TestMode;
 import java.util.Collections;
-import java.util.List;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -604,33 +603,6 @@ public class EvaluationTest extends EvaluationTestCase {
         .testExpression("10 * ()", Tuple.empty())
         .testExpression("0 * (1, 2)", Tuple.empty())
         .testExpression("-4 * (1, 2)", Tuple.empty());
-  }
-
-  @SuppressWarnings("unchecked")
-  @Test
-  public void testSelectorListConcatenation() throws Exception {
-    // TODO(fwe): cannot be handled by current testing suite
-    SelectorList x = (SelectorList) eval("select({'foo': ['FOO'], 'bar': ['BAR']}) + []");
-    List<Object> elements = x.getElements();
-    assertThat(elements).hasSize(2);
-    assertThat(elements.get(0)).isInstanceOf(SelectorValue.class);
-    assertThat((Iterable<Object>) elements.get(1)).isEmpty();
-  }
-
-  @Test
-  public void testAddSelectIncompatibleType() throws Exception {
-    newTest()
-        .testIfErrorContains(
-            "'+' operator applied to incompatible types (select of list, int)",
-            "select({'foo': ['FOO'], 'bar': ['BAR']}) + 1");
-  }
-
-  @Test
-  public void testAddSelectIncompatibleType2() throws Exception {
-    newTest()
-        .testIfErrorContains(
-            "'+' operator applied to incompatible types (select of list, select of int)",
-            "select({'foo': ['FOO']}) + select({'bar': 2})");
   }
 
   @Test

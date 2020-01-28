@@ -11,13 +11,21 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-package com.google.devtools.build.lib.syntax;
+package com.google.devtools.build.lib.packages;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
+import com.google.devtools.build.lib.syntax.Dict;
+import com.google.devtools.build.lib.syntax.EvalException;
+import com.google.devtools.build.lib.syntax.HasBinary;
+import com.google.devtools.build.lib.syntax.Printer;
+import com.google.devtools.build.lib.syntax.SkylarkType;
+import com.google.devtools.build.lib.syntax.Starlark;
+import com.google.devtools.build.lib.syntax.StarlarkValue;
+import com.google.devtools.build.lib.syntax.TokenKind;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
@@ -46,8 +54,8 @@ import java.util.Objects;
 @AutoCodec
 public final class SelectorList implements StarlarkValue, HasBinary {
 
-  // TODO(adonovan): move to lib.packages.
-  // TODO(adonovan): combine Selector{List,Value}. There's no need for two data types.
+  // TODO(adonovan): combine Selector{List,Value} and BuildType.SelectorList.
+  // We don't need three classes for the same concept
 
   private final Class<?> type;
   private final List<Object> elements;
@@ -59,24 +67,36 @@ public final class SelectorList implements StarlarkValue, HasBinary {
   }
 
   /**
-   * Returns an ordered list of the elements in this expression. Each element may be a
-   * native type or a select.
+   * Returns an ordered list of the elements in this expression. Each element may be a native type
+   * or a select.
    */
-  public List<Object> getElements() {
+  List<Object> getElements() {
     return elements;
   }
 
-  /**
-   * Returns the native type contained by this expression.
-   */
-  public Class<?> getType() {
+  /** Returns the native type contained by this expression. */
+  Class<?> getType() {
     return type;
   }
 
-  /**
-   * Creates a "wrapper" list that consists of a single select.
-   */
-  public static SelectorList of(SelectorValue selector) {
+  /** Implementation of the Starlark {@code select} function exposed to BUILD and .bzl files. */
+  public static Object select(Dict<?, ?> dict, String noMatchError) throws EvalException {
+    if (dict.isEmpty()) {
+      throw Starlark.errorf(
+          "select({}) with an empty dictionary can never resolve because it includes no conditions"
+              + " to match");
+    }
+    for (Object key : dict.keySet()) {
+      if (!(key instanceof String)) {
+        throw Starlark.errorf(
+            "select: got %s for dict key, want a label string", Starlark.type(key));
+      }
+    }
+    return SelectorList.of(new SelectorValue(dict, noMatchError));
+  }
+
+  /** Creates a "wrapper" list that consists of a single select. */
+  static SelectorList of(SelectorValue selector) {
     return new SelectorList(selector.getType(), ImmutableList.of(selector));
   }
 
@@ -86,7 +106,7 @@ public final class SelectorList implements StarlarkValue, HasBinary {
    *
    * @throws EvalException if the values don't have the same underlying type
    */
-  public static SelectorList concat(Object x, Object y) throws EvalException {
+  static SelectorList concat(Object x, Object y) throws EvalException {
     return of(Arrays.asList(x, y));
   }
 
@@ -104,7 +124,7 @@ public final class SelectorList implements StarlarkValue, HasBinary {
    *
    * @throws EvalException if all values don't have the same underlying type
    */
-  public static SelectorList of(Iterable<?> values) throws EvalException {
+  static SelectorList of(Iterable<?> values) throws EvalException {
     Preconditions.checkArgument(!Iterables.isEmpty(values));
     ImmutableList.Builder<Object> elements = ImmutableList.builder();
     Object firstValue = null;
@@ -132,9 +152,9 @@ public final class SelectorList implements StarlarkValue, HasBinary {
 
   private static String getTypeName(Object x) {
     if (x instanceof SelectorList) {
-      return "select of " + EvalUtils.getDataTypeNameFromClass(((SelectorList) x).getType());
+      return "select of " + SkylarkType.of(((SelectorList) x).getType());
     } else if (x instanceof SelectorValue) {
-      return "select of " + EvalUtils.getDataTypeNameFromClass(((SelectorValue) x).getType());
+      return "select of " + SkylarkType.of(((SelectorValue) x).getType());
     } else {
       return Starlark.type(x);
     }
