@@ -1229,3 +1229,10 @@ sh_test(
     data = [":test-deps"],
     deps = ["@bazel_tools//tools/bash/runfiles"],
 )
+
+sh_test(
+    name = "run_test",
+    srcs = ["run_test.sh"],
+    data = [":test-deps"],
+    deps = ["@bazel_tools//tools/bash/runfiles"],
+)

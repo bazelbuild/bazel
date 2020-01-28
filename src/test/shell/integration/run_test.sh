@@ -115,10 +115,6 @@ function test_run_py_binary() {
 }
 
 function test_run_py_test() {
-  if "$is_windows"; then
-    # TODO(laszlocsomor): fix this test on Windows, and enable it.
-    return
-  fi
   write_py_files
   bazel run //py:test >& $TEST_log || fail "Expected success"
   expect_log_once 'Hello, Python World'
