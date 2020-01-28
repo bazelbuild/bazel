@@ -486,6 +486,23 @@ bool ExportUserName() {
   return SetEnv(L"USER", buffer);
 }
 
+// Set LOGNAME as required by the Bazel Test Encyclopedia.
+// Assumes that ExportUserName() has already been called successfully.
+bool ExportLogName() {
+  std::wstring value;
+  if (!GetEnv(L"LOGNAME", &value)) {
+    return false;
+  }
+  if (!value.empty()) {
+    // Respect the value passed by Bazel via --test_env.
+    return true;
+  }
+  if (!GetEnv(L"USER", &value)) {
+    return false;
+  }
+  return SetEnv(L"LOGNAME", value);
+}
+
 // Gets a path envvar, and re-exports it as an absolute path.
 // Returns:
 // - true, if the envvar was defined, and was already absolute or was
