@@ -868,6 +868,8 @@ public class Package {
       return generatorNameByLocation;
     }
 
+    PackageValidators validators = new PackageValidators();
+
     @ThreadCompatible
     private static class ThreadCompatibleInterner<T> implements Interner<T> {
       private final Map<T, T> interns = new HashMap<>();
@@ -1212,6 +1214,7 @@ public class Package {
         RuleClass ruleClass,
         Location location,
         AttributeContainer attributeContainer) {
+      maybeAttachValidator(ruleClass);
       return new Rule(
           pkg,
           label,
@@ -1231,6 +1234,7 @@ public class Package {
         Location location,
         AttributeContainer attributeContainer,
         ImplicitOutputsFunction implicitOutputsFunction) {
+      maybeAttachValidator(ruleClass);
       return new Rule(
           pkg,
           label,
@@ -1238,6 +1242,15 @@ public class Package {
           location,
           attributeContainer,
           implicitOutputsFunction);
+    }
+
+    private void maybeAttachValidator(RuleClass ruleClass) {
+      if (ruleClass.getSkylarkPackageValidator() != null) {
+        validators.addSkylarkValidator(ruleClass.getSkylarkPackageValidator());
+      }
+      if (ruleClass.getNativePackageValidator() != null) {
+        validators.addNativeValidator(ruleClass.getNativePackageValidator());
+      }
     }
 
     @Nullable
@@ -1543,6 +1556,15 @@ public class Package {
       pkg.finishInit(this);
       alreadyBuilt = true;
       return pkg;
+    }
+
+    Builder setPackageValidators(PackageValidators validators) {
+      this.validators = Preconditions.checkNotNull(validators);
+      return this;
+    }
+
+    PackageValidators getPackageValidators() {
+      return this.validators;
     }
 
     public Package build() throws NoSuchPackageException {

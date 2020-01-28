@@ -265,10 +265,12 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
                   "Expected list of strings or dictionary of string -> string for 'fields'");
       fieldNames = list;
     } else if (fields instanceof Dict) {
-      Map<String, String> dict = SkylarkType.castMap(
-          fields,
-          String.class, String.class,
-          "Expected list of strings or dictionary of string -> string for 'fields'");
+      Map<String, String> dict =
+          SkylarkType.castMap(
+              fields,
+              String.class,
+              String.class,
+              "Expected list of strings or dictionary of string -> string for 'fields'");
       fieldNames = dict.keySet();
     }
     return SkylarkProvider.createUnexportedSchemaful(fieldNames, thread.getCallerLocation());
@@ -293,6 +295,7 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
       Object analysisTest,
       Object buildSetting,
       Object cfg,
+      Object validationFunction,
       StarlarkThread thread)
       throws EvalException {
     BazelStarlarkContext bazelContext = BazelStarlarkContext.from(thread);
@@ -355,6 +358,9 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
         .requiresHostConfigurationFragmentsBySkylarkModuleName(
             hostFragments.getContents(String.class, "host_fragments"));
     builder.setConfiguredTargetFunction(implementation);
+    if (!validationFunction.equals(Starlark.NONE)) {
+      builder.setSkylarkPackageValidator((StarlarkFunction) validationFunction);
+    }
     builder.setRuleDefinitionEnvironmentLabelAndHashCode(
         (Label) thread.getGlobals().getLabel(), thread.getTransitiveContentHashCode());
 

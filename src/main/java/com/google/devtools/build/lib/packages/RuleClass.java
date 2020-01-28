@@ -642,6 +642,8 @@ public class RuleClass {
     private Predicate<String> preferredDependencyPredicate = Predicates.alwaysFalse();
     private AdvertisedProviderSet.Builder advertisedProviders = AdvertisedProviderSet.builder();
     private StarlarkFunction configuredTargetFunction = null;
+    private StarlarkFunction skylarkPackageValidator = null;
+    private PackageValidator nativePackageValidator = null;
     private BuildSetting buildSetting = null;
     private Function<? super Rule, Map<String, Label>> externalBindingsFunction =
         NO_EXTERNAL_BINDINGS;
@@ -822,6 +824,8 @@ public class RuleClass {
           preferredDependencyPredicate,
           advertisedProviders.build(),
           configuredTargetFunction,
+          skylarkPackageValidator,
+          nativePackageValidator,
           externalBindingsFunction,
           optionReferenceFunction,
           ruleDefinitionEnvironmentLabel,
@@ -1157,6 +1161,17 @@ public class RuleClass {
       return this;
     }
 
+    /** Sets the rule implementation function. Meant for Skylark usage. */
+    public Builder setSkylarkPackageValidator(StarlarkFunction func) {
+      this.skylarkPackageValidator = func;
+      return this;
+    }
+
+    public Builder setNativePackageValidator(PackageValidator val) {
+      this.nativePackageValidator = val;
+      return this;
+    }
+
     public Builder setBuildSetting(BuildSetting buildSetting) {
       this.buildSetting = buildSetting;
       return this;
@@ -1446,6 +1461,17 @@ public class RuleClass {
   @Nullable private final StarlarkFunction configuredTargetFunction;
 
   /**
+   * The Skylark function that validates a package for the given RuleClass. Null for non Starlark
+   * executable RuleClasses.
+   */
+  @Nullable private final StarlarkFunction skylarkPackageValidator;
+
+  /**
+   * A native package validator that can be used to veto package creation if invariants are not met.
+   */
+  @Nullable private final PackageValidator nativePackageValidator;
+
+  /**
    * The BuildSetting associated with this rule. Null for all RuleClasses except Skylark-defined
    * rules that pass {@code build_setting} to their {@code rule()} declaration.
    */
@@ -1531,6 +1557,8 @@ public class RuleClass {
       Predicate<String> preferredDependencyPredicate,
       AdvertisedProviderSet advertisedProviders,
       @Nullable StarlarkFunction configuredTargetFunction,
+      @Nullable StarlarkFunction skylarkPackageValidator,
+      @Nullable PackageValidator nativePackageValidator,
       Function<? super Rule, Map<String, Label>> externalBindingsFunction,
       Function<? super Rule, ? extends Set<String>> optionReferenceFunction,
       @Nullable Label ruleDefinitionEnvironmentLabel,
@@ -1560,6 +1588,8 @@ public class RuleClass {
     this.preferredDependencyPredicate = preferredDependencyPredicate;
     this.advertisedProviders = advertisedProviders;
     this.configuredTargetFunction = configuredTargetFunction;
+    this.skylarkPackageValidator = skylarkPackageValidator;
+    this.nativePackageValidator = nativePackageValidator;
     this.externalBindingsFunction = externalBindingsFunction;
     this.optionReferenceFunction = optionReferenceFunction;
     this.ruleDefinitionEnvironmentLabel = ruleDefinitionEnvironmentLabel;
@@ -2382,6 +2412,18 @@ public class RuleClass {
   @Nullable
   public StarlarkFunction getConfiguredTargetFunction() {
     return configuredTargetFunction;
+  }
+
+  /** Returns this RuleClass's custom Skylark rule validation function. */
+  @Nullable
+  public StarlarkFunction getSkylarkPackageValidator() {
+    return skylarkPackageValidator;
+  }
+
+  /** Returns this RuleClass's custom Skylark rule validation function. */
+  @Nullable
+  public PackageValidator getNativePackageValidator() {
+    return nativePackageValidator;
   }
 
   @Nullable

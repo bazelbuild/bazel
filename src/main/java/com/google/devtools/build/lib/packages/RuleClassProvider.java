@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.packages;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.RuleDefinitionContext;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -118,4 +119,7 @@ public interface RuleClassProvider extends RuleDefinitionContext {
 
   /** Returns the policy on checking that third-party rules have licenses. */
   ThirdPartyLicenseExistencePolicy getThirdPartyLicenseExistencePolicy();
+
+  /** Get a list of global PackageValidators that should be run on each Package after creation. */
+  ImmutableList<PackageValidator> getGlobalPackageValidators();
 }

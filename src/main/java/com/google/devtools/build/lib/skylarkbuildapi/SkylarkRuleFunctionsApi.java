@@ -327,7 +327,20 @@ public interface SkylarkRuleFunctionsApi<FileApiT extends FileApi> {
             positional = false,
             doc =
                 "If set, points to the configuration transition the rule will "
-                    + "apply to its own configuration before analysis.")
+                    + "apply to its own configuration before analysis."),
+        @Param(
+            name = "validation_function",
+            named = true,
+            noneable = true,
+            type = StarlarkFunction.class,
+            positional = false,
+            defaultValue = "None",
+            doc =
+                "the Starlark function implementing this rule's validation step, must have exactly"
+                    + " one parameter a list of dicts containing the same thing as existing_rules."
+                    + " <a href=\"ctx.html\">ctx</a>. The function is called immediately after "
+                    + " load phase. The function is called at most once for each loaded package "
+                    + "and only call if a rule of that class was created in that package."),
       },
       useStarlarkThread = true)
   BaseFunction rule(
@@ -347,6 +360,7 @@ public interface SkylarkRuleFunctionsApi<FileApiT extends FileApi> {
       Object analysisTest,
       Object buildSetting,
       Object cfg,
+      Object validationFunction,
       StarlarkThread thread)
       throws EvalException;
 

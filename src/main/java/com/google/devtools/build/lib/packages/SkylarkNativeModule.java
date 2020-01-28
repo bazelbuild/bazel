@@ -139,6 +139,15 @@ public class SkylarkNativeModule implements SkylarkNativeModuleApi {
   public Dict<String, Dict<String, Object>> existingRules(StarlarkThread thread)
       throws EvalException, InterruptedException {
     BazelStarlarkContext.from(thread).checkLoadingOrWorkspacePhase("native.existing_rules");
+    return packageDict(thread);
+  }
+
+  /**
+   * Creates a Dict of target_name to dict(attr, value), used for both native.existing_rules and
+   * package validation.
+   */
+  static Dict<String, Dict<String, Object>> packageDict(StarlarkThread thread)
+      throws EvalException, InterruptedException {
     PackageContext context = getContext(thread);
     Collection<Target> targets = context.pkgBuilder.getTargets();
     Mutability mu = thread.mutability();
@@ -150,7 +159,6 @@ public class SkylarkNativeModule implements SkylarkNativeModuleApi {
         rules.put(t.getName(), rule, (Location) null);
       }
     }
-
     return rules;
   }
 
@@ -264,6 +272,10 @@ public class SkylarkNativeModule implements SkylarkNativeModuleApi {
     return packageId.getRepository().toString();
   }
 
+  /**
+   * Generate a dict of target name to Target to be used for native.existing_rules and package
+   * validation.
+   */
   @Nullable
   private static Dict<String, Object> targetDict(Target target, Mutability mu)
       throws EvalException {

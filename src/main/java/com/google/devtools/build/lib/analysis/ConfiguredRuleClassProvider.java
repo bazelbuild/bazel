@@ -46,6 +46,7 @@ import com.google.devtools.build.lib.graph.Node;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.BazelStarlarkContext;
 import com.google.devtools.build.lib.packages.NativeAspectClass;
+import com.google.devtools.build.lib.packages.PackageValidator;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.ThirdPartyLicenseExistencePolicy;
@@ -167,6 +168,7 @@ public /*final*/ class ConfiguredRuleClassProvider implements RuleClassProvider 
     private ThirdPartyLicenseExistencePolicy thirdPartyLicenseExistencePolicy =
         ThirdPartyLicenseExistencePolicy.USER_CONTROLLABLE;
     private boolean enableExecutionTransition = false;
+    private ImmutableList<PackageValidator> packageValidators = ImmutableList.of();
 
     public Builder addWorkspaceFilePrefix(String contents) {
       defaultWorkspaceFilePrefix.append(contents);
@@ -369,6 +371,15 @@ public /*final*/ class ConfiguredRuleClassProvider implements RuleClassProvider 
     }
 
     /**
+     * Sets the list of PackageValidators or install into the rule class provider. Each instance
+     * will be evaluated on each BUILD file processed by the binary.
+     */
+    public Builder setGlobalPackageValidators(ImmutableList<PackageValidator> packageValidators) {
+      this.packageValidators = packageValidators;
+      return this;
+    }
+
+    /**
      * Overrides the predicate which determines whether the analysis cache should be invalidated for
      * the given options diff.
      */
@@ -464,7 +475,8 @@ public /*final*/ class ConfiguredRuleClassProvider implements RuleClassProvider 
           ImmutableSet.copyOf(reservedActionMnemonics),
           actionEnvironmentProvider,
           constraintSemantics,
-          thirdPartyLicenseExistencePolicy);
+          thirdPartyLicenseExistencePolicy,
+          packageValidators);
     }
 
     @Override
@@ -567,6 +579,8 @@ public /*final*/ class ConfiguredRuleClassProvider implements RuleClassProvider 
 
   private final ThirdPartyLicenseExistencePolicy thirdPartyLicenseExistencePolicy;
 
+  private final ImmutableList<PackageValidator> packageValidators;
+
   private ConfiguredRuleClassProvider(
       Label preludeLabel,
       String runfilesPrefix,
@@ -590,7 +604,8 @@ public /*final*/ class ConfiguredRuleClassProvider implements RuleClassProvider 
       ImmutableSet<String> reservedActionMnemonics,
       BuildConfiguration.ActionEnvironmentProvider actionEnvironmentProvider,
       ConstraintSemantics constraintSemantics,
-      ThirdPartyLicenseExistencePolicy thirdPartyLicenseExistencePolicy) {
+      ThirdPartyLicenseExistencePolicy thirdPartyLicenseExistencePolicy,
+      ImmutableList<PackageValidator> packageValidators) {
     this.preludeLabel = preludeLabel;
     this.runfilesPrefix = runfilesPrefix;
     this.toolsRepository = toolsRepository;
@@ -615,6 +630,7 @@ public /*final*/ class ConfiguredRuleClassProvider implements RuleClassProvider 
     this.configurationFragmentMap = createFragmentMap(configurationFragments);
     this.constraintSemantics = constraintSemantics;
     this.thirdPartyLicenseExistencePolicy = thirdPartyLicenseExistencePolicy;
+    this.packageValidators = packageValidators;
   }
 
   /**
@@ -883,5 +899,11 @@ public /*final*/ class ConfiguredRuleClassProvider implements RuleClassProvider 
 
   public BuildConfiguration.ActionEnvironmentProvider getActionEnvironmentProvider() {
     return actionEnvironmentProvider;
+  }
+
+  @Override
+  public ImmutableList<PackageValidator> getGlobalPackageValidators() {
+    // Default to an empty list of validators.
+    return packageValidators;
   }
 }

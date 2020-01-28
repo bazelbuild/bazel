@@ -936,7 +936,9 @@ public final class PackageFactory {
             .setWorkspaceName(workspaceName)
             .setRepositoryMapping(repositoryMapping)
             .setThirdPartyLicenceExistencePolicy(
-                ruleClassProvider.getThirdPartyLicenseExistencePolicy());
+                ruleClassProvider.getThirdPartyLicenseExistencePolicy())
+            .setPackageValidators(
+                new PackageValidators(ruleClassProvider.getGlobalPackageValidators()));
     StoredEventHandler eventHandler = new StoredEventHandler();
     if (!buildPackage(
         pkgBuilder,
@@ -1055,6 +1057,12 @@ public final class PackageFactory {
         pkgContext.eventHandler.handle(Event.error(ex.getLocation(), ex.getMessage()));
         return false;
       }
+
+      // Give the PackageValidators a chance to veto package creation after the
+      // BUILD file has been fully processed and while the Builder is still
+      // mutable so we can run starlark equiv to native.existing_rules.
+      PackageValidators validators = pkgBuilder.getPackageValidators();
+      validators.validate(pkgBuilder, thread);
     }
 
     return true; // success
