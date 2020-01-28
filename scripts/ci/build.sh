@@ -264,7 +264,7 @@ function merge_previous_dists() {
 
   # Generate new signatures for Release file
   rm -f "dists/${distribution}/InRelease" "dists/${distribution}/Release.gpg"
-  gpg --output "dists/${distribution}/InRelease" --clear-sign "dists/${distribution}/Release"
+  gpg --output "dists/${distribution}/InRelease" --clearsign "dists/${distribution}/Release"
   gpg --output "dists/${distribution}/Release.gpg" --detach-sign "dists/${distribution}/Release"
 }
 
