@@ -1,6 +1,6 @@
 ---
 layout: documentation
-title: Using the Android Native Development Kit with Bazel
+title: Bazel Glossary
 ---
 
 # Bazel Glossary
