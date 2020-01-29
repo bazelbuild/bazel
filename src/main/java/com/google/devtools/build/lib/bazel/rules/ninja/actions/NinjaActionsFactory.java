@@ -49,7 +49,6 @@ public class NinjaActionsFactory {
   private final PathFragment outputRootPath;
   private final PathFragment workingDirectory;
   private final List<String> outputRootInputs;
-  // todo exact place?
   private final ImmutableSortedMap<PathFragment, NinjaTarget> allUsualTargets;
   private final ImmutableSortedMap<PathFragment, NestedSet<PathFragment>> phonyTargets;
 
