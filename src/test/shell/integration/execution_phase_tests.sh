@@ -277,7 +277,8 @@ EOF
   expect_log "WARNING: .*: foo warning"
 }
 
-function test_max_open_file_descriptors() {
+# Fails on CI: https://github.com/bazelbuild/bazel/issues/10679
+function DISABLED_test_max_open_file_descriptors() {
   echo "nfiles: hard $(ulimit -H -n), soft $(ulimit -S -n)"
 
   local exp_nfiles="$(ulimit -H -n)"
