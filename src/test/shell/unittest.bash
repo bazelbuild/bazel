@@ -80,9 +80,9 @@
 [ -n "$BASH_VERSION" ] ||
   { echo "unittest.bash only works with bash!" >&2; exit 1; }
 
-DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
-
 export BAZEL_SHELL_TEST=1
+
+DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 
 #### Configuration variables (may be overridden by testenv.sh or the suite):
 
@@ -298,6 +298,7 @@ if [[ ! "$TEST_script" = /* ]]; then
   TEST_script="$(pwd)/$0"
 fi
 
+
 #### Internal functions
 
 function __show_log() {
@@ -483,6 +484,18 @@ function expect_not_log() {
 
     fail "$message"
     return 1
+}
+
+# Usage: expect_query_targets <arguments>
+# Checks that log file contains exactly the targets in the argument list.
+function expect_query_targets() {
+  for arg in $@; do
+    expect_log_once "^$arg$"
+  done
+
+# Checks that the number of lines started with '//' equals to the number of
+# arguments provided.
+  expect_log_n "^//[^ ]*$" $#
 }
 
 # Usage: expect_log_with_timeout <regexp> <timeout> [error-message]
@@ -758,7 +771,7 @@ function get_run_time() {
 # Calls exit with zero on success, non-zero otherwise.
 function run_suite() {
     local message="$1"
-    # The name of the suite should be the script being run, under Bazel that
+    # The name of the suite should be the script being run, which
     # will be the filename with the ".sh" extension removed.
     local suite_name="$(basename $0)"
 
@@ -779,7 +792,7 @@ function run_suite() {
       TESTS=$(declare -F | awk '{print $3}' | grep ^test_)
     elif [ -n "${TEST_WARNINGS_OUTPUT_FILE:-}" ]; then
       if grep -q "TESTS=" "$TEST_script" ; then
-        echo "TESTS variable overridden in Bazel sh_test. Please remove before submitting" \
+        echo "TESTS variable overridden in sh_test. Please remove before submitting" \
           >> "$TEST_WARNINGS_OUTPUT_FILE"
       fi
     fi
