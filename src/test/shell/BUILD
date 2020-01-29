@@ -21,7 +21,10 @@ filegroup(
 
 sh_library(
     name = "bashunit",
-    srcs = ["unittest.bash"],
+    srcs = [
+        "unittest.bash",
+        "unittest_utils.sh",
+    ],
     data = [
         "testenv.sh",
         "//tools:test_sharding_compliant",
