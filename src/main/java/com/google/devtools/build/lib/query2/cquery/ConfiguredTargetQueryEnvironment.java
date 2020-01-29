@@ -219,7 +219,9 @@ public class ConfiguredTargetQueryEnvironment
         cqueryOptions.aspectDeps.createResolver(packageManager, eventHandler);
     return ImmutableList.of(
         new LabelAndConfigurationOutputFormatterCallback(
-            eventHandler, cqueryOptions, out, skyframeExecutor, accessor),
+            eventHandler, cqueryOptions, out, skyframeExecutor, accessor, true),
+        new LabelAndConfigurationOutputFormatterCallback(
+            eventHandler, cqueryOptions, out, skyframeExecutor, accessor, false),
         new TransitionsOutputFormatterCallback(
             eventHandler,
             cqueryOptions,
@@ -486,4 +488,3 @@ public class ConfiguredTargetQueryEnvironment
         SkyQueryEnvironment.DEFAULT_THREAD_COUNT);
   }
 }
-

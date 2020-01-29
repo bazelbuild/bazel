@@ -90,6 +90,22 @@ EOF
  assert_contains "name: \"//$pkg:japanese\"" output
 }
 
+function test_basic_query_output_labelkind() {
+  local -r pkg=$FUNCNAME
+  mkdir -p $pkg
+  cat > $pkg/BUILD <<EOF
+sh_library(name='maple', data=[':japanese'])
+cc_binary(name='japanese', srcs = ['japanese.cc'])
+EOF
+
+ bazel cquery --output=label_kind "deps(//$pkg:maple)" > output 2>"$TEST_log" ||
+ --noimplicit_deps --nohost_deps fail "Expected success"
+
+ assert_contains "sh_library rule //$pkg:maple" output
+ assert_contains "cc_binary rule //$pkg:japanese" output
+ assert_contains "source file //$pkg:japanese.cc" output
+}
+
 function test_respects_selects() {
   local -r pkg=$FUNCNAME
   mkdir -p $pkg
