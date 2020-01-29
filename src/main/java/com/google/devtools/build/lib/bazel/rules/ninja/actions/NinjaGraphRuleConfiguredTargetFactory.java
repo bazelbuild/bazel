@@ -18,45 +18,29 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Maps;
-import com.google.common.collect.Sets;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
-import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
-import com.google.devtools.build.lib.analysis.actions.SymlinkAction;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.bazel.rules.ninja.file.GenericParsingException;
-import com.google.devtools.build.lib.bazel.rules.ninja.parser.NinjaScope;
 import com.google.devtools.build.lib.bazel.rules.ninja.parser.NinjaTarget;
 import com.google.devtools.build.lib.bazel.rules.ninja.pipeline.NinjaPipeline;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
-import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ExecutorUtil;
 import com.google.devtools.build.lib.packages.Type;
-import com.google.devtools.build.lib.repository.ExternalPackageUtil;
-import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import java.io.IOException;
-import java.util.ArrayDeque;
 import java.util.Collection;
-import java.util.Comparator;
 import java.util.List;
-import java.util.Map;
-import java.util.SortedMap;
-import java.util.SortedSet;
-import java.util.TreeMap;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadFactory;
 import java.util.stream.Collectors;
@@ -107,11 +91,11 @@ public class NinjaGraphRuleConfiguredTargetFactory implements RuleConfiguredTarg
     try {
       ImmutableSortedMap<PathFragment, NinjaTarget> phonyTargets = phonyTargetsBuilder.build();
       phonyTargetsMap = new NinjaPhonyTargetsUtil(phonyTargets).getPhonyPathsMap();
-      NinjaActionsFactory ninjaActionsFactory = new NinjaActionsFactory(ruleContext, sourceRoot,
+      NinjaActionsHelper ninjaActionsHelper = new NinjaActionsHelper(ruleContext, sourceRoot,
           PathFragment.create(outputRoot),
           PathFragment.create(workingDirectory), outputRootInputs, usualTargets, phonyTargetsMap);
-      ninjaActionsFactory.process();
-      filesToBuild = ninjaActionsFactory.getFilesToBuild();
+      ninjaActionsHelper.process();
+      filesToBuild = ninjaActionsHelper.getFilesToBuild();
     } catch (GenericParsingException e) {
       throw new RuleErrorException(e.getMessage());
     }

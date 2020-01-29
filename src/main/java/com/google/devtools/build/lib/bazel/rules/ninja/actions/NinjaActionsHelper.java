@@ -44,7 +44,7 @@ import com.google.devtools.build.lib.vfs.Root;
 import java.util.List;
 import java.util.stream.Collectors;
 
-public class NinjaActionsFactory {
+public class NinjaActionsHelper {
   private final RuleContext ruleContext;
   private final PathFragment outputRootPath;
   private final PathFragment workingDirectory;
@@ -57,7 +57,7 @@ public class NinjaActionsFactory {
   private final PathFragment shellExecutable;
   private final ImmutableSortedMap<String, String> executionInfo;
 
-  public NinjaActionsFactory(RuleContext ruleContext,
+  NinjaActionsHelper(RuleContext ruleContext,
       Root sourceRoot,
       PathFragment outputRootPath, PathFragment workingDirectory,
       List<String> outputRootInputs,
@@ -75,7 +75,7 @@ public class NinjaActionsFactory {
     this.executionInfo = createExecutionInfo(ruleContext);
   }
 
-  public void process() throws GenericParsingException {
+  void process() throws GenericParsingException {
     this.artifactsHelper.createInputsMap();
     createSymlinkActions();
     createNinjaActions();
