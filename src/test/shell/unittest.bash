@@ -300,12 +300,6 @@ fi
 
 #### Internal functions
 
-# Helper function to call grep with the correct arguments.
-function __grep() {
-  grep --extended-regexp --no-messages --quiet "$@"
-  return $?
-}
-
 function __show_log() {
     echo "-- Test log: -----------------------------------------------------------"
     [[ -e $TEST_log ]] && cat $TEST_log || echo "(Log file did not exist.)"
@@ -436,7 +430,7 @@ __show_stack() {
 function expect_log() {
     local pattern=$1
     local message=${2:-Expected regexp "$pattern" not found}
-    __grep -- "$pattern" $TEST_log && return 0
+    grep -sq -- "$pattern" $TEST_log && return 0
 
     fail "$message"
     return 1
@@ -448,7 +442,7 @@ function expect_log() {
 function expect_log_warn() {
     local pattern=$1
     local message=${2:-Expected regexp "$pattern" not found}
-    __grep -- "$pattern" $TEST_log && return 0
+    grep -sq -- "$pattern" $TEST_log && return 0
 
     warn "$message"
     return 1
@@ -472,7 +466,7 @@ function expect_log_n() {
     local pattern=$1
     local expectednum=${2:-1}
     local message=${3:-Expected regexp "$pattern" not found exactly $expectednum times}
-    local count=$(__grep --count -- "$pattern" $TEST_log)
+    local count=$(grep -sc -- "$pattern" $TEST_log)
     [[ $count = $expectednum ]] && return 0
     fail "$message"
     return 1
@@ -485,7 +479,7 @@ function expect_log_n() {
 function expect_not_log() {
     local pattern=$1
     local message=${2:-Unexpected regexp "$pattern" found}
-    __grep -- "$pattern" $TEST_log || return 0
+    grep -sq -- "$pattern" $TEST_log || return 0
 
     fail "$message"
     return 1
@@ -501,12 +495,12 @@ function expect_log_with_timeout() {
     local message=${3:-Regexp "$pattern" not found in "$timeout" seconds}
     local count=0
     while [ $count -lt $timeout ]; do
-      __grep -- "$pattern" $TEST_log && return 0
+      grep -sq -- "$pattern" $TEST_log && return 0
       let count=count+1
       sleep 1
     done
 
-    __grep -- "$pattern" $TEST_log && return 0
+    grep -sq -- "$pattern" $TEST_log && return 0
     fail "$message"
     return 1
 }
@@ -594,7 +588,7 @@ function assert_contains() {
     local pattern=$1
     local file=$2
     local message=${3:-Expected regexp "$pattern" not found in "$file"}
-    __grep -- "$pattern" "$file" && return 0
+    grep -sq -- "$pattern" "$file" && return 0
 
     cat "$file" >&2
     fail "$message"
@@ -611,7 +605,7 @@ function assert_not_contains() {
     local message=${3:-Expected regexp "$pattern" found in "$file"}
 
     if [[ -f "$file" ]]; then
-      __grep -- "$pattern" "$file" || return 0
+      grep -sq -- "$pattern" "$file" || return 0
     else
       fail "$file is not a file: $message"
       return 1
@@ -782,9 +776,9 @@ function run_suite() {
     # If the user didn't specify an explicit list of tests (e.g. a
     # working set), use them all.
     if [ ${#TESTS[@]} = 0 ]; then
-      TESTS=$(declare -F | awk '{print $3}' | __grep ^test_)
+      TESTS=$(declare -F | awk '{print $3}' | grep ^test_)
     elif [ -n "${TEST_WARNINGS_OUTPUT_FILE:-}" ]; then
-      if __grep "TESTS=" "$TEST_script" ; then
+      if grep -q "TESTS=" "$TEST_script" ; then
         echo "TESTS variable overridden in Bazel sh_test. Please remove before submitting" \
           >> "$TEST_WARNINGS_OUTPUT_FILE"
       fi
