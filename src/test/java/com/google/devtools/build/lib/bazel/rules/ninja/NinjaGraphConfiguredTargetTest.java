@@ -109,23 +109,131 @@ public class NinjaGraphConfiguredTargetTest extends BuildViewTestCase {
             "build_config/input.txt");
       }
     }
-
-    // assertThat(provider.getScope()).isNotNull();
-    // assertThat(provider.getSymlinkedUnderOutputRoot()).hasSize(1);
-    // assertThat(provider.getSymlinkedUnderOutputRoot().asList().get(0).getExecPath())
-    //     .isEqualTo(PathFragment.create("build_config/input.txt"));
-
-    // PathFragment key = PathFragment.create("hello.txt");
-    // assertThat(provider.getTargets()).hasSize(1);
-    // assertThat(provider.getTargets()).containsKey(key);
-    // assertThat(provider.getTargets().get(key).getRuleName()).isEqualTo("echo");
   }
 
-  // todo: test actions and command lines
-  // todo: test phony actions (?)
-  // todo: test symlinks
-  // todo: we can have genrule depending on this for the integration test
+  @Test
+  public void testNinjaGraphRuleWithPhonyTarget() throws Exception {
+    rewriteWorkspace("workspace(name = 'test')",
+        "dont_symlink_directories_in_execroot(paths = ['build_config'])");
 
+    scratch.file("build_config/input.txt", "World");
+    scratch.file("build_config/build.ninja",
+        "rule echo",
+        "  command = echo \"Hello $$(cat ${in})!\" > ${out}",
+        "build hello.txt: echo input.txt",
+        "build alias: phony hello.txt");
 
-  // todo: blind the test from checking for serialization
+    ConfiguredTarget configuredTarget = scratchConfiguredTarget("", "graph",
+        "ninja_graph(name = 'graph', output_root = 'build_config',",
+        " working_directory = 'build_config',",
+        " main = 'build_config/build.ninja',",
+        " output_root_inputs = ['input.txt'])");
+    NinjaGraphProvider provider = configuredTarget.getProvider(NinjaGraphProvider.class);
+    assertThat(provider).isNotNull();
+    assertThat(provider.getOutputRoot()).isEqualTo("build_config");
+    assertThat(provider.getWorkingDirectory()).isEqualTo("build_config");
+
+    NestedSet<Artifact> filesToBuild = getFilesToBuild(configuredTarget);
+    assertThat(artifactsToStrings(filesToBuild)).containsExactly("/ build_config/input.txt",
+        "/ build_config/hello.txt");
+
+    ActionGraph actionGraph = getActionGraph();
+    for (Artifact artifact : filesToBuild.toList()) {
+      ActionAnalysisMetadata action = actionGraph.getGeneratingAction(artifact);
+      if ("hello.txt".equals(artifact.getFilename())) {
+        assertThat(action instanceof NinjaGenericAction).isTrue();
+        NinjaGenericAction ninjaAction = (NinjaGenericAction) action;
+        List<CommandLineAndParamFileInfo> commandLines = ninjaAction.getCommandLines()
+            .getCommandLines();
+        assertThat(commandLines).hasSize(1);
+        assertThat(commandLines.get(0).commandLine.toString()).endsWith(
+            "cd build_config && echo \"Hello $(cat input.txt)!\" > hello.txt");
+        assertThat(ninjaAction.getPrimaryInput().getRootRelativePathString())
+            .isEqualTo("build_config/input.txt");
+        assertThat(ninjaAction.getPrimaryOutput().getRootRelativePathString())
+            .isEqualTo("build_config/hello.txt");
+      } else {
+        assertThat(action instanceof SymlinkAction).isTrue();
+        SymlinkAction symlinkAction = (SymlinkAction) action;
+        assertThat(symlinkAction.executeUnconditionally()).isTrue();
+        assertThat(symlinkAction.getInputPath()).isEqualTo(
+            PathFragment.create("/workspace/build_config/input.txt"));
+        assertThat(symlinkAction.getPrimaryOutput().getRootRelativePathString()).isEqualTo(
+            "build_config/input.txt");
+      }
+    }
+  }
+  @Test
+  public void testNinjaGraphRuleWithPhonyTree() throws Exception {
+    rewriteWorkspace("workspace(name = 'test')",
+        "dont_symlink_directories_in_execroot(paths = ['build_config'])");
+
+    scratch.file("build_config/a.txt", "A");
+    scratch.file("build_config/b.txt", "B");
+    scratch.file("build_config/c.txt", "C");
+    scratch.file("build_config/d.txt", "D");
+    scratch.file("build_config/e.txt", "E");
+
+    scratch.file("build_config/build.ninja",
+        "rule cat",
+        "  command = cat ${in} > ${out}",
+        "rule echo",
+        "  command = echo \"Hello $$(cat ${in} | tr '\\r\\n' ' ')!\" > ${out}",
+        "build a: cat a.txt",
+        "build b: cat b.txt",
+        "build c: cat c.txt",
+        "build d: cat d.txt",
+        "build e: cat e.txt",
+        "build group1: phony a b c",
+        "build group2: phony d e",
+        "build inputs_alias: phony group1 group2",
+        "build hello.txt: echo inputs_alias",
+        "build alias: phony hello.txt");
+
+    ConfiguredTarget configuredTarget = scratchConfiguredTarget("", "graph",
+        "ninja_graph(name = 'graph', output_root = 'build_config',",
+        " working_directory = 'build_config',",
+        " main = 'build_config/build.ninja',",
+        " output_root_inputs = ['a.txt', 'b.txt', 'c.txt', 'd.txt', 'e.txt'])");
+    NinjaGraphProvider provider = configuredTarget.getProvider(NinjaGraphProvider.class);
+    assertThat(provider).isNotNull();
+    assertThat(provider.getOutputRoot()).isEqualTo("build_config");
+    assertThat(provider.getWorkingDirectory()).isEqualTo("build_config");
+
+    NestedSet<Artifact> filesToBuild = getFilesToBuild(configuredTarget);
+    assertThat(artifactsToStrings(filesToBuild)).containsExactly("/ build_config/hello.txt",
+        "/ build_config/a.txt", "/ build_config/b.txt", "/ build_config/c.txt",
+        "/ build_config/d.txt", "/ build_config/e.txt", "/ build_config/a", "/ build_config/b",
+        "/ build_config/c", "/ build_config/d", "/ build_config/e");
+
+    ActionGraph actionGraph = getActionGraph();
+    for (Artifact artifact : filesToBuild.toList()) {
+      ActionAnalysisMetadata action = actionGraph.getGeneratingAction(artifact);
+      if ("hello.txt".equals(artifact.getFilename())) {
+        assertThat(action instanceof NinjaGenericAction).isTrue();
+        NinjaGenericAction ninjaAction = (NinjaGenericAction) action;
+        List<CommandLineAndParamFileInfo> commandLines = ninjaAction.getCommandLines()
+            .getCommandLines();
+        assertThat(commandLines).hasSize(1);
+        assertThat(commandLines.get(0).commandLine.toString()).contains(
+            "cd build_config && echo \"Hello $(cat inputs_alias | tr '\\r\\n' ' ')!\" > hello.txt");
+        assertThat(artifactsToStrings(ninjaAction.getInputs()))
+            .containsExactly("/ build_config/a", "/ build_config/b", "/ build_config/c",
+            "/ build_config/d", "/ build_config/e");
+        assertThat(ninjaAction.getPrimaryOutput().getRootRelativePathString())
+            .isEqualTo("build_config/hello.txt");
+      } else if (artifact.getFilename().endsWith(".txt")) {
+        assertThat(action instanceof SymlinkAction).isTrue();
+        SymlinkAction symlinkAction = (SymlinkAction) action;
+        assertThat(symlinkAction.executeUnconditionally()).isTrue();
+        assertThat(symlinkAction.getInputPath().getParentDirectory()).isEqualTo(
+            PathFragment.create("/workspace/build_config"));
+        assertThat(symlinkAction.getInputPath().getFileExtension()).isEqualTo("txt");
+        PathFragment outputRootRelativePath = symlinkAction.getPrimaryOutput().getRootRelativePath();
+        assertThat(outputRootRelativePath.getParentDirectory()).isEqualTo(
+            PathFragment.create("build_config"));
+        assertThat(outputRootRelativePath.getFileExtension()).isEqualTo("txt");
+      }
+    }
+  }
 }
