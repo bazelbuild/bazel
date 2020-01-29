@@ -48,8 +48,8 @@ ability to analyze how build rules translate into the actual work builds do.
 
 #### Analysis phase
 
-The second phase of a build. Processes the target dependency graph specified in
-[*BUILD files*](#build-file) to produce an in-memory [*action
+The second phase of a build. Processes the [*target graph*](#target-graph)
+specified in [*BUILD files*](#build-file) to produce an in-memory [*action
 graph*](#action-graph) that determines the order of actions to run during the
 [*execution phase*](#execution-phase). This is the phase in which rule
 implementations are evaluated.
@@ -90,10 +90,10 @@ mono-repository.
 
 The main build configuration file containing rule declarations (e.g.
 `cc_binary`, `go_library`). When [*BUILD files*](#build-file) are evaluated and
-analyzed, the rules create new targets in the target graph. A BUILD file can
-load and use rules from .bzl files. A BUILD file marks a directory and any
-sub-directories not containing a BUILD file as a *package*. A BUILD file can
-also be named BUILD.bazel.
+analyzed, the rules create new targets in the [*target graph*](#target-graph). A
+BUILD file can load and use rules from .bzl files. A BUILD file marks a
+directory and any sub-directories not containing a BUILD file as a *package*. A
+BUILD file can also be named BUILD.bazel.
 
 #### BUILD.bazel File
 
@@ -106,6 +106,8 @@ then be imported into [*BUILD files*](#build-file) using the load() function.
 
 <!-- TODO: #### Build event protocol -->
 
+<!-- TODO: #### Build flag -->
+
 #### Build graph
 
 The dependency graph Bazel constructs and traverses to perform a build. Includes
@@ -116,15 +118,17 @@ transitively depends on are verified "up to date".
 
 #### Build setting
 
-A Starlark-defined piece of configuration. Transitions can set build settings to
-change a subgraph's configuration. If exposed to the user as a command-line
-flag, also known as a *build flag*.
+A Starlark-defined piece of [*configuration*](#configuration).
+[*Transitions*](#transition) can set build settings to change a subgraph's
+configuration. If exposed to the user as a command-line flag, also known as a
+*build flag*.
 
 #### Clean build
 
 A build that doesn't use the results of earlier builds. This is generally slower
-than an *incremental build* but commonly considered to be more correct. Bazel
-guarantees both clean and incremental builds are always correct.
+than an *incremental build* but commonly considered to be more
+[*correct*](#correctness). Bazel guarantees both clean and incremental builds
+are always correct.
 
 #### Client-server model
 
@@ -142,19 +146,20 @@ bazel test, bazel run, and bazel query.
 
 #### Command flags
 
-A set of flags specific to a command. Command flags are specified *after* the
-command (bazel build <command flags>). Flags can be applicable to one or more
-commands. For example, `--configure` is a flag exclusively for the bazel sync
-command, but `--keep_going` is applicable to sync, build, test and more. Flags
-are often used for configuration purposes, so changes in flag values can cause
-Bazel to invalidate in-memory graphs and restart the analysis phase.
+A set of flags specific to a [*command*](#command). Command flags are specified
+*after* the command (bazel build <command flags>). Flags can be applicable to
+one or more commands. For example, `--configure` is a flag exclusively for the
+bazel sync command, but `--keep_going` is applicable to sync, build, test and
+more. Flags are often used for configuration purposes, so changes in flag values
+can cause Bazel to invalidate in-memory graphs and restart the analysis phase.
 
 #### Configuration
 
 Information outside of rule definitions that impacts how rules generate actions.
 Every build has at least one configuration specifying the target platform,
-action environment variables, and command-line build flags. *Transitions* may
-create additional configurations, e.g. for host tools or cross-compilation.
+action environment variables, and command-line [*build flags*](#command-flags).
+*Transitions* may create additional configurations, e.g. for host tools or
+cross-compilation.
 
 #### Configuration trimming
 
@@ -165,9 +170,10 @@ changing `--javacopt` unnecessarily breaks C++ build cacheability.
 
 #### Configured query (cquery)
 
-A query tool that queries over *configured targets* (after the analysis phase
-completes). This means select() and build flags (e.g. `--platforms`) are
-accurately reflected in the results.
+A query tool that queries over [*configured targets*](#configured-target) (after
+the analysis phase completes). This means `select()` and [*build
+flags*](#command-flags) (e.g. `--platforms`) are accurately reflected in the
+results.
 
 #### Configured target
 
@@ -178,9 +184,8 @@ same build, it has two configured targets: `<//:foo, x86>` and `<//:foo, arm>`.
 
 #### Correctness
 
-The property that a build's output faithfully reflects the state of its
-transitive inputs. Something something hermeticity non-determinism graph
-invalidation transitive change propagation.
+The property that a build's output faithfully reflects the state after applying
+a series of [*actions*](#action) on its transitive inputs.
 
 #### Dependency
 
@@ -195,7 +200,7 @@ action that produces a file in `//:foo` depends on an input
 A data structure for collecting data on transitive dependencies. Optimized so
 that merging depsets is time and space efficient, because it’s common to have
 very large depsets (e.g. hundreds of thousands of files). Implemented to
-recursively refer to other depsets for space efficiency reasons. Rule
+recursively refer to other depsets for space efficiency reasons. [*Rule*](#rule)
 implementations should not "flatten" depsets by converting them to lists unless
 the rule is at the top level of the build graph. Flattening large depsets incurs
 huge memory consumption. Also known as *Nested Sets* in Bazel's internal
@@ -246,11 +251,11 @@ See [*Artifact*](#artifact).
 #### Hermeticity
 
 The property of a build or test where there are no external influences on the
-build or test. This helps to enable deterministic and correct results. This
-usually means disallowing network access to actions, only allowing access to
-declared input [*artifacts*](#artifact), making timestamps and timezones fixed,
-restricting access/resetting environment variables, and using fixed seeds for
-random number generators.
+build or test. This helps to enable deterministic and [*correct*](#correctness)
+results. This usually means disallowing network access to actions, only allowing
+access to declared input [*artifacts*](#artifact), making timestamps and
+timezones fixed, restricting access/resetting environment variables, and using
+fixed seeds for random number generators.
 
 #### Incremental build
 
@@ -273,9 +278,9 @@ repository* named `my_repository`.
 #### Loading phase
 
 The first phase of a build. WORKSPACE, BUILD, and .bzl files are parsed to
-create *packages*. Macros and certain functions like glob() are evaluated in
+create *packages*. Macros and certain functions like `glob()` are evaluated in
 this phase. Interleaved with the second phase of the build, the *analysis
-phase*, to build up a *target dependency graph*.
+phase*, to build up a [*target graph*](#target-graph).
 
 #### Macro
 
@@ -286,31 +291,33 @@ phase*.
 
 #### Mnemonic
 
-A short, human-readable string to quickly understand what an *action* is doing.
-Can be used as identifiers for *spawn strategy* selections. For example: Javac,
-CppCompile, AndroidManifestMerger.
+A short, human-readable string to quickly understand what an [*action*](#action)
+is doing. Can be used as identifiers for *spawn strategy* selections. For
+example: Javac, CppCompile, AndroidManifestMerger.
 
 #### Native rules
 
-*Rules* that are implemented in Java and built into Bazel. Such rules appear in
-*.bzl files* as functions in the native module (for example, `native.cc_library`
-or `native.java_library`). User-defined rules (non-native) are created using
-Starlark.
+[*Rules*](#rule) that are built into Bazel and implemented in Java. Such rules
+appear in *.bzl files* as functions in the native module (for example,
+`native.cc_library` or `native.java_library`). User-defined rules (non-native)
+are created using Starlark.
 
 #### Output base
 
 A unique directory specific to a workspace for containing Bazel output files to
-separate outputs from the source tree. Located in the *output user root*.
+separate outputs from the source tree. Located in the [*output user
+root*](#output-user-root).
 
 #### Output groups
 
 A group of files that is expected to be built when Bazel finishes building a
-target. Rules put their usual outputs in the "default output group" (e.g the
-.jar file of a `java_library`, .a and .so for `cc_library` targets). The default
-output group is the output group whose [*artifacts*](#artifact) are built when a
-target is requested on the command line. Rules can define more named output
-groups that can be explicitly specified in [*BUILD files*](#build-file)
-(filegroup rule) or the command line (`--output_groups` flag).
+target. [*Rules*](#rule) put their usual outputs in the "default output group"
+(e.g the `.jar` file of a `java_library`, `.a` and `.so` for `cc_library`
+targets). The default output group is the output group whose
+[*artifacts*](#artifact) are built when a target is requested on the command
+line. Rules can define more named output groups that can be explicitly specified
+in [*BUILD files*](#build-file) (`filegroup` rule) or the command line
+(`--output_groups` flag).
 
 #### Output user root
 
@@ -321,15 +328,15 @@ individual workspaces, also known as output bases.
 
 #### Package
 
-The set of target defined by a [*BUILD file*](#build-file). A package's name is
-the BUILD file's path relative to the workspace root. A package can contain
-subpackages, or subdirectories containing BUILD files, thus forming a *package
-hierarchy*.
+The set of [*targets*](#target) defined by a [*BUILD file*](#build-file). A
+package's name is the BUILD file's path relative to the workspace root. A
+package can contain subpackages, or subdirectories containing BUILD files, thus
+forming a package hierarchy.
 
 #### Package group
 
-A target representing a set of packages. Often used in visibility attribute
-values.
+A [*target*](#target) representing a set of packages. Often used in visibility
+attribute values.
 
 #### Platform
 
@@ -352,9 +359,10 @@ properties and dependency structures. Bazel supports three query variants:
 
 #### query (command)
 
-A query tool that operates over the build's post-loading phase target graph.
-This is relatively fast, but can't analyze the effects of `select()`, build
-flags, [*artifacts*](#artifact), or build [*actions*](#action).
+A query tool that operates over the build's post-loading phase [*target
+graph*](#target-graph). This is relatively fast, but can't analyze the effects
+of `select()`, [*build flags*](#command-flags), [*artifacts*](#artifact), or
+build [*actions*](#action).
 
 #### Repository cache
 
@@ -376,11 +384,11 @@ or environment. Note that this does not necessarily imply that the outputs are
 
 #### Rule
 
-A function implementation that registers a series of *actions* to be performed
-on inputs to produce a set of outputs. Rules can read values from *attributes*
-as inputs (e.g. deps, testonly, name). Rule targets also produce and pass along
-information that may be useful to other rule targets in the form of
-[*providers*](#provider) (e.g. `DefaultInfo` provider).
+A function implementation that registers a series of [*actions*](#action) to be
+performed on inputs to produce a set of outputs. Rules can read values from
+*attributes* as inputs (e.g. deps, testonly, name). Rule targets also produce
+and pass along information that may be useful to other rule targets in the form
+of [*providers*](#provider) (e.g. `DefaultInfo` provider).
 
 #### Runfiles
 
@@ -427,8 +435,8 @@ files*](#build-file) use an even more restricted version of Starlark (e.g. no
 
 #### Startup flags
 
-The set of flags specified between `bazel` and the command, for example, bazel
-`--host_jvm_debug` build. These flags modify the
+The set of flags specified between `bazel` and the [*command*](#query-command),
+for example, bazel `--host_jvm_debug` build. These flags modify the
 [*configuration*](#configuration) of the Bazel server, so any modification to
 startup flags causes a server restart. Startup flags are not specific to any
 command.
@@ -470,7 +478,7 @@ A set of tools to build outputs for a language. Typically, a toolchain includes
 compilers, linkers, interpreters or/and linters. A toolchain can also vary by
 platform, that is, a Unix compiler toolchain's components may differ for the
 Windows variant, even though the toolchain is for the same language. Selecting
-the right toolchain for the platform is known as *toolchain resolution*.
+the right toolchain for the platform is known as toolchain resolution.
 
 #### Top-level
 
@@ -480,18 +488,18 @@ called, then for this build, `//:foo` is top-level, and `//:bar` isn’t
 top-level, although both targets will need to be built. An important difference
 between top-level and non-top-level targets is that *command options* set on the
 Bazel command line (or via *.bazelrc*) will set the *configuration* for
-top-level targets, but might be modified by a *transition* for non-top-level
-targets.
+top-level targets, but might be modified by a [*transition*](#transition) for
+non-top-level targets.
 
 #### Transition
 
 A mapping of [*configuration*](#configuration) state from one value to another.
-Enables [*targets*](#target) in the build graph to have different
-configurations, even if they were instantiated from the same rule. A common
-usage of transitions is with *split transitions*, where certain parts of the
-target graph is forked with distinct configurations for each fork. For example,
-one can build an Android APK with native binaries compiled for ARM and x86 using
-split transitions in a single build.
+Enables [*targets*](#target) in the [*build graph*](#build-graph) to have
+different configurations, even if they were instantiated from the same rule. A
+common usage of transitions is with *split transitions*, where certain parts of
+the [*target graph*](#target-graph) is forked with distinct configurations for
+each fork. For example, one can build an Android APK with native binaries
+compiled for ARM and x86 using split transitions in a single build.
 
 #### Tree artifact
 
