@@ -79,7 +79,7 @@ public class NinjaPipeline {
    * @return {@link Pair} of {@link NinjaScope} with rules and expanded variables (and child
    *     scopes), and list of {@link NinjaTarget}.
    */
-  public Pair<NinjaScope, List<NinjaTarget>> pipeline(Path mainFile)
+  public List<NinjaTarget> pipeline(Path mainFile)
       throws GenericParsingException, InterruptedException, IOException {
     NinjaFileParseResult result =
         waitForFutureAndGetWithCheckedException(
@@ -89,7 +89,7 @@ public class NinjaPipeline {
     NinjaScope scope = new NinjaScope();
     // This will cause additional parsing of included/subninja scopes, and their recursive expand.
     result.expandIntoScope(scope, rawTargets);
-    return Pair.of(scope, iterateScopesScheduleTargetsParsing(scope, rawTargets));
+    return iterateScopesScheduleTargetsParsing(scope, rawTargets);
   }
 
   /**

@@ -112,7 +112,7 @@ public class NinjaPipelineTest {
     NinjaPipeline pipeline =
         new NinjaPipeline(
             vfsPath.getParentDirectory(), tester.getService(), ImmutableList.of(), "ninja_target");
-    List<NinjaTarget> targets = pipeline.pipeline(vfsPath).getSecond();
+    List<NinjaTarget> targets = pipeline.pipeline(vfsPath);
     checkTargets(targets);
   }
 
@@ -128,7 +128,7 @@ public class NinjaPipelineTest {
             tester.getService(),
             ImmutableList.of(childFile),
             "ninja_target");
-    List<NinjaTarget> targets = pipeline.pipeline(vfsPath).getSecond();
+    List<NinjaTarget> targets = pipeline.pipeline(vfsPath);
     checkTargets(targets);
   }
 
@@ -148,7 +148,7 @@ public class NinjaPipelineTest {
             tester.getService(),
             ImmutableList.of(childFile),
             "ninja_target");
-    List<NinjaTarget> targets = pipeline.pipeline(vfsPath).getSecond();
+    List<NinjaTarget> targets = pipeline.pipeline(vfsPath);
     checkTargets(targets);
   }
 
@@ -176,7 +176,7 @@ public class NinjaPipelineTest {
             tester.getService(),
             ImmutableList.of(childFile, subFile),
             "ninja_target");
-    List<NinjaTarget> targets = pipeline.pipeline(vfsPath).getSecond();
+    List<NinjaTarget> targets = pipeline.pipeline(vfsPath);
     checkTargets(targets);
   }
 
@@ -186,7 +186,7 @@ public class NinjaPipelineTest {
     NinjaPipeline pipeline =
         new NinjaPipeline(
             vfsPath.getParentDirectory(), tester.getService(), ImmutableList.of(), "ninja_target");
-    List<NinjaTarget> targets = pipeline.pipeline(vfsPath).getSecond();
+    List<NinjaTarget> targets = pipeline.pipeline(vfsPath);
     assertThat(targets).isEmpty();
   }
 

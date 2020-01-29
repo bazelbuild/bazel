@@ -91,15 +91,14 @@ public class NinjaGraphRuleConfiguredTargetFactory implements RuleConfiguredTarg
     Path workspace = Preconditions.checkNotNull(ruleContext.getConfiguration())
         .getDirectories().getWorkspace();
     String ownerTargetName = ruleContext.getLabel().getName();
-    // todo we do not need pair
-    Pair<NinjaScope, List<NinjaTarget>> pair = readNinjaGraph(mainArtifact,
+    List<NinjaTarget> ninjaTargets = readNinjaGraph(mainArtifact,
         childNinjaFiles, workingDirectory, workspace, ownerTargetName);
 
     ImmutableSortedMap.Builder<PathFragment, NinjaTarget> usualTargetsBuilder =
         ImmutableSortedMap.naturalOrder();
     ImmutableSortedMap.Builder<PathFragment, NinjaTarget> phonyTargetsBuilder =
         ImmutableSortedMap.naturalOrder();
-    separatePhonyTargets(pair, usualTargetsBuilder, phonyTargetsBuilder);
+    separatePhonyTargets(ninjaTargets, usualTargetsBuilder, phonyTargetsBuilder);
     ImmutableSortedMap<PathFragment, NinjaTarget> usualTargets = usualTargetsBuilder.build();
     ImmutableSortedMap<PathFragment, NestedSet<PathFragment>> phonyTargetsMap;
 
@@ -128,11 +127,11 @@ public class NinjaGraphRuleConfiguredTargetFactory implements RuleConfiguredTarg
     return builder.build();
   }
 
-  private void separatePhonyTargets(Pair<NinjaScope, List<NinjaTarget>> pair,
+  private void separatePhonyTargets(List<NinjaTarget> ninjaTargets,
       ImmutableSortedMap.Builder<PathFragment, NinjaTarget> usualTargetsBuilder,
       ImmutableSortedMap.Builder<PathFragment, NinjaTarget> phonyTargetsBuilder)
       throws RuleErrorException {
-    for (NinjaTarget target : pair.getSecond()) {
+    for (NinjaTarget target : ninjaTargets) {
       if ("phony".equals(target.getRuleName())) {
         if (target.getAllOutputs().size() != 1) {
           String allOutputs = target.getAllOutputs().stream()
@@ -150,7 +149,7 @@ public class NinjaGraphRuleConfiguredTargetFactory implements RuleConfiguredTarg
     }
   }
 
-  private static Pair<NinjaScope, List<NinjaTarget>> readNinjaGraph(
+  private static List<NinjaTarget> readNinjaGraph(
       Artifact mainArtifact,
       Collection<Path> childNinjaFiles,
       String workingDirectory,
