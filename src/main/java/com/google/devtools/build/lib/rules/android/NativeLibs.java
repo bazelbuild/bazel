@@ -193,7 +193,7 @@ public final class NativeLibs {
             inputManifest,
             runfiles,
             outputManifest,
-            /*filesetTree=*/ false));
+            /* filesetRoot = */ null));
     return new ManifestAndRunfiles(outputManifest, runfiles);
   }
 

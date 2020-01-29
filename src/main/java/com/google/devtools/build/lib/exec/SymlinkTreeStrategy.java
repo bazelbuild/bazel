@@ -80,12 +80,14 @@ public final class SymlinkTreeStrategy implements SymlinkTreeActionContext {
           } else {
             Preconditions.checkState(action.isFilesetTree());
             Preconditions.checkNotNull(inputManifest);
-            try {
-              symlinks = SymlinkTreeHelper.readSymlinksFromFilesetManifest(inputManifest);
-            } catch (IOException e) {
-              throw new EnvironmentalExecException(
-                  "Failed to read from manifest '" + inputManifest.getPathString() + "'", e);
-            }
+
+            symlinks =
+                SymlinkTreeHelper.processFilesetLinks(
+                    actionExecutionContext
+                        .getArtifactExpander()
+                        .getFileset(action.getInputManifest()),
+                    action.getFilesetRoot(),
+                    actionExecutionContext.getExecRoot().asFragment());
           }
 
           outputService.createSymlinkTree(
