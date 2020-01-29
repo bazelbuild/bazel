@@ -97,7 +97,41 @@ public class NinjaGraphRuleConfiguredTargetFactory implements RuleConfiguredTarg
 
     ImmutableSortedMap.Builder<PathFragment, NinjaTarget> usualTargetsBuilder =
         ImmutableSortedMap.naturalOrder();
-    SortedMap<PathFragment, NinjaTarget> phonyTargets = Maps.newTreeMap();
+    ImmutableSortedMap.Builder<PathFragment, NinjaTarget> phonyTargetsBuilder =
+        ImmutableSortedMap.naturalOrder();
+    separatePhonyTargets(pair, usualTargetsBuilder, phonyTargetsBuilder);
+    ImmutableSortedMap<PathFragment, NinjaTarget> usualTargets = usualTargetsBuilder.build();
+    ImmutableSortedMap<PathFragment, NestedSet<PathFragment>> phonyTargetsMap;
+
+    Root sourceRoot = mainArtifact.getRoot().getRoot();
+    NestedSet<Artifact> filesToBuild;
+    try {
+      ImmutableSortedMap<PathFragment, NinjaTarget> phonyTargets = phonyTargetsBuilder.build();
+      phonyTargetsMap = new NinjaPhonyTargetsUtil(phonyTargets).getPhonyPathsMap();
+      NinjaActionsFactory ninjaActionsFactory = new NinjaActionsFactory(ruleContext, sourceRoot,
+          PathFragment.create(outputRoot),
+          PathFragment.create(workingDirectory), outputRootInputs, usualTargets, phonyTargetsMap);
+      ninjaActionsFactory.process();
+      filesToBuild = ninjaActionsFactory.getFilesToBuild();
+    } catch (GenericParsingException e) {
+      throw new RuleErrorException(e.getMessage());
+    }
+
+    NinjaGraphProvider graphProvider = new NinjaGraphProvider(outputRoot, workingDirectory,
+        phonyTargetsMap);
+
+    RuleConfiguredTargetBuilder builder = new RuleConfiguredTargetBuilder(ruleContext);
+    builder.setFilesToBuild(filesToBuild);
+    builder.addProvider(NinjaGraphProvider.class, graphProvider)
+        .addProvider(RunfilesProvider.class, RunfilesProvider.EMPTY);
+
+    return builder.build();
+  }
+
+  private void separatePhonyTargets(Pair<NinjaScope, List<NinjaTarget>> pair,
+      ImmutableSortedMap.Builder<PathFragment, NinjaTarget> usualTargetsBuilder,
+      ImmutableSortedMap.Builder<PathFragment, NinjaTarget> phonyTargetsBuilder)
+      throws RuleErrorException {
     for (NinjaTarget target : pair.getSecond()) {
       if ("phony".equals(target.getRuleName())) {
         if (target.getAllOutputs().size() != 1) {
@@ -107,87 +141,13 @@ public class NinjaGraphRuleConfiguredTargetFactory implements RuleConfiguredTarg
               String.format("Ninja phony alias can only be used for single output, but found '%s'.",
               allOutputs));
         }
-        PathFragment output = target.getAllOutputs().iterator().next();
-        phonyTargets.put(output, target);
+        phonyTargetsBuilder.put(Iterables.getOnlyElement(target.getAllOutputs()), target);
       } else {
         for (PathFragment output : target.getAllOutputs()) {
           usualTargetsBuilder.put(output, target);
         }
       }
     }
-    ImmutableSortedMap<PathFragment, NinjaTarget> usualTargets = usualTargetsBuilder.build();
-    ImmutableSortedMap<PathFragment, NestedSet<PathFragment>> phonyTargetsMap =
-        fillPhonyTargetPaths(phonyTargets);
-
-    Root sourceRoot = mainArtifact.getRoot().getRoot();
-    NinjaActionsFactory ninjaActionsFactory = new NinjaActionsFactory(ruleContext, sourceRoot,
-        PathFragment.create(outputRoot),
-        PathFragment.create(workingDirectory), outputRootInputs, usualTargets, phonyTargetsMap);
-    try {
-      ninjaActionsFactory.process();
-    } catch (GenericParsingException e) {
-      // todo use rule exception from beginning???
-      throw new RuleErrorException(e.getMessage());
-    }
-
-    NinjaGraphProvider graphProvider = new NinjaGraphProvider(outputRoot, workingDirectory,
-        phonyTargetsMap);
-
-    RuleConfiguredTargetBuilder builder = new RuleConfiguredTargetBuilder(ruleContext);
-    builder.setFilesToBuild(NestedSetBuilder.wrap(Order.STABLE_ORDER,
-        ninjaActionsFactory.getFilesToBuild().toList()));
-    builder.addProvider(NinjaGraphProvider.class, graphProvider)
-        .addProvider(RunfilesProvider.class, RunfilesProvider.EMPTY);
-
-    return builder.build();
-  }
-
-  private ImmutableSortedMap<PathFragment, NestedSet<PathFragment>> fillPhonyTargetPaths(
-      SortedMap<PathFragment, NinjaTarget> phonyTargets) {
-    SortedMap<PathFragment, NestedSet<PathFragment>> result = Maps.newTreeMap();
-
-    ArrayDeque<NinjaTarget> queue = new ArrayDeque<>(phonyTargets.size());
-    SortedSet<NinjaTarget> alreadyQueued = Sets.newTreeSet(
-        Comparator.comparing(t -> Iterables.getOnlyElement(t.getAllOutputs())));
-    for (Map.Entry<PathFragment, NinjaTarget> entry : phonyTargets.entrySet()) {
-      // Topo-ordered phony targets needed to compute entry.getValue() in fragment
-      // (if they are not already queued into queue)
-      ArrayDeque<NinjaTarget> fragment = new ArrayDeque<>();
-      ArrayDeque<NinjaTarget> innerQueue = new ArrayDeque<>();
-      innerQueue.add(entry.getValue());
-      while (!innerQueue.isEmpty()) {
-        NinjaTarget innerTarget = innerQueue.remove();
-        if (alreadyQueued.add(innerTarget)) {
-          fragment.add(innerTarget);
-        }
-        for (PathFragment input : innerTarget.getAllInputs()) {
-          NinjaTarget innerPhony = phonyTargets.get(input);
-          if (innerPhony != null) {
-            innerQueue.add(innerPhony);
-          }
-        }
-      }
-      queue.addAll(fragment);
-    }
-
-    while (!queue.isEmpty()) {
-      NinjaTarget phonyTarget = queue.remove();
-      NestedSetBuilder<PathFragment> builder = new NestedSetBuilder<>(Order.STABLE_ORDER);
-      for (PathFragment input : phonyTarget.getAllInputs()) {
-        NinjaTarget innerTarget = phonyTargets.get(input);
-        if (innerTarget != null) {
-          PathFragment output = Iterables.getOnlyElement(innerTarget.getAllOutputs());
-          // Because of topological sort, must be already computed.
-          NestedSet<PathFragment> alreadyComputedIncluded = result.get(output);
-          Preconditions.checkNotNull(alreadyComputedIncluded);
-          builder.addTransitive(alreadyComputedIncluded);
-        } else {
-          builder.add(input);
-        }
-      }
-    }
-
-    return ImmutableSortedMap.copyOf(result);
   }
 
   private static Pair<NinjaScope, List<NinjaTarget>> readNinjaGraph(

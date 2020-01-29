@@ -77,6 +77,7 @@ public class NinjaActionsFactory {
   }
 
   public void process() throws GenericParsingException {
+    this.artifactsHelper.createInputsMap();
     createSymlinkActions();
     createNinjaActions();
   }
