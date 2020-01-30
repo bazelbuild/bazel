@@ -298,6 +298,18 @@ testdata/input.txt
   <code>//my/app/testdata:testdepot.zip</code>.
 </p>
 
+<p>
+  Labels starting <code>@//</code> are references to the main
+  repository, which will still work even from external repositories.
+  Therefore <code>@//a/b/c</code> is different from
+  <code>//a/b/c</code> when referenced from an external repository;
+  the former refers back to the main repository, while the latter
+  looks for <code>//a/b/c</code> in the external repository itself.
+  This is especially relevant when writing rules in the main
+  repository that refer to targets in the main repository, and will be
+  used from external repositories.
+</p>
+
 <h3 id="lexi">Lexical specification of a label</h3>
 
 <p>
