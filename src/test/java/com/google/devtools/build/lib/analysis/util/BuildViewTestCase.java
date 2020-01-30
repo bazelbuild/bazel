@@ -314,7 +314,9 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     useConfiguration();
     setUpSkyframe();
     this.actionLogBufferPathGenerator =
-        new ActionLogBufferPathGenerator(directories.getActionTempsDirectory(getExecRoot()));
+        new ActionLogBufferPathGenerator(
+            directories.getActionTempsDirectory(getExecRoot()),
+            directories.getPersistentActionOutsDirectory(getExecRoot()));
   }
 
   public void initializeMockClient() throws IOException {

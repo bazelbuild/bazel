@@ -86,6 +86,7 @@ import com.google.devtools.build.lib.concurrent.ExecutorUtil;
 import com.google.devtools.build.lib.concurrent.Sharder;
 import com.google.devtools.build.lib.concurrent.ThrowableRecordingRunnableWrapper;
 import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.profiler.Profiler;
@@ -207,6 +208,7 @@ public final class SkyframeActionExecutor {
   private boolean useAsyncExecution;
   private boolean strictConflictChecks;
   private boolean hadExecutionError;
+  private boolean replayActionOutErr;
   private MetadataProvider perBuildFileCache;
   private ActionInputPrefetcher actionInputPrefetcher;
   /** These variables are nulled out between executions. */
@@ -436,6 +438,7 @@ public final class SkyframeActionExecutor {
     this.useAsyncExecution = options.getOptions(BuildRequestOptions.class).useAsyncExecution;
     this.strictConflictChecks = options.getOptions(BuildRequestOptions.class).strictConflictChecks;
     this.finalizeActions = options.getOptions(BuildRequestOptions.class).finalizeActions;
+    this.replayActionOutErr = options.getOptions(BuildRequestOptions.class).replayActionOutErr;
     this.outputService = outputService;
     RemoteOptions remoteOptions = options.getOptions(RemoteOptions.class);
     this.bazelRemoteExecutionEnabled = remoteOptions != null && remoteOptions.isRemoteEnabled();
@@ -636,9 +639,23 @@ public final class SkyframeActionExecutor {
       Map<Artifact, ImmutableList<FilesetOutputSymlink>> expandedFilesets,
       ImmutableMap<Artifact, ImmutableList<FilesetOutputSymlink>> topLevelFilesets,
       @Nullable FileSystem actionFileSystem,
-      @Nullable Object skyframeDepsResult) {
-    FileOutErr fileOutErr = actionLogBufferPathGenerator.generate(
-        ArtifactPathResolver.createPathResolver(actionFileSystem, executorEngine.getExecRoot()));
+      @Nullable Object skyframeDepsResult,
+      ExtendedEventHandler skyframeCachingEventHandler) {
+    ArtifactPathResolver artifactPathResolver =
+        ArtifactPathResolver.createPathResolver(actionFileSystem, executorEngine.getExecRoot());
+    FileOutErr fileOutErr;
+    if (replayActionOutErr) {
+      String actionKey = action.getKey(actionKeyContext);
+      fileOutErr = actionLogBufferPathGenerator.persistent(actionKey, artifactPathResolver);
+      try {
+        fileOutErr.getErrorPath().delete();
+        fileOutErr.getOutputPath().delete();
+      } catch (IOException e) {
+        throw new IllegalStateException(e);
+      }
+    } else {
+      fileOutErr = actionLogBufferPathGenerator.generate(artifactPathResolver);
+    }
     return new ActionExecutionContext(
         executorEngine,
         createFileCache(metadataProvider, actionFileSystem),
@@ -647,7 +664,9 @@ public final class SkyframeActionExecutor {
         metadataHandler,
         lostInputsCheck(actionFileSystem, action, outputService),
         fileOutErr,
-        selectEventHandler(progressEventBehavior),
+        replayActionOutErr && progressEventBehavior.equals(ProgressEventBehavior.EMIT)
+            ? skyframeCachingEventHandler
+            : selectEventHandler(progressEventBehavior),
         clientEnv,
         topLevelFilesets,
         new ArtifactExpanderImpl(expandedInputs, expandedFilesets),
@@ -667,7 +686,8 @@ public final class SkyframeActionExecutor {
       MetadataHandler metadataHandler,
       long actionStartTime,
       List<Artifact> resolvedCacheArtifacts,
-      Map<String, String> clientEnv)
+      Map<String, String> clientEnv,
+      ArtifactPathResolver pathResolver)
       throws ActionExecutionException {
     Token token;
     try (SilentCloseable c = profiler.profile(ProfilerTask.ACTION_CHECK, action.describe())) {
@@ -695,6 +715,20 @@ public final class SkyframeActionExecutor {
       if (action.getActionType().isMiddleman()) {
         eventHandler.post(new ActionMiddlemanEvent(action, actionStartTime));
         eventPosted = true;
+      }
+
+      if (replayActionOutErr) {
+        // TODO(ulfjack): This assumes that the stdout/stderr files are unmodified. It would be
+        //  better to integrate them with the action cache and rerun the action when they change.
+        String actionKey = action.getKey(actionKeyContext);
+        FileOutErr fileOutErr = actionLogBufferPathGenerator.persistent(actionKey, pathResolver);
+        // Set the mightHaveOutput bit in FileOutErr. Otherwise hasRecordedOutput() doesn't check if
+        // the file exists and just returns false.
+        fileOutErr.getOutputPath();
+        fileOutErr.getErrorPath();
+        if (fileOutErr.hasRecordedOutput()) {
+          dumpRecordedOutErr(eventHandler, action, fileOutErr);
+        }
       }
 
       if (action instanceof NotifyOnActionCacheHit) {
@@ -1133,11 +1167,15 @@ public final class SkyframeActionExecutor {
       // The .showOutput() method is not necessarily a quick check: in its
       // current implementation it uses regular expression matching.
       FileOutErr outErrBuffer = actionExecutionContext.getFileOutErr();
-      if (outErrBuffer.hasRecordedOutput()
-          && (action.showsOutputUnconditionally()
-              || reporter.showOutput(Label.print(action.getOwner().getLabel())))) {
-        dumpRecordedOutErr(action, outErrBuffer);
-        outputAlreadyDumped = true;
+      if (outErrBuffer.hasRecordedOutput()) {
+        if (replayActionOutErr) {
+          dumpRecordedOutErr(actionExecutionContext.getEventHandler(), action, outErrBuffer);
+          outputAlreadyDumped = true;
+        } else if ((action.showsOutputUnconditionally()
+            || reporter.showOutput(Label.print(action.getOwner().getLabel())))) {
+          dumpRecordedOutErr(reporter, action, outErrBuffer);
+          outputAlreadyDumped = true;
+        }
       }
 
       MetadataHandler metadataHandler = actionExecutionContext.getMetadataHandler();
@@ -1618,7 +1656,7 @@ public final class SkyframeActionExecutor {
         message = "Couldn't " + describeAction(action) + ": " + message;
       }
       Event event = Event.error(action.getOwner().getLocation(), message);
-      dumpRecordedOutErr(event, actionOutput);
+      dumpRecordedOutErr(reporter, event, actionOutput);
       recordExecutionError();
     }
   }
@@ -1640,13 +1678,14 @@ public final class SkyframeActionExecutor {
    * @param action The action whose output is being dumped
    * @param outErrBuffer The OutErr that recorded the actions output
    */
-  private void dumpRecordedOutErr(Action action, FileOutErr outErrBuffer) {
-    StringBuilder message = new StringBuilder("");
-    message.append("From ");
-    message.append(action.describe());
-    message.append(":");
-    Event event = Event.info(message.toString());
-    dumpRecordedOutErr(event, outErrBuffer);
+  private void dumpRecordedOutErr(
+      EventHandler eventHandler, Action action, FileOutErr outErrBuffer) {
+    Event event =
+        replayActionOutErr
+            // Info events are not cached in Skyframe, so we make this a warning.
+            ? Event.warn("From " + action.describe() + ":")
+            : Event.info("From " + action.describe() + ":");
+    dumpRecordedOutErr(eventHandler, event, outErrBuffer);
   }
 
   /**
@@ -1655,20 +1694,17 @@ public final class SkyframeActionExecutor {
    * @param prefixEvent An event to post before dumping the output
    * @param outErrBuffer The OutErr that recorded the actions output
    */
-  private void dumpRecordedOutErr(Event prefixEvent, FileOutErr outErrBuffer) {
+  private void dumpRecordedOutErr(
+      EventHandler eventHandler, Event prefixEvent, FileOutErr outErrBuffer) {
     // Only print the output if we're not winding down.
     if (isBuilderAborting()) {
       return;
     }
     if (outErrBuffer != null && outErrBuffer.hasRecordedOutput()) {
       // Bind the output to the prefix event.
-      // Note: here we temporarily (until the event is handled by the UI) read all
-      // output into memory; as the output of regular actions (as opposed to test runs) usually is
-      // short, so this should not be a problem. If it does turn out to be a problem, we have to
-      // pass the outErrbuffer instead.
-      reporter.handle(prefixEvent.withStdoutStderr(outErrBuffer));
+      eventHandler.handle(prefixEvent.withStdoutStderr(outErrBuffer));
     } else {
-      reporter.handle(prefixEvent);
+      eventHandler.handle(prefixEvent);
     }
   }
 
