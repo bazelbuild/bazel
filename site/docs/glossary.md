@@ -12,13 +12,6 @@ A command to run during the build, for example a call to a compiler with
 metadata like the command line arguments, action key, environment variables, and
 declared input/output artifacts.
 
-#### Action key
-
-The cache key of an [*action*](#action). Computed based on action metadata, such
-as the command line that will be executed, compiler flags, library locations and
-system headers. Enables Bazel to cache or invalidate individual actions
-deterministically.
-
 #### Action cache
 
 The cache of [*action*](#action) metadata to action execution result. Lives on
@@ -35,7 +28,15 @@ used during the *execution phase*.
 #### Action graph query (aquery)
 
 A query tool that can query over build [*actions*](#action). This provides the
-ability to analyze how build rules translate into the actual work builds do.
+ability to analyze how [*build rules*](#rule) translate into the actual work
+builds do.
+
+#### Action key
+
+The cache key of an [*action*](#action). Computed based on action metadata, such
+as the command line that will be executed, compiler flags, library locations and
+system headers. Enables Bazel to cache or invalidate individual actions
+deterministically.
 
 #### Analysis phase
 
