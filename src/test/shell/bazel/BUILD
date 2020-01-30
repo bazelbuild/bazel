@@ -1148,7 +1148,7 @@ sh_test(
 
 sh_test(
     name = "cc_flags_supplier_test",
-    size = "small",
+    size = "medium",
     srcs = ["cc_flags_supplier_test.sh"],
     data = [
         ":test-deps",
