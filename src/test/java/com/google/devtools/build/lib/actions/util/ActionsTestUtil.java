@@ -419,18 +419,28 @@ public final class ActionsTestUtil {
   public static class MockAction extends AbstractAction {
 
     private final boolean middleman;
+    private final boolean isShareable;
 
     public MockAction(Iterable<Artifact> inputs, ImmutableSet<Artifact> outputs) {
-      this(inputs, outputs, /*middleman=*/ false);
+      this(inputs, outputs, /*middleman=*/ false, /*isShareable=*/ true);
     }
 
     public MockAction(
         Iterable<Artifact> inputs, ImmutableSet<Artifact> outputs, boolean middleman) {
+      this(inputs, outputs, middleman, /*isShareable*/ true);
+    }
+
+    public MockAction(
+        Iterable<Artifact> inputs,
+        ImmutableSet<Artifact> outputs,
+        boolean middleman,
+        boolean isShareable) {
       super(
           NULL_ACTION_OWNER,
           NestedSetBuilder.<Artifact>stableOrder().addAll(inputs).build(),
           outputs);
       this.middleman = middleman;
+      this.isShareable = isShareable;
     }
 
     @Override
@@ -451,6 +461,11 @@ public final class ActionsTestUtil {
     @Override
     public ActionResult execute(ActionExecutionContext actionExecutionContext) {
       throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public boolean isShareable() {
+      return isShareable;
     }
   }
 
