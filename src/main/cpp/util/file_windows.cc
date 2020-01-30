@@ -535,6 +535,7 @@ bool CanAccessDirectory(const Path& path) {
 
   // The only easy way to know if a directory is writable is by attempting to
   // open a file for writing in it.
+  // File name with Thread ID avoids races among concurrent Bazel processes.
   std::string dummy_name = "bazel_directory_access_test_";
   dummy_name += std::to_string(::GetCurrentThreadId());
 
