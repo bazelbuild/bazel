@@ -99,9 +99,6 @@ class ArtifactNestedSetFunction implements SkyFunction {
                 artifactNestedSetKey.directKeys(),
                 IOException.class,
                 ActionExecutionException.class);
-    if (env.valuesMissing()) {
-      return null;
-    }
 
     // Evaluate all children.
     ArrayList<SkyKey> transitiveKeys = new ArrayList<>();
