@@ -47,7 +47,6 @@ import com.google.devtools.build.lib.rules.repository.WorkspaceAttributeMapper;
 import com.google.devtools.build.lib.runtime.ProcessWrapperUtil;
 import com.google.devtools.build.lib.runtime.RepositoryRemoteExecutor;
 import com.google.devtools.build.lib.runtime.RepositoryRemoteExecutor.ExecutionResult;
-import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skylarkbuildapi.repository.SkylarkRepositoryContextApi;
 import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
@@ -636,7 +635,6 @@ public class SkylarkRepositoryContext
         getUrls(
             url,
             /* ensureNonEmpty= */ !allowFail,
-            env,
             /* checksumGiven= */ !Strings.isNullOrEmpty(sha256)
                 || !Strings.isNullOrEmpty(integrity));
     Optional<Checksum> checksum;
@@ -752,7 +750,6 @@ public class SkylarkRepositoryContext
         getUrls(
             url,
             /* ensureNonEmpty= */ !allowFail,
-            env,
             /* checksumGiven= */ !Strings.isNullOrEmpty(sha256)
                 || !Strings.isNullOrEmpty(integrity));
     Optional<Checksum> checksum;
@@ -925,8 +922,7 @@ public class SkylarkRepositoryContext
     return result.build();
   }
 
-  private static List<URL> getUrls(
-      Object urlOrList, boolean ensureNonEmpty, Environment env, boolean checksumGiven)
+  private static List<URL> getUrls(Object urlOrList, boolean ensureNonEmpty, boolean checksumGiven)
       throws RepositoryFunctionException, EvalException, InterruptedException {
     List<String> urlStrings;
     if (urlOrList instanceof String) {
@@ -937,7 +933,6 @@ public class SkylarkRepositoryContext
     if (ensureNonEmpty && urlStrings.isEmpty()) {
       throw new RepositoryFunctionException(new IOException("urls not set"), Transience.PERSISTENT);
     }
-    StarlarkSemantics semantics = PrecomputedValue.STARLARK_SEMANTICS.get(env);
     List<URL> urls = new ArrayList<>();
     for (String urlString : urlStrings) {
       URL url;
@@ -951,7 +946,7 @@ public class SkylarkRepositoryContext
         throw new RepositoryFunctionException(
             new IOException("Unsupported protocol: " + url.getProtocol()), Transience.PERSISTENT);
       }
-      if (semantics.incompatibleDisallowUnverifiedHttpDownloads() && !checksumGiven) {
+      if (!checksumGiven) {
         if (!Ascii.equalsIgnoreCase("http", url.getProtocol())) {
           urls.add(url);
         }
