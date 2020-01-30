@@ -14,8 +14,10 @@ declared input/output artifacts.
 
 #### Action cache
 
-The cache of [*action*](#action) metadata to action execution result. Lives on
-disk in Bazel's output base directory, and thus survives Bazel server restarts.
+An on-disk cache that stores a mapping of executed [*actions*](#action) to the
+outputs they created. The cache key is known as the [*action key*](#action-key).
+A core component for Bazel's incrementality model. The cache is stored in the
+output base directory and thus survives Bazel server restarts.
 
 #### Action graph
 
