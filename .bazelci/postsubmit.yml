@@ -6,6 +6,9 @@ tasks:
         android_ndk_repository/android_ndk_repository/' WORKSPACE
       - rm -f WORKSPACE.bak
       - mkdir $HOME/bazeltest
+    build_flags:
+      - "--test_env=TEST_INSTALL_BASE=$HOME/bazeltest/install_base"
+      - "--test_env=TEST_REPOSITORY_HOME=$OUTPUT_BASE/external"
     build_targets:
       - "//src:bazel"
       - "//src:bazel_jdk_minimal"
@@ -42,6 +45,9 @@ tasks:
         android_ndk_repository/android_ndk_repository/' WORKSPACE
       - rm -f WORKSPACE.bak
       - mkdir $HOME/bazeltest
+    build_flags:
+      - "--test_env=TEST_INSTALL_BASE=$HOME/bazeltest/install_base"
+      - "--test_env=TEST_REPOSITORY_HOME=$OUTPUT_BASE/external"
     build_targets:
       - "//src:bazel"
       - "//src:bazel_jdk_minimal"
@@ -74,6 +80,10 @@ tasks:
         android_ndk_repository/android_ndk_repository/' WORKSPACE
       - rm -f WORKSPACE.bak
       - mkdir $HOME/bazeltest
+    build_flags:
+      - "--test_env=TEST_INSTALL_BASE=$HOME/bazeltest/install_base"
+      - "--test_env=TEST_REPOSITORY_HOME=$OUTPUT_BASE/external"
+      - "--test_env=REMOTE_NETWORK_ADDRESS=bazel.build:80"
     build_targets:
       - "//src:bazel"
       - "//src:bazel_jdk_minimal"
@@ -112,6 +122,9 @@ tasks:
         android_ndk_repository/android_ndk_repository/' WORKSPACE
       - rm -f WORKSPACE.bak
       - mkdir $HOME/bazeltest
+    build_flags:
+      - "--test_env=TEST_INSTALL_BASE=$HOME/bazeltest/install_base"
+      - "--test_env=TEST_REPOSITORY_HOME=$OUTPUT_BASE/external"
     build_targets:
       - "//src:bazel"
       - "//src:bazel_jdk_minimal"
@@ -133,7 +146,9 @@ tasks:
       - rm -f WORKSPACE.bak
       - mkdir $HOME/bazeltest
     build_flags:
-      - "--apple_platform_type=macos"
+      - "--test_env=TEST_INSTALL_BASE=$HOME/bazeltest/install_base"
+      - "--test_env=TEST_REPOSITORY_HOME=$OUTPUT_BASE/external"
+      - "--test_env=REMOTE_NETWORK_ADDRESS=bazel.build:80"
     build_targets:
       - "//src:bazel"
       - "//src:bazel_jdk_minimal"
@@ -170,6 +185,9 @@ tasks:
     build_flags:
       - "--copt=-w"
       - "--host_copt=-w"
+      - "--test_env=JAVA_HOME"
+      - "--test_env=TEST_INSTALL_BASE=D:/bazeltest/install_base"
+      - "--test_env=TEST_REPOSITORY_HOME=$OUTPUT_BASE/external"
     build_targets:
       - "//src:bazel.exe"
       - "//src:bazel_jdk_minimal"
