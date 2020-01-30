@@ -851,8 +851,9 @@ public class PackageFunction implements SkyFunction {
       // The label does not cross a subpackage boundary.
       return false;
     }
+    // TODO(jingwen-external): wire up starlark semantics
     if (!containingPkg.getSourceRoot().startsWith(
-        label.getPackageIdentifier().getSourceRoot())) {
+        label.getPackageIdentifier().getExecPath(true))) {
       // This label is referencing an imaginary package, because the containing package should
       // extend the label's package: if the label is //a/b:c/d, the containing package could be
       // //a/b/c or //a/b, but should never be //a. Usually such errors will be caught earlier, but
