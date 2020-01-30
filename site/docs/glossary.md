@@ -248,10 +248,10 @@ A directory in the workspace’s output base directory where local actions are
 executed in non-sandboxed builds. The directory contents are mostly symlinks of
 input [*artifacts*](#artifact) from the workspace. The execution root also
 contains symlinks to external repositories as other inputs and the `bazel-out`
-directory to store outputs. Prepared during the loading phase by planting a
-"symlink forest" of the directories representing transitive closure of packages
-depended on by the target(s) to build. Accessible with `bazel info
-execution_root` on the command line.
+directory to store outputs. Prepared during the [*loading
+phase*](#loading-phase) by planting a "symlink forest" of the directories
+representing transitive closure of packages depended on by the target(s) to
+build. Accessible with `bazel info execution_root` on the command line.
 
 #### File
 
@@ -297,7 +297,7 @@ graph*](#target-graph).
 A mechanism to compose multiple rule target declarations together under a single
 [*Starlark*](#starlark) function. Enables reusing common rule declaration
 patterns across BUILD files. Expanded to the underlying rule target declarations
-during the *loading phase*.
+during the [*loading phase*](#loading-phase).
 
 #### Mnemonic
 
@@ -314,9 +314,9 @@ are created using [*Starlark*](#starlark).
 
 #### Output base
 
-A unique directory specific to a workspace for containing Bazel output files to
-separate outputs from the source tree. Located in the [*output user
-root*](#output-user-root).
+A [*workspace*](#workspace)-specific directory to store Bazel output files. Used
+to separate outputs from the *workspace*'s source tree. Located in the [*output
+user root*](#output-user-root).
 
 #### Output groups
 
@@ -331,10 +331,11 @@ in [*BUILD files*](#build-file) (`filegroup` rule) or the command line
 
 #### Output user root
 
-A unique directory corresponding to a username on the system. Prevents output
-file collisions if multiple users are building the same project on the system at
-the same time. Contains subdirectories corresponding to build outputs of
-individual workspaces, also known as output bases.
+A user-specific directory to store Bazel's outputs. The directory name is
+derived from the user's system username. Prevents output file collisions if
+multiple users are building the same project on the system at the same time.
+Contains subdirectories corresponding to build outputs of individual workspaces,
+also known as [*output bases*](#output-base).
 
 #### Package
 
@@ -427,9 +428,10 @@ The core parallel, functional, and incremental evaluation framework of Bazel.
 #### Stamping
 
 A feature to embed additional information into Bazel-built
-[*artifacts*](#artifact). Commonly used for source control, build time and other
-workspace-related information for release builds. Enable through the
-`--workspace_status_command` flag and rules that support the stamp attribute.
+[*artifacts*](#artifact). For example, this can be used for source control,
+build time and other workspace or environment-related information for release
+builds. Enable through the `--workspace_status_command` flag and
+[*rules*](rules) that support the stamp attribute.
 
 #### Starlark
 
