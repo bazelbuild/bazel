@@ -67,7 +67,7 @@ cached and reused between targets requiring the same aspect. Created with the
 `aspect()` Starlark Build API function. Can be used, for example, to generate
 metadata for IDEs, and create actions for linting.
 
-See also: [Aspects documentation](skylark/aspects.html)
+**See also:** [Aspects documentation](skylark/aspects.html)
 
 #### Aspect-on-aspect
 
@@ -103,7 +103,8 @@ BUILD file can also be named BUILD.bazel.
 
 #### BUILD.bazel File
 
-See *BUILD File*. Takes precedence over a `BUILD` file in the same directory.
+See [*BUILD File*](#build-file). Takes precedence over a `BUILD` file in the
+same directory.
 
 #### bzl File
 
@@ -140,56 +141,58 @@ are always correct.
 #### Client-server model
 
 The bazel command-line client automatically starts a background server on the
-local machine to execute Bazel commands. The server persists across commands but
-automatically stops after a period of inactivity (or explicitly via bazel
-shutdown). Splitting Bazel into a server and client helps amortize JVM startup
-time and supports faster *incremental builds* because the [*action
-graph*](#action-graph) remains in memory across commands.
+local machine to execute Bazel [*commands*](#command). The server persists
+across commands but automatically stops after a period of inactivity (or
+explicitly via bazel shutdown). Splitting Bazel into a server and client helps
+amortize JVM startup time and supports faster [*incremental
+builds*](#incremental-build) because the [*action graph*](#action-graph) remains
+in memory across commands.
 
 #### Command
 
-Used on the command line to invoke different Bazel functions, like bazel build,
-bazel test, bazel run, and bazel query.
+Used on the command line to invoke different Bazel functions, like `bazel
+build`, `bazel test`, `bazel run`, and `bazel query`.
 
 #### Command flags
 
 A set of flags specific to a [*command*](#command). Command flags are specified
 *after* the command (bazel build <command flags>). Flags can be applicable to
 one or more commands. For example, `--configure` is a flag exclusively for the
-bazel sync command, but `--keep_going` is applicable to sync, build, test and
-more. Flags are often used for configuration purposes, so changes in flag values
-can cause Bazel to invalidate in-memory graphs and restart the [*analysis
-phase*](#analysis-phase).
+`bazel sync` command, but `--keep_going` is applicable to `sync`, `build`,
+`test` and more. Flags are often used for [*configuration*](#configuration)
+purposes, so changes in flag values can cause Bazel to invalidate in-memory
+graphs and restart the [*analysis phase*](#analysis-phase).
 
 #### Configuration
 
-Information outside of rule definitions that impacts how rules generate actions.
-Every build has at least one configuration specifying the target platform,
-action environment variables, and command-line [*build flags*](#command-flags).
-*Transitions* may create additional configurations, e.g. for host tools or
-cross-compilation.
+Information outside of [*rule*](#rule) definitions that impacts how rules
+generate [*actions*](#action). Every build has at least one configuration
+specifying the target platform, action environment variables, and command-line
+[*build flags*](#command-flags). *Transitions* may create additional
+configurations, e.g. for host tools or cross-compilation.
 
 #### Configuration trimming
 
-The process of only including the pieces of configuration a target actually
-needs. For example, if you build Java binary `//:j` with C++ dependency `//:c`,
-it's wasteful to include `--javacopt` in `//:c`,'s configuration because
-changing `--javacopt` unnecessarily breaks C++ build cacheability.
+The process of only including the pieces of [*configuration*](#configuration) a
+target actually needs. For example, if you build Java binary `//:j` with C++
+dependency `//:c`, it's wasteful to include `--javacopt` in `//:c`,'s
+configuration because changing `--javacopt` unnecessarily breaks C++ build
+cacheability.
 
 #### Configured query (cquery)
 
-A query tool that queries over [*configured targets*](#configured-target) (after
-the [*analysis phase*](#analysis-phase) completes). This means `select()` and
-[*build flags*](#command-flags) (e.g. `--platforms`) are accurately reflected in
-the results.
+A [*query*](#query-concept) tool that queries over [*configured
+targets*](#configured-target) (after the [*analysis phase*](#analysis-phase)
+completes). This means `select()` and [*build flags*](#command-flags) (e.g.
+`--platforms`) are accurately reflected in the results.
 
 #### Configured target
 
-The result of evaluating a *target* with a *configuration*.. The [*analysis
-phase*](#analysis-phase) produces this by combining the build's options with the
-targets that need to be built. For example, if `//:foo` builds for two different
-architectures in the same build, it has two configured targets: `<//:foo, x86>`
-and `<//:foo, arm>`.
+The result of evaluating a [*target*](#target) with a
+[*configuration*](#configuration). The [*analysis phase*](#analysis-phase)
+produces this by combining the build's options with the targets that need to be
+built. For example, if `//:foo` builds for two different architectures in the
+same build, it has two configured targets: `<//:foo, x86>` and `<//:foo, arm>`.
 
 #### Correctness
 
@@ -198,11 +201,11 @@ a series of [*actions*](#action) on its transitive inputs.
 
 #### Dependency
 
-A directed edge between two *targets*. A target `//:foo` has a *target
-dependency* on target `//:bar` if `//:foo` 's attribute values contain a
-reference to `//:bar`. `//:foo` has an *action dependency* on `//:bar` if an
-action that produces a file in `//:foo` depends on an input
-[*artifact*](#artifact) that an action in `//:bar` outputs.
+A directed edge between two [*targets*](#target). A target `//:foo` has a target
+dependency on target `//:bar` if `//:foo`'s attribute values contain a reference
+to `//:bar`. `//:foo` has an *action dependency* on `//:bar` if an action in
+`//:foo` depends on an input [*artifact*](#artifact) created by an action in
+`//:bar`.
 
 #### Depset
 
@@ -244,11 +247,12 @@ executed: locally, remotely, dynamically, sandboxed, docker, and so on.
 
 #### Execution root
 
-A directory in the workspace’s output base directory where local actions are
-executed in non-sandboxed builds. The directory contents are mostly symlinks of
-input [*artifacts*](#artifact) from the workspace. The execution root also
-contains symlinks to external repositories as other inputs and the `bazel-out`
-directory to store outputs. Prepared during the [*loading
+A directory in the [*workspace*](#workspace)’s [*output base*](#output-base)
+directory where local [*actions*](#action) are executed in
+non-[*sandboxed*](#sandboxing) builds. The directory contents are mostly
+symlinks of input [*artifacts*](#artifact) from the workspace. The execution
+root also contains symlinks to external repositories as other inputs and the
+`bazel-out` directory to store outputs. Prepared during the [*loading
 phase*](#loading-phase) by planting a "symlink forest" of the directories
 representing transitive closure of packages depended on by the target(s) to
 build. Accessible with `bazel info execution_root` on the command line.
@@ -276,28 +280,28 @@ This is the opposite of a clean build.
 
 #### Label
 
-An identifier for a target. A fully qualified label such as
+An identifier for a [*target*](#target). A fully qualified label such as
 `//path/to/package:target` consists of `//` to mark the workspace root
-directory, path/to/package as the directory that contains the [*BUILD
-file*](#build-file) declaring the target, and :target as the name of the target
-declared in the aforementioned BUILD file. May also be prefixed with
+directory, `path/to/package` as the directory that contains the [*BUILD
+file*](#build-file) declaring the target, and `:target` as the name of the
+target declared in the aforementioned BUILD file. May also be prefixed with
 `@my_repository//<..>` to indicate that the target is declared in an *external
 repository* named `my_repository`.
 
 #### Loading phase
 
 The first phase of a build where Bazel parses WORKSPACE, BUILD, and .bzl files
-to create *packages*. [*Macros*](#macro) and certain functions like `glob()` are
-evaluated in this phase. Interleaved with the second phase of the build, the
-[*analysis phase*](#analysis-phase), to build up a [*target
+to create [*packages*](#package). [*Macros*](#macro) and certain functions like
+`glob()` are evaluated in this phase. Interleaved with the second phase of the
+build, the [*analysis phase*](#analysis-phase), to build up a [*target
 graph*](#target-graph).
 
 #### Macro
 
-A mechanism to compose multiple rule target declarations together under a single
-[*Starlark*](#starlark) function. Enables reusing common rule declaration
-patterns across BUILD files. Expanded to the underlying rule target declarations
-during the [*loading phase*](#loading-phase).
+A mechanism to compose multiple [*rule*](#rule) target declarations together
+under a single [*Starlark*](#starlark) function. Enables reusing common rule
+declaration patterns across BUILD files. Expanded to the underlying rule target
+declarations during the [*loading phase*](#loading-phase).
 
 #### Mnemonic
 
@@ -357,23 +361,25 @@ and the machines targets are built for ("target platforms").
 
 #### Provider
 
-A set of information passed from a rule target to other rule targets. Usually
-contains information like: compiler options, transitive source files, transitive
-output files, and build metadata. Frequently used in conjunction with *depsets*.
+A set of information passed from a rule [*target*](#target) to other rule
+targets. Usually contains information like: compiler options, transitive source
+files, transitive output files, and build metadata. Frequently used in
+conjunction with [*depsets*](#depset).
 
 #### Query (concept)
 
-The process of analyzing a build graph to understand [*target*](#target)
-properties and dependency structures. Bazel supports three query variants:
-[*query*](#query-command), [*cquery*](#configured-query-cquery), and
-[*aquery*](#action-graph-query-aquery).
+The process of analyzing a [*build graph*](#build-graph) to understand
+[*target*](#target) properties and dependency structures. Bazel supports three
+query variants: [*query*](#query-command), [*cquery*](#configured-query-cquery),
+and [*aquery*](#action-graph-query-aquery).
 
 #### query (command)
 
-A query tool that operates over the build's post-loading phase [*target
-graph*](#target-graph). This is relatively fast, but can't analyze the effects
-of `select()`, [*build flags*](#command-flags), [*artifacts*](#artifact), or
-build [*actions*](#action).
+A [*query*](#query-concept) tool that operates over the build's post-[*loading
+phase*](#loading-phase) [*target graph*](#target-graph). This is relatively
+fast, but can't analyze the effects of `select()`, [*build
+flags*](#command-flags), [*artifacts*](#artifact), or build
+[*actions*](#action).
 
 #### Repository cache
 
@@ -455,34 +461,35 @@ command.
 
 #### Target
 
-A buildable unit. Can be a rule target, file target, or a package group. Rule
-targets are instantiated from rule declarations in [*BUILD files*](#build-file).
-Depending on the rule implementation, rule targets can also be *testable* or
-*runnable*. Every file used in BUILD files is a file target. Targets can depend
-on other targets via attributes (most commonly but not necessarily deps). A
-*configured target* is a pair of *target* and *build configuration*.
+A buildable unit. Can be a [*rule*](#rule) target, file target, or a [*package
+group*](#package-group). Rule targets are instantiated from rule declarations in
+[*BUILD files*](#build-file). Depending on the rule implementation, rule targets
+can also be testable or runnable. Every file used in BUILD files is a file
+target. Targets can depend on other targets via attributes (most commonly but
+not necessarily `deps`). A [*configured target*](#configured-target) is a pair
+of target and [*build configuration*](#configuration).
 
 #### Target graph
 
-An in-memory logical graph of [*targets*](#target) and their dependencies.
-Produced during the [*loading phase*](#loading-phase) and used as an input to
-the [*analysis phase*](#analysis-phase).
+An in-memory graph of [*targets*](#target) and their dependencies. Produced
+during the [*loading phase*](#loading-phase) and used as an input to the
+[*analysis phase*](#analysis-phase).
 
 #### Target pattern
 
 A way to specify a group of [*targets*](#target) on the command line. Commonly
 used patterns are `:all` (all rule targets), `:*` (all rule + file targets),
-`...` (current package and all subpackages recursively). Can be used in
-combination, for example, `//...:*` means all rule and file targets in all
-packages recursively from the root of the workspace.
+`...` (current [*package*](#package) and all subpackages recursively). Can be
+used in combination, for example, `//...:*` means all rule and file targets in
+all packages recursively from the root of the [*workspace*](#workspace).
 
 #### Tests
 
 Rule [*targets*](#target) instantiated from test rules, and therefore contains a
 test executable. A return code of zero from the completion of the executable
 indicates test success. The exact contract between Bazel and tests (e.g. test
-environment variables, test result collection methods) is specified in the *Test
-Encyclopedia*.
+environment variables, test result collection methods) is specified in the [Test
+Encyclopedia](test-encyclopedia.html).
 
 #### Toolchain
 
@@ -498,8 +505,9 @@ A build [*target*](#target) is top-level if it’s requested on the Bazel comman
 line. For example, if `//:foo` depends on `//:bar`, and `bazel build //:foo` is
 called, then for this build, `//:foo` is top-level, and `//:bar` isn’t
 top-level, although both targets will need to be built. An important difference
-between top-level and non-top-level targets is that *command options* set on the
-Bazel command line (or via *.bazelrc*) will set the *configuration* for
+between top-level and non-top-level targets is that [*command
+flags*](#command-flags) set on the Bazel command line (or via
+[*.bazelrc*](#bazelrc)) will set the [*configuration*](#configuration) for
 top-level targets, but might be modified by a [*transition*](#transition) for
 non-top-level targets.
 
@@ -507,11 +515,12 @@ non-top-level targets.
 
 A mapping of [*configuration*](#configuration) state from one value to another.
 Enables [*targets*](#target) in the [*build graph*](#build-graph) to have
-different configurations, even if they were instantiated from the same rule. A
-common usage of transitions is with *split transitions*, where certain parts of
-the [*target graph*](#target-graph) is forked with distinct configurations for
-each fork. For example, one can build an Android APK with native binaries
-compiled for ARM and x86 using split transitions in a single build.
+different configurations, even if they were instantiated from the same
+[*rule*](#rule). A common usage of transitions is with *split transitions*,
+where certain parts of the [*target graph*](#target-graph) is forked with
+distinct configurations for each fork. For example, one can build an Android APK
+with native binaries compiled for ARM and x86 using split transitions in a
+single build.
 
 #### Tree artifact
 
