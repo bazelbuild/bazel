@@ -38,6 +38,17 @@ public interface TestActionContext extends ActionContext {
   /** Returns whether test_keep_going is enabled. */
   boolean isTestKeepGoing();
 
+  /**
+   * Returns {@code true} to indicate that exclusive tests should be treated as regular parallel
+   * tests.
+   *
+   * <p>Returning {@code true} may make sense for certain forced remote test execution strategies
+   * where running tests in sequence would be wasteful.
+   */
+  default boolean forceParallelTestExecution() {
+    return false;
+  }
+
   /** Creates a cached test result. */
   TestResult newCachedTestResult(Path execRoot, TestRunnerAction action, TestResultData cached)
       throws IOException;

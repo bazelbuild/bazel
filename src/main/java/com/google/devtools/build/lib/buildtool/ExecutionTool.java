@@ -202,6 +202,10 @@ public class ExecutionTool {
     }
   }
 
+  TestActionContext getTestActionContext() {
+    return spawnActionContextMaps.getContext(TestActionContext.class);
+  }
+
   /**
    * Performs the execution phase (phase 3) of the build, in which the Builder is applied to the
    * action graph to bring the targets up to date. (This function will return prior to

@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.actions.TestExecException;
 import com.google.devtools.build.lib.analysis.AnalysisResult;
 import com.google.devtools.build.lib.analysis.BuildInfoEvent;
 import com.google.devtools.build.lib.analysis.BuildView;
+import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.ViewCreationFailedException;
 import com.google.devtools.build.lib.analysis.WorkspaceStatusAction.DummyEnvironment;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
@@ -38,6 +39,7 @@ import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.OutputFilter;
 import com.google.devtools.build.lib.events.Reporter;
+import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.pkgcache.LoadingFailedException;
 import com.google.devtools.build.lib.profiler.ProfilePhase;
 import com.google.devtools.build.lib.profiler.Profiler;
@@ -147,6 +149,22 @@ public class BuildTool {
       // execution phase.
       executionTool = new ExecutionTool(env, request);
       if (request.getBuildOptions().performAnalysisPhase) {
+
+        if (!analysisResult.getExclusiveTests().isEmpty()
+            && executionTool.getTestActionContext().forceParallelTestExecution()) {
+          String testStrategy = request.getOptions(ExecutionOptions.class).testStrategy;
+          for (ConfiguredTarget test : analysisResult.getExclusiveTests()) {
+            getReporter()
+                .handle(
+                    Event.warn(
+                        test.getLabel()
+                            + " is tagged exclusive, but --test_strategy="
+                            + testStrategy
+                            + " forces parallel test execution."));
+          }
+          analysisResult = analysisResult.withExclusiveTestsAsParallelTests();
+        }
+
         result.setBuildConfigurationCollection(analysisResult.getConfigurationCollection());
         result.setActualTargets(analysisResult.getTargetsToBuild());
         result.setTestTargets(analysisResult.getTargetsToTest());

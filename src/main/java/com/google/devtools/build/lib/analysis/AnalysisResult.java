@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.analysis;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedSet;
+import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.ActionGraph;
 import com.google.devtools.build.lib.actions.PackageRoots;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationCollection;
@@ -166,5 +167,28 @@ public final class AnalysisResult {
 
   public ImmutableSortedSet<String> getNonSymlinkedDirectoriesUnderExecRoot() {
     return nonSymlinkedDirectoriesUnderExecRoot;
+  }
+
+  /**
+   * Returns an equivalent {@link AnalysisResult}, except with exclusive tests treated as parallel
+   * tests.
+   */
+  public AnalysisResult withExclusiveTestsAsParallelTests() {
+    return new AnalysisResult(
+        configurations,
+        targetsToBuild,
+        aspects,
+        targetsToTest,
+        targetsToSkip,
+        error,
+        actionGraph,
+        topLevelArtifactsToOwnerLabels,
+        Sets.union(parallelTests, exclusiveTests).immutableCopy(),
+        /*exclusiveTests=*/ ImmutableSet.of(),
+        topLevelContext,
+        packageRoots,
+        workspaceName,
+        topLevelTargetsWithConfigs,
+        nonSymlinkedDirectoriesUnderExecRoot);
   }
 }
