@@ -333,14 +333,14 @@ public class ArtifactFactory implements ArtifactResolver {
     }
 
     // Double-checked locking to avoid locking cost when possible.
-//    SourceArtifact artifact = sourceArtifactCache.getArtifact(execPath);
+    SourceArtifact artifact = sourceArtifactCache.getArtifact(execPath);
     PathFragment execPathAccountingForExternalRepos = root.getExecPath().getRelative(execPath);
-    SourceArtifact artifact = sourceArtifactCache.getArtifact(execPathAccountingForExternalRepos);
+//    SourceArtifact artifact = sourceArtifactCache.getArtifact(execPathAccountingForExternalRepos);
     if (artifact == null || artifact.differentOwnerOrRoot(owner, root)) {
-      Lock lock = STRIPED_LOCK.get(execPathAccountingForExternalRepos);
+      Lock lock = STRIPED_LOCK.get(execPath);
       lock.lock();
       try {
-        artifact = sourceArtifactCache.getArtifact(execPathAccountingForExternalRepos);
+        artifact = sourceArtifactCache.getArtifact(execPath);
         if (artifact == null || artifact.differentOwnerOrRoot(owner, root)) {
           // There really should be a safety net that makes it impossible to create two Artifacts
           // with the same exec path but a different Owner, but we also need to reuse Artifacts from
@@ -348,7 +348,7 @@ public class ArtifactFactory implements ArtifactResolver {
           artifact =
               (SourceArtifact)
                   createArtifact(root, execPath, owner, type, /*contentBasedPath=*/ false);
-          sourceArtifactCache.putArtifact(execPathAccountingForExternalRepos, artifact);
+          sourceArtifactCache.putArtifact(execPath, artifact);
         }
       } finally {
         lock.unlock();

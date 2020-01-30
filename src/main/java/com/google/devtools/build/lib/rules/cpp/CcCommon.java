@@ -627,14 +627,11 @@ public final class CcCommon {
   }
 
   List<PathFragment> getSystemIncludeDirs() throws InterruptedException {
+    boolean allowExternalDirectory =
+            ruleContext.getAnalysisEnvironment().getSkylarkSemantics().experimentalAllowExternalDirectory();
     List<PathFragment> result = new ArrayList<>();
     PackageIdentifier packageIdentifier = ruleContext.getLabel().getPackageIdentifier();
-    PathFragment packageFragment =
-        packageIdentifier.getExecPath(
-            ruleContext
-                .getAnalysisEnvironment()
-                .getSkylarkSemantics()
-                .experimentalAllowExternalDirectory());
+    PathFragment packageFragment = packageIdentifier.getExecPath(allowExternalDirectory);
     for (String includesAttr : ruleContext.getExpander().list("includes")) {
       if (includesAttr.startsWith("/")) {
         ruleContext.attributeWarning("includes",
@@ -642,7 +639,7 @@ public final class CcCommon {
         continue;
       }
       PathFragment includesPath = packageFragment.getRelative(includesAttr);
-      if (includesPath.containsUplevelReferences()) {
+      if (!allowExternalDirectory && includesPath.containsUplevelReferences()) {
         ruleContext.attributeError("includes",
             "Path references a path above the execution root.");
       }

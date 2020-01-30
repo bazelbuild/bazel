@@ -1052,10 +1052,14 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
           || FileSystemUtils.startsWithAny(includePath, ignoredDirs)) {
         continue;
       }
+      // TODO(jingwen-external): plumb conditional
       // One starting ../ is okay for getting to a sibling repository.
-      if (includePath.startsWith(LabelConstants.EXTERNAL_PATH_PREFIX)) {
+      if (includePath.startsWith(LabelConstants.EXPERIMENTAL_EXTERNAL_PATH_PREFIX)) {
+        includePath = includePath.relativeTo(LabelConstants.EXPERIMENTAL_EXTERNAL_PATH_PREFIX);
+      } else if (includePath.startsWith(LabelConstants.EXTERNAL_PATH_PREFIX)) {
         includePath = includePath.relativeTo(LabelConstants.EXTERNAL_PATH_PREFIX);
       }
+
       if (includePath.isAbsolute() || includePath.containsUplevelReferences()) {
         throw new ActionExecutionException(
             String.format(

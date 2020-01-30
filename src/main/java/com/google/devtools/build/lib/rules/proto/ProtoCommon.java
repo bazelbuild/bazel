@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.Type;
+import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -288,23 +289,27 @@ public class ProtoCommon {
     PathFragment stripImportPrefix;
     PathFragment importPrefix;
 
+    StarlarkSemantics starlarkSemantics = ruleContext.getAnalysisEnvironment().getSkylarkSemantics();
     if (stripImportPrefixAttribute != null || importPrefixAttribute != null) {
       if (stripImportPrefixAttribute == null) {
         stripImportPrefix =
             PathFragment.create(
-                ruleContext.getLabel().getWorkspaceRoot(
-                    ruleContext.getAnalysisEnvironment().getSkylarkSemantics()));
+                ruleContext.getLabel().getWorkspaceRoot(starlarkSemantics));
       } else if (stripImportPrefixAttribute.isAbsolute()) {
         stripImportPrefix =
             ruleContext
                 .getLabel()
                 .getPackageIdentifier()
                 .getRepository()
-                .getSourceRoot()
+                .getExecPath(starlarkSemantics.experimentalAllowExternalDirectory())
                 .getRelative(stripImportPrefixAttribute.toRelative());
       } else {
         stripImportPrefix =
-            ruleContext.getPackageDirectory().getRelative(stripImportPrefixAttribute);
+                ruleContext
+                        .getLabel()
+                        .getPackageIdentifier()
+                        .getExecPath(starlarkSemantics.experimentalAllowExternalDirectory())
+                        .getRelative(stripImportPrefixAttribute);
       }
 
       if (importPrefixAttribute != null) {
@@ -343,7 +348,7 @@ public class ProtoCommon {
         ruleContext.ruleError(
             String.format(
                 ".proto file '%s' is not under the specified strip prefix '%s'",
-                realProtoSource.getExecPathString(), stripImportPrefix.getPathString()));
+                realProtoSource.getRootRelativePath(), stripImportPrefix.getPathString()));
         continue;
       }
       Pair<PathFragment, Artifact> importsPair =
