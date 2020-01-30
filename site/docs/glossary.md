@@ -7,10 +7,10 @@ title: Bazel Glossary
 
 #### Action
 
-A command to run during the build, for example a call to a compiler with
-[*artifacts*](#artifact) as inputs, and produces artifacts as outputs. Includes
-metadata like the command line arguments, action key, environment variables, and
-declared input/output artifacts.
+A command to run during the build, for example, a call to a compiler that takes
+[*artifacts*](#artifact) as inputs and produces other artifacts as outputs.
+Includes metadata like the command line arguments, action key, environment
+variables, and declared input/output artifacts.
 
 #### Action cache
 
@@ -21,17 +21,18 @@ output base directory and thus survives Bazel server restarts.
 
 #### Action graph
 
-An in-memory graph of [*actions*](#action) and the [*artifacts*](#artifact)
-these actions read and generate. The graph may include artifacts that exist as
-source files (e.g. on disk) as well as generated intermediate/final artifacts
-that are not mentioned in BUILD files. Produced during the *analysis phase* and
-used during the *execution phase*.
+An in-memory graph of [*actions*](#action) and the [*artifacts*](#artifact) that
+these actions read and generate. The graph might include artifacts that exist as
+source files (for example, in the file system) as well as generated
+intermediate/final artifacts that are not mentioned in BUILD files. Produced
+during the [*analysis phase*](#analysis-phase) and used during the [*execution
+phase*](#execution-phase).
 
 #### Action graph query (aquery)
 
-A query tool that can query over build [*actions*](#action). This provides the
-ability to analyze how [*build rules*](#rule) translate into the actual work
-builds do.
+A [*query*](#query-concept) tool that can query over build [*actions*](#action).
+This provides the ability to analyze how [*build rules*](#rule) translate into
+the actual work builds do.
 
 #### Action key
 
@@ -50,7 +51,7 @@ implementations are evaluated.
 
 #### Artifact
 
-A file used or derived by Bazel. Can also be a directory of files, known as
+A source file or a generated file. Can also be a directory of files, known as
 "tree artifacts". Tree artifacts are black boxes to Bazel: Bazel does not treat
 the files in tree artifacts as individual artifacts and thus cannot reference
 them directly as action inputs / outputs. An artifact can be an input to
@@ -63,8 +64,10 @@ dependencies. For example, if target A depends on B, one can apply an aspect on
 A that traverses *up* a dependency edge to B, and runs additional actions in B
 to generate and collect additional output files. These additional actions are
 cached and reused between targets requiring the same aspect. Created with the
-aspect() Starlark Build API function. Can be used, for example, to generate
+`aspect()` Starlark Build API function. Can be used, for example, to generate
 metadata for IDEs, and create actions for linting.
+
+See also: [Aspects documentation](skylark/aspects.html)
 
 #### Aspect-on-aspect
 
@@ -91,7 +94,7 @@ mono-repository.
 
 #### BUILD File
 
-The main build configuration file containing rule declarations (e.g.
+The main build configuration file containing [*rule*](#rule) declarations (e.g.
 `cc_binary`, `go_library`). When [*BUILD files*](#build-file) are evaluated and
 analyzed, the rules create new targets in the [*target graph*](#target-graph). A
 BUILD file can load and use rules from .bzl files. A BUILD file marks a
@@ -104,8 +107,9 @@ See *BUILD File*. Takes precedence over a `BUILD` file in the same directory.
 
 #### bzl File
 
-A file that defines rules, macros, and constants written in Starlark. These can
-then be imported into [*BUILD files*](#build-file) using the load() function.
+A file that defines rules, [*macros*](#macro), and constants written in
+[*Starlark*](#starlark). These can then be imported into [*BUILD
+files*](#build-file) using the load() function.
 
 <!-- TODO: #### Build event protocol -->
 
@@ -139,8 +143,8 @@ The bazel command-line client automatically starts a background server on the
 local machine to execute Bazel commands. The server persists across commands but
 automatically stops after a period of inactivity (or explicitly via bazel
 shutdown). Splitting Bazel into a server and client helps amortize JVM startup
-time and supports faster *incremental builds* because the *action graph* remains
-in memory across commands.
+time and supports faster *incremental builds* because the [*action
+graph*](#action-graph) remains in memory across commands.
 
 #### Command
 
@@ -154,7 +158,8 @@ A set of flags specific to a [*command*](#command). Command flags are specified
 one or more commands. For example, `--configure` is a flag exclusively for the
 bazel sync command, but `--keep_going` is applicable to sync, build, test and
 more. Flags are often used for configuration purposes, so changes in flag values
-can cause Bazel to invalidate in-memory graphs and restart the analysis phase.
+can cause Bazel to invalidate in-memory graphs and restart the [*analysis
+phase*](#analysis-phase).
 
 #### Configuration
 
@@ -174,16 +179,17 @@ changing `--javacopt` unnecessarily breaks C++ build cacheability.
 #### Configured query (cquery)
 
 A query tool that queries over [*configured targets*](#configured-target) (after
-the analysis phase completes). This means `select()` and [*build
-flags*](#command-flags) (e.g. `--platforms`) are accurately reflected in the
-results.
+the [*analysis phase*](#analysis-phase) completes). This means `select()` and
+[*build flags*](#command-flags) (e.g. `--platforms`) are accurately reflected in
+the results.
 
 #### Configured target
 
-The result of evaluating a *target* with a *configuration*.. The analysis phase
-produces this by combining the build's options with the targets that need to be
-built. For example, if `//:foo` builds for two different architectures in the
-same build, it has two configured targets: `<//:foo, x86>` and `<//:foo, arm>`.
+The result of evaluating a *target* with a *configuration*.. The [*analysis
+phase*](#analysis-phase) produces this by combining the build's options with the
+targets that need to be built. For example, if `//:foo` builds for two different
+architectures in the same build, it has two configured targets: `<//:foo, x86>`
+and `<//:foo, arm>`.
 
 #### Correctness
 
@@ -230,11 +236,11 @@ full build times.
 
 #### Execution phase
 
-The third phase of a build. Executes the [*actions*](#action) from the action
-graph created during the analysis phase. Executed actions invoke executables
-(compilers, scripts) to read and write [*artifacts*](#artifact). *Spawn
-strategies* control how these actions are executed: locally, remotely,
-dynamically, sandboxed, docker, and so on.
+The third phase of a build. Executes the [*actions*](#action) from the [*action
+graph*](#action-graph) created during the [*analysis phase*](#analysis-phase).
+Executed actions invoke executables (compilers, scripts) to read and write
+[*artifacts*](#artifact). *Spawn strategies* control how these actions are
+executed: locally, remotely, dynamically, sandboxed, docker, and so on.
 
 #### Execution root
 
@@ -280,17 +286,18 @@ repository* named `my_repository`.
 
 #### Loading phase
 
-The first phase of a build. WORKSPACE, BUILD, and .bzl files are parsed to
-create *packages*. Macros and certain functions like `glob()` are evaluated in
-this phase. Interleaved with the second phase of the build, the *analysis
-phase*, to build up a [*target graph*](#target-graph).
+The first phase of a build where Bazel parses WORKSPACE, BUILD, and .bzl files
+to create *packages*. [*Macros*](#macro) and certain functions like `glob()` are
+evaluated in this phase. Interleaved with the second phase of the build, the
+[*analysis phase*](#analysis-phase), to build up a [*target
+graph*](#target-graph).
 
 #### Macro
 
 A mechanism to compose multiple rule target declarations together under a single
-Starlark function. Enables reusing common rule declaration patterns across BUILD
-files. Expanded to the underlying rule target declarations during the *loading
-phase*.
+[*Starlark*](#starlark) function. Enables reusing common rule declaration
+patterns across BUILD files. Expanded to the underlying rule target declarations
+during the *loading phase*.
 
 #### Mnemonic
 
@@ -303,7 +310,7 @@ example: Javac, CppCompile, AndroidManifestMerger.
 [*Rules*](#rule) that are built into Bazel and implemented in Java. Such rules
 appear in *.bzl files* as functions in the native module (for example,
 `native.cc_library` or `native.java_library`). User-defined rules (non-native)
-are created using Starlark.
+are created using [*Starlark*](#starlark).
 
 #### Output base
 
@@ -426,11 +433,11 @@ workspace-related information for release builds. Enable through the
 
 #### Starlark
 
-The extension language for writing rules and macros. A restricted subset of
-Python (syntactically and grammatically) aimed for the purpose of configuration,
-and for better performance. Uses the .bzl file extension. [*BUILD
-files*](#build-file) use an even more restricted version of Starlark (e.g. no
-`def` function definitions). Formerly known as Skylark.
+The extension language for writing [*rules*](rules) and [*macros*](#macro). A
+restricted subset of Python (syntactically and grammatically) aimed for the
+purpose of configuration, and for better performance. Uses the .bzl file
+extension. [*BUILD files*](#build-file) use an even more restricted version of
+Starlark (e.g. no `def` function definitions). Formerly known as Skylark.
 
 <!-- TODO: #### Starlark rules -->
 
@@ -483,7 +490,7 @@ platform, that is, a Unix compiler toolchain's components may differ for the
 Windows variant, even though the toolchain is for the same language. Selecting
 the right toolchain for the platform is known as toolchain resolution.
 
-#### Top-level
+#### Top-level target
 
 A build [*target*](#target) is top-level if it’s requested on the Bazel command
 line. For example, if `//:foo` depends on `//:bar`, and `bazel build //:foo` is
