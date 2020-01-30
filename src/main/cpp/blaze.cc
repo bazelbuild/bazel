@@ -966,22 +966,22 @@ static DurationMillis ExtractData(const string &self_path,
     // On Linux, we can't use the PID as a unique identifier, because Bazel
     // might run in a PID namespace and then all Bazel clients have the same
     // PID, so we use mkdtemp instead.
-    std::vector<char> tmp_path(install_base.size() + strlen(".tmp.XXXXXX") + 1);
-    strcpy(tmp_path.data(), install_base.c_str());
-    strcat(tmp_path.data(), ".tmp.XXXXXX");
     if (!blaze_util::MakeDirectories(blaze_util::Dirname(install_base), 0777)) {
       BAZEL_DIE(blaze_exit_code::INTERNAL_ERROR)
           << "couldn't create '" << blaze_util::Dirname(install_base)
           << "': " << blaze_util::GetLastErrorString();
     }
-    if (mkdtemp(tmp_path.data()) == nullptr) {
-      char *err = strerror(errno);
+    std::string tmp_install(install_base + ".tmp.XXXXXX");
+    if (mkdtemp(&tmp_install[0]) == nullptr) {
+      std::string err = GetLastErrorString();
       BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
           << "could not create temporary directory to extract install base"
           << " (" << err << ")";
     }
-    string tmp_install = tmp_path.data();
-    chmod(tmp_install.c_str(), 0777);
+    // There's no better way to get the current umask than to set and reset it.
+    const mode_t um = umask(0);
+    umask(um);
+    chmod(tmp_install.c_str(), 0777 & ~um);
 #endif
     ExtractArchiveOrDie(self_path, startup_options.product_name,
                         expected_install_md5, tmp_install);
