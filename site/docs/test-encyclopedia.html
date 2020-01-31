@@ -130,6 +130,11 @@ test's <code>size</code> as follows:</p>
 900 seconds to run. A "medium" test with a timeout of "short" will be allotted
 60 seconds.</p>
 
+<p>Unlike <code>timeout</code>, the <code>size</code> also determines the
+limits for other resources like RAM, as described in
+<a href="be/common-definitions.html?cl=head#common-attributes-tests">Common
+definitions</a>.</p>
+
 <p>All combinations of <code>size</code> and <code>timeout</code> labels are
 legal, so an "enormous" test may be declared to have a timeout of "short".
 Presumably it would do some really horrible things very quickly.</p>
