@@ -1055,12 +1055,12 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
       // TODO(jingwen-external): plumb conditional
       // One starting ../ is okay for getting to a sibling repository.
       if (includePath.startsWith(LabelConstants.EXPERIMENTAL_EXTERNAL_PATH_PREFIX)) {
-        includePath = includePath.relativeTo(LabelConstants.EXPERIMENTAL_EXTERNAL_PATH_PREFIX);
+//        includePath = includePath.relativeTo(LabelConstants.EXPERIMENTAL_EXTERNAL_PATH_PREFIX);
       } else if (includePath.startsWith(LabelConstants.EXTERNAL_PATH_PREFIX)) {
         includePath = includePath.relativeTo(LabelConstants.EXTERNAL_PATH_PREFIX);
       }
 
-      if (includePath.isAbsolute() || includePath.containsUplevelReferences()) {
+      if (includePath.isAbsolute()) {  // || includePath.containsUplevelReferences()) {
         throw new ActionExecutionException(
             String.format(
                 "The include path '%s' references a path outside of the execution root.",

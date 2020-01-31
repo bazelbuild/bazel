@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactResolver;
+import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
@@ -147,6 +148,8 @@ public class HeaderDiscovery {
         // the build with an error.
         if (execPath.startsWith(execRoot)) {
           execPathFragment = execPath.relativeTo(execRoot); // funky but tolerable path
+        } else if (execPath.startsWith(execRoot.getParentDirectory())) { // for --experimental_allow_external_directory
+          execPathFragment = execPath.relativeTo(execRoot.getParentDirectory());
         } else {
           problems.add(execPathFragment.getPathString());
           continue;
