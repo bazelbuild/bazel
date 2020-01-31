@@ -621,35 +621,43 @@ function get_run_time() {
 # Must be called from the end of the user's test suite.
 # Calls exit with zero on success, non-zero otherwise.
 function run_suite() {
-    local message="$1"
-    # The name of the suite should be the script being run, which
-    # will be the filename with the ".sh" extension removed.
-    local suite_name="$(basename $0)"
+  local message="$1"
+  # The name of the suite should be the script being run, which
+  # will be the filename with the ".sh" extension removed.
+  local suite_name="$(basename $0)"
 
-    echo >&2
-    echo "$message" >&2
-    echo >&2
+  echo >&2
+  echo "$message" >&2
+  echo >&2
 
-    __log_to_test_report "<\/testsuites>" "<testsuite></testsuite>"
+  __log_to_test_report "<\/testsuites>" "<testsuite></testsuite>"
 
-    local total=0
-    local passed=0
+  local total=0
+  local passed=0
 
-    atexit "cleanup"
+  atexit "cleanup"
 
-    # If the user didn't specify an explicit list of tests (e.g. a
-    # working set), use them all.
-    if [ ${#TESTS[@]} = 0 ]; then
-      TESTS=$(declare -F | awk '{print $3}' | grep ^test_)
-    elif [ -n "${TEST_WARNINGS_OUTPUT_FILE:-}" ]; then
-      if grep -q "TESTS=" "$TEST_script" ; then
-        echo "TESTS variable overridden in sh_test. Please remove before submitting" \
-          >> "$TEST_WARNINGS_OUTPUT_FILE"
-      fi
+  # If the user didn't specify an explicit list of tests (e.g. a
+  # working set), use them all.
+  if [ ${#TESTS[@]} -eq 0 ]; then
+    # Even if there aren't any tests, this needs to succeed.
+    TESTS=$(declare -F | awk '{print $3}' | grep ^test_ || true)
+  elif [ -n "${TEST_WARNINGS_OUTPUT_FILE:-}" ]; then
+    if grep -q "TESTS=" "$TEST_script" ; then
+      echo "TESTS variable overridden in sh_test. Please remove before submitting" \
+        >> "$TEST_WARNINGS_OUTPUT_FILE"
     fi
+  fi
 
-    __update_shards
+  # Reset TESTS in the common case where it contains a single empty string.
+  if [ -z "${TESTS[*]}" ]; then
+    TESTS=()
+  fi
+  local original_tests_size=${#TESTS[@]}
 
+  __update_shards
+
+  if [[ "${#TESTS[@]}" -ne 0 ]]; then
     for TEST_name in ${TESTS[@]}; do
       >$TEST_log # Reset the log.
       TEST_passed="true"
@@ -733,13 +741,21 @@ function run_suite() {
       fi
       __log_to_test_report "<\/testsuite>" "$testcase_tag"
     done
+  fi
 
-    __finish_test_report "$suite_name" $total $passed
-    __pad "$passed / $total tests passed." '*' >&2
-    [ $total = $passed ] || {
-      __pad "There were errors." '*'
-      exit 1
-    } >&2
+  __finish_test_report "$suite_name" $total $passed
+  __pad "$passed / $total tests passed." '*' >&2
+  if [ $original_tests_size -eq 0 ]; then
+    __pad "No tests found." '*'
+    exit 1
+  elif [ $total -eq 0 ]; then
+    __pad "No tests executed due to sharding. Check your test's shard_count." '*'
+    __pad "Succeeding anyway." '*'
+  fi
+  [ $total = $passed ] || {
+    __pad "There were errors." '*'
+    exit 1
+  } >&2
 
-    exit 0
+  exit 0
 }

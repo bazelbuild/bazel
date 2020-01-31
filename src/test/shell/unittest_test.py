@@ -75,6 +75,9 @@ class TestResult(object):
   def assertLogMessage(self, message):
     self._asserter.assertRegex(self._output, message)
 
+  def assertNotLogMessage(self, message):
+    self._asserter.assertNotRegex(self._output, message)
+
   def assertXmlMessage(self, message):
     self._asserter.assertRegex(self._xml, message)
 
@@ -134,20 +137,24 @@ class UnittestTest(unittest.TestCase):
     # Base on the current dir
     return "%s/.." % os.getcwd()
 
-  def execute_test(self, filename):
+  def execute_test(self, filename, env=None):
     """Executes the file and stores the results."""
 
     filepath = os.path.join(self.work_dir, filename)
     xmlfile = os.path.join(self.work_dir, "dummy-testlog.xml")
-    env = {
+    test_env = {
         "TEST_TMPDIR": self.work_dir,
         "RUNFILES_DIR": self.find_runfiles(),
         "TEST_SRCDIR": os.environ["TEST_SRCDIR"],
         "XML_OUTPUT_FILE": xmlfile,
     }
+    # Add in env, forcing everything to be a string.
+    if env:
+      for k, v in env.items():
+        test_env[k] = str(v)
     completed = subprocess.run(
         [filepath],
-        env=env,
+        env=test_env,
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
     )
@@ -229,6 +236,46 @@ run_suite "errexit tests"
     result.assertTestFailed("test_errexit")
     result.assertLogMessage(r"./thing.sh:[0-9]*: in call to helper")
     result.assertLogMessage(r"./thing.sh:[0-9]*: in call to test_errexit")
+
+  def test_empty_test_fails(self):
+    self.write_file("thing.sh", """
+# No tests present.
+
+run_suite "empty test suite"
+""")
+
+    result = self.execute_test("thing.sh")
+    result.assertNotSuccess("empty test suite")
+    result.assertLogMessage("No tests found.")
+
+  def test_empty_test_succeeds_sharding(self):
+    self.write_file(
+        "thing.sh", """
+# Only one test.
+function test_thing() {
+  echo
+}
+
+run_suite "empty test suite"
+""")
+
+    # First shard.
+    result = self.execute_test(
+        "thing.sh", env={
+            "TEST_TOTAL_SHARDS": 2,
+            "TEST_SHARD_INDEX": 0,
+        })
+    result.assertSuccess("empty test suite")
+    result.assertLogMessage("No tests executed due to sharding")
+
+    # Second shard.
+    result = self.execute_test(
+        "thing.sh", env={
+            "TEST_TOTAL_SHARDS": 2,
+            "TEST_SHARD_INDEX": 1,
+        })
+    result.assertSuccess("empty test suite")
+    result.assertNotLogMessage("No tests")
 
 
 if __name__ == "__main__":
