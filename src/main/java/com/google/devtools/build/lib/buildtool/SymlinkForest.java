@@ -167,6 +167,7 @@ public class SymlinkForest {
 
   private void plantSymlinkForestWithPartialMainRepository(Map<Path, Path> mainRepoLinks)
       throws IOException, AbruptExitException {
+    execroot.createDirectory();
     for (Map.Entry<Path, Path> entry : mainRepoLinks.entrySet()) {
       Path link = entry.getKey();
       Path target = entry.getValue();
@@ -327,6 +328,7 @@ public class SymlinkForest {
       PackageIdentifier pkgId = entry.getKey();
       if (pkgId.equals(LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER)) {
         // This isn't a "real" package, don't add it to the symlink tree.
+        // TODO(jingwen-external): add conditional
         continue;
       }
       RepositoryName repository = pkgId.getRepository();
