@@ -85,7 +85,7 @@ Bazel’s configuration file used to change the default values for [startup
 flags](#startup-flags) and [command flags](#command-flags), and to define common
 groups of options that can then be set together on the Bazel command line using
 a `--config` flag. Bazel can combine settings from multiple bazelrc files
-(systemwide, per-]workspace], per-user, or from a custom location), and a
+(systemwide, per-workspace, per-user, or from a custom location), and a
 bazelrc file may also import settings from other bazelrcs.
 
 #### Blaze
