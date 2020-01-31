@@ -61,6 +61,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
+import com.google.devtools.build.lib.profiler.AutoProfiler;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
@@ -101,12 +102,15 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
+import java.util.logging.Logger;
 import javax.annotation.Nullable;
 
 /** Action that represents some kind of C++ compilation step. */
 @ThreadCompatible
 public class CppCompileAction extends AbstractAction implements IncludeScannable, CommandAction {
 
+  private static final Logger logger = Logger.getLogger(CppCompileAction.class.getName());
   private static final PathFragment BUILD_PATH_FRAGMENT = PathFragment.create("BUILD");
 
   private static final boolean VALIDATION_DEBUG_WARN = false;
@@ -625,16 +629,19 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
     // used modules. Combining the NestedSets of transitive deps of the top-level modules also
     // gives us an effective way to compute and store discoveredModules.
     Set<Artifact> topLevel = new LinkedHashSet<>(usedModules);
-    for (NestedSet<? extends Artifact> transitive : transitivelyUsedModules.values()) {
-      // It is better to iterate over each nested set here instead of creating a joint one and
-      // iterating over it, as this makes use of NestedSet's memoization (each of them has likely
-      // been iterated over before). Don't use Set.removeAll() here as that iterates over the
-      // smaller set (topLevel, which would support efficient lookup) and looks up in the larger one
-      // (transitive, which is a linear scan).
-      // We get a collection view of the NestedSet in a way that can throw an InterruptedException
-      // because a NestedSet may contain a future.
-      for (Artifact module : transitive.toListInterruptibly()) {
-        topLevel.remove(module);
+    try (AutoProfiler ignored =
+        AutoProfiler.logged("nested set expansion", logger, TimeUnit.SECONDS.toMillis(5))) {
+      for (NestedSet<? extends Artifact> transitive : transitivelyUsedModules.values()) {
+        // It is better to iterate over each nested set here instead of creating a joint one and
+        // iterating over it, as this makes use of NestedSet's memoization (each of them has likely
+        // been iterated over before). Don't use Set.removeAll() here as that iterates over the
+        // smaller set (topLevel, which would support efficient lookup) and looks up in the larger
+        // one (transitive, which is a linear scan).
+        // We get a collection view of the NestedSet in a way that can throw an InterruptedException
+        // because a NestedSet may contain a future.
+        for (Artifact module : transitive.toListInterruptibly()) {
+          topLevel.remove(module);
+        }
       }
     }
     NestedSetBuilder<Artifact> topLevelModulesBuilder = NestedSetBuilder.stableOrder();
