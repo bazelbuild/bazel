@@ -115,8 +115,6 @@ public class SkylarkNativeModule implements SkylarkNativeModuleApi {
       matches = ImmutableList.of();
     } catch (BadGlobException e) {
       throw new EvalException(null, e.getMessage());
-    } catch (IllegalArgumentException e) {
-      throw new EvalException(null, "illegal argument in call to glob", e);
     }
 
     ArrayList<String> result = new ArrayList<>(matches.size());

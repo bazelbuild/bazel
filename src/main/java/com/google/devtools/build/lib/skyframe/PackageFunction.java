@@ -1084,7 +1084,11 @@ public class PackageFunction implements SkyFunction {
         if (legacyIncludesToken != null) {
           matches.addAll(delegate.fetchUnsorted(legacyIncludesToken));
         }
-        UnixGlob.removeExcludes(matches, excludes);
+        try {
+          UnixGlob.removeExcludes(matches, excludes);
+        } catch (UnixGlob.BadPattern ex) {
+          throw new BadGlobException(ex.getMessage());
+        }
         List<String> result = new ArrayList<>(matches);
 
         if (!allowEmpty && result.isEmpty()) {

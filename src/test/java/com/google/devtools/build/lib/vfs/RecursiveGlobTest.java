@@ -151,9 +151,9 @@ public class RecursiveGlobTest {
 
   private void assertIllegalWildcard(String pattern)
       throws Exception {
-    IllegalArgumentException e =
+    UnixGlob.BadPattern e =
         assertThrows(
-            IllegalArgumentException.class,
+            UnixGlob.BadPattern.class,
             () -> new UnixGlob.Builder(tmpPath).addPattern(pattern).globInterruptible());
     assertThat(e).hasMessageThat().containsMatch("recursive wildcard must be its own segment");
   }
