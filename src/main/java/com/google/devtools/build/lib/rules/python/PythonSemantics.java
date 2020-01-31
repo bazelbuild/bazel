@@ -93,4 +93,12 @@ public interface PythonSemantics {
       throws InterruptedException, RuleErrorException;
 
   CcInfo buildCcInfoProvider(Iterable<? extends TransitiveInfoCollection> deps);
+
+  /**
+   * Called when building executables or packages to fill in missing empty __init__.py files if the
+   * --incompatible_default_to_explicit_init_py has not yet been enabled. This usually returns a
+   * public static final reference, code is free to use that directly on specific implementations
+   * instead of making this call.
+   */
+  Runfiles.EmptyFilesSupplier getEmptyRunfilesSupplier();
 }
