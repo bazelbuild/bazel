@@ -99,8 +99,8 @@ The main build configuration file containing [rule](#rule) declarations (e.g.
 `cc_binary`, `go_library`). When [BUILD files](#build-file) are evaluated and
 analyzed, the rules create new targets in the [target graph](#target-graph). A
 BUILD file can load and use rules from .bzl files. A BUILD file marks a
-directory and any sub-directories not containing a BUILD file as a ]package]. A
-BUILD file can also be named BUILD.bazel.
+directory and any sub-directories not containing a BUILD file as a
+[package](#package). A BUILD file can also be named BUILD.bazel.
 
 #### BUILD.bazel File
 
@@ -135,9 +135,9 @@ also known as a build flag.
 #### Clean build
 
 A build that doesn't use the results of earlier builds. This is generally slower
-than an ]incremental build] but commonly considered to be more
-[correct](#correctness). Bazel guarantees both clean and incremental builds are
-always correct.
+than an [incremental build](#incremental-build) but commonly considered to be
+more [correct](#correctness). Bazel guarantees both clean and incremental builds
+are always correct.
 
 #### Client-server model
 
@@ -215,7 +215,7 @@ very large depsets (e.g. hundreds of thousands of files). Implemented to
 recursively refer to other depsets for space efficiency reasons. [Rule](#rule)
 implementations should not "flatten" depsets by converting them to lists unless
 the rule is at the top level of the build graph. Flattening large depsets incurs
-huge memory consumption. Also known as ]Nested Sets] in Bazel's internal
+huge memory consumption. Also known as Nested Sets in Bazel's internal
 implementation.
 
 #### Disk cache
@@ -242,7 +242,7 @@ full build times.
 The third phase of a build. Executes the [actions](#action) from the [action
 graph](#action-graph) created during the [analysis phase](#analysis-phase).
 Executed actions invoke executables (compilers, scripts) to read and write
-[artifacts](#artifact). ]Spawn strategies] control how these actions are
+[artifacts](#artifact). *Spawn strategies* control how these actions are
 executed: locally, remotely, dynamically, sandboxed, docker, and so on.
 
 #### Execution root
@@ -306,7 +306,7 @@ during the [loading phase](#loading-phase).
 #### Mnemonic
 
 A short, human-readable string to quickly understand what an [action](#action)
-is doing. Can be used as identifiers for ]spawn strategy] selections. For
+is doing. Can be used as identifiers for *spawn strategy* selections. For
 example: Javac, CppCompile, AndroidManifestMerger.
 
 #### Native rules
@@ -319,7 +319,7 @@ are created using [Starlark](#starlark).
 #### Output base
 
 A [workspace](#workspace)-specific directory to store Bazel output files. Used
-to separate outputs from the ]workspace]'s source tree. Located in the [output
+to separate outputs from the *workspace*'s source tree. Located in the [output
 user root](#output-user-root).
 
 #### Output groups
@@ -396,15 +396,16 @@ specified for the download.
 The property of a build or test that a set of inputs to the build or test will
 always produce the same set of outputs every time, regardless of time, method,
 or environment. Note that this does not necessarily imply that the outputs are
-]correct] or the desired outputs.
+[correct](#correctness) or the desired outputs.
 
 #### Rule
 
 A function implementation that registers a series of [actions](#action) to be
-performed on inputs to produce a set of outputs. Rules can read values from
-]attributes] as inputs (e.g. deps, testonly, name). Rule targets also produce
-and pass along information that may be useful to other rule targets in the form
-of [providers](#provider) (e.g. `DefaultInfo` provider).
+performed on input [artifacts](#artifact) to produce a set of output artifacts.
+Rules can read values from *attributes* as inputs (e.g. deps, testonly, name).
+Rule targets also produce and pass along information that may be useful to other
+rule targets in the form of [providers](#provider) (e.g. `DefaultInfo`
+provider).
 
 #### Runfiles
 
@@ -555,7 +556,7 @@ Principles:
 * Use the simplest grammar possible. Try not to string too many concepts into a
   sentence.
 * Make the last word of each sentence count.
-* Make each adjective ]really] count.
+* Make each adjective *really* count.
 * Avoid adverbs.
 * Keep definitions as self-contained as possible.
 * Calibrate a word's value by considering what would be lost without it.
