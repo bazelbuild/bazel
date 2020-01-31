@@ -89,4 +89,34 @@ public class WorkerExecRootTest {
     assertThat(execRoot.getRelative("very/output.txt").exists()).isFalse();
     assertThat(execRoot.getRelative("temp.txt").exists()).isFalse();
   }
+
+  @Test
+  public void createsAndCleansInputSymlinks() throws Exception {
+    FileSystemUtils.ensureSymbolicLink(
+        workspaceDir.getRelative("dir/input_symlink_1"), "old_content");
+    FileSystemUtils.ensureSymbolicLink(
+        workspaceDir.getRelative("dir/input_symlink_2"), "unchanged");
+    FileSystemUtils.ensureSymbolicLink(workspaceDir.getRelative("dir/input_symlink_3"), "whatever");
+
+    WorkerExecRoot workerExecRoot =
+        new WorkerExecRoot(
+            execRoot,
+            new SandboxInputs(
+                ImmutableMap.of(),
+                ImmutableMap.of(
+                    PathFragment.create("dir/input_symlink_1"), PathFragment.create("new_content"),
+                    PathFragment.create("dir/input_symlink_2"), PathFragment.create("unchanged"))),
+            SandboxOutputs.create(ImmutableSet.of(), ImmutableSet.of()),
+            ImmutableSet.of());
+
+    // This should update the `input_symlink_{1,2,3}` according to `SandboxInputs`, i.e., update the
+    // first/second (alternatively leave the second unchanged) and delete the third.
+    workerExecRoot.createFileSystem();
+
+    assertThat(execRoot.getRelative("dir/input_symlink_1").readSymbolicLink())
+        .isEqualTo(PathFragment.create("new_content"));
+    assertThat(execRoot.getRelative("dir/input_symlink_2").readSymbolicLink())
+        .isEqualTo(PathFragment.create("unchanged"));
+    assertThat(execRoot.getRelative("dir/input_symlink_3").exists()).isFalse();
+  }
 }
