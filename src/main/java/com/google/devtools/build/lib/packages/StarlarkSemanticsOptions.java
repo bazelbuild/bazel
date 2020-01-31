@@ -419,6 +419,19 @@ public class StarlarkSemanticsOptions extends OptionsBase implements Serializabl
   public boolean incompatibleNoAttrLicense;
 
   @Option(
+      name = "incompatible_applicable_licenses",
+      defaultValue = "false",
+      // TODO(aiuto): change to OptionDocumentationCategory.STARLARK_SEMANTICS,
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
+      metadataTags = {
+        OptionMetadataTag.INCOMPATIBLE_CHANGE,
+        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+      },
+      help = "If set to true, enables the function `attr.applicable_licenses`.")
+  public boolean incompatibleApplicableLicenses;
+
+  @Option(
       name = "incompatible_no_implicit_file_export",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
@@ -620,6 +633,7 @@ public class StarlarkSemanticsOptions extends OptionsBase implements Serializabl
             .experimentalStarlarkUnusedInputsList(experimentalStarlarkUnusedInputsList)
             .experimentalCcSharedLibrary(experimentalCcSharedLibrary)
             .experimentalRepoRemoteExec(experimentalRepoRemoteExec)
+            .incompatibleApplicableLicenses(incompatibleApplicableLicenses)
             .incompatibleBzlDisallowLoadAfterStatement(incompatibleBzlDisallowLoadAfterStatement)
             .incompatibleDepsetUnion(incompatibleDepsetUnion)
             .incompatibleDisableTargetProviderFields(incompatibleDisableTargetProviderFields)

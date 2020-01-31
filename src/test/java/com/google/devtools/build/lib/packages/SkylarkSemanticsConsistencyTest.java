@@ -138,6 +138,7 @@ public class SkylarkSemanticsConsistencyTest {
         "--experimental_cc_shared_library=" + rand.nextBoolean(),
         "--experimental_repo_remote_exec=" + rand.nextBoolean(),
         "--incompatible_always_check_depset_elements=" + rand.nextBoolean(),
+        "--incompatible_applicable_licenses=" + rand.nextBoolean(),
         "--incompatible_bzl_disallow_load_after_statement=" + rand.nextBoolean(),
         "--incompatible_depset_for_libraries_to_link_getter=" + rand.nextBoolean(),
         "--incompatible_depset_union=" + rand.nextBoolean(),
@@ -188,6 +189,7 @@ public class SkylarkSemanticsConsistencyTest {
         .experimentalCcSharedLibrary(rand.nextBoolean())
         .experimentalRepoRemoteExec(rand.nextBoolean())
         .incompatibleAlwaysCheckDepsetElements(rand.nextBoolean())
+        .incompatibleApplicableLicenses(rand.nextBoolean())
         .incompatibleBzlDisallowLoadAfterStatement(rand.nextBoolean())
         .incompatibleDepsetForLibrariesToLinkGetter(rand.nextBoolean())
         .incompatibleDepsetUnion(rand.nextBoolean())
