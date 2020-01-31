@@ -646,6 +646,11 @@ bool MakeDirectories(const Path& path, unsigned int mode) {
   return MakeDirectoriesW(path.AsNativePath(), mode);
 }
 
+bool RemoveRecursively(const string &path) {
+  // TODO(bazel-team): Implement this.
+  return false;
+}
+
 static inline void ToLowerW(WCHAR* p) {
   while (*p) {
     *p++ = towlower(*p);

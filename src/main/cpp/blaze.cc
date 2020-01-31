@@ -998,6 +998,7 @@ static DurationMillis ExtractData(const string &self_path,
           result == blaze_util::kRenameDirectoryFailureNotEmpty) {
         // If renaming fails because the directory already exists and is not
         // empty, then we assume another good installation snuck in before us.
+        blaze_util::RemoveRecursively(tmp_install);
         break;
       } else {
         // Otherwise the install directory may still be scanned by the antivirus
@@ -1013,6 +1014,7 @@ static DurationMillis ExtractData(const string &self_path,
 
     // Give up renaming after 120 failed attempts / 2 minutes.
     if (attempts == 120) {
+      blaze_util::RemoveRecursively(tmp_install);
       BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
           << "install base directory '" << tmp_install
           << "' could not be renamed into place: " << GetLastErrorString();

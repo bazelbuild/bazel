@@ -192,6 +192,11 @@ void SyncFile(const Path &path);
 bool MakeDirectories(const std::string &path, unsigned int mode);
 bool MakeDirectories(const Path &path, unsigned int mode);
 
+// Removes the specified path or directory, and in the latter case, all of its
+// contents. Returns true iff the path doesn't exists when the method completes
+// (including if the path didn't exist to begin with). Does not follow symlinks.
+bool RemoveRecursively(const std::string &path);
+
 // Returns the current working directory.
 // The path is platform-specific (e.g. Windows path of Windows) and absolute.
 std::string GetCwd();
