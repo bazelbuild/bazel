@@ -15,14 +15,12 @@ package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
-import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
-import java.util.Arrays;
 import java.util.Collections;
-import java.util.stream.Collectors;
 
 /** SkyKey for {@code NestedSet<Artifact>}. */
 public class ArtifactNestedSetKey implements SkyKey {
@@ -88,11 +86,15 @@ public class ArtifactNestedSetKey implements SkyKey {
    */
   Iterable<Object> transitiveMembers() {
     if (!(rawChildren instanceof Object[])) {
-      return ImmutableSet.of();
+      return ImmutableList.of();
     }
-    return Arrays.stream((Object[]) rawChildren)
-        .filter(c -> c instanceof Object[])
-        .collect(Collectors.toList());
+    ImmutableList.Builder<Object> listBuilder = new ImmutableList.Builder<>();
+    for (Object c : (Object[]) rawChildren) {
+      if (c instanceof Object[]) {
+        listBuilder.add(c);
+      }
+    }
+    return listBuilder.build();
   }
 
   /**
@@ -107,9 +109,12 @@ public class ArtifactNestedSetKey implements SkyKey {
     if (!(rawChildren instanceof Object[])) {
       return Collections.singletonList(Artifact.key((Artifact) rawChildren));
     }
-    return Arrays.stream((Object[]) rawChildren)
-        .filter(c -> !(c instanceof Object[]))
-        .map(c -> Artifact.key((Artifact) c))
-        .collect(Collectors.toList());
+    ImmutableList.Builder<SkyKey> listBuilder = new ImmutableList.Builder<>();
+    for (Object c : (Object[]) rawChildren) {
+      if (!(c instanceof Object[])) {
+        listBuilder.add(Artifact.key((Artifact) c));
+      }
+    }
+    return listBuilder.build();
   }
 }
