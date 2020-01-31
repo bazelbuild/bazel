@@ -351,7 +351,8 @@ public class SymlinkForest {
           // ignore external/ directory if user has it in the source tree
           // because it conflicts with external repository location.
           if (baseName.equals(LabelConstants.EXTERNAL_PATH_PREFIX.getBaseName())) {
-            continue;
+            // TODO(jingwen-external): add conditional
+//            continue;
           }
           Path execrootLink = execroot.getRelative(baseName);
           Path sourcePath = entry.getValue().getRelative(pkgId.getSourceRoot().getSegment(0));
