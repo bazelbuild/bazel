@@ -69,7 +69,6 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-import java.util.function.Consumer;
 
 /**
  * A wrapper for {@link BlazeRuntime} for testing purposes that makes it possible to exercise
@@ -90,7 +89,7 @@ public class BlazeRuntimeWrapper {
   private OptionsParser optionsParser;
   private ImmutableList.Builder<String> optionsToParse = new ImmutableList.Builder<>();
 
-  private Consumer<EventBus> eventBusReceiver;
+  private final List<Object> eventBusSubscribers = new ArrayList<>();
 
   public BlazeRuntimeWrapper(
       EventCollectionApparatus events, ServerDirectories serverDirectories,
@@ -177,12 +176,9 @@ public class BlazeRuntimeWrapper {
     return runtime;
   }
 
-  /**
-   * If called with a non-null argument, all new EventBuses are posted on creation to the given
-   * receiver.
-   */
-  public void setEventBusReceiver(Consumer<EventBus> receiver) {
-    eventBusReceiver = receiver;
+  /** Registers the given {@code subscriber} with the {@link EventBus} before each command. */
+  public void registerSubscriber(Object subscriber) {
+    eventBusSubscribers.add(subscriber);
   }
 
   public final CommandEnvironment newCommand() throws Exception {
@@ -299,8 +295,9 @@ public class BlazeRuntimeWrapper {
       for (BlazeModule module : getRuntime().getBlazeModules()) {
         module.beforeCommand(env);
       }
-      if (eventBusReceiver != null) {
-        eventBusReceiver.accept(env.getEventBus());
+      EventBus eventBus = env.getEventBus();
+      for (Object subscriber : eventBusSubscribers) {
+        eventBus.register(subscriber);
       }
       env.getEventBus()
           .post(
