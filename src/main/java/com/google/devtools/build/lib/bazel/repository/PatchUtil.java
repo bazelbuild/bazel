@@ -64,8 +64,11 @@ public class PatchUtil {
     ChunkHeader(String header) throws PatchFailedException {
       Matcher m = CHUNK_HEADER_RE.matcher(header);
       if (m.find()) {
-        oldSize = Integer.parseInt(m.group(2));
-        newSize = Integer.parseInt(m.group(4));
+        String size;
+        size = m.group(2);
+        oldSize = (size == null) ? 1 : Integer.parseInt(size);
+        size = m.group(4);
+        newSize = (size == null) ? 1 : Integer.parseInt(size);
       } else {
         throw new PatchFailedException("Wrong chunk header: " + header);
       }

@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.syntax;
 
 import com.google.common.truth.Truth;
+import com.google.devtools.build.lib.events.Event;
 import java.util.Arrays;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -51,10 +52,14 @@ public class LValueBoundNamesTest {
   }
 
   private static void assertBoundNames(String assignment, String... expectedBoundNames) {
-    BuildFileAST buildFileAST = BuildFileAST.parseString(Environment.FAIL_FAST_HANDLER, assignment);
-    Expression lhs = ((AssignmentStatement) buildFileAST.getStatements().get(0)).getLHS();
+    ParserInput input = ParserInput.fromLines(assignment);
+    StarlarkFile file = StarlarkFile.parse(input);
+    for (Event error : file.errors()) {
+      throw new AssertionError(error);
+    }
+    Expression lhs = ((AssignmentStatement) file.getStatements().get(0)).getLHS();
     Set<String> boundNames =
-        ValidationEnvironment.boundIdentifiers(lhs).stream()
+        Identifier.boundIdentifiers(lhs).stream()
             .map(Identifier::getName)
             .collect(Collectors.toSet());
     Truth.assertThat(boundNames).containsExactlyElementsIn(Arrays.asList(expectedBoundNames));

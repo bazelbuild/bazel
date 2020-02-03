@@ -130,8 +130,9 @@ public class TransitiveTargetFunction
   }
 
   @Override
-  public SkyValue computeSkyValue(TargetAndErrorIfAny targetAndErrorIfAny,
-      TransitiveTargetValueBuilder builder) {
+  @SuppressWarnings("unchecked")
+  public SkyValue computeSkyValue(
+      TargetAndErrorIfAny targetAndErrorIfAny, TransitiveTargetValueBuilder builder) {
     Target target = targetAndErrorIfAny.getTarget();
     NoSuchTargetException errorLoadingTarget = targetAndErrorIfAny.getErrorLoadingTarget();
 
@@ -159,7 +160,7 @@ public class TransitiveTargetFunction
                 attr.getLateBoundDefault().getFragmentClass())) {
           addFragmentIfNew(
               builder,
-              (Class<? extends BuildConfiguration.Fragment>)
+              (Class<? extends BuildConfiguration.Fragment>) // unchecked cast
                   attr.getLateBoundDefault().getFragmentClass());
         }
       }

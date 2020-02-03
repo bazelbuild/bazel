@@ -17,7 +17,7 @@ package com.google.devtools.build.lib.query2.query.output;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.Target;
-import com.google.devtools.build.lib.query2.AbstractBlazeQueryEnvironment;
+import com.google.devtools.build.lib.query2.common.AbstractBlazeQueryEnvironment;
 import com.google.devtools.build.lib.query2.engine.AggregatingQueryExpressionVisitor.ContainsFunctionQueryExpressionVisitor;
 import com.google.devtools.build.lib.query2.engine.OutputFormatterCallback;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment;
@@ -69,7 +69,7 @@ class LocationOutputFormatter extends AbstractUnorderedFormatter {
         for (Target target : partialResult) {
           Location location = target.getLocation();
           writer
-              .append(location.print())
+              .append(location.toString())
               .append(": ")
               .append(target.getTargetKind())
               .append(" ")

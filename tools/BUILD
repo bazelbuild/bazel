@@ -70,6 +70,22 @@ filegroup(
     ],
 )
 
+# All bzl files in the built in repo '@bazel_tools'.
+filegroup(
+    name = "bzl_srcs",
+    srcs = [
+        "//tools/android:bzl_srcs",
+        "//tools/build_defs:bzl_srcs",
+        "//tools/build_rules:bzl_srcs",
+        "//tools/config:common_settings.bzl",
+        "//tools/cpp:bzl_srcs",
+        "//tools/jdk:bzl_srcs",
+        "//tools/osx:bzl_srcs",
+        "//tools/python:bzl_srcs",
+        "//tools/sh:bzl_srcs",
+    ],
+)
+
 test_suite(
     name = "all_windows_tests",
     tests = [

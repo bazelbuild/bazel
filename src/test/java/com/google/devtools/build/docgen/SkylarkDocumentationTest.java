@@ -17,22 +17,21 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.docgen.skylark.SkylarkMethodDoc;
 import com.google.devtools.build.docgen.skylark.SkylarkModuleDoc;
+import com.google.devtools.build.lib.analysis.skylark.SkylarkModules;
 import com.google.devtools.build.lib.analysis.skylark.SkylarkRuleContext;
-import com.google.devtools.build.lib.collect.nestedset.NestedSet;
-import com.google.devtools.build.lib.skylark.util.SkylarkTestCase;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkGlobalLibrary;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.syntax.Environment;
-import com.google.devtools.build.lib.syntax.SkylarkDict;
-import com.google.devtools.build.lib.syntax.SkylarkList;
-import com.google.devtools.build.lib.syntax.SkylarkList.MutableList;
-import com.google.devtools.build.lib.syntax.SkylarkList.Tuple;
-import com.google.devtools.build.lib.syntax.StarlarkSemantics;
-import com.google.devtools.build.lib.syntax.util.EvaluationTestCase;
+import com.google.devtools.build.lib.syntax.Depset;
+import com.google.devtools.build.lib.syntax.Dict;
+import com.google.devtools.build.lib.syntax.Sequence;
+import com.google.devtools.build.lib.syntax.StarlarkList;
+import com.google.devtools.build.lib.syntax.StarlarkValue;
+import com.google.devtools.build.lib.syntax.Tuple;
 import com.google.devtools.build.lib.util.Classpath;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -40,48 +39,26 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
-import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/**
- * Tests for Skylark documentation.
- */
+/** Tests for Skylark documentation. */
 @RunWith(JUnit4.class)
-public class SkylarkDocumentationTest extends SkylarkTestCase {
+public class SkylarkDocumentationTest {
 
   private static final ImmutableList<String> DEPRECATED_UNDOCUMENTED_TOP_LEVEL_SYMBOLS =
       ImmutableList.of("Actions");
 
-  @Before
-  public final void createBuildFile() throws Exception {
-    scratch.file("foo/BUILD",
-        "genrule(name = 'foo',",
-        "  cmd = 'dummy_cmd',",
-        "  srcs = ['a.txt', 'b.img'],",
-        "  tools = ['t.exe'],",
-        "  outs = ['c.txt'])");
-  }
-
-  @Override
-  protected EvaluationTestCase createEvaluationTestCase(StarlarkSemantics semantics) {
-    return new EvaluationTestCase();
-  }
-
   @Test
   public void testSkylarkRuleClassBuiltInItemsAreDocumented() throws Exception {
-    checkSkylarkTopLevelEnvItemsAreDocumented(ev.getEnvironment());
+    ImmutableMap.Builder<String, Object> env = ImmutableMap.builder();
+    SkylarkModules.addSkylarkGlobalsToBuilder(env);
+    checkSkylarkTopLevelEnvItemsAreDocumented(env.build());
   }
 
-  @Test
-  public void testSkylarkRuleImplementationBuiltInItemsAreDocumented() throws Exception {
-    // TODO(bazel-team): fix documentation for built in java objects coming from modules.
-    checkSkylarkTopLevelEnvItemsAreDocumented(ev.getEnvironment());
-  }
-
-  @SuppressWarnings("unchecked")
-  private void checkSkylarkTopLevelEnvItemsAreDocumented(Environment env) throws Exception {
+  private void checkSkylarkTopLevelEnvItemsAreDocumented(Map<String, Object> globals)
+      throws Exception {
     Map<String, String> docMap = new HashMap<>();
     Map<String, SkylarkModuleDoc> modules =
         SkylarkDocumentationCollector.collectModules(
@@ -97,7 +74,7 @@ public class SkylarkDocumentationTest extends SkylarkTestCase {
 
     List<String> undocumentedItems = new ArrayList<>();
     // All built in variables are registered in the Skylark global environment.
-    for (String varname : env.getVariableNames()) {
+    for (String varname : globals.keySet()) {
       if (docMap.containsKey(varname)) {
         if (docMap.get(varname).isEmpty()) {
           undocumentedItems.add(varname);
@@ -106,7 +83,15 @@ public class SkylarkDocumentationTest extends SkylarkTestCase {
         undocumentedItems.add(varname);
       }
     }
-    assertWithMessage("Undocumented Skylark Environment items: " + undocumentedItems)
+
+    // These constants are currently undocumented.
+    // If they need documentation, the easiest approach would be
+    // to hard-code it in SkylarkDocumentationCollector.
+    undocumentedItems.remove("True");
+    undocumentedItems.remove("False");
+    undocumentedItems.remove("None");
+
+    assertWithMessage("Undocumented items: " + undocumentedItems)
         .that(undocumentedItems)
         .containsExactlyElementsIn(DEPRECATED_UNDOCUMENTED_TOP_LEVEL_SYMBOLS);
   }
@@ -119,7 +104,7 @@ public class SkylarkDocumentationTest extends SkylarkTestCase {
 
   /** MockClassA */
   @SkylarkModule(name = "MockClassA", doc = "MockClassA")
-  private static class MockClassA {
+  private static class MockClassA implements StarlarkValue {
     @SkylarkCallable(name = "get", doc = "MockClassA#get")
     public Integer get() {
       return 0;
@@ -128,7 +113,7 @@ public class SkylarkDocumentationTest extends SkylarkTestCase {
 
   /** MockClassD */
   @SkylarkModule(name = "MockClassD", doc = "MockClassD")
-  private static class MockClassD {
+  private static class MockClassD implements StarlarkValue {
     @SkylarkCallable(
       name = "test",
       doc = "MockClassD#test",
@@ -155,58 +140,55 @@ public class SkylarkDocumentationTest extends SkylarkTestCase {
 
   /** MockClassF */
   @SkylarkModule(name = "MockClassF", doc = "MockClassF")
-  private static class MockClassF {
+  private static class MockClassF implements StarlarkValue {
     @SkylarkCallable(
-      name = "test",
-      doc = "MockClassF#test",
-      parameters = {
-        @Param(name = "a", named = false, positional = true),
-        @Param(name = "b", named = true, positional = true),
-        @Param(name = "c", named = true, positional = false),
-        @Param(name = "d", named = true, positional = false, defaultValue = "1"),
-      },
-      extraPositionals = @Param(name = "myArgs")
-    )
-    public Integer test(int a, int b, int c, int d, SkylarkList<?> args) {
+        name = "test",
+        doc = "MockClassF#test",
+        parameters = {
+          @Param(name = "a", named = false, positional = true),
+          @Param(name = "b", named = true, positional = true),
+          @Param(name = "c", named = true, positional = false),
+          @Param(name = "d", named = true, positional = false, defaultValue = "1"),
+        },
+        extraPositionals = @Param(name = "myArgs"))
+    public Integer test(int a, int b, int c, int d, Sequence<?> args) {
       return 0;
     }
   }
 
   /** MockClassG */
   @SkylarkModule(name = "MockClassG", doc = "MockClassG")
-  private static class MockClassG {
+  private static class MockClassG implements StarlarkValue {
     @SkylarkCallable(
-      name = "test",
-      doc = "MockClassG#test",
-      parameters = {
-        @Param(name = "a", named = false, positional = true),
-        @Param(name = "b", named = true, positional = true),
-        @Param(name = "c", named = true, positional = false),
-        @Param(name = "d", named = true, positional = false, defaultValue = "1"),
-      },
-      extraKeywords = @Param(name = "myKwargs")
-    )
-    public Integer test(int a, int b, int c, int d, SkylarkDict<?, ?> kwargs) {
+        name = "test",
+        doc = "MockClassG#test",
+        parameters = {
+          @Param(name = "a", named = false, positional = true),
+          @Param(name = "b", named = true, positional = true),
+          @Param(name = "c", named = true, positional = false),
+          @Param(name = "d", named = true, positional = false, defaultValue = "1"),
+        },
+        extraKeywords = @Param(name = "myKwargs"))
+    public Integer test(int a, int b, int c, int d, Dict<?, ?> kwargs) {
       return 0;
     }
   }
 
   /** MockClassH */
   @SkylarkModule(name = "MockClassH", doc = "MockClassH")
-  private static class MockClassH {
+  private static class MockClassH implements StarlarkValue {
     @SkylarkCallable(
-      name = "test",
-      doc = "MockClassH#test",
-      parameters = {
-        @Param(name = "a", named = false, positional = true),
-        @Param(name = "b", named = true, positional = true),
-        @Param(name = "c", named = true, positional = false),
-        @Param(name = "d", named = true, positional = false, defaultValue = "1"),
-      },
-      extraPositionals = @Param(name = "myArgs"),
-      extraKeywords = @Param(name = "myKwargs")
-    )
-    public Integer test(int a, int b, int c, int d, SkylarkList<?> args, SkylarkDict<?, ?> kwargs) {
+        name = "test",
+        doc = "MockClassH#test",
+        parameters = {
+          @Param(name = "a", named = false, positional = true),
+          @Param(name = "b", named = true, positional = true),
+          @Param(name = "c", named = true, positional = false),
+          @Param(name = "d", named = true, positional = false, defaultValue = "1"),
+        },
+        extraPositionals = @Param(name = "myArgs"),
+        extraKeywords = @Param(name = "myKwargs"))
+    public Integer test(int a, int b, int c, int d, Sequence<?> args, Dict<?, ?> kwargs) {
       return 0;
     }
   }
@@ -217,31 +199,32 @@ public class SkylarkDocumentationTest extends SkylarkTestCase {
    * shows up.
    */
   @SkylarkGlobalLibrary
+  @SuppressWarnings("unused")
   private static class MockGlobalLibrary {
     @SkylarkCallable(
         name = "MockGlobalCallable",
         doc = "GlobalCallable documentation",
         parameters = {
-            @Param(name = "a", named = false, positional = true),
-            @Param(name = "b", named = true, positional = true),
-            @Param(name = "c", named = true, positional = false),
-            @Param(name = "d", named = true, positional = false, defaultValue = "1"),
+          @Param(name = "a", named = false, positional = true),
+          @Param(name = "b", named = true, positional = true),
+          @Param(name = "c", named = true, positional = false),
+          @Param(name = "d", named = true, positional = false, defaultValue = "1"),
         },
         extraPositionals = @Param(name = "myArgs"),
-        extraKeywords = @Param(name = "myKwargs")
-    )
-    public Integer test(int a, int b, int c, int d, SkylarkList<?> args, SkylarkDict<?, ?> kwargs) {
+        extraKeywords = @Param(name = "myKwargs"))
+    public Integer test(int a, int b, int c, int d, Sequence<?> args, Dict<?, ?> kwargs) {
       return 0;
     }
   }
 
   /** MockClassWithContainerReturnValues */
-  @SkylarkModule(name = "MockClassWithContainerReturnValues",
+  @SkylarkModule(
+      name = "MockClassWithContainerReturnValues",
       doc = "MockClassWithContainerReturnValues")
-  private static class MockClassWithContainerReturnValues {
+  private static class MockClassWithContainerReturnValues implements StarlarkValue {
 
     @SkylarkCallable(name = "depset", doc = "depset")
-    public NestedSet<Integer> getNestedSet() {
+    public Depset /*<Integer>*/ getNestedSet() {
       return null;
     }
 
@@ -256,20 +239,19 @@ public class SkylarkDocumentationTest extends SkylarkTestCase {
     }
 
     @SkylarkCallable(name = "mutable", doc = "mutable")
-    public MutableList<Integer> getMutableList() {
+    public StarlarkList<Integer> getMutableList() {
       return null;
     }
 
     @SkylarkCallable(name = "skylark", doc = "skylark")
-    public SkylarkList<Integer> getSkylarkList() {
+    public Sequence<Integer> getSkylarkList() {
       return null;
     }
   }
 
   /** MockClassCommonNameOne */
-  @SkylarkModule(name = "MockClassCommonName",
-      doc = "MockClassCommonName")
-  private static class MockClassCommonNameOne {
+  @SkylarkModule(name = "MockClassCommonName", doc = "MockClassCommonName")
+  private static class MockClassCommonNameOne implements StarlarkValue {
 
     @SkylarkCallable(name = "one", doc = "one")
     public Integer one() {
@@ -289,9 +271,10 @@ public class SkylarkDocumentationTest extends SkylarkTestCase {
   }
 
   /** PointsToCommonNameOneWithSubclass */
-  @SkylarkModule(name = "PointsToCommonNameOneWithSubclass",
+  @SkylarkModule(
+      name = "PointsToCommonNameOneWithSubclass",
       doc = "PointsToCommonNameOneWithSubclass")
-  private static class PointsToCommonNameOneWithSubclass {
+  private static class PointsToCommonNameOneWithSubclass implements StarlarkValue {
     @SkylarkCallable(name = "one", doc = "one")
     public MockClassCommonNameOne getOne() {
       return null;
@@ -304,10 +287,8 @@ public class SkylarkDocumentationTest extends SkylarkTestCase {
   }
 
   /** MockClassCommonNameOneUndocumented */
-  @SkylarkModule(name = "MockClassCommonName",
-      documented = false,
-      doc = "")
-  private static class MockClassCommonNameUndocumented {
+  @SkylarkModule(name = "MockClassCommonName", documented = false, doc = "")
+  private static class MockClassCommonNameUndocumented implements StarlarkValue {
 
     @SkylarkCallable(name = "two", doc = "two")
     public Integer two() {
@@ -316,9 +297,10 @@ public class SkylarkDocumentationTest extends SkylarkTestCase {
   }
 
   /** PointsToCommonNameAndUndocumentedModule */
-  @SkylarkModule(name = "PointsToCommonNameAndUndocumentedModule",
+  @SkylarkModule(
+      name = "PointsToCommonNameAndUndocumentedModule",
       doc = "PointsToCommonNameAndUndocumentedModule")
-  private static class PointsToCommonNameAndUndocumentedModule {
+  private static class PointsToCommonNameAndUndocumentedModule implements StarlarkValue {
     @SkylarkCallable(name = "one", doc = "one")
     public MockClassCommonNameOne getOne() {
       return null;

@@ -14,64 +14,106 @@
 
 package com.google.devtools.build.skydoc.fakebuildapi;
 
+import com.google.common.collect.ImmutableCollection;
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkbuildapi.SkylarkNativeModuleApi;
-import com.google.devtools.build.lib.syntax.Environment;
+import com.google.devtools.build.lib.syntax.ClassObject;
+import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.FuncallExpression;
-import com.google.devtools.build.lib.syntax.Runtime.NoneType;
-import com.google.devtools.build.lib.syntax.SkylarkDict;
-import com.google.devtools.build.lib.syntax.SkylarkList;
-import com.google.devtools.build.lib.syntax.SkylarkList.MutableList;
+import com.google.devtools.build.lib.syntax.NoneType;
+import com.google.devtools.build.lib.syntax.Printer;
+import com.google.devtools.build.lib.syntax.Sequence;
+import com.google.devtools.build.lib.syntax.Starlark;
+import com.google.devtools.build.lib.syntax.StarlarkCallable;
+import com.google.devtools.build.lib.syntax.StarlarkList;
+import com.google.devtools.build.lib.syntax.StarlarkThread;
+import javax.annotation.Nullable;
 
-/**
- * Fake implementation of {@link SkylarkNativeModuleApi}.
- */
-public class FakeSkylarkNativeModuleApi implements SkylarkNativeModuleApi {
+/** Fake implementation of {@link SkylarkNativeModuleApi}. */
+public class FakeSkylarkNativeModuleApi implements SkylarkNativeModuleApi, ClassObject {
 
   @Override
-  public SkylarkList<?> glob(
-      SkylarkList<?> include,
-      SkylarkList<?> exclude,
+  public Sequence<?> glob(
+      Sequence<?> include,
+      Sequence<?> exclude,
       Integer excludeDirectories,
       Object allowEmpty,
-      FuncallExpression ast,
-      Environment env)
+      StarlarkThread thread)
       throws EvalException, InterruptedException {
-    return MutableList.of(env);
+    return StarlarkList.of(thread.mutability());
   }
 
   @Override
-  public Object existingRule(String name, FuncallExpression ast, Environment env)
-      throws EvalException, InterruptedException {
+  public Object existingRule(String name, StarlarkThread thread) {
     return null;
   }
 
   @Override
-  public SkylarkDict<String, SkylarkDict<String, Object>> existingRules(FuncallExpression ast,
-      Environment env) throws EvalException, InterruptedException {
-    return SkylarkDict.of(env);
+  public Dict<String, Dict<String, Object>> existingRules(StarlarkThread thread) {
+    return Dict.of(thread.mutability());
   }
 
   @Override
-  public NoneType packageGroup(String name, SkylarkList<?> packages, SkylarkList<?> includes,
-      FuncallExpression ast, Environment env) throws EvalException {
+  public NoneType packageGroup(
+      String name, Sequence<?> packages, Sequence<?> includes, StarlarkThread thread) {
     return null;
   }
 
   @Override
-  public NoneType exportsFiles(SkylarkList<?> srcs, Object visibility, Object licenses,
-      FuncallExpression ast, Environment env) throws EvalException {
+  public NoneType exportsFiles(
+      Sequence<?> srcs, Object visibility, Object licenses, StarlarkThread thread) {
     return null;
   }
 
   @Override
-  public String packageName(FuncallExpression ast, Environment env) throws EvalException {
+  public String packageName(StarlarkThread thread) {
     return "";
   }
 
   @Override
-  public String repositoryName(Location location, Environment env) throws EvalException {
+  public String repositoryName(StarlarkThread thread) {
+    return "";
+  }
+
+  @Nullable
+  @Override
+  public Object getValue(String name) throws EvalException {
+    // Bazel's notion of the global "native" isn't fully exposed via public interfaces, for example,
+    // as far as native rules are concerned. Returning None on all unsupported invocations of
+    // native.[func_name]() is the safest "best effort" approach to implementing a fake for
+    // "native".
+    return new StarlarkCallable() {
+      @Override
+      public Object fastcall(StarlarkThread thread, Object[] positional, Object[] named) {
+        return Starlark.NONE;
+      }
+
+      @Override
+      public String getName() {
+        return name;
+      }
+
+      @Override
+      public Location getLocation() {
+        return Location.BUILTIN;
+      }
+
+      @Override
+      public void repr(Printer printer) {
+        printer.append("<faked no-op function " + name + ">");
+      }
+    };
+  }
+
+  @Override
+  public ImmutableCollection<String> getFieldNames() {
+    return ImmutableList.of();
+  }
+
+  @Nullable
+  @Override
+  public String getErrorMessageForUnknownField(String field) {
     return "";
   }
 }

@@ -14,6 +14,8 @@
 package com.google.devtools.common.options;
 
 import com.google.common.base.Splitter;
+import com.google.common.base.Strings;
+import com.google.common.cache.CacheBuilderSpec;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
@@ -465,31 +467,69 @@ public final class Converters {
   }
 
   /**
-   * A converter for variable assignments from the parameter list of a blaze command invocation.
-   * Assignments are expected to have the form {@code [name=]value1[,..,valueN]}, where names and
-   * values are defined to be as permissive as possible. If no name is provided, "" is used.
+   * Base converter for assignments from a value to a list of values. Both the key type as well as
+   * the type for all instances in the list of values are processed via passed converters.
    */
-  public static class AssignmentToListOfValuesConverter
-      implements Converter<Map.Entry<String, List<String>>> {
+  public abstract static class AssignmentToListOfValuesConverter<K, V>
+      implements Converter<Map.Entry<K, List<V>>> {
 
-    private final Splitter splitter = Splitter.on(',');
+    /** Whether to allow keys in the assignment to be empty (i.e. just a list of values) */
+    public enum AllowEmptyKeys {
+      YES,
+      NO
+    }
+
+    private static final Splitter SPLITTER = Splitter.on(',');
+
+    private final Converter<K> keyConverter;
+    private final Converter<V> valueConverter;
+    private final AllowEmptyKeys allowEmptyKeys;
+
+    public AssignmentToListOfValuesConverter(
+        Converter<K> keyConverter, Converter<V> valueConverter, AllowEmptyKeys allowEmptyKeys) {
+      this.keyConverter = keyConverter;
+      this.valueConverter = valueConverter;
+      this.allowEmptyKeys = allowEmptyKeys;
+    }
 
     @Override
-    public Map.Entry<String, List<String>> convert(String input) throws OptionsParsingException {
+    public Map.Entry<K, List<V>> convert(String input) throws OptionsParsingException {
       int pos = input.indexOf("=");
-      String name = pos <= 0 ? "" : input.substring(0, pos);
-      List<String> value = splitter.splitToList(input.substring(pos + 1));
-      if (value.contains("")) {
+      if (allowEmptyKeys == AllowEmptyKeys.NO && pos <= 0) {
+        throw new OptionsParsingException(
+            "Must be in the form of a 'key=value[,value]' assignment");
+      }
+
+      String key = pos <= 0 ? "" : input.substring(0, pos);
+      List<String> values = SPLITTER.splitToList(input.substring(pos + 1));
+      if (values.contains("")) {
         // If the list contains exactly the empty string, it means an empty value was passed and we
         // should instead return an empty list.
-        if (value.size() == 1) {
-          value = ImmutableList.of();
+        if (values.size() == 1) {
+          values = ImmutableList.of();
         } else {
           throw new OptionsParsingException(
               "Variable definitions must not contain empty strings or leading / trailing commas");
         }
       }
-      return Maps.immutableEntry(name, value);
+      ImmutableList.Builder<V> convertedValues = ImmutableList.builder();
+      for (String value : values) {
+        convertedValues.add(valueConverter.convert(value));
+      }
+      return Maps.immutableEntry(keyConverter.convert(key), convertedValues.build());
+    }
+  }
+
+  /**
+   * A converter for variable assignments from the parameter list of a blaze command invocation.
+   * Assignments are expected to have the form {@code [name=]value1[,..,valueN]}, where names and
+   * values are defined to be as permissive as possible. If no name is provided, "" is used.
+   */
+  public static class StringToStringListConverter
+      extends AssignmentToListOfValuesConverter<String, String> {
+
+    public StringToStringListConverter() {
+      super(new StringConverter(), new StringConverter(), AllowEmptyKeys.YES);
     }
 
     @Override
@@ -572,6 +612,26 @@ public final class Converters {
   public static class PercentageConverter extends RangeConverter {
     public PercentageConverter() {
       super(0, 100);
+    }
+  }
+
+  /**
+   * A {@link Converter} for {@link CacheBuilderSpec}. The spec may be empty, in which case this
+   * converter returns null.
+   */
+  public static class CacheBuilderSpecConverter implements Converter<CacheBuilderSpec> {
+    @Override
+    public CacheBuilderSpec convert(String spec) throws OptionsParsingException {
+      try {
+        return Strings.isNullOrEmpty(spec) ? null : CacheBuilderSpec.parse(spec);
+      } catch (IllegalArgumentException e) {
+        throw new OptionsParsingException("Failed to parse CacheBuilderSpec: " + e.getMessage(), e);
+      }
+    }
+
+    @Override
+    public String getTypeDescription() {
+      return "Converts to a CacheBuilderSpec, or null if the input is empty";
     }
   }
 }

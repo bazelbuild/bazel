@@ -14,25 +14,21 @@
 package com.google.devtools.build.lib.syntax;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
-import com.google.devtools.build.lib.syntax.SkylarkList.MutableList;
-import com.google.devtools.build.lib.syntax.SkylarkList.Tuple;
+import com.google.devtools.build.lib.events.EventCollector;
 import com.google.devtools.build.lib.syntax.util.EvaluationTestCase;
 import com.google.devtools.build.lib.testutil.TestMode;
 import java.util.Collections;
-import java.util.List;
-import java.util.Map;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/**
- * Test of evaluation behavior.  (Implicitly uses lexer + parser.)
- */
+/** Test of evaluation behavior. (Implicitly uses lexer + parser.) */
+// TODO(adonovan): separate tests of parser, resolver, Starlark core evaluator,
+// and BUILD and .bzl features.
 @RunWith(JUnit4.class)
 public class EvaluationTest extends EvaluationTestCase {
 
@@ -52,16 +48,140 @@ public class EvaluationTest extends EvaluationTestCase {
   }
 
   @Test
+  public void testExecutionStopsAtFirstError() throws Exception {
+    EventCollector printEvents = new EventCollector();
+    StarlarkThread thread =
+        createStarlarkThread(mutability, StarlarkThread.makeDebugPrintHandler(printEvents));
+    ParserInput input = ParserInput.fromLines("print('hello'); x = 1//0; print('goodbye')");
+
+    assertThrows(EvalException.class, () -> EvalUtils.exec(input, thread));
+
+    // Only expect hello, should have been an error before goodbye.
+    assertThat(printEvents).hasSize(1);
+    assertThat(printEvents.iterator().next().getMessage()).isEqualTo("hello");
+  }
+
+  @Test
+  public void testExecutionNotStartedOnInterrupt() throws Exception {
+    EventCollector printEvents = new EventCollector();
+    StarlarkThread thread =
+        createStarlarkThread(mutability, StarlarkThread.makeDebugPrintHandler(printEvents));
+    ParserInput input = ParserInput.fromLines("print('hello');");
+
+    try {
+      Thread.currentThread().interrupt();
+      assertThrows(InterruptedException.class, () -> EvalUtils.exec(input, thread));
+    } finally {
+      // Reset interrupt bit in case the test failed to do so.
+      Thread.interrupted();
+    }
+
+    assertThat(printEvents).isEmpty();
+  }
+
+  @Test
+  public void testForLoopAbortedOnInterrupt() throws Exception {
+    StarlarkThread thread = createStarlarkThread(mutability, (th, msg) -> {});
+    InterruptFunction interruptFunction = new InterruptFunction();
+    thread.getGlobals().put("interrupt", interruptFunction);
+
+    ParserInput input =
+        ParserInput.fromLines(
+            "def foo():", // Can't declare for loops at top level, so wrap with a function.
+            "  for i in range(100):",
+            "    interrupt(i == 5)",
+            "foo()");
+
+    try {
+      assertThrows(InterruptedException.class, () -> EvalUtils.exec(input, thread));
+    } finally {
+      // Reset interrupt bit in case the test failed to do so.
+      Thread.interrupted();
+    }
+
+    assertThat(interruptFunction.callCount).isEqualTo(6);
+  }
+
+  @Test
+  public void testForComprehensionAbortedOnInterrupt() throws Exception {
+    StarlarkThread thread = createStarlarkThread(mutability, (th, msg) -> {});
+    InterruptFunction interruptFunction = new InterruptFunction();
+    thread.getGlobals().put("interrupt", interruptFunction);
+
+    ParserInput input = ParserInput.fromLines("[interrupt(i == 5) for i in range(100)]");
+
+    try {
+      assertThrows(InterruptedException.class, () -> EvalUtils.exec(input, thread));
+    } finally {
+      // Reset interrupt bit in case the test failed to do so.
+      Thread.interrupted();
+    }
+
+    assertThat(interruptFunction.callCount).isEqualTo(6);
+  }
+
+  @Test
+  public void testFunctionCallsNotStartedOnInterrupt() throws Exception {
+    StarlarkThread thread = createStarlarkThread(mutability, (th, msg) -> {});
+    InterruptFunction interruptFunction = new InterruptFunction();
+    thread.getGlobals().put("interrupt", interruptFunction);
+
+    ParserInput input =
+        ParserInput.fromLines("interrupt(False); interrupt(True); interrupt(False);");
+
+    try {
+      assertThrows(InterruptedException.class, () -> EvalUtils.exec(input, thread));
+    } finally {
+      // Reset interrupt bit in case the test failed to do so.
+      Thread.interrupted();
+    }
+
+    // Third call shouldn't happen.
+    assertThat(interruptFunction.callCount).isEqualTo(2);
+  }
+
+  private static class InterruptFunction implements StarlarkCallable {
+
+    private int callCount = 0;
+
+    @Override
+    public String getName() {
+      return "interrupt";
+    }
+
+    @Override
+    public Object fastcall(StarlarkThread thread, Object[] positional, Object[] named) {
+      callCount++;
+      if (positional.length > 0 && Starlark.truth(positional[0])) {
+        Thread.currentThread().interrupt();
+      }
+      return Starlark.NONE;
+    }
+  }
+
+  private static StarlarkThread createStarlarkThread(
+      Mutability mutability, StarlarkThread.PrintHandler printHandler) {
+    StarlarkThread thread =
+        StarlarkThread.builder(mutability)
+            .useDefaultSemantics()
+            // Provide the UNIVERSE for print... this should not be necessary
+            .setGlobals(Module.createForBuiltins(Starlark.UNIVERSE))
+            .build();
+    thread.setPrintHandler(printHandler);
+    return thread;
+  }
+
+  @Test
   public void testExprs() throws Exception {
     newTest()
-        .testStatement("'%sx' % 'foo' + 'bar1'", "fooxbar1")
-        .testStatement("('%sx' % 'foo') + 'bar2'", "fooxbar2")
-        .testStatement("'%sx' % ('foo' + 'bar3')", "foobar3x")
-        .testStatement("123 + 456", 579)
-        .testStatement("456 - 123", 333)
-        .testStatement("8 % 3", 2)
-        .testIfErrorContains("unsupported operand type(s) for %: 'int' and 'string'", "3 % 'foo'")
-        .testStatement("-5", -5)
+        .testExpression("'%sx' % 'foo' + 'bar1'", "fooxbar1")
+        .testExpression("('%sx' % 'foo') + 'bar2'", "fooxbar2")
+        .testExpression("'%sx' % ('foo' + 'bar3')", "foobar3x")
+        .testExpression("123 + 456", 579)
+        .testExpression("456 - 123", 333)
+        .testExpression("8 % 3", 2)
+        .testIfErrorContains("unsupported binary operation: int % string", "3 % 'foo'")
+        .testExpression("-5", -5)
         .testIfErrorContains("unsupported unary operation: -string", "-'foo'");
   }
 
@@ -72,43 +192,35 @@ public class EvaluationTest extends EvaluationTestCase {
 
   @Test
   public void testStringFormatMultipleArgs() throws Exception {
-    newTest().testStatement("'%sY%s' % ('X', 'Z')", "XYZ");
+    newTest().testExpression("'%sY%s' % ('X', 'Z')", "XYZ");
   }
 
   @Test
   public void testConditionalExpressions() throws Exception {
     newTest()
-        .testStatement("1 if True else 2", 1)
-        .testStatement("1 if False else 2", 2)
-        .testStatement("1 + 2 if 3 + 4 else 5 + 6", 3);
-
-    setFailFast(false);
-    parseExpression("1 if 2");
-    assertContainsError(
-        "missing else clause in conditional expression or semicolon before if");
+        .testExpression("1 if True else 2", 1)
+        .testExpression("1 if False else 2", 2)
+        .testExpression("1 + 2 if 3 + 4 else 5 + 6", 3);
   }
 
   @Test
   public void testListComparison() throws Exception {
     newTest()
-        .testStatement("[] < [1]", true)
-        .testStatement("[1] < [1, 1]", true)
-        .testStatement("[1, 1] < [1, 2]", true)
-        .testStatement("[1, 2] < [1, 2, 3]", true)
-        .testStatement("[1, 2, 3] <= [1, 2, 3]", true)
-
-        .testStatement("['a', 'b'] > ['a']", true)
-        .testStatement("['a', 'b'] >= ['a']", true)
-        .testStatement("['a', 'b'] < ['a']", false)
-        .testStatement("['a', 'b'] <= ['a']", false)
-
-        .testStatement("('a', 'b') > ('a', 'b')", false)
-        .testStatement("('a', 'b') >= ('a', 'b')", true)
-        .testStatement("('a', 'b') < ('a', 'b')", false)
-        .testStatement("('a', 'b') <= ('a', 'b')", true)
-
-        .testStatement("[[1, 1]] > [[1, 1], []]", false)
-        .testStatement("[[1, 1]] < [[1, 1], []]", true);
+        .testExpression("[] < [1]", true)
+        .testExpression("[1] < [1, 1]", true)
+        .testExpression("[1, 1] < [1, 2]", true)
+        .testExpression("[1, 2] < [1, 2, 3]", true)
+        .testExpression("[1, 2, 3] <= [1, 2, 3]", true)
+        .testExpression("['a', 'b'] > ['a']", true)
+        .testExpression("['a', 'b'] >= ['a']", true)
+        .testExpression("['a', 'b'] < ['a']", false)
+        .testExpression("['a', 'b'] <= ['a']", false)
+        .testExpression("('a', 'b') > ('a', 'b')", false)
+        .testExpression("('a', 'b') >= ('a', 'b')", true)
+        .testExpression("('a', 'b') < ('a', 'b')", false)
+        .testExpression("('a', 'b') <= ('a', 'b')", true)
+        .testExpression("[[1, 1]] > [[1, 1], []]", false)
+        .testExpression("[[1, 1]] < [[1, 1], []]", true);
   }
 
   @Test
@@ -118,27 +230,37 @@ public class EvaluationTest extends EvaluationTestCase {
 
   @Test
   public void testSumFunction() throws Exception {
-    BaseFunction sum = new BaseFunction("sum") {
-      @Override
-      public Object call(List<Object> args, Map<String, Object> kwargs,
-          FuncallExpression ast, Environment env) {
-        int sum = 0;
-        for (Object arg : args) {
-          sum += (Integer) arg;
-        }
-        return sum;
-      }
-    };
+    StarlarkCallable sum =
+        new StarlarkCallable() {
+          @Override
+          public String getName() {
+            return "sum";
+          }
 
-    newTest().update(sum.getName(), sum).testStatement("sum(1, 2, 3, 4, 5, 6)", 21)
-        .testStatement("sum", sum).testStatement("sum(a=1, b=2)", 0);
+          @Override
+          public Object fastcall(StarlarkThread thread, Object[] positional, Object[] named) {
+            int sum = 0;
+            for (Object arg : positional) {
+              sum += (Integer) arg;
+            }
+            return sum;
+          }
+        };
+
+    newTest()
+        .update(sum.getName(), sum)
+        .testExpression("sum(1, 2, 3, 4, 5, 6)", 21)
+        .testExpression("sum", sum)
+        .testExpression("sum(a=1, b=2)", 0);
   }
 
   @Test
   public void testNotCallInt() throws Exception {
-    newTest().setUp("sum = 123456").testLookup("sum", 123456)
+    newTest()
+        .setUp("sum = 123456")
+        .testLookup("sum", 123456)
         .testIfExactError("'int' object is not callable", "sum(1, 2, 3, 4, 5, 6)")
-        .testStatement("sum", 123456);
+        .testExpression("sum", 123456);
   }
 
   @Test
@@ -149,17 +271,22 @@ public class EvaluationTest extends EvaluationTestCase {
 
   @Test
   public void testKeywordArgs() throws Exception {
-
     // This function returns the map of keyword arguments passed to it.
-    BaseFunction kwargs = new BaseFunction("kwargs") {
-      @Override
-      public Object call(List<Object> args,
-          final Map<String, Object> kwargs,
-          FuncallExpression ast,
-          Environment env) {
-        return SkylarkDict.copyOf(env, kwargs);
-      }
-    };
+    StarlarkCallable kwargs =
+        new StarlarkCallable() {
+          @Override
+          public String getName() {
+            return "kwargs";
+          }
+
+          @Override
+          public Object call(
+              StarlarkThread thread,
+              Tuple<Object> args,
+              Dict<String, Object> kwargs) {
+            return kwargs;
+          }
+        };
 
     newTest()
         .update(kwargs.getName(), kwargs)
@@ -174,24 +301,24 @@ public class EvaluationTest extends EvaluationTestCase {
   @Test
   public void testModulo() throws Exception {
     newTest()
-        .testStatement("6 % 2", 0)
-        .testStatement("6 % 4", 2)
-        .testStatement("3 % 6", 3)
-        .testStatement("7 % -4", -1)
-        .testStatement("-7 % 4", 1)
-        .testStatement("-7 % -4", -3)
+        .testExpression("6 % 2", 0)
+        .testExpression("6 % 4", 2)
+        .testExpression("3 % 6", 3)
+        .testExpression("7 % -4", -1)
+        .testExpression("-7 % 4", 1)
+        .testExpression("-7 % -4", -3)
         .testIfExactError("integer modulo by zero", "5 % 0");
   }
 
   @Test
   public void testMult() throws Exception {
     newTest()
-        .testStatement("6 * 7", 42)
-        .testStatement("3 * 'ab'", "ababab")
-        .testStatement("0 * 'ab'", "")
-        .testStatement("'1' + '0' * 5", "100000")
-        .testStatement("'ab' * -4", "")
-        .testStatement("-1 * ''", "");
+        .testExpression("6 * 7", 42)
+        .testExpression("3 * 'ab'", "ababab")
+        .testExpression("0 * 'ab'", "")
+        .testExpression("'1' + '0' * 5", "100000")
+        .testExpression("'ab' * -4", "")
+        .testExpression("-1 * ''", "");
   }
 
   @Test
@@ -202,14 +329,14 @@ public class EvaluationTest extends EvaluationTestCase {
   @Test
   public void testFloorDivision() throws Exception {
     newTest()
-        .testStatement("6 // 2", 3)
-        .testStatement("6 // 4", 1)
-        .testStatement("3 // 6", 0)
-        .testStatement("7 // -2", -4)
-        .testStatement("-7 // 2", -4)
-        .testStatement("-7 // -2", 3)
-        .testStatement("2147483647 // 2", 1073741823)
-        .testIfErrorContains("unsupported operand type(s) for //: 'string' and 'int'", "'str' // 2")
+        .testExpression("6 // 2", 3)
+        .testExpression("6 // 4", 1)
+        .testExpression("3 // 6", 0)
+        .testExpression("7 // -2", -4)
+        .testExpression("-7 // 2", -4)
+        .testExpression("-7 // -2", 3)
+        .testExpression("2147483647 // 2", 1073741823)
+        .testIfErrorContains("unsupported binary operation: string // int", "'str' // 2")
         .testIfExactError("integer division by zero", "5 // 0");
   }
 
@@ -228,14 +355,14 @@ public class EvaluationTest extends EvaluationTestCase {
   @Test
   public void testOperatorPrecedence() throws Exception {
     newTest()
-        .testStatement("2 + 3 * 4", 14)
-        .testStatement("2 + 3 // 4", 2)
-        .testStatement("2 * 3 + 4 // -2", 4);
+        .testExpression("2 + 3 * 4", 14)
+        .testExpression("2 + 3 // 4", 2)
+        .testExpression("2 * 3 + 4 // -2", 4);
   }
 
   @Test
   public void testConcatStrings() throws Exception {
-    newTest().testStatement("'foo' + 'bar'", "foobar");
+    newTest().testExpression("'foo' + 'bar'", "foobar");
   }
 
   @SuppressWarnings("unchecked")
@@ -245,7 +372,7 @@ public class EvaluationTest extends EvaluationTestCase {
     // list
     Object x = eval("[1,2] + [3,4]");
     assertThat((Iterable<Object>) x).containsExactly(1, 2, 3, 4).inOrder();
-    assertThat(x).isEqualTo(MutableList.of(env, 1, 2, 3, 4));
+    assertThat(x).isEqualTo(StarlarkList.of(thread.mutability(), 1, 2, 3, 4));
     assertThat(EvalUtils.isImmutable(x)).isFalse();
 
     // tuple
@@ -253,8 +380,7 @@ public class EvaluationTest extends EvaluationTestCase {
     assertThat(x).isEqualTo(Tuple.of(1, 2, 3, 4));
     assertThat(EvalUtils.isImmutable(x)).isTrue();
 
-    checkEvalError("unsupported operand type(s) for +: 'tuple' and 'list'",
-        "(1,2) + [3,4]"); // list + tuple
+    checkEvalError("unsupported binary operation: tuple + list", "(1,2) + [3,4]");
   }
 
   @Test
@@ -300,10 +426,12 @@ public class EvaluationTest extends EvaluationTestCase {
   @Test
   public void testNestedListComprehensions() throws Exception {
     newTest()
-        .testExactOrder("li = [[1, 2], [3, 4]]\n" + "[j for i in li for j in i]", 1, 2, 3, 4)
+        .setUp("li = [[1, 2], [3, 4]]")
+        .testExactOrder("[j for i in li for j in i]", 1, 2, 3, 4);
+    newTest()
+        .setUp("input = [['abc'], ['def', 'ghi']]\n")
         .testExactOrder(
-            "input = [['abc'], ['def', 'ghi']]\n"
-                + "['%s %s' % (b, c) for a in input for b in a for c in b.elems()]",
+            "['%s %s' % (b, c) for a in input for b in a for c in b.elems()]",
             "abc a", "abc b", "abc c", "def d", "def e", "def f", "ghi g", "ghi h", "ghi i");
   }
 
@@ -315,11 +443,12 @@ public class EvaluationTest extends EvaluationTestCase {
 
   @Test
   public void testListComprehensionsMultipleVariablesFail() throws Exception {
-    newTest().testIfErrorContains(
-        "assignment length mismatch: left-hand side has length 3, but right-hand side evaluates to "
-            + "value of length 2",
-        "[x + y for x, y, z in [(1, 2), (3, 4)]]").testIfExactError(
-        "type 'int' is not a collection", "[x + y for x, y in (1, 2)]");
+    newTest()
+        .testIfErrorContains(
+            "assignment length mismatch: left-hand side has length 3, but right-hand side"
+                + " evaluates to value of length 2",
+            "[x + y for x, y, z in [(1, 2), (3, 4)]]")
+        .testIfExactError("type 'int' is not iterable", "[x + y for x, y in (1, 2)]");
   }
 
   @Test
@@ -399,15 +528,16 @@ public class EvaluationTest extends EvaluationTestCase {
   @Test
   public void testDictComprehensions() throws Exception {
     newTest()
-        .testStatement("{a : a for a in []}", Collections.emptyMap())
-        .testStatement("{b : b for b in [1, 2]}", ImmutableMap.of(1, 1, 2, 2))
-        .testStatement("{c : 'v_' + c for c in ['a', 'b']}",
-            ImmutableMap.of("a", "v_a", "b", "v_b"))
-        .testStatement("{'k_' + d : d for d in ['a', 'b']}",
-            ImmutableMap.of("k_a", "a", "k_b", "b"))
-        .testStatement("{'k_' + e : 'v_' + e for e in ['a', 'b']}",
+        .testExpression("{a : a for a in []}", Collections.emptyMap())
+        .testExpression("{b : b for b in [1, 2]}", ImmutableMap.of(1, 1, 2, 2))
+        .testExpression(
+            "{c : 'v_' + c for c in ['a', 'b']}", ImmutableMap.of("a", "v_a", "b", "v_b"))
+        .testExpression(
+            "{'k_' + d : d for d in ['a', 'b']}", ImmutableMap.of("k_a", "a", "k_b", "b"))
+        .testExpression(
+            "{'k_' + e : 'v_' + e for e in ['a', 'b']}",
             ImmutableMap.of("k_a", "v_a", "k_b", "v_b"))
-        .testStatement("{x+y : x*y for x, y in [[2, 3]]}", ImmutableMap.of(5, 6));
+        .testExpression("{x+y : x*y for x, y in [[2, 3]]}", ImmutableMap.of(5, 6));
   }
 
   @Test
@@ -417,88 +547,62 @@ public class EvaluationTest extends EvaluationTestCase {
 
   @Test
   public void testDictComprehension_ManyClauses() throws Exception {
-    new SkylarkTest().testStatement(
-        "{x : x * y for x in range(1, 10) if x % 2 == 0 for y in range(1, 10) if y == x}",
-        ImmutableMap.of(2, 4, 4, 16, 6, 36, 8, 64));
+    new SkylarkTest()
+        .testExpression(
+            "{x : x * y for x in range(1, 10) if x % 2 == 0 for y in range(1, 10) if y == x}",
+            ImmutableMap.of(2, 4, 4, 16, 6, 36, 8, 64));
   }
 
   @Test
   public void testDictComprehensions_MultipleKey() throws Exception {
-    newTest().testStatement("{x : x for x in [1, 2, 1]}", ImmutableMap.of(1, 1, 2, 2))
-        .testStatement("{y : y for y in ['ab', 'c', 'a' + 'b']}",
-            ImmutableMap.of("ab", "ab", "c", "c"));
+    newTest()
+        .testExpression("{x : x for x in [1, 2, 1]}", ImmutableMap.of(1, 1, 2, 2))
+        .testExpression(
+            "{y : y for y in ['ab', 'c', 'a' + 'b']}", ImmutableMap.of("ab", "ab", "c", "c"));
   }
 
   @Test
   public void testListConcatenation() throws Exception {
     newTest()
-        .testStatement("[1, 2] + [3, 4]", MutableList.of(env, 1, 2, 3, 4))
-        .testStatement("(1, 2) + (3, 4)", Tuple.of(1, 2, 3, 4))
-        .testIfExactError("unsupported operand type(s) for +: 'list' and 'tuple'",
-            "[1, 2] + (3, 4)")
-        .testIfExactError("unsupported operand type(s) for +: 'tuple' and 'list'",
-            "(1, 2) + [3, 4]");
+        .testExpression("[1, 2] + [3, 4]", StarlarkList.of(thread.mutability(), 1, 2, 3, 4))
+        .testExpression("(1, 2) + (3, 4)", Tuple.of(1, 2, 3, 4))
+        .testIfExactError("unsupported binary operation: list + tuple", "[1, 2] + (3, 4)")
+        .testIfExactError("unsupported binary operation: tuple + list", "(1, 2) + [3, 4]");
   }
 
   @Test
   public void testListMultiply() throws Exception {
+    Mutability mu = thread.mutability();
     newTest()
-        .testStatement("[1, 2, 3] * 1", MutableList.of(env, 1, 2, 3))
-        .testStatement("[1, 2] * 2", MutableList.of(env, 1, 2, 1, 2))
-        .testStatement("[1, 2] * 3", MutableList.of(env, 1, 2, 1, 2, 1, 2))
-        .testStatement("[1, 2] * 4", MutableList.of(env, 1, 2, 1, 2, 1, 2, 1, 2))
-        .testStatement("[8] * 5", MutableList.of(env, 8, 8, 8, 8, 8))
-        .testStatement("[    ] * 10", MutableList.empty())
-        .testStatement("[1, 2] * 0", MutableList.empty())
-        .testStatement("[1, 2] * -4", MutableList.empty())
-        .testStatement("2 * [1, 2]", MutableList.of(env, 1, 2, 1, 2))
-        .testStatement("10 * []", MutableList.empty())
-        .testStatement("0 * [1, 2]", MutableList.empty())
-        .testStatement("-4 * [1, 2]", MutableList.empty());
+        .testExpression("[1, 2, 3] * 1", StarlarkList.of(mu, 1, 2, 3))
+        .testExpression("[1, 2] * 2", StarlarkList.of(mu, 1, 2, 1, 2))
+        .testExpression("[1, 2] * 3", StarlarkList.of(mu, 1, 2, 1, 2, 1, 2))
+        .testExpression("[1, 2] * 4", StarlarkList.of(mu, 1, 2, 1, 2, 1, 2, 1, 2))
+        .testExpression("[8] * 5", StarlarkList.of(mu, 8, 8, 8, 8, 8))
+        .testExpression("[    ] * 10", StarlarkList.empty())
+        .testExpression("[1, 2] * 0", StarlarkList.empty())
+        .testExpression("[1, 2] * -4", StarlarkList.empty())
+        .testExpression("2 * [1, 2]", StarlarkList.of(mu, 1, 2, 1, 2))
+        .testExpression("10 * []", StarlarkList.empty())
+        .testExpression("0 * [1, 2]", StarlarkList.empty())
+        .testExpression("-4 * [1, 2]", StarlarkList.empty());
   }
 
   @Test
   public void testTupleMultiply() throws Exception {
     newTest()
-        .testStatement("(1, 2, 3) * 1", Tuple.of(1, 2, 3))
-        .testStatement("(1, 2) * 2", Tuple.of(1, 2, 1, 2))
-        .testStatement("(1, 2) * 3", Tuple.of(1, 2, 1, 2, 1, 2))
-        .testStatement("(1, 2) * 4", Tuple.of(1, 2, 1, 2, 1, 2, 1, 2))
-        .testStatement("(8,) * 5", Tuple.of(8, 8, 8, 8, 8))
-        .testStatement("(    ) * 10", Tuple.empty())
-        .testStatement("(1, 2) * 0", Tuple.empty())
-        .testStatement("(1, 2) * -4", Tuple.empty())
-        .testStatement("2 * (1, 2)", Tuple.of(1, 2, 1, 2))
-        .testStatement("10 * ()", Tuple.empty())
-        .testStatement("0 * (1, 2)", Tuple.empty())
-        .testStatement("-4 * (1, 2)", Tuple.empty());
-  }
-
-  @SuppressWarnings("unchecked")
-  @Test
-  public void testSelectorListConcatenation() throws Exception {
-    // TODO(fwe): cannot be handled by current testing suite
-    SelectorList x = (SelectorList) eval("select({'foo': ['FOO'], 'bar': ['BAR']}) + []");
-    List<Object> elements = x.getElements();
-    assertThat(elements).hasSize(2);
-    assertThat(elements.get(0)).isInstanceOf(SelectorValue.class);
-    assertThat((Iterable<Object>) elements.get(1)).isEmpty();
-  }
-
-  @Test
-  public void testAddSelectIncompatibleType() throws Exception {
-    newTest()
-        .testIfErrorContains(
-            "'+' operator applied to incompatible types (select of list, int)",
-            "select({'foo': ['FOO'], 'bar': ['BAR']}) + 1");
-  }
-
-  @Test
-  public void testAddSelectIncompatibleType2() throws Exception {
-    newTest()
-        .testIfErrorContains(
-            "'+' operator applied to incompatible types (select of list, select of int)",
-            "select({'foo': ['FOO']}) + select({'bar': 2})");
+        .testExpression("(1, 2, 3) * 1", Tuple.of(1, 2, 3))
+        .testExpression("(1, 2) * 2", Tuple.of(1, 2, 1, 2))
+        .testExpression("(1, 2) * 3", Tuple.of(1, 2, 1, 2, 1, 2))
+        .testExpression("(1, 2) * 4", Tuple.of(1, 2, 1, 2, 1, 2, 1, 2))
+        .testExpression("(8,) * 5", Tuple.of(8, 8, 8, 8, 8))
+        .testExpression("(    ) * 10", Tuple.empty())
+        .testExpression("(1, 2) * 0", Tuple.empty())
+        .testExpression("(1, 2) * -4", Tuple.empty())
+        .testExpression("2 * (1, 2)", Tuple.of(1, 2, 1, 2))
+        .testExpression("10 * ()", Tuple.empty())
+        .testExpression("0 * (1, 2)", Tuple.empty())
+        .testExpression("-4 * (1, 2)", Tuple.empty());
   }
 
   @Test
@@ -519,14 +623,14 @@ public class EvaluationTest extends EvaluationTestCase {
 
   @Test
   public void testListComprehensionOnDictionary() throws Exception {
-    newTest().testExactOrder("val = ['var_' + n for n in {'a':1,'b':2}] ; val", "var_a", "var_b");
+    newTest().testExactOrder("['var_' + n for n in {'a':1,'b':2}]", "var_a", "var_b");
   }
 
   @Test
   public void testListComprehensionOnDictionaryCompositeExpression() throws Exception {
     new BuildTest()
         .setUp("d = {1:'a',2:'b'}", "l = [d[x] for x in d]")
-        .testLookup("l", MutableList.of(env, "a", "b"));
+        .testLookup("l", StarlarkList.of(thread.mutability(), "a", "b"));
   }
 
   @Test
@@ -564,31 +668,40 @@ public class EvaluationTest extends EvaluationTestCase {
   }
 
   @Test
+  public void testListComprehensionScope() throws Exception {
+    // Test list comprehension creates a scope, so outer variables kept unchanged
+    new BuildTest()
+        .setUp("x = 1", "l = [x * 3 for x in [2]]", "y = x")
+        .testEval("y", "1")
+        .testEval("l", "[6]");
+  }
+
+  @Test
   public void testInOperator() throws Exception {
     newTest()
-        .testStatement("'b' in ['a', 'b']", Boolean.TRUE)
-        .testStatement("'c' in ['a', 'b']", Boolean.FALSE)
-        .testStatement("'b' in ('a', 'b')", Boolean.TRUE)
-        .testStatement("'c' in ('a', 'b')", Boolean.FALSE)
-        .testStatement("'b' in {'a' : 1, 'b' : 2}", Boolean.TRUE)
-        .testStatement("'c' in {'a' : 1, 'b' : 2}", Boolean.FALSE)
-        .testStatement("1 in {'a' : 1, 'b' : 2}", Boolean.FALSE)
-        .testStatement("'b' in 'abc'", Boolean.TRUE)
-        .testStatement("'d' in 'abc'", Boolean.FALSE);
+        .testExpression("'b' in ['a', 'b']", Boolean.TRUE)
+        .testExpression("'c' in ['a', 'b']", Boolean.FALSE)
+        .testExpression("'b' in ('a', 'b')", Boolean.TRUE)
+        .testExpression("'c' in ('a', 'b')", Boolean.FALSE)
+        .testExpression("'b' in {'a' : 1, 'b' : 2}", Boolean.TRUE)
+        .testExpression("'c' in {'a' : 1, 'b' : 2}", Boolean.FALSE)
+        .testExpression("1 in {'a' : 1, 'b' : 2}", Boolean.FALSE)
+        .testExpression("'b' in 'abc'", Boolean.TRUE)
+        .testExpression("'d' in 'abc'", Boolean.FALSE);
   }
 
   @Test
   public void testNotInOperator() throws Exception {
     newTest()
-        .testStatement("'b' not in ['a', 'b']", Boolean.FALSE)
-        .testStatement("'c' not in ['a', 'b']", Boolean.TRUE)
-        .testStatement("'b' not in ('a', 'b')", Boolean.FALSE)
-        .testStatement("'c' not in ('a', 'b')", Boolean.TRUE)
-        .testStatement("'b' not in {'a' : 1, 'b' : 2}", Boolean.FALSE)
-        .testStatement("'c' not in {'a' : 1, 'b' : 2}", Boolean.TRUE)
-        .testStatement("1 not in {'a' : 1, 'b' : 2}", Boolean.TRUE)
-        .testStatement("'b' not in 'abc'", Boolean.FALSE)
-        .testStatement("'d' not in 'abc'", Boolean.TRUE);
+        .testExpression("'b' not in ['a', 'b']", Boolean.FALSE)
+        .testExpression("'c' not in ['a', 'b']", Boolean.TRUE)
+        .testExpression("'b' not in ('a', 'b')", Boolean.FALSE)
+        .testExpression("'c' not in ('a', 'b')", Boolean.TRUE)
+        .testExpression("'b' not in {'a' : 1, 'b' : 2}", Boolean.FALSE)
+        .testExpression("'c' not in {'a' : 1, 'b' : 2}", Boolean.TRUE)
+        .testExpression("1 not in {'a' : 1, 'b' : 2}", Boolean.TRUE)
+        .testExpression("'b' not in 'abc'", Boolean.FALSE)
+        .testExpression("'d' not in 'abc'", Boolean.TRUE);
   }
 
   @Test
@@ -596,43 +709,46 @@ public class EvaluationTest extends EvaluationTestCase {
     newTest()
         .testIfErrorContains(
             "'in <string>' requires string as left operand, not 'int'", "1 in '123'")
-        .testIfErrorContains("'int' is not iterable. in operator only works on ", "'a' in 1");
+        .testIfErrorContains("unsupported binary operation: string in int", "'a' in 1");
   }
 
   @Test
   public void testInCompositeForPrecedence() throws Exception {
-    newTest().testStatement("not 'a' in ['a'] or 0", 0);
+    newTest().testExpression("not 'a' in ['a'] or 0", 0);
   }
 
-  private SkylarkValue createObjWithStr() {
-    return new SkylarkValue() {
+  private StarlarkValue createObjWithStr() {
+    return new StarlarkValue() {
       @Override
-      public void repr(SkylarkPrinter printer) {
+      public void repr(Printer printer) {
         printer.append("<str marker>");
       }
     };
   }
 
+  private static class Dummy implements StarlarkValue {}
+
   @Test
-  public void testPercOnObject() throws Exception {
+  public void testPercentOnDummyValue() throws Exception {
+    newTest().update("obj", createObjWithStr()).testExpression("'%s' % obj", "<str marker>");
     newTest()
-        .update("obj", createObjWithStr())
-        .testStatement("'%s' % obj", "<str marker>");
-    newTest()
-        .update("unknown", new Object())
-        .testStatement("'%s' % unknown", "<unknown object java.lang.Object>");
+        .update("unknown", new Dummy())
+        .testExpression(
+            "'%s' % unknown",
+            "<unknown object com.google.devtools.build.lib.syntax.EvaluationTest$Dummy>");
   }
 
   @Test
-  public void testPercOnObjectList() throws Exception {
+  public void testPercentOnTupleOfDummyValues() throws Exception {
     newTest()
         .update("obj", createObjWithStr())
-        .testStatement("'%s %s' % (obj, obj)", "<str marker> <str marker>");
+        .testExpression("'%s %s' % (obj, obj)", "<str marker> <str marker>");
     newTest()
-        .update("unknown", new Object())
-        .testStatement(
+        .update("unknown", new Dummy())
+        .testExpression(
             "'%s %s' % (unknown, unknown)",
-            "<unknown object java.lang.Object> <unknown object java.lang.Object>");
+            "<unknown object com.google.devtools.build.lib.syntax.EvaluationTest$Dummy> <unknown"
+                + " object com.google.devtools.build.lib.syntax.EvaluationTest$Dummy>");
   }
 
   @Test
@@ -644,39 +760,37 @@ public class EvaluationTest extends EvaluationTestCase {
 
   @Test
   public void testDictKeys() throws Exception {
-    newTest().testExactOrder("v = {'a': 1}.keys() + ['b', 'c'] ; v", "a", "b", "c");
+    newTest().testExactOrder("{'a': 1}.keys() + ['b', 'c']", "a", "b", "c");
   }
 
   @Test
   public void testDictKeysTooManyArgs() throws Exception {
-    newTest()
-        .testIfExactError(
-            "expected no more than 0 positional arguments, but got 1, "
-                + "for call to method keys() of 'dict'",
-            "{'a': 1}.keys('abc')");
+    newTest().testIfExactError("keys() got unexpected positional argument", "{'a': 1}.keys('abc')");
   }
 
   @Test
   public void testDictKeysTooManyKeyArgs() throws Exception {
     newTest()
         .testIfExactError(
-            "unexpected keyword 'arg', for call to method keys() of 'dict'",
-            "{'a': 1}.keys(arg='abc')");
+            "keys() got unexpected keyword argument 'arg'", "{'a': 1}.keys(arg='abc')");
   }
 
   @Test
   public void testDictKeysDuplicateKeyArgs() throws Exception {
-    newTest().testIfExactError("duplicate keywords 'arg', 'k' in call to {\"a\": 1}.keys",
-        "{'a': 1}.keys(arg='abc', arg='def', k=1, k=2)");
+    // TODO(adonovan): when the duplication is literal, this should be caught by a static check.
+    newTest()
+        .testIfExactError(
+            "int() got multiple values for argument 'base'", "int('1', base=10, base=16)");
+    new SkylarkTest()
+        .testIfExactError(
+            "int() got multiple values for argument 'base'", "int('1', base=10, **dict(base=16))");
   }
 
   @Test
   public void testArgBothPosKey() throws Exception {
     newTest()
         .testIfErrorContains(
-            "got multiple values for keyword argument 'old', for call to method "
-                + "replace(old, new, maxsplit = None) of 'string'",
-            "'banana'.replace('a', 'o', 3, old='a')");
+            "int() got multiple values for argument 'base'", "int('2', 3, base=3)");
   }
 
   @Test

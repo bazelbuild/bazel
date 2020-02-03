@@ -14,15 +14,12 @@
 package com.google.devtools.build.lib.runtime;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.packages.AttributeContainer;
 import com.google.devtools.build.lib.packages.PackageFactory;
-import com.google.devtools.build.lib.packages.RuleClass;
-import com.google.devtools.build.lib.query2.AbstractBlazeQueryEnvironment;
 import com.google.devtools.build.lib.query2.QueryEnvironmentFactory;
+import com.google.devtools.build.lib.query2.common.AbstractBlazeQueryEnvironment;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryFunction;
 import com.google.devtools.build.lib.query2.query.output.OutputFormatter;
 import com.google.devtools.build.lib.runtime.commands.InfoItem;
@@ -35,7 +32,6 @@ import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.In
 public final class ServerBuilder {
   private QueryEnvironmentFactory queryEnvironmentFactory;
   private final InvocationPolicy.Builder invocationPolicyBuilder = InvocationPolicy.newBuilder();
-  private Function<RuleClass, AttributeContainer> attributeContainerFactory;
   private final ImmutableList.Builder<BlazeCommand> commands = ImmutableList.builder();
   private final ImmutableMap.Builder<String, InfoItem> infoItems = ImmutableMap.builder();
   private final ImmutableList.Builder<QueryFunction> queryFunctions = ImmutableList.builder();
@@ -47,6 +43,7 @@ public final class ServerBuilder {
       new BuildEventArtifactUploaderFactoryMap.Builder();
   private final ImmutableMap.Builder<String, AuthHeadersProvider> authHeadersProvidersMap =
       ImmutableMap.builder();
+  private RepositoryRemoteExecutorFactory repositoryRemoteExecutorFactory;
 
   @VisibleForTesting
   public ServerBuilder() {}
@@ -59,10 +56,6 @@ public final class ServerBuilder {
 
   InvocationPolicy getInvocationPolicy() {
     return invocationPolicyBuilder.build();
-  }
-
-  Function<RuleClass, AttributeContainer> getAttributeContainerFactory() {
-    return attributeContainerFactory == null ? AttributeContainer::new : attributeContainerFactory;
   }
 
   ImmutableMap<String, InfoItem> getInfoItems() {
@@ -91,6 +84,10 @@ public final class ServerBuilder {
     return buildEventArtifactUploaderFactories.build();
   }
 
+  public RepositoryRemoteExecutorFactory getRepositoryRemoteExecutorFactory() {
+    return repositoryRemoteExecutorFactory;
+  }
+
   /**
    * Merges the given invocation policy into the per-server invocation policy. While this can accept
    * any number of policies, the end result is order-dependent if multiple policies attempt to
@@ -113,21 +110,6 @@ public final class ServerBuilder {
         this.queryEnvironmentFactory,
         queryEnvironmentFactory);
     this.queryEnvironmentFactory = Preconditions.checkNotNull(queryEnvironmentFactory);
-    return this;
-  }
-
-  /**
-   * Sets a factory for creating {@link AttributeContainer} instances. Only one factory per server
-   * is allowed. If none is set, the server uses the default implementation.
-   */
-  public ServerBuilder setAttributeContainerFactory(
-      Function<RuleClass, AttributeContainer> attributeContainerFactory) {
-    Preconditions.checkState(
-        this.attributeContainerFactory == null,
-        "At most one attribute container factory supported. But found two: %s and %s",
-        this.attributeContainerFactory,
-        attributeContainerFactory);
-    this.attributeContainerFactory = Preconditions.checkNotNull(attributeContainerFactory);
     return this;
   }
 
@@ -181,6 +163,12 @@ public final class ServerBuilder {
   public ServerBuilder addBuildEventArtifactUploaderFactory(
       BuildEventArtifactUploaderFactory uploaderFactory, String name) {
     buildEventArtifactUploaderFactories.add(name, uploaderFactory);
+    return this;
+  }
+
+  public ServerBuilder setRepositoryRemoteExecutorFactory(
+      RepositoryRemoteExecutorFactory repositoryRemoteExecutorFactory) {
+    this.repositoryRemoteExecutorFactory = repositoryRemoteExecutorFactory;
     return this;
   }
 

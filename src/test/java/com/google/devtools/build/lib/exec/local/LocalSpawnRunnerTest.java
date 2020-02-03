@@ -26,8 +26,10 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.io.ByteStreams;
 import com.google.common.io.Files;
+import com.google.devtools.build.lib.actions.ActionContext;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.actions.CommandLines.ParamFileActionInput;
@@ -41,6 +43,7 @@ import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.cache.MetadataInjector;
 import com.google.devtools.build.lib.exec.BinTools;
+import com.google.devtools.build.lib.exec.RunfilesTreeUpdater;
 import com.google.devtools.build.lib.exec.SpawnRunner.ProgressStatus;
 import com.google.devtools.build.lib.exec.SpawnRunner.SpawnExecutionContext;
 import com.google.devtools.build.lib.exec.util.SpawnBuilder;
@@ -60,6 +63,7 @@ import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
+import com.google.devtools.build.lib.vfs.JavaIoFileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
@@ -70,12 +74,17 @@ import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.SortedMap;
 import java.util.TreeMap;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.Semaphore;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.logging.Filter;
 import java.util.logging.LogRecord;
@@ -85,6 +94,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 import org.mockito.ArgumentCaptor;
+import org.mockito.Mockito;
 
 /** Unit tests for {@link LocalSpawnRunner}. */
 @RunWith(JUnit4.class)
@@ -109,9 +119,11 @@ public class LocalSpawnRunnerTest {
           localOs,
           localEnvProvider,
           useProcessWrapper
-              ? BinTools.forEmbeddedBin(embeddedBin,
+              ? BinTools.forEmbeddedBin(
+                  embeddedBin,
                   ImmutableList.of("process-wrapper" + OsUtils.executableExtension(localOs)))
-              : null);
+              : null,
+          Mockito.mock(RunfilesTreeUpdater.class));
     }
 
     // Rigged to act on supplied filesystem (e.g. InMemoryFileSystem) for testing purposes
@@ -265,6 +277,14 @@ public class LocalSpawnRunnerTest {
     public MetadataInjector getMetadataInjector() {
       throw new UnsupportedOperationException();
     }
+
+    @Override
+    public void checkForLostInputs() {}
+
+    @Override
+    public <T extends ActionContext> T getContext(Class<T> identifyingType) {
+      throw new UnsupportedOperationException();
+    }
   }
 
   private final MetadataProvider mockFileCache = mock(MetadataProvider.class);
@@ -272,9 +292,9 @@ public class LocalSpawnRunnerTest {
 
   private Logger logger;
 
-  private static Map<String, String> keepLocalEnvUnchanged(
+  private static ImmutableMap<String, String> keepLocalEnvUnchanged(
       Map<String, String> env, BinTools binTools, String fallbackTmpDir) {
-    return env;
+    return ImmutableMap.copyOf(env);
   }
 
   @Before
@@ -633,6 +653,92 @@ public class LocalSpawnRunnerTest {
   }
 
   @Test
+  public void interruptWaitsForProcessExit() throws Exception {
+    assumeTrue(OS.getCurrent() != OS.WINDOWS);
+
+    File tempDirFile = TestUtils.makeTempDir();
+    tempDirFile.deleteOnExit();
+    FileSystem fs = new JavaIoFileSystem(DigestHashFunction.getDefaultUnchecked());
+    Path tempDir = fs.getPath(tempDirFile.getPath());
+
+    LocalSpawnRunner runner =
+        new LocalSpawnRunner(
+            tempDir,
+            Options.getDefaults(LocalExecutionOptions.class),
+            resourceManager,
+            /*useProcessWrapper=*/ false,
+            OS.LINUX,
+            LocalEnvProvider.forCurrentOs(ImmutableMap.of()),
+            /*binTools=*/ null,
+            Mockito.mock(RunfilesTreeUpdater.class));
+    FileOutErr fileOutErr =
+        new FileOutErr(tempDir.getRelative("stdout"), tempDir.getRelative("stderr"));
+    SpawnExecutionContextForTesting policy = new SpawnExecutionContextForTesting(fileOutErr);
+
+    // This test to exercise a race condition by attempting an operation multiple times. We can get
+    // false positives (the test passing without us catching a problem), so try a few times. When
+    // implementing this fix on 2019-09-11, this specific configuration was sufficient to catch the
+    // previously-existent bug.
+    int tries = 10;
+    int delaySeconds = 1;
+
+    Path content = tempDir.getChild("content");
+    Path started = tempDir.getChild("started");
+    // Start a subprocess that blocks until it is killed, and when it is, writes some output to
+    // a temporary file after some delay.
+    String script =
+        "trap 'sleep "
+            + delaySeconds
+            + "; echo foo >"
+            + content.getPathString()
+            + "; exit 1' TERM; "
+            + "touch "
+            + started.getPathString()
+            + "; "
+            + "while :; do "
+            + "  echo 'waiting to be killed'; "
+            + "  sleep 1; "
+            + "done";
+    Spawn spawn = new SpawnBuilder("/bin/sh", "-c", script).build();
+
+    ExecutorService executor = Executors.newSingleThreadExecutor();
+    try {
+      for (int i = 0; i < tries; i++) {
+        content.delete();
+        started.delete();
+        Semaphore interruptCaught = new Semaphore(0);
+        Future<?> future =
+            executor.submit(
+                () -> {
+                  try {
+                    runner.exec(spawn, policy);
+                  } catch (InterruptedException e) {
+                    interruptCaught.release();
+                  } catch (Throwable t) {
+                    throw new IllegalStateException(t);
+                  }
+                });
+        // Wait until we know the subprocess has started so that delivering a termination signal
+        // to it triggers the delayed write to the file.
+        while (!started.exists()) {
+          Thread.sleep(1);
+        }
+        future.cancel(true);
+        interruptCaught.acquireUninterruptibly();
+        // At this point, the subprocess must have fully stopped so write some content to the file
+        // and expect that these contents remain unmodified.
+        FileSystemUtils.writeContent(content, StandardCharsets.UTF_8, "bar");
+        // Wait for longer than the spawn takes to exit before we check the file contents to ensure
+        // that we properly awaited for termination of the subprocess.
+        Thread.sleep(delaySeconds * 2 * 1000);
+        assertThat(FileSystemUtils.readContent(content, StandardCharsets.UTF_8)).isEqualTo("bar");
+      }
+    } finally {
+      executor.shutdown();
+    }
+  }
+
+  @Test
   public void checkPrefetchCalled() throws Exception {
     FileSystem fs = setupEnvironmentForFakeExecution();
 
@@ -846,7 +952,7 @@ public class LocalSpawnRunnerTest {
     // TODO(b/62588075) Currently no process-wrapper or execution statistics support in Windows.
     assumeTrue(OS.getCurrent() != OS.WINDOWS);
 
-    FileSystem fs = new UnixFileSystem(DigestHashFunction.DEFAULT_HASH_FOR_TESTS);
+    FileSystem fs = new UnixFileSystem(DigestHashFunction.getDefaultUnchecked());
 
     LocalExecutionOptions options = Options.getDefaults(LocalExecutionOptions.class);
     options.collectLocalExecutionStatistics = true;
@@ -878,7 +984,8 @@ public class LocalSpawnRunnerTest {
             USE_WRAPPER,
             OS.LINUX,
             LocalSpawnRunnerTest::keepLocalEnvUnchanged,
-            binTools);
+            binTools,
+            Mockito.mock(RunfilesTreeUpdater.class));
 
     Spawn spawn =
         new SpawnBuilder(
@@ -916,7 +1023,7 @@ public class LocalSpawnRunnerTest {
     // TODO(b/62588075) Currently no process-wrapper or execution statistics support in Windows.
     assumeTrue(OS.getCurrent() != OS.WINDOWS);
 
-    FileSystem fs = new UnixFileSystem(DigestHashFunction.DEFAULT_HASH_FOR_TESTS);
+    FileSystem fs = new UnixFileSystem(DigestHashFunction.getDefaultUnchecked());
 
     LocalExecutionOptions options = Options.getDefaults(LocalExecutionOptions.class);
     options.collectLocalExecutionStatistics = false;
@@ -941,7 +1048,8 @@ public class LocalSpawnRunnerTest {
             USE_WRAPPER,
             OS.LINUX,
             LocalSpawnRunnerTest::keepLocalEnvUnchanged,
-            binTools);
+            binTools,
+            Mockito.mock(RunfilesTreeUpdater.class));
 
     Spawn spawn =
         new SpawnBuilder(

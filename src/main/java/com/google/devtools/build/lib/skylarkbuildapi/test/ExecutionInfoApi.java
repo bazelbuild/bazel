@@ -15,7 +15,7 @@
 package com.google.devtools.build.lib.skylarkbuildapi.test;
 
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.skylarkbuildapi.StructApi;
+import com.google.devtools.build.lib.skylarkbuildapi.core.StructApi;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 
@@ -29,7 +29,6 @@ public interface ExecutionInfoApi extends StructApi {
   @SkylarkCallable(
       name = "requirements",
       doc = "A dict indicating special execution requirements, such as hardware platforms.",
-      structField = true
-  )
-  public ImmutableMap<String, String> getExecutionInfo();
+      structField = true)
+  ImmutableMap<String, String> getExecutionInfo();
 }

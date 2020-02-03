@@ -19,7 +19,6 @@ import com.google.devtools.build.lib.skylarkbuildapi.android.AndroidDeviceBroker
 import com.google.devtools.build.lib.skylarkbuildapi.android.AndroidSkylarkCommonApi;
 import com.google.devtools.build.lib.skylarkbuildapi.android.AndroidSplitTransititionApi;
 import com.google.devtools.build.lib.skylarkbuildapi.java.JavaInfoApi;
-import com.google.devtools.build.lib.vfs.PathFragment;
 
 /** Fake implementation of {@link AndroidSkylarkCommonApi}. */
 public class FakeAndroidSkylarkCommon
@@ -31,7 +30,7 @@ public class FakeAndroidSkylarkCommon
   }
 
   @Override
-  public PathFragment getSourceDirectoryRelativePathFromResource(FileApi resource) {
+  public String getSourceDirectoryRelativePathFromResource(FileApi resource) {
     return null;
   }
 
@@ -43,11 +42,6 @@ public class FakeAndroidSkylarkCommon
   @Override
   public JavaInfoApi<FileApi> enableImplicitSourcelessDepsExportsCompatibility(
       JavaInfoApi<FileApi> javaInfo) {
-    return null;
-  }
-
-  @Override
-  public JavaInfoApi<FileApi> addRJarToJavaInfo(JavaInfoApi<FileApi> javaInfo, FileApi rJar) {
     return null;
   }
 }

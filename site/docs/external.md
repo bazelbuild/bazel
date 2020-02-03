@@ -8,7 +8,7 @@ title: External Dependencies
 Bazel can depend on targets from other projects.  Dependencies from these other
 projects are called _external dependencies_.
 
-The `WORKSPACE` file in the [workspace directory](build-ref.html#workspace)
+The `WORKSPACE` file (or `WORKSPACE.bazel` file) in the [workspace directory](build-ref.html#workspace)
 tells Bazel how to get other projects' sources.  These other projects can
 contain one or more `BUILD` files with their own targets.  `BUILD` files within
 the main project can depend on these external targets by using their name from
@@ -43,7 +43,11 @@ filesystem or downloaded from the internet. Users can also write custom
 This `WORKSPACE` file uses the same syntax as BUILD files, but allows a
 different set of rules. The full list of built-in rules are in the Build
 Encyclopedia's [Workspace Rules](be/workspace.html) and the documentation
-for [Embedded Starklark Repository Rules](repo/index.html).
+for [Embedded Starlark Repository Rules](repo/index.html).
+
+Like in the [workspace directory](build-ref.html#workspace), Bazel also supports `WORKSPACE.bazel`
+file as an alias of `WORKSPACE` in external dependencies. If both files exist, `WORKSPACE.bazel`
+will take the priority.
 
 <a name="types"></a>
 ## Supported types of external dependencies
@@ -80,7 +84,7 @@ local_repository(
 
 If your coworker has a target `//foo:bar`, your project can refer to it as
 `@coworkers_project//foo:bar`. External project names must be
-[valid workspace names](be/functions.html#workspace), so `_` (valid) is used to
+[valid workspace names](skylark/lib/globals.html#workspace), so `_` (valid) is used to
 replace `-` (invalid) in the name `coworkers_project`.
 
 <a name="non-bazel-projects"></a>
@@ -135,6 +139,8 @@ you would like to prefetch the dependencies needed for a specific set of targets
 [`bazel fetch`](https://docs.bazel.build/versions/master/command-line-reference.html#commands).
 To unconditionally fetch all external dependencies, use
 [`bazel sync`](https://docs.bazel.build/versions/master/command-line-reference.html#commands).
+As fetched repositories are [stored in the output base](#layout), fetching
+happens per workspace.
 
 <a name="shadowing-dependencies"></a>
 ## Shadowing dependencies
@@ -232,23 +238,30 @@ environment variables and use these to download HTTP/HTTPS files (if specified).
 ## Transitive dependencies
 
 Bazel only reads dependencies listed in your `WORKSPACE` file. If your project
-(`A`) depends on another project (`B`) which list a dependency on a third
+(`A`) depends on another project (`B`) which lists a dependency on a third
 project (`C`) in its `WORKSPACE` file, you'll have to add both `B`
 and `C` to your project's `WORKSPACE` file. This requirement can balloon the
-`WORKSPACE` file size, but hopefully limits the chances of having one library
+`WORKSPACE` file size, but limits the chances of having one library
 include `C` at version 1.0 and another include `C` at 2.0.
 
 <a name="caching"></a>
 ## Caching of external dependencies
 
-Bazel caches external dependencies and re-downloads or updates them when
-the `WORKSPACE` file changes.
+By default, Bazel will only re-download external dependencies if their
+definition changes. Changes to files referenced in the definition (e.g., patches
+or `BUILD` files) are also taken into account by bazel.
+
+To force a re-download, use `bazel sync`.
+
 
 <a name="layout"></a>
 ## Layout
 
-External dependencies are all downloaded and symlinked under a directory named
-`external`. You can see this directory by running:
+External dependencies are all downloaded to a directory under the subdirectory
+`external` in the [output base](output_directories.html). In case of a
+[local repository](be/workspace.html#local_repository), a symlink is created
+there instead of creating a new directory.
+You can see the `external` directory by running:
 
 ```
 ls $(bazel info output_base)/external
@@ -257,6 +270,37 @@ ls $(bazel info output_base)/external
 Note that running `bazel clean` will not actually delete the external
 directory. To remove all external artifacts, use `bazel clean --expunge`.
 
+## Offline builds
+
+It is sometimes desirable or necessary to run a build in an offline fashion. For
+simple use cases, e.g., traveling on an airplane,
+[prefetching](#fetching-dependencies) the needed
+repositories with `bazel fetch` or `bazel sync` can be enough; moreover, the
+using the option `--nofetch`, fetching of further repositories can be disabled
+during the build.
+
+For true offline builds, where the providing of the needed files is to be done
+by an entity different from bazel, bazel supports the option
+`--distdir`. Whenever a repository rule asks bazel to fetch a file via
+[`ctx.download`](skylark/lib/repository_ctx.html#download) or
+[`ctx.download_and_extract`](skylark/lib/repository_ctx.html#download_and_extract)
+and provides a hash sum of the file
+needed, bazel will first look into the directories specified by that option for
+a file matching the basename of the first URL provided, and use that local copy
+if the hash matches.
+
+Bazel itself uses this technique to bootstrap offline from the [distribution
+artifact](https://bazel.build/designs/2016/10/11/distribution-artifact.html).
+It does so by [collecting all the needed external
+dependencies](https://github.com/bazelbuild/bazel/blob/5cfa0303d6ac3b5bd031ff60272ce80a704af8c2/WORKSPACE#L116)
+in an internal
+[`distdir_tar`](https://github.com/bazelbuild/bazel/blob/5cfa0303d6ac3b5bd031ff60272ce80a704af8c2/distdir.bzl#L44).
+
+However, bazel allows the execution of arbitrary commands in repository rules,
+without knowing if they call out to the network. Therefore, bazel has no option
+to enforce builds being fully offline. So testing if a build works correctly
+offline requires external blocking of the network, as bazel does in its
+bootstrap test.
 
 ## Best practices
 

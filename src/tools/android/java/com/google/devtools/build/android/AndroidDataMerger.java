@@ -23,7 +23,7 @@ import com.google.devtools.build.android.AndroidResourceMerger.MergingException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Path;
-import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -162,8 +162,10 @@ class AndroidDataMerger {
           String.format("Merged dependencies read in %sms", timer.elapsed(TimeUnit.MILLISECONDS)));
       timer.reset().start();
       return doMerge(
-          ParsedAndroidData.loadedFrom(transitive, executorService, deserializer),
-          ParsedAndroidData.loadedFrom(direct, executorService, deserializer),
+          ParsedAndroidData.loadedFrom(
+              DependencyInfo.DependencyType.TRANSITIVE, transitive, executorService, deserializer),
+          ParsedAndroidData.loadedFrom(
+              DependencyInfo.DependencyType.DIRECT, direct, executorService, deserializer),
           primary,
           primaryManifest,
           allowPrimaryOverrideAll,
@@ -272,7 +274,7 @@ class AndroidDataMerger {
     final ParsedAndroidData.Builder transitiveBuilder = ParsedAndroidData.Builder.newBuilder();
     final KeyValueConsumers transitiveConsumers = transitiveBuilder.consumers();
     final KeyValueConsumers primaryConsumers = primaryBuilder.consumers();
-    final Set<MergeConflict> conflicts = new HashSet<>();
+    final Set<MergeConflict> conflicts = new LinkedHashSet<>();
 
     // Find all internal conflicts.
     conflicts.addAll(parsedPrimary.conflicts());

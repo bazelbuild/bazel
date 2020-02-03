@@ -22,8 +22,6 @@ import com.google.devtools.build.lib.skyframe.serialization.SerializationContext
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.strings.StringCodecs;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkPrintable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
@@ -56,11 +54,10 @@ public final class PathFragment
     implements Comparable<PathFragment>,
         Serializable,
         FileType.HasFileType,
-        SkylarkPrintable,
         CommandLineItem {
   private static final OsPathPolicy OS = OsPathPolicy.getFilePathOs();
 
-  @AutoCodec public static final PathFragment EMPTY_FRAGMENT = create("");
+  @AutoCodec public static final PathFragment EMPTY_FRAGMENT = new PathFragment("", 0);
   public static final char SEPARATOR_CHAR = OS.getSeparator();
   public static final int INVALID_SEGMENT = -1;
 
@@ -69,6 +66,9 @@ public final class PathFragment
 
   /** Creates a new normalized path fragment. */
   public static PathFragment create(String path) {
+    if (path.isEmpty()) {
+      return EMPTY_FRAGMENT;
+    }
     int normalizationLevel = OS.needsToNormalize(path);
     String normalizedPath =
         normalizationLevel != OsPathPolicy.NORMALIZED
@@ -96,6 +96,9 @@ public final class PathFragment
    */
   @AutoCodec.Instantiator
   static PathFragment createAlreadyNormalized(String normalizedPath, int driveStrLength) {
+    if (normalizedPath.isEmpty()) {
+      return EMPTY_FRAGMENT;
+    }
     return new PathFragment(normalizedPath, driveStrLength);
   }
 
@@ -342,11 +345,6 @@ public final class PathFragment
   @Override
   public String toString() {
     return normalizedPath;
-  }
-
-  @Override
-  public void repr(SkylarkPrinter printer) {
-    printer.append(normalizedPath);
   }
 
   @Override
@@ -754,6 +752,7 @@ public final class PathFragment
     return new PathFragmentSerializationProxy(normalizedPath);
   }
 
+  @SuppressWarnings("unused") // found by CLASSPATH-scanning magic
   private static class Codec implements ObjectCodec<PathFragment> {
     private final ObjectCodec<String> stringCodec = StringCodecs.asciiOptimized();
 

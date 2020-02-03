@@ -17,6 +17,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
@@ -24,7 +25,6 @@ import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.test.TestConfiguration;
-import com.google.devtools.build.lib.bazel.rules.DefaultBuildOptionsForDiffing;
 import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.testutil.TestUtils;
@@ -314,8 +314,7 @@ public final class CommandInterruptionTest {
       synchronizeWithCommand();
       assertWithMessage("The command should have been finished, but it was not.")
           .that(result.isDone()).isTrue();
-      // TODO(mstaib): replace with Futures.getDone when Bazel uses Guava 20.0
-      assertThat(result.get()).isEqualTo(exitCode.getNumericExitCode());
+      assertThat(Futures.getDone(result)).isEqualTo(exitCode.getNumericExitCode());
     }
 
     /** Asserts that the command has not finished yet. */
@@ -375,7 +374,7 @@ public final class CommandInterruptionTest {
                 new BlazeModule() {
                   @Override
                   public BuildOptions getDefaultBuildOptions(BlazeRuntime runtime) {
-                    return DefaultBuildOptionsForDiffing.getDefaultBuildOptionsForFragments(
+                    return BuildOptions.getDefaultBuildOptionsForFragments(
                         runtime.getRuleClassProvider().getConfigurationOptions());
                   }
                 })

@@ -809,6 +809,45 @@ function test_skylark_repository_file_invalidation_batch() {
   file_invalidation_test_template --batch
 }
 
+# Test invalidation based on changes of the Starlark semantics
+function starlark_invalidation_test_template() {
+  local startup_flag="${1-}"
+  local execution_file="$(setup_invalidation_test)"
+  local flags="--action_env FOO=BAR --action_env BAR=BAZ --action_env BAZ=FOO"
+  local bazel_build="bazel ${startup_flag} build ${flags}"
+
+  ${bazel_build} --noincompatible_run_shell_command_string @foo//:bar \
+    >& ${TEST_log} || fail "Expected success"
+  expect_log "<1> FOO=BAR BAR=BAZ BAZ=FOO"
+  assert_equals 1 $(cat "${execution_file}")
+
+  echo; cat ${TEST_log}; echo
+
+  ${bazel_build} --noincompatible_run_shell_command_string @foo//:bar \
+    >& ${TEST_log} || fail "Expected success"
+  assert_equals 1 $(cat "${execution_file}")
+
+  echo; cat ${TEST_log}; echo
+
+  # Changing the starlark semantics should invalidate once
+  ${bazel_build} --incompatible_run_shell_command_string @foo//:bar \
+    >& ${TEST_log} || fail "Expected success"
+  expect_log "<2> FOO=BAR BAR=BAZ BAZ=FOO"
+  assert_equals 2 $(cat "${execution_file}")
+  ${bazel_build} --incompatible_run_shell_command_string @foo//:bar \
+    >& ${TEST_log} || fail "Expected success"
+  assert_equals 2 $(cat "${execution_file}")
+}
+
+function test_starlark_invalidation() {
+    starlark_invalidation_test_template
+}
+
+function test_starlark_invalidation_batch() {
+    starlark_invalidation_test_template --batch
+}
+
+
 function test_repo_env() {
   setup_skylark_repository
 
@@ -881,6 +920,57 @@ EOF
       || fail "Expected FOO to be visible to repo rules"
   diff unrelated1.txt unrelated3.txt \
       || fail "Expected unrelated action to not be rerun"
+}
+
+function test_repo_env_invalidation() {
+    # regression test for https://github.com/bazelbuild/bazel/issues/8869
+    WRKDIR=$(mktemp -d "${TEST_TMPDIR}/testXXXXXX")
+    cd "${WRKDIR}"
+    cat > WORKSPACE <<'EOF'
+load("//:my_repository_rule.bzl", "my_repository_rule")
+
+my_repository_rule(
+    name = "my_repository_rule",
+)
+EOF
+    cat > my_repository_rule.bzl <<'EOF'
+def _my_repository_rule_impl(rctx):
+    foo = rctx.os.environ.get("foo", default = "")
+
+    print('foo = ' + foo)
+
+    rctx.file("BUILD.bazel",
+              "exports_files(['update_time'], visibility=['//visibility:public'])")
+    rctx.execute(["bash", "-c", "date +%s > update_time"])
+
+my_repository_rule = repository_rule(
+    environ = ["foo"],
+    implementation = _my_repository_rule_impl,
+)
+EOF
+    cat > BUILD <<'EOF'
+genrule(
+  name = "repotime",
+  outs = ["repotime.txt"],
+  srcs = ["@my_repository_rule//:update_time"],
+  cmd = "cp $< $@",
+)
+EOF
+
+    bazel build //:repotime
+    cp `bazel info bazel-genfiles 2>/dev/null`/repotime.txt time1.txt
+
+    sleep 2;
+    bazel build --repo_env=foo=bar //:repotime
+    cp `bazel info bazel-genfiles 2>/dev/null`/repotime.txt time2.txt
+    diff time1.txt time2.txt && fail "Expected repo to be refetched" || :
+
+    bazel shutdown
+    sleep 2;
+
+    bazel build --repo_env=foo=bar //:repotime
+    cp `bazel info bazel-genfiles 2>/dev/null`/repotime.txt time3.txt
+    diff time2.txt time3.txt || fail "Expected repo to not be refetched"
 }
 
 function test_skylark_repository_executable_flag() {
@@ -984,14 +1074,14 @@ function test_skylark_repository_context_downloads_return_struct() {
   cat >test.bzl <<EOF
 def _impl(repository_ctx):
   no_sha_return = repository_ctx.download(
-    url = "http://localhost:${fileserver_port}/download_no_sha256.txt",
+    url = "file://${server_dir}/download_no_sha256.txt",
     output = "download_no_sha256.txt")
   with_sha_return = repository_ctx.download(
     url = "http://localhost:${fileserver_port}/download_with_sha256.txt",
     output = "download_with_sha256.txt",
     sha256 = "${provided_sha256}")
   compressed_no_sha_return = repository_ctx.download_and_extract(
-    url = "http://localhost:${fileserver_port}/compressed_no_sha256.txt.zip",
+    url = "file://${server_dir}/compressed_no_sha256.txt.zip",
     output = "compressed_no_sha256.txt.zip")
   compressed_with_sha_return = repository_ctx.download_and_extract(
       url = "http://localhost:${fileserver_port}/compressed_with_sha256.txt.zip",
@@ -1011,7 +1101,7 @@ EOF
   # none was provided by the call to download_and_extract. So we do have to
   # allow a download without provided checksum, even though it is plain http;
   # nevertheless, localhost is pretty safe against man-in-the-middle attacs.
-  bazel build --noincompatible_disallow_unverified_http_downloads @foo//:all \
+  bazel build @foo//:all \
         >& $TEST_log && shutdown_server || fail "Execution of @foo//:all failed"
 
   output_base="$(bazel info output_base)"
@@ -1323,6 +1413,55 @@ EOF
       || fail "expected success after successful sync"
 }
 
+function test_sync_only() {
+  # Set up two repositories that count how often they are fetched
+  cat >environ.bzl <<'EOF'
+def environ(r_ctx, var):
+  return r_ctx.os.environ[var] if var in r_ctx.os.environ else "undefined"
+EOF
+  cat <<'EOF' >bar.tpl
+FOO=%{FOO} BAR=%{BAR} BAZ=%{BAZ}
+EOF
+  write_environ_skylark "${TEST_TMPDIR}/executionFOO" ""
+  mv test.bzl testfoo.bzl
+  write_environ_skylark "${TEST_TMPDIR}/executionBAR" ""
+  mv test.bzl testbar.bzl
+  cat > WORKSPACE <<'EOF'
+load("//:testfoo.bzl", foorepo="repo")
+load("//:testbar.bzl", barrepo="repo")
+foorepo(name="foo")
+barrepo(name="bar")
+EOF
+  touch BUILD
+  bazel clean --expunge
+  echo 0 > "${TEST_TMPDIR}/executionFOO"
+  echo 0 > "${TEST_TMPDIR}/executionBAR"
+
+  # Normal sync should hit both repositories
+  echo; echo bazel sync; echo
+  bazel sync
+  assert_equals 1 $(cat "${TEST_TMPDIR}/executionFOO")
+  assert_equals 1 $(cat "${TEST_TMPDIR}/executionBAR")
+
+  # Only foo
+  echo; echo bazel sync --only foo; echo
+  bazel sync --only foo
+  assert_equals 2 $(cat "${TEST_TMPDIR}/executionFOO")
+  assert_equals 1 $(cat "${TEST_TMPDIR}/executionBAR")
+
+  # Only bar
+  echo; echo bazel sync --only bar; echo
+  bazel sync --only bar
+  assert_equals 2 $(cat "${TEST_TMPDIR}/executionFOO")
+  assert_equals 2 $(cat "${TEST_TMPDIR}/executionBAR")
+
+  # Only bar
+  echo; echo bazel sync --only bar; echo
+  bazel sync --only bar
+  assert_equals 2 $(cat "${TEST_TMPDIR}/executionFOO")
+  assert_equals 3 $(cat "${TEST_TMPDIR}/executionBAR")
+}
+
 function test_download_failure_message() {
   # Regression test for #7850
   # Verify that the for a failed downlaod, it is clearly indicated
@@ -1553,6 +1692,7 @@ cd pub
 mget *
 quit
 
+# this is a comment
 machine example.com login
 myusername password mysecret default
 login anonymous password myusername@example.com
@@ -1742,8 +1882,7 @@ genrule(
   cmd = "cp $< $@",
 )
 EOF
-  bazel build --incompatible_disallow_unverified_http_downloads //:it \
-        > "${TEST_log}" 2>&1 && fail "Expeceted failure" || :
+  bazel build //:it > "${TEST_log}" 2>&1 && fail "Expeceted failure" || :
   expect_log 'plain http.*missing checksum'
 
   # After adding a good checksum, we expect success
@@ -1755,8 +1894,7 @@ sha256 = "$sha256",
 w
 q
 EOF
-  bazel build --incompatible_disallow_unverified_http_downloads //:it \
-        || fail "Expected success one the checksum is given"
+  bazel build //:it || fail "Expected success one the checksum is given"
 
 }
 

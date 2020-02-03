@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.syntax.StarlarkValue;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
 import java.util.Map;
@@ -25,7 +26,10 @@ import java.util.Map;
 /** Convenience wrapper around runfiles allowing lazy expansion. */
 // TODO(bazel-team): Ideally we could refer to Runfiles objects directly here, but current package
 // structure makes this difficult. Consider moving things around to make this possible.
-public interface RunfilesSupplier {
+//
+// RunfilesSuppliers appear to be Starlark values;
+// they are exposed through ctx.resolve_tools[2], for example.
+public interface RunfilesSupplier extends StarlarkValue {
 
   /** @return the contained artifacts */
   NestedSet<Artifact> getArtifacts();
@@ -46,4 +50,20 @@ public interface RunfilesSupplier {
 
   /** @return the runfiles manifest artifacts, if any. */
   ImmutableList<Artifact> getManifests();
+
+  /**
+   * Returns whether for a given {@code runfilesDir} the runfile symlinks are materialized during
+   * build. Also returns {@code false} if the runfiles supplier doesn't know about the directory.
+   *
+   * @param runfilesDir runfiles directory relative to the exec root
+   */
+  boolean isBuildRunfileLinks(PathFragment runfilesDir);
+
+  /**
+   * Returns whether it's allowed to create runfile symlinks in the {@code runfilesDir}. Also
+   * returns {@code false} if the runfiles supplier doesn't know about the directory.
+   *
+   * @param runfilesDir runfiles directory relative to the exec root
+   */
+  boolean isRunfileLinksEnabled(PathFragment runfilesDir);
 }

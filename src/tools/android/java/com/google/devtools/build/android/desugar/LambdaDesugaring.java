@@ -31,7 +31,7 @@ import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import javax.annotation.Nullable;
 import org.objectweb.asm.ClassVisitor;
@@ -58,7 +58,7 @@ class LambdaDesugaring extends ClassVisitor {
   private final ClassLoader targetLoader;
   private final LambdaClassMaker lambdas;
   private final ImmutableSet.Builder<String> aggregateInterfaceLambdaMethods;
-  private final Map<Handle, MethodReferenceBridgeInfo> bridgeMethods = new HashMap<>();
+  private final Map<Handle, MethodReferenceBridgeInfo> bridgeMethods = new LinkedHashMap<>();
   private final ImmutableSet<MethodInfo> lambdaMethodsUsedInInvokeDyanmic;
   private final boolean allowDefaultMethods;
 

@@ -39,6 +39,8 @@ import com.google.devtools.build.lib.actions.MissingInputFileException;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.actions.util.TestAction.DummyAction;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.NullEventHandler;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationTester;
 import com.google.devtools.build.lib.util.Pair;
@@ -56,8 +58,6 @@ import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -106,8 +106,7 @@ public class ArtifactFunctionTest extends ArtifactFunctionTestCase {
 
   @Test
   public void testUnreadableInputWithFsWithAvailableDigest() throws Throwable {
-    final byte[] expectedDigest = MessageDigest.getInstance("md5").digest(
-        "someunreadablecontent".getBytes(StandardCharsets.UTF_8));
+    final byte[] expectedDigest = {1, 2, 3, 4};
     setupRoot(
         new CustomInMemoryFs() {
           @Override
@@ -140,7 +139,9 @@ public class ArtifactFunctionTest extends ArtifactFunctionTestCase {
     file(treeFile2.getPath(), "src2");
     Action action =
         new DummyAction(
-            ImmutableList.of(input1, input2, tree), output, MiddlemanType.AGGREGATING_MIDDLEMAN);
+            NestedSetBuilder.create(Order.STABLE_ORDER, input1, input2, tree),
+            output,
+            MiddlemanType.AGGREGATING_MIDDLEMAN);
     actions.add(action);
     file(input2.getPath(), "contents");
     file(input1.getPath(), "source contents");
@@ -286,15 +287,7 @@ public class ArtifactFunctionTest extends ArtifactFunctionTestCase {
             ImmutableList.of(filesetOutputSymlink),
             null,
             true);
-    ActionExecutionValue valueWithFingerprint =
-        ActionExecutionValue.create(
-            ImmutableMap.of(artifact1, metadata1, artifact3, FileArtifactValue.DEFAULT_MIDDLEMAN),
-            ImmutableMap.of(treeArtifact, treeArtifactValue),
-            ImmutableList.of(filesetOutputSymlink),
-            null,
-            true);
-    valueWithFingerprint.getValueFingerprint();
-    new SerializationTester(actionExecutionValue, valueWithFingerprint)
+    new SerializationTester(actionExecutionValue)
         .addDependency(FileSystem.class, root.getFileSystem())
         .runTests();
   }
@@ -314,7 +307,7 @@ public class ArtifactFunctionTest extends ArtifactFunctionTestCase {
     Artifact.DerivedArtifact output =
         new Artifact.DerivedArtifact(
             ArtifactRoot.asDerivedRoot(root, root.getRelative("out")), execPath, ALL_OWNER);
-    actions.add(new DummyAction(ImmutableList.<Artifact>of(), output));
+    actions.add(new DummyAction(NestedSetBuilder.emptySet(Order.STABLE_ORDER), output));
     output.setGeneratingActionKey(ActionLookupData.create(ALL_OWNER, actions.size() - 1));
     return output;
   }
@@ -328,7 +321,7 @@ public class ArtifactFunctionTest extends ArtifactFunctionTestCase {
 
   private SpecialArtifact createDerivedTreeArtifactWithAction(String path) {
     SpecialArtifact treeArtifact = createDerivedTreeArtifactOnly(path);
-    actions.add(new DummyAction(ImmutableList.<Artifact>of(), treeArtifact));
+    actions.add(new DummyAction(NestedSetBuilder.emptySet(Order.STABLE_ORDER), treeArtifact));
     return treeArtifact;
   }
 
@@ -394,8 +387,7 @@ public class ArtifactFunctionTest extends ArtifactFunctionTestCase {
                       actionKeyContext,
                       ImmutableList.copyOf(actions),
                       ALL_OWNER,
-                      /*outputFiles=*/ null),
-                  /*nonceVersion=*/ null)));
+                      /*outputFiles=*/ null))));
     }
   }
 

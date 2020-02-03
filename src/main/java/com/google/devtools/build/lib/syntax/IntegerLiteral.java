@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.syntax;
 
-import java.io.IOException;
 
 /** Syntax node for an integer literal. */
 public final class IntegerLiteral extends Expression {
@@ -28,17 +27,7 @@ public final class IntegerLiteral extends Expression {
   }
 
   @Override
-  Object doEval(Environment env) {
-    return value;
-  }
-
-  @Override
-  public void prettyPrint(Appendable buffer) throws IOException {
-    buffer.append(String.valueOf(value));
-  }
-
-  @Override
-  public void accept(SyntaxTreeVisitor visitor) {
+  public void accept(NodeVisitor visitor) {
     visitor.visit(this);
   }
 

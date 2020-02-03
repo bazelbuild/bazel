@@ -17,6 +17,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.base.Throwables;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
@@ -24,6 +25,7 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety;
 import com.google.devtools.build.lib.packages.Globber.BadGlobException;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.UnixGlob;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -95,6 +97,7 @@ public class GlobCache {
   public GlobCache(
       final Path packageDirectory,
       final PackageIdentifier packageId,
+      final ImmutableSet<PathFragment> blacklistedGlobPrefixes,
       final CachingPackageLocator locator,
       AtomicReference<? extends UnixGlob.FilesystemCalls> syscalls,
       Executor globExecutor,
@@ -111,12 +114,18 @@ public class GlobCache {
           if (directory.equals(packageDirectory)) {
             return true;
           }
+
+          PathFragment subPackagePath =
+              packageId.getPackageFragment().getRelative(directory.relativeTo(packageDirectory));
+
+          for (PathFragment blacklistedPrefix : blacklistedGlobPrefixes) {
+            if (subPackagePath.startsWith(blacklistedPrefix)) {
+              return false;
+            }
+          }
+
           PackageIdentifier subPackageId =
-              PackageIdentifier.create(
-                  packageId.getRepository(),
-                  packageId
-                      .getPackageFragment()
-                      .getRelative(directory.relativeTo(packageDirectory)));
+              PackageIdentifier.create(packageId.getRepository(), subPackagePath);
           return locator.getBuildFileForPackage(subPackageId) == null;
         };
   }
@@ -171,10 +180,6 @@ public class GlobCache {
       // invalid as a label, plus users should say explicitly if they
       // really want to name the package directory.
       if (!relative.isEmpty()) {
-        if (relative.charAt(0) == '@') {
-          // Add explicit colon to disambiguate from external repository.
-          relative = ":" + relative;
-        }
         result.add(relative);
       }
     }
@@ -201,13 +206,17 @@ public class GlobCache {
     if (error != null) {
       throw new BadGlobException(error + " (in glob pattern '" + pattern + "')");
     }
-    return UnixGlob.forPath(packageDirectory)
-        .addPattern(pattern)
-        .setExcludeDirectories(excludeDirs)
-        .setDirectoryFilter(childDirectoryPredicate)
-        .setExecutor(globExecutor)
-        .setFilesystemCalls(syscalls)
-        .globAsync();
+    try {
+      return UnixGlob.forPath(packageDirectory)
+          .addPattern(pattern)
+          .setExcludeDirectories(excludeDirs)
+          .setDirectoryFilter(childDirectoryPredicate)
+          .setExecutor(globExecutor)
+          .setFilesystemCalls(syscalls)
+          .globAsync();
+    } catch (UnixGlob.BadPattern ex) {
+      throw new BadGlobException(ex.getMessage());
+    }
   }
 
   /**
@@ -239,7 +248,7 @@ public class GlobCache {
     // block on an individual pattern's results, but the other globs can
     // continue in the background.
     for (String pattern : includes) {
-      @SuppressWarnings("unused") 
+      @SuppressWarnings("unused")
       Future<?> possiblyIgnoredError = getGlobUnsortedAsync(pattern, excludeDirs);
     }
 
@@ -255,7 +264,11 @@ public class GlobCache {
       }
       results.addAll(items);
     }
-    UnixGlob.removeExcludes(results, excludes);
+    try {
+      UnixGlob.removeExcludes(results, excludes);
+    } catch (UnixGlob.BadPattern ex) {
+      throw new BadGlobException(ex.getMessage());
+    }
     if (!allowEmpty && results.isEmpty()) {
       throw new BadGlobException(
           "all files in the glob have been excluded, but allow_empty is set to False.");

@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.profiler.AutoProfiler;
 import com.google.devtools.build.lib.skyframe.AspectValue;
 import com.google.devtools.build.lib.util.RegexFilter;
+import java.util.Collection;
 import java.util.logging.Logger;
 import javax.annotation.Nullable;
 
@@ -85,7 +86,7 @@ public final class TopLevelArtifactHelper {
      */
     public NestedSet<Artifact> getImportantArtifacts() {
       NestedSetBuilder<Artifact> builder = new NestedSetBuilder<>(artifacts.getOrder());
-      for (ArtifactsInOutputGroup artifactsInOutputGroup : artifacts) {
+      for (ArtifactsInOutputGroup artifactsInOutputGroup : artifacts.toList()) {
         if (artifactsInOutputGroup.areImportant()) {
           builder.addTransitive(artifactsInOutputGroup.getArtifacts());
         }
@@ -98,7 +99,7 @@ public final class TopLevelArtifactHelper {
      */
     public NestedSet<Artifact> getAllArtifacts() {
       NestedSetBuilder<Artifact> builder = new NestedSetBuilder<>(artifacts.getOrder());
-      for (ArtifactsInOutputGroup artifactsInOutputGroup : artifacts) {
+      for (ArtifactsInOutputGroup artifactsInOutputGroup : artifacts.toList()) {
         builder.addTransitive(artifactsInOutputGroup.getArtifacts());
       }
       return builder.build();
@@ -156,7 +157,16 @@ public final class TopLevelArtifactHelper {
   }
 
   static void addArtifactsWithOwnerLabel(
-      Iterable<? extends Artifact> artifacts,
+      NestedSet<? extends Artifact> artifacts,
+      @Nullable RegexFilter filter,
+      Label ownerLabel,
+      ArtifactsToOwnerLabels.Builder artifactsToOwnerLabelsBuilder) {
+    addArtifactsWithOwnerLabel(
+        artifacts.toList(), filter, ownerLabel, artifactsToOwnerLabelsBuilder);
+  }
+
+  static void addArtifactsWithOwnerLabel(
+      Collection<? extends Artifact> artifacts,
       @Nullable RegexFilter filter,
       Label ownerLabel,
       ArtifactsToOwnerLabels.Builder artifactsToOwnerLabelsBuilder) {

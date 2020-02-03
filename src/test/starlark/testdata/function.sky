@@ -38,7 +38,7 @@ assert_eq(str([].clear), "<built-in function clear>")
 
 ---
 x = {}.pop
-x() ###  parameter 'key' has no default value
+x() ###  missing 1 required positional argument: key
 ---
 
 # getattr
@@ -54,7 +54,7 @@ x()
 assert_eq(y, [])
 
 ---
-getattr("", "abc") ### object of type 'string' has no attribute 'abc'
+getattr("", "abc") ### 'string' value has no field or method 'abc'
 ---
 x = getattr("", "pop", "clear")
 x() ### 'string' object is not callable

@@ -72,6 +72,7 @@ public final class NativeLibs {
           AndroidCommon.getCcInfo(
               entry.getValue(),
               ImmutableList.of("-Wl,-soname=lib" + ruleContext.getLabel().getName()),
+              ruleContext.getLabel(),
               ruleContext.getSymbolGenerator());
 
       Artifact nativeDepsLibrary =
@@ -135,8 +136,8 @@ public final class NativeLibs {
   public ImmutableSet<Artifact> getAllNativeLibs() {
     ImmutableSet.Builder<Artifact> result = ImmutableSet.builder();
 
-    for (Iterable<Artifact> libs : nativeLibs.values()) {
-      result.addAll(libs);
+    for (NestedSet<Artifact> libs : nativeLibs.values()) {
+      result.addAll(libs.toList());
     }
 
     return result.build();
@@ -156,7 +157,7 @@ public final class NativeLibs {
     Map<PathFragment, Artifact> symlinks = new LinkedHashMap<>();
     for (Map.Entry<String, NestedSet<Artifact>> entry : nativeLibs.entrySet()) {
       String arch = entry.getKey();
-      for (Artifact lib : entry.getValue()) {
+      for (Artifact lib : entry.getValue().toList()) {
         symlinks.put(PathFragment.create(arch + "/" + lib.getExecPath().getBaseName()), lib);
       }
     }
@@ -165,32 +166,35 @@ public final class NativeLibs {
       return null;
     }
 
-    Runfiles.Builder runfiles =
+    Runfiles runfiles =
         new Runfiles.Builder(
-            ruleContext.getWorkspaceName(),
-            ruleContext.getConfiguration().legacyExternalRunfiles());
-    runfiles.addRootSymlinks(symlinks);
+                ruleContext.getWorkspaceName(),
+                ruleContext.getConfiguration().legacyExternalRunfiles())
+            .addRootSymlinks(symlinks)
+            .build();
     if (!ruleContext.getConfiguration().buildRunfilesManifests()) {
-      return new ManifestAndRunfiles(/*manifest=*/ null, runfiles.build());
+      return new ManifestAndRunfiles(/*manifest=*/ null, runfiles);
     }
 
     Artifact inputManifest = AndroidBinary.getDxArtifact(ruleContext, "native_symlinks.manifest");
-    SourceManifestAction sourceManifestAction =
-        new SourceManifestAction.Builder(
-                ManifestType.SOURCE_SYMLINKS, ruleContext.getActionOwner(), inputManifest, runfiles)
-            .build();
-    ruleContext.registerAction(sourceManifestAction);
-    Artifact outputManifest = AndroidBinary.getDxArtifact(ruleContext, "native_symlinks/MANIFEST");
+    ruleContext.registerAction(
+        new SourceManifestAction(
+            ManifestType.SOURCE_SYMLINKS,
+            ruleContext.getActionOwner(),
+            inputManifest,
+            runfiles,
+            ruleContext.getConfiguration().remotableSourceManifestActions()));
 
+    Artifact outputManifest = AndroidBinary.getDxArtifact(ruleContext, "native_symlinks/MANIFEST");
     ruleContext.registerAction(
         new SymlinkTreeAction(
             ruleContext.getActionOwner(),
+            ruleContext.getConfiguration(),
             inputManifest,
+            runfiles,
             outputManifest,
-            false,
-            ruleContext.getConfiguration().getActionEnvironment(),
-            ruleContext.getConfiguration().runfilesEnabled()));
-    return new ManifestAndRunfiles(outputManifest, sourceManifestAction.getGeneratedRunfiles());
+            /* filesetRoot = */ null));
+    return new ManifestAndRunfiles(outputManifest, runfiles);
   }
 
   /**
@@ -252,7 +256,7 @@ public final class NativeLibs {
     if (linkedLibrary != null) {
       basenames.put(linkedLibrary.getExecPath().getBaseName(), linkedLibrary);
     }
-    for (LibraryToLink linkerInput : libraries) {
+    for (LibraryToLink linkerInput : libraries.toList()) {
       if (linkerInput.getPicStaticLibrary() != null || linkerInput.getStaticLibrary() != null) {
         // This is not a shared library and will not be loaded by Android, so skip it.
         continue;

@@ -19,7 +19,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterables;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Multimap;
 import com.google.common.hash.HashCode;
 import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
@@ -36,6 +36,7 @@ import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.exec.BinTools;
+import com.google.devtools.build.lib.exec.RunfilesTreeUpdater;
 import com.google.devtools.build.lib.exec.SpawnRunner;
 import com.google.devtools.build.lib.exec.local.LocalEnvProvider;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers;
@@ -53,7 +54,6 @@ import java.nio.file.Paths;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.SortedMap;
 import java.util.regex.Pattern;
 
@@ -82,6 +82,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
   private final boolean sandboxUsesExpandedTreeArtifactsInRunfiles;
   private final BinTools binTools;
   private final ResourceManager resourceManager;
+  private final RunfilesTreeUpdater runfilesTreeUpdater;
 
   public WorkerSpawnRunner(
       Path execRoot,
@@ -92,7 +93,8 @@ final class WorkerSpawnRunner implements SpawnRunner {
       LocalEnvProvider localEnvProvider,
       boolean sandboxUsesExpandedTreeArtifactsInRunfiles,
       BinTools binTools,
-      ResourceManager resourceManager) {
+      ResourceManager resourceManager,
+      RunfilesTreeUpdater runfilesTreeUpdater) {
     this.execRoot = execRoot;
     this.workers = Preconditions.checkNotNull(workers);
     this.extraFlags = extraFlags;
@@ -102,6 +104,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
     this.sandboxUsesExpandedTreeArtifactsInRunfiles = sandboxUsesExpandedTreeArtifactsInRunfiles;
     this.binTools = binTools;
     this.resourceManager = resourceManager;
+    this.runfilesTreeUpdater = runfilesTreeUpdater;
   }
 
   @Override
@@ -112,7 +115,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
   @Override
   public SpawnResult exec(Spawn spawn, SpawnExecutionContext context)
       throws ExecException, IOException, InterruptedException {
-    if (!Spawns.supportsWorkers(spawn)) {
+    if (!Spawns.supportsWorkers(spawn) && !Spawns.supportsMultiplexWorkers(spawn)) {
       // TODO(ulfjack): Don't circumvent SpawnExecutionPolicy. Either drop the warning here, or
       // provide a mechanism in SpawnExecutionPolicy to report warnings.
       reporter.handle(
@@ -127,15 +130,23 @@ final class WorkerSpawnRunner implements SpawnRunner {
 
   @Override
   public boolean canExec(Spawn spawn) {
-    return Spawns.supportsWorkers(spawn);
+    return Spawns.supportsWorkers(spawn) || Spawns.supportsMultiplexWorkers(spawn);
   }
 
   private SpawnResult actuallyExec(Spawn spawn, SpawnExecutionContext context)
       throws ExecException, IOException, InterruptedException {
-    if (Iterables.isEmpty(spawn.getToolFiles())) {
+    if (spawn.getToolFiles().isEmpty()) {
       throw new UserExecException(
           String.format(ERROR_MESSAGE_PREFIX + REASON_NO_TOOLS, spawn.getMnemonic()));
     }
+
+    runfilesTreeUpdater.updateRunfilesDirectory(
+        execRoot,
+        spawn.getRunfilesSupplier(),
+        context.getPathResolver(),
+        binTools,
+        spawn.getEnvironment(),
+        context.getFileOutErr());
 
     // We assume that the spawn to be executed always gets at least one @flagfile.txt or
     // --flagfile=flagfile.txt argument, which contains the flags related to the work itself (as
@@ -143,14 +154,16 @@ final class WorkerSpawnRunner implements SpawnRunner {
     // its args and put them into the WorkRequest instead.
     List<String> flagFiles = new ArrayList<>();
     ImmutableList<String> workerArgs = splitSpawnArgsIntoWorkerArgsAndFlagFiles(spawn, flagFiles);
-    Map<String, String> env =
+    ImmutableMap<String, String> env =
         localEnvProvider.rewriteLocalEnv(spawn.getEnvironment(), binTools, "/tmp");
 
     MetadataProvider inputFileCache = context.getMetadataProvider();
 
     SortedMap<PathFragment, HashCode> workerFiles =
         WorkerFilesHash.getWorkerFilesWithHashes(
-            spawn, context.getArtifactExpander(), context.getPathResolver(),
+            spawn,
+            context.getArtifactExpander(),
+            context.getPathResolver(),
             context.getMetadataProvider());
 
     HashCode workerFilesCombinedHash = WorkerFilesHash.getCombinedHash(workerFiles);
@@ -168,12 +181,12 @@ final class WorkerSpawnRunner implements SpawnRunner {
             spawn.getMnemonic(),
             workerFilesCombinedHash,
             workerFiles,
-            context.speculating());
-
-    WorkRequest workRequest = createWorkRequest(spawn, context, flagFiles, inputFileCache);
+            context.speculating(),
+            Spawns.supportsMultiplexWorkers(spawn));
 
     long startTime = System.currentTimeMillis();
-    WorkResponse response = execInWorker(spawn, key, workRequest, context, inputFiles, outputs);
+    WorkResponse response =
+        execInWorker(spawn, key, context, inputFiles, outputs, flagFiles, inputFileCache);
     Duration wallTime = Duration.ofMillis(System.currentTimeMillis() - startTime);
 
     FileOutErr outErr = context.getFileOutErr();
@@ -221,7 +234,8 @@ final class WorkerSpawnRunner implements SpawnRunner {
       Spawn spawn,
       SpawnExecutionContext context,
       List<String> flagfiles,
-      MetadataProvider inputFileCache)
+      MetadataProvider inputFileCache,
+      int workerId)
       throws IOException {
     WorkRequest.Builder requestBuilder = WorkRequest.newBuilder();
     for (String flagfile : flagfiles) {
@@ -246,7 +260,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
           .setDigest(digest)
           .build();
     }
-    return requestBuilder.build();
+    return requestBuilder.setRequestId(workerId).build();
   }
 
   /**
@@ -254,8 +268,8 @@ final class WorkerSpawnRunner implements SpawnRunner {
    * files. The @ itself can be escaped with @@. This deliberately does not expand --flagfile= style
    * arguments, because we want to get rid of the expansion entirely at some point in time.
    *
-   * Also check that the argument is not an external repository label, because they start with `@`
-   * and are not flagfile locations.
+   * <p>Also check that the argument is not an external repository label, because they start with
+   * `@` and are not flagfile locations.
    *
    * @param execRoot the current execroot of the build (relative paths will be assumed to be
    *     relative to this directory).
@@ -283,18 +297,22 @@ final class WorkerSpawnRunner implements SpawnRunner {
   private WorkResponse execInWorker(
       Spawn spawn,
       WorkerKey key,
-      WorkRequest request,
       SpawnExecutionContext context,
       SandboxInputs inputFiles,
-      SandboxOutputs outputs)
+      SandboxOutputs outputs,
+      List<String> flagFiles,
+      MetadataProvider inputFileCache)
       throws InterruptedException, ExecException {
     Worker worker = null;
     WorkResponse response;
+    WorkRequest request;
 
     ActionExecutionMetadata owner = spawn.getResourceOwner();
     try {
       try {
         worker = workers.borrowObject(key);
+        request =
+            createWorkRequest(spawn, context, flagFiles, inputFileCache, worker.getWorkerId());
       } catch (IOException e) {
         throw new UserExecException(
             ErrorMessage.builder()
@@ -331,8 +349,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
         }
 
         try {
-          request.writeDelimitedTo(worker.getOutputStream());
-          worker.getOutputStream().flush();
+          worker.putRequest(request);
         } catch (IOException e) {
           throw new UserExecException(
               ErrorMessage.builder()
@@ -345,17 +362,13 @@ final class WorkerSpawnRunner implements SpawnRunner {
                   .toString());
         }
 
-        RecordingInputStream recordingStream = new RecordingInputStream(worker.getInputStream());
-        recordingStream.startRecording(4096);
         try {
-          // response can be null when the worker has already closed stdout at this point and thus
-          // the InputStream is at EOF.
-          response = WorkResponse.parseDelimitedFrom(recordingStream);
+          response = worker.getResponse();
         } catch (IOException e) {
           // If protobuf couldn't parse the response, try to print whatever the failing worker wrote
           // to stdout - it's probably a stack trace or some kind of error message that will help
           // the user figure out why the compiler is failing.
-          recordingStream.readRemaining();
+          String recordingStreamMessage = worker.getRecordingStreamMessage();
           throw new UserExecException(
               ErrorMessage.builder()
                   .message(
@@ -363,14 +376,12 @@ final class WorkerSpawnRunner implements SpawnRunner {
                           + "Did you try to print something to stdout? Workers aren't allowed to "
                           + "do this, as it breaks the protocol between Bazel and the worker "
                           + "process.")
-                  .logText(recordingStream.getRecordedDataAsString())
+                  .logText(recordingStreamMessage)
                   .exception(e)
                   .build()
                   .toString());
         }
       }
-
-      context.lockOutputFiles();
 
       if (response == null) {
         throw new UserExecException(
@@ -383,6 +394,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
       }
 
       try {
+        context.lockOutputFiles();
         worker.finishExecution(execRoot);
       } catch (IOException e) {
         throw new UserExecException(

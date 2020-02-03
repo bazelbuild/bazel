@@ -15,17 +15,49 @@ package com.google.devtools.build.lib.syntax;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.events.Event;
-import com.google.devtools.build.lib.syntax.util.EvaluationTestCase;
+import com.google.devtools.build.lib.events.EventKind;
+import com.google.devtools.build.lib.events.util.EventCollectionApparatus;
+import com.google.devtools.build.lib.testutil.TestMode;
+import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/**
- * Tests for the validation process of Skylark files.
- */
+/** Tests of the Starlark validator. */
 @RunWith(JUnit4.class)
-public class ValidationTest extends EvaluationTestCase {
+public class ValidationTest {
+
+  // TODO(adonovan): make this not depend on StarlarkThread.
+
+  private final EventCollectionApparatus events =
+      new EventCollectionApparatus(EventKind.ALL_EVENTS);
+  private StarlarkThread thread;
+
+  @Before
+  public void initialize() throws Exception {
+    thread = newStarlarkThread();
+  }
+
+  private StarlarkThread newStarlarkThread(String... options) throws Exception {
+    return TestMode.SKYLARK.createStarlarkThread(
+        StarlarkThread.makeDebugPrintHandler(events.reporter()), ImmutableMap.of(), options);
+  }
+
+  private void parseFile(String... lines) {
+    ParserInput input = ParserInput.fromLines(lines);
+    StarlarkFile file = EvalUtils.parseAndValidateSkylark(input, thread);
+    Event.replayEventsOn(events.reporter(), file.errors());
+  }
+
+  private void setFailFast(boolean failFast) {
+    events.setFailFast(failFast);
+  }
+
+  private Event assertContainsError(String expectedMessage) {
+    return events.assertContainsError(expectedMessage);
+  }
 
   @Test
   public void testAssignmentNotValidLValue() {
@@ -44,7 +76,7 @@ public class ValidationTest extends EvaluationTestCase {
 
   @Test
   public void testLoadAfterStatement() throws Exception {
-    env = newEnvironmentWithSkylarkOptions("--incompatible_bzl_disallow_load_after_statement=true");
+    thread = newStarlarkThread("--incompatible_bzl_disallow_load_after_statement=true");
     checkError(
         "load() statements must be called before any other statement",
         "a = 5",
@@ -53,20 +85,21 @@ public class ValidationTest extends EvaluationTestCase {
 
   @Test
   public void testAllowLoadAfterStatement() throws Exception {
-    env =
-        newEnvironmentWithSkylarkOptions("--incompatible_bzl_disallow_load_after_statement=false");
+    thread = newStarlarkThread("--incompatible_bzl_disallow_load_after_statement=false");
     parse("a = 5", "load(':b.bzl', 'c')");
+  }
+
+  @Test
+  public void testLoadDuplicateSymbols() throws Exception {
+    checkError("load statement defines 'x' more than once", "load('module', 'x', 'x')");
+    checkError("load statement defines 'x' more than once", "load('module', 'x', x='y')");
+    checkError("load statement defines 'x' more than once", "x=1; load('module', 'x')");
+    checkError("load statement defines 'x' more than once", "load('module', 'x'); x=1");
   }
 
   @Test
   public void testForbiddenToplevelIfStatement() throws Exception {
     checkError("if statements are not allowed at the top level", "if True: a = 2");
-  }
-
-  @Test
-  public void testTwoFunctionsWithTheSameName() throws Exception {
-    checkError(
-        "Variable foo is read only", "def foo():", "  return 1", "def foo(x, y):", "  return 1");
   }
 
   @Test
@@ -112,8 +145,19 @@ public class ValidationTest extends EvaluationTestCase {
   }
 
   @Test
-  public void testSkylarkGlobalVariablesAreReadonly() throws Exception {
-    checkError("Variable a is read only", "a = 1", "a = 2");
+  public void testNoGlobalReassign() throws Exception {
+    setFailFast(false);
+    parseFile("a = 1", "a = 2");
+    assertContainsError(":2:1: cannot reassign global 'a'");
+    assertContainsError(":1:1: 'a' previously declared here");
+  }
+
+  @Test
+  public void testTwoFunctionsWithTheSameName() throws Exception {
+    setFailFast(false);
+    parseFile("def foo(): pass", "def foo(): pass");
+    assertContainsError(":2:5: cannot reassign global 'foo'");
+    assertContainsError(":1:5: 'foo' previously declared here");
   }
 
   @Test
@@ -133,13 +177,11 @@ public class ValidationTest extends EvaluationTestCase {
 
   @Test
   public void testGlobalDefinedBelow() throws Exception {
-    env = newEnvironmentWithSkylarkOptions();
     parse("def bar(): return x", "x = 5\n");
   }
 
   @Test
   public void testLocalVariableDefinedBelow() throws Exception {
-    env = newEnvironmentWithSkylarkOptions();
     parse(
         "def bar():",
         "    for i in range(5):",
@@ -159,7 +201,7 @@ public class ValidationTest extends EvaluationTestCase {
   }
 
   @Test
-  public void testDictLiteralDifferentValueTypeWorks() throws Exception {
+  public void testDictExpressionDifferentValueTypeWorks() throws Exception {
     parse("{'a': 1, 'b': 'c'}");
   }
 
@@ -234,7 +276,7 @@ public class ValidationTest extends EvaluationTestCase {
     assertContainsError("syntax error at 'b': expected 'in'");
     // Parser uses "$error" symbol for error recovery.
     // It should not be used in error messages.
-    for (Event event : getEventCollector()) {
+    for (Event event : events.collector()) {
       assertThat(event.getMessage()).doesNotContain("$error$");
     }
   }
@@ -264,9 +306,27 @@ public class ValidationTest extends EvaluationTestCase {
         "fct(1, *[2], a=3)");
   }
 
+  @Test
+  public void testTopLevelForFails() throws Exception {
+    setFailFast(false);
+    parseFile("for i in []: 0\n");
+    assertContainsError("for loops are not allowed at the top level");
+  }
+
+  @Test
+  public void testNestedFunctionFails() throws Exception {
+    setFailFast(false);
+    parseFile(
+        "def func(a):", //
+        "  def bar(): return 0",
+        "  return bar()",
+        "");
+    assertContainsError("nested functions are not allowed. Move the function to the top level");
+  }
+
   private void parse(String... lines) {
     parseFile(lines);
-    assertNoWarningsOrErrors();
+    events.assertNoWarningsOrErrors();
   }
 
   private void checkError(String errorMsg, String... lines) {

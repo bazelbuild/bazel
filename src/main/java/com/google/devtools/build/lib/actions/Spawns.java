@@ -42,7 +42,14 @@ public final class Spawns {
 
   /** Returns {@code true} if {@code spawn} may be executed remotely. */
   public static boolean mayBeExecutedRemotely(Spawn spawn) {
-    return ExecutionRequirements.maybeExecutedRemotely(spawn.getExecutionInfo().keySet());
+    return !spawn.getExecutionInfo().containsKey(ExecutionRequirements.LOCAL)
+        && !spawn.getExecutionInfo().containsKey(ExecutionRequirements.NO_REMOTE)
+        && !spawn.getExecutionInfo().containsKey(ExecutionRequirements.NO_REMOTE_EXEC);
+  }
+
+  /** Returns {@code true} if {@code spawn} may be executed locally. */
+  public static boolean mayBeExecutedLocally(Spawn spawn) {
+    return !spawn.getExecutionInfo().containsKey(ExecutionRequirements.NO_LOCAL);
   }
 
   /** Returns whether a Spawn can be executed in a sandbox environment. */
@@ -70,6 +77,15 @@ public final class Spawns {
    */
   public static boolean supportsWorkers(Spawn spawn) {
     return "1".equals(spawn.getExecutionInfo().get(ExecutionRequirements.SUPPORTS_WORKERS));
+  }
+
+  /**
+   * Returns whether a Spawn claims to support being executed with the persistent multiplex worker
+   * strategy according to its execution info tags.
+   */
+  public static boolean supportsMultiplexWorkers(Spawn spawn) {
+    return "1"
+        .equals(spawn.getExecutionInfo().get(ExecutionRequirements.SUPPORTS_MULTIPLEX_WORKERS));
   }
 
   /**

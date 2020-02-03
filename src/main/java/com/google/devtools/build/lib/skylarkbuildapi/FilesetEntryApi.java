@@ -15,13 +15,8 @@
 package com.google.devtools.build.lib.skylarkbuildapi;
 
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
+import com.google.devtools.build.lib.syntax.StarlarkValue;
 
-/**
- * A value object used to represent an entry inside a "Fileset" BUILD rule.
- */
-@SkylarkModule(
-    name = "FilesetEntry",
-    doc = "",
-    documented = false)
-public interface FilesetEntryApi {
-}
+/** A value object used to represent an entry inside a "Fileset" BUILD rule. */
+@SkylarkModule(name = "FilesetEntry", doc = "", documented = false)
+public interface FilesetEntryApi extends StarlarkValue {}

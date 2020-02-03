@@ -47,7 +47,7 @@ class OptionsParserImpl {
   static final class Builder {
     private OptionsData optionsData;
     private ArgsPreProcessor argsPreProcessor = args -> args;
-    @Nullable private String skippedPrefix;
+    private final ArrayList<String> skippedPrefixes = new ArrayList<>();
     private boolean ignoreInternalOptions = true;
 
     /** Set the {@link OptionsData} to be used in this instance. */
@@ -63,8 +63,8 @@ class OptionsParserImpl {
     }
 
     /** Any flags with this prefix will be skipped during processing. */
-    public Builder skippedPrefix(@Nullable String skippedPrefix) {
-      this.skippedPrefix = skippedPrefix;
+    public Builder skippedPrefix(String skippedPrefix) {
+      this.skippedPrefixes.add(skippedPrefix);
       return this;
     }
 
@@ -77,7 +77,10 @@ class OptionsParserImpl {
     /** Returns a newly-initialized {@link OptionsParserImpl}. */
     public OptionsParserImpl build() {
       return new OptionsParserImpl(
-          this.optionsData, this.argsPreProcessor, this.skippedPrefix, this.ignoreInternalOptions);
+          this.optionsData,
+          this.argsPreProcessor,
+          this.skippedPrefixes,
+          this.ignoreInternalOptions);
     }
   }
 
@@ -124,17 +127,17 @@ class OptionsParserImpl {
 
   private final List<String> warnings = new ArrayList<>();
   private final ArgsPreProcessor argsPreProcessor;
-  @Nullable private final String skippedPrefix;
+  private final List<String> skippedPrefixes;
   private final boolean ignoreInternalOptions;
 
   OptionsParserImpl(
       OptionsData optionsData,
       ArgsPreProcessor argsPreProcessor,
-      @Nullable String skippedPrefix,
+      List<String> skippedPrefixes,
       boolean ignoreInternalOptions) {
     this.optionsData = optionsData;
     this.argsPreProcessor = argsPreProcessor;
-    this.skippedPrefix = skippedPrefix;
+    this.skippedPrefixes = skippedPrefixes;
     this.ignoreInternalOptions = ignoreInternalOptions;
   }
 
@@ -145,10 +148,11 @@ class OptionsParserImpl {
 
   /** Returns a {@link Builder} that is configured the same as this parser. */
   Builder toBuilder() {
-    return builder()
-        .optionsData(optionsData)
-        .argsPreProcessor(argsPreProcessor)
-        .skippedPrefix(skippedPrefix);
+    Builder builder = builder().optionsData(optionsData).argsPreProcessor(argsPreProcessor);
+    for (String skippedPrefix : skippedPrefixes) {
+      builder.skippedPrefix(skippedPrefix);
+    }
+    return builder;
   }
 
   /** Implements {@link OptionsParser#asCompleteListOfParsedOptions()}. */
@@ -350,7 +354,7 @@ class OptionsParserImpl {
         continue; // not an option arg
       }
 
-      if (skippedPrefix != null && arg.startsWith(skippedPrefix)) {
+      if (skippedPrefixes.stream().anyMatch(prefix -> arg.startsWith(prefix))) {
         unparsedArgs.add(arg);
         continue;
       }

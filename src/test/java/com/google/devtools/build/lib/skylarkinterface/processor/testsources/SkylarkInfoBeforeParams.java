@@ -14,30 +14,26 @@
 
 package com.google.devtools.build.lib.skylarkinterface.processor.testsources;
 
-import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.syntax.Environment;
+import com.google.devtools.build.lib.syntax.StarlarkThread;
+import com.google.devtools.build.lib.syntax.StarlarkValue;
 
 /**
- * Test case for a SkylarkCallable method which specifies skylark-info parameters (for example
- * Environment) before other parameters.
+ * Test case for a SkylarkCallable method which specifies StarlarkThread before other parameters.
  */
-public class SkylarkInfoBeforeParams {
+public class SkylarkInfoBeforeParams implements StarlarkValue {
 
   @SkylarkCallable(
-    name = "skylark_info_wrong_order",
-    documented = false,
-    parameters = {
+      name = "skylark_info_wrong_order",
+      documented = false,
+      parameters = {
         @Param(name = "one", type = String.class, named = true),
         @Param(name = "two", type = Integer.class, named = true),
         @Param(name = "three", type = String.class, named = true)
-    },
-    useLocation = true,
-    useEnvironment = true
-  )
-  public String threeArgMethod(
-      Location location, Environment environment, String one, Integer two, String three) {
+      },
+      useStarlarkThread = true)
+  public String threeArgMethod(StarlarkThread thread, String one, Integer two, String three) {
     return "bar";
   }
 }

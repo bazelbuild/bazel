@@ -1,0 +1,40 @@
+<a name="#${ruleName}"></a>
+
+#[[##]]# ${ruleName}
+
+<pre>
+${util.ruleSummary($ruleName, $ruleInfo)}
+</pre>
+
+${util.htmlEscape($ruleInfo.docString)}
+
+#[[###]]# Attributes
+
+#if (!$ruleInfo.getAttributeList().isEmpty())
+<table class="params-table">
+  <colgroup>
+    <col class="col-param" />
+    <col class="col-description" />
+  </colgroup>
+  <tbody>
+#foreach ($attribute in $ruleInfo.getAttributeList())
+    <tr id="${ruleName}-${attribute.name}">
+      <td><code>${attribute.name}</code></td>
+      <td>
+        ${util.attributeTypeString($attribute)}; ${util.mandatoryString($attribute)}
+#if (!$attribute.docString.isEmpty())
+        <p>
+          ${attribute.docString.trim()}
+        </p>
+#end
+#if (!$attribute.getProviderNameGroupList().isEmpty())
+        <p>
+          The dependencies of this attribute must provide: ${util.attributeProviders($attribute)}
+        </p>
+#end
+      </td>
+    </tr>
+#end
+  </tbody>
+</table>
+#end

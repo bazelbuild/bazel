@@ -35,8 +35,9 @@ import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
 import com.google.devtools.build.lib.skylarkbuildapi.java.JavaToolchainSkylarkApiProviderApi;
-import com.google.devtools.build.lib.syntax.SkylarkList;
-import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
+import com.google.devtools.build.lib.syntax.Depset;
+import com.google.devtools.build.lib.syntax.Sequence;
+import com.google.devtools.build.lib.syntax.StarlarkList;
 import java.util.Iterator;
 import javax.annotation.Nullable;
 
@@ -74,6 +75,7 @@ public class JavaToolchainProvider extends ToolchainInfo
       ImmutableList<String> javacOptions,
       ImmutableList<String> jvmOptions,
       ImmutableList<String> javabuilderJvmOptions,
+      ImmutableList<String> turbineJvmOptions,
       boolean javacSupportsWorkers,
       NestedSet<Artifact> bootclasspath,
       NestedSet<Artifact> extclasspath,
@@ -83,6 +85,9 @@ public class JavaToolchainProvider extends ToolchainInfo
       @Nullable FilesToRunProvider headerCompiler,
       @Nullable FilesToRunProvider headerCompilerDirect,
       ImmutableSet<String> headerCompilerBuiltinProcessors,
+      ImmutableSet<String> reducedClasspathIncompatibleProcessors,
+      ImmutableSet<Label> reducedClasspathIncompatibleTargets,
+      ImmutableSet<String> turbineIncompatibleProcessors,
       boolean forciblyDisableHeaderCompilation,
       Artifact singleJar,
       @Nullable Artifact oneVersion,
@@ -105,6 +110,9 @@ public class JavaToolchainProvider extends ToolchainInfo
         headerCompiler,
         headerCompilerDirect,
         headerCompilerBuiltinProcessors,
+        reducedClasspathIncompatibleProcessors,
+        reducedClasspathIncompatibleTargets,
+        turbineIncompatibleProcessors,
         forciblyDisableHeaderCompilation,
         singleJar,
         oneVersion,
@@ -117,6 +125,7 @@ public class JavaToolchainProvider extends ToolchainInfo
         javacOptions,
         jvmOptions,
         javabuilderJvmOptions,
+        turbineJvmOptions,
         javacSupportsWorkers,
         packageConfiguration,
         jacocoRunner,
@@ -132,6 +141,9 @@ public class JavaToolchainProvider extends ToolchainInfo
   @Nullable private final FilesToRunProvider headerCompiler;
   @Nullable private final FilesToRunProvider headerCompilerDirect;
   private final ImmutableSet<String> headerCompilerBuiltinProcessors;
+  private final ImmutableSet<String> reducedClasspathIncompatibleProcessors;
+  private final ImmutableSet<Label> reducedClasspathIncompatibleTargets;
+  private final ImmutableSet<String> turbineIncompatibleProcessors;
   private final boolean forciblyDisableHeaderCompilation;
   private final Artifact singleJar;
   @Nullable private final Artifact oneVersion;
@@ -144,6 +156,7 @@ public class JavaToolchainProvider extends ToolchainInfo
   private final ImmutableList<String> javacOptions;
   private final ImmutableList<String> jvmOptions;
   private final ImmutableList<String> javabuilderJvmOptions;
+  private final ImmutableList<String> turbineJvmOptions;
   private final boolean javacSupportsWorkers;
   private final ImmutableList<JavaPackageConfigurationProvider> packageConfiguration;
   private final FilesToRunProvider jacocoRunner;
@@ -160,6 +173,9 @@ public class JavaToolchainProvider extends ToolchainInfo
       @Nullable FilesToRunProvider headerCompiler,
       @Nullable FilesToRunProvider headerCompilerDirect,
       ImmutableSet<String> headerCompilerBuiltinProcessors,
+      ImmutableSet<String> reducedClasspathIncompatibleProcessors,
+      ImmutableSet<Label> reducedClasspathIncompatibleTargets,
+      ImmutableSet<String> turbineIncompatibleProcessors,
       boolean forciblyDisableHeaderCompilation,
       Artifact singleJar,
       @Nullable Artifact oneVersion,
@@ -172,6 +188,7 @@ public class JavaToolchainProvider extends ToolchainInfo
       ImmutableList<String> javacOptions,
       ImmutableList<String> jvmOptions,
       ImmutableList<String> javabuilderJvmOptions,
+      ImmutableList<String> turbineJvmOptions,
       boolean javacSupportsWorkers,
       ImmutableList<JavaPackageConfigurationProvider> packageConfiguration,
       FilesToRunProvider jacocoRunner,
@@ -187,6 +204,9 @@ public class JavaToolchainProvider extends ToolchainInfo
     this.headerCompiler = headerCompiler;
     this.headerCompilerDirect = headerCompilerDirect;
     this.headerCompilerBuiltinProcessors = headerCompilerBuiltinProcessors;
+    this.reducedClasspathIncompatibleProcessors = reducedClasspathIncompatibleProcessors;
+    this.reducedClasspathIncompatibleTargets = reducedClasspathIncompatibleTargets;
+    this.turbineIncompatibleProcessors = turbineIncompatibleProcessors;
     this.forciblyDisableHeaderCompilation = forciblyDisableHeaderCompilation;
     this.singleJar = singleJar;
     this.oneVersion = oneVersion;
@@ -199,6 +219,7 @@ public class JavaToolchainProvider extends ToolchainInfo
     this.javacOptions = javacOptions;
     this.jvmOptions = jvmOptions;
     this.javabuilderJvmOptions = javabuilderJvmOptions;
+    this.turbineJvmOptions = turbineJvmOptions;
     this.javacSupportsWorkers = javacSupportsWorkers;
     this.packageConfiguration = packageConfiguration;
     this.jacocoRunner = jacocoRunner;
@@ -254,6 +275,18 @@ public class JavaToolchainProvider extends ToolchainInfo
   /** Returns class names of annotation processors that are built in to the header compiler. */
   public ImmutableSet<String> getHeaderCompilerBuiltinProcessors() {
     return headerCompilerBuiltinProcessors;
+  }
+
+  public ImmutableSet<String> getReducedClasspathIncompatibleProcessors() {
+    return reducedClasspathIncompatibleProcessors;
+  }
+
+  public ImmutableSet<Label> getReducedClasspathIncompatibleTargets() {
+    return reducedClasspathIncompatibleTargets;
+  }
+
+  public ImmutableSet<String> getTurbineIncompatibleProcessors() {
+    return turbineIncompatibleProcessors;
   }
 
   /**
@@ -340,6 +373,10 @@ public class JavaToolchainProvider extends ToolchainInfo
     return javabuilderJvmOptions;
   }
 
+  public ImmutableList<String> getTurbineJvmOptions() {
+    return turbineJvmOptions;
+  }
+
   /** @return whether JavaBuilders supports running as a persistent worker or not */
   public boolean getJavacSupportsWorkers() {
     return javacSupportsWorkers;
@@ -391,19 +428,17 @@ public class JavaToolchainProvider extends ToolchainInfo
   }
 
   @Override
-  public SkylarkNestedSet getSkylarkBootclasspath() {
-    return SkylarkNestedSet.of(Artifact.class, getBootclasspath());
+  public Depset getSkylarkBootclasspath() {
+    return Depset.of(Artifact.TYPE, getBootclasspath());
   }
 
   @Override
-  public SkylarkList<String> getSkylarkJvmOptions() {
-    return SkylarkList.createImmutable(getJvmOptions());
+  public Sequence<String> getSkylarkJvmOptions() {
+    return StarlarkList.immutableCopyOf(getJvmOptions());
   }
 
   @Override
-  public SkylarkNestedSet getSkylarkTools() {
-    return SkylarkNestedSet.of(Artifact.class, getTools());
+  public Depset getSkylarkTools() {
+    return Depset.of(Artifact.TYPE, getTools());
   }
 }
-
-

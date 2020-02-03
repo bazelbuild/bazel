@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.analysis.test;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
@@ -51,7 +50,7 @@ public final class BaselineCoverageAction extends AbstractFileWriteAction
   @VisibleForSerialization
   BaselineCoverageAction(
       ActionOwner owner, NestedSet<Artifact> instrumentedFiles, Artifact primaryOutput) {
-    super(owner, ImmutableList.<Artifact>of(), primaryOutput, false);
+    super(owner, NestedSetBuilder.emptySet(Order.STABLE_ORDER), primaryOutput, false);
     this.instrumentedFiles = instrumentedFiles;
   }
 
@@ -67,7 +66,7 @@ public final class BaselineCoverageAction extends AbstractFileWriteAction
 
   private Iterable<String> getInstrumentedFilePathStrings() {
     List<String> result = new ArrayList<>();
-    for (Artifact instrumentedFile : instrumentedFiles) {
+    for (Artifact instrumentedFile : instrumentedFiles.toList()) {
       result.add(instrumentedFile.getExecPathString());
     }
     return result;

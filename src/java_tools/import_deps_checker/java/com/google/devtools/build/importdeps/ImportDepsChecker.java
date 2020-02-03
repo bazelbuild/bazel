@@ -15,6 +15,7 @@ package com.google.devtools.build.importdeps;
 
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.importdeps.AbstractClassEntryState.IncompleteState;
 import com.google.devtools.build.importdeps.ResultCollector.MissingMember;
@@ -105,12 +106,14 @@ public final class ImportDepsChecker implements Closeable {
   /** Emit the jdeps proto. The parameter ruleLabel is optional, indicated with the empty string. */
   public Dependencies emitJdepsProto(String ruleLabel) {
     Dependencies.Builder builder = Dependencies.newBuilder();
-    ImmutableList<Path> paths = classCache.collectUsedJarsInRegularClasspath();
-    // TODO(b/77723273): Consider "implicit" for Jars only needed to resolve supertypes
+    ImmutableMap<Path, Boolean> paths = classCache.collectUsedJarsInRegularClasspath();
     paths.forEach(
-        path ->
+        (path, explicit) ->
             builder.addDependency(
-                Dependency.newBuilder().setKind(Kind.EXPLICIT).setPath(path.toString()).build()));
+                Dependency.newBuilder()
+                    .setKind(explicit ? Kind.EXPLICIT : Kind.IMPLICIT)
+                    .setPath(path.toString())
+                    .build()));
     return builder.setRuleLabel(ruleLabel).setSuccess(true).build();
   }
 

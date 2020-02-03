@@ -15,6 +15,9 @@ filegroup(
 java_test(
     name = "http",
     srcs = glob(["*.java"]),
+    tags = [
+        "requires-network",
+    ],
     test_class = "com.google.devtools.build.lib.AllTests",
     deps = [
         "//src/main/java/com/google/devtools/build/lib/remote/http",

@@ -45,6 +45,11 @@ bind(
 )
 
 bind(
+    name = "jni_md_header-openbsd",
+    actual = "@local_jdk//:jni_md_header-openbsd",
+)
+
+bind(
     name = "java",
     actual = "@local_jdk//:java",
 )
@@ -87,7 +92,10 @@ bind(
 # This will allow us to stop bundling the full JDK with Bazel.
 # Note that while these are currently the same as the openjdk_* rules in
 # Bazel's WORKSPACE file, but they don't have to be the same.
-http_archive(
+
+# This must be kept in sync with the top-level WORKSPACE file.
+maybe(
+    http_archive,
     name = "remotejdk_linux",
     build_file = "@local_jdk//:BUILD.bazel",
     sha256 = "f27cb933de4f9e7fe9a703486cf44c84bc8e9f138be0c270c9e5716a32367e87",
@@ -97,7 +105,9 @@ http_archive(
     ],
 )
 
-http_archive(
+# This must be kept in sync with the top-level WORKSPACE file.
+maybe(
+    http_archive,
     name = "remotejdk_macos",
     build_file = "@local_jdk//:BUILD.bazel",
     sha256 = "404e7058ff91f956612f47705efbee8e175a38b505fb1b52d8c1ea98718683de",
@@ -107,7 +117,9 @@ http_archive(
     ],
 )
 
-http_archive(
+# This must be kept in sync with the top-level WORKSPACE file.
+maybe(
+    http_archive,
     name = "remotejdk_win",
     build_file = "@local_jdk//:BUILD.bazel",
     sha256 = "e738829017f107e7a7cd5069db979398ec3c3f03ef56122f89ba38e7374f63ed",
@@ -119,7 +131,9 @@ http_archive(
 
 # The source-code for this OpenJDK can be found at:
 # https://openjdk.linaro.org/releases/jdk9-src-1708.tar.xz
-http_archive(
+# This must be kept in sync with the top-level WORKSPACE file.
+maybe(
+    http_archive,
     name = "remotejdk_linux_aarch64",
     build_file = "@local_jdk//:BUILD.bazel",
     sha256 = "72e7843902b0395e2d30e1e9ad2a5f05f36a4bc62529828bcbc698d54aec6022",
@@ -131,7 +145,9 @@ http_archive(
     ],
 )
 
-http_archive(
+# This must be kept in sync with the top-level WORKSPACE file.
+maybe(
+    http_archive,
     name = "remotejdk10_linux",
     build_file = "@local_jdk//:BUILD.bazel",
     sha256 = "57fad3602e74c79587901d6966d3b54ef32cb811829a2552163185d5064fe9b5",
@@ -141,7 +157,9 @@ http_archive(
     ],
 )
 
-http_archive(
+# This must be kept in sync with the top-level WORKSPACE file.
+maybe(
+    http_archive,
     name = "remotejdk10_macos",
     build_file = "@local_jdk//:BUILD.bazel",
     sha256 = "e669c9a897413d855b550b4e39d79614392e6fb96f494e8ef99a34297d9d85d3",
@@ -151,7 +169,9 @@ http_archive(
     ],
 )
 
-http_archive(
+# This must be kept in sync with the top-level WORKSPACE file.
+maybe(
+    http_archive,
     name = "remotejdk10_win",
     build_file = "@local_jdk//:BUILD.bazel",
     sha256 = "c39e7700a8d41794d60985df5a20352435196e78ecbc6a2b30df7be8637bffd5",
@@ -163,7 +183,9 @@ http_archive(
 
 # The source-code for this OpenJDK can be found at:
 # https://openjdk.linaro.org/releases/jdk10-src-1804.tar.xz
-http_archive(
+# This must be kept in sync with the top-level WORKSPACE file.
+maybe(
+    http_archive,
     name = "remotejdk10_linux_aarch64",
     build_file = "@local_jdk//:BUILD.bazel",
     sha256 = "b7098b7aaf6ee1ffd4a2d0371a0be26c5a5c87f6aebbe46fe9a92c90583a84be",
@@ -175,7 +197,9 @@ http_archive(
     ],
 )
 
-http_archive(
+# This must be kept in sync with the top-level WORKSPACE file.
+maybe(
+    http_archive,
     name = "remotejdk11_linux",
     build_file = "@local_jdk//:BUILD.bazel",
     sha256 = "232b1c3511f0d26e92582b7c3cc363be7ac633e371854ca2f2e9f2b50eb72a75",
@@ -185,7 +209,9 @@ http_archive(
     ],
 )
 
-http_archive(
+# This must be kept in sync with the top-level WORKSPACE file.
+maybe(
+    http_archive,
     name = "remotejdk11_linux_aarch64",
     build_file = "@local_jdk//:BUILD.bazel",
     sha256 = "3b0d91611b1bdc4d409afcf9eab4f0e7f4ae09f88fc01bd9f2b48954882ae69b",
@@ -195,7 +221,9 @@ http_archive(
     ],
 )
 
-http_archive(
+# This must be kept in sync with the top-level WORKSPACE file.
+maybe(
+    http_archive,
     name = "remotejdk11_macos",
     build_file = "@local_jdk//:BUILD.bazel",
     sha256 = "1edf366ee821e5db8e348152fcb337b28dfd6bf0f97943c270dcc6747cedb6cb",
@@ -205,7 +233,9 @@ http_archive(
     ],
 )
 
-http_archive(
+# This must be kept in sync with the top-level WORKSPACE file.
+maybe(
+    http_archive,
     name = "remotejdk11_win",
     build_file = "@local_jdk//:BUILD.bazel",
     sha256 = "8e1e2b8347de6746f3fd1538840dd643201533ab113abc4ed93678e342d28aa3",
@@ -215,27 +245,36 @@ http_archive(
     ],
 )
 
-http_archive(
+# This must be kept in sync with the top-level WORKSPACE file.
+maybe(
+    http_archive,
     name = "remote_java_tools_linux",
-    sha256 = "96e223094a12c842a66db0bb7bb6866e88e26e678f045842911f9bd6b47161f5",
+    sha256 = "3ff465e82954a70f49982610dd63f6f651beaa83c707dd637870b0e41cdcd2f0",
     urls = [
-        "https://mirror.bazel.build/bazel_java_tools/releases/javac11/v4.0/java_tools_javac11_linux-v4.0.zip",
+        "https://mirror.bazel.build/bazel_java_tools/releases/javac11/v7.0/java_tools_javac11_linux-v7.0.zip",
+        "https://github.com/bazelbuild/java_tools/releases/download/javac11-v7.0/java_tools_javac11_linux-v7.0.zip",
     ],
 )
 
-http_archive(
+# This must be kept in sync with the top-level WORKSPACE file.
+maybe(
+    http_archive,
     name = "remote_java_tools_windows",
-    sha256 = "a1de51447b2ba2eab923d589ba6c72c289c16e6091e6a3bb3e67a05ef4ad200c",
+    sha256 = "11d90a147919e74d11870cdd58c4ee5de3062c08d11b16aa72d3f3bbfa9497a0",
     urls = [
-        "https://mirror.bazel.build/bazel_java_tools/releases/javac11/v4.0/java_tools_javac11_windows-v4.0.zip",
+        "https://mirror.bazel.build/bazel_java_tools/releases/javac11/v7.0/java_tools_javac11_windows-v7.0.zip",
+        "https://github.com/bazelbuild/java_tools/releases/download/javac11-v7.0/java_tools_javac11_windows-v7.0.zip",
     ],
 )
 
-http_archive(
+# This must be kept in sync with the top-level WORKSPACE file.
+maybe(
+    http_archive,
     name = "remote_java_tools_darwin",
-    sha256 = "fbf5bf22e9aab9c622e4c8c59314a1eef5ea09eafc5672b4f3250dc0b971bbcc",
+    sha256 = "373a4226906ae9ba908550da16e133c4cd1f01b8973af82b9a2eb6903cb4d645",
     urls = [
-        "https://mirror.bazel.build/bazel_java_tools/releases/javac11/v4.0/java_tools_javac11_darwin-v4.0.zip",
+        "https://mirror.bazel.build/bazel_java_tools/releases/javac11/v7.0/java_tools_javac11_darwin-v7.0.zip",
+        "https://github.com/bazelbuild/java_tools/releases/download/javac11-v7.0/java_tools_javac11_darwin-v7.0.zip",
     ],
 )
 
@@ -243,23 +282,35 @@ maybe(
     http_archive,
     "rules_java",
     sha256 = "bc81f1ba47ef5cc68ad32225c3d0e70b8c6f6077663835438da8d5733f917598",
+    strip_prefix = "rules_java-7cf3cefd652008d0a64a419c34c13bdca6c8f178",
     urls = [
         "https://mirror.bazel.build/github.com/bazelbuild/rules_java/archive/7cf3cefd652008d0a64a419c34c13bdca6c8f178.zip",
         "https://github.com/bazelbuild/rules_java/archive/7cf3cefd652008d0a64a419c34c13bdca6c8f178.zip",
     ],
-    strip_prefix = "rules_java-7cf3cefd652008d0a64a419c34c13bdca6c8f178",
 )
 
 # Needed only because of java_tools.
 maybe(
     http_archive,
     "rules_cc",
-    sha256 = "36fa66d4d49debd71d05fba55c1353b522e8caef4a20f8080a3d17cdda001d89",
+    sha256 = "1d4dbbd1e1e9b57d40bb0ade51c9e882da7658d5bfbf22bbd15b68e7879d761f",
+    strip_prefix = "rules_cc-8bd6cd75d03c01bb82561a96d9c1f9f7157b13d0",
     urls = [
-        "https://mirror.bazel.build/github.com/bazelbuild/rules_cc/archive/0d5f3f2768c6ca2faca0079a997a97ce22997a0c.zip",
-        "https://github.com/bazelbuild/rules_cc/archive/0d5f3f2768c6ca2faca0079a997a97ce22997a0c.zip",
+        "https://mirror.bazel.build/github.com/bazelbuild/rules_cc/archive/8bd6cd75d03c01bb82561a96d9c1f9f7157b13d0.zip",
+        "https://github.com/bazelbuild/rules_cc/archive/8bd6cd75d03c01bb82561a96d9c1f9f7157b13d0.zip",
     ],
-    strip_prefix = "rules_cc-0d5f3f2768c6ca2faca0079a997a97ce22997a0c",
+)
+
+# Needed only because of java_tools.
+maybe(
+    http_archive,
+    "rules_proto",
+    sha256 = "602e7161d9195e50246177e7c55b2f39950a9cf7366f74ed5f22fd45750cd208",
+    strip_prefix = "rules_proto-97d8af4dc474595af3900dd85cb3a29ad28cc313",
+    urls = [
+        "https://mirror.bazel.build/github.com/bazelbuild/rules_proto/archive/97d8af4dc474595af3900dd85cb3a29ad28cc313.tar.gz",
+        "https://github.com/bazelbuild/rules_proto/archive/97d8af4dc474595af3900dd85cb3a29ad28cc313.tar.gz",
+    ],
 )
 
 register_toolchains("@bazel_tools//tools/jdk:all")

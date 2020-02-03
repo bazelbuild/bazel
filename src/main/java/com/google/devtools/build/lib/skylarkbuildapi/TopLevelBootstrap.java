@@ -17,7 +17,9 @@ package com.google.devtools.build.lib.skylarkbuildapi;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.skylarkbuildapi.DefaultInfoApi.DefaultInfoApiProvider;
 import com.google.devtools.build.lib.skylarkbuildapi.OutputGroupInfoApi.OutputGroupInfoApiProvider;
-import com.google.devtools.build.lib.syntax.Runtime;
+import com.google.devtools.build.lib.skylarkbuildapi.core.Bootstrap;
+import com.google.devtools.build.lib.skylarkbuildapi.core.StructApi;
+import com.google.devtools.build.lib.syntax.Starlark;
 
 /**
  * A {@link Bootstrap} for top-level libraries of the build API.
@@ -56,11 +58,11 @@ public class TopLevelBootstrap implements Bootstrap {
 
   @Override
   public void addBindingsToBuilder(ImmutableMap.Builder<String, Object> builder) {
-    Runtime.setupSkylarkLibrary(builder, skylarkAttrApi);
-    Runtime.setupSkylarkLibrary(builder, skylarkBuildApiGlobals);
-    Runtime.setupSkylarkLibrary(builder, skylarkCommandLineApi);
-    Runtime.setupSkylarkLibrary(builder, skylarkNativeModuleApi);
-    Runtime.setupSkylarkLibrary(builder, skylarkRuleFunctionsApi);
+    Starlark.addMethods(builder, skylarkBuildApiGlobals);
+    Starlark.addMethods(builder, skylarkRuleFunctionsApi);
+    Starlark.addModule(builder, skylarkAttrApi); // "attr"
+    Starlark.addModule(builder, skylarkCommandLineApi); // "cmd_helper"
+    Starlark.addModule(builder, skylarkNativeModuleApi); // "native"
     builder.put("struct", structProvider);
     builder.put("OutputGroupInfo", outputGroupInfoProvider);
     builder.put("Actions", actionsInfoProviderApi);

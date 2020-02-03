@@ -15,11 +15,11 @@ package com.google.devtools.build.lib.packages;
 
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Location;
-import com.google.devtools.build.lib.skylarkbuildapi.ProviderApi;
+import com.google.devtools.build.lib.skylarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.syntax.ClassObject;
 
 /**
- * Declared Provider (a constructor for {@link InfoInterface}).
+ * Declared Provider (a constructor for {@link Info}).
  *
  * <p>Declared providers can be declared either natively ({@link NativeProvider} or in Skylark
  * {@link SkylarkProvider}.
@@ -27,7 +27,7 @@ import com.google.devtools.build.lib.syntax.ClassObject;
  * <p>{@link Provider} serves both as "type identifier" for declared provider instances and as a
  * function that can be called to construct a provider. To the Skylark user, there are "providers"
  * and "provider instances"; the former is a Java instance of this class, and the latter is a Java
- * instance of {@link InfoInterface}.
+ * instance of {@link Info}.
  *
  * <p>Prefer to use {@link Key} as a serializable identifier of {@link Provider}. In particular,
  * {@link Key} should be used in all data structures exposed to Skyframe.
@@ -54,7 +54,7 @@ public interface Provider extends ProviderApi {
    * <p>The format string must contain one {@code '%s'} placeholder for the field name.
    */
   default String getErrorMessageFormatForUnknownField() {
-    return String.format("'%s' object has no attribute '%%s'", getPrintableName());
+    return String.format("'%s' value has no field or method '%%s'", getPrintableName());
   }
 
   /**

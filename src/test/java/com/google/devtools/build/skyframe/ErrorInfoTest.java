@@ -56,7 +56,7 @@ public class ErrorInfoTest {
         new ReifiedSkyFunctionException(dummyException, causeOfException),
         isTransitivelyTransient);
 
-    assertThat(errorInfo.getRootCauses()).containsExactly(causeOfException);
+    assertThat(errorInfo.getRootCauses().toList()).containsExactly(causeOfException);
     assertThat(errorInfo.getException()).isSameInstanceAs(exception);
     assertThat(errorInfo.getRootCauseOfException()).isSameInstanceAs(causeOfException);
     assertThat(errorInfo.getCycleInfo()).isEmpty();
@@ -95,7 +95,7 @@ public class ErrorInfoTest {
 
     ErrorInfo errorInfo = ErrorInfo.fromCycle(cycle);
 
-    assertThat(errorInfo.getRootCauses()).isEmpty();
+    assertThat(errorInfo.getRootCauses().toList()).isEmpty();
     assertThat(errorInfo.getException()).isNull();
     assertThat(errorInfo.getRootCauseOfException()).isNull();
     assertThat(errorInfo.isTransitivelyTransient()).isFalse();
@@ -132,7 +132,8 @@ public class ErrorInfoTest {
     ErrorInfo errorInfo = ErrorInfo.fromChildErrors(
         currentKey, ImmutableList.of(cycleErrorInfo, exceptionErrorInfo1, exceptionErrorInfo2));
 
-    assertThat(errorInfo.getRootCauses()).containsExactly(causeOfException1, causeOfException2);
+    assertThat(errorInfo.getRootCauses().toList())
+        .containsExactly(causeOfException1, causeOfException2);
 
     // For simplicity we test the current implementation detail that we choose the first non-null
     // (exception, cause) pair that we encounter. This isn't necessarily a requirement of the

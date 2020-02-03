@@ -78,6 +78,7 @@ function test_fallback_depot_javabase() {
   fi
   if ! bazel --batch --server_javabase=$path version >& $TEST_log; then
     expect_log "Couldn't find java at"
+    expect_log "--server_javabase"
     expect_not_log "Problem with java installation"
   fi
 }

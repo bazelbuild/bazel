@@ -33,7 +33,6 @@ import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDefinition;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
-import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
 import com.google.devtools.common.options.TriState;
@@ -156,6 +155,18 @@ public class TestConfiguration extends Fragment {
     public TestActionBuilder.TestShardingStrategy testShardingStrategy;
 
     @Option(
+        name = "experimental_persistent_test_runner",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        help =
+            "Allows running java_test targets locally within a persistent worker. "
+                + "To enable the persistent test runner one must run bazel test with the flags:"
+                + "--test_strategy=local --strategy=TestRunner=worker "
+                + " --experimental_persistent_test_runner")
+    public boolean persistentTestRunner;
+
+    @Option(
       name = "runs_per_test",
       allowMultiple = true,
       defaultValue = "1",
@@ -176,6 +187,26 @@ public class TestConfiguration extends Fragment {
               + "This option can be passed multiple times. "
     )
     public List<PerLabelOptions> runsPerTest;
+
+    @Option(
+        name = "runs_per_test_detects_flakes",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        help =
+            "If true, any shard in which at least one run/attempt passes and at least one "
+                + "run/attempt fails gets a FLAKY status.")
+    public boolean runsPerTestDetectsFlakes;
+
+    @Option(
+        name = "experimental_cancel_concurrent_tests",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.LOADING_AND_ANALYSIS},
+        help =
+            "If true, then Blaze will cancel concurrently running tests on the first successful "
+                + "run. This is only useful in combination with --runs_per_test_detects_flakes.")
+    public boolean cancelConcurrentTests;
 
     @Option(
         name = "coverage_support",
@@ -211,26 +242,14 @@ public class TestConfiguration extends Fragment {
     public Label coverageReportGenerator;
 
     @Option(
-        name = "incompatible_windows_native_test_wrapper",
-        // Design:
-        // https://github.com/laszlocsomor/proposals/blob/win-test-runner/designs/2018-07-18-windows-native-test-runner.md
-        documentationCategory = OptionDocumentationCategory.TESTING,
-        // Affects loading and analysis: this flag affects which target Bazel loads and creates test
-        // actions with on Windows.
-        effectTags = {
-          OptionEffectTag.LOADING_AND_ANALYSIS,
-          OptionEffectTag.TEST_RUNNER,
-        },
-        metadataTags = {
-          OptionMetadataTag.INCOMPATIBLE_CHANGE,
-          OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES,
-        },
+        name = "experimental_fetch_all_coverage_outputs",
         defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.LOADING_AND_ANALYSIS},
         help =
-            "On Windows: if true, uses the C++ test wrapper to run tests, otherwise uses "
-                + "tools/test/test-setup.sh as on other platforms. On other platforms: no-op.")
-    public boolean windowsNativeTestWrapper;
-
+            "If true, then Bazel fetches the entire coverage data directory for each test during a "
+                + "coverage run.")
+    public boolean fetchAllCoverageOutputs;
 
     @Override
     public FragmentOptions getHost() {
@@ -239,6 +258,8 @@ public class TestConfiguration extends Fragment {
       // configuration.
       hostOptions.coverageSupport = this.coverageSupport;
       hostOptions.coverageReportGenerator = this.coverageReportGenerator;
+      // trimTestConfiguration is a global analysis option and should be platform-agnostic
+      hostOptions.trimTestConfiguration = this.trimTestConfiguration;
       return hostOptions;
     }
   }
@@ -294,16 +315,16 @@ public class TestConfiguration extends Fragment {
     return options.testShardingStrategy;
   }
 
+  public boolean isPersistentTestRunner() {
+    return options.persistentTestRunner;
+  }
+
   public Label getCoverageSupport(){
     return options.coverageSupport;
   }
 
   public Label getCoverageReportGenerator(){
     return options.coverageReportGenerator;
-  }
-
-  public boolean isUsingWindowsNativeTestWrapper() {
-    return options.windowsNativeTestWrapper;
   }
 
   /**
@@ -317,6 +338,18 @@ public class TestConfiguration extends Fragment {
       }
     }
     return 1;
+  }
+
+  public boolean runsPerTestDetectsFlakes() {
+    return options.runsPerTestDetectsFlakes;
+  }
+
+  public boolean cancelConcurrentTests() {
+    return options.cancelConcurrentTests;
+  }
+
+  public boolean fetchAllCoverageOutputs() {
+    return options.fetchAllCoverageOutputs;
   }
 
   /**

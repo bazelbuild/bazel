@@ -23,7 +23,6 @@ namespace blaze {
 // Determines the contents of the archive, storing the names of the contained
 // files into `files` and the install md5 key into `install_md5`.
 void DetermineArchiveContents(const std::string &archive_path,
-                              const std::string &product_name,
                               std::vector<std::string> *files,
                               std::string *install_md5);
 
@@ -38,7 +37,6 @@ void ExtractArchiveOrDie(const std::string &archive_path,
 // Retrieves the build label (version string) from `archive_path` into
 // `build_label`.
 void ExtractBuildLabel(const std::string &archive_path,
-                       const std::string &product_name,
                        std::string *build_label);
 
 // Returns the server jar path from the archive contents.

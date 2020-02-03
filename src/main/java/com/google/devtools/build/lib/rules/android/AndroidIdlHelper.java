@@ -29,9 +29,9 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.BuildType;
+import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.rules.java.JavaUtil;
 import com.google.devtools.build.lib.rules.java.ProguardSpecProvider;
-import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
@@ -289,12 +289,13 @@ public class AndroidIdlHelper {
     List<String> preprocessedArgs = new ArrayList<>();
 
     // add import roots so the aidl compiler will know where to look for the imports
-    for (String idlImport : transitiveIdlImportData.getTransitiveIdlImportRoots()) {
+    for (String idlImport : transitiveIdlImportData.getTransitiveIdlImportRoots().toList()) {
       preprocessedArgs.add("-I" + idlImport);
     }
     // add preprocessed aidl files
     preprocessedArgs.add("-p" + sdk.getFrameworkAidl().getExecPathString());
-    for (Artifact idlPreprocessed : transitiveIdlImportData.getTransitiveIdlPreprocessed()) {
+    for (Artifact idlPreprocessed :
+        transitiveIdlImportData.getTransitiveIdlPreprocessed().toList()) {
       preprocessedArgs.add("-p" + idlPreprocessed.getExecPathString());
     }
 

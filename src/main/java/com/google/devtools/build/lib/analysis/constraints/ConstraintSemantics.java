@@ -39,10 +39,10 @@ import com.google.devtools.build.lib.packages.RawAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.Target;
+import com.google.devtools.build.lib.packages.Type;
+import com.google.devtools.build.lib.packages.Type.LabelClass;
+import com.google.devtools.build.lib.packages.Type.LabelVisitor;
 import com.google.devtools.build.lib.rules.AliasConfiguredTarget;
-import com.google.devtools.build.lib.syntax.Type;
-import com.google.devtools.build.lib.syntax.Type.LabelClass;
-import com.google.devtools.build.lib.syntax.Type.LabelVisitor;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.LinkedHashSet;
@@ -643,7 +643,7 @@ public class ConstraintSemantics {
     // words, the removed environment is no good, but some subset of it may be.
     for (EnvironmentWithGroup depEnv :
         depEnvironments.getRefinedEnvironments().getGroupedEnvironments()) {
-      for (Label fulfiller : depEnv.group().getFulfillers(depEnv.environment())) {
+      for (Label fulfiller : depEnv.group().getFulfillers(depEnv.environment()).toList()) {
         if (prunedEnvironmentsFromThisDep.contains(fulfiller)) {
           refinedEnvironmentsSoFar.add(depEnv);
         }
@@ -792,7 +792,7 @@ public class ConstraintSemantics {
         // If the actual environments include members from the expected environment's group, we
         // need to either find the environment itself or another one that transitively fulfills it.
         if (actualEnvironmentLabels.contains(environment)
-            || intersect(actualEnvironmentLabels, group.getFulfillers(environment))) {
+            || intersect(actualEnvironmentLabels, group.getFulfillers(environment).toList())) {
           isSatisfied = true;
         }
       } else {
@@ -800,7 +800,7 @@ public class ConstraintSemantics {
         // the group's defaults are implicitly included. So we need to check those defaults for
         // either the expected environment or another environment that transitively fulfills it.
         if (group.isDefault(environment)
-            || intersect(group.getFulfillers(environment), group.getDefaults())) {
+            || intersect(group.getFulfillers(environment).toList(), group.getDefaults())) {
           isSatisfied = true;
         }
       }
@@ -816,7 +816,8 @@ public class ConstraintSemantics {
       if (!expectedEnvironments.getGroups().contains(group)) {
         for (Label expectedDefault : group.getDefaults()) {
           if (!actualEnvironmentLabels.contains(expectedDefault)
-              && !intersect(actualEnvironmentLabels, group.getFulfillers(expectedDefault))) {
+              && !intersect(
+                  actualEnvironmentLabels, group.getFulfillers(expectedDefault).toList())) {
             missingEnvironments.add(expectedDefault);
           }
         }

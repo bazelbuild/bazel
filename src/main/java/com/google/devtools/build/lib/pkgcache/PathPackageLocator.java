@@ -250,6 +250,10 @@ public class PathPackageLocator implements Serializable {
     AtomicReference<? extends UnixGlob.FilesystemCalls> cache = UnixGlob.DEFAULT_SYSCALLS_REF;
     // TODO(bazel-team): correctness in the presence of changes to the location of the WORKSPACE
     // file.
+    Path workspaceFile = getFilePath(LabelConstants.WORKSPACE_DOT_BAZEL_FILE_NAME, cache);
+    if (workspaceFile != null) {
+      return workspaceFile;
+    }
     return getFilePath(LabelConstants.WORKSPACE_FILE_NAME, cache);
   }
 

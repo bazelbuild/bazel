@@ -18,9 +18,11 @@ import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
-import com.google.devtools.build.lib.syntax.Environment;
-import com.google.devtools.build.lib.syntax.SkylarkList;
-import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
+import com.google.devtools.build.lib.syntax.Depset;
+import com.google.devtools.build.lib.syntax.Sequence;
+import com.google.devtools.build.lib.syntax.StarlarkSemantics;
+import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
+import com.google.devtools.build.lib.syntax.StarlarkValue;
 
 /** Wrapper for every C++ linking provider. */
 @SkylarkModule(
@@ -29,12 +31,12 @@ import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
     doc =
         "Immutable store of information needed for C++ linking that is aggregated across "
             + "dependencies.")
-public interface CcLinkingContextApi<FileT extends FileApi> {
+public interface CcLinkingContextApi<FileT extends FileApi> extends StarlarkValue {
   @SkylarkCallable(
       name = "user_link_flags",
       doc = "Returns the list of user link flags passed as strings.",
       structField = true)
-  SkylarkList<String> getSkylarkUserLinkFlags();
+  Sequence<String> getSkylarkUserLinkFlags();
 
   @SkylarkCallable(
       name = "libraries_to_link",
@@ -42,12 +44,19 @@ public interface CcLinkingContextApi<FileT extends FileApi> {
           "Returns the depset of <code>LibraryToLink</code>. May return a list but this is"
               + "deprecated. See #8118.",
       structField = true,
-      useEnvironment = true)
-  Object getSkylarkLibrariesToLink(Environment environment);
+      useStarlarkSemantics = true)
+  Object getSkylarkLibrariesToLink(StarlarkSemantics semantics);
 
   @SkylarkCallable(
       name = "additional_inputs",
       doc = "Returns the depset of additional inputs, e.g.: linker scripts.",
       structField = true)
-  SkylarkNestedSet getSkylarkNonCodeInputs();
+  Depset getSkylarkNonCodeInputs();
+
+  @SkylarkCallable(
+      name = "linker_inputs",
+      doc = "Returns the depset of linker inputs.",
+      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_CC_SHARED_LIBRARY,
+      structField = true)
+  Depset getSkylarkLinkerInputs();
 }

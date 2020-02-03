@@ -19,7 +19,7 @@ import com.google.common.collect.Interner;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.syntax.BuildFileAST;
+import com.google.devtools.build.lib.syntax.StarlarkFile;
 import com.google.devtools.build.skyframe.AbstractSkyKey;
 import com.google.devtools.build.skyframe.NotComparableSkyValue;
 import com.google.devtools.build.skyframe.SkyFunctionName;
@@ -33,23 +33,25 @@ import com.google.devtools.build.skyframe.SkyFunctionName;
 // almost certainly be unequal to the previous value. This is because of (i) the change-pruning
 // semantics of the PackageLookupValue dep and the FileValue dep; consider the latter: if the
 // FileValue for the bzl file has changed, then the contents of the bzl file probably changed and
-// (ii) we don't currently have skylark-semantic-equality in BuildFileAST, so two BuildFileAST
+// (ii) we don't currently have skylark-semantic-equality in StarlarkFile, so two StarlarkFile
 // instances representing two different contents of a bzl file will be different.
 // TODO(bazel-team): Consider doing better here. As a pre-req, we would need
-// skylark-semantic-equality in BuildFileAST, rather than equality naively based on the contents of
+// skylark-semantic-equality in StarlarkFile, rather than equality naively based on the contents of
 // the bzl file. For a concrete example, the contents of comment lines do not currently impact
 // skylark semantics.
 public abstract class ASTFileLookupValue implements NotComparableSkyValue {
   public abstract boolean lookupSuccessful();
-  public abstract BuildFileAST getAST();
+
+  public abstract StarlarkFile getAST();
+
   public abstract String getErrorMsg();
 
   /** If the file is found, this class encapsulates the parsed AST. */
   @AutoCodec.VisibleForSerialization
   public static class ASTLookupWithFile extends ASTFileLookupValue {
-    private final BuildFileAST ast;
+    private final StarlarkFile ast;
 
-    private ASTLookupWithFile(BuildFileAST ast) {
+    private ASTLookupWithFile(StarlarkFile ast) {
       Preconditions.checkNotNull(ast);
       this.ast = ast;
     }
@@ -60,7 +62,7 @@ public abstract class ASTFileLookupValue implements NotComparableSkyValue {
     }
 
     @Override
-    public BuildFileAST getAST() {
+    public StarlarkFile getAST() {
       return this.ast;
     }
 
@@ -86,7 +88,7 @@ public abstract class ASTFileLookupValue implements NotComparableSkyValue {
     }
 
     @Override
-    public BuildFileAST getAST() {
+    public StarlarkFile getAST() {
       throw new IllegalStateException("attempted to retrieve AST from an unsuccessful lookup");
     }
 
@@ -111,7 +113,7 @@ public abstract class ASTFileLookupValue implements NotComparableSkyValue {
         String.format("Unable to load file '%s': it isn't a regular file", fileLabel));
   }
 
-  public static ASTFileLookupValue withFile(BuildFileAST ast) {
+  public static ASTFileLookupValue withFile(StarlarkFile ast) {
     return new ASTLookupWithFile(ast);
   }
 

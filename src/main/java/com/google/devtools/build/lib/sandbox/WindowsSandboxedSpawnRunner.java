@@ -18,9 +18,7 @@ import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.ActionInput;
-import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.Spawn;
-import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.exec.local.LocalEnvProvider;
 import com.google.devtools.build.lib.exec.local.WindowsLocalEnvProvider;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
@@ -55,15 +53,14 @@ final class WindowsSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
   }
 
   @Override
-  protected SpawnResult actuallyExec(Spawn spawn, SpawnExecutionContext context)
-      throws IOException, ExecException, InterruptedException {
+  protected SandboxedSpawn prepareSpawn(Spawn spawn, SpawnExecutionContext context)
+      throws IOException {
     Path tmpDir = createActionTemp(execRoot);
     Path commandTmpDir = tmpDir.getRelative("work");
     commandTmpDir.createDirectory();
     ImmutableMap<String, String> environment =
-        ImmutableMap.copyOf(
-            localEnvProvider.rewriteLocalEnv(
-                spawn.getEnvironment(), binTools, commandTmpDir.getPathString()));
+        localEnvProvider.rewriteLocalEnv(
+            spawn.getEnvironment(), binTools, commandTmpDir.getPathString());
 
     SandboxInputs readablePaths =
         SandboxHelpers.processInputFiles(
@@ -99,12 +96,7 @@ final class WindowsSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
       commandLineBuilder.setTimeout(timeout);
     }
 
-    Path statisticsPath = null;
-
-    SandboxedSpawn sandbox =
-        new WindowsSandboxedSpawn(execRoot, environment, commandLineBuilder.build());
-
-    return runSpawn(spawn, sandbox, context, execRoot, timeout, statisticsPath);
+    return new WindowsSandboxedSpawn(execRoot, environment, commandLineBuilder.build());
   }
 
   private static Path createActionTemp(Path execRoot) throws IOException {

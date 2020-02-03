@@ -15,11 +15,18 @@
 package com.google.devtools.build.lib.skylarkbuildapi.platform;
 
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.skylarkbuildapi.StructApi;
+import com.google.devtools.build.lib.skylarkbuildapi.core.ProviderApi;
+import com.google.devtools.build.lib.skylarkbuildapi.core.StructApi;
+import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkConstructor;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import com.google.devtools.build.lib.syntax.Dict;
+import com.google.devtools.build.lib.syntax.EvalException;
+import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
+import com.google.devtools.build.lib.syntax.StarlarkThread;
 import java.util.Map;
 
 /** Info object representing data about a specific platform. */
@@ -34,7 +41,7 @@ public interface PlatformInfoApi<
         ConstraintValueInfoT extends ConstraintValueInfoApi>
     extends StructApi {
 
-  static final String EXPERIMENTAL_WARNING =
+  String EXPERIMENTAL_WARNING =
       "<i>Note: This API is experimental and may change at any time. It is disabled by default, "
           + "but may be enabled with <code>--experimental_platforms_api</code></i>";
 
@@ -67,4 +74,61 @@ public interface PlatformInfoApi<
       structField = true,
       enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_PLATFORM_API)
   Map<String, String> execProperties();
+
+  /** Provider for {@link PlatformInfoApi} objects. */
+  @SkylarkModule(name = "Provider", documented = false, doc = "")
+  interface Provider<
+          ConstraintSettingInfoT extends ConstraintSettingInfoApi,
+          ConstraintValueInfoT extends ConstraintValueInfoApi,
+          PlatformInfoT extends PlatformInfoApi<ConstraintSettingInfoT, ConstraintValueInfoT>>
+      extends ProviderApi {
+
+    @SkylarkCallable(
+        name = "PlatformInfo",
+        doc = "The <code>PlatformInfo</code> constructor.",
+        documented = false,
+        parameters = {
+          @Param(
+              name = "label",
+              type = Label.class,
+              named = true,
+              positional = false,
+              doc = "The label for this platform."),
+          @Param(
+              name = "parent",
+              type = PlatformInfoApi.class,
+              defaultValue = "None",
+              named = true,
+              positional = false,
+              noneable = true,
+              doc = "The parent of this platform."),
+          @Param(
+              name = "constraint_values",
+              type = Sequence.class,
+              defaultValue = "[]",
+              generic1 = ConstraintValueInfoApi.class,
+              named = true,
+              positional = false,
+              doc = "The constraint values for the platform"),
+          @Param(
+              name = "exec_properties",
+              type = Dict.class,
+              defaultValue = "None",
+              named = true,
+              positional = false,
+              noneable = true,
+              doc = "The exec properties for the platform.")
+        },
+        selfCall = true,
+        useStarlarkThread = true,
+        enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_PLATFORM_API)
+    @SkylarkConstructor(objectType = PlatformInfoApi.class, receiverNameForDoc = "PlatformInfo")
+    PlatformInfoT platformInfo(
+        Label label,
+        Object parent,
+        Sequence<?> constraintValues,
+        Object execProperties,
+        StarlarkThread thread)
+        throws EvalException;
+  }
 }

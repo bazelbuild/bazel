@@ -18,14 +18,11 @@ import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeInfo;
-import com.google.devtools.build.lib.rules.cpp.LibraryToLink.CcLinkingContext;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcInfoApi;
-import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.Runtime;
+import com.google.devtools.build.lib.syntax.Starlark;
 import java.util.Collection;
 import javax.annotation.Nullable;
 
@@ -157,11 +154,7 @@ public final class CcInfo extends NativeInfo implements CcInfoApi {
     }
 
     @Override
-    public CcInfoApi createInfo(
-        Object skylarkCcCompilationContext,
-        Object skylarkCcLinkingInfo,
-        Location location,
-        Environment environment)
+    public CcInfoApi createInfo(Object skylarkCcCompilationContext, Object skylarkCcLinkingInfo)
         throws EvalException {
       CcCompilationContext ccCompilationContext =
           nullIfNone(skylarkCcCompilationContext, CcCompilationContext.class);
@@ -180,7 +173,7 @@ public final class CcInfo extends NativeInfo implements CcInfoApi {
 
     @Nullable
     private static <T> T nullIfNone(Object object, Class<T> type) {
-      return object != Runtime.NONE ? type.cast(object) : null;
+      return object != Starlark.NONE ? type.cast(object) : null;
     }
   }
 }

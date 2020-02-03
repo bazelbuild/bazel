@@ -91,7 +91,6 @@ public class ObjectCodecRegistry {
             .filter((str) -> isAllowed(str, blacklistedClassNamePrefixes))
             .collect(ImmutableList.toImmutableList());
     this.dynamicCodecs = createDynamicCodecs(this.classNames, nextTag);
-    logger.info("Initialized " + this + " with approximate hash: " + deepHashCode());
   }
 
   public CodecDescriptor getCodecDescriptorForObject(Object obj)
@@ -426,22 +425,6 @@ public class ObjectCodecRegistry {
         .add("classNames.size", classNames.size())
         .add("dynamicCodecs.size", dynamicCodecs.size())
         .toString();
-  }
-
-  private int deepHashCode() {
-    int hash = this.toString().hashCode();
-    for (CodecDescriptor codecDescriptor : tagMappedCodecs) {
-      hash =
-          37 * hash
-              + 31 * codecDescriptor.getTag()
-              + hashClass(codecDescriptor.getCodec().getEncodedClass());
-    }
-    for (Object referenceConstant : referenceConstants) {
-      // This doesn't catch two reference constants of the same class that are switched,
-      // unfortunately.
-      hash = 37 * hash + hashClass(referenceConstant.getClass());
-    }
-    return 37 * hash + classNames.hashCode();
   }
 
   private static int hashClass(Class<?> clazz) {

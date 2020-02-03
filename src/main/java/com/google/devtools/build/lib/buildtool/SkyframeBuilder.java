@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.buildtool;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.Range;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.ActionCacheChecker;
@@ -279,7 +278,7 @@ public class SkyframeBuilder implements Builder {
       ErrorInfo errorInfo = Preconditions.checkNotNull(result.getError(), result);
       Exception exception = errorInfo.getException();
       if (exception == null) {
-        Preconditions.checkState(!Iterables.isEmpty(errorInfo.getCycleInfo()), errorInfo);
+        Preconditions.checkState(!errorInfo.getCycleInfo().isEmpty(), errorInfo);
         // If a keepGoing=false build found a cycle, that means there were no other errors thrown
         // during evaluation (otherwise, it wouldn't have bothered to find a cycle). So the best
         // we can do is throw a generic build failure exception, since we've already reported the
@@ -305,7 +304,7 @@ public class SkyframeBuilder implements Builder {
       // Sometimes ActionExecutionExceptions are caused by Actions with no owner.
       String message =
           (actionExecutionCause.getLocation() != null)
-              ? (actionExecutionCause.getLocation().print() + " " + cause.getMessage())
+              ? (actionExecutionCause.getLocation() + " " + cause.getMessage())
               : cause.getMessage();
       throw new BuildFailedException(
           message,

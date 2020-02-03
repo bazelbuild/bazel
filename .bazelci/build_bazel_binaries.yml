@@ -31,4 +31,4 @@ platforms:
       - "-c"
       - "opt"
     build_targets:
-      - "//src:bazel"
+      - "//src:bazel.exe"

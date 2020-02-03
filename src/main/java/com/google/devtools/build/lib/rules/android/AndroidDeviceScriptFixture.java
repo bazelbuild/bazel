@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.android;
 
-import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
@@ -27,7 +26,7 @@ import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.syntax.Type;
+import com.google.devtools.build.lib.packages.Type;
 
 /** An implementation of the {@code android_device_script_fixture} rule. */
 public class AndroidDeviceScriptFixture implements RuleConfiguredTargetFactory {
@@ -82,7 +81,7 @@ public class AndroidDeviceScriptFixture implements RuleConfiguredTargetFactory {
     if (cmd == null) {
       // The fact that there is only one file and that it has the right extension is enforced by the
       // rule definition.
-      return Iterables.getOnlyElement(script.getProvider(FileProvider.class).getFilesToBuild());
+      return script.getProvider(FileProvider.class).getFilesToBuild().getSingleton();
     } else {
       return writeFixtureScript(ruleContext, cmd);
     }

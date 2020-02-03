@@ -377,7 +377,7 @@ class IncludeParser {
           logger.warning("Error getting hints for " + packageFragment + ": " + e);
           continue;
         }
-        for (PathFragment file : globValue.getMatches()) {
+        for (PathFragment file : globValue.getMatches().toList()) {
           hints.add(
               artifactFactory.getSourceArtifact(
                   packageFragment.getRelative(file), globKey.getPackageRoot()));
@@ -435,7 +435,7 @@ class IncludeParser {
               .setFilesystemCalls(syscallCache)
               .addPattern(rule.findFilter)
               .glob());
-        } catch (IOException e) {
+        } catch (UnixGlob.BadPattern | IOException e) {
           logger.warning("Error in hint expansion: " + e);
         }
       }
@@ -843,13 +843,16 @@ class IncludeParser {
       Artifact file,
       ActionExecutionMetadata actionExecutionMetadata,
       ActionExecutionContext actionExecutionContext,
-      Artifact grepIncludes,
+      @Nullable Artifact grepIncludes,
       @Nullable SpawnIncludeScanner remoteIncludeScanner,
       boolean isOutputFile)
       throws IOException, ExecException, InterruptedException {
     Collection<Inclusion> inclusions;
 
+    // TODO(ulfjack): grepIncludes may be null if the corresponding attribute on the rule is missing
+    //  (see CppHelper.getGrepIncludes) or misspelled. It would be better to disallow this case.
     if (remoteIncludeScanner != null
+        && grepIncludes != null
         && remoteIncludeScanner.shouldParseRemotely(file, actionExecutionContext)) {
       inclusions =
           remoteIncludeScanner.extractInclusions(
@@ -866,7 +869,7 @@ class IncludeParser {
             extractInclusions(
                 FileSystemUtils.readContent(actionExecutionContext.getInputPath(file)));
       } catch (IOException e) {
-        if (remoteIncludeScanner != null) {
+        if (remoteIncludeScanner != null && grepIncludes != null) {
           logger.log(
               Level.WARNING,
               "Falling back on remote parsing of " + actionExecutionContext.getInputPath(file),

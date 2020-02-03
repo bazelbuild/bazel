@@ -28,14 +28,17 @@ public interface FieldInitializer {
    *
    * @return true if the initializer is deferred to clinit code.
    */
-  boolean writeFieldDefinition(String fieldName, ClassWriter cw, int accessLevel, boolean isFinal);
+  boolean writeFieldDefinition(ClassWriter cw, boolean isFinal, boolean annotateTransitiveFields);
 
   /**
    * Write the bytecode for the clinit portion of initializer.
+   *
    * @return the number of stack slots needed for the code.
    */
-  int writeCLInit(String fieldName, InstructionAdapter insts, String className);
+  int writeCLInit(InstructionAdapter insts, String className);
 
   /** Write the source code for the initializer to the given writer. */
-  void writeInitSource(String fieldName, Writer writer, boolean finalFields) throws IOException;
+  void writeInitSource(Writer writer, boolean finalFields) throws IOException;
+
+  String getFieldName();
 }

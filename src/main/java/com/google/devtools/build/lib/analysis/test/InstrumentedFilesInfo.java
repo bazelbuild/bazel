@@ -17,7 +17,6 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
-import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
@@ -26,7 +25,7 @@ import com.google.devtools.build.lib.util.Pair;
 
 /** An implementation class for the InstrumentedFilesProvider interface. */
 @AutoCodec
-public final class InstrumentedFilesInfo extends Info implements InstrumentedFilesInfoApi {
+public final class InstrumentedFilesInfo implements Info, InstrumentedFilesInfoApi {
   /** Singleton provider instance for {@link InstrumentedFilesInfo}. */
   public static final InstrumentedFilesProvider SKYLARK_CONSTRUCTOR =
       new InstrumentedFilesProvider();
@@ -57,7 +56,6 @@ public final class InstrumentedFilesInfo extends Info implements InstrumentedFil
       NestedSet<Artifact> coverageSupportFiles,
       NestedSet<Pair<String, String>> coverageEnvironment,
       NestedSet<Pair<String, String>> reportedToActualSources) {
-    super(SKYLARK_CONSTRUCTOR, Location.BUILTIN);
     this.instrumentedFiles = instrumentedFiles;
     this.instrumentationMetadataFiles = instrumentationMetadataFiles;
     this.baselineCoverageFiles = baselineCoverageFiles;
@@ -65,6 +63,11 @@ public final class InstrumentedFilesInfo extends Info implements InstrumentedFil
     this.coverageSupportFiles = coverageSupportFiles;
     this.coverageEnvironment = coverageEnvironment;
     this.reportedToActualSources = reportedToActualSources;
+  }
+
+  @Override
+  public InstrumentedFilesProvider getProvider() {
+    return SKYLARK_CONSTRUCTOR;
   }
 
   /** The transitive closure of instrumented source files. */

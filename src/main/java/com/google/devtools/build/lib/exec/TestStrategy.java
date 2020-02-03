@@ -17,15 +17,16 @@ package com.google.devtools.build.lib.exec;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.io.ByteStreams;
+import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.SettableFuture;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
+import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.ExecException;
-import com.google.devtools.build.lib.actions.TestExecException;
 import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.PerLabelOptions;
@@ -38,8 +39,6 @@ import com.google.devtools.build.lib.analysis.test.TestTargetExecutionSettings;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventKind;
-import com.google.devtools.build.lib.profiler.Profiler;
-import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.io.FileWatcher;
@@ -54,14 +53,17 @@ import java.io.Closeable;
 import java.io.IOException;
 import java.io.InputStream;
 import java.time.Duration;
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+import java.util.concurrent.ConcurrentHashMap;
 import javax.annotation.Nullable;
 
 /** A strategy for executing a {@link TestRunnerAction}. */
 public abstract class TestStrategy implements TestActionContext {
+  private final ConcurrentHashMap<ShardKey, ListenableFuture<Void>> futures =
+      new ConcurrentHashMap<>();
 
   /**
    * Ensures that all directories used to run test are in the correct state and their content will
@@ -152,30 +154,46 @@ public abstract class TestStrategy implements TestActionContext {
     return executionOptions.testKeepGoing;
   }
 
+  @Override
+  public final ListenableFuture<Void> getTestCancelFuture(ActionOwner owner, int shardNum) {
+    ShardKey key = new ShardKey(owner, shardNum);
+    return futures.computeIfAbsent(key, (k) -> SettableFuture.<Void>create());
+  }
+
   /**
    * Generates a command line to run for the test action, taking into account coverage and {@code
    * --run_under} settings.
+   *
+   * <p>Basically {@code expandedArgsFromAction}, but throws ExecException instead. This should be
+   * used in action execution.
    *
    * @param testAction The test action.
    * @return the command line as string list.
    * @throws ExecException
    */
   public static ImmutableList<String> getArgs(TestRunnerAction testAction) throws ExecException {
+    try {
+      return expandedArgsFromAction(testAction);
+    } catch (CommandLineExpansionException e) {
+      throw new UserExecException(e);
+    }
+  }
+
+  /**
+   * Generates a command line to run for the test action, taking into account coverage and {@code
+   * --run_under} settings.
+   *
+   * @param testAction The test action.
+   * @return the command line as string list.
+   * @throws CommandLineExpansionException
+   */
+  public static ImmutableList<String> expandedArgsFromAction(TestRunnerAction testAction)
+      throws CommandLineExpansionException {
     List<String> args = Lists.newArrayList();
     // TODO(ulfjack): `executedOnWindows` is incorrect for remote execution, where we need to
     // consider the target configuration, not the machine Bazel happens to run on. Change this to
     // something like: testAction.getConfiguration().getTargetOS() == OS.WINDOWS
     final boolean executedOnWindows = (OS.getCurrent() == OS.WINDOWS);
-    final boolean useTestWrapper = testAction.isUsingTestWrapperInsteadOfTestSetupScript();
-
-    if (executedOnWindows && !useTestWrapper) {
-      // TestActionBuilder constructs TestRunnerAction with a 'null' shell path only when we use the
-      // native test wrapper. Something clearly went wrong.
-      Preconditions.checkNotNull(testAction.getShExecutableMaybe(), "%s", testAction);
-      args.add(testAction.getShExecutableMaybe().getPathString());
-      args.add("-c");
-      args.add("$0 \"$@\"");
-    }
 
     Artifact testSetup = testAction.getTestSetupScript();
     args.add(testSetup.getExecPath().getCallablePathString());
@@ -193,11 +211,7 @@ public abstract class TestStrategy implements TestActionContext {
 
     // Execute the test using the alias in the runfiles tree, as mandated by the Test Encyclopedia.
     args.add(execSettings.getExecutable().getRootRelativePath().getCallablePathString());
-    try {
-      Iterables.addAll(args, execSettings.getArgs().arguments());
-    } catch (CommandLineExpansionException e) {
-      throw new UserExecException(e);
-    }
+    Iterables.addAll(args, execSettings.getArgs().arguments());
     return ImmutableList.copyOf(args);
   }
 
@@ -304,7 +318,8 @@ public abstract class TestStrategy implements TestActionContext {
     digest.addPath(action.getExecutionSettings().getExecutable().getExecPath());
     digest.addInt(action.getShardNum());
     digest.addInt(action.getRunNumber());
-    return digest.hexDigestAndReset();
+    // Truncate the string to 32 character to avoid exceeding path length limit on Windows and macOS
+    return digest.hexDigestAndReset().substring(0, 32);
   }
 
   /** Parse a test result XML file into a {@link TestCase}. */
@@ -337,7 +352,8 @@ public abstract class TestStrategy implements TestActionContext {
       throws IOException {
     boolean isPassed = testResultData.getTestPassed();
     try {
-      if (TestLogHelper.shouldOutputTestLog(executionOptions.testOutput, isPassed)) {
+      if (testResultData.getStatus() != BlazeTestStatus.INCOMPLETE
+          && TestLogHelper.shouldOutputTestLog(executionOptions.testOutput, isPassed)) {
         TestLogHelper.writeTestLog(
             testLog, testName, actionExecutionContext.getFileOutErr().getOutputStream());
       }
@@ -354,6 +370,10 @@ public abstract class TestStrategy implements TestActionContext {
           actionExecutionContext
               .getEventHandler()
               .handle(Event.of(EventKind.TIMEOUT, null, testName + " (see " + testLog + ")"));
+        } else if (testResultData.getStatus() == BlazeTestStatus.INCOMPLETE) {
+          actionExecutionContext
+              .getEventHandler()
+              .handle(Event.of(EventKind.CANCELLED, null, testName));
         } else {
           actionExecutionContext
               .getEventHandler()
@@ -390,101 +410,6 @@ public abstract class TestStrategy implements TestActionContext {
       }
     }
     return result;
-  }
-
-  /**
-   * Returns the runfiles directory associated with the test executable, creating/updating it if
-   * necessary and --build_runfile_links is specified.
-   */
-  protected static Path getLocalRunfilesDirectory(
-      TestRunnerAction testAction,
-      ActionExecutionContext actionExecutionContext,
-      BinTools binTools,
-      ImmutableMap<String, String> shellEnvironment,
-      boolean enableRunfiles)
-      throws ExecException, InterruptedException {
-    TestTargetExecutionSettings execSettings = testAction.getExecutionSettings();
-
-    if (execSettings.getInputManifest() == null) {
-      throw new TestExecException("cannot run local tests with --nobuild_runfile_manifests");
-    }
-
-    Path runfilesDir =
-        actionExecutionContext.getPathResolver().convertPath(execSettings.getRunfilesDir());
-
-    // If the symlink farm is already created then return the existing directory. If not we
-    // need to explicitly build it. This can happen when --nobuild_runfile_links is supplied
-    // as a flag to the build.
-    if (execSettings.getRunfilesSymlinksCreated()) {
-      return runfilesDir;
-    }
-
-    // Synchronize runfiles tree generation on the runfiles manifest artifact.
-    // This is necessary, because we might end up with multiple test runner actions
-    // trying to generate same runfiles tree in case of --runs_per_test > 1 or
-    // local test sharding.
-    long startTime = Profiler.nanoTimeMaybe();
-    synchronized (execSettings.getInputManifest()) {
-      Profiler.instance().logSimpleTask(startTime, ProfilerTask.WAIT, testAction.describe());
-      updateLocalRunfilesDirectory(
-          testAction,
-          runfilesDir,
-          actionExecutionContext,
-          binTools,
-          shellEnvironment,
-          enableRunfiles);
-    }
-
-    return runfilesDir;
-  }
-
-  /**
-   * Ensure the runfiles tree exists and is consistent with the TestAction's manifest
-   * ($0.runfiles_manifest), bringing it into consistency if not. The contents of the output file
-   * $0.runfiles/MANIFEST, if it exists, are used a proxy for the set of existing symlinks, to avoid
-   * the need for recursion.
-   */
-  private static void updateLocalRunfilesDirectory(
-      TestRunnerAction testAction,
-      Path runfilesDir,
-      ActionExecutionContext actionExecutionContext,
-      BinTools binTools,
-      ImmutableMap<String, String> shellEnvironment,
-      boolean enableRunfiles)
-      throws ExecException, InterruptedException {
-    TestTargetExecutionSettings execSettings = testAction.getExecutionSettings();
-    Path outputManifest = runfilesDir.getRelative("MANIFEST");
-    try {
-      // Avoid rebuilding the runfiles directory if the manifest in it matches the input manifest,
-      // implying the symlinks exist and are already up to date. If the output manifest is a
-      // symbolic link, it is likely a symbolic link to the input manifest, so we cannot trust it as
-      // an up-to-date check.
-      if (!outputManifest.isSymbolicLink()
-          && Arrays.equals(
-              outputManifest.getDigest(),
-              actionExecutionContext.getInputPath(execSettings.getInputManifest()).getDigest())) {
-        return;
-      }
-    } catch (IOException e1) {
-      // Ignore it - we will just try to create runfiles directory.
-    }
-
-    actionExecutionContext
-        .getEventHandler()
-        .handle(
-            Event.progress(
-                "Building runfiles directory for '"
-                    + execSettings.getExecutable().prettyPrint()
-                    + "'."));
-
-    new SymlinkTreeHelper(
-            actionExecutionContext.getInputPath(execSettings.getInputManifest()),
-            runfilesDir,
-            false)
-        .createSymlinks(actionExecutionContext, binTools, shellEnvironment, enableRunfiles);
-
-    actionExecutionContext.getEventHandler()
-        .handle(Event.progress(testAction.getProgressMessage()));
   }
 
   protected static void closeSuppressed(Throwable e, @Nullable Closeable c) {
@@ -530,6 +455,33 @@ public abstract class TestStrategy implements TestActionContext {
           ByteStreams.copy(input, outErr.getOutputStream());
         }
       }
+    }
+  }
+
+  private static final class ShardKey {
+    private final ActionOwner owner;
+    private final int shard;
+
+    ShardKey(ActionOwner owner, int shard) {
+      this.owner = Preconditions.checkNotNull(owner);
+      this.shard = shard;
+    }
+
+    @Override
+    public int hashCode() {
+      return Objects.hash(owner, shard);
+    }
+
+    @Override
+    public boolean equals(Object o) {
+      if (this == o) {
+        return true;
+      }
+      if (!(o instanceof ShardKey)) {
+        return false;
+      }
+      ShardKey s = (ShardKey) o;
+      return owner.equals(s.owner) && shard == s.shard;
     }
   }
 }

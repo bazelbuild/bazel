@@ -92,7 +92,8 @@ public class AnalysisFailureReportingTest extends AnalysisTestCase {
         .containsExactly(
             new LoadingFailedCause(
                 causeLabel,
-                "no such package 'bar': BUILD file not found in any of the following directories.\n"
+                "no such package 'bar': BUILD file not found in any of the following "
+                    + "directories. Add a BUILD file to a directory to mark it as a package.\n"
                     + " - /workspace/bar"));
   }
 
@@ -124,8 +125,8 @@ public class AnalysisFailureReportingTest extends AnalysisTestCase {
         .containsExactly(
             new LoadingFailedCause(
                 Label.parseAbsolute("//cycles1", ImmutableMap.of()),
-                // TODO(ulfjack): Ideally, we'd get an error message about a symlink cycle instead.
-                "Target '//cycles1:cycles1' contains an error and its package is in error"));
+                "no such package 'cycles1': Symlink issue while evaluating globs: Symlink cycle: "
+                    + "/workspace/cycles1/cycles1.sh"));
   }
 
   @Test
@@ -202,7 +203,7 @@ public class AnalysisFailureReportingTest extends AnalysisTestCase {
 
     @Subscribe
     public void failureEvent(AnalysisFailureEvent event) {
-      events.putAll(event.getFailedTarget().getLabel(), event.getRootCauses());
+      events.putAll(event.getFailedTarget().getLabel(), event.getRootCauses().toList());
     }
   }
 }

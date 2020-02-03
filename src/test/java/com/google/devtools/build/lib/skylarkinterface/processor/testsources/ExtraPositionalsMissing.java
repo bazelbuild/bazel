@@ -14,25 +14,23 @@
 
 package com.google.devtools.build.lib.skylarkinterface.processor.testsources;
 
-import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.syntax.Environment;
+import com.google.devtools.build.lib.syntax.StarlarkThread;
+import com.google.devtools.build.lib.syntax.StarlarkValue;
 
 /**
  * Test case for a SkylarkCallable method which specifies extraPositionals, but omits that argument.
  */
-public class ExtraPositionalsMissing {
+public class ExtraPositionalsMissing implements StarlarkValue {
 
   @SkylarkCallable(
-    name = "extra_positionals_missing",
-    documented = false,
-    parameters = {@Param(name = "one")},
-    extraPositionals = @Param(name = "args"),
-    useLocation = true,
-    useEnvironment = true
-  )
-  public String threeArgMethod(String one, Location location, Environment environment) {
+      name = "extra_positionals_missing",
+      documented = false,
+      parameters = {@Param(name = "one")},
+      extraPositionals = @Param(name = "args"),
+      useStarlarkThread = true)
+  public String threeArgMethod(String one, StarlarkThread thread) {
     return "bar";
   }
 }

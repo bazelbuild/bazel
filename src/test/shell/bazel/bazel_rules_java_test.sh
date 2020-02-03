@@ -56,6 +56,10 @@ if "$is_windows"; then
 fi
 
 function test_rules_java_can_be_overridden() {
+  # The bazelrc file might contain an --override_repository flag for rules_java,
+  # which would cause this test to fail to override the repo via a WORKSPACE file.
+  sed -i.bak '/override_repository=rules_java/d' $TEST_TMPDIR/bazelrc
+
   # We test that a custom repository can override @platforms in their
   # WORKSPACE file.
   mkdir -p rules_java_can_be_overridden || fail "couldn't create directory"
@@ -79,6 +83,8 @@ EOF
 }
 
 function test_rules_java_repository_builds_itself() {
+  write_default_bazelrc
+
   # We test that a built-in @rules_java repository is buildable.
   bazel build @rules_java//... &> $TEST_log \
       || fail "Build failed unexpectedly"

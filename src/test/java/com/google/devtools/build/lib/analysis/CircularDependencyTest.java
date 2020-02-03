@@ -19,7 +19,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import static com.google.devtools.build.lib.packages.BuildType.NODEP_LABEL;
-import static com.google.devtools.build.lib.syntax.Type.STRING;
+import static com.google.devtools.build.lib.packages.Type.STRING;
 import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 
 import com.google.common.collect.ImmutableList;
@@ -31,7 +31,6 @@ import com.google.devtools.build.lib.analysis.config.transitions.TransitionFacto
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.analysis.util.MockRule;
 import com.google.devtools.build.lib.events.Event;
-import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.Attribute.LabelLateBoundDefault;
 import com.google.devtools.build.lib.packages.AttributeTransitionData;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
@@ -97,11 +96,8 @@ public class CircularDependencyTest extends BuildViewTestCase {
         break;
       }
     }
-
     assertThat(foundEvent).isNotNull();
-    Location location = foundEvent.getLocation();
-    assertThat(location.getStartLineAndColumn().getLine()).isEqualTo(3);
-    assertThat(location.getPath().toString()).isEqualTo("/workspace/cycle/BUILD");
+    assertThat(foundEvent.getLocation().toString()).isEqualTo("/workspace/cycle/BUILD:3:1");
   }
 
   /**

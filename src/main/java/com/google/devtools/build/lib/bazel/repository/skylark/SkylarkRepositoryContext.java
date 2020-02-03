@@ -14,16 +14,14 @@
 
 package com.google.devtools.build.lib.bazel.repository.skylark;
 
-import static java.nio.charset.StandardCharsets.UTF_8;
-
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Ascii;
 import com.google.common.base.Optional;
+import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.bazel.debug.WorkspaceRuleEvent;
 import com.google.devtools.build.lib.bazel.repository.DecompressorDescriptor;
@@ -32,34 +30,36 @@ import com.google.devtools.build.lib.bazel.repository.PatchUtil;
 import com.google.devtools.build.lib.bazel.repository.cache.RepositoryCache;
 import com.google.devtools.build.lib.bazel.repository.cache.RepositoryCache.KeyType;
 import com.google.devtools.build.lib.bazel.repository.downloader.Checksum;
-import com.google.devtools.build.lib.bazel.repository.downloader.HttpDownloader;
+import com.google.devtools.build.lib.bazel.repository.downloader.DownloadManager;
 import com.google.devtools.build.lib.bazel.repository.downloader.HttpUtils;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.ExtendedEventHandler.FetchProgress;
-import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.packages.StructProvider;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
+import com.google.devtools.build.lib.profiler.Profiler;
+import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction;
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction.RepositoryFunctionException;
 import com.google.devtools.build.lib.rules.repository.WorkspaceAttributeMapper;
-import com.google.devtools.build.lib.shell.BadExitStatusException;
-import com.google.devtools.build.lib.shell.Command;
-import com.google.devtools.build.lib.shell.CommandException;
-import com.google.devtools.build.lib.shell.CommandResult;
-import com.google.devtools.build.lib.skyframe.PrecomputedValue;
+import com.google.devtools.build.lib.runtime.ProcessWrapperUtil;
+import com.google.devtools.build.lib.runtime.RepositoryRemoteExecutor;
+import com.google.devtools.build.lib.runtime.RepositoryRemoteExecutor.ExecutionResult;
 import com.google.devtools.build.lib.skylarkbuildapi.repository.SkylarkRepositoryContextApi;
+import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
-import com.google.devtools.build.lib.syntax.Runtime;
-import com.google.devtools.build.lib.syntax.SkylarkDict;
-import com.google.devtools.build.lib.syntax.SkylarkList;
-import com.google.devtools.build.lib.syntax.SkylarkType;
+import com.google.devtools.build.lib.syntax.Mutability;
+import com.google.devtools.build.lib.syntax.Sequence;
+import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
+import com.google.devtools.build.lib.syntax.StarlarkThread;
+import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.OsUtils;
 import com.google.devtools.build.lib.util.StringUtilities;
+import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -83,6 +83,8 @@ import java.util.ArrayList;
 import java.util.Base64;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
+import javax.annotation.Nullable;
 
 /** Skylark API for the repository_rule's context. */
 public class SkylarkRepositoryContext
@@ -91,14 +93,16 @@ public class SkylarkRepositoryContext
   private final Rule rule;
   private final PathPackageLocator packageLocator;
   private final Path outputDirectory;
+  private final Path embeddedBinariesRoot;
   private final StructImpl attrObject;
   private final SkylarkOS osObject;
   private final ImmutableSet<PathFragment> blacklistedPatterns;
   private final Environment env;
-  private final HttpDownloader httpDownloader;
+  private final DownloadManager downloadManager;
   private final double timeoutScaling;
   private final Map<String, String> markerData;
-  private final boolean useNativePatch;
+  private final StarlarkSemantics starlarkSemantics;
+  private final RepositoryRemoteExecutor remoteExecutor;
 
   /**
    * Create a new context (repository_ctx) object for a skylark repository rule ({@code rule}
@@ -111,36 +115,35 @@ public class SkylarkRepositoryContext
       ImmutableSet<PathFragment> blacklistedPatterns,
       Environment environment,
       Map<String, String> env,
-      HttpDownloader httpDownloader,
+      DownloadManager downloadManager,
+      Path embeddedBinariesRoot,
       double timeoutScaling,
       Map<String, String> markerData,
-      boolean useNativePatch)
+      StarlarkSemantics starlarkSemantics,
+      @Nullable RepositoryRemoteExecutor remoteExecutor)
       throws EvalException {
     this.rule = rule;
     this.packageLocator = packageLocator;
     this.outputDirectory = outputDirectory;
+    this.embeddedBinariesRoot = embeddedBinariesRoot;
     this.blacklistedPatterns = blacklistedPatterns;
     this.env = environment;
     this.osObject = new SkylarkOS(env);
-    this.httpDownloader = httpDownloader;
+    this.downloadManager = downloadManager;
     this.timeoutScaling = timeoutScaling;
     this.markerData = markerData;
-    this.useNativePatch = useNativePatch;
     WorkspaceAttributeMapper attrs = WorkspaceAttributeMapper.of(rule);
     ImmutableMap.Builder<String, Object> attrBuilder = new ImmutableMap.Builder<>();
     for (String name : attrs.getAttributeNames()) {
       if (!name.equals("$local")) {
-        Object val = attrs.getObject(name);
+        // Attribute values should be type safe
         attrBuilder.put(
-            Attribute.getSkylarkName(name),
-            val == null
-                ? Runtime.NONE
-                // Attribute values should be type safe
-                : SkylarkType.convertToSkylark(val,
-                    (com.google.devtools.build.lib.syntax.Environment) null));
+            Attribute.getSkylarkName(name), Starlark.fromJava(attrs.getObject(name), null));
       }
     }
     attrObject = StructProvider.STRUCT.create(attrBuilder.build(), "No such attribute '%s'");
+    this.starlarkSemantics = starlarkSemantics;
+    this.remoteExecutor = remoteExecutor;
   }
 
   @Override
@@ -168,11 +171,10 @@ public class SkylarkRepositoryContext
         return skylarkPath;
       }
     }
-    throw new EvalException(
-        Location.BUILTIN,
-        method
-            + " can only be applied to external paths"
-            + " (that is, outside the workspace or ignored in .bazelignore)");
+    throw Starlark.errorf(
+        "%s can only be applied to external paths (that is, outside the workspace or ignored in"
+            + " .bazelignore)",
+        method);
   }
 
   @Override
@@ -184,15 +186,16 @@ public class SkylarkRepositoryContext
       throws EvalException, InterruptedException {
     if (path instanceof String) {
       PathFragment pathFragment = PathFragment.create(path.toString());
-      return new SkylarkPath(pathFragment.isAbsolute()
-          ? outputDirectory.getFileSystem().getPath(path.toString())
-          : outputDirectory.getRelative(pathFragment));
+      return new SkylarkPath(
+          pathFragment.isAbsolute()
+              ? outputDirectory.getFileSystem().getPath(path.toString())
+              : outputDirectory.getRelative(pathFragment));
     } else if (path instanceof Label) {
       return getPathFromLabel((Label) path);
     } else if (path instanceof SkylarkPath) {
       return (SkylarkPath) path;
     } else {
-      throw new EvalException(Location.BUILTIN, method + " can only take a string or a label.");
+      throw Starlark.errorf("%s can only take a string or a label.", method);
     }
   }
 
@@ -222,13 +225,16 @@ public class SkylarkRepositoryContext
   }
 
   @Override
-  public void symlink(Object from, Object to, Location location)
+  public void symlink(Object from, Object to, StarlarkThread thread)
       throws RepositoryFunctionException, EvalException, InterruptedException {
     SkylarkPath fromPath = getPath("symlink()", from);
     SkylarkPath toPath = getPath("symlink()", to);
     WorkspaceRuleEvent w =
         WorkspaceRuleEvent.newSymlinkEvent(
-            fromPath.toString(), toPath.toString(), rule.getLabel().toString(), location);
+            fromPath.toString(),
+            toPath.toString(),
+            rule.getLabel().toString(),
+            thread.getCallerLocation());
     env.getListener().post(w);
     try {
       checkInOutputDirectory("write", toPath);
@@ -247,16 +253,15 @@ public class SkylarkRepositoryContext
       throws RepositoryFunctionException {
     if (!path.getPath().getPathString().startsWith(outputDirectory.getPathString())) {
       throw new RepositoryFunctionException(
-          new EvalException(
-              Location.fromFile(path.getPath()),
-              "Cannot " + operation + " outside of the repository directory for path " + path),
+          Starlark.errorf(
+              "Cannot %s outside of the repository directory for path %s", operation, path),
           Transience.PERSISTENT);
     }
   }
 
   @Override
   public void createFile(
-      Object path, String content, Boolean executable, Boolean legacyUtf8, Location location)
+      Object path, String content, Boolean executable, Boolean legacyUtf8, StarlarkThread thread)
       throws RepositoryFunctionException, EvalException, InterruptedException {
     SkylarkPath p = getPath("file()", path);
     byte[] contentBytes;
@@ -267,7 +272,11 @@ public class SkylarkRepositoryContext
     }
     WorkspaceRuleEvent w =
         WorkspaceRuleEvent.newFileEvent(
-            p.toString(), content, executable, rule.getLabel().toString(), location);
+            p.toString(),
+            content,
+            executable,
+            rule.getLabel().toString(),
+            thread.getCallerLocation());
     env.getListener().post(w);
     try {
       checkInOutputDirectory("write", p);
@@ -288,26 +297,28 @@ public class SkylarkRepositoryContext
   public void createFileFromTemplate(
       Object path,
       Object template,
-      SkylarkDict<String, String> substitutions,
+      Dict<?, ?> substitutions, // <String, String> expected
       Boolean executable,
-      Location location)
+      StarlarkThread thread)
       throws RepositoryFunctionException, EvalException, InterruptedException {
     SkylarkPath p = getPath("template()", path);
     SkylarkPath t = getPath("template()", template);
+    Map<String, String> substitutionMap =
+        substitutions.getContents(String.class, String.class, "substitutions");
     WorkspaceRuleEvent w =
         WorkspaceRuleEvent.newTemplateEvent(
             p.toString(),
             t.toString(),
-            substitutions,
+            substitutionMap,
             executable,
             rule.getLabel().toString(),
-            location);
+            thread.getCallerLocation());
     env.getListener().post(w);
     try {
       checkInOutputDirectory("write", p);
       makeDirectories(p.getPath());
       String tpl = FileSystemUtils.readContent(t.getPath(), StandardCharsets.UTF_8);
-      for (Map.Entry<String, String> substitution : substitutions.entrySet()) {
+      for (Map.Entry<String, String> substitution : substitutionMap.entrySet()) {
         tpl =
             StringUtilities.replaceAllLiteral(tpl, substitution.getKey(), substitution.getValue());
       }
@@ -324,11 +335,12 @@ public class SkylarkRepositoryContext
   }
 
   @Override
-  public String readFile(Object path, Location location)
+  public String readFile(Object path, StarlarkThread thread)
       throws RepositoryFunctionException, EvalException, InterruptedException {
     SkylarkPath p = getPath("read()", path);
     WorkspaceRuleEvent w =
-        WorkspaceRuleEvent.newReadEvent(p.toString(), rule.getLabel().toString(), location);
+        WorkspaceRuleEvent.newReadEvent(
+            p.toString(), rule.getLabel().toString(), thread.getCallerLocation());
     env.getListener().post(w);
     try {
       return FileSystemUtils.readContent(p.getPath(), StandardCharsets.ISO_8859_1);
@@ -346,8 +358,15 @@ public class SkylarkRepositoryContext
   }
 
   @Override
-  public SkylarkOS getOS(Location location) {
-    WorkspaceRuleEvent w = WorkspaceRuleEvent.newOsEvent(rule.getLabel().toString(), location);
+  public SkylarkOS getOS() {
+    // Historically this event reported the location of the ctx.os expression,
+    // but that's no longer available in the interpreter API. Now we report the
+    // location of the rule's implementation function, and the user must inspect
+    // that code manually (or in a debugger) to find the offending ctx.os expression.
+    WorkspaceRuleEvent w =
+        WorkspaceRuleEvent.newOsEvent(
+            rule.getLabel().toString(),
+            rule.getRuleClassObject().getConfiguredTargetFunction().getLocation());
     env.getListener().post(w);
     return osObject;
   }
@@ -363,15 +382,95 @@ public class SkylarkRepositoryContext
     }
   }
 
+  boolean isRemotable() {
+    Object remotable = rule.getAttributeContainer().getAttr("$remotable");
+    if (remotable != null) {
+      return (Boolean) remotable;
+    }
+    return false;
+  }
+
+  private boolean canExecuteRemote() {
+    boolean featureEnabled = starlarkSemantics.experimentalRepoRemoteExec();
+    boolean remoteExecEnabled = remoteExecutor != null;
+    return featureEnabled && isRemotable() && remoteExecEnabled;
+  }
+
+  @SuppressWarnings("unchecked")
+  private ImmutableMap<String, String> getExecProperties() throws EvalException {
+    Dict<String, String> execPropertiesDict =
+        (Dict<String, String>) getAttr().getValue("exec_properties", Dict.class);
+    Map<String, String> execPropertiesMap =
+        execPropertiesDict.getContents(String.class, String.class, "exec_properties");
+    return ImmutableMap.copyOf(execPropertiesMap);
+  }
+
+  private static void validateArguments(Sequence<?> arguments) throws EvalException {
+    for (Object arg : arguments) {
+      if (arg instanceof SkylarkPath) {
+        throw Starlark.errorf(
+            "Argument '%s' is of type path. Paths are not supported for repository rules marked as"
+                + " remotable.",
+            arg);
+      }
+    }
+  }
+
+  private SkylarkExecutionResult executeRemote(
+      Sequence<?> argumentsUnchecked, // <String> expected
+      int timeout,
+      Map<String, String> environment,
+      boolean quiet,
+      String workingDirectory)
+      throws EvalException, InterruptedException {
+    Preconditions.checkState(canExecuteRemote());
+
+    ImmutableList<String> arguments =
+        argumentsUnchecked.stream().map(Object::toString).collect(ImmutableList.toImmutableList());
+    ImmutableMap<String, String> execProperties = getExecProperties();
+    try {
+      ExecutionResult result =
+          remoteExecutor.execute(
+              arguments,
+              execProperties,
+              ImmutableMap.copyOf(environment),
+              workingDirectory,
+              Duration.ofSeconds(timeout));
+
+      String stdout = new String(result.stdout(), StandardCharsets.US_ASCII);
+      String stderr = new String(result.stderr(), StandardCharsets.US_ASCII);
+
+      if (!quiet) {
+        OutErr outErr = OutErr.SYSTEM_OUT_ERR;
+        outErr.printOut(stdout);
+        outErr.printErr(stderr);
+      }
+
+      return new SkylarkExecutionResult(result.exitCode(), stdout, stderr);
+    } catch (IOException e) {
+      throw Starlark.errorf("remote_execute failed: %s", e.getMessage());
+    }
+  }
+
   @Override
   public SkylarkExecutionResult execute(
-      SkylarkList<Object> arguments,
+      Sequence<?> arguments, // <String> or <SkylarkPath> expected
       Integer timeout,
-      SkylarkDict<String, String> environment,
+      Dict<?, ?> uncheckedEnvironment, // <String, String> expected
       boolean quiet,
       String workingDirectory,
-      Location location)
+      StarlarkThread thread)
       throws EvalException, RepositoryFunctionException, InterruptedException {
+    Map<String, String> environment =
+        uncheckedEnvironment.getContents(String.class, String.class, "environment");
+    if (isRemotable()) {
+      validateArguments(arguments);
+    }
+    if (canExecuteRemote()) {
+      return executeRemote(arguments, timeout, environment, quiet, workingDirectory);
+    }
+
+    // Execute on the local/host machine
     WorkspaceRuleEvent w =
         WorkspaceRuleEvent.newExecuteEvent(
             arguments,
@@ -381,9 +480,23 @@ public class SkylarkRepositoryContext
             outputDirectory.getPathString(),
             quiet,
             rule.getLabel().toString(),
-            location);
+            thread.getCallerLocation());
     env.getListener().post(w);
     createDirectory(outputDirectory);
+
+    long timeoutMillis = Math.round(timeout.longValue() * 1000 * timeoutScaling);
+    List<?> args = arguments;
+    if (OS.getCurrent() != OS.WINDOWS && embeddedBinariesRoot != null) {
+      Path processWrapper = ProcessWrapperUtil.getProcessWrapper(embeddedBinariesRoot);
+      if (processWrapper.exists()) {
+        args =
+            ProcessWrapperUtil.commandLineBuilder(
+                    processWrapper.getPathString(),
+                    arguments.stream().map(Object::toString).collect(Collectors.toList()))
+                .setTimeout(Duration.ofMillis(timeoutMillis))
+                .build();
+      }
+    }
 
     Path workingDirectoryPath = outputDirectory;
     if (workingDirectory != null && !workingDirectory.isEmpty()) {
@@ -391,21 +504,21 @@ public class SkylarkRepositoryContext
     }
     createDirectory(workingDirectoryPath);
     return SkylarkExecutionResult.builder(osObject.getEnvironmentVariables())
-        .addArguments(arguments)
+        .addArguments(args)
         .setDirectory(workingDirectoryPath.getPathFile())
         .addEnvironmentVariables(environment)
-        .setTimeout(Math.round(timeout.longValue() * 1000 * timeoutScaling))
+        .setTimeout(timeoutMillis)
         .setQuiet(quiet)
         .execute();
   }
 
   @Override
-  public boolean delete(Object pathObject, Location location)
+  public boolean delete(Object pathObject, StarlarkThread thread)
       throws EvalException, RepositoryFunctionException, InterruptedException {
     SkylarkPath skylarkPath = externalPath("delete()", pathObject);
     WorkspaceRuleEvent w =
         WorkspaceRuleEvent.newDeleteEvent(
-            skylarkPath.toString(), rule.getLabel().toString(), location);
+            skylarkPath.toString(), rule.getLabel().toString(), thread.getCallerLocation());
     env.getListener().post(w);
     try {
       Path path = skylarkPath.getPath();
@@ -418,65 +531,18 @@ public class SkylarkRepositoryContext
   }
 
   @Override
-  public void patch(Object patchFile, Integer strip, Location location)
+  public void patch(Object patchFile, Integer strip, StarlarkThread thread)
       throws EvalException, RepositoryFunctionException, InterruptedException {
     SkylarkPath skylarkPath = getPath("patch()", patchFile);
     WorkspaceRuleEvent w =
         WorkspaceRuleEvent.newPatchEvent(
-            skylarkPath.toString(), strip, rule.getLabel().toString(), location);
+            skylarkPath.toString(), strip, rule.getLabel().toString(), thread.getCallerLocation());
     env.getListener().post(w);
     try {
-      if (useNativePatch) {
-        PatchUtil.apply(skylarkPath.getPath(), strip, outputDirectory);
-      } else {
-        Map<String, String> envBuilder = Maps.newLinkedHashMap();
-        envBuilder.putAll(osObject.getEnvironmentVariables());
-        Command command =
-            new Command(
-                new String[] {"patch", "-p" + strip, "-i", skylarkPath.getPath().getPathString()},
-                envBuilder,
-                outputDirectory.getPathFile(),
-                Duration.ofSeconds(60));
-        CommandResult result = command.execute();
-        if (!result.getTerminationStatus().success()) {
-          throw new RepositoryFunctionException(
-              new EvalException(
-                  Location.BUILTIN,
-                  "Error applying patch "
-                      + skylarkPath.toString()
-                      + ": "
-                      + new String(result.getStderr(), UTF_8)),
-              Transience.TRANSIENT);
-        }
-      }
+      PatchUtil.apply(skylarkPath.getPath(), strip, outputDirectory);
     } catch (PatchFailedException e) {
       throw new RepositoryFunctionException(
-          new EvalException(
-              Location.BUILTIN, "Error applying patch " + skylarkPath + ": " + e.getMessage()),
-          Transience.TRANSIENT);
-    } catch (CommandException e) {
-      String msg = "";
-      if (e instanceof BadExitStatusException) {
-        CommandResult result = ((BadExitStatusException) e).getResult();
-        msg =
-            String.join(
-                "\n",
-                "Command:",
-                String.join(" ", e.getCommand().getCommandLineElements()) + "\n",
-                "STDOUT:",
-                result.getStdoutStream().toString(),
-                "STDERR:",
-                result.getStderrStream().toString());
-      }
-      throw new RepositoryFunctionException(
-          new EvalException(
-              Location.BUILTIN,
-              "Error applying patch "
-                  + skylarkPath.toString()
-                  + ": "
-                  + e.getMessage()
-                  + "\n"
-                  + msg),
+          Starlark.errorf("Error applying patch %s: %s", skylarkPath, e.getMessage()),
           Transience.TRANSIENT);
     } catch (IOException e) {
       throw new RepositoryFunctionException(e, Transience.TRANSIENT);
@@ -484,14 +550,14 @@ public class SkylarkRepositoryContext
   }
 
   @Override
-  public SkylarkPath which(String program, Location location) throws EvalException {
+  public SkylarkPath which(String program, StarlarkThread thread) throws EvalException {
     WorkspaceRuleEvent w =
-        WorkspaceRuleEvent.newWhichEvent(program, rule.getLabel().toString(), location);
+        WorkspaceRuleEvent.newWhichEvent(
+            program, rule.getLabel().toString(), thread.getCallerLocation());
     env.getListener().post(w);
     if (program.contains("/") || program.contains("\\")) {
-      throw new EvalException(
-          Location.BUILTIN,
-          "Program argument of which() may not contains a / or a \\ ('" + program + "' given)");
+      throw Starlark.errorf(
+          "Program argument of which() may not contains a / or a \\ ('%s' given)", program);
     }
     try {
       SkylarkPath commandPath = findCommandOnPath(program);
@@ -537,6 +603,19 @@ public class SkylarkRepositoryContext
     reportProgress("Will fail after download of " + url + ". " + errorMessage);
   }
 
+  @SuppressWarnings({"unchecked", "rawtypes"}) // Explained in method comment
+  private static Map<String, Dict<?, ?>> getAuthContents(
+      Dict<?, ?> authUnchecked, @Nullable String description) throws EvalException {
+    // This method would not be worth having (Dict#getContents could be called
+    // instead), except that some trickery is required to cast Map<String, Dict> to
+    // Map<String, Dict<?, ?>>.
+
+    // getContents can only guarantee raw types, so Dict is the raw type here.
+    Map<String, Dict> result = authUnchecked.getContents(String.class, Dict.class, description);
+
+    return (Map<String, Dict<?, ?>>) (Map<String, ? extends Dict>) result;
+  }
+
   @Override
   public StructImpl download(
       Object url,
@@ -545,23 +624,23 @@ public class SkylarkRepositoryContext
       Boolean executable,
       Boolean allowFail,
       String canonicalId,
-      SkylarkDict<String, SkylarkDict<Object, Object>> auth,
+      Dict<?, ?> authUnchecked, // <String, Dict<?, ?>> expected
       String integrity,
-      Location location)
+      StarlarkThread thread)
       throws RepositoryFunctionException, EvalException, InterruptedException {
-    Map<URI, Map<String, String>> authHeaders = getAuthHeaders(auth);
+    Map<URI, Map<String, String>> authHeaders =
+        getAuthHeaders(getAuthContents(authUnchecked, "auth"));
 
     List<URL> urls =
         getUrls(
             url,
             /* ensureNonEmpty= */ !allowFail,
-            env,
             /* checksumGiven= */ !Strings.isNullOrEmpty(sha256)
                 || !Strings.isNullOrEmpty(integrity));
     Optional<Checksum> checksum;
     RepositoryFunctionException checksumValidation = null;
     try {
-      checksum = validateChecksum(sha256, integrity, urls, location);
+      checksum = validateChecksum(sha256, integrity, urls);
     } catch (RepositoryFunctionException e) {
       checksum = Optional.<Checksum>absent();
       checksumValidation = e;
@@ -576,14 +655,15 @@ public class SkylarkRepositoryContext
             integrity,
             executable,
             rule.getLabel().toString(),
-            location);
+            thread.getCallerLocation());
     env.getListener().post(w);
     Path downloadedPath;
-    try {
+    try (SilentCloseable c =
+        Profiler.instance().profile("fetching: " + rule.getLabel().toString())) {
       checkInOutputDirectory("write", outputPath);
       makeDirectories(outputPath.getPath());
       downloadedPath =
-          httpDownloader.download(
+          downloadManager.download(
               urls,
               authHeaders,
               checksum,
@@ -601,8 +681,8 @@ public class SkylarkRepositoryContext
           new IOException("thread interrupted"), Transience.TRANSIENT);
     } catch (IOException e) {
       if (allowFail) {
-        SkylarkDict<String, Object> dict = SkylarkDict.of(null, "success", false);
-        return StructProvider.STRUCT.createStruct(dict, null);
+        Dict<String, Object> dict = Dict.of((Mutability) null, "success", false);
+        return StructProvider.STRUCT.createWithBuiltinLocation(dict);
       } else {
         throw new RepositoryFunctionException(e, Transience.TRANSIENT);
       }
@@ -615,16 +695,13 @@ public class SkylarkRepositoryContext
   }
 
   @Override
-  public void extract(Object archive, Object output, String stripPrefix, Location location)
+  public void extract(Object archive, Object output, String stripPrefix, StarlarkThread thread)
       throws RepositoryFunctionException, InterruptedException, EvalException {
     SkylarkPath archivePath = getPath("extract()", archive);
 
     if (!archivePath.exists()) {
       throw new RepositoryFunctionException(
-          new EvalException(
-              Location.fromFile(archivePath.getPath()),
-              String.format("Archive path '%s' does not exist.", archivePath.toString())),
-          Transience.TRANSIENT);
+          Starlark.errorf("Archive path '%s' does not exist.", archivePath), Transience.TRANSIENT);
     }
 
     SkylarkPath outputPath = getPath("extract()", output);
@@ -636,9 +713,13 @@ public class SkylarkRepositoryContext
             output.toString(),
             stripPrefix,
             rule.getLabel().toString(),
-            location);
+            thread.getCallerLocation());
     env.getListener().post(w);
 
+    env.getListener()
+        .post(
+            new ExtractProgress(
+                outputPath.getPath().toString(), "Extracting " + archivePath.getPath()));
     DecompressorValue.decompress(
         DecompressorDescriptor.builder()
             .setTargetKind(rule.getTargetKind())
@@ -647,6 +728,7 @@ public class SkylarkRepositoryContext
             .setRepositoryPath(outputPath.getPath())
             .setPrefix(stripPrefix)
             .build());
+    env.getListener().post(new ExtractProgress(outputPath.getPath().toString()));
   }
 
   @Override
@@ -658,23 +740,22 @@ public class SkylarkRepositoryContext
       String stripPrefix,
       Boolean allowFail,
       String canonicalId,
-      SkylarkDict<String, SkylarkDict<Object, Object>> auth,
+      Dict<?, ?> auth, // <String, Dict<?, ?>> expected
       String integrity,
-      Location location)
+      StarlarkThread thread)
       throws RepositoryFunctionException, InterruptedException, EvalException {
-    Map<URI, Map<String, String>> authHeaders = getAuthHeaders(auth);
+    Map<URI, Map<String, String>> authHeaders = getAuthHeaders(getAuthContents(auth, "auth"));
 
     List<URL> urls =
         getUrls(
             url,
             /* ensureNonEmpty= */ !allowFail,
-            env,
             /* checksumGiven= */ !Strings.isNullOrEmpty(sha256)
                 || !Strings.isNullOrEmpty(integrity));
     Optional<Checksum> checksum;
     RepositoryFunctionException checksumValidation = null;
     try {
-      checksum = validateChecksum(sha256, integrity, urls, location);
+      checksum = validateChecksum(sha256, integrity, urls);
     } catch (RepositoryFunctionException e) {
       checksum = Optional.<Checksum>absent();
       checksumValidation = e;
@@ -689,7 +770,7 @@ public class SkylarkRepositoryContext
             type,
             stripPrefix,
             rule.getLabel().toString(),
-            location);
+            thread.getCallerLocation());
 
     // Download to outputDirectory and delete it after extraction
     SkylarkPath outputPath = getPath("download_and_extract()", output);
@@ -697,9 +778,10 @@ public class SkylarkRepositoryContext
     createDirectory(outputPath.getPath());
 
     Path downloadedPath;
-    try {
+    try (SilentCloseable c =
+        Profiler.instance().profile("fetching: " + rule.getLabel().toString())) {
       downloadedPath =
-          httpDownloader.download(
+          downloadManager.download(
               urls,
               authHeaders,
               checksum,
@@ -716,8 +798,8 @@ public class SkylarkRepositoryContext
     } catch (IOException e) {
       env.getListener().post(w);
       if (allowFail) {
-        SkylarkDict<String, Object> dict = SkylarkDict.of(null, "success", false);
-        return StructProvider.STRUCT.createStruct(dict, null);
+        Dict<String, Object> dict = Dict.of((Mutability) null, "success", false);
+        return StructProvider.STRUCT.createWithBuiltinLocation(dict);
       } else {
         throw new RepositoryFunctionException(e, Transience.TRANSIENT);
       }
@@ -726,14 +808,21 @@ public class SkylarkRepositoryContext
       throw checksumValidation;
     }
     env.getListener().post(w);
-    DecompressorValue.decompress(
-        DecompressorDescriptor.builder()
-            .setTargetKind(rule.getTargetKind())
-            .setTargetName(rule.getName())
-            .setArchivePath(downloadedPath)
-            .setRepositoryPath(outputPath.getPath())
-            .setPrefix(stripPrefix)
-            .build());
+    try (SilentCloseable c =
+        Profiler.instance().profile("extracting: " + rule.getLabel().toString())) {
+      env.getListener()
+          .post(
+              new ExtractProgress(outputPath.getPath().toString(), "Extracting " + downloadedPath));
+      DecompressorValue.decompress(
+          DecompressorDescriptor.builder()
+              .setTargetKind(rule.getTargetKind())
+              .setTargetName(rule.getName())
+              .setArchivePath(downloadedPath)
+              .setRepositoryPath(outputPath.getPath())
+              .setPrefix(stripPrefix)
+              .build());
+      env.getListener().post(new ExtractProgress(outputPath.getPath().toString()));
+    }
 
     StructImpl downloadResult = calculateDownloadResult(checksum, downloadedPath);
     try {
@@ -758,26 +847,20 @@ public class SkylarkRepositoryContext
     return Checksum.fromString(KeyType.SHA256, RepositoryCache.getChecksum(KeyType.SHA256, path));
   }
 
-  private Optional<Checksum> validateChecksum(
-      String sha256, String integrity, List<URL> urls, Location loc)
+  private Optional<Checksum> validateChecksum(String sha256, String integrity, List<URL> urls)
       throws RepositoryFunctionException, EvalException {
     if (!sha256.isEmpty()) {
       if (!integrity.isEmpty()) {
-        throw new EvalException(loc, "Expected either 'sha256' or 'integrity', but not both");
+        throw Starlark.errorf("Expected either 'sha256' or 'integrity', but not both");
       }
       try {
         return Optional.of(Checksum.fromString(KeyType.SHA256, sha256));
       } catch (IllegalArgumentException e) {
         warnAboutChecksumError(urls, e.getMessage());
         throw new RepositoryFunctionException(
-            new EvalException(
-                loc,
-                "Definition of repository "
-                    + rule.getName()
-                    + ": "
-                    + e.getMessage()
-                    + " at "
-                    + rule.getLocation()),
+            Starlark.errorf(
+                "Definition of repository %s: %s at %s",
+                rule.getName(), e.getMessage(), rule.getLocation()),
             Transience.PERSISTENT);
       }
     }
@@ -791,14 +874,9 @@ public class SkylarkRepositoryContext
     } catch (IllegalArgumentException e) {
       warnAboutChecksumError(urls, e.getMessage());
       throw new RepositoryFunctionException(
-          new EvalException(
-              loc,
-              "Definition of repository "
-                  + rule.getName()
-                  + ": "
-                  + e.getMessage()
-                  + " at "
-                  + rule.getLocation()),
+          Starlark.errorf(
+              "Definition of repository %s: %s at %s",
+              rule.getName(), e.getMessage(), rule.getLocation()),
           Transience.PERSISTENT);
     }
   }
@@ -823,7 +901,7 @@ public class SkylarkRepositoryContext
     if (finalChecksum.getKeyType() == KeyType.SHA256) {
       out.put("sha256", finalChecksum.toString());
     }
-    return StructProvider.STRUCT.createStruct(SkylarkDict.copyOf(null, out.build()), null);
+    return StructProvider.STRUCT.createWithBuiltinLocation(Dict.copyOf(null, out.build()));
   }
 
   private static ImmutableList<String> checkAllUrls(Iterable<?> urlList) throws EvalException {
@@ -844,8 +922,7 @@ public class SkylarkRepositoryContext
     return result.build();
   }
 
-  private static List<URL> getUrls(
-      Object urlOrList, boolean ensureNonEmpty, Environment env, boolean checksumGiven)
+  private static List<URL> getUrls(Object urlOrList, boolean ensureNonEmpty, boolean checksumGiven)
       throws RepositoryFunctionException, EvalException, InterruptedException {
     List<String> urlStrings;
     if (urlOrList instanceof String) {
@@ -856,7 +933,6 @@ public class SkylarkRepositoryContext
     if (ensureNonEmpty && urlStrings.isEmpty()) {
       throw new RepositoryFunctionException(new IOException("urls not set"), Transience.PERSISTENT);
     }
-    StarlarkSemantics semantics = PrecomputedValue.STARLARK_SEMANTICS.get(env);
     List<URL> urls = new ArrayList<>();
     for (String urlString : urlStrings) {
       URL url;
@@ -870,7 +946,7 @@ public class SkylarkRepositoryContext
         throw new RepositoryFunctionException(
             new IOException("Unsupported protocol: " + url.getProtocol()), Transience.PERSISTENT);
       }
-      if (semantics.incompatibleDisallowUnverifiedHttpDownloads() && !checksumGiven) {
+      if (!checksumGiven) {
         if (!Ascii.equalsIgnoreCase("http", url.getProtocol())) {
           urls.add(url);
         }
@@ -882,7 +958,7 @@ public class SkylarkRepositoryContext
       throw new RepositoryFunctionException(
           new IOException(
               "No URLs left after removing plain http URLs due to missing checksum."
-                  + " Please provde either a checksum or an https download location."),
+                  + " Please provide either a checksum or an https download location."),
           Transience.PERSISTENT);
     }
     return urls;
@@ -920,28 +996,28 @@ public class SkylarkRepositoryContext
     try {
       fileValue = (FileValue) env.getValueOrThrow(fileSkyKey, IOException.class);
     } catch (IOException e) {
-      throw new EvalException(Location.BUILTIN, e);
+      throw Starlark.errorf("%s", e.getMessage());
     }
 
     if (fileValue == null) {
       throw RepositoryFunction.restart();
     }
     if (!fileValue.isFile() || fileValue.isSpecialFile()) {
-      throw new EvalException(
-          Location.BUILTIN, "Not a regular file: " + rootedPath.asPath().getPathString());
+      throw Starlark.errorf("Not a regular file: %s", rootedPath.asPath().getPathString());
     }
 
     // A label does not contains space so it safe to use as a key.
     try {
       markerData.put("FILE:" + label, RepositoryFunction.fileValueToMarkerValue(fileValue));
     } catch (IOException e) {
-      throw new EvalException(Location.BUILTIN, e);
+      throw Starlark.errorf("%s", e.getMessage());
     }
     return new SkylarkPath(rootedPath.asPath());
   }
 
   /**
-   * Try to compute the paths of all attibutes that are labels, including labels in list arguments.
+   * Try to compute the paths of all attributes that are labels, including labels in list and dict
+   * arguments.
    *
    * <p>The value is ignored, but any missing information from the environment is detected (and an
    * exception thrown). In this way, we can enforce that all arguments are evaluated before we start
@@ -954,8 +1030,15 @@ public class SkylarkRepositoryContext
       if (value instanceof Label) {
         getPathFromLabel((Label) value);
       }
-      if (value instanceof SkylarkList) {
-        for (Object entry : (SkylarkList) value) {
+      if (value instanceof Sequence) {
+        for (Object entry : (Sequence) value) {
+          if (entry instanceof Label) {
+            getPathFromLabel((Label) entry);
+          }
+        }
+      }
+      if (value instanceof Dict) {
+        for (Object entry : ((Dict) value).keySet()) {
           if (entry instanceof Label) {
             getPathFromLabel((Label) entry);
           }
@@ -973,14 +1056,13 @@ public class SkylarkRepositoryContext
    * authentication, adding those headers is enough; for other forms of authentication other
    * measures might be necessary.
    */
-  private static Map<URI, Map<String, String>> getAuthHeaders(
-      SkylarkDict<String, SkylarkDict<Object, Object>> auth)
+  private static Map<URI, Map<String, String>> getAuthHeaders(Map<String, Dict<?, ?>> auth)
       throws RepositoryFunctionException, EvalException {
     ImmutableMap.Builder<URI, Map<String, String>> headers = new ImmutableMap.Builder<>();
-    for (Map.Entry<String, SkylarkDict<Object, Object>> entry : auth.entrySet()) {
+    for (Map.Entry<String, Dict<?, ?>> entry : auth.entrySet()) {
       try {
         URL url = new URL(entry.getKey());
-        SkylarkDict<Object, Object> authMap = entry.getValue();
+        Dict<?, ?> authMap = entry.getValue();
         if (authMap.containsKey("type")) {
           if ("basic".equals(authMap.get("type"))) {
             if (!authMap.containsKey("login") || !authMap.containsKey("password")) {
@@ -1007,5 +1089,38 @@ public class SkylarkRepositoryContext
       }
     }
     return headers.build();
+  }
+
+  private static class ExtractProgress implements FetchProgress {
+    private final String repositoryPath;
+    private final String progress;
+    private final boolean isFinished;
+
+    ExtractProgress(String repositoryPath, String progress) {
+      this.repositoryPath = repositoryPath;
+      this.progress = progress;
+      this.isFinished = false;
+    }
+
+    ExtractProgress(String repositoryPath) {
+      this.repositoryPath = repositoryPath;
+      this.progress = "";
+      this.isFinished = true;
+    }
+
+    @Override
+    public String getResourceIdentifier() {
+      return repositoryPath;
+    }
+
+    @Override
+    public String getProgress() {
+      return progress;
+    }
+
+    @Override
+    public boolean isFinished() {
+      return isFinished;
+    }
   }
 }

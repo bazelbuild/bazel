@@ -37,13 +37,13 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.view.test.TestStatus.BlazeTestStatus;
 import com.google.devtools.build.lib.view.test.TestStatus.FailedTestCasesStatus;
 import com.google.devtools.build.lib.view.test.TestStatus.TestCase;
-import com.google.devtools.build.lib.view.test.TestStatus.TestCase.Type;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
+import javax.annotation.Nullable;
 
 /**
  * Test summary entry. Stores summary information for a single test rule. Also used to sort summary
@@ -66,7 +66,7 @@ public class TestSummary implements Comparable<TestSummary>, BuildEventWithOrder
       built = false;
     }
 
-    private void mergeFrom(TestSummary existingSummary) {
+    void mergeFrom(TestSummary existingSummary) {
       // Yuck, manually fill in fields.
       summary.shardRunStatuses =
           MultimapBuilder.hashKeys().arrayListValues().build(existingSummary.shardRunStatuses);
@@ -79,11 +79,12 @@ public class TestSummary implements Comparable<TestSummary>, BuildEventWithOrder
       addCoverageFiles(existingSummary.coverageFiles);
       addPassedLogs(existingSummary.passedLogs);
       addFailedLogs(existingSummary.failedLogs);
-      addTotalTestCases(existingSummary.totalTestCases);
+      summary.totalTestCases += existingSummary.totalTestCases;
+      summary.totalUnknownTestCases += existingSummary.totalUnknownTestCases;
 
       if (existingSummary.failedTestCasesStatus != null) {
-        addFailedTestCases(existingSummary.getFailedTestCases(),
-            existingSummary.getFailedTestCasesStatus());
+        addFailedTestCases(
+            existingSummary.getFailedTestCases(), existingSummary.getFailedTestCasesStatus());
       }
 
       addTestTimes(existingSummary.testTimes);
@@ -161,59 +162,45 @@ public class TestSummary implements Comparable<TestSummary>, BuildEventWithOrder
       return this;
     }
 
-    public Builder addTotalTestCases(int totalTestCases) {
-      checkMutation(totalTestCases);
-      summary.totalTestCases += totalTestCases;
+    public Builder collectTestCases(@Nullable TestCase testCase) {
+      // Maintain the invariant: failedTestCases + totalUnknownTestCases <= totalTestCases
+      if (testCase == null) {
+        // If we don't have test case information, count each test as one case with unknown status.
+        summary.failedTestCasesStatus = FailedTestCasesStatus.NOT_AVAILABLE;
+        summary.totalTestCases++;
+        summary.totalUnknownTestCases++;
+      } else {
+        summary.failedTestCasesStatus = FailedTestCasesStatus.FULL;
+        summary.totalTestCases += traverseTestCases(testCase);
+      }
       return this;
     }
 
-    public Builder collectFailedTests(TestCase testCase) {
-      if (testCase == null) {
-        summary.failedTestCasesStatus = FailedTestCasesStatus.NOT_AVAILABLE;
-        return this;
-      }
-      summary.failedTestCasesStatus = FailedTestCasesStatus.FULL;
-      return collectFailedTestCases(testCase);
-    }
-
-    private Builder collectFailedTestCases(TestCase testCase) {
+    private int traverseTestCases(TestCase testCase) {
       if (testCase.getChildCount() > 0) {
         // This is a non-leaf result. Traverse its children, but do not add its
         // name to the output list. It should not contain any 'failure' or
         // 'error' tags, but we want to be lax here, because the syntax of the
         // test.xml file is also lax.
-        for (TestCase child : testCase.getChildList()) {
-          collectFailedTestCases(child);
-        }
-      } else {
-        // This is a leaf result. If it passed, don't add it.
-        if (testCase.getStatus() == TestCase.Status.PASSED) {
-          return this;
-        }
-
-        this.summary.failedTestCases.add(testCase);
-      }
-      return this;
-    }
-
-    public Builder countTotalTestCases(TestCase testCase) {
-      if (testCase != null) {
-        summary.totalTestCases = traverseCountTotalTestCases(testCase);
-      }
-      return this;
-    }
-
-    private int traverseCountTotalTestCases(TestCase testCase) {
-      if (testCase.getChildCount() > 0) {
         // don't count container of test cases as test
         int res = 0;
         for (TestCase child : testCase.getChildList()) {
-          res += traverseCountTotalTestCases(child);
+          res += traverseTestCases(child);
         }
         return res;
-      } else {
-        return testCase.getType() == Type.TEST_CASE ? 1 : 0;
+      } else if (testCase.getType() != TestCase.Type.TEST_CASE) {
+        return 0;
       }
+
+      // This is a leaf result.
+      if (!testCase.getRun()) {
+        // Don't count test cases that were not run.
+        return 0;
+      }
+      if (testCase.getStatus() != TestCase.Status.PASSED) {
+        this.summary.failedTestCases.add(testCase);
+      }
+      return 1;
     }
 
     public Builder addFailedTestCases(List<TestCase> testCases, FailedTestCasesStatus status) {
@@ -372,6 +359,7 @@ public class TestSummary implements Comparable<TestSummary>, BuildEventWithOrder
   private long lastStopTimeMillis = Long.MIN_VALUE;
   private FailedTestCasesStatus failedTestCasesStatus = null;
   private int totalTestCases;
+  private int totalUnknownTestCases;
 
   // Don't allow public instantiation; go through the Builder.
   private TestSummary() {
@@ -446,12 +434,16 @@ public class TestSummary implements Comparable<TestSummary>, BuildEventWithOrder
     return wasUnreportedWrongSize;
   }
 
-  public List<TestCase> getFailedTestCases() {
-    return failedTestCases;
-  }
-
   public int getTotalTestCases() {
     return totalTestCases;
+  }
+
+  public int getUnkownTestCases() {
+    return totalUnknownTestCases;
+  }
+
+  public List<TestCase> getFailedTestCases() {
+    return failedTestCases;
   }
 
   public List<Path> getCoverageFiles() {

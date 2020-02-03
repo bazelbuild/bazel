@@ -33,7 +33,6 @@ import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.KeepGoingOption;
 import com.google.devtools.build.lib.runtime.LoadingPhaseThreadsOption;
 import com.google.devtools.build.lib.util.ExitCode;
-import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingResult;
 import java.util.List;
 
@@ -61,10 +60,6 @@ import java.util.List;
     completion = "label",
     help = "resource:build.txt")
 public final class BuildCommand implements BlazeCommand {
-
-  @Override
-  public void editOptions(OptionsParser optionsParser) {
-  }
 
   @Override
   public BlazeCommandResult exec(CommandEnvironment env, OptionsParsingResult options) {

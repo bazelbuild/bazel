@@ -45,6 +45,7 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.skyframe.Differencer;
+import com.google.devtools.build.skyframe.Differencer.DiffWithDelta.Delta;
 import com.google.devtools.build.skyframe.FunctionHermeticity;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -99,8 +100,9 @@ public class FilesystemValueChecker {
    */
   // TODO(bazel-team): Refactor these methods so that FilesystemValueChecker only operates on a
   // WalkableGraph.
-  Differencer.DiffWithDelta getDirtyKeys(Map<SkyKey, SkyValue> valuesMap,
-      SkyValueDirtinessChecker dirtinessChecker) throws InterruptedException {
+  ImmutableBatchDirtyResult getDirtyKeys(
+      Map<SkyKey, SkyValue> valuesMap, SkyValueDirtinessChecker dirtinessChecker)
+      throws InterruptedException {
     return getDirtyValues(new MapBackedValueFetcher(valuesMap), valuesMap.keySet(),
         dirtinessChecker, /*checkMissingValues=*/false);
   }
@@ -109,9 +111,11 @@ public class FilesystemValueChecker {
    * Returns a {@link Differencer.DiffWithDelta} containing keys that are dirty according to the
    * passed-in {@code dirtinessChecker}.
    */
-  public Differencer.DiffWithDelta getNewAndOldValues(Map<SkyKey, SkyValue> valuesMap,
-      Iterable<SkyKey> keys, SkyValueDirtinessChecker dirtinessChecker)
-          throws InterruptedException {
+  public ImmutableBatchDirtyResult getNewAndOldValues(
+      Map<SkyKey, SkyValue> valuesMap,
+      Iterable<SkyKey> keys,
+      SkyValueDirtinessChecker dirtinessChecker)
+      throws InterruptedException {
     return getDirtyValues(new MapBackedValueFetcher(valuesMap), keys,
         dirtinessChecker, /*checkMissingValues=*/true);
   }
@@ -478,19 +482,22 @@ public class FilesystemValueChecker {
     return headPath != null && headPath.startsWith(artifactExecPath);
   }
 
-  private BatchDirtyResult getDirtyValues(ValueFetcher fetcher,
-      Iterable<SkyKey> keys, final SkyValueDirtinessChecker checker,
-      final boolean checkMissingValues) throws InterruptedException {
+  private ImmutableBatchDirtyResult getDirtyValues(
+      ValueFetcher fetcher,
+      Iterable<SkyKey> keys,
+      final SkyValueDirtinessChecker checker,
+      final boolean checkMissingValues)
+      throws InterruptedException {
     ExecutorService executor =
         Executors.newFixedThreadPool(
             DIRTINESS_CHECK_THREADS,
             new ThreadFactoryBuilder().setNameFormat("FileSystem Value Invalidator %d").build());
 
-    final BatchDirtyResult batchResult = new BatchDirtyResult();
     ThrowableRecordingRunnableWrapper wrapper =
         new ThrowableRecordingRunnableWrapper("FilesystemValueChecker#getDirtyValues");
     final AtomicInteger numKeysScanned = new AtomicInteger(0);
     final AtomicInteger numKeysChecked = new AtomicInteger(0);
+    MutableBatchDirtyResult batchResult = new MutableBatchDirtyResult(numKeysChecked);
     ElapsedTimeReceiver elapsedTimeReceiver =
         elapsedTimeNanos -> {
           if (elapsedTimeNanos > 0) {
@@ -540,19 +547,57 @@ public class FilesystemValueChecker {
         throw new InterruptedException();
       }
     }
-    return batchResult;
+    return batchResult.toImmutable();
+  }
+
+  static class ImmutableBatchDirtyResult implements Differencer.DiffWithDelta {
+    private final Collection<SkyKey> dirtyKeysWithoutNewValues;
+    private final Map<SkyKey, Delta> dirtyKeysWithNewAndOldValues;
+    private final int numKeysChecked;
+
+    private ImmutableBatchDirtyResult(
+        Collection<SkyKey> dirtyKeysWithoutNewValues,
+        Map<SkyKey, Delta> dirtyKeysWithNewAndOldValues,
+        int numKeysChecked) {
+      this.dirtyKeysWithoutNewValues = dirtyKeysWithoutNewValues;
+      this.dirtyKeysWithNewAndOldValues = dirtyKeysWithNewAndOldValues;
+      this.numKeysChecked = numKeysChecked;
+    }
+
+    @Override
+    public Collection<SkyKey> changedKeysWithoutNewValues() {
+      return dirtyKeysWithoutNewValues;
+    }
+
+    @Override
+    public Map<SkyKey, Delta> changedKeysWithNewAndOldValues() {
+      return dirtyKeysWithNewAndOldValues;
+    }
+
+    @Override
+    public Map<SkyKey, SkyValue> changedKeysWithNewValues() {
+      return Delta.newValues(dirtyKeysWithNewAndOldValues);
+    }
+
+    int getNumKeysChecked() {
+      return numKeysChecked;
+    }
   }
 
   /**
-   * Result of a batch call to {@link SkyValueDirtinessChecker#check}. Partitions the dirty
-   * values based on whether we have a new value available for them or not.
+   * Result of a batch call to {@link SkyValueDirtinessChecker#check}. Partitions the dirty values
+   * based on whether we have a new value available for them or not.
    */
-  private static class BatchDirtyResult implements Differencer.DiffWithDelta {
-
+  private static class MutableBatchDirtyResult {
     private final Set<SkyKey> concurrentDirtyKeysWithoutNewValues =
         Collections.newSetFromMap(new ConcurrentHashMap<SkyKey, Boolean>());
     private final ConcurrentHashMap<SkyKey, Delta> concurrentDirtyKeysWithNewAndOldValues =
         new ConcurrentHashMap<>();
+    private final AtomicInteger numChecked;
+
+    private MutableBatchDirtyResult(AtomicInteger numChecked) {
+      this.numChecked = numChecked;
+    }
 
     private void add(SkyKey key, @Nullable SkyValue oldValue, @Nullable SkyValue newValue) {
       if (newValue == null) {
@@ -566,19 +611,11 @@ public class FilesystemValueChecker {
       }
     }
 
-    @Override
-    public Collection<SkyKey> changedKeysWithoutNewValues() {
-      return concurrentDirtyKeysWithoutNewValues;
-    }
-
-    @Override
-    public Map<SkyKey, Delta> changedKeysWithNewAndOldValues() {
-      return concurrentDirtyKeysWithNewAndOldValues;
-    }
-
-    @Override
-    public Map<SkyKey, SkyValue> changedKeysWithNewValues() {
-      return Delta.newValues(concurrentDirtyKeysWithNewAndOldValues);
+    private ImmutableBatchDirtyResult toImmutable() {
+      return new ImmutableBatchDirtyResult(
+          concurrentDirtyKeysWithoutNewValues,
+          concurrentDirtyKeysWithNewAndOldValues,
+          numChecked.get());
     }
   }
 

@@ -18,6 +18,7 @@ import static com.google.common.truth.Truth.assertWithMessage;
 import static org.junit.Assert.fail;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.events.Event;
@@ -32,7 +33,7 @@ import com.google.devtools.build.lib.packages.OutputFile;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.RawAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
-import com.google.devtools.build.lib.syntax.Printer;
+import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.util.Pair;
@@ -113,6 +114,7 @@ public abstract class PackageFactoryTestBase {
         new GlobCache(
             pkg.getFilename().asPath().getParentDirectory(),
             pkg.getPackageIdentifier(),
+            ImmutableSet.of(),
             PackageFactoryApparatus.createEmptyLocator(),
             null,
             TestUtils.getPool(),
@@ -204,7 +206,7 @@ public abstract class PackageFactoryTestBase {
             includes,
             excludes,
             excludeDirs,
-            Printer.format("(result == sorted(%r)) or fail('incorrect glob result')", result));
+            Starlark.format("(result == sorted(%r)) or fail('incorrect glob result')", result));
 
     Package pkg = evaluated.first;
     GlobCache globCache = evaluated.second;
@@ -236,13 +238,13 @@ public abstract class PackageFactoryTestBase {
     Path file =
         scratch.file(
             "/globs/BUILD",
-            Printer.format(
+            Starlark.format(
                 "result = glob(%r, exclude=%r, exclude_directories=%r)",
                 includes, excludes, excludeDirs ? 1 : 0),
             resultAssertion);
 
     return packages.evalAndReturnGlobCache(
-        "globs", RootedPath.toRootedPath(root, file), packages.ast(file));
+        "globs", RootedPath.toRootedPath(root, file), packages.parse(file));
   }
 
   protected void assertGlobProducesError(String pattern, boolean errorExpected) throws Exception {
@@ -355,14 +357,11 @@ public abstract class PackageFactoryTestBase {
       try {
         parsingStarted.acquire();
         eventHandler.handle(
-            Event.error(Location.fromFile(scratch.file("dummy")), "Error from other " + "thread"));
+            Event.error(Location.fromFile("dummy"), "Error from other " + "thread"));
         errorReported.release();
       } catch (InterruptedException e) {
         e.printStackTrace();
         fail("ErrorReporter thread interrupted");
-      } catch (IOException e) {
-        e.printStackTrace();
-        fail("ErrorReporter thread failed with IOException");
       }
     }
   }

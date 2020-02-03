@@ -326,6 +326,19 @@ public abstract class BlazeModule {
   public void blazeShutdownOnCrash() {}
 
   /**
+   * Returns true if the module will arrange for a {@code BuildMetricsEvent} to be posted after the
+   * build completes.
+   *
+   * <p>The Blaze runtime ensures that it has exactly one module for which this method returns true,
+   * substituting its own module if none is supplied explicitly.
+   *
+   * <p>It is an error if multiple modules return true.
+   */
+  public boolean postsBuildMetricsEvent() {
+    return false;
+  }
+
+  /**
    * Returns a {@link QueryRuntimeHelper.Factory} that will be used by the query, cquery, and aquery
    * commands.
    *

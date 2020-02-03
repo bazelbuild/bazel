@@ -16,7 +16,7 @@ package com.google.devtools.build.lib.skylarkbuildapi.apple;
 
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
+import com.google.devtools.build.lib.syntax.StarlarkValue;
 
 /**
  * Interface for an enum describing the bitcode mode to use when compiling Objective-C and Swift
@@ -32,4 +32,4 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
             + "<li><code>'embedded'</code></li>"
             + "<li><code>'embedded_markers'</code></li>"
             + "</ul>")
-public interface AppleBitcodeModeApi extends SkylarkValue {}
+public interface AppleBitcodeModeApi extends StarlarkValue {}

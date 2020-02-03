@@ -25,9 +25,9 @@ import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.AspectClass;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleFunction;
-import com.google.devtools.build.lib.syntax.ASTNode;
-import com.google.devtools.build.lib.syntax.BaseFunction;
 import com.google.devtools.build.lib.syntax.Callstack;
+import com.google.devtools.build.lib.syntax.Node;
+import com.google.devtools.build.lib.syntax.StarlarkCallable;
 import com.google.monitoring.runtime.instrumentation.Sampler;
 import com.google.perftools.profiles.ProfileProto.Function;
 import com.google.perftools.profiles.ProfileProto.Line;
@@ -46,7 +46,7 @@ import javax.annotation.Nullable;
 
 /** Tracks allocations for memory reporting. */
 @ConditionallyThreadCompatible
-public class AllocationTracker implements Sampler {
+public final class AllocationTracker implements Sampler {
 
   private static class AllocationSample {
     @Nullable final RuleClass ruleClass; // Current rule being analysed, if any
@@ -124,17 +124,12 @@ public class AllocationTracker implements Sampler {
   }
 
   /** A pair of rule/aspect name and the bytes it consumes. */
-  public static class RuleBytes {
+  public static final class RuleBytes {
     private final String name;
     private long bytes;
 
     public RuleBytes(String name) {
       this.name = name;
-    }
-
-    /** The name of the rule or aspect. */
-    public String getName() {
-      return name;
     }
 
     /** The number of bytes total occupied by this rule or aspect class. */
@@ -254,27 +249,19 @@ public class AllocationTracker implements Sampler {
         Object object = allocationSample.callstack.get(i);
         if (line == -1) {
           final Location location;
-          if (object instanceof ASTNode) {
-            location = ((ASTNode) object).getLocation();
-          } else if (object instanceof BaseFunction) {
-            location = ((BaseFunction) object).getLocation();
+          if (object instanceof Node) {
+            location = ((Node) object).getStartLocation();
+          } else if (object instanceof StarlarkCallable) {
+            location = ((StarlarkCallable) object).getLocation();
           } else {
             throw new IllegalStateException(
                 "Unknown node type: " + object.getClass().getSimpleName());
           }
-          if (location != null) {
-            file = location.getPath() != null ? location.getPath().getPathString() : "<unknown>";
-            line = location.getStartLine() != null ? location.getStartLine() : -1;
-          } else {
-            file = "<native>";
-          }
+          file = location.file();
+          line = location.line();
         }
-        String function = null;
-        if (object instanceof BaseFunction) {
-          BaseFunction baseFunction = (BaseFunction) object;
-          function = baseFunction.getName();
-        }
-        if (function != null) {
+        if (object instanceof StarlarkCallable) {
+          String function = ((StarlarkCallable) object).getName();
           sample.addLocationId(
               locationTable.get(Strings.nullToEmpty(file), Strings.nullToEmpty(function), line));
           line = -1;

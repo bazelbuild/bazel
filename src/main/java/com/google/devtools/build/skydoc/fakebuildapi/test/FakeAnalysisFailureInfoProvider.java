@@ -15,7 +15,7 @@
 package com.google.devtools.build.skydoc.fakebuildapi.test;
 
 import com.google.devtools.build.lib.skylarkbuildapi.test.AnalysisFailureInfoApi.AnalysisFailureInfoProviderApi;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
+import com.google.devtools.build.lib.syntax.Printer;
 
 /**
  * Fake implementation of {@link AnalysisFailureInfoProviderApi}.
@@ -23,5 +23,5 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 public class FakeAnalysisFailureInfoProvider implements AnalysisFailureInfoProviderApi {
 
   @Override
-  public void repr(SkylarkPrinter printer) {}
+  public void repr(Printer printer) {}
 }

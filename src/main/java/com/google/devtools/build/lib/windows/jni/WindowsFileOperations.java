@@ -42,6 +42,34 @@ public class WindowsFileOperations {
     // Prevent construction
   }
 
+  /** Result of {@link #readSymlinkOrJunction}. */
+  public static class ReadSymlinkOrJunctionResult {
+
+    /** Status code, indicating success or failure. */
+    public enum Status {
+      OK,
+      NOT_A_LINK,
+      ERROR
+    }
+
+    private String result;
+    private Status status;
+
+    public ReadSymlinkOrJunctionResult(Status s, String r) {
+      this.status = s;
+      this.result = r;
+    }
+
+    /** Result string (junction target) or error message (depending on {@link status}). */
+    public String getResult() {
+      return result;
+    }
+
+    public Status getStatus() {
+      return status;
+    }
+  }
+
   private static final int MAX_PATH = 260;
 
   // Keep IS_SYMLINK_OR_JUNCTION_* values in sync with src/main/native/windows/file.cc.
@@ -183,13 +211,14 @@ public class WindowsFileOperations {
         String.format("Cannot create junction (name=%s, target=%s): %s", name, target, error[0]));
   }
 
-  public static String readSymlinkOrJunction(String name) throws IOException {
+  public static ReadSymlinkOrJunctionResult readSymlinkOrJunction(String name) {
     WindowsJniLoader.loadJni();
     String[] target = new String[] {null};
     String[] error = new String[] {null};
     switch (nativeReadSymlinkOrJunction(asLongPath(name), target, error)) {
       case READ_SYMLINK_OR_JUNCTION_SUCCESS:
-        return removeUncPrefixAndUseSlashes(target[0]);
+        return new ReadSymlinkOrJunctionResult(
+            ReadSymlinkOrJunctionResult.Status.OK, removeUncPrefixAndUseSlashes(target[0]));
       case READ_SYMLINK_OR_JUNCTION_ACCESS_DENIED:
         error[0] = "access is denied";
         break;
@@ -197,8 +226,8 @@ public class WindowsFileOperations {
         error[0] = "path does not exist";
         break;
       case READ_SYMLINK_OR_JUNCTION_NOT_A_LINK:
-        error[0] = "path is not a link";
-        break;
+        return new ReadSymlinkOrJunctionResult(
+            ReadSymlinkOrJunctionResult.Status.NOT_A_LINK, "path is not a link");
       case READ_SYMLINK_OR_JUNCTION_UNKNOWN_LINK_TYPE:
         error[0] = "unknown link type";
         break;
@@ -207,7 +236,9 @@ public class WindowsFileOperations {
         // 'error[0]'.
         break;
     }
-    throw new IOException(String.format("Cannot read link (name=%s): %s", name, error[0]));
+    return new ReadSymlinkOrJunctionResult(
+        ReadSymlinkOrJunctionResult.Status.ERROR,
+        String.format("Cannot read link (name=%s): %s", name, error[0]));
   }
 
   public static boolean deletePath(String path) throws IOException {

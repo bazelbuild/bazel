@@ -116,6 +116,11 @@ java_runtime_files(
     srcs = ["include/freebsd/jni_md.h"],
 )
 
+java_runtime_files(
+    name = "jni_md_header-openbsd",
+    srcs = ["include/openbsd/jni_md.h"],
+)
+
 alias(
     name = "java",
     actual = "@local_jdk//:java",
@@ -242,16 +247,6 @@ remote_java_tools_filegroup(
     target = ":java_tools/Runner_deploy.jar",
 )
 
-remote_java_tools_java_import(
-    name = "ExperimentalTestRunner",
-    target = ":java_tools/ExperimentalRunner_deploy.jar",
-)
-
-remote_java_tools_filegroup(
-    name = "ExperimentalRunner_deploy.jar",
-    target = ":java_tools/ExperimentalRunner_deploy.jar",
-)
-
 alias(
     name = "proguard",
     actual = select({
@@ -261,7 +256,7 @@ alias(
         "//src/conditions:linux_x86_64": "@remote_java_tools_linux//:proguard",
         # On different platforms the linux repository can be used because the
         # proguard deploy jar is platform-agnostic.
-        "//conditions:default": "@remote_java_tools_linux//tools/jdk:proguard",
+        "//conditions:default": "@remote_java_tools_linux//:proguard",
     }),
 )
 
@@ -379,6 +374,8 @@ default_java_toolchain(
     forcibly_disable_header_compilation = True,
     javabuilder = [":vanillajavabuilder"],
     jvm_opts = [],
+    source_version = "",
+    target_version = "",
 )
 
 RELEASES = (8, 9, 10, 11)
@@ -403,10 +400,16 @@ filegroup(
         "java_toolchain_alias.bzl",
         "proguard_whitelister.py",
         "proguard_whitelister_test.py",
-        "proguard_whitelister_test_input.cfg",
+        "proguard_whitelister_test_input.pgcfg",
         "remote_java_tools_aliases.bzl",
         "toolchain_utils.bzl",
     ],
+)
+
+filegroup(
+    name = "bzl_srcs",
+    srcs = glob(["*.bzl"]),
+    visibility = ["//tools:__pkg__"],
 )
 
 filegroup(
@@ -420,14 +423,14 @@ py_binary(
         "proguard_whitelister.py",
     ],
     deps = [
-        "//third_party/py/gflags",
+        "//third_party/py/abseil",
     ],
 )
 
 py_test(
     name = "proguard_whitelister_test",
     srcs = ["proguard_whitelister_test.py"],
-    data = ["proguard_whitelister_test_input.cfg"],
+    data = ["proguard_whitelister_test_input.pgcfg"],
     deps = [
         ":proguard_whitelister",
     ],

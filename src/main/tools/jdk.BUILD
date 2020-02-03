@@ -33,6 +33,12 @@ filegroup(
 )
 
 filegroup(
+    name = "jni_md_header-openbsd",
+    srcs = ["include/openbsd/jni_md.h"],
+    deprecation = DEPRECATION_MESSAGE,
+)
+
+filegroup(
     name = "jni_md_header-windows",
     srcs = ["include/win32/jni_md.h"],
     deprecation = DEPRECATION_MESSAGE,

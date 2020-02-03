@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.buildtool;
 
 import com.google.common.base.Stopwatch;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.actions.BuildFailedException;
@@ -42,8 +43,10 @@ import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.skyframe.BuildConfigurationValue;
+import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.TargetPatternPhaseValue;
 import com.google.devtools.build.lib.util.AbruptExitException;
+import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.RegexFilter;
 import com.google.devtools.common.options.OptionsParsingException;
 import java.util.Collection;
@@ -58,14 +61,13 @@ public final class AnalysisPhaseRunner {
 
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
-  protected CommandEnvironment env;
+  private AnalysisPhaseRunner() {}
 
-  public AnalysisPhaseRunner(CommandEnvironment env) {
-    this.env = env;
-  }
-
-  public AnalysisResult execute(
-      BuildRequest request, BuildOptions buildOptions, TargetValidator validator)
+  public static AnalysisResult execute(
+      CommandEnvironment env,
+      BuildRequest request,
+      BuildOptions buildOptions,
+      TargetValidator validator)
       throws BuildFailedException, InterruptedException, ViewCreationFailedException,
           TargetParsingException, LoadingFailedException, AbruptExitException,
           InvalidConfigurationException {
@@ -74,7 +76,7 @@ public final class AnalysisPhaseRunner {
     TargetPatternPhaseValue loadingResult;
     Profiler.instance().markPhase(ProfilePhase.LOAD);
     try (SilentCloseable c = Profiler.instance().profile("evaluateTargetPatterns")) {
-      loadingResult = evaluateTargetPatterns(request, validator);
+      loadingResult = evaluateTargetPatterns(env, request, validator);
     }
     env.setWorkspaceName(loadingResult.getWorkspaceName());
 
@@ -105,9 +107,21 @@ public final class AnalysisPhaseRunner {
     AnalysisResult analysisResult = null;
     if (request.getBuildOptions().performAnalysisPhase) {
       Profiler.instance().markPhase(ProfilePhase.ANALYZE);
+
+      // The build info factories are immutable during the life time of this server. However, we
+      // sometimes clean the graph, which requires re-injecting the value, which requires a hook to
+      // do so afterwards, and there is no such hook at the server / workspace level right now. For
+      // simplicity, we keep the code here for now.
+      env.getSkyframeExecutor()
+          .injectExtraPrecomputedValues(
+              ImmutableList.of(
+                  PrecomputedValue.injected(
+                      PrecomputedValue.BUILD_INFO_FACTORIES,
+                      env.getRuntime().getRuleClassProvider().getBuildInfoFactoriesAsMap())));
+
       try (SilentCloseable c = Profiler.instance().profile("runAnalysisPhase")) {
         analysisResult =
-            runAnalysisPhase(request, loadingResult, buildOptions, request.getMultiCpus());
+            runAnalysisPhase(env, request, loadingResult, buildOptions, request.getMultiCpus());
       }
 
       for (BlazeModule module : env.getRuntime().getBlazeModules()) {
@@ -119,7 +133,7 @@ public final class AnalysisPhaseRunner {
             analysisResult.getAspects());
       }
 
-      reportTargets(analysisResult);
+      reportTargets(env, analysisResult);
 
       for (ConfiguredTarget target : analysisResult.getTargetsToSkip()) {
         BuildConfiguration config =
@@ -147,13 +161,13 @@ public final class AnalysisPhaseRunner {
     return analysisResult;
   }
 
-  private final TargetPatternPhaseValue evaluateTargetPatterns(
-      final BuildRequest request, final TargetValidator validator)
+  private static TargetPatternPhaseValue evaluateTargetPatterns(
+      CommandEnvironment env, final BuildRequest request, final TargetValidator validator)
       throws LoadingFailedException, TargetParsingException, InterruptedException {
     boolean keepGoing = request.getKeepGoing();
     TargetPatternPhaseValue result =
         env.getSkyframeExecutor()
-            .loadTargetPatterns(
+            .loadTargetPatternsWithFilters(
                 env.getReporter(),
                 request.getTargets(),
                 env.getRelativeWorkingDirectory(),
@@ -179,7 +193,8 @@ public final class AnalysisPhaseRunner {
    * @throws InterruptedException if the current thread was interrupted.
    * @throws ViewCreationFailedException if analysis failed for any reason.
    */
-  private AnalysisResult runAnalysisPhase(
+  private static AnalysisResult runAnalysisPhase(
+      CommandEnvironment env,
       BuildRequest request,
       TargetPatternPhaseValue loadingResult,
       BuildOptions targetOptions,
@@ -207,13 +222,15 @@ public final class AnalysisPhaseRunner {
             env.getReporter(),
             env.getEventBus());
 
+    Pair<Integer, Integer> tcal = view.getTargetsConfiguredAndLoaded();
+
     // TODO(bazel-team): Merge these into one event.
     env.getEventBus()
         .post(
             new AnalysisPhaseCompleteEvent(
                 analysisResult.getTargetsToBuild(),
-                view.getTargetsLoaded(),
-                view.getTargetsConfigured(),
+                /* targetsLoaded */ tcal.second.intValue(),
+                /* targetsConfigured */ tcal.first.intValue(),
                 timer.stop().elapsed(TimeUnit.MILLISECONDS),
                 view.getAndClearPkgManagerStatistics(),
                 view.getActionsConstructed(),
@@ -246,7 +263,7 @@ public final class AnalysisPhaseRunner {
     return analysisResult;
   }
 
-  private void reportTargets(AnalysisResult analysisResult) {
+  private static void reportTargets(CommandEnvironment env, AnalysisResult analysisResult) {
     Collection<ConfiguredTarget> targetsToBuild = analysisResult.getTargetsToBuild();
     Collection<ConfiguredTarget> targetsToTest = analysisResult.getTargetsToTest();
     if (targetsToTest != null) {

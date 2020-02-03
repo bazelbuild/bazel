@@ -56,16 +56,16 @@ public class FingerprintTest {
   @Test
   public void equivalentBytesAndStringsFingerprintsMatch() {
     String helloWorld = "Hello World!";
-    // $ echo -n "Hello World!" | md5sum
-    String helloWorldMd5 = "ed076287532e86365e841e92bfc50d8c";
+    // $ echo -n 'Hello World!' | sha256sum
+    String helloWorldHash = "7f83b1657ff1fc53b92dc18148a1d65dfc2d4b1fa3d677284addd200126d9069";
 
     assertThat(new Fingerprint().addBytes(helloWorld.getBytes(UTF_8)).hexDigestAndReset())
-        .isEqualTo(helloWorldMd5);
+        .isEqualTo(helloWorldHash);
 
-    assertThat(Fingerprint.getHexDigest(helloWorld)).isEqualTo(helloWorldMd5);
+    assertThat(Fingerprint.getHexDigest(helloWorld)).isEqualTo(helloWorldHash);
 
     assertThat(new Fingerprint().addBytes(ByteString.copyFromUtf8(helloWorld)).hexDigestAndReset())
-        .isEqualTo(helloWorldMd5);
+        .isEqualTo(helloWorldHash);
   }
 
   @Test
@@ -121,10 +121,10 @@ public class FingerprintTest {
   public void addPath() throws Exception {
     PathFragment pf = PathFragment.create("/etc/pwd");
     assertThat(new Fingerprint().addPath(pf).hexDigestAndReset())
-        .isEqualTo("63ab5c47c117635407a1af6377e216bc");
+        .isEqualTo("0b229115c2da46773ff38528420b922488dd564ddb3c0c861fb1c77ae8525f9b");
     Path p = new InMemoryFileSystem(BlazeClock.instance()).getPath(pf);
     assertThat(new Fingerprint().addPath(p).hexDigestAndReset())
-        .isEqualTo("63ab5c47c117635407a1af6377e216bc");
+        .isEqualTo("0b229115c2da46773ff38528420b922488dd564ddb3c0c861fb1c77ae8525f9b");
   }
 
   @Test

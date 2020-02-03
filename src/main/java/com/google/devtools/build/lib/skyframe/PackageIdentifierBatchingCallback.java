@@ -15,52 +15,66 @@ package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
-import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
+import com.google.devtools.build.lib.concurrent.ParallelVisitor.UnusedException;
+import com.google.devtools.build.lib.concurrent.ThreadSafeBatchCallback;
+import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.pkgcache.RecursivePackageProvider;
-import java.util.function.Consumer;
+import javax.annotation.concurrent.GuardedBy;
 
 /**
  * A callback for {@link RecursivePackageProvider#streamPackagesUnderDirectory} that buffers the
- * PackageIdentifiers it receives into batches that it delivers to a supplied {@code
- * Consumer<ImmutableList<PackageIdentifier>>}.
+ * PackageIdentifiers it receives into fixed-size batches that it delivers to a supplied {@code
+ * ThreadSafeBatchCallback<PackageIdentifier, RuntimeException>}.
+ *
+ * <p>The final batch delivered to the delegate callback may be smaller than the fixed size; the
+ * callback must be {@link #close() closed} to deliver this final batch.
  */
-@ThreadCompatible
+@ThreadSafe
 public class PackageIdentifierBatchingCallback
-    implements Consumer<PackageIdentifier>, AutoCloseable {
+    implements ThreadSafeBatchCallback<PackageIdentifier, UnusedException>, AutoCloseable {
 
-  private final Consumer<ImmutableList<PackageIdentifier>> batchResults;
+  private final ThreadSafeBatchCallback<PackageIdentifier, UnusedException> batchResults;
   private final int batchSize;
+
+  @GuardedBy("this")
   private ImmutableList.Builder<PackageIdentifier> packageIdentifiers;
+
+  @GuardedBy("this")
   private int bufferedPackageIds;
 
   public PackageIdentifierBatchingCallback(
-      Consumer<ImmutableList<PackageIdentifier>> batchResults, int batchSize) {
+      ThreadSafeBatchCallback<PackageIdentifier, UnusedException> batchResults, int batchSize) {
     this.batchResults = batchResults;
     this.batchSize = batchSize;
     reset();
   }
 
   @Override
-  public void accept(PackageIdentifier path) {
-    packageIdentifiers.add(path);
-    bufferedPackageIds++;
-    if (bufferedPackageIds >= this.batchSize) {
-      flush();
+  public synchronized void process(Iterable<PackageIdentifier> partialResult)
+      throws InterruptedException {
+    for (PackageIdentifier path : partialResult) {
+      packageIdentifiers.add(path);
+      bufferedPackageIds++;
+      if (bufferedPackageIds >= this.batchSize) {
+        flush();
+      }
     }
   }
 
   @Override
-  public void close() {
+  public synchronized void close() throws InterruptedException {
     flush();
   }
 
-  private void flush() {
+  @GuardedBy("this")
+  private void flush() throws InterruptedException {
     if (bufferedPackageIds > 0) {
-      batchResults.accept(packageIdentifiers.build());
+      batchResults.process(packageIdentifiers.build());
       reset();
     }
   }
 
+  @GuardedBy("this")
   private void reset() {
     packageIdentifiers = ImmutableList.builderWithExpectedSize(batchSize);
     bufferedPackageIds = 0;

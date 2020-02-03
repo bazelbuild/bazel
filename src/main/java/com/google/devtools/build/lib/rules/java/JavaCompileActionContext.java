@@ -18,7 +18,6 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.devtools.build.lib.actions.ActionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.ExecutionStrategy;
 import com.google.devtools.build.lib.view.proto.Deps;
 import java.io.IOException;
 import java.io.InputStream;
@@ -26,7 +25,6 @@ import java.io.UncheckedIOException;
 import java.util.concurrent.ConcurrentHashMap;
 
 /** Context for compiling Java files. */
-@ExecutionStrategy(contextType = JavaCompileActionContext.class)
 public class JavaCompileActionContext implements ActionContext {
   private final ConcurrentHashMap<Artifact, Deps.Dependencies> cache = new ConcurrentHashMap<>();
 

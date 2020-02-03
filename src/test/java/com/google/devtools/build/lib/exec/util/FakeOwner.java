@@ -14,8 +14,10 @@
 package com.google.devtools.build.lib.exec.util;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
+import com.google.devtools.build.lib.actions.ActionAnalysisMetadata.MiddlemanType;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
@@ -24,6 +26,9 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.RunfilesSupplier;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.AspectDescriptor;
 import javax.annotation.Nullable;
 
@@ -35,16 +40,27 @@ public final class FakeOwner implements ActionExecutionMetadata {
   private final String progressMessage;
   @Nullable private final String ownerLabel;
   @Nullable private final PlatformInfo platform;
+  ImmutableMap<String, String> execProperties;
+
+  public FakeOwner(
+      String mnemonic,
+      String progressMessage,
+      @Nullable String ownerLabel,
+      @Nullable PlatformInfo platform,
+      ImmutableMap<String, String> execProperties) {
+    this.mnemonic = mnemonic;
+    this.progressMessage = progressMessage;
+    this.ownerLabel = ownerLabel;
+    this.platform = platform;
+    this.execProperties = execProperties;
+  }
 
   public FakeOwner(
       String mnemonic,
       String progressMessage,
       @Nullable String ownerLabel,
       @Nullable PlatformInfo platform) {
-    this.mnemonic = mnemonic;
-    this.progressMessage = progressMessage;
-    this.ownerLabel = ownerLabel;
-    this.platform = platform;
+    this(mnemonic, progressMessage, ownerLabel, platform, ImmutableMap.of());
   }
 
   public FakeOwner(String mnemonic, String progressMessage, @Nullable String ownerLabel) {
@@ -66,6 +82,7 @@ public final class FakeOwner implements ActionExecutionMetadata {
         "configurationChecksum",
         /* configuration=*/ null,
         "additionalProgressInfo",
+        /* execProperties=*/ ImmutableMap.of(),
         null);
   }
 
@@ -95,12 +112,12 @@ public final class FakeOwner implements ActionExecutionMetadata {
   }
 
   @Override
-  public Iterable<Artifact> getTools() {
+  public NestedSet<Artifact> getTools() {
     throw new UnsupportedOperationException();
   }
 
   @Override
-  public Iterable<Artifact> getInputs() {
+  public NestedSet<Artifact> getInputs() {
     throw new UnsupportedOperationException();
   }
 
@@ -130,7 +147,7 @@ public final class FakeOwner implements ActionExecutionMetadata {
   }
 
   @Override
-  public Iterable<Artifact> getMandatoryInputs() {
+  public NestedSet<Artifact> getMandatoryInputs() {
     throw new UnsupportedOperationException();
   }
 
@@ -155,9 +172,9 @@ public final class FakeOwner implements ActionExecutionMetadata {
   }
 
   @Override
-  public Iterable<Artifact> getInputFilesForExtraAction(
+  public NestedSet<Artifact> getInputFilesForExtraAction(
       ActionExecutionContext actionExecutionContext) {
-    return ImmutableList.of();
+    return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
   }
 
   @Override
@@ -173,6 +190,11 @@ public final class FakeOwner implements ActionExecutionMetadata {
   @Override
   public boolean shouldReportPathPrefixConflict(ActionAnalysisMetadata action) {
     throw new UnsupportedOperationException();
+  }
+
+  @Override
+  public ImmutableMap<String, String> getExecProperties() {
+    return execProperties;
   }
 
   @Nullable

@@ -658,8 +658,8 @@ public final class ConfigurationResolver {
    * <p>Resolution consists of two steps:
    *
    * <ol>
-   *   <li>Apply the per-target transitions specified in {@code asDeps}. This can be used, e.g., to
-   *       apply {@link
+   *   <li>Apply the per-target transitions specified in {@code targetsToEvaluate}. This can be
+   *       used, e.g., to apply {@link
    *       com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory}s over global
    *       top-level configurations.
    *   <li>(Optionally) trim configurations to only the fragments the targets actually need. This is
@@ -694,7 +694,7 @@ public final class ConfigurationResolver {
       SkyframeExecutor skyframeExecutor)
       throws InvalidConfigurationException {
 
-    Map<Label, Target> labelsToTargets = new LinkedHashMap<>();
+    Map<Label, Target> labelsToTargets = new HashMap<>();
     for (TargetAndConfiguration targetAndConfig : defaultContext) {
       labelsToTargets.put(targetAndConfig.getLabel(), targetAndConfig.getTarget());
     }

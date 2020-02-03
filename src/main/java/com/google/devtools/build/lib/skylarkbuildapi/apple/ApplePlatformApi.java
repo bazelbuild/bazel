@@ -17,7 +17,7 @@ package com.google.devtools.build.lib.skylarkbuildapi.apple;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
+import com.google.devtools.build.lib.syntax.StarlarkValue;
 
 /** An interface for an object representing an Apple platform. */
 @SkylarkModule(
@@ -44,37 +44,40 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
             + "p = apple_common.platform.ios_device\n"
             + "print(p.name_in_plist)  # 'iPhoneOS'\n"
             + "</pre>")
-public interface ApplePlatformApi extends SkylarkValue {
+public interface ApplePlatformApi extends StarlarkValue {
 
   /** Returns the platform type of this platform. */
   @SkylarkCallable(
       name = "platform_type",
       doc = "Returns the platform type of this platform.",
-      structField = true
-  )
-  public ApplePlatformTypeApi getType();
+      structField = true)
+  ApplePlatformTypeApi getType();
 
   /**
    * Returns true if this platform is a device platform, or false if this is a simulator platform.
    */
   @SkylarkCallable(
       name = "is_device",
-      doc = "Returns <code>True</code> if this platform is a device platform or <code>False</code> "
-          + "if it is a simulator platform.",
-      structField = true
-  )
-  public boolean isDevice();
+      doc =
+          "Returns <code>True</code> if this platform is a device platform or <code>False</code> "
+              + "if it is a simulator platform.",
+      structField = true)
+  boolean isDevice();
 
   /**
    * Returns the name of the "platform" as it appears in the CFBundleSupportedPlatforms plist
    * setting.
    */
-  @SkylarkCallable(name = "name_in_plist", structField = true,
-      doc = "The name of the platform as it appears in the <code>CFBundleSupportedPlatforms</code> "
-          + "entry of an Info.plist file and in Xcode's platforms directory, without the extension "
-          + "(for example, <code>iPhoneOS</code> or <code>iPhoneSimulator</code>).<br>"
-          + "This name, when converted to lowercase (e.g., <code>iphoneos</code>, "
-          + "<code>iphonesimulator</code>), can be passed to Xcode's command-line tools like "
-          + "<code>ibtool</code> and <code>actool</code> when they expect a platform name.")
-  public String getNameInPlist();
+  @SkylarkCallable(
+      name = "name_in_plist",
+      structField = true,
+      doc =
+          "The name of the platform as it appears in the <code>CFBundleSupportedPlatforms</code>"
+              + " entry of an Info.plist file and in Xcode's platforms directory, without the"
+              + " extension (for example, <code>iPhoneOS</code> or"
+              + " <code>iPhoneSimulator</code>).<br>This name, when converted to lowercase (e.g.,"
+              + " <code>iphoneos</code>, <code>iphonesimulator</code>), can be passed to Xcode's"
+              + " command-line tools like <code>ibtool</code> and <code>actool</code> when they"
+              + " expect a platform name.")
+  String getNameInPlist();
 }

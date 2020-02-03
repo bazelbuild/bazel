@@ -1,3 +1,4 @@
+# Lint as: python2, python3
 # Copyright 2018 The Bazel Authors. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -32,11 +33,17 @@ bazel run //tools/aquery_differ:aquery_differ -- \
 --attrs=inputs
 """
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
 import difflib
 import os
 import sys
+
+# Do not edit this line. Copybara replaces it with PY2 migration helper.
 from absl import app
 from absl import flags
+from six.moves import map
 from google.protobuf import text_format
 from src.main.protobuf import analysis_pb2
 from tools.aquery_differ.resolvers.dep_set_resolver import DepSetResolver

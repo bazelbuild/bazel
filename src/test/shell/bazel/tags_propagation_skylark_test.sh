@@ -52,7 +52,7 @@ test_rule = rule(
 )
 EOF
 
-  bazel aquery --incompatible_allow_tags_propagation '//test:test' > output1 2> $TEST_log \
+  bazel aquery --experimental_allow_tags_propagation '//test:test' > output1 2> $TEST_log \
       || fail "should have generated output successfully"
 
   assert_contains "ExecutionInfo: {local: '', no-cache: '', no-remote: ''}" output1
@@ -89,7 +89,7 @@ test_rule = rule(
 )
 EOF
 
-  bazel aquery --incompatible_allow_tags_propagation '//test:test' > output1 2> $TEST_log \
+  bazel aquery --experimental_allow_tags_propagation '//test:test' > output1 2> $TEST_log \
       || fail "should have generated output successfully"
 
   assert_contains "ExecutionInfo: {local: '', no-cache: '', no-remote: '', no-sandbox: '', requires-network: ''}" output1
@@ -128,14 +128,14 @@ test_rule = rule(
 )
 EOF
 
-  bazel aquery --incompatible_allow_tags_propagation '//test:test' > output1 2> $TEST_log \
+  bazel aquery --experimental_allow_tags_propagation '//test:test' > output1 2> $TEST_log \
       || fail "should have generated output successfully"
 
   assert_contains "ExecutionInfo: {local: '', no-cache: 1, no-remote: '', requires-network: '', requires-x: ''}" output1
 }
 
 # Test a basic skylark ctx.actions.run rule which has tags, that should not be propagated
-# as --incompatible_allow_tags_propagation flag set to false
+# as --experimental_allow_tags_propagation flag set to false
 function test_tags_not_propagated_to_run_when_incompatible_flag_off() {
   mkdir -p test
   cat << EOF >> test/BUILD
@@ -166,7 +166,7 @@ test_rule = rule(
 )
 EOF
 
-  bazel aquery --incompatible_allow_tags_propagation=false '//test:test' > output1 2> $TEST_log \
+  bazel aquery --experimental_allow_tags_propagation=false '//test:test' > output1 2> $TEST_log \
       || fail "should have generated output successfully"
 
   assert_not_contains "ExecutionInfo: {}" output1

@@ -63,8 +63,9 @@ public class ObjcImportTest extends ObjcRuleTestCase {
         "    deps = ['//imp:imp'],",
         ")");
     ObjcProvider provider = providerForTarget("//lib:lib");
-    assertThat(Artifact.toExecPaths(provider.get(ObjcProvider.IMPORTED_LIBRARY)))
-        .containsExactly("imp/precomp_lib.a").inOrder();
+    assertThat(Artifact.asExecPaths(provider.get(ObjcProvider.IMPORTED_LIBRARY)))
+        .containsExactly("imp/precomp_lib.a")
+        .inOrder();
   }
 
   @Test
@@ -73,8 +74,7 @@ public class ObjcImportTest extends ObjcRuleTestCase {
     createBinaryTargetWriter("//bin:bin").setList("deps", "//imp:imp").write();
     CommandAction linkBinAction = linkAction("//bin:bin");
     verifyObjlist(linkBinAction, "imp/precomp_lib.a");
-    assertThat(Artifact.toExecPaths(linkBinAction.getInputs()))
-        .contains("imp/precomp_lib.a");
+    assertThat(Artifact.asExecPaths(linkBinAction.getInputs())).contains("imp/precomp_lib.a");
   }
 
   @Test
@@ -110,7 +110,9 @@ public class ObjcImportTest extends ObjcRuleTestCase {
         "    sdk_dylibs = ['libdy1', 'libdy2'],",
         ")");
     ObjcProvider provider = providerForTarget("//imp:imp");
-    assertThat(provider.get(ObjcProvider.SDK_DYLIB)).containsExactly("libdy1", "libdy2").inOrder();
+    assertThat(provider.get(ObjcProvider.SDK_DYLIB).toList())
+        .containsExactly("libdy1", "libdy2")
+        .inOrder();
   }
 
   @Test

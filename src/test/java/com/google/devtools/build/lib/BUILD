@@ -1,4 +1,5 @@
 load("@rules_java//java:defs.bzl", "java_binary", "java_library", "java_test")
+load("@rules_cc//cc:defs.bzl", "cc_binary")
 
 package(
     default_visibility = [
@@ -7,12 +8,12 @@ package(
     ],
 )
 
-load("@rules_cc//cc:defs.bzl", "cc_binary")
-
 # Tests for Windows-specific functionality that can run cross-platform.
+# These don't need to run on Windows, they merely use Windows- and case-insensitive path semantics.
 CROSS_PLATFORM_WINDOWS_TESTS = [
     "util/DependencySetWindowsTest.java",
     "vfs/PathFragmentWindowsTest.java",
+    "vfs/RootedPathAndCasingTest.java",
     "vfs/WindowsPathTest.java",
 ]
 
@@ -44,16 +45,20 @@ filegroup(
         "//src/test/java/com/google/devtools/build/lib/analysis/skylark/annotations/processor:srcs",
         "//src/test/java/com/google/devtools/build/lib/analysis/whitelisting:srcs",
         "//src/test/java/com/google/devtools/build/lib/bazel:srcs",
+        "//src/test/java/com/google/devtools/build/lib/blackbox:srcs",
         "//src/test/java/com/google/devtools/build/lib/buildeventservice:srcs",
         "//src/test/java/com/google/devtools/build/lib/buildeventstream:srcs",
         "//src/test/java/com/google/devtools/build/lib/buildeventstream/transports:srcs",
         "//src/test/java/com/google/devtools/build/lib/buildtool:srcs",
+        "//src/test/java/com/google/devtools/build/lib/metrics:srcs",
         "//src/test/java/com/google/devtools/build/lib/outputfilter:srcs",
         "//src/test/java/com/google/devtools/build/lib/packages/util/mock:srcs",
         "//src/test/java/com/google/devtools/build/lib/profiler:srcs",
         "//src/test/java/com/google/devtools/build/lib/profiler/callcounts:srcs",
         "//src/test/java/com/google/devtools/build/lib/profiler/memory:srcs",
         "//src/test/java/com/google/devtools/build/lib/query2:srcs",
+        "//src/test/java/com/google/devtools/build/lib/query2/engine:srcs",
+        "//src/test/java/com/google/devtools/build/lib/query2/testutil:srcs",
         "//src/test/java/com/google/devtools/build/lib/remote:srcs",
         "//src/test/java/com/google/devtools/build/lib/rules/android:srcs",
         "//src/test/java/com/google/devtools/build/lib/rules/apple:srcs",
@@ -63,6 +68,7 @@ filegroup(
         "//src/test/java/com/google/devtools/build/lib/rules/platform:srcs",
         "//src/test/java/com/google/devtools/build/lib/rules/python:srcs",
         "//src/test/java/com/google/devtools/build/lib/rules/repository:srcs",
+        "//src/test/java/com/google/devtools/build/lib/sandbox:srcs",
         "//src/test/java/com/google/devtools/build/lib/skyframe/packages:srcs",
         "//src/test/java/com/google/devtools/build/lib/skyframe/serialization:srcs",
         "//src/test/java/com/google/devtools/build/lib/skyframe:srcs",
@@ -70,8 +76,8 @@ filegroup(
         "//src/test/java/com/google/devtools/build/lib/skylarkdebug/server:srcs",
         "//src/test/java/com/google/devtools/build/lib/skylarkinterface/processor:srcs",
         "//src/test/java/com/google/devtools/build/lib/supplier:srcs",
+        "//src/test/java/com/google/devtools/build/lib/versioning:srcs",
         "//src/test/java/com/google/devtools/build/lib/unsafe:srcs",
-        "//src/test/java/com/google/devtools/build/lib/blackbox:srcs",
     ],
     visibility = ["//src:__pkg__"],
 )
@@ -108,7 +114,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib:out-err",
         "//src/main/java/com/google/devtools/build/lib:packages",
         "//src/main/java/com/google/devtools/build/lib:packages/BuilderFactoryForTesting",
-        "//src/main/java/com/google/devtools/build/lib:skylark_semantics",
+        "//src/main/java/com/google/devtools/build/lib:syntax",
         "//src/main/java/com/google/devtools/build/lib:util",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/clock",
@@ -132,7 +138,7 @@ java_library(
     deps = [
         "//src/main/java/com/google/devtools/build/lib:build-base",
         "//src/main/java/com/google/devtools/build/lib:packages",
-        "//src/main/java/com/google/devtools/build/lib:skylark_semantics",
+        "//src/main/java/com/google/devtools/build/lib:syntax",
         "//src/main/java/com/google/devtools/build/lib/skyframe/packages",
         "//third_party:guava",
     ],
@@ -273,6 +279,9 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/dynamic",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
+        "//src/main/java/com/google/devtools/common/options:options_internal",
+        "//src/main/protobuf:test_status_java_proto",
+        "//third_party:auto_value",
     ],
 )
 
@@ -465,7 +474,7 @@ java_library(
 
 java_test(
     name = "vfs_inmemoryfs_test",
-    size = "small",
+    size = "medium",
     srcs = glob(["vfs/inmemoryfs/*.java"]),
     tags = [
         "foundations",
@@ -482,8 +491,8 @@ java_test(
     ],
 )
 
-# Tests that test Windows-specific functionality that run on other operating
-# systems
+# Tests that exercise Windows-specific (or case-insensitive-filesystem specific) functionality.
+# These don't need to run on Windows, they merely use Windows- and case-insensitive path semantics.
 java_test(
     name = "windows_test",
     srcs = CROSS_PLATFORM_WINDOWS_TESTS + ["vfs/PathAbstractTest.java"],
@@ -576,6 +585,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib:util",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/clock",
+        "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
         "//src/main/java/com/google/devtools/build/lib/vfs",
@@ -593,6 +603,7 @@ java_test(
     name = "actions_test",
     srcs = glob([
         "actions/*.java",
+        "actions/cache/*.java",
     ]),
     test_class = "com.google.devtools.build.lib.AllTests",
     deps = [
@@ -678,7 +689,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib:proto-rules",
         "//src/main/java/com/google/devtools/build/lib:python-rules",
         "//src/main/java/com/google/devtools/build/lib:runtime",
-        "//src/main/java/com/google/devtools/build/lib:skylark_semantics",
+        "//src/main/java/com/google/devtools/build/lib:syntax",
         "//src/main/java/com/google/devtools/build/lib:util",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:localhost_capacity",
@@ -689,7 +700,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/query2",
-        "//src/main/java/com/google/devtools/build/lib/query2:query-output",
+        "//src/main/java/com/google/devtools/build/lib/query2/query/output",
         "//src/main/java/com/google/devtools/build/lib/rules/apple",
         "//src/main/java/com/google/devtools/build/lib/rules/apple/swift",
         "//src/main/java/com/google/devtools/build/lib/rules/config",
@@ -760,6 +771,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib:io",
         "//src/main/java/com/google/devtools/build/lib:util",
         "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/testutils",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/testutils:depsutils",
@@ -936,8 +948,8 @@ java_library(
         "//src/test/java/com/google/devtools/build/lib/packages/util/mock:android_cc_toolchain_config.bzl",
         "//src/test/java/com/google/devtools/build/lib/packages/util/mock:osx_cc_toolchain_config.bzl",
         "//tools/build_defs/cc:action_names.bzl",
-        "//tools/cpp:cc_toolchain_config_lib.bzl",
         "//tools/python:srcs",
+        "@rules_cc//cc:srcs",
     ],
     deps = [
         ":default_test_build_rules",
@@ -953,7 +965,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib:packages",
         "//src/main/java/com/google/devtools/build/lib:proto-rules",
         "//src/main/java/com/google/devtools/build/lib:runtime",
-        "//src/main/java/com/google/devtools/build/lib:skylark_semantics",
+        "//src/main/java/com/google/devtools/build/lib:syntax",
         "//src/main/java/com/google/devtools/build/lib:util",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/clock",
@@ -998,10 +1010,11 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib:build-base",
         "//src/main/java/com/google/devtools/build/lib:events",
         "//src/main/java/com/google/devtools/build/lib:packages",
-        "//src/main/java/com/google/devtools/build/lib:skylark_semantics",
         "//src/main/java/com/google/devtools/build/lib:skylarkinterface",
+        "//src/main/java/com/google/devtools/build/lib:syntax",
         "//src/main/java/com/google/devtools/build/lib:util",
         "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/testutils",
         "//src/main/java/com/google/devtools/build/lib/vfs",
@@ -1095,9 +1108,9 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib:build-base",
         "//src/main/java/com/google/devtools/build/lib:events",
         "//src/main/java/com/google/devtools/build/lib:packages",
-        "//src/main/java/com/google/devtools/build/lib:skylark_semantics",
         "//src/main/java/com/google/devtools/build/lib:skylarkinterface",
         "//src/main/java/com/google/devtools/build/lib:string_util",
+        "//src/main/java/com/google/devtools/build/lib:syntax",
         "//src/main/java/com/google/devtools/build/lib:util",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/collect",
@@ -1237,21 +1250,6 @@ java_test(
 )
 
 java_test(
-    name = "query2-tests",
-    size = "large",
-    shard_count = 20,
-    tags = [
-        "no_windows",
-        "query2",
-    ],
-    test_class = "com.google.devtools.build.lib.AllTests",
-    runtime_deps = [
-        ":test_runner",
-        "//src/test/java/com/google/devtools/build/lib/query2:Query2Tests_lib",
-    ],
-)
-
-java_test(
     name = "runtime-tests",
     srcs = glob([
         "runtime/*.java",
@@ -1284,7 +1282,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/clock",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/query2",
-        "//src/main/java/com/google/devtools/build/lib/query2:query-engine",
+        "//src/main/java/com/google/devtools/build/lib/query2/engine",
         "//src/main/java/com/google/devtools/build/lib/sandbox",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs/inmemoryfs",
@@ -1293,78 +1291,10 @@ java_test(
         "//src/main/protobuf:command_line_java_proto",
         "//src/main/protobuf:invocation_policy_java_proto",
         "//src/main/protobuf:test_status_java_proto",
+        "//src/test/java/com/google/devtools/build/lib/skylark:testutil",
         "//src/test/java/com/google/devtools/common/options:testutils",
         "//third_party:apache_commons_lang",
         "//third_party:mockito",
-    ],
-)
-
-java_library(
-    name = "sandboxfs-base-tests",
-    testonly = 1,
-    srcs = ["sandbox/BaseSandboxfsProcessTest.java"],
-    deps = [
-        ":testutil",
-        "//src/main/java/com/google/devtools/build/lib/sandbox",
-        "//src/main/java/com/google/devtools/build/lib/vfs",
-        "//third_party:guava",
-        "//third_party:junit4",
-        "//third_party:truth",
-    ],
-)
-
-java_test(
-    name = "sandbox-tests",
-    srcs = glob(
-        ["sandbox/*.java"],
-        exclude = [
-            "sandbox/BaseSandboxfsProcessTest.java",
-            "sandbox/RealSandboxfsProcessTest.java",
-        ],
-    ),
-    data = [":embedded_scripts"],
-    local = 1,
-    tags = ["no_windows"],
-    test_class = "com.google.devtools.build.lib.AllTests",
-    deps = [
-        ":analysis_testutil",
-        ":foundations_testutil",
-        ":guava_junit_truth",
-        ":sandboxfs-base-tests",
-        ":testutil",
-        "//src/main/java/com/google/devtools/build/lib:bazel-rules",
-        "//src/main/java/com/google/devtools/build/lib:build-base",
-        "//src/main/java/com/google/devtools/build/lib:os_util",
-        "//src/main/java/com/google/devtools/build/lib:util",
-        "//src/main/java/com/google/devtools/build/lib/actions",
-        "//src/main/java/com/google/devtools/build/lib/sandbox",
-        "//src/main/java/com/google/devtools/build/lib/vfs",
-        "//src/main/java/com/google/devtools/build/lib/vfs/inmemoryfs",
-        "//src/main/java/com/google/devtools/common/options",
-    ],
-)
-
-java_test(
-    name = "sandboxfs-integration-tests",
-    srcs = ["sandbox/RealSandboxfsProcessTest.java"],
-    data = [":embedded_scripts"],
-    local = 1,
-    tags = [
-        # On macOS:
-        #   sudo sysctl -w vfs.generic.osxfuse.tunables.allow_other=1
-        # Test requires:
-        #   --test_env=SANDBOXFS=/path/to/sandboxfs
-        "manual",
-        "no-sandbox",
-        "no_windows",
-    ],
-    test_class = "com.google.devtools.build.lib.AllTests",
-    deps = [
-        ":sandboxfs-base-tests",
-        ":test_runner",
-        "//src/main/java/com/google/devtools/build/lib/sandbox",
-        "//src/main/java/com/google/devtools/build/lib/vfs",
-        "//third_party:junit4",
     ],
 )
 
@@ -1372,7 +1302,6 @@ java_test(
     name = "standalone-tests",
     srcs = glob(["standalone/*.java"]),
     data = [":embedded_scripts"],
-    tags = ["no_windows"],
     test_class = "com.google.devtools.build.lib.AllTests",
     deps = [
         ":actions_testutil",
@@ -1390,6 +1319,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:localhost_capacity",
         "//src/main/java/com/google/devtools/build/lib/clock",
+        "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/exec/local",
         "//src/main/java/com/google/devtools/build/lib/exec/local:options",
         "//src/main/java/com/google/devtools/build/lib/rules/apple",
@@ -1397,6 +1327,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/standalone",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/common/options",
+        "//third_party:mockito",
     ],
 )
 
@@ -1418,13 +1349,16 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib:io",
         "//src/main/java/com/google/devtools/build/lib:util",
         "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/actions:localhost_capacity",
         "//src/main/java/com/google/devtools/build/lib/analysis/platform",
         "//src/main/java/com/google/devtools/build/lib/buildeventstream/proto:build_event_stream_java_proto",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/remote/options",
         "//src/main/java/com/google/devtools/build/lib/shell",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/testutils",
         "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/main/java/com/google/devtools/build/lib/vfs:output_service",
         "//src/main/java/com/google/devtools/build/lib/vfs/inmemoryfs",
         "//src/main/java/com/google/devtools/common/options",
         "//src/main/protobuf:spawn_java_proto",
@@ -1545,7 +1479,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib:events",
         "//src/main/java/com/google/devtools/build/lib:io",
         "//src/main/java/com/google/devtools/build/lib:packages-internal",
-        "//src/main/java/com/google/devtools/build/lib:skylark_semantics",
+        "//src/main/java/com/google/devtools/build/lib:syntax",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/skyframe",
@@ -1594,6 +1528,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib:os_util",
         "//src/main/java/com/google/devtools/build/lib:resource-converter",
         "//src/main/java/com/google/devtools/build/lib:util",
+        "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/sandbox",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs/inmemoryfs",
@@ -1636,6 +1571,17 @@ java_library(
 java_binary(
     name = "ExampleWorker",
     main_class = "com.google.devtools.build.lib.worker.ExampleWorker",
+    visibility = [
+        "//src/test/shell/integration:__pkg__",
+    ],
+    runtime_deps = [
+        ":ExampleWorker-lib",
+    ],
+)
+
+java_binary(
+    name = "ExampleWorkerMultiplexer",
+    main_class = "com.google.devtools.build.lib.worker.ExampleWorkerMultiplexer",
     visibility = [
         "//src/test/shell/integration:__pkg__",
     ],

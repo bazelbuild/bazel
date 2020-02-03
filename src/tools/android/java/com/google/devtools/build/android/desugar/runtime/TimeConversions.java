@@ -27,9 +27,38 @@ public final class TimeConversions {
     return builder.setReferenceTime(toZonedDateTime(arg));
   }
 
+  /** The factory method for the {@link android.app.admin.FreezePeriod}. */
+  @SuppressWarnings("MethodName") // synthetic method.
+  public static android.app.admin.FreezePeriod create$FreezePeriod(
+      j$.time.MonthDay jStart, j$.time.MonthDay jEnd) {
+    java.time.MonthDay start = toMonthDay(jStart);
+    java.time.MonthDay end = toMonthDay(jEnd);
+    return new android.app.admin.FreezePeriod(start, end);
+  }
+
+  public static j$.time.MonthDay getStart(android.app.admin.FreezePeriod freezePeriod) {
+    return fromMonthDay(freezePeriod.getStart());
+  }
+
+  public static j$.time.MonthDay getEnd(android.app.admin.FreezePeriod freezePeriod) {
+    return fromMonthDay(freezePeriod.getEnd());
+  }
+
   public static j$.time.ZonedDateTime getReferenceTime(
       android.view.textclassifier.TextClassification.Request request) {
     return fromZonedDateTime(request.getReferenceTime());
+  }
+
+  private static j$.time.MonthDay fromMonthDay(java.time.MonthDay monthDay) {
+    return monthDay == null
+        ? null
+        : j$.time.MonthDay.of(monthDay.getMonthValue(), monthDay.getDayOfMonth());
+  }
+
+  private static java.time.MonthDay toMonthDay(j$.time.MonthDay monthDay) {
+    return monthDay == null
+        ? null
+        : java.time.MonthDay.of(monthDay.getMonthValue(), monthDay.getDayOfMonth());
   }
 
   private static j$.time.ZonedDateTime fromZonedDateTime(java.time.ZonedDateTime dateTime) {

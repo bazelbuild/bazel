@@ -15,9 +15,9 @@ package com.google.devtools.build.lib.skylarkbuildapi.android;
 
 import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
 import com.google.devtools.build.lib.skylarkbuildapi.FilesToRunProviderApi;
-import com.google.devtools.build.lib.skylarkbuildapi.ProviderApi;
-import com.google.devtools.build.lib.skylarkbuildapi.StructApi;
-import com.google.devtools.build.lib.skylarkbuildapi.TransitiveInfoCollectionApi;
+import com.google.devtools.build.lib.skylarkbuildapi.core.ProviderApi;
+import com.google.devtools.build.lib.skylarkbuildapi.core.StructApi;
+import com.google.devtools.build.lib.skylarkbuildapi.core.TransitiveInfoCollectionApi;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkConstructor;
@@ -98,13 +98,7 @@ public interface AndroidSdkProviderApi<
   @SkylarkCallable(name = "aapt", structField = true, doc = "", documented = false)
   FilesToRunProviderT getAapt();
 
-  @SkylarkCallable(
-      name = "aapt2",
-      structField = true,
-      doc = "",
-      documented = false,
-      allowReturnNones = true)
-  @Nullable
+  @SkylarkCallable(name = "aapt2", structField = true, doc = "", documented = false)
   FilesToRunProviderT getAapt2();
 
   @SkylarkCallable(
@@ -132,7 +126,7 @@ public interface AndroidSdkProviderApi<
           "Do not use this module. It is intended for migration purposes only. If you depend on "
               + "it, you will be broken when it is removed.",
       documented = false)
-  public interface Provider<
+  interface Provider<
           FileT extends FileApi,
           FilesToRunProviderT extends FilesToRunProviderApi<FileT>,
           TransT extends TransitiveInfoCollectionApi>
@@ -222,8 +216,7 @@ public interface AndroidSdkProviderApi<
               doc = "A files to run provider of AAPT2.",
               positional = true,
               named = false,
-              type = FilesToRunProviderApi.class,
-              noneable = true),
+              type = FilesToRunProviderApi.class),
           @Param(
               name = "apk_builder",
               doc = "A files to run provider of the Apk builder.",
@@ -265,7 +258,7 @@ public interface AndroidSdkProviderApi<
         FilesToRunProviderT mainDexListCreator,
         FilesToRunProviderT aidl,
         FilesToRunProviderT aapt,
-        /*noneable*/ Object aapt2,
+        FilesToRunProviderT aapt2,
         /*noneable*/ Object apkBuilder,
         FilesToRunProviderT apkSigner,
         FilesToRunProviderT proguard,

@@ -16,12 +16,13 @@ package com.google.devtools.build.lib.skylarkinterface.processor.testsources;
 
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
+import com.google.devtools.build.lib.syntax.StarlarkValue;
 
 /**
- * Test case for a class which contains multiple SkylarkCallable methods with the same name.
- * This should cause a compile failure -- overrides are not allowed.
+ * Test case for a class which contains multiple SkylarkCallable methods with the same name. This
+ * should cause a compile failure -- overrides are not allowed.
  */
-public class ConflictingMethodNames {
+public class ConflictingMethodNames implements StarlarkValue {
 
   @SkylarkCallable(
       name = "conflicting_method",

@@ -17,11 +17,12 @@ package com.google.devtools.build.lib.skylarkinterface.processor.testsources;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
+import com.google.devtools.build.lib.syntax.StarlarkValue;
 
 /**
  * Test case for a SkylarkCallable method which has both enablingFlag and disablingFlag specified.
  */
-public class EnablingAndDisablingFlag {
+public class EnablingAndDisablingFlag implements StarlarkValue {
 
   @SkylarkCallable(
       name = "someMethod",

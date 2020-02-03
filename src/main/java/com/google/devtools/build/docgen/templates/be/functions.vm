@@ -19,7 +19,6 @@ title: Functions
     <li><a href="#exports_files">exports_files</a></li>
     <li><a href="#glob">glob</a></li>
     <li><a href="#select">select</a></li>
-    <li><a href="#workspace">workspace</a></li>
   </ul>
 </div>
 #end
@@ -254,18 +253,18 @@ package_group(
 
 <p>
   <code>exports_files()</code> specifies a list of files belonging to
-  this package that are exported to other packages but not otherwise
-  mentioned in the BUILD file.
+  this package that are exported to other packages.
 </p>
 
 <p>
-  The BUILD file for a package may only refer to files belonging to another
-  package if they are mentioned somewhere in the other packages's BUILD file,
-  whether as an input to a rule or an explicit or implicit output from a rule.
-  The remaining files are not associated with a specific rule but are just "data",
-  and for these, <code>exports_files</code> ensures that they may be referenced by
-  other packages.  (One kind of data for which this is particularly useful are
-  shell scripts.)
+  The BUILD file for a package may only refer directly to source files belonging
+  to another package if they are explicitly exported with an
+  <pre>exports_files()</pre> statement.
+  As a legacy behaviour, also files mentioned as input to a rule are exported
+  with the default visibility until the flag
+  <a href="https://github.com/bazelbuild/bazel/issues/10225"><code>--incompatible_no_implicit_file_export</code></a>
+  is flipped. However, this behavior should not be relied upon and actively
+  migrated away from.
 </p>
 
 <h3 id="exports_files_args">Arguments</h3>
@@ -373,8 +372,11 @@ There are several important limitations and caveats:
     no matter which wildcards they use.
   </li>
   <li>
-    A hidden file with filename starting with <code>.</code> is matched by
-    both the <code>**</code> and the <code>*</code> wildcards.
+    A hidden file with filename starting with <code>.</code> is completely matched by
+    both the <code>**</code> and the <code>*</code> wildcards. If you want to match a hidden file
+    with a compound pattern, your pattern needs to begin with a <code>.</code>. For example,
+    <code>*</code> and <code>.*.txt</code> will match <code>.foo.txt</code>, but <code>*.txt</code>
+    will not.
   </li>
   <li>
     If a rule and a source file with the same name both exist in the package, the glob will
@@ -616,45 +618,6 @@ cc_binary(
   --crosstool_top=//crosstools/windows </code>.
 
 <p>
-
-<!-- =================================================================
-                              workspace()
-     =================================================================
--->
-
-<h2 id="workspace">workspace</h2>
-
-<pre>workspace(name = "com_example_project")</pre>
-
-<p>This can only be used in a WORKSPACE file.</p>
-
-<p>Each repository's WORKSPACE file should have a workspace(name = "...") line,
-  which sets a global name for the repository.</p>
-
-<p>This name is used for the directory that the repository's runfiles are stored
-  in. For example, if there is a runfile <code>foo/bar</code> in the local
-  repository and the WORKSPACE file contains
-  <code>workspace(name = "baz")</code>, then the runfile will be available under
-  <code>mytarget.runfiles/baz/foo/bar</code>.  If no workspace name is
-  specified, then the runfile will be symlinked to
-  <code>bar.runfiles/foo/bar</code>.
-</p>
-
-<p>A workspace name must start with a letter and can contain letters, numbers,
-  and underscores (this is to maximize the number of languages for which this
-  string can be a valid package/module name). It should describe the project in
-  reverse-DNS form, with elements separated by underscores. For example, if a
-  project is hosted at example.com/some-project, you might use
-  com_example_some_project as the workspace name.
-</p>
-
-<p><a href="workspace.html">Remote repository</a> rule names must be
-  valid workspace names. For example, you could have
-  <code>maven_jar(name = "foo")</code>, but not
-  <code>maven_jar(name = "foo.bar")</code>, as Bazel would attempt to write a
-  WORKSPACE file for the <code>maven_jar</code> containing
-  <code>workspace(name = "foo.bar")</code>.
-</p>
 
 #if (!$singlePage)
 #parse("com/google/devtools/build/docgen/templates/be/footer.vm")

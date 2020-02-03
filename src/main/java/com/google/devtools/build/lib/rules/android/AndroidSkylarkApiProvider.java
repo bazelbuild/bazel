@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider.OutputJar;
 import com.google.devtools.build.lib.skylarkbuildapi.android.AndroidSkylarkApiProviderApi;
+import com.google.devtools.build.lib.syntax.Depset;
 import java.util.function.Function;
 import javax.annotation.Nullable;
 
@@ -71,8 +72,8 @@ public class AndroidSkylarkApiProvider extends SkylarkApiProvider
   }
 
   @Override
-  public ImmutableMap<String, NestedSet<Artifact>> getNativeLibs() {
-    return getIdeInfoProvider().getNativeLibs();
+  public ImmutableMap<String, Depset> getNativeLibs() {
+    return getIdeInfoProvider().getNativeLibsSkylark();
   }
 
   @Override
@@ -96,8 +97,9 @@ public class AndroidSkylarkApiProvider extends SkylarkApiProvider
   }
 
   @Override
-  public NestedSet<Artifact> getResources() {
-    return collectDirectArtifacts(ValidatedAndroidResources::getResources);
+  public Depset /*<Artifact>*/ getResources() {
+    return Depset.of(
+        Artifact.TYPE, collectDirectArtifacts(ValidatedAndroidResources::getResources));
   }
 
   @Override
@@ -123,7 +125,8 @@ public class AndroidSkylarkApiProvider extends SkylarkApiProvider
         Order.STABLE_ORDER,
         Iterables.concat(
             Iterables.transform(
-                resourceInfo.getDirectAndroidResources(), data -> artifactFunction.apply(data))));
+                resourceInfo.getDirectAndroidResources().toList(),
+                data -> artifactFunction.apply(data))));
   }
 
   /** Helper class to provide information about IDLs related to this rule. */

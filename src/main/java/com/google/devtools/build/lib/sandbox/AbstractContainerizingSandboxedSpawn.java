@@ -30,6 +30,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.logging.Logger;
+import javax.annotation.Nullable;
 
 /**
  * Implements the general flow of a sandboxed spawn that uses a container directory to build an
@@ -50,6 +51,7 @@ public abstract class AbstractContainerizingSandboxedSpawn implements SandboxedS
   private final SandboxOutputs outputs;
   private final Set<Path> writableDirs;
   private final TreeDeleter treeDeleter;
+  private final Path statisticsPath;
 
   public AbstractContainerizingSandboxedSpawn(
       Path sandboxPath,
@@ -59,7 +61,8 @@ public abstract class AbstractContainerizingSandboxedSpawn implements SandboxedS
       SandboxInputs inputs,
       SandboxOutputs outputs,
       Set<Path> writableDirs,
-      TreeDeleter treeDeleter) {
+      TreeDeleter treeDeleter,
+      @Nullable Path statisticsPath) {
     this.sandboxPath = sandboxPath;
     this.sandboxExecRoot = sandboxExecRoot;
     this.arguments = arguments;
@@ -68,6 +71,7 @@ public abstract class AbstractContainerizingSandboxedSpawn implements SandboxedS
     this.outputs = outputs;
     this.writableDirs = writableDirs;
     this.treeDeleter = treeDeleter;
+    this.statisticsPath = statisticsPath;
   }
 
   @Override
@@ -83,6 +87,12 @@ public abstract class AbstractContainerizingSandboxedSpawn implements SandboxedS
   @Override
   public Map<String, String> getEnvironment() {
     return environment;
+  }
+
+  @Override
+  @Nullable
+  public Path getStatisticsPath() {
+    return statisticsPath;
   }
 
   @Override

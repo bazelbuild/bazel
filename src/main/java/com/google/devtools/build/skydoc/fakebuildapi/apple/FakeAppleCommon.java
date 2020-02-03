@@ -16,11 +16,9 @@ package com.google.devtools.build.skydoc.fakebuildapi.apple;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
-import com.google.devtools.build.lib.skylarkbuildapi.ProviderApi;
 import com.google.devtools.build.lib.skylarkbuildapi.SkylarkAspectApi;
 import com.google.devtools.build.lib.skylarkbuildapi.SkylarkRuleContextApi;
 import com.google.devtools.build.lib.skylarkbuildapi.SplitTransitionProviderApi;
-import com.google.devtools.build.lib.skylarkbuildapi.StructApi;
 import com.google.devtools.build.lib.skylarkbuildapi.apple.AppleCommonApi;
 import com.google.devtools.build.lib.skylarkbuildapi.apple.AppleDynamicFrameworkInfoApi;
 import com.google.devtools.build.lib.skylarkbuildapi.apple.ApplePlatformApi;
@@ -28,24 +26,28 @@ import com.google.devtools.build.lib.skylarkbuildapi.apple.AppleStaticLibraryInf
 import com.google.devtools.build.lib.skylarkbuildapi.apple.AppleToolchainApi;
 import com.google.devtools.build.lib.skylarkbuildapi.apple.DottedVersionApi;
 import com.google.devtools.build.lib.skylarkbuildapi.apple.ObjcProviderApi;
-import com.google.devtools.build.lib.skylarkbuildapi.apple.XcodeConfigProviderApi;
-import com.google.devtools.build.lib.syntax.Environment;
-import com.google.devtools.build.lib.syntax.SkylarkDict;
-import com.google.devtools.build.lib.syntax.SkylarkList;
+import com.google.devtools.build.lib.skylarkbuildapi.apple.XcodeConfigInfoApi;
+import com.google.devtools.build.lib.skylarkbuildapi.core.ProviderApi;
+import com.google.devtools.build.lib.skylarkbuildapi.core.StructApi;
+import com.google.devtools.build.lib.skylarkbuildapi.platform.ConstraintValueInfoApi;
+import com.google.devtools.build.lib.syntax.Dict;
+import com.google.devtools.build.lib.syntax.Sequence;
+import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.skydoc.fakebuildapi.FakeProviderApi;
 import com.google.devtools.build.skydoc.fakebuildapi.FakeSkylarkAspect;
 import com.google.devtools.build.skydoc.fakebuildapi.FakeSplitTransitionProvider;
 import com.google.devtools.build.skydoc.fakebuildapi.FakeStructApi;
 import com.google.devtools.build.skydoc.fakebuildapi.apple.FakeAppleStaticLibraryInfo.FakeAppleStaticLibraryInfoProvider;
 
-/**
- * Fake implementation of {@link AppleCommonApi}.
- */
-public class FakeAppleCommon implements AppleCommonApi<
-    FileApi,
-    ObjcProviderApi<?>,
-    XcodeConfigProviderApi<?, ?>,
-    ApplePlatformApi> {
+/** Fake implementation of {@link AppleCommonApi}. */
+public class FakeAppleCommon
+    implements AppleCommonApi<
+        FileApi,
+        ConstraintValueInfoApi,
+        SkylarkRuleContextApi<ConstraintValueInfoApi>,
+        ObjcProviderApi<?>,
+        XcodeConfigInfoApi<?, ?>,
+        ApplePlatformApi> {
 
   @Override
   public AppleToolchainApi<?> getAppleToolchain() {
@@ -119,10 +121,10 @@ public class FakeAppleCommon implements AppleCommonApi<
 
   @Override
   public StructApi linkMultiArchBinary(
-      SkylarkRuleContextApi skylarkRuleContext,
-      SkylarkList<String> extraLinkopts,
-      SkylarkList<? extends FileApi> extraLinkInputs,
-      Environment environment) {
+      SkylarkRuleContextApi<ConstraintValueInfoApi> skylarkRuleContext,
+      Sequence<?> extraLinkopts,
+      Sequence<?> extraLinkInputs,
+      StarlarkThread thread) {
     return new FakeStructApi();
   }
 
@@ -137,28 +139,28 @@ public class FakeAppleCommon implements AppleCommonApi<
   }
 
   @Override
-  public AppleDynamicFrameworkInfoApi<?, ?> newDynamicFrameworkProvider(Object dylibBinary,
-      ObjcProviderApi<?> depsObjcProvider, Object dynamicFrameworkDirs,
+  public AppleDynamicFrameworkInfoApi<?> newDynamicFrameworkProvider(
+      Object dylibBinary,
+      ObjcProviderApi<?> depsObjcProvider,
+      Object dynamicFrameworkDirs,
       Object dynamicFrameworkFiles) {
     return new FakeAppleDynamicFrameworkInfo();
   }
 
   @Override
-  public ObjcProviderApi<?> newObjcProvider(Boolean usesSwift, SkylarkDict<?, ?> kwargs,
-      Environment environment) {
+  public ObjcProviderApi<?> newObjcProvider(
+      Boolean usesSwift, Dict<?, ?> kwargs, StarlarkThread thread) {
     return new FakeObjcProvider();
   }
 
   @Override
   public ImmutableMap<String, String> getTargetAppleEnvironment(
-      XcodeConfigProviderApi<?, ?> xcodeConfig,
-      ApplePlatformApi platform) {
+      XcodeConfigInfoApi<?, ?> xcodeConfig, ApplePlatformApi platform) {
     return ImmutableMap.of();
   }
 
   @Override
-  public ImmutableMap<String, String> getAppleHostSystemEnv(
-      XcodeConfigProviderApi<?, ?> xcodeConfig) {
+  public ImmutableMap<String, String> getAppleHostSystemEnv(XcodeConfigInfoApi<?, ?> xcodeConfig) {
     return ImmutableMap.of();
   }
 }

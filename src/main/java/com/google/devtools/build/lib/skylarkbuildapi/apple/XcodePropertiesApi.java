@@ -14,7 +14,7 @@
 
 package com.google.devtools.build.lib.skylarkbuildapi.apple;
 
-import com.google.devtools.build.lib.skylarkbuildapi.StructApi;
+import com.google.devtools.build.lib.skylarkbuildapi.core.StructApi;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
@@ -34,48 +34,47 @@ public interface XcodePropertiesApi extends StructApi {
       name = "xcode_version",
       doc = "The xcode version, or <code>None</code> if the xcode version is unknown.",
       structField = true,
-      allowReturnNones = true
-  )
+      allowReturnNones = true)
   @Nullable
-  public String getXcodeVersionString();
+  String getXcodeVersionString();
 
   @SkylarkCallable(
       name = "default_ios_sdk_version",
-      doc = "The default iOS sdk version for this version of xcode, or <code>None</code> if "
-          + "unknown.",
+      doc =
+          "The default iOS sdk version for this version of xcode, or <code>None</code> if "
+              + "unknown.",
       structField = true,
-      allowReturnNones = true
-  )
+      allowReturnNones = true)
   @Nullable
-  public String getDefaultIosSdkVersionString();
+  String getDefaultIosSdkVersionString();
 
   @SkylarkCallable(
       name = "default_watchos_sdk_version",
-      doc = "The default watchOS sdk version for this version of xcode, or <code>None</code> if "
-          + "unknown.",
+      doc =
+          "The default watchOS sdk version for this version of xcode, or <code>None</code> if "
+              + "unknown.",
       structField = true,
-      allowReturnNones = true
-  )
+      allowReturnNones = true)
   @Nullable
-  public String getDefaultWatchosSdkVersionString();
+  String getDefaultWatchosSdkVersionString();
 
   @SkylarkCallable(
       name = "default_tvos_sdk_version",
-      doc = "The default tvOS sdk version for this version of xcode, or <code>None</code> if "
-          + "unknown.",
+      doc =
+          "The default tvOS sdk version for this version of xcode, or <code>None</code> if "
+              + "unknown.",
       structField = true,
-      allowReturnNones = true
-  )
+      allowReturnNones = true)
   @Nullable
-  public String getDefaultTvosSdkVersionString();
+  String getDefaultTvosSdkVersionString();
 
   @SkylarkCallable(
       name = "default_macos_sdk_version",
-      doc = "The default macOS sdk version for this version of xcode, or <code>None</code> if "
-          + "unknown.",
+      doc =
+          "The default macOS sdk version for this version of xcode, or <code>None</code> if "
+              + "unknown.",
       structField = true,
-      allowReturnNones = true
-  )
+      allowReturnNones = true)
   @Nullable
-  public String getDefaultMacosSdkVersionString();
+  String getDefaultMacosSdkVersionString();
 }

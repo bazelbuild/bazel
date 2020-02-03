@@ -37,7 +37,6 @@ import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.TerminalTestResultNotifier;
 import com.google.devtools.build.lib.runtime.TerminalTestResultNotifier.TestSummaryOptions;
-import com.google.devtools.build.lib.runtime.TestResultAnalyzer;
 import com.google.devtools.build.lib.runtime.TestResultNotifier;
 import com.google.devtools.build.lib.runtime.TestSummaryPrinter.TestLogPathFormatter;
 import com.google.devtools.build.lib.runtime.UiOptions;
@@ -63,8 +62,6 @@ import java.util.List;
          completion = "label-test",
          allowResidue = true)
 public class TestCommand implements BlazeCommand {
-  private AnsiTerminalPrinter printer;
-
   /** Returns the name of the command to ask the project file for. */
   // TODO(hdm): move into BlazeRuntime?  It feels odd to duplicate the annotation here.
   protected String commandName() {
@@ -95,27 +92,27 @@ public class TestCommand implements BlazeCommand {
           + "one at a time"));
     }
 
-    TestResultAnalyzer resultAnalyzer = new TestResultAnalyzer(
-        options.getOptions(TestSummaryOptions.class),
-        options.getOptions(ExecutionOptions.class),
-        env.getEventBus());
-
-    printer =
+    AnsiTerminalPrinter printer =
         new AnsiTerminalPrinter(
             env.getReporter().getOutErr().getOutputStream(),
             options.getOptions(UiOptions.class).useColor());
 
     // Initialize test handler.
     AggregatingTestListener testListener =
-        new AggregatingTestListener(resultAnalyzer, env.getEventBus());
+        new AggregatingTestListener(
+            options.getOptions(TestSummaryOptions.class),
+            options.getOptions(ExecutionOptions.class),
+            env.getEventBus());
 
     env.getEventBus().register(testListener);
-    return doTest(env, options, testListener);
+    return doTest(env, options, testListener, printer);
   }
 
-  private BlazeCommandResult doTest(CommandEnvironment env,
+  private BlazeCommandResult doTest(
+      CommandEnvironment env,
       OptionsParsingResult options,
-      AggregatingTestListener testListener) {
+      AggregatingTestListener testListener,
+      AnsiTerminalPrinter printer) {
     BlazeRuntime runtime = env.getRuntime();
     // Run simultaneous build and test.
     List<String> targets = ProjectFileSupport.getTargets(runtime.getProjectFileProvider(), options);
@@ -141,7 +138,10 @@ public class TestCommand implements BlazeCommand {
       env.getReporter().handle(Event.error("Couldn't start the build. Unable to run tests"));
       ExitCode exitCode =
           buildResult.getSuccess() ? ExitCode.PARSING_FAILURE : buildResult.getExitCondition();
-      env.getEventBus().post(new TestingCompleteEvent(exitCode, buildResult.getStopTime()));
+      env.getEventBus()
+          .post(
+              new TestingCompleteEvent(
+                  exitCode, buildResult.getStopTime(), buildResult.getWasSuspended()));
       return BlazeCommandResult.exitCode(exitCode);
     }
     // TODO(bazel-team): the check above shadows NO_TESTS_FOUND, but switching the conditions breaks
@@ -153,13 +153,15 @@ public class TestCommand implements BlazeCommand {
       ExitCode exitCode =
           buildResult.getSuccess() ? ExitCode.NO_TESTS_FOUND : buildResult.getExitCondition();
       env.getEventBus()
-          .post(new NoTestsFound(exitCode, env.getRuntime().getClock().currentTimeMillis()));
+          .post(
+              new NoTestsFound(exitCode, buildResult.getStopTime(), buildResult.getWasSuspended()));
       return BlazeCommandResult.exitCode(exitCode);
     }
 
     boolean buildSuccess = buildResult.getSuccess();
-    boolean testSuccess = analyzeTestResults(
-        testTargets, buildResult.getSkippedTargets(), testListener, options, env);
+    boolean testSuccess =
+        analyzeTestResults(
+            testTargets, buildResult.getSkippedTargets(), testListener, options, env, printer);
 
     if (testSuccess && !buildSuccess) {
       // If all tests run successfully, test summary should include warning if
@@ -172,41 +174,46 @@ public class TestCommand implements BlazeCommand {
     ExitCode exitCode = buildSuccess
         ? (testSuccess ? ExitCode.SUCCESS : ExitCode.TESTS_FAILED)
         : buildResult.getExitCondition();
-    env.getEventBus().post(new TestingCompleteEvent(exitCode, buildResult.getStopTime()));
+    env.getEventBus()
+        .post(
+            new TestingCompleteEvent(
+                exitCode, buildResult.getStopTime(), buildResult.getWasSuspended()));
     return BlazeCommandResult.exitCode(exitCode);
   }
 
   /**
-   * Analyzes test results and prints summary information.
-   * Returns true if and only if all tests were successful.
+   * Analyzes test results and prints summary information. Returns true if and only if all tests
+   * were successful.
    */
   private boolean analyzeTestResults(
       Collection<ConfiguredTarget> testTargets,
       Collection<ConfiguredTarget> skippedTargets,
       AggregatingTestListener listener,
       OptionsParsingResult options,
-      CommandEnvironment env) {
+      CommandEnvironment env,
+      AnsiTerminalPrinter printer) {
     TestResultNotifier notifier = new TerminalTestResultNotifier(
         printer,
         makeTestLogPathFormatter(options, env),
         options);
-    return listener.getAnalyzer().differentialAnalyzeAndReport(
-        testTargets, skippedTargets, listener, notifier);
+    return listener.differentialAnalyzeAndReport(testTargets, skippedTargets, notifier);
   }
 
   private static TestLogPathFormatter makeTestLogPathFormatter(
       OptionsParsingResult options,
       CommandEnvironment env) {
+    BlazeRuntime runtime = env.getRuntime();
     TestSummaryOptions summaryOptions = options.getOptions(TestSummaryOptions.class);
     if (!summaryOptions.printRelativeTestLogPaths) {
       return Path::getPathString;
     }
-    String productName = env.getRuntime().getProductName();
+    String productName = runtime.getProductName();
     BuildRequestOptions requestOptions = env.getOptions().getOptions(BuildRequestOptions.class);
     // requestOptions.printWorkspaceInOutputPathsIfNeeded is antithetical with
     // summaryOptions.printRelativeTestLogPaths, so we completely ignore it.
     PathPrettyPrinter pathPrettyPrinter =
         OutputDirectoryLinksUtils.getPathPrettyPrinter(
+            runtime.getRuleClassProvider().getSymlinkDefinitions(),
             requestOptions.getSymlinkPrefix(productName),
             productName,
             env.getWorkspace(),

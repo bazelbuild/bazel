@@ -15,11 +15,11 @@
 package com.google.devtools.build.skydoc.fakebuildapi.proto;
 
 import com.google.devtools.build.lib.skylarkbuildapi.ProtoInfoApi;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
+import com.google.devtools.build.lib.syntax.Printer;
 
 /** Fake implementation of {@link ProtoInfoApi.Provider}. */
 public class FakeProtoInfoApiProvider implements ProtoInfoApi.Provider {
 
   @Override
-  public void repr(SkylarkPrinter printer) {}
+  public void repr(Printer printer) {}
 }

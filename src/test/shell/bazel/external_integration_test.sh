@@ -605,11 +605,12 @@ function test_fetch() {
   serve_jar
 
   cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
-maven_jar(
+load("@bazel_tools//tools/build_defs/repo:jvm.bzl", "jvm_maven_import_external")
+jvm_maven_import_external(
     name = 'endangered',
     artifact = "com.example.carnivore:carnivore:1.23",
-    repository = 'http://127.0.0.1:$nc_port/',
-    sha1 = '$sha1',
+    server_urls = ['http://127.0.0.1:$nc_port/'],
+    artifact_sha256 = '$sha256',
 )
 bind(name = 'mongoose', actual = '@endangered//jar')
 EOF
@@ -1707,6 +1708,59 @@ EOF
     || fail "expected success"
 }
 
+
+function test_distdir_outputname() {
+  # Verify that distdir searches at least for the local part of the URL,
+  # even if the output is renamed.
+  WRKDIR=$(mktemp -d "${TEST_TMPDIR}/testXXXXXX")
+  cd "${WRKDIR}"
+  date +%s > actual_file_name.txt
+  sha256=$(sha256sum actual_file_name.txt | head -c 64)
+
+  mkdir distfiles
+  mv actual_file_name.txt distfiles
+
+  mkdir main
+  cd main
+  cat > ext_file.bzl <<'EOF'
+def _impl(ctx):
+  ctx.download(
+    url = ctx.attr.urls,
+    output = 'foo',
+    sha256 = ctx.attr.sha256,
+  )
+  ctx.file(
+    "BUILD",
+    "exports_files(['foo'], visibility=['//visibility:public'])",
+  )
+
+ext_file = repository_rule(
+  implementation = _impl,
+  attrs = { "urls" : attr.string_list(), "sha256" : attr.string() },
+)
+EOF
+  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
+load("//:ext_file.bzl", "ext_file")
+ext_file(
+  name="ext",
+  urls=["http://doesnotexist.example.com/outdatedpath/actual_file_name.txt"],
+  sha256="${sha256}",
+)
+EOF
+  cat > BUILD <<'EOF'
+genrule(
+  name = "local",
+  srcs = ["@ext//:foo"],
+  outs = ["local.txt"],
+  cmd = "cp $< $@",
+)
+EOF
+
+  bazel clean --expunge
+  bazel build --distdir="${WRKDIR}/distfiles" //:local \
+    || fail "expected success"
+}
+
 function test_distdir_relative_path() {
   WRKDIR=$(mktemp -d "${TEST_TMPDIR}/testXXXXXX")
   cd "${WRKDIR}"
@@ -2313,6 +2367,80 @@ EOF
   # help finding out where the implict dependency comes from.
   expect_log 'data.*is.*data_repo'
   expect_log 'data_repo.*main/withimplicit.bzl:6'
+}
+
+function test_overwrite_existing_workspace_build() {
+  # Verify that the WORKSPACE and BUILD files provided by
+  # the invocation of an http_archive rule correctly
+  # overwritel any such file packed in the archive.
+  WRKDIR=$(mktemp -d "${TEST_TMPDIR}/testXXXXXX")
+  cd "${WRKDIR}"
+
+  for bad_file in \
+      'echo BAD content > $1' \
+      'ln -s /does/not/exist/BAD $1'
+
+  do
+    rm -rf ext ext.tar
+    mkdir ext
+    sh -c "${bad_file}" -- ext/WORKSPACE
+    sh -c "${bad_file}" -- ext/BUILD.bazel
+    echo hello world > ext/data
+    tar cvf ext.tar ext
+
+    for BUILD_FILE in \
+      'build_file_content = '\''exports_files(["data", "WORKSPACE"])'\' \
+      'build_file = "@//:external_build_file"'
+    do
+      rm -rf main
+      mkdir main
+      cd main
+
+      cat > WORKSPACE <<EOF
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+http_archive(
+   name = "ext",
+   strip_prefix = "ext",
+   url = 'file://${WRKDIR}/ext.tar',
+   ${BUILD_FILE},
+)
+EOF
+      echo
+      ls -al ${WRKDIR}/ext
+      echo
+      cat WORKSPACE
+      echo
+
+      cat > external_build_file <<'EOF'
+exports_files(["data", "WORKSPACE"])
+EOF
+
+      cat > BUILD <<'EOF'
+genrule(
+  name = "it",
+  cmd = "cp $< $@",
+  srcs = ["@ext//:data"],
+  outs = ["it.txt"],
+)
+
+genrule(
+  name = "ws",
+  cmd = "cp $< $@",
+  srcs = ["@ext//:WORKSPACE"],
+  outs = ["ws.txt"],
+)
+EOF
+
+      bazel build //:it || fail "Expected success"
+      grep 'world' `bazel info bazel-genfiles`/it.txt \
+          || fail "Wrong content of data file"
+      bazel build //:ws || fail "Expected success"
+      grep 'BAD' `bazel info bazel-genfiles`/ws.txt \
+          && fail "WORKSPACE file not overwritten" || :
+
+      cd ..
+    done
+  done
 }
 
 run_suite "external tests"

@@ -17,9 +17,7 @@ package com.google.devtools.build.android.aapt2;
 
 import com.android.repository.Revision;
 import com.google.devtools.build.android.Converters.ExistingPathConverter;
-import com.google.devtools.build.android.Converters.PathConverter;
 import com.google.devtools.build.android.Converters.RevisionConverter;
-import com.google.devtools.common.options.Converters.BooleanConverter;
 import com.google.devtools.common.options.Converters.CommaSeparatedOptionListConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
@@ -85,26 +83,6 @@ public class Aapt2ConfigOptions extends OptionsBase {
   public TriState conditionalKeepRules;
 
   @Option(
-      name = "resourcePathShortening",
-      defaultValue = "false",
-      converter = BooleanConverter.class,
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      help = "Enable the resource path shortening optimization.")
-  public boolean resourcePathShortening;
-
-  @Option(
-      name = "resourcePathShorteningMapOutput",
-      defaultValue = "null",
-      converter = PathConverter.class,
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      help =
-          "Path to write the map of old resource paths to shortened paths, if resource path"
-              + " shortening is enabled.")
-  public Path resourcePathShorteningMapOutput;
-
-  @Option(
       name = "uncompressedExtensions",
       defaultValue = "",
       converter = CommaSeparatedOptionListConverter.class,
@@ -113,16 +91,6 @@ public class Aapt2ConfigOptions extends OptionsBase {
       effectTags = {OptionEffectTag.UNKNOWN},
       help = "A list of file extensions not to compress.")
   public List<String> uncompressedExtensions;
-
-  @Option(
-      name = "assetsToIgnore",
-      defaultValue = "",
-      converter = CommaSeparatedOptionListConverter.class,
-      category = "config",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      help = "A list of assets extensions to ignore.")
-  public List<String> assetsToIgnore;
 
   @Option(
       name = "debug",
@@ -168,13 +136,15 @@ public class Aapt2ConfigOptions extends OptionsBase {
               + " the output package name following an underscore.")
   public List<String> splits;
 
+  // TODO(b/136572475, b/112848607): remove this option
   @Option(
       name = "useCompiledResourcesForMerge",
-      defaultValue = "false",
+      defaultValue = "true",
       category = "config",
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
-      help = "Use compiled resources for merging rather than parsed symbols binary.")
+      help = "Use compiled resources for merging rather than parsed symbols binary.",
+      deprecationWarning = "cannot be disabled")
   public boolean useCompiledResourcesForMerge;
 
   @Option(

@@ -14,8 +14,10 @@
 
 #include "src/main/cpp/util/bazel_log_handler.h"
 
+#include <chrono>  // NOLINT -- for windows portability
 #include <cstdio>
 #include <cstdlib>
+#include <ctime>
 #include <iostream>
 #include <sstream>
 
@@ -62,14 +64,31 @@ void PrintUserLevelMessageToStream(std::ostream* stream, LogLevel level,
   // output. We ignore it here.
 }
 
+static std::string Timestamp() {
+  auto now = std::chrono::system_clock::now();
+  time_t s = std::chrono::system_clock::to_time_t(now);
+  auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(
+      now.time_since_epoch());
+  struct tm tmbuf = {};
+#ifdef _WIN32
+  tmbuf = *localtime(&s);  // NOLINT -- threadsafe on windows
+#else
+  localtime_r(&s, &tmbuf);
+#endif
+  char buf[16];
+  int r = strftime(buf, sizeof buf - 5, "%H:%M:%S", &tmbuf);
+  r += snprintf(buf + r, +5, ".%03d", static_cast<int>(ms.count() % 1000));
+  return std::string(buf, r);
+}
+
 // For debug logs, print all logs, both debug logging and USER logs and above,
 // along with information about where the log message came from.
 void PrintDebugLevelMessageToStream(std::ostream* stream,
                                     const std::string& filename, int line,
                                     LogLevel level,
                                     const std::string& message) {
-  (*stream) << "[bazel " << LogLevelName(level) << " " << filename << ":"
-            << line << "] " << message << std::endl;
+  (*stream) << "[" << LogLevelName(level) << " " << Timestamp() << " "
+            << filename << ":" << line << "] " << message << std::endl;
 }
 
 void BazelLogHandler::HandleMessage(LogLevel level, const std::string& filename,

@@ -30,6 +30,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.graph.Digraph;
+import com.google.devtools.build.lib.graph.Node;
 import com.google.devtools.build.lib.packages.AggregatingAttributeMapper;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.AttributeFormatter;
@@ -42,8 +43,9 @@ import com.google.devtools.build.lib.packages.PackageGroup;
 import com.google.devtools.build.lib.packages.ProtoUtils;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
-import com.google.devtools.build.lib.query2.CommonQueryOptions;
-import com.google.devtools.build.lib.query2.FakeLoadTarget;
+import com.google.devtools.build.lib.packages.Type;
+import com.google.devtools.build.lib.query2.common.CommonQueryOptions;
+import com.google.devtools.build.lib.query2.compat.FakeLoadTarget;
 import com.google.devtools.build.lib.query2.engine.OutputFormatterCallback;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment;
 import com.google.devtools.build.lib.query2.engine.SynchronizedDelegatingOutputFormatterCallback;
@@ -54,7 +56,6 @@ import com.google.devtools.build.lib.query2.proto.proto2api.Build.QueryResult;
 import com.google.devtools.build.lib.query2.proto.proto2api.Build.SourceFile;
 import com.google.devtools.build.lib.query2.query.aspectresolvers.AspectResolver;
 import com.google.devtools.build.lib.query2.query.output.QueryOptions.OrderOutput;
-import com.google.devtools.build.lib.syntax.Type;
 import com.google.protobuf.CodedOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
@@ -91,7 +92,7 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
   private AspectResolver aspectResolver;
   private DependencyFilter dependencyFilter;
   private boolean relativeLocations;
-  protected boolean includeDefaultValues = true;
+  private boolean includeDefaultValues = true;
   private Predicate<String> ruleAttributePredicate = Predicates.alwaysTrue();
   private boolean flattenSelects = true;
   private boolean includeLocations = true;
@@ -106,7 +107,7 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
   public void setOptions(CommonQueryOptions options, AspectResolver aspectResolver) {
     super.setOptions(options, aspectResolver);
     this.aspectResolver = aspectResolver;
-    this.dependencyFilter = OutputFormatter.getDependencyFilter(options);
+    this.dependencyFilter = FormatUtils.getDependencyFilter(options);
     this.relativeLocations = options.relativeLocations;
     this.includeDefaultValues = options.protoIncludeDefaultValues;
     this.ruleAttributePredicate = newAttributePredicate(options.protoOutputRuleAttributes);
@@ -146,7 +147,7 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
 
   private static Iterable<Target> getSortedLabels(Digraph<Target> result) {
     return Iterables.transform(
-        result.getTopologicalOrder(new TargetOrdering()), EXTRACT_NODE_LABEL);
+        result.getTopologicalOrder(new FormatUtils.TargetOrdering()), Node::getLabel);
   }
 
   @Override
@@ -170,8 +171,8 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
       Build.Rule.Builder rulePb = Build.Rule.newBuilder()
           .setName(rule.getLabel().toString())
           .setRuleClass(rule.getRuleClass());
-      if (includeLocation()) {
-        rulePb.setLocation(getLocation(target, relativeLocations));
+      if (includeLocations) {
+        rulePb.setLocation(FormatUtils.getLocation(target, relativeLocations));
       }
       addAttributes(rulePb, rule, extraDataForPostProcess);
       String transitiveHashCode = rule.getRuleClassObject().getRuleDefinitionEnvironmentHashCode();
@@ -187,38 +188,39 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
 
       ImmutableMultimap<Attribute, Label> aspectsDependencies =
           aspectResolver.computeAspectDependencies(target, dependencyFilter);
-      // Add information about additional attributes from aspects.
-      List<Build.Attribute> attributes = new ArrayList<>(aspectsDependencies.asMap().size());
-      for (Map.Entry<Attribute, Collection<Label>> entry : aspectsDependencies.asMap().entrySet()) {
-        Attribute attribute = entry.getKey();
-        Collection<Label> labels = entry.getValue();
-        if (!includeAspectAttribute(attribute, labels)) {
-          continue;
+      if (!aspectsDependencies.isEmpty()) {
+        // Add information about additional attributes from aspects.
+        List<Build.Attribute> attributes = new ArrayList<>(aspectsDependencies.asMap().size());
+        for (Map.Entry<Attribute, Collection<Label>> entry :
+            aspectsDependencies.asMap().entrySet()) {
+          Attribute attribute = entry.getKey();
+          Collection<Label> labels = entry.getValue();
+          if (!includeAspectAttribute(attribute, labels)) {
+            continue;
+          }
+          Object attributeValue = getAspectAttributeValue(attribute, labels);
+          Build.Attribute serializedAttribute =
+              AttributeFormatter.getAttributeProto(
+                  attribute,
+                  attributeValue,
+                  /*explicitlySpecified=*/ false,
+                  /*encodeBooleanAndTriStateAsIntegerAndString=*/ true);
+          attributes.add(serializedAttribute);
         }
-        Object attributeValue = getAspectAttributeValue(attribute, labels);
-        Build.Attribute serializedAttribute =
-            AttributeFormatter.getAttributeProto(
-                attribute,
-                attributeValue,
-                /*explicitlySpecified=*/ false,
-                /*encodeBooleanAndTriStateAsIntegerAndString=*/ true);
-        attributes.add(serializedAttribute);
+        rulePb.addAllAttribute(
+            attributes.stream().distinct().sorted(ATTRIBUTE_NAME).collect(Collectors.toList()));
       }
-      rulePb.addAllAttribute(
-          attributes.stream().distinct().sorted(ATTRIBUTE_NAME).collect(Collectors.toList()));
-      if (includeRuleInputsAndOutputs()) {
+      if (includeRuleInputsAndOutputs) {
         // Add all deps from aspects as rule inputs of current target.
-         aspectsDependencies
-             .values()
-             .stream()
-             .distinct()
-             .forEach(dep -> rulePb.addRuleInput(dep.toString()));
-        // Include explicit elements for all direct inputs and outputs of a rule;
-        // this goes beyond what is available from the attributes above, since it
-        // may also (depending on options) include implicit outputs,
-        // host-configuration outputs, and default values.
-        rule.getLabels(dependencyFilter)
-            .stream()
+        if (!aspectsDependencies.isEmpty()) {
+          aspectsDependencies.values().stream()
+              .distinct()
+              .forEach(dep -> rulePb.addRuleInput(dep.toString()));
+        }
+        // Include explicit elements for all direct inputs and outputs of a rule; this goes beyond
+        // what is available from the attributes above, since it may also (depending on options)
+        // include implicit outputs, host-configuration outputs, and default values.
+        rule.getLabels(dependencyFilter).stream()
             .distinct()
             .forEach(input -> rulePb.addRuleInput(input.toString()));
         rule.getOutputFiles()
@@ -241,8 +243,8 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
                        .setGeneratingRule(generatingRule.getLabel().toString())
                        .setName(label.toString());
 
-      if (includeLocation()) {
-        output.setLocation(getLocation(target, relativeLocations));
+      if (includeLocations) {
+        output.setLocation(FormatUtils.getLocation(target, relativeLocations));
       }
       targetPb.setType(GENERATED_FILE);
       targetPb.setGeneratedFile(output.build());
@@ -253,8 +255,8 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
       Build.SourceFile.Builder input = Build.SourceFile.newBuilder()
           .setName(label.toString());
 
-      if (includeLocation()) {
-        input.setLocation(getLocation(target, relativeLocations));
+      if (includeLocations) {
+        input.setLocation(FormatUtils.getLocation(target, relativeLocations));
       }
 
       if (inputFile.getName().equals("BUILD")) {
@@ -288,8 +290,8 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
       SourceFile.Builder input = SourceFile.newBuilder()
                                            .setName(label.toString());
 
-      if (includeLocation()) {
-        input.setLocation(getLocation(target, relativeLocations));
+      if (includeLocations) {
+        input.setLocation(FormatUtils.getLocation(target, relativeLocations));
       }
       targetPb.setType(SOURCE_FILE);
       targetPb.setSourceFile(input.build());
@@ -338,7 +340,8 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
       Object attributeValue;
       if (flattenSelects || !attributeMapper.isConfigurable(attr.getName())) {
         attributeValue =
-            flattenAttributeValues(attr.getType(), getPossibleAttributeValues(rule, attr));
+            flattenAttributeValues(
+                attr.getType(), PossibleAttributeValues.forRuleAndAttribute(rule, attr));
       } else {
         attributeValue = attributeMapper.getSelectorList(attr.getName(), attr.getType());
       }
@@ -363,7 +366,7 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
 
   protected boolean shouldIncludeAttribute(Rule rule, Attribute attr) {
     return (includeDefaultValues || rule.isAttributeValueExplicitlySpecified(attr))
-        && includeAttribute(rule, attr);
+        && ruleAttributePredicate.apply(attr.getName());
   }
 
   private static Object getAspectAttributeValue(Attribute attribute, Collection<Label> labels) {
@@ -389,11 +392,6 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
       Map<Attribute, Build.Attribute> serializedAttributes,
       Object extraDataForPostProcess) {}
 
-  /** Filter out some attributes */
-  protected boolean includeAttribute(Rule rule, Attribute attr) {
-    return ruleAttributePredicate.apply(attr.getName());
-  }
-
   /** Allow filtering of aspect attributes. */
   protected boolean includeAspectAttribute(Attribute attr, Collection<Label> value) {
     return true;
@@ -401,14 +399,6 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
 
   protected boolean includeRuleDefinitionEnvironment() {
     return true;
-  }
-
-  protected boolean includeRuleInputsAndOutputs() {
-    return includeRuleInputsAndOutputs;
-  }
-
-  protected boolean includeLocation() {
-    return includeLocations;
   }
 
   /**

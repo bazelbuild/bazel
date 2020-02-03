@@ -24,6 +24,8 @@ import com.google.devtools.build.lib.actions.FailAction;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.analysis.AnalysisUtils;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.analysis.FileProvider;
+import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.MakeVariableSupplier.MapBackedMakeVariableSupplier;
 import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
@@ -43,13 +45,13 @@ import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.RawAttributeMapper;
+import com.google.devtools.build.lib.packages.TargetUtils;
+import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.rules.cpp.CcCommon.CcFlagsSupplier;
 import com.google.devtools.build.lib.rules.cpp.CcCompilationHelper.CompilationInfo;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
-import com.google.devtools.build.lib.rules.cpp.LibraryToLink.CcLinkingContext;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
@@ -69,6 +71,9 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
 
   /** A string constant for the name of dynamic library output group. */
   public static final String DYNAMIC_LIBRARY_OUTPUT_GROUP_NAME = "dynamic_library";
+
+  /** A string constant for the name of Windows def file output group. */
+  public static final String DEF_FILE_OUTPUT_GROUP_NAME = "def_file";
 
   private final CppSemantics semantics;
 
@@ -112,8 +117,27 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
       boolean addDynamicRuntimeInputArtifactsToRunfiles)
       throws RuleErrorException, InterruptedException {
     CcCommon.checkRuleLoadedThroughMacro(ruleContext);
+    boolean linkedStaticallyBySpecified =
+        ruleContext.attributes().isAttributeValueExplicitlySpecified("linked_statically_by");
+    boolean linkedStaticallyByAllSpecified =
+        ruleContext.attributes().isAttributeValueExplicitlySpecified("linked_statically_by_all");
+
+    if ((linkedStaticallyBySpecified || linkedStaticallyByAllSpecified)
+        && !ruleContext
+            .getAnalysisEnvironment()
+            .getSkylarkSemantics()
+            .experimentalCcSharedLibrary()) {
+      ruleContext.ruleError(
+          "The attributes 'linked_statically_by' and 'linked_statically_by_all' can only be used "
+              + "with the flag --experimental_cc_shared_library.");
+    }
+    if (linkedStaticallyBySpecified && linkedStaticallyByAllSpecified) {
+      ruleContext.ruleError(
+          "Cannot specify both 'linked_statically_by' and 'linked_statically_by_all'");
+    }
     semantics.validateDeps(ruleContext);
     if (ruleContext.hasErrors()) {
+      addEmptyRequiredProviders(targetBuilder);
       return;
     }
 
@@ -136,6 +160,7 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
 
     semantics.validateAttributes(ruleContext);
     if (ruleContext.hasErrors()) {
+      addEmptyRequiredProviders(targetBuilder);
       return;
     }
 
@@ -143,6 +168,7 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
         ImmutableList.copyOf(ruleContext.getPrerequisites("deps", Mode.TARGET));
     CppHelper.checkProtoLibrariesInDeps(ruleContext, deps);
     if (ruleContext.hasErrors()) {
+      addEmptyRequiredProviders(targetBuilder);
       return;
     }
     Iterable<CcInfo> ccInfosFromDeps = AnalysisUtils.getProviders(deps, CcInfo.PROVIDER);
@@ -155,7 +181,9 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
                 semantics,
                 featureConfiguration,
                 ccToolchain,
-                fdoContext)
+                fdoContext,
+                TargetUtils.getExecutionInfo(
+                    ruleContext.getRule(), ruleContext.isAllowTagsPropagation()))
             .fromCommon(common, additionalCopts)
             .addSources(common.getSources())
             .addPrivateHeaders(common.getPrivateHeaders())
@@ -181,7 +209,9 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
                 fdoContext,
                 ruleContext.getConfiguration(),
                 ruleContext.getFragment(CppConfiguration.class),
-                ruleContext.getSymbolGenerator())
+                ruleContext.getSymbolGenerator(),
+                TargetUtils.getExecutionInfo(
+                    ruleContext.getRule(), ruleContext.isAllowTagsPropagation()))
             .fromCommon(ruleContext, common)
             .setGrepIncludes(CppHelper.getGrepIncludes(ruleContext))
             .setTestOrTestOnlyTarget(ruleContext.isTestOnlyTarget())
@@ -209,9 +239,6 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
       }
     }
 
-    if (ruleContext.getRule().isAttrDefined("srcs", BuildType.LABEL_LIST)) {
-      ruleContext.checkSrcsSamePackage(true);
-    }
     if (ruleContext.getRule().isAttrDefined("textual_hdrs", BuildType.LABEL_LIST)) {
       compilationHelper.addPublicTextualHeaders(
           ruleContext.getPrerequisiteArtifacts("textual_hdrs", Mode.TARGET).list());
@@ -304,36 +331,28 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
     if (ruleContext.getRule().getImplicitOutputsFunction() != ImplicitOutputsFunction.NONE
         || !ccCompilationOutputs.isEmpty()) {
       if (featureConfiguration.isEnabled(CppRuleClasses.TARGETS_WINDOWS)) {
-        // If user specifies a custom DEF file, then we use it.
-        Artifact defFile = common.getWinDefFile();
+        Artifact generatedDefFile = null;
 
-        // If no DEF file is specified and the windows_export_all_symbols feature is enabled, parse
-        // object files to generate DEF file and use it to export symbols - if we have a parser.
-        // Otherwise, use no DEF file.
-        if (defFile == null
-            && CppHelper.shouldUseGeneratedDefFile(ruleContext, featureConfiguration)) {
-          Artifact defParser = common.getDefParser();
-          if (defParser != null) {
-            try {
-              defFile =
-                  CppHelper.createDefFileActions(
-                      ruleContext,
-                      defParser,
-                      ccCompilationOutputs.getObjectFiles(false),
-                      ccToolchain
-                          .getFeatures()
-                          .getArtifactNameForCategory(
-                              ArtifactCategory.DYNAMIC_LIBRARY, ruleContext.getLabel().getName()));
-            } catch (EvalException e) {
-              ruleContext.throwWithRuleError(e.getMessage());
-              throw new IllegalStateException("Should not be reached");
-            }
+        Artifact defParser = common.getDefParser();
+        if (defParser != null) {
+          try {
+            generatedDefFile =
+                CppHelper.createDefFileActions(
+                    ruleContext,
+                    defParser,
+                    ccCompilationOutputs.getObjectFiles(false),
+                    ccToolchain
+                        .getFeatures()
+                        .getArtifactNameForCategory(
+                            ArtifactCategory.DYNAMIC_LIBRARY, ruleContext.getLabel().getName()));
+            targetBuilder.addOutputGroup(DEF_FILE_OUTPUT_GROUP_NAME, generatedDefFile);
+          } catch (EvalException e) {
+            throw ruleContext.throwWithRuleError(e.getMessage());
           }
         }
-
-        if (defFile != null) {
-          linkingHelper.setDefFile(defFile);
-        }
+        linkingHelper.setDefFile(
+            CppHelper.getWindowsDefFileForLinking(
+                ruleContext, common.getWinDefFile(), generatedDefFile, featureConfiguration));
       }
       ccLinkingOutputs = linkingHelper.link(ccCompilationOutputs);
     }
@@ -778,8 +797,6 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
     return librariesToLink.build();
   }
 
-
-
   private static void checkIfLinkOutputsCollidingWithPrecompiledFiles(
       RuleContext ruleContext,
       CcLinkingOutputs ccLinkingOutputs,
@@ -797,5 +814,11 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
                 + ") which also contains other code or objects to link");
       }
     }
+  }
+
+  private static void addEmptyRequiredProviders(RuleConfiguredTargetBuilder builder) {
+    builder.addProvider(RunfilesProvider.EMPTY);
+    builder.addProvider(FileProvider.EMPTY);
+    builder.addProvider(FilesToRunProvider.EMPTY);
   }
 }

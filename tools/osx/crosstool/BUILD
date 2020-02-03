@@ -13,6 +13,12 @@ filegroup(
     srcs = glob(["**"]),
 )
 
+filegroup(
+    name = "bzl_srcs",
+    srcs = glob(["*.bzl"]),
+    visibility = ["//tools/osx:__pkg__"],
+)
+
 cc_binary(
     name = "wrapped_clang",
     testonly = True,

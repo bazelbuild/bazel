@@ -86,13 +86,13 @@ public class PyProviderUtils {
   public static NestedSet<Artifact> getTransitiveSources(TransitiveInfoCollection target)
       throws EvalException {
     if (hasModernProvider(target)) {
-      return getModernProvider(target).getTransitiveSources().getSet(Artifact.class);
+      return getModernProvider(target).getTransitiveSourcesSet();
     } else if (hasLegacyProvider(target)) {
       return PyStructUtils.getTransitiveSources(getLegacyProvider(target));
     } else {
       NestedSet<Artifact> files = target.getProvider(FileProvider.class).getFilesToBuild();
       return NestedSetBuilder.<Artifact>compileOrder()
-          .addAll(FileType.filter(files, PyRuleClasses.PYTHON_SOURCE))
+          .addAll(FileType.filter(files.toList(), PyRuleClasses.PYTHON_SOURCE))
           .build();
     }
   }
@@ -114,7 +114,7 @@ public class PyProviderUtils {
       return PyStructUtils.getUsesSharedLibraries(getLegacyProvider(target));
     } else {
       NestedSet<Artifact> files = target.getProvider(FileProvider.class).getFilesToBuild();
-      return FileType.contains(files, CppFileTypes.SHARED_LIBRARY);
+      return FileType.contains(files.toList(), CppFileTypes.SHARED_LIBRARY);
     }
   }
 
@@ -128,7 +128,7 @@ public class PyProviderUtils {
    */
   public static NestedSet<String> getImports(TransitiveInfoCollection target) throws EvalException {
     if (hasModernProvider(target)) {
-      return getModernProvider(target).getImports().getSet(String.class);
+      return getModernProvider(target).getImportsSet();
     } else if (hasLegacyProvider(target)) {
       return PyStructUtils.getImports(getLegacyProvider(target));
     } else {

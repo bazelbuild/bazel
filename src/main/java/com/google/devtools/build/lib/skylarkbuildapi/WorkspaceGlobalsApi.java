@@ -15,16 +15,15 @@
 
 package com.google.devtools.build.lib.skylarkbuildapi;
 
-import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkGlobalLibrary;
-import com.google.devtools.build.lib.syntax.Environment;
+import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.FuncallExpression;
-import com.google.devtools.build.lib.syntax.Runtime.NoneType;
-import com.google.devtools.build.lib.syntax.SkylarkDict;
-import com.google.devtools.build.lib.syntax.SkylarkList;
+import com.google.devtools.build.lib.syntax.NoneType;
+import com.google.devtools.build.lib.syntax.Sequence;
+import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
+import com.google.devtools.build.lib.syntax.StarlarkThread;
 
 /** A collection of global skylark build API functions that apply to WORKSPACE files. */
 @SkylarkGlobalLibrary
@@ -33,23 +32,41 @@ public interface WorkspaceGlobalsApi {
   @SkylarkCallable(
       name = "workspace",
       doc =
-          "Sets the name for this workspace. Workspace names should be a Java-package-style "
+          "<p>This command can only be used in a <code>WORKSPACE</code> file and must come "
+              + "before all other commands in the <code>WORKSPACE</code> file. "
+              + "Each <code>WORKSPACE</code> file should have a <code>workspace</code> command.</p>"
+              + "<p>Sets the name for this workspace. "
+              + "Workspace names should be a Java-package-style "
               + "description of the project, using underscores as separators, e.g., "
-              + "github.com/bazelbuild/bazel should use com_github_bazelbuild_bazel. Names must "
-              + "start with a letter and can only contain letters, numbers, and underscores.",
+              + "github.com/bazelbuild/bazel should use com_github_bazelbuild_bazel. "
+              + "<p>This name is used for the directory that the repository's runfiles are stored "
+              + "in. For example, if there is a runfile <code>foo/bar</code> in the local "
+              + "repository and the WORKSPACE file contains "
+              + "<code>workspace(name = 'baz')</code>, then the runfile will be available under "
+              + "<code>mytarget.runfiles/baz/foo/bar</code>.  If no workspace name is "
+              + "specified, then the runfile will be symlinked to "
+              + "<code>bar.runfiles/foo/bar</code>.</p> "
+              + "<p><a href=\"../../external.html\">Remote repository</a> rule names must be"
+              + "  valid workspace names. For example, you could have"
+              + "  <code>maven_jar(name = 'foo')</code>, but not"
+              + "  <code>maven_jar(name = 'foo.bar')</code>, as Bazel would attempt to write a"
+              + "  WORKSPACE file for the <code>maven_jar</code> containing"
+              + "  <code>workspace(name = 'foo.bar')</code>."
+              + "</p>",
       allowReturnNones = true,
       parameters = {
         @Param(
             name = "name",
             type = String.class,
-            doc = "the name of the workspace.",
+            doc =
+                "the name of the workspace. Names must start with a letter and can only contain "
+                    + "letters, numbers, and underscores.",
             named = true,
             positional = false),
         @Param(
             name = "managed_directories",
-            type = SkylarkDict.class,
+            type = Dict.class,
             generic1 = String.class,
-            noneable = true,
             named = true,
             positional = false,
             defaultValue = "{}",
@@ -60,13 +77,41 @@ public interface WorkspaceGlobalsApi {
                     + "\nManaged directories must be excluded from the source tree by listing"
                     + " them (or their parent directories) in the .bazelignore file."),
       },
-      useAst = true,
-      useEnvironment = true)
+      useStarlarkThread = true)
   NoneType workspace(
       String name,
-      SkylarkDict<String, Object> managedDirectories,
-      FuncallExpression ast,
-      Environment env)
+      Dict<?, ?> managedDirectories, // <String, Sequence<String>>
+      StarlarkThread thread)
+      throws EvalException, InterruptedException;
+
+  @SkylarkCallable(
+      name = "dont_symlink_directories_in_execroot",
+      doc =
+          "Exclude directories under workspace from symlinking into execroot.\n"
+              + "<p>Normally, source directories are symlinked to the execroot, so that the"
+              + " actions can access the input (source) files.<p/><p>In the case of Ninja"
+              + " execution (enabled with --experimental_ninja_actions flag), it is typical that"
+              + " the directory with build-related files contains source files for the build, and"
+              + " Ninja prescribes creation of the outputs in that same directory.</p><p>Since"
+              + " commands in the Ninja file use relative paths to address source files and"
+              + " directories, we must still allow the execution in the same-named directory under"
+              + " the execroot. But we must avoid populating the underlying source directory with"
+              + " output files.</p><p>This method can be used to specify that Ninja build"
+              + " configuration directories should not be symlinked to the execroot. It is not"
+              + " expected that there could be other use cases for using this method.</p>",
+      allowReturnNones = true,
+      parameters = {
+        @Param(
+            name = "paths",
+            type = Sequence.class,
+            generic1 = String.class,
+            doc = "",
+            named = true,
+            positional = false)
+      },
+      useStarlarkThread = true,
+      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_NINJA_ACTIONS)
+  NoneType dontSymlinkDirectoriesInExecroot(Sequence<?> paths, StarlarkThread thread)
       throws EvalException, InterruptedException;
 
   @SkylarkCallable(
@@ -76,13 +121,11 @@ public interface WorkspaceGlobalsApi {
       extraPositionals =
           @Param(
               name = "platform_labels",
-              type = SkylarkList.class,
+              type = Sequence.class,
               generic1 = String.class,
               doc = "The labels of the platforms to register."),
-      useLocation = true,
-      useEnvironment = true)
-  NoneType registerExecutionPlatforms(
-      SkylarkList<?> platformLabels, Location location, Environment env)
+      useStarlarkThread = true)
+  NoneType registerExecutionPlatforms(Sequence<?> platformLabels, StarlarkThread thread)
       throws EvalException, InterruptedException;
 
   @SkylarkCallable(
@@ -94,12 +137,11 @@ public interface WorkspaceGlobalsApi {
       extraPositionals =
           @Param(
               name = "toolchain_labels",
-              type = SkylarkList.class,
+              type = Sequence.class,
               generic1 = String.class,
               doc = "The labels of the toolchains to register."),
-      useLocation = true,
-      useEnvironment = true)
-  NoneType registerToolchains(SkylarkList<?> toolchainLabels, Location location, Environment env)
+      useStarlarkThread = true)
+  NoneType registerToolchains(Sequence<?> toolchainLabels, StarlarkThread thread)
       throws EvalException, InterruptedException;
 
   @SkylarkCallable(
@@ -126,8 +168,7 @@ public interface WorkspaceGlobalsApi {
             defaultValue = "None",
             doc = "The real label to be aliased")
       },
-      useAst = true,
-      useEnvironment = true)
-  NoneType bind(String name, Object actual, FuncallExpression ast, Environment env)
+      useStarlarkThread = true)
+  NoneType bind(String name, Object actual, StarlarkThread thread)
       throws EvalException, InterruptedException;
 }

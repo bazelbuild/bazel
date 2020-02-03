@@ -22,6 +22,7 @@ import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import javax.annotation.Nullable;
 
 /**
  * Creates an execRoot for a Spawn that contains input files as symlinks to their original
@@ -37,7 +38,8 @@ public class SymlinkedSandboxedSpawn extends AbstractContainerizingSandboxedSpaw
       SandboxInputs inputs,
       SandboxOutputs outputs,
       Set<Path> writableDirs,
-      TreeDeleter treeDeleter) {
+      TreeDeleter treeDeleter,
+      @Nullable Path statisticsPath) {
     super(
         sandboxPath,
         sandboxExecRoot,
@@ -46,7 +48,8 @@ public class SymlinkedSandboxedSpawn extends AbstractContainerizingSandboxedSpaw
         inputs,
         outputs,
         writableDirs,
-        treeDeleter);
+        treeDeleter,
+        statisticsPath);
   }
 
   @Override

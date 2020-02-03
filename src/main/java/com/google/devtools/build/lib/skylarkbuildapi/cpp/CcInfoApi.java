@@ -14,18 +14,16 @@
 
 package com.google.devtools.build.lib.skylarkbuildapi.cpp;
 
-import com.google.devtools.build.lib.events.Location;
-import com.google.devtools.build.lib.skylarkbuildapi.ProviderApi;
-import com.google.devtools.build.lib.skylarkbuildapi.StructApi;
+import com.google.devtools.build.lib.skylarkbuildapi.core.ProviderApi;
+import com.google.devtools.build.lib.skylarkbuildapi.core.StructApi;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.ParamType;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkConstructor;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
-import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.Runtime.NoneType;
+import com.google.devtools.build.lib.syntax.NoneType;
 
 /** Wrapper for every C++ compilation and linking provider. */
 @SkylarkModule(
@@ -49,7 +47,7 @@ public interface CcInfoApi extends StructApi {
       name = "linking_context",
       doc = "Returns the <code>LinkingContext</code>",
       structField = true)
-  CcLinkingContextApi getCcLinkingContext();
+  CcLinkingContextApi<?> getCcLinkingContext();
 
   /** The provider implementing this can construct CcInfo objects. */
   @SkylarkModule(
@@ -63,8 +61,6 @@ public interface CcInfoApi extends StructApi {
     @SkylarkCallable(
         name = NAME,
         doc = "The <code>CcInfo</code> constructor.",
-        useLocation = true,
-        useEnvironment = true,
         parameters = {
           @Param(
               name = "compilation_context",
@@ -91,11 +87,6 @@ public interface CcInfoApi extends StructApi {
         },
         selfCall = true)
     @SkylarkConstructor(objectType = CcInfoApi.class, receiverNameForDoc = NAME)
-    CcInfoApi createInfo(
-        Object ccCompilationContext,
-        Object ccLinkingInfo,
-        Location location,
-        Environment environment)
-        throws EvalException;
+    CcInfoApi createInfo(Object ccCompilationContext, Object ccLinkingInfo) throws EvalException;
   }
 }

@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.CompletionContext;
 import com.google.devtools.build.lib.actions.EventReportingArtifacts;
+import com.google.devtools.build.lib.actions.SpawnResult.MetadataLog;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
@@ -50,6 +51,7 @@ import com.google.devtools.build.lib.buildeventstream.BuildEventProtocolOptions;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.Aborted.AbortReason;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildEventId.NamedSetOfFilesId;
+import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.File;
 import com.google.devtools.build.lib.buildeventstream.BuildEventTransport;
 import com.google.devtools.build.lib.buildeventstream.BuildEventTransportClosedEvent;
 import com.google.devtools.build.lib.buildeventstream.BuildEventWithConfiguration;
@@ -70,6 +72,7 @@ import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
+import com.google.devtools.build.lib.vfs.util.FileSystems;
 import com.google.devtools.common.options.Options;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -115,6 +118,30 @@ public class BuildEventStreamerTest extends FoundationTestCase {
     streamer = null;
   }
 
+  private static BuildEventContext getTestBuildEventContext(ArtifactGroupNamer artifactGroupNamer) {
+    return new BuildEventContext() {
+      @Override
+      public ArtifactGroupNamer artifactGroupNamer() {
+        return artifactGroupNamer;
+      }
+
+      @Override
+      public PathConverter pathConverter() {
+        return new PathConverter() {
+          @Override
+          public String apply(Path path) {
+            return path.toString();
+          }
+        };
+      }
+
+      @Override
+      public BuildEventProtocolOptions getOptions() {
+        return Options.getDefaults(BuildEventProtocolOptions.class);
+      }
+    };
+  }
+
   private static final ActionExecutedEvent SUCCESSFUL_ACTION_EXECUTED_EVENT =
       new ActionExecutedEvent(
           ActionsTestUtil.DUMMY_ARTIFACT.getExecPath(),
@@ -123,7 +150,9 @@ public class BuildEventStreamerTest extends FoundationTestCase {
           ActionsTestUtil.DUMMY_ARTIFACT.getPath(),
           /* stdout= */ null,
           /* stderr= */ null,
-          ErrorTiming.NO_ERROR);
+          /* actionMetadataLogs= */ ImmutableList.of(),
+          ErrorTiming.NO_ERROR,
+          /* isInMemoryFs= */ false);
 
   private static class RecordingBuildEventTransport implements BuildEventTransport {
     private final List<BuildEvent> events = new ArrayList<>();
@@ -147,29 +176,7 @@ public class BuildEventStreamerTest extends FoundationTestCase {
     @Override
     public synchronized void sendBuildEvent(BuildEvent event) {
       events.add(event);
-      eventsAsProtos.add(
-          event.asStreamProto(
-              new BuildEventContext() {
-                @Override
-                public ArtifactGroupNamer artifactGroupNamer() {
-                  return artifactGroupNamer;
-                }
-
-                @Override
-                public PathConverter pathConverter() {
-                  return new PathConverter() {
-                    @Override
-                    public String apply(Path path) {
-                      return path.toString();
-                    }
-                  };
-                }
-
-                @Override
-                public BuildEventProtocolOptions getOptions() {
-                  return Options.getDefaults(BuildEventProtocolOptions.class);
-                }
-              }));
+      eventsAsProtos.add(event.asStreamProto(getTestBuildEventContext(this.artifactGroupNamer)));
     }
 
     @Override
@@ -1144,7 +1151,9 @@ public class BuildEventStreamerTest extends FoundationTestCase {
             ActionsTestUtil.DUMMY_ARTIFACT.getPath(),
             /* stdout= */ null,
             /* stderr= */ null,
-            ErrorTiming.BEFORE_EXECUTION);
+            /* actionMetadataLogs= */ ImmutableList.of(),
+            ErrorTiming.BEFORE_EXECUTION,
+            /* isInMemoryFs= */ false);
 
     streamer.buildEvent(SUCCESSFUL_ACTION_EXECUTED_EVENT);
     streamer.buildEvent(failedActionExecutedEvent);
@@ -1178,7 +1187,9 @@ public class BuildEventStreamerTest extends FoundationTestCase {
             ActionsTestUtil.DUMMY_ARTIFACT.getPath(),
             /* stdout= */ null,
             /* stderr= */ null,
-            ErrorTiming.BEFORE_EXECUTION);
+            /* actionMetadataLogs= */ ImmutableList.of(),
+            ErrorTiming.BEFORE_EXECUTION,
+            /* isInMemoryFs= */ false);
 
     streamer.buildEvent(SUCCESSFUL_ACTION_EXECUTED_EVENT);
     streamer.buildEvent(failedActionExecutedEvent);
@@ -1324,5 +1335,71 @@ public class BuildEventStreamerTest extends FoundationTestCase {
       result.setUnhandledThrowable(crash);
     }
     return new BuildCompleteEvent(result);
+  }
+
+  private static ActionExecutedEvent createActionExecutedEventWithLogs(
+      ImmutableList<MetadataLog> metadataLogs) {
+    return new ActionExecutedEvent(
+        ActionsTestUtil.DUMMY_ARTIFACT.getExecPath(),
+        new ActionsTestUtil.NullAction(),
+        /* exception= */ null,
+        ActionsTestUtil.DUMMY_ARTIFACT.getPath(),
+        /* stdout= */ null,
+        /* stderr= */ null,
+        metadataLogs,
+        ErrorTiming.NO_ERROR,
+        /* isInMemoryFs= */ false);
+  }
+
+  @Test
+  public void testActionExecutedEventLogsConstructor() {
+    String metadataLogName = "action_metadata";
+    Path testPath1 = FileSystems.getJavaIoFileSystem().getPath("/path/to/logs-1");
+    Path testPath2 = FileSystems.getJavaIoFileSystem().getPath("/path/to/logs-2");
+    MetadataLog testMetadataLog1 = new MetadataLog(metadataLogName, testPath1);
+    MetadataLog testMetadataLog2 = new MetadataLog(metadataLogName, testPath2);
+
+    ActionExecutedEvent withLogsEvent =
+        createActionExecutedEventWithLogs(ImmutableList.of(testMetadataLog1, testMetadataLog2));
+    ActionExecutedEvent withNoLogsEvent = SUCCESSFUL_ACTION_EXECUTED_EVENT;
+
+    assertWithMessage("List parameter should return list of log path values")
+        .that(withLogsEvent.getActionMetadataLogs())
+        .containsExactly(testMetadataLog1, testMetadataLog2);
+    assertWithMessage("Null logs parameter should return empty list.")
+        .that(withNoLogsEvent.getActionMetadataLogs())
+        .isEmpty();
+  }
+
+  @Test
+  public void testActionExcutedEventProtoLogs() {
+    String metadataLogName = "action_metadata";
+    Path testPath1 = FileSystems.getJavaIoFileSystem().getPath("/path/to/logs-1");
+    Path testPath2 = FileSystems.getJavaIoFileSystem().getPath("/path/to/logs-2");
+
+    ActionExecutedEvent withLogsEvent =
+        createActionExecutedEventWithLogs(
+            ImmutableList.of(
+                new MetadataLog(metadataLogName, testPath1),
+                new MetadataLog(metadataLogName, testPath2)));
+    ActionExecutedEvent withNoLogsEvents = SUCCESSFUL_ACTION_EXECUTED_EVENT;
+
+    BuildEventStreamProtos.BuildEvent buildEventLogs =
+        withLogsEvent.asStreamProto(getTestBuildEventContext(artifactGroupNamer));
+    BuildEventStreamProtos.BuildEvent buildEventNoLogs =
+        withNoLogsEvents.asStreamProto(getTestBuildEventContext(artifactGroupNamer));
+
+    assertWithMessage("With logs build event action should contain 2 log files")
+        .that(buildEventLogs.getAction().getActionMetadataLogsCount())
+        .isEqualTo(2);
+    assertWithMessage("No logs build event action should contain 0 log files")
+        .that(buildEventNoLogs.getAction().getActionMetadataLogsCount())
+        .isEqualTo(0);
+    assertWithMessage("Event action should contains the two paths")
+        .that(
+            buildEventLogs.getAction().getActionMetadataLogsList().stream()
+                .map(File::getUri)
+                .collect(ImmutableList.toImmutableList()))
+        .containsExactly(testPath1.toString(), testPath2.toString());
   }
 }

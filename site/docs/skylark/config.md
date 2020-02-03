@@ -5,40 +5,52 @@ title: Starlark Build Configurations
 
 # Starlark Build Configurations
 
-User-definable configuration is coming to Starlark!
+- [Overview](#overview)
+- [Current Status](#current-status)
+- [User-defined Build Settings](#user-defined-build-settings)
+- [Build Settings and Select](#build-settings-and-select)
+- [User-defined Transitions](#user-defined-transitions)
+- [Integration With Platforms and Toolchains](#integration-with-platforms-and-toolchains)
+- [Also See](#also-see)
+
+## Overview
+
+Starlark build configuration is Bazel's API for customizing how your project
+builds.
 
 This makes it possible to:
 
-* define custom flags for your project, obsoleting the need for
-[`--define`](configurable-attributes.html#custom-keys)
-* write
-[transitions](skylark/lib/transition.html#modules.transition)
-  to configure deps in different configurations     than their parents (e.g.`--     compilation_mode=opt` or `--cpu=arm`)
-* bake better defaults into rules (e.g. automatically build `//my:android_app`
-  with a specified SDK)
+*   define custom flags for your project, obsoleting the need for
+     [`--define`](../configurable-attributes.html#custom-keys) 
+*   write
+     [transitions](lib/transition.html#transition)     to configure deps in different configurations
+    than their parents (e.g. `--compilation_mode=opt` or `--cpu=arm`)
 
-and more, all completely from .bzl files
-(no Bazel release required).
+*   bake better defaults into rules (e.g. automatically build `//my:android_app`
+    with a specified SDK)
+
+and more, all completely from .bzl files (no Bazel release required).
+
 <!-- [TOC] -->
 
 ## Current Status
 
-As of Q2'19, this effort is
-[partially rolled out](https://github.com/bazelbuild/bazel/issues/5574#issuecomment-458349702)
-. Much functionality is guarded while we work out concerns about
-memory and performance
-at scale.
-
+As of Q4'19, everything documented here works but
+may have memory and performance consequences as we work on scaling concerns.
 Related issues:
-* [#5574](https://github.com/bazelbuild/bazel/issues/5574) - Starlark support for custom configuration transitions
-* [#5575](https://github.com/bazelbuild/bazel/issues/5575) - Starlark support for multi-arch ("fat") binaries
-* [#5577](https://github.com/bazelbuild/bazel/issues/5577) - Starlark support for custom build flags
-* [#5578](https://github.com/bazelbuild/bazel/issues/5578) - Configuration doesn't block native ->
-Skylark rules migration
+
+*   [#5574](https://github.com/bazelbuild/bazel/issues/5574) - Starlark support
+    for custom configuration transitions
+*   [#5575](https://github.com/bazelbuild/bazel/issues/5575) - Starlark support
+    for multi-arch ("fat") binaries
+*   [#5577](https://github.com/bazelbuild/bazel/issues/5577) - Starlark support
+    for custom build flags
+*   [#5578](https://github.com/bazelbuild/bazel/issues/5578) - Configuration
+    doesn't block native to Skylark rules migration
 
 ## User-defined Build Settings
 A build setting is a single piece of
-[configuration](skylark/rules.html#configurations)
+[configuration](rules.html#configurations)
 information. Think of a configuration as a key/value map. Setting `--cpu=ppc`
 and `--copt="-DFoo"` produces a configuration that looks like
 `{cpu: ppc, copt: "-DFoo"}`. Each entry is a build setting.
@@ -56,8 +68,10 @@ set via [user-defined transitions](#user-defined-transitions).
 ### Defining Build Settings
 
 #### The `build_setting` `rule()` Parameter
+
 Build settings are rules like any other rule and are differentiated using the
-Starlark `rule()` function's `build_setting` [attribute](skylark/lib/globals.html#rule.build_setting).
+Starlark `rule()` function's `build_setting`
+[attribute](lib/globals.html#rule.build_setting).
 
 ```python
 # example/buildsettings/build_settings.bzl
@@ -69,25 +83,26 @@ string_flag = rule(
 
 The `build_setting` attribute takes a function that designates the type of the
 build setting. The type is limited to a set of basic Starlark types like
-`bool` and `string`. See the `config` module [documentation](skylark/lib/config.html)
-for details. More complicated typing can be done in the rule's implementation
-function. More on this below.
+`bool` and `string`. See the `config` module
+ [documentation](lib/config.html)  for details. More complicated typing can be done in the rule's
+implementation function. More on this below.
 
 The `config` function also takes an optional boolean parameter, `flag`, which is
 set to false by default. if `flag` is set to true, the build setting can be set
 on the command line by users as well as internally by rule writers via default
 values and
-[transitions](skylark/lib/transition.html#modules.transition)
-.  Not all settings should be settable by
-users. For example if you as a rule writer have some debug mode that you'd like
-to turn on inside test rules, you don't want to give users the ability to
-indiscriminately turn on that feature inside other non-test rules.
+[transitions](lib/transition.html#transition).
+Not all settings should be settable by users. For example if you as a rule
+writer have some debug mode that you'd like to turn on inside test rules,
+you don't want to give users the ability to indiscriminately turn on that
+feature inside other non-test rules.
 
 #### Using `ctx.build_setting_value`
-Like all rules, build setting rules have [implementation functions](skylark/rules.html#implementation-function).
+
+Like all rules, build setting rules have [implementation functions](rules.html#implementation-function).
 The basic Starlark-type value of the build settings can be accessed via the
-`ctx.build_setting_value` method. This method is only available to [`ctx`](skylark/lib/ctx.html)
-objects of build setting rules. These implementation methods can directly
+`ctx.build_setting_value` method. This method is only available to
+ [`ctx`](lib/ctx.html) objects of build setting rules. These implementation methods can directly
 forward the build settings value or do additional work on it, like type checking
 or more complex struct creation. Here's how you would implement an `enum`-typed
 build setting:
@@ -101,10 +116,10 @@ temperatures = ["HOT", "LUKEWARM", "ICED"]
 def _impl(ctx):
     raw_temperature = ctx.build_setting_value
     if raw_temperature not in temperatures:
-        fail(ctx.label + " build setting allowed to take values "
-             + temperatures + " but was set to unallowed value "
+        fail(str(ctx.label) + " build setting allowed to take values {"
+             + ", ".join(temperatures) + "} but was set to unallowed value "
              + raw_temperature)
-    return TemperatureProvider(type = value)
+    return TemperatureProvider(type = raw_temperature)
 
 temperature = rule(
     implementation = _impl,
@@ -119,6 +134,7 @@ will see its basic Starlark-typed value, not this post implementation function
 value.
 
 #### Instantiating Build Settings
+
 Rules defined with the `build_setting` parameter have an implicit mandatory
 `build_setting_default` attribute. This attribute takes on the same type as
 declared by the `build_setting` param.
@@ -145,8 +161,8 @@ flavor(
 )
 ```
 
-TODO(bazel-team): Implement common build settings rules and providers for simple
-cases where the implementation just fowards the value.
+A collection of the most common build setting rules can be found in
+[skylib](https://github.com/bazelbuild/bazel-skylib/blob/master/rules/common_settings.bzl).
 
 ### Using Build Settings
 
@@ -215,6 +231,7 @@ kotlin_binary = rule(
 ```
 
 #### Settings Build Settings on the command line
+
 Build settings are set on the command line like any other flag. Boolean build
 settings understand no-prefixes and both equals and space syntaxes are supported.
 The name of build settings is their full target path:
@@ -249,7 +266,8 @@ can't customely defined.
 Label-typed settings will eventually replace the functionality of late-bound
 defaults. Late-bound default attributes are Label-typed attributes whose
 final values can be affected by configuration. In Starlark, this will replace
-the [configuration_field](skylark/lib/globals.html#configuration_field) API.
+the [`configuration_field`](lib/globals.html#configuration_field)
+ API.
 
 ```python
 # example/rules.bzl
@@ -290,11 +308,11 @@ label_flag(
 TODO(bazel-team): Expand supported build setting types.
 
 ## Build Settings and Select
+
 Users can configure attributes on build settings by using
-[`select()`](be/functions.html#select). Build setting targets can be passed to the
-`flag_values` attribute of `config_setting`. The value to match to the
-configuration is passed as a `String` then parsed to the type of the build
-setting for matching.
+ [`select()`](../be/functions.html#select). Build setting targets can be passed to the `flag_values` attribute of
+`config_setting`. The value to match to the configuration is passed as a
+`String` then parsed to the type of the build setting for matching.
 
 ```python
 config_setting(
@@ -307,12 +325,14 @@ config_setting(
 
 
 ## User-defined Transitions
+
 A configuration
-[transition](skylark/lib/transition.html#modules.transition)
+[transition](lib/transition.html#transition)
 is how we change configuration of
 configured targets in the build graph.
 
 ### Defining Transitions in Starlark
+
 Transitions define configuration changes between rules. For example, a request
 like "compile my dependency for a different CPU than its parent" is handled by a
 transition.
@@ -323,7 +343,9 @@ configuration with `--cpu=ppc`". 1:2+ transitions can also exist but come
 with special restrictions.
 
 In Starlark, transitions are defined much like rules, with a defining
-`transition()` [function](skylark/lib/transition.html) and an implementation function.
+`transition()`
+[function](lib/transition.html#transition)
+and an implementation function.
 
 ```python
 # example/transitions/transitions.bzl
@@ -443,13 +465,51 @@ cpu_transition = transition(
     outputs = ["//command_line_option:cpu"]
 ```
 
+### Accessing Attributes with Transitions
+When [attaching a transition to an outgoing edge](#outgoing-edge-transitions)
+(regardless of whether the transition is a 1:1 or 1:2+ transition) access to
+values of that attribute in the rule implementation changes. Access through
+`ctx.attr` is forced to be a list if it isn't already. The order of elements in
+this list is unspecified.
+
+```python
+# example/transitions/rules.bzl
+def _transition_impl(settings, attr):
+    return {"//example:favorite_flavor" : "LATTE"},
+
+coffee_transition = transition(
+    implementation = _transition_impl,
+    inputs = [],
+    outputs = ["//example:favorite_flavor"]
+)
+
+def _rule_impl(ctx):
+    # Note: List access even though "dep" is not declared as list
+    transitioned_dep = ctx.attr.dep[0]
+
+    # Note: Access doesn't change, other_deps was already a list
+    for other dep in ctx.attr.other_deps:
+      # ...
+
+
+coffee_rule = rule(
+    implementation = _rule_impl,
+    attrs = {
+        "dep": attr.label(cfg = coffee_transition)
+        "other_deps": attr.label_list(cfg = coffee_transition)
+    })
+```
+
+Access to the value of a single branch of a 1:2+
+[has not been implemented yet](https://github.com/bazelbuild/bazel/issues/8633).
+
 ## Integration with Platforms and Toolchains
 Many native flags today, like `--cpu` and `--crosstool_top` are related to
 toolchain resolution. In the future, explicit transitions on these types of
 flags will likely be replaced by transitioning on the
-[target platform](platforms.html)
+[target platform](../platforms.html)
 
-## Also see:
+## Also See:
 
  * [Starlark Build Configuration](https://docs.google.com/document/d/1vc8v-kXjvgZOdQdnxPTaV0rrLxtP2XwnD2tAZlYJOqw/edit?usp=sharing)
  * [Bazel Configurability Roadmap](https://bazel.build/roadmaps/configuration.html)

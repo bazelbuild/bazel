@@ -19,6 +19,7 @@ import com.google.common.collect.Maps;
 import com.google.devtools.build.android.ParsedAndroidData.KeyValueConsumer;
 import com.google.devtools.build.android.proto.SerializeFormat;
 import com.google.devtools.build.android.proto.SerializeFormat.Header;
+import com.google.devtools.build.android.resources.Visibility;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.FileSystem;
@@ -58,6 +59,7 @@ public class AndroidParsedDataDeserializer implements AndroidDataDeserializer {
   /**
    * Reads the serialized {@link DataKey} and {@link DataValue} to the {@link KeyValueConsumers}.
    *
+   * @param dependencyInfo The provenance (in terms of Bazel relationship) of the data
    * @param inPath The path to the serialized protocol buffer.
    * @param consumers The {@link KeyValueConsumers} for the entries {@link DataKey} -&gt; {@link
    *     DataValue}.
@@ -65,7 +67,7 @@ public class AndroidParsedDataDeserializer implements AndroidDataDeserializer {
    *     proto buffer.
    */
   @Override
-  public void read(Path inPath, KeyValueConsumers consumers) {
+  public void read(DependencyInfo dependencyInfo, Path inPath, KeyValueConsumers consumers) {
     Stopwatch timer = Stopwatch.createStarted();
     try (InputStream in = Files.newInputStream(inPath, StandardOpenOption.READ)) {
       FileSystem currentFileSystem = inPath.getFileSystem();
@@ -103,7 +105,8 @@ public class AndroidParsedDataDeserializer implements AndroidDataDeserializer {
     }
 
     // Read back the sources table.
-    DataSourceTable sourceTable = DataSourceTable.read(in, currentFileSystem, header);
+    DataSourceTable sourceTable =
+        DataSourceTable.read(DependencyInfo.UNKNOWN, in, currentFileSystem, header);
 
     // TODO(corysmith): Make this a lazy read of the values.
     for (Map.Entry<DataKey, KeyValueConsumer<DataKey, ?>> entry : keys.entrySet()) {
@@ -134,7 +137,10 @@ public class AndroidParsedDataDeserializer implements AndroidDataDeserializer {
         @SuppressWarnings("unchecked")
         KeyValueConsumer<DataKey, DataValue> value =
             (KeyValueConsumer<DataKey, DataValue>) entry.getValue();
-        value.accept(entry.getKey(), DataValueFile.of(source));
+        value.accept(
+            entry.getKey(),
+            DataValueFile.of(
+                Visibility.UNKNOWN, source, /*fingerprint=*/ null, /*rootXmlNode=*/ null));
       }
     }
   }

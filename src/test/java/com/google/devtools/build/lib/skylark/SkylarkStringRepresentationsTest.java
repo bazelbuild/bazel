@@ -18,6 +18,7 @@ import static com.google.common.truth.Truth.assertThat;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.skylark.util.SkylarkTestCase;
+import com.google.devtools.build.lib.syntax.StarlarkValue;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
@@ -239,7 +240,8 @@ public class SkylarkStringRepresentationsTest extends SkylarkTestCase {
     assertThat(skylarkLoadingEval("repr(Label('//foo:bar'))")).isEqualTo("Label(\"//foo:bar\")");
     assertThat(skylarkLoadingEval("'%r' % Label('//foo:bar')")).isEqualTo("Label(\"//foo:bar\")");
 
-    assertThat(skylarkLoadingEval("'{}'.format([Label('//foo:bar')])")).isEqualTo("[Label(\"//foo:bar\")]");
+    assertThat(skylarkLoadingEval("'{}'.format([Label('//foo:bar')])"))
+        .isEqualTo("[Label(\"//foo:bar\")]");
   }
 
   @Test
@@ -375,14 +377,17 @@ public class SkylarkStringRepresentationsTest extends SkylarkTestCase {
     }
   }
 
-  @Test
-  public void testStringRepresentationsOfUnknownObjects() throws Exception {
-    update("mock", new Object());
+  private static class Dummy implements StarlarkValue {}
 
-    assertThat(eval("str(mock)")).isEqualTo("<unknown object java.lang.Object>");
-    assertThat(eval("repr(mock)")).isEqualTo("<unknown object java.lang.Object>");
-    assertThat(eval("'{}'.format(mock)")).isEqualTo("<unknown object java.lang.Object>");
-    assertThat(eval("'%s' % mock")).isEqualTo("<unknown object java.lang.Object>");
-    assertThat(eval("'%r' % mock")).isEqualTo("<unknown object java.lang.Object>");
+  @Test
+  public void testStringRepresentationsOfArbitraryObjects() throws Exception {
+    update("dummy", new Dummy());
+
+    String dummy = "com.google.devtools.build.lib.skylark.SkylarkStringRepresentationsTest$Dummy";
+    assertThat(eval("str(dummy)")).isEqualTo("<unknown object " + dummy + ">");
+    assertThat(eval("repr(dummy)")).isEqualTo("<unknown object " + dummy + ">");
+    assertThat(eval("'{}'.format(dummy)")).isEqualTo("<unknown object " + dummy + ">");
+    assertThat(eval("'%s' % dummy")).isEqualTo("<unknown object " + dummy + ">");
+    assertThat(eval("'%r' % dummy")).isEqualTo("<unknown object " + dummy + ">");
   }
 }

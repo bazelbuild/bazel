@@ -16,7 +16,7 @@ package com.google.devtools.build.android.desugar;
 import static com.google.common.base.Preconditions.checkState;
 
 import com.google.devtools.build.android.desugar.io.BitFlags;
-import java.util.HashMap;
+import java.util.LinkedHashMap;
 import javax.annotation.Nullable;
 import org.objectweb.asm.ClassReader;
 
@@ -25,7 +25,8 @@ import org.objectweb.asm.ClassReader;
  */
 class ClassVsInterface {
   /** Map from internal names to whether they are an interface ({@code false} thus means class). */
-  private final HashMap<String, Boolean> known = new HashMap<>();
+  private final LinkedHashMap<String, Boolean> known = new LinkedHashMap<>();
+
   private final ClassReaderFactory classpath;
 
   public ClassVsInterface(ClassReaderFactory classpath) {

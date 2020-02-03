@@ -29,9 +29,9 @@ assert_eq('google'.partition('google'), ('', 'google', ''))
 assert_eq('google'.rpartition('google'), ('', 'google', ''))
 
 ---
-'google'.partition('') ### Empty separator
+'google'.partition('') ### empty separator
 ---
-'google'.rpartition('') ### Empty separator
+'google'.rpartition('') ### empty separator
 ---
 'google'.partition() ### parameter 'sep' has no default value
 ---

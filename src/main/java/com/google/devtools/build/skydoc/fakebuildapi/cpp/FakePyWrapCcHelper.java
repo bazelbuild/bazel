@@ -25,14 +25,16 @@ import com.google.devtools.build.lib.skylarkbuildapi.cpp.FeatureConfigurationApi
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.PyWrapCcHelperApi;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.PyWrapCcInfoApi;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.WrapCcIncludeProviderApi;
-import com.google.devtools.build.lib.syntax.SkylarkList;
-import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
+import com.google.devtools.build.lib.skylarkbuildapi.platform.ConstraintValueInfoApi;
+import com.google.devtools.build.lib.syntax.Depset;
+import com.google.devtools.build.lib.syntax.Sequence;
 
 /** Fake implementation of {@link PyWrapCcHelperApi}. */
 public class FakePyWrapCcHelper
     implements PyWrapCcHelperApi<
         FileApi,
-        SkylarkRuleContextApi,
+        ConstraintValueInfoApi,
+        SkylarkRuleContextApi<ConstraintValueInfoApi>,
         CcInfoApi,
         FeatureConfigurationApi,
         CcToolchainProviderApi<FeatureConfigurationApi>,
@@ -41,79 +43,81 @@ public class FakePyWrapCcHelper
         WrapCcIncludeProviderApi> {
 
   @Override
-  public SkylarkList<String> getPyExtensionLinkopts(SkylarkRuleContextApi skylarkRuleContext) {
+  public Sequence<String> getPyExtensionLinkopts(
+      SkylarkRuleContextApi<ConstraintValueInfoApi> skylarkRuleContext) {
     return null;
   }
 
   @Override
-  public SkylarkNestedSet getTransitivePythonSources(
-      SkylarkRuleContextApi skylarkRuleContext, FileApi pyFile) {
+  public Depset getTransitivePythonSources(
+      SkylarkRuleContextApi<ConstraintValueInfoApi> skylarkRuleContext, FileApi pyFile) {
     return null;
   }
 
   @Override
   public RunfilesApi getPythonRunfiles(
-      SkylarkRuleContextApi skylarkRuleContext, SkylarkNestedSet filesToBuild) {
+      SkylarkRuleContextApi<ConstraintValueInfoApi> skylarkRuleContext, Depset filesToBuild) {
     return null;
   }
 
   @Override
   public PyWrapCcInfoApi getPyWrapCcInfo(
-      SkylarkRuleContextApi skylarkRuleContext, CcInfoApi ccInfo) {
+      SkylarkRuleContextApi<ConstraintValueInfoApi> skylarkRuleContext, CcInfoApi ccInfo) {
     return null;
   }
 
   @Override
   public FeatureConfigurationApi skylarkGetFeatureConfiguration(
-      SkylarkRuleContextApi skylarkRuleContext,
+      SkylarkRuleContextApi<ConstraintValueInfoApi> skylarkRuleContext,
       CcToolchainProviderApi<FeatureConfigurationApi> ccToolchain) {
     return null;
   }
 
   @Override
-  public SkylarkNestedSet skylarkCollectTransitiveSwigIncludes(
-      SkylarkRuleContextApi skylarkRuleContext) {
+  public Depset skylarkCollectTransitiveSwigIncludes(
+      SkylarkRuleContextApi<ConstraintValueInfoApi> skylarkRuleContext) {
     return null;
   }
 
   @Override
-  public String skylarkGetMangledTargetName(SkylarkRuleContextApi skylarkRuleContext) {
+  public String skylarkGetMangledTargetName(
+      SkylarkRuleContextApi<ConstraintValueInfoApi> skylarkRuleContext) {
     return null;
   }
 
   @Override
   public WrapCcIncludeProviderApi getWrapCcIncludeProvider(
-      SkylarkRuleContextApi skylarkRuleContext, SkylarkNestedSet swigIncludes) {
+      SkylarkRuleContextApi<ConstraintValueInfoApi> skylarkRuleContext, Depset swigIncludes) {
     return null;
   }
 
   @Override
   public void registerSwigAction(
-      SkylarkRuleContextApi skylarkRuleContext,
+      SkylarkRuleContextApi<ConstraintValueInfoApi> skylarkRuleContext,
       CcToolchainProviderApi<FeatureConfigurationApi> ccToolchain,
       FeatureConfigurationApi featureConfiguration,
       CcCompilationContextApi wrapperCcCompilationContext,
-      SkylarkNestedSet swigIncludes,
+      Depset swigIncludes,
       FileApi swigSource,
-      SkylarkList<String> subParameters,
+      Sequence<?> subParameters,
       FileApi ccFile,
       FileApi headerFile,
-      SkylarkList<FileApi> outputFiles,
+      Sequence<?> outputFiles,
       Object outDir,
       Object javaDir,
-      SkylarkNestedSet auxiliaryInputs,
+      Depset auxiliaryInputs,
       String swigAttributeName,
       Object zipTool) {}
 
   @Override
   public CompilationInfoApi skylarkCreateCompileActions(
-      SkylarkRuleContextApi skylarkRuleContext,
+      SkylarkRuleContextApi<ConstraintValueInfoApi> skylarkRuleContext,
       FeatureConfigurationApi featureConfiguration,
       CcToolchainProviderApi<FeatureConfigurationApi> ccToolchain,
       FileApi ccFile,
       FileApi headerFile,
-      SkylarkList<CcCompilationContextApi> depCcCompilationContexts,
-      SkylarkList<String> targetCopts) {
+      Sequence<?> depCcCompilationContexts,
+      Sequence<?> targetCopts) {
     return null;
   }
 }

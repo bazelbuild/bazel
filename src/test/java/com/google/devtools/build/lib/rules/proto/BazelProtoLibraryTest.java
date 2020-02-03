@@ -272,7 +272,7 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
     ProtoInfo sourcesProvider = protoTarget.get(ProtoInfo.PROVIDER);
     String genfiles = getTargetConfiguration().getGenfilesFragment().toString();
 
-    assertThat(sourcesProvider.getTransitiveProtoSourceRoots())
+    assertThat(sourcesProvider.getTransitiveProtoSourceRoots().toList())
         .containsExactly(genfiles + "/third_party/x/foo/_virtual_imports/nodeps");
     assertThat(
             getGeneratingSpawnAction(getDescriptorOutput("//third_party/x/foo:nodeps"))
@@ -300,7 +300,7 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
     ConfiguredTarget protoTarget = getConfiguredTarget("//third_party/x/foo:withdeps");
     ProtoInfo sourcesProvider = protoTarget.get(ProtoInfo.PROVIDER);
     String genfiles = getTargetConfiguration().getGenfilesFragment().toString();
-    assertThat(sourcesProvider.getTransitiveProtoSourceRoots())
+    assertThat(sourcesProvider.getTransitiveProtoSourceRoots().toList())
         .containsExactly(
             genfiles + "/third_party/x/foo/_virtual_imports/dep",
             genfiles + "/third_party/x/foo/_virtual_imports/withdeps");
@@ -341,7 +341,7 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
     ConfiguredTarget protoTarget = getConfiguredTarget("//third_party/x/foo:withdeps");
     ProtoInfo sourcesProvider = protoTarget.get(ProtoInfo.PROVIDER);
     String genfiles = getTargetConfiguration().getGenfilesFragment().toString();
-    assertThat(sourcesProvider.getTransitiveProtoSourceRoots())
+    assertThat(sourcesProvider.getTransitiveProtoSourceRoots().toList())
         .containsExactly(
             genfiles + "/third_party/x/foo/_virtual_imports/withdeps",
             genfiles + "/third_party/x/bar/_virtual_imports/dep",
@@ -373,12 +373,12 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
     String genfiles = getTargetConfiguration().getGenfilesFragment().toString();
     ConfiguredTarget a = getConfiguredTarget("//a:a");
     ProtoInfo aInfo = a.get(ProtoInfo.PROVIDER);
-    assertThat(aInfo.getTransitiveProtoSourceRoots())
+    assertThat(aInfo.getTransitiveProtoSourceRoots().toList())
         .containsExactly(".", genfiles + "/external/foo/x/_virtual_imports/x");
 
     ConfiguredTarget x = getConfiguredTarget("@foo//x:x");
     ProtoInfo xInfo = x.get(ProtoInfo.PROVIDER);
-    assertThat(xInfo.getTransitiveProtoSourceRoots())
+    assertThat(xInfo.getTransitiveProtoSourceRoots().toList())
         .containsExactly(genfiles + "/external/foo/x/_virtual_imports/x");
   }
 
@@ -437,7 +437,7 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
     // of its exports and nothing else (not the exports of its exports or the deps of its exports
     // or the exports of its deps)
     String genfiles = getTargetConfiguration().getGenfilesFragment().toString();
-    assertThat(c.get(ProtoInfo.PROVIDER).getExportedProtoSourceRoots())
+    assertThat(c.get(ProtoInfo.PROVIDER).getExportedProtoSourceRoots().toList())
         .containsExactly(genfiles + "/a/_virtual_imports/a", genfiles + "/c/_virtual_imports/c");
   }
 

@@ -15,9 +15,12 @@
 package com.google.devtools.build.lib.rules.cpp;
 
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.actions.CommandLine;
+import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
@@ -25,6 +28,7 @@ import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.RuleErrorConsumer;
+import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.ExpansionException;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.Tool;
 import com.google.devtools.build.lib.rules.cpp.CppLinkAction.LinkArtifactFactory;
@@ -290,7 +294,34 @@ public final class LtoBackendArtifacts {
     }
 
     CommandLine ltoCommandLine =
-        new LtoBackendCommandLine(featureConfiguration, buildVariables, usePic);
+        new CommandLine() {
+
+          @Override
+          public Iterable<String> arguments() throws CommandLineExpansionException {
+            return arguments(/* artifactExpander= */ null);
+          }
+
+          @Override
+          public Iterable<String> arguments(ArtifactExpander artifactExpander)
+              throws CommandLineExpansionException {
+            ImmutableList.Builder<String> args = ImmutableList.builder();
+            try {
+              args.addAll(
+                  featureConfiguration.getCommandLine(
+                      CppActionNames.LTO_BACKEND, buildVariables, artifactExpander));
+            } catch (ExpansionException e) {
+              throw new CommandLineExpansionException(e.getMessage());
+            }
+            // If this is a PIC compile (set based on the CppConfiguration), the PIC
+            // option should be added after the rest of the command line so that it
+            // cannot be overridden. This is consistent with the ordering in the
+            // CppCompileAction's compiler options.
+            if (usePic) {
+              args.add("-fPIC");
+            }
+            return args.build();
+          }
+        };
     builder.addCommandLine(ltoCommandLine);
 
     actionConstructionContext.registerAction(builder.build(actionConstructionContext));

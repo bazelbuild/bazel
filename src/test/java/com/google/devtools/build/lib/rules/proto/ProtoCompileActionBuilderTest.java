@@ -66,7 +66,8 @@ public class ProtoCompileActionBuilderTest {
     return new ProtoInfo(
         directProtos,
         directProtos,
-        "",
+        /* directProtoSourceRoot= */ "",
+        transitiveProtos,
         transitiveProtos,
         transitiveProtoSourceRoots,
         /* strictImportableProtosForDependents */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
@@ -116,7 +117,7 @@ public class ProtoCompileActionBuilderTest {
                     artifact("//:dont-care", "import1.proto"),
                     artifact("//:dont-care", "import2.proto")),
 
-                /* transitiveProtoSourceRoots= */ NestedSetBuilder.create(Order.STABLE_ORDER, "."),
+                /* transitiveProtoSourceRoots= */ NestedSetBuilder.create(STABLE_ORDER, "."),
                 /* strictImportableProtoSourceRoots= */ NestedSetBuilder.create(
                     Order.STABLE_ORDER, "."),
                 /* strictImportableProtos= */ NestedSetBuilder.emptySet(STABLE_ORDER),
@@ -225,9 +226,9 @@ public class ProtoCompileActionBuilderTest {
                     STABLE_ORDER,
                     artifact("//:dont-care", "import1.proto"),
                     artifact("//:dont-care", "import2.proto")),
-                /* transitiveProtoSourceRoots= */ NestedSetBuilder.create(Order.STABLE_ORDER, "."),
-                /* strictImportableProtoSourceRoots= */ NestedSetBuilder.create(
-                    Order.STABLE_ORDER, "."),
+
+                /* transitiveProtoSourceRoots= */ NestedSetBuilder.create(STABLE_ORDER, "."),
+                /* strictImportableProtoSourceRoots= */ NestedSetBuilder.create(STABLE_ORDER, "."),
                 /* strictImportableProtos= */ NestedSetBuilder.emptySet(STABLE_ORDER),
                 /* exportedProtos = */ NestedSetBuilder.create(
                     STABLE_ORDER,

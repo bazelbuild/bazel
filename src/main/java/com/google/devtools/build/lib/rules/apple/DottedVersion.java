@@ -24,7 +24,7 @@ import com.google.common.collect.Ordering;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skylarkbuildapi.apple.DottedVersionApi;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
+import com.google.devtools.build.lib.syntax.Printer;
 import java.util.ArrayList;
 import java.util.Objects;
 import java.util.regex.Matcher;
@@ -32,11 +32,16 @@ import java.util.regex.Pattern;
 import javax.annotation.Nullable;
 
 /**
- * Represents a value with multiple components, separated by periods, for example {@code 4.5.6} or
- * {@code 5.0.1beta2}. Components must start with a non-negative integer and at least one component
- * must be present.
+ * Represents Xcode versions and allows parsing them.
+ *
+ * <p>Xcode versions are formed of multiple components, separated by periods, for example {@code
+ * 4.5.6} or {@code 5.0.1beta2}. Components must start with a non-negative integer and at least one
+ * component must be present.
  *
  * <p>Specifically, the format of a component is {@code \d+([a-z0-9]*?)?(\d+)?}.
+ *
+ * <p>If this smells a lot like semver, it does, but Xcode versions are sometimes special. This is
+ * why this class is in the {@code apple} package and has to remain as such.
  *
  * <p>Dotted versions are ordered using natural integer sorting on components in order from first to
  * last where any missing element is considered to have the value 0 if they don't contain any
@@ -125,7 +130,7 @@ public final class DottedVersion implements DottedVersionApi<DottedVersion> {
   private static final Pattern COMPONENT_PATTERN =
       Pattern.compile("(\\d+)([a-z0-9]*?)?(\\d+)?", Pattern.CASE_INSENSITIVE);
   private static final String ILLEGAL_VERSION =
-      "Dotted version components must all be of the form \\d+([a-z0-9]*?)?(\\d+)? but got %s";
+      "Dotted version components must all be of the form \\d+([a-z0-9]*?)?(\\d+)? but got '%s'";
   private static final String NO_ALPHA_SEQUENCE = null;
   private static final Component ZERO_COMPONENT = new Component(0, NO_ALPHA_SEQUENCE, 0, "0");
 
@@ -340,7 +345,7 @@ public final class DottedVersion implements DottedVersionApi<DottedVersion> {
   }
 
   @Override
-  public void repr(SkylarkPrinter printer) {
+  public void repr(Printer printer) {
     printer.append(stringRepresentation);
   }
 

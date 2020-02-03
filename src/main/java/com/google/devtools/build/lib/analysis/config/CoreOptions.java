@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.util.RegexFilter;
 import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.Converters;
+import com.google.devtools.common.options.Converters.BooleanConverter;
 import com.google.devtools.common.options.EnumConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDefinition;
@@ -751,13 +752,106 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
         OptionEffectTag.LOADING_AND_ANALYSIS
       },
       help = "Whether to use graphless query and disable output ordering.")
-  public boolean useGraphlessQuery;
+  public TriState useGraphlessQuery;
+
+  @Option(
+      name = "experimental_inmemory_unused_inputs_list",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.BUILD_TIME_OPTIMIZATION,
+      effectTags = {
+        OptionEffectTag.LOADING_AND_ANALYSIS,
+        OptionEffectTag.EXECUTION,
+        OptionEffectTag.AFFECTS_OUTPUTS
+      },
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+      help =
+          "If enabled, the optional 'unused_inputs_list' file will be passed through in memory "
+              + "directly from the remote build nodes instead of being written to disk.")
+  public boolean inmemoryUnusedInputsList;
+
+  @Option(
+      name = "include_config_fragments_provider",
+      defaultValue = "off",
+      converter = IncludeConfigFragmentsEnumConverter.class,
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      metadataTags = OptionMetadataTag.HIDDEN,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS, OptionEffectTag.LOSES_INCREMENTAL_STATE},
+      help =
+          "INTERNAL BLAZE DEVELOPER FEATURE: If \"direct\", all configured targets expose "
+              + "RequiredConfigFragmentsProvider with the configuration fragments they directly "
+              + "require. If \"transitive\", they do the same but also include the fragments their "
+              + "transitive dependencies require. If \"off\", the provider is omitted. "
+              + ""
+              + "If not \"off\", this also populates config_setting's "
+              + " ConfigMatchingProvider.requiredFragmentOptions with the fragment options "
+              + " the config_setting requires."
+              + ""
+              + "Be careful using this feature: it adds memory to every configured target in the "
+              + "build")
+  public IncludeConfigFragmentsEnum includeRequiredConfigFragmentsProvider;
+
+  @Option(
+      name = "experimental_inprocess_symlink_creation",
+      defaultValue = "false",
+      converter = BooleanConverter.class,
+      documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
+      metadataTags = OptionMetadataTag.EXPERIMENTAL,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS, OptionEffectTag.EXECUTION},
+      help = "Whether to make direct file system calls to create symlink trees")
+  public boolean inprocessSymlinkCreation;
+
+  @Option(
+      name = "experimental_skip_runfiles_manifests",
+      defaultValue = "false",
+      converter = BooleanConverter.class,
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      metadataTags = OptionMetadataTag.HIDDEN,
+      effectTags = {
+        OptionEffectTag.LOADING_AND_ANALYSIS,
+        OptionEffectTag.EXECUTION,
+        OptionEffectTag.LOSES_INCREMENTAL_STATE,
+        OptionEffectTag.AFFECTS_OUTPUTS
+      },
+      help =
+          "If enabled, Bazel does not create runfiles symlink manifests. This flag is ignored "
+              + "if --experimental_enable_runfiles is set to false.")
+  public boolean skipRunfilesManifests;
+
+  @Option(
+      name = "experimental_remotable_source_manifests",
+      defaultValue = "false",
+      converter = BooleanConverter.class,
+      documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
+      metadataTags = OptionMetadataTag.EXPERIMENTAL,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS, OptionEffectTag.EXECUTION},
+      help = "Whether to make source manifest actions remotable")
+  public boolean remotableSourceManifestActions;
+
+  /** Ways configured targets may provide the {@link BuildConfiguration.Fragment}s they require. */
+  public enum IncludeConfigFragmentsEnum {
+    // Don't offer the provider at all. This is best for most builds, which don't use this
+    // information and don't need the extra memory hit over every configured target.
+    OFF,
+    // Provide the fragments required *directly* by this rule.
+    DIRECT,
+    // Provide the fragments required by this rule and its transitive dependencies.
+    TRANSITIVE;
+  }
+
+  /** Enum converter for --include_config_fragments_provider. */
+  public static class IncludeConfigFragmentsEnumConverter
+      extends EnumConverter<IncludeConfigFragmentsEnum> {
+    public IncludeConfigFragmentsEnumConverter() {
+      super(IncludeConfigFragmentsEnum.class, "include config fragments provider option");
+    }
+  }
 
   @Override
   public FragmentOptions getHost() {
     CoreOptions host = (CoreOptions) getDefault();
 
     host.outputDirectoryName = "host";
+    host.transitionDirectoryNameFragment = transitionDirectoryNameFragment;
     host.compilationMode = hostCompilationMode;
     host.isHost = true;
     host.isExec = false;
@@ -769,10 +863,13 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
     host.enforceConstraints = enforceConstraints;
     host.mergeGenfilesDirectory = mergeGenfilesDirectory;
     host.cpu = hostCpu;
+    host.inmemoryUnusedInputsList = inmemoryUnusedInputsList;
+    host.includeRequiredConfigFragmentsProvider = includeRequiredConfigFragmentsProvider;
 
     // === Runfiles ===
     host.buildRunfilesManifests = buildRunfilesManifests;
     host.buildRunfiles = buildRunfiles;
+    host.legacyExternalRunfiles = legacyExternalRunfiles;
 
     // === Filesets ===
     host.strictFilesetOutput = strictFilesetOutput;

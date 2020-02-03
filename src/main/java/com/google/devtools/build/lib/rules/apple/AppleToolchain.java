@@ -98,8 +98,7 @@ public class AppleToolchain implements AppleToolchainApi<AppleConfiguration> {
   }
 
   /** Returns the SDK frameworks directory inside of Xcode for a given configuration. */
-  public static String sdkFrameworkDir(
-      ApplePlatform targetPlatform, XcodeConfigProvider xcodeConfig) {
+  public static String sdkFrameworkDir(ApplePlatform targetPlatform, XcodeConfigInfo xcodeConfig) {
     String relativePath;
     switch (targetPlatform) {
       case IOS_DEVICE:

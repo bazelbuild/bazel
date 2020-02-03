@@ -23,7 +23,7 @@ import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.ShellQuotedParamsFilePreProcessor;
 import java.nio.file.FileSystems;
 import java.nio.file.Files;
-import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.Set;
 
 /**
@@ -69,7 +69,7 @@ public class Aapt2ResourceShrinkingAction {
               .profileUsing(profiler)
               .dependencies(ImmutableList.of(StaticLibrary.from(aapt2ConfigOptions.androidJar)));
 
-      final Set<String> packages = new HashSet<>(resourcesZip.asPackages());
+      final Set<String> packages = new LinkedHashSet<>(resourcesZip.asPackages());
 
       profiler.recordEndOf("setup").startTask("resourceShrinker");
 
@@ -85,6 +85,9 @@ public class Aapt2ResourceShrinkingAction {
             .writeBinaryTo(linker, options.shrunkApk, aapt2ConfigOptions.resourceTableAsProto)
             .writeReportTo(options.log)
             .writeResourcesToZip(options.shrunkResources);
+        if (options.resourcesConfigOutput != null) {
+          shrunk.writeResourcesConfigTo(options.resourcesConfigOutput);
+        }
         if (options.rTxtOutput != null) {
           // Fulfill the contract -- however, we do not generate an R.txt from the shrunk
           // resources.

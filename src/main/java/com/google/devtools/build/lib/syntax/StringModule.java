@@ -18,17 +18,12 @@ import com.google.common.base.Ascii;
 import com.google.common.base.CharMatcher;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.ParamType;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
-import com.google.devtools.build.lib.syntax.SkylarkList.MutableList;
-import com.google.devtools.build.lib.syntax.SkylarkList.Tuple;
-import com.google.devtools.build.lib.syntax.Type.ConversionException;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.regex.Matcher;
@@ -44,46 +39,67 @@ import java.util.regex.Pattern;
  * 'String self' parameter as the first parameter of the method.
  */
 @SkylarkModule(
-  name = "string",
-  category = SkylarkModuleCategory.BUILTIN,
-  doc =
-      "A language built-in type to support strings. "
-          + "Examples of string literals:<br>"
-          + "<pre class=\"language-python\">a = 'abc\\ndef'\n"
-          + "b = \"ab'cd\"\n"
-          + "c = \"\"\"multiline string\"\"\"\n"
-          + "\n"
-          + "# Strings support slicing (negative index starts from the end):\n"
-          + "x = \"hello\"[2:4]  # \"ll\"\n"
-          + "y = \"hello\"[1:-1]  # \"ell\"\n"
-          + "z = \"hello\"[:4]  # \"hell\""
-          + "# Slice steps can be used, too:\n"
-          + "s = \"hello\"[::2] # \"hlo\"\n"
-          + "t = \"hello\"[3:0:-1] # \"lle\"\n</pre>"
-          + "Strings are iterable and support the <code>in</code> operator. Examples:<br>"
-          + "<pre class=\"language-python\">\"bc\" in \"abcd\"   # evaluates to True\n"
-          + "x = [s for s in \"abc\"]  # x == [\"a\", \"b\", \"c\"]</pre>\n"
-          + "Implicit concatenation of strings is not allowed; use the <code>+</code> "
-          + "operator instead. Comparison operators perform a lexicographical comparison; "
-          + "use <code>==</code> to test for equality."
-)
-public final class StringModule {
+    name = "string",
+    category = SkylarkModuleCategory.BUILTIN,
+    doc =
+        "A language built-in type to support strings. "
+            + "Examples of string literals:<br>"
+            + "<pre class=\"language-python\">a = 'abc\\ndef'\n"
+            + "b = \"ab'cd\"\n"
+            + "c = \"\"\"multiline string\"\"\"\n"
+            + "\n"
+            + "# Strings support slicing (negative index starts from the end):\n"
+            + "x = \"hello\"[2:4]  # \"ll\"\n"
+            + "y = \"hello\"[1:-1]  # \"ell\"\n"
+            + "z = \"hello\"[:4]  # \"hell\""
+            + "# Slice steps can be used, too:\n"
+            + "s = \"hello\"[::2] # \"hlo\"\n"
+            + "t = \"hello\"[3:0:-1] # \"lle\"\n</pre>"
+            + "Strings are iterable and support the <code>in</code> operator. Examples:<br>"
+            + "<pre class=\"language-python\">\"bc\" in \"abcd\"   # evaluates to True\n"
+            + "x = [s for s in \"abc\"]  # x == [\"a\", \"b\", \"c\"]</pre>\n"
+            + "Implicit concatenation of strings is not allowed; use the <code>+</code> "
+            + "operator instead. Comparison operators perform a lexicographical comparison; "
+            + "use <code>==</code> to test for equality.")
+final class StringModule implements StarlarkValue {
+
+  static final StringModule INSTANCE = new StringModule();
 
   private StringModule() {}
 
+  // Returns s[start:stop:step], as if by Sequence.getSlice.
+  static String slice(String s, int start, int stop, int step) {
+    RangeList indices = new RangeList(start, stop, step);
+    int n = indices.size();
+    if (step == 1) { // common case
+      return s.substring(indices.at(0), indices.at(n));
+    } else {
+      char[] res = new char[n];
+      for (int i = 0; i < n; ++i) {
+        res[i] = s.charAt(indices.at(i));
+      }
+      return new String(res);
+    }
+  }
+
   // Emulate Python substring function
   // It converts out of range indices, and never fails
-  private static String pythonSubstring(String str, int start, Object end, String msg)
-      throws ConversionException {
+  //
+  // TODO(adonovan): opt: avoid this function, as String.substring now allocates a copy (!)
+  private static String pythonSubstring(String str, int start, Object end, String what)
+      throws EvalException {
     if (start == 0 && EvalUtils.isNullOrNone(end)) {
       return str;
     }
-    start = EvalUtils.clampRangeEndpoint(start, str.length());
+    start = EvalUtils.toIndex(start, str.length());
     int stop;
     if (EvalUtils.isNullOrNone(end)) {
       stop = str.length();
+    } else if (end instanceof Integer) {
+      stop = EvalUtils.toIndex((Integer) end, str.length());
     } else {
-      stop = EvalUtils.clampRangeEndpoint(Type.INTEGER.convert(end, msg), str.length());
+      throw new EvalException(
+          null, "expected int for " + what + ", got " + EvalUtils.getDataTypeName(end));
     }
     if (start >= stop) {
       return "";
@@ -106,23 +122,17 @@ public final class StringModule {
             legacyNamed = true,
             type = Object.class,
             doc = "The objects to join.")
-      },
-      useLocation = true,
-      useEnvironment = true)
-  public String join(String self, Object elements, Location loc, Environment env)
-      throws ConversionException, EvalException {
-    Collection<?> items = EvalUtils.toCollection(elements, loc, env);
-    if (env.getSemantics().incompatibleStringJoinRequiresStrings()) {
-      for (Object item : items) {
-        if (!(item instanceof String)) {
-          throw new EvalException(
-              loc,
-              "sequence element must be a string (got '"
-                  + EvalUtils.getDataTypeName(item)
-                  + "'). See https://github.com/bazelbuild/bazel/issues/7802 for information about "
-                  + "--incompatible_string_join_requires_strings.");
-        }
+      })
+  public String join(String self, Object elements) throws EvalException {
+    Iterable<?> items = Starlark.toIterable(elements);
+    int i = 0;
+    for (Object item : items) {
+      if (!(item instanceof String)) {
+        throw Starlark.errorf(
+            "expected string for sequence element %d, got '%s'",
+            i, EvalUtils.getDataTypeName(item));
       }
+      i++;
     }
     return Joiner.on(self).join(items);
   }
@@ -200,7 +210,7 @@ public final class StringModule {
             defaultValue = "None")
       })
   public String lstrip(String self, Object charsOrNone) {
-    String chars = charsOrNone != Runtime.NONE ? (String) charsOrNone : LATIN1_WHITESPACE;
+    String chars = charsOrNone != Starlark.NONE ? (String) charsOrNone : LATIN1_WHITESPACE;
     return stringLStrip(self, chars);
   }
 
@@ -225,7 +235,7 @@ public final class StringModule {
             defaultValue = "None")
       })
   public String rstrip(String self, Object charsOrNone) {
-    String chars = charsOrNone != Runtime.NONE ? (String) charsOrNone : LATIN1_WHITESPACE;
+    String chars = charsOrNone != Starlark.NONE ? (String) charsOrNone : LATIN1_WHITESPACE;
     return stringRStrip(self, chars);
   }
 
@@ -251,7 +261,7 @@ public final class StringModule {
             defaultValue = "None")
       })
   public String strip(String self, Object charsOrNone) {
-    String chars = charsOrNone != Runtime.NONE ? (String) charsOrNone : LATIN1_WHITESPACE;
+    String chars = charsOrNone != Starlark.NONE ? (String) charsOrNone : LATIN1_WHITESPACE;
     return stringStrip(self, chars);
   }
 
@@ -287,7 +297,7 @@ public final class StringModule {
   public String replace(String self, String oldString, String newString, Object maxSplitO)
       throws EvalException {
     int maxSplit = Integer.MAX_VALUE;
-    if (maxSplitO != Runtime.NONE) {
+    if (maxSplitO != Starlark.NONE) {
       maxSplit = Math.max(0, (Integer) maxSplitO);
     }
     StringBuilder sb = new StringBuilder();
@@ -335,16 +345,14 @@ public final class StringModule {
             defaultValue = "None",
             doc = "The maximum number of splits.")
       },
-      useEnvironment = true,
-      useLocation = true)
-  public MutableList<String> split(
-      String self, String sep, Object maxSplitO, Location loc, Environment env)
-      throws EvalException {
+      useStarlarkThread = true)
+  public StarlarkList<String> split(
+      String self, String sep, Object maxSplitO, StarlarkThread thread) throws EvalException {
     if (sep.isEmpty()) {
-      throw new EvalException(loc, "Empty separator");
+      throw Starlark.errorf("Empty separator");
     }
     int maxSplit = Integer.MAX_VALUE;
-    if (maxSplitO != Runtime.NONE) {
+    if (maxSplitO != Starlark.NONE) {
       maxSplit = (Integer) maxSplitO;
     }
     ArrayList<String> res = new ArrayList<>();
@@ -358,7 +366,7 @@ public final class StringModule {
       res.add(self.substring(start, end));
       start = end + sep.length();
     }
-    return MutableList.wrapUnsafe(env, res);
+    return StarlarkList.copyOf(thread.mutability(), res);
   }
 
   @SkylarkCallable(
@@ -384,16 +392,14 @@ public final class StringModule {
             defaultValue = "None",
             doc = "The maximum number of splits.")
       },
-      useEnvironment = true,
-      useLocation = true)
-  public MutableList<String> rsplit(
-      String self, String sep, Object maxSplitO, Location loc, Environment env)
-      throws EvalException {
+      useStarlarkThread = true)
+  public StarlarkList<String> rsplit(
+      String self, String sep, Object maxSplitO, StarlarkThread thread) throws EvalException {
     if (sep.isEmpty()) {
-      throw new EvalException(loc, "Empty separator");
+      throw Starlark.errorf("Empty separator");
     }
     int maxSplit = Integer.MAX_VALUE;
-    if (maxSplitO != Runtime.NONE) {
+    if (maxSplitO != Starlark.NONE) {
       maxSplit = (Integer) maxSplitO;
     }
     ArrayList<String> res = new ArrayList<>();
@@ -408,7 +414,7 @@ public final class StringModule {
       end = start;
     }
     Collections.reverse(res);
-    return MutableList.wrapUnsafe(env, res);
+    return StarlarkList.copyOf(thread.mutability(), res);
   }
 
   @SkylarkCallable(
@@ -427,23 +433,19 @@ public final class StringModule {
             defaultValue = "unbound",
             doc = "The string to split on.")
       },
-      useEnvironment = true,
-      useLocation = true)
-  public Tuple<String> partition(String self, Object sep, Location loc, Environment env)
+      useStarlarkThread = true)
+  public Tuple<String> partition(String self, Object sep, StarlarkThread thread)
       throws EvalException {
-    if (sep == Runtime.UNBOUND) {
-        throw new EvalException(
-            loc,
-            "parameter 'sep' has no default value, "
-                + "for call to method partition(sep) of 'string'");
+    if (sep == Starlark.UNBOUND) {
+      throw Starlark.errorf(
+          "parameter 'sep' has no default value, for call to method 'partition(sep)' of 'string'");
     } else if (!(sep instanceof String)) {
-      throw new EvalException(
-          loc,
-          "expected value of type 'string' for parameter"
-              + " 'sep', for call to method partition(sep = unbound) of 'string'");
+      throw Starlark.errorf(
+          "expected value of type 'string' for parameter 'sep', for call to method 'partition()' of"
+              + " 'string'");
     }
 
-    return partitionWrapper(self, (String) sep, true, loc);
+    return partitionWrapper(self, (String) sep, true);
   }
 
   @SkylarkCallable(
@@ -462,47 +464,24 @@ public final class StringModule {
             defaultValue = "unbound",
             doc = "The string to split on.")
       },
-      useEnvironment = true,
-      useLocation = true)
-  public Tuple<String> rpartition(String self, Object sep, Location loc, Environment env)
+      useStarlarkThread = true)
+  public Tuple<String> rpartition(String self, Object sep, StarlarkThread thread)
       throws EvalException {
-    if (sep == Runtime.UNBOUND) {
-        throw new EvalException(
-            loc,
-            "parameter 'sep' has no default value, "
-                + "for call to method partition(sep) of 'string'");
+    if (sep == Starlark.UNBOUND) {
+      throw Starlark.errorf(
+          "parameter 'sep' has no default value, "
+              + "for call to method partition(sep) of 'string'");
     } else if (!(sep instanceof String)) {
-      throw new EvalException(
-          loc,
-          "expected value of type 'string' for parameter"
-              + " 'sep', for call to method partition(sep = unbound) of 'string'");
+      throw Starlark.errorf(
+          "expected value of type 'string' for parameter 'sep', for call to method partition(sep ="
+              + " unbound) of 'string'");
     }
-    return partitionWrapper(self, (String) sep, false, loc);
+    return partitionWrapper(self, (String) sep, false);
   }
 
   /**
-   * Wraps the stringPartition() method and converts its results and exceptions
-   * to the expected types.
-   *
-   * @param self The input string
-   * @param separator The string to split on
-   * @param forward A flag that controls whether the input string is split around
-   *    the first ({@code true}) or last ({@code false}) occurrence of the separator.
-   * @param loc The location that is used for potential exceptions
-   * @return A list with three elements
-   */
-  private static Tuple<String> partitionWrapper(
-      String self, String separator, boolean forward, Location loc) throws EvalException {
-    try {
-      return Tuple.copyOf(stringPartition(self, separator, forward));
-    } catch (IllegalArgumentException ex) {
-      throw new EvalException(loc, ex);
-    }
-  }
-
-  /**
-   * Splits the input string at the {first|last} occurrence of the given separator and returns the
-   * resulting partition as a three-tuple of Strings, contained in a {@code MutableList}.
+   * Splits the input string at the first/last occurrence of the given separator and returns the
+   * resulting partition as a three-tuple of Strings.
    *
    * <p>If the input string does not contain the separator, the tuple will consist of the original
    * input string and two empty strings.
@@ -514,32 +493,39 @@ public final class StringModule {
    * @param separator The string to split on
    * @param forward A flag that controls whether the input string is split around the first ({@code
    *     true}) or last ({@code false}) occurrence of the separator.
-   * @return A three-tuple (List) of the form [part_before_separator, separator,
-   *     part_after_separator].
+   * @return a 3-Tuple of the form (part_before_separator, separator, part_after_separator).
    */
-  private static ImmutableList<String> stringPartition(
-      String input, String separator, boolean forward) {
+  private static Tuple<String> partitionWrapper(String input, String separator, boolean forward)
+      throws EvalException {
     if (separator.isEmpty()) {
-      throw new IllegalArgumentException("Empty separator");
+      throw Starlark.errorf("empty separator");
     }
 
-    int pos = forward ? input.indexOf(separator) : input.lastIndexOf(separator);
+    String a = "";
+    String b = "";
+    String c = "";
 
+    int pos = forward ? input.indexOf(separator) : input.lastIndexOf(separator);
     if (pos < 0) {
       // Following Python's implementation of str.partition() and str.rpartition(),
       // the input string is copied to either the first or the last position in the
       // list, depending on the value of the forward flag.
-      return forward ? ImmutableList.of(input, "", "") : ImmutableList.of("", "", input);
+      if (forward) {
+        a = input;
+      } else {
+        c = input;
+      }
     } else {
-      return ImmutableList.of(
-          input.substring(0, pos),
-          separator,
-          // pos + sep.length() is at most equal to input.length(). This worst-case
-          // happens when the separator is at the end of the input string. However,
-          // substring() will return an empty string in this scenario, thus making
-          // any additional safety checks obsolete.
-          input.substring(pos + separator.length()));
+      a = input.substring(0, pos);
+      b = separator;
+      // pos + sep.length() is at most equal to input.length(). This worst-case
+      // happens when the separator is at the end of the input string. However,
+      // substring() will return an empty string in this scenario, thus making
+      // any additional safety checks obsolete.
+      c = input.substring(pos + separator.length());
     }
+
+    return Tuple.triple(a, b, c);
   }
 
   @SkylarkCallable(
@@ -586,15 +572,17 @@ public final class StringModule {
 
   /**
    * Common implementation for find, rfind, index, rindex.
+   *
    * @param forward true if we want to return the last matching index.
    */
-  private static int stringFind(boolean forward,
-      String self, String sub, int start, Object end, String msg)
-      throws ConversionException {
+  private static int stringFind(
+      boolean forward, String self, String sub, int start, Object end, String msg)
+      throws EvalException {
     String substr = pythonSubstring(self, start, end, msg);
     int subpos = forward ? substr.indexOf(sub) : substr.lastIndexOf(sub);
-    start = EvalUtils.clampRangeEndpoint(start, self.length());
-    return subpos < 0 ? subpos : subpos + start;
+    return subpos < 0
+        ? subpos //
+        : subpos + EvalUtils.toIndex(start, self.length());
   }
 
   private static final Pattern SPLIT_LINES_PATTERN =
@@ -630,8 +618,7 @@ public final class StringModule {
             defaultValue = "None",
             doc = "optional position before which to restrict to search.")
       })
-  public Integer rfind(String self, String sub, Integer start, Object end)
-      throws ConversionException {
+  public Integer rfind(String self, String sub, Integer start, Object end) throws EvalException {
     return stringFind(false, self, sub, start, end, "'end' argument to rfind");
   }
 
@@ -665,8 +652,7 @@ public final class StringModule {
             defaultValue = "None",
             doc = "optional position before which to restrict to search.")
       })
-  public Integer invoke(String self, String sub, Integer start, Object end)
-      throws ConversionException {
+  public Integer find(String self, String sub, Integer start, Object end) throws EvalException {
     return stringFind(true, self, sub, start, end, "'end' argument to find");
   }
 
@@ -699,13 +685,12 @@ public final class StringModule {
             noneable = true,
             defaultValue = "None",
             doc = "optional position before which to restrict to search.")
-      },
-      useLocation = true)
-  public Integer rindex(String self, String sub, Integer start, Object end, Location loc)
-      throws EvalException {
+      })
+  public Integer rindex(String self, String sub, Integer start, Object end) throws EvalException {
     int res = stringFind(false, self, sub, start, end, "'end' argument to rindex");
     if (res < 0) {
-      throw new EvalException(loc, Printer.format("substring %r not found in %r", sub, self));
+      throw Starlark.errorf(
+          "substring %s not found in %s", Starlark.repr(sub), Starlark.repr(self));
     }
     return res;
   }
@@ -739,13 +724,12 @@ public final class StringModule {
             noneable = true,
             defaultValue = "None",
             doc = "optional position before which to restrict to search.")
-      },
-      useLocation = true)
-  public Integer index(String self, String sub, Integer start, Object end, Location loc)
-      throws EvalException {
+      })
+  public Integer index(String self, String sub, Integer start, Object end) throws EvalException {
     int res = stringFind(true, self, sub, start, end, "'end' argument to index");
     if (res < 0) {
-      throw new EvalException(loc, Printer.format("substring %r not found in %r", sub, self));
+      throw Starlark.errorf(
+          "substring %s not found in %s", Starlark.repr(sub), Starlark.repr(self));
     }
     return res;
   }
@@ -765,7 +749,7 @@ public final class StringModule {
             defaultValue = "False",
             doc = "Whether the line breaks should be included in the resulting list.")
       })
-  public SkylarkList<String> splitLines(String self, Boolean keepEnds) throws EvalException {
+  public Sequence<String> splitLines(String self, Boolean keepEnds) throws EvalException {
     List<String> result = new ArrayList<>();
     Matcher matcher = SPLIT_LINES_PATTERN.matcher(self);
     while (matcher.find()) {
@@ -781,7 +765,7 @@ public final class StringModule {
         result.add(line);
       }
     }
-    return SkylarkList.createImmutable(result);
+    return StarlarkList.immutableCopyOf(result);
   }
 
   @SkylarkCallable(
@@ -943,8 +927,7 @@ public final class StringModule {
             defaultValue = "None",
             doc = "optional position before which to restrict to search.")
       })
-  public Integer count(String self, String sub, Integer start, Object end)
-      throws ConversionException {
+  public Integer count(String self, String sub, Integer start, Object end) throws EvalException {
     String str = pythonSubstring(self, start, end, "'end' operand of 'find'");
     if (sub.isEmpty()) {
       return str.length() + 1;
@@ -965,12 +948,12 @@ public final class StringModule {
               + "Equivalent to <code>[s[i] for i in range(len(s))]</code>, except that the "
               + "returned value might not be a list.",
       parameters = {@Param(name = "self", type = String.class, doc = "This string.")})
-  public SkylarkList<String> elems(String self) throws ConversionException {
+  public Sequence<String> elems(String self) throws EvalException {
     ImmutableList.Builder<String> builder = new ImmutableList.Builder<>();
     for (char c : self.toCharArray()) {
       builder.add(String.valueOf(c));
     }
-    return SkylarkList.createImmutable(builder.build());
+    return StarlarkList.immutableCopyOf(builder.build());
   }
 
   @SkylarkCallable(
@@ -1048,21 +1031,19 @@ public final class StringModule {
       extraPositionals =
           @Param(
               name = "args",
-              type = SkylarkList.class,
+              type = Sequence.class,
               defaultValue = "()",
               doc = "List of arguments."),
       extraKeywords =
           @Param(
               name = "kwargs",
-              type = SkylarkDict.class,
+              type = Dict.class,
               defaultValue = "{}",
-              doc = "Dictionary of arguments."),
-      useLocation = true)
-  public String format(String self, SkylarkList<?> args, SkylarkDict<?, ?> kwargs, Location loc)
-      throws EvalException {
+              doc = "Dictionary of arguments."))
+  public String format(String self, Sequence<?> args, Dict<?, ?> kwargs) throws EvalException {
     @SuppressWarnings("unchecked")
     List<Object> argObjects = (List<Object>) args.getImmutableList();
-    return new FormatParser(loc)
+    return new FormatParser()
         .format(self, argObjects, kwargs.getContents(String.class, Object.class, "kwargs"));
   }
 
@@ -1115,6 +1096,4 @@ public final class StringModule {
     }
     return false;
   }
-
-  public static final StringModule INSTANCE = new StringModule();
 }

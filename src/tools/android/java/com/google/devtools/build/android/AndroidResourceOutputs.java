@@ -36,7 +36,7 @@ import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Collection;
 import java.util.GregorianCalendar;
-import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
@@ -134,7 +134,7 @@ public class AndroidResourceOutputs {
   public static class UniqueZipBuilder extends ZipBuilder {
 
     /** A set of all entry names (e.g. "foo/bar.txt") that have been added to the underlying zip. */
-    private final Set<String> addedEntryNames = new HashSet<>();
+    private final Set<String> addedEntryNames = new LinkedHashSet<>();
 
     private UniqueZipBuilder(ZipOutputStream zip) {
       super(zip);

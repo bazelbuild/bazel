@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.buildtool;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
@@ -23,6 +24,11 @@ import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.concurrent.ThreadSafety;
+import com.google.devtools.build.lib.events.Location;
+import com.google.devtools.build.lib.syntax.Sequence;
+import com.google.devtools.build.lib.syntax.StarlarkThread;
+import com.google.devtools.build.lib.util.AbruptExitException;
+import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
@@ -34,10 +40,8 @@ import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-/**
- * Creates a symlink forest based on a package path map.
- */
-class SymlinkForest {
+/** Creates a symlink forest based on a package path map. */
+public class SymlinkForest {
 
   private static final Logger logger = Logger.getLogger(SymlinkForest.class.getName());
   private static final boolean LOG_FINER = logger.isLoggable(Level.FINER);
@@ -46,13 +50,36 @@ class SymlinkForest {
   private final Path execroot;
   private final String productName;
   private final String prefix;
+  private final ImmutableSortedSet<String> notSymlinkedInExecrootDirectories;
 
-  SymlinkForest(
+  /** Constructor for a symlink forest creator without non-symlinked directories parameter. */
+  public SymlinkForest(
       ImmutableMap<PackageIdentifier, Root> packageRoots, Path execroot, String productName) {
+    this(packageRoots, execroot, productName, ImmutableSortedSet.of());
+  }
+
+  /**
+   * Constructor for a symlink forest creator; does not perform any i/o.
+   *
+   * <p>Use {@link #plantSymlinkForest()} to actually create the symlink forest.
+   *
+   * @param packageRoots source package roots to which to create symlinks
+   * @param execroot path where to plant the symlink forest
+   * @param productName {@code BlazeRuntime#getProductName()}
+   * @param notSymlinkedInExecrootDirectories directories to not symlink in exec root. {@link
+   *     com.google.devtools.build.lib.packages.WorkspaceGlobals#dontSymlinkDirectoriesInExecroot(Sequence,
+   *     Location, StarlarkThread)}
+   */
+  public SymlinkForest(
+      ImmutableMap<PackageIdentifier, Root> packageRoots,
+      Path execroot,
+      String productName,
+      ImmutableSortedSet<String> notSymlinkedInExecrootDirectories) {
     this.packageRoots = packageRoots;
     this.execroot = execroot;
     this.productName = productName;
     this.prefix = productName + "-";
+    this.notSymlinkedInExecrootDirectories = notSymlinkedInExecrootDirectories;
   }
 
   /**
@@ -109,6 +136,9 @@ class SymlinkForest {
     // instead of the directory itself.
     for (Path target : mainRepoRoot.getDirectoryEntries()) {
       String baseName = target.getBaseName();
+      if (this.notSymlinkedInExecrootDirectories.contains(baseName)) {
+        continue;
+      }
       Path execPath = execroot.getRelative(baseName);
       // Create any links that don't start with bazel-, and ignore external/ directory if
       // user has it in the source tree because it conflicts with external repository location.
@@ -119,11 +149,18 @@ class SymlinkForest {
     }
   }
 
-  private static void plantSymlinkForestWithPartialMainRepository(Map<Path, Path> mainRepoLinks)
-      throws IOException {
+  private void plantSymlinkForestWithPartialMainRepository(Map<Path, Path> mainRepoLinks)
+      throws IOException, AbruptExitException {
     for (Map.Entry<Path, Path> entry : mainRepoLinks.entrySet()) {
       Path link = entry.getKey();
       Path target = entry.getValue();
+      if (this.notSymlinkedInExecrootDirectories.contains(target.getBaseName())) {
+        throw new AbruptExitException(
+            "Directories specified with "
+                + "dont_symlink_directories_in_execroot should be ignored and can not be used"
+                + " as sources.",
+            ExitCode.COMMAND_LINE_ERROR);
+      }
       link.createSymbolicLink(target);
     }
   }
@@ -255,7 +292,8 @@ class SymlinkForest {
     }
   }
 
-  void plantSymlinkForest() throws IOException {
+  /** Performs the filesystem operations to plant the symlink forest. */
+  public void plantSymlinkForest() throws IOException, AbruptExitException {
     deleteTreesBelowNotPrefixed(execroot, prefix);
 
     boolean shouldLinkAllTopLevelItems = false;
@@ -309,6 +347,12 @@ class SymlinkForest {
     // removed in the future, we should remove the plantSymlinkForestMultiPackagePath
     // implementation when --package_path is gone.
     if (mainRepoRoots.size() > 1) {
+      if (!this.notSymlinkedInExecrootDirectories.isEmpty()) {
+        throw new AbruptExitException(
+            "dont_symlink_directories_in_execroot is "
+                + "not supported together with --package_path option.",
+            ExitCode.COMMAND_LINE_ERROR);
+      }
       plantSymlinkForestMultiPackagePath(packageRootsForMainRepo);
     } else if (shouldLinkAllTopLevelItems) {
       Path mainRepoRoot = Iterables.getOnlyElement(mainRepoRoots).asPath();
@@ -316,6 +360,8 @@ class SymlinkForest {
     } else {
       plantSymlinkForestWithPartialMainRepository(mainRepoLinks);
     }
+
+    logger.info("Planted symlink forest in " + execroot);
   }
 
   private static PackageIdentifier createInRepo(

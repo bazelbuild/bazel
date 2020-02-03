@@ -17,7 +17,6 @@ import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
@@ -39,6 +38,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.util.ResourceFileLoader;
 import java.io.IOException;
+import java.util.List;
 import javax.annotation.Nullable;
 
 /** An implementation of the {@code android_instrumentation_test} rule. */
@@ -133,7 +133,7 @@ public class AndroidInstrumentationTestBase implements RuleConfiguredTargetFacto
         .add(executableSubstitution("%test_entry_point%", getTestEntryPoint(ruleContext)))
         .add(artifactSubstitution("%target_apk%", getTargetApk(ruleContext)))
         .add(artifactSubstitution("%instrumentation_apk%", getInstrumentationApk(ruleContext)))
-        .add(artifactListSubstitution("%support_apks%", getAllSupportApks(ruleContext)))
+        .add(artifactListSubstitution("%support_apks%", getAllSupportApks(ruleContext).toList()))
         .add(deviceScriptFixturesSubstitution(ruleContext))
         .addAll(hostServiceFixturesSubstitutions(ruleContext))
         .add(artifactListSubstitution("%data_deps%", getDataDeps(ruleContext)))
@@ -193,10 +193,10 @@ public class AndroidInstrumentationTestBase implements RuleConfiguredTargetFacto
     return Substitution.of(key, artifact.getRunfilesPathString());
   }
 
-  private static Substitution artifactListSubstitution(String key, Iterable<Artifact> artifacts) {
+  private static Substitution artifactListSubstitution(String key, List<Artifact> artifacts) {
     return Substitution.ofSpaceSeparatedList(
         key,
-        Streams.stream(artifacts)
+        artifacts.stream()
             .map(Artifact::getRunfilesPathString)
             .collect(ImmutableList.toImmutableList()));
   }

@@ -1,3 +1,433 @@
+## Release 2.0.0 (2019-12-19)
+
+```
+Baseline: 807ed23e4f53a5e008ec823e9c23e2c9baa36d0d
+
+Cherry picks:
+
+   + db0e32ca6296e56e5314993fe9939bc7331768ec:
+     build.sh: Fix bug in build script for RC release
+   + 85e84f7812f04bc0dbc36376f31b6dd2d229b905:
+     Set --incompatible_prohibit_aapt1 default to true.
+   + 84eae2ff550c433a3d0409cf2b5525059939439d:
+     Let shellzelisk fallback to bazel-real if it's the requested
+     version.
+   + d5ae460f1581ddf27514b4be18255481b47b4075:
+     Fix a typo in bazel.sh
+```
+
+Incompatible changes:
+
+  - --incompatible_remap_main_repo is enabled by default. Therefore,
+    both ways of addressing the main repository, by its name and by
+    '@' are now considered referring to the same repository.
+    see https://github.com/bazelbuild/bazel/issues/7130
+  - --incompatible_disallow_dict_lookup_unhashable_keys is enabled by
+    default https://github.com/bazelbuild/bazel/issues/9184
+  - --incompatible_remove_native_maven_jar is now enabled by default
+    and the flag removed. See https://github.com/bazelbuild/bazel/issues/6799
+  - --incompatible_prohibit_aapt1 is enabled by default.
+    See https://github.com/bazelbuild/bazel/issues/10000
+
+Important changes:
+
+  - --incompatible_proto_output_v2: proto v2 for aquery proto output
+    formats, which reduces the output size compared to v1. Note that
+    the messages' ids in v2 are in uint64 instead of string like in
+    v1.
+  - Adds --incompatible_remove_enabled_toolchain_types.
+  - Package loading now consistently fails if package loading had a
+    glob evaluation that encountered a symlink cycle or symlink
+    infinite expansion. Previously, such package loading with such
+    glob evaluations would fail only in some cases.
+  - The --disk_cache flag can now also be used together
+    with the gRPC remote cache.
+  - An action's discover inputs runtime metrics is now categorized as
+    parse time on the CriticalPathComponent.
+  - Make the formatting example more like to the written text by
+    adding an initial description.
+  - An action's discover inputs runtime metrics is now categorized as
+    parse time on the CriticalPathComponent.
+  - Bazel's Debian package and the binary installer now include an
+    improved wrapper that understands `<WORKSPACE>/.bazelversion`
+    files and the `$USE_BAZEL_VERSION` environment variable. This is
+    similar to what Bazelisk offers
+    (https://github.com/bazelbuild/bazelisk#how-does-bazelisk-know-whi
+    ch-bazel-version-to-run-and-where-to-get-it-from), except that it
+    works offline and integrates with apt-get.
+  - We are planning to deprecate the runfiles manifest files, which
+    aren't safe in the presence of whitespace, and also unnecessarily
+    require local CPU when remote execution is used. This release
+    adds --experimental_skip_runfiles_manifests to disable the
+    generation of the input manifests (rule.manifest files) in most
+    cases. Note that this flag has no effect on Windows by default or
+    if --experimental_enable_runfiles is explicitly set to false.
+
+This release contains contributions from many people at Google, as well as aldersondrive, Benjamin Peterson, Bor Kae Hwang, David Ostrovsky, Jakob Buchgraber, Jin, John Millikin, Keith Smiley, Lauri Peltonen, nikola-sh, Peter Mounce, Tony Hsu.
+
+## Release 1.2.1 (2019-11-26)
+
+```
+Baseline: 11deef7582dfeec7a04ee3f7236393d9b8027367
+
+Cherry picks:
+
+   + c76c3e539c73ecf6e96e3e098be7be59e17bf276:
+     Replace macOS CC path with relative path
+   + 63332eb556fadfe9edd0806add79942482adddef:
+     Hardcode path to dirname on macOS
+   + ceadf0a063cb97c32aced143d2447781d1dafc38:
+     Add tool executables (from FilesToRunProvider) to action inputs.
+   + dbe63b00954a25fa4405f7cbf273df78c16498dd:
+     Fix some of the bazel Windows tools code to work with GCC.
+```
+
+This release fixes a single regression:
+- #10297: Bazel 1.2.0 does no longer run on macOS High Sierra.
+
+It is the same code as Bazel 1.2.0, except that we rebuild the macOS release
+binaries with Xcode 10.2.1 to make them backwards compatible with older macOS
+versions again.
+
+## Release 1.2.0 (2019-11-20)
+
+```
+Baseline: 11deef7582dfeec7a04ee3f7236393d9b8027367
+
+Cherry picks:
+
+   + c76c3e539c73ecf6e96e3e098be7be59e17bf276:
+     Replace macOS CC path with relative path
+   + 63332eb556fadfe9edd0806add79942482adddef:
+     Hardcode path to dirname on macOS
+   + ceadf0a063cb97c32aced143d2447781d1dafc38:
+     Add tool executables (from FilesToRunProvider) to action inputs.
+   + dbe63b00954a25fa4405f7cbf273df78c16498dd:
+     Fix some of the bazel Windows tools code to work with GCC.
+```
+
+Incompatible changes:
+
+  - Tree artifacts and regular artifact paths can no longer overlap.
+
+New features:
+
+  - Added a special "_validation" output group to enable moving
+    "validation actions" off the critical path of builds.
+
+Important changes:
+
+  - The query flag "--host_deps" (commonly used as "--nohost_deps")
+    has been renamed to "--tool_deps", and now also removes
+    dependencies in any execution configuration from being reported
+    in the query output. The previous flag name is deprecated and
+    will be removed in a future release.
+  - The `cc_common.{compile,link}` APIs can now be used without
+    passing the `--experimental_cc_skylark_api_enabled_packages` flag.
+  - A list of log paths will be provided in build output.
+  - Improve runfiles documentation.
+  - Improve documentation on rule outputs.
+  - BUILD/.bzl execution errors cause execution to stop, even at
+    top-level
+  - Multiple Starlark validation errors are reported in a single pass.
+  - Introduce --experimental_nested_set_as_skykey_threshold
+  - Blaze will prevent idle sleep during test and build actions. Note
+    that this does not affect screen savers and will not keep a
+    laptop awake if the user forces sleep or closes the lid. This is
+    purely to avoid idle sleeping when the user is not interacting
+    with the device.
+  - Improve testing docs.
+  - Incompatible flag
+    `--incompatible_validate_top_level_header_inclusions` has been
+    added. See https://github.com/bazelbuild/bazel/issues/10047 for
+    details.
+  - Fix an aquery bug with handling malformed queries that crashes
+    bazel.
+  - List fields on CcLinkingOutputs.
+  - [Python] Added flag --incomaptible_default_to_explicit_init_py to
+    switch the default value of legacy_create_init to True. With this
+    flag enabled, your py_binary and py_test targets will no longer
+    behave as if empty __init__.py files were implicitly littered in
+    your runfiles tree. See
+    [#10076](https://github.com/bazelbuild/bazel/issues/10076).
+  - Fix documentation on allowed target names.
+  - --target_platform_fallback now also applies to exec/host
+    configurations
+  - android_binary and android_libary can now depend on targets
+    providing
+    CcInfos.
+  - Add support for tracking suspensions (sleeps or SIGSTOP) on macOS.
+  - d8 dexers (both standalone and incremental) are now available for
+    use.
+  - Add Desugar support for FreezePeriod#<init>
+
+This release contains contributions from many people at Google, as well as Alex Kirchhoff, Andrew Suffield, Asaf Flescher, Austin Schuh, Benjamin Peterson, Bor Kae Hwang, Brian Richardson, Christy Norman, Clint Harrison, Dan Halperin, Daniel Martn, Dave Lee, David Neil, David Ostrovsky, George Gensure, Greg Estren, Greg, Ira Shikhman, Jacob Parker, Jakub Bujny, John Millikin, John Millikin, Keith Smiley, Laurent Le Brun, marcohu, Marwan Tammam, Mostyn Bramley-Moore, Peter Mounce, Ruben Das, Stepan Koltsov, Thi Don, Thi, Tomasz Strejczek, Walt Panfil, Yannic Bonenberger, Zackary Lowery.
+
+## Release 1.0.1 (2019-10-21)
+
+```
+Baseline: 97a82646dadd93bf52d47828bda42e3383b657c6
+
+Cherry picks:
+
+   + a0e3bb207fe2044120a2555a37162ee1f2b17500:
+     Remove support for authentication and .netrc
+   + ada2c55dcc106cd55bafbbe5d9a966e21e4770e0:
+     Add explicit --sdk argument to xcrun calls
+   + 847df729528f6e5919ec8374247eadf792cba544:
+     toolchain_vanilla: Unset source and target language level
+     versions
+   + 5cfa0303d6ac3b5bd031ff60272ce80a704af8c2:
+     Update java_tools version to javac11-v5.1.
+   + 9c257df5b9b1de5459fc066e77c435ae085957a7:
+     Release 1.0.0 (2019-10-10)
+   + f7a31b30f5319639c36a6c6b1c14f358597d98d2:
+     Prevent action-cache duplicate suppression
+   + 618e5a28f7f735c37724377b15775a4975349c74:
+     Use FileSystemUtils.moveFile instead of renameTo function of Path
+```
+
+This release contains contributions from many people at Google, as well as David Ostrovsky, George Gensure, Keith Smiley.
+
+## Release 1.0.0 (2019-10-10)
+
+```
+Baseline: 97a82646dadd93bf52d47828bda42e3383b657c6
+
+Cherry picks:
+
+   + a0e3bb207fe2044120a2555a37162ee1f2b17500:
+     Remove support for authentication and .netrc
+   + ada2c55dcc106cd55bafbbe5d9a966e21e4770e0:
+     Add explicit --sdk argument to xcrun calls
+   + 847df729528f6e5919ec8374247eadf792cba544:
+     toolchain_vanilla: Unset source and target language level
+     versions
+   + 5cfa0303d6ac3b5bd031ff60272ce80a704af8c2:
+     Update java_tools version to javac11-v5.1.
+```
+
+Incompatible changes:
+
+  - Python, Windows: the
+    --[no]incompatible_windows_escape_python_args is no longer
+    supported. (It was flipped to true in Bazel 0.27.0)
+  - --incompatible_use_native_patch is enabled by default
+  - Windows: --incompatible_windows_bashless_run_command is now true
+    by default, meaning "bazel run //foo:bin" will run the binary as
+    a subprocess of the Bazel client. (When the flag is false, the
+    binary is executed as a subprocess of Bash.)
+  - Windows: --incompatible_windows_native_test_wrapper is enabled by
+    default
+
+New features:
+
+  - Genrule now supports `cmd_bash`, `cmd_ps`, `cmd_bat` attributes.
+    More details at
+    https://docs.bazel.build/versions/master/be/general.html#genrule.c
+    md
+  - config_setting can now check multiple values on "--foo=firstVal
+    --foo=secondVal ..."-style flags
+  - tags: use `--experimental_allow_tags_propagation` flag to
+    propagate tags to the action's execution requirements from
+    targets. Such tags should start with: `no-`, `requires-`,
+    `supports-`, `block-`, `disable-`, `cpu:`. See #8830 for details.
+  - Users can now get generated def file from cc_library via
+    "def_file" output group on Windows.
+  - Platform-specific bazelrc: with --enable_platform_specific_config
+    you can
+    enable flags in bazelrc according to your host platform.
+  - tags: use `--experimental_allow_tags_propagation` flag to
+    propagate tags to the action's execution requirements from
+    cc_library or cc_binary targets. Such tags should start with:
+    `no-`, `requires-`, `supports-`, `block-`, `disable-`, `cpu:`.
+    See #8830 for details.
+  - tags: use --experimental_allow_tags_propagation flag to propagate
+    tags to the action's execution requirements from java targets.
+    Such tags should start with: no-, requires-, supports-, block-,
+    disable-, cpu:. See #8830 for details.
+
+Important changes:
+
+  - Bazel Android builds now use aapt2 by default. To revert to aapt,
+    set `--android_aapt=aapt`.
+  - Make either --subcommands or --verbose_failures imply
+    --materialize_param_files
+  - Bazel Android builds now use aapt2 by default. To revert to aapt,
+    set `--an...
+    RELNOTES: None
+  - by default all remote connections considered to be via `gRPC`
+    with TLS enabled, unless other specified. To disable TLS use
+    `grpc://` prefix for you endpoints. All remote connections via
+    `gRPC` affected - `--remote_cache`, `--remote_executor` or
+    `--bes_backend`. http cache/executor is not affected. See #8061
+    for details.
+  - cc_* rules support non-transitive defines through a
+    'local_defines' attribute.
+  - Enable
+    incompatible_disallow_rule_execution_platform_constraints_allowed
+    by default (https://github.com/bazelbuild/bazel/issues/8136).
+  - incompatible_disallow_split_empty_separator is enabled by default
+  - Fixed Android build issues with aapt2 on Windows. See the [GitHub
+    issue](https://github.com/bazelbuild/bazel/issues/9102) for more
+    information.
+  - --incompatible_disable_static_cc_toolchains has been flipped. See
+    https://github.com/bazelbuild/bazel/issues/8546.
+  - --remote_default_platform_properties has been deprecated in favor
+    of --remote_default_exec_properties.
+  - The --incompatible_make_thinlto_command_lines_standalone flag has
+    been flipped, see https://github.com/bazelbuild/bazel/issues/6791
+    for more information.
+  - The --incompatible_use_specific_tool_files flag has been flipped.
+    See https://github.com/bazelbuild/bazel/pull/9126 for more
+    information.
+  - Clarify default visibility.
+  - Enables incompatible_auto_configure_host_platform
+  - New incompatible flag --incompatible_disable_depset_items
+    disables the "items" parameter in the Starlark depset
+    constructor. Use "direct" and "transitive" parameters instead.
+  - --incompatible_assignment_identifiers_have_local_scope is enabled
+  - incompatible_disable_partition_default_parameter is enabled by
+    default ()
+  - incompatible_restrict_attribute_names is enabled
+    (https://github.com/bazelbuild/bazel/issues/6437)
+  - The --incompatible_disable_nocopts flag has been flipped. See
+    https://github.com/bazelbuild/bazel/issues/8546 for more
+    information.
+  - Deprecated Java-Starlark API java_common.create_provider is
+    removed. JavaInfo() legacy args (actions, sources, source_jars,
+    use_ijar, java_toolchain, host_javabase) are removed.
+  - The flag incompatible_disallow_hashing_frozen_mutables is enabled
+    (https://github.com/bazelbuild/bazel/issues/7800)
+  - `maven_jar` and `maven_server` now disallow using plain HTTP URLs
+    without a specified checksum. If you are still using `maven_jar`,
+    consider migrating to
+    [`rules_jvm_external`](https://github.com/bazelbuild/rules_jvm_ext
+    ernal) for transitive dependency management. See
+    [#8607](https://github.com/bazelbuild/bazel/issues/8607) for more
+    information.
+  - Added `sha256` and `sha256_src` attributes to `maven_jar`. Please
+    consider migrating to SHA-256 as SHA-1 has been deemed
+    cryptographically insecure ([https://shattered.io]()). Or, use
+    [`rules_jvm_external`](https://github.com/bazelbuild/rules_jvm_ext
+    ernal) to manage your transitive Maven dependencies with artifact
+    pinning and SHA-256 verification support.
+  - introducing per-target exec_properties
+  - Bazel now supports ThinLTO builds on Linux for Clang versions >=
+    6.0. ThinLTO can be enabled through --features=thin_lto
+  - The Target.output_group field in Starlark is removed. Use
+    OutputGroupInfo instead. See
+    https://github.com/bazelbuild/bazel/issues/7949 for details.
+  - Make a number of parameters of Starlark builtin functions
+    positional-only (as opposed to specifiable by keyword). See
+    https://github.com/bazelbuild/bazel/issues/8147 for details.
+  - incompatible_skip_genfiles_symlink is enabled by default (#8651)
+  - Change Pruned events will fire immediately after being checked.
+  - --incompatible_remove_legacy_whole_archive has been flipped. See
+    https://github.com/bazelbuild/bazel/issues/7362 for more
+    information
+
+This release contains contributions from many people at Google, as well as Adam Liddell, Alessandro Patti, Arshabh Kumar Agarwal, Artem Pelenitsyn, Artem Zinnatullin, Benjamin Peterson, David Ostrovsky, Emmanuel Goh, Farhim Ferdous, George Gensure, iirina, Keith Smiley, Kiril Videlov, Laurent Le Brun, Mantas Sakalauskas, Marwan Tammam, Matt Mukerjee, panzhongxian, Shachar Anchelovich, Stepan Koltsov, Stephan Wolski, Travis Clarke, Yannic Bonenberger, Yuta Saito.
+
+## Release 0.29.0 (2019-08-28)
+
+```
+Baseline: 6c5ef5369a3ffceb8a65cc159a2fff1401242810
+
+Cherry picks:
+
+   + 338829f2633e91ae0492ee4169446465e10b5994:
+     Fix retrying of SocketTimeoutExceptions in HttpConnector
+   + 14651cd86b6fc1d48f56a208a9b5278b3e2dcf75:
+     Fallback to next urls if download fails in HttpDownloader
+   + b7d300c6be3e130dec0e62a4f19493105f595d57:
+     Fix incorrect stdout/stderr in remote action cache. Fixes #9072
+   + 960217631abdcab0a7ed95e2ab10acd55f636639:
+     Automated rollback of commit
+     0f0a0d58725603cf2f1c175963360b525718a195.
+   + da557f96c697102ad787e57bbf7db2460f6a60a8:
+     Windows: fix "bazel run" argument quoting
+   + ef8b6f68cc8ffd2e6523a894034ae383e87ec74c:
+     Return JavaInfo from java proto aspects.
+   + 209175ff8ffeb05628ed8a187dd414a3d2935c55:
+     Revert back to the old behavior of not creating a proto source
+     root for generated .proto files.
+   + 644060b7a4bc98384b66e3d2343b950b875b5e35:
+     Fix PatchUtil for parsing special patch format
+   + 067040d7bcb3b24a88432e210a96adacee3f37b4:
+     Put the removal of the legacy repository-relative proto path
+     behind the --incompatible_generated_protos_in_virtual_imports
+     flag.
+   + 76ed014e77d7b862f6eb2894600ae525ea570f11:
+     repository mapping lookup: convert to canonical name first
+```
+
+Important changes:
+
+  - rule_test: fix Bazel 0.27 regression ("tags" attribute was
+    ingored, https://github.com/bazelbuild/bazel/issues/8723
+  - Adds --incompatible_enable_execution_transition, which enables
+    incremental migration of host attributes to exec attributes.
+  - objc_proto_library rule has been deleted from Bazel.
+  - repository_ctx.read is no longer restricted to files
+        in the repository contructed.
+  - tags 'no-remote', 'no-cache', 'no-remote-cache',
+    'no-remote-exec', 'no-sandbox' are propagated now to the actions
+    from targets when '--ncompatible_allow_tags_propagation' flag set
+    to true. See #8830.
+  - Adds flag
+    --//tools/build_defs/pkg:incompatible_no_build_defs_pkg. This
+    flag turns off the rules //tools/build_defs/pkg:{pkg_deb,
+    pkg_rpm, pkg_tar}.
+  - The Android NDK is now integrated with toolchains. To use them,
+    pass the `--extra_toolchains=@androidndk//:all` flag or register
+    them in your WORKSPACE with
+    `register_toolchains("@androidndk//:all")`.
+  - Stdout and stderr are checked to determine if output is going to a
+    terminal. `--is_stderr_atty` is deprecated and `--isatty` is
+    undeprecated.
+  - --incompatible_load_proto_rules_from_bzl was added to forbid
+    loading the native proto rules directly. See more on tracking
+    issue #8922
+  - Docker Sandbox now respects remote_default_platform_properties
+  - pkg_deb, pkg_rpm & pkg_tar deprecation plan announced in the
+    documentation.
+  - The new java_tools release:
+    * fixes https://github.com/bazelbuild/bazel/issues/8614
+    * exposes a new toolchain `@java_tools//:prebuilt_toolchain`
+    which is using all the pre-built tools, including singlejar and
+    ijar, even on remote execution. This toolchain should be used
+    only when host and execution platform are the same, otherwise the
+    binaries will not work on the execution platform.
+  - java_common.compile supports specifying
+    annotation_processor_additional_inputs and
+    annotation_processor_additional_outputs for the Java compilation
+    action for supporting annotation processors that consume or
+    produce artifacts. Fixes #6415
+  - There is now documentation on optimizing Android app build
+    performance. Read it at
+    https://docs.bazel.build/versions/0.29.0/android-build-performance
+    .html
+  - Execution log now respects --remote_default_platform_properties
+  - Include a link to the relevant documenation on transitive Python
+    version errors.
+  - New incompatible flag
+    --incompatible_disable_target_provider_fields removes the ability
+    (in Starlark) to access a target's providers via the field syntax
+    (for example, `ctx.attr.dep.my_provider`). The provider-key
+    syntax should be used instead (for example,
+    `ctx.attr.dep[MyProvider]`). See
+    https://github.com/bazelbuild/bazel/issues/9014 for details.
+  - A new platform exec_properties is added to replace
+    remote_execution_properties.
+  - Added --incompatible_load_python_rules_from_bzl, which will be
+    flipped in Bazel 1.0. See
+    https://github.com/bazelbuild/bazel/issues/9006.
+  - add --break_build_on_parallel_dex2oat_failure to shortcut tests
+    on dex2oat errors
+
+This release contains contributions from many people at Google, as well as Alexander Ilyin, Arek Sredzki, Artem Zinnatullin, Benjamin Peterson, Fan Wu, John Millikin, Loo Rong Jie, Marwan Tammam, Oscar Bonilla, Peter Mounce, Sergio Rodriguez Orellana, Takeo Sawada, and Yannic Bonenberger.
+
 ## Release 0.28.1 (2019-07-19)
 
 ```

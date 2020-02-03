@@ -15,11 +15,13 @@
 package com.google.devtools.build.lib.skyframe;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 import static com.google.devtools.build.skyframe.EvaluationResultSubjectFactory.assertThatEvaluationResult;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.testing.EqualsTester;
 import com.google.common.truth.IterableSubject;
+import com.google.devtools.build.lib.analysis.ViewCreationFailedException;
 import com.google.devtools.build.lib.analysis.platform.ConstraintCollection;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
@@ -289,5 +291,26 @@ public class RegisteredExecutionPlatformsFunctionTest extends ToolchainTestCase 
             RegisteredExecutionPlatformsValue.create(
                 ImmutableList.of(executionPlatformKey2, executionPlatformKey1)))
         .testEquals();
+  }
+
+  /*
+   * Regression test for https://github.com/bazelbuild/bazel/issues/10101.
+   */
+  @Test
+  public void testInvalidExecutionPlatformLabelDoesntCrash() throws Exception {
+    rewriteWorkspace("register_execution_platforms('//test:bad_exec_platform_label')");
+    scratch.file(
+        "test/BUILD", "genrule(name = 'g', srcs = [], outs = ['g.out'], cmd = 'echo hi > $@')");
+    assertThrows(
+        "invalid registered execution platform '//test:bad_exec_platform_label': "
+            + "no such target '//test:bad_exec_platform_label'",
+        ViewCreationFailedException.class,
+        () ->
+            update(
+                ImmutableList.of("//test:g"),
+                /*keepGoing=*/ false,
+                /*loadingPhaseThreads=*/ 1,
+                /*doAnalysis=*/ true,
+                eventBus));
   }
 }

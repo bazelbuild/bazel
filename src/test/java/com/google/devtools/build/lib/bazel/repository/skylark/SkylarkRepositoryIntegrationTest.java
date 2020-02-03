@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.bazel.repository.skylark;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 import static org.junit.Assert.fail;
 
 import com.google.common.collect.ImmutableList;
@@ -23,7 +24,7 @@ import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
-import com.google.devtools.build.lib.bazel.repository.downloader.HttpDownloader;
+import com.google.devtools.build.lib.bazel.repository.downloader.DownloadManager;
 import com.google.devtools.build.lib.packages.BuildFileContainsErrorsException;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.rules.repository.LocalRepositoryFunction;
@@ -54,8 +55,6 @@ public class SkylarkRepositoryIntegrationTest extends BuildViewTestCase {
 
   // The RuleClassProvider loaded with the SkylarkRepositoryModule
   private ConfiguredRuleClassProvider ruleProvider = null;
-  // The Analysis mock injected with the SkylarkRepositoryFunction
-  private AnalysisMock analysisMock = null;
 
   /**
    * Proxy to the real analysis mock to overwrite {@code #getSkyFunctions(BlazeDirectories)} to
@@ -72,7 +71,7 @@ public class SkylarkRepositoryIntegrationTest extends BuildViewTestCase {
         BlazeDirectories directories) {
       // Add both the local repository and the skylark repository functions
       // The RepositoryCache mock injected with the SkylarkRepositoryFunction
-      HttpDownloader downloader = Mockito.mock(HttpDownloader.class);
+      DownloadManager downloader = Mockito.mock(DownloadManager.class);
       RepositoryFunction localRepositoryFunction = new LocalRepositoryFunction();
       SkylarkRepositoryFunction skylarkRepositoryFunction =
           new SkylarkRepositoryFunction(downloader);
@@ -97,10 +96,7 @@ public class SkylarkRepositoryIntegrationTest extends BuildViewTestCase {
 
   @Override
   protected AnalysisMock getAnalysisMock() {
-    if (analysisMock == null) {
-      analysisMock = new CustomAnalysisMock(super.getAnalysisMock());
-    }
-    return analysisMock;
+    return new CustomAnalysisMock(super.getAnalysisMock());
   }
 
   @Override
@@ -139,6 +135,66 @@ public class SkylarkRepositoryIntegrationTest extends BuildViewTestCase {
         "    attrs={'path': attr.string(mandatory=True)})");
     scratch.file(rootDirectory.getRelative("BUILD").getPathString());
     scratch.overwriteFile(rootDirectory.getRelative("WORKSPACE").getPathString(),
+        new ImmutableList.Builder<String>()
+            .addAll(analysisMock.getWorkspaceContents(mockToolsConfig))
+            .add("load('//:def.bzl', 'repo')")
+            .add("repo(name='foo', path='/repo2')")
+            .build());
+    invalidatePackages();
+    ConfiguredTargetAndData target = getConfiguredTargetAndData("@foo//:bar");
+    Object path = target.getTarget().getAssociatedRule().getAttributeContainer().getAttr("path");
+    assertThat(path).isEqualTo("foo");
+  }
+
+  @Test
+  public void testInstantiationOfUnexportedRepositoryRule() throws Exception {
+    // It is possible to instantiate an unexported repository_rule,
+    // even though it should not be (b/283533234).
+    // This test exercises the heuristic for inferring the name of the rule class.
+    scratch.file("/repo/WORKSPACE");
+    scratch.file("/repo/BUILD");
+    scratch.file(
+        "def.bzl",
+        "def _impl(ctx): pass",
+        "rule1 = repository_rule(implementation=_impl)",
+        "def f():",
+        "  # exported",
+        "  a = rule1(name='a')",
+        "  # unexported",
+        "  rule2 = repository_rule(implementation=_impl)",
+        "  b = rule2(name='b')",
+        "  fail('a.kind=%s b.kind=%s' % (",
+        "    native.existing_rule('a')['kind'],",
+        "    native.existing_rule('b')['kind']))");
+    scratch.file(rootDirectory.getRelative("BUILD").getPathString());
+    scratch.overwriteFile(
+        rootDirectory.getRelative("WORKSPACE").getPathString(), "load('//:def.bzl', 'f')", "f()");
+    invalidatePackages();
+    // TODO(adonovan): make it easier to write loading-phase only WORKSPACE tests.
+    AssertionError ex =
+        assertThrows(AssertionError.class, () -> getConfiguredTargetAndData("@a//:BUILD"));
+    assertThat(ex).hasMessageThat().contains("a.kind=rule1 b.kind=unexported__impl");
+  }
+
+  @Test
+  public void testfailWithIncompatibleUseCcConfigureFromRulesCcDoesNothing() throws Exception {
+    // A simple test that recreates local_repository with Skylark.
+    scratch.file("/repo2/WORKSPACE");
+    scratch.file("/repo2/bar.txt");
+    scratch.file("/repo2/BUILD", "filegroup(name='bar', srcs=['bar.txt'], path='foo')");
+    scratch.file(
+        "def.bzl",
+        "__do_not_use_fail_with_incompatible_use_cc_configure_from_rules_cc()",
+        "def _impl(repository_ctx):",
+        "  repository_ctx.symlink(repository_ctx.attr.path, '')",
+        "",
+        "repo = repository_rule(",
+        "    implementation=_impl,",
+        "    local=True,",
+        "    attrs={'path': attr.string(mandatory=True)})");
+    scratch.file(rootDirectory.getRelative("BUILD").getPathString());
+    scratch.overwriteFile(
+        rootDirectory.getRelative("WORKSPACE").getPathString(),
         new ImmutableList.Builder<String>()
             .addAll(analysisMock.getWorkspaceContents(mockToolsConfig))
             .add("load('//:def.bzl', 'repo')")
@@ -257,7 +313,12 @@ public class SkylarkRepositoryIntegrationTest extends BuildViewTestCase {
       // This is expected
     }
     assertDoesNotContainEvent("cycle");
-    assertContainsEvent("repository 'foo' was defined too late in your WORKSPACE file");
+    assertContainsEvent(
+        "Cycle in the workspace file detected."
+            + " This indicates that a repository is used prior to being defined.\n"
+            + "The following chain of repository dependencies lead to the missing definition.\n"
+            + " - @foobar\n"
+            + " - @foo\n");
     assertContainsEvent("Failed to load Starlark extension '@foo//:def.bzl'.");
   }
 
@@ -281,7 +342,11 @@ public class SkylarkRepositoryIntegrationTest extends BuildViewTestCase {
       // This is expected
     }
     assertDoesNotContainEvent("cycle");
-    assertContainsEvent("the repository 'foo' was defined too late in your WORKSPACE file");
+    assertContainsEvent(
+        "Cycle in the workspace file detected."
+            + " This indicates that a repository is used prior to being defined.\n"
+            + "The following chain of repository dependencies lead to the missing definition.\n"
+            + " - @foo");
     assertContainsEvent("Failed to load Starlark extension '@foo//:def.bzl'.");
   }
 
@@ -300,17 +365,14 @@ public class SkylarkRepositoryIntegrationTest extends BuildViewTestCase {
         "rule_from_git(name = 'foobar')");
 
     invalidatePackages();
-    try {
-      getTarget("@//:git_repo");
-      fail();
-    } catch (AssertionError expected) {
-      assertThat(expected)
-          .hasMessageThat()
-          .contains(
-              "Failed to load Starlark extension "
-                  + "'@git_repo//xyz:foo.bzl'.\n"
-                  + "It usually happens when the repository is not defined prior to being used.\n");
-    }
+    AssertionError expected = assertThrows(AssertionError.class, () -> getTarget("@//:git_repo"));
+    assertThat(expected)
+        .hasMessageThat()
+        .contains(
+            "Failed to load Starlark extension "
+                + "'@git_repo//xyz:foo.bzl'.\n"
+                + "Cycle in the workspace file detected."
+                + " This indicates that a repository is used prior to being defined.\n");
   }
 
   @Test
@@ -373,14 +435,10 @@ public class SkylarkRepositoryIntegrationTest extends BuildViewTestCase {
         "repo(name='foo')");
 
     invalidatePackages();
-    try {
-      getConfiguredTarget("@foo//:bar");
-      fail();
-    } catch (AssertionError e) {
-      assertThat(e)
-          .hasMessageThat()
-          .contains("There is already a built-in attribute 'name' " + "which cannot be overridden");
-    }
+    AssertionError e = assertThrows(AssertionError.class, () -> getConfiguredTarget("@foo//:bar"));
+    assertThat(e)
+        .hasMessageThat()
+        .contains("There is already a built-in attribute 'name' " + "which cannot be overridden");
   }
 
   @Test

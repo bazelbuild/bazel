@@ -18,21 +18,18 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import com.google.devtools.build.lib.syntax.StarlarkValue;
 
-/**
- * A configuration fragment for j2objc.
- */
+/** A configuration fragment for j2objc. */
 @SkylarkModule(
     name = "j2objc",
     category = SkylarkModuleCategory.CONFIGURATION_FRAGMENT,
-    doc = "A configuration fragment for j2Objc."
-)
-public interface J2ObjcConfigurationApi {
+    doc = "A configuration fragment for j2Objc.")
+public interface J2ObjcConfigurationApi extends StarlarkValue {
 
   @SkylarkCallable(
       name = "translation_flags",
       structField = true,
-      doc = "The list of flags to be used when the j2objc compiler is invoked. "
-  )
-  public ImmutableList<String> getTranslationFlags();
+      doc = "The list of flags to be used when the j2objc compiler is invoked. ")
+  ImmutableList<String> getTranslationFlags();
 }

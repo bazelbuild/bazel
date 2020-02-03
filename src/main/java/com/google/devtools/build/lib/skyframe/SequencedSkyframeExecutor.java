@@ -36,7 +36,6 @@ import com.google.devtools.build.lib.analysis.AnalysisProtos.ActionGraphContaine
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.WorkspaceStatusAction.Factory;
-import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoFactory;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
@@ -72,6 +71,7 @@ import com.google.devtools.build.lib.skyframe.DirtinessCheckerUtils.UnionDirtine
 import com.google.devtools.build.lib.skyframe.ExternalFilesHelper.ExternalFileAction;
 import com.google.devtools.build.lib.skyframe.ExternalFilesHelper.ExternalFilesKnowledge;
 import com.google.devtools.build.lib.skyframe.ExternalFilesHelper.FileType;
+import com.google.devtools.build.lib.skyframe.FilesystemValueChecker.ImmutableBatchDirtyResult;
 import com.google.devtools.build.lib.skyframe.PackageFunction.ActionOnIOExceptionReadingBuildFile;
 import com.google.devtools.build.lib.skyframe.PackageLookupFunction.CrossRepositoryLabelViolationStrategy;
 import com.google.devtools.build.lib.skyframe.actiongraph.ActionGraphDump;
@@ -83,12 +83,10 @@ import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.BatchStat;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.BuildDriver;
 import com.google.devtools.build.skyframe.Differencer;
-import com.google.devtools.build.skyframe.Differencer.Diff;
 import com.google.devtools.build.skyframe.EvaluationContext;
 import com.google.devtools.build.skyframe.GraphInconsistencyReceiver;
 import com.google.devtools.build.skyframe.InMemoryMemoizingEvaluator;
@@ -149,6 +147,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
   private int outputDirtyFiles;
   private int modifiedFilesDuringPreviousBuild;
   private Duration sourceDiffCheckingDuration = Duration.ofSeconds(-1L);
+  private int numSourceFilesCheckedBecauseOfMissingDiffs;
   private Duration outputTreeDiffCheckingDuration = Duration.ofSeconds(-1L);
 
   // If this is null then workspace header pre-calculation won't happen.
@@ -162,12 +161,10 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
       BlazeDirectories directories,
       ActionKeyContext actionKeyContext,
       Factory workspaceStatusActionFactory,
-      ImmutableList<BuildInfoFactory> buildInfoFactories,
       Iterable<? extends DiffAwareness.Factory> diffAwarenessFactories,
       ImmutableMap<SkyFunctionName, SkyFunction> extraSkyFunctions,
       Iterable<SkyValueDirtinessChecker> customDirtinessCheckers,
-      ImmutableSet<PathFragment> hardcodedBlacklistedPackagePrefixes,
-      PathFragment additionalBlacklistedPackagePrefixesFile,
+      SkyFunction blacklistedPackagePrefixesFunction,
       CrossRepositoryLabelViolationStrategy crossRepositoryLabelViolationStrategy,
       List<BuildFileName> buildFilesByPriority,
       ActionOnIOExceptionReadingBuildFile actionOnIOExceptionReadingBuildFile,
@@ -182,11 +179,9 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
         directories,
         actionKeyContext,
         workspaceStatusActionFactory,
-        buildInfoFactories,
         extraSkyFunctions,
         ExternalFileAction.DEPEND_ON_EXTERNAL_PKG_FOR_EXTERNAL_REPO_PATHS,
-        hardcodedBlacklistedPackagePrefixes,
-        additionalBlacklistedPackagePrefixesFile,
+        blacklistedPackagePrefixesFunction,
         crossRepositoryLabelViolationStrategy,
         buildFilesByPriority,
         actionOnIOExceptionReadingBuildFile,
@@ -240,7 +235,11 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
       TimestampGranularityMonitor tsgm,
       OptionsProvider options)
       throws InterruptedException, AbruptExitException {
-    if (evaluatorNeedsReset) {
+    // If the nestedSetAsSkykeyThreshold changed between builds, it's necessary to reset the
+    // evaluator to avoid dependency inconsistencies in Skyframe.
+    // Resetting the evaluator also creates new instances of the SkyFunctions, hence also wiping
+    // various state maps in ActionExecutionFunction and ArtifactNestedSetFunction.
+    if (evaluatorNeedsReset || nestedSetAsSkyKeyThresholdUpdatedAndReset(options)) {
       // Recreate MemoizingEvaluator so that graph is recreated with correct edge-clearing status,
       // or if the graph doesn't have edges, so that a fresh graph can be used.
       resetEvaluator();
@@ -333,6 +332,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
       throws InterruptedException, AbruptExitException {
     TimestampGranularityMonitor tsgm = this.tsgm.get();
     modifiedFiles = 0;
+    numSourceFilesCheckedBecauseOfMissingDiffs = 0;
 
     boolean managedDirectoriesChanged =
         managedDirectoriesKnowledge != null && refreshWorkspaceHeader(eventHandler);
@@ -434,6 +434,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
       handleChangedFiles(
           ImmutableList.of(pathEntry),
           getDiff(tsgm, modifiedFileSet.modifiedSourceFiles(), pathEntry),
+          /*numSourceFilesCheckedIfDiffWasMissing=*/ 0,
           managedDirectoriesChanged);
       processableModifiedFileSet.markProcessed();
     }
@@ -502,9 +503,9 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
     logger.info(
         "About to scan skyframe graph checking for filesystem nodes of types "
             + Iterables.toString(fileTypesToCheck));
-    Differencer.Diff diff;
+    ImmutableBatchDirtyResult batchDirtyResult;
     try (SilentCloseable c = Profiler.instance().profile("fsvc.getDirtyKeys")) {
-      diff =
+      batchDirtyResult =
           fsvc.getDirtyKeys(
               memoizingEvaluator.getValues(),
               new UnionDirtinessChecker(
@@ -514,7 +515,11 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
                           new ExternalDirtinessChecker(tmpExternalFilesHelper, fileTypesToCheck),
                           new MissingDiffDirtinessChecker(diffPackageRootsUnderWhichToCheck)))));
     }
-    handleChangedFiles(diffPackageRootsUnderWhichToCheck, diff, managedDirectoriesChanged);
+    handleChangedFiles(
+        diffPackageRootsUnderWhichToCheck,
+        batchDirtyResult,
+        /*numSourceFilesCheckedIfDiffWasMissing=*/ batchDirtyResult.getNumKeysChecked(),
+        managedDirectoriesChanged);
 
     for (Pair<Root, DiffAwarenessManager.ProcessableModifiedFileSet> pair :
         pathEntriesWithoutDiffInformation) {
@@ -529,7 +534,8 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
 
   private void handleChangedFiles(
       Collection<Root> diffPackageRootsUnderWhichToCheck,
-      Diff diff,
+      Differencer.Diff diff,
+      int numSourceFilesCheckedIfDiffWasMissing,
       boolean managedDirectoriesChanged) {
     int numWithoutNewValues = diff.changedKeysWithoutNewValues().size();
     Iterable<SkyKey> keysToBeChangedLaterInThisBuild = diff.changedKeysWithoutNewValues();
@@ -554,6 +560,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
     recordingDiffer.inject(changedKeysWithNewValues);
     modifiedFiles += getNumberOfModifiedFiles(keysToBeChangedLaterInThisBuild);
     modifiedFiles += getNumberOfModifiedFiles(changedKeysWithNewValues.keySet());
+    numSourceFilesCheckedBecauseOfMissingDiffs += numSourceFilesCheckedIfDiffWasMissing;
     incrementalBuildMonitor.accrue(keysToBeChangedLaterInThisBuild);
     incrementalBuildMonitor.accrue(changedKeysWithNewValues.keySet());
   }
@@ -857,11 +864,14 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
   @Override
   public ExecutionFinishedEvent createExecutionFinishedEvent() {
     ExecutionFinishedEvent result =
-        new ExecutionFinishedEvent(
-            outputDirtyFiles,
-            modifiedFilesDuringPreviousBuild,
-            sourceDiffCheckingDuration,
-            outputTreeDiffCheckingDuration);
+        ExecutionFinishedEvent.builder()
+            .setOutputDirtyFiles(outputDirtyFiles)
+            .setOutputModifiedFilesDuringPreviousBuild(modifiedFilesDuringPreviousBuild)
+            .setSourceDiffCheckingDuration(sourceDiffCheckingDuration)
+            .setNumSourceFilesCheckedBecauseOfMissingDiffs(
+                numSourceFilesCheckedBecauseOfMissingDiffs)
+            .setOutputTreeDiffCheckingDuration(outputTreeDiffCheckingDuration)
+            .build();
     outputDirtyFiles = 0;
     modifiedFilesDuringPreviousBuild = 0;
     sourceDiffCheckingDuration = Duration.ZERO;
@@ -959,10 +969,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
     protected FileSystem fileSystem;
     protected BlazeDirectories directories;
     protected ActionKeyContext actionKeyContext;
-    protected ImmutableList<BuildInfoFactory> buildInfoFactories;
     protected BuildOptions defaultBuildOptions;
-    private ImmutableSet<PathFragment> hardcodedBlacklistedPackagePrefixes;
-    private PathFragment additionalBlacklistedPackagePrefixesFile;
     private CrossRepositoryLabelViolationStrategy crossRepositoryLabelViolationStrategy;
     private List<BuildFileName> buildFilesByPriority;
     private ActionOnIOExceptionReadingBuildFile actionOnIOExceptionReadingBuildFile;
@@ -976,6 +983,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
     private MutableArtifactFactorySupplier mutableArtifactFactorySupplier =
         new MutableArtifactFactorySupplier();
     private Consumer<SkyframeExecutor> skyframeExecutorConsumerOnInit = skyframeExecutor -> {};
+    private SkyFunction blacklistedPackagePrefixesFunction;
 
     private Builder() {}
 
@@ -985,13 +993,11 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
       Preconditions.checkNotNull(fileSystem);
       Preconditions.checkNotNull(directories);
       Preconditions.checkNotNull(actionKeyContext);
-      Preconditions.checkNotNull(buildInfoFactories);
       Preconditions.checkNotNull(defaultBuildOptions);
-      Preconditions.checkNotNull(hardcodedBlacklistedPackagePrefixes);
-      Preconditions.checkNotNull(additionalBlacklistedPackagePrefixesFile);
       Preconditions.checkNotNull(crossRepositoryLabelViolationStrategy);
       Preconditions.checkNotNull(buildFilesByPriority);
       Preconditions.checkNotNull(actionOnIOExceptionReadingBuildFile);
+      Preconditions.checkNotNull(blacklistedPackagePrefixesFunction);
 
       SequencedSkyframeExecutor skyframeExecutor =
           new SequencedSkyframeExecutor(
@@ -1002,12 +1008,10 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
               directories,
               actionKeyContext,
               workspaceStatusActionFactory,
-              buildInfoFactories,
               diffAwarenessFactories,
               extraSkyFunctions,
               customDirtinessCheckers,
-              hardcodedBlacklistedPackagePrefixes,
-              additionalBlacklistedPackagePrefixesFile,
+              blacklistedPackagePrefixesFunction,
               crossRepositoryLabelViolationStrategy,
               buildFilesByPriority,
               actionOnIOExceptionReadingBuildFile,
@@ -1038,13 +1042,14 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
       return this;
     }
 
-    public Builder setBuildInfoFactories(ImmutableList<BuildInfoFactory> buildInfoFactories) {
-      this.buildInfoFactories = buildInfoFactories;
+    public Builder setDefaultBuildOptions(BuildOptions defaultBuildOptions) {
+      this.defaultBuildOptions = defaultBuildOptions;
       return this;
     }
 
-    public Builder setDefaultBuildOptions(BuildOptions defaultBuildOptions) {
-      this.defaultBuildOptions = defaultBuildOptions;
+    public Builder setBlacklistedPackagePrefixesFunction(
+        SkyFunction blacklistedPackagePrefixesFunction) {
+      this.blacklistedPackagePrefixesFunction = blacklistedPackagePrefixesFunction;
       return this;
     }
 
@@ -1068,18 +1073,6 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
     public Builder setCustomDirtinessCheckers(
         Iterable<SkyValueDirtinessChecker> customDirtinessCheckers) {
       this.customDirtinessCheckers = customDirtinessCheckers;
-      return this;
-    }
-
-    public Builder setHardcodedBlacklistedPackagePrefixes(
-        ImmutableSet<PathFragment> hardcodedBlacklistedPackagePrefixes) {
-      this.hardcodedBlacklistedPackagePrefixes = hardcodedBlacklistedPackagePrefixes;
-      return this;
-    }
-
-    public Builder setAdditionalBlacklistedPackagePrefixesFile(
-        PathFragment additionalBlacklistedPackagePrefixesFile) {
-      this.additionalBlacklistedPackagePrefixesFile = additionalBlacklistedPackagePrefixesFile;
       return this;
     }
 

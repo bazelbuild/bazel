@@ -13,23 +13,20 @@
 // limitations under the License.
 package com.google.devtools.build.lib.syntax;
 
-import com.google.devtools.build.lib.events.Location;
-import java.io.IOException;
-import java.util.List;
 import javax.annotation.Nullable;
 
-/** Syntax node for a slice expression, e.g. obj[:len(obj):2]. */
+/** Syntax node for a slice expression, {@code object[start:stop:step]}. */
 public final class SliceExpression extends Expression {
 
   private final Expression object;
   @Nullable private final Expression start;
-  @Nullable private final Expression end;
+  @Nullable private final Expression stop;
   @Nullable private final Expression step;
 
-  SliceExpression(Expression object, Expression start, Expression end, Expression step) {
+  SliceExpression(Expression object, Expression start, Expression stop, Expression step) {
     this.object = object;
     this.start = start;
-    this.end = end;
+    this.stop = stop;
     this.step = step;
   }
 
@@ -37,75 +34,23 @@ public final class SliceExpression extends Expression {
     return object;
   }
 
-  public @Nullable Expression getStart() {
+  @Nullable
+  public Expression getStart() {
     return start;
   }
 
-  public @Nullable Expression getEnd() {
-    return end;
+  @Nullable
+  public Expression getStop() {
+    return stop;
   }
 
-  public @Nullable Expression getStep() {
+  @Nullable
+  public Expression getStep() {
     return step;
   }
 
   @Override
-  public void prettyPrint(Appendable buffer) throws IOException {
-    object.prettyPrint(buffer);
-    buffer.append('[');
-    // The first separator colon is unconditional. The second separator appears only if step is
-    // printed.
-    if (start != null) {
-      start.prettyPrint(buffer);
-    }
-    buffer.append(':');
-    if (end != null) {
-      end.prettyPrint(buffer);
-    }
-    if (step != null) {
-      buffer.append(':');
-      step.prettyPrint(buffer);
-    }
-    buffer.append(']');
-  }
-
-  @Override
-  Object doEval(Environment env) throws EvalException, InterruptedException {
-    Object objValue = object.eval(env);
-    Object startValue = start == null ? Runtime.NONE : start.eval(env);
-    Object endValue = end == null ? Runtime.NONE : end.eval(env);
-    Object stepValue = step == null ? Runtime.NONE : step.eval(env);
-    Location loc = getLocation();
-
-    if (objValue instanceof SkylarkList) {
-      return ((SkylarkList<?>) objValue).getSlice(
-          startValue, endValue, stepValue, loc, env.mutability());
-    } else if (objValue instanceof String) {
-      String string = (String) objValue;
-      List<Integer> indices = EvalUtils.getSliceIndices(startValue, endValue, stepValue,
-          string.length(), loc);
-      char[] result = new char[indices.size()];
-      char[] original = ((String) objValue).toCharArray();
-      int resultIndex = 0;
-      for (int originalIndex : indices) {
-        result[resultIndex] = original[originalIndex];
-        ++resultIndex;
-      }
-      return new String(result);
-    }
-
-    throw new EvalException(
-        loc,
-        String.format(
-            "type '%s' has no operator [:](%s, %s, %s)",
-            EvalUtils.getDataTypeName(objValue),
-            EvalUtils.getDataTypeName(startValue),
-            EvalUtils.getDataTypeName(endValue),
-            EvalUtils.getDataTypeName(stepValue)));
-  }
-
-  @Override
-  public void accept(SyntaxTreeVisitor visitor) {
+  public void accept(NodeVisitor visitor) {
     visitor.visit(this);
   }
 

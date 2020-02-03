@@ -15,7 +15,7 @@
 #
 # Then access the website in your browser via http://localhost:8000
 
-FROM gcr.io/cloud-builders/bazel
+FROM launcher.gcr.io/google/bazel
 
 RUN apt-get update && \
   apt-get -y install ruby ruby-dev build-essential python-pygments && \

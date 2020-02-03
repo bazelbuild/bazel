@@ -14,40 +14,45 @@
 
 package com.google.devtools.build.lib.skylarkbuildapi.cpp;
 
-import com.google.devtools.build.lib.events.Location;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
-import com.google.devtools.build.lib.skylarkbuildapi.ProviderApi;
 import com.google.devtools.build.lib.skylarkbuildapi.SkylarkActionFactoryApi;
 import com.google.devtools.build.lib.skylarkbuildapi.SkylarkRuleContextApi;
+import com.google.devtools.build.lib.skylarkbuildapi.core.ProviderApi;
+import com.google.devtools.build.lib.skylarkbuildapi.platform.ConstraintValueInfoApi;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.ParamType;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.skylarkinterface.StarlarkContext;
-import com.google.devtools.build.lib.syntax.Environment;
+import com.google.devtools.build.lib.syntax.Depset;
+import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.Runtime.NoneType;
-import com.google.devtools.build.lib.syntax.SkylarkDict;
-import com.google.devtools.build.lib.syntax.SkylarkList;
-import com.google.devtools.build.lib.syntax.SkylarkList.Tuple;
-import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
+import com.google.devtools.build.lib.syntax.NoneType;
+import com.google.devtools.build.lib.syntax.Sequence;
+import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
+import com.google.devtools.build.lib.syntax.StarlarkThread;
+import com.google.devtools.build.lib.syntax.StarlarkValue;
+import com.google.devtools.build.lib.syntax.Tuple;
 
 /** Utilites related to C++ support. */
 @SkylarkModule(
     name = "cc_common",
     doc = "Utilities for C++ compilation, linking, and command line generation.")
 public interface CcModuleApi<
-    SkylarkActionFactoryT extends SkylarkActionFactoryApi,
-    FileT extends FileApi,
-    CcToolchainProviderT extends CcToolchainProviderApi,
-    FeatureConfigurationT extends FeatureConfigurationApi,
-    CompilationContextT extends CcCompilationContextApi,
-    LinkingContextT extends CcLinkingContextApi,
-    LibraryToLinkT extends LibraryToLinkApi,
-    CcToolchainVariablesT extends CcToolchainVariablesApi,
-    SkylarkRuleContextT extends SkylarkRuleContextApi,
-    CcToolchainConfigInfoT extends CcToolchainConfigInfoApi,
-    CompilationOutputsT extends CcCompilationOutputsApi<FileT>> {
+        SkylarkActionFactoryT extends SkylarkActionFactoryApi,
+        FileT extends FileApi,
+        CcToolchainProviderT extends CcToolchainProviderApi<?>,
+        FeatureConfigurationT extends FeatureConfigurationApi,
+        CompilationContextT extends CcCompilationContextApi,
+        LinkerInputT extends LinkerInputApi<LibraryToLinkT, FileT>,
+        LinkingContextT extends CcLinkingContextApi<?>,
+        LibraryToLinkT extends LibraryToLinkApi<FileT>,
+        CcToolchainVariablesT extends CcToolchainVariablesApi,
+        ConstraintValueT extends ConstraintValueInfoApi,
+        SkylarkRuleContextT extends SkylarkRuleContextApi<ConstraintValueT>,
+        CcToolchainConfigInfoT extends CcToolchainConfigInfoApi,
+        CompilationOutputsT extends CcCompilationOutputsApi<FileT>>
+    extends StarlarkValue {
 
   @SkylarkCallable(
       name = "CcToolchainInfo",
@@ -91,20 +96,20 @@ public interface CcModuleApi<
             positional = false,
             named = true,
             defaultValue = "[]",
-            type = SkylarkList.class),
+            type = Sequence.class),
         @Param(
             name = "unsupported_features",
             doc = "List of features that are unsupported by the current rule.",
             positional = false,
             named = true,
             defaultValue = "[]",
-            type = SkylarkList.class),
+            type = Sequence.class),
       })
   FeatureConfigurationT configureFeatures(
       Object ruleContextOrNone,
       CcToolchainProviderT toolchain,
-      SkylarkList<String> requestedFeatures,
-      SkylarkList<String> unsupportedFeatures)
+      Sequence<?> requestedFeatures, // <String> expected
+      Sequence<?> unsupportedFeatures) // <String> expected
       throws EvalException;
 
   @SkylarkCallable(
@@ -149,7 +154,7 @@ public interface CcModuleApi<
             named = true,
             positional = false),
       })
-  SkylarkList<String> getExecutionRequirements(
+  Sequence<String> getExecutionRequirements(
       FeatureConfigurationT featureConfiguration, String actionName);
 
   @SkylarkCallable(
@@ -218,7 +223,7 @@ public interface CcModuleApi<
             positional = false,
             type = CcToolchainVariablesApi.class),
       })
-  SkylarkList<String> getCommandLine(
+  Sequence<String> getCommandLine(
       FeatureConfigurationT featureConfiguration,
       String actionName,
       CcToolchainVariablesT variables)
@@ -250,7 +255,7 @@ public interface CcModuleApi<
             named = true,
             type = CcToolchainVariablesApi.class),
       })
-  SkylarkDict<String, String> getEnvironmentVariable(
+  Dict<String, String> getEnvironmentVariable(
       FeatureConfigurationT featureConfiguration,
       String actionName,
       CcToolchainVariablesT variables)
@@ -303,7 +308,7 @@ public interface CcModuleApi<
             noneable = true,
             allowedTypes = {
               @ParamType(type = NoneType.class),
-              @ParamType(type = SkylarkList.class),
+              @ParamType(type = Sequence.class),
             }),
         @Param(
             name = "include_directories",
@@ -312,10 +317,7 @@ public interface CcModuleApi<
             named = true,
             defaultValue = "None",
             noneable = true,
-            allowedTypes = {
-              @ParamType(type = NoneType.class),
-              @ParamType(type = SkylarkNestedSet.class)
-            }),
+            allowedTypes = {@ParamType(type = NoneType.class), @ParamType(type = Depset.class)}),
         @Param(
             name = "quote_include_directories",
             doc = "Depset of quote include directories.",
@@ -323,10 +325,7 @@ public interface CcModuleApi<
             named = true,
             defaultValue = "None",
             noneable = true,
-            allowedTypes = {
-              @ParamType(type = NoneType.class),
-              @ParamType(type = SkylarkNestedSet.class)
-            }),
+            allowedTypes = {@ParamType(type = NoneType.class), @ParamType(type = Depset.class)}),
         @Param(
             name = "system_include_directories",
             doc = "Depset of system include directories.",
@@ -334,10 +333,7 @@ public interface CcModuleApi<
             named = true,
             defaultValue = "None",
             noneable = true,
-            allowedTypes = {
-              @ParamType(type = NoneType.class),
-              @ParamType(type = SkylarkNestedSet.class)
-            }),
+            allowedTypes = {@ParamType(type = NoneType.class), @ParamType(type = Depset.class)}),
         @Param(
             name = "framework_include_directories",
             doc = "Depset of framework include directories.",
@@ -345,10 +341,7 @@ public interface CcModuleApi<
             named = true,
             defaultValue = "None",
             noneable = true,
-            allowedTypes = {
-              @ParamType(type = NoneType.class),
-              @ParamType(type = SkylarkNestedSet.class)
-            }),
+            allowedTypes = {@ParamType(type = NoneType.class), @ParamType(type = Depset.class)}),
         @Param(
             name = "preprocessor_defines",
             doc = "Depset of preprocessor defines.",
@@ -356,10 +349,7 @@ public interface CcModuleApi<
             named = true,
             defaultValue = "None",
             noneable = true,
-            allowedTypes = {
-              @ParamType(type = NoneType.class),
-              @ParamType(type = SkylarkNestedSet.class)
-            }),
+            allowedTypes = {@ParamType(type = NoneType.class), @ParamType(type = Depset.class)}),
         @Param(
             name = "use_pic",
             doc = "When true the compilation will generate position independent code.",
@@ -412,10 +402,7 @@ public interface CcModuleApi<
             named = true,
             defaultValue = "None",
             noneable = true,
-            allowedTypes = {
-              @ParamType(type = NoneType.class),
-              @ParamType(type = SkylarkNestedSet.class)
-            }),
+            allowedTypes = {@ParamType(type = NoneType.class), @ParamType(type = Depset.class)}),
         @Param(
             name = "runtime_library_search_directories",
             doc = "Depset of directories where loader will look for libraries at runtime.",
@@ -423,10 +410,7 @@ public interface CcModuleApi<
             named = true,
             defaultValue = "None",
             noneable = true,
-            allowedTypes = {
-              @ParamType(type = NoneType.class),
-              @ParamType(type = SkylarkNestedSet.class)
-            }),
+            allowedTypes = {@ParamType(type = NoneType.class), @ParamType(type = Depset.class)}),
         @Param(
             name = "user_link_flags",
             doc = "List of additional link flags (linkopts).",
@@ -434,10 +418,7 @@ public interface CcModuleApi<
             named = true,
             defaultValue = "None",
             noneable = true,
-            allowedTypes = {
-              @ParamType(type = NoneType.class),
-              @ParamType(type = SkylarkList.class)
-            }),
+            allowedTypes = {@ParamType(type = NoneType.class), @ParamType(type = Sequence.class)}),
         @Param(
             name = "output_file",
             doc = "Optional output file path.",
@@ -525,8 +506,7 @@ public interface CcModuleApi<
   @SkylarkCallable(
       name = "create_library_to_link",
       doc = "Creates <code>LibraryToLink</code>",
-      useLocation = true,
-      useEnvironment = true,
+      useStarlarkThread = true,
       parameters = {
         @Param(
             name = "actions",
@@ -586,6 +566,24 @@ public interface CcModuleApi<
             positional = false,
             named = true,
             defaultValue = "False"),
+        @Param(
+            name = "dynamic_library_symlink_path",
+            doc =
+                "Override the default path of the dynamic library link in the solib directory. "
+                    + "Empty string to use the default.",
+            positional = false,
+            named = true,
+            type = String.class,
+            defaultValue = "''"),
+        @Param(
+            name = "interface_library_symlink_path",
+            doc =
+                "Override the default path of the interface library link in the solib directory. "
+                    + "Empty string to use the default.",
+            positional = false,
+            named = true,
+            type = String.class,
+            defaultValue = "''"),
       })
   LibraryToLinkT createLibraryLinkerInput(
       Object actions,
@@ -596,24 +594,31 @@ public interface CcModuleApi<
       Object dynamicLibrary,
       Object interfaceLibrary,
       boolean alwayslink,
-      Location location,
-      Environment environment)
+      String dynamicLibraryPath,
+      String interfaceLibraryPath,
+      StarlarkThread thread)
       throws EvalException, InterruptedException;
 
   @SkylarkCallable(
-      name = "create_linking_context",
+      name = "create_linker_input",
       doc = "Creates a <code>LinkingContext</code>.",
-      useLocation = true,
-      useContext = true,
+      useStarlarkThread = true,
+      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_CC_SHARED_LIBRARY,
       parameters = {
         @Param(
-            name = "libraries_to_link",
+            name = "owner",
+            doc = "List of <code>LibraryToLink</code>.",
+            positional = false,
+            named = true,
+            type = Label.class),
+        @Param(
+            name = "libraries",
             doc = "List of <code>LibraryToLink</code>.",
             positional = false,
             named = true,
             noneable = true,
             defaultValue = "None",
-            type = SkylarkList.class),
+            allowedTypes = {@ParamType(type = NoneType.class), @ParamType(type = Depset.class)}),
         @Param(
             name = "user_link_flags",
             doc = "List of user link flags passed as strings.",
@@ -621,21 +626,69 @@ public interface CcModuleApi<
             named = true,
             noneable = true,
             defaultValue = "None",
-            type = SkylarkList.class),
+            allowedTypes = {@ParamType(type = NoneType.class), @ParamType(type = Depset.class)}),
         @Param(
             name = "additional_inputs",
             doc = "For additional inputs to the linking action, e.g.: linking scripts.",
             positional = false,
             named = true,
-            defaultValue = "[]",
-            type = SkylarkList.class),
+            noneable = true,
+            defaultValue = "None",
+            allowedTypes = {@ParamType(type = NoneType.class), @ParamType(type = Depset.class)}),
       })
-  LinkingContextT createCcLinkingInfo(
+  LinkerInputT createLinkerInput(
+      Label owner,
       Object librariesToLinkObject,
       Object userLinkFlagsObject,
-      SkylarkList<FileT> nonCodeInputs,
-      Location location,
-      StarlarkContext context)
+      Object nonCodeInputs,
+      StarlarkThread thread)
+      throws EvalException, InterruptedException;
+
+  @SkylarkCallable(
+      name = "create_linking_context",
+      doc = "Creates a <code>LinkingContext</code>.",
+      useStarlarkThread = true,
+      parameters = {
+        @Param(
+            name = "linker_inputs",
+            doc = "Depset of <code>LinkerInput</code>.",
+            positional = false,
+            named = true,
+            enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_CC_SHARED_LIBRARY,
+            noneable = true,
+            valueWhenDisabled = "None",
+            allowedTypes = {@ParamType(type = NoneType.class), @ParamType(type = Depset.class)}),
+        @Param(
+            name = "libraries_to_link",
+            doc = "List of <code>LibraryToLink</code>.",
+            positional = false,
+            named = true,
+            noneable = true,
+            defaultValue = "None",
+            allowedTypes = {@ParamType(type = NoneType.class), @ParamType(type = Sequence.class)}),
+        @Param(
+            name = "user_link_flags",
+            doc = "List of user link flags passed as strings.",
+            positional = false,
+            named = true,
+            noneable = true,
+            defaultValue = "None",
+            allowedTypes = {@ParamType(type = NoneType.class), @ParamType(type = Sequence.class)}),
+        @Param(
+            name = "additional_inputs",
+            doc = "For additional inputs to the linking action, e.g.: linking scripts.",
+            positional = false,
+            named = true,
+            noneable = true,
+            defaultValue = "None",
+            allowedTypes = {@ParamType(type = NoneType.class), @ParamType(type = Sequence.class)}),
+      })
+  LinkingContextT createCcLinkingInfo(
+      Object linkerInputs,
+      Object librariesToLinkObject,
+      Object userLinkFlagsObject,
+      Object nonCodeInputs, // <FileT> expected
+      StarlarkThread thread)
       throws EvalException, InterruptedException;
 
   @SkylarkCallable(
@@ -648,9 +701,10 @@ public interface CcModuleApi<
             positional = false,
             named = true,
             defaultValue = "[]",
-            type = SkylarkList.class)
+            type = Sequence.class)
       })
-  CcInfoApi mergeCcInfos(SkylarkList<CcInfoApi> ccInfos) throws EvalException;
+  CcInfoApi mergeCcInfos(Sequence<?> ccInfos) // <CcInfoApi> expected
+      throws EvalException;
 
   @SkylarkCallable(
       name = "create_compilation_context",
@@ -772,7 +826,7 @@ public interface CcModuleApi<
             positional = false,
             named = true,
             defaultValue = "[]",
-            type = SkylarkList.class,
+            type = Sequence.class,
             doc =
                 "A list of <a href=\"https://github.com/bazelbuild/bazel/blob/master/tools/cpp/"
                     + "cc_toolchain_config_lib.bzl#L336\">features</a>."),
@@ -781,7 +835,7 @@ public interface CcModuleApi<
             positional = false,
             named = true,
             defaultValue = "[]",
-            type = SkylarkList.class,
+            type = Sequence.class,
             doc =
                 "A list of <a href=\"https://github.com/bazelbuild/bazel/blob/master/tools/cpp/"
                     + "cc_toolchain_config_lib.bzl#L461\">action_configs</a>."),
@@ -790,7 +844,7 @@ public interface CcModuleApi<
             positional = false,
             named = true,
             defaultValue = "[]",
-            type = SkylarkList.class,
+            type = Sequence.class,
             doc =
                 "A list of <a href=\"https://github.com/bazelbuild/bazel/blob/master/tools/cpp/"
                     + "cc_toolchain_config_lib.bzl#L516\">artifact_name_patterns</a>."),
@@ -799,7 +853,7 @@ public interface CcModuleApi<
             positional = false,
             named = true,
             defaultValue = "[]",
-            type = SkylarkList.class,
+            type = Sequence.class,
             doc =
                 "<p>Built-in include directories for C++ compilation. These should be the exact "
                     + "paths used by the compiler, and are generally relative to the exec root.</p>"
@@ -867,7 +921,7 @@ public interface CcModuleApi<
             positional = false,
             named = true,
             defaultValue = "[]",
-            type = SkylarkList.class,
+            type = Sequence.class,
             doc =
                 "A list of <a href=\"https://github.com/bazelbuild/bazel/blob/master/tools/cpp/"
                     + "cc_toolchain_config_lib.bzl#L400\">tool_paths</a>."),
@@ -876,7 +930,7 @@ public interface CcModuleApi<
             positional = false,
             named = true,
             defaultValue = "[]",
-            type = SkylarkList.class,
+            type = Sequence.class,
             doc =
                 "A list of <a href=\"https://github.com/bazelbuild/bazel/blob/master/tools/cpp/"
                     + "cc_toolchain_config_lib.bzl#L86\">make_variables</a>."),
@@ -901,10 +955,10 @@ public interface CcModuleApi<
       })
   CcToolchainConfigInfoT ccToolchainConfigInfoFromSkylark(
       SkylarkRuleContextT skylarkRuleContext,
-      SkylarkList<Object> features,
-      SkylarkList<Object> actionConfigs,
-      SkylarkList<Object> artifactNamePatterns,
-      SkylarkList<String> cxxBuiltInIncludeDirectories,
+      Sequence<?> features, // <StructApi> expected
+      Sequence<?> actionConfigs, // <StructApi> expected
+      Sequence<?> artifactNamePatterns, // <StructApi> expected
+      Sequence<?> cxxBuiltInIncludeDirectories, // <String> expected
       String toolchainIdentifier,
       String hostSystemName,
       String targetSystemName,
@@ -913,8 +967,8 @@ public interface CcModuleApi<
       String compiler,
       String abiVersion,
       String abiLibcVersion,
-      SkylarkList<Object> toolPaths,
-      SkylarkList<Object> makeVariables,
+      Sequence<?> toolPaths, // <StructApi> expected
+      Sequence<?> makeVariables, // <StructApi> expected
       Object builtinSysroot,
       Object ccTargetOs)
       throws EvalException;
@@ -925,8 +979,7 @@ public interface CcModuleApi<
           "Should be used for creating library rules that can propagate information downstream in"
               + " order to be linked later by a top level rule that does transitive linking to"
               + " create an executable or dynamic library.",
-      useLocation = true,
-      useContext = true,
+      useStarlarkThread = true,
       parameters = {
         @Param(
             name = "actions",
@@ -958,8 +1011,7 @@ public interface CcModuleApi<
             positional = false,
             named = true,
             defaultValue = "[]",
-            noneable = true,
-            type = SkylarkList.class),
+            type = Sequence.class),
         @Param(
             name = "linking_contexts",
             doc =
@@ -967,9 +1019,8 @@ public interface CcModuleApi<
                     + "artifact of the link() call, be it a binary or a library.",
             positional = false,
             named = true,
-            noneable = true,
             defaultValue = "[]",
-            type = SkylarkList.class),
+            type = Sequence.class),
         @Param(
             name = "name",
             doc =
@@ -983,7 +1034,6 @@ public interface CcModuleApi<
             doc = "Only C++ supported for now. Do not use this parameter.",
             positional = false,
             named = true,
-            noneable = true,
             defaultValue = "'c++'",
             type = String.class),
         @Param(
@@ -991,7 +1041,6 @@ public interface CcModuleApi<
             doc = "Whether this library should always be linked.",
             positional = false,
             named = true,
-            noneable = true,
             defaultValue = "False",
             type = Boolean.class),
         @Param(
@@ -1000,7 +1049,7 @@ public interface CcModuleApi<
             positional = false,
             named = true,
             defaultValue = "[]",
-            type = SkylarkList.class),
+            type = Sequence.class),
         @Param(
             name = "disallow_static_libraries",
             doc = "Whether static libraries should be created.",
@@ -1028,16 +1077,15 @@ public interface CcModuleApi<
       FeatureConfigurationT skylarkFeatureConfiguration,
       CcToolchainProviderT skylarkCcToolchainProvider,
       CompilationOutputsT compilationOutputs,
-      SkylarkList<String> userLinkFlags,
-      SkylarkList<LinkingContextT> linkingContexts,
+      Sequence<?> userLinkFlags, // <String> expected
+      Sequence<?> linkingContexts, // <LinkingContextT> expected
       String name,
       String language,
       boolean alwayslink,
-      SkylarkList<FileT> additionalInputs,
+      Sequence<?> additionalInputs, // <FileT> expected
       boolean disallowStaticLibraries,
       boolean disallowDynamicLibraries,
       Object grepIncludes,
-      Location location,
-      StarlarkContext bazelStarlarkContext)
+      StarlarkThread thread)
       throws InterruptedException, EvalException;
 }

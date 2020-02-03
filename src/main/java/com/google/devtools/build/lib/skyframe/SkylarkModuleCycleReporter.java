@@ -93,7 +93,7 @@ public class SkylarkModuleCycleReporter implements CyclesReporter.SingleCycleRep
             || IS_SKYLARK_MODULE_SKY_KEY.apply(lastPathElement)
             || IS_WORKSPACE_FILE.apply(lastPathElement))) {
 
-      Function printer =
+      Function<SkyKey, String> printer =
           new Function<SkyKey, String>() {
             @Override
             public String apply(SkyKey input) {
@@ -138,7 +138,7 @@ public class SkylarkModuleCycleReporter implements CyclesReporter.SingleCycleRep
       StringBuilder cycleMessage =
           new StringBuilder().append("Circular definition of repositories:");
       Iterable<SkyKey> repos = Iterables.filter(cycle, IS_REPOSITORY);
-      Function printer =
+      Function<SkyKey, String> printer =
           new Function<SkyKey, String>() {
             @Override
             public String apply(SkyKey input) {

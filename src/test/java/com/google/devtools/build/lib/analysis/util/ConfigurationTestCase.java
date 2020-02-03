@@ -141,7 +141,6 @@ public abstract class ConfigurationTestCase extends FoundationTestCase {
             .setFileSystem(fileSystem)
             .setDirectories(directories)
             .setActionKeyContext(actionKeyContext)
-            .setBuildInfoFactories(ruleClassProvider.getBuildInfoFactories())
             .setDefaultBuildOptions(
                 DefaultBuildOptionsForTesting.getDefaultBuildOptionsForTest(ruleClassProvider))
             .setWorkspaceStatusActionFactory(workspaceStatusActionFactory)
@@ -161,7 +160,10 @@ public abstract class ConfigurationTestCase extends FoundationTestCase {
                 ImmutableMap.<RepositoryName, PathFragment>of()),
             PrecomputedValue.injected(
                 RepositoryDelegatorFunction.DEPENDENCY_FOR_UNCONDITIONAL_FETCHING,
-                RepositoryDelegatorFunction.DONT_FETCH_UNCONDITIONALLY)));
+                RepositoryDelegatorFunction.DONT_FETCH_UNCONDITIONALLY),
+            PrecomputedValue.injected(
+                PrecomputedValue.BUILD_INFO_FACTORIES,
+                ruleClassProvider.getBuildInfoFactoriesAsMap())));
     PackageCacheOptions packageCacheOptions = Options.getDefaults(PackageCacheOptions.class);
     packageCacheOptions.showLoadingProgress = true;
     packageCacheOptions.globbingThreads = 7;
@@ -191,7 +193,24 @@ public abstract class ConfigurationTestCase extends FoundationTestCase {
     assertContainsEvent(expectedMessage);
   }
 
+  /**
+   * Returns a {@link BuildConfigurationCollection} with the given non-default options.
+   *
+   * @param args native option name/pair descriptions in command line form (e.g. "--cpu=k8")
+   */
   protected BuildConfigurationCollection createCollection(String... args) throws Exception {
+    return createCollection(ImmutableMap.of(), args);
+  }
+
+  /**
+   * Variation of {@link #createCollection(String...)} that also supports Starlark-defined options.
+   *
+   * @param starlarkOptions map of skylark-defined options where the keys are option names (in the
+   *     form of label-like strings) and the values are option values
+   * @param args native option name/pair descriptions in command line form (e.g. "--cpu=k8")
+   */
+  protected BuildConfigurationCollection createCollection(
+      ImmutableMap<String, Object> starlarkOptions, String... args) throws Exception {
     OptionsParser parser =
         OptionsParser.builder()
             .optionsClasses(
@@ -200,6 +219,7 @@ public abstract class ConfigurationTestCase extends FoundationTestCase {
                     .add(TestOptions.class)
                     .build())
             .build();
+    parser.setStarlarkOptions(starlarkOptions);
     parser.parse(TestConstants.PRODUCT_SPECIFIC_FLAGS);
     parser.parse(args);
 
@@ -212,10 +232,34 @@ public abstract class ConfigurationTestCase extends FoundationTestCase {
     return collection;
   }
 
+  /**
+   * Returns a target {@link BuildConfiguration} with the given non-default options.
+   *
+   * @param args native option name/pair descriptions in command line form (e.g. "--cpu=k8")
+   */
   protected BuildConfiguration create(String... args) throws Exception {
     return Iterables.getOnlyElement(createCollection(args).getTargetConfigurations());
   }
 
+  /**
+   * Variation of {@link #create(String...)} that also supports Starlark-defined options.
+   *
+   * @param starlarkOptions map of skylark-defined options where the keys are option names (in the
+   *     form of label-like strings) and the values are option values
+   * @param args native option name/pair descriptions in command line form (e.g. "--cpu=k8")
+   */
+  protected BuildConfiguration create(ImmutableMap<String, Object> starlarkOptions, String... args)
+      throws Exception {
+    return Iterables.getOnlyElement(
+        createCollection(starlarkOptions, args).getTargetConfigurations());
+  }
+
+  /**
+   * Returns a host {@link BuildConfiguration} derived from a target configuration with the given
+   * non-default options.
+   *
+   * @param args native option name/pair descriptions in command line form (e.g. "--cpu=k8")
+   */
   protected BuildConfiguration createHost(String... args) throws Exception {
     return createCollection(args).getHostConfiguration();
   }

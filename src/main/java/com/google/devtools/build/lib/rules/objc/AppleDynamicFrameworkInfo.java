@@ -20,7 +20,8 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.packages.NativeProvider;
 import com.google.devtools.build.lib.skylarkbuildapi.apple.AppleDynamicFrameworkInfoApi;
-import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.syntax.Depset;
+import com.google.devtools.build.lib.syntax.SkylarkType;
 import javax.annotation.Nullable;
 
 /**
@@ -39,7 +40,7 @@ import javax.annotation.Nullable;
  */
 @Immutable
 public final class AppleDynamicFrameworkInfo extends NativeInfo
-    implements AppleDynamicFrameworkInfoApi<PathFragment, Artifact> {
+    implements AppleDynamicFrameworkInfoApi<Artifact> {
 
   /** Skylark name for the AppleDynamicFrameworkInfo. */
   public static final String SKYLARK_NAME = "AppleDynamicFramework";
@@ -58,14 +59,15 @@ public final class AppleDynamicFrameworkInfo extends NativeInfo
   /** Field name for the {@link ObjcProvider} containing dependency information. */
   public static final String OBJC_PROVIDER_FIELD_NAME = "objc";
 
-  private final NestedSet<PathFragment> dynamicFrameworkDirs;
+  private final NestedSet<String> dynamicFrameworkDirs;
   private final NestedSet<Artifact> dynamicFrameworkFiles;
   private final @Nullable Artifact dylibBinary;
   private final ObjcProvider depsObjcProvider;
 
-  public AppleDynamicFrameworkInfo(@Nullable Artifact dylibBinary,
+  public AppleDynamicFrameworkInfo(
+      @Nullable Artifact dylibBinary,
       ObjcProvider depsObjcProvider,
-      NestedSet<PathFragment> dynamicFrameworkDirs,
+      NestedSet<String> dynamicFrameworkDirs,
       NestedSet<Artifact> dynamicFrameworkFiles) {
     super(SKYLARK_CONSTRUCTOR);
     this.dylibBinary = dylibBinary;
@@ -75,13 +77,13 @@ public final class AppleDynamicFrameworkInfo extends NativeInfo
   }
 
   @Override
-  public NestedSet<PathFragment> getDynamicFrameworkDirs() {
-    return dynamicFrameworkDirs;
+  public Depset /*<String>*/ getDynamicFrameworkDirs() {
+    return Depset.of(SkylarkType.STRING, dynamicFrameworkDirs);
   }
 
   @Override
-  public NestedSet<Artifact> getDynamicFrameworkFiles() {
-    return dynamicFrameworkFiles;
+  public Depset /*<Artifact>*/ getDynamicFrameworkFiles() {
+    return Depset.of(Artifact.TYPE, dynamicFrameworkFiles);
   }
 
   @Override

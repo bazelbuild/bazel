@@ -40,15 +40,6 @@ public class WorkspaceFactoryTest {
   }
 
   @Test
-  public void testLoadError() throws Exception {
-    // WS with a syntax error: '//a' should end with .bzl.
-    helper.parse("load('//a', 'a')");
-    helper.assertLexingExceptionThrown();
-    assertThat(helper.getLexerError())
-        .contains("The label must reference a file with extension '.bzl'");
-  }
-
-  @Test
   public void testWorkspaceName() throws Exception {
     helper.parse("workspace(name = 'my_ws')");
     assertThat(helper.getPackage().getWorkspaceName()).isEqualTo("my_ws");
@@ -204,17 +195,8 @@ public class WorkspaceFactoryTest {
 
   @Test
   public void testImplicitMainRepoRename() throws Exception {
-    helper.setSkylarkSemantics("--incompatible_remap_main_repo");
     helper.parse("workspace(name = 'foo')");
     assertMapping(helper, "@", "@foo", "@");
-  }
-
-  @Test
-  public void testNoImplicitMainRepoRenameWithoutFlag() throws Exception {
-    helper.parse("workspace(name = 'foo')");
-    RepositoryName foo = RepositoryName.create("@foo");
-    assertThat(helper.getPackage().getRepositoryMapping(RepositoryName.create("@")))
-        .doesNotContainEntry(foo, RepositoryName.MAIN);
   }
 
   @Test

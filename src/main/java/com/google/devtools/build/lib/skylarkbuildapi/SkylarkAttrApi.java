@@ -20,15 +20,13 @@ import com.google.devtools.build.lib.skylarkinterface.ParamType;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
-import com.google.devtools.build.lib.skylarkinterface.StarlarkContext;
-import com.google.devtools.build.lib.syntax.Environment;
+import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.FuncallExpression;
-import com.google.devtools.build.lib.syntax.SkylarkDict;
-import com.google.devtools.build.lib.syntax.SkylarkList;
+import com.google.devtools.build.lib.syntax.Sequence;
+import com.google.devtools.build.lib.syntax.StarlarkFunction;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
-import com.google.devtools.build.lib.syntax.UserDefinedFunction;
+import com.google.devtools.build.lib.syntax.StarlarkThread;
+import com.google.devtools.build.lib.syntax.StarlarkValue;
 
 /**
  * The "attr" module of the Build API.
@@ -50,10 +48,10 @@ import com.google.devtools.build.lib.syntax.UserDefinedFunction;
             + "<p>See the Rules page for more on "
             + "<a href='../rules.$DOC_EXT#attributes'>defining</a> and "
             + "<a href='../rules.$DOC_EXT#implementation-function'>using</a> attributes.")
-public interface SkylarkAttrApi extends SkylarkValue {
+public interface SkylarkAttrApi extends StarlarkValue {
 
   // dependency and output attributes
-  static final String LABEL_PARAGRAPH =
+  String LABEL_PARAGRAPH =
       "<p>This attribute contains <a href='Label.html'><code>Label</code></a> values. If a string "
           + "is supplied in place of a <code>Label</code>, it will be converted using the "
           + "<a href='Label.html#Label'>label constructor</a>. The relative parts of the label "
@@ -61,7 +59,7 @@ public interface SkylarkAttrApi extends SkylarkValue {
           + "instantiated target's package.";
 
   // attr.label, attr.label_list, attr.label_keyed_string_dict
-  static final String DEPENDENCY_ATTR_TEXT =
+  String DEPENDENCY_ATTR_TEXT =
       LABEL_PARAGRAPH
           + "<p>At analysis time (within the rule's implementation function), when retrieving the "
           + "attribute value from <code>ctx.attr</code>, labels are replaced by the corresponding "
@@ -69,64 +67,64 @@ public interface SkylarkAttrApi extends SkylarkValue {
           + "providers of the currrent target's dependencies.";
 
   // attr.output, attr.output_list
-  static final String OUTPUT_ATTR_TEXT =
+  String OUTPUT_ATTR_TEXT =
       LABEL_PARAGRAPH
           + "<p>At analysis time, the corresponding <a href='File.html'><code>File</code></a> can "
           + "be retrieved using <code>ctx.outputs</code>.";
 
-  static final String ALLOW_FILES_ARG = "allow_files";
-  static final String ALLOW_FILES_DOC =
+  String ALLOW_FILES_ARG = "allow_files";
+  String ALLOW_FILES_DOC =
       "Whether <code>File</code> targets are allowed. Can be <code>True</code>, <code>False</code> "
           + "(default), or a list of file extensions that are allowed (for example, "
           + "<code>[\".cc\", \".cpp\"]</code>).";
 
-  static final String ALLOW_RULES_ARG = "allow_rules";
-  static final String ALLOW_RULES_DOC =
+  String ALLOW_RULES_ARG = "allow_rules";
+  String ALLOW_RULES_DOC =
       "Which rule targets (name of the classes) are allowed. This is deprecated (kept only for "
           + "compatibility), use providers instead.";
 
-  static final String ASPECTS_ARG = "aspects";
-  static final String ASPECTS_ARG_DOC =
+  String ASPECTS_ARG = "aspects";
+  String ASPECTS_ARG_DOC =
       "Aspects that should be applied to the dependency or dependencies specified by this "
           + "attribute.";
 
-  static final String CONFIGURATION_ARG = "cfg";
+  String CONFIGURATION_ARG = "cfg";
   // TODO(bazel-team): Update when new Skylark-based configuration framework is implemented.
-  static final String CONFIGURATION_DOC =
+  String CONFIGURATION_DOC =
       "<a href=\"../rules.$DOC_EXT#configurations\">Configuration</a> of the attribute. It can be "
           + "either <code>\"host\"</code> or <code>\"target\"</code>.";
 
-  static final String DEFAULT_ARG = "default";
+  String DEFAULT_ARG = "default";
   // A trailing space is required because it's often prepended to other sentences
-  static final String DEFAULT_DOC =
+  String DEFAULT_DOC =
       "A default value to use if no value for this attribute is given when instantiating the rule.";
 
-  static final String DOC_ARG = "doc";
-  static final String DOC_DOC =
+  String DOC_ARG = "doc";
+  String DOC_DOC =
       "A description of the attribute that can be extracted by documentation generating tools.";
 
-  static final String EXECUTABLE_ARG = "executable";
-  static final String EXECUTABLE_DOC =
+  String EXECUTABLE_ARG = "executable";
+  String EXECUTABLE_DOC =
       "True if the dependency has to be executable. This means the label must refer to an "
           + "executable file, or to a rule that outputs an executable file. Access the label "
           + "with <code>ctx.executable.&lt;attribute_name&gt;</code>.";
 
-  static final String FLAGS_ARG = "flags";
-  static final String FLAGS_DOC = "Deprecated, will be removed.";
+  String FLAGS_ARG = "flags";
+  String FLAGS_DOC = "Deprecated, will be removed.";
 
-  static final String MANDATORY_ARG = "mandatory";
-  static final String MANDATORY_DOC =
+  String MANDATORY_ARG = "mandatory";
+  String MANDATORY_DOC =
       "If true, the value must be specified explicitly (even if it has a <code>default</code>).";
 
-  static final String NON_EMPTY_ARG = "non_empty";
-  static final String NON_EMPTY_DOC =
+  String NON_EMPTY_ARG = "non_empty";
+  String NON_EMPTY_DOC =
       "True if the attribute must not be empty. Deprecated: Use <code>allow_empty</code> instead.";
 
-  static final String ALLOW_EMPTY_ARG = "allow_empty";
-  static final String ALLOW_EMPTY_DOC = "True if the attribute can be empty.";
+  String ALLOW_EMPTY_ARG = "allow_empty";
+  String ALLOW_EMPTY_DOC = "True if the attribute can be empty.";
 
-  static final String PROVIDERS_ARG = "providers";
-  static final String PROVIDERS_DOC =
+  String PROVIDERS_ARG = "providers";
+  String PROVIDERS_DOC =
       "The providers that must be given by any dependency appearing in this attribute."
           + ""
           + "<p>The format of this argument is a list of lists of providers -- <code>*Info</code> "
@@ -136,11 +134,11 @@ public interface SkylarkAttrApi extends SkylarkValue {
           + "argument may also be a single-level list of providers, in which case it is wrapped in "
           + "an outer list with one element.";
 
-  static final String SINGLE_FILE_ARG = "single_file";
-  static final String ALLOW_SINGLE_FILE_ARG = "allow_single_file";
+  String SINGLE_FILE_ARG = "single_file";
+  String ALLOW_SINGLE_FILE_ARG = "allow_single_file";
 
-  static final String VALUES_ARG = "values";
-  static final String VALUES_DOC =
+  String VALUES_ARG = "values";
+  String VALUES_DOC =
       "The list of allowed values for the attribute. An error is raised if any other "
           + "value is given.";
 
@@ -150,10 +148,7 @@ public interface SkylarkAttrApi extends SkylarkValue {
       parameters = {
         @Param(
             name = DEFAULT_ARG,
-            allowedTypes = {
-              @ParamType(type = Integer.class),
-              @ParamType(type = UserDefinedFunction.class)
-            },
+            type = Integer.class,
             defaultValue = "0",
             doc = DEFAULT_DOC,
             named = true,
@@ -174,24 +169,20 @@ public interface SkylarkAttrApi extends SkylarkValue {
             positional = false),
         @Param(
             name = VALUES_ARG,
-            type = SkylarkList.class,
+            type = Sequence.class,
             generic1 = Integer.class,
             defaultValue = "[]",
             doc = VALUES_DOC,
             named = true,
             positional = false)
       },
-      useAst = true,
-      useEnvironment = true,
-      useContext = true)
+      useStarlarkThread = true)
   Descriptor intAttribute(
-      Integer defaultInt,
+      Integer defaultValue,
       String doc,
       Boolean mandatory,
-      SkylarkList<?> values,
-      FuncallExpression ast,
-      Environment env,
-      StarlarkContext context)
+      Sequence<?> values,
+      StarlarkThread thread)
       throws EvalException;
 
   @SkylarkCallable(
@@ -200,9 +191,7 @@ public interface SkylarkAttrApi extends SkylarkValue {
       parameters = {
         @Param(
             name = DEFAULT_ARG,
-            allowedTypes = {
-              @ParamType(type = String.class),
-            },
+            type = String.class,
             defaultValue = "''",
             doc = DEFAULT_DOC,
             named = true,
@@ -223,24 +212,20 @@ public interface SkylarkAttrApi extends SkylarkValue {
             positional = false),
         @Param(
             name = VALUES_ARG,
-            type = SkylarkList.class,
+            type = Sequence.class,
             generic1 = String.class,
             defaultValue = "[]",
             doc = VALUES_DOC,
             named = true,
             positional = false)
       },
-      useAst = true,
-      useEnvironment = true,
-      useContext = true)
-  public Descriptor stringAttribute(
-      String defaultString,
+      useStarlarkThread = true)
+  Descriptor stringAttribute(
+      String defaultValue,
       String doc,
       Boolean mandatory,
-      SkylarkList<?> values,
-      FuncallExpression ast,
-      Environment env,
-      StarlarkContext context)
+      Sequence<?> values,
+      StarlarkThread thread)
       throws EvalException;
 
   @SkylarkCallable(
@@ -264,7 +249,12 @@ public interface SkylarkAttrApi extends SkylarkValue {
               @ParamType(type = Label.class),
               @ParamType(type = String.class),
               @ParamType(type = LateBoundDefaultApi.class),
-              @ParamType(type = UserDefinedFunction.class)
+              // TODO(adonovan): remove StarlarkFunction. It's undocumented,
+              // unused by Google's .bzl files, and likely unused in Bazel.
+              // I suspect it is a vestige of a "computed defaults" feature
+              // that was never fully exposed to Starlark (or was since
+              // withdrawn).
+              @ParamType(type = StarlarkFunction.class)
             },
             callbackEnabled = true,
             noneable = true,
@@ -316,14 +306,14 @@ public interface SkylarkAttrApi extends SkylarkValue {
             doc = MANDATORY_DOC),
         @Param(
             name = PROVIDERS_ARG,
-            type = SkylarkList.class,
+            type = Sequence.class,
             defaultValue = "[]",
             named = true,
             positional = false,
             doc = PROVIDERS_DOC),
         @Param(
             name = ALLOW_RULES_ARG,
-            type = SkylarkList.class,
+            type = Sequence.class,
             generic1 = String.class,
             noneable = true,
             defaultValue = "None",
@@ -357,31 +347,27 @@ public interface SkylarkAttrApi extends SkylarkValue {
                     + "unless it really helps clarify your intentions."),
         @Param(
             name = ASPECTS_ARG,
-            type = SkylarkList.class,
+            type = Sequence.class,
             generic1 = SkylarkAspectApi.class,
             defaultValue = "[]",
             named = true,
             positional = false,
             doc = ASPECTS_ARG_DOC),
       },
-      useAst = true,
-      useEnvironment = true,
-      useContext = true)
-  public Descriptor labelAttribute(
-      Object defaultO,
+      useStarlarkThread = true)
+  Descriptor labelAttribute(
+      Object defaultValue,
       String doc,
       Boolean executable,
       Object allowFiles,
       Object allowSingleFile,
       Boolean mandatory,
-      SkylarkList<?> providers,
+      Sequence<?> providers,
       Object allowRules,
       Boolean singleFile,
       Object cfg,
-      SkylarkList<?> aspects,
-      FuncallExpression ast,
-      Environment env,
-      StarlarkContext context)
+      Sequence<?> aspects,
+      StarlarkThread thread)
       throws EvalException;
 
   @SkylarkCallable(
@@ -408,10 +394,8 @@ public interface SkylarkAttrApi extends SkylarkValue {
             named = true),
         @Param(
             name = DEFAULT_ARG,
-            allowedTypes = {
-              @ParamType(type = SkylarkList.class, generic1 = String.class),
-              @ParamType(type = UserDefinedFunction.class)
-            },
+            type = Sequence.class,
+            generic1 = String.class,
             defaultValue = "[]",
             doc = DEFAULT_DOC,
             named = true,
@@ -424,18 +408,14 @@ public interface SkylarkAttrApi extends SkylarkValue {
             named = true,
             positional = false)
       },
-      useAst = true,
-      useEnvironment = true,
-      useContext = true)
-  public Descriptor stringListAttribute(
+      useStarlarkThread = true)
+  Descriptor stringListAttribute(
       Boolean mandatory,
       Boolean nonEmpty,
       Boolean allowEmpty,
-      SkylarkList<?> defaultList,
+      Sequence<?> defaultValue,
       String doc,
-      FuncallExpression ast,
-      Environment env,
-      StarlarkContext context)
+      StarlarkThread thread)
       throws EvalException;
 
   @SkylarkCallable(
@@ -462,10 +442,8 @@ public interface SkylarkAttrApi extends SkylarkValue {
             named = true),
         @Param(
             name = DEFAULT_ARG,
-            allowedTypes = {
-              @ParamType(type = SkylarkList.class, generic1 = Integer.class),
-              @ParamType(type = UserDefinedFunction.class)
-            },
+            type = Sequence.class,
+            generic1 = Integer.class,
             defaultValue = "[]",
             doc = DEFAULT_DOC,
             named = true,
@@ -478,18 +456,14 @@ public interface SkylarkAttrApi extends SkylarkValue {
             named = true,
             positional = false)
       },
-      useAst = true,
-      useEnvironment = true,
-      useContext = true)
-  public Descriptor intListAttribute(
+      useStarlarkThread = true)
+  Descriptor intListAttribute(
       Boolean mandatory,
       Boolean nonEmpty,
       Boolean allowEmpty,
-      SkylarkList<?> defaultList,
+      Sequence<?> defaultValue,
       String doc,
-      FuncallExpression ast,
-      Environment env,
-      StarlarkContext context)
+      StarlarkThread thread)
       throws EvalException;
 
   @SkylarkCallable(
@@ -507,8 +481,8 @@ public interface SkylarkAttrApi extends SkylarkValue {
         @Param(
             name = DEFAULT_ARG,
             allowedTypes = {
-              @ParamType(type = SkylarkList.class, generic1 = Label.class),
-              @ParamType(type = UserDefinedFunction.class)
+              @ParamType(type = Sequence.class, generic1 = Label.class),
+              @ParamType(type = StarlarkFunction.class)
             },
             callbackEnabled = true,
             defaultValue = "[]",
@@ -535,7 +509,7 @@ public interface SkylarkAttrApi extends SkylarkValue {
             doc = ALLOW_FILES_DOC),
         @Param(
             name = ALLOW_RULES_ARG,
-            type = SkylarkList.class,
+            type = Sequence.class,
             generic1 = String.class,
             noneable = true,
             defaultValue = "None",
@@ -544,14 +518,14 @@ public interface SkylarkAttrApi extends SkylarkValue {
             doc = ALLOW_RULES_DOC),
         @Param(
             name = PROVIDERS_ARG,
-            type = SkylarkList.class,
+            type = Sequence.class,
             defaultValue = "[]",
             named = true,
             positional = false,
             doc = PROVIDERS_DOC),
         @Param(
             name = FLAGS_ARG,
-            type = SkylarkList.class,
+            type = Sequence.class,
             generic1 = String.class,
             defaultValue = "[]",
             named = true,
@@ -581,31 +555,27 @@ public interface SkylarkAttrApi extends SkylarkValue {
             doc = CONFIGURATION_DOC),
         @Param(
             name = ASPECTS_ARG,
-            type = SkylarkList.class,
+            type = Sequence.class,
             generic1 = SkylarkAspectApi.class,
             defaultValue = "[]",
             named = true,
             positional = false,
             doc = ASPECTS_ARG_DOC),
       },
-      useAst = true,
-      useEnvironment = true,
-      useContext = true)
-  public Descriptor labelListAttribute(
+      useStarlarkThread = true)
+  Descriptor labelListAttribute(
       Boolean allowEmpty,
-      Object defaultList,
+      Object defaultValue,
       String doc,
       Object allowFiles,
       Object allowRules,
-      SkylarkList<?> providers,
-      SkylarkList<?> flags,
+      Sequence<?> providers,
+      Sequence<?> flags,
       Boolean mandatory,
       Boolean nonEmpty,
       Object cfg,
-      SkylarkList<?> aspects,
-      FuncallExpression ast,
-      Environment env,
-      StarlarkContext context)
+      Sequence<?> aspects,
+      StarlarkThread thread)
       throws EvalException;
 
   @SkylarkCallable(
@@ -624,8 +594,8 @@ public interface SkylarkAttrApi extends SkylarkValue {
         @Param(
             name = DEFAULT_ARG,
             allowedTypes = {
-              @ParamType(type = SkylarkDict.class),
-              @ParamType(type = UserDefinedFunction.class)
+              @ParamType(type = Dict.class),
+              @ParamType(type = StarlarkFunction.class)
             },
             callbackEnabled = true,
             defaultValue = "{}",
@@ -653,7 +623,7 @@ public interface SkylarkAttrApi extends SkylarkValue {
             doc = ALLOW_FILES_DOC),
         @Param(
             name = ALLOW_RULES_ARG,
-            type = SkylarkList.class,
+            type = Sequence.class,
             generic1 = String.class,
             noneable = true,
             defaultValue = "None",
@@ -662,14 +632,14 @@ public interface SkylarkAttrApi extends SkylarkValue {
             doc = ALLOW_RULES_DOC),
         @Param(
             name = PROVIDERS_ARG,
-            type = SkylarkList.class,
+            type = Sequence.class,
             defaultValue = "[]",
             named = true,
             positional = false,
             doc = PROVIDERS_DOC),
         @Param(
             name = FLAGS_ARG,
-            type = SkylarkList.class,
+            type = Sequence.class,
             generic1 = String.class,
             defaultValue = "[]",
             named = true,
@@ -699,31 +669,27 @@ public interface SkylarkAttrApi extends SkylarkValue {
             doc = CONFIGURATION_DOC),
         @Param(
             name = ASPECTS_ARG,
-            type = SkylarkList.class,
+            type = Sequence.class,
             generic1 = SkylarkAspectApi.class,
             defaultValue = "[]",
             named = true,
             positional = false,
             doc = ASPECTS_ARG_DOC)
       },
-      useAst = true,
-      useEnvironment = true,
-      useContext = true)
-  public Descriptor labelKeyedStringDictAttribute(
+      useStarlarkThread = true)
+  Descriptor labelKeyedStringDictAttribute(
       Boolean allowEmpty,
-      Object defaultList,
+      Object defaultValue,
       String doc,
       Object allowFiles,
       Object allowRules,
-      SkylarkList<?> providers,
-      SkylarkList<?> flags,
+      Sequence<?> providers,
+      Sequence<?> flags,
       Boolean mandatory,
       Boolean nonEmpty,
       Object cfg,
-      SkylarkList<?> aspects,
-      FuncallExpression ast,
-      Environment env,
-      StarlarkContext context)
+      Sequence<?> aspects,
+      StarlarkThread thread)
       throws EvalException;
 
   @SkylarkCallable(
@@ -732,10 +698,7 @@ public interface SkylarkAttrApi extends SkylarkValue {
       parameters = {
         @Param(
             name = DEFAULT_ARG,
-            allowedTypes = {
-              @ParamType(type = Boolean.class),
-              @ParamType(type = UserDefinedFunction.class)
-            },
+            type = Boolean.class,
             defaultValue = "False",
             named = true,
             positional = false,
@@ -755,16 +718,9 @@ public interface SkylarkAttrApi extends SkylarkValue {
             positional = false,
             doc = MANDATORY_DOC)
       },
-      useAst = true,
-      useEnvironment = true,
-      useContext = true)
-  public Descriptor boolAttribute(
-      Boolean defaultO,
-      String doc,
-      Boolean mandatory,
-      FuncallExpression ast,
-      Environment env,
-      StarlarkContext context)
+      useStarlarkThread = true)
+  Descriptor boolAttribute(
+      Boolean defaultValue, String doc, Boolean mandatory, StarlarkThread thread)
       throws EvalException;
 
   @SkylarkCallable(
@@ -775,7 +731,7 @@ public interface SkylarkAttrApi extends SkylarkValue {
             name = DEFAULT_ARG,
             allowedTypes = {
               @ParamType(type = Label.class),
-              @ParamType(type = UserDefinedFunction.class)
+              @ParamType(type = StarlarkFunction.class)
             },
             noneable = true,
             defaultValue = "None",
@@ -799,16 +755,9 @@ public interface SkylarkAttrApi extends SkylarkValue {
             positional = false,
             doc = MANDATORY_DOC)
       },
-      useAst = true,
-      useEnvironment = true,
-      useContext = true)
-  public Descriptor outputAttribute(
-      Object defaultO,
-      String doc,
-      Boolean mandatory,
-      FuncallExpression ast,
-      Environment env,
-      StarlarkContext context)
+      useStarlarkThread = true)
+  Descriptor outputAttribute(
+      Object defaultValue, String doc, Boolean mandatory, StarlarkThread thread)
       throws EvalException;
 
   @SkylarkCallable(
@@ -824,8 +773,8 @@ public interface SkylarkAttrApi extends SkylarkValue {
         @Param(
             name = DEFAULT_ARG,
             allowedTypes = {
-              @ParamType(type = SkylarkList.class, generic1 = Label.class),
-              @ParamType(type = UserDefinedFunction.class)
+              @ParamType(type = Sequence.class, generic1 = Label.class),
+              @ParamType(type = StarlarkFunction.class)
             },
             noneable = true,
             defaultValue = "None",
@@ -856,18 +805,14 @@ public interface SkylarkAttrApi extends SkylarkValue {
             positional = false,
             doc = NON_EMPTY_DOC)
       },
-      useAst = true,
-      useEnvironment = true,
-      useContext = true)
-  public Descriptor outputListAttribute(
+      useStarlarkThread = true)
+  Descriptor outputListAttribute(
       Boolean allowEmpty,
-      Object defaultList,
+      Object defaultValue,
       String doc,
       Boolean mandatory,
       Boolean nonEmpty,
-      FuncallExpression ast,
-      Environment env,
-      StarlarkContext context)
+      StarlarkThread thread)
       throws EvalException;
 
   @SkylarkCallable(
@@ -884,10 +829,7 @@ public interface SkylarkAttrApi extends SkylarkValue {
             named = true),
         @Param(
             name = DEFAULT_ARG,
-            allowedTypes = {
-              @ParamType(type = SkylarkDict.class),
-              @ParamType(type = UserDefinedFunction.class)
-            },
+            type = Dict.class,
             named = true,
             positional = false,
             defaultValue = "{}",
@@ -914,18 +856,14 @@ public interface SkylarkAttrApi extends SkylarkValue {
             positional = false,
             doc = NON_EMPTY_DOC)
       },
-      useAst = true,
-      useEnvironment = true,
-      useContext = true)
-  public Descriptor stringDictAttribute(
+      useStarlarkThread = true)
+  Descriptor stringDictAttribute(
       Boolean allowEmpty,
-      SkylarkDict<?, ?> defaultO,
+      Dict<?, ?> defaultValue,
       String doc,
       Boolean mandatory,
       Boolean nonEmpty,
-      FuncallExpression ast,
-      Environment env,
-      StarlarkContext context)
+      StarlarkThread thread)
       throws EvalException;
 
   @SkylarkCallable(
@@ -942,10 +880,7 @@ public interface SkylarkAttrApi extends SkylarkValue {
             named = true),
         @Param(
             name = DEFAULT_ARG,
-            allowedTypes = {
-              @ParamType(type = SkylarkDict.class),
-              @ParamType(type = UserDefinedFunction.class)
-            },
+            type = Dict.class,
             defaultValue = "{}",
             named = true,
             positional = false,
@@ -972,18 +907,14 @@ public interface SkylarkAttrApi extends SkylarkValue {
             positional = false,
             doc = NON_EMPTY_DOC)
       },
-      useAst = true,
-      useEnvironment = true,
-      useContext = true)
-  public Descriptor stringListDictAttribute(
+      useStarlarkThread = true)
+  Descriptor stringListDictAttribute(
       Boolean allowEmpty,
-      SkylarkDict<?, ?> defaultO,
+      Dict<?, ?> defaultValue,
       String doc,
       Boolean mandatory,
       Boolean nonEmpty,
-      FuncallExpression ast,
-      Environment env,
-      StarlarkContext context)
+      StarlarkThread thread)
       throws EvalException;
 
   @SkylarkCallable(
@@ -1015,16 +946,9 @@ public interface SkylarkAttrApi extends SkylarkValue {
             doc = MANDATORY_DOC)
       },
       disableWithFlag = FlagIdentifier.INCOMPATIBLE_NO_ATTR_LICENSE,
-      useAst = true,
-      useEnvironment = true,
-      useContext = true)
-  public Descriptor licenseAttribute(
-      Object defaultO,
-      String doc,
-      Boolean mandatory,
-      FuncallExpression ast,
-      Environment env,
-      StarlarkContext context)
+      useStarlarkThread = true)
+  Descriptor licenseAttribute(
+      Object defaultValue, String doc, Boolean mandatory, StarlarkThread thread)
       throws EvalException;
 
   /** An attribute descriptor. */
@@ -1036,5 +960,5 @@ public interface SkylarkAttrApi extends SkylarkValue {
               + "module to create an Attribute. They are only for use with a "
               + "<a href=\"globals.html#rule\">rule</a> or an "
               + "<a href=\"globals.html#aspect\">aspect</a>.")
-  public static interface Descriptor extends SkylarkValue {}
+  interface Descriptor extends StarlarkValue {}
 }

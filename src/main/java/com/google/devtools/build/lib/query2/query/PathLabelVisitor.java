@@ -22,19 +22,13 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.events.ErrorSensingEventHandler;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
-import com.google.devtools.build.lib.packages.AggregatingAttributeMapper;
 import com.google.devtools.build.lib.packages.Aspect;
 import com.google.devtools.build.lib.packages.AspectDefinition;
 import com.google.devtools.build.lib.packages.Attribute;
-import com.google.devtools.build.lib.packages.AttributeMap;
-import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.DependencyFilter;
-import com.google.devtools.build.lib.packages.InputFile;
+import com.google.devtools.build.lib.packages.LabelVisitationUtils;
 import com.google.devtools.build.lib.packages.NoSuchThingException;
-import com.google.devtools.build.lib.packages.OutputFile;
-import com.google.devtools.build.lib.packages.PackageGroup;
 import com.google.devtools.build.lib.packages.Rule;
-import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.pkgcache.TargetProvider;
 import java.util.ArrayDeque;
@@ -171,9 +165,29 @@ final class PathLabelVisitor {
   }
 
   private enum VisitorMode {
+    DEPS,
     ALLPATHS,
     SOMEPATH,
     SAME_PKG_DIRECT_RDEPS
+  }
+
+  private static class Visit {
+    private final Target from;
+    private final Attribute attribute;
+    private final Target target;
+
+    private Visit(Target from, Attribute attribute, Target target) {
+      if (target == null) {
+        throw new NullPointerException(
+            String.format(
+                "'%s' attribute '%s'",
+                from == null ? "(null)" : from.getLabel().toString(),
+                attribute == null ? "(null)" : attribute.getName()));
+      }
+      this.from = from;
+      this.attribute = attribute;
+      this.target = target;
+    }
   }
 
   private class Visitor {
@@ -181,6 +195,7 @@ final class PathLabelVisitor {
     private final VisitorMode mode;
     private final Set<Target> visited = new HashSet<>();
     private final Map<Target, List<Target>> parentMap = new HashMap<>();
+    private final Queue<Visit> workQueue = new ArrayDeque<>();
 
     public Visitor(ExtendedEventHandler eventHandler, VisitorMode mode) {
       this.eventHandler = eventHandler;
@@ -204,37 +219,33 @@ final class PathLabelVisitor {
     @ThreadSafe
     private void visitTargets(Iterable<Target> targets)
         throws InterruptedException, NoSuchThingException {
-      for (Target target : targets) {
-        visit(/*from=*/ null, /*attribute=*/ null, target);
+      for (Target t : targets) {
+        enqueue(null, null, t);
+      }
+      while (!workQueue.isEmpty()) {
+        Visit visit = workQueue.remove();
+        visit(visit.from, visit.attribute, visit.target);
       }
     }
 
-    private void visit(Target from, Attribute attribute, Label label)
+    private void enqueue(Target from, Attribute attribute, Label label)
         throws InterruptedException, NoSuchThingException {
-      if (label == null) {
-        throw new NullPointerException(
-            String.format(
-                "'%s' attribute '%s'",
-                from == null ? "(null)" : from.getLabel().toString(),
-                attribute == null ? "(null)" : attribute.getName()));
-      }
+      Target target;
+      target = targetProvider.getTarget(eventHandler, label);
+      enqueue(from, attribute, target);
+    }
 
-      Target target = targetProvider.getTarget(eventHandler, label);
-      visit(from, attribute, target);
+    private void enqueue(Target from, Attribute attribute, Target target) {
+      workQueue.add(new Visit(from, attribute, target));
     }
 
     private void visit(Target from, Attribute attribute, Target target)
         throws InterruptedException, NoSuchThingException {
-      if (target == null) {
-        throw new NullPointerException(
-            String.format(
-                "'%s' attribute '%s'",
-                from == null ? "(null)" : from.getLabel().toString(),
-                attribute == null ? "(null)" : attribute.getName()));
-      }
-
       if (from != null) {
         switch (mode) {
+          case DEPS:
+            // Don't update parentMap; only use visited.
+            break;
           case SAME_PKG_DIRECT_RDEPS:
             // Only track same-package dependencies.
             if (target
@@ -268,57 +279,8 @@ final class PathLabelVisitor {
         return;
       }
 
-      if (target instanceof OutputFile) {
-        Rule rule = ((OutputFile) target).getGeneratingRule();
-        visit(target, null, rule);
-        visitTargetVisibility(target);
-      } else if (target instanceof InputFile) {
-        visitTargetVisibility(target);
-      } else if (target instanceof Rule) {
-        visitTargetVisibility(target);
-        visitRule((Rule) target);
-      } else if (target instanceof PackageGroup) {
-        visitPackageGroup((PackageGroup) target);
-      } else {
-        // TODO(ulfjack): Throw an exception in this case.
-      }
-    }
-
-    private void visitTargetVisibility(Target target)
-        throws InterruptedException, NoSuchThingException {
-      Attribute attribute = null;
-      if (target instanceof Rule) {
-        Rule rule = (Rule) target;
-        RuleClass ruleClass = rule.getRuleClassObject();
-        if (!ruleClass.hasAttr("visibility", BuildType.NODEP_LABEL_LIST)) {
-          return;
-        }
-        attribute = ruleClass.getAttributeByName("visibility");
-        if (!edgeFilter.apply(rule, attribute)) {
-          return;
-        }
-      }
-
-      for (Label label : target.getVisibility().getDependencyLabels()) {
-        visit(target, attribute, label);
-      }
-    }
-
-    /** Visit all the labels in a given rule. */
-    private void visitRule(Rule rule) throws InterruptedException, NoSuchThingException {
-      // Follow all labels defined by this rule:
-      for (AttributeMap.DepEdge depEdge : AggregatingAttributeMapper.of(rule).visitLabels()) {
-        if (edgeFilter.apply(rule, depEdge.getAttribute())) {
-          visit(rule, depEdge.getAttribute(), depEdge.getLabel());
-        }
-      }
-    }
-
-    private void visitPackageGroup(PackageGroup packageGroup)
-        throws InterruptedException, NoSuchThingException {
-      for (final Label include : packageGroup.getIncludes()) {
-        visit(packageGroup, null, include);
-      }
+      LabelVisitationUtils.<InterruptedException, NoSuchThingException>visitTargetExceptionally(
+          target, edgeFilter, this::enqueue);
     }
 
     private void visitAspectsIfRequired(Target from, Attribute attribute, final Target to)
@@ -340,7 +302,7 @@ final class PathLabelVisitor {
           Multimap<Attribute, Label> allLabels = HashMultimap.create();
           AspectDefinition.addAllAttributesOfAspect(fromRule, allLabels, aspect, edgeFilter);
           for (Map.Entry<Attribute, Label> e : allLabels.entries()) {
-            visit(from, e.getKey(), e.getValue());
+            enqueue(from, e.getKey(), e.getValue());
           }
         }
       }

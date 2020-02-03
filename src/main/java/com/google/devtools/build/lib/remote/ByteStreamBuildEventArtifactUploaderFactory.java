@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.remote;
 
 import com.google.devtools.build.lib.buildeventstream.BuildEventArtifactUploader;
+import com.google.devtools.build.lib.remote.common.MissingDigestsFinder;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.runtime.BuildEventArtifactUploaderFactory;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
@@ -29,12 +30,17 @@ class ByteStreamBuildEventArtifactUploaderFactory implements
   private final ByteStreamUploader uploader;
   private final String remoteServerName;
   private final Context ctx;
+  private final MissingDigestsFinder missingDigestsFinder;
   @Nullable private final String remoteInstanceName;
 
   ByteStreamBuildEventArtifactUploaderFactory(
-      ByteStreamUploader uploader, String remoteServerName, Context ctx,
+      ByteStreamUploader uploader,
+      MissingDigestsFinder missingDigestsFinder,
+      String remoteServerName,
+      Context ctx,
       @Nullable String remoteInstanceName) {
     this.uploader = uploader;
+    this.missingDigestsFinder = missingDigestsFinder;
     this.remoteServerName = remoteServerName;
     this.ctx = ctx;
     this.remoteInstanceName = remoteInstanceName;
@@ -44,6 +50,7 @@ class ByteStreamBuildEventArtifactUploaderFactory implements
   public BuildEventArtifactUploader create(CommandEnvironment env) {
     return new ByteStreamBuildEventArtifactUploader(
         uploader.retain(),
+        missingDigestsFinder,
         remoteServerName,
         ctx,
         remoteInstanceName,

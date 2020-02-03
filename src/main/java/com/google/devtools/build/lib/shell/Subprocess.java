@@ -71,4 +71,33 @@ public interface Subprocess extends Closeable {
    */
   @Override
   void close();
+
+  /** Waits for the process to finish in a non-interruptible manner. */
+  default void waitForUninterruptibly() {
+    boolean wasInterrupted = false;
+    try {
+      while (true) {
+        try {
+          waitFor();
+          return;
+        } catch (InterruptedException ie) {
+          wasInterrupted = true;
+        }
+      }
+    } finally {
+      // Read this for detailed explanation: http://www.ibm.com/developerworks/library/j-jtp05236/
+      if (wasInterrupted) {
+        Thread.currentThread().interrupt(); // preserve interrupted status
+      }
+    }
+  }
+
+  /**
+   * Kills the subprocess and awaits for its termination so that we know it has released any
+   * resources it may have held.
+   */
+  default void destroyAndWait() {
+    destroy();
+    waitForUninterruptibly();
+  }
 }

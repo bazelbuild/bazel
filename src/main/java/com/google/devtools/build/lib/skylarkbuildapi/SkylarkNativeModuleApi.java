@@ -14,21 +14,18 @@
 
 package com.google.devtools.build.lib.skylarkbuildapi;
 
-import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
-import com.google.devtools.build.lib.syntax.Environment;
+import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.FuncallExpression;
-import com.google.devtools.build.lib.syntax.Runtime;
-import com.google.devtools.build.lib.syntax.SkylarkDict;
-import com.google.devtools.build.lib.syntax.SkylarkList;
+import com.google.devtools.build.lib.syntax.NoneType;
+import com.google.devtools.build.lib.syntax.Sequence;
+import com.google.devtools.build.lib.syntax.StarlarkThread;
+import com.google.devtools.build.lib.syntax.StarlarkValue;
 
-/**
- * Interface for a module with native rule and package helper functions.
- */
+/** Interface for a module with native rule and package helper functions. */
 @SkylarkModule(
     name = "native",
     category = SkylarkModuleCategory.BUILTIN,
@@ -39,9 +36,8 @@ import com.google.devtools.build.lib.syntax.SkylarkList;
             + "Note that the native module is only available in the loading phase "
             + "(i.e. for macros, not for rule implementations). Attributes will ignore "
             + "<code>None</code> values, and treat them as if the attribute was unset.<br>"
-            + "The following functions are also available:"
-)
-public interface SkylarkNativeModuleApi {
+            + "The following functions are also available:")
+public interface SkylarkNativeModuleApi extends StarlarkValue {
 
   @SkylarkCallable(
       name = "glob",
@@ -56,14 +52,14 @@ public interface SkylarkNativeModuleApi {
       parameters = {
         @Param(
             name = "include",
-            type = SkylarkList.class,
+            type = Sequence.class,
             generic1 = String.class,
             defaultValue = "[]",
             named = true,
             doc = "The list of glob patterns to include."),
         @Param(
             name = "exclude",
-            type = SkylarkList.class,
+            type = Sequence.class,
             generic1 = String.class,
             defaultValue = "[]",
             named = true,
@@ -72,7 +68,7 @@ public interface SkylarkNativeModuleApi {
         @Param(
             name = "exclude_directories",
             type = Integer.class,
-            defaultValue = "1",
+            defaultValue = "1", // keep consistent with glob prefetching logic in PackageFactory
             named = true,
             doc = "A flag whether to exclude directories or not."),
         @Param(
@@ -86,25 +82,40 @@ public interface SkylarkNativeModuleApi {
                     + " result must be non-empty (after the matches of the `exclude` patterns are"
                     + " excluded).")
       },
-      useAst = true,
-      useEnvironment = true)
-  public SkylarkList<?> glob(
-      SkylarkList<?> include,
-      SkylarkList<?> exclude,
+      useStarlarkThread = true)
+  Sequence<?> glob(
+      Sequence<?> include,
+      Sequence<?> exclude,
       Integer excludeDirectories,
       Object allowEmpty,
-      FuncallExpression ast,
-      Environment env)
+      StarlarkThread thread)
       throws EvalException, InterruptedException;
 
   @SkylarkCallable(
       name = "existing_rule",
       doc =
-          "Returns a dictionary representing the attributes of a previously defined target, or "
-              + "<code>None</code> if the target does not exist."
-              + ""
-              + "<p><i>Note: If possible, avoid using this function. It makes BUILD files brittle "
-              + "and order-dependent.</i>",
+          "Returns a new mutable dict that describes the attributes of a rule instantiated in this "
+              + "thread's package, or <code>None</code> if no rule instance of that name exists." //
+              + "<p>The dict contains an entry for each attribute, except private ones, whose"
+              + " names do not start with a letter. In addition, the dict contains entries for the"
+              + " rule instance's <code>name</code> and <code>kind</code> (for example,"
+              + " <code>'cc_binary'</code>)." //
+              + "<p>The values of the dict represent attribute values as follows:" //
+              + "<ul><li>Attributes of type str, int, and bool are represented as is.</li>" //
+              + "<li>Labels are converted to strings of the form <code>':foo'</code> for targets"
+              + " in the same package or <code>'//pkg:name'</code> for targets in a different"
+              + " package.</li>" //
+              + "<li>Lists are represented as tuples, and dicts are converted to new, mutable"
+              + " dicts. Their elements are recursively converted in the same fashion.</li>" //
+              + "<li><code>select</code> values are returned as is." //
+              + "<li>Attributes for which no value was specified during rule instantiation and"
+              + " whose default value is computed are excluded from the result. (Computed defaults"
+              + " cannot be computed until the analysis phase.).</li>" //
+              + "</ul>" //
+              + "<p>If possible, avoid using this function. It makes BUILD files brittle and"
+              + " order-dependent. Also, beware that it differs subtly from the two"
+              + " other conversions of rule attribute values from internal form to Starlark: one"
+              + " used by computed defaults, the other used by <code>ctx.attr.foo</code>.",
       parameters = {
         @Param(
             name = "name",
@@ -113,58 +124,72 @@ public interface SkylarkNativeModuleApi {
             legacyNamed = true,
             doc = "The name of the target.")
       },
-      useAst = true,
-      useEnvironment = true)
-  public Object existingRule(String name, FuncallExpression ast, Environment env)
+      useStarlarkThread = true)
+  Object existingRule(String name, StarlarkThread thread)
       throws EvalException, InterruptedException;
 
   @SkylarkCallable(
       name = "existing_rules",
       doc =
-          "Returns a dictionary containing all the targets instantiated so far. The map key is the "
-              + "name of the target. The map value is equivalent to the <code>existing_rule</code> "
-              + "output for that target."
-              + ""
-              + "<p><i>Note: If possible, avoid using this function. It makes BUILD files brittle "
-              + "and order-dependent.</i>",
-      useAst = true,
-      useEnvironment = true)
-  public SkylarkDict<String, SkylarkDict<String, Object>> existingRules(
-      FuncallExpression ast, Environment env) throws EvalException, InterruptedException;
+          "Returns a new mutable dict describing the rules so far instantiated in this thread's"
+              + " package. Each dict entry maps the name of the rule instance to the result that"
+              + " would be returned by <code>existing_rule(name)</code>.<p><i>Note: If possible,"
+              + " avoid using this function. It makes BUILD files brittle and order-dependent, and"
+              + " it may be expensive especially if called within a loop.</i>",
+      useStarlarkThread = true)
+  Dict<String, Dict<String, Object>> existingRules(StarlarkThread thread)
+      throws EvalException, InterruptedException;
 
-  @SkylarkCallable(name = "package_group",
-      doc = "This function defines a set of packages and assigns a label to the group. "
-          + "The label can be referenced in <code>visibility</code> attributes.",
+  @SkylarkCallable(
+      name = "package_group",
+      doc =
+          "This function defines a set of packages and assigns a label to the group. "
+              + "The label can be referenced in <code>visibility</code> attributes.",
       parameters = {
-      @Param(name = "name", type = String.class, named = true, positional = false,
-          doc = "The unique name for this rule."),
-      @Param(name = "packages", type = SkylarkList.class, generic1 = String.class,
-          defaultValue = "[]", named = true, positional = false,
-          doc = "A complete enumeration of packages in this group."),
-      @Param(name = "includes", type = SkylarkList.class, generic1 = String.class,
-          defaultValue = "[]", named = true, positional = false,
-          doc = "Other package groups that are included in this one.")},
-      useAst = true, useEnvironment = true)
-  public Runtime.NoneType packageGroup(String name, SkylarkList<?> packages,
-      SkylarkList<?> includes,
-      FuncallExpression ast, Environment env) throws EvalException;
+        @Param(
+            name = "name",
+            type = String.class,
+            named = true,
+            positional = false,
+            doc = "The unique name for this rule."),
+        @Param(
+            name = "packages",
+            type = Sequence.class,
+            generic1 = String.class,
+            defaultValue = "[]",
+            named = true,
+            positional = false,
+            doc = "A complete enumeration of packages in this group."),
+        @Param(
+            name = "includes",
+            type = Sequence.class,
+            generic1 = String.class,
+            defaultValue = "[]",
+            named = true,
+            positional = false,
+            doc = "Other package groups that are included in this one.")
+      },
+      useStarlarkThread = true)
+  NoneType packageGroup(
+      String name, Sequence<?> packages, Sequence<?> includes, StarlarkThread thread)
+      throws EvalException;
 
   @SkylarkCallable(
       name = "exports_files",
       doc =
           "Specifies a list of files belonging to this package that are exported to other "
-              + "packages but not otherwise mentioned.",
+              + "packages.",
       parameters = {
         @Param(
             name = "srcs",
-            type = SkylarkList.class,
+            type = Sequence.class,
             generic1 = String.class,
             named = true,
             doc = "The list of files to export."),
         // TODO(bazel-team): make it possible to express the precise type ListOf(LabelDesignator)
         @Param(
             name = "visibility",
-            type = SkylarkList.class,
+            type = Sequence.class,
             defaultValue = "None",
             noneable = true,
             named = true,
@@ -174,52 +199,38 @@ public interface SkylarkNativeModuleApi {
                     + "to every package."),
         @Param(
             name = "licenses",
-            type = SkylarkList.class,
+            type = Sequence.class,
             generic1 = String.class,
             noneable = true,
             named = true,
             defaultValue = "None",
             doc = "Licenses to be specified.")
       },
-      useAst = true,
-      useEnvironment = true)
-  public Runtime.NoneType exportsFiles(
-      SkylarkList<?> srcs,
-      Object visibility,
-      Object licenses,
-      FuncallExpression ast,
-      Environment env)
+      useStarlarkThread = true)
+  NoneType exportsFiles(Sequence<?> srcs, Object visibility, Object licenses, StarlarkThread thread)
       throws EvalException;
 
   @SkylarkCallable(
-    name = "package_name",
-    doc =
-        "The name of the package being evaluated. "
-            + "For example, in the BUILD file <code>some/package/BUILD</code>, its value "
-            + "will be <code>some/package</code>. "
-            + "If the BUILD file calls a function defined in a .bzl file, "
-            + "<code>package_name()</code> will match the caller BUILD file package. "
-            + "This function is equivalent to the deprecated variable <code>PACKAGE_NAME</code>.",
-    parameters = {},
-    useAst = true,
-    useEnvironment = true
-  )
-  public String packageName(FuncallExpression ast, Environment env)
-      throws EvalException;
+      name = "package_name",
+      doc =
+          "The name of the package being evaluated. "
+              + "For example, in the BUILD file <code>some/package/BUILD</code>, its value "
+              + "will be <code>some/package</code>. "
+              + "If the BUILD file calls a function defined in a .bzl file, "
+              + "<code>package_name()</code> will match the caller BUILD file package. "
+              + "This function is equivalent to the deprecated variable <code>PACKAGE_NAME</code>.",
+      useStarlarkThread = true)
+  String packageName(StarlarkThread thread) throws EvalException;
 
   @SkylarkCallable(
-    name = "repository_name",
-    doc =
-        "The name of the repository the rule or build extension is called from. "
-            + "For example, in packages that are called into existence by the WORKSPACE stanza "
-            + "<code>local_repository(name='local', path=...)</code> it will be set to "
-            + "<code>@local</code>. In packages in the main repository, it will be set to "
-            + "<code>@</code>. This function is equivalent to the deprecated variable "
-            + "<code>REPOSITORY_NAME</code>.",
-    parameters = {},
-    useLocation = true,
-    useEnvironment = true
-  )
-  public String repositoryName(Location location, Environment env)
-      throws EvalException;
+      name = "repository_name",
+      doc =
+          "The name of the repository the rule or build extension is called from. "
+              + "For example, in packages that are called into existence by the WORKSPACE stanza "
+              + "<code>local_repository(name='local', path=...)</code> it will be set to "
+              + "<code>@local</code>. In packages in the main repository, it will be set to "
+              + "<code>@</code>. This function is equivalent to the deprecated variable "
+              + "<code>REPOSITORY_NAME</code>.",
+      useStarlarkThread = true)
+  String repositoryName(StarlarkThread thread) throws EvalException;
 }

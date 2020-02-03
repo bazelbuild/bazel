@@ -251,10 +251,10 @@ function test_packages_cleared() {
   local glob_count="$(extract_histogram_count "$histo_file" "GlobValue$")"
   [[ "$glob_count" -ge 2 ]] \
       || fail "glob count $glob_count too low: did you move/rename the class?"
-  local env_count="$(extract_histogram_count "$histo_file" \
-      'Environment\$Extension$')"
-  [[ "$env_count" -ge 3 ]] \
-      || fail "env extension count $env_count too low: did you move/rename the class?"
+  local ext_count="$(extract_histogram_count "$histo_file" \
+      'StarlarkThread\$Extension$')"
+  [[ "$ext_count" -ge 3 ]] \
+      || fail "Extension count $ext_count too low: did you move/rename the class?"
   local ct_count="$(extract_histogram_count "$histo_file" \
        'RuleConfiguredTarget$')"
   [[ "$ct_count" -ge 18 ]] \
@@ -276,10 +276,10 @@ function test_packages_cleared() {
   glob_count="$(extract_histogram_count "$histo_file" "GlobValue$")"
   [[ "$glob_count" -le 1 ]] \
       || fail "glob count $glob_count too high"
-  env_count="$(extract_histogram_count "$histo_file" \
-      'Environment\$  Extension$')"
-  [[ "$env_count" -le 7 ]] \
-      || fail "env extension count $env_count too high"
+  ext_count="$(extract_histogram_count "$histo_file" \
+      'StarlarkThread\$  Extension$')"
+  [[ "$ext_count" -le 7 ]] \
+      || fail "extension count $ext_count too high"
   ct_count="$(extract_histogram_count "$histo_file" \
        'RuleConfiguredTarget$')"
   [[ "$ct_count" -le 1 ]] \

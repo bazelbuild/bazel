@@ -69,7 +69,8 @@ public class ParallelVisitorTest {
           /*processResultsBatchSize=*/ 1,
           /*minPendingTasks=*/ MIN_PENDING_TASKS,
           /*batchCallbackSize=*/ BATCH_CALLBACK_SIZE,
-          Executors.newFixedThreadPool(3));
+          Executors.newFixedThreadPool(3),
+          VisitTaskStatusCallback.NULL_INSTANCE);
       this.invocationLatch = invocationLatch;
       this.delayLatch = delayLatch;
     }
@@ -110,14 +111,7 @@ public class ParallelVisitorTest {
         new DelayGettingVisitResultParallelVisitor(invocationLatch, delayLatch);
     ImmutableList<String> keysToVisit = ImmutableList.of("for_testing");
 
-    TestThread testThread =
-        new TestThread() {
-          @Override
-          public void runTest() throws Exception {
-            visitor.visitAndWaitForCompletion(keysToVisit);
-          }
-        };
-
+    TestThread testThread = new TestThread(() -> visitor.visitAndWaitForCompletion(keysToVisit));
     testThread.start();
 
     // Send an interrupt signal to the visitor after #visitAndWaitForCompletion is invoked.
@@ -147,7 +141,8 @@ public class ParallelVisitorTest {
           processResultsBatchSize,
           MIN_PENDING_TASKS,
           BATCH_CALLBACK_SIZE,
-          Executors.newFixedThreadPool(3));
+          Executors.newFixedThreadPool(3),
+          VisitTaskStatusCallback.NULL_INSTANCE);
       this.successorMap = successors;
     }
 

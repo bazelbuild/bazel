@@ -32,8 +32,8 @@ import com.google.devtools.build.lib.pkgcache.TargetProvider;
 import com.google.devtools.build.lib.pkgcache.TransitivePackageLoader;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
-import com.google.devtools.build.lib.query2.AbstractBlazeQueryEnvironment;
-import com.google.devtools.build.lib.query2.FakeLoadTarget;
+import com.google.devtools.build.lib.query2.common.AbstractBlazeQueryEnvironment;
+import com.google.devtools.build.lib.query2.compat.FakeLoadTarget;
 import com.google.devtools.build.lib.query2.engine.Callback;
 import com.google.devtools.build.lib.query2.engine.MinDepthUniquifier;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.CustomFunctionQueryEnvironment;
@@ -298,7 +298,6 @@ public class GraphlessBlazeQueryEnvironment extends AbstractBlazeQueryEnvironmen
     if (errorObserver.hasErrors()) {
       reportBuildFileError(caller, "errors were encountered while computing transitive closure");
     }
-    throw new UnsupportedOperationException();
   }
 
   @Override

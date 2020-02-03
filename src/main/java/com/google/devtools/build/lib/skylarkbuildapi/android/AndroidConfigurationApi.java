@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import com.google.devtools.build.lib.syntax.StarlarkValue;
 
 /** Configuration fragment for Android rules. */
 @SkylarkModule(
@@ -27,7 +28,7 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
             + "A configuration fragment for Android.",
     documented = false,
     category = SkylarkModuleCategory.CONFIGURATION_FRAGMENT)
-public interface AndroidConfigurationApi {
+public interface AndroidConfigurationApi extends StarlarkValue {
 
   @SkylarkCallable(
       name = "android_cpu",
@@ -68,7 +69,7 @@ public interface AndroidConfigurationApi {
   boolean apkSigningMethodV1();
 
   @SkylarkCallable(name = "apk_signing_method_v2", structField = true, doc = "", documented = false)
-  boolean apkSigningMethodV2();;
+  boolean apkSigningMethodV2();
 
   @SkylarkCallable(
       name = "assume_min_sdk_version",
@@ -143,6 +144,13 @@ public interface AndroidConfigurationApi {
   boolean useAndroidResourcePathShortening();
 
   @SkylarkCallable(
+      name = "use_android_resource_name_obfuscation",
+      structField = true,
+      doc = "",
+      documented = false)
+  boolean useAndroidResourceNameObfuscation();
+
+  @SkylarkCallable(
       name = "use_single_jar_apk_builder",
       structField = true,
       doc = "",
@@ -172,13 +180,6 @@ public interface AndroidConfigurationApi {
       doc = "",
       documented = false)
   boolean getExportsManifestDefault();
-
-  @SkylarkCallable(
-      name = "use_aapt2_for_robolectric",
-      structField = true,
-      doc = "",
-      documented = false)
-  boolean useAapt2ForRobolectric();
 
   @SkylarkCallable(
       name = "omit_resources_info_provider_from_android_binary",

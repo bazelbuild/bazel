@@ -65,7 +65,7 @@ If you installed Bazel:
             source /path/to/bazel-complete.bash
             ```
 
-<h2 name="zsh">Zsh completion</h2>
+<h2 id="zsh">Zsh completion</h2>
 
 Bazel also comes with a Zsh completion script. To install it:
 

@@ -16,6 +16,8 @@ package com.google.devtools.build.lib.analysis;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableSortedSet;
+import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.ActionGraph;
 import com.google.devtools.build.lib.actions.PackageRoots;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationCollection;
@@ -41,36 +43,39 @@ public final class AnalysisResult {
   private final PackageRoots packageRoots;
   private final String workspaceName;
   private final Collection<TargetAndConfiguration> topLevelTargetsWithConfigs;
+  private final ImmutableSortedSet<String> nonSymlinkedDirectoriesUnderExecRoot;
 
   AnalysisResult(
       BuildConfigurationCollection configurations,
-      Collection<ConfiguredTarget> targetsToBuild,
+      ImmutableSet<ConfiguredTarget> targetsToBuild,
       ImmutableSet<AspectValue> aspects,
-      Collection<ConfiguredTarget> targetsToTest,
-      Collection<ConfiguredTarget> targetsToSkip,
+      @Nullable ImmutableList<ConfiguredTarget> targetsToTest,
+      ImmutableSet<ConfiguredTarget> targetsToSkip,
       @Nullable String error,
       ActionGraph actionGraph,
       ArtifactsToOwnerLabels topLevelArtifactsToOwnerLabels,
-      Collection<ConfiguredTarget> parallelTests,
-      Collection<ConfiguredTarget> exclusiveTests,
+      ImmutableSet<ConfiguredTarget> parallelTests,
+      ImmutableSet<ConfiguredTarget> exclusiveTests,
       TopLevelArtifactContext topLevelContext,
       PackageRoots packageRoots,
       String workspaceName,
-      Collection<TargetAndConfiguration> topLevelTargetsWithConfigs) {
+      Collection<TargetAndConfiguration> topLevelTargetsWithConfigs,
+      ImmutableSortedSet<String> nonSymlinkedDirectoriesUnderExecRoot) {
     this.configurations = configurations;
-    this.targetsToBuild = ImmutableSet.copyOf(targetsToBuild);
+    this.targetsToBuild = targetsToBuild;
     this.aspects = aspects;
-    this.targetsToTest = targetsToTest == null ? null : ImmutableList.copyOf(targetsToTest);
-    this.targetsToSkip = ImmutableSet.copyOf(targetsToSkip);
+    this.targetsToTest = targetsToTest;
+    this.targetsToSkip = targetsToSkip;
     this.error = error;
     this.actionGraph = actionGraph;
     this.topLevelArtifactsToOwnerLabels = topLevelArtifactsToOwnerLabels;
-    this.parallelTests = ImmutableSet.copyOf(parallelTests);
-    this.exclusiveTests = ImmutableSet.copyOf(exclusiveTests);
+    this.parallelTests = parallelTests;
+    this.exclusiveTests = exclusiveTests;
     this.topLevelContext = topLevelContext;
     this.packageRoots = packageRoots;
     this.workspaceName = workspaceName;
     this.topLevelTargetsWithConfigs = topLevelTargetsWithConfigs;
+    this.nonSymlinkedDirectoriesUnderExecRoot = nonSymlinkedDirectoriesUnderExecRoot;
   }
 
   public BuildConfigurationCollection getConfigurationCollection() {
@@ -100,11 +105,11 @@ public final class AnalysisResult {
   }
 
   /**
-   * Returns the configured targets to run as tests, or {@code null} if testing was not
-   * requested (e.g. "build" command rather than "test" command).
+   * Returns the configured targets to run as tests, or {@code null} if testing was not requested
+   * (e.g. "build" command rather than "test" command).
    */
   @Nullable
-  public Collection<ConfiguredTarget> getTargetsToTest() {
+  public ImmutableList<ConfiguredTarget> getTargetsToTest() {
     return targetsToTest;
   }
 
@@ -158,5 +163,32 @@ public final class AnalysisResult {
 
   public Collection<TargetAndConfiguration> getTopLevelTargetsWithConfigs() {
     return topLevelTargetsWithConfigs;
+  }
+
+  public ImmutableSortedSet<String> getNonSymlinkedDirectoriesUnderExecRoot() {
+    return nonSymlinkedDirectoriesUnderExecRoot;
+  }
+
+  /**
+   * Returns an equivalent {@link AnalysisResult}, except with exclusive tests treated as parallel
+   * tests.
+   */
+  public AnalysisResult withExclusiveTestsAsParallelTests() {
+    return new AnalysisResult(
+        configurations,
+        targetsToBuild,
+        aspects,
+        targetsToTest,
+        targetsToSkip,
+        error,
+        actionGraph,
+        topLevelArtifactsToOwnerLabels,
+        Sets.union(parallelTests, exclusiveTests).immutableCopy(),
+        /*exclusiveTests=*/ ImmutableSet.of(),
+        topLevelContext,
+        packageRoots,
+        workspaceName,
+        topLevelTargetsWithConfigs,
+        nonSymlinkedDirectoriesUnderExecRoot);
   }
 }

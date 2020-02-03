@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.syntax;
 
-import java.io.IOException;
 
 /** Syntax node for an if/else expression. */
 public final class ConditionalExpression extends Expression {
@@ -35,29 +34,8 @@ public final class ConditionalExpression extends Expression {
     this.elseCase = elseCase;
   }
 
-  /**
-   * Constructs a string representation of the if expression
-   */
   @Override
-  public void prettyPrint(Appendable buffer) throws IOException {
-    thenCase.prettyPrint(buffer);
-    buffer.append(" if ");
-    condition.prettyPrint(buffer);
-    buffer.append(" else ");
-    elseCase.prettyPrint(buffer);
-  }
-
-  @Override
-  Object doEval(Environment env) throws EvalException, InterruptedException {
-    if (EvalUtils.toBoolean(condition.eval(env))) {
-      return thenCase.eval(env);
-    } else {
-      return elseCase.eval(env);
-    }
-  }
-
-  @Override
-  public void accept(SyntaxTreeVisitor visitor) {
+  public void accept(NodeVisitor visitor) {
     visitor.visit(this);
   }
 

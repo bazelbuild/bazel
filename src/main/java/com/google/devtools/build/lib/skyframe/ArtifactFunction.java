@@ -36,7 +36,6 @@ import com.google.devtools.build.lib.actions.FilesetTraversalParams.DirectTraver
 import com.google.devtools.build.lib.actions.FilesetTraversalParams.PackageBoundaryMode;
 import com.google.devtools.build.lib.actions.MissingInputFileException;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.skyframe.RecursiveFilesystemTraversalFunction.RecursiveFilesystemTraversalException;
 import com.google.devtools.build.lib.skyframe.RecursiveFilesystemTraversalValue.ResolvedFile;
@@ -263,7 +262,7 @@ class ArtifactFunction implements SkyFunction {
         return null;
       }
       Fingerprint fp = new Fingerprint();
-      for (ResolvedFile file : value.getTransitiveFiles()) {
+      for (ResolvedFile file : value.getTransitiveFiles().toList()) {
         fp.addString(file.getNameInSymlinkTree().getPathString());
         fp.addBytes(file.getMetadata().getDigest());
       }
@@ -321,11 +320,8 @@ class ArtifactFunction implements SkyFunction {
         ImmutableList.builder();
     ImmutableList.Builder<Pair<Artifact, TreeArtifactValue>> directoryInputsBuilder =
         ImmutableList.builder();
-    Iterable<Artifact> inputs = action.getInputs();
-    if (inputs instanceof NestedSet) {
-      // Avoid iterating over nested set twice.
-      inputs = ((NestedSet<Artifact>) inputs).toList();
-    }
+    // Avoid iterating over nested set twice.
+    Iterable<Artifact> inputs = action.getInputs().toList();
     Map<SkyKey, SkyValue> values = env.getValues(Artifact.keys(inputs));
     if (env.valuesMissing()) {
       return null;
@@ -416,9 +412,11 @@ class ArtifactFunction implements SkyFunction {
 
   private static String constructErrorMessage(Artifact artifact) {
     if (artifact.getOwner() == null) {
-      return String.format("missing input file '%s'", artifact.getPath().getPathString());
+      return String.format("missing input file '%s'", artifact.getExecPathString());
     } else {
-      return String.format("missing input file '%s'", artifact.getOwner());
+      return String.format(
+          "missing input file '%s', owner: '%s'",
+          artifact.getExecPathString(), artifact.getOwner());
     }
   }
 

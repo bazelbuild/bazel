@@ -60,6 +60,18 @@ public class LocalExecutionOptions extends OptionsBase {
   )
   public boolean collectLocalExecutionStatistics;
 
+  @Option(
+      name = "experimental_local_lockfree_output",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.EXECUTION},
+      help =
+          "When true, the local spawn runner does lock the output tree during dynamic execution. "
+              + "Instead, spawns are allowed to execute until they are explicitly interrupted by a "
+              + "faster remote action. Requires --legacy_spawn_scheduler=false because of the need "
+              + "for this explicit cancellation.")
+  public boolean localLockfreeOutput;
+
   public Duration getLocalSigkillGraceSeconds() {
     // TODO(ulfjack): Change localSigkillGraceSeconds type to Duration.
     return Duration.ofSeconds(localSigkillGraceSeconds);

@@ -22,11 +22,16 @@ import com.google.devtools.build.lib.buildeventstream.BuildEventWithOrderConstra
 import com.google.devtools.build.lib.buildeventstream.GenericBuildEvent;
 import java.util.Collection;
 
-class BuildMetricsEvent implements BuildEventWithOrderConstraint {
+/** An event encapsulating build metrics collected during a build. */
+public class BuildMetricsEvent implements BuildEventWithOrderConstraint {
   private final BuildMetrics buildMetrics;
 
-  BuildMetricsEvent(BuildMetrics buildMetrics) {
+  public BuildMetricsEvent(BuildMetrics buildMetrics) {
     this.buildMetrics = buildMetrics;
+  }
+
+  public static BuildMetricsEvent create(BuildMetrics buildMetrics) {
+    return new BuildMetricsEvent(buildMetrics);
   }
 
   @Override

@@ -18,19 +18,17 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import com.google.devtools.build.lib.events.Location;
-import com.google.devtools.build.lib.events.Location.LineAndColumn;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleFunction;
 import com.google.devtools.build.lib.profiler.memory.AllocationTracker.RuleBytes;
-import com.google.devtools.build.lib.syntax.ASTNode;
-import com.google.devtools.build.lib.syntax.BaseFunction;
 import com.google.devtools.build.lib.syntax.Callstack;
-import com.google.devtools.build.lib.syntax.SyntaxTreeVisitor;
-import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.syntax.Expression;
+import com.google.devtools.build.lib.syntax.ParserInput;
+import com.google.devtools.build.lib.syntax.StarlarkCallable;
+import com.google.devtools.build.lib.syntax.SyntaxError;
 import com.google.perftools.profiles.ProfileProto.Function;
 import com.google.perftools.profiles.ProfileProto.Profile;
 import com.google.perftools.profiles.ProfileProto.Sample;
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -43,26 +41,34 @@ import org.junit.runners.JUnit4;
 
 /** Tests for {@link AllocationTracker}. */
 @RunWith(JUnit4.class)
-public class AllocationTrackerTest {
+public final class AllocationTrackerTest {
 
   private AllocationTracker allocationTracker;
 
-  static class TestNode extends ASTNode {
-    TestNode(String file, int line) {
-      setLocation(location(file, line));
+  // makeExpr returns an expression located at the specified file and line.
+  private static Expression makeExpr(String file, int line) throws SyntaxError {
+    ParserInput input =
+        ParserInput.create(new String(new char[line - 1]).replace('\u0000', '\n') + "None", file);
+    return Expression.parse(input);
+  }
+
+  private static class TestFunction implements StarlarkCallable {
+    private final String name;
+    private final Location location;
+
+    TestFunction(String file, String name, int line) {
+      this.name = name;
+      this.location = Location.fromFileLineColumn(file, line, 0);
     }
 
     @Override
-    public void prettyPrint(Appendable buffer, int indentLevel) throws IOException {}
+    public String getName() {
+      return name;
+    }
 
     @Override
-    public void accept(SyntaxTreeVisitor visitor) {}
-  }
-
-  static class TestFunction extends BaseFunction {
-    TestFunction(String file, String name, int line) {
-      super(name);
-      this.location = location(file, line);
+    public Location getLocation() {
+      return location;
     }
   }
 
@@ -97,10 +103,10 @@ public class AllocationTrackerTest {
   }
 
   @Test
-  public void testSimpleMemoryProfile() {
+  public void testSimpleMemoryProfile() throws Exception {
     Object allocation = new Object();
     Callstack.push(new TestFunction("fileA", "fn", 120));
-    Callstack.push(new TestNode("fileA", 10));
+    Callstack.push(makeExpr("fileA", 10));
     allocationTracker.sampleAllocation(1, "", allocation, 12);
     Callstack.pop();
     Callstack.pop();
@@ -117,15 +123,15 @@ public class AllocationTrackerTest {
   }
 
   @Test
-  public void testLongerCallstack() {
+  public void testLongerCallstack() throws Exception {
     Object allocation = new Object();
     Callstack.push(new TestFunction("fileB", "fnB", 120));
-    Callstack.push(new TestNode("fileB", 10));
-    Callstack.push(new TestNode("fileB", 12));
-    Callstack.push(new TestNode("fileB", 14));
-    Callstack.push(new TestNode("fileB", 18));
+    Callstack.push(makeExpr("fileB", 10));
+    Callstack.push(makeExpr("fileB", 12));
+    Callstack.push(makeExpr("fileB", 14));
+    Callstack.push(makeExpr("fileB", 18));
     Callstack.push(new TestFunction("fileA", "fnA", 120));
-    Callstack.push(new TestNode("fileA", 10));
+    Callstack.push(makeExpr("fileA", 10));
     allocationTracker.sampleAllocation(1, "", allocation, 12);
     for (int i = 0; i < 7; ++i) {
       Callstack.pop();
@@ -138,7 +144,7 @@ public class AllocationTrackerTest {
   }
 
   @Test
-  public void testConfiguredTargetsMemoryAllocation() {
+  public void testConfiguredTargetsMemoryAllocation() throws Exception {
     RuleClass ruleClass = mock(RuleClass.class);
     when(ruleClass.getName()).thenReturn("rule");
     when(ruleClass.getKey()).thenReturn("rule");
@@ -165,12 +171,12 @@ public class AllocationTrackerTest {
   }
 
   @Test
-  public void testLoadingPhaseRuleAllocations() {
+  public void testLoadingPhaseRuleAllocations() throws Exception {
     Object allocation = new Object();
     Callstack.push(new TestFunction("fileB", "fnB", 120));
-    Callstack.push(new TestNode("fileB", 18));
+    Callstack.push(makeExpr("fileB", 18));
     Callstack.push(new TestFunction("fileA", "fnA", 120));
-    Callstack.push(new TestNode("fileA", 10));
+    Callstack.push(makeExpr("fileA", 10));
     Callstack.push(new TestRuleFunction("<native>", "proto_library", -1));
     allocationTracker.sampleAllocation(1, "", allocation, 128);
     for (int i = 0; i < 5; ++i) {
@@ -201,10 +207,5 @@ public class AllocationTrackerTest {
       result.add(String.format("%s:%s:%d", file, method, line));
     }
     return result;
-  }
-
-  private static Location location(String path, int line) {
-    return Location.fromPathAndStartColumn(
-        PathFragment.create(path), 0, 0, new LineAndColumn(line, 0));
   }
 }

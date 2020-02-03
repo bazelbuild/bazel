@@ -16,18 +16,22 @@ package com.google.devtools.build.lib.rules.test;
 import com.google.devtools.build.lib.analysis.test.ExecutionInfo;
 import com.google.devtools.build.lib.analysis.test.TestEnvironmentInfo;
 import com.google.devtools.build.lib.skylarkbuildapi.test.TestingModuleApi;
-import com.google.devtools.build.lib.syntax.SkylarkDict;
+import com.google.devtools.build.lib.syntax.Dict;
+import com.google.devtools.build.lib.syntax.EvalException;
 
 /** A class that exposes testing infrastructure to skylark. */
 public class SkylarkTestingModule implements TestingModuleApi {
 
   @Override
-  public ExecutionInfo executionInfo(SkylarkDict<String, String> requirements) {
-    return new ExecutionInfo(requirements);
+  public ExecutionInfo executionInfo(Dict<?, ?> requirements /* <String, String> */)
+      throws EvalException {
+    return new ExecutionInfo(requirements.getContents(String.class, String.class, "requirements"));
   }
 
   @Override
-  public TestEnvironmentInfo testEnvironment(SkylarkDict<String, String> environment) {
-    return new TestEnvironmentInfo(environment);
+  public TestEnvironmentInfo testEnvironment(Dict<?, ?> environment /* <String, String> */)
+      throws EvalException {
+    return new TestEnvironmentInfo(
+        environment.getContents(String.class, String.class, "environment"));
   }
 }

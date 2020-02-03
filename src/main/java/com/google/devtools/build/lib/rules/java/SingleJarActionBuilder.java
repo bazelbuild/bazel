@@ -59,7 +59,8 @@ public final class SingleJarActionBuilder {
     if (singleJar.getFilename().endsWith(".jar")) {
       builder
           .addTransitiveInputs(hostJavabase.javaBaseInputsMiddleman())
-          .setJarExecutable(hostJavabase.javaBinaryExecPath(), singleJar, provider.getJvmOptions())
+          .setJarExecutable(
+              hostJavabase.javaBinaryExecPathFragment(), singleJar, provider.getJvmOptions())
           .setExecutionInfo(ExecutionRequirements.WORKER_MODE_ENABLED);
     } else {
       builder.setExecutable(singleJar);
@@ -119,7 +120,7 @@ public final class SingleJarActionBuilder {
     SpawnAction.Builder builder =
         singleJarActionBuilder(toolchainProvider, hostJavabase)
             .addOutput(outputJar)
-            .addInputs(resources)
+            .addTransitiveInputs(resources)
             .addTransitiveInputs(resourceJars)
             .addCommandLine(
                 sourceJarCommandLine(outputJar, semantics, resources, resourceJars),
@@ -145,7 +146,7 @@ public final class SingleJarActionBuilder {
         singleJarActionBuilder(
                 JavaToolchainProvider.from(ruleContext), JavaRuntimeInfo.forHost(ruleContext))
             .addOutput(output)
-            .addInputs(jars)
+            .addTransitiveInputs(jars)
             .addCommandLine(
                 sourceJarCommandLine(
                     output,

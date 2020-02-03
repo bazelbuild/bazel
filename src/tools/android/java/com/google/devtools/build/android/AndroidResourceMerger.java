@@ -39,13 +39,13 @@ public class AndroidResourceMerger {
       ImmutableList<SerializedAndroidData> transitive,
       VariantType packageType,
       Path symbolsOut,
-      AndroidDataDeserializer deserializer,
+      AndroidCompiledDataDeserializer deserializer,
       boolean throwOnResourceConflict,
       ExecutorServiceCloser executorService)
       throws IOException {
     AndroidDataMerger merger =
         AndroidDataMerger.createWithPathDeduplictor(
-            executorService, deserializer, ContentComparingChecker.create());
+            executorService, deserializer, AndroidDataMerger.NoopSourceChecker.create());
     final UnwrittenMergedAndroidData merged =
         merger.loadAndMerge(
             transitive,
@@ -136,8 +136,9 @@ public class AndroidResourceMerger {
       boolean throwOnResourceConflict,
       ListeningExecutorService executorService) {
     final ParsedAndroidData.Builder primaryBuilder = ParsedAndroidData.Builder.newBuilder();
-    final AndroidDataDeserializer deserializer = AndroidParsedDataDeserializer.create();
-    primary.deserialize(deserializer, primaryBuilder.consumers());
+    final AndroidParsedDataDeserializer deserializer = AndroidParsedDataDeserializer.create();
+    primary.deserialize(
+        DependencyInfo.DependencyType.PRIMARY, deserializer, primaryBuilder.consumers());
     ParsedAndroidData primaryData = primaryBuilder.build();
     return mergeDataAndWrite(
         primaryData,
@@ -167,7 +168,7 @@ public class AndroidResourceMerger {
       final VariantType type,
       @Nullable final Path symbolsOut,
       @Nullable AndroidResourceClassWriter rclassWriter,
-      AndroidDataDeserializer deserializer,
+      AndroidParsedDataDeserializer deserializer,
       boolean throwOnResourceConflict,
       ListeningExecutorService executorService) {
     Stopwatch timer = Stopwatch.createStarted();
@@ -248,11 +249,14 @@ public class AndroidResourceMerger {
       final List<? extends SerializedAndroidData> direct,
       final List<? extends SerializedAndroidData> transitive,
       @Nullable final AndroidResourceClassWriter rclassWriter,
+      @Nullable PlaceholderRTxtWriter rTxtWriter,
       boolean throwOnResourceConflict,
       ListeningExecutorService executorService) {
     final ParsedAndroidData.Builder primaryBuilder = ParsedAndroidData.Builder.newBuilder();
-    final AndroidDataDeserializer deserializer = AndroidCompiledDataDeserializer.create();
-    primary.deserialize(deserializer, primaryBuilder.consumers());
+    final AndroidDataDeserializer deserializer =
+        AndroidCompiledDataDeserializer.create(/*includeFileContentsForValidation=*/ true);
+    primary.deserialize(
+        DependencyInfo.DependencyType.PRIMARY, deserializer, primaryBuilder.consumers());
     ParsedAndroidData primaryData = primaryBuilder.build();
     Stopwatch timer = Stopwatch.createStarted();
     try {
@@ -266,9 +270,12 @@ public class AndroidResourceMerger {
               false,
               deserializer,
               throwOnResourceConflict,
-              ContentComparingChecker.create());
+              AndroidDataMerger.NoopSourceChecker.create());
       timer.reset().start();
       merged.writeResourceClass(rclassWriter);
+      if (rTxtWriter != null) {
+        merged.writeRTxt(rTxtWriter);
+      }
       logger.fine(
           String.format("write classes finished in %sms", timer.elapsed(TimeUnit.MILLISECONDS)));
       timer.reset().start();

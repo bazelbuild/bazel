@@ -78,8 +78,8 @@ public class CompositeRunfilesSupplierTest {
     when(mockSecond.getArtifacts()).thenReturn(mkArtifacts(rootDir, "second", "shared"));
 
     RunfilesSupplier underTest = CompositeRunfilesSupplier.of(mockFirst, mockSecond);
-    assertThat(underTest.getArtifacts()).containsExactlyElementsIn(
-        mkArtifacts(rootDir, "first", "second", "shared"));
+    assertThat(underTest.getArtifacts().toList())
+        .containsExactlyElementsIn(mkArtifacts(rootDir, "first", "second", "shared").toList());
   }
 
   @Test

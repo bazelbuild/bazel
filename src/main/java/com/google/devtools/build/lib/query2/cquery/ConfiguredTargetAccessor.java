@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.query2.cquery;
 
+import static com.google.devtools.build.lib.skyframe.ConfiguredTargetFunction.getExecutionPlatformConstraints;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
@@ -21,6 +22,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Multimaps;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.analysis.PlatformConfiguration;
 import com.google.devtools.build.lib.analysis.ToolchainContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
@@ -38,7 +40,6 @@ import com.google.devtools.build.lib.query2.engine.QueryExpression;
 import com.google.devtools.build.lib.query2.engine.QueryVisibility;
 import com.google.devtools.build.lib.rules.AliasConfiguredTarget;
 import com.google.devtools.build.lib.skyframe.BuildConfigurationValue;
-import com.google.devtools.build.lib.skyframe.ConfiguredTargetFunction;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetValue;
 import com.google.devtools.build.lib.skyframe.PackageValue;
 import com.google.devtools.build.lib.skyframe.UnloadedToolchainContext;
@@ -98,7 +99,7 @@ public class ConfiguredTargetAccessor implements TargetAccessor<ConfiguredTarget
   }
 
   @Override
-  public List<ConfiguredTarget> getLabelListAttr(
+  public List<ConfiguredTarget> getPrerequisites(
       QueryExpression caller,
       ConfiguredTarget configuredTarget,
       String attrName,
@@ -215,7 +216,7 @@ public class ConfiguredTargetAccessor implements TargetAccessor<ConfiguredTarget
 
     // Collect local (target, rule) constraints for filtering out execution platforms.
     ImmutableSet<Label> execConstraintLabels =
-        ConfiguredTargetFunction.getExecutionPlatformConstraints(rule);
+        getExecutionPlatformConstraints(rule, config.getFragment(PlatformConfiguration.class));
     try {
       return (UnloadedToolchainContext)
           walkableGraph.getValue(

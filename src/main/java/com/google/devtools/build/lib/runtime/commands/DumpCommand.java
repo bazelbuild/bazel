@@ -194,9 +194,6 @@ public class DumpCommand implements BlazeCommand {
   }
 
   @Override
-  public void editOptions(OptionsParser optionsParser) {}
-
-  @Override
   public BlazeCommandResult exec(CommandEnvironment env, OptionsParsingResult options) {
     BlazeRuntime runtime = env.getRuntime();
     DumpOptions dumpOptions = options.getOptions(DumpOptions.class);

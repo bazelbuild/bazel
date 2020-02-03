@@ -26,7 +26,7 @@ assert_eq(a, [1])
 assert_eq(b, [])
 
 ---
-(1, 2).insert(3) ### type 'tuple' has no method insert\(\)
+(1, 2).insert(3) ### 'tuple' value has no field or method 'insert'
 ---
 
 # append
@@ -38,7 +38,7 @@ foo.append('d')
 assert_eq(foo, ['a', 'b', 'c', 'd'])
 
 ---
-(1, 2).append(3) ### type 'tuple' has no method append\(\)
+(1, 2).append(3) ### 'tuple' value has no field or method 'append'
 ---
 
 # extend
@@ -50,9 +50,9 @@ foo.extend({'g': None})
 assert_eq(foo, ['a', 'b', 'c', 'd', 'e', 'f', 'g'])
 
 ---
-(1, 2).extend([3, 4]) ### type 'tuple' has no method extend()
+(1, 2).extend([3, 4]) ### 'tuple' value has no field or method 'extend'
 ---
-[1, 2].extend(3) ### type 'int' is not a collection
+[1, 2].extend(3) ### type 'int' is not iterable
 
 # remove
 
@@ -71,7 +71,7 @@ foo.remove('b')
 assert_eq(foo, [])
 
 ---
-(1, 2).remove(3) ### type 'tuple' has no method remove\(\)
+(1, 2).remove(3) ### 'tuple' value has no field or method 'remove'
 ---
 [1, 2].remove(3) ### item 3 not found in list
 ---
@@ -93,7 +93,7 @@ assert_eq(li3, [2, 4])
 ---
 [1, 2].pop(3) ### index out of range (index is 3, but sequence has 2 elements)
 ---
-(1, 2).pop() ### type 'tuple' has no method pop()
+(1, 2).pop() ### 'tuple' value has no field or method 'pop'
 ---
 
 # clear

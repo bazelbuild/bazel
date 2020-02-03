@@ -29,6 +29,7 @@ import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.SettableFuture;
+import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.google.devtools.build.lib.buildeventservice.BuildEventServiceUploaderCommands.AckReceivedCommand;
 import com.google.devtools.build.lib.buildeventservice.BuildEventServiceUploaderCommands.EventLoopCommand;
 import com.google.devtools.build.lib.buildeventservice.BuildEventServiceUploaderCommands.OpenStreamCommand;
@@ -64,7 +65,10 @@ import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.concurrent.BlockingDeque;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Executors;
 import java.util.concurrent.LinkedBlockingDeque;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
 import java.util.logging.Level;
@@ -85,12 +89,13 @@ public final class BuildEventServiceUploader implements Runnable {
   private static final Logger logger = Logger.getLogger(BuildEventServiceUploader.class.getName());
 
   /** Configuration knobs related to RPC retries. Values chosen by good judgement. */
-  private static final int MAX_NUM_RETRIES = 4;
+  private static final int MAX_NUM_RETRIES =
+      Integer.parseInt(System.getProperty("BAZEL_BES_NUM_RETRIES_ON_RPC_FAILURE", "4"));
 
   private static final int DELAY_MILLIS = 1000;
 
   private final BuildEventServiceClient besClient;
-  private final BuildEventArtifactUploader localFileUploader;
+  private final BuildEventArtifactUploader buildEventUploader;
   private final BuildEventServiceProtoUtil besProtoUtil;
   private final BuildEventProtocolOptions buildEventProtocolOptions;
   private final boolean publishLifecycleEvents;
@@ -99,6 +104,11 @@ public final class BuildEventServiceUploader implements Runnable {
   private final ArtifactGroupNamer namer;
   private final EventBus eventBus;
   private boolean startedClose = false;
+
+  private final ScheduledExecutorService timeoutExecutor =
+      MoreExecutors.listeningDecorator(
+          Executors.newSingleThreadScheduledExecutor(
+              new ThreadFactoryBuilder().setNameFormat("bes-uploader-timeout-%d").build()));
 
   /**
    * The event queue contains two types of events: - Build events, sorted by sequence number, that
@@ -145,7 +155,7 @@ public final class BuildEventServiceUploader implements Runnable {
       ArtifactGroupNamer namer,
       EventBus eventBus) {
     this.besClient = besClient;
-    this.localFileUploader = localFileUploader;
+    this.buildEventUploader = localFileUploader;
     this.besProtoUtil = besProtoUtil;
     this.buildEventProtocolOptions = buildEventProtocolOptions;
     this.publishLifecycleEvents = publishLifecycleEvents;
@@ -159,8 +169,8 @@ public final class BuildEventServiceUploader implements Runnable {
         () -> halfCloseFuture.setFuture(closeFuture), MoreExecutors.directExecutor());
   }
 
-  BuildEventArtifactUploader getLocalFileUploader() {
-    return localFileUploader;
+  BuildEventArtifactUploader getBuildEventUploader() {
+    return buildEventUploader;
   }
 
   /** Enqueues an event for uploading to a BES backend. */
@@ -168,7 +178,7 @@ public final class BuildEventServiceUploader implements Runnable {
     // This needs to happen outside a synchronized block as it may trigger
     // stdout/stderr and lead to a deadlock. See b/109725432
     ListenableFuture<PathConverter> localFileUploadFuture =
-        localFileUploader.uploadReferencedLocalFiles(event.referencedLocalFiles());
+        buildEventUploader.uploadReferencedLocalFiles(event.referencedLocalFiles());
 
     // The generation of the sequence number and the addition to the {@link #eventQueue} should be
     // atomic since BES expects the events in that exact order.
@@ -308,7 +318,8 @@ public final class BuildEventServiceUploader implements Runnable {
       logger.severe("BES upload failed due to a RuntimeException / Error. This is a bug.");
       throw e;
     } finally {
-      localFileUploader.shutdown();
+      buildEventUploader.shutdown();
+      MoreExecutors.shutdownAndAwaitTermination(timeoutExecutor, 0, TimeUnit.MILLISECONDS);
       closeFuture.set(null);
     }
   }
@@ -398,7 +409,7 @@ public final class BuildEventServiceUploader implements Runnable {
               SendRegularBuildEventCommand buildEvent = (SendRegularBuildEventCommand) event;
               ackQueue.addLast(buildEvent);
 
-              PathConverter pathConverter = waitForLocalFileUploads(buildEvent);
+              PathConverter pathConverter = waitForUploads(buildEvent);
 
               BuildEventStreamProtos.BuildEvent serializedRegularBuildEvent =
                   createSerializedRegularBuildEvent(pathConverter, buildEvent);
@@ -599,16 +610,18 @@ public final class BuildEventServiceUploader implements Runnable {
     }
   }
 
-  private PathConverter waitForLocalFileUploads(SendRegularBuildEventCommand orderedBuildEvent)
+  private PathConverter waitForUploads(SendRegularBuildEventCommand orderedBuildEvent)
       throws LocalFileUploadException, InterruptedException {
     try {
-      // Wait for the local file upload to have been completed.
+      // Wait for the local file and pending remote uploads to complete.
+      buildEventUploader
+          .waitForRemoteUploads(orderedBuildEvent.getEvent().remoteUploads(), timeoutExecutor)
+          .get();
       return orderedBuildEvent.localFileUploadProgress().get();
     } catch (ExecutionException e) {
       logger.log(
           Level.WARNING,
-          String.format(
-              "Failed to upload local files referenced by build event: %s", e.getMessage()),
+          String.format("Failed to upload files referenced by build event: %s", e.getMessage()),
           e);
       Throwables.throwIfUnchecked(e.getCause());
       throw new LocalFileUploadException(e.getCause());

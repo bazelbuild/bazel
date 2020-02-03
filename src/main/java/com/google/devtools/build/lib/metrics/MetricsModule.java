@@ -46,6 +46,15 @@ public class MetricsModule extends BlazeModule {
     return "build".equals(command.name()) ? ImmutableList.of(Options.class) : ImmutableList.of();
   }
 
+  /**
+   * Informs the Blaze runtime that this module will post the BuildMetricsEvent and the runtime does
+   * not need to supply its own such module.
+   */
+  @Override
+  public boolean postsBuildMetricsEvent() {
+    return true;
+  }
+
   @Override
   public void beforeCommand(CommandEnvironment env) {
     MetricsCollector.installInEnv(env);

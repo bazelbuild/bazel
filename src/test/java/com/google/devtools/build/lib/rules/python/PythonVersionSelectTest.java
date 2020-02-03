@@ -151,6 +151,6 @@ public class PythonVersionSelectTest extends BuildViewTestCase {
     useConfiguration(modifiedFlags.toArray(new String[] {}));
     NestedSet<Artifact> files =
         getConfiguredTarget("//pkg:foo").getProvider(FileProvider.class).getFilesToBuild();
-    assertThat(files).contains(expected);
+    assertThat(files.toList()).contains(expected);
   }
 }

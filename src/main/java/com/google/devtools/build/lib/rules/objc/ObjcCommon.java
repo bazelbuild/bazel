@@ -16,12 +16,9 @@ package com.google.devtools.build.lib.rules.objc;
 
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.CC_LIBRARY;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.DEFINE;
-import static com.google.devtools.build.lib.rules.objc.ObjcProvider.DYNAMIC_FRAMEWORK_DIR;
-import static com.google.devtools.build.lib.rules.objc.ObjcProvider.DYNAMIC_FRAMEWORK_FILE;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.FLAG;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.FORCE_LOAD_LIBRARY;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.Flag.USES_CPP;
-import static com.google.devtools.build.lib.rules.objc.ObjcProvider.Flag.USES_OBJC;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.HEADER;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.IMPORTED_LIBRARY;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.INCLUDE;
@@ -30,13 +27,11 @@ import static com.google.devtools.build.lib.rules.objc.ObjcProvider.IQUOTE;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.J2OBJC_LIBRARY;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.LIBRARY;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.LINKED_BINARY;
-import static com.google.devtools.build.lib.rules.objc.ObjcProvider.LINKMAP_FILE;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.LINKOPT;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.MODULE_MAP;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.SDK_DYLIB;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.SDK_FRAMEWORK;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.SOURCE;
-import static com.google.devtools.build.lib.rules.objc.ObjcProvider.STATIC_FRAMEWORK_FILE;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.TOP_LEVEL_MODULE_MAP;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.UMBRELLA_HEADER;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.WEAK_SDK_FRAMEWORK;
@@ -53,20 +48,19 @@ import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.rules.apple.AppleToolchain;
 import com.google.devtools.build.lib.rules.cpp.CcCompilationContext;
 import com.google.devtools.build.lib.rules.cpp.CcInfo;
-import com.google.devtools.build.lib.rules.cpp.CppFileTypes;
+import com.google.devtools.build.lib.rules.cpp.CcLinkingContext;
 import com.google.devtools.build.lib.rules.cpp.CppModuleMap;
 import com.google.devtools.build.lib.rules.cpp.LibraryToLink;
-import com.google.devtools.build.lib.rules.cpp.LibraryToLink.CcLinkingContext;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.util.FileType;
-import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.HashSet;
 import java.util.List;
@@ -92,30 +86,27 @@ public final class ObjcCommon {
     return inputs.build();
   }
 
+  /** Filters fileset artifacts out of a group of artifacts. */
+  public static ImmutableList<Artifact> filterFileset(NestedSet<Artifact> artifacts) {
+    return filterFileset(artifacts.toList());
+  }
+
   static class Builder {
     private final RuleContext context;
     private final StarlarkSemantics semantics;
     private final BuildConfiguration buildConfiguration;
     private Optional<CompilationAttributes> compilationAttributes = Optional.absent();
-    private Iterable<SdkFramework> extraSdkFrameworks = ImmutableList.of();
-    private Iterable<SdkFramework> extraWeakSdkFrameworks = ImmutableList.of();
-    private Iterable<String> extraSdkDylibs = ImmutableList.of();
-    private Iterable<Artifact> staticFrameworkImports = ImmutableList.of();
-    private Iterable<Artifact> dynamicFrameworkImports = ImmutableList.of();
     private Optional<CompilationArtifacts> compilationArtifacts = Optional.absent();
     private ImmutableSet.Builder<Artifact> textualHeaders = ImmutableSet.builder();
     private Iterable<ObjcProvider> depObjcProviders = ImmutableList.of();
     private Iterable<ObjcProvider> runtimeDepObjcProviders = ImmutableList.of();
-    private Iterable<ObjcProvider> repropagatedModuleMapObjcProviders = ImmutableList.of();
     private Iterable<String> defines = ImmutableList.of();
     private Iterable<PathFragment> includes = ImmutableList.of();
-    private Iterable<PathFragment> directDependencyIncludes = ImmutableList.of();
     private IntermediateArtifacts intermediateArtifacts;
     private boolean alwayslink;
     private boolean hasModuleMap;
     private Iterable<Artifact> extraImportLibraries = ImmutableList.of();
     private Optional<Artifact> linkedBinary = Optional.absent();
-    private Optional<Artifact> linkmapFile = Optional.absent();
     private Iterable<CcCompilationContext> depCcHeaderProviders = ImmutableList.of();
     private Iterable<CcLinkingContext> depCcLinkProviders = ImmutableList.of();
 
@@ -148,41 +139,6 @@ public final class ObjcCommon {
       return this;
     }
 
-    Builder addExtraSdkFrameworks(Iterable<SdkFramework> extraSdkFrameworks) {
-      this.extraSdkFrameworks = Iterables.concat(this.extraSdkFrameworks, extraSdkFrameworks);
-      return this;
-    }
-
-    Builder addExtraWeakSdkFrameworks(Iterable<SdkFramework> extraWeakSdkFrameworks) {
-      this.extraWeakSdkFrameworks =
-          Iterables.concat(this.extraWeakSdkFrameworks, extraWeakSdkFrameworks);
-      return this;
-    }
-
-    Builder addExtraSdkDylibs(Iterable<String> extraSdkDylibs) {
-      this.extraSdkDylibs = Iterables.concat(this.extraSdkDylibs, extraSdkDylibs);
-      return this;
-    }
-
-    /**
-     * Add the library files corresponding to static frameworks. They must be contained in {@code
-     * .frameworks} directories and the binaries should be statically linked.
-     */
-    Builder addStaticFrameworkImports(Iterable<Artifact> frameworkImports) {
-      this.staticFrameworkImports = Iterables.concat(this.staticFrameworkImports, frameworkImports);
-      return this;
-    }
-
-    /**
-     * Add the library files corresponding to dynamic frameworks. They must be contained in {@code
-     * .frameworks} directories and the binaries should be dynamically linked.
-     */
-    Builder addDynamicFrameworkImports(Iterable<Artifact> frameworkImports) {
-      this.dynamicFrameworkImports =
-          Iterables.concat(this.dynamicFrameworkImports, frameworkImports);
-      return this;
-    }
-
     Builder setCompilationArtifacts(CompilationArtifacts compilationArtifacts) {
       Preconditions.checkState(
           !this.compilationArtifacts.isPresent(),
@@ -208,9 +164,6 @@ public final class ObjcCommon {
           addAnyProviders(cppDeps, depCT, CcInfo.PROVIDER);
           if (isCcLibrary(dep)) {
             cppDepLinkParams.add(depCT.get(CcInfo.PROVIDER).getCcLinkingContext());
-            CcCompilationContext ccCompilationContext =
-                depCT.get(CcInfo.PROVIDER).getCcCompilationContext();
-            addDefines(ccCompilationContext.getDefines());
           }
         }
       }
@@ -263,15 +216,16 @@ public final class ObjcCommon {
     }
 
     /** Adds includes to be passed into compile actions with {@code -I}. */
-    public Builder addIncludes(Iterable<PathFragment> includes) {
-      this.includes = Iterables.concat(this.includes, includes);
+    public Builder addIncludes(NestedSet<PathFragment> includes) {
+      // The includes are copied to a new list in the .build() method, so flattening here should be
+      // benign.
+      this.includes = Iterables.concat(this.includes, includes.toList());
       return this;
     }
 
-    /** Adds header search paths that will only be visible by strict dependents of the provider. */
-    public Builder addDirectDependencyIncludes(Iterable<PathFragment> directDependencyIncludes) {
-      this.directDependencyIncludes =
-          Iterables.concat(this.directDependencyIncludes, directDependencyIncludes);
+    /** Adds includes to be passed into compile actions with {@code -I}. */
+    public Builder addIncludes(Iterable<PathFragment> includes) {
+      this.includes = Iterables.concat(this.includes, includes);
       return this;
     }
 
@@ -302,22 +256,6 @@ public final class ObjcCommon {
     }
 
     /**
-     * Adds Objc providers whose module maps should be repropagated as if they are directly
-     * associated with the target propagating the provider being built.
-     *
-     * <p>This supports a small number of specialized use cases, like J2Objc, where the module maps
-     * associated with the {@code java_library} (via an aspect) need to be repropagated by the
-     * {@code j2objc_library} that depends on them so that Swift code can access those module maps
-     * for the purposes of strict module map propagation (without propagating the module maps
-     * _fully_ transitively).
-     */
-    Builder addRepropagatedModuleMapObjcProviders(Iterable<ObjcProvider> objcProviders) {
-      this.repropagatedModuleMapObjcProviders =
-          Iterables.concat(this.repropagatedModuleMapObjcProviders, objcProviders);
-      return this;
-    }
-
-    /**
      * Adds additional static libraries to be linked into the final ObjC application bundle.
      */
     Builder addExtraImportLibraries(Iterable<Artifact> extraImportLibraries) {
@@ -333,44 +271,19 @@ public final class ObjcCommon {
       return this;
     }
 
-    /**
-     * Sets a linkmap file generated by this rule to be propagated to dependers.
-     */
-    Builder setLinkmapFile(Artifact linkmapFile) {
-      this.linkmapFile = Optional.of(linkmapFile);
-      return this;
-    }
-
     ObjcCommon build() {
 
       ObjcProvider.Builder objcProvider =
           new ObjcProvider.Builder(semantics)
               .addAll(IMPORTED_LIBRARY, extraImportLibraries)
-              .addAll(SDK_FRAMEWORK, extraSdkFrameworks)
-              .addAll(WEAK_SDK_FRAMEWORK, extraWeakSdkFrameworks)
-              .addAll(SDK_DYLIB, extraSdkDylibs)
-              .addAll(STATIC_FRAMEWORK_FILE, staticFrameworkImports)
-              .addAll(DYNAMIC_FRAMEWORK_FILE, dynamicFrameworkImports)
               .addAll(INCLUDE, includes)
               .add(IQUOTE, buildConfiguration.getGenfilesFragment())
-              .addAllForDirectDependents(INCLUDE, directDependencyIncludes)
               .addAll(DEFINE, defines)
               .addTransitiveAndPropagate(depObjcProviders);
 
-      if (!semantics.incompatibleObjcFrameworkCleanup()) {
-        objcProvider.addAll(
-            DYNAMIC_FRAMEWORK_DIR,
-            uniqueContainers(dynamicFrameworkImports, FRAMEWORK_CONTAINER_TYPE));
-      }
-
       for (ObjcProvider provider : runtimeDepObjcProviders) {
-        if (!semantics.incompatibleObjcFrameworkCleanup()) {
-          objcProvider.addTransitiveAndPropagate(ObjcProvider.DYNAMIC_FRAMEWORK_FILE, provider);
-          objcProvider.addTransitiveAndPropagate(ObjcProvider.STATIC_FRAMEWORK_FILE, provider);
-        } else {
-          objcProvider.addTransitiveAndPropagate(ObjcProvider.FRAMEWORK_SEARCH_PATH_ONLY, provider);
-          objcProvider.addTransitiveAndPropagate(ObjcProvider.HEADER, provider);
-        }
+        objcProvider.addTransitiveAndPropagate(ObjcProvider.FRAMEWORK_SEARCH_PATHS, provider);
+        objcProvider.addTransitiveAndPropagate(ObjcProvider.HEADER, provider);
         objcProvider.addTransitiveAndPropagate(ObjcProvider.MERGE_ZIP, provider);
       }
 
@@ -411,15 +324,14 @@ public final class ObjcCommon {
 
       if (compilationAttributes.isPresent()) {
         CompilationAttributes attributes = compilationAttributes.get();
+        PathFragment usrIncludeDir = PathFragment.create(AppleToolchain.sdkDir() + "/usr/include/");
         Iterable<PathFragment> sdkIncludes =
             Iterables.transform(
-                Interspersing.prependEach(
-                    AppleToolchain.sdkDir() + "/usr/include/",
-                    Iterables.transform(attributes.sdkIncludes(), PathFragment::getSafePathString)),
-                PathFragment::create);
+                attributes.sdkIncludes().toList(), (p) -> usrIncludeDir.getRelative(p));
         objcProvider
             .addAll(HEADER, filterFileset(attributes.hdrs()))
             .addAll(HEADER, filterFileset(attributes.textualHdrs()))
+            .addAll(DEFINE, attributes.defines())
             .addTransitiveAndPropagate(
                 INCLUDE, attributes.headerSearchPaths(buildConfiguration.getGenfilesFragment()))
             .addAll(INCLUDE, sdkIncludes)
@@ -444,21 +356,12 @@ public final class ObjcCommon {
         }
 
         boolean usesCpp = false;
-        boolean usesObjc = false;
         for (Artifact sourceFile :
             Iterables.concat(artifacts.getSrcs(), artifacts.getNonArcSrcs())) {
           usesCpp = usesCpp || ObjcRuleClasses.CPP_SOURCES.matches(sourceFile.getExecPath());
-          usesObjc =
-              usesObjc
-                  || FileTypeSet.of(CppFileTypes.OBJC_SOURCE, CppFileTypes.OBJCPP_SOURCE)
-                      .matches(sourceFile.getExecPath().getPathString());
         }
-
         if (usesCpp) {
           objcProvider.add(FLAG, USES_CPP);
-        }
-        if (usesObjc) {
-          objcProvider.add(FLAG, USES_OBJC);
         }
       }
 
@@ -473,41 +376,19 @@ public final class ObjcCommon {
         }
       }
 
-      if (useStrictObjcModuleMaps(context)) {
-        for (ObjcProvider provider : repropagatedModuleMapObjcProviders) {
-          objcProvider.addAllForDirectDependents(MODULE_MAP, provider.get(ObjcProvider.MODULE_MAP));
-          objcProvider.addAllForDirectDependents(
-              TOP_LEVEL_MODULE_MAP, provider.get(ObjcProvider.TOP_LEVEL_MODULE_MAP));
-        }
-      }
-
       if (hasModuleMap) {
         CppModuleMap moduleMap = intermediateArtifacts.moduleMap();
         Optional<Artifact> umbrellaHeader = moduleMap.getUmbrellaHeader();
         if (umbrellaHeader.isPresent()) {
           objcProvider.add(UMBRELLA_HEADER, umbrellaHeader.get());
         }
-        if (useStrictObjcModuleMaps(context)) {
-          objcProvider.addForDirectDependents(MODULE_MAP, moduleMap.getArtifact());
-          objcProvider.addForDirectDependents(TOP_LEVEL_MODULE_MAP, moduleMap);
-        } else {
-          objcProvider.add(MODULE_MAP, moduleMap.getArtifact());
-          objcProvider.add(TOP_LEVEL_MODULE_MAP, moduleMap);
-        }
+        objcProvider.add(MODULE_MAP, moduleMap.getArtifact());
+        objcProvider.add(TOP_LEVEL_MODULE_MAP, moduleMap);
       }
 
-      objcProvider
-          .addAll(LINKED_BINARY, linkedBinary.asSet())
-          .addAll(LINKMAP_FILE, linkmapFile.asSet());
+      objcProvider.addAll(LINKED_BINARY, linkedBinary.asSet());
 
       return new ObjcCommon(objcProvider.build(), compilationArtifacts, textualHeaders.build());
-    }
-
-    private static boolean useStrictObjcModuleMaps(RuleContext context) {
-      // We need to check isLegalFragment first because some non-compilation rules don't declare
-      // this fragment.
-      return context.isLegalFragment(ObjcConfiguration.class)
-          && context.getFragment(ObjcConfiguration.class).useStrictObjcModuleMaps();
     }
 
     private static boolean isCcLibrary(ConfiguredTargetAndData info) {
@@ -526,11 +407,6 @@ public final class ObjcCommon {
     }
   }
 
-  static final FileType BUNDLE_CONTAINER_TYPE = FileType.of(".bundle");
-
-  static final FileType ASSET_CATALOG_CONTAINER_TYPE = FileType.of(".xcassets");
-
-  public static final FileType FRAMEWORK_CONTAINER_TYPE = FileType.of(".framework");
   private final ObjcProvider objcProvider;
 
   private final Optional<CompilationArtifacts> compilationArtifacts;
@@ -578,15 +454,6 @@ public final class ObjcCommon {
         ruleContext.getExpander().withDataLocations().tokenized("copts"));
   }
 
-  static ImmutableSet<PathFragment> userHeaderSearchPaths(
-      ObjcProvider provider, BuildConfiguration config) {
-    return ImmutableSet.<PathFragment>builder()
-        .add(PathFragment.create("."))
-        .add(config.getGenfilesFragment())
-        .addAll(provider.get(IQUOTE))
-        .build();
-  }
-
   /**
    * Returns the first directory in the sequence of parents of the exec path of the given artifact
    * that matches {@code type}. For instance, if {@code type} is FileType.of(".foo") and the exec
@@ -616,20 +483,6 @@ public final class ObjcCommon {
       }
     }
     return Optional.absent();
-  }
-
-  /**
-   * Returns all directories matching {@code containerType} that contain the items in
-   * {@code artifacts}. This function ignores artifacts that are not in any directory matching
-   * {@code containerType}.
-   */
-  static Iterable<PathFragment> uniqueContainers(
-      Iterable<Artifact> artifacts, FileType containerType) {
-    ImmutableSet.Builder<PathFragment> containers = new ImmutableSet.Builder<>();
-    for (Artifact artifact : artifacts) {
-      containers.addAll(ObjcCommon.nearestContainerMatching(containerType, artifact).asSet());
-    }
-    return containers.build();
   }
 
   /**

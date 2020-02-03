@@ -129,26 +129,26 @@ public class PythonStarlarkApiTest extends BuildViewTestCase {
 
     if (legacyProviderAllowed) {
       StructImpl legacyInfo = PyProviderUtils.getLegacyProvider(target);
-      assertThat(PyStructUtils.getTransitiveSources(legacyInfo))
+      assertThat(PyStructUtils.getTransitiveSources(legacyInfo).toList())
           .containsExactly(
               getSourceArtifact("pkg/loweruserlib.py"),
               getSourceArtifact("pkg/pylib.py"),
               getSourceArtifact("pkg/upperuserlib.py"));
       assertThat(PyStructUtils.getUsesSharedLibraries(legacyInfo)).isTrue();
-      assertThat(PyStructUtils.getImports(legacyInfo))
+      assertThat(PyStructUtils.getImports(legacyInfo).toList())
           .containsExactly("loweruserlib_path", "upperuserlib_path");
       assertThat(PyStructUtils.getHasPy2OnlySources(legacyInfo)).isTrue();
       assertThat(PyStructUtils.getHasPy3OnlySources(legacyInfo)).isTrue();
     }
 
     PyInfo modernInfo = PyProviderUtils.getModernProvider(target);
-    assertThat(modernInfo.getTransitiveSources().getSet(Artifact.class))
+    assertThat(modernInfo.getTransitiveSources().getSet(Artifact.class).toList())
         .containsExactly(
             getSourceArtifact("pkg/loweruserlib.py"),
             getSourceArtifact("pkg/pylib.py"),
             getSourceArtifact("pkg/upperuserlib.py"));
     assertThat(modernInfo.getUsesSharedLibraries()).isTrue();
-    assertThat(modernInfo.getImports().getSet(String.class))
+    assertThat(modernInfo.getImports().getSet(String.class).toList())
         .containsExactly("loweruserlib_path", "upperuserlib_path");
     assertThat(modernInfo.getHasPy2OnlySources()).isTrue();
     assertThat(modernInfo.getHasPy3OnlySources()).isTrue();
@@ -209,7 +209,7 @@ public class PythonStarlarkApiTest extends BuildViewTestCase {
         ")");
     useConfiguration("--extra_toolchains=//pkg:usertoolchain");
     ConfiguredTarget target = getConfiguredTarget("//pkg:pybin");
-    assertThat(collectRunfiles(target))
+    assertThat(collectRunfiles(target).toList())
         .containsAtLeast(getSourceArtifact("pkg/data.txt"), getSourceArtifact("pkg/userdata.txt"));
   }
 }

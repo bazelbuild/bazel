@@ -14,8 +14,7 @@
 
 package com.google.devtools.build.skydoc;
 
-import com.google.devtools.build.lib.syntax.ParserInputSource;
-import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.syntax.ParserInput;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
@@ -26,9 +25,8 @@ import java.nio.file.Paths;
 public class FilesystemFileAccessor implements SkylarkFileAccessor {
 
   @Override
-  public ParserInputSource inputSource(String pathString) throws IOException {
-    byte[] content = Files.readAllBytes(Paths.get(pathString));
-    return ParserInputSource.create(content, PathFragment.create(pathString));
+  public ParserInput inputSource(String filename) throws IOException {
+    return ParserInput.create(Files.readAllBytes(Paths.get(filename)), filename);
   }
 
   @Override

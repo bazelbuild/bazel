@@ -14,27 +14,31 @@
 
 package com.google.devtools.build.lib.skylarkbuildapi.test;
 
-import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkbuildapi.SkylarkRuleContextApi;
+import com.google.devtools.build.lib.skylarkbuildapi.platform.ConstraintValueInfoApi;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.SkylarkList;
+import com.google.devtools.build.lib.syntax.Sequence;
+import com.google.devtools.build.lib.syntax.StarlarkValue;
 
 /** Helper functions for Starlark to access coverage-related infrastructure */
 @SkylarkModule(
     name = "coverage_common",
-    doc = "Helper functions for Starlark to access coverage-related infrastructure.")
-public interface CoverageCommonApi<RuleContextT extends SkylarkRuleContextApi>
-    extends SkylarkValue {
+    doc = "Helper functions to access coverage-related infrastructure.")
+public interface CoverageCommonApi<
+        ConstraintValueT extends ConstraintValueInfoApi,
+        RuleContextT extends SkylarkRuleContextApi<ConstraintValueT>>
+    extends StarlarkValue {
 
   @SkylarkCallable(
       name = "instrumented_files_info",
       doc =
-          "Creates a new execution info provider. Use this provider to specify special"
-              + "environments requirements needed to run tests.",
+          "Creates a new "
+              + "<a class=\"anchor\" href=\"InstrumentedFilesInfo.html\">InstrumentedFilesInfo</a> "
+              + "instance. Use this provider to communicate coverage-related attributes of the "
+              + "current build rule.",
       parameters = {
         @Param(
             name = "ctx",
@@ -48,7 +52,7 @@ public interface CoverageCommonApi<RuleContextT extends SkylarkRuleContextApi>
             positional = false,
             named = true,
             defaultValue = "[]",
-            type = SkylarkList.class),
+            type = Sequence.class),
         @Param(
             name = "dependency_attributes",
             doc =
@@ -57,7 +61,7 @@ public interface CoverageCommonApi<RuleContextT extends SkylarkRuleContextApi>
             positional = false,
             named = true,
             defaultValue = "[]",
-            type = SkylarkList.class),
+            type = Sequence.class),
         @Param(
             name = "extensions",
             doc =
@@ -69,14 +73,12 @@ public interface CoverageCommonApi<RuleContextT extends SkylarkRuleContextApi>
             named = true,
             noneable = true,
             defaultValue = "None",
-            type = SkylarkList.class),
-      },
-      useLocation = true)
-  public InstrumentedFilesInfoApi instrumentedFilesInfo(
+            type = Sequence.class),
+      })
+  InstrumentedFilesInfoApi instrumentedFilesInfo(
       RuleContextT skylarkRuleContext,
-      SkylarkList<String> sourceAttributes,
-      SkylarkList<String> dependencyAttributes,
-      Object extensions,
-      Location location)
+      Sequence<?> sourceAttributes, // <String> expected
+      Sequence<?> dependencyAttributes, // <String> expected
+      Object extensions)
       throws EvalException;
 }

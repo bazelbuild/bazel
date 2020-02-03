@@ -92,7 +92,11 @@ public abstract class DependencyResolver {
 
   /** A dependency caused by something that's not an attribute. Special cases enumerated below. */
   private static final class NonAttributeDependencyKind implements DependencyKind {
-    private NonAttributeDependencyKind() {}
+    private final String name;
+
+    private NonAttributeDependencyKind(String name) {
+      this.name = name;
+    }
 
     @Override
     public Attribute getAttribute() {
@@ -104,16 +108,24 @@ public abstract class DependencyResolver {
     public AspectClass getOwningAspect() {
       throw new IllegalStateException();
     }
+
+    @Override
+    public String toString() {
+      return String.format("%s(%s)", getClass().getSimpleName(), this.name);
+    }
   }
 
   /** A dependency for visibility. */
-  public static final DependencyKind VISIBILITY_DEPENDENCY = new NonAttributeDependencyKind();
+  public static final DependencyKind VISIBILITY_DEPENDENCY =
+      new NonAttributeDependencyKind("VISIBILITY");
 
   /** The dependency on the rule that creates a given output file. */
-  public static final DependencyKind OUTPUT_FILE_RULE_DEPENDENCY = new NonAttributeDependencyKind();
+  public static final DependencyKind OUTPUT_FILE_RULE_DEPENDENCY =
+      new NonAttributeDependencyKind("OUTPUT_FILE");
 
   /** A dependency on a resolved toolchain. */
-  public static final DependencyKind TOOLCHAIN_DEPENDENCY = new NonAttributeDependencyKind();
+  public static final DependencyKind TOOLCHAIN_DEPENDENCY =
+      new NonAttributeDependencyKind("TOOLCHAIN");
 
   /** A dependency through an attribute, either that of an aspect or the rule itself. */
   @AutoValue
@@ -201,7 +213,7 @@ public abstract class DependencyResolver {
             rootCauses,
             trimmingTransitionFactory);
     if (!rootCauses.isEmpty()) {
-      throw new IllegalStateException(rootCauses.build().iterator().next().toString());
+      throw new IllegalStateException(rootCauses.build().toList().iterator().next().toString());
     }
     return outgoingEdges;
   }
@@ -250,6 +262,7 @@ public abstract class DependencyResolver {
     BuildConfiguration config = node.getConfiguration();
     OrderedSetMultimap<DependencyKind, Label> outgoingLabels = OrderedSetMultimap.create();
 
+    // TODO(bazel-team): Figure out a way to implement the below using LabelVisitationUtils.
     if (target instanceof OutputFile) {
       Preconditions.checkNotNull(config);
       visitTargetVisibility(node, outgoingLabels);
@@ -644,11 +657,19 @@ public abstract class DependencyResolver {
   }
 
   /**
-   * Filter the set of aspects that are to be propagated according to the set of advertised
-   * providers of the dependency.
+   * Filter the set of aspects that are to be propagated according to the dependency type and the
+   * set of advertised providers of the dependency.
    */
   private AspectCollection filterPropagatingAspects(ImmutableList<Aspect> aspects, Target toTarget)
       throws InconsistentAspectOrderException {
+    if (toTarget instanceof OutputFile) {
+      aspects =
+          aspects.stream()
+              .filter(aspect -> aspect.getDefinition().applyToGeneratingRules())
+              .collect(ImmutableList.toImmutableList());
+      toTarget = ((OutputFile) toTarget).getGeneratingRule();
+    }
+
     if (!(toTarget instanceof Rule) || aspects.isEmpty()) {
       return AspectCollection.EMPTY;
     }

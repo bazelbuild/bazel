@@ -21,17 +21,16 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.FileStateValue;
 import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.NullEventHandler;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.Package;
-import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.PackageFactory.EnvironmentExtension;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.WorkspaceFileValue;
@@ -149,7 +148,7 @@ public class WorkspaceFileFunctionTest extends BuildViewTestCase {
 
   @Override
   protected Iterable<EnvironmentExtension> getEnvironmentExtensions() {
-    return ImmutableList.<EnvironmentExtension>of(new PackageFactory.EmptyEnvironmentExtension());
+    return ImmutableList.of();
   }
 
   private Label getLabelMapping(Package pkg, String name) throws NoSuchTargetException {
@@ -300,17 +299,19 @@ public class WorkspaceFileFunctionTest extends BuildViewTestCase {
     RepositoryName b = RepositoryName.create("@b");
     RepositoryName x = RepositoryName.create("@x");
     RepositoryName y = RepositoryName.create("@y");
+    RepositoryName good = RepositoryName.create("@good");
+    RepositoryName main = RepositoryName.create("@");
 
     SkyKey key0 = WorkspaceFileValue.key(workspace, 0);
     EvaluationResult<WorkspaceFileValue> result0 = eval(key0);
     WorkspaceFileValue value0 = result0.get(key0);
-    assertThat(value0.getRepositoryMapping()).containsEntry(a, ImmutableMap.of(x, y));
+    assertThat(value0.getRepositoryMapping()).containsEntry(a, ImmutableMap.of(x, y, good, main));
 
     SkyKey key1 = WorkspaceFileValue.key(workspace, 1);
     EvaluationResult<WorkspaceFileValue> result1 = eval(key1);
     WorkspaceFileValue value1 = result1.get(key1);
-    assertThat(value1.getRepositoryMapping()).containsEntry(a, ImmutableMap.of(x, y));
-    assertThat(value1.getRepositoryMapping()).containsEntry(b, ImmutableMap.of(x, y));
+    assertThat(value1.getRepositoryMapping()).containsEntry(a, ImmutableMap.of(x, y, good, main));
+    assertThat(value1.getRepositoryMapping()).containsEntry(b, ImmutableMap.of(x, y, good, main));
   }
 
   @Test
@@ -436,8 +437,7 @@ public class WorkspaceFileFunctionTest extends BuildViewTestCase {
     }
   }
 
-  private WorkspaceFileValue createWorkspaceFileValueForTest()
-      throws IOException, InterruptedException, LabelSyntaxException {
+  private WorkspaceFileValue createWorkspaceFileValueForTest() throws Exception {
     WorkspaceFileValue workspaceFileValue =
         parseWorkspaceFileValue(
             "workspace(",
@@ -457,20 +457,34 @@ public class WorkspaceFileFunctionTest extends BuildViewTestCase {
   }
 
   private void assertManagedDirectoriesParsingError(
-      String managedDirectoriesValue, String expectedError)
-      throws IOException, InterruptedException {
-    WorkspaceFileValue workspaceFileValue =
-        parseWorkspaceFileValue(
-            "workspace(",
-            "  name = 'rr',",
-            "  managed_directories = " + managedDirectoriesValue,
-            ")");
+      String managedDirectoriesValue, String expectedError) throws Exception {
+    parseWorkspaceFileValueWithError(
+        expectedError,
+        "workspace(",
+        "  name = 'rr',",
+        "  managed_directories = " + managedDirectoriesValue,
+        ")");
+  }
+
+  private WorkspaceFileValue parseWorkspaceFileValue(String... lines) throws Exception {
+    WorkspaceFileValue workspaceFileValue = parseWorkspaceFileValueImpl(lines);
+    Package pkg = workspaceFileValue.getPackage();
+    if (pkg.containsErrors()) {
+      throw new RuntimeException(
+          Preconditions.checkNotNull(Iterables.getFirst(pkg.getEvents(), null)).getMessage());
+    }
+    return workspaceFileValue;
+  }
+
+  private void parseWorkspaceFileValueWithError(String expectedError, String... lines)
+      throws Exception {
+    WorkspaceFileValue workspaceFileValue = parseWorkspaceFileValueImpl(lines);
     Package pkg = workspaceFileValue.getPackage();
     assertThat(pkg.containsErrors()).isTrue();
     MoreAsserts.assertContainsEvent(pkg.getEvents(), expectedError);
   }
 
-  private WorkspaceFileValue parseWorkspaceFileValue(String... lines)
+  private WorkspaceFileValue parseWorkspaceFileValueImpl(String[] lines)
       throws IOException, InterruptedException {
     RootedPath workspaceFile = createWorkspaceFile(lines);
     WorkspaceFileKey key = WorkspaceFileValue.key(workspaceFile);
@@ -590,6 +604,58 @@ public class WorkspaceFileFunctionTest extends BuildViewTestCase {
     skyframeExecutor.handleDiffsForTesting(NullEventHandler.INSTANCE);
     assertThat(testManagedDirectoriesKnowledge.getLastWorkspaceName()).isEqualTo("changed");
     assertThat(testManagedDirectoriesKnowledge.getCnt()).isEqualTo(2);
+  }
+
+  @Test
+  public void testDoNotSymlinkInExecroot() throws Exception {
+    PrecomputedValue precomputedValue =
+        (PrecomputedValue)
+            getEnv().getValue(PrecomputedValue.STARLARK_SEMANTICS.getKeyForTesting());
+    StarlarkSemantics semantics =
+        (StarlarkSemantics) Preconditions.checkNotNull(precomputedValue).get();
+    Injectable injectable = getSkyframeExecutor().injectable();
+
+    try {
+      StarlarkSemantics semanticsWithNinjaActions =
+          StarlarkSemantics.builderWithDefaults().experimentalNinjaActions(true).build();
+      PrecomputedValue.STARLARK_SEMANTICS.set(injectable, semanticsWithNinjaActions);
+
+      assertThat(
+              parseWorkspaceFileValue("dont_symlink_directories_in_execroot(paths = [\"out\"])")
+                  .getDoNotSymlinkInExecrootPaths())
+          .containsExactly("out");
+      assertThat(
+              parseWorkspaceFileValue(
+                      "dont_symlink_directories_in_execroot(paths = [\"out\", \"one more with"
+                          + " space\"])")
+                  .getDoNotSymlinkInExecrootPaths())
+          .containsExactly("out", "one more with space");
+      // Empty sequence is allowed.
+      assertThat(
+              parseWorkspaceFileValue("dont_symlink_directories_in_execroot(paths = [])")
+                  .getDoNotSymlinkInExecrootPaths())
+          .isEmpty();
+
+      parseWorkspaceFileValueWithError(
+          "dont_symlink_directories_in_execroot should not "
+              + "contain duplicate values: \"out\" is specified more then once.",
+          "dont_symlink_directories_in_execroot(paths = [\"out\", \"out\"])");
+      parseWorkspaceFileValueWithError(
+          "dont_symlink_directories_in_execroot can only accept "
+              + "top level directories under workspace, \"out/subdir\" "
+              + "can not be specified as an attribute.",
+          "dont_symlink_directories_in_execroot(paths = [\"out/subdir\"])");
+      parseWorkspaceFileValueWithError(
+          "Empty path can not be passed to " + "dont_symlink_directories_in_execroot.",
+          "dont_symlink_directories_in_execroot(paths = [\"\"])");
+      parseWorkspaceFileValueWithError(
+          "dont_symlink_directories_in_execroot can only "
+              + "accept top level directories under workspace, \"/usr/local/bin\" "
+              + "can not be specified as an attribute.",
+          "dont_symlink_directories_in_execroot(paths = [\"/usr/local/bin\"])");
+    } finally {
+      PrecomputedValue.STARLARK_SEMANTICS.set(injectable, semantics);
+    }
   }
 
   private static class TestManagedDirectoriesKnowledge implements ManagedDirectoriesKnowledge {

@@ -17,17 +17,11 @@
 load(
     "@bazel_tools//tools/cpp:cc_toolchain_config_lib.bzl",
     "action_config",
-    "artifact_name_pattern",
-    "env_entry",
-    "env_set",
     "feature",
-    "feature_set",
     "flag_group",
     "flag_set",
-    "make_variable",
     "tool",
     "tool_path",
-    "variable_with_value",
     "with_feature_set",
 )
 load(
@@ -39,15 +33,12 @@ load(
     _CPP_LINK_DYNAMIC_LIBRARY_ACTION_NAME = "CPP_LINK_DYNAMIC_LIBRARY_ACTION_NAME",
     _CPP_LINK_EXECUTABLE_ACTION_NAME = "CPP_LINK_EXECUTABLE_ACTION_NAME",
     _CPP_LINK_NODEPS_DYNAMIC_LIBRARY_ACTION_NAME = "CPP_LINK_NODEPS_DYNAMIC_LIBRARY_ACTION_NAME",
-    _CPP_LINK_STATIC_LIBRARY_ACTION_NAME = "CPP_LINK_STATIC_LIBRARY_ACTION_NAME",
     _CPP_MODULE_CODEGEN_ACTION_NAME = "CPP_MODULE_CODEGEN_ACTION_NAME",
     _CPP_MODULE_COMPILE_ACTION_NAME = "CPP_MODULE_COMPILE_ACTION_NAME",
     _C_COMPILE_ACTION_NAME = "C_COMPILE_ACTION_NAME",
     _LINKSTAMP_COMPILE_ACTION_NAME = "LINKSTAMP_COMPILE_ACTION_NAME",
     _LTO_BACKEND_ACTION_NAME = "LTO_BACKEND_ACTION_NAME",
-    _LTO_INDEXING_ACTION_NAME = "LTO_INDEXING_ACTION_NAME",
     _PREPROCESS_ASSEMBLE_ACTION_NAME = "PREPROCESS_ASSEMBLE_ACTION_NAME",
-    _STRIP_ACTION_NAME = "STRIP_ACTION_NAME",
 )
 
 all_compile_actions = [
@@ -107,6 +98,8 @@ def _impl(ctx):
         toolchain_identifier = "local_darwin"
     elif (ctx.attr.cpu == "freebsd"):
         toolchain_identifier = "local_freebsd"
+    elif (ctx.attr.cpu == "openbsd"):
+        toolchain_identifier = "local_openbsd"
     elif (ctx.attr.cpu == "local"):
         toolchain_identifier = "local_linux"
     elif (ctx.attr.cpu == "x64_windows" and ctx.attr.compiler == "windows_clang"):
@@ -128,6 +121,7 @@ def _impl(ctx):
         host_system_name = "armeabi-v7a"
     elif (ctx.attr.cpu == "darwin" or
           ctx.attr.cpu == "freebsd" or
+          ctx.attr.cpu == "openbsd" or
           ctx.attr.cpu == "local" or
           ctx.attr.cpu == "x64_windows" or
           ctx.attr.cpu == "x64_windows_msvc"):
@@ -139,6 +133,7 @@ def _impl(ctx):
         target_system_name = "armeabi-v7a"
     elif (ctx.attr.cpu == "darwin" or
           ctx.attr.cpu == "freebsd" or
+          ctx.attr.cpu == "openbsd" or
           ctx.attr.cpu == "local" or
           ctx.attr.cpu == "x64_windows" or
           ctx.attr.cpu == "x64_windows_msvc"):
@@ -152,6 +147,8 @@ def _impl(ctx):
         target_cpu = "darwin"
     elif (ctx.attr.cpu == "freebsd"):
         target_cpu = "freebsd"
+    elif (ctx.attr.cpu == "openbsd"):
+        target_cpu = "openbsd"
     elif (ctx.attr.cpu == "local"):
         target_cpu = "local"
     elif (ctx.attr.cpu == "x64_windows"):
@@ -164,6 +161,7 @@ def _impl(ctx):
     if (ctx.attr.cpu == "armeabi-v7a"):
         target_libc = "armeabi-v7a"
     elif (ctx.attr.cpu == "freebsd" or
+          ctx.attr.cpu == "openbsd" or
           ctx.attr.cpu == "local" or
           ctx.attr.cpu == "x64_windows"):
         target_libc = "local"
@@ -179,6 +177,7 @@ def _impl(ctx):
     elif (ctx.attr.cpu == "armeabi-v7a" or
           ctx.attr.cpu == "darwin" or
           ctx.attr.cpu == "freebsd" or
+          ctx.attr.cpu == "openbsd" or
           ctx.attr.cpu == "local"):
         compiler = "compiler"
     elif (ctx.attr.cpu == "x64_windows" and ctx.attr.compiler == "windows_clang"):
@@ -196,6 +195,7 @@ def _impl(ctx):
         abi_version = "armeabi-v7a"
     elif (ctx.attr.cpu == "darwin" or
           ctx.attr.cpu == "freebsd" or
+          ctx.attr.cpu == "openbsd" or
           ctx.attr.cpu == "local" or
           ctx.attr.cpu == "x64_windows" or
           ctx.attr.cpu == "x64_windows_msvc"):
@@ -207,6 +207,7 @@ def _impl(ctx):
         abi_libc_version = "armeabi-v7a"
     elif (ctx.attr.cpu == "darwin" or
           ctx.attr.cpu == "freebsd" or
+          ctx.attr.cpu == "openbsd" or
           ctx.attr.cpu == "local" or
           ctx.attr.cpu == "x64_windows" or
           ctx.attr.cpu == "x64_windows_msvc"):
@@ -220,6 +221,7 @@ def _impl(ctx):
 
     if (ctx.attr.cpu == "darwin" or
         ctx.attr.cpu == "freebsd" or
+        ctx.attr.cpu == "openbsd" or
         ctx.attr.cpu == "local"):
         objcopy_embed_data_action = action_config(
             action_name = "objcopy_embed_data",
@@ -283,6 +285,7 @@ def _impl(ctx):
         action_configs = [c_compile_action, cpp_compile_action]
     elif (ctx.attr.cpu == "darwin" or
           ctx.attr.cpu == "freebsd" or
+          ctx.attr.cpu == "openbsd" or
           ctx.attr.cpu == "local" or
           ctx.attr.cpu == "x64_windows"):
         action_configs = [objcopy_embed_data_action]
@@ -357,7 +360,8 @@ def _impl(ctx):
                 ),
             ],
         )
-    elif (ctx.attr.cpu == "freebsd"):
+    elif (ctx.attr.cpu == "freebsd" or
+          ctx.atr.cpu == "openbsd"):
         default_link_flags_feature = feature(
             name = "default_link_flags",
             enabled = True,
@@ -426,7 +430,8 @@ def _impl(ctx):
         )
 
     if (ctx.attr.cpu == "darwin" or
-        ctx.attr.cpu == "freebsd"):
+        ctx.attr.cpu == "freebsd" or
+        ctx.attr.cpu == "openbsd"):
         unfiltered_compile_flags_feature = feature(
             name = "unfiltered_compile_flags",
             enabled = True,
@@ -694,7 +699,8 @@ def _impl(ctx):
                 ),
             ],
         )
-    elif (ctx.attr.cpu == "freebsd"):
+    elif (ctx.attr.cpu == "freebsd" or
+          ctx.attr.cpu == "openbsd"):
         default_compile_flags_feature = feature(
             name = "default_compile_flags",
             enabled = True,
@@ -950,6 +956,7 @@ def _impl(ctx):
 
     if (ctx.attr.cpu == "darwin" or
         ctx.attr.cpu == "freebsd" or
+        ctx.attr.cpu == "openbsd" or
         ctx.attr.cpu == "local"):
         user_compile_flags_feature = feature(
             name = "user_compile_flags",
@@ -1005,6 +1012,7 @@ def _impl(ctx):
 
     if (ctx.attr.cpu == "darwin" or
         ctx.attr.cpu == "freebsd" or
+        ctx.attr.cpu == "openbsd" or
         ctx.attr.cpu == "local"):
         sysroot_feature = feature(
             name = "sysroot",
@@ -1161,6 +1169,7 @@ def _impl(ctx):
             unfiltered_compile_flags_feature,
         ]
     elif (ctx.attr.cpu == "freebsd" or
+          ctx.attr.cpu == "openbsd" or
           ctx.attr.cpu == "local"):
         features = [
             default_compile_flags_feature,
@@ -1205,7 +1214,8 @@ def _impl(ctx):
         cxx_builtin_include_directories = []
     elif (ctx.attr.cpu == "darwin"):
         cxx_builtin_include_directories = ["/"]
-    elif (ctx.attr.cpu == "freebsd"):
+    elif (ctx.attr.cpu == "freebsd" or
+          ctx.attr.cpu == "openbsd"):
         cxx_builtin_include_directories = ["/usr/lib/clang", "/usr/local/include", "/usr/include"]
     elif (ctx.attr.cpu == "local" or
           ctx.attr.cpu == "x64_windows" and ctx.attr.compiler == "windows_clang"):
@@ -1298,6 +1308,20 @@ def _impl(ctx):
             tool_path(name = "compat-ld", path = "/usr/bin/ld"),
             tool_path(name = "cpp", path = "/usr/bin/cpp"),
             tool_path(name = "dwp", path = "/usr/bin/dwp"),
+            tool_path(name = "gcc", path = "/usr/bin/clang"),
+            tool_path(name = "gcov", path = "/usr/bin/gcov"),
+            tool_path(name = "ld", path = "/usr/bin/ld"),
+            tool_path(name = "nm", path = "/usr/bin/nm"),
+            tool_path(name = "objcopy", path = "/usr/bin/objcopy"),
+            tool_path(name = "objdump", path = "/usr/bin/objdump"),
+            tool_path(name = "strip", path = "/usr/bin/strip"),
+        ]
+    elif (ctx.attr.cpu == "openbsd"):
+        tool_paths = [
+            tool_path(name = "ar", path = "/usr/bin/ar"),
+            tool_path(name = "compat-ld", path = "/usr/bin/ld"),
+            tool_path(name = "cpp", path = "/usr/bin/cpp"),
+            tool_path(name = "dwp", path = "/usr/bin/false"),
             tool_path(name = "gcc", path = "/usr/bin/clang"),
             tool_path(name = "gcov", path = "/usr/bin/gcov"),
             tool_path(name = "ld", path = "/usr/bin/ld"),

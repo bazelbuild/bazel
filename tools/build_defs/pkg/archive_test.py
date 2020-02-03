@@ -1,3 +1,4 @@
+# Lint as: python2, python3
 # Copyright 2015 The Bazel Authors. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -13,10 +14,17 @@
 # limitations under the License.
 """Testing for archive."""
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
 import os
 import os.path
 import tarfile
 import unittest
+
+# Do not edit this line. Copybara replaces it with PY2 migration helper.
+import six
 
 from tools.build_defs.pkg import archive
 from tools.build_defs.pkg import testenv
@@ -64,10 +72,11 @@ class SimpleArFileTest(unittest.TestCase):
 
   def assertSimpleFileContent(self, names):
     datafile = os.path.join(testenv.TESTDATA_PATH, "_".join(names) + ".ar")
-    content = [{"filename": n,
-                "size": len(n.encode("utf-8")),
-                "data": n.encode("utf-8")}
-               for n in names]
+    content = [{
+        "filename": n,
+        "size": len(six.ensure_binary(n, "utf-8")),
+        "data": six.ensure_binary(n, "utf-8")
+    } for n in names]
     self.assertArFileContent(datafile, content)
 
   def testAFile(self):
@@ -143,11 +152,13 @@ class TarFileWriterTest(unittest.TestCase):
     with archive.TarFileWriter(self.tempfile) as f:
       for n in names:
         f.add_file(n, content=n)
-    content = ([{"name": "."}] +
-               [{"name": n,
-                 "size": len(n.encode("utf-8")),
-                 "data": n.encode("utf-8")}
-                for n in names])
+    content = ([{
+        "name": "."
+    }] + [{
+        "name": n,
+        "size": len(six.ensure_binary(n, "utf-8")),
+        "data": six.ensure_binary(n, "utf-8")
+    } for n in names])
     self.assertTarFileContent(self.tempfile, content)
 
   def testAddFile(self):

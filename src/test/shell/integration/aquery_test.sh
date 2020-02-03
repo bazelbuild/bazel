@@ -132,7 +132,6 @@ EOF
   assert_not_contains "echo unused" output
 }
 
-
 function test_aquery_include_artifacts() {
   local pkg="${FUNCNAME[0]}"
   mkdir -p "$pkg" || fail "mkdir -p $pkg"
@@ -183,6 +182,32 @@ EOF
   assert_contains "echo unused" output
 
   bazel aquery --output=textproto --noinclude_commandline "//$pkg:bar" > output \
+    2> "$TEST_log" || fail "Expected success"
+  assert_not_contains "echo unused" output
+}
+
+function test_aquery_jsonproto() {
+  local pkg="${FUNCNAME[0]}"
+  mkdir -p "$pkg" || fail "mkdir -p $pkg"
+  cat > "$pkg/BUILD" <<'EOF'
+genrule(
+    name = "bar",
+    srcs = ["dummy.txt"],
+    outs = ["bar_out.txt"],
+    cmd = "echo unused > $(OUTS)",
+)
+EOF
+  echo "hello aquery" > "$pkg/in.txt"
+
+  bazel aquery --output=jsonproto "//$pkg:bar" > output 2> "$TEST_log" \
+    || fail "Expected success"
+  cat output >> "$TEST_log"
+  assert_contains "\"execPath\": \"$pkg/dummy.txt\"" output
+  assert_contains "\"mnemonic\": \"Genrule\"" output
+  assert_contains "\"mnemonic\": \".*-fastbuild\"" output
+  assert_contains "echo unused" output
+
+  bazel aquery --output=jsonproto --noinclude_commandline "//$pkg:bar" > output \
     2> "$TEST_log" || fail "Expected success"
   assert_not_contains "echo unused" output
 }
@@ -1060,4 +1085,83 @@ EOF
   assert_only_action_foo_textproto output
 }
 
+function test_basic_aquery_proto_v2() {
+  local pkg="${FUNCNAME[0]}"
+  mkdir -p "$pkg" || fail "mkdir -p $pkg"
+  cat > "$pkg/BUILD" <<'EOF'
+genrule(
+    name = "bar",
+    srcs = ["dummy.txt"],
+    outs = ["bar_out.txt"],
+    cmd = "echo unused > $(OUTS)",
+)
+EOF
+  bazel aquery --output=proto "//$pkg:bar" > output_v1 || fail "Expected success"
+  bazel clean
+
+  bazel aquery --incompatible_proto_output_v2 --output=proto "//$pkg:bar" > output_v2 \
+    || fail "Expected success"
+  [[ output_v1 != output_v2 ]] || fail "proto content should be different."
+}
+
+function test_basic_aquery_textproto_v2() {
+  local pkg="${FUNCNAME[0]}"
+  mkdir -p "$pkg" || fail "mkdir -p $pkg"
+  cat > "$pkg/BUILD" <<'EOF'
+genrule(
+    name = "bar",
+    srcs = ["dummy.txt"],
+    outs = ["bar_out.txt"],
+    cmd = "echo unused > $(OUTS)",
+)
+EOF
+  bazel aquery --incompatible_proto_output_v2 --output=proto "//$pkg:bar" \
+    || fail "Expected success"
+
+  bazel aquery --incompatible_proto_output_v2 --output=textproto "//$pkg:bar" > output 2> "$TEST_log" \
+    || fail "Expected success"
+  cat output >> "$TEST_log"
+
+  # Verify than ids come in integers instead of strings.
+  assert_contains "id: 1" output
+  assert_not_contains "id: \"1\"" output
+
+  # Verify that paths are broken down to path fragments.
+  assert_contains "path_fragments {" output
+
+  # Verify that the appropriate action was included.
+  assert_contains "label: \"dummy.txt\"" output
+  assert_contains "mnemonic: \"Genrule\"" output
+  assert_contains "mnemonic: \".*-fastbuild\"" output
+  assert_contains "echo unused" output
+}
+
+function test_basic_aquery_jsonproto_v2() {
+  local pkg="${FUNCNAME[0]}"
+  mkdir -p "$pkg" || fail "mkdir -p $pkg"
+  cat > "$pkg/BUILD" <<'EOF'
+genrule(
+    name = "bar",
+    srcs = ["dummy.txt"],
+    outs = ["bar_out.txt"],
+    cmd = "echo unused > $(OUTS)",
+)
+EOF
+  bazel aquery --incompatible_proto_output_v2 --output=jsonproto "//$pkg:bar" > output 2> "$TEST_log" \
+    || fail "Expected success"
+  cat output >> "$TEST_log"
+
+  # Verify than ids come in integers instead of strings.
+  assert_contains "\"id\": 1," output
+  assert_not_contains "\"id\": \"1\"" output
+
+  # Verify that paths are broken down to path fragments.
+  assert_contains "\"pathFragments\": \[{" output
+
+  # Verify that the appropriate action was included.
+  assert_contains "\"label\": \"dummy.txt\"" output
+  assert_contains "\"mnemonic\": \"Genrule\"" output
+  assert_contains "\"mnemonic\": \".*-fastbuild\"" output
+  assert_contains "echo unused" output
+}
 run_suite "${PRODUCT_NAME} action graph query tests"

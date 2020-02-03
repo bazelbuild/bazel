@@ -85,18 +85,8 @@ public class DigestUtilsTest {
     FileSystemUtils.writeContentAsLatin1(myFile1, Strings.repeat("a", fileSize1));
     FileSystemUtils.writeContentAsLatin1(myFile2, Strings.repeat("b", fileSize2));
 
-     TestThread thread1 = new TestThread () {
-       @Override public void runTest() throws Exception {
-         DigestUtils.getDigestOrFail(myFile1, fileSize1);
-       }
-     };
-
-     TestThread thread2 = new TestThread () {
-       @Override public void runTest() throws Exception {
-         DigestUtils.getDigestOrFail(myFile2, fileSize2);
-       }
-     };
-
+    TestThread thread1 = new TestThread(() -> DigestUtils.getDigestOrFail(myFile1, fileSize1));
+    TestThread thread2 = new TestThread(() -> DigestUtils.getDigestOrFail(myFile2, fileSize2));
      thread1.start();
      thread2.start();
      if (!expectConcurrent) { // Synchronized case.
@@ -120,7 +110,8 @@ public class DigestUtilsTest {
   public void testCalculationConcurrency() throws Exception {
     final int small = DigestUtils.MULTI_THREADED_DIGEST_MAX_FILE_SIZE;
     final int large = DigestUtils.MULTI_THREADED_DIGEST_MAX_FILE_SIZE + 1;
-    for (DigestHashFunction hf : Arrays.asList(DigestHashFunction.MD5, DigestHashFunction.SHA1)) {
+    for (DigestHashFunction hf :
+        Arrays.asList(DigestHashFunction.SHA256, DigestHashFunction.SHA1)) {
       assertDigestCalculationConcurrency(true, true, small, small, hf);
       assertDigestCalculationConcurrency(true, true, large, large, hf);
       assertDigestCalculationConcurrency(true, false, small, small, hf);

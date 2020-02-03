@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skylarkbuildapi.FileProviderApi;
+import com.google.devtools.build.lib.syntax.Depset;
 
 /**
  * A representation of the concept "this transitive info provider builds these files".
@@ -42,20 +43,23 @@ public final class FileProvider implements TransitiveInfoProvider, FileProviderA
   /**
    * Returns the set of artifacts that are the "output" of this rule.
    *
-   * <p>The term "output" is somewhat hazily defined; it is vaguely the set of files that are
-   * passed on to dependent rules that list the rule in their {@code srcs} attribute and the
-   * set of files that are built when a rule is mentioned on the command line. It does
-   * <b>not</b> include the runfiles; that is the bailiwick of {@code FilesToRunProvider}.
+   * <p>The term "output" is somewhat hazily defined; it is vaguely the set of files that are passed
+   * on to dependent rules that list the rule in their {@code srcs} attribute and the set of files
+   * that are built when a rule is mentioned on the command line. It does <b>not</b> include the
+   * runfiles; that is the bailiwick of {@code FilesToRunProvider}.
    *
    * <p>Note that the above definition is somewhat imprecise; in particular, when a rule is
-   * mentioned on the command line, some other files are also built
-   * {@code TopLevelArtifactHelper} and dependent rules are free to filter this set of artifacts
-   * e.g. based on their extension.
+   * mentioned on the command line, some other files are also built {@code TopLevelArtifactHelper}
+   * and dependent rules are free to filter this set of artifacts e.g. based on their extension.
    *
    * <p>Also, some rules may generate artifacts that are not listed here by way of defining other
    * implicit targets, for example, deploy jars.
    */
   @Override
+  public Depset /*<Artifact>*/ getFilesToBuildForStarlark() {
+    return Depset.of(Artifact.TYPE, filesToBuild);
+  }
+
   public NestedSet<Artifact> getFilesToBuild() {
     return filesToBuild;
   }

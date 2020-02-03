@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.syntax;
 
 import com.google.common.collect.ImmutableList;
-import java.io.IOException;
 import java.util.List;
 
 /** Syntax node for an import statement. */
@@ -37,8 +36,7 @@ public final class LoadStatement extends Statement {
       return orig;
     }
 
-    // TODO(adonovan): lock down, after removing last use in skyframe serialization.
-    public Binding(Identifier localName, Identifier originalName) {
+    Binding(Identifier localName, Identifier originalName) {
       this.local = localName;
       this.orig = originalName;
     }
@@ -58,8 +56,7 @@ public final class LoadStatement extends Statement {
    * <p>Import statements generated this way are bound to the usual restriction that private symbols
    * cannot be loaded.
    */
-  // TODO(adonovan): lock down, after removing last use in skyframe serialization.
-  public LoadStatement(StringLiteral imp, List<Binding> bindings) {
+  LoadStatement(StringLiteral imp, List<Binding> bindings) {
     this.imp = imp;
     this.bindings = ImmutableList.copyOf(bindings);
     this.mayLoadInternalSymbols = false;
@@ -96,30 +93,7 @@ public final class LoadStatement extends Statement {
   }
 
   @Override
-  public void prettyPrint(Appendable buffer, int indentLevel) throws IOException {
-    printIndent(buffer, indentLevel);
-    buffer.append("load(");
-    imp.prettyPrint(buffer);
-    for (Binding binding : bindings) {
-      buffer.append(", ");
-      Identifier local = binding.getLocalName();
-      String origName = binding.getOriginalName().getName();
-      if (origName.equals(local.getName())) {
-        buffer.append('"');
-        local.prettyPrint(buffer);
-        buffer.append('"');
-      } else {
-        local.prettyPrint(buffer);
-        buffer.append("=\"");
-        buffer.append(origName);
-        buffer.append('"');
-      }
-    }
-    buffer.append(")\n");
-  }
-
-  @Override
-  public void accept(SyntaxTreeVisitor visitor) {
+  public void accept(NodeVisitor visitor) {
     visitor.visit(this);
   }
 

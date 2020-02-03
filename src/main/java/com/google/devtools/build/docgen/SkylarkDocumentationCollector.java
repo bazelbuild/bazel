@@ -15,7 +15,6 @@ package com.google.devtools.build.docgen;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.docgen.skylark.SkylarkBuiltinMethodDoc;
 import com.google.devtools.build.docgen.skylark.SkylarkConstructorMethodDoc;
 import com.google.devtools.build.docgen.skylark.SkylarkJavaMethodDoc;
 import com.google.devtools.build.docgen.skylark.SkylarkModuleDoc;
@@ -24,9 +23,8 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkConstructor;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkGlobalLibrary;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkSignature;
-import com.google.devtools.build.lib.syntax.FuncallExpression;
-import java.lang.reflect.Field;
+import com.google.devtools.build.lib.syntax.CallUtils;
+import com.google.devtools.build.lib.syntax.StarlarkValue;
 import java.lang.reflect.Method;
 import java.util.Map;
 import java.util.TreeMap;
@@ -37,12 +35,11 @@ import javax.annotation.Nullable;
  */
 final class SkylarkDocumentationCollector {
   @SkylarkModule(
-    name = "globals",
-    title = "Globals",
-    category = SkylarkModuleCategory.TOP_LEVEL_TYPE,
-    doc = "Objects, functions and modules registered in the global environment."
-  )
-  private static final class TopLevelModule {}
+      name = "globals",
+      title = "Globals",
+      category = SkylarkModuleCategory.TOP_LEVEL_TYPE,
+      doc = "Objects, functions and modules registered in the global environment.")
+  private static final class TopLevelModule implements StarlarkValue {}
 
   private SkylarkDocumentationCollector() {}
 
@@ -80,8 +77,6 @@ final class SkylarkDocumentationCollector {
       if (candidateClass.isAnnotationPresent(SkylarkGlobalLibrary.class)) {
         collectGlobalLibraryMethods(candidateClass, modules);
       }
-      // Use of SkylarkSignature fields is deprecated, but not all uses have been migrated.
-      collectSkylarkSignatureFunctions(candidateClass, modules);
     }
 
     // 3. Add all constructors.
@@ -169,7 +164,7 @@ final class SkylarkDocumentationCollector {
 
       if (moduleClass == moduleDoc.getClassObject()) {
         ImmutableMap<Method, SkylarkCallable> methods =
-            FuncallExpression.collectSkylarkMethodsWithAnnotation(moduleClass);
+            CallUtils.collectSkylarkMethodsWithAnnotation(moduleClass);
         for (Map.Entry<Method, SkylarkCallable> entry : methods.entrySet()) {
           // Only collect methods not annotated with @SkylarkConstructor. Methods with
           // @SkylarkConstructor are added later.
@@ -186,7 +181,7 @@ final class SkylarkDocumentationCollector {
   private static Map.Entry<Method, SkylarkCallable> getSelfCallConstructorMethod(
       Class<?> objectClass) {
     ImmutableMap<Method, SkylarkCallable> methods =
-        FuncallExpression.collectSkylarkMethodsWithAnnotation(objectClass);
+        CallUtils.collectSkylarkMethodsWithAnnotation(objectClass);
     for (Map.Entry<Method, SkylarkCallable> entry : methods.entrySet()) {
       if (entry.getValue().selfCall()
           && entry.getKey().isAnnotationPresent(SkylarkConstructor.class)) {
@@ -209,36 +204,11 @@ final class SkylarkDocumentationCollector {
     SkylarkModuleDoc topLevelModuleDoc = getTopLevelModuleDoc(modules);
 
     ImmutableMap<Method, SkylarkCallable> methods =
-        FuncallExpression.collectSkylarkMethodsWithAnnotation(moduleClass);
+        CallUtils.collectSkylarkMethodsWithAnnotation(moduleClass);
     for (Map.Entry<Method, SkylarkCallable> entry : methods.entrySet()) {
       // Only add non-constructor global library methods. Constructors are added later.
       if (!entry.getKey().isAnnotationPresent(SkylarkConstructor.class)) {
         topLevelModuleDoc.addMethod(new SkylarkJavaMethodDoc("", entry.getKey(), entry.getValue()));
-      }
-    }
-  }
-
-  /**
-   * Adds {@link SkylarkBuiltinMethodDoc} entries to the top level module, one for
-   * each @SkylarkSignature-annotated field defined in the given {@code moduleClass}.
-   *
-   * <p>Note that use of SkylarkSignature fields is deprecated, but not all uses have been migrated.
-   */
-  private static void collectSkylarkSignatureFunctions(
-      Class<?> moduleClass, Map<String, SkylarkModuleDoc> modules) {
-
-    SkylarkModuleDoc topLevelModuleDoc = getTopLevelModuleDoc(modules);
-
-    // Collect any fields annotated with @SkylarkSignature, even if the class isn't
-    // annotated.
-    for (Field field : moduleClass.getDeclaredFields()) {
-      if (field.isAnnotationPresent(SkylarkSignature.class)) {
-        SkylarkSignature skylarkSignature = field.getAnnotation(SkylarkSignature.class);
-        Preconditions.checkState(skylarkSignature.objectType() == Object.class);
-
-        topLevelModuleDoc.addMethod(
-            new SkylarkBuiltinMethodDoc(
-                getTopLevelModuleDoc(modules), skylarkSignature, field.getType()));
       }
     }
   }
@@ -284,7 +254,7 @@ final class SkylarkDocumentationCollector {
       Class<?> moduleClass, Map<String, SkylarkModuleDoc> modules) {
 
     ImmutableMap<Method, SkylarkCallable> methods =
-        FuncallExpression.collectSkylarkMethodsWithAnnotation(moduleClass);
+        CallUtils.collectSkylarkMethodsWithAnnotation(moduleClass);
     for (Map.Entry<Method, SkylarkCallable> entry : methods.entrySet()) {
       if (entry.getKey().isAnnotationPresent(SkylarkConstructor.class)) {
         collectConstructor(modules, moduleClass, entry.getKey(), entry.getValue());

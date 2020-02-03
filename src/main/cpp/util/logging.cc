@@ -70,11 +70,6 @@ DECLARE_STREAM_OPERATOR(double)
 DECLARE_STREAM_OPERATOR(long double)
 DECLARE_STREAM_OPERATOR(void*)
 
-LogMessage& LogMessage::operator<<(const std::wstring& wstr) {
-  message_ << WstringToString(wstr);
-  return *this;
-}
-
 #undef DECLARE_STREAM_OPERATOR
 
 void LogMessage::Finish() {

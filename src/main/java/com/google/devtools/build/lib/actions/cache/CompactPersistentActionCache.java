@@ -22,7 +22,6 @@ import com.google.devtools.build.lib.actions.cache.Protos.ActionCacheStatistics.
 import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ConditionallyThreadSafe;
 import com.google.devtools.build.lib.profiler.AutoProfiler;
-import com.google.devtools.build.lib.util.CompactStringIndexer;
 import com.google.devtools.build.lib.util.PersistentMap;
 import com.google.devtools.build.lib.util.StringIndexer;
 import com.google.devtools.build.lib.util.VarInt;
@@ -44,15 +43,11 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.logging.Logger;
 
 /**
- * An implementation of the ActionCache interface that uses
- * {@link CompactStringIndexer} to reduce memory footprint and saves
- * cached actions using the {@link PersistentMap}.
- *
- * <p>This cache is not fully correct: as hashes are xor'd together, a permutation of input
- * file contents will erroneously be considered up to date.
+ * An implementation of the ActionCache interface that uses a {@link StringIndexer} to reduce memory
+ * footprint and saves cached actions using the {@link PersistentMap}.
  */
 @ConditionallyThreadSafe // condition: each instance must instantiated with
-                         // different cache root
+// different cache root
 public class CompactPersistentActionCache implements ActionCache {
   private static final int SAVE_INTERVAL_SECONDS = 3;
   // Log if periodically saving the action cache incurs more than 5% overhead.
@@ -216,6 +211,8 @@ public class CompactPersistentActionCache implements ActionCache {
           .glob()) {
         path.renameTo(path.getParentDirectory().getChild(path.getBaseName() + ".bad"));
       }
+    } catch (UnixGlob.BadPattern ex) {
+      throw new IllegalStateException(ex); // can't happen
     } catch (IOException e) {
       // do nothing
     }
@@ -370,17 +367,17 @@ public class CompactPersistentActionCache implements ActionCache {
       // Estimate the size of the buffer:
       //   5 bytes max for the actionKey length
       // + the actionKey itself
-      // + 16 bytes for the digest
+      // + 32 bytes for the digest
       // + 5 bytes max for the file list length
       // + 5 bytes max for each file id
-      // + 16 bytes for the environment digest
+      // + 32 bytes for the environment digest
       int maxSize =
           VarInt.MAX_VARINT_SIZE
               + actionKeyBytes.length
-              + Md5Digest.MD5_SIZE
+              + DigestUtils.ESTIMATED_SIZE
               + VarInt.MAX_VARINT_SIZE
               + files.size() * VarInt.MAX_VARINT_SIZE
-              + Md5Digest.MD5_SIZE;
+              + DigestUtils.ESTIMATED_SIZE;
       ByteArrayOutputStream sink = new ByteArrayOutputStream(maxSize);
 
       VarInt.putVarInt(actionKeyBytes.length, sink);
@@ -415,7 +412,7 @@ public class CompactPersistentActionCache implements ActionCache {
       source.get(actionKeyBytes);
       String actionKey = new String(actionKeyBytes, ISO_8859_1);
 
-      Md5Digest md5Digest = DigestUtils.read(source);
+      byte[] digest = DigestUtils.read(source);
 
       int count = VarInt.getVarInt(source);
       ImmutableList<String> files = null;
@@ -432,12 +429,12 @@ public class CompactPersistentActionCache implements ActionCache {
         files = builder.build();
       }
 
-      Md5Digest usedClientEnvDigest = DigestUtils.read(source);
+      byte[] usedClientEnvDigest = DigestUtils.read(source);
 
       if (source.remaining() > 0) {
         throw new IOException("serialized entry data has not been fully decoded");
       }
-      return new ActionCache.Entry(actionKey, usedClientEnvDigest, files, md5Digest);
+      return new ActionCache.Entry(actionKey, usedClientEnvDigest, files, digest);
     } catch (BufferUnderflowException e) {
       throw new IOException("encoded entry data is incomplete", e);
     }

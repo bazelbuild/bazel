@@ -1,6 +1,7 @@
 # Bazel - Google's Build System
 
 load("//tools/python:private/defs.bzl", "py_binary")
+load("@rules_pkg//:pkg.bzl", "pkg_tar")
 
 package(default_visibility = ["//scripts/release:__pkg__"])
 
@@ -67,8 +68,6 @@ filegroup(
     ),
     visibility = ["//:__subpackages__"],
 )
-
-load("@rules_pkg//:pkg.bzl", "pkg_tar")
 
 pkg_tar(
     name = "bazel-srcs",
@@ -153,7 +152,7 @@ platform(
     constraint_values = [
         ":highcpu_machine",
     ],
-    parents = ["@bazel_tools//platforms:host_platform"],
+    parents = ["@local_config_platform//:host"],
 )
 
 REMOTE_PLATFORMS = ("rbe_ubuntu1604_java8", "rbe_ubuntu1804_java11")

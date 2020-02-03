@@ -41,6 +41,7 @@ import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
+import com.google.devtools.build.lib.analysis.WorkspaceStatusAction;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationCollection;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
@@ -104,6 +105,7 @@ import com.google.devtools.build.lib.vfs.util.FileSystems;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
@@ -304,7 +306,8 @@ public abstract class BuildIntegrationTestCase {
       @Override
       public void executorInit(
           CommandEnvironment env, BuildRequest request, ExecutorBuilder builder) {
-        builder.addActionContext(new DummyWorkspaceStatusActionContext());
+        builder.addActionContext(
+            WorkspaceStatusAction.Context.class, new DummyWorkspaceStatusActionContext());
       }
     };
   }
@@ -320,7 +323,12 @@ public abstract class BuildIntegrationTestCase {
     return TestRuleModule.getModule();
   }
 
-  private BlazeModule getNoResolvedFileModule() {
+  /** Gets a module to set up the strategies. */
+  protected BlazeModule getStrategyModule() {
+    return TestStrategyModule.getModule();
+  }
+
+  private static BlazeModule getNoResolvedFileModule() {
     return new BlazeModule() {
       @Override
       public ImmutableList<Injected> getPrecomputedValues() {
@@ -357,7 +365,8 @@ public abstract class BuildIntegrationTestCase {
         .addBlazeModule(getSpawnModule())
         .addBlazeModule(new IncludeScanningModule())
         .addBlazeModule(getBuildInfoModule())
-        .addBlazeModule(getRulesModule());
+        .addBlazeModule(getRulesModule())
+        .addBlazeModule(getStrategyModule());
   }
 
   protected List<String> getStartupOptions() {
@@ -436,7 +445,7 @@ public abstract class BuildIntegrationTestCase {
   protected Iterable<Artifact> getArtifacts(String target)
       throws LabelSyntaxException, NoSuchPackageException, NoSuchTargetException,
           InterruptedException, TransitionException, InvalidConfigurationException {
-    return getFilesToBuild(getConfiguredTarget(target));
+    return getFilesToBuild(getConfiguredTarget(target)).toList();
   }
 
   /**
@@ -644,9 +653,14 @@ public abstract class BuildIntegrationTestCase {
     return path;
   }
 
-  /** Equivalent to {@code ln -s <target> <relativeLinkPath>}. */
+  /**
+   * Creates folders on the path to {@code relativeLinkPath} and a symlink to {@code target} at
+   * {@code relativeLinkPath} (equivalent to {@code ln -s <target> <relativeLinkPath>}).
+   */
   protected void createSymlink(String target, String relativeLinkPath) throws IOException {
-    getWorkspace().getRelative(relativeLinkPath).createSymbolicLink(PathFragment.create(target));
+    Path path = getWorkspace().getRelative(relativeLinkPath);
+    path.getParentDirectory().createDirectoryAndParents();
+    path.createSymbolicLink(PathFragment.create(target));
   }
 
   /**
@@ -664,7 +678,7 @@ public abstract class BuildIntegrationTestCase {
    * Fork/exec/wait the specified command.  A utility method for subclasses.
    */
   protected String exec(String... argv) throws CommandException {
-    return new String(new Command(argv).execute().getStdout());
+    return new String(new Command(argv).execute().getStdout(), StandardCharsets.UTF_8);
   }
 
   /**
@@ -717,14 +731,13 @@ public abstract class BuildIntegrationTestCase {
   }
 
   /**
-   * Given a collection of Artifacts, returns a corresponding set of strings of
-   * the form "<root> <relpath>", such as "bin x/libx.a".  Such strings make
-   * assertions easier to write.
+   * Given a collection of Artifacts, returns a corresponding set of strings of the form "<root>
+   * <relpath>", such as "bin x/libx.a". Such strings make assertions easier to write.
    *
    * <p>The returned set preserves the order of the input.
    */
-  protected Set<String> artifactsToStrings(Iterable<Artifact> artifacts) {
-    return AnalysisTestUtil.artifactsToStrings(getConfigurationCollection(), artifacts);
+  protected Set<String> artifactsToStrings(NestedSet<Artifact> artifacts) {
+    return AnalysisTestUtil.artifactsToStrings(getConfigurationCollection(), artifacts.toList());
   }
 
   protected ActionsTestUtil actionsTestUtil() {

@@ -14,19 +14,12 @@
 
 package com.google.devtools.build.lib.syntax;
 
-import com.google.devtools.build.lib.events.Location;
-import com.google.devtools.build.lib.skylarkinterface.StarlarkContext;
-
-/**
- * Skylark values that support querying by other objects, i.e. `foo in object`.
- * Semantics of the operation may differ, i.e. dicts check for keys and lists for values.
- */
-public interface SkylarkQueryable {
+/** A Starlark value that supports membership tests, {@code key in object}. */
+// TODO(adonovan): merge with SkylarkIndexable: no type supports 'x in y' without y[x],
+// and 'x in y' can be defined in terms of y[x], at least as a default implementation.
+// (Implementations of 'x in y' may choose to interpret failure of y[x] as false or a failure.)
+public interface SkylarkQueryable extends StarlarkValue {
 
   /** Returns whether the key is in the object. */
-  boolean containsKey(Object key, Location loc, StarlarkContext context) throws EvalException;
-
-  default boolean containsKey(Object key, Location loc, Environment env) throws EvalException {
-    return this.containsKey(key, loc, env.getStarlarkContext());
-  }
+  boolean containsKey(StarlarkSemantics semantics, Object key) throws EvalException;
 }

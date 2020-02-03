@@ -18,6 +18,7 @@ import com.google.common.base.Strings;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.shell.TerminationStatus;
+import com.google.devtools.build.lib.vfs.Path;
 import com.google.protobuf.ByteString;
 import java.io.InputStream;
 import java.time.Duration;
@@ -82,11 +83,11 @@ public interface SpawnResult {
 
     private final boolean isUserError;
 
-    private Status(boolean isUserError) {
+    Status(boolean isUserError) {
       this.isUserError = isUserError;
     }
 
-    private Status() {
+    Status() {
       this(false);
     }
 
@@ -198,8 +199,6 @@ public interface SpawnResult {
    * SpawnResults can optionally support returning outputs in-memory. Such outputs can be obtained
    * from this method if so. This behavior is optional, and can be triggered with
    * {@link ExecutionRequirements#REMOTE_EXECUTION_INLINE_OUTPUTS}.
-   *
-   * @param output
    */
   @Nullable
   default InputStream getInMemoryOutput(ActionInput output) {
@@ -207,7 +206,14 @@ public interface SpawnResult {
   }
 
   String getDetailMessage(
-      String messagePrefix, String message, boolean catastrophe, boolean forciblyRunRemotely);
+      String messagePrefix,
+      String message,
+      boolean verboseFailures,
+      boolean catastrophe,
+      boolean forciblyRunRemotely);
+
+  /** Returns a file path to the action metadata log. */
+  Optional<MetadataLog> getActionMetadataLog();
 
   /**
    * Basic implementation of {@link SpawnResult}.
@@ -229,6 +235,7 @@ public interface SpawnResult {
     private final String failureMessage;
     private final ActionInput inMemoryOutputFile;
     private final ByteString inMemoryContents;
+    private final Optional<MetadataLog> actionMetadataLog;
 
     SimpleSpawnResult(Builder builder) {
       this.exitCode = builder.exitCode;
@@ -248,6 +255,7 @@ public interface SpawnResult {
       this.failureMessage = builder.failureMessage;
       this.inMemoryOutputFile = builder.inMemoryOutputFile;
       this.inMemoryContents = builder.inMemoryContents;
+      this.actionMetadataLog = builder.actionMetadataLog;
     }
 
     @Override
@@ -330,11 +338,17 @@ public interface SpawnResult {
 
     @Override
     public String getDetailMessage(
-        String messagePrefix, String message, boolean catastrophe, boolean forciblyRunRemotely) {
+        String messagePrefix,
+        String message,
+        boolean verboseFailures,
+        boolean catastrophe,
+        boolean forciblyRunRemotely) {
       TerminationStatus status = new TerminationStatus(
           exitCode(), status() == Status.TIMEOUT);
       String reason = " (" + status.toShortString() + ")"; // e.g " (Exit 1)"
-      String explanation = status.exited() ? "" : ": " + message;
+      // Include the command line as error message if --verbose_failures is enabled or
+      // the command line didn't exit normally.
+      String explanation = verboseFailures || !status.exited() ? ": " + message : "";
 
       if (!status().isConsideredUserError()) {
         String errorDetail = status().name().toLowerCase(Locale.US)
@@ -372,6 +386,11 @@ public interface SpawnResult {
       }
       return null;
     }
+
+    @Override
+    public Optional<MetadataLog> getActionMetadataLog() {
+      return actionMetadataLog;
+    }
   }
 
   /**
@@ -389,6 +408,7 @@ public interface SpawnResult {
     private Optional<Long> numBlockOutputOperations = Optional.empty();
     private Optional<Long> numBlockInputOperations = Optional.empty();
     private Optional<Long> numInvoluntaryContextSwitches = Optional.empty();
+    private Optional<MetadataLog> actionMetadataLog = Optional.empty();
     private boolean cacheHit;
     private String failureMessage = "";
     /* Invariant: Either both have a value or both are null. */
@@ -463,21 +483,6 @@ public interface SpawnResult {
       return this;
     }
 
-    public Builder setWallTime(Optional<Duration> wallTime) {
-      this.wallTime = wallTime;
-      return this;
-    }
-
-    public Builder setUserTime(Optional<Duration> userTime) {
-      this.userTime = userTime;
-      return this;
-    }
-
-    public Builder setSystemTime(Optional<Duration> systemTime) {
-      this.systemTime = systemTime;
-      return this;
-    }
-
     public Builder setCacheHit(boolean cacheHit) {
       this.cacheHit = cacheHit;
       return this;
@@ -492,6 +497,30 @@ public interface SpawnResult {
       this.inMemoryOutputFile = Preconditions.checkNotNull(outputFile);
       this.inMemoryContents = Preconditions.checkNotNull(contents);
       return this;
+    }
+
+    public Builder setActionMetadataLog(MetadataLog actionMetadataLog) {
+      this.actionMetadataLog = Optional.of(actionMetadataLog);
+      return this;
+    }
+  }
+
+  /** A tuple containing the name reference to the metadata and the file path to the Metadata */
+  public static final class MetadataLog {
+    private final String name;
+    private final Path filePath;
+
+    public MetadataLog(String name, Path filePath) {
+      this.name = name;
+      this.filePath = filePath;
+    }
+
+    public String getName() {
+      return this.name;
+    }
+
+    public Path getFilePath() {
+      return this.filePath;
     }
   }
 }

@@ -17,10 +17,13 @@
 #ifndef BAZEL_SRC_MAIN_NATIVE_UNIX_JNI_H__
 #define BAZEL_SRC_MAIN_NATIVE_UNIX_JNI_H__
 
+#include <errno.h>
 #include <jni.h>
 #include <sys/stat.h>
 
 #include <string>
+
+namespace blaze_jni {
 
 #define CHECK(condition) \
     do { \
@@ -31,7 +34,7 @@
       } \
     } while (0)
 
-#if defined(__APPLE__) || defined(__FreeBSD__)
+#if defined(__APPLE__) || defined(__FreeBSD__) || defined(__OpenBSD__)
 // stat64 is deprecated on OS X/BSD.
 typedef struct stat portable_stat_struct;
 #define portable_stat ::stat
@@ -42,8 +45,12 @@ typedef struct stat64 portable_stat_struct;
 #define portable_lstat ::lstat64
 #endif
 
-#if defined(__FreeBSD__)
-#define ENODATA ENOATTR
+#if !defined(ENODATA)
+# if defined(ENOATTR)
+#  define ENODATA ENOATTR
+# else
+#  error We do not know how to handle missing ENODATA
+# endif
 #endif
 
 // Posts a JNI exception to the current thread with the specified
@@ -97,5 +104,29 @@ ssize_t portable_lgetxattr(const char *path, const char *name, void *value,
 
 // Run sysctlbyname(3), only available on darwin
 int portable_sysctlbyname(const char *name_chars, long *mibp, size_t *sizep);
+
+// Used to surround an region that we want sleep disabled for.
+// push_disable_sleep to start the area.
+// pop_disable_sleep to end the area.
+// Note that this is a stack so sleep will not be reenabled until the stack
+// is empty.
+// Returns 0 on success.
+// Returns -1 if sleep is not supported.
+int portable_push_disable_sleep();
+int portable_pop_disable_sleep();
+
+// Returns the number of times that the process has been suspended (SIGSTOP,
+// computer put to sleep, etc.) since Bazel started.
+int portable_suspend_count();
+
+// Returns the number of times that the system has received a memory pressure
+// warning notification since Bazel started.
+int portable_memory_pressure_warning_count();
+
+// Returns the number of times that the system has received a memory pressure
+// critical notification since Bazel started.
+int portable_memory_pressure_critical_count();
+
+}  // namespace blaze_jni
 
 #endif  // BAZEL_SRC_MAIN_NATIVE_UNIX_JNI_H__

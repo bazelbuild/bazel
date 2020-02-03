@@ -44,17 +44,20 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
+import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.rules.java.JavaCompileAction.ProgressMessage;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration.JavaClasspathMode;
 import com.google.devtools.build.lib.rules.java.JavaPluginInfoProvider.JavaPluginInfo;
 import com.google.devtools.build.lib.util.LazyString;
 import com.google.devtools.build.lib.util.Pair;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.proto.Deps;
+import com.google.protobuf.ExtensionRegistry;
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.Collections;
 import java.util.List;
 import java.util.function.Consumer;
+import java.util.stream.Stream;
 import javax.annotation.Nullable;
 
 /**
@@ -78,22 +81,28 @@ public class JavaHeaderCompileActionBuilder {
 
   private Artifact outputJar;
   @Nullable private Artifact outputDepsProto;
+  @Nullable private Artifact manifestOutput;
+  @Nullable private Artifact gensrcOutputJar;
+  @Nullable private Artifact resourceOutputJar;
+  private ImmutableSet<Artifact> additionalOutputs = ImmutableSet.of();
   private ImmutableSet<Artifact> sourceFiles = ImmutableSet.of();
   private ImmutableList<Artifact> sourceJars = ImmutableList.of();
   private NestedSet<Artifact> classpathEntries = NestedSetBuilder.emptySet(Order.NAIVE_LINK_ORDER);
-  private ImmutableList<Artifact> bootclasspathEntries = ImmutableList.of();
+  private NestedSet<Artifact> bootclasspathEntries =
+      NestedSetBuilder.emptySet(Order.NAIVE_LINK_ORDER);
   @Nullable private Label targetLabel;
   @Nullable private String injectingRuleKind;
-  private PathFragment tempDirectory;
   private StrictDepsMode strictJavaDeps = StrictDepsMode.OFF;
   private NestedSet<Artifact> directJars = NestedSetBuilder.emptySet(Order.NAIVE_LINK_ORDER);
   private NestedSet<Artifact> compileTimeDependencyArtifacts =
       NestedSetBuilder.emptySet(Order.STABLE_ORDER);
-  private ImmutableList<String> javacOpts;
+  private final ImmutableList.Builder<String> javacOptsBuilder = ImmutableList.builder();
   private JavaPluginInfo plugins = JavaPluginInfo.empty();
 
   private NestedSet<Artifact> additionalInputs = NestedSetBuilder.emptySet(Order.STABLE_ORDER);
   private NestedSet<Artifact> toolsJars = NestedSetBuilder.emptySet(Order.NAIVE_LINK_ORDER);
+
+  private boolean enableHeaderCompilerDirect = true;
 
   public JavaHeaderCompileActionBuilder(RuleContext ruleContext) {
     this.ruleContext = ruleContext;
@@ -102,6 +111,21 @@ public class JavaHeaderCompileActionBuilder {
   /** Sets the output jdeps file. */
   public JavaHeaderCompileActionBuilder setOutputDepsProto(@Nullable Artifact outputDepsProto) {
     this.outputDepsProto = outputDepsProto;
+    return this;
+  }
+
+  public JavaHeaderCompileActionBuilder setManifestOutput(@Nullable Artifact manifestOutput) {
+    this.manifestOutput = manifestOutput;
+    return this;
+  }
+
+  public JavaHeaderCompileActionBuilder setGensrcOutputJar(@Nullable Artifact gensrcOutputJar) {
+    this.gensrcOutputJar = gensrcOutputJar;
+    return this;
+  }
+
+  public JavaHeaderCompileActionBuilder setResourceOutputJar(@Nullable Artifact resourceOutputJar) {
+    this.resourceOutputJar = resourceOutputJar;
     return this;
   }
 
@@ -120,10 +144,15 @@ public class JavaHeaderCompileActionBuilder {
     return this;
   }
 
-  /** Sets Java compiler flags. */
-  public JavaHeaderCompileActionBuilder setJavacOpts(ImmutableList<String> javacOpts) {
-    checkNotNull(javacOpts, "javacOpts must not be null");
-    this.javacOpts = javacOpts;
+  /** Adds Java compiler flags. */
+  public JavaHeaderCompileActionBuilder addAllJavacOpts(Iterable<String> javacOpts) {
+    this.javacOptsBuilder.addAll(javacOpts);
+    return this;
+  }
+
+  /** Adds a Java compiler flag. */
+  public JavaHeaderCompileActionBuilder addJavacOpt(String javacOpt) {
+    this.javacOptsBuilder.add(javacOpt);
     return this;
   }
 
@@ -131,6 +160,12 @@ public class JavaHeaderCompileActionBuilder {
   public JavaHeaderCompileActionBuilder setOutputJar(Artifact outputJar) {
     checkNotNull(outputJar, "outputJar must not be null");
     this.outputJar = outputJar;
+    return this;
+  }
+
+  public JavaHeaderCompileActionBuilder setAdditionalOutputs(ImmutableSet<Artifact> outputs) {
+    checkNotNull(outputs, "outputs must not be null");
+    this.additionalOutputs = outputs;
     return this;
   }
 
@@ -157,7 +192,7 @@ public class JavaHeaderCompileActionBuilder {
 
   /** Sets the compilation bootclasspath entries. */
   public JavaHeaderCompileActionBuilder setBootclasspathEntries(
-      ImmutableList<Artifact> bootclasspathEntries) {
+      NestedSet<Artifact> bootclasspathEntries) {
     checkNotNull(bootclasspathEntries, "bootclasspathEntries must not be null");
     this.bootclasspathEntries = bootclasspathEntries;
     return this;
@@ -183,16 +218,6 @@ public class JavaHeaderCompileActionBuilder {
     return this;
   }
 
-  /**
-   * Sets the path to a temporary directory, e.g. for extracting sourcejar entries to before
-   * compilation.
-   */
-  public JavaHeaderCompileActionBuilder setTempDirectory(PathFragment tempDirectory) {
-    checkNotNull(tempDirectory, "tempDirectory must not be null");
-    this.tempDirectory = tempDirectory;
-    return this;
-  }
-
   /** Sets the Strict Java Deps mode. */
   public JavaHeaderCompileActionBuilder setStrictJavaDeps(StrictDepsMode strictJavaDeps) {
     checkNotNull(strictJavaDeps, "strictJavaDeps must not be null");
@@ -214,18 +239,25 @@ public class JavaHeaderCompileActionBuilder {
     return this;
   }
 
+  public JavaHeaderCompileActionBuilder enableHeaderCompilerDirect(
+      boolean enableHeaderCompilerDirect) {
+    this.enableHeaderCompilerDirect = enableHeaderCompilerDirect;
+    return this;
+  }
+
   /** Builds and registers the action for a header compilation. */
-  public void build(JavaToolchainProvider javaToolchain, JavaRuntimeInfo hostJavabase) {
+  public void build(JavaToolchainProvider javaToolchain, JavaRuntimeInfo hostJavabase)
+      throws InterruptedException {
     checkNotNull(outputDepsProto, "outputDepsProto must not be null");
     checkNotNull(sourceFiles, "sourceFiles must not be null");
     checkNotNull(sourceJars, "sourceJars must not be null");
     checkNotNull(classpathEntries, "classpathEntries must not be null");
     checkNotNull(bootclasspathEntries, "bootclasspathEntries must not be null");
-    checkNotNull(tempDirectory, "tempDirectory must not be null");
     checkNotNull(strictJavaDeps, "strictJavaDeps must not be null");
     checkNotNull(directJars, "directJars must not be null");
     checkNotNull(compileTimeDependencyArtifacts, "compileTimeDependencyArtifacts must not be null");
-    checkNotNull(javacOpts, "javacOpts must not be null");
+
+    ImmutableList<String> javacOpts = javacOptsBuilder.build();
 
     // Invariant: if strictJavaDeps is OFF, then directJars and
     // dependencyArtifacts are ignored
@@ -244,11 +276,18 @@ public class JavaHeaderCompileActionBuilder {
     // Use the optimized 'direct' implementation if it is available, and either there are no
     // annotation processors or they are built in to the tool and listed in
     // java_toolchain.header_compiler_direct_processors.
+    ImmutableSet<String> processorClasses = plugins.processorClasses().toSet();
     boolean useHeaderCompilerDirect =
-        javaToolchain.getHeaderCompilerDirect() != null
-            && javaToolchain
-                .getHeaderCompilerBuiltinProcessors()
-                .containsAll(plugins.processorClasses().toSet());
+        enableHeaderCompilerDirect
+            && javaToolchain.getHeaderCompilerDirect() != null
+            && javaToolchain.getHeaderCompilerBuiltinProcessors().containsAll(processorClasses);
+    JavaConfiguration javaConfiguration =
+        ruleContext.getConfiguration().getFragment(JavaConfiguration.class);
+    JavaClasspathMode classpathMode = javaConfiguration.getReduceJavaClasspath();
+    if (!Collections.disjoint(
+        processorClasses, javaToolchain.getReducedClasspathIncompatibleProcessors())) {
+      classpathMode = JavaClasspathMode.OFF;
+    }
 
     ActionEnvironment actionEnvironment =
         ruleContext.getConfiguration().getActionEnvironment().addFixedVariables(UTF8_ENVIRONMENT);
@@ -261,13 +300,19 @@ public class JavaHeaderCompileActionBuilder {
             /* sourceJars= */ sourceJars,
             /* plugins= */ plugins);
 
-    NestedSet<Artifact> outputs =
-        NestedSetBuilder.create(Order.STABLE_ORDER, outputJar, outputDepsProto);
+    ImmutableSet.Builder<Artifact> outputs =
+        ImmutableSet.<Artifact>builder()
+            .add(outputJar)
+            .add(outputDepsProto)
+            .addAll(additionalOutputs);
+    Stream.of(gensrcOutputJar, resourceOutputJar, manifestOutput)
+        .filter(x -> x != null)
+        .forEachOrdered(outputs::add);
 
     NestedSetBuilder<Artifact> mandatoryInputs =
         NestedSetBuilder.<Artifact>stableOrder()
             .addTransitive(additionalInputs)
-            .addAll(bootclasspathEntries)
+            .addTransitive(bootclasspathEntries)
             .addAll(sourceJars)
             .addAll(sourceFiles)
             .addTransitive(toolsJars);
@@ -291,9 +336,9 @@ public class JavaHeaderCompileActionBuilder {
           .add(headerCompiler.getExecutable());
       executableLine =
           CustomCommandLine.builder()
-              .addPath(hostJavabase.javaBinaryExecPath())
+              .addPath(hostJavabase.javaBinaryExecPathFragment())
               .add("-Xverify:none")
-              .addAll(javaToolchain.getJvmOptions())
+              .addAll(javaToolchain.getTurbineJvmOptions())
               .add("-jar")
               .addExecPath(headerCompiler.getExecutable())
               .build();
@@ -302,8 +347,10 @@ public class JavaHeaderCompileActionBuilder {
     CustomCommandLine.Builder commandLine =
         CustomCommandLine.builder()
             .addExecPath("--output", outputJar)
+            .addExecPath("--gensrc_output", gensrcOutputJar)
+            .addExecPath("--resource_output", resourceOutputJar)
+            .addExecPath("--output_manifest_proto", manifestOutput)
             .addExecPath("--output_deps", outputDepsProto)
-            .addPath("--temp_dir", tempDirectory)
             .addExecPaths("--bootclasspath", bootclasspathEntries)
             .addExecPaths("--sources", sourceFiles)
             .addExecPaths("--source_jars", sourceJars)
@@ -327,11 +374,9 @@ public class JavaHeaderCompileActionBuilder {
       }
     }
 
-    JavaConfiguration javaConfiguration =
-        ruleContext.getConfiguration().getFragment(JavaConfiguration.class);
-    ImmutableMap<String, String> executionInfo = ImmutableMap.of();
+    ImmutableMap<String, String> executionInfo =
+        TargetUtils.getExecutionInfo(ruleContext.getRule(), ruleContext.isAllowTagsPropagation());
     Consumer<Pair<ActionExecutionContext, List<SpawnResult>>> resultConsumer = null;
-    JavaClasspathMode classpathMode = javaConfiguration.getReduceJavaClasspath();
     if (classpathMode == JavaClasspathMode.BAZEL) {
       if (javaConfiguration.inmemoryJdepsFiles()) {
         executionInfo =
@@ -352,14 +397,14 @@ public class JavaHeaderCompileActionBuilder {
       mandatoryInputs.addTransitive(classpath);
 
       commandLine.addExecPaths("--classpath", classpath);
-      commandLine.add("--noreduce_classpath");
+      commandLine.add("--reduce_classpath_mode", "NONE");
 
       ruleContext.registerAction(
           new SpawnAction(
               /* owner= */ ruleContext.getActionOwner(),
-              /* tools= */ ImmutableList.of(),
+              /* tools= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
               /* inputs= */ mandatoryInputs.build(),
-              /* outputs= */ outputs,
+              /* outputs= */ outputs.build(),
               /* primaryOutput= */ outputJar,
               /* resourceSet= */ AbstractAction.DEFAULT_RESOURCE_SET,
               /* commandLines= */ CommandLines.builder()
@@ -404,65 +449,26 @@ public class JavaHeaderCompileActionBuilder {
       commandLine.addExecPaths("--direct_dependencies", directJars);
     }
 
-    if (javaConfiguration.experimentalJavaHeaderInputPruning()) {
-      ruleContext.registerAction(
-          new JavaCompileAction(
-              /* compilationType= */ JavaCompileAction.CompilationType.TURBINE,
-              /* owner= */ ruleContext.getActionOwner(),
-              /* env= */ actionEnvironment,
-              /* tools= */ toolsJars,
-              /* runfilesSupplier= */ CompositeRunfilesSupplier.fromSuppliers(runfilesSuppliers),
-              /* progressMessage= */ progressMessage,
-              /* mandatoryInputs= */ mandatoryInputs.build(),
-              /* transitiveInputs= */ classpathEntries,
-              /* directJars= */ directJars,
-              /* outputs= */ outputs,
-              /* executionInfo= */ executionInfo,
-              /* extraActionInfoSupplier= */ null,
-              /* executableLine= */ executableLine,
-              /* flagLine= */ commandLine.build(),
-              /* configuration= */ ruleContext.getConfiguration(),
-              /* dependencyArtifacts= */ compileTimeDependencyArtifacts,
-              /* outputDepsProto= */ outputDepsProto,
-              /* classpathMode= */ classpathMode));
-      return;
-    }
-
-    mandatoryInputs.addTransitive(classpathEntries);
-    commandLine.addExecPaths("--classpath", classpathEntries);
-    if (strictJavaDeps != StrictDepsMode.OFF && !compileTimeDependencyArtifacts.isEmpty()) {
-      commandLine.addExecPaths("--deps_artifacts", compileTimeDependencyArtifacts);
-    }
-    if (classpathMode != JavaClasspathMode.OFF && strictJavaDeps != StrictDepsMode.OFF) {
-      commandLine.add("--reduce_classpath");
-    } else {
-      commandLine.add("--noreduce_classpath");
-    }
-
     ruleContext.registerAction(
-        new SpawnAction(
+        new JavaCompileAction(
+            /* compilationType= */ JavaCompileAction.CompilationType.TURBINE,
             /* owner= */ ruleContext.getActionOwner(),
-            /* tools= */ ImmutableList.of(),
-            /* inputs= */ mandatoryInputs.build(),
-            /* outputs= */ outputs,
-            /* primaryOutput= */ outputJar,
-            /* resourceSet= */ AbstractAction.DEFAULT_RESOURCE_SET,
-            /* commandLines= */ CommandLines.builder()
-                .addCommandLine(executableLine)
-                .addCommandLine(commandLine.build(), PARAM_FILE_INFO)
-                .build(),
-            /* commandLineLimits= */ ruleContext.getConfiguration().getCommandLineLimits(),
-            /* isShellCommand= */ false,
             /* env= */ actionEnvironment,
-            /* executionInfo= */ ruleContext
-                .getConfiguration()
-                .modifiedExecutionInfo(executionInfo, "JavacTurbine"),
-            /* progressMessage= */ progressMessage,
+            /* tools= */ toolsJars,
             /* runfilesSupplier= */ CompositeRunfilesSupplier.fromSuppliers(runfilesSuppliers),
-            /* mnemonic= */ "JavacTurbine",
-            /* executeUnconditionally= */ false,
+            /* progressMessage= */ progressMessage,
+            /* mandatoryInputs= */ mandatoryInputs.build(),
+            /* transitiveInputs= */ classpathEntries,
+            /* directJars= */ directJars,
+            /* outputs= */ outputs.build(),
+            /* executionInfo= */ executionInfo,
             /* extraActionInfoSupplier= */ null,
-            /* resultConsumer= */ resultConsumer));
+            /* executableLine= */ executableLine,
+            /* flagLine= */ commandLine.build(),
+            /* configuration= */ ruleContext.getConfiguration(),
+            /* dependencyArtifacts= */ compileTimeDependencyArtifacts,
+            /* outputDepsProto= */ outputDepsProto,
+            /* classpathMode= */ classpathMode));
   }
 
   /**
@@ -484,7 +490,9 @@ public class JavaHeaderCompileActionBuilder {
             inMemoryOutput == null
                 ? context.getInputPath(outputDepsProto).getInputStream()
                 : inMemoryOutput) {
-          javaContext.insertDependencies(outputDepsProto, Deps.Dependencies.parseFrom(input));
+          javaContext.insertDependencies(
+              outputDepsProto,
+              Deps.Dependencies.parseFrom(input, ExtensionRegistry.getEmptyRegistry()));
         }
       } catch (IOException e) {
         // Left empty. If we cannot read the .jdeps file now, we will read it later or throw

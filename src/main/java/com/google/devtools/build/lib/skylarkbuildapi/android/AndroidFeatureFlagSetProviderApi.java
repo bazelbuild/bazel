@@ -15,15 +15,15 @@ package com.google.devtools.build.lib.skylarkbuildapi.android;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.skylarkbuildapi.ProviderApi;
-import com.google.devtools.build.lib.skylarkbuildapi.StructApi;
+import com.google.devtools.build.lib.skylarkbuildapi.core.ProviderApi;
+import com.google.devtools.build.lib.skylarkbuildapi.core.StructApi;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkConstructor;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.SkylarkDict;
 
 /** */
 @SkylarkModule(
@@ -53,7 +53,7 @@ public interface AndroidFeatureFlagSetProviderApi extends StructApi {
           "Do not use this module. It is intended for migration purposes only. If you depend on "
               + "it, you will be broken when it is removed.",
       documented = false)
-  public interface Provider extends ProviderApi {
+  interface Provider extends ProviderApi {
 
     @SkylarkCallable(
         name = NAME,
@@ -65,12 +65,13 @@ public interface AndroidFeatureFlagSetProviderApi extends StructApi {
               doc = "Map of flags",
               positional = true,
               named = false,
-              type = SkylarkDict.class),
+              type = Dict.class),
         },
         selfCall = true)
     @SkylarkConstructor(
         objectType = AndroidFeatureFlagSetProviderApi.class,
         receiverNameForDoc = NAME)
-    AndroidFeatureFlagSetProviderApi create(SkylarkDict<Label, String> flags) throws EvalException;
+    AndroidFeatureFlagSetProviderApi create(Dict<?, ?> flags /* <Label, String> */)
+        throws EvalException;
   }
 }

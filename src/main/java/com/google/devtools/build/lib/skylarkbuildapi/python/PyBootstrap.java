@@ -15,25 +15,35 @@
 package com.google.devtools.build.lib.skylarkbuildapi.python;
 
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.skylarkbuildapi.Bootstrap;
+import com.google.devtools.build.lib.skylarkbuildapi.core.Bootstrap;
 import com.google.devtools.build.lib.skylarkbuildapi.python.PyInfoApi.PyInfoProviderApi;
 import com.google.devtools.build.lib.skylarkbuildapi.python.PyRuntimeInfoApi.PyRuntimeInfoProviderApi;
+import com.google.devtools.build.lib.syntax.FlagGuardedValue;
+import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
 
 /** {@link Bootstrap} for Starlark objects related to the Python rules. */
 public class PyBootstrap implements Bootstrap {
 
   private final PyInfoProviderApi pyInfoProviderApi;
   private final PyRuntimeInfoProviderApi pyRuntimeInfoProviderApi;
+  private final PyStarlarkTransitionsApi pyStarlarkTransitionsApi;
 
   public PyBootstrap(
-      PyInfoProviderApi pyInfoProviderApi, PyRuntimeInfoProviderApi pyRuntimeInfoProviderApi) {
+      PyInfoProviderApi pyInfoProviderApi,
+      PyRuntimeInfoProviderApi pyRuntimeInfoProviderApi,
+      PyStarlarkTransitionsApi pyStarlarkTransitionsApi) {
     this.pyInfoProviderApi = pyInfoProviderApi;
     this.pyRuntimeInfoProviderApi = pyRuntimeInfoProviderApi;
+    this.pyStarlarkTransitionsApi = pyStarlarkTransitionsApi;
   }
 
   @Override
   public void addBindingsToBuilder(ImmutableMap.Builder<String, Object> builder) {
     builder.put("PyInfo", pyInfoProviderApi);
     builder.put("PyRuntimeInfo", pyRuntimeInfoProviderApi);
+    builder.put(
+        "py_transitions",
+        FlagGuardedValue.onlyWhenExperimentalFlagIsTrue(
+            FlagIdentifier.EXPERIMENTAL_GOOGLE_LEGACY_API, pyStarlarkTransitionsApi));
   }
 }

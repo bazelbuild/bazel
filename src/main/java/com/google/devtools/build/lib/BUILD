@@ -1,12 +1,11 @@
 load("@rules_java//java:defs.bzl", "java_binary", "java_library")
+load(":merge_licenses.bzl", "merge_licenses")
 
 # Description:
 #   Main Java code for Bazel
 package(
     default_visibility = ["//src:__subpackages__"],
 )
-
-load(":merge_licenses.bzl", "merge_licenses")
 
 # Generate list of all srcs via:
 # bazel query 'filter("srcs", kind("filegroup rule", //src/main/java/com/google/devtools/build/lib/...))' | sort | sed -e "s/^/\"/" | sed -e "s/$/\",/" | fgrep -v "build/lib:srcs"
@@ -41,10 +40,16 @@ filegroup(
         "//src/main/java/com/google/devtools/build/lib/graph:srcs",
         "//src/main/java/com/google/devtools/build/lib/metrics:srcs",
         "//src/main/java/com/google/devtools/build/lib/network:srcs",
+        "//src/main/java/com/google/devtools/build/lib/platform:srcs",
         "//src/main/java/com/google/devtools/build/lib/profiler:srcs",
         "//src/main/java/com/google/devtools/build/lib/profiler/callcounts:srcs",
         "//src/main/java/com/google/devtools/build/lib/profiler/memory:srcs",
         "//src/main/java/com/google/devtools/build/lib/query2:srcs",
+        "//src/main/java/com/google/devtools/build/lib/query2/common:srcs",
+        "//src/main/java/com/google/devtools/build/lib/query2/compat:srcs",
+        "//src/main/java/com/google/devtools/build/lib/query2/engine:srcs",
+        "//src/main/java/com/google/devtools/build/lib/query2/query/aspectresolvers:srcs",
+        "//src/main/java/com/google/devtools/build/lib/query2/query/output:srcs",
         "//src/main/java/com/google/devtools/build/lib/remote:srcs",
         "//src/main/java/com/google/devtools/build/lib/rules/apple/cpp:srcs",
         "//src/main/java/com/google/devtools/build/lib/rules/apple:srcs",
@@ -70,6 +75,8 @@ filegroup(
         "//src/main/java/com/google/devtools/build/lib/ssd:srcs",
         "//src/main/java/com/google/devtools/build/lib/standalone:srcs",
         "//src/main/java/com/google/devtools/build/lib/supplier:srcs",
+        "//src/main/java/com/google/devtools/build/lib/syntax:srcs",
+        "//src/main/java/com/google/devtools/build/lib/versioning:srcs",
         "//src/main/java/com/google/devtools/build/lib/vfs/inmemoryfs:srcs",
         "//src/main/java/com/google/devtools/build/lib/vfs:srcs",
         "//src/main/java/com/google/devtools/build/lib/windows/jni:srcs",
@@ -250,15 +257,14 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/collect",
     ],
     deps = [
-        ":base-util",
         ":exitcode-external",
         ":os_util",
+        ":string_util",
         "//src/main/java/com/google/devtools/build/lib/collect/compacthashset",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/common/options",
-        "//third_party:apache_commons_lang",
         "//third_party:checker_framework_annotations",
         "//third_party:error_prone_annotations",
         "//third_party:guava",
@@ -317,10 +323,7 @@ java_library(
 java_library(
     name = "custom-exit-code-publisher",
     srcs = ["util/CustomExitCodePublisher.java"],
-    deps = [
-        ":exitcode-external",
-        "//third_party:jsr305",
-    ],
+    deps = ["//third_party:jsr305"],
 )
 
 # Event reporting infrastructure.
@@ -332,7 +335,6 @@ java_library(
         ":out-err",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
-        "//src/main/java/com/google/devtools/build/lib/vfs",
         "//third_party:guava",
         "//third_party:jsr305",
     ],
@@ -396,30 +398,11 @@ java_library(
 )
 
 java_library(
-    name = "starlark_context",
-    srcs = [
-        "analysis/skylark/BazelStarlarkContext.java",
-        "analysis/skylark/SymbolGenerator.java",
-    ],
-    deps = [
-        ":rule-definition-context",
-        ":skylarkinterface",
-        "//src/main/java/com/google/devtools/build/lib/cmdline:RepositoryName",
-        "//src/main/java/com/google/devtools/build/lib/concurrent",
-        "//third_party:guava",
-        "//third_party:jsr305",
-    ],
-)
-
-java_library(
     name = "skylark_semantics",
-    srcs = [
-        "syntax/StarlarkSemantics.java",
-    ],
+    srcs = [],
     visibility = ["//visibility:public"],  # needed by Copybara
-    deps = [
-        "//third_party:auto_value",
-        "//third_party:guava",
+    exports = [
+        "//src/main/java/com/google/devtools/build/lib/syntax:semantics",
     ],
 )
 
@@ -454,46 +437,19 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
         "//src/main/java/com/google/devtools/build/lib/skyframe/trimming:trimmed_configuration_cache",
         "//src/main/java/com/google/devtools/common/options",
-        "//src/main/java/com/google/devtools/common/options:invocation_policy",
-        "//src/main/protobuf:invocation_policy_java_proto",
         "//third_party:auto_value",
         "//third_party:guava",
         "//third_party:jsr305",
-    ],
-)
-
-java_library(
-    name = "skylark-semantics",
-    srcs = ["syntax/StarlarkSemantics.java"],
-    deps = [
-        "//third_party:auto_value",
-        "//third_party:guava",
     ],
 )
 
 java_library(
     name = "syntax",
-    srcs = glob(
-        [
-            "syntax/**/*.java",
-        ],
-        exclude = ["syntax/StarlarkSemantics.java"],
-    ),
-    deps = [
-        ":events",
-        ":skylark-semantics",
-        ":skylarkinterface",
-        ":util",
-        "//src/main/java/com/google/devtools/build/lib/cmdline",
-        "//src/main/java/com/google/devtools/build/lib/collect/compacthashset",
-        "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
-        "//src/main/java/com/google/devtools/build/lib/concurrent",
-        "//src/main/java/com/google/devtools/build/lib/profiler",
-        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
-        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
-        "//third_party:auto_value",
-        "//third_party:guava",
-        "//third_party:jsr305",
+    srcs = [],
+    visibility = ["//visibility:public"],
+    exports = [
+        "//src/main/java/com/google/devtools/build/lib/syntax:evaluator",
+        "//src/main/java/com/google/devtools/build/lib/syntax:frontend",
     ],
 )
 
@@ -536,7 +492,6 @@ java_library(
         ":rule-definition-context",
         ":skylark_semantics",
         ":skylarkinterface",
-        ":starlark_context",
         ":syntax",
         ":transitive-info-provider",
         ":util",
@@ -549,6 +504,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
         "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi",
+        "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi/core",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//src/main/java/com/google/devtools/common/options",
@@ -643,6 +599,7 @@ java_library(
             "rules/repository/*.java",
             "skyframe/*.java",
             "skyframe/actiongraph/*.java",
+            "skyframe/actiongraph/v2/*.java",
         ],
         allow_empty = True,
         exclude = [
@@ -675,7 +632,6 @@ java_library(
         ":process_util",
         ":provider-collection",
         ":resource-converter",
-        ":rule-definition-context",
         ":skylark_semantics",
         ":skylarkinterface",
         ":syntax",
@@ -709,6 +665,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skyframe/trimming:trimmed_configuration_cache",
         "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi",
         "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi/config",
+        "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi/core",
         "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi/platform",
         "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi/test",
         "//src/main/java/com/google/devtools/build/lib/supplier",
@@ -717,10 +674,9 @@ java_library(
         "//src/main/java/com/google/devtools/build/skyframe",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//src/main/java/com/google/devtools/common/options",
-        "//src/main/java/com/google/devtools/common/options:invocation_policy",
         "//src/main/protobuf:analysis_java_proto",
+        "//src/main/protobuf:analysis_v2_java_proto",
         "//src/main/protobuf:extra_actions_base_java_proto",
-        "//src/main/protobuf:invocation_policy_java_proto",
         "//src/main/protobuf:spawn_java_proto",
         "//src/main/protobuf:test_status_java_proto",
         "//third_party:auto_value",
@@ -728,7 +684,22 @@ java_library(
         "//third_party:guava",
         "//third_party:jsr305",
         "//third_party/protobuf:protobuf_java",
+        "//third_party/protobuf:protobuf_java_util",
         "@remoteapis//:build_bazel_remote_execution_v2_remote_execution_java_proto",
+    ],
+)
+
+java_library(
+    name = "bazel-ninja",
+    srcs = glob(["bazel/rules/ninja/**/*.java"]),
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib:util",
+        "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
+        "//src/main/java/com/google/devtools/build/lib/concurrent",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
+        "//third_party:guava",
+        "//third_party:jsr305",
     ],
 )
 
@@ -737,6 +708,7 @@ java_library(
     srcs = glob(
         [
             "bazel/rules/**/*.java",
+            "bazel/rules/ninja/**/*.java",
         ],
         exclude = [
             "bazel/rules/workspace/*.java",
@@ -760,20 +732,15 @@ java_library(
         ":packages-internal",
         ":proto-rules",
         ":python-rules",
-        ":skylarkinterface_internal",
         ":testing-support-rules",
         ":util",
         "//src/main/java/com/google/devtools/build/lib/actions",
-        "//src/main/java/com/google/devtools/build/lib/buildeventstream",
-        "//src/main/java/com/google/devtools/build/lib/buildeventstream/proto:build_event_stream_java_proto",
+        "//src/main/java/com/google/devtools/build/lib/analysis/platform",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/remote",
         "//src/main/java/com/google/devtools/build/lib/remote/options",
-        "//src/main/java/com/google/devtools/build/lib/rules/apple",
-        "//src/main/java/com/google/devtools/build/lib/rules/apple/cpp",
-        "//src/main/java/com/google/devtools/build/lib/rules/apple/swift",
         "//src/main/java/com/google/devtools/build/lib/rules/config",
         "//src/main/java/com/google/devtools/build/lib/rules/cpp",
         "//src/main/java/com/google/devtools/build/lib/rules/cpp/proto:CcProtoLibrary",
@@ -787,7 +754,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/shell",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
         "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi/android",
-        "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi/apple",
         "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi/cpp",
         "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi/java",
         "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi/proto",
@@ -814,7 +780,6 @@ java_library(
         ":bazel-rules",
         ":build-base",
         ":events",
-        ":io",
         ":packages-internal",
         ":runtime",
         ":util",
@@ -824,10 +789,8 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi/repository",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
-        "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//src/main/java/com/google/devtools/common/options:options_internal",
         "//third_party:guava",
-        "//third_party:jsr305",
     ],
 )
 
@@ -848,10 +811,12 @@ java_library(
         ":build-base",
         "//src/main/java/com/google/devtools/build/lib/bazel/debug:workspace-rule-module",
         "//src/main/java/com/google/devtools/build/lib/buildeventservice",
+        "//src/main/java/com/google/devtools/build/lib/collect/nestedset:options",
         "//src/main/java/com/google/devtools/build/lib/dynamic",
         "//src/main/java/com/google/devtools/build/lib/metrics:metrics_module",
         "//src/main/java/com/google/devtools/build/lib/network:noop_connectivity",
         "//src/main/java/com/google/devtools/build/lib/outputfilter",
+        "//src/main/java/com/google/devtools/build/lib/platform:sleep_prevention_module",
         "//src/main/java/com/google/devtools/build/lib/profiler/callcounts:callcounts_module",
         "//src/main/java/com/google/devtools/build/lib/profiler/memory:allocationtracker_module",
         "//src/main/java/com/google/devtools/build/lib/remote",
@@ -884,6 +849,7 @@ java_library(
         ":util",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/bazel/execlog:stable_sort",
+        "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/remote/options",
         "//src/main/java/com/google/devtools/build/lib/shell",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
@@ -911,8 +877,8 @@ java_library(
         ":packages-internal",
         ":runtime",
         ":util",
-        "//src/main/java/com/google/devtools/build/lib/query2:abstract-blaze-query-env",
-        "//src/main/java/com/google/devtools/build/lib/query2:query-engine",
+        "//src/main/java/com/google/devtools/build/lib/query2/common:abstract-blaze-query-env",
+        "//src/main/java/com/google/devtools/build/lib/query2/engine",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/skyframe",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
@@ -931,6 +897,7 @@ java_library(
         ":util",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:localhost_capacity",
+        "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/java/com/google/devtools/common/options",
@@ -947,29 +914,18 @@ java_library(
             "bazel/repository/**/*.java",
             "bazel/rules/workspace/*.java",
         ],
-        exclude = ["bazel/repository/MavenConnector.java"],
     ),
     resources = [
         "bazel/repository/local_config_platform.WORKSPACE",
-    ],
-    runtime_deps = [
-        "//third_party:jsch",
-        "//third_party:maven_model",
-        "//third_party:plexus_component_annotations",
-        "//third_party:plexus_interpolation",
-        "//third_party:plexus_utils",
-        "//third_party:slf4j",
     ],
     deps = [
         ":build-base",
         ":events",
         ":io",
-        ":maven-connector",
         ":out-err",
         ":packages-internal",
         ":runtime",
         ":skylark_semantics",
-        ":skylarkinterface",
         ":string_util",
         ":util",
         "//src/java_tools/singlejar/java/com/google/devtools/build/zip",
@@ -979,29 +935,19 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/bazel/repository/cache:events",
         "//src/main/java/com/google/devtools/build/lib/bazel/repository/downloader",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
+        "//src/main/java/com/google/devtools/build/lib/profiler",
         "//src/main/java/com/google/devtools/build/lib/shell",
         "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi/repository",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/skyframe",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//src/main/java/com/google/devtools/common/options",
-        "//third_party:aether",
         "//third_party:apache_commons_compress",
         "//third_party:auto_value",
         "//third_party:diffutils",
         "//third_party:guava",
         "//third_party:jsr305",
-        "//third_party:maven",
         "//third_party:xz",
-    ],
-)
-
-java_library(
-    name = "maven-connector",
-    srcs = ["bazel/repository/MavenConnector.java"],
-    deps = [
-        "//third_party:aether",
-        "//third_party:maven_model",
     ],
 )
 
@@ -1043,6 +989,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
         "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi",
+        "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi/core",
         "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi/proto",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/common/options",
@@ -1123,7 +1070,6 @@ java_library(
         ":nativedeps-rules",
         ":packages-internal",
         ":proto-rules",
-        ":skylarkinterface",
         ":util",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:commandline_item",
@@ -1157,6 +1103,7 @@ java_library(
     ),
     deps = [
         ":build-base",
+        ":build-request-options",
         ":events",
         ":filetype",
         ":os_util",
@@ -1171,10 +1118,12 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
         "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi/cpp",
         "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi/python",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/java/com/google/devtools/common/options",
         "//src/main/protobuf:crosstool_config_java_proto",
         "//src/main/protobuf:extra_actions_base_java_proto",
+        "//third_party:error_prone_annotations",
         "//third_party:guava",
         "//third_party:jsr305",
         "//third_party/protobuf:protobuf_java",
@@ -1245,7 +1194,6 @@ java_library(
     deps = [
         ":bug-report",
         ":exitcode-external",
-        ":io",
         ":os_util",
         ":out-err",
         ":runtime",
@@ -1338,14 +1286,15 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/exec/local:options",
+        "//src/main/java/com/google/devtools/build/lib/metrics:event",
+        "//src/main/java/com/google/devtools/build/lib/platform:suspend_counter",
         "//src/main/java/com/google/devtools/build/lib/profiler",
         "//src/main/java/com/google/devtools/build/lib/profiler:profiler-output",
         "//src/main/java/com/google/devtools/build/lib/profiler/memory:allocationtracker",
         "//src/main/java/com/google/devtools/build/lib/query2",
-        "//src/main/java/com/google/devtools/build/lib/query2:abstract-blaze-query-env",
-        "//src/main/java/com/google/devtools/build/lib/query2:aquery-utils",
-        "//src/main/java/com/google/devtools/build/lib/query2:query-engine",
-        "//src/main/java/com/google/devtools/build/lib/query2:query-output",
+        "//src/main/java/com/google/devtools/build/lib/query2/common:abstract-blaze-query-env",
+        "//src/main/java/com/google/devtools/build/lib/query2/engine",
+        "//src/main/java/com/google/devtools/build/lib/query2/query/output",
         "//src/main/java/com/google/devtools/build/lib/shell",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:output_service",
@@ -1525,7 +1474,6 @@ genrule(
     cmd = (
         "cat $(location //site:command-line-reference-prefix.html) > $@ && " +
         "TMP=`mktemp -d /tmp/tmp.XXXXXXXXXX` && " +
-        "mkdir $${TMP}/_embedded_binaries/ && " +
         "$(location :bazel/BazelServer) " +
         "--jvm_flag=-Dio.bazel.EnableJni=0 --batch " +
         "--install_base=$${TMP} --output_base=$${TMP}/output/ --output_user_root=$${TMP} " +

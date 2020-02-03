@@ -14,16 +14,16 @@
 
 package com.google.devtools.build.lib.skylarkbuildapi.platform;
 
-import com.google.devtools.build.lib.skylarkbuildapi.ProviderApi;
+import com.google.devtools.build.lib.skylarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
+import com.google.devtools.build.lib.syntax.StarlarkValue;
 
 /** Module containing functions to interact with the platform APIs. */
 @SkylarkModule(
     name = "platform_common",
     doc = "Functions for Starlark to interact with the platform APIs.")
-public interface PlatformCommonApi {
+public interface PlatformCommonApi extends StarlarkValue {
   @SkylarkCallable(
       name = "TemplateVariableInfo",
       doc =
@@ -35,40 +35,25 @@ public interface PlatformCommonApi {
 
   @SkylarkCallable(
       name = "ToolchainInfo",
-      doc =
-          "The provider constructor for ToolchainInfo. The constructor takes a map of the "
-              + "toolchain's data.",
+      doc = "The provider used to retrieve information about a toolchain.",
       structField = true)
   ProviderApi getToolchainInfoConstructor();
 
   @SkylarkCallable(
       name = "PlatformInfo",
-      doc =
-          "The provider constructor for PlatformInfo. The constructor takes the list of "
-              + "ConstraintValueInfo providers that defines the platform. "
-              + PlatformInfoApi.EXPERIMENTAL_WARNING,
-      structField = true,
-      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_PLATFORM_API)
+      doc = "The provider used to retrieve the information about a platform.",
+      structField = true)
   ProviderApi getPlatformInfoConstructor();
 
   @SkylarkCallable(
       name = "ConstraintSettingInfo",
-      doc =
-          "The provider constructor for ConstraintSettingInfo. The constructor takes the label "
-              + "that uniquely identifies the constraint (and which should always be ctx.label). "
-              + PlatformInfoApi.EXPERIMENTAL_WARNING,
-      structField = true,
-      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_PLATFORM_API)
+      doc = "The provider used to retrieve the information about a constraint setting.",
+      structField = true)
   ProviderApi getConstraintSettingInfoConstructor();
 
   @SkylarkCallable(
       name = "ConstraintValueInfo",
-      doc =
-          "The provider constructor for ConstraintValueInfo. The constructor takes the label that "
-              + "uniquely identifies the constraint value (and which should always be ctx.label), "
-              + "and the ConstraintSettingInfo which the value belongs to. "
-              + PlatformInfoApi.EXPERIMENTAL_WARNING,
-      structField = true,
-      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_PLATFORM_API)
+      doc = "The provider used to retrieve the information about a constraint value.",
+      structField = true)
   ProviderApi getConstraintValueInfoConstructor();
 }

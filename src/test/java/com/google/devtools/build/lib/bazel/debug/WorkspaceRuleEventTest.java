@@ -19,7 +19,6 @@ import static com.google.common.truth.Truth.assertThat;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.bazel.debug.proto.WorkspaceLogProtos;
 import com.google.devtools.build.lib.events.Location;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -36,22 +35,6 @@ public final class WorkspaceRuleEventTest {
     @Override
     public String toString() {
       return "dummy string";
-    }
-  }
-
-  static class DummyLocation extends Location {
-    public DummyLocation() {
-      super(10, 20);
-    };
-
-    @Override
-    public PathFragment getPath() {
-      return null;
-    }
-
-    @Override
-    public String print() {
-      return "location being printed";
     }
   }
 
@@ -77,7 +60,7 @@ public final class WorkspaceRuleEventTest {
                 "outputDir",
                 true,
                 "my_rule",
-                new DummyLocation())
+                Location.fromFileLineColumn("foo", 10, 20))
             .getLogEvent();
 
     List<String> expectedArgs = Arrays.asList("argument 1", "dummy string");
@@ -89,7 +72,7 @@ public final class WorkspaceRuleEventTest {
             "key3", "val3!");
 
     assertThat(event.getRule()).isEqualTo("my_rule");
-    assertThat(event.getLocation()).isEqualTo("location being printed");
+    assertThat(event.getLocation()).isEqualTo("foo:10:20");
 
     WorkspaceLogProtos.ExecuteEvent executeEvent = event.getExecuteEvent();
     assertThat(executeEvent.getTimeoutSeconds()).isEqualTo(2042);

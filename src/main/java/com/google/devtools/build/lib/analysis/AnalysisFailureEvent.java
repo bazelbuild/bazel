@@ -25,21 +25,22 @@ import com.google.devtools.build.lib.buildeventstream.GenericBuildEvent;
 import com.google.devtools.build.lib.buildeventstream.NullConfiguration;
 import com.google.devtools.build.lib.causes.Cause;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import java.util.Collection;
 import javax.annotation.Nullable;
 
 /**
- * This event is fired during the build, when it becomes known that the analysis of a target cannot
- * be completed because of an error in one of its dependencies.
+ * This event is fired during the build, when it becomes known that the analysis of a top-level
+ * target cannot be completed because of an error in one of its dependencies.
  */
 public class AnalysisFailureEvent implements BuildEvent {
   private final ConfiguredTargetKey failedTarget;
   private final BuildEventId configuration;
-  private final Iterable<Cause> rootCauses;
+  private final NestedSet<Cause> rootCauses;
 
   public AnalysisFailureEvent(
-      ConfiguredTargetKey failedTarget, BuildEventId configuration, Iterable<Cause> rootCauses) {
+      ConfiguredTargetKey failedTarget, BuildEventId configuration, NestedSet<Cause> rootCauses) {
     this.failedTarget = failedTarget;
     if (configuration != null) {
       this.configuration = configuration;
@@ -62,13 +63,13 @@ public class AnalysisFailureEvent implements BuildEvent {
    * Returns the label of a single root cause. Use {@link #getRootCauses} to report all root causes.
    */
   @Nullable public Label getLegacyFailureReason() {
-    if (!rootCauses.iterator().hasNext()) {
+    if (rootCauses.isEmpty()) {
       return null;
     }
-    return rootCauses.iterator().next().getLabel();
+    return rootCauses.toList().get(0).getLabel();
   }
 
-  public Iterable<Cause> getRootCauses() {
+  public NestedSet<Cause> getRootCauses() {
     return rootCauses;
   }
 
@@ -79,7 +80,7 @@ public class AnalysisFailureEvent implements BuildEvent {
 
   @Override
   public Collection<BuildEventId> getChildrenEvents() {
-    return ImmutableList.copyOf(Iterables.transform(rootCauses, BuildEventId::fromCause));
+    return ImmutableList.copyOf(Iterables.transform(rootCauses.toList(), BuildEventId::fromCause));
   }
 
   @Override

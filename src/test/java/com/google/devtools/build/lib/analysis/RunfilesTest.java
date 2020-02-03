@@ -432,8 +432,7 @@ public class RunfilesTest extends FoundationTestCase {
     Runfiles runfiles2 = new Runfiles.Builder("TESTING").addLegacyExtraMiddleman(mm2).build();
     Runfiles runfilesMerged =
         new Runfiles.Builder("TESTING").merge(runfiles1).merge(runfiles2).build();
-    assertThat(runfilesMerged.getExtraMiddlemen())
-        .containsExactlyElementsIn(ImmutableList.of(mm1, mm2));
+    assertThat(runfilesMerged.getExtraMiddlemen().toList()).containsExactly(mm1, mm2);
   }
 
   @Test
@@ -452,7 +451,7 @@ public class RunfilesTest extends FoundationTestCase {
                         .map((f) -> f.replaceName(f.getBaseName() + "-empty"))
                         .collect(ImmutableList.toImmutableList()))
             .build();
-    assertThat(runfiles.getEmptyFilenames())
+    assertThat(runfiles.getEmptyFilenames().toList())
         .containsExactly("my-artifact-empty", "my-symlink-empty");
   }
 }

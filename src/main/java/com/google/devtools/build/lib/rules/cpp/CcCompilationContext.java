@@ -21,6 +21,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.MiddlemanFactory;
 import com.google.devtools.build.lib.analysis.AnalysisUtils;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
@@ -33,12 +34,18 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.rules.cpp.IncludeScanner.IncludeScanningHeaderData;
+import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcCompilationContextApi;
-import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
+import com.google.devtools.build.lib.syntax.Depset;
+import com.google.devtools.build.lib.syntax.SkylarkType;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.skyframe.SkyFunction.Environment;
+import com.google.devtools.build.skyframe.SkyKey;
+import com.google.devtools.build.skyframe.SkyValue;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
@@ -82,7 +89,7 @@ public final class CcCompilationContext implements CcCompilationContextApi {
   private final boolean propagateModuleMapAsActionInput;
 
   // Derived from depsContexts.
-  private final ImmutableSet<Artifact> compilationPrerequisites;
+  private final NestedSet<Artifact> compilationPrerequisites;
 
   private final CppConfiguration.HeadersCheckingMode headersCheckingMode;
 
@@ -99,7 +106,7 @@ public final class CcCompilationContext implements CcCompilationContextApi {
   @VisibleForSerialization
   CcCompilationContext(
       CommandLineCcCompilationContext commandLineCcCompilationContext,
-      ImmutableSet<Artifact> compilationPrerequisites,
+      NestedSet<Artifact> compilationPrerequisites,
       NestedSet<PathFragment> declaredIncludeDirs,
       NestedSet<Artifact> declaredIncludeSrcs,
       NestedSet<Artifact> nonCodeInputs,
@@ -132,26 +139,25 @@ public final class CcCompilationContext implements CcCompilationContextApi {
   }
 
   @Override
-  public SkylarkNestedSet getSkylarkDefines() {
-    return SkylarkNestedSet.of(
-        String.class, NestedSetBuilder.wrap(Order.STABLE_ORDER, getDefines()));
+  public Depset getSkylarkDefines() {
+    return Depset.of(SkylarkType.STRING, getDefines());
   }
 
   @Override
-  public SkylarkNestedSet getSkylarkNonTransitiveDefines() {
-    return SkylarkNestedSet.of(
-        String.class, NestedSetBuilder.wrap(Order.STABLE_ORDER, getNonTransitiveDefines()));
+  public Depset getSkylarkNonTransitiveDefines() {
+    return Depset.of(
+        SkylarkType.STRING, NestedSetBuilder.wrap(Order.STABLE_ORDER, getNonTransitiveDefines()));
   }
 
   @Override
-  public SkylarkNestedSet getSkylarkHeaders() {
-    return SkylarkNestedSet.of(Artifact.class, getDeclaredIncludeSrcs());
+  public Depset getSkylarkHeaders() {
+    return Depset.of(Artifact.TYPE, getDeclaredIncludeSrcs());
   }
 
   @Override
-  public SkylarkNestedSet getSkylarkSystemIncludeDirs() {
-    return SkylarkNestedSet.of(
-        String.class,
+  public Depset getSkylarkSystemIncludeDirs() {
+    return Depset.of(
+        SkylarkType.STRING,
         NestedSetBuilder.wrap(
             Order.STABLE_ORDER,
             getSystemIncludeDirs().stream()
@@ -160,9 +166,9 @@ public final class CcCompilationContext implements CcCompilationContextApi {
   }
 
   @Override
-  public SkylarkNestedSet getSkylarkFrameworkIncludeDirs() {
-    return SkylarkNestedSet.of(
-        String.class,
+  public Depset getSkylarkFrameworkIncludeDirs() {
+    return Depset.of(
+        SkylarkType.STRING,
         NestedSetBuilder.wrap(
             Order.STABLE_ORDER,
             getFrameworkIncludeDirs().stream()
@@ -171,9 +177,9 @@ public final class CcCompilationContext implements CcCompilationContextApi {
   }
 
   @Override
-  public SkylarkNestedSet getSkylarkIncludeDirs() {
-    return SkylarkNestedSet.of(
-        String.class,
+  public Depset getSkylarkIncludeDirs() {
+    return Depset.of(
+        SkylarkType.STRING,
         NestedSetBuilder.wrap(
             Order.STABLE_ORDER,
             getIncludeDirs().stream()
@@ -182,9 +188,9 @@ public final class CcCompilationContext implements CcCompilationContextApi {
   }
 
   @Override
-  public SkylarkNestedSet getSkylarkQuoteIncludeDirs() {
-    return SkylarkNestedSet.of(
-        String.class,
+  public Depset getSkylarkQuoteIncludeDirs() {
+    return Depset.of(
+        SkylarkType.STRING,
         NestedSetBuilder.wrap(
             Order.STABLE_ORDER,
             getQuoteIncludeDirs().stream()
@@ -210,7 +216,7 @@ public final class CcCompilationContext implements CcCompilationContextApi {
    * <p>The returned set can be empty if there are no prerequisites. Usually, it contains a single
    * middleman.
    */
-  public ImmutableSet<Artifact> getTransitiveCompilationPrerequisites() {
+  public NestedSet<Artifact> getTransitiveCompilationPrerequisites() {
     return compilationPrerequisites;
   }
 
@@ -282,8 +288,65 @@ public final class CcCompilationContext implements CcCompilationContextApi {
     return transitiveHeaderInfos.toList();
   }
 
+  /** Helper class for creating include scanning header data. */
+  public static class IncludeScanningHeaderDataHelper {
+    private IncludeScanningHeaderDataHelper() {}
+
+    public static void handleArtifact(
+        Artifact artifact,
+        Map<PathFragment, Artifact> pathToLegalOutputArtifact,
+        ArrayList<Artifact> treeArtifacts) {
+      if (artifact.isSourceArtifact()) {
+        return;
+      }
+      if (artifact.isTreeArtifact()) {
+        treeArtifacts.add(artifact);
+        return;
+      }
+      pathToLegalOutputArtifact.put(artifact.getExecPath(), artifact);
+    }
+
+    /**
+     * Enter the TreeArtifactValues in each TreeArtifact into pathToLegalOutputArtifact. Returns
+     * true on success.
+     *
+     * <p>If a TreeArtifact's value is missing, returns false, and leave pathToLegalOutputArtifact
+     * unmodified.
+     */
+    public static boolean handleTreeArtifacts(
+        Environment env,
+        Map<PathFragment, Artifact> pathToLegalOutputArtifact,
+        ArrayList<Artifact> treeArtifacts)
+        throws InterruptedException {
+      if (!treeArtifacts.isEmpty()) {
+        Map<SkyKey, SkyValue> valueMap = env.getValues(treeArtifacts);
+        if (env.valuesMissing()) {
+          return false;
+        }
+        for (SkyValue value : valueMap.values()) {
+          Preconditions.checkState(value instanceof TreeArtifactValue);
+          TreeArtifactValue treeArtifactValue = (TreeArtifactValue) value;
+          for (TreeFileArtifact treeFileArtifact : treeArtifactValue.getChildren()) {
+            pathToLegalOutputArtifact.put(treeFileArtifact.getExecPath(), treeFileArtifact);
+          }
+        }
+      }
+      return true;
+    }
+  }
+
+  /**
+   * This method returns null when a required SkyValue is missing and a Skyframe restart is
+   * required.
+   */
+  @Nullable
   public IncludeScanningHeaderData.Builder createIncludeScanningHeaderData(
-      boolean usePic, boolean createModularHeaders, List<HeaderInfo> transitiveHeaderInfoList) {
+      Environment env,
+      boolean usePic,
+      boolean createModularHeaders,
+      List<HeaderInfo> transitiveHeaderInfoList)
+      throws InterruptedException {
+    ArrayList<Artifact> treeArtifacts = new ArrayList<>();
     // We'd prefer for these types to use ImmutableSet/ImmutableMap. However, constructing these is
     // substantially more costly in a way that shows up in profiles.
     Map<PathFragment, Artifact> pathToLegalOutputArtifact = new HashMap<>();
@@ -296,19 +359,19 @@ public final class CcCompilationContext implements CcCompilationContextApi {
       boolean isModule = createModularHeaders && transitiveHeaderInfo.getModule(usePic) != null;
       for (int i = 0; i < transitiveHeaderInfo.modularHeaders.size(); i++) {
         Artifact a = transitiveHeaderInfo.modularHeaders.get(i);
-        if (!a.isSourceArtifact()) {
-          pathToLegalOutputArtifact.put(a.getExecPath(), a);
-        }
+        IncludeScanningHeaderDataHelper.handleArtifact(a, pathToLegalOutputArtifact, treeArtifacts);
         if (isModule) {
           modularHeaders.add(a);
         }
       }
       for (int i = 0; i < transitiveHeaderInfo.textualHeaders.size(); i++) {
         Artifact a = transitiveHeaderInfo.textualHeaders.get(i);
-        if (!a.isSourceArtifact()) {
-          pathToLegalOutputArtifact.put(a.getExecPath(), a);
-        }
+        IncludeScanningHeaderDataHelper.handleArtifact(a, pathToLegalOutputArtifact, treeArtifacts);
       }
+    }
+    if (!IncludeScanningHeaderDataHelper.handleTreeArtifacts(
+        env, pathToLegalOutputArtifact, treeArtifacts)) {
+      return null;
     }
     removeArtifactsFromSet(modularHeaders, headerInfo.modularHeaders);
     removeArtifactsFromSet(modularHeaders, headerInfo.textualHeaders);
@@ -409,7 +472,7 @@ public final class CcCompilationContext implements CcCompilationContextApi {
    * Returns the set of defines needed to compile this target. This includes definitions from the
    * transitive deps closure for the target. The order of the returned collection is deterministic.
    */
-  public ImmutableList<String> getDefines() {
+  public NestedSet<String> getDefines() {
     return commandLineCcCompilationContext.defines;
   }
 
@@ -493,7 +556,7 @@ public final class CcCompilationContext implements CcCompilationContextApi {
     private final ImmutableList<PathFragment> quoteIncludeDirs;
     private final ImmutableList<PathFragment> systemIncludeDirs;
     private final ImmutableList<PathFragment> frameworkIncludeDirs;
-    private final ImmutableList<String> defines;
+    private final NestedSet<String> defines;
     private final ImmutableList<String> localDefines;
 
     CommandLineCcCompilationContext(
@@ -501,7 +564,7 @@ public final class CcCompilationContext implements CcCompilationContextApi {
         ImmutableList<PathFragment> quoteIncludeDirs,
         ImmutableList<PathFragment> systemIncludeDirs,
         ImmutableList<PathFragment> frameworkIncludeDirs,
-        ImmutableList<String> defines,
+        NestedSet<String> defines,
         ImmutableList<String> localDefines) {
       this.includeDirs = includeDirs;
       this.quoteIncludeDirs = quoteIncludeDirs;
@@ -523,7 +586,8 @@ public final class CcCompilationContext implements CcCompilationContextApi {
   /** Builder class for {@link CcCompilationContext}. */
   public static class Builder {
     private String purpose;
-    private final Set<Artifact> compilationPrerequisites = new LinkedHashSet<>();
+    private final NestedSetBuilder<Artifact> compilationPrerequisites =
+        NestedSetBuilder.stableOrder();
     private final Set<PathFragment> includeDirs = new LinkedHashSet<>();
     private final Set<PathFragment> quoteIncludeDirs = new LinkedHashSet<>();
     private final Set<PathFragment> systemIncludeDirs = new LinkedHashSet<>();
@@ -539,7 +603,7 @@ public final class CcCompilationContext implements CcCompilationContextApi {
     private final NestedSetBuilder<Artifact> transitiveModules = NestedSetBuilder.stableOrder();
     private final NestedSetBuilder<Artifact> transitivePicModules = NestedSetBuilder.stableOrder();
     private final Set<Artifact> directModuleMaps = new LinkedHashSet<>();
-    private final Set<String> defines = new LinkedHashSet<>();
+    private final NestedSetBuilder<String> defines = NestedSetBuilder.linkOrder();
     private final Set<String> localDefines = new LinkedHashSet<>();
     private CppModuleMap cppModuleMap;
     private CppModuleMap verificationModuleMap;
@@ -590,7 +654,7 @@ public final class CcCompilationContext implements CcCompilationContextApi {
     public Builder mergeDependentCcCompilationContext(
         CcCompilationContext otherCcCompilationContext) {
       Preconditions.checkNotNull(otherCcCompilationContext);
-      compilationPrerequisites.addAll(
+      compilationPrerequisites.addTransitive(
           otherCcCompilationContext.getTransitiveCompilationPrerequisites());
       includeDirs.addAll(otherCcCompilationContext.getIncludeDirs());
       quoteIncludeDirs.addAll(otherCcCompilationContext.getQuoteIncludeDirs());
@@ -616,7 +680,7 @@ public final class CcCompilationContext implements CcCompilationContextApi {
         directModuleMaps.add(otherCcCompilationContext.getCppModuleMap().getArtifact());
       }
 
-      defines.addAll(otherCcCompilationContext.getDefines());
+      defines.addTransitive(otherCcCompilationContext.getDefines());
       virtualToOriginalHeaders.addTransitive(
           otherCcCompilationContext.getVirtualToOriginalHeaders());
       return this;
@@ -734,19 +798,15 @@ public final class CcCompilationContext implements CcCompilationContextApi {
       return this;
     }
 
-    /**
-     * Adds a single define.
-     */
+    /** Adds a single define. */
     public Builder addDefine(String define) {
       defines.add(define);
       return this;
     }
 
-    /**
-     * Adds multiple defines.
-     */
-    public Builder addDefines(Iterable<String> defines) {
-      Iterables.addAll(this.defines, defines);
+    /** Adds multiple defines. */
+    public Builder addDefines(NestedSet<String> defines) {
+      this.defines.addTransitive(defines);
       return this;
     }
 
@@ -819,7 +879,7 @@ public final class CcCompilationContext implements CcCompilationContextApi {
 
     @VisibleForTesting // productionVisibility = Visibility.PRIVATE
     public CcCompilationContext build(ActionOwner owner, MiddlemanFactory middlemanFactory) {
-      Artifact prerequisiteStampFile = createMiddleman(owner, middlemanFactory);
+      NestedSet<Artifact> constructedPrereq = createMiddleman(owner, middlemanFactory);
       HeaderInfo headerInfo = headerInfoBuilder.build();
       transitiveHeaderInfo.add(headerInfo);
 
@@ -829,14 +889,9 @@ public final class CcCompilationContext implements CcCompilationContextApi {
               ImmutableList.copyOf(quoteIncludeDirs),
               ImmutableList.copyOf(systemIncludeDirs),
               ImmutableList.copyOf(frameworkIncludeDirs),
-              ImmutableList.copyOf(defines),
+              defines.build(),
               ImmutableList.copyOf(localDefines)),
-          // TODO(b/110873917): We don't have the middle man compilation prerequisite, therefore, we
-          // use the compilation prerequisites as they were passed to the builder, i.e. we use every
-          // header instead of a middle man.
-          prerequisiteStampFile == null
-              ? ImmutableSet.copyOf(compilationPrerequisites)
-              : ImmutableSet.of(prerequisiteStampFile),
+          constructedPrereq,
           declaredIncludeDirs.build(),
           declaredIncludeSrcs.build(),
           nonCodeInputs.build(),
@@ -852,41 +907,45 @@ public final class CcCompilationContext implements CcCompilationContextApi {
           virtualToOriginalHeaders.build());
     }
 
-    /**
-     * Creates a middleman for the compilation prerequisites.
-     *
-     * @return the middleman or null if there are no prerequisites
-     */
-    private Artifact createMiddleman(ActionOwner owner,
-        MiddlemanFactory middlemanFactory) {
-      if (middlemanFactory == null || compilationPrerequisites.isEmpty()) {
-        return null;
+    /** Creates a middleman for the compilation prerequisites. */
+    private NestedSet<Artifact> createMiddleman(
+        ActionOwner owner, MiddlemanFactory middlemanFactory) {
+      if (middlemanFactory == null) {
+        // TODO(b/110873917): We don't have a middleman factory, therefore, we use the compilation
+        // prerequisites as they were passed to the builder, i.e. we use every header instead of a
+        // middle man.
+        return compilationPrerequisites.build();
+      }
+      if (compilationPrerequisites.isEmpty()) {
+        return compilationPrerequisites.build();
       }
 
-      // Compilation prerequisites gathered in the compilationPrerequisites
-      // must be generated prior to executing C++ compilation step that depends
-      // on them (since these prerequisites include all potential header files, etc
-      // that could be referenced during compilation). So there is a definite need
-      // to ensure scheduling edge dependency. However, those prerequisites should
-      // have no effect on the decision whether C++ compilation should happen in
-      // the first place - only CppCompileAction outputs (*.o and *.d files) and
-      // all files referenced by the *.d file should be used to make that decision.
-      // If this action was never executed, then *.d file would be missing, forcing
-      // compilation to occur. If *.d file is present and has not changed then the
-      // only reason that would force us to re-compile would be change in one of
-      // the files referenced by the *.d file, since no other files participated
-      // in the compilation. We also need to propagate errors through this
-      // dependency link. So we use an scheduling dependency middleman.
-      // Such middleman will be ignored by the dependency checker yet will still
-      // represent an edge in the action dependency graph - forcing proper execution
+      // Compilation prerequisites gathered in the compilationPrerequisites must be generated prior
+      // to executing a C++ compilation step that depends on them (since these prerequisites include
+      // all potential header files, etc that could be referenced during compilation). So there is a
+      // definite need to ensure a scheduling dependency. However, those prerequisites should have
+      // no effect on the decision whether C++ compilation should happen in the first place - only
+      // the CppCompileAction outputs (.o and .d files) and all files referenced by the .d file
+      // should be used to make that decision.
+      //
+      // If this action was never executed, then the .d file is missing, forcing compilation. If the
+      // .d file is present and has not changed then the only reason that would force us to
+      // re-compile would be change in one of the files referenced by the .d file, since no other
+      // files participated in the compilation.
+      //
+      // We also need to propagate errors through this dependency link. Therefore, we use a
+      // scheduling dependency middleman. Such a middleman will be ignored by the dependency checker
+      // yet still represents an edge in the action dependency graph - forcing proper execution
       // order and error propagation.
       String name = cppModuleMap != null ? cppModuleMap.getName() : label.toString();
-      return middlemanFactory.createSchedulingDependencyMiddleman(
-          owner,
-          name,
-          purpose,
-          ImmutableList.copyOf(compilationPrerequisites),
-          configuration.getMiddlemanDirectory(label.getPackageIdentifier().getRepository()));
+      Artifact prerequisiteStampFile =
+          middlemanFactory.createSchedulingDependencyMiddleman(
+              owner,
+              name,
+              purpose,
+              compilationPrerequisites.build(),
+              configuration.getMiddlemanDirectory(label.getPackageIdentifier().getRepository()));
+      return NestedSetBuilder.create(Order.STABLE_ORDER, prerequisiteStampFile);
     }
   }
 

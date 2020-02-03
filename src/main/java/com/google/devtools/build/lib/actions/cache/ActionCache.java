@@ -14,10 +14,9 @@
 
 package com.google.devtools.build.lib.actions.cache;
 
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
+import com.google.common.io.BaseEncoding;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.cache.Protos.ActionCacheStatistics;
 import com.google.devtools.build.lib.actions.cache.Protos.ActionCacheStatistics.MissReason;
@@ -25,10 +24,8 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
 import java.io.PrintStream;
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import javax.annotation.Nullable;
@@ -63,60 +60,26 @@ public interface ActionCache {
   void remove(String key);
 
   /**
-   * An entry in the ActionCache that contains all action input and output
-   * artifact paths and their metadata plus action key itself.
-   *
-   * Cache entry operates under assumption that once it is fully initialized
-   * and getFileDigest() method is called, it becomes logically immutable (all methods
-   * will continue to return same result regardless of internal data transformations).
+   * An entry in the ActionCache that contains the action key, input digest, and environment digest.
+   * For input-discovering actions, it also contains the paths of the action's inputs and outputs.
    */
   final class Entry {
     /** Unique instance to represent a corrupted cache entry. */
-    public static final ActionCache.Entry CORRUPTED =
-        new ActionCache.Entry(null, ImmutableMap.<String, String>of(), false);
+    public static final ActionCache.Entry CORRUPTED = new ActionCache.Entry(null, null, null, null);
 
     private final String actionKey;
     @Nullable
     // Null iff the corresponding action does not do input discovery.
     private final List<String> files;
-    // If null, md5Digest is non-null and the entry is immutable.
-    private Map<String, FileArtifactValue> mdMap;
-    private Md5Digest md5Digest;
-    private final Md5Digest usedClientEnvDigest;
 
-    public Entry(String key, Map<String, String> usedClientEnv, boolean discoversInputs) {
-      actionKey = key;
-      this.usedClientEnvDigest = DigestUtils.fromEnv(usedClientEnv);
-      files = discoversInputs ? new ArrayList<String>() : null;
-      mdMap = new HashMap<>();
-    }
+    private final byte[] digest;
+    private final byte[] usedClientEnvDigest;
 
-    public Entry(
-        String key,
-        Md5Digest usedClientEnvDigest,
-        @Nullable List<String> files,
-        Md5Digest md5Digest) {
+    Entry(String key, byte[] usedClientEnvDigest, @Nullable List<String> files, byte[] digest) {
       actionKey = key;
       this.usedClientEnvDigest = usedClientEnvDigest;
       this.files = files;
-      this.md5Digest = md5Digest;
-      mdMap = null;
-    }
-
-    /**
-     * Adds the artifact, specified by the executable relative path and its metadata into the cache
-     * entry.
-     */
-    public void addFile(PathFragment relativePath, FileArtifactValue md) {
-      Preconditions.checkState(mdMap != null);
-      Preconditions.checkState(!isCorrupted());
-      Preconditions.checkState(md5Digest == null);
-
-      String execPath = relativePath.getPathString();
-      if (discoversInputs()) {
-        files.add(execPath);
-      }
-      mdMap.put(execPath, md);
+      this.digest = digest;
     }
 
     /**
@@ -127,22 +90,13 @@ public interface ActionCache {
     }
 
     /** @return the effectively used client environment */
-    public Md5Digest getUsedClientEnvDigest() {
+    public byte[] getUsedClientEnvDigest() {
       return usedClientEnvDigest;
     }
 
-    /**
-     * Returns the combined md5Digest of the action's inputs and outputs.
-     *
-     * <p>This may compresses the data into a more compact representation, and makes the object
-     * immutable.
-     */
-    public Md5Digest getFileDigest() {
-      if (md5Digest == null) {
-        md5Digest = DigestUtils.fromMetadata(mdMap);
-        mdMap = null;
-      }
-      return md5Digest;
+    /** Returns the combined digest of the action's inputs and outputs. */
+    public byte[] getFileDigest() {
+      return digest;
     }
 
     /**
@@ -166,17 +120,20 @@ public interface ActionCache {
       return files != null;
     }
 
+    private static final String formatDigest(byte[] digest) {
+      return BaseEncoding.base16().lowerCase().encode(digest);
+    }
+
     @Override
     public String toString() {
       StringBuilder builder = new StringBuilder();
       builder.append("      actionKey = ").append(actionKey).append("\n");
-      builder.append("      usedClientEnvKey = ").append(usedClientEnvDigest).append("\n");
+      builder
+          .append("      usedClientEnvKey = ")
+          .append(formatDigest(usedClientEnvDigest))
+          .append("\n");
       builder.append("      digestKey = ");
-      if (md5Digest == null) {
-        builder.append(DigestUtils.fromMetadata(mdMap)).append(" (from mdMap)\n");
-      } else {
-        builder.append(md5Digest).append("\n");
-      }
+      builder.append(formatDigest(digest)).append("\n");
 
       if (discoversInputs()) {
         List<String> fileInfo = Lists.newArrayListWithCapacity(files.size());
@@ -187,6 +144,40 @@ public interface ActionCache {
         }
       }
       return builder.toString();
+    }
+
+    public static final class Builder {
+      private final String actionKey;
+      private final byte[] usedClientEnvDigest;
+      private final ImmutableList.Builder<String> files;
+      private final OrderIndependentHasher hasher = new OrderIndependentHasher();
+
+      public Builder(String key, Map<String, String> usedClientEnv, boolean discoversInputs) {
+        actionKey = key;
+        this.usedClientEnvDigest = DigestUtils.fromEnv(usedClientEnv);
+        files = discoversInputs ? ImmutableList.<String>builder() : null;
+      }
+
+      /**
+       * Add the artifact, specified by the executable relative path and its metadata into the cache
+       * entry. It is not allowed to call addFile with the same arguments twice; doing so may cause
+       * incorrect builds.
+       */
+      public void addFile(PathFragment relativePath, FileArtifactValue md) {
+        String execPath = relativePath.getPathString();
+        if (files != null) {
+          files.add(execPath);
+        }
+        hasher.addArtifact(execPath, md);
+      }
+
+      public Entry build() {
+        return new Entry(
+            actionKey,
+            usedClientEnvDigest,
+            (files != null) ? files.build() : null,
+            hasher.finish());
+      }
     }
   }
 

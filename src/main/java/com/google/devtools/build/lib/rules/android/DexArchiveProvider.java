@@ -117,7 +117,8 @@ public class DexArchiveProvider implements TransitiveInfoProvider {
     // Can't use ImmutableMap because we can encounter the same key-value pair multiple times.
     // Use LinkedHashMap in case someone tries to iterate this map (not the case as of 2/2017).
     LinkedHashMap<Artifact, Artifact> result = new LinkedHashMap<>();
-    for (ImmutableTable<ImmutableSet<String>, Artifact, Artifact> partialMapping : dexArchives) {
+    for (ImmutableTable<ImmutableSet<String>, Artifact, Artifact> partialMapping :
+        dexArchives.toList()) {
       result.putAll(partialMapping.row(dexopts));
     }
     return result;

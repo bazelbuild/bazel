@@ -18,6 +18,8 @@ import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.LicensesProvider;
 import com.google.devtools.build.lib.analysis.LicensesProviderImpl;
+import com.google.devtools.build.lib.analysis.OutputGroupInfo;
+import com.google.devtools.build.lib.analysis.RequiredConfigFragmentsProvider;
 import com.google.devtools.build.lib.analysis.TargetContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
@@ -30,7 +32,7 @@ import com.google.devtools.build.lib.skyframe.BuildConfigurationValue;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.Instantiator;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
+import com.google.devtools.build.lib.syntax.Printer;
 
 /** A ConfiguredTarget for an OutputFile. */
 @AutoCodec
@@ -59,7 +61,16 @@ public class OutputFileConfiguredTarget extends FileConfiguredTarget {
       NestedSet<PackageGroupContents> visibility,
       Artifact artifact,
       TransitiveInfoCollection generatingRule) {
-    super(label, configurationKey, visibility, artifact, instrumentedFilesInfo(generatingRule));
+
+    super(
+        label,
+        configurationKey,
+        visibility,
+        artifact,
+        instrumentedFilesInfo(generatingRule),
+        generatingRule.getProvider(RequiredConfigFragmentsProvider.class),
+        Preconditions.checkNotNull(generatingRule).get(OutputGroupInfo.SKYLARK_CONSTRUCTOR));
+
     this.artifact = artifact;
     this.generatingRule = Preconditions.checkNotNull(generatingRule);
   }
@@ -113,7 +124,7 @@ public class OutputFileConfiguredTarget extends FileConfiguredTarget {
   }
 
   @Override
-  public void repr(SkylarkPrinter printer) {
+  public void repr(Printer printer) {
     printer.append("<output file target " + getLabel() + ">");
   }
 }

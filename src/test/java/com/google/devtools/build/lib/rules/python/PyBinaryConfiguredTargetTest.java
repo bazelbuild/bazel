@@ -66,6 +66,14 @@ public class PyBinaryConfiguredTargetTest extends PyExecutableConfiguredTargetTe
   }
 
   @Test
+  public void pythonWithIncompatibleSrcsNewSemanticsErrorMessageContainsLabel() throws Exception {
+    useConfiguration("--incompatible_allow_python_version_transitions=true");
+    declareBinDependingOnLibWithVersions("PY2", "PY3");
+    assertThat(getPyExecutableDeferredError("//pkg:bin"))
+        .startsWith("//pkg:bin: This target is being built for Python 2 but");
+  }
+
+  @Test
   public void python2WithPy3OnlySrcsVersionDependency_OldSemantics() throws Exception {
     reporter.removeHandler(failFastHandler); // expect errors
     useConfiguration("--incompatible_allow_python_version_transitions=false");
@@ -107,7 +115,7 @@ public class PyBinaryConfiguredTargetTest extends PyExecutableConfiguredTargetTe
         "    srcs = ['foo.py'])");
     ConfiguredTarget target = getOkPyTarget("//pkg:foo");
     FileConfiguredTarget srcFile = getFileConfiguredTarget("//pkg:foo.py");
-    assertThat(getFilesToBuild(target))
+    assertThat(getFilesToBuild(target).toList())
         .containsExactly(getExecutable(target), srcFile.getArtifact());
     assertThat(getExecutable(target).getExecPath().getPathString())
         .containsMatch(TestConstants.PRODUCT_NAME + "-out/.*/bin/pkg/foo");

@@ -32,7 +32,8 @@ public class QueryOutputUtils {
   private QueryOutputUtils() {}
 
   public static boolean shouldStreamResults(QueryOptions queryOptions, OutputFormatter formatter) {
-    return queryOptions.orderOutput == OrderOutput.NO
+    return (queryOptions.orderOutput == OrderOutput.NO
+            || (queryOptions.orderOutput == OrderOutput.AUTO && queryOptions.preferUnorderedOutput))
         && formatter instanceof StreamedFormatter;
   }
 
@@ -61,20 +62,8 @@ public class QueryOutputUtils {
         subgraph = digraphQueryEvalResult.getGraph().extractSubgraph(targetsResult);
       }
 
-      // Building ConditionalEdges involves traversing the subgraph and so we only do this when
-      // needed.
-      //
-      // TODO(bazel-team): Remove this while adding support for conditional edges in other
-      // formatters.
-      ConditionalEdges conditionalEdges;
-      if (formatter instanceof GraphOutputFormatter) {
-        conditionalEdges = new ConditionalEdges(subgraph);
-      } else {
-        conditionalEdges = new ConditionalEdges();
-      }
-
       try (SilentCloseable closeable = Profiler.instance().profile("formatter.output")) {
-        formatter.output(queryOptions, subgraph, outputStream, aspectResolver, conditionalEdges);
+        formatter.output(queryOptions, subgraph, outputStream, aspectResolver);
       }
     }
   }

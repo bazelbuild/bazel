@@ -18,6 +18,7 @@ import static com.google.common.truth.Truth.assertThat;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
+import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.AnalysisResult;
@@ -26,8 +27,9 @@ import com.google.devtools.build.lib.analysis.util.AnalysisTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.SkylarkProvider.SkylarkKey;
 import com.google.devtools.build.lib.packages.StructImpl;
-import com.google.devtools.build.lib.syntax.SkylarkDict;
-import com.google.devtools.build.lib.syntax.SkylarkList;
+import com.google.devtools.build.lib.syntax.Dict;
+import com.google.devtools.build.lib.syntax.Mutability;
+import com.google.devtools.build.lib.syntax.Sequence;
 import java.util.List;
 import java.util.stream.Collectors;
 import org.junit.Test;
@@ -66,12 +68,14 @@ public class SkylarkActionProviderTest extends AnalysisTestCase {
     StructImpl fooProvider = (StructImpl) configuredAspect.get(fooKey);
     assertThat(fooProvider.getValue("actions")).isNotNull();
     @SuppressWarnings("unchecked")
-    SkylarkList<ActionAnalysisMetadata> actions =
-        (SkylarkList<ActionAnalysisMetadata>) fooProvider.getValue("actions");
+    Sequence<ActionAnalysisMetadata> actions =
+        (Sequence<ActionAnalysisMetadata>) fooProvider.getValue("actions");
     assertThat(actions).isNotEmpty();
 
     ActionAnalysisMetadata action = actions.get(0);
     assertThat(action.getMnemonic()).isEqualTo("Genrule");
+    assertThat(action).isInstanceOf(AbstractAction.class);
+    assertThat(((AbstractAction) action).getExecutionInfo()).isNotNull();
   }
 
   @Test
@@ -83,6 +87,7 @@ public class SkylarkActionProviderTest extends AnalysisTestCase {
         "def _impl(target, ctx):",
         "   mnemonics = [a.mnemonic for a in target.actions]",
         "   envs = [a.env for a in target.actions]",
+        "   execution_info = [a.execution_info for a in target.actions]",
         "   inputs = [a.inputs.to_list() for a in target.actions]",
         "   outputs = [a.outputs.to_list() for a in target.actions]",
         "   argv = [a.argv for a in target.actions]",
@@ -90,6 +95,7 @@ public class SkylarkActionProviderTest extends AnalysisTestCase {
         "       actions = target.actions,",
         "       mnemonics = mnemonics,",
         "       envs = envs,",
+        "       execution_info = execution_info,",
         "       inputs = inputs,",
         "       outputs = outputs,",
         "       argv = argv",
@@ -110,6 +116,7 @@ public class SkylarkActionProviderTest extends AnalysisTestCase {
     scratch.file(
         "test/BUILD", "load('//test:rule.bzl', 'my_rule')", "my_rule(", "   name = 'xxx',", ")");
 
+    useConfiguration("--experimental_google_legacy_api");
     AnalysisResult analysisResult =
         update(ImmutableList.of("test/aspect.bzl%MyAspect"), "//test:xxx");
 
@@ -121,37 +128,39 @@ public class SkylarkActionProviderTest extends AnalysisTestCase {
     StructImpl fooProvider = (StructImpl) configuredAspect.get(fooKey);
     assertThat(fooProvider.getValue("actions")).isNotNull();
 
-    SkylarkList<ActionAnalysisMetadata> actions =
-        (SkylarkList<ActionAnalysisMetadata>) fooProvider.getValue("actions");
+    Sequence<ActionAnalysisMetadata> actions =
+        (Sequence<ActionAnalysisMetadata>) fooProvider.getValue("actions");
     assertThat(actions).hasSize(2);
 
-    SkylarkList<String> mnemonics =
-        (SkylarkList<String>) fooProvider.getValue("mnemonics");
+    Sequence<String> mnemonics = (Sequence<String>) fooProvider.getValue("mnemonics");
     assertThat(mnemonics).containsExactly("MyAction0", "MyAction1");
 
-    SkylarkList<SkylarkDict<String, String>> envs =
-        (SkylarkList<SkylarkDict<String, String>>) fooProvider.getValue("envs");
-    assertThat(envs).containsExactly(
-        SkylarkDict.of(null, "foo", "bar", "pet", "puppy"),
-        SkylarkDict.of(null, "pet", "bunny"));
+    Sequence<Dict<String, String>> envs =
+        (Sequence<Dict<String, String>>) fooProvider.getValue("envs");
+    assertThat(envs)
+        .containsExactly(
+            Dict.of((Mutability) null, "foo", "bar", "pet", "puppy"),
+            Dict.of((Mutability) null, "pet", "bunny"));
 
-    SkylarkList<SkylarkList<Artifact>> inputs =
-        (SkylarkList<SkylarkList<Artifact>>) fooProvider.getValue("inputs");
+    Sequence<Dict<String, String>> executionInfo =
+        (Sequence<Dict<String, String>>) fooProvider.getValue("execution_info");
+    assertThat(executionInfo).isNotNull();
+
+    Sequence<Sequence<Artifact>> inputs =
+        (Sequence<Sequence<Artifact>>) fooProvider.getValue("inputs");
     assertThat(flattenArtifactNames(inputs)).containsExactly("executable");
 
-    SkylarkList<SkylarkList<Artifact>> outputs =
-        (SkylarkList<SkylarkList<Artifact>>) fooProvider.getValue("outputs");
+    Sequence<Sequence<Artifact>> outputs =
+        (Sequence<Sequence<Artifact>>) fooProvider.getValue("outputs");
     assertThat(flattenArtifactNames(outputs)).containsExactly("myfile0", "executable", "myfile1");
 
-    SkylarkList<SkylarkList<String>> argv =
-        (SkylarkList<SkylarkList<String>>) fooProvider.getValue("argv");
+    Sequence<Sequence<String>> argv = (Sequence<Sequence<String>>) fooProvider.getValue("argv");
     assertThat(argv.get(0)).hasSize(1);
     assertThat(argv.get(0).get(0)).endsWith("executable");
     assertThat(argv.get(1)).contains("fakecmd");
   }
 
-  private static List<String> flattenArtifactNames(
-      SkylarkList<SkylarkList<Artifact>> artifactLists) {
+  private static List<String> flattenArtifactNames(Sequence<Sequence<Artifact>> artifactLists) {
     return artifactLists.stream()
         .flatMap(artifacts -> artifacts.stream())
         .map(artifact -> artifact.getFilename())

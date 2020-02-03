@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkInterfaceUtils;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkDeprecated;
 import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
 import java.lang.reflect.Method;
@@ -33,6 +34,8 @@ public final class SkylarkJavaMethodDoc extends SkylarkMethodDoc {
   private final Method method;
   private final SkylarkCallable callable;
   private final ImmutableList<SkylarkParamDoc> params;
+  // TODO(cparsons): Move to superclass when SkylarkBuiltinMethodDoc is removed.
+  private final boolean deprecated;
 
   private boolean isOverloaded;
 
@@ -47,6 +50,7 @@ public final class SkylarkJavaMethodDoc extends SkylarkMethodDoc {
             withoutSelfParam(callable, method),
             callable.extraPositionals(),
             callable.extraKeywords());
+    this.deprecated = method.isAnnotationPresent(StarlarkDeprecated.class);
   }
 
   public Method getMethod() {
@@ -56,6 +60,11 @@ public final class SkylarkJavaMethodDoc extends SkylarkMethodDoc {
   @Override
   public boolean documented() {
     return callable.documented();
+  }
+
+  @Override
+  public boolean isDeprecated() {
+    return deprecated;
   }
 
   @Override

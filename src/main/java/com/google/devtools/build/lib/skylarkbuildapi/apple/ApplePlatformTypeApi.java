@@ -16,7 +16,7 @@ package com.google.devtools.build.lib.skylarkbuildapi.apple;
 
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
+import com.google.devtools.build.lib.syntax.StarlarkValue;
 
 /** Interface for a descriptor for an Apple platform type, such as such as iOS or macOS. */
 @SkylarkModule(
@@ -36,4 +36,4 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
             + " <code>platform_type</code> field.<p>Platform types can be converted to a lowercase"
             + " string (e.g., <code>ios</code> or <code>macos</code>) using the <a"
             + " href='globals.html#str'>str</a> function.")
-public interface ApplePlatformTypeApi extends SkylarkValue {}
+public interface ApplePlatformTypeApi extends StarlarkValue {}

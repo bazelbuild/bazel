@@ -1,6 +1,6 @@
-package(default_visibility = ["//src/tools/launcher:__subpackages__"])
+load("//src/tools/launcher:win_rules.bzl", "win_cc_library", "win_cc_test")
 
-load("//src/tools/launcher:win_rules.bzl", "win_cc_binary", "win_cc_library", "win_cc_test")
+package(default_visibility = ["//src/tools/launcher:__subpackages__"])
 
 filegroup(
     name = "srcs",

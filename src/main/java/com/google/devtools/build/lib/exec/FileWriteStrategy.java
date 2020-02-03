@@ -18,8 +18,6 @@ import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
-import com.google.devtools.build.lib.actions.ExecException;
-import com.google.devtools.build.lib.actions.ExecutionStrategy;
 import com.google.devtools.build.lib.actions.RunningActionEvent;
 import com.google.devtools.build.lib.actions.SpawnContinuation;
 import com.google.devtools.build.lib.analysis.actions.AbstractFileWriteAction;
@@ -35,13 +33,9 @@ import java.util.logging.Logger;
 /**
  * A strategy for executing an {@link AbstractFileWriteAction}.
  */
-@ExecutionStrategy(name = { "local" }, contextType = FileWriteActionContext.class)
 public final class FileWriteStrategy implements FileWriteActionContext {
   private static final Logger logger = Logger.getLogger(FileWriteStrategy.class.getName());
   public static final Class<FileWriteStrategy> TYPE = FileWriteStrategy.class;
-
-  public FileWriteStrategy() {
-  }
 
   @Override
   public SpawnContinuation beginWriteOutputToFile(
@@ -49,8 +43,7 @@ public final class FileWriteStrategy implements FileWriteActionContext {
       ActionExecutionContext actionExecutionContext,
       DeterministicWriter deterministicWriter,
       boolean makeExecutable,
-      boolean isRemotable)
-      throws ExecException {
+      boolean isRemotable) {
     actionExecutionContext.getEventHandler().post(new RunningActionEvent(action, "local"));
     // TODO(ulfjack): Consider acquiring local resources here before trying to write the file.
     try (AutoProfiler p =
@@ -68,7 +61,7 @@ public final class FileWriteStrategy implements FileWriteActionContext {
           outputPath.setExecutable(true);
         }
       } catch (IOException e) {
-        throw new EnvironmentalExecException(e);
+        return SpawnContinuation.failedWithExecException(new EnvironmentalExecException(e));
       }
     }
     return SpawnContinuation.immediate();

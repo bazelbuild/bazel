@@ -29,7 +29,7 @@ import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skylarkbuildapi.LateBoundDefaultApi;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkInterfaceUtils;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
+import com.google.devtools.build.lib.syntax.Printer;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.Map;
@@ -58,7 +58,6 @@ public class SkylarkLateBoundDefault<FragmentT> extends AbstractLabelLateBoundDe
 
   @Override
   public Label resolve(Rule rule, AttributeMap attributes, FragmentT config) {
-    Class<?> fragmentClass = config.getClass();
     try {
       Object result = method.invoke(config);
       return (Label) result;
@@ -122,7 +121,7 @@ public class SkylarkLateBoundDefault<FragmentT> extends AbstractLabelLateBoundDe
   }
 
   @Override
-  public void repr(SkylarkPrinter printer) {
+  public void repr(Printer printer) {
     printer.format("<late-bound default>");
   }
 
@@ -224,26 +223,24 @@ public class SkylarkLateBoundDefault<FragmentT> extends AbstractLabelLateBoundDe
               });
 
   /**
-   * Returns a {@link LateBoundDefault} which obtains a late-bound attribute value
-   * (of type 'label') specifically by skylark configuration fragment name and field name, as
-   * registered by {@link SkylarkConfigurationField}.
+   * Returns a {@link LateBoundDefault} which obtains a late-bound attribute value (of type 'label')
+   * specifically by skylark configuration fragment name and field name, as registered by {@link
+   * SkylarkConfigurationField}.
    *
    * @param fragmentClass the configuration fragment class, which must have a valid skylark name
-   * @param fragmentFieldName the configuration field name, as registered by
-   *     {@link SkylarkConfigurationField} annotation
+   * @param fragmentFieldName the configuration field name, as registered by {@link
+   *     SkylarkConfigurationField} annotation
    * @param toolsRepository the Bazel tools repository path fragment
-   *
    * @throws InvalidConfigurationFieldException if there is no valid configuration field with the
    *     given fragment class and field name
    */
+  @SuppressWarnings("unchecked")
   public static <FragmentT> SkylarkLateBoundDefault<FragmentT> forConfigurationField(
-      Class<FragmentT> fragmentClass,
-      String fragmentFieldName,
-      String toolsRepository) throws InvalidConfigurationFieldException {
+      Class<FragmentT> fragmentClass, String fragmentFieldName, String toolsRepository)
+      throws InvalidConfigurationFieldException {
     try {
       CacheKey cacheKey = new CacheKey(fragmentClass, toolsRepository);
-      SkylarkLateBoundDefault resolver =
-          fieldCache.get(cacheKey).get(fragmentFieldName);
+      SkylarkLateBoundDefault<?> resolver = fieldCache.get(cacheKey).get(fragmentFieldName);
       if (resolver == null) {
         SkylarkModule moduleAnnotation = SkylarkInterfaceUtils.getSkylarkModule(fragmentClass);
         if (moduleAnnotation == null) {
@@ -253,7 +250,7 @@ public class SkylarkLateBoundDefault<FragmentT> extends AbstractLabelLateBoundDe
             String.format("invalid configuration field name '%s' on fragment '%s'",
                 fragmentFieldName, moduleAnnotation.name()));
       }
-      return resolver;
+      return (SkylarkLateBoundDefault<FragmentT>) resolver; // unchecked cast
     } catch (ExecutionException e) {
       throw new IllegalStateException("method invocation failed: " + e);
     }

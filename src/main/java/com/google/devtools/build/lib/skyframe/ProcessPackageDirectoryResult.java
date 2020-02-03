@@ -14,25 +14,37 @@
 package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.skyframe.SkyKey;
+import com.google.devtools.build.skyframe.SkyValue;
 
 /** Result of {@link ProcessPackageDirectory#getPackageExistenceAndSubdirDeps}. */
-class ProcessPackageDirectoryResult {
+public class ProcessPackageDirectoryResult {
   static final ProcessPackageDirectoryResult EMPTY_RESULT =
-      new ProcessPackageDirectoryResult(false, ImmutableList.<SkyKey>of());
+      new ProcessPackageDirectoryResult(false, ImmutableList.<SkyKey>of(), ImmutableMap.of());
   private final boolean packageExists;
   private final Iterable<SkyKey> childDeps;
+  private final ImmutableMap<SkyKey, SkyValue> additionalValuesToAggregate;
 
-  ProcessPackageDirectoryResult(boolean packageExists, Iterable<SkyKey> childDeps) {
+  /** {@code childDeps} and {@code additionalValuesToAggregate} must be disjoint. */
+  public ProcessPackageDirectoryResult(
+      boolean packageExists,
+      Iterable<SkyKey> childDeps,
+      ImmutableMap<SkyKey, SkyValue> additionalValuesToAggregate) {
     this.packageExists = packageExists;
     this.childDeps = childDeps;
+    this.additionalValuesToAggregate = additionalValuesToAggregate;
   }
 
-  boolean packageExists() {
+  public boolean packageExists() {
     return packageExists;
   }
 
-  Iterable<SkyKey> getChildDeps() {
+  public Iterable<SkyKey> getChildDeps() {
     return childDeps;
+  }
+
+  public ImmutableMap<SkyKey, SkyValue> getAdditionalValuesToAggregate() {
+    return additionalValuesToAggregate;
   }
 }

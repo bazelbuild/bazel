@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.base.Preconditions;
-import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
@@ -73,9 +72,8 @@ public final class SkyframeLabelVisitor implements TransitivePackageLoader {
     Set<Map.Entry<SkyKey, ErrorInfo>> errors = result.errorMap().entrySet();
     if (!errorOnCycles) {
       errors =
-          errors
-              .stream()
-              .filter(error -> Iterables.isEmpty(error.getValue().getCycleInfo()))
+          errors.stream()
+              .filter(error -> error.getValue().getCycleInfo().isEmpty())
               .collect(Collectors.toSet());
       if (errors.isEmpty()) {
         return true;
@@ -124,7 +122,7 @@ public final class SkyframeLabelVisitor implements TransitivePackageLoader {
       ErrorInfo errorInfo = errorEntry.getValue();
       Preconditions.checkState(key.functionName().equals(SkyFunctions.TRANSITIVE_TARGET), errorEntry);
       Label topLevelLabel = ((TransitiveTargetKey) key).getLabel();
-      if (!Iterables.isEmpty(errorInfo.getCycleInfo())) {
+      if (!errorInfo.getCycleInfo().isEmpty()) {
         skyframeCyclesReporter.get().reportCycles(errorInfo.getCycleInfo(), key, eventHandler);
       }
       if (isDirectErrorFromTopLevelLabel(topLevelLabel, labelsToVisit, errorInfo)) {
@@ -159,8 +157,9 @@ public final class SkyframeLabelVisitor implements TransitivePackageLoader {
 
   private static boolean isDirectErrorFromTopLevelLabel(Label label, Set<Label> topLevelLabels,
       ErrorInfo errorInfo) {
-    return errorInfo.getException() != null && topLevelLabels.contains(label)
-        && Iterables.contains(errorInfo.getRootCauses(), TransitiveTargetKey.of(label));
+    return errorInfo.getException() != null
+        && topLevelLabels.contains(label)
+        && errorInfo.getRootCauses().toList().contains(TransitiveTargetKey.of(label));
   }
 
   private static void errorAboutLoadingFailure(

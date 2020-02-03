@@ -45,7 +45,7 @@ public final class LtoCompilationContext {
     private final ImmutableList<String> copts;
 
     BitcodeInfo(Artifact minimizedBitcode, ImmutableList<String> copts) {
-      this.minimizedBitcode = Preconditions.checkNotNull(minimizedBitcode);
+      this.minimizedBitcode = minimizedBitcode;
       this.copts = Preconditions.checkNotNull(copts);
     }
 
@@ -120,7 +120,12 @@ public final class LtoCompilationContext {
     if (!containsBitcodeFile(fullBitcode)) {
       return fullBitcode;
     }
-    return ltoBitcodeFiles.get(fullBitcode).getMinimizedBitcode();
+    Artifact minimizedBitcode = ltoBitcodeFiles.get(fullBitcode).getMinimizedBitcode();
+    // Will be null when the feature to use minimized bitcode is disabled.
+    if (minimizedBitcode == null) {
+      return fullBitcode;
+    }
+    return minimizedBitcode;
   }
 
   /**

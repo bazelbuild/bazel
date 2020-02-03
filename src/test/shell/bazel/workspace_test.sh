@@ -784,7 +784,7 @@ a = 1
 EOF
 
   cd mainrepo
-  bazel query --incompatible_remap_main_repo //... &>"$TEST_log" \
+  bazel query //... &>"$TEST_log" \
       || fail "Expected query to succeed"
   expect_log "def.bzl loaded"
   expect_not_log "external"
@@ -812,7 +812,7 @@ EOF
   # the bzl file should be loaded from the main workspace and
   # not as an external repository
   cd mainrepo
-  bazel query --incompatible_remap_main_repo @a//... &>"$TEST_log" \
+  bazel query @a//... &>"$TEST_log" \
       || fail "Expected query to succeed"
   expect_log "def.bzl loaded"
   expect_not_log "external"
@@ -830,8 +830,7 @@ EOF
   # now that @mainrepo doesn't exist within workspace "a",
   # the query should fail
   cd mainrepo
-  bazel query --incompatible_remap_main_repo \
-      @a//... &>"$TEST_log" \
+  bazel query @a//... &>"$TEST_log" \
       && fail "Failure expected" || true
 }
 
@@ -926,7 +925,7 @@ EOF
     chmod u+x code/foo.sh
 
 
-    bazel build --incompatible_remap_main_repo=true //code/... \
+    bazel build //code/... \
           > "${TEST_log}" 2>&1 || fail "expected success"
 }
 
@@ -981,18 +980,218 @@ testrule(
 )
 EOF
 
-    bazel build --incompatible_remap_main_repo=true //toolchains/... \
-          || fail "expected success"
+    bazel build //toolchains/... || fail "expected success"
+}
 
-    echo; echo Without remapping of main repo; echo
-    # Regression test for invalidation of `--incompabtile_remap_main_repo`
-    # (https://github.com/bazelbuild/bazel/issues/8937). As
-    # building without remapping works on a clean checkout, it should also work
-    # on a running bazel.
-    bazel build --incompatible_remap_main_repo=false //toolchains/... \
-          || fail "expected success"
+test_remap_toolchains_from_qualified_load() {
+    cat > WORKSPACE <<'EOF'
+workspace(name = "my_ws")
 
+register_toolchains("@my_ws//toolchains:sample_toolchain")
+EOF
+    mkdir toolchains
+    cat > toolchains/toolchain.bzl <<'EOF'
+def _impl(ctx):
+  return [platform_common.ToolchainInfo()]
+
+mytoolchain = rule(
+  implementation = _impl,
+  attrs = {},
+)
+EOF
+    cat > toolchains/rule.bzl <<'EOF'
+def _impl(ctx):
+  # Ensure the toolchain is available under the requested (non-canonical)
+  # name
+  print("toolchain is %s" %
+        (ctx.toolchains["@my_ws//toolchains:my_toolchain_type"],))
+  pass
+
+testrule = rule(
+  implementation = _impl,
+  attrs = {},
+  toolchains = ["@my_ws//toolchains:my_toolchain_type"],
+)
+EOF
+    cat > toolchains/BUILD <<'EOF'
+load("@my_ws//toolchains:toolchain.bzl", "mytoolchain")
+load("@my_ws//toolchains:rule.bzl", "testrule")
+
+toolchain_type(name = "my_toolchain_type")
+mytoolchain(name = "thetoolchain")
+
+toolchain(
+  name = "sample_toolchain",
+  toolchain = "@my_ws//toolchains:thetoolchain",
+  toolchain_type = "@my_ws//toolchains:my_toolchain_type",
+)
+
+testrule(
+  name = "emptytoolchainconsumer",
+)
+EOF
+
+    bazel build @my_ws//toolchains/... || fail "expected success"
 }
 
 
+function test_rename_visibility() {
+    mkdir local_a
+    touch local_a/WORKSPACE
+    cat > local_a/BUILD <<'EOF'
+genrule(
+  name = "x",
+  outs = ["x.txt"],
+  cmd = "echo Hello World > $@",
+  visibility = ["@foo//:__pkg__"],
+)
+EOF
+    mkdir local_b
+    touch local_b/WORKSPACE
+    cat > local_b/BUILD <<'EOF'
+genrule(
+  name = "y",
+  srcs = ["@source//:x"],
+  cmd = "cp $< $@",
+  outs = ["y.txt"],
+)
+EOF
+    mkdir mainrepo
+    cd mainrepo
+    cat > WORKSPACE <<'EOF'
+local_repository(
+  name = "source",
+  path = "../local_a",
+)
+
+local_repository(
+  name = "foo",
+  path = "../local_b",
+)
+EOF
+   echo; echo Without renaming; echo
+   bazel build @foo//:y || fail "Expected success"
+
+   # Now, verify the same with for renamed to bar.
+   cat > WORKSPACE <<'EOF'
+local_repository(
+  name = "source",
+  path = "../local_a",
+  repo_mapping = {"@foo" : "@bar"}
+)
+
+local_repository(
+  name = "bar",
+  path = "../local_b",
+)
+EOF
+   echo; echo WITH renaming; echo
+   bazel build @bar//:y || fail "Expected success"
+
+   # Finally, verify the same with a renaming in the other repository
+   cat > WORKSPACE <<'EOF'
+local_repository(
+  name = "origin",
+  path = "../local_a",
+)
+
+local_repository(
+  name = "foo",
+  path = "../local_b",
+  repo_mapping = {"@source" : "@origin"}
+)
+EOF
+   echo; echo with renaming of the SOURCE; echo
+   bazel build @foo//:y || fail "Expected success"
+}
+
+function test_renaming_visibility_main() {
+    mkdir local_a
+    touch local_a/WORKSPACE
+    cat > local_a/BUILD <<'EOF'
+genrule(
+  name = "x",
+  outs = ["x.txt"],
+  cmd = "echo Hello World > $@",
+  visibility = ["@foo//:__pkg__"],
+)
+EOF
+    mkdir mainrepo
+    cd mainrepo
+   cat > WORKSPACE <<'EOF'
+workspace(name="foo")
+local_repository(
+  name = "source",
+  path = "../local_a",
+)
+EOF
+    cat > BUILD <<'EOF'
+genrule(
+  name = "y",
+  srcs = ["@source//:x"],
+  cmd = "cp $< $@",
+  outs = ["y.txt"],
+)
+EOF
+    echo; echo remapping main repo; echo
+    bazel build @foo//:y || fail "Expected success"
+
+}
+
+function test_renaming_visibility_via_default() {
+    mkdir local_a
+    touch local_a/WORKSPACE
+    cat > local_a/BUILD <<'EOF'
+genrule(
+  name = "x",
+  outs = ["x.txt"],
+  cmd = "echo Hello World > $@",
+  visibility = ["@foo//data:__pkg__"],
+)
+EOF
+    mkdir mainrepo
+    cd mainrepo
+   cat > WORKSPACE <<'EOF'
+workspace(name="foo")
+local_repository(
+  name = "source",
+  path = "../local_a",
+)
+EOF
+    mkdir data
+    cat > data/BUILD <<'EOF'
+genrule(
+  name = "y",
+  srcs = ["@source//:x"],
+  cmd = "cp $< $@",
+  outs = ["y.txt"],
+  visibility = ["@foo//:__pkg__"],
+)
+EOF
+    cat > datarule.bzl <<'EOF'
+def _data_impl(ctx):
+  output = ctx.actions.declare_file(ctx.label.name + ".txt")
+  ctx.actions.run_shell(
+    inputs = ctx.files._data,
+    outputs = [output],
+    command = "cp $1 $2",
+    arguments = [ctx.files._data[0].path, output.path],
+  )
+
+data = rule(
+         implementation = _data_impl,
+         attrs = {
+          "_data": attr.label(default="@foo//data:y"),
+         },
+         outputs = { "txt" : "%{name}.txt"},
+)
+EOF
+    cat >BUILD <<'EOF'
+load("//:datarule.bzl", "data")
+data(name="it")
+EOF
+    echo; echo remapping main repo; echo
+    bazel build @foo//:it || fail "Expected success"
+
+}
 run_suite "workspace tests"

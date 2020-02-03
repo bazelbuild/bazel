@@ -13,12 +13,14 @@
 // limitations under the License.
 package com.google.devtools.build.lib.query2.query.output;
 
-import com.google.devtools.build.lib.query2.CommonQueryOptions;
+import com.google.devtools.build.lib.query2.common.CommonQueryOptions;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.Setting;
 import com.google.devtools.common.options.EnumConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
+import com.google.devtools.common.options.OptionMetadataTag;
+import com.google.devtools.common.options.TriState;
 import java.util.Set;
 
 /** Command-line options for the Blaze query language, revision 2. */
@@ -89,10 +91,17 @@ public class QueryOptions extends CommonQueryOptions {
 
   /** Whether and how output should be ordered. */
   public enum OrderOutput {
-    NO, /** Make no effort to order output besides that required by output formatter. */
-    DEPS, /** Output in dependency order when compatible with output formatter. */
-    AUTO, /** Same as full unless formatter is proto, minrank, maxrank, or graph, then deps. */
-    FULL /** Output in dependency order, breaking ties with alphabetical order when needed. */
+    /** Make no effort to order output besides that required by output formatter. */
+    NO,
+
+    /** Output in dependency order when compatible with output formatter. */
+    DEPS,
+
+    /** Same as full unless formatter is proto, minrank, maxrank, or graph, then deps. */
+    AUTO,
+
+    /** Output in dependency order, breaking ties with alphabetical order when needed. */
+    FULL
   }
 
   @Option(
@@ -110,6 +119,20 @@ public class QueryOptions extends CommonQueryOptions {
             + "alphabetized before output."
   )
   public OrderOutput orderOutput;
+
+  @Option(
+      name = "incompatible_prefer_unordered_output",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.QUERY,
+      effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
+      metadataTags = {
+        OptionMetadataTag.INCOMPATIBLE_CHANGE,
+        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+      },
+      help =
+          "If this option is set together with --order_output=auto (default) and if the output "
+              + "formatter supports streaming output, then the results will be unordered.")
+  public boolean preferUnorderedOutput;
 
   @Option(
     name = "graph:node_limit",
@@ -191,14 +214,14 @@ public class QueryOptions extends CommonQueryOptions {
 
   @Option(
       name = "experimental_graphless_query",
-      defaultValue = "false",
+      defaultValue = "auto",
       documentationCategory = OptionDocumentationCategory.QUERY,
       effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS, OptionEffectTag.EAGERNESS_TO_EXIT},
       help =
           "If true, uses a Query implementation that does not make a copy of the graph. The new"
               + " implementation only supports --order_output=no, as well as only a subset of"
               + " output formatters.")
-  public boolean useGraphlessQuery;
+  public TriState useGraphlessQuery;
 
   /** Ugly workaround since line terminator option default has to be constant expression. */
   public String getLineTerminator() {

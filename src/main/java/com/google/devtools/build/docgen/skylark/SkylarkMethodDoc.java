@@ -18,7 +18,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkInterfaceUtils;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkSignature;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.List;
@@ -113,37 +112,6 @@ public abstract class SkylarkMethodDoc extends SkylarkDoc {
 
     return String.format("%s %s%s",
         getTypeAnchor(method.getReturnType()), fullyQualifiedMethodName, args);
-  }
-
-  protected String getSignature(String objectName, SkylarkSignature method) {
-    List<String> argList = new ArrayList<>();
-    boolean named = false;
-    for (Param param : withoutSelfParam(method)) {
-      if (param.named() && !param.positional() && !named) {
-        named = true;
-        if (!method.extraPositionals().name().isEmpty()) {
-          argList.add("*" + method.extraPositionals().name());
-        }
-        if (!argList.isEmpty()) {
-          argList.add("*");
-        }
-      }
-      argList.add(formatParameter(param));
-    }
-    if (!named && !method.extraPositionals().name().isEmpty()) {
-      argList.add("*" + method.extraPositionals().name());
-    }
-    if (!method.extraKeywords().name().isEmpty()) {
-      argList.add("**" + method.extraKeywords().name());
-    }
-    String args = "(" + Joiner.on(", ").join(argList) + ")";
-    if (!objectName.equals(TOP_LEVEL_ID)) {
-      return String.format("%s %s.%s%s\n",
-          getTypeAnchor(method.returnType()), objectName, method.name(), args);
-    } else {
-      return String.format("%s %s%s\n",
-          getTypeAnchor(method.returnType()), method.name(), args);
-    }
   }
 
   private String formatParameter(Param param) {

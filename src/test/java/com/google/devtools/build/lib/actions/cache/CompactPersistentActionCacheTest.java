@@ -17,11 +17,9 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.testutil.ManualClock;
 import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.vfs.Path;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
 import org.junit.Before;
 import org.junit.Test;
@@ -137,27 +135,13 @@ public class CompactPersistentActionCacheTest {
     assertFullSave();
   }
 
-  // Regression test to check that CompactActionCacheEntry.toString does not mutate the object.
-  // Mutations may result in IllegalStateException.
-  @Test
-  public void testEntryToStringIsIdempotent() throws Exception {
-    ActionCache.Entry entry =
-        new ActionCache.Entry("actionKey", ImmutableMap.<String, String>of(), false);
-    entry.toString();
-    entry.addFile(
-        PathFragment.create("foo/bar"), FileArtifactValue.createForDirectoryWithMtime(1234));
-    entry.toString();
-    entry.getFileDigest();
-    entry.toString();
-  }
-
   private void assertToStringIsntTooBig(int numRecords) throws Exception {
     for (int i = 0; i < numRecords; i++) {
       putKey(Integer.toString(i));
     }
     String val = cache.toString();
     assertThat(val).startsWith("Action cache (" + numRecords + " records):\n");
-    assertWithMessage(val).that(val.length()).isAtMost(2000);
+    assertWithMessage(val).that(val.length()).isAtMost(2500);
     // Cache was too big to print out fully.
     if (numRecords > 10) {
       assertThat(val).endsWith("...");
@@ -198,8 +182,9 @@ public class CompactPersistentActionCacheTest {
 
   private void putKey(String key, ActionCache ac, boolean discoversInputs) {
     ActionCache.Entry entry =
-        new ActionCache.Entry(key, ImmutableMap.<String, String>of(), discoversInputs);
-    entry.getFileDigest();
+        new ActionCache.Entry.Builder(
+                key, ImmutableMap.<String, String>of("k", "v"), discoversInputs)
+            .build();
     ac.put(key, entry);
   }
 }

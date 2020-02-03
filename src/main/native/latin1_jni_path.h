@@ -17,6 +17,8 @@
 
 #include <jni.h>
 
+namespace blaze_jni {
+
 // Latin1 <--> java.lang.String conversion functions.
 // Derived from similar routines in Sun JDK.  See:
 // j2se/src/solaris/native/java/io/UnixFileSystem_md.c
@@ -43,5 +45,7 @@ char *GetStringLatin1Chars(JNIEnv *env, jstring jstr);
  * GetStringLatin1Chars.
  */
 void ReleaseStringLatin1Chars(const char *s);
+
+}  // namespace blaze_jni
 
 #endif  // THIRD_PARTY_BAZEL_SRC_MAIN_NATIVE_LATIN1_JNI_PATH_H_

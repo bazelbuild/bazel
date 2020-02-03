@@ -88,6 +88,11 @@ bool WriteFile(const std::string &content, const std::string &filename,
   return WriteFile(content.c_str(), content.size(), filename, perm);
 }
 
+bool WriteFile(const std::string &content, const Path &path,
+               unsigned int perm) {
+  return WriteFile(content.c_str(), content.size(), path, perm);
+}
+
 class DirectoryTreeWalker : public DirectoryEntryConsumer {
  public:
   DirectoryTreeWalker(vector<string> *files,

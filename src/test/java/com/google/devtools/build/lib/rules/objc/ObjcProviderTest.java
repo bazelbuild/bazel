@@ -25,7 +25,7 @@ import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.rules.objc.ObjcProvider.Key;
-import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
+import com.google.devtools.build.lib.syntax.Depset;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
@@ -63,7 +63,7 @@ public class ObjcProviderTest {
   @Test
   public void emptyProvider() {
     ObjcProvider empty = objcProviderBuilder().build();
-    assertThat(empty.get(ObjcProvider.SDK_DYLIB)).isEmpty();
+    assertThat(empty.get(ObjcProvider.SDK_DYLIB).toList()).isEmpty();
   }
 
   @Test
@@ -115,8 +115,7 @@ public class ObjcProviderTest {
   public void directFieldsAddFromSkylark() throws Exception {
     ImmutableList<Artifact> artifacts =
         ImmutableList.of(createArtifact("/foo"), createArtifact("/bar"));
-    SkylarkNestedSet set =
-        SkylarkNestedSet.of(Artifact.class, NestedSetBuilder.wrap(Order.STABLE_ORDER, artifacts));
+    Depset set = Depset.of(Artifact.TYPE, NestedSetBuilder.wrap(Order.STABLE_ORDER, artifacts));
     ObjcProvider.Builder builder = objcProviderBuilder();
     builder.addElementsFromSkylark(ObjcProvider.SOURCE, set);
     builder.addElementsFromSkylark(ObjcProvider.HEADER, set);
@@ -154,7 +153,7 @@ public class ObjcProviderTest {
     ObjcProvider onlyPropagates = objcProviderBuilder()
         .add(ObjcProvider.SDK_DYLIB, "foo")
         .build();
-    assertThat(onlyPropagates.get(ObjcProvider.SDK_DYLIB)).containsExactly("foo");
+    assertThat(onlyPropagates.get(ObjcProvider.SDK_DYLIB).toList()).containsExactly("foo");
   }
 
   @Test
@@ -175,9 +174,9 @@ public class ObjcProviderTest {
             .build();
     ObjcProvider depender = objcProviderBuilder().addTransitiveAndPropagate(provider).build();
 
-    assertThat(provider.get(ObjcProvider.INCLUDE))
+    assertThat(provider.get(ObjcProvider.INCLUDE).toList())
         .containsExactly(strictInclude, propagatedInclude);
-    assertThat(depender.get(ObjcProvider.INCLUDE)).containsExactly(propagatedInclude);
+    assertThat(depender.get(ObjcProvider.INCLUDE).toList()).containsExactly(propagatedInclude);
   }
 
   @Test

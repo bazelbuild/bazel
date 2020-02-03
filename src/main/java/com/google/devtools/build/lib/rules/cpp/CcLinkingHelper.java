@@ -16,8 +16,8 @@ package com.google.devtools.build.lib.rules.cpp;
 
 
 import com.google.common.base.Preconditions;
-import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.ActionRegistry;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -27,18 +27,16 @@ import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
-import com.google.devtools.build.lib.analysis.skylark.SymbolGenerator;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.RuleErrorConsumer;
+import com.google.devtools.build.lib.packages.SymbolGenerator;
+import com.google.devtools.build.lib.rules.cpp.CcLinkingContext.Linkstamp;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.VariablesExtension;
 import com.google.devtools.build.lib.rules.cpp.CppLinkAction.LinkArtifactFactory;
-import com.google.devtools.build.lib.rules.cpp.LibraryToLink.CcLinkingContext;
-import com.google.devtools.build.lib.rules.cpp.LibraryToLink.CcLinkingContext.Linkstamp;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkerOrArchiver;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkingMode;
@@ -125,6 +123,7 @@ public final class CcLinkingHelper {
   private final ActionRegistry actionRegistry;
   private final RuleErrorConsumer ruleErrorConsumer;
   private final SymbolGenerator<?> symbolGenerator;
+  private final ImmutableMap<String, String> executionInfo;
 
   private Artifact grepIncludes;
   private boolean isStampingEnabled;
@@ -142,6 +141,7 @@ public final class CcLinkingHelper {
    * @param ccToolchain the C++ toolchain provider for the build
    * @param fdoContext the C++ FDO optimization support provider for the build
    * @param configuration the configuration that gives the directory of output artifacts
+   * @param executionInfo the execution info data associated with a rule
    */
   public CcLinkingHelper(
       RuleErrorConsumer ruleErrorConsumer,
@@ -154,7 +154,8 @@ public final class CcLinkingHelper {
       FdoContext fdoContext,
       BuildConfiguration configuration,
       CppConfiguration cppConfiguration,
-      SymbolGenerator<?> symbolGenerator) {
+      SymbolGenerator<?> symbolGenerator,
+      ImmutableMap<String, String> executionInfo) {
     this.semantics = Preconditions.checkNotNull(semantics);
     this.featureConfiguration = Preconditions.checkNotNull(featureConfiguration);
     this.ccToolchain = Preconditions.checkNotNull(ccToolchain);
@@ -166,6 +167,7 @@ public final class CcLinkingHelper {
     this.actionRegistry = actionRegistry;
     this.actionConstructionContext = actionConstructionContext;
     this.symbolGenerator = symbolGenerator;
+    this.executionInfo = executionInfo;
   }
 
   /** Sets fields that overlap for cc_library and cc_binary rules. */
@@ -193,7 +195,7 @@ public final class CcLinkingHelper {
   }
 
   /** Adds the corresponding non-code files as linker inputs. */
-  public CcLinkingHelper addNonCodeLinkerInputs(Iterable<Artifact> nonCodeLinkerInputs) {
+  public CcLinkingHelper addNonCodeLinkerInputs(List<Artifact> nonCodeLinkerInputs) {
     for (Artifact nonCodeLinkerInput : nonCodeLinkerInputs) {
       String basename = nonCodeLinkerInput.getFilename();
       Preconditions.checkArgument(!Link.OBJECT_FILETYPES.matches(basename));
@@ -338,11 +340,7 @@ public final class CcLinkingHelper {
     return this;
   }
 
-  /**
-   * Create the C++ link actions, and the corresponding linking related providers.
-   *
-   * @throws RuleErrorException
-   */
+  /** Create the C++ link actions, and the corresponding linking related providers. */
   public CcLinkingOutputs link(CcCompilationOutputs ccOutputs)
       throws RuleErrorException, InterruptedException {
     Preconditions.checkNotNull(ccOutputs);
@@ -359,10 +357,9 @@ public final class CcLinkingHelper {
   }
 
   public CcLinkingContext buildCcLinkingContextFromLibrariesToLink(
-      ImmutableCollection<LibraryToLink> libraryToLinks,
-      CcCompilationContext ccCompilationContext) {
-    NestedSetBuilder<Linkstamp> linkstampBuilder = NestedSetBuilder.stableOrder();
-    for (Artifact linkstamp : linkstamps.build()) {
+      List<LibraryToLink> librariesToLink, CcCompilationContext ccCompilationContext) {
+    ImmutableList.Builder<Linkstamp> linkstampBuilder = ImmutableList.builder();
+    for (Artifact linkstamp : linkstamps.build().toList()) {
       linkstampBuilder.add(
           new Linkstamp(
               linkstamp,
@@ -375,16 +372,15 @@ public final class CcLinkingHelper {
       // create a LinkOptions instance that contains an empty list.
       ccLinkingContext =
           CcLinkingContext.builder()
+              .setOwner(label)
               .addUserLinkFlags(
                   linkopts.isEmpty()
-                      ? NestedSetBuilder.emptySet(Order.LINK_ORDER)
-                      : NestedSetBuilder.create(
-                          Order.LINK_ORDER,
-                          CcLinkingContext.LinkOptions.of(linkopts, symbolGenerator)))
-              .addLibraries(
-                  NestedSetBuilder.<LibraryToLink>linkOrder().addAll(libraryToLinks).build())
-              .addNonCodeInputs(
-                  NestedSetBuilder.<Artifact>linkOrder().addAll(nonCodeLinkerInputs).build())
+                      ? ImmutableList.of()
+                      : ImmutableList.of(
+                          CcLinkingContext.LinkOptions.of(
+                              ImmutableList.copyOf(linkopts), symbolGenerator)))
+              .addLibraries(librariesToLink)
+              .addNonCodeInputs(nonCodeLinkerInputs)
               .addLinkstamps(linkstampBuilder.build())
               .build();
     }
@@ -404,8 +400,6 @@ public final class CcLinkingHelper {
    * can be used for linking, but doesn't contain any executable code. This increases the number of
    * cache hits for link actions. Call {@link #emitInterfaceSharedLibraries(boolean)} to enable this
    * behavior.
-   *
-   * @throws RuleErrorException
    */
   private CcLinkingOutputs createCcLinkActions(CcCompilationOutputs ccOutputs)
       throws RuleErrorException, InterruptedException {
@@ -766,7 +760,9 @@ public final class CcLinkingHelper {
     if (dynamicLinkType.isExecutable()) {
       ccLinkingOutputs.setExecutable(linkerOutput);
     }
-    ccLinkingOutputs.addLinkActionInputs(dynamicLinkAction.getInputs());
+    if (fake) {
+      ccLinkingOutputs.addLinkActionInputs(dynamicLinkAction.getInputs());
+    }
     actionConstructionContext.registerAction(dynamicLinkAction);
 
     LinkerInputs.LibraryToLink dynamicLibrary = dynamicLinkAction.getOutputLibrary();
@@ -838,7 +834,8 @@ public final class CcLinkingHelper {
                 ? ccToolchain.getArFiles()
                 : ccToolchain.getLinkerFiles())
         .setLinkArtifactFactory(linkArtifactFactory)
-        .setUseTestOnlyFlags(useTestOnlyFlags);
+        .setUseTestOnlyFlags(useTestOnlyFlags)
+        .addExecutionInfo(executionInfo);
   }
 
   /**
@@ -850,8 +847,6 @@ public final class CcLinkingHelper {
    * action, because the linux link action depends on hardcoded values in
    * LinkCommandLine.getRawLinkArgv(), which are applied on the condition that an action_config is
    * not present. TODO(b/30393154): Assert that the given link action has an action_config.
-   *
-   * @throws RuleErrorException
    */
   private Artifact getLinkedArtifact(LinkTargetType linkTargetType) throws RuleErrorException {
       String maybePicName = label.getName() + linkedArtifactNameSuffix;
@@ -879,7 +874,7 @@ public final class CcLinkingHelper {
       NestedSet<LibraryToLink> librariesToLink, boolean staticMode, boolean forDynamicLibrary) {
     ImmutableList.Builder<LinkerInputs.LibraryToLink> librariesToLinkBuilder =
         ImmutableList.builder();
-    for (LibraryToLink libraryToLink : librariesToLink) {
+    for (LibraryToLink libraryToLink : librariesToLink.toList()) {
       LinkerInputs.LibraryToLink staticLibraryToLink =
           libraryToLink.getStaticLibrary() == null ? null : libraryToLink.getStaticLibraryToLink();
       LinkerInputs.LibraryToLink picStaticLibraryToLink =

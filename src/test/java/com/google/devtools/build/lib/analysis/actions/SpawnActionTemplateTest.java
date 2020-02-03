@@ -60,7 +60,7 @@ public class SpawnActionTemplateTest {
   @Test
   public void testInputAndOutputTreeArtifacts() {
     SpawnActionTemplate actionTemplate = createSimpleSpawnActionTemplate();
-    assertThat(actionTemplate.getInputs()).containsExactly(createInputTreeArtifact());
+    assertThat(actionTemplate.getInputs().toList()).containsExactly(createInputTreeArtifact());
     assertThat(actionTemplate.getOutputs()).containsExactly(createOutputTreeArtifact());
   }
 
@@ -84,8 +84,9 @@ public class SpawnActionTemplateTest {
         .addCommonInputs(ImmutableList.of(commonInput))
         .build(ActionsTestUtil.NULL_ACTION_OWNER);
 
-    assertThat(actionTemplate.getTools()).containsAtLeast(commonTool, executable);
-    assertThat(actionTemplate.getInputs()).containsAtLeast(commonInput, commonTool, executable);
+    assertThat(actionTemplate.getTools().toList()).containsAtLeast(commonTool, executable);
+    assertThat(actionTemplate.getInputs().toList())
+        .containsAtLeast(commonInput, commonTool, executable);
   }
 
   @Test
@@ -206,9 +207,10 @@ public class SpawnActionTemplateTest {
 
     for (int i = 0; i < expandedActions.size(); ++i) {
       String baseName = String.format("child%d", i);
-      assertThat(expandedActions.get(i).getInputs()).containsExactly(
-          ActionInputHelper.treeFileArtifact(
-              inputTreeArtifact, PathFragment.create("children/" + baseName)));
+      assertThat(expandedActions.get(i).getInputs().toList())
+          .containsExactly(
+              ActionInputHelper.treeFileArtifact(
+                  inputTreeArtifact, PathFragment.create("children/" + baseName)));
       assertThat(expandedActions.get(i).getOutputs()).containsExactly(
           ActionInputHelper.treeFileArtifact(
               outputTreeArtifact, PathFragment.create("children/" + baseName)));
@@ -242,9 +244,10 @@ public class SpawnActionTemplateTest {
                 inputTreeFileArtifacts, ActionsTestUtil.NULL_ARTIFACT_OWNER));
 
     for (int i = 0; i < expandedActions.size(); ++i) {
-      assertThat(expandedActions.get(i).getInputs())
+      assertThat(expandedActions.get(i).getInputs().toList())
           .containsAtLeast(commonInput, commonTool, executable);
-      assertThat(expandedActions.get(i).getTools()).containsAtLeast(commonTool, executable);
+      assertThat(expandedActions.get(i).getTools().toList())
+          .containsAtLeast(commonTool, executable);
     }
   }
 
@@ -290,7 +293,8 @@ public class SpawnActionTemplateTest {
     assertThat(expandedActions).hasSize(3);
 
     for (int i = 0; i < expandedActions.size(); ++i) {
-      assertThat(expandedActions.get(i).getIncompleteEnvironmentForTesting()).containsExactly("env", "value");
+      assertThat(expandedActions.get(i).getIncompleteEnvironmentForTesting())
+          .containsExactly("env", "value");
       assertThat(expandedActions.get(i).getExecutionInfo()).containsExactly("local", "");
     }
   }

@@ -31,8 +31,8 @@ import com.google.devtools.build.lib.packages.NonconfigurableAttributeMapper;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.rules.config.ConfigFeatureFlag;
 import com.google.devtools.build.lib.skylarkbuildapi.android.AndroidFeatureFlagSetProviderApi;
+import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.SkylarkDict;
 import java.util.Map;
 
 /**
@@ -153,11 +153,10 @@ public final class AndroidFeatureFlagSetProvider extends NativeInfo
     }
 
     @Override
-    public AndroidFeatureFlagSetProvider create(SkylarkDict<Label, String> flags)
+    public AndroidFeatureFlagSetProvider create(Dict<?, ?> flags) // <Label, String>
         throws EvalException {
       return new AndroidFeatureFlagSetProvider(
-          Optional.of(
-              SkylarkDict.castSkylarkDictOrNoneToDict(flags, Label.class, String.class, "flags")));
+          Optional.of(Dict.castSkylarkDictOrNoneToDict(flags, Label.class, String.class, "flags")));
     }
   }
 }

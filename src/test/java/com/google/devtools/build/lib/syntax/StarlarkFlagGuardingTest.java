@@ -38,7 +38,7 @@ public class StarlarkFlagGuardingTest extends EvaluationTestCase {
 
   /** Mock containing exposed methods for flag-guarding tests. */
   @SkylarkModule(name = "Mock", doc = "")
-  public static class Mock {
+  public static class Mock implements StarlarkValue {
 
     @SkylarkCallable(
         name = "positionals_only_method",
@@ -54,8 +54,8 @@ public class StarlarkFlagGuardingTest extends EvaluationTestCase {
               valueWhenDisabled = "False"),
           @Param(name = "c", positional = true, named = false, type = Integer.class),
         },
-        useEnvironment = true)
-    public String positionalsOnlyMethod(Integer a, boolean b, Integer c, Environment env) {
+        useStarlarkThread = true)
+    public String positionalsOnlyMethod(Integer a, boolean b, Integer c, StarlarkThread thread) {
       return "positionals_only_method(" + a + ", " + b + ", " + c + ")";
     }
 
@@ -73,8 +73,8 @@ public class StarlarkFlagGuardingTest extends EvaluationTestCase {
               valueWhenDisabled = "False"),
           @Param(name = "c", positional = false, named = true, type = Integer.class),
         },
-        useEnvironment = true)
-    public String keywordsOnlyMethod(Integer a, boolean b, Integer c, Environment env) {
+        useStarlarkThread = true)
+    public String keywordsOnlyMethod(Integer a, boolean b, Integer c, StarlarkThread thread) {
       return "keywords_only_method(" + a + ", " + b + ", " + c + ")";
     }
 
@@ -99,8 +99,9 @@ public class StarlarkFlagGuardingTest extends EvaluationTestCase {
               valueWhenDisabled = "3"),
           @Param(name = "d", positional = false, named = true, type = Boolean.class),
         },
-        useEnvironment = true)
-    public String mixedParamsMethod(Integer a, boolean b, Integer c, boolean d, Environment env) {
+        useStarlarkThread = true)
+    public String mixedParamsMethod(
+        Integer a, boolean b, Integer c, boolean d, StarlarkThread thread) {
       return "mixed_params_method(" + a + ", " + b + ", " + c + ", " + d + ")";
     }
 
@@ -124,8 +125,8 @@ public class StarlarkFlagGuardingTest extends EvaluationTestCase {
               enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_BUILD_SETTING_API,
               valueWhenDisabled = "3"),
         },
-        useEnvironment = true)
-    public String keywordsMultipleFlags(Integer a, boolean b, Integer c, Environment env) {
+        useStarlarkThread = true)
+    public String keywordsMultipleFlags(Integer a, boolean b, Integer c, StarlarkThread thread) {
       return "keywords_multiple_flags(" + a + ", " + b + ", " + c + ")";
     }
   }
@@ -140,8 +141,8 @@ public class StarlarkFlagGuardingTest extends EvaluationTestCase {
     new SkylarkTest("--experimental_build_setting_api=true")
         .update("mock", new Mock())
         .testIfErrorContains(
-            "expected value of type 'bool' for parameter 'b', "
-                + "for call to method positionals_only_method(a, b, c) of 'Mock'",
+            "in call to positionals_only_method(), parameter 'b' got value of type 'int', want"
+                + " 'bool'",
             "mock.positionals_only_method(1, 3)");
 
     new SkylarkTest("--experimental_build_setting_api=false")
@@ -151,8 +152,8 @@ public class StarlarkFlagGuardingTest extends EvaluationTestCase {
     new SkylarkTest("--experimental_build_setting_api=false")
         .update("mock", new Mock())
         .testIfErrorContains(
-            "expected value of type 'int' for parameter 'c', for call to method "
-                + "positionals_only_method(a, c) of 'Mock'",
+            "in call to positionals_only_method(), parameter 'c' got value of type 'bool', want"
+                + " 'int'",
             "mock.positionals_only_method(1, True, 3)");
   }
 
@@ -166,8 +167,7 @@ public class StarlarkFlagGuardingTest extends EvaluationTestCase {
     new SkylarkTest("--experimental_build_setting_api=true")
         .update("mock", new Mock())
         .testIfErrorContains(
-            "parameter 'b' has no default value, "
-                + "for call to method keywords_only_method(a, b, c) of 'Mock'",
+            "keywords_only_method() missing 1 required named argument: b",
             "mock.keywords_only_method(a=1, c=3)");
 
     new SkylarkTest("--experimental_build_setting_api=false")
@@ -185,6 +185,7 @@ public class StarlarkFlagGuardingTest extends EvaluationTestCase {
 
   @Test
   public void testMixedParamsMethod() throws Exception {
+    // def mixed_params_method(a, b, c = ?, d = ?)
     new SkylarkTest("--experimental_build_setting_api=true")
         .update("mock", new Mock())
         .testEval(
@@ -194,10 +195,12 @@ public class StarlarkFlagGuardingTest extends EvaluationTestCase {
     new SkylarkTest("--experimental_build_setting_api=true")
         .update("mock", new Mock())
         .testIfErrorContains(
-            "parameter 'b' has no default value, "
-                + "for call to method mixed_params_method(a, b, c, d) of 'Mock'",
+            // Missing named arguments (d) are not reported
+            // if there are missing positional arguments.
+            "mixed_params_method() missing 1 required positional argument: b",
             "mock.mixed_params_method(1, c=3)");
 
+    // def mixed_params_method(a, b disabled = False, c disabled = 3, d = ?)
     new SkylarkTest("--experimental_build_setting_api=false")
         .update("mock", new Mock())
         .testEval(
@@ -206,8 +209,13 @@ public class StarlarkFlagGuardingTest extends EvaluationTestCase {
     new SkylarkTest("--experimental_build_setting_api=false")
         .update("mock", new Mock())
         .testIfErrorContains(
-            "expected no more than 1 positional arguments, but got 2, "
-                + "for call to method mixed_params_method(a, d) of 'Mock'",
+            "mixed_params_method() accepts no more than 1 positional argument but got 2",
+            "mock.mixed_params_method(1, True, d=True)");
+
+    new SkylarkTest("--experimental_build_setting_api=false")
+        .update("mock", new Mock())
+        .testIfErrorContains(
+            "mixed_params_method() accepts no more than 1 positional argument but got 2",
             "mock.mixed_params_method(1, True, c=3, d=True)");
   }
 
@@ -222,8 +230,7 @@ public class StarlarkFlagGuardingTest extends EvaluationTestCase {
     new SkylarkTest("--experimental_build_setting_api=true", "--incompatible_no_attr_license=false")
         .update("mock", new Mock())
         .testIfErrorContains(
-            "parameter 'b' has no default value, "
-                + "for call to method keywords_multiple_flags(a, b, c) of 'Mock'",
+            "keywords_multiple_flags() missing 2 required named arguments: b, c",
             "mock.keywords_multiple_flags(a=42)");
 
     new SkylarkTest("--experimental_build_setting_api=false", "--incompatible_no_attr_license=true")

@@ -19,6 +19,7 @@ import static org.junit.Assert.fail;
 import static org.mockito.AdditionalAnswers.answerVoid;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import build.bazel.remote.execution.v2.ActionCacheGrpc.ActionCacheImplBase;
@@ -45,6 +46,7 @@ import com.google.bytestream.ByteStreamProto.WriteResponse;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Maps;
 import com.google.common.util.concurrent.ListeningScheduledExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.devtools.build.lib.actions.ActionInput;
@@ -56,6 +58,8 @@ import com.google.devtools.build.lib.analysis.BlazeVersionInfo;
 import com.google.devtools.build.lib.authandtls.AuthAndTLSOptions;
 import com.google.devtools.build.lib.authandtls.GoogleAuthUtils;
 import com.google.devtools.build.lib.clock.JavaClock;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.exec.util.FakeOwner;
 import com.google.devtools.build.lib.remote.RemoteRetrier.ExponentialBackoff;
@@ -165,8 +169,9 @@ public class GrpcRemoteExecutionClientTest {
             ImmutableList.of("/bin/echo", "Hi!"),
             ImmutableMap.of("VARIABLE", "value"),
             /*executionInfo=*/ ImmutableMap.<String, String>of(),
-            /*inputs=*/ ImmutableList.of(ActionInputHelper.fromPath("input")),
-            /*outputs=*/ ImmutableList.<ActionInput>of(
+            /*inputs=*/ NestedSetBuilder.create(
+                Order.STABLE_ORDER, ActionInputHelper.fromPath("input")),
+            /*outputs=*/ ImmutableSet.<ActionInput>of(
                 new ActionInput() {
                   @Override
                   public String getExecPathString() {
@@ -207,40 +212,57 @@ public class GrpcRemoteExecutionClientTest {
     FileSystemUtils.createDirectoryAndParents(stderr.getParentDirectory());
     outErr = new FileOutErr(stdout, stderr);
     RemoteOptions remoteOptions = Options.getDefaults(RemoteOptions.class);
+
+    remoteOptions.remoteHeaders =
+        ImmutableList.of(
+            Maps.immutableEntry("CommonKey1", "CommonValue1"),
+            Maps.immutableEntry("CommonKey2", "CommonValue2"));
+    remoteOptions.remoteExecHeaders =
+        ImmutableList.of(
+            Maps.immutableEntry("ExecKey1", "ExecValue1"),
+            Maps.immutableEntry("ExecKey2", "ExecValue2"));
+    remoteOptions.remoteCacheHeaders =
+        ImmutableList.of(
+            Maps.immutableEntry("CacheKey1", "CacheValue1"),
+            Maps.immutableEntry("CacheKey2", "CacheValue2"));
+
     RemoteRetrier retrier =
         TestUtils.newRemoteRetrier(
             () -> new ExponentialBackoff(remoteOptions),
             RemoteRetrier.RETRIABLE_GRPC_EXEC_ERRORS,
             retryService);
     ReferenceCountedChannel channel =
-        new ReferenceCountedChannel(InProcessChannelBuilder.forName(fakeServerName).directExecutor().build());
+        new ReferenceCountedChannel(
+            InProcessChannelBuilder.forName(fakeServerName).directExecutor().build());
     GrpcRemoteExecutor executor =
-        new GrpcRemoteExecutor(channel.retain(), null, retrier);
+        new GrpcRemoteExecutor(channel.retain(), null, retrier, remoteOptions);
     CallCredentials creds =
         GoogleAuthUtils.newCallCredentials(Options.getDefaults(AuthAndTLSOptions.class));
     ByteStreamUploader uploader =
         new ByteStreamUploader(remoteOptions.remoteInstanceName, channel.retain(), creds,
             remoteOptions.remoteTimeout, retrier);
-    GrpcRemoteCache remoteCache =
-        new GrpcRemoteCache(channel.retain(), creds, remoteOptions, retrier, DIGEST_UTIL, uploader);
+    GrpcCacheClient cacheProtocol =
+        new GrpcCacheClient(channel.retain(), creds, remoteOptions, retrier, DIGEST_UTIL, uploader);
+    RemoteExecutionCache remoteCache =
+        new RemoteExecutionCache(cacheProtocol, remoteOptions, DIGEST_UTIL);
     client =
         new RemoteSpawnRunner(
             execRoot,
             remoteOptions,
             Options.getDefaults(ExecutionOptions.class),
-            null,
             /* verboseFailures= */ true,
             /*cmdlineReporter=*/ null,
             "build-req-id",
             "command-id",
             remoteCache,
             executor,
-            RemoteModule.createExecuteRetrier(remoteOptions, retryService),
+            retryService,
             DIGEST_UTIL,
             logDir,
-            /* topLevelOutputs= */ ImmutableSet.of());
+            /* filesToDownload= */ ImmutableSet.of());
 
-    inputDigest = fakeFileCache.createScratchInput(simpleSpawn.getInputFiles().get(0), "xyz");
+    inputDigest =
+        fakeFileCache.createScratchInput(simpleSpawn.getInputFiles().getSingleton(), "xyz");
     command =
         Command.newBuilder()
             .addAllArguments(ImmutableList.of("/bin/echo", "Hi!"))
@@ -441,7 +463,7 @@ public class GrpcRemoteExecutionClientTest {
         return new StreamObserver<WriteRequest>() {
           @Override
           public void onNext(WriteRequest request) {
-            assertThat(request.getResourceName()).contains(DIGEST_UTIL.toString(digest));
+            assertThat(request.getResourceName()).contains(DigestUtil.toString(digest));
             assertThat(request.getFinishWrite()).isTrue();
             assertThat(request.getData().toByteArray()).isEqualTo(data);
             responseObserver.onNext(
@@ -488,6 +510,7 @@ public class GrpcRemoteExecutionClientTest {
 
   /** Capture the request headers from a client. Useful for testing metadata propagation. */
   private static class RequestHeadersValidator implements ServerInterceptor {
+
     @Override
     public <ReqT, RespT> ServerCall.Listener<ReqT> interceptCall(
         ServerCall<ReqT, RespT> call,
@@ -502,6 +525,69 @@ public class GrpcRemoteExecutionClientTest {
           .isEqualTo(BlazeVersionInfo.instance().getVersion());
       return next.startCall(call, headers);
     }
+  }
+
+  @Test
+  public void extraHeaders() throws Exception {
+    BindableService actionCache =
+        new ActionCacheImplBase() {
+          @Override
+          public void getActionResult(
+              GetActionResultRequest request, StreamObserver<ActionResult> responseObserver) {
+            responseObserver.onError(Status.NOT_FOUND.asRuntimeException());
+          }
+        };
+    serviceRegistry.addService(actionCache);
+
+    BindableService cas =
+        new ContentAddressableStorageImplBase() {
+          @Override
+          public void findMissingBlobs(
+              FindMissingBlobsRequest request,
+              StreamObserver<FindMissingBlobsResponse> responseObserver) {
+            responseObserver.onNext(FindMissingBlobsResponse.getDefaultInstance());
+            responseObserver.onCompleted();
+          }
+        };
+    serviceRegistry.addService(cas);
+
+    BindableService execService =
+        new ExecutionImplBase() {
+          @Override
+          public void execute(ExecuteRequest request, StreamObserver<Operation> responseObserver) {
+            responseObserver.onNext(Operation.getDefaultInstance());
+            responseObserver.onCompleted();
+          }
+        };
+    ServerInterceptor interceptor =
+        new ServerInterceptor() {
+          @Override
+          public <ReqT, RespT> ServerCall.Listener<ReqT> interceptCall(
+              ServerCall<ReqT, RespT> call,
+              Metadata metadata,
+              ServerCallHandler<ReqT, RespT> next) {
+            assertThat(
+                    metadata.get(Metadata.Key.of("CommonKey1", Metadata.ASCII_STRING_MARSHALLER)))
+                .isEqualTo("CommonValue1");
+            assertThat(
+                    metadata.get(Metadata.Key.of("CommonKey2", Metadata.ASCII_STRING_MARSHALLER)))
+                .isEqualTo("CommonValue2");
+            assertThat(metadata.get(Metadata.Key.of("ExecKey1", Metadata.ASCII_STRING_MARSHALLER)))
+                .isEqualTo("ExecValue1");
+            assertThat(metadata.get(Metadata.Key.of("ExecKey2", Metadata.ASCII_STRING_MARSHALLER)))
+                .isEqualTo("ExecValue2");
+            assertThat(metadata.get(Metadata.Key.of("CacheKey1", Metadata.ASCII_STRING_MARSHALLER)))
+                .isEqualTo(null);
+            assertThat(metadata.get(Metadata.Key.of("CacheKey2", Metadata.ASCII_STRING_MARSHALLER)))
+                .isEqualTo(null);
+            return next.startCall(call, metadata);
+          }
+        };
+    serviceRegistry.addService(ServerInterceptors.intercept(execService, interceptor));
+
+    FakeSpawnExecutionContext policy =
+        new FakeSpawnExecutionContext(simpleSpawn, fakeFileCache, execRoot, outErr);
+    client.exec(simpleSpawn, policy);
   }
 
   @Test
@@ -567,7 +653,7 @@ public class GrpcRemoteExecutionClientTest {
     assertThat(result.isCacheHit()).isFalse();
     assertThat(outErr.outAsLatin1()).isEqualTo("stdout");
     assertThat(outErr.errAsLatin1()).isEqualTo("stderr");
-    Mockito.verify(mockByteStreamImpl).write(ArgumentMatchers.<StreamObserver<WriteResponse>>any());
+    verify(mockByteStreamImpl).write(ArgumentMatchers.<StreamObserver<WriteResponse>>any());
   }
 
   private Answer<Void> answerWith(@Nullable Operation op, Status status) {
@@ -724,19 +810,19 @@ public class GrpcRemoteExecutionClientTest {
     assertThat(result.isCacheHit()).isFalse();
     assertThat(outErr.outAsLatin1()).isEqualTo("stdout");
     assertThat(outErr.errAsLatin1()).isEqualTo("stderr");
-    Mockito.verify(mockExecutionImpl, Mockito.times(4))
+    verify(mockExecutionImpl, Mockito.times(4))
         .execute(
             ArgumentMatchers.<ExecuteRequest>any(),
             ArgumentMatchers.<StreamObserver<Operation>>any());
-    Mockito.verify(mockExecutionImpl, Mockito.times(2))
+    verify(mockExecutionImpl, Mockito.times(2))
         .waitExecution(
             ArgumentMatchers.<WaitExecutionRequest>any(),
             ArgumentMatchers.<StreamObserver<Operation>>any());
-    Mockito.verify(mockByteStreamImpl, Mockito.times(2))
+    verify(mockByteStreamImpl, Mockito.times(2))
         .read(
             ArgumentMatchers.<ReadRequest>any(),
             ArgumentMatchers.<StreamObserver<ReadResponse>>any());
-    Mockito.verify(mockByteStreamImpl, Mockito.times(3))
+    verify(mockByteStreamImpl, Mockito.times(3))
         .write(ArgumentMatchers.<StreamObserver<WriteResponse>>any());
   }
 
@@ -834,19 +920,19 @@ public class GrpcRemoteExecutionClientTest {
     assertThat(result.isCacheHit()).isFalse();
     assertThat(outErr.outAsLatin1()).isEqualTo("stdout");
     assertThat(outErr.errAsLatin1()).isEqualTo("stderr");
-    Mockito.verify(mockExecutionImpl, Mockito.times(3))
+    verify(mockExecutionImpl, Mockito.times(3))
         .execute(
             ArgumentMatchers.<ExecuteRequest>any(),
             ArgumentMatchers.<StreamObserver<Operation>>any());
-    Mockito.verify(mockExecutionImpl, Mockito.times(2))
+    verify(mockExecutionImpl, Mockito.times(2))
         .waitExecution(
             ArgumentMatchers.<WaitExecutionRequest>any(),
             ArgumentMatchers.<StreamObserver<Operation>>any());
-    Mockito.verify(mockByteStreamImpl)
+    verify(mockByteStreamImpl)
         .read(
             ArgumentMatchers.<ReadRequest>any(),
             ArgumentMatchers.<StreamObserver<ReadResponse>>any());
-    Mockito.verify(mockByteStreamImpl, Mockito.times(1))
+    verify(mockByteStreamImpl, Mockito.times(1))
         .write(ArgumentMatchers.<StreamObserver<WriteResponse>>any());
   }
 
@@ -867,8 +953,7 @@ public class GrpcRemoteExecutionClientTest {
     SpawnResult result = client.exec(simpleSpawn, policy);
     assertThat(result.status()).isEqualTo(SpawnResult.Status.EXECUTION_FAILED_CATASTROPHICALLY);
     // Ensure we also got back the stack trace due to verboseFailures=true
-    assertThat(result.getFailureMessage())
-        .contains("GrpcRemoteExecutionClientTest.passUnavailableErrorWithStackTrace");
+    assertThat(result.getFailureMessage()).contains("com.google.devtools.build.lib.remote");
   }
 
   @Test
@@ -886,9 +971,8 @@ public class GrpcRemoteExecutionClientTest {
         new FakeSpawnExecutionContext(simpleSpawn, fakeFileCache, execRoot, outErr);
     SpawnResult result = client.exec(simpleSpawn, policy);
     assertThat(result.getFailureMessage()).contains("whoa"); // Error details.
-    // Ensure we also got back the stack trace.
-    assertThat(result.getFailureMessage())
-        .contains("GrpcRemoteExecutionClientTest.passInternalErrorWithStackTrace");
+    // Ensure we also got back the stack trace due to verboseFailures=true
+    assertThat(result.getFailureMessage()).contains("com.google.devtools.build.lib.remote");
   }
 
   @Test
@@ -934,7 +1018,7 @@ public class GrpcRemoteExecutionClientTest {
         new ByteStreamImplBase() {
           @Override
           public void read(ReadRequest request, StreamObserver<ReadResponse> responseObserver) {
-            assertThat(request.getResourceName().contains(DIGEST_UTIL.toString(stdOutDigest)))
+            assertThat(request.getResourceName().contains(DigestUtil.toString(stdOutDigest)))
                 .isTrue();
             responseObserver.onError(Status.NOT_FOUND.asRuntimeException());
           }
@@ -945,7 +1029,7 @@ public class GrpcRemoteExecutionClientTest {
 
     SpawnResult result = client.exec(simpleSpawn, policy);
     assertThat(result.status()).isEqualTo(SpawnResult.Status.REMOTE_CACHE_FAILED);
-    assertThat(result.getFailureMessage()).contains(DIGEST_UTIL.toString(stdOutDigest));
+    assertThat(result.getFailureMessage()).contains(DigestUtil.toString(stdOutDigest));
     // Ensure we also got back the stack trace.
     assertThat(result.getFailureMessage())
         .contains("GrpcRemoteExecutionClientTest.passCacheMissErrorWithStackTrace");
@@ -995,7 +1079,7 @@ public class GrpcRemoteExecutionClientTest {
         new ByteStreamImplBase() {
           @Override
           public void read(ReadRequest request, StreamObserver<ReadResponse> responseObserver) {
-            assertThat(request.getResourceName().contains(DIGEST_UTIL.toString(stdOutDigest)))
+            assertThat(request.getResourceName().contains(DigestUtil.toString(stdOutDigest)))
                 .isTrue();
             responseObserver.onError(Status.NOT_FOUND.asRuntimeException());
           }
@@ -1005,7 +1089,7 @@ public class GrpcRemoteExecutionClientTest {
         new FakeSpawnExecutionContext(simpleSpawn, fakeFileCache, execRoot, outErr);
     SpawnResult result = client.exec(simpleSpawn, policy);
     assertThat(result.status()).isEqualTo(SpawnResult.Status.REMOTE_CACHE_FAILED);
-    assertThat(result.getFailureMessage()).contains(DIGEST_UTIL.toString(stdOutDigest));
+    assertThat(result.getFailureMessage()).contains(DigestUtil.toString(stdOutDigest));
     // Ensure we also got back the stack trace because verboseFailures=true
     assertThat(result.getFailureMessage())
         .contains("passRepeatedOrphanedCacheMissErrorWithStackTrace");
@@ -1275,9 +1359,11 @@ public class GrpcRemoteExecutionClientTest {
     assertThat(result.setupSuccess()).isTrue();
     assertThat(result.exitCode()).isEqualTo(0);
     assertThat(result.isCacheHit()).isFalse();
-    Mockito.verify(mockExecutionImpl, Mockito.times(1))
-        .execute(Mockito.<ExecuteRequest>any(), ArgumentMatchers.<StreamObserver<Operation>>any());
-    Mockito.verify(mockExecutionImpl, Mockito.times(2))
+    verify(mockExecutionImpl, Mockito.times(1))
+        .execute(
+            ArgumentMatchers.<ExecuteRequest>any(),
+            ArgumentMatchers.<StreamObserver<Operation>>any());
+    verify(mockExecutionImpl, Mockito.times(2))
         .waitExecution(
             Mockito.eq(waitExecutionRequest), ArgumentMatchers.<StreamObserver<Operation>>any());
   }

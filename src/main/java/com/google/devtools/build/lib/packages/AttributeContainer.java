@@ -13,51 +13,37 @@
 // limitations under the License.
 package com.google.devtools.build.lib.packages;
 
-import com.google.devtools.build.lib.events.Location;
-import java.util.Arrays;
 import javax.annotation.Nullable;
 
 /**
- * Provides attribute setting and retrieval for a Rule. Encapsulating attribute access
- * here means it can be passed around independently of the Rule itself. In particular,
- * it can be consumed by independent {@link AttributeMap} instances that can apply
- * varying kinds of logic for determining the "value" of an attribute. For example,
- * a configurable attribute's "value" may be a { config --> value } dictionary
- * or a configuration-bound lookup on that dictionary, depending on the context in
- * which it's requested.
+ * Provides attribute setting and retrieval for a Rule. Encapsulating attribute access here means it
+ * can be passed around independently of the Rule itself. In particular, it can be consumed by
+ * independent {@link AttributeMap} instances that can apply varying kinds of logic for determining
+ * the "value" of an attribute. For example, a configurable attribute's "value" may be a { config
+ * --> value } dictionary or a configuration-bound lookup on that dictionary, depending on the
+ * context in which it's requested.
  *
- * <p>This class provides the lowest-level access to attribute information. It is *not*
- * intended to be a robust public interface, but rather just an input to {@link AttributeMap}
- * instances. Use those instances for all domain-level attribute access.
+ * <p>This class provides the lowest-level access to attribute information. It is *not* intended to
+ * be a robust public interface, but rather just an input to {@link AttributeMap} instances. Use
+ * those instances for all domain-level attribute access.
  */
-public class AttributeContainer {
+public final class AttributeContainer {
 
   private final RuleClass ruleClass;
 
   // Attribute values, keyed by attribute index:
   private final Object[] attributeValues;
 
-  // Holds two lists of attribute indices.
-  // The first byte gives the length of the first list.
-  // The first list records which attributes were set explicitly in the BUILD file.
-  // The second list ends at the end of the array.
-  // The second list records which attributes have Locations, in reverse order
-  // from the attributeLocations array.
-  // Between the lists there may be unused zero bytes (zeros are forbidden within each list).
+  // Holds a list of attribute indices.
+  // The first byte gives the length of the list.
+  // The list records which attributes were set explicitly in the BUILD file.
+  // The list may be padded with zeros at the end.
   private byte[] state;
-
-  // Attribute locations, packed:
-  private Location[] attributeLocations;
-
 
   /**
    * Create a container for a rule of the given rule class.
    */
   public AttributeContainer(RuleClass ruleClass) {
-   this(ruleClass, EMPTY_LOCATIONS);
-  }
-
-  AttributeContainer(RuleClass ruleClass, Location[] locations) {
     int n = ruleClass.getAttributeCount();
     if (n > 254) {
       // We reserve the zero byte as a hole/sentinel inside state[].
@@ -67,11 +53,9 @@ public class AttributeContainer {
     this.ruleClass = ruleClass;
     this.attributeValues = new Object[n];
     this.state = EMPTY_STATE;
-    this.attributeLocations = locations;
   }
 
   private static final byte[] EMPTY_STATE = {0};
-  private static final Location[] EMPTY_LOCATIONS = {};
 
   /**
    * Returns an attribute value by name, or null on no match.
@@ -118,16 +102,6 @@ public class AttributeContainer {
     return false;
   }
 
-  private int getLocationIndex(int index) {
-    int n = explicitCount();
-    for (int i = state.length - 1; i > n; --i) {
-      if ((0xff & state[i]) == index + 1) {
-        return state.length - 1 - i;
-      }
-    }
-    return -1;
-  }
-
   private void setExplicit(int index) {
     if (getExplicit(index)) {
       return;
@@ -138,22 +112,9 @@ public class AttributeContainer {
     state[n] = (byte) (index + 1);
   }
 
-  private int addLocationIndex(int index) {
-    ensureSpace();
-    for (int i = state.length - 1; ; --i) {
-      if (i <= explicitCount()) {
-        throw new AssertionError("ensureSpace() did not insert a zero");
-      }
-      if (state[i] == 0) {
-        state[i] = (byte) (index + 1);
-        return state.length - 1 - i;
-      }
-    }
-  }
-
   /**
    * Ensures that the state[n] byte is equal to the sentinel value 0, so there is room for another
-   * attribute's explicit bit to be set, or for an attribute's location to be set.
+   * attribute's explicit bit to be set.
    */
   private void ensureSpace() {
     int n = explicitCount() + 1;
@@ -161,23 +122,11 @@ public class AttributeContainer {
       return;
     }
     // Grow up to the next multiple of eight bytes, as the object will be
-    // aligned to eight bytes anyway.  Insert zeros between the two lists.
+    // aligned to eight bytes anyway.  Pad with zeros at the end.
     byte[] newState = new byte[(state.length | 7) + 1];
     // Copy stored explicit attributes to the beginning of the array.
     System.arraycopy(state, 0, newState, 0, n);
-    // Copy stored attribute locations to the *end* of the array.
-    int oldLocations = state.length - n;
-    System.arraycopy(state, n, newState, newState.length - oldLocations, oldLocations);
     state = newState;
-  }
-
-  /**
-   * Returns the location of the attribute definition for this rule, or null if not found.
-   */
-  public Location getAttributeLocation(String attrName) {
-    Integer idx = ruleClass.getAttributeIndex(attrName);
-    int locationIndex = idx != null ? getLocationIndex(idx) : -1;
-    return locationIndex >= 0 ? attributeLocations[locationIndex] : null;
   }
 
   Object getAttributeValue(int index) {
@@ -202,19 +151,5 @@ public class AttributeContainer {
   // consider that "explicitly set" so that it appears in query output.
   void setAttributeValueByName(String attrName, Object value) {
     setAttributeValue(ruleClass.getAttributeByName(attrName), value, true);
-  }
-
-  void setAttributeLocation(int attrIndex, Location location) {
-    int locationIndex = getLocationIndex(attrIndex);
-    if (locationIndex >= 0) {
-      throw new IllegalArgumentException("already have a location for attribute "
-          + ruleClass.getAttribute(attrIndex).getName() + ": " + attributeLocations[locationIndex]);
-    }
-    locationIndex = addLocationIndex(attrIndex);
-    if (locationIndex >= attributeLocations.length) {
-      // Grow by two references, as the object will be aligned to eight bytes anyway.
-      attributeLocations = Arrays.copyOf(attributeLocations, attributeLocations.length + 2);
-    }
-    attributeLocations[locationIndex] = location;
   }
 }

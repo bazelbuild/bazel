@@ -14,9 +14,9 @@
 
 package com.google.devtools.build.lib.sandbox;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.Spawn;
-import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.exec.TreeDeleter;
 import com.google.devtools.build.lib.exec.local.LocalEnvProvider;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
@@ -25,7 +25,6 @@ import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.Path;
 import java.io.IOException;
 import java.time.Duration;
-import java.util.Map;
 
 /** Strategy that uses sandboxing to execute a process. */
 final class ProcessWrapperSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
@@ -65,8 +64,8 @@ final class ProcessWrapperSandboxedSpawnRunner extends AbstractSandboxSpawnRunne
   }
 
   @Override
-  protected SpawnResult actuallyExec(Spawn spawn, SpawnExecutionContext context)
-      throws ExecException, IOException, InterruptedException {
+  protected SandboxedSpawn prepareSpawn(Spawn spawn, SpawnExecutionContext context)
+      throws IOException, ExecException {
     // Each invocation of "exec" gets its own sandbox base.
     // Note that the value returned by context.getId() is only unique inside one given SpawnRunner,
     // so we have to prefix our name to turn it into a globally unique value.
@@ -81,7 +80,7 @@ final class ProcessWrapperSandboxedSpawnRunner extends AbstractSandboxSpawnRunne
     sandboxExecRoot.getParentDirectory().createDirectory();
     sandboxExecRoot.createDirectory();
 
-    Map<String, String> environment =
+    ImmutableMap<String, String> environment =
         localEnvProvider.rewriteLocalEnv(spawn.getEnvironment(), binTools, "/tmp");
 
     Duration timeout = context.getTimeout();
@@ -97,22 +96,20 @@ final class ProcessWrapperSandboxedSpawnRunner extends AbstractSandboxSpawnRunne
       commandLineBuilder.setStatisticsPath(statisticsPath);
     }
 
-    SandboxedSpawn sandbox =
-        new SymlinkedSandboxedSpawn(
-            sandboxPath,
-            sandboxExecRoot,
-            commandLineBuilder.build(),
-            environment,
-            SandboxHelpers.processInputFiles(
-                spawn,
-                context,
-                execRoot,
-                getSandboxOptions().symlinkedSandboxExpandsTreeArtifactsInRunfilesTree),
-            SandboxHelpers.getOutputs(spawn),
-            getWritableDirs(sandboxExecRoot, environment),
-            treeDeleter);
-
-    return runSpawn(spawn, sandbox, context, execRoot, timeout, statisticsPath);
+    return new SymlinkedSandboxedSpawn(
+        sandboxPath,
+        sandboxExecRoot,
+        commandLineBuilder.build(),
+        environment,
+        SandboxHelpers.processInputFiles(
+            spawn,
+            context,
+            execRoot,
+            getSandboxOptions().symlinkedSandboxExpandsTreeArtifactsInRunfilesTree),
+        SandboxHelpers.getOutputs(spawn),
+        getWritableDirs(sandboxExecRoot, environment),
+        treeDeleter,
+        statisticsPath);
   }
 
   @Override

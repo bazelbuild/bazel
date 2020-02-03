@@ -15,8 +15,8 @@
 package com.google.devtools.build.lib.rules.config;
 
 import static com.google.devtools.build.lib.collect.nestedset.Order.STABLE_ORDER;
-import static com.google.devtools.build.lib.syntax.Type.STRING;
-import static com.google.devtools.build.lib.syntax.Type.STRING_LIST;
+import static com.google.devtools.build.lib.packages.Type.STRING;
+import static com.google.devtools.build.lib.packages.Type.STRING_LIST;
 
 import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
@@ -38,7 +38,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.Attribute.ComputedDefault;
 import com.google.devtools.build.lib.packages.AttributeMap;
-import com.google.devtools.build.lib.syntax.Printer;
+import com.google.devtools.build.lib.syntax.Starlark;
 import java.util.List;
 import java.util.Optional;
 
@@ -113,7 +113,7 @@ public class ConfigFeatureFlag implements RuleConfiguredTargetFactory {
       ruleContext.attributeError(
           "allowed_values",
           "cannot contain duplicates, but contained multiple of "
-              + Printer.repr(duplicates.build()));
+              + Starlark.repr(duplicates.build()));
     }
 
     Optional<String> defaultValue =
@@ -124,9 +124,9 @@ public class ConfigFeatureFlag implements RuleConfiguredTargetFactory {
       ruleContext.attributeError(
           "default_value",
           "must be one of "
-              + Printer.repr(values.asList())
+              + Starlark.repr(values.asList())
               + ", but was "
-              + Printer.repr(defaultValue.get()));
+              + Starlark.repr(defaultValue.get()));
     }
 
     if (ruleContext.hasErrors()) {
@@ -141,17 +141,17 @@ public class ConfigFeatureFlag implements RuleConfiguredTargetFactory {
             .getFeatureFlagValue(ruleContext.getOwner());
 
     if (configuredValue.isPresent() && !isValidValue.apply(configuredValue.get())) {
-      // TODO(mstaib): When configurationError is available, use that instead.
+      // TODO(b/140635901): When configurationError is available, use that instead.
       ruleContext.ruleError(
           "value must be one of "
-              + Printer.repr(values.asList())
+              + Starlark.repr(values.asList())
               + ", but was "
-              + Printer.repr(configuredValue.get()));
+              + Starlark.repr(configuredValue.get()));
       return null;
     }
 
     if (!configuredValue.isPresent() && !defaultValue.isPresent()) {
-      // TODO(mstaib): When configurationError is available, use that instead.
+      // TODO(b/140635901): When configurationError is available, use that instead.
       ruleContext.ruleError("flag has no default and must be set, but was not set");
       return null;
     }

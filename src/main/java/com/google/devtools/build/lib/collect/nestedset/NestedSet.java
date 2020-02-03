@@ -18,7 +18,6 @@ import static java.util.stream.Collectors.joining;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.flogger.GoogleLogger;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.bugreport.BugReport;
@@ -35,6 +34,9 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import javax.annotation.Nullable;
 
 /**
@@ -44,8 +46,8 @@ import javax.annotation.Nullable;
  */
 @SuppressWarnings("unchecked")
 @AutoCodec
-public final class NestedSet<E> implements Iterable<E> {
-  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
+public final class NestedSet<E> {
+  private static final Logger logger = Logger.getLogger(NestedSet.class.getName());
 
   /**
    * Order and size of set packed into one int.
@@ -58,6 +60,14 @@ public final class NestedSet<E> implements Iterable<E> {
 
   private final Object children;
   private byte[] memo;
+
+  /**
+   * The application depth limit of nested sets. Nested sets over this depth will throw {@link
+   * NestedSetDepthException} on flattening of the depset.
+   *
+   * <p>This limit should be set by command line option processing in the Bazel server.
+   */
+  private static final AtomicInteger expansionDepthLimit = new AtomicInteger(3500);
 
   private static final byte[] LEAF_MEMO = {};
   @AutoCodec static final Object[] EMPTY_CHILDREN = {};
@@ -261,6 +271,12 @@ public final class NestedSet<E> implements Iterable<E> {
     return !(children instanceof Object[] || children instanceof ListenableFuture);
   }
 
+  /** Returns the single element; only call this if {@link #isSingleton} returns true. */
+  public E getSingleton() {
+    Preconditions.checkState(isSingleton());
+    return (E) children;
+  }
+
   /**
    * Returns an immutable list of all unique elements of the this set, similar to {@link #toList},
    * but will propagate an {@code InterruptedException} if one is thrown.
@@ -311,6 +327,20 @@ public final class NestedSet<E> implements Iterable<E> {
   }
 
   /**
+   * Important: This does a full traversal of the nested set if it's not been previously traversed.
+   *
+   * @return the size of the nested set.
+   */
+  public int memoizedFlattenAndGetSize() {
+    if (orderAndSize >> 2 == 0) {
+      // toList() only implicitly updates orderAndSize if this is a NestedSet with transitives.
+      // Therefore we need to explicitly set it here.
+      orderAndSize |= toList().size() << 2;
+    }
+    return orderAndSize >> 2;
+  }
+
+  /**
    * Returns true if this set is equal to {@code other} based on the top-level elements and object
    * identity (==) of direct subsets. As such, this function can fail to equate {@code this} with
    * another {@code NestedSet} that holds the same elements. It will never fail to detect that two
@@ -357,7 +387,7 @@ public final class NestedSet<E> implements Iterable<E> {
   }
 
   // TODO:  this leaves LINK_ORDER backwards
-  private static String childrenToString(Object children) {
+  public static String childrenToString(Object children) {
     if (children instanceof Object[]) {
       return Arrays.stream((Object[]) children)
           .map(NestedSet::childrenToString)
@@ -368,7 +398,7 @@ public final class NestedSet<E> implements Iterable<E> {
         try {
           return Arrays.toString(Futures.getDone(future));
         } catch (ExecutionException e) {
-          logger.atSevere().withCause(e).log("Error getting %s", future);
+          logger.log(Level.SEVERE, "Error getting " + future, e);
           // Don't rethrow, since we may be in the process of trying to construct an error message.
           return "Future " + future + " with error: " + e.getCause().getMessage();
         }
@@ -378,12 +408,6 @@ public final class NestedSet<E> implements Iterable<E> {
     } else {
       return children.toString();
     }
-  }
-
-  @Override
-  public Iterator<E> iterator() {
-    // TODO: would it help to have a proper lazy iterator?  seems like it might reduce garbage.
-    return toList().iterator();
   }
 
   /**
@@ -444,7 +468,14 @@ public final class NestedSet<E> implements Iterable<E> {
     CompactHashSet<Object> sets = CompactHashSet.createWithExpectedSize(128);
     sets.add(children);
     memo = new byte[Math.min((children.length + 7) / 8, 8)];
-    int pos = walk(sets, members, children, 0);
+    int pos =
+        walk(
+            sets,
+            members,
+            children,
+            /* pos= */ 0,
+            /* currentDepth= */ 1,
+            expansionDepthLimit.get());
     int bytes = (pos + 7) / 8;
     if (bytes <= memo.length - 16) {
       memo = Arrays.copyOf(memo, bytes);
@@ -462,7 +493,15 @@ public final class NestedSet<E> implements Iterable<E> {
    * <p>Returns the final value of {@code pos}.
    */
   private int walk(
-      CompactHashSet<Object> sets, CompactHashSet<E> members, Object[] children, int pos) {
+      CompactHashSet<Object> sets,
+      CompactHashSet<E> members,
+      Object[] children,
+      int pos,
+      int currentDepth,
+      int maxDepth) {
+    if (currentDepth > maxDepth) {
+      throw new NestedSetDepthException(maxDepth);
+    }
     for (Object child : children) {
       if ((pos >> 3) >= memo.length) {
         memo = Arrays.copyOf(memo, memo.length * 2);
@@ -471,7 +510,7 @@ public final class NestedSet<E> implements Iterable<E> {
         if (sets.add(child)) {
           int prepos = pos;
           int presize = members.size();
-          pos = walk(sets, members, (Object[]) child, pos + 1);
+          pos = walk(sets, members, (Object[]) child, pos + 1, currentDepth + 1, maxDepth);
           if (presize < members.size()) {
             memo[prepos >> 3] |= (byte) (1 << (prepos & 7));
           } else {
@@ -512,5 +551,32 @@ public final class NestedSet<E> implements Iterable<E> {
       }
     }
     return pos;
+  }
+
+  /**
+   * Sets the application depth limit of nested sets. When flattening a {@link NestedSet} deeper
+   * than this limit, a {@link NestedSetDepthException} will be thrown.
+   *
+   * <p>This limit should be set by command line option processing.
+   *
+   * @return true if the previous limit was different than this new limit
+   */
+  public static boolean setApplicationDepthLimit(int newLimit) {
+    int oldValue = expansionDepthLimit.getAndSet(newLimit);
+    return oldValue != newLimit;
+  }
+
+  /** An exception thrown when a nested set exceeds the application's depth limits. */
+  public static final class NestedSetDepthException extends RuntimeException {
+    private final int depthLimit;
+
+    public NestedSetDepthException(int depthLimit) {
+      this.depthLimit = depthLimit;
+    }
+
+    /** Returns the depth limit that was exceeded which resulted in this exception being thrown. */
+    public int getDepthLimit() {
+      return depthLimit;
+    }
   }
 }

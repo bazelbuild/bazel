@@ -17,14 +17,9 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.docgen.skylark.SkylarkModuleDoc;
-import com.google.devtools.build.lib.skylark.util.SkylarkTestCase;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.syntax.StarlarkSemantics;
-import com.google.devtools.build.lib.syntax.util.EvaluationTestCase;
-import java.util.Map;
-import org.junit.Before;
+import com.google.devtools.build.lib.syntax.StarlarkValue;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -35,27 +30,11 @@ import org.junit.runners.JUnit4;
  * anywhere in the classpath.
  */
 @RunWith(JUnit4.class)
-public class SkylarkDocumentationFailuresTest extends SkylarkTestCase {
-
-  @Before
-  public final void createBuildFile() throws Exception {
-    scratch.file("foo/BUILD",
-        "genrule(name = 'foo',",
-        "  cmd = 'dummy_cmd',",
-        "  srcs = ['a.txt', 'b.img'],",
-        "  tools = ['t.exe'],",
-        "  outs = ['c.txt'])");
-  }
-
-  @Override
-  protected EvaluationTestCase createEvaluationTestCase(StarlarkSemantics semantics) {
-    return new EvaluationTestCase();
-  }
+public final class SkylarkDocumentationFailuresTest {
 
   /** MockClassCommonNameOne */
-  @SkylarkModule(name = "MockClassCommonName",
-      doc = "MockClassCommonName")
-  private static class MockClassCommonNameOne {
+  @SkylarkModule(name = "MockClassCommonName", doc = "MockClassCommonName")
+  private static class MockClassCommonNameOne implements StarlarkValue {
 
     @SkylarkCallable(name = "one", doc = "one")
     public Integer one() {
@@ -64,9 +43,8 @@ public class SkylarkDocumentationFailuresTest extends SkylarkTestCase {
   }
 
   /** MockClassCommonNameTwo */
-  @SkylarkModule(name = "MockClassCommonName",
-      doc = "MockClassCommonName")
-  private static class MockClassCommonNameTwo {
+  @SkylarkModule(name = "MockClassCommonName", doc = "MockClassCommonName")
+  private static class MockClassCommonNameTwo implements StarlarkValue {
 
     @SkylarkCallable(name = "two", doc = "two")
     public Integer two() {
@@ -75,9 +53,8 @@ public class SkylarkDocumentationFailuresTest extends SkylarkTestCase {
   }
 
   /** PointsToCommonName */
-  @SkylarkModule(name = "PointsToCommonName",
-      doc = "PointsToCommonName")
-  private static class PointsToCommonName {
+  @SkylarkModule(name = "PointsToCommonName", doc = "PointsToCommonName")
+  private static class PointsToCommonName implements StarlarkValue {
     @SkylarkCallable(name = "one", doc = "one")
     public MockClassCommonNameOne getOne() {
       return null;
@@ -91,12 +68,12 @@ public class SkylarkDocumentationFailuresTest extends SkylarkTestCase {
 
   @Test
   public void testModuleNameConflict() {
-    IllegalStateException expected =
-        assertThrows(IllegalStateException.class, () -> collect(PointsToCommonName.class));
-    assertThat(expected.getMessage()).contains("are both modules with the same documentation");
-  }
-
-  private Map<String, SkylarkModuleDoc> collect(Class<?> classObject) {
-    return SkylarkDocumentationCollector.collectModules(ImmutableList.of(classObject));
+    IllegalStateException ex =
+        assertThrows(
+            IllegalStateException.class,
+            () ->
+                SkylarkDocumentationCollector.collectModules(
+                    ImmutableList.of(PointsToCommonName.class)));
+    assertThat(ex).hasMessageThat().contains("are both modules with the same documentation");
   }
 }

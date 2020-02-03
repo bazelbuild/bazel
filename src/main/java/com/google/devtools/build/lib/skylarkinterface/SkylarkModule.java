@@ -40,14 +40,16 @@ import java.lang.annotation.Target;
  * <p>Inheriting an annotation is useful when the class is an implementation detail, such as a
  * concrete implementation of an abstract interface. Overriding an annotation is useful when the
  * class should have its own distinct user-visible API or documentation. For example, {@link
- * SkylarkList} is an abstract type implemented by both {@link SkylarkList.MutableList} and {@link
- * SkylarkList.Tuple}, all three of which are annotated. Annotating the list and tuple types allows
- * them to define different methods, while annotating {@link SkylarkList} allows them to be
- * identified as a single type for the purpose of type checking, documentation, and error messages.
+ * Sequence} is an abstract type implemented by both {@link StarlarkList} and {@link
+ * Sequence.Tuple}, all three of which are annotated. Annotating the list and tuple types allows
+ * them to define different methods, while annotating {@link Sequence} allows them to be identified
+ * as a single type for the purpose of type checking, documentation, and error messages.
  *
- * <p>All {@code @SkylarkModule}-annotated types should implement {@link SkylarkValue}. Conversely,
- * all non-abstract implementations of {@link SkylarkValue} should have or inherit a {@code
- * @SkylarkModule} annotation.
+ * <p>All {@code @SkylarkModule}-annotated types must implement {@link StarlarkValue}. Nearly all
+ * non-abstract implementations of {@link StarlarkValue} have or inherit a {@code @SkylarkModule}
+ * annotation. (It is possible, though quite unusual, to declare an implementation of {@code
+ * StarlarkValue} without using the annotation mechanism defined in this package. {@code
+ * StarlarkFunction} is one example.)
  */
 @Target({ElementType.TYPE})
 @Retention(RetentionPolicy.RUNTIME)
@@ -59,8 +61,10 @@ public @interface SkylarkModule {
   /** A title for the documentation page generated for this type. */
   String title() default "";
 
-  String doc();
+  /** Module documentation in HTML. May be empty only if {@code !documented()}. */
+  String doc() default "";
 
+  /** Whether the module should appear in the documentation. */
   boolean documented() default true;
 
   /**

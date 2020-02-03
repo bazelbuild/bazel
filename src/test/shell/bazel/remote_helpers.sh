@@ -87,6 +87,7 @@ EOF
   ${bazel_javabase}/bin/jar cf $test_jar carnivore/Mongoose.class
   ${bazel_javabase}/bin/jar cf $test_srcjar carnivore/Mongoose.java
   sha256=$(sha256sum $test_jar | cut -f 1 -d ' ')
+  sha256_src=$(sha256sum $test_srcjar | cut -f 1 -d ' ')
   # OS X doesn't have sha1sum, so use openssl.
   sha1=$(openssl sha1 $test_jar | cut -f 2 -d ' ')
   sha1_src=$(openssl sha1 $test_srcjar | cut -f 2 -d ' ')

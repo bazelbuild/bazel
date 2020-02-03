@@ -11,7 +11,7 @@ title: Test Encyclopedia
 <p>The Bazel BUILD language includes rules which can be used to define
 automated test programs in many languages.</p>
 
-<p>Tests are run using <code><a href="bazel-user-manual.html#test">bazel test</a></code>.
+<p>Tests are run using <code><a href="user-manual.html#test">bazel test</a></code>.
 
 Users may also execute test binaries directly. This is allowed but not endorsed, as such
 an invocation will not adhere to the mandates described below.</p>
@@ -129,6 +129,11 @@ test's <code>size</code> as follows:</p>
 <p>For example a "large" test with no explicit timeout setting will be allotted
 900 seconds to run. A "medium" test with a timeout of "short" will be allotted
 60 seconds.</p>
+
+<p>Unlike <code>timeout</code>, the <code>size</code> also determines the
+limits for other resources like RAM, as described in
+<a href="be/common-definitions.html?cl=head#common-attributes-tests">Common
+definitions</a>.</p>
 
 <p>All combinations of <code>size</code> and <code>timeout</code> labels are
 legal, so an "enormous" test may be declared to have a timeout of "short".
@@ -418,11 +423,12 @@ tree.</p>
 Bazel sees the file when the test finishes, it will assume that the test exited
 prematurely and mark it as having failed.</p>
 
-<h3>Tag conventions</h3>
+<h3 id="tag-conventions">Tag conventions</h3>
 
 <p>
   Some tags in the test rules have a special
-  meaning.
+  meaning. See also the <a href="be/common-definitions.html#common.tags">Bazel
+  Build Encyclopedia on the <code>tags</code> attribute</a>.
 </p>
 
 <table class="table table-bordered table-striped table-condensed">
@@ -445,7 +451,7 @@ prematurely and mark it as having failed.</p>
     </tr>
 
     <tr>
-      <th><code>manual*</code></th>
+      <th><code>manual</code>*</th>
 
       <td>don't include test target in wildcard target patterns like <code>:...</code>, <code>:*</code>, or <code>:all</code>)</td>
     </tr>

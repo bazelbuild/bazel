@@ -17,6 +17,7 @@ import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.analysis.config.CompilationMode;
 import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.EmptyToNullLabelConverter;
 import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.LabelConverter;
@@ -24,6 +25,7 @@ import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.PerLabelOptions;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
+import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.DynamicMode;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.StripMode;
 import com.google.devtools.build.lib.util.OS;
@@ -88,14 +90,16 @@ public class CppOptions extends FragmentOptions {
   public static class LibcTopLabelConverter implements Converter<Label> {
     @Override
     public Label convert(String input) throws OptionsParsingException {
-      if (input.equals("default")) {
+      if (input.equals(TARGET_LIBC_TOP_NOT_YET_SET)) {
+        return Label.createUnvalidated(
+            PackageIdentifier.EMPTY_PACKAGE_ID, TARGET_LIBC_TOP_NOT_YET_SET);
+      } else if (input.equals("default")) {
         // This is needed for defining config_setting() values, the syntactic form
         // of which must be a String, to match absence of a --grte_top option.
         // "--grte_top=default" works on the command-line too,
         // but that's an inconsequential side-effect, not the intended purpose.
         return null;
-      }
-      if (!input.startsWith("//")) {
+      } else if (!input.startsWith("//")) {
         throw new OptionsParsingException("Not a label");
       }
       try {
@@ -627,14 +631,34 @@ public class CppOptions extends FragmentOptions {
   )
   public Label hostLibcTopLabel;
 
+  /** See {@link #targetLibcTopLabel} documentation. * */
+  private static final String TARGET_LIBC_TOP_NOT_YET_SET = "TARGET LIBC TOP NOT YET SET";
+
   /**
    * This is a fake option used to pass data from target configuration to the host configuration.
    * It's a horrible hack that will be removed once toolchain-transitions are implemented.
+   *
+   * <p>We want to make sure this stays bound to the top-level configuration (as opposed to a
+   * configuration that comes out of a transition). Otherwise we risk multiple exec configurations
+   * writing to the same path and creating C++ action conflicts (C++ actions can not be shared
+   * across configurations: see {@link ActionAnalysisMetadata#isShareable}). {@link
+   * com.google.devtools.build.lib.rules.android.AndroidRuleClasses.AndroidSplitTransition}, for
+   * example, changes {@link #libcTopLabel} to an Android-specific variant.
+   *
+   * <p>To accomplish this, we initialize this to a special value that means "I haven't been set
+   * yet" and use {@link #getNormalized} to rewrite it to {@link #libcTopLabel} <b>only</b> from
+   * that default. Blaze always evaluates top-level configurations first, so they'll trigger this.
+   * But no followup transitions can.
+   *
+   * <p>It's not sufficient to use null for the default. That wouldn't handle the case of the
+   * top-level {@link #libcTopLabel} being null and {@link
+   * com.google.devtools.build.lib.rules.android.AndroidConfiguration.Options#androidLibcTopLabel}
+   * being non-null.
    */
   // TODO(b/129045294): Remove once toolchain-transitions are implemented.
   @Option(
       name = "target libcTop label",
-      defaultValue = "null",
+      defaultValue = TARGET_LIBC_TOP_NOT_YET_SET,
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       converter = LibcTopLabelConverter.class,
       effectTags = {
@@ -765,8 +789,22 @@ public class CppOptions extends FragmentOptions {
   public boolean requireCtxInConfigureFeatures;
 
   @Option(
-      name = "incompatible_remove_legacy_whole_archive",
+      name = "incompatible_validate_top_level_header_inclusions",
       defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.INPUT_STRICTNESS,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      metadataTags = {
+        OptionMetadataTag.INCOMPATIBLE_CHANGE,
+        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+      },
+      help =
+          "If true, Bazel will also validate top level directory header inclusions "
+              + "(see https://github.com/bazelbuild/bazel/issues/10047 for more information).")
+  public boolean validateTopLevelHeaderInclusions;
+
+  @Option(
+      name = "incompatible_remove_legacy_whole_archive",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
       metadataTags = {
@@ -918,6 +956,18 @@ public class CppOptions extends FragmentOptions {
               + "the Starlark rules instead https://github.com/bazelbuild/rules_cc")
   public boolean loadCcRulesFromBzl;
 
+  /** See {@link #targetLibcTopLabel} documentation. * */
+  @Override
+  public FragmentOptions getNormalized() {
+    if (targetLibcTopLabel != null
+        && targetLibcTopLabel.getName().equals(TARGET_LIBC_TOP_NOT_YET_SET)) {
+      CppOptions newOptions = (CppOptions) this.clone();
+      newOptions.targetLibcTopLabel = libcTopLabel;
+      return newOptions;
+    }
+    return this;
+  }
+
   @Override
   public FragmentOptions getHost() {
     CppOptions host = (CppOptions) getDefault();
@@ -937,7 +987,7 @@ public class CppOptions extends FragmentOptions {
     // by --host_crosstool_top, or --crosstool_top as a fallback) says it should be.
     host.libcTopLabel = hostLibcTopLabel;
     // TODO(b/129045294): Remove once toolchain-transitions are implemented.
-    host.targetLibcTopLabel = libcTopLabel;
+    host.targetLibcTopLabel = targetLibcTopLabel;
 
     // -g0 is the default, but allowMultiple options cannot have default values so we just pass
     // -g0 first and let the user options override it.
@@ -976,6 +1026,7 @@ public class CppOptions extends FragmentOptions {
     host.disableStaticCcToolchains = disableStaticCcToolchains;
     host.disableNoCopts = disableNoCopts;
     host.loadCcRulesFromBzl = loadCcRulesFromBzl;
+    host.validateTopLevelHeaderInclusions = validateTopLevelHeaderInclusions;
 
     // Save host options for further use.
     host.hostCoptList = hostCoptList;

@@ -22,7 +22,7 @@ import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.skyframe.WorkspaceFileFunctionTest.FakeFileValue;
 import com.google.devtools.build.lib.skyframe.WorkspaceFileFunctionTest.SkyKeyMatchers;
-import com.google.devtools.build.lib.syntax.BuildFileAST;
+import com.google.devtools.build.lib.syntax.StarlarkFile;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -74,10 +74,21 @@ public class WorkspaceASTFunctionTest extends BuildViewTestCase {
     Mockito.when(
             env.getValue(MockitoHamcrest.argThat(new SkyKeyMatchers(SkyFunctions.PRECOMPUTED))))
         .thenReturn(new PrecomputedValue(Optional.<RootedPath>absent()));
+    Mockito.when(
+            env.getValue(
+                MockitoHamcrest.argThat(
+                    new SkyKeyMatchers(SkyFunctions.PRECOMPUTED) {
+                      @Override
+                      public boolean matches(Object item) {
+                        return super.matches(item)
+                            && item.toString().equals("PRECOMPUTED:skylark_semantics");
+                      }
+                    })))
+        .thenReturn(null);
     return env;
   }
 
-  private List<BuildFileAST> getASTs(String... lines)
+  private List<StarlarkFile> getASTs(String... lines)
       throws IOException, SkyFunctionException, InterruptedException {
     RootedPath workspacePath = createWorkspaceFile(lines);
 
@@ -88,7 +99,7 @@ public class WorkspaceASTFunctionTest extends BuildViewTestCase {
 
   @Test
   public void testSplitASTNoLoad() throws IOException, SkyFunctionException, InterruptedException {
-    List<BuildFileAST> asts = getASTs("foo_bar = 1");
+    List<StarlarkFile> asts = getASTs("foo_bar = 1");
     assertThat(asts).hasSize(1);
     assertThat(asts.get(0).getStatements()).hasSize(1);
   }
@@ -96,14 +107,14 @@ public class WorkspaceASTFunctionTest extends BuildViewTestCase {
   @Test
   public void testSplitASTOneLoadAtTop()
       throws IOException, SkyFunctionException, InterruptedException {
-    List<BuildFileAST> asts = getASTs("load('//:foo.bzl', 'bar')", "foo_bar = 1");
+    List<StarlarkFile> asts = getASTs("load('//:foo.bzl', 'bar')", "foo_bar = 1");
     assertThat(asts).hasSize(1);
     assertThat(asts.get(0).getStatements()).hasSize(2);
   }
 
   @Test
   public void testSplitASTOneLoad() throws IOException, SkyFunctionException, InterruptedException {
-    List<BuildFileAST> asts = getASTs("foo_bar = 1", "load('//:foo.bzl', 'bar')");
+    List<StarlarkFile> asts = getASTs("foo_bar = 1", "load('//:foo.bzl', 'bar')");
     assertThat(asts).hasSize(2);
     assertThat(asts.get(0).getStatements()).hasSize(1);
     assertThat(asts.get(1).getStatements()).hasSize(1);
@@ -112,7 +123,7 @@ public class WorkspaceASTFunctionTest extends BuildViewTestCase {
   @Test
   public void testSplitASTTwoSuccessiveLoads()
       throws IOException, SkyFunctionException, InterruptedException {
-    List<BuildFileAST> asts =
+    List<StarlarkFile> asts =
         getASTs("foo_bar = 1", "load('//:foo.bzl', 'bar')", "load('//:bar.bzl', 'foo')");
     assertThat(asts).hasSize(2);
     assertThat(asts.get(0).getStatements()).hasSize(1);
@@ -122,7 +133,7 @@ public class WorkspaceASTFunctionTest extends BuildViewTestCase {
   @Test
   public void testSplitASTTwoSucessiveLoadsWithNonLoadStatement()
       throws IOException, SkyFunctionException, InterruptedException {
-    List<BuildFileAST> asts =
+    List<StarlarkFile> asts =
         getASTs(
             "foo_bar = 1",
             "load('//:foo.bzl', 'bar')",
@@ -136,7 +147,7 @@ public class WorkspaceASTFunctionTest extends BuildViewTestCase {
   @Test
   public void testSplitASTThreeLoadsThreeSegments()
       throws IOException, SkyFunctionException, InterruptedException {
-    List<BuildFileAST> asts =
+    List<StarlarkFile> asts =
         getASTs(
             "foo_bar = 1",
             "load('//:foo.bzl', 'bar')",
@@ -152,7 +163,7 @@ public class WorkspaceASTFunctionTest extends BuildViewTestCase {
   @Test
   public void testSplitASTThreeLoadsThreeSegmentsWithContent()
       throws IOException, SkyFunctionException, InterruptedException {
-    List<BuildFileAST> asts =
+    List<StarlarkFile> asts =
         getASTs(
             "foo_bar = 1",
             "load('//:foo.bzl', 'bar')",

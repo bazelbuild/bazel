@@ -104,7 +104,7 @@ public class AppleStaticLibraryTest extends ObjcRuleTestCase {
     SymlinkAction action = (SymlinkAction) lipoLibAction("//x:x");
     CommandAction linkAction = linkLibAction("//x:x");
 
-    assertThat(action.getInputs())
+    assertThat(action.getInputs().toList())
         .containsExactly(Iterables.getOnlyElement(linkAction.getOutputs()));
   }
 
@@ -135,9 +135,9 @@ public class AppleStaticLibraryTest extends ObjcRuleTestCase {
     String x8664Lib =
         configurationBin("x86_64", ConfigurationDistinguisher.APPLEBIN_IOS) + "x/x-fl.a";
 
-    assertThat(Artifact.toExecPaths(action.getInputs()))
-        .containsExactly(i386Lib, x8664Lib, MOCK_XCRUNWRAPPER_PATH,
-            MOCK_XCRUNWRAPPER_EXECUTABLE_PATH);
+    assertThat(Artifact.asExecPaths(action.getInputs()))
+        .containsExactly(
+            i386Lib, x8664Lib, MOCK_XCRUNWRAPPER_PATH, MOCK_XCRUNWRAPPER_EXECUTABLE_PATH);
 
     assertThat(action.getArguments())
         .containsExactly(
@@ -207,9 +207,9 @@ public class AppleStaticLibraryTest extends ObjcRuleTestCase {
             getGeneratingAction(
                 getFirstArtifactEndingWith(action.getInputs(), x8664Prefix + "package/test-fl.a"));
 
-    assertThat(Artifact.toExecPaths(i386BinAction.getInputs()))
+    assertThat(Artifact.asExecPaths(i386BinAction.getInputs()))
         .contains(i386Prefix + "package/libcclib.a");
-    assertThat(Artifact.toExecPaths(x8664BinAction.getInputs()))
+    assertThat(Artifact.asExecPaths(x8664BinAction.getInputs()))
         .contains(x8664Prefix + "package/libcclib.a");
   }
 
@@ -226,9 +226,9 @@ public class AppleStaticLibraryTest extends ObjcRuleTestCase {
     String armv7kBin = configurationBin("armv7k", ConfigurationDistinguisher.APPLEBIN_WATCHOS)
         + "x/x-fl.a";
 
-    assertThat(Artifact.toExecPaths(action.getInputs()))
-        .containsExactly(i386Bin, armv7kBin, MOCK_XCRUNWRAPPER_PATH,
-            MOCK_XCRUNWRAPPER_EXECUTABLE_PATH);
+    assertThat(Artifact.asExecPaths(action.getInputs()))
+        .containsExactly(
+            i386Bin, armv7kBin, MOCK_XCRUNWRAPPER_PATH, MOCK_XCRUNWRAPPER_EXECUTABLE_PATH);
 
     assertContainsSublist(action.getArguments(), ImmutableList.of(
         MOCK_XCRUNWRAPPER_EXECUTABLE_PATH, LIPO, "-create"));
@@ -288,13 +288,13 @@ public class AppleStaticLibraryTest extends ObjcRuleTestCase {
         "avoid_deps", "['//libs:apple_low_level_lib']");
 
     CommandAction linkAction = linkLibAction("//x:x");
-    Iterable<Artifact> linkActionInputs = linkAction.getInputs();
+    Iterable<Artifact> linkActionInputs = linkAction.getInputs().toList();
 
     ImmutableList.Builder<Artifact> objects = ImmutableList.builder();
     for (Artifact binActionArtifact : linkActionInputs) {
       if (binActionArtifact.getRootRelativePath().getPathString().endsWith(".a")) {
         CommandAction subLinkAction = (CommandAction) getGeneratingAction(binActionArtifact);
-        for (Artifact linkActionArtifact : subLinkAction.getInputs()) {
+        for (Artifact linkActionArtifact : subLinkAction.getInputs().toList()) {
           if (linkActionArtifact.getRootRelativePath().getPathString().endsWith(".o")) {
             objects.add(linkActionArtifact);
           }
@@ -475,9 +475,12 @@ public class AppleStaticLibraryTest extends ObjcRuleTestCase {
     assertThat(provider).isNotNull();
     assertThat(provider.getMultiArchArchive()).isNotNull();
     assertThat(provider.getDepsObjcProvider()).isNotNull();
-    assertThat(provider.getMultiArchArchive()).isEqualTo(
-        Iterables.getOnlyElement(
-            provider.getDepsObjcProvider().get(ObjcProvider.MULTI_ARCH_LINKED_ARCHIVES)));
+    assertThat(provider.getMultiArchArchive())
+        .isEqualTo(
+            provider
+                .getDepsObjcProvider()
+                .get(ObjcProvider.MULTI_ARCH_LINKED_ARCHIVES)
+                .getSingleton());
   }
 
   @Test
@@ -679,9 +682,12 @@ public class AppleStaticLibraryTest extends ObjcRuleTestCase {
     assertThat(provider).isNotNull();
     assertThat(provider.getMultiArchArchive()).isNotNull();
     assertThat(provider.getDepsObjcProvider()).isNotNull();
-    assertThat(provider.getMultiArchArchive()).isEqualTo(
-        Iterables.getOnlyElement(
-            provider.getDepsObjcProvider().get(ObjcProvider.MULTI_ARCH_LINKED_ARCHIVES)));
+    assertThat(provider.getMultiArchArchive())
+        .isEqualTo(
+            provider
+                .getDepsObjcProvider()
+                .get(ObjcProvider.MULTI_ARCH_LINKED_ARCHIVES)
+                .getSingleton());
   }
 
   @Test
@@ -713,9 +719,7 @@ public class AppleStaticLibraryTest extends ObjcRuleTestCase {
     AssertionError expected =
         assertThrows(AssertionError.class, () ->
             getConfiguredTarget("//examples/apple_skylark:my_target"));
-    assertThat(expected)
-        .hasMessageThat()
-        .contains("unexpected keyword 'foo', for call to function AppleStaticLibrary");
+    assertThat(expected).hasMessageThat().contains("unexpected keyword argument 'foo'");
   }
 
   @Test

@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.syntax;
 
-import java.io.IOException;
 import javax.annotation.Nullable;
 
 /** A wrapper Statement class for return expressions. */
@@ -31,18 +30,7 @@ public final class ReturnStatement extends Statement {
   }
 
   @Override
-  public void prettyPrint(Appendable buffer, int indentLevel) throws IOException {
-    printIndent(buffer, indentLevel);
-    buffer.append("return");
-    if (returnExpression != null) {
-      buffer.append(' ');
-      returnExpression.prettyPrint(buffer, indentLevel);
-    }
-    buffer.append('\n');
-  }
-
-  @Override
-  public void accept(SyntaxTreeVisitor visitor) {
+  public void accept(NodeVisitor visitor) {
     visitor.visit(this);
   }
 

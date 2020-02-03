@@ -46,14 +46,11 @@ The solution that's currently implemented:
   default install base and output base directories. For example:
   `bazel --output_user_root=/tmp/bazel build x/y:z`.
 
-We put symlinks "bazel-&lt;workspace-name&gt;" and "bazel-out", as well as
-"bazel-bin", "bazel-genfiles", and "bazel-includes" in the workspace directory;
-these symlinks points to some directories inside a target-specific directory
-inside the output directory. These symlinks are only for the user's convenience,
-as Bazel itself does not use them. Also, we only do this if the workspace
-directory is writable. The names of the "bazel-bin", "bazel-genfiles", and
-"bazel-include" symlinks are affected by the `--symlink_prefix` option to bazel,
-but "bazel-&lt;workspace-name&gt;" and "bazel-out" are not.
+We put symlinks "bazel-&lt;workspace-name&gt;", "bazel-out", "bazel-testlogs",
+and "bazel-bin" in the workspace directory; these symlinks points to some
+directories inside a target-specific directory inside the output directory.
+These symlinks are only for the user's convenience, as Bazel itself does not
+use them. Also, we only do this if the workspace directory is writable.
 
 ## Bazel internals: Directory layout
 
@@ -64,7 +61,7 @@ The directories are laid out as follows:
   bazel-my-project => <...my-project>     <== Symlink to execRoot
   bazel-out => <...bin>                   <== Convenience symlink to outputPath
   bazel-bin => <...bin>                   <== Convenience symlink to most recent written bin dir $(BINDIR)
-  bazel-genfiles => <...genfiles>         <== Convenience symlink to most recent written genfiles dir $(GENDIR)
+  bazel-testlogs => <...testlogs>         <== Convenience symlink to the test logs directory
 
 /home/user/.cache/bazel/                  <== Root for all Bazel output on a machine: outputRoot
   _bazel_$USER/                           <== Top level directory for a given user depends on the user name:

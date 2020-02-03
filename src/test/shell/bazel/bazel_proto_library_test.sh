@@ -384,6 +384,53 @@ EOF
 
 ############# TESTS #############
 
+function test_legacy_proto_library_include_well_known_protos() {
+  write_workspace ""
+
+  mkdir -p a
+  cat > a/BUILD <<EOF
+proto_library(
+  name="a",
+  srcs=["a.proto"],
+  deps=[":b"],
+)
+
+proto_library(
+  name="b",
+  srcs=["b.proto"],
+  deps=["@com_google_protobuf//:duration_proto"],
+)
+EOF
+
+  cat > a/a.proto <<EOF
+syntax = "proto3";
+
+package a;
+
+import "a/b.proto";
+
+message A {
+  int32 a = 1;
+  b.B b = 2;
+}
+EOF
+
+  cat > a/b.proto <<EOF
+syntax = "proto3";
+
+package b;
+
+import "google/protobuf/duration.proto";
+
+message B {
+ int32 b = 1;
+ google.protobuf.Duration timing = 2;
+}
+EOF
+
+  bazel build //a:a || fail "build failed"
+}
+
 function test_javainfo_proto_aspect() {
   write_workspace ""
 

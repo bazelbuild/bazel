@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.syntax;
 
-import java.io.IOException;
 
 /** Syntax node for a function call statement. Used for build rules. */
 public final class ExpressionStatement extends Statement {
@@ -30,14 +29,7 @@ public final class ExpressionStatement extends Statement {
   }
 
   @Override
-  public void prettyPrint(Appendable buffer, int indentLevel) throws IOException {
-    printIndent(buffer, indentLevel);
-    expression.prettyPrint(buffer);
-    buffer.append('\n');
-  }
-
-  @Override
-  public void accept(SyntaxTreeVisitor visitor) {
+  public void accept(NodeVisitor visitor) {
     visitor.visit(this);
   }
 

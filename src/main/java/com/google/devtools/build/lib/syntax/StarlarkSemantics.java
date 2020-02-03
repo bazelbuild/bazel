@@ -40,27 +40,37 @@ public abstract class StarlarkSemantics {
    * Enum where each element represents a starlark semantics flag. The name of each value should be
    * the exact name of the flag transformed to upper case (for error representation).
    */
+  // TODO(adonovan): This class, being part of the core Starlark frontend, shouldn't refer to Bazel
+  // features. There's no need for an enumeration to represent a set of boolean features. Instead,
+  // have StarlarkSemantics hold a set of enabled features (strings), and have callers query
+  // features by name. The features can be named string constants, defined close to the code they
+  // affect, to avoid accidential misspellings.
   public enum FlagIdentifier {
+    EXPERIMENTAL_ACTION_ARGS(StarlarkSemantics::experimentalActionArgs),
     EXPERIMENTAL_ALLOW_INCREMENTAL_REPOSITORY_UPDATES(
         StarlarkSemantics::experimentalAllowIncrementalRepositoryUpdates),
+    EXPERIMENTAL_ASPECT_OUTPUT_PROPAGATION(StarlarkSemantics::experimentalAspectOutputPropagation),
     EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS(
         StarlarkSemantics::experimentalEnableAndroidMigrationApis),
     EXPERIMENTAL_BUILD_SETTING_API(StarlarkSemantics::experimentalBuildSettingApi),
     EXPERIMENTAL_GOOGLE_LEGACY_API(StarlarkSemantics::experimentalGoogleLegacyApi),
+    EXPERIMENTAL_NINJA_ACTIONS(StarlarkSemantics::experimentalNinjaActions),
     EXPERIMENTAL_PLATFORM_API(StarlarkSemantics::experimentalPlatformsApi),
     EXPERIMENTAL_STARLARK_CONFIG_TRANSITION(
         StarlarkSemantics::experimentalStarlarkConfigTransitions),
     EXPERIMENTAL_STARLARK_UNUSED_INPUTS_LIST(
         StarlarkSemantics::experimentalStarlarkUnusedInputsList),
+    EXPERIMENTAL_CC_SHARED_LIBRARY(StarlarkSemantics::experimentalCcSharedLibrary),
+    EXPERIMENTAL_REPO_REMOTE_EXEC(StarlarkSemantics::experimentalRepoRemoteExec),
+    INCOMPATIBLE_APPLICABLE_LICENSES(StarlarkSemantics::incompatibleApplicableLicenses),
     INCOMPATIBLE_DISABLE_DEPSET_INPUTS(StarlarkSemantics::incompatibleDisableDepsetItems),
     INCOMPATIBLE_NO_OUTPUT_ATTR_DEFAULT(StarlarkSemantics::incompatibleNoOutputAttrDefault),
     INCOMPATIBLE_NO_RULE_OUTPUTS_PARAM(StarlarkSemantics::incompatibleNoRuleOutputsParam),
     INCOMPATIBLE_NO_TARGET_OUTPUT_GROUP(StarlarkSemantics::incompatibleNoTargetOutputGroup),
     INCOMPATIBLE_NO_ATTR_LICENSE(StarlarkSemantics::incompatibleNoAttrLicense),
-    INCOMPATIBLE_OBJC_FRAMEWORK_CLEANUP(StarlarkSemantics::incompatibleObjcFrameworkCleanup),
-    INCOMPATIBLE_DISALLOW_RULE_EXECUTION_PLATFORM_CONSTRAINTS_ALLOWED(
-        StarlarkSemantics::incompatibleDisallowRuleExecutionPlatformConstraintsAllowed),
-    INCOMPATIBLE_ALLOW_TAGS_PROPAGATION(StarlarkSemantics::incompatibleAllowTagsPropagation),
+    INCOMPATIBLE_ALLOW_TAGS_PROPAGATION(StarlarkSemantics::experimentalAllowTagsPropagation),
+    INCOMPATIBLE_REMOVE_ENABLE_TOOLCHAIN_TYPES(
+        StarlarkSemantics::incompatibleRemoveEnabledToolchainTypes),
     NONE(null);
 
     // Using a Function here makes the enum definitions far cleaner, and, since this is
@@ -123,7 +133,13 @@ public abstract class StarlarkSemantics {
       AutoValue_StarlarkSemantics.class;
 
   // <== Add new options here in alphabetic order ==>
+  public abstract boolean debugDepsetDepth();
+
+  public abstract boolean experimentalActionArgs();
+
   public abstract boolean experimentalAllowIncrementalRepositoryUpdates();
+
+  public abstract boolean experimentalAspectOutputPropagation();
 
   public abstract boolean experimentalBuildSettingApi();
 
@@ -133,15 +149,23 @@ public abstract class StarlarkSemantics {
 
   public abstract boolean experimentalGoogleLegacyApi();
 
+  public abstract boolean experimentalNinjaActions();
+
   public abstract boolean experimentalPlatformsApi();
 
   public abstract boolean experimentalStarlarkConfigTransitions();
 
   public abstract boolean experimentalStarlarkUnusedInputsList();
 
-  public abstract boolean incompatibleBzlDisallowLoadAfterStatement();
+  public abstract boolean experimentalCcSharedLibrary();
 
-  public abstract boolean incompatibleDepsetIsNotIterable();
+  public abstract boolean experimentalRepoRemoteExec();
+
+  public abstract boolean incompatibleAlwaysCheckDepsetElements();
+
+  public abstract boolean incompatibleApplicableLicenses();
+
+  public abstract boolean incompatibleBzlDisallowLoadAfterStatement();
 
   public abstract boolean incompatibleDepsetUnion();
 
@@ -153,27 +177,15 @@ public abstract class StarlarkSemantics {
 
   public abstract boolean incompatibleDisableDepsetItems();
 
-  public abstract boolean incompatibleDisallowDictPlus();
-
   public abstract boolean incompatibleDisallowEmptyGlob();
 
-  public abstract boolean incompatibleDisallowLegacyJavaProvider();
-
-  public abstract boolean incompatibleDisallowLegacyJavaInfo();
-
-  public abstract boolean incompatibleDisallowOldStyleArgsAdd();
-
-  public abstract boolean incompatibleDisallowRuleExecutionPlatformConstraintsAllowed();
-
   public abstract boolean incompatibleDisallowStructProviderSyntax();
-
-  public abstract boolean incompatibleDisallowUnverifiedHttpDownloads();
-
-  public abstract boolean incompatibleExpandDirectories();
 
   public abstract boolean incompatibleNewActionsApi();
 
   public abstract boolean incompatibleNoAttrLicense();
+
+  public abstract boolean incompatibleNoImplicitFileExport();
 
   public abstract boolean incompatibleNoOutputAttrDefault();
 
@@ -183,19 +195,13 @@ public abstract class StarlarkSemantics {
 
   public abstract boolean incompatibleNoTargetOutputGroup();
 
-  public abstract boolean incompatibleNoTransitiveLoads();
-
-  public abstract boolean incompatibleObjcFrameworkCleanup();
-
-  public abstract boolean incompatibleRemapMainRepo();
-
-  public abstract boolean incompatibleRemoveNativeMavenJar();
+  public abstract boolean incompatibleRemoveEnabledToolchainTypes();
 
   public abstract boolean incompatibleRestrictNamedParams();
 
   public abstract boolean incompatibleRunShellCommandString();
 
-  public abstract boolean incompatibleStringJoinRequiresStrings();
+  public abstract boolean incompatibleVisibilityPrivateAttributesAtDefinition();
 
   public abstract boolean internalSkylarkFlagTestCanary();
 
@@ -205,11 +211,9 @@ public abstract class StarlarkSemantics {
 
   public abstract boolean incompatibleRestrictStringEscapes();
 
-  public abstract boolean incompatibleDisallowDictLookupUnhashableKeys();
+  public abstract boolean experimentalAllowTagsPropagation();
 
-  public abstract boolean incompatibleAllowTagsPropagation();
-
-  public abstract boolean incompatibleDisallowHashingFrozenMutables();
+  public abstract boolean incompatibleUseCcConfigureFromRulesCc();
 
   @Memoized
   @Override
@@ -244,50 +248,47 @@ public abstract class StarlarkSemantics {
   public static final StarlarkSemantics DEFAULT_SEMANTICS =
       builder()
           // <== Add new options here in alphabetic order ==>
+          .debugDepsetDepth(false)
+          .experimentalActionArgs(false)
+          .experimentalAllowTagsPropagation(false)
+          .experimentalAspectOutputPropagation(false)
           .experimentalBuildSettingApi(true)
           .experimentalCcSkylarkApiEnabledPackages(ImmutableList.of())
           .experimentalAllowIncrementalRepositoryUpdates(true)
           .experimentalEnableAndroidMigrationApis(false)
           .experimentalGoogleLegacyApi(false)
+          .experimentalNinjaActions(false)
           .experimentalPlatformsApi(false)
           .experimentalStarlarkConfigTransitions(true)
           .experimentalStarlarkUnusedInputsList(true)
+          .experimentalCcSharedLibrary(false)
+          .experimentalRepoRemoteExec(false)
+          .incompatibleAlwaysCheckDepsetElements(false)
+          .incompatibleApplicableLicenses(false)
           .incompatibleBzlDisallowLoadAfterStatement(true)
-          .incompatibleDepsetIsNotIterable(true)
           .incompatibleDepsetUnion(true)
           .incompatibleDisableTargetProviderFields(false)
           .incompatibleDisableThirdPartyLicenseChecking(true)
           .incompatibleDisableDeprecatedAttrParams(true)
           .incompatibleDisableDepsetItems(false)
-          .incompatibleDisallowDictPlus(true)
           .incompatibleDisallowEmptyGlob(false)
-          .incompatibleDisallowLegacyJavaProvider(false)
-          .incompatibleDisallowLegacyJavaInfo(true)
-          .incompatibleDisallowOldStyleArgsAdd(true)
-          .incompatibleDisallowRuleExecutionPlatformConstraintsAllowed(true)
           .incompatibleDisallowStructProviderSyntax(false)
-          .incompatibleDisallowUnverifiedHttpDownloads(true)
-          .incompatibleExpandDirectories(true)
           .incompatibleNewActionsApi(true)
           .incompatibleNoAttrLicense(true)
+          .incompatibleNoImplicitFileExport(false)
           .incompatibleNoOutputAttrDefault(true)
           .incompatibleNoRuleOutputsParam(false)
           .incompatibleNoSupportToolsInActionInputs(true)
-          .incompatibleNoTargetOutputGroup(false)
-          .incompatibleNoTransitiveLoads(true)
-          .incompatibleObjcFrameworkCleanup(true)
-          .incompatibleRemapMainRepo(false)
-          .incompatibleRemoveNativeMavenJar(false)
+          .incompatibleNoTargetOutputGroup(true)
+          .incompatibleRemoveEnabledToolchainTypes(false)
           .incompatibleRunShellCommandString(false)
-          .incompatibleRestrictNamedParams(false)
-          .incompatibleStringJoinRequiresStrings(true)
+          .incompatibleRestrictNamedParams(true)
+          .incompatibleVisibilityPrivateAttributesAtDefinition(false)
           .internalSkylarkFlagTestCanary(false)
           .incompatibleDoNotSplitLinkingCmdline(true)
           .incompatibleDepsetForLibrariesToLinkGetter(true)
           .incompatibleRestrictStringEscapes(false)
-          .incompatibleDisallowDictLookupUnhashableKeys(false)
-          .incompatibleAllowTagsPropagation(false)
-          .incompatibleDisallowHashingFrozenMutables(false)
+          .incompatibleUseCcConfigureFromRulesCc(false)
           .build();
 
   /** Builder for {@link StarlarkSemantics}. All fields are mandatory. */
@@ -295,7 +296,15 @@ public abstract class StarlarkSemantics {
   public abstract static class Builder {
 
     // <== Add new options here in alphabetic order ==>
+    public abstract Builder debugDepsetDepth(boolean value);
+
+    public abstract Builder experimentalActionArgs(boolean value);
+
     public abstract Builder experimentalAllowIncrementalRepositoryUpdates(boolean value);
+
+    public abstract Builder experimentalAllowTagsPropagation(boolean value);
+
+    public abstract Builder experimentalAspectOutputPropagation(boolean value);
 
     public abstract Builder experimentalBuildSettingApi(boolean value);
 
@@ -305,17 +314,23 @@ public abstract class StarlarkSemantics {
 
     public abstract Builder experimentalGoogleLegacyApi(boolean value);
 
+    public abstract Builder experimentalNinjaActions(boolean value);
+
     public abstract Builder experimentalPlatformsApi(boolean value);
 
     public abstract Builder experimentalStarlarkConfigTransitions(boolean value);
 
     public abstract Builder experimentalStarlarkUnusedInputsList(boolean value);
 
-    public abstract Builder incompatibleAllowTagsPropagation(boolean value);
+    public abstract Builder experimentalCcSharedLibrary(boolean value);
+
+    public abstract Builder experimentalRepoRemoteExec(boolean value);
+
+    public abstract Builder incompatibleAlwaysCheckDepsetElements(boolean value);
+
+    public abstract Builder incompatibleApplicableLicenses(boolean value);
 
     public abstract Builder incompatibleBzlDisallowLoadAfterStatement(boolean value);
-
-    public abstract Builder incompatibleDepsetIsNotIterable(boolean value);
 
     public abstract Builder incompatibleDepsetUnion(boolean value);
 
@@ -327,28 +342,15 @@ public abstract class StarlarkSemantics {
 
     public abstract Builder incompatibleDisableDepsetItems(boolean value);
 
-    public abstract Builder incompatibleDisallowDictPlus(boolean value);
-
     public abstract Builder incompatibleDisallowEmptyGlob(boolean value);
 
-    public abstract Builder incompatibleDisallowLegacyJavaProvider(boolean value);
-
-    public abstract Builder incompatibleDisallowLegacyJavaInfo(boolean value);
-
-    public abstract Builder incompatibleDisallowOldStyleArgsAdd(boolean value);
-
-    public abstract Builder incompatibleDisallowRuleExecutionPlatformConstraintsAllowed(
-        boolean value);
-
     public abstract Builder incompatibleDisallowStructProviderSyntax(boolean value);
-
-    public abstract Builder incompatibleDisallowUnverifiedHttpDownloads(boolean value);
-
-    public abstract Builder incompatibleExpandDirectories(boolean value);
 
     public abstract Builder incompatibleNewActionsApi(boolean value);
 
     public abstract Builder incompatibleNoAttrLicense(boolean value);
+
+    public abstract Builder incompatibleNoImplicitFileExport(boolean value);
 
     public abstract Builder incompatibleNoOutputAttrDefault(boolean value);
 
@@ -358,19 +360,13 @@ public abstract class StarlarkSemantics {
 
     public abstract Builder incompatibleNoTargetOutputGroup(boolean value);
 
-    public abstract Builder incompatibleNoTransitiveLoads(boolean value);
-
-    public abstract Builder incompatibleObjcFrameworkCleanup(boolean value);
-
-    public abstract Builder incompatibleRemapMainRepo(boolean value);
-
-    public abstract Builder incompatibleRemoveNativeMavenJar(boolean value);
+    public abstract Builder incompatibleRemoveEnabledToolchainTypes(boolean value);
 
     public abstract Builder incompatibleRestrictNamedParams(boolean value);
 
     public abstract Builder incompatibleRunShellCommandString(boolean value);
 
-    public abstract Builder incompatibleStringJoinRequiresStrings(boolean value);
+    public abstract Builder incompatibleVisibilityPrivateAttributesAtDefinition(boolean value);
 
     public abstract Builder internalSkylarkFlagTestCanary(boolean value);
 
@@ -380,9 +376,7 @@ public abstract class StarlarkSemantics {
 
     public abstract Builder incompatibleRestrictStringEscapes(boolean value);
 
-    public abstract Builder incompatibleDisallowDictLookupUnhashableKeys(boolean value);
-
-    public abstract Builder incompatibleDisallowHashingFrozenMutables(boolean value);
+    public abstract Builder incompatibleUseCcConfigureFromRulesCc(boolean value);
 
     public abstract StarlarkSemantics build();
   }

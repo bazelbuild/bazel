@@ -62,6 +62,9 @@ import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
 import com.google.devtools.build.lib.buildtool.SkyframeBuilder;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.clock.Clock;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.exec.SingleBuildFileCache;
@@ -220,7 +223,7 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
 
     Path actionOutputBase = scratch.dir("/usr/local/google/_blaze_jrluser/FAKEMD5/action_out/");
     skyframeActionExecutor.setActionLogBufferPathGenerator(
-        new ActionLogBufferPathGenerator(actionOutputBase));
+        new ActionLogBufferPathGenerator(actionOutputBase, actionOutputBase));
 
     MetadataProvider cache =
         new SingleBuildFileCache(rootDirectory.getPathString(), scratch.getFileSystem());
@@ -286,8 +289,7 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
                           actionKeyContext,
                           ImmutableList.copyOf(actions),
                           ACTION_LOOKUP_KEY,
-                          /*outputFiles=*/ null),
-                      /*nonceVersion=*/ null)));
+                          /*outputFiles=*/ null))));
         }
       }
 
@@ -419,28 +421,29 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
   }
 
   /**
-   * Creates a TestAction from 'inputs' to 'outputs', and a new button, such
-   * that executing the action causes the button to be pressed.  The button is
-   * returned.
+   * Creates a TestAction from 'inputs' to 'outputs', and a new button, such that executing the
+   * action causes the button to be pressed. The button is returned.
    */
-  protected Button createActionButton(Collection<Artifact> inputs, Collection<Artifact> outputs) {
+  protected Button createActionButton(NestedSet<Artifact> inputs, ImmutableSet<Artifact> outputs) {
     Button button = new Button();
     registerAction(new TestAction(button, inputs, outputs));
     return button;
   }
 
   /**
-   * Creates a TestAction from 'inputs' to 'outputs', and a new counter, such
-   * that executing the action causes the counter to be incremented.  The
-   * counter is returned.
+   * Creates a TestAction from 'inputs' to 'outputs', and a new counter, such that executing the
+   * action causes the counter to be incremented. The counter is returned.
    */
-  protected Counter createActionCounter(Collection<Artifact> inputs, Collection<Artifact> outputs) {
+  protected Counter createActionCounter(
+      NestedSet<Artifact> inputs, ImmutableSet<Artifact> outputs) {
     Counter counter = new Counter();
     registerAction(new TestAction(counter, inputs, outputs));
     return counter;
   }
 
   protected static Set<Artifact> emptySet = Collections.emptySet();
+  protected static NestedSet<Artifact> emptyNestedSet =
+      NestedSetBuilder.emptySet(Order.STABLE_ORDER);
 
   protected void buildArtifacts(Builder builder, Artifact... artifacts)
       throws BuildFailedException, AbruptExitException, InterruptedException, TestExecException,
@@ -477,7 +480,7 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
   /** {@link TestAction} that copies its single input to its single output. */
   protected static class CopyingAction extends TestAction {
     CopyingAction(Runnable effect, Artifact input, Artifact output) {
-      super(effect, ImmutableSet.of(input), ImmutableSet.of(output));
+      super(effect, NestedSetBuilder.create(Order.STABLE_ORDER, input), ImmutableSet.of(output));
     }
 
     @Override
@@ -486,8 +489,7 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
       ActionResult actionResult = super.execute(actionExecutionContext);
       try {
         FileSystemUtils.copyFile(
-            Iterables.getOnlyElement(getInputs()).getPath(),
-            Iterables.getOnlyElement(getOutputs()).getPath());
+            getInputs().getSingleton().getPath(), Iterables.getOnlyElement(getOutputs()).getPath());
       } catch (IOException e) {
         throw new IllegalStateException(e);
       }

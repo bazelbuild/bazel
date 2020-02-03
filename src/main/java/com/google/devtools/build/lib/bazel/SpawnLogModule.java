@@ -131,7 +131,9 @@ public final class SpawnLogModule extends BlazeModule {
     }
 
     if (spawnLogContext != null) {
-      builder.addActionContext(spawnLogContext);
+      // TODO(schmitt): Pretty sure the "spawn-log" commandline identifier is never used as there is
+      //  no other SpawnLogContext to distinguish from.
+      builder.addActionContext(SpawnLogContext.class, spawnLogContext, "spawn-log");
       builder.addStrategyByContext(SpawnLogContext.class, "");
     }
   }

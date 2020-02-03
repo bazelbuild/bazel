@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.rules.python;
 
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesSupport;
@@ -31,6 +32,10 @@ import java.util.List;
  * to keep state.
  */
 public interface PythonSemantics {
+
+  /** Returns the URL where documentation for the srcs_version attr lives. */
+  String getSrcsVersionDocURL();
+
   /**
    * Called at the beginning of the analysis of {@code py_binary}, {@code py_test}, and {@code
    * py_library} targets to validate their attributes.
@@ -80,8 +85,20 @@ public interface PythonSemantics {
    *
    * @throws InterruptedException
    */
-  void postInitExecutable(RuleContext ruleContext, RunfilesSupport runfilesSupport, PyCommon common)
+  void postInitExecutable(
+      RuleContext ruleContext,
+      RunfilesSupport runfilesSupport,
+      PyCommon common,
+      RuleConfiguredTargetBuilder builder)
       throws InterruptedException, RuleErrorException;
 
   CcInfo buildCcInfoProvider(Iterable<? extends TransitiveInfoCollection> deps);
+
+  /**
+   * Called when building executables or packages to fill in missing empty __init__.py files if the
+   * --incompatible_default_to_explicit_init_py has not yet been enabled. This usually returns a
+   * public static final reference, code is free to use that directly on specific implementations
+   * instead of making this call.
+   */
+  Runfiles.EmptyFilesSupplier getEmptyRunfilesSupplier();
 }

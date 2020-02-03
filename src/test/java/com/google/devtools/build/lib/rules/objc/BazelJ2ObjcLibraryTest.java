@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
+import com.google.devtools.build.lib.actions.ActionExecutionContext.LostInputsCheck;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.ActionInputPrefetcher;
 import com.google.devtools.build.lib.actions.ActionTemplate.ActionTemplateExpansionException;
@@ -46,7 +47,6 @@ import com.google.devtools.build.lib.rules.apple.DottedVersion;
 import com.google.devtools.build.lib.rules.cpp.CppCompileActionTemplate;
 import com.google.devtools.build.lib.rules.cpp.CppModuleMapAction;
 import com.google.devtools.build.lib.rules.cpp.UmbrellaHeaderAction;
-import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -101,7 +101,7 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
             + "/";
     assertThat(
             Iterables.transform(
-                provider.get(ObjcProvider.INCLUDE), PathFragment::getSafePathString))
+                provider.get(ObjcProvider.INCLUDE).toList(), PathFragment::getSafePathString))
         .containsExactly(execPath + "java/com/google/dummy/test/_j2objc/test");
   }
 
@@ -146,7 +146,7 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
         getConfiguration(target).getBinDirectory(RepositoryName.MAIN).getExecPath() + "/";
     assertThat(
             Iterables.transform(
-                provider.get(ObjcProvider.INCLUDE), PathFragment::getSafePathString))
+                provider.get(ObjcProvider.INCLUDE).toList(), PathFragment::getSafePathString))
         .containsExactly(
             execPath + "java/com/google/test/_j2objc/test/" + genfilesFragment,
             execPath + "java/com/google/test/_j2objc/test");
@@ -209,9 +209,8 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
     ConfiguredTarget target = getJ2ObjCAspectConfiguredTarget("//java/com/google/transpile:dummy");
     J2ObjcMappingFileProvider provider = target.getProvider(J2ObjcMappingFileProvider.class);
 
-    assertThat(Iterables.getOnlyElement(provider.getHeaderMappingFiles())
-        .getRootRelativePath().toString()).isEqualTo(
-            "java/com/google/transpile/dummy.mapping.j2objc");
+    assertThat(provider.getHeaderMappingFiles().getSingleton().getRootRelativePath().toString())
+        .isEqualTo("java/com/google/transpile/dummy.mapping.j2objc");
   }
 
   @Test
@@ -232,9 +231,8 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
     ConfiguredTarget target = getJ2ObjCAspectConfiguredTarget("//java/com/google/transpile:dummy");
     J2ObjcMappingFileProvider provider = target.getProvider(J2ObjcMappingFileProvider.class);
 
-    assertThat(Iterables.getOnlyElement(provider.getHeaderMappingFiles())
-        .getRootRelativePath().toString()).isEqualTo(
-            "java/com/google/dep/dep.mapping.j2objc");
+    assertThat(provider.getHeaderMappingFiles().getSingleton().getRootRelativePath().toString())
+        .isEqualTo("java/com/google/dep/dep.mapping.j2objc");
   }
 
   @Test
@@ -269,7 +267,7 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
                 "//java/com/google/dummy/test/proto:test_proto", getAppleCrosstoolConfiguration()),
             getJ2ObjcAspect());
 
-    assertThat(provider.getClassMappingFiles()).containsExactly(classMappingFile);
+    assertThat(provider.getClassMappingFiles().toList()).containsExactly(classMappingFile);
   }
 
   @Test
@@ -296,13 +294,13 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
     J2ObjcMappingFileProvider provider = target.getProvider(J2ObjcMappingFileProvider.class);
     Artifact classMappingFile =
         getGenfilesArtifact("test.clsmap.properties", test, getJ2ObjcAspect());
-    assertThat(provider.getClassMappingFiles()).containsExactly(classMappingFile);
+    assertThat(provider.getClassMappingFiles().toList()).containsExactly(classMappingFile);
 
     ObjcProvider objcProvider = target.get(ObjcProvider.SKYLARK_CONSTRUCTOR);
     Artifact headerFile = getGenfilesArtifact("test.j2objc.pb.h", test, getJ2ObjcAspect());
     Artifact sourceFile = getGenfilesArtifact("test.j2objc.pb.m", test, getJ2ObjcAspect());
-    assertThat(objcProvider.get(ObjcProvider.HEADER)).contains(headerFile);
-    assertThat(objcProvider.get(ObjcProvider.SOURCE)).contains(sourceFile);
+    assertThat(objcProvider.get(ObjcProvider.HEADER).toList()).contains(headerFile);
+    assertThat(objcProvider.get(ObjcProvider.SOURCE).toList()).contains(sourceFile);
   }
 
   @Test
@@ -344,7 +342,7 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
 
     Artifact classMappingFile =
         getGenfilesArtifact("../external/bla/foo/test.clsmap.properties", test, getJ2ObjcAspect());
-    assertThat(provider.getClassMappingFiles()).containsExactly(classMappingFile);
+    assertThat(provider.getClassMappingFiles().toList()).containsExactly(classMappingFile);
 
     ObjcProvider objcProvider = target.get(ObjcProvider.SKYLARK_CONSTRUCTOR);
 
@@ -352,9 +350,9 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
         getGenfilesArtifact("../external/bla/foo/test.j2objc.pb.h", test, getJ2ObjcAspect());
     Artifact sourceFile =
         getGenfilesArtifact("../external/bla/foo/test.j2objc.pb.m", test, getJ2ObjcAspect());
-    assertThat(objcProvider.get(ObjcProvider.HEADER)).contains(headerFile);
-    assertThat(objcProvider.get(ObjcProvider.SOURCE)).contains(sourceFile);
-    assertThat(objcProvider.get(ObjcProvider.INCLUDE))
+    assertThat(objcProvider.get(ObjcProvider.HEADER).toList()).contains(headerFile);
+    assertThat(objcProvider.get(ObjcProvider.SOURCE).toList()).contains(sourceFile);
+    assertThat(objcProvider.get(ObjcProvider.INCLUDE).toList())
         .contains(getConfiguration(target).getGenfilesFragment().getRelative("external/bla"));
   }
 
@@ -371,10 +369,9 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
     ConfiguredTarget target = getJ2ObjCAspectConfiguredTarget("//java/com/google/transpile:dummy");
     J2ObjcMappingFileProvider provider = target.getProvider(J2ObjcMappingFileProvider.class);
 
-    assertThat(Iterables.getOnlyElement(provider.getHeaderMappingFiles())
-        .getRootRelativePath().toString()).isEqualTo(
-        "java/com/google/transpile/dummy.mapping.j2objc");
-    assertThat(provider.getClassMappingFiles()).isEmpty();
+    assertThat(provider.getHeaderMappingFiles().getSingleton().getRootRelativePath().toString())
+        .isEqualTo("java/com/google/transpile/dummy.mapping.j2objc");
+    assertThat(provider.getClassMappingFiles().toList()).isEmpty();
   }
 
   protected void checkObjcArchiveAndLinkActions(
@@ -643,7 +640,7 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
         getConfiguration(objcTarget).getBinDirectory(RepositoryName.MAIN).getExecPath() + "/";
     assertThat(
             Iterables.transform(
-                provider.get(ObjcProvider.INCLUDE), PathFragment::getSafePathString))
+                provider.get(ObjcProvider.INCLUDE).toList(), PathFragment::getSafePathString))
         .containsExactly(execPath + "java/com/google/dummy/test/_j2objc/test");
   }
 
@@ -693,7 +690,7 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
         getConfiguration(objcTarget).getBinDirectory(RepositoryName.MAIN).getExecPath() + "/";
     assertThat(
             Iterables.transform(
-                provider.get(ObjcProvider.INCLUDE), PathFragment::getSafePathString))
+                provider.get(ObjcProvider.INCLUDE).toList(), PathFragment::getSafePathString))
         .containsExactly(execPath + "app/_j2objc/dummyOne", execPath + "app/_j2objc/dummyTwo");
   }
 
@@ -788,18 +785,19 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
 
     ActionExecutionContext dummyActionExecutionContext =
         new ActionExecutionContext(
-            null,
-            null,
+            /*executor=*/ null,
+            /*actionInputFileCache=*/ null,
             ActionInputPrefetcher.NONE,
             actionKeyContext,
-            null,
-            null,
-            null,
-            ImmutableMap.<String, String>of(),
-            ImmutableMap.of(),
+            /*metadataHandler=*/ null,
+            LostInputsCheck.NONE,
+            /*fileOutErr=*/ null,
+            /*eventHandler=*/ null,
+            /*clientEnv=*/ ImmutableMap.of(),
+            /*topLevelFilesets=*/ ImmutableMap.of(),
             DUMMY_ARTIFACT_EXPANDER,
-            null,
-            null);
+            /*actionFileSystem=*/ null,
+            /*skyframeDepsResult=*/ null);
     ByteArrayOutputStream moduleMapStream = new ByteArrayOutputStream();
     ByteArrayOutputStream umbrellaHeaderStream = new ByteArrayOutputStream();
     moduleMapAction.newDeterministicWriter(dummyActionExecutionContext)
@@ -837,22 +835,23 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
     // Test that the module map action contains the header tree artifact as both the public header
     // and part of the action inputs.
     assertThat(moduleMapAction.getPublicHeaders()).contains(headers);
-    assertThat(moduleMapAction.getInputs()).contains(headers);
+    assertThat(moduleMapAction.getInputs().toList()).contains(headers);
 
     ActionExecutionContext dummyActionExecutionContext =
         new ActionExecutionContext(
-            null,
-            null,
+            /*executor=*/ null,
+            /*actionInputFileCache=*/ null,
             ActionInputPrefetcher.NONE,
             actionKeyContext,
-            null,
-            null,
-            null,
-            ImmutableMap.of(),
-            ImmutableMap.of(),
+            /*metadataHandler=*/ null,
+            LostInputsCheck.NONE,
+            /*fileOutErr=*/ null,
+            /*eventHandler=*/ null,
+            /*clientEnv=*/ ImmutableMap.of(),
+            /*topLevelFilesets=*/ ImmutableMap.of(),
             DUMMY_ARTIFACT_EXPANDER,
-            null,
-            null);
+            /*actionFileSystem=*/ null,
+            /*skyframeDepsResult=*/ null);
 
     ByteArrayOutputStream moduleMapStream = new ByteArrayOutputStream();
     ByteArrayOutputStream umbrellaHeaderStream = new ByteArrayOutputStream();
@@ -1040,7 +1039,7 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
         "    name = 'j2objc_wrapper',",
         "    srcs = ['j2objc_wrapper.py'],",
         ")",
-        "filegroup(",
+        "proto_library(",
         "    name = 'blacklisted_protos',",
         "    srcs = ['some_blacklisted_proto.proto'],",
         ")",
@@ -1252,73 +1251,5 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
     for (String expectedArg : expectedArgs) {
       assertThat(commandLine).contains(expectedArg);
     }
-  }
-
-  @Test
-  public void testModuleMapsArePropagatedStrictly() throws Exception {
-    useConfiguration(
-        "--experimental_objc_enable_module_maps", "--incompatible_strict_objc_module_maps");
-
-    scratch.file("java/com/google/transpile/dummy.java");
-    scratch.file(
-        "java/com/google/transpile/BUILD",
-        "package(default_visibility=['//visibility:public'])",
-        "java_library(",
-        "    name = 'dummy1',",
-        "    srcs = ['dummy.java'],",
-        ")",
-        "java_library(",
-        "    name = 'dummy2',",
-        "    srcs = ['dummy.java'],",
-        ")",
-        "java_library(",
-        "    name = 'dummy3',",
-        "    srcs = ['dummy.java'], deps = [':dummy2'],",
-        ")",
-        "j2objc_library(",
-        "    name = 'lib1',",
-        "    deps = [':dummy1'],",
-        ")",
-        "j2objc_library(",
-        "    name = 'lib2',",
-        "    deps = [':lib1', ':dummy3'],",
-        ")");
-
-    // Bazel doesn't give us a way to test the aspect directly on the java_library targets, so we
-    // can only test propagation through the j2objc_libraries that attach the aspect.
-
-    // lib1 should propagate the module map from its java_library dependency.
-    assertThat(
-            getFirstPropagatedModuleMap(
-                "//java/com/google/transpile:lib1", "dummy1.modulemaps/module.modulemap"))
-        .isNotNull();
-
-    // lib2 should propagate the module maps from its transitive java_library dependencies...
-    assertThat(
-            getFirstPropagatedModuleMap(
-                "//java/com/google/transpile:lib2", "dummy2.modulemaps/module.modulemap"))
-        .isNotNull();
-    assertThat(
-            getFirstPropagatedModuleMap(
-                "//java/com/google/transpile:lib2", "dummy3.modulemaps/module.modulemap"))
-        .isNotNull();
-
-    // ...but it should not propagate the module maps from its j2objc_library dependencies.
-    assertThat(
-            getFirstPropagatedModuleMap(
-                "//java/com/google/transpile:lib2", "dummy1.modulemaps/module.modulemap"))
-        .isNull();
-  }
-
-  private Artifact getFirstPropagatedModuleMap(String label, String nameSuffix) throws Exception {
-    ObjcProvider provider = providerForTarget(label);
-    // The ObjC and Swift build rules retrieve the module maps they need to pass to the compiler by
-    // building a transitive provider from the target-to-build's deps. We duplicate that behavior
-    // here to make sure we're testing the provider set that the eventual target library would see.
-    ObjcProvider newProvider =
-        new ObjcProvider.Builder(StarlarkSemantics.DEFAULT_SEMANTICS)
-            .addTransitiveAndPropagate(ImmutableList.of(provider))
-            .build();
-    return getFirstArtifactEndingWith(newProvider.get(ObjcProvider.MODULE_MAP), nameSuffix);
   }
 }

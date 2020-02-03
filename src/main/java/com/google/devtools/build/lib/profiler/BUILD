@@ -10,9 +10,20 @@ filegroup(
 
 java_library(
     name = "profiler",
-    srcs = glob([
-        "*.java",
-    ]),
+    srcs = [
+        "AutoProfiler.java",
+        "CollectLocalCpuUsage.java",
+        "MemoryProfiler.java",
+        "MetricData.java",
+        "PredicateBasedStatRecorder.java",
+        "ProfilePhase.java",
+        "Profiler.java",
+        "ProfilerTask.java",
+        "SilentCloseable.java",
+        "SingleStatRecorder.java",
+        "StatRecorder.java",
+        "TimeSeries.java",
+    ],
     visibility = ["//visibility:public"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib:base-util",
@@ -20,27 +31,43 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/collect",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/common/options",
-        "//third_party:flogger",
         "//third_party:gson",
         "//third_party:guava",
         "//third_party:jsr305",
     ],
 )
 
+java_library(
+    name = "google-auto-profiler-utils",
+    srcs = ["GoogleAutoProfilerUtils.java"],
+    deps = [
+        ":profiler",
+        "//third_party:flogger",
+    ],
+)
+
 # Profiler chart library.
 java_library(
     name = "profiler-output",
-    srcs = glob([
-        "analysis/*.java",
-        "chart/*.java",
-        "output/*.java",
-        "statistics/*.java",
-    ]),
+    srcs =
+        [
+            "JsonProfile.java",
+            "TraceEvent.java",
+        ] + glob([
+            "analysis/*.java",
+            "chart/*.java",
+            "output/*.java",
+            "statistics/*.java",
+        ]),
     deps = [
         ":profiler",
+        "//src/main/java/com/google/devtools/build/lib:base-util",
+        "//src/main/java/com/google/devtools/build/lib:events",
         "//src/main/java/com/google/devtools/build/lib:util",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//third_party:auto_value",
+        "//third_party:gson",
         "//third_party:guava",
         "//third_party:jsr305",
     ],

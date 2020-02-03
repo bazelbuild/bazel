@@ -25,6 +25,8 @@ import com.google.devtools.build.lib.actions.InconsistentFilesystemException;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.cmdline.TargetPattern;
+import com.google.devtools.build.lib.concurrent.ParallelVisitor.UnusedException;
+import com.google.devtools.build.lib.concurrent.ThreadSafeBatchCallback;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
@@ -35,7 +37,6 @@ import com.google.devtools.build.lib.pkgcache.AbstractRecursivePackageProvider;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.pkgcache.RecursivePackageProvider;
 import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
-import com.google.devtools.build.lib.skyframe.TargetPatternValue.TargetPatternKey;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -45,7 +46,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.function.Consumer;
 import java.util.logging.Logger;
 
 /**
@@ -59,19 +59,19 @@ public final class GraphBackedRecursivePackageProvider extends AbstractRecursive
   private final WalkableGraph graph;
   private final ImmutableList<Root> pkgRoots;
   private final RootPackageExtractor rootPackageExtractor;
-  private final ImmutableList<TargetPatternKey> universeTargetPatternKeys;
+  private final ImmutableList<TargetPattern> universeTargetPatterns;
 
   private static final Logger logger =
       Logger.getLogger(GraphBackedRecursivePackageProvider.class.getName());
 
   public GraphBackedRecursivePackageProvider(
       WalkableGraph graph,
-      ImmutableList<TargetPatternKey> universeTargetPatternKeys,
+      ImmutableList<TargetPattern> universeTargetPatterns,
       PathPackageLocator pkgPath,
       RootPackageExtractor rootPackageExtractor) {
     this.graph = Preconditions.checkNotNull(graph);
     this.pkgRoots = pkgPath.getPathEntries();
-    this.universeTargetPatternKeys = Preconditions.checkNotNull(universeTargetPatternKeys);
+    this.universeTargetPatterns = Preconditions.checkNotNull(universeTargetPatterns);
     this.rootPackageExtractor = rootPackageExtractor;
   }
 
@@ -177,8 +177,7 @@ public final class GraphBackedRecursivePackageProvider extends AbstractRecursive
 
     // Check that this package is covered by at least one of our universe patterns.
     boolean inUniverse = false;
-    for (TargetPatternKey patternKey : universeTargetPatternKeys) {
-      TargetPattern pattern = patternKey.getParsedPattern();
+    for (TargetPattern pattern : universeTargetPatterns) {
       boolean isTBD = pattern.getType().equals(TargetPattern.Type.TARGETS_BELOW_DIRECTORY);
       PackageIdentifier packageIdentifier = PackageIdentifier.create(repository, directory);
       if (isTBD && pattern.containsAllTransitiveSubdirectoriesForTBD(packageIdentifier)) {
@@ -209,7 +208,7 @@ public final class GraphBackedRecursivePackageProvider extends AbstractRecursive
 
   @Override
   public void streamPackagesUnderDirectory(
-      Consumer<PackageIdentifier> results,
+      ThreadSafeBatchCallback<PackageIdentifier, UnusedException> results,
       ExtendedEventHandler eventHandler,
       RepositoryName repository,
       PathFragment directory,
@@ -221,7 +220,7 @@ public final class GraphBackedRecursivePackageProvider extends AbstractRecursive
             repository, directory, blacklistedSubdirectories, excludedSubdirectories);
 
     rootPackageExtractor.streamPackagesFromRoots(
-        path -> results.accept(PackageIdentifier.create(repository, path)),
+        results,
         graph,
         roots,
         eventHandler,

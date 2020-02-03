@@ -313,7 +313,7 @@ public class FdoHelper {
       RuleContext ruleContext,
       CppConfiguration cppConfiguration,
       String fdoUniqueArtifactName) {
-    if (cppConfiguration.isThisHostConfigurationDoNotUseWillBeRemovedFor129045294()) {
+    if (cppConfiguration.isToolConfigurationDoNotUseWillBeRemovedFor129045294()) {
       return null;
     }
 

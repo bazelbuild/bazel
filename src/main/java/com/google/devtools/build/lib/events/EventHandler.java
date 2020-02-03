@@ -15,9 +15,9 @@
 package com.google.devtools.build.lib.events;
 
 /**
- * The ErrorEventListener is the primary means of reporting error and warning events. It is a subset
- * of the functionality of the {@link Reporter}. In most cases, you should use this interface
- * instead of the final {@code Reporter} class.
+ * An EventHandler handles events, such as errors and warnings. It is a subset of the functionality
+ * of the {@link Reporter}. In most cases, you should use this interface instead of the {@code
+ * Reporter} class.
  */
 public interface EventHandler {
   /**

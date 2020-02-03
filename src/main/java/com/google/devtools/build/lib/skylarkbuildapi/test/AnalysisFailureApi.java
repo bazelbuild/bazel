@@ -17,7 +17,7 @@ package com.google.devtools.build.lib.skylarkbuildapi.test;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
+import com.google.devtools.build.lib.syntax.StarlarkValue;
 
 /**
  * Encapsulates information about an analysis-phase error which would have occurred during a build.
@@ -32,7 +32,7 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
             + "analysis will instead propagate an <code>AnalysisFailureInfo</code> object "
             + "containing one or more instances of this object.",
     documented = false)
-public interface AnalysisFailureApi extends SkylarkValue {
+public interface AnalysisFailureApi extends StarlarkValue {
 
   @SkylarkCallable(
       name = "label",
@@ -41,12 +41,12 @@ public interface AnalysisFailureApi extends SkylarkValue {
               + "of the target responsible for construction of this object.",
       documented = false,
       structField = true)
-  public Label getLabel();
+  Label getLabel();
 
   @SkylarkCallable(
       name = "message",
       doc = "A string representation of the analysis-phase error which occurred.",
       documented = false,
       structField = true)
-  public String getMessage();
+  String getMessage();
 }

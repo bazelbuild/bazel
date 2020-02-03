@@ -13,21 +13,17 @@
 // limitations under the License.
 package com.google.devtools.build.lib.query2;
 
-import static com.google.devtools.build.lib.query2.SkyQueryEnvironment.IS_TTV;
-import static com.google.devtools.build.lib.query2.SkyQueryEnvironment.SKYKEY_TO_LABEL;
-
-import com.google.common.base.Predicates;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Multimap;
-import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.concurrent.MultisetSemaphore;
-import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.query2.ParallelVisitorUtils.ParallelQueryVisitor;
 import com.google.devtools.build.lib.query2.ParallelVisitorUtils.QueryVisitorFactory;
 import com.google.devtools.build.lib.query2.engine.Callback;
 import com.google.devtools.build.lib.query2.engine.QueryException;
+import com.google.devtools.build.lib.query2.engine.QueryExpression;
 import com.google.devtools.build.lib.query2.engine.QueryExpressionContext;
 import com.google.devtools.build.lib.query2.engine.Uniquifier;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -48,17 +44,20 @@ class DepsUnboundedVisitor extends AbstractTargetOuputtingVisitor<SkyKey> {
 
   private final boolean depsNeedFiltering;
   private final QueryExpressionContext<Target> context;
+  private final QueryExpression caller;
 
   DepsUnboundedVisitor(
       SkyQueryEnvironment env,
       Uniquifier<SkyKey> validDepUniquifier,
       Callback<Target> callback,
       boolean depsNeedFiltering,
-      QueryExpressionContext<Target> context) {
+      QueryExpressionContext<Target> context,
+      QueryExpression caller) {
     super(env, callback);
     this.validDepUniquifier = validDepUniquifier;
     this.depsNeedFiltering = depsNeedFiltering;
     this.context = context;
+    this.caller = caller;
   }
 
   /**
@@ -73,32 +72,32 @@ class DepsUnboundedVisitor extends AbstractTargetOuputtingVisitor<SkyKey> {
     private final Callback<Target> callback;
     private final boolean depsNeedFiltering;
     private final QueryExpressionContext<Target> context;
+    private final QueryExpression caller;
 
     Factory(
         SkyQueryEnvironment env,
         Callback<Target> callback,
         boolean depsNeedFiltering,
-        QueryExpressionContext<Target> context) {
+        QueryExpressionContext<Target> context,
+        QueryExpression caller) {
       this.env = env;
       this.validDepUniquifier = env.createSkyKeyUniquifier();
       this.callback = callback;
       this.depsNeedFiltering = depsNeedFiltering;
       this.context = context;
+      this.caller = caller;
     }
 
     @Override
     public ParallelQueryVisitor<SkyKey, SkyKey, Target> create() {
       return new DepsUnboundedVisitor(
-          env,
-          validDepUniquifier,
-          callback,
-          depsNeedFiltering,
-          context);
+          env, validDepUniquifier, callback, depsNeedFiltering, context, caller);
     }
   }
 
   @Override
-  protected Visit getVisitResult(Iterable<SkyKey> keys) throws InterruptedException {
+  protected Visit getVisitResult(Iterable<SkyKey> keys)
+      throws InterruptedException, QueryException {
     if (depsNeedFiltering) {
       // We have to targetify the keys here in order to determine the allowed dependencies.
       Multimap<SkyKey, SkyKey> packageKeyToTargetKeyMap =
@@ -124,22 +123,8 @@ class DepsUnboundedVisitor extends AbstractTargetOuputtingVisitor<SkyKey> {
           /*keysToVisit=*/ depsAsSkyKeys);
     }
 
-    // We need to explicitly check that all requested TTVs are actually in the graph.
-    Map<SkyKey, Iterable<SkyKey>> depMap = env.graph.getDirectDeps(keys);
-    checkIfMissingTargets(keys, depMap);
-    Iterable<SkyKey> deps = Iterables.filter(Iterables.concat(depMap.values()), IS_TTV);
-    return new Visit(keys, deps);
-  }
-
-  private void checkIfMissingTargets(Iterable<SkyKey> keys, Map<SkyKey, Iterable<SkyKey>> depMap) {
-    if (depMap.size() != Iterables.size(keys)) {
-      Iterable<Label> missingTargets =
-          Iterables.transform(
-              Iterables.filter(keys, Predicates.not(Predicates.in(depMap.keySet()))),
-              SKYKEY_TO_LABEL);
-      env.getEventHandler()
-          .handle(Event.warn("Targets were missing from graph: " + missingTargets));
-    }
+    return new Visit(
+        keys, ImmutableSet.copyOf(Iterables.concat(env.getFwdDepLabels(keys).values())));
   }
 
   @Override
@@ -156,5 +141,12 @@ class DepsUnboundedVisitor extends AbstractTargetOuputtingVisitor<SkyKey> {
   protected Iterable<SkyKey> noteAndReturnUniqueVisitationKeys(
       Iterable<SkyKey> prospectiveVisitationKeys) throws QueryException {
     return validDepUniquifier.unique(prospectiveVisitationKeys);
+  }
+
+  @Override
+  protected void handleMissingTargets(
+      Map<? extends SkyKey, Target> keysWithTargets, Set<SkyKey> targetKeys)
+      throws QueryException, InterruptedException {
+    env.reportUnsuccessfulOrMissingTargets(keysWithTargets, targetKeys, caller);
   }
 }

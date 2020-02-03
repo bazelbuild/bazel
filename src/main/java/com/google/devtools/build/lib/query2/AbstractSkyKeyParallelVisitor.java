@@ -32,8 +32,9 @@ public abstract class AbstractSkyKeyParallelVisitor<T>
       Uniquifier<SkyKey> visitationUniquifier,
       Callback<T> callback,
       int visitBatchSize,
-      int processResultsBatchSize) {
-    super(callback, visitBatchSize, processResultsBatchSize);
+      int processResultsBatchSize,
+      VisitTaskStatusCallback visitTaskStatusCallback) {
+    super(callback, visitBatchSize, processResultsBatchSize, visitTaskStatusCallback);
     this.uniquifier = visitationUniquifier;
   }
 

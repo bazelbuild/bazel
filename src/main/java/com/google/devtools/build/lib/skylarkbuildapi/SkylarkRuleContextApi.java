@@ -16,95 +16,98 @@ package com.google.devtools.build.lib.skylarkbuildapi;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.events.Location;
+import com.google.devtools.build.lib.skylarkbuildapi.core.ProviderApi;
+import com.google.devtools.build.lib.skylarkbuildapi.core.StructApi;
+import com.google.devtools.build.lib.skylarkbuildapi.core.TransitiveInfoCollectionApi;
+import com.google.devtools.build.lib.skylarkbuildapi.platform.ConstraintValueInfoApi;
+import com.google.devtools.build.lib.skylarkbuildapi.platform.ToolchainContextApi;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.ParamType;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.syntax.ClassObject;
-import com.google.devtools.build.lib.syntax.Environment;
+import com.google.devtools.build.lib.syntax.Depset;
+import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.FuncallExpression.FuncallException;
-import com.google.devtools.build.lib.syntax.Runtime;
-import com.google.devtools.build.lib.syntax.Runtime.UnboundMarker;
-import com.google.devtools.build.lib.syntax.SkylarkDict;
-import com.google.devtools.build.lib.syntax.SkylarkIndexable;
-import com.google.devtools.build.lib.syntax.SkylarkList;
-import com.google.devtools.build.lib.syntax.SkylarkList.Tuple;
-import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
+import com.google.devtools.build.lib.syntax.NoneType;
+import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
-import java.util.Map;
+import com.google.devtools.build.lib.syntax.StarlarkThread;
+import com.google.devtools.build.lib.syntax.StarlarkValue;
+import com.google.devtools.build.lib.syntax.Tuple;
 import javax.annotation.Nullable;
 
 /** Interface for a context object given to rule implementation functions. */
 @SkylarkModule(
     name = "ctx",
     category = SkylarkModuleCategory.BUILTIN,
-    doc = "A context object that is passed to the implementation function for a rule or aspect. "
-        + "It provides access to the information and methods needed to analyze the current target."
-        + ""
-        + "<p>In particular, it lets the implementation function access the current target's "
-        + "label, attributes, configuration, and the providers of its dependencies. It has methods "
-        + "for declaring output files and the actions that produce them."
-        + ""
-        + "<p>Context objects essentially live for the duration of the call to the implementation "
-        + "function. It is not useful to access these objects outside of their associated "
-        + "function."
-        + ""
-        + "See the <a href='../rules.$DOC_EXT#implementation-function'>Rules page</a> for more "
-        + "information.")
-public interface SkylarkRuleContextApi extends SkylarkValue {
+    doc =
+        "A context object that is passed to the implementation function for a rule or aspect. It"
+            + " provides access to the information and methods needed to analyze the current"
+            + " target.<p>In particular, it lets the implementation function access the current"
+            + " target's label, attributes, configuration, and the providers of its dependencies."
+            + " It has methods for declaring output files and the actions that produce them."
+            + "<p>Context objects essentially live for the duration of the call to the"
+            + " implementation function. It is not useful to access these objects outside of their"
+            + " associated function. See the <a"
+            + " href='../rules.$DOC_EXT#implementation-function'>Rules page</a> for more "
+            + "information.")
+public interface SkylarkRuleContextApi<ConstraintValueT extends ConstraintValueInfoApi>
+    extends StarlarkValue {
 
-  public static final String DOC_NEW_FILE_TAIL = "Does not actually create a file on the file "
-      + "system, just declares that some action will do so. You must create an action that "
-      + "generates the file. If the file should be visible to other rules, declare a rule output "
-      + "instead when possible. Doing so enables Blaze to associate a label with the file that "
-      + "rules can refer to (allowing finer dependency control) instead of referencing the whole "
-      + "rule.";
-  public static final String EXECUTABLE_DOC =
-      "A <code>struct</code> containing executable files defined in label type "
-          + "attributes marked as <code>executable=True</code>. The struct fields correspond "
-          + "to the attribute names. Each value in the struct is either a <code>file</code> or "
-          + "<code>None</code>. If an optional attribute is not specified in the rule "
-          + "then the corresponding struct value is <code>None</code>. If a label type is not "
-          + "marked as <code>executable=True</code>, no corresponding struct field is generated. "
-          + "<a href=\"https://github.com/bazelbuild/examples/blob/master/rules/actions_run/"
+  String DOC_NEW_FILE_TAIL =
+      "Does not actually create a file on the file system, just declares that some action will do"
+          + " so. You must create an action that generates the file. If the file should be visible"
+          + " to other rules, declare a rule output instead when possible. Doing so enables Blaze"
+          + " to associate a label with the file that rules can refer to (allowing finer"
+          + " dependency control) instead of referencing the whole rule.";
+  String EXECUTABLE_DOC =
+      "A <code>struct</code> containing executable files defined in <a "
+          + "href='attr.html#label'>label type attributes</a> marked as <a "
+          + "href='attr.html#label.executable'><code>executable=True</code><a>. The struct "
+          + "fields correspond to the attribute names. Each value in the struct is either a <a "
+          + "href='File.html'><code>File</code></a> or <code>None</code>. If an optional "
+          + "attribute is not specified in the rule then the corresponding struct value is "
+          + "<code>None</code>. If a label type is not marked as <code>executable=True</code>, no "
+          + "corresponding struct field is generated. <a "
+          + "href=\"https://github.com/bazelbuild/examples/blob/master/rules/actions_run/"
           + "execute.bzl\">See example of use</a>.";
-  public static final String FILES_DOC =
-      "A <code>struct</code> containing files defined in label or label list "
-          + "type attributes. The struct fields correspond to the attribute names. The struct "
-          + "values are <code>list</code> of <code>file</code>s.  "
-          + "It is a shortcut for:"
-          + "<pre class=language-python>[f for t in ctx.attr.&lt;ATTR&gt; for f in t.files]</pre> "
-          + "In other words, use <code>files</code> to access the "
-          + "<a href=\"../rules.$DOC_EXT#requesting-output-files\">default outputs</a> of a "
-          + "dependency. "
-          + "<a href=\"https://github.com/bazelbuild/examples/blob/master/rules/depsets/foo.bzl\">"
-          + "See example of use</a>.";
-  public static final String FILE_DOC =
-      "A <code>struct</code> containing files defined in label type "
-          + "attributes marked as <code>allow_single_file</code>. The struct fields correspond "
-          + "to the attribute names. The struct value is always a <code>file</code> or "
-          + "<code>None</code>. If an optional attribute is not specified in the rule "
-          + "then the corresponding struct value is <code>None</code>. If a label type is not "
-          + "marked as <code>allow_single_file</code>, no corresponding struct field is generated. "
-          + "It is a shortcut for:"
-          + "<pre class=language-python>list(ctx.attr.&lt;ATTR&gt;.files)[0]</pre>"
-          + "In other words, use <code>file</code> to access the (singular) "
-          + "<a href=\"../rules.$DOC_EXT#requesting-output-files\">default output</a> of a "
-          + "dependency. "
-          + "<a href=\"https://github.com/bazelbuild/examples/blob/master/rules/expand_template/"
-          + "hello.bzl\">See example of use</a>.";
-  public static final String ATTR_DOC =
-      "A struct to access the values of the attributes. The values are provided by "
-          + "the user (if not, a default value is used). The attributes of the struct and the "
-          + "types of their values correspond to the keys and values of the <code>attrs</code> "
-          + "dict provided to the <code>rule</code> function. "
-          + "<a href=\"https://github.com/bazelbuild/examples/blob/master/rules/attributes/"
+  String FILES_DOC =
+      "A <code>struct</code> containing files defined in <a href='attr.html#label'>label</a>"
+          + " or <a href='attr.html#label_list'>label list</a> type attributes. The struct"
+          + " fields correspond to the attribute names. The struct values are <code>list</code> of"
+          + " <a href='File.html'><code>File</code></a>s.  It is a shortcut for:<pre"
+          + " class=language-python>[f for t in ctx.attr.&lt;ATTR&gt; for f in t.files]</pre> In"
+          + " other words, use <code>files</code> to access the <a"
+          + " href=\"../rules.$DOC_EXT#requesting-output-files\">default outputs</a> of a"
+          + " dependency. <a"
+          + " href=\"https://github.com/bazelbuild/examples/blob/master/rules/depsets/foo.bzl\">See"
+          + " example of use</a>.";
+  String FILE_DOC =
+      "A <code>struct</code> containing files defined in <a href='attr.html#label'>label type"
+          + " attributes</a> marked as <a"
+          + " href='attr.html#label.allow_single_file'><code>allow_single_file</code></a>. The"
+          + " struct fields correspond to the attribute names. The struct value is always a <a"
+          + " href='File.html'><code>File</code></a> or <code>None</code>. If an optional"
+          + " attribute is not specified in the rule then the corresponding struct value is"
+          + " <code>None</code>. If a label type is not marked as <code>allow_single_file</code>,"
+          + " no corresponding struct field is generated. It is a shortcut for:<pre"
+          + " class=language-python>list(ctx.attr.&lt;ATTR&gt;.files)[0]</pre>In other words, use"
+          + " <code>file</code> to access the (singular) <a"
+          + " href=\"../rules.$DOC_EXT#requesting-output-files\">default output</a> of a"
+          + " dependency. <a"
+          + " href=\"https://github.com/bazelbuild/examples/blob/master/rules/expand_template/hello.bzl\">See"
+          + " example of use</a>.";
+  String ATTR_DOC =
+      "A struct to access the values of the <a href='../rules.$DOC_EXT#attributes'>attributes</a>. "
+          + "The values are provided by the user (if not, a default value is used). The attributes "
+          + "of the struct and the types of their values correspond to the keys and values of the "
+          + "<a href='globals.html#rule.attrs'><code>attrs</code> dict</a> provided to the <a "
+          + "href='globals.html#rule'><code>rule</code> function</a>. <a "
+          + "href=\"https://github.com/bazelbuild/examples/blob/master/rules/attributes/"
           + "printer.bzl\">See example of use</a>.";
-  public static final String SPLIT_ATTR_DOC =
+  String SPLIT_ATTR_DOC =
       "A struct to access the values of attributes with split configurations. If the attribute is "
           + "a label list, the value of split_attr is a dict of the keys of the split (as strings) "
           + "to lists of the ConfiguredTargets in that branch of the split. If the attribute is a "
@@ -112,7 +115,7 @@ public interface SkylarkRuleContextApi extends SkylarkValue {
           + "to single ConfiguredTargets. Attributes with split configurations still appear in the "
           + "attr struct, but their values will be single lists with all the branches of the split "
           + "merged together.";
-  public static final String OUTPUTS_DOC =
+  String OUTPUTS_DOC =
       "A pseudo-struct containing all the predeclared output files, represented by "
           + "<a href='File.html'><code>File</code></a> objects. See the "
           + "<a href='../rules.$DOC_EXT#files'>Rules page</a> for more information and examples."
@@ -145,88 +148,82 @@ public interface SkylarkRuleContextApi extends SkylarkValue {
       name = "default_provider",
       structField = true,
       doc = "Deprecated. Use <a href=\"DefaultInfo.html\">DefaultInfo</a> instead.")
-  public ProviderApi getDefaultProvider();
+  ProviderApi getDefaultProvider();
 
   @SkylarkCallable(
-    name = "actions",
-    structField = true,
-    doc = "Contains methods for declaring output files and the actions that produce them."
-  )
-  public SkylarkActionFactoryApi actions();
+      name = "actions",
+      structField = true,
+      doc = "Contains methods for declaring output files and the actions that produce them.")
+  SkylarkActionFactoryApi actions();
 
   @SkylarkCallable(
       name = "created_actions",
-      doc = "For rules with <a href=\"globals.html#rule._skylark_testable\">_skylark_testable"
-          + "</a> set to <code>True</code>, this returns an "
-          + "<a href=\"globals.html#Actions\">Actions</a> provider representing all actions "
-          + "created so far for the current rule. For all other rules, returns <code>None</code>. "
-          + "Note that the provider is not updated when subsequent actions are created, so you "
-          + "will have to call this function again if you wish to inspect them. "
-          + "<br/><br/>"
-          + "This is intended to help write tests for rule-implementation helper functions, which "
-          + "may take in a <code>ctx</code> object and create actions on it.")
-  public SkylarkValue createdActions() throws EvalException;
+      doc =
+          "For rules with <a href=\"globals.html#rule._skylark_testable\">_skylark_testable</a>"
+              + " set to <code>True</code>, this returns an <a"
+              + " href=\"globals.html#Actions\">Actions</a> provider representing all actions"
+              + " created so far for the current rule. For all other rules, returns"
+              + " <code>None</code>. Note that the provider is not updated when subsequent actions"
+              + " are created, so you will have to call this function again if you wish to inspect"
+              + " them. <br/><br/>This is intended to help write tests for rule-implementation"
+              + " helper functions, which may take in a <code>ctx</code> object and create actions"
+              + " on it.")
+  StarlarkValue createdActions() throws EvalException;
 
   @SkylarkCallable(name = "attr", structField = true, doc = ATTR_DOC)
-  public StructApi getAttr() throws EvalException;
+  StructApi getAttr() throws EvalException;
 
   @SkylarkCallable(name = "split_attr", structField = true, doc = SPLIT_ATTR_DOC)
-  public StructApi getSplitAttr() throws EvalException;
+  StructApi getSplitAttr() throws EvalException;
 
   @SkylarkCallable(name = "executable", structField = true, doc = EXECUTABLE_DOC)
-  public StructApi getExecutable() throws EvalException;
+  StructApi getExecutable() throws EvalException;
 
   @SkylarkCallable(name = "file", structField = true, doc = FILE_DOC)
-  public StructApi getFile() throws EvalException;
+  StructApi getFile() throws EvalException;
 
   @SkylarkCallable(name = "files", structField = true, doc = FILES_DOC)
-  public StructApi getFiles() throws EvalException;
+  StructApi getFiles() throws EvalException;
 
   @SkylarkCallable(
-    name = "workspace_name",
-    structField = true,
-    doc = "Returns the workspace name as defined in the WORKSPACE file."
-  )
-  public String getWorkspaceName() throws EvalException;
+      name = "workspace_name",
+      structField = true,
+      doc = "Returns the workspace name as defined in the WORKSPACE file.")
+  String getWorkspaceName() throws EvalException;
 
   @SkylarkCallable(
-    name = "label",
-    structField = true,
-    doc = "The label of the target currently being analyzed."
-  )
-  public Label getLabel() throws EvalException;
+      name = "label",
+      structField = true,
+      doc = "The label of the target currently being analyzed.")
+  Label getLabel() throws EvalException;
 
   @SkylarkCallable(
-    name = "fragments",
-    structField = true,
-    doc = "Allows access to configuration fragments in target configuration."
-  )
-  public FragmentCollectionApi getFragments() throws EvalException;
+      name = "fragments",
+      structField = true,
+      doc = "Allows access to configuration fragments in target configuration.")
+  FragmentCollectionApi getFragments() throws EvalException;
 
   @SkylarkCallable(
-    name = "host_fragments",
-    structField = true,
-    doc = "Allows access to configuration fragments in host configuration."
-  )
-  public FragmentCollectionApi getHostFragments() throws EvalException;
+      name = "host_fragments",
+      structField = true,
+      doc = "Allows access to configuration fragments in host configuration.")
+  FragmentCollectionApi getHostFragments() throws EvalException;
 
   @SkylarkCallable(
-    name = "configuration",
-    structField = true,
-    doc =
-        "Returns the default configuration. See the <a href=\"configuration.html\">"
-            + "configuration</a> type for more details."
-  )
-  public BuildConfigurationApi getConfiguration() throws EvalException;
+      name = "configuration",
+      structField = true,
+      doc =
+          "Returns the default configuration. See the <a href=\"configuration.html\">"
+              + "configuration</a> type for more details.")
+  BuildConfigurationApi getConfiguration() throws EvalException;
 
   @SkylarkCallable(
-    name = "host_configuration",
-    structField = true,
-    doc =
-        "Returns the host configuration. See the <a href=\"configuration.html\">"
-            + "configuration</a> type for more details."
-  )
-  public BuildConfigurationApi getHostConfiguration() throws EvalException;
+      name = "host_configuration",
+      structField = true,
+      doc =
+          "Returns the host configuration. See the <a href=\"configuration.html\">"
+              + "configuration</a> type for more details.")
+  BuildConfigurationApi getHostConfiguration() throws EvalException;
 
   @SkylarkCallable(
       name = "build_setting_value",
@@ -237,7 +234,7 @@ public interface SkylarkRuleContextApi extends SkylarkValue {
               + "depend on it.</b> <p>Returns the value of the build setting that is represented "
               + "by the current target. It is an error to access this field for rules that do not "
               + "set the <code>build_setting</code> attribute in their rule definition.")
-  public Object getBuildSettingValue() throws EvalException;
+  Object getBuildSettingValue() throws EvalException;
 
   @SkylarkCallable(
       name = "coverage_instrumented",
@@ -249,7 +246,7 @@ public interface SkylarkRuleContextApi extends SkylarkValue {
               + "(if no Target is provided) or the sources of Target should be instrumented "
               + "based on the --instrumentation_filter and "
               + "--instrument_test_targets config settings. "
-              + "This differs from <code>coverage_enabled</code> in the"
+              + "This differs from <code>coverage_enabled</code> in the "
               + "<a href=\"configuration.html\">configuration</a>, which notes whether coverage "
               + "data collection is enabled for the entire run, but not whether a specific "
               + "target should be instrumented.",
@@ -262,14 +259,13 @@ public interface SkylarkRuleContextApi extends SkylarkValue {
             named = true,
             doc = "A Target specifying a rule. If not provided, defaults to the current rule.")
       })
-  public boolean instrumentCoverage(Object targetUnchecked) throws EvalException;
+  boolean instrumentCoverage(Object targetUnchecked) throws EvalException;
 
   @SkylarkCallable(
-    name = "features",
-    structField = true,
-    doc = "Returns the set of features that are explicitly enabled by the user for this rule."
-  )
-  public ImmutableList<String> getFeatures() throws EvalException;
+      name = "features",
+      structField = true,
+      doc = "Returns the set of features that are explicitly enabled by the user for this rule.")
+  ImmutableList<String> getFeatures() throws EvalException;
 
   @SkylarkCallable(
       name = "disabled_features",
@@ -278,110 +274,109 @@ public interface SkylarkRuleContextApi extends SkylarkValue {
   ImmutableList<String> getDisabledFeatures() throws EvalException;
 
   @SkylarkCallable(
-    name = "bin_dir",
-    structField = true,
-    doc = "The root corresponding to bin directory."
-  )
-  public FileRootApi getBinDirectory() throws EvalException;
+      name = "bin_dir",
+      structField = true,
+      doc = "The root corresponding to bin directory.")
+  FileRootApi getBinDirectory() throws EvalException;
 
   @SkylarkCallable(
-    name = "genfiles_dir",
-    structField = true,
-    doc = "The root corresponding to genfiles directory."
-  )
-  public FileRootApi getGenfilesDirectory() throws EvalException;
+      name = "genfiles_dir",
+      structField = true,
+      doc = "The root corresponding to genfiles directory.")
+  FileRootApi getGenfilesDirectory() throws EvalException;
+
+  @SkylarkCallable(name = "outputs", structField = true, doc = OUTPUTS_DOC)
+  ClassObject outputs() throws EvalException;
 
   @SkylarkCallable(
-    name = "outputs",
-    structField = true,
-    doc = OUTPUTS_DOC
-  )
-  public ClassObject outputs() throws EvalException;
+      name = "rule",
+      structField = true,
+      doc =
+          "Returns rule attributes descriptor for the rule that aspect is applied to."
+              + " Only available in aspect implementation functions.")
+  SkylarkAttributesCollectionApi rule() throws EvalException;
 
   @SkylarkCallable(
-    name = "rule",
-    structField = true,
-    doc =
-        "Returns rule attributes descriptor for the rule that aspect is applied to."
-            + " Only available in aspect implementation functions."
-  )
-  public SkylarkAttributesCollectionApi rule() throws EvalException;
+      name = "aspect_ids",
+      structField = true,
+      doc =
+          "Returns a list ids for all aspects applied to the target."
+              + " Only available in aspect implementation functions.")
+  ImmutableList<String> aspectIds() throws EvalException;
 
   @SkylarkCallable(
-    name = "aspect_ids",
-    structField = true,
-    doc =
-        "Returns a list ids for all aspects applied to the target."
-            + " Only available in aspect implementation functions."
-  )
-  public ImmutableList<String> aspectIds() throws EvalException;
+      name = "var",
+      structField = true,
+      doc = "Dictionary (String to String) of configuration variables.")
+  Dict<String, String> var() throws EvalException;
 
   @SkylarkCallable(
-    name = "var",
-    structField = true,
-    doc = "Dictionary (String to String) of configuration variables."
-  )
-  public SkylarkDict<String, String> var() throws EvalException;
+      name = "toolchains",
+      structField = true,
+      doc = "Toolchains required for this rule.")
+  ToolchainContextApi toolchains() throws EvalException;
 
   @SkylarkCallable(
-    name = "toolchains",
-    structField = true,
-    doc = "Toolchains required for this rule."
-  )
-  public SkylarkIndexable toolchains() throws EvalException;
+      name = "target_platform_has_constraint",
+      doc = "Returns true if the given constraint value is part of the current target platform.",
+      parameters = {
+        @Param(
+            name = "constraintValue",
+            positional = true,
+            named = false,
+            type = ConstraintValueInfoApi.class,
+            doc = "The constraint value to check the target platform against.")
+      })
+  boolean targetPlatformHasConstraint(ConstraintValueT constraintValue);
 
   @SkylarkCallable(
-    name = "tokenize",
-    doc = "Splits a shell command into a list of tokens.",
-    // TODO(cparsons): Look into flipping this to true.
-    documented = false,
-    parameters = {
-      @Param(
-        name = "option",
-        positional = true,
-        named = false,
-        type = String.class,
-        doc = "The string to split."
-      ),
-    }
-  )
-  public SkylarkList<String> tokenize(String optionString) throws FuncallException, EvalException;
+      name = "tokenize",
+      doc = "Splits a shell command into a list of tokens.",
+      // TODO(cparsons): Look into flipping this to true.
+      documented = false,
+      parameters = {
+        @Param(
+            name = "option",
+            positional = true,
+            named = false,
+            type = String.class,
+            doc = "The string to split."),
+      })
+  Sequence<String> tokenize(String optionString) throws EvalException;
 
   @SkylarkCallable(
-    name = "expand",
-    doc =
-        "Expands all references to labels embedded within a string for all files using a mapping "
-            + "from definition labels (i.e. the label in the output type attribute) to files. "
-            + "Deprecated.",
-    // TODO(cparsons): Look into flipping this to true.
-    documented = false,
-    parameters = {
-      @Param(
-        name = "expression",
-        positional = true,
-        named = false,
-        type = String.class,
-        doc = "The string expression to expand."
-      ),
-      @Param(
-        name = "files",
-        positional = true,
-        named = false,
-        type = SkylarkList.class,
-        doc = "The list of files."
-      ),
-      @Param(
-        name = "label_resolver",
-        positional = true,
-        named = false,
-        type = Label.class,
-        doc = "The label resolver."
-      ),
-    }
-  )
-  public String expand(
-      @Nullable String expression, SkylarkList<Object> artifacts, Label labelResolver)
-      throws EvalException, FuncallException;
+      name = "expand",
+      doc =
+          "Expands all references to labels embedded within a string for all files using a mapping "
+              + "from definition labels (i.e. the label in the output type attribute) to files. "
+              + "Deprecated.",
+      // TODO(cparsons): Look into flipping this to true.
+      documented = false,
+      parameters = {
+        @Param(
+            name = "expression",
+            positional = true,
+            named = false,
+            type = String.class,
+            doc = "The string expression to expand."),
+        @Param(
+            name = "files",
+            positional = true,
+            named = false,
+            type = Sequence.class,
+            doc = "The list of files."),
+        @Param(
+            name = "label_resolver",
+            positional = true,
+            named = false,
+            type = Label.class,
+            doc = "The label resolver."),
+      })
+  String expand(
+      @Nullable String expression,
+      Sequence<?> artifacts, // <FileT>
+      Label labelResolver)
+      throws EvalException;
 
   @SkylarkCallable(
       name = "new_file",
@@ -403,79 +398,64 @@ public interface SkylarkRuleContextApi extends SkylarkValue {
               + "file root.</li></ul> <br>"
               + DOC_NEW_FILE_TAIL,
       parameters = {
-          @Param(
-              name = "var1",
-              allowedTypes = {
-                  @ParamType(type = String.class),
-                  @ParamType(type = FileRootApi.class),
-                  @ParamType(type = FileApi.class),
-              },
-              doc = ""
-          ),
-          @Param(
-              name = "var2",
-              allowedTypes = {
-                  @ParamType(type = String.class),
-                  @ParamType(type = FileApi.class),
-                  @ParamType(type = UnboundMarker.class)
-              },
-              defaultValue = "unbound",
-              doc = ""
-          ),
-          @Param(
-              name = "var3",
-              allowedTypes = {
-                  @ParamType(type = String.class),
-                  @ParamType(type = UnboundMarker.class)
-              },
-              defaultValue = "unbound",
-              doc = ""
-          )
-      },
-      useLocation = true
-  )
-  public FileApi newFile(Object var1,
-      Object var2,
-      Object var3,
-      Location loc) throws EvalException;
+        @Param(
+            name = "var1",
+            allowedTypes = {
+              @ParamType(type = String.class),
+              @ParamType(type = FileRootApi.class),
+              @ParamType(type = FileApi.class),
+            },
+            doc = ""),
+        @Param(
+            name = "var2",
+            allowedTypes = {
+              @ParamType(type = String.class),
+              @ParamType(type = FileApi.class),
+            },
+            defaultValue = "unbound",
+            doc = ""),
+        @Param(
+            name = "var3",
+            allowedTypes = {
+              @ParamType(type = String.class),
+            },
+            defaultValue = "unbound",
+            doc = "")
+      })
+  FileApi newFile(Object var1, Object var2, Object var3) throws EvalException;
 
   @SkylarkCallable(
-    name = "experimental_new_directory",
-    documented = false,
-    parameters = {
-      @Param(name = "name", type = String.class),
-      @Param(
-        name = "sibling",
-        type = FileApi.class,
-        defaultValue = "None",
-        noneable = true,
-        named = true
-      )
-    }
-  )
-  public FileApi newDirectory(String name, Object siblingArtifactUnchecked) throws EvalException;
+      name = "experimental_new_directory",
+      documented = false,
+      parameters = {
+        @Param(name = "name", type = String.class),
+        @Param(
+            name = "sibling",
+            type = FileApi.class,
+            defaultValue = "None",
+            noneable = true,
+            named = true)
+      })
+  FileApi newDirectory(String name, Object siblingArtifactUnchecked) throws EvalException;
 
   @SkylarkCallable(
-    name = "check_placeholders",
-    documented = false,
-    parameters = {
-      @Param(
-          name = "template",
-          positional = true,
-          named = false,
-          type = String.class,
-          doc = "The template."
-      ),
-      @Param(
-          name = "allowed_placeholders",
-          positional = true,
-          named = false,
-          type = SkylarkList.class,
-          doc = "The allowed placeholders."
-      ),
-    }
-  )
-  public boolean checkPlaceholders(String template, SkylarkList<Object> allowedPlaceholders)
+      name = "check_placeholders",
+      documented = false,
+      parameters = {
+        @Param(
+            name = "template",
+            positional = true,
+            named = false,
+            type = String.class,
+            doc = "The template."),
+        @Param(
+            name = "allowed_placeholders",
+            positional = true,
+            named = false,
+            type = Sequence.class,
+            doc = "The allowed placeholders."),
+      })
+  boolean checkPlaceholders(String template, Sequence<?> allowedPlaceholders) // <String>
       throws EvalException;
 
   @SkylarkCallable(
@@ -500,56 +480,51 @@ public interface SkylarkRuleContextApi extends SkylarkValue {
             positional = true,
             named = false,
             type = String.class,
-            doc = "The attribute name. Used for error reporting."
-        ),
+            doc = "The attribute name. Used for error reporting."),
         @Param(
             name = "command",
             positional = true,
             named = false,
             type = String.class,
-            doc = "The expression to expand. It can contain references to "
-              + "\"Make variables\"."
-        ),
+            doc =
+                "The expression to expand. It can contain references to " + "\"Make variables\"."),
         @Param(
             name = "additional_substitutions",
             positional = true,
             named = false,
-            type = SkylarkDict.class,
-            doc = "Additional substitutions to make beyond the default make variables."
-        ),
-      }
-  )
-  public String expandMakeVariables(
-      String attributeName, String command, final Map<String, String> additionalSubstitutions)
+            type = Dict.class,
+            doc = "Additional substitutions to make beyond the default make variables."),
+      })
+  String expandMakeVariables(
+      String attributeName,
+      String command,
+      final Dict<?, ?> additionalSubstitutions) // <String, String>
       throws EvalException;
 
   @SkylarkCallable(
-    name = "info_file",
-    structField = true,
-    documented = false,
-    doc =
-        "Returns the file that is used to hold the non-volatile workspace status for the "
-            + "current build request."
-  )
-  public FileApi getStableWorkspaceStatus() throws InterruptedException, EvalException;
+      name = "info_file",
+      structField = true,
+      documented = false,
+      doc =
+          "Returns the file that is used to hold the non-volatile workspace status for the "
+              + "current build request.")
+  FileApi getStableWorkspaceStatus() throws InterruptedException, EvalException;
 
   @SkylarkCallable(
-    name = "version_file",
-    structField = true,
-    documented = false,
-    doc =
-        "Returns the file that is used to hold the volatile workspace status for the "
-            + "current build request."
-  )
-  public FileApi getVolatileWorkspaceStatus() throws InterruptedException, EvalException;
+      name = "version_file",
+      structField = true,
+      documented = false,
+      doc =
+          "Returns the file that is used to hold the volatile workspace status for the "
+              + "current build request.")
+  FileApi getVolatileWorkspaceStatus() throws InterruptedException, EvalException;
 
   @SkylarkCallable(
-    name = "build_file_path",
-    structField = true,
-    documented = true,
-    doc = "Returns path to the BUILD file for this rule, relative to the source root."
-  )
-  public String getBuildFileRelativePath() throws EvalException;
+      name = "build_file_path",
+      structField = true,
+      documented = true,
+      doc = "Returns path to the BUILD file for this rule, relative to the source root.")
+  String getBuildFileRelativePath() throws EvalException;
 
   @SkylarkCallable(
       name = "action",
@@ -564,7 +539,7 @@ public interface SkylarkRuleContextApi extends SkylarkValue {
       parameters = {
         @Param(
             name = "outputs",
-            type = SkylarkList.class,
+            type = Sequence.class,
             generic1 = FileApi.class,
             named = true,
             positional = false,
@@ -572,8 +547,8 @@ public interface SkylarkRuleContextApi extends SkylarkValue {
         @Param(
             name = "inputs",
             allowedTypes = {
-              @ParamType(type = SkylarkList.class),
-              @ParamType(type = SkylarkNestedSet.class),
+              @ParamType(type = Sequence.class),
+              @ParamType(type = Depset.class),
             },
             generic1 = FileApi.class,
             defaultValue = "[]",
@@ -586,7 +561,7 @@ public interface SkylarkRuleContextApi extends SkylarkValue {
             allowedTypes = {
               @ParamType(type = FileApi.class),
               @ParamType(type = String.class),
-              @ParamType(type = Runtime.NoneType.class),
+              @ParamType(type = NoneType.class),
             },
             noneable = true,
             defaultValue = "None",
@@ -596,8 +571,8 @@ public interface SkylarkRuleContextApi extends SkylarkValue {
         @Param(
             name = "tools",
             allowedTypes = {
-              @ParamType(type = SkylarkList.class),
-              @ParamType(type = SkylarkNestedSet.class),
+              @ParamType(type = Sequence.class),
+              @ParamType(type = Depset.class),
             },
             generic1 = FileApi.class,
             defaultValue = "unbound",
@@ -609,7 +584,7 @@ public interface SkylarkRuleContextApi extends SkylarkValue {
         @Param(
             name = "arguments",
             allowedTypes = {
-              @ParamType(type = SkylarkList.class),
+              @ParamType(type = Sequence.class),
             },
             defaultValue = "[]",
             named = true,
@@ -630,8 +605,8 @@ public interface SkylarkRuleContextApi extends SkylarkValue {
             type = Object.class,
             allowedTypes = {
               @ParamType(type = String.class),
-              @ParamType(type = SkylarkList.class, generic1 = String.class),
-              @ParamType(type = Runtime.NoneType.class),
+              @ParamType(type = Sequence.class, generic1 = String.class),
+              @ParamType(type = NoneType.class),
             },
             noneable = true,
             defaultValue = "None",
@@ -660,7 +635,7 @@ public interface SkylarkRuleContextApi extends SkylarkValue {
             doc = "Whether the action should use the built in shell environment or not."),
         @Param(
             name = "env",
-            type = SkylarkDict.class,
+            type = Dict.class,
             noneable = true,
             defaultValue = "None",
             named = true,
@@ -668,7 +643,7 @@ public interface SkylarkRuleContextApi extends SkylarkValue {
             doc = "Sets the dictionary of environment variables."),
         @Param(
             name = "execution_requirements",
-            type = SkylarkDict.class,
+            type = Dict.class,
             noneable = true,
             defaultValue = "None",
             named = true,
@@ -682,7 +657,7 @@ public interface SkylarkRuleContextApi extends SkylarkValue {
             // experimental,
             // so folks shouldn't be too attached, but consider renaming to be more accurate/opaque.
             name = "input_manifests",
-            type = SkylarkList.class,
+            type = Sequence.class,
             noneable = true,
             defaultValue = "None",
             named = true,
@@ -692,10 +667,9 @@ public interface SkylarkRuleContextApi extends SkylarkValue {
                     + "they are typically generated by resolve_command.")
       },
       allowReturnNones = true,
-      useLocation = true,
-      useEnvironment = true)
-  public Runtime.NoneType action(
-      SkylarkList outputs,
+      useStarlarkThread = true)
+  NoneType action(
+      Sequence<?> outputs,
       Object inputs,
       Object executableUnchecked,
       Object toolsUnchecked,
@@ -707,156 +681,137 @@ public interface SkylarkRuleContextApi extends SkylarkValue {
       Object envUnchecked,
       Object executionRequirementsUnchecked,
       Object inputManifestsUnchecked,
-      Location loc,
-      Environment env)
+      StarlarkThread thread)
       throws EvalException;
 
   @SkylarkCallable(
-    name = "expand_location",
-    doc =
-        "Expands all <code>$(location ...)</code> templates in the given string by replacing "
-            + "<code>$(location //x)</code> with the path of the output file of target //x. "
-            + "Expansion only works for labels that point to direct dependencies of this rule or "
-            + "that are explicitly listed in the optional argument <code>targets</code>. "
-            + "<br/><br/>"
-            + "<code>$(location ...)</code> will cause an error if the referenced target has "
-            + "multiple outputs. In this case, please use <code>$(locations ...)</code> since it "
-            + "produces a space-separated list of output paths. It can be safely used for a "
-            + "single output file, too."
-            + "<br/><br/>"
-            + "This function is useful to let the user specify a command in a BUILD file (like "
-            + "for <code>genrule</code>). In other cases, it is often better to manipulate labels "
-            + "directly.",
-    parameters = {
-      @Param(name = "input", type = String.class, doc = "String to be expanded."),
-      @Param(
-        name = "targets",
-        type = SkylarkList.class,
-        generic1 = TransitiveInfoCollectionApi.class,
-        defaultValue = "[]",
-        named = true,
-        doc = "List of targets for additional lookup information."
-      ),
-    },
-    allowReturnNones = true,
-    useLocation = true,
-    useEnvironment = true
-  )
-  public String expandLocation(String input, SkylarkList targets, Location loc, Environment env)
+      name = "expand_location",
+      doc =
+          "Expands all <code>$(location ...)</code> templates in the given string by replacing "
+              + "<code>$(location //x)</code> with the path of the output file of target //x. "
+              + "Expansion only works for labels that point to direct dependencies of this rule or "
+              + "that are explicitly listed in the optional argument <code>targets</code>. "
+              + "<br/><br/>"
+              //
+              + "<code>$(location ...)</code> will cause an error if the referenced target has "
+              + "multiple outputs. In this case, please use <code>$(locations ...)</code> since it "
+              + "produces a space-separated list of output paths. It can be safely used for a "
+              + "single output file, too."
+              + "<br/><br/>"
+              //
+              + "This function is useful to let the user specify a command in a BUILD file (like"
+              + " for <code>genrule</code>). In other cases, it is often better to manipulate"
+              + " labels directly.",
+      parameters = {
+        @Param(name = "input", type = String.class, doc = "String to be expanded."),
+        @Param(
+            name = "targets",
+            type = Sequence.class,
+            generic1 = TransitiveInfoCollectionApi.class,
+            defaultValue = "[]",
+            named = true,
+            doc = "List of targets for additional lookup information."),
+      },
+      allowReturnNones = true,
+      useStarlarkThread = true)
+  String expandLocation(String input, Sequence<?> targets, StarlarkThread thread)
       throws EvalException;
 
   @SkylarkCallable(
-    name = "file_action",
-    doc =
-        "DEPRECATED. Use <a href =\"actions.html#write\">ctx.actions.write</a> instead. <br>"
-            + "Creates a file write action.",
-    parameters = {
-      @Param(name = "output", type = FileApi.class, named = true, doc = "The output file."),
-      @Param(
-        name = "content",
-        type = String.class,
-        named = true,
-        doc = "The contents of the file."
-      ),
-      @Param(
-        name = "executable",
-        type = Boolean.class,
-        defaultValue = "False",
-        named = true,
-        doc = "Whether the output file should be executable (default is False)."
-      )
-    },
-    allowReturnNones = true,
-    useLocation = true,
-    useEnvironment = true
-  )
-  public Runtime.NoneType fileAction(
-      FileApi output, String content, Boolean executable, Location loc, Environment env)
+      name = "file_action",
+      doc =
+          "DEPRECATED. Use <a href =\"actions.html#write\">ctx.actions.write</a> instead. <br>"
+              + "Creates a file write action.",
+      parameters = {
+        @Param(name = "output", type = FileApi.class, named = true, doc = "The output file."),
+        @Param(
+            name = "content",
+            type = String.class,
+            named = true,
+            doc = "The contents of the file."),
+        @Param(
+            name = "executable",
+            type = Boolean.class,
+            defaultValue = "False",
+            named = true,
+            doc = "Whether the output file should be executable (default is False).")
+      },
+      allowReturnNones = true,
+      useStarlarkThread = true)
+  NoneType fileAction(FileApi output, String content, Boolean executable, StarlarkThread thread)
       throws EvalException;
 
   @SkylarkCallable(
-    name = "empty_action",
-    doc =
-        "DEPRECATED. Use <a href=\"actions.html#do_nothing\">ctx.actions.do_nothing</a> instead."
-            + " <br>"
-            + "Creates an empty action that neither executes a command nor produces any "
-            + "output, but that is useful for inserting 'extra actions'.",
-    parameters = {
-      @Param(
-        name = "mnemonic",
-        type = String.class,
-        named = true,
-        positional = false,
-        doc = "A one-word description of the action, e.g. CppCompile or GoLink."
-      ),
-      @Param(
-        name = "inputs",
-        allowedTypes = {
-          @ParamType(type = SkylarkList.class),
-          @ParamType(type = SkylarkNestedSet.class),
-        },
-        generic1 = FileApi.class,
-        named = true,
-        positional = false,
-        defaultValue = "[]",
-        doc = "List of the input files of the action."
-      ),
-    },
-    allowReturnNones = true,
-    useLocation = true,
-    useEnvironment = true
-  )
-  public Runtime.NoneType emptyAction(String mnemonic, Object inputs, Location loc, Environment env)
-      throws EvalException;
+      name = "empty_action",
+      doc =
+          "DEPRECATED. Use <a href=\"actions.html#do_nothing\">ctx.actions.do_nothing</a> instead."
+              + " <br>"
+              + "Creates an empty action that neither executes a command nor produces any "
+              + "output, but that is useful for inserting 'extra actions'.",
+      parameters = {
+        @Param(
+            name = "mnemonic",
+            type = String.class,
+            named = true,
+            positional = false,
+            doc = "A one-word description of the action, e.g. CppCompile or GoLink."),
+        @Param(
+            name = "inputs",
+            allowedTypes = {
+              @ParamType(type = Sequence.class),
+              @ParamType(type = Depset.class),
+            },
+            generic1 = FileApi.class,
+            named = true,
+            positional = false,
+            defaultValue = "[]",
+            doc = "List of the input files of the action."),
+      },
+      allowReturnNones = true,
+      useStarlarkThread = true)
+  NoneType emptyAction(String mnemonic, Object inputs, StarlarkThread thread) throws EvalException;
 
   @SkylarkCallable(
-    name = "template_action",
-    doc =
-        "DEPRECATED. "
-            + "Use <a href=\"actions.html#expand_template\">ctx.actions.expand_template()</a> "
-            + "instead. <br>Creates a template expansion action.",
-    parameters = {
-      @Param(
-        name = "template",
-        type = FileApi.class,
-        named = true,
-        positional = false,
-        doc = "The template file, which is a UTF-8 encoded text file."
-      ),
-      @Param(
-        name = "output",
-        type = FileApi.class,
-        named = true,
-        positional = false,
-        doc = "The output file, which is a UTF-8 encoded text file."
-      ),
-      @Param(
-        name = "substitutions",
-        type = SkylarkDict.class,
-        named = true,
-        positional = false,
-        doc = "Substitutions to make when expanding the template."
-      ),
-      @Param(
-        name = "executable",
-        type = Boolean.class,
-        defaultValue = "False",
-        named = true,
-        positional = false,
-        doc = "Whether the output file should be executable (default is False)."
-      )
-    },
-    allowReturnNones = true,
-    useLocation = true,
-    useEnvironment = true
-  )
-  public Runtime.NoneType templateAction(
+      name = "template_action",
+      doc =
+          "DEPRECATED. "
+              + "Use <a href=\"actions.html#expand_template\">ctx.actions.expand_template()</a> "
+              + "instead. <br>Creates a template expansion action.",
+      parameters = {
+        @Param(
+            name = "template",
+            type = FileApi.class,
+            named = true,
+            positional = false,
+            doc = "The template file, which is a UTF-8 encoded text file."),
+        @Param(
+            name = "output",
+            type = FileApi.class,
+            named = true,
+            positional = false,
+            doc = "The output file, which is a UTF-8 encoded text file."),
+        @Param(
+            name = "substitutions",
+            type = Dict.class,
+            named = true,
+            positional = false,
+            doc = "Substitutions to make when expanding the template."),
+        @Param(
+            name = "executable",
+            type = Boolean.class,
+            defaultValue = "False",
+            named = true,
+            positional = false,
+            doc = "Whether the output file should be executable (default is False).")
+      },
+      allowReturnNones = true,
+      useStarlarkThread = true)
+  NoneType templateAction(
       FileApi template,
       FileApi output,
-      SkylarkDict<?, ?> substitutionsUnchecked,
+      Dict<?, ?> substitutionsUnchecked,
       Boolean executable,
-      Location loc,
-      Environment env)
+      StarlarkThread thread)
       throws EvalException;
 
   @SkylarkCallable(
@@ -865,7 +820,7 @@ public interface SkylarkRuleContextApi extends SkylarkValue {
       parameters = {
         @Param(
             name = "files",
-            type = SkylarkList.class,
+            type = Sequence.class,
             generic1 = FileApi.class,
             named = true,
             defaultValue = "[]",
@@ -875,7 +830,7 @@ public interface SkylarkRuleContextApi extends SkylarkValue {
         // Also, allow empty set for init
         @Param(
             name = "transitive_files",
-            type = SkylarkNestedSet.class,
+            type = Depset.class,
             generic1 = FileApi.class,
             noneable = true,
             defaultValue = "None",
@@ -890,7 +845,9 @@ public interface SkylarkRuleContextApi extends SkylarkValue {
             defaultValue = "False",
             named = true,
             doc =
-                "Whether to collect the data "
+                "<b>Use of this parameter is not recommended. See "
+                    + "<a href=\"../rules.html#runfiles\">runfiles guide</a></b>. "
+                    + "<p>Whether to collect the data "
                     + "runfiles from the dependencies in srcs, data and deps attributes."),
         @Param(
             name = "collect_default",
@@ -898,30 +855,30 @@ public interface SkylarkRuleContextApi extends SkylarkValue {
             defaultValue = "False",
             named = true,
             doc =
-                "Whether to collect the default "
+                "<b>Use of this parameter is not recommended. See "
+                    + "<a href=\"../rules.html#runfiles\">runfiles guide</a></b>. "
+                    + "<p>Whether to collect the default "
                     + "runfiles from the dependencies in srcs, data and deps attributes."),
         @Param(
             name = "symlinks",
-            type = SkylarkDict.class,
+            type = Dict.class,
             defaultValue = "{}",
             named = true,
             doc = "The map of symlinks to be added to the runfiles, prefixed by workspace name."),
         @Param(
             name = "root_symlinks",
-            type = SkylarkDict.class,
+            type = Dict.class,
             defaultValue = "{}",
             named = true,
             doc = "The map of symlinks to be added to the runfiles.")
-      },
-      useLocation = true)
-  public RunfilesApi runfiles(
-      SkylarkList files,
+      })
+  RunfilesApi runfiles(
+      Sequence<?> files,
       Object transitiveFiles,
       Boolean collectData,
       Boolean collectDefault,
-      SkylarkDict<?, ?> symlinks,
-      SkylarkDict<?, ?> rootSymlinks,
-      Location loc)
+      Dict<?, ?> symlinks,
+      Dict<?, ?> rootSymlinks)
       throws EvalException;
 
   @SkylarkCallable(
@@ -962,7 +919,7 @@ public interface SkylarkRuleContextApi extends SkylarkValue {
                     + " href=\"#expand_location\">ctx.expand_location()</a> for more details."),
         @Param(
             name = "make_variables",
-            type = SkylarkDict.class, // dict(string, string)
+            type = Dict.class, // dict(string, string)
             noneable = true,
             defaultValue = "None",
             named = true,
@@ -971,14 +928,14 @@ public interface SkylarkRuleContextApi extends SkylarkValue {
         @Param(
             name = "tools",
             defaultValue = "[]",
-            type = SkylarkList.class,
+            type = Sequence.class,
             generic1 = TransitiveInfoCollectionApi.class,
             named = true,
             positional = false,
             doc = "List of tools (list of targets)."),
         @Param(
             name = "label_dict",
-            type = SkylarkDict.class,
+            type = Dict.class,
             defaultValue = "{}",
             named = true,
             positional = false,
@@ -987,7 +944,7 @@ public interface SkylarkRuleContextApi extends SkylarkValue {
                     + "(a dict of Label : list of Files)."),
         @Param(
             name = "execution_requirements",
-            type = SkylarkDict.class,
+            type = Dict.class,
             defaultValue = "{}",
             named = true,
             positional = false,
@@ -996,18 +953,16 @@ public interface SkylarkRuleContextApi extends SkylarkValue {
                     + "<a href=\"$BE_ROOT/common-definitions.html#common.tags\">tags</a> "
                     + "for useful keys."),
       },
-      useLocation = true,
-      useEnvironment = true)
-  public Tuple<Object> resolveCommand(
+      useStarlarkThread = true)
+  Tuple<Object> resolveCommand(
       String command,
       Object attributeUnchecked,
       Boolean expandLocations,
       Object makeVariablesUnchecked,
-      SkylarkList tools,
-      SkylarkDict<?, ?> labelDictUnchecked,
-      SkylarkDict<?, ?> executionRequirementsUnchecked,
-      Location loc,
-      Environment env)
+      Sequence<?> tools,
+      Dict<?, ?> labelDictUnchecked,
+      Dict<?, ?> executionRequirementsUnchecked,
+      StarlarkThread thread)
       throws EvalException;
 
   @SkylarkCallable(
@@ -1023,13 +978,11 @@ public interface SkylarkRuleContextApi extends SkylarkValue {
         @Param(
             name = "tools",
             defaultValue = "[]",
-            type = SkylarkList.class,
+            type = Sequence.class,
             generic1 = TransitiveInfoCollectionApi.class,
             named = true,
             positional = false,
             doc = "List of tools (list of targets)."),
-      },
-      useLocation = false,
-      useEnvironment = false)
-  public Tuple<Object> resolveTools(SkylarkList tools) throws EvalException;
+      })
+  Tuple<Object> resolveTools(Sequence<?> tools) throws EvalException;
 }

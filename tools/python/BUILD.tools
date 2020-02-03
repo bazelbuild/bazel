@@ -53,9 +53,21 @@ exports_files([
     "toolchain.bzl",
     "utils.bzl",
     "private/defs.bzl",
+    "private/py_test_alias.bzl",
+    "private/version.bzl",
     # write_file.bzl fortunately doesn't need to be exposed because it's only
     # used in this BUILD file.
 ])
+
+filegroup(
+    name = "bzl_srcs",
+    srcs = glob(["*.bzl"]) + [
+        "private/defs.bzl",
+        "private/py_test_alias.bzl",
+        "private/version.bzl",
+    ],
+    visibility = ["//tools:__pkg__"],
+)
 
 # This target can be used to inspect the current Python major version. To use,
 # put it in the `flag_values` attribute of a `config_setting` and test it

@@ -13,7 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.dynamic;
 
-import com.google.devtools.common.options.Converters.AssignmentToListOfValuesConverter;
+import com.google.devtools.common.options.Converters;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
@@ -46,19 +46,30 @@ public class DynamicExecutionOptions extends OptionsBase {
   public Void experimentalSpawnScheduler;
 
   @Option(
-    name = "internal_spawn_scheduler",
-    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    defaultValue = "false",
-    help =
-        "Placeholder option so that we can tell in Blaze whether the spawn scheduler was "
-            + "enabled."
-  )
+      name = "internal_spawn_scheduler",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      defaultValue = "false",
+      help =
+          "Placeholder option so that we can tell in Blaze whether the spawn scheduler was "
+              + "enabled.")
   public boolean internalSpawnScheduler;
 
   @Option(
+      name = "legacy_spawn_scheduler",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      defaultValue = "true",
+      help =
+          "Enables the old but tested implementation of the spawn scheduler. This differs from the "
+              + "new version in that this version cannot stop a local spawn once it has started "
+              + "running. You should never have to enable the legacy scheduler except to "
+              + "workaround bugs in the new version.")
+  public boolean legacySpawnScheduler;
+
+  @Option(
       name = "dynamic_local_strategy",
-      converter = AssignmentToListOfValuesConverter.class,
+      converter = Converters.StringToStringListConverter.class,
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.UNKNOWN},
       defaultValue = "null",
@@ -71,7 +82,7 @@ public class DynamicExecutionOptions extends OptionsBase {
 
   @Option(
       name = "dynamic_remote_strategy",
-      converter = AssignmentToListOfValuesConverter.class,
+      converter = Converters.StringToStringListConverter.class,
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.UNKNOWN},
       defaultValue = "",
@@ -109,4 +120,14 @@ public class DynamicExecutionOptions extends OptionsBase {
     defaultValue = "false"
   )
   public boolean debugSpawnScheduler;
+
+  @Option(
+      name = "experimental_require_availability_info",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      defaultValue = "false",
+      help =
+          "If true, fail the build if there are actions that set requires-darwin but do not have"
+              + "Xcode availability-related execution requirements set.")
+  public boolean requireAvailabilityInfo;
 }

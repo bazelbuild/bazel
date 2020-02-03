@@ -25,7 +25,7 @@ import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.SkylarkProvider.SkylarkKey;
 import com.google.devtools.build.lib.packages.StructImpl;
-import com.google.devtools.build.lib.syntax.Runtime;
+import com.google.devtools.build.lib.syntax.Starlark;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -233,7 +233,7 @@ public class ConstraintTest extends BuildViewTestCase {
                 new SkylarkKey(
                     Label.parseAbsolute("//verify:verify.bzl", ImmutableMap.of()), "result"));
 
-    assertThat(info.getValue("default_value")).isEqualTo(Runtime.NONE);
+    assertThat(info.getValue("default_value")).isEqualTo(Starlark.NONE);
 
     boolean hasConstraintValue = (boolean) info.getValue("has_default_value");
     assertThat(hasConstraintValue).isFalse();

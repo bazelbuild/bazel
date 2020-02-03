@@ -515,11 +515,78 @@ EOF
   TARGET=$(grep "//$pkg:with_rule_class_transition " output)
 
   # Trim to just configuration
-  OUTPUT_CONFIG=${OUTPUT/"//$pkg:with_rule_class_transition.output "}
-  TARGET_CONFIG=${TARGET/"//$pkg:with_rule_class_transition "}
+  OUTPUT_CONFIG=${OUTPUT#* }
+  TARGET_CONFIG=${TARGET#* }
 
   # Confirm same configuration
   assert_equals $OUTPUT_CONFIG $TARGET_CONFIG
+}
+
+function test_starlark_flag_change_causes_action_rerun() {
+  local -r pkg="$FUNCNAME"
+  mkdir -p "$pkg"
+
+  cat > "$pkg/rules.bzl" <<EOF
+BuildSettingInfo = provider(fields = ["value"])
+
+def _impl(ctx):
+    return BuildSettingInfo(value = ctx.build_setting_value)
+
+bool_flag = rule(
+    implementation = _impl,
+    build_setting = config.bool(flag = True),
+)
+EOF
+
+  cat > "$pkg/BUILD" <<EOF
+load(":rules.bzl", "bool_flag")
+
+bool_flag(
+    name = "myflag",
+    build_setting_default = True,
+)
+
+config_setting(
+    name = "myflag_selectable",
+    flag_values = {":myflag": "True"},
+)
+
+genrule(
+    name = "test_flag",
+    outs = ["out-flag.txt"],
+    cmd = "echo Value=" + select({
+        ":myflag_selectable": "True",
+        "//conditions:default": "False",
+    }) + " | tee \$@",
+)
+EOF
+
+  bazel shutdown
+
+  # Setting --noexperimental_check_output_files is required to reproduce the
+  # issue: The bug this test covers was caused by starlark flag changes not
+  # invalidating the analysis cache, resulting in Bazel not re-running the
+  # genrule action during the third invocation (because it sees the action in
+  # skyframe as already executed from the first invocation). Bazel will by
+  # default also invalidate actions by checking all output files for
+  # modification *unless* an output service is registered (which can -
+  # correctly - indicate that the output hasn't changed since the last build,
+  # here between the second and third runs). As we don't have an output service
+  # available in this test we disable output file checking entirely instead.
+  bazel build "//$pkg:test_flag" "--//$pkg:myflag=true" \
+      --noexperimental_check_output_files \
+      2>>"$TEST_log" || fail "Expected build to succeed"
+  assert_equals "Value=True" "$(cat bazel-genfiles/$pkg/out-flag.txt)"
+
+  bazel build "//$pkg:test_flag" "--//$pkg:myflag=false" \
+      --noexperimental_check_output_files \
+      2>>"$TEST_log" || fail "Expected build to succeed"
+  assert_equals "Value=False" "$(cat bazel-genfiles/$pkg/out-flag.txt)"
+
+  bazel build "//$pkg:test_flag" "--//$pkg:myflag=true" \
+      --noexperimental_check_output_files \
+      2>>"$TEST_log" || fail "Expected build to succeed"
+  assert_equals "Value=True" "$(cat bazel-genfiles/$pkg/out-flag.txt)"
 }
 
 run_suite "${PRODUCT_NAME} starlark configurations tests"

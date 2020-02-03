@@ -14,41 +14,36 @@
 
 package com.google.devtools.build.lib.skylarkbuildapi.test;
 
-import com.google.devtools.build.lib.collect.nestedset.NestedSet;
-import com.google.devtools.build.lib.skylarkbuildapi.ProviderApi;
+import com.google.devtools.build.lib.skylarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
+import com.google.devtools.build.lib.syntax.Depset;
+import com.google.devtools.build.lib.syntax.StarlarkValue;
 
 /**
  * Encapsulates information about an analysis-phase error which would have occurred during a build.
  */
 @SkylarkModule(
     name = "AnalysisFailureInfo",
-    doc = "<b>Experimental. This API is experimental and subject to change at any time</b><p> "
-        + "Encapsulates information about an analysis-phase error which would have occurred during "
-        + "a build. In most builds, an analysis-phase error would result in a build failure "
-        + "and the error description would be output to the console. However, if "
-        + "<code>--allow_analysis_failure</code> is set, targets which would otherwise fail in "
-        + "analysis will instead propagate an instance of this object (and no other provider "
-        + "instances). "
-        + ""
-        + "<p>Under <code>--allow_analysis_failure</code>, <code>AnalysisFailureInfo</code> "
-        + "objects are automatically re-propagated up a dependency tree using the following "
-        + "logic:<ul>"
-        + ""
-        + "<li>If a target fails but none of its direct dependencies propagated "
-        + "<code>AnalysisFailureInfo</code>, then propagate an instance of this "
-        + "provider containing an <code>AnalysisFailure</code> object describing the "
-        + "failure.</li> "
-        + ""
-        + "<li>If one or more of a target's dependencies propagated "
-        + "<code>AnalysisFailureInfo</code>, then propagate a provider with "
-        + "<code>causes</code> equal to the union of the <code>causes</code> of the "
-        + "dependencies.</li></ul>",
+    doc =
+        "<b>Experimental. This API is experimental and subject to change at any time</b><p>"
+            + " Encapsulates information about an analysis-phase error which would have occurred"
+            + " during a build. In most builds, an analysis-phase error would result in a build"
+            + " failure and the error description would be output to the console. However, if"
+            + " <code>--allow_analysis_failure</code> is set, targets which would otherwise fail"
+            + " in analysis will instead propagate an instance of this object (and no other"
+            + " provider instances). <p>Under <code>--allow_analysis_failure</code>,"
+            + " <code>AnalysisFailureInfo</code> objects are automatically re-propagated up a"
+            + " dependency tree using the following logic:<ul><li>If a target fails but none of"
+            + " its direct dependencies propagated <code>AnalysisFailureInfo</code>, then"
+            + " propagate an instance of this provider containing an <code>AnalysisFailure</code>"
+            + " object describing the failure.</li> <li>If one or more of a target's dependencies"
+            + " propagated <code>AnalysisFailureInfo</code>, then propagate a provider with"
+            + " <code>causes</code> equal to the union of the <code>causes</code> of the "
+            + "dependencies.</li></ul>",
     documented = false)
 public interface AnalysisFailureInfoApi<AnalysisFailureApiT extends AnalysisFailureApi>
-    extends SkylarkValue {
+    extends StarlarkValue {
 
   @SkylarkCallable(
       name = "causes",
@@ -57,9 +52,9 @@ public interface AnalysisFailureInfoApi<AnalysisFailureApiT extends AnalysisFail
               + "occurred in this target or its dependencies.",
       documented = false,
       structField = true)
-  public NestedSet<AnalysisFailureApiT> getCauses();
+  Depset /*<AnalysisFailureApiT>*/ getCauses();
 
   /** Provider class for {@link AnalysisFailureInfoApi} objects. */
   @SkylarkModule(name = "Provider", documented = false, doc = "")
-  public interface AnalysisFailureInfoProviderApi extends ProviderApi {}
+  interface AnalysisFailureInfoProviderApi extends ProviderApi {}
 }

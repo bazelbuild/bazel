@@ -15,12 +15,13 @@
 package com.google.devtools.build.lib.skylarkinterface.processor.testsources;
 
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
+import com.google.devtools.build.lib.syntax.StarlarkValue;
 
 /**
  * Test case for a SkylarkCallable method which has no documentation and is not explicitly marked
  * "documented=false".
  */
-public class DocumentationMissing {
+public class DocumentationMissing implements StarlarkValue {
 
   @SkylarkCallable(name = "undocumented_method")
   public String undocumentedMethod() {

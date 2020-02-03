@@ -23,81 +23,66 @@ import javax.annotation.Nullable;
  */
 public class SkylarkInterfaceUtils {
 
-  private static final class ClassWithAnnotation<T extends Annotation> {
-    final Class<?> klass;
-    final T annotation;
-
-    ClassWithAnnotation(Class<?> klass, T annotation) {
-      this.klass = klass;
-      this.annotation = annotation;
-    }
-  }
-
   /**
-   * Returns the more specific class of two classes. Class x is more specific than class y
-   * if x is assignable to y. For example, of Integer.class and Object.class, Integer.class is more
+   * Returns the more specific class of two classes. Class x is more specific than class y if x is
+   * assignable to y. For example, of Integer.class and Object.class, Integer.class is more
    * specific.
    *
-   * <p>If either class is null, returns the other class.</p>
+   * <p>If either class is null, returns the other class.
    *
-   * <p>If the classes are identical, returns the class.</p>
+   * <p>If the classes are identical, returns the class.
    *
    * @throws IllegalArgumentException if neither class is assignable to the other
    */
-  private static <T extends Annotation> ClassWithAnnotation<T> moreSpecificClass(
-      ClassWithAnnotation<T> x, ClassWithAnnotation<T> y) {
+  private static Class<?> moreSpecific(Class<?> x, Class<?> y) {
     if (x == null) {
       return y;
     } else if (y == null) {
       return x;
-    }
-    Class<?> xClass = x.klass;
-    Class<?> yClass = y.klass;
-    if (xClass.isAssignableFrom(yClass)) {
+    } else if (x.isAssignableFrom(y)) {
       return y;
-    } else if (yClass.isAssignableFrom(xClass)) {
+    } else if (y.isAssignableFrom(x)) {
       return x;
     } else {
       // If this exception occurs, it indicates the following error scenario:
       //
       // Suppose class A is a subclass of both B and C, where B and C are annotated with
       // @SkylarkModule annotations (and are thus considered "skylark types"). If B is not a
-      // subclass of C (nor visa versa), then it's impossible to resolve whether A is of type
+      // subclass of C (nor vice versa), then it's impossible to resolve whether A is of type
       // B or if A is of type C. It's both! The way to resolve this is usually to have A be its own
       // type (annotated with @SkylarkModule), and thus have the explicit type of A be semantically
       // "B and C".
-      throw new IllegalArgumentException(String.format(
-          "Expected one of %s and %s to be a subclass of the other",
-          xClass, yClass));
+      throw new IllegalArgumentException(
+          String.format("Expected one of %s and %s to be a subclass of the other", x, y));
     }
   }
 
   /**
    * Searches a class or interface's class hierarchy for the given class annotation.
    *
-   * <p>If the given class annotation appears multiple times within the class hierachy, this
-   * chooses the annotation on the most-specified class in the hierarchy.</p>
+   * <p>If the given class annotation appears multiple times within the class hierachy, this chooses
+   * the annotation on the most-specified class in the hierarchy.
    *
-   * @return a {@link ClassWithAnnotation} containing the best-fit annotation and the class
-   *     it was declared on
+   * @return the best-fit class that declares the annotation, or null if no class in the hierarchy
+   *     declares it
+   * @throws IllegalArgumentException if the most-specified class in the hierarchy having the
+   *     annotation is not unique
    */
   @Nullable
-  private static <T extends Annotation> ClassWithAnnotation<T> searchForClassAnnotation(
-      Class<?> classObj,
-      Class<T> annotationClass) {
-    if (classObj.isAnnotationPresent(annotationClass)) {
-      return new ClassWithAnnotation<T>(classObj, classObj.getAnnotation(annotationClass));
+  private static Class<?> findAnnotatedAncestor(
+      Class<?> classObj, Class<? extends Annotation> annotation) {
+    if (classObj.isAnnotationPresent(annotation)) {
+      return classObj;
     }
-    ClassWithAnnotation<T> bestCandidate = null;
-
+    Class<?> bestCandidate = null;
     Class<?> superclass = classObj.getSuperclass();
     if (superclass != null) {
-      ClassWithAnnotation<T> result = searchForClassAnnotation(superclass, annotationClass);
-      bestCandidate = moreSpecificClass(result, bestCandidate);
+      Class<?> result = findAnnotatedAncestor(superclass, annotation);
+      bestCandidate = moreSpecific(result, bestCandidate);
     }
     for (Class<?> interfaceObj : classObj.getInterfaces()) {
-      ClassWithAnnotation<T> result = searchForClassAnnotation(interfaceObj, annotationClass);
-      bestCandidate = moreSpecificClass(result, bestCandidate);
+      Class<?> result = findAnnotatedAncestor(interfaceObj, annotation);
+      bestCandidate = moreSpecific(result, bestCandidate);
     }
     return bestCandidate;
   }
@@ -109,9 +94,8 @@ public class SkylarkInterfaceUtils {
    */
   @Nullable
   public static SkylarkModule getSkylarkModule(Class<?> classObj) {
-    ClassWithAnnotation<SkylarkModule> result =
-        searchForClassAnnotation(classObj, SkylarkModule.class);
-    return result == null ? null : result.annotation;
+    Class<?> cls = findAnnotatedAncestor(classObj, SkylarkModule.class);
+    return cls == null ? null : cls.getAnnotation(SkylarkModule.class);
   }
 
   /**
@@ -121,9 +105,7 @@ public class SkylarkInterfaceUtils {
    */
   @Nullable
   public static Class<?> getParentWithSkylarkModule(Class<?> classObj) {
-    ClassWithAnnotation<SkylarkModule> result =
-        searchForClassAnnotation(classObj, SkylarkModule.class);
-    return result == null ? null : result.klass;
+    return findAnnotatedAncestor(classObj, SkylarkModule.class);
   }
 
   /**
@@ -132,9 +114,7 @@ public class SkylarkInterfaceUtils {
    * and returns true if one is found.
    */
   public static boolean hasSkylarkGlobalLibrary(Class<?> classObj) {
-    ClassWithAnnotation<SkylarkGlobalLibrary> result =
-        searchForClassAnnotation(classObj, SkylarkGlobalLibrary.class);
-    return result != null;
+    return findAnnotatedAncestor(classObj, SkylarkGlobalLibrary.class) != null;
   }
 
   /**

@@ -49,6 +49,7 @@ import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
+import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.rules.apple.ApplePlatform;
 import com.google.devtools.build.lib.rules.cpp.CcCompilationHelper.SourceCategory;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.CollidingProvidesException;
@@ -60,7 +61,6 @@ import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
-import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -286,7 +286,8 @@ public final class CcCommon {
     Iterable<? extends TransitiveInfoCollection> providers =
         ruleContext.getPrerequisitesIf("srcs", Mode.TARGET, FileProvider.class);
     for (TransitiveInfoCollection provider : providers) {
-      for (Artifact artifact : provider.getProvider(FileProvider.class).getFilesToBuild()) {
+      for (Artifact artifact :
+          provider.getProvider(FileProvider.class).getFilesToBuild().toList()) {
         // TODO(bazel-team): We currently do not produce an error for duplicate headers and other
         // non-source artifacts with different labels, as that would require cleaning up the code
         // base without significant benefit; we should eventually make this consistent one way or
@@ -309,7 +310,8 @@ public final class CcCommon {
     Iterable<? extends TransitiveInfoCollection> providers =
         ruleContext.getPrerequisitesIf("srcs", Mode.TARGET, FileProvider.class);
     for (TransitiveInfoCollection provider : providers) {
-      for (Artifact artifact : provider.getProvider(FileProvider.class).getFilesToBuild()) {
+      for (Artifact artifact :
+          provider.getProvider(FileProvider.class).getFilesToBuild().toList()) {
         if (!CppFileTypes.CPP_HEADER.matches(artifact.getExecPath())) {
           Label oldLabel = map.put(artifact, provider.getLabel());
           if (SourceCategory.CC_AND_OBJC.getSourceTypes().matches(artifact.getExecPathString())
@@ -345,7 +347,7 @@ public final class CcCommon {
     for (TransitiveInfoCollection target :
         ruleContext.getPrerequisitesIf("hdrs", Mode.TARGET, FileProvider.class)) {
       FileProvider provider = target.getProvider(FileProvider.class);
-      for (Artifact artifact : provider.getFilesToBuild()) {
+      for (Artifact artifact : provider.getFilesToBuild().toList()) {
         if (CppRuleClasses.DISALLOWED_HDRS_FILES.matches(artifact.getFilename())) {
           ruleContext.attributeWarning("hdrs", "file '" + artifact.getFilename()
               + "' from target '" + target.getLabel() + "' is not allowed in hdrs");
@@ -668,7 +670,7 @@ public final class CcCommon {
           ruleContext.getPrerequisites("srcs", Mode.TARGET, FileProvider.class)) {
         prerequisites.addAll(
             FileType.filter(
-                provider.getFilesToBuild(), SourceCategory.CC_AND_OBJC.getSourceTypes()));
+                provider.getFilesToBuild().toList(), SourceCategory.CC_AND_OBJC.getSourceTypes()));
       }
     }
     prerequisites.addTransitive(ccCompilationContext.getDeclaredIncludeSrcs());
@@ -710,12 +712,12 @@ public final class CcCommon {
         /* prefixConsumer= */ true);
   }
 
-  /**
-   * Returns any linker scripts found in the dependencies of the rule.
-   */
-  Iterable<Artifact> getLinkerScripts() {
-    return FileType.filter(ruleContext.getPrerequisiteArtifacts("deps", Mode.TARGET).list(),
-        CppFileTypes.LINKER_SCRIPT);
+  /** Returns any linker scripts found in the "deps" attribute of the rule. */
+  List<Artifact> getLinkerScripts() {
+    return ruleContext
+        .getPrerequisiteArtifacts("deps", Mode.TARGET)
+        .filter(CppFileTypes.LINKER_SCRIPT)
+        .list();
   }
 
   /** Returns the Windows DEF file specified in win_def_file attribute of the rule. */
@@ -746,8 +748,7 @@ public final class CcCommon {
     return getInstrumentedFilesProvider(
         files,
         withBaselineCoverage,
-        /* virtualToOriginalHeaders= */ NestedSetBuilder.create(Order.STABLE_ORDER)
-        );
+        /* virtualToOriginalHeaders= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER));
   }
 
   public InstrumentedFilesInfo getInstrumentedFilesProvider(
@@ -764,6 +765,12 @@ public final class CcCommon {
         CppHelper.getCoverageEnvironmentIfNeeded(ruleContext, cppConfiguration, ccToolchain),
         withBaselineCoverage,
         virtualToOriginalHeaders);
+  }
+
+  public String getPurpose(CppSemantics semantics) {
+    return semantics.getClass().getSimpleName()
+        + "_build_arch_"
+        + ruleContext.getConfiguration().getMnemonic();
   }
 
   public static ImmutableList<String> getCoverageFeatures(CppConfiguration cppConfiguration) {
@@ -946,9 +953,9 @@ public final class CcCommon {
                   + "This is most likely a misconfiguration in the C++ toolchain.");
         }
       }
-      if ((cppConfiguration.forcePic())
-          && (!featureConfiguration.isEnabled(CppRuleClasses.PIC)
-              && !featureConfiguration.isEnabled(CppRuleClasses.SUPPORTS_PIC))) {
+      if (cppConfiguration.forcePic()
+          && !featureConfiguration.isEnabled(CppRuleClasses.PIC)
+          && !featureConfiguration.isEnabled(CppRuleClasses.SUPPORTS_PIC)) {
         throw new EvalException(/* location= */ null, PIC_CONFIGURATION_ERROR);
       }
       return featureConfiguration;
@@ -975,7 +982,7 @@ public final class CcCommon {
     //   will be gone.
     String sysrootCcFlags =
         computeCcFlagForSysroot(
-            toolchainProvider.getCppConfigurationEvenThoughItCanBeDifferentThatWhatTargetHas(),
+            toolchainProvider.getCppConfigurationEvenThoughItCanBeDifferentThanWhatTargetHas(),
             toolchainProvider);
 
     // Fetch additional flags from the FeatureConfiguration.
@@ -1022,7 +1029,7 @@ public final class CcCommon {
       cppConfiguration = ruleContext.getFragment(CppConfiguration.class);
     } else {
       cppConfiguration =
-          toolchainProvider.getCppConfigurationEvenThoughItCanBeDifferentThatWhatTargetHas();
+          toolchainProvider.getCppConfigurationEvenThoughItCanBeDifferentThanWhatTargetHas();
     }
     try {
       featureConfiguration =

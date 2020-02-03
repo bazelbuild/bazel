@@ -599,4 +599,337 @@ EOF
   bazel-bin/"$pkg"/g | grep a1a2bcddcb2a1a || fail "output is incorrect"
 }
 
+function test_incompatible_validate_top_level_header_inclusions() {
+  local workspace="${FUNCNAME[0]}"
+  mkdir -p "${workspace}"
+
+  create_workspace_with_default_repos "${workspace}/WORKSPACE"
+  cat >> "${workspace}/BUILD" << EOF
+cc_library(
+    name = "foo",
+    srcs = ["foo.cc"],
+)
+EOF
+  cat >> "${workspace}/foo.cc" << EOF
+#include "top_level.h"
+
+int foo() {
+  return bar();
+}
+EOF
+cat >> "${workspace}/top_level.h" << EOF
+inline int bar() { return 42; }
+EOF
+
+  cd "${workspace}"
+  bazel build --noincompatible_validate_top_level_header_inclusions \
+  --spawn_strategy=standalone \
+    //:foo  &>"$TEST_log" || fail "Build failed but should have succeeded"
+
+  bazel build --incompatible_validate_top_level_header_inclusions \
+  --spawn_strategy=standalone \
+    //:foo  &>"$TEST_log" && fail "Build succeeded but should have failed"
+  expect_log "this rule is missing dependency declarations for the "\
+    "following files included by 'foo.cc'"
+}
+
+function test_aspect_accessing_args_link_action_with_tree_artifact() {
+  local package="${FUNCNAME[0]}"
+  mkdir -p "${package}"
+  cat > "${package}/makes_tree_artifacts.sh" <<EOF
+#!/bin/bash
+my_dir=\$1
+
+echo "int a() { return 0; }" > \$my_dir/a.cc
+echo "int b() { return 0; }" > \$my_dir/b.cc
+echo "int c() { return 0; }" > \$my_dir/c.cc
+EOF
+  chmod 755 "${package}/makes_tree_artifacts.sh"
+
+  cat > "${package}/write.sh" <<EOF
+#!/bin/bash
+output_file=\$1
+shift;
+
+echo "\$@" > \$output_file
+EOF
+  chmod 755 "${package}/write.sh"
+
+  cat > "${package}/lib.bzl" <<EOF
+def _tree_art_impl(ctx):
+    my_dir = ctx.actions.declare_directory('dir.cc')
+    ctx.actions.run(
+        executable = ctx.executable._makes_tree,
+        outputs = [my_dir],
+        arguments = [my_dir.path])
+
+    return [DefaultInfo(files=depset([my_dir]))]
+
+tree_art_rule = rule(implementation = _tree_art_impl,
+    attrs = {
+        "_makes_tree" : attr.label(allow_single_file = True,
+            cfg = "host",
+            executable = True,
+            default = "//${package}:makes_tree_artifacts.sh"),
+        "_write" : attr.label(allow_single_file = True,
+            cfg = "host",
+            executable = True,
+            default = "//${package}:write.sh")})
+
+def _actions_test_impl(target, ctx):
+    action = target.actions[1]
+    if action.mnemonic != "CppLink":
+      fail("Expected the second action to be CppLink.")
+    aspect_out = ctx.actions.declare_file('aspect_out')
+    ctx.actions.run_shell(inputs = action.inputs,
+                          outputs = [aspect_out],
+                          command = "echo \$@ > " + aspect_out.path,
+                          arguments = action.args)
+    return [OutputGroupInfo(out=[aspect_out])]
+
+actions_test_aspect = aspect(implementation = _actions_test_impl)
+EOF
+
+  cat > "${package}/BUILD" <<EOF
+load(":lib.bzl", "tree_art_rule")
+
+tree_art_rule(name = "tree")
+
+cc_library(
+  name = "x",
+  srcs = [":tree"],
+)
+EOF
+
+  bazel build "${package}:x" \
+      --aspects="//${package}:lib.bzl%actions_test_aspect" \
+      --output_groups=out --experimental_action_args
+
+  cat "bazel-bin/${package}/aspect_out" | grep "\(ar\|libtool\)" \
+      || fail "args didn't contain the tool path"
+
+  cat "bazel-bin/${package}/aspect_out" | grep "a.*o .*b.*o .*c.*o" \
+      || fail "args didn't contain tree artifact paths"
+}
+
+function test_directory_arg_compile_action() {
+  local package="${FUNCNAME[0]}"
+  mkdir -p "${package}"
+
+  cat > "${package}/lib.bzl" <<EOF
+def _actions_test_impl(target, ctx):
+    action = target.actions[0]
+    if action.mnemonic != "CppCompile":
+      fail("Expected the first action to be CppCompile.")
+    aspect_out = ctx.actions.declare_file('aspect_out')
+    ctx.actions.run_shell(inputs = action.inputs,
+                          outputs = [aspect_out],
+                          command = "echo \$@ > " + aspect_out.path,
+                          arguments = action.args)
+    return [OutputGroupInfo(out=[aspect_out])]
+
+actions_test_aspect = aspect(implementation = _actions_test_impl)
+EOF
+
+  touch "${package}/x.cc"
+  cat > "${package}/BUILD" <<EOF
+cc_library(
+  name = "x",
+  srcs = ["x.cc"],
+)
+EOF
+
+  bazel build "${package}:x" \
+      --aspects="//${package}:lib.bzl%actions_test_aspect" \
+      --output_groups=out --experimental_action_args
+
+  cat "bazel-bin/${package}/aspect_out" | \
+      grep "\(gcc\|clang\|clanc-cl.exe\|cl.exe\)" \
+      || fail "args didn't contain the tool path"
+
+  cat "bazel-bin/${package}/aspect_out" | grep "a.*o .*b.*o .*c.*o" \
+      || fail "args didn't contain tree artifact paths"
+}
+
+function test_reconstructing_cpp_actions() {
+  if is_darwin; then
+    # Darwin toolchain uses env variables and those are not properly exported
+    # to Starlark.
+    # TODO(#10376): Remove once env vars on C++ actions are exported.
+    return 0
+  fi
+
+  local package="${FUNCNAME[0]}"
+  mkdir -p "${package}"
+
+  cat > "${package}/lib.bzl" <<EOF
+def _actions_test_impl(target, ctx):
+    compile_action = None
+    archive_action = None
+    link_action = None
+
+    for action in target.actions:
+      if action.mnemonic == "CppCompile":
+        compile_action = action
+      if action.mnemonic == "CppLink" and not archive_action:
+        archive_action = action
+      if action.mnemonic == "CppLink":
+        link_action = action
+
+    if not compile_action or not archive_action or not link_action:
+      fail("Couln't find compile, archive, or link action")
+
+    cc_info = target[CcInfo]
+    compile_action_outputs = compile_action.outputs.to_list()
+
+    compile_args = ctx.actions.declare_file("compile_args")
+    ctx.actions.run_shell(
+        outputs = [compile_args],
+        command = "echo \$@ > " + compile_args.path,
+        arguments = compile_action.args,
+    )
+
+    inputs = depset(
+        direct = [compile_args],
+        transitive = [
+            compile_action.inputs,
+            # Because C++ compilation actions prune their headers in the
+            # execution phase, and this code runs in analysis phase,
+            # action.inputs is not processed yet. It doesn't contain
+            # headers/module files yet. Let's add all unpruned headers
+            # explicitly.
+            cc_info.compilation_context.headers,
+        ],
+    )
+
+    compile_out = ctx.actions.declare_file("compile_out.o")
+    ctx.actions.run_shell(
+        inputs = inputs,
+        mnemonic = "RecreatedCppCompile",
+        outputs = [compile_out],
+        env = compile_action.env,
+        command = "\$(cat %s | sed 's|%s|%s|g' | sed 's|%s|%s|g')" % (
+            compile_args.path,
+            # We need to replace the original output path with something else
+            compile_action_outputs[0].path,
+            compile_out.path,
+            # We need to replace the original .d file output path with something
+            # else
+            compile_action_outputs[0].path.replace(".o", ".d"),
+            compile_out.path + ".d",
+        ),
+    )
+
+    archive_args = ctx.actions.declare_file("archive_args")
+    ctx.actions.run_shell(
+        outputs = [archive_args],
+        command = "echo \$@ > " + archive_args.path,
+        arguments = archive_action.args,
+    )
+
+    archive_out = ctx.actions.declare_file("archive_out.a")
+    archive_param_file = None
+    for i in archive_action.inputs.to_list():
+        if i.path.endswith("params"):
+            archive_param_file = i
+    ctx.actions.run_shell(
+        inputs = depset(direct = [archive_args], transitive = [archive_action.inputs]),
+        mnemonic = "RecreatedCppArchive",
+        outputs = [archive_out],
+        env = archive_action.env,
+        command = "\$(cat %s) && cp %s %s" % (
+            archive_args.path,
+            archive_action.outputs.to_list()[0].path,
+            archive_out.path,
+        ),
+    )
+
+    link_args = ctx.actions.declare_file("link_args")
+    ctx.actions.run_shell(
+        outputs = [link_args],
+        command = "echo \$@ > " + link_args.path,
+        arguments = link_action.args,
+    )
+
+    link_out = ctx.actions.declare_file("link_out.so")
+    ctx.actions.run_shell(
+        inputs = depset(direct = [link_args], transitive = [link_action.inputs]),
+        mnemonic = "RecreatedCppLink",
+        outputs = [link_out],
+        env = link_action.env,
+        command = "\$(cat %s) && cp %s %s" % (
+            link_args.path,
+            link_action.outputs.to_list()[0].path,
+            link_out.path,
+        ),
+    )
+
+    return [OutputGroupInfo(out = [
+        compile_args,
+        compile_out,
+        archive_args,
+        archive_out,
+        link_args,
+        link_out,
+    ])]
+
+actions_test_aspect = aspect(implementation = _actions_test_impl)
+EOF
+
+  echo "inline int x() { return 42; }" > "${package}/x.h"
+  cat > "${package}/a.cc" <<EOF
+#include "${package}/x.h"
+
+int a() { return x(); }
+EOF
+  cat > "${package}/BUILD" <<EOF
+cc_library(
+  name = "x",
+  hdrs  = ["x.h"],
+)
+
+cc_library(
+  name = "a",
+  srcs = ["a.cc"],
+  deps = [":x"],
+)
+EOF
+
+  # Test that actions are reconstructible under default configuration
+  bazel build "${package}:a" \
+      --aspects="//${package}:lib.bzl%actions_test_aspect" \
+      --output_groups=out --experimental_action_args || \
+      fail "bazel build should've passed"
+
+   # Test that compile actions are reconstructible when using param files
+   bazel build "${package}:a" \
+      --features=compiler_param_file \
+      --aspects="//${package}:lib.bzl%actions_test_aspect" \
+      --output_groups=out --experimental_action_args || \
+      fail "bazel build should've passed with --features=compiler_param_file"
+}
+
+function test_disable_cc_toolchain_detection() {
+  cat > ok.cc <<EOF
+#include <stdio.h>
+int main() {
+  printf("Hello\n");
+}
+EOF
+
+  cat > BUILD <<EOF
+cc_binary(
+  name = "ok",
+  srcs = ["ok.cc"],
+)
+EOF
+
+  # This only shows reliably for query due to ordering issues in how Bazel shows
+  # errors.
+  BAZEL_DO_NOT_DETECT_CPP_TOOLCHAIN=1 bazel query 'deps(//:ok)' &>"$TEST_log" || \
+    fail "Should pass with fake toolchain"
+  expect_not_log "An error occurred during the fetch of repository 'local_config_cc'"
+  expect_log "@local_config_cc//:empty"
+}
+
 run_suite "cc_integration_test"

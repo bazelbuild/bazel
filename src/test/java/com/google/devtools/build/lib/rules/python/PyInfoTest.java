@@ -22,7 +22,6 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylark.util.SkylarkTestCase;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -31,14 +30,6 @@ import org.junit.runners.JUnit4;
 /** Tests for {@link PyInfo}. */
 @RunWith(JUnit4.class)
 public class PyInfoTest extends SkylarkTestCase {
-
-  private static final Location dummyLoc =
-      new Location(0, 0) {
-        @Override
-        public PathFragment getPath() {
-          return null;
-        }
-      };
 
   private Artifact dummyArtifact;
 
@@ -53,7 +44,7 @@ public class PyInfoTest extends SkylarkTestCase {
   private static void assertHasOrderAndContainsExactly(
       NestedSet<?> set, Order order, Object... values) {
     assertThat(set.getOrder()).isEqualTo(order);
-    assertThat(set).containsExactly(values);
+    assertThat(set.toList()).containsExactly(values);
   }
 
   /** Checks values set by the builder. */
@@ -61,16 +52,17 @@ public class PyInfoTest extends SkylarkTestCase {
   public void builderExplicit() throws Exception {
     NestedSet<Artifact> sources = NestedSetBuilder.create(Order.COMPILE_ORDER, dummyArtifact);
     NestedSet<String> imports = NestedSetBuilder.create(Order.COMPILE_ORDER, "abc");
+    Location loc = Location.fromFileLineColumn("foo", 1, 2);
     PyInfo info =
         PyInfo.builder()
-            .setLocation(dummyLoc)
+            .setLocation(loc)
             .setTransitiveSources(sources)
             .setUsesSharedLibraries(true)
             .setImports(imports)
             .setHasPy2OnlySources(true)
             .setHasPy3OnlySources(true)
             .build();
-    assertThat(info.getCreationLoc()).isEqualTo(dummyLoc);
+    assertThat(info.getCreationLoc()).isEqualTo(loc);
     assertHasOrderAndContainsExactly(
         info.getTransitiveSources().getSet(Artifact.class), Order.COMPILE_ORDER, dummyArtifact);
     assertThat(info.getUsesSharedLibraries()).isTrue();
@@ -95,7 +87,7 @@ public class PyInfoTest extends SkylarkTestCase {
 
   @Test
   public void starlarkConstructor() throws Exception {
-    eval(
+    exec(
         "info = PyInfo(",
         "    transitive_sources = depset(direct=[dummy_file]),",
         "    uses_shared_libraries = True,",
@@ -104,7 +96,7 @@ public class PyInfoTest extends SkylarkTestCase {
         "    has_py3_only_sources = True,",
         ")");
     PyInfo info = (PyInfo) lookup("info");
-    assertThat(info.getCreationLoc().getStartOffset()).isEqualTo(7);
+    assertThat(info.getCreationLoc().toString()).isEqualTo(":1:8");
     assertHasOrderAndContainsExactly(
         info.getTransitiveSources().getSet(Artifact.class), Order.STABLE_ORDER, dummyArtifact);
     assertThat(info.getUsesSharedLibraries()).isTrue();
@@ -116,9 +108,9 @@ public class PyInfoTest extends SkylarkTestCase {
 
   @Test
   public void starlarkConstructorDefaults() throws Exception {
-    eval("info = PyInfo(transitive_sources = depset(direct=[dummy_file]))");
+    exec("info = PyInfo(transitive_sources = depset(direct=[dummy_file]))");
     PyInfo info = (PyInfo) lookup("info");
-    assertThat(info.getCreationLoc().getStartOffset()).isEqualTo(7);
+    assertThat(info.getCreationLoc().toString()).isEqualTo(":1:8");
     assertHasOrderAndContainsExactly(
         info.getTransitiveSources().getSet(Artifact.class), Order.STABLE_ORDER, dummyArtifact);
     assertThat(info.getUsesSharedLibraries()).isFalse();
@@ -130,13 +122,12 @@ public class PyInfoTest extends SkylarkTestCase {
   @Test
   public void starlarkConstructorErrors_TransitiveSources() throws Exception {
     checkEvalErrorContains(
-        "'transitive_sources' has no default value", //
+        "missing 1 required named argument: transitive_sources", //
         "PyInfo()");
     checkEvalErrorContains(
-        "expected value of type 'depset of Files' for parameter 'transitive_sources'",
-        "PyInfo(transitive_sources = 'abc')");
+        "got value of type 'string', want 'depset of Files'", "PyInfo(transitive_sources = 'abc')");
     checkEvalErrorContains(
-        "expected value of type 'depset of Files' for parameter 'transitive_sources'",
+        "got value of type 'depset', want 'depset of Files'",
         "PyInfo(transitive_sources = depset(direct=['abc']))");
     checkEvalErrorContains(
         "'transitive_sources' field should be a postorder-compatible depset of Files",
@@ -146,31 +137,31 @@ public class PyInfoTest extends SkylarkTestCase {
   @Test
   public void starlarkConstructorErrors_UsesSharedLibraries() throws Exception {
     checkEvalErrorContains(
-        "expected value of type 'bool' for parameter 'uses_shared_libraries'",
+        "got value of type 'string', want 'bool'",
         "PyInfo(transitive_sources = depset([]), uses_shared_libraries = 'abc')");
   }
 
   @Test
   public void starlarkConstructorErrors_Imports() throws Exception {
     checkEvalErrorContains(
-        "expected value of type 'depset of strings' for parameter 'imports'",
+        "got value of type 'string', want 'depset of strings'",
         "PyInfo(transitive_sources = depset([]), imports = 'abc')");
     checkEvalErrorContains(
-        "expected value of type 'depset of strings' for parameter 'imports'",
+        "got value of type 'depset', want 'depset of strings'",
         "PyInfo(transitive_sources = depset([]), imports = depset(direct=[123]))");
   }
 
   @Test
   public void starlarkConstructorErrors_HasPy2OnlySources() throws Exception {
     checkEvalErrorContains(
-        "expected value of type 'bool' for parameter 'has_py2_only_sources'",
+        "got value of type 'string', want 'bool'",
         "PyInfo(transitive_sources = depset([]), has_py2_only_sources = 'abc')");
   }
 
   @Test
   public void starlarkConstructorErrors_HasPy3OnlySources() throws Exception {
     checkEvalErrorContains(
-        "expected value of type 'bool' for parameter 'has_py3_only_sources'",
+        "got value of type 'string', want 'bool'",
         "PyInfo(transitive_sources = depset([]), has_py3_only_sources = 'abc')");
   }
 }

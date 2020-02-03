@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.analysis.test;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
-import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
@@ -51,13 +50,7 @@ public final class TestTrimmingTransitionFactory implements TransitionFactory<Ru
         // nothing to do, trimming is disabled
         return originalOptions;
       }
-      BuildOptions.Builder builder = BuildOptions.builder();
-      for (FragmentOptions options : originalOptions.getNativeOptions()) {
-        if (!(options instanceof TestOptions)) {
-          builder.addFragmentOptions(options);
-        }
-      }
-      return builder.build();
+      return originalOptions.toBuilder().removeFragmentOptions(TestOptions.class).build();
     }
   }
 
