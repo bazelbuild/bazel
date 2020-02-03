@@ -26,8 +26,11 @@ import com.google.devtools.build.lib.view.test.TestStatus.TestResultData;
 @AutoValue
 public abstract class StandaloneTestResult implements TestActionContext.TestAttemptResult {
   @Override
-  public boolean hasPassed() {
-    return testResultDataBuilder().getStatus() == BlazeTestStatus.PASSED;
+  public TestActionContext.TestAttemptResult.Result result() {
+    // TODO(b/139777737): Establish proper retry policy for flaky tests in StandaloneTestStrategy.
+    return testResultDataBuilder().getStatus() == BlazeTestStatus.PASSED
+        ? Result.PASSED
+        : Result.FAILED_CAN_RETRY;
   }
 
   /** Returns the SpawnResults created by the test, if any. */

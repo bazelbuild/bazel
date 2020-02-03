@@ -83,11 +83,11 @@ public interface SpawnResult {
 
     private final boolean isUserError;
 
-    Status(boolean isUserError) {
+    private Status(boolean isUserError) {
       this.isUserError = isUserError;
     }
 
-    Status() {
+    private Status() {
       this(false);
     }
 

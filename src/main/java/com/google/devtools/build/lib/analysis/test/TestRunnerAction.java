@@ -1096,12 +1096,14 @@ public class TestRunnerAction extends AbstractAction
     private ActionContinuationOrResult process(TestAttemptResult result, int actualMaxAttempts)
         throws ExecException, IOException, InterruptedException {
       spawnResults.addAll(result.spawnResults());
-      if (result.hasPassed()) {
+      TestAttemptResult.Result testResult = result.result();
+      if (testResult == TestAttemptResult.Result.PASSED) {
         if (cancelFuture != null) {
           cancelFuture.cancel(true);
         }
       } else {
-        boolean runAnotherAttempt = failedAttempts.size() + 1 < actualMaxAttempts;
+        boolean runAnotherAttempt =
+            testResult.canRetry() && failedAttempts.size() + 1 < actualMaxAttempts;
         TestRunnerSpawn nextRunner;
         if (runAnotherAttempt) {
           nextRunner = testRunnerSpawn;
@@ -1143,11 +1145,10 @@ public class TestRunnerAction extends AbstractAction
       }
       testRunnerSpawn.finalizeTest(result, failedAttempts);
 
-      if (!keepGoing && !result.hasPassed()) {
+      if (!keepGoing && testResult != TestAttemptResult.Result.PASSED) {
         throw new TestExecException("Test failed: aborting");
       }
       return ActionContinuationOrResult.of(ActionResult.create(spawnResults));
     }
   }
 }
-
