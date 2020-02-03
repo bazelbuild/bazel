@@ -516,7 +516,7 @@ public class BuildRequestOptions extends OptionsBase {
     CLEAN,
     /** Will not create or clean up any symlinks. */
     IGNORE,
-    /** TODO(b/130186610): to be implemented. Will not manage the symlinks. */
+    /** Will not create or clean up any symlinks, but will record the symlinks. */
     LOG_ONLY
   }
 }
