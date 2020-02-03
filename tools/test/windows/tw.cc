@@ -468,12 +468,13 @@ bool ChdirToRunfiles(const Path& abs_exec_root, const Path& abs_test_srcdir) {
 
 // Set USER as required by the Bazel Test Encyclopedia.
 bool ExportUserName() {
-  std::wstring value;
-  if (!GetEnv(L"USER", &value)) {
+  std::wstring userValue;
+  std::wstring lognameValue;
+  if (!GetEnv(L"USER", &userValue) || !GetEnv(L"LOGNAME", &lognameValue)) {
     return false;
   }
-  if (!value.empty()) {
-    // Respect the value passed by Bazel via --test_env.
+  if (!userValue.empty() && !lognameValue.empty()) {
+    // Respect the values passed by Bazel via --test_env.
     return true;
   }
   WCHAR buffer[UNLEN + 1];
@@ -483,24 +484,13 @@ bool ExportUserName() {
     LogErrorWithValue(__LINE__, "Failed to query user name", err);
     return false;
   }
-  return SetEnv(L"USER", buffer);
-}
-
-// Set LOGNAME as required by the Bazel Test Encyclopedia.
-// Assumes that ExportUserName() has already been called successfully.
-bool ExportLogName() {
-  std::wstring value;
-  if (!GetEnv(L"LOGNAME", &value)) {
+  if (userValue.empty() && !SetEnv(L"USER", buffer)) {
     return false;
   }
-  if (!value.empty()) {
-    // Respect the value passed by Bazel via --test_env.
-    return true;
-  }
-  if (!GetEnv(L"USER", &value)) {
+  if (!lognameValue.empty() && !SetEnv(L"LOGNAME", buffer)) {
     return false;
   }
-  return SetEnv(L"LOGNAME", value);
+  return true;
 }
 
 // Gets a path envvar, and re-exports it as an absolute path.
@@ -1882,8 +1872,7 @@ int TestWrapperMain(int argc, wchar_t** argv) {
   if (!ParseArgs(argc, argv, &argv0, &test_path_arg, &args) ||
       !PrintTestLogStartMarker() || !GetCwd(&exec_root) ||
       !FindTestBinary(argv0, exec_root, test_path_arg, &test_path) ||
-      !ExportUserName() || !ExportLogName() ||
-      !ExportSrcPath(exec_root, &srcdir) ||
+      !ExportUserName() || !ExportSrcPath(exec_root, &srcdir) ||
       !ChdirToRunfiles(exec_root, srcdir) ||
       !ExportTmpPath(exec_root, &tmpdir) || !ExportHome(tmpdir) ||
       !ExportRunfiles(exec_root, srcdir) || !ExportShardStatusFile(exec_root) ||
