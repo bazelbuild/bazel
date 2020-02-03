@@ -70,7 +70,6 @@ sh_test(
         ":test-deps",
         "@bazel_tools//tools/bash/runfiles",
     ],
-    tags = ["no_windows"],
 )
 
 sh_test(

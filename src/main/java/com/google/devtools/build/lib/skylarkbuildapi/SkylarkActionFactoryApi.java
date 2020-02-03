@@ -159,17 +159,70 @@ public interface SkylarkActionFactoryApi extends StarlarkValue {
   @SkylarkCallable(
       name = "symlink",
       doc =
-          "<p><b>Experimental</b>. This parameter is experimental and may change at any "
-              + "time. Please do not depend on it. It may be enabled on an experimental basis by "
-              + "setting <code>--experimental_allow_unresolved_symlinks</code></p><p>"
-              + "Creates a symlink in the file system. If the output file is a regular file, the "
-              + "symlink must point to a file. If the output is an unresolved symlink, a dangling "
-              + "symlink is allowed.",
+          "Creates a symlink in the file system."
+              + "<p>If the output file is a regular file (i.e. created by "
+              + "<a href=\"#declare_file\"><code>declare_file()</code></a>), the symlink must "
+              + "point to a file. If the output is an unresolved symlink (i.e. created by "
+              + "<a href=\"#declare_symlink\"><code>declare_symlink()</code></a>), a dangling "
+              + "symlink is allowed.</p>",
       parameters = {
-        @Param(name = "output", type = FileApi.class, doc = "The output path.", named = true),
-        @Param(name = "target", type = String.class, doc = "The target.", named = true),
+        @Param(
+            name = "output",
+            type = FileApi.class,
+            named = true,
+            positional = false,
+            doc = "The output of this action."),
+        @Param(
+            name = "target_file",
+            type = FileApi.class,
+            named = true,
+            positional = false,
+            noneable = true,
+            defaultValue = "None",
+            doc =
+                "The target of the symlink."
+                    + "<p>If this parameter is set, <code>target_path</code> "
+                    + "must be <code>None</code>.</p>"),
+        @Param(
+            name = "target_path",
+            type = String.class,
+            named = true,
+            positional = false,
+            noneable = true,
+            defaultValue = "None",
+            doc =
+                "The target path of the symlink."
+                    + "<p>If this parameter is set, <code>target_file</code> "
+                    + "must be <code>None</code>.</p>"
+                    + "<p><b>Experimental</b> This parameter is experimental and may change at "
+                    + "any time. Please do not depend on it. It may be enabled on an experimental "
+                    + "basis by setting <code>--experimental_allow_unresolved_symlinks</code></p>"),
+        @Param(
+            name = "is_executable",
+            type = Boolean.class,
+            named = true,
+            positional = false,
+            defaultValue = "False",
+            doc =
+                "Whether the output file should be executable. "
+                    + "<p>If this is <code>True<code>, <code>target_path</code> must also be "
+                    + "executable.</p>"),
+        @Param(
+            name = "progress_message",
+            type = String.class,
+            named = true,
+            positional = false,
+            noneable = true,
+            defaultValue = "None",
+            doc = "Progress message to show to the user during the build.")
       })
-  void symlink(FileApi output, String targetPath) throws EvalException;
+  void symlink(
+      FileApi output,
+      Object targetFile,
+      Object targetPath,
+      Boolean isExecutable,
+      Object progressMessage)
+      throws EvalException;
 
   @SkylarkCallable(
       name = "write",

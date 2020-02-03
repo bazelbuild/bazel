@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.analysis.skylark;
 import static java.util.stream.Collectors.toList;
 
 import com.google.common.base.Joiner;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Action;
@@ -220,29 +221,89 @@ public class SkylarkActionFactory implements SkylarkActionFactoryApi {
   static final GeneratedMessage.GeneratedExtension<ExtraActionInfo, SpawnInfo> SPAWN_INFO =
       SpawnInfo.spawnInfo;
 
+  private String progressMessageForSymlink(
+      Object /* String or None */ progressMessage, Artifact output) {
+    if (progressMessage != Starlark.NONE) {
+      // Should have been verified by Starlark before this function is called.
+      return (String)progressMessage;
+    }
+
+    return "Creating symlink " + output.getRootRelativePathString();
+  }
+
   @Override
-  public void symlink(FileApi output, String path) throws EvalException {
+  public void symlink(
+      FileApi output,
+      Object /* Artifact or None */ targetFile,
+      Object /* String or None */ targetPath,
+      Boolean isExecutable,
+      Object /* String or None */ progressMessage)
+      throws EvalException {
     context.checkMutable("actions.symlink");
 
+    if ((targetFile != Starlark.NONE && targetPath != Starlark.NONE) ||
+        (targetFile == Starlark.NONE && targetPath == Starlark.NONE)) {
+      throw Starlark.errorf("\"target_file\" and \"target_path\" cannot be set at the same time");
+    }
+
+    // Should have been verified by Starlark before this function is called.
+    Artifact outputArtifact = (Artifact)output;
+
+    if (targetFile != Starlark.NONE) {
+      Preconditions.checkState(targetPath == Starlark.NONE);
+
+      if (outputArtifact.isSymlink()) {
+        // TODO(yannic): Do we allow symlinks from files created by declare_symlink() to artifacts?
+        throw Starlark.errorf(
+            "output of symlink action with \"target_file\" must be created by declare_file()");
+      }
+
+      // Should have been verified by Starlark before this function is called.
+      Artifact target = (Artifact)targetFile;
+      if (isExecutable) {
+        SymlinkAction action =
+            SymlinkAction.toExecutable(
+                ruleContext.getActionOwner(),
+                target,
+                outputArtifact,
+                progressMessageForSymlink(progressMessage, outputArtifact));
+        registerAction(action);
+        return;
+      }
+      SymlinkAction action =
+          SymlinkAction.toArtifact(
+              ruleContext.getActionOwner(),
+              target,
+              outputArtifact,
+              progressMessageForSymlink(progressMessage, outputArtifact));
+      registerAction(action);
+      return;
+    }
+    Preconditions.checkState(targetPath != Starlark.NONE);
+
     if (!ruleContext.getConfiguration().allowUnresolvedSymlinks()) {
-      throw new EvalException(
-          null,
-          "actions.symlink() is not allowed; "
+      throw Starlark.errorf(
+          "actions.symlink() to unresolved symlink is not allowed; "
               + "use the --experimental_allow_unresolved_symlinks command line option");
     }
 
-    PathFragment targetPath = PathFragment.create(path);
-    Artifact outputArtifact = (Artifact) output;
     if (!outputArtifact.isSymlink()) {
       throw Starlark.errorf("output of symlink action must be created by declare_symlink()");
     }
 
-    Action action =
+    if (isExecutable) {
+      // TODO(yannic): Do we allow dangling symlinks to be executable?
+      throw Starlark.errorf("files created by declare_symlink() cannot be executable");
+    }
+
+    // Should have been verified by Starlark before this function is called.
+    String target = (String)targetPath;
+    SymlinkAction action =
         SymlinkAction.createUnresolved(
             ruleContext.getActionOwner(),
             outputArtifact,
-            targetPath,
-            "creating symlink " + ((Artifact) output).getRootRelativePathString());
+            PathFragment.create(target),
+            progressMessageForSymlink(progressMessage, outputArtifact));
     registerAction(action);
   }
 

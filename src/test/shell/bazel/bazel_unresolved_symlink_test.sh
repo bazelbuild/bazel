@@ -70,9 +70,25 @@ function set_up() {
   mkdir -p symlink
   touch symlink/BUILD
   cat > symlink/symlink.bzl <<EOF
+def _dangling_symlink_impl(ctx):
+    symlink = ctx.actions.declare_symlink(ctx.label.name)
+    ctx.actions.symlink(
+        output = symlink,
+        target_path = ctx.attr.link_target,
+    )
+    return DefaultInfo(files = depset([symlink]))
+
+dangling_symlink = rule(
+    implementation = _dangling_symlink_impl,
+    attrs = {"link_target": attr.string()},
+)
+
 def _symlink_impl(ctx):
     symlink = ctx.actions.declare_symlink(ctx.label.name)
-    ctx.actions.symlink(symlink, ctx.attr.link_target)
+    ctx.actions.symlink(
+        output = symlink,
+        target_path = ctx.attr.link_target,
+    )
     return DefaultInfo(files = depset([symlink]))
 
 symlink = rule(implementation = _symlink_impl, attrs = {"link_target": attr.string()})
@@ -88,10 +104,15 @@ EOF
 }
 
 function test_smoke() {
+  if "$is_windows"; then
+    warn "Skipping test on Windows: Unresolved symlinks are not supported yet"
+    return 0
+  fi
+
   mkdir -p a
   cat > a/BUILD <<EOF
-load("//symlink:symlink.bzl", "symlink")
-symlink(name="a", link_target="/nonexistent")
+load("//symlink:symlink.bzl", "dangling_symlink")
+dangling_symlink(name="a", link_target="/nonexistent")
 EOF
 
   bazel build --experimental_allow_unresolved_symlinks //a:a || fail "build failed"
@@ -99,10 +120,15 @@ EOF
 }
 
 function test_inmemory_cache_symlinks() {
+  if "$is_windows"; then
+    warn "Skipping test on Windows: Unresolved symlinks are not supported yet"
+    return 0
+  fi
+
   mkdir -p a
   cat > a/BUILD <<'EOF'
-load("//symlink:symlink.bzl", "symlink")
-symlink(name="a", link_target="/nonexistent")
+load("//symlink:symlink.bzl", "dangling_symlink")
+dangling_symlink(name="a", link_target="/nonexistent")
 genrule(name="g", srcs=[":a"], outs=["go"], cmd="echo running genrule; echo GO > $@")
 EOF
   bazel build --experimental_allow_unresolved_symlinks //a:g >& $TEST_log || fail "build failed"
@@ -112,10 +138,15 @@ EOF
 }
 
 function test_on_disk_cache_symlinks() {
+  if "$is_windows"; then
+    warn "Skipping test on Windows: Unresolved symlinks are not supported yet"
+    return 0
+  fi
+
   mkdir -p a
   cat > a/BUILD <<'EOF'
-load("//symlink:symlink.bzl", "symlink")
-symlink(name="a", link_target="/nonexistent")
+load("//symlink:symlink.bzl", "dangling_symlink")
+dangling_symlink(name="a", link_target="/nonexistent")
 genrule(name="g", srcs=[":a"], outs=["go"], cmd="echo running genrule; echo GO > $@")
 EOF
   bazel build --experimental_allow_unresolved_symlinks //a:g >& $TEST_log || fail "build failed"
@@ -126,10 +157,15 @@ EOF
 }
 
 function test_no_inmemory_cache_symlinks() {
+  if "$is_windows"; then
+    warn "Skipping test on Windows: Unresolved symlinks are not supported yet"
+    return 0
+  fi
+
   mkdir -p a
   cat > a/BUILD <<'EOF'
-load("//symlink:symlink.bzl", "symlink")
-symlink(name="a", link_target="/nonexistent")
+load("//symlink:symlink.bzl", "dangling_symlink")
+dangling_symlink(name="a", link_target="/nonexistent")
 genrule(name="g", srcs=[":a"], outs=["go"], cmd="echo running genrule; echo GO > $@")
 EOF
 
@@ -137,8 +173,8 @@ EOF
   expect_log "running genrule"
 
   cat > a/BUILD <<'EOF'
-load("//symlink:symlink.bzl", "symlink")
-symlink(name="a", link_target="/nonexistent2")
+load("//symlink:symlink.bzl", "dangling_symlink")
+dangling_symlink(name="a", link_target="/nonexistent2")
 genrule(name="g", srcs=[":a"], outs=["go"], cmd="echo running genrule; echo GO > $@")
 EOF
 
@@ -147,10 +183,15 @@ EOF
 }
 
 function test_no_on_disk_cache_symlinks() {
+  if "$is_windows"; then
+    warn "Skipping test on Windows: Unresolved symlinks are not supported yet"
+    return 0
+  fi
+
   mkdir -p a
   cat > a/BUILD <<'EOF'
-load("//symlink:symlink.bzl", "symlink")
-symlink(name="a", link_target="/nonexistent")
+load("//symlink:symlink.bzl", "dangling_symlink")
+dangling_symlink(name="a", link_target="/nonexistent")
 genrule(name="g", srcs=[":a"], outs=["go"], cmd="echo running genrule; echo GO > $@")
 EOF
 
@@ -158,8 +199,8 @@ EOF
   expect_log "running genrule"
 
   cat > a/BUILD <<'EOF'
-load("//symlink:symlink.bzl", "symlink")
-symlink(name="a", link_target="/nonexistent2")
+load("//symlink:symlink.bzl", "dangling_symlink")
+dangling_symlink(name="a", link_target="/nonexistent2")
 genrule(name="g", srcs=[":a"], outs=["go"], cmd="echo running genrule; echo GO > $@")
 EOF
 
@@ -169,10 +210,15 @@ EOF
 }
 
 function test_replace_symlink_with_file() {
+  if "$is_windows"; then
+    warn "Skipping test on Windows: Unresolved symlinks are not supported yet"
+    return 0
+  fi
+
   mkdir -p a
   cat > a/BUILD <<'EOF'
-load("//symlink:symlink.bzl", "symlink")
-symlink(name="a", link_target="/nonexistent")
+load("//symlink:symlink.bzl", "dangling_symlink")
+dangling_symlink(name="a", link_target="/nonexistent")
 genrule(name="g", srcs=[":a"], outs=["go"], cmd="echo running genrule; echo GO > $@")
 EOF
 
@@ -190,6 +236,11 @@ EOF
 }
 
 function test_replace_file_with_symlink() {
+  if "$is_windows"; then
+    warn "Skipping test on Windows: Unresolved symlinks are not supported yet"
+    return 0
+  fi
+
   mkdir -p a
   cat > a/BUILD <<'EOF'
 load("//symlink:symlink.bzl", "write")
@@ -201,8 +252,8 @@ EOF
   expect_log "running genrule"
 
   cat > a/BUILD <<'EOF'
-load("//symlink:symlink.bzl", "symlink")
-symlink(name="a", link_target="/nonexistent")
+load("//symlink:symlink.bzl", "dangling_symlink")
+dangling_symlink(name="a", link_target="/nonexistent")
 genrule(name="g", srcs=[":a"], outs=["go"], cmd="echo running genrule; echo GO > $@")
 EOF
 
@@ -211,18 +262,31 @@ EOF
 }
 
 function test_file_instead_of_symlink() {
+  if "$is_windows"; then
+    warn "Skipping test on Windows: Unresolved symlinks are not supported yet"
+    return 0
+  fi
+
   mkdir -p a
   cat > a/a.bzl <<'EOF'
 def _bad_symlink_impl(ctx):
     symlink = ctx.actions.declare_symlink(ctx.label.name)
-    ctx.actions.write(symlink, ctx.attr.link_target)  # Oops, should be "symlink"
+    # Oops, should be "dangling_symlink"
+    ctx.actions.write(
+        output = symlink,
+        content = ctx.attr.link_target,
+    )
     return DefaultInfo(files = depset([symlink]))
 
 bad_symlink = rule(implementation = _bad_symlink_impl, attrs = {"link_target": attr.string()})
 
 def _bad_write_impl(ctx):
     output = ctx.actions.declare_file(ctx.label.name)
-    ctx.actions.symlink(output, ctx.attr.contents)  # Oops, should be "write"
+    # Oops, should be "write"
+    ctx.actions.symlink(
+        output = output,
+        target_path = ctx.attr.contents,
+    )
     return DefaultInfo(files = depset([output]))
 
 bad_write = rule(implementation = _bad_write_impl, attrs = {"contents": attr.string()})
@@ -250,7 +314,42 @@ EOF
   [[ "$?" == 1 ]] || fail "unexpected exit code"
 }
 
+function test_symlink_instead_of_file() {
+  mkdir -p a
+  cat > a/a.bzl <<'EOF'
+def _bad_symlink_impl(ctx):
+    target = ctx.actions.declare_file(ctx.label.name + ".target")
+    ctx.actions.write(
+        output = target,
+        content = "Hello, World!",
+    )
+
+    symlink = ctx.actions.declare_symlink(ctx.label.name + ".link")
+    ctx.actions.symlink(
+        output = symlink,
+        target_file = target,
+    )
+    return DefaultInfo(files = depset([symlink]))
+
+bad_symlink = rule(implementation = _bad_symlink_impl)
+EOF
+
+  cat > a/BUILD <<'EOF'
+load(":a.bzl", "bad_symlink")
+
+bad_symlink(name="bs")
+EOF
+
+  bazel build //a:bs && fail "build succeeded"
+  [[ "$?" == 1 ]] || fail "unexpected exit code"
+}
+
 function test_symlink_created_from_spawn() {
+  if "$is_windows"; then
+    warn "Skipping test on Windows: Unresolved symlinks are not supported yet"
+    return 0
+  fi
+
   mkdir -p a
   cat > a/a.bzl <<'EOF'
 def _a_impl(ctx):
@@ -281,13 +380,21 @@ EOF
   assert_contains "input link is /somewhere/over/the/rainbow" bazel-bin/a/a.file
 }
 
-function test_symlink_created_from_symlink_action() {
+function test_dangling_symlink_created_from_symlink_action() {
+  if "$is_windows"; then
+    warn "Skipping test on Windows: Unresolved symlinks are not supported yet"
+    return 0
+  fi
+
   mkdir -p a
   cat > a/a.bzl <<'EOF'
 def _a_impl(ctx):
     symlink = ctx.actions.declare_symlink(ctx.label.name + ".link")
     output = ctx.actions.declare_file(ctx.label.name + ".file")
-    ctx.actions.symlink(symlink, ctx.attr.link_target)
+    ctx.actions.symlink(
+        output = symlink,
+        target_path = ctx.attr.link_target,
+    )
     ctx.actions.run_shell(
         outputs = [output],
         inputs = depset([symlink]),
@@ -306,6 +413,124 @@ EOF
 
   bazel build --experimental_allow_unresolved_symlinks //a:a || fail "build failed"
   assert_contains "input link is /somewhere/in/my/heart" bazel-bin/a/a.file
+}
+
+function test_symlink_created_from_symlink_action() {
+  mkdir -p a
+  cat > a/a.bzl <<'EOF'
+def _a_impl(ctx):
+    target = ctx.actions.declare_file(ctx.label.name + ".target")
+    ctx.actions.write(
+        output = target,
+        content = "Hello, World!",
+    )
+
+    symlink = ctx.actions.declare_file(ctx.label.name + ".link")
+    ctx.actions.symlink(
+        output = symlink,
+        target_file = target,
+    )
+    return DefaultInfo(files = depset([symlink]))
+
+a = rule(implementation = _a_impl)
+EOF
+
+  cat > a/BUILD <<'EOF'
+load(":a.bzl", "a")
+
+a(name="a")
+EOF
+
+  bazel build //a:a || fail "build failed"
+  assert_contains "Hello, World!" bazel-bin/a/a.link
+}
+
+function test_executable_dangling_symlink() {
+  mkdir -p a
+  cat > a/a.bzl <<'EOF'
+def _a_impl(ctx):
+    symlink = ctx.actions.declare_symlink(ctx.label.name + ".link")
+    ctx.actions.symlink(
+        output = symlink,
+        target_path = "/foo/bar",
+        is_executable = True,
+    )
+    return DefaultInfo(files = depset([symlink]))
+
+a = rule(implementation = _a_impl)
+EOF
+
+  cat > a/BUILD <<'EOF'
+load(":a.bzl", "a")
+
+a(name="a")
+EOF
+
+  bazel build --experimental_allow_unresolved_symlinks //a:a && fail "build succeeded"
+  [[ "$?" == 1 ]] || fail "unexpected exit code"
+}
+
+function test_executable_symlink() {
+  mkdir -p a
+  cat > a/a.bzl <<'EOF'
+def _a_impl(ctx):
+    target = ctx.actions.declare_file(ctx.label.name + ".target")
+    ctx.actions.write(
+        output = target,
+        content = "Hello, World!",
+        is_executable = True,
+    )
+
+    symlink = ctx.actions.declare_file(ctx.label.name + ".link")
+    ctx.actions.symlink(
+        output = symlink,
+        target_file = target,
+        is_executable = True,
+    )
+    return DefaultInfo(files = depset([symlink]))
+
+a = rule(implementation = _a_impl)
+EOF
+
+  cat > a/BUILD <<'EOF'
+load(":a.bzl", "a")
+
+a(name="a")
+EOF
+
+  bazel build //a:a || fail "build failed"
+  assert_contains "Hello, World!" bazel-bin/a/a.link
+}
+
+function test_executable_symlink_to_nonexecutable_file() {
+  mkdir -p a
+  cat > a/a.bzl <<'EOF'
+def _a_impl(ctx):
+    target = ctx.actions.declare_file(ctx.label.name + ".target")
+    ctx.actions.write(
+        output = target,
+        content = "Hello, World!",
+    )
+
+    symlink = ctx.actions.declare_file(ctx.label.name + ".link")
+    ctx.actions.symlink(
+        output = symlink,
+        target_file = target,
+        is_executable = True,
+    )
+    return DefaultInfo(files = depset([symlink]))
+
+a = rule(implementation = _a_impl)
+EOF
+
+  cat > a/BUILD <<'EOF'
+load(":a.bzl", "a")
+
+a(name="a")
+EOF
+
+  # bazel build //a:a && fail "build succeeded"
+  # [[ "$?" == 1 ]] || fail "unexpected exit code"
 }
 
 run_suite "Tests for unresolved symlink artifacts"
