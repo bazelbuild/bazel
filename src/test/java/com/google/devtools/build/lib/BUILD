@@ -603,6 +603,7 @@ java_test(
     name = "actions_test",
     srcs = glob([
         "actions/*.java",
+        "actions/cache/*.java",
     ]),
     test_class = "com.google.devtools.build.lib.AllTests",
     deps = [
