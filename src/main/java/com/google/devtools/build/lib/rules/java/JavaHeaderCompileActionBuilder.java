@@ -54,6 +54,7 @@ import com.google.devtools.build.lib.view.proto.Deps;
 import com.google.protobuf.ExtensionRegistry;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.Serializable;
 import java.util.Collections;
 import java.util.List;
 import java.util.function.Consumer;
@@ -477,27 +478,28 @@ public class JavaHeaderCompileActionBuilder {
    */
   private static Consumer<Pair<ActionExecutionContext, List<SpawnResult>>> createResultConsumer(
       Artifact outputDepsProto) {
-    return contextAndResults -> {
-      ActionExecutionContext context = contextAndResults.getFirst();
-      JavaCompileActionContext javaContext = context.getContext(JavaCompileActionContext.class);
-      if (javaContext == null) {
-        return;
-      }
-      SpawnResult spawnResult = Iterables.getOnlyElement(contextAndResults.getSecond());
-      try {
-        InputStream inMemoryOutput = spawnResult.getInMemoryOutput(outputDepsProto);
-        try (InputStream input =
-            inMemoryOutput == null
-                ? context.getInputPath(outputDepsProto).getInputStream()
-                : inMemoryOutput) {
-          javaContext.insertDependencies(
-              outputDepsProto,
-              Deps.Dependencies.parseFrom(input, ExtensionRegistry.getEmptyRegistry()));
-        }
-      } catch (IOException e) {
-        // Left empty. If we cannot read the .jdeps file now, we will read it later or throw
-        // an appropriate error then.
-      }
-    };
+    return (Consumer<Pair<ActionExecutionContext, List<SpawnResult>>> & Serializable)
+        contextAndResults -> {
+          ActionExecutionContext context = contextAndResults.getFirst();
+          JavaCompileActionContext javaContext = context.getContext(JavaCompileActionContext.class);
+          if (javaContext == null) {
+            return;
+          }
+          SpawnResult spawnResult = Iterables.getOnlyElement(contextAndResults.getSecond());
+          try {
+            InputStream inMemoryOutput = spawnResult.getInMemoryOutput(outputDepsProto);
+            try (InputStream input =
+                inMemoryOutput == null
+                    ? context.getInputPath(outputDepsProto).getInputStream()
+                    : inMemoryOutput) {
+              javaContext.insertDependencies(
+                  outputDepsProto,
+                  Deps.Dependencies.parseFrom(input, ExtensionRegistry.getEmptyRegistry()));
+            }
+          } catch (IOException e) {
+            // Left empty. If we cannot read the .jdeps file now, we will read it later or throw
+            // an appropriate error then.
+          }
+        };
   }
 }
