@@ -53,7 +53,7 @@ public class NinjaPhonyTargetsUtilTest {
             "build alias4: phony alias2");
 
     ImmutableSortedMap<PathFragment, NestedSet<PathFragment>> pathsMap =
-        NinjaPhonyTargetsUtil.getPhonyPathsMap(buildPhonyTargets(targetTexts));
+        NinjaPhonyTargetsUtil.getPhonyPathsMap(buildPhonyTargets(targetTexts), pf -> pf);
 
     assertThat(pathsMap).hasSize(4);
     checkMapping(pathsMap, "alias9", "direct1", "direct2", "direct3", "direct4", "direct5");
@@ -85,7 +85,7 @@ public class NinjaPhonyTargetsUtilTest {
 
   @Test
   public void testEmptyMap() throws Exception {
-    assertThat(NinjaPhonyTargetsUtil.getPhonyPathsMap(ImmutableSortedMap.of())).isEmpty();
+    assertThat(NinjaPhonyTargetsUtil.getPhonyPathsMap(ImmutableSortedMap.of(), pf -> pf)).isEmpty();
   }
 
   @Test
@@ -97,7 +97,7 @@ public class NinjaPhonyTargetsUtilTest {
     GenericParsingException exception =
         assertThrows(
             GenericParsingException.class,
-            () -> NinjaPhonyTargetsUtil.getPhonyPathsMap(buildPhonyTargets(targetTexts)));
+            () -> NinjaPhonyTargetsUtil.getPhonyPathsMap(buildPhonyTargets(targetTexts), pf -> pf));
     assertThat(exception)
         .hasMessageThat()
         .isEqualTo("Detected a dependency cycle involving the phony target 'alias1'");

@@ -46,8 +46,10 @@ public class NinjaPhonyTargetsUtil {
   private NinjaPhonyTargetsUtil() {}
 
   @VisibleForTesting
-  public static ImmutableSortedMap<PathFragment, NestedSet<PathFragment>> getPhonyPathsMap(
-      ImmutableSortedMap<PathFragment, NinjaTarget> phonyTargets) throws GenericParsingException {
+  public static <T> ImmutableSortedMap<PathFragment, NestedSet<T>> getPhonyPathsMap(
+      ImmutableSortedMap<PathFragment, NinjaTarget> phonyTargets,
+      InputArtifactCreator<T> artifactsHelper)
+      throws GenericParsingException {
     // There is always a DAG (or forest) of phony targets (as item can be included into several
     // phony targets).
     // This gives us the idea that we can compute any subgraph in the DAG independently, and
@@ -68,9 +70,9 @@ public class NinjaPhonyTargetsUtil {
 
     checkState(topoOrderedTargets.size() == phonyTargets.size());
 
-    SortedMap<PathFragment, NestedSet<PathFragment>> result = Maps.newTreeMap();
+    SortedMap<PathFragment, NestedSet<T>> result = Maps.newTreeMap();
     for (NinjaTarget target : topoOrderedTargets) {
-      NestedSetBuilder<PathFragment> builder = new NestedSetBuilder<>(Order.STABLE_ORDER);
+      NestedSetBuilder<T> builder = new NestedSetBuilder<>(Order.STABLE_ORDER);
       for (PathFragment input : target.getAllInputs()) {
         NinjaTarget phonyInput = phonyTargets.get(input);
         if (phonyInput != null) {
@@ -78,7 +80,7 @@ public class NinjaPhonyTargetsUtil {
           // Add the corresponding already computed NestedSet as transitive.
           // Phony target must have only one output (alias); it is checked during parsing.
           PathFragment phonyName = Iterables.getOnlyElement(phonyInput.getAllOutputs());
-          NestedSet<PathFragment> alreadyComputedSet = result.get(phonyName);
+          NestedSet<T> alreadyComputedSet = result.get(phonyName);
           if (alreadyComputedSet == null) {
             // If the target's paths were not computed, then the topo sorting was not successful,
             // which means that there are cycles in phony targets dependencies.
@@ -90,7 +92,7 @@ public class NinjaPhonyTargetsUtil {
         } else {
           // The input is the usual file.
           // We do not check for the duplicates, this would make NestedSet optimization senseless.
-          builder.add(input);
+          builder.add(artifactsHelper.createArtifact(input));
         }
       }
       result.put(Iterables.getOnlyElement(target.getAllOutputs()), builder.build());
@@ -131,5 +133,13 @@ public class NinjaPhonyTargetsUtil {
     // Preconditions were added after their dependants -> reverse the list to get the topo order.
     Collections.reverse(fragment);
     return fragment;
+  }
+
+  /**
+   * Helper interface for artifact creation. We do not pass NinjaArtifactsHelper directly to keep
+   * tests simpler.
+   */
+  public interface InputArtifactCreator<T> {
+    T createArtifact(PathFragment pathFragment) throws GenericParsingException;
   }
 }
