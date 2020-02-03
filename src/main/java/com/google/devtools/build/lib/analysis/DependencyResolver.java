@@ -332,8 +332,9 @@ public abstract class DependencyResolver {
             TOOLCHAIN_DEPENDENCY,
             PartiallyResolvedDependency.of(
                 toLabel,
-                // TODO(jcater): Replace this with a proper transition for the execution platform.
-                HostTransition.INSTANCE,
+                // Use target configuration. The toolchain is expected to use HOST transition for
+                // compiler files.
+                NoTransition.INSTANCE,
                 ImmutableList.of()));
         continue;
       }
