@@ -27,7 +27,7 @@ import com.google.devtools.build.lib.view.test.TestStatus.TestResultData;
 public abstract class StandaloneTestResult implements TestActionContext.TestAttemptResult {
   @Override
   public TestActionContext.TestAttemptResult.Result result() {
-    // TODO(b/139777737): Establish proper retry policy for flaky tests in StandaloneTestStrategy.
+    // TODO(b/148785690): Establish proper retry policy for flaky tests in StandaloneTestStrategy.
     return testResultDataBuilder().getStatus() == BlazeTestStatus.PASSED
         ? Result.PASSED
         : Result.FAILED_CAN_RETRY;
