@@ -23,11 +23,9 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/**
- * A test class for functions and scoping.
- */
+/** A test class for functions and scoping. */
 @RunWith(JUnit4.class)
-public class FunctionTest extends EvaluationTestCase {
+public final class FunctionTest extends EvaluationTestCase {
 
   @Test
   public void testFunctionDef() throws Exception {

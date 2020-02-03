@@ -29,9 +29,9 @@ import org.junit.runners.JUnit4;
 /** Test of evaluation behavior. (Implicitly uses lexer + parser.) */
 // TODO(adonovan): separate tests of parser, resolver, Starlark core evaluator,
 // and BUILD and .bzl features.
+// TODO(adonovan): make final. Requires changing SkylarkEvaluationTest.
 @RunWith(JUnit4.class)
 public class EvaluationTest extends EvaluationTestCase {
-
   @Before
   public final void setBuildMode() throws Exception {
     super.setMode(TestMode.BUILD);

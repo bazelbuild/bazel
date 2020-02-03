@@ -24,11 +24,9 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/**
- * Tests for MethodLibrary.
- */
+/** Tests for MethodLibrary. */
 @RunWith(JUnit4.class)
-public class MethodLibraryTest extends EvaluationTestCase {
+public final class MethodLibraryTest extends EvaluationTestCase {
 
   private static final String LINE_SEPARATOR = System.lineSeparator();
 

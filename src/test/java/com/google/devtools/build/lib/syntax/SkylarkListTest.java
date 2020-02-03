@@ -27,7 +27,7 @@ import org.junit.runners.JUnit4;
 
 /** Tests for Sequence. */
 @RunWith(JUnit4.class)
-public class SkylarkListTest extends EvaluationTestCase {
+public final class SkylarkListTest extends EvaluationTestCase {
 
   @Test
   public void testIndex() throws Exception {

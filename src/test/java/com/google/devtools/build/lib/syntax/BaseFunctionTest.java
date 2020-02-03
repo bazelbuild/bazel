@@ -28,7 +28,7 @@ import org.junit.runners.JUnit4;
 /** Tests of the argument processing of {@code Starlark.matchSignature}. */
 // TODO(adonovan): rename.
 @RunWith(JUnit4.class)
-public class BaseFunctionTest extends EvaluationTestCase {
+public final class BaseFunctionTest extends EvaluationTestCase {
 
   private void checkFunction(StarlarkCallable fn, String callExpression, String expectedOutput)
       throws Exception {

@@ -28,11 +28,11 @@ import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
 /**
- *  Test properties of the evaluator's datatypes and utility functions
- *  without actually creating any parse trees.
+ * Test properties of the evaluator's datatypes and utility functions without actually creating any
+ * parse trees.
  */
 @RunWith(JUnit4.class)
-public class EvalUtilsTest extends EvaluationTestCase {
+public final class EvalUtilsTest extends EvaluationTestCase {
 
   private static StarlarkList<Object> makeList(@Nullable Mutability mu) {
     return StarlarkList.of(mu, 1, 2, 3);
