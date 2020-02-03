@@ -1,8 +1,8 @@
 load("@rules_java//java:defs.bzl", "java_proto_library")
-load("//tools/build_rules:genproto.bzl", "cc_grpc_library")
 load("//tools/build_rules:utilities.bzl", "java_library_srcs")
 load("//third_party/protobuf/3.6.1:protobuf.bzl", "py_proto_library")
 load("//third_party/grpc:build_defs.bzl", "java_grpc_library")
+load("//third_party/grpc/bazel:cc_grpc_library.bzl", "cc_grpc_library")
 load("@rules_cc//cc:defs.bzl", "cc_proto_library")
 load("@rules_proto//proto:defs.bzl", "proto_library")
 
@@ -170,9 +170,19 @@ java_grpc_library(
     deps = [":command_server_java_proto"],
 )
 
-cc_grpc_library(
+cc_proto_library(
     name = "command_server_cc_proto",
-    src = "command_server.proto",
+    deps = [":command_server_proto"],
+)
+
+cc_grpc_library(
+    name = "command_server_cc_grpc",
+    srcs = [":command_server_proto"],
+    extra_cc_library_kwargs = {"defines": ["GRPC_USE_PROTO_LITE=ON"]},
+    deps = [
+        ":command_server_cc_proto",
+        "//third_party/grpc:grpc++_unsecure",
+    ],
 )
 
 py_proto_library(
