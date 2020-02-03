@@ -313,10 +313,14 @@ public class SymlinkForest {
   public void plantSymlinkForest() throws IOException, AbruptExitException {
     if (allowExternalDirectory) {
       // Delete execroot/.. because we now symlink external repositories there.
-      deleteTreesBelowNotPrefixed(execroot.getParentDirectory(), prefix);
-    } else {
-      deleteTreesBelowNotPrefixed(execroot, prefix);
+//      deleteTreesBelowNotPrefixed(execroot.getParentDirectory(), prefix);
+      for (Path p : execroot.getParentDirectory().getDirectoryEntries()) {
+        if (p.isSymbolicLink()) {
+          p.deleteTree();
+        }
+      }
     }
+    deleteTreesBelowNotPrefixed(execroot, prefix);
 
     boolean shouldLinkAllTopLevelItems = false;
     Map<Path, Path> mainRepoLinks = Maps.newLinkedHashMap();

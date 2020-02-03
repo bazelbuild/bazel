@@ -366,14 +366,15 @@ public abstract class Artifact
 
     @Override
     public PathFragment getRootRelativePath() {
-      PathFragment outputDirectory = getRoot().getExecPath().getParentDirectory();
-      PathFragment mainRepo = PathFragment.create(getRoot().getExecPath().getBaseName());
-      PathFragment execPath = getExecPath().relativeTo(outputDirectory);
-      if (execPath.startsWith(mainRepo)) {
-        return execPath.relativeTo(mainRepo);
-      } else {
-        return LabelConstants.EXPERIMENTAL_EXTERNAL_PATH_PREFIX.getRelative(execPath);
-      }
+        return getExecPath().relativeTo(getRoot().getExecPath());
+//      PathFragment outputDirectory = getRoot().getExecPath().getParentDirectory();
+//      PathFragment mainRepo = PathFragment.create(getRoot().getExecPath().getBaseName());
+//      PathFragment execPath = getExecPath().relativeTo(outputDirectory);
+//      if (execPath.startsWith(mainRepo)) {
+//        return execPath.relativeTo(mainRepo);
+//      } else {
+//        return LabelConstants.EXPERIMENTAL_EXTERNAL_PATH_PREFIX.getRelative(execPath);
+//      }
     }
 
     @Override
@@ -598,10 +599,12 @@ public abstract class Artifact
    * */
   public static final class SourceArtifact extends Artifact {
     private final ArtifactOwner owner;
+    private final PathFragment rootRelativePath;
 
     @VisibleForTesting
     public SourceArtifact(ArtifactRoot root, PathFragment execPath, ArtifactOwner owner) {
-      super(root, execPath, /*contentBasedPath=*/ false);
+      super(root, root.getExecPath().getRelative(execPath), /*contentBasedPath=*/ false);
+      this.rootRelativePath = execPath;
       this.owner = owner;
     }
 
@@ -616,17 +619,19 @@ public abstract class Artifact
 
     @Override
     public PathFragment getRootRelativePath() {
-      return root.getExecPath().getRelative(execPath);
+        return rootRelativePath;
+//      return root.getExecPath().getRelative(execPath);
     }
 
     @Override
     public final Path getPath(){
-      return root.getRoot().getRelative(execPath);
+      return root.getRoot().getRelative(rootRelativePath);
     }
 
     @Override
     public final PathFragment getExecPath() {
-      return getRootRelativePath();
+      return execPath;
+//      return getRootRelativePath();
     }
 
     @Override
