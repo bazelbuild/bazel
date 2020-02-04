@@ -14,7 +14,6 @@
 package com.google.devtools.build.skyframe;
 
 import com.google.common.collect.Iterables;
-import com.google.common.truth.ComparableSubject;
 import com.google.common.truth.FailureMetadata;
 import com.google.common.truth.IterableSubject;
 import com.google.common.truth.Subject;
@@ -40,7 +39,7 @@ public class NodeEntrySubject extends Subject {
         .that(Iterables.concat(actual.getTemporaryDirectDeps()));
   }
 
-  public ComparableSubject addReverseDepAndCheckIfDone(@Nullable SkyKey reverseDep)
+  public Subject addReverseDepAndCheckIfDone(@Nullable SkyKey reverseDep)
       throws InterruptedException {
     return check("addReverseDepAndCheckIfDone()")
         .that(actual.addReverseDepAndCheckIfDone(reverseDep));
