@@ -30,7 +30,6 @@ import com.google.devtools.build.android.desugar.testing.junit.RuntimeJarEntry;
 import java.io.IOException;
 import java.io.InputStream;
 import java.lang.invoke.MethodHandles;
-import java.nio.file.Paths;
 import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
 import org.junit.Rule;
@@ -45,7 +44,7 @@ public final class NestAnalyzerTest {
   @Rule
   public final DesugarRule desugarRule =
       DesugarRule.builder(this, MethodHandles.lookup())
-          .addSourceInputs(Paths.get(System.getProperty("input_srcs")))
+          .addSourceInputsFromJvmFlag("input_srcs")
           .addJavacOptions("-source 11", "-target 11")
           .setWorkingJavaPackage(
               "com.google.devtools.build.android.desugar.nest.testsrc.nestanalyzer")

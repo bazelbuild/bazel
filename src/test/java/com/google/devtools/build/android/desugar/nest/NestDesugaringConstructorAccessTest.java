@@ -18,7 +18,6 @@ package com.google.devtools.build.android.desugar.nest;
 
 import static com.google.common.truth.Truth.assertThat;
 
-import com.google.common.base.Splitter;
 import com.google.devtools.build.android.desugar.testing.junit.AsmNode;
 import com.google.devtools.build.android.desugar.testing.junit.DesugarRule;
 import com.google.devtools.build.android.desugar.testing.junit.DesugarRunner;
@@ -31,8 +30,6 @@ import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodHandles.Lookup;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Modifier;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import javax.inject.Inject;
 import org.junit.Rule;
 import org.junit.Test;
@@ -50,18 +47,12 @@ public final class NestDesugaringConstructorAccessTest {
   @Rule
   public final DesugarRule desugarRule =
       DesugarRule.builder(this, lookup)
-          .addSourceInputs(getInputSourceFilesFromJvmOption("input_srcs"))
+          .addSourceInputsFromJvmFlag("input_srcs")
           .addJavacOptions("-source 11", "-target 11")
           .setWorkingJavaPackage(
               "com.google.devtools.build.android.desugar.nest.testsrc.simpleunit.constructor")
           .addCommandOptions("desugar_nest_based_private_access", "true")
           .build();
-
-  private static Path[] getInputSourceFilesFromJvmOption(String jvmOptionKey) {
-    return Splitter.on(" ").trimResults().splitToList(System.getProperty(jvmOptionKey)).stream()
-        .map(Paths::get)
-        .toArray(Path[]::new);
-  }
 
   @Inject
   @DynamicClassLiteral("ConstructorNest$ConstructorServiceMate")

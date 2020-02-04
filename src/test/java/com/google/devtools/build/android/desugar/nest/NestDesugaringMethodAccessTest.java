@@ -29,7 +29,6 @@ import com.google.devtools.build.android.desugar.testing.junit.RuntimeMethodHand
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.lang.reflect.Method;
-import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -48,7 +47,7 @@ public final class NestDesugaringMethodAccessTest {
   @Rule
   public final DesugarRule desugarRule =
       DesugarRule.builder(this, MethodHandles.lookup())
-          .addSourceInputs(Paths.get(System.getProperty("input_srcs")))
+          .addSourceInputsFromJvmFlag("input_srcs")
           .addJavacOptions("-source 11", "-target 11")
           .setWorkingJavaPackage(
               "com.google.devtools.build.android.desugar.nest.testsrc.simpleunit.method")
@@ -77,7 +76,6 @@ public final class NestDesugaringMethodAccessTest {
   }
 
   @Test
-
   public void inputClassFileMajorVersions(
       @AsmNode(className = "MethodNest", round = 0) ClassNode beforeDesugarClassNode,
       @AsmNode(className = "MethodNest", round = 1) ClassNode afterDesugarClassNode) {
