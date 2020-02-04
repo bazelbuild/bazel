@@ -646,9 +646,71 @@ bool MakeDirectories(const Path& path, unsigned int mode) {
   return MakeDirectoriesW(path.AsNativePath(), mode);
 }
 
-bool RemoveRecursively(const string &path) {
-  // TODO(bazel-team): Implement this.
-  return false;
+
+static bool RemoveContents(wstring path) {
+  static const wstring kDot(L".");
+  static const wstring kDotDot(L"..");
+
+  if (path.find(L"\\\\?\\") != 0) {
+    path = wstring(L"\\\\?\\") + path;
+  }
+  if (path.back() != '\\') {
+    path.push_back('\\');
+  }
+
+  WIN32_FIND_DATAW metadata;
+  HANDLE handle = FindFirstFileW((path + L"*").c_str(), &metadata);
+  if (handle == INVALID_HANDLE_VALUE) {
+    return true;  // directory doesn't exist
+  }
+
+  bool result = true;
+  do {
+    wstring childname = metadata.cFileName;
+    if (kDot != childname && kDotDot != childname) {
+      wstring childpath = path + childname;
+      if ((metadata.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) != 0) {
+        // If this is not a junction, delete its contents recursively.
+        // Finally delete this directory/junction too.
+        if (((metadata.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT) == 0 &&
+             !RemoveContents(childpath)) ||
+            !::RemoveDirectoryW(childpath.c_str())) {
+          result = false;
+          break;
+        }
+      } else {
+        if (!::DeleteFileW(childpath.c_str())) {
+          result = false;
+          break;
+        }
+      }
+    }
+  } while (FindNextFileW(handle, &metadata));
+  FindClose(handle);
+  return result;
+}
+
+static bool RemoveRecursivelyW(const wstring& path) {
+  DWORD attrs = ::GetFileAttributesW(path.c_str());
+  if (attrs == INVALID_FILE_ATTRIBUTES) {
+    // Path does not exist.
+    return true;
+  }
+  if (attrs & FILE_ATTRIBUTE_DIRECTORY) {
+    if (!(attrs & FILE_ATTRIBUTE_REPARSE_POINT)) {
+      // Path is a directory; unlink(2) also cannot remove directories.
+      return RemoveContents(path) && ::RemoveDirectoryW(path.c_str());
+    }
+    // Otherwise it's a junction, remove using RemoveDirectoryW.
+    return ::RemoveDirectoryW(path.c_str()) == TRUE;
+  } else {
+    // Otherwise it's a file, remove using DeleteFileW.
+    return ::DeleteFileW(path.c_str()) == TRUE;
+  }
+}
+
+bool RemoveRecursively(const string& path) {
+  return RemoveRecursivelyW(Path(path).AsNativePath());
 }
 
 static inline void ToLowerW(WCHAR* p) {

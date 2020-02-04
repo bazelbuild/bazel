@@ -322,32 +322,11 @@ TEST(FilePosixTest, ForEachDirectoryEntry) {
   rmdir(root.c_str());
 }
 
-TEST(FileTest, TestRemoveRecursively) {
+TEST(FileTest, TestRemoveRecursivelyPosix) {
   const char* tempdir_cstr = getenv("TEST_TMPDIR");
   ASSERT_NE(tempdir_cstr, nullptr);
   string tempdir(tempdir_cstr);
   ASSERT_TRUE(PathExists(tempdir));
-
-  string non_existent_dir(JoinPath(tempdir, "test_rmr_non_existent"));
-  EXPECT_TRUE(RemoveRecursively(non_existent_dir));
-  EXPECT_FALSE(PathExists(non_existent_dir));
-
-  string empty_dir(JoinPath(tempdir, "test_rmr_empty_dir"));
-  EXPECT_TRUE(MakeDirectories(empty_dir, 0700));
-  EXPECT_TRUE(RemoveRecursively(empty_dir));
-  EXPECT_FALSE(PathExists(empty_dir));
-
-  string dir_with_content(JoinPath(tempdir, "test_rmr_dir_w_content"));
-  EXPECT_TRUE(MakeDirectories(dir_with_content, 0700));
-  EXPECT_TRUE(WriteFile("junkdata", 8, JoinPath(dir_with_content, "file")));
-  EXPECT_TRUE(MakeDirectories(JoinPath(dir_with_content, "dir"), 0700));
-  EXPECT_TRUE(RemoveRecursively(dir_with_content));
-  EXPECT_FALSE(PathExists(dir_with_content));
-
-  string regular_file(JoinPath(tempdir, "test_rmr_regular_file"));
-  EXPECT_TRUE(WriteFile("junkdata", 8, regular_file));
-  EXPECT_TRUE(RemoveRecursively(regular_file));
-  EXPECT_FALSE(PathExists(regular_file));
 
   string unwritable_dir(JoinPath(tempdir, "test_rmr_unwritable"));
   EXPECT_TRUE(MakeDirectories(unwritable_dir, 0700));
