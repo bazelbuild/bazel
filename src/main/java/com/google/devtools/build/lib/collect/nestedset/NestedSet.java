@@ -209,6 +209,11 @@ public final class NestedSet<E> {
     return getChildrenUninterruptibly();
   }
 
+  /** Same as {@link #getChildren}, except propagates {@link InterruptedException}. */
+  Object getChildrenInterruptibly() throws InterruptedException {
+    return getChildren(/*handleInterruptedException=*/ true);
+  }
+
   /** Implementation of {@link #getChildren} that will catch an InterruptedException and crash. */
   private Object getChildrenUninterruptibly() {
     if (children instanceof ListenableFuture) {
