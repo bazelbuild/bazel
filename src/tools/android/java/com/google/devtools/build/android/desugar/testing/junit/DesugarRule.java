@@ -101,7 +101,7 @@ public final class DesugarRule implements TestRule {
     return resolvableParameterValues.build();
   }
 
-  public Object resolve(AnnotatedElement param, Class<?> type) throws Throwable {
+  public <T> T resolve(AnnotatedElement param, Class<T> type) throws Throwable {
     return runtimeEntityResolver.resolve(param, type);
   }
 

@@ -18,7 +18,9 @@ import com.google.devtools.build.lib.testutil.BlazeTestUtils;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.util.FileSystems;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import javax.annotation.Nullable;
 
 /**
@@ -120,6 +122,12 @@ public final class MockToolsConfig {
   public void linkTool(String relativePath) throws IOException {
     Preconditions.checkState(realFileSystem);
     linkTool(relativePath, relativePath);
+  }
+
+  public void copyTool(String relativePath) throws IOException {
+    Path runfiles = FileSystems.getNativeFileSystem().getPath(BlazeTestUtils.runfilesDir());
+    Path source = runfiles.getRelative(TestConstants.WORKSPACE_NAME).getRelative(relativePath);
+    create(relativePath, FileSystemUtils.readContent(source, StandardCharsets.ISO_8859_1));
   }
 
   /**

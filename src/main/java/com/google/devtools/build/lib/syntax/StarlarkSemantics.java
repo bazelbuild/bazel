@@ -62,6 +62,7 @@ public abstract class StarlarkSemantics {
         StarlarkSemantics::experimentalStarlarkUnusedInputsList),
     EXPERIMENTAL_CC_SHARED_LIBRARY(StarlarkSemantics::experimentalCcSharedLibrary),
     EXPERIMENTAL_REPO_REMOTE_EXEC(StarlarkSemantics::experimentalRepoRemoteExec),
+    INCOMPATIBLE_APPLICABLE_LICENSES(StarlarkSemantics::incompatibleApplicableLicenses),
     INCOMPATIBLE_DISABLE_DEPSET_INPUTS(StarlarkSemantics::incompatibleDisableDepsetItems),
     INCOMPATIBLE_NO_OUTPUT_ATTR_DEFAULT(StarlarkSemantics::incompatibleNoOutputAttrDefault),
     INCOMPATIBLE_NO_RULE_OUTPUTS_PARAM(StarlarkSemantics::incompatibleNoRuleOutputsParam),
@@ -162,6 +163,8 @@ public abstract class StarlarkSemantics {
 
   public abstract boolean incompatibleAlwaysCheckDepsetElements();
 
+  public abstract boolean incompatibleApplicableLicenses();
+
   public abstract boolean incompatibleBzlDisallowLoadAfterStatement();
 
   public abstract boolean incompatibleDepsetUnion();
@@ -177,8 +180,6 @@ public abstract class StarlarkSemantics {
   public abstract boolean incompatibleDisallowEmptyGlob();
 
   public abstract boolean incompatibleDisallowStructProviderSyntax();
-
-  public abstract boolean incompatibleDisallowUnverifiedHttpDownloads();
 
   public abstract boolean incompatibleNewActionsApi();
 
@@ -263,6 +264,7 @@ public abstract class StarlarkSemantics {
           .experimentalCcSharedLibrary(false)
           .experimentalRepoRemoteExec(false)
           .incompatibleAlwaysCheckDepsetElements(false)
+          .incompatibleApplicableLicenses(false)
           .incompatibleBzlDisallowLoadAfterStatement(true)
           .incompatibleDepsetUnion(true)
           .incompatibleDisableTargetProviderFields(false)
@@ -271,7 +273,6 @@ public abstract class StarlarkSemantics {
           .incompatibleDisableDepsetItems(false)
           .incompatibleDisallowEmptyGlob(false)
           .incompatibleDisallowStructProviderSyntax(false)
-          .incompatibleDisallowUnverifiedHttpDownloads(true)
           .incompatibleNewActionsApi(true)
           .incompatibleNoAttrLicense(true)
           .incompatibleNoImplicitFileExport(false)
@@ -327,6 +328,8 @@ public abstract class StarlarkSemantics {
 
     public abstract Builder incompatibleAlwaysCheckDepsetElements(boolean value);
 
+    public abstract Builder incompatibleApplicableLicenses(boolean value);
+
     public abstract Builder incompatibleBzlDisallowLoadAfterStatement(boolean value);
 
     public abstract Builder incompatibleDepsetUnion(boolean value);
@@ -342,8 +345,6 @@ public abstract class StarlarkSemantics {
     public abstract Builder incompatibleDisallowEmptyGlob(boolean value);
 
     public abstract Builder incompatibleDisallowStructProviderSyntax(boolean value);
-
-    public abstract Builder incompatibleDisallowUnverifiedHttpDownloads(boolean value);
 
     public abstract Builder incompatibleNewActionsApi(boolean value);
 

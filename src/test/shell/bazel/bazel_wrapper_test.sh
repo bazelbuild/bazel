@@ -206,9 +206,43 @@ exit 0
 EOF
   chmod +x tools/bazel
 
-  USE_BAZEL_VERSION="0.29.1" ../bin/bazel build //src:bazel &> "$TEST_log"
+  # Due to https://github.com/bazelbuild/bazel/issues/10356, we have to ignore
+  # the .bazelversion file in case a tools/bazel executable is present.
+  # Even if the requested Bazel version doesn't exist, the wrapper still has to
+  # add the $BAZEL_REAL environment variable, so this will point to a
+  # non-existing file in that case. It's up to the owner of the repo to decide
+  # what to make of it - e.g. print an error message, fallback to something else
+  # or completely ignore the $BAZEL_REAL variable.
+  USE_BAZEL_VERSION="3.0.0" ../bin/bazel build //src:bazel &> "$TEST_log"
   expect_log "Hello from the wrapper tools/bazel!"
-  expect_log "BAZEL_REAL = .*/bin/bazel-0.29.1"
+  expect_log "BAZEL_REAL = .*/bin/bazel-3.0.0"
+  expect_log "My args: build //src:bazel"
+}
+
+test_gracefully_handles_bogus_bazelversion() {
+  setup_mock
+
+  mkdir tools
+  cat > tools/bazel <<'EOF'
+#!/bin/bash
+set -euo pipefail
+echo "Hello from the wrapper tools/bazel!"
+echo "My args: $@"
+exit 0
+EOF
+  chmod +x tools/bazel
+
+  # Create a .bazelversion file that looks completely different than what we
+  # actually support. The wrapper is supposed to not crash and still call the
+  # tools/bazel executable. The content of the $BAZEL_REAL variable can be
+  # completely bogus, of course.
+  cat > .bazelversion <<'EOF'
+mirrors: [http://mirror.example/bazel-5.0.0, http://github.com/example/]
+# The above is our internal mirror. The syntax is only supported since
+# Bazelisk 42.0.
+EOF
+  ../bin/bazel build //src:bazel &> "$TEST_log"
+  expect_log "Hello from the wrapper tools/bazel!"
   expect_log "My args: build //src:bazel"
 }
 

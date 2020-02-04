@@ -69,6 +69,7 @@ public final class TestActionBuilder {
       "COVERAGE_REPORTED_TO_ACTUAL_SOURCES_FILE";
 
   private final RuleContext ruleContext;
+  private final ImmutableList.Builder<Artifact> additionalTools;
   private RunfilesSupport runfilesSupport;
   private Runfiles persistentTestRunnerRunfiles;
   private Artifact executable;
@@ -80,6 +81,7 @@ public final class TestActionBuilder {
   public TestActionBuilder(RuleContext ruleContext) {
     this.ruleContext = ruleContext;
     this.extraEnv = new TreeMap<>();
+    this.additionalTools = new ImmutableList.Builder<>();
   }
 
   /**
@@ -125,6 +127,11 @@ public final class TestActionBuilder {
 
   public TestActionBuilder setPersistentTestRunnerRunfiles(Runfiles runfiles) {
     this.persistentTestRunnerRunfiles = runfiles;
+    return this;
+  }
+
+  public TestActionBuilder addTools(List<Artifact> tools) {
+    this.additionalTools.addAll(tools);
     return this;
   }
 
@@ -375,10 +382,15 @@ public final class TestActionBuilder {
             ruleContext.getPackageRelativeArtifact(dir.getRelative("test.cache_status"), root);
 
         Artifact.DerivedArtifact coverageArtifact = null;
+        Artifact coverageDirectory = null;
         if (collectCodeCoverage) {
           coverageArtifact =
               ruleContext.getPackageRelativeArtifact(dir.getRelative("coverage.dat"), root);
           coverageArtifacts.add(coverageArtifact);
+          if (testConfiguration.fetchAllCoverageOutputs()) {
+            coverageDirectory =
+                ruleContext.getPackageRelativeTreeArtifact(dir.getRelative("_coverage"), root);
+          }
         }
 
         boolean cancelConcurrentTests =
@@ -402,6 +414,7 @@ public final class TestActionBuilder {
         if (testConfiguration.isPersistentTestRunner()) {
           tools.add(testActionExecutable);
           tools.add(executionSettings.getExecutable());
+          tools.addAll(additionalTools.build());
         }
         TestRunnerAction testRunnerAction =
             new TestRunnerAction(
@@ -414,6 +427,7 @@ public final class TestActionBuilder {
                 testLog,
                 cacheStatus,
                 coverageArtifact,
+                coverageDirectory,
                 testProperties,
                 extraTestEnv,
                 executionSettings,

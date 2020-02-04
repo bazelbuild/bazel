@@ -11,7 +11,6 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-//
 
 package com.google.devtools.build.lib.bazel.rules.ninja.parser;
 
@@ -22,6 +21,7 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.errorprone.annotations.Immutable;
 import java.util.Collection;
 import java.util.List;
+import java.util.stream.Collectors;
 
 /** Ninja target (build statement) representation. */
 public final class NinjaTarget {
@@ -30,10 +30,14 @@ public final class NinjaTarget {
     private String ruleName;
     private final ImmutableSortedKeyListMultimap.Builder<InputKind, PathFragment> inputsBuilder;
     private final ImmutableSortedKeyListMultimap.Builder<OutputKind, PathFragment> outputsBuilder;
+    private final NinjaScope scope;
+    private final int offset;
 
     private final ImmutableSortedMap.Builder<String, String> variablesBuilder;
 
-    private Builder() {
+    private Builder(NinjaScope scope, int offset) {
+      this.scope = scope;
+      this.offset = offset;
       inputsBuilder = ImmutableSortedKeyListMultimap.builder();
       outputsBuilder = ImmutableSortedKeyListMultimap.builder();
       variablesBuilder = ImmutableSortedMap.naturalOrder();
@@ -62,7 +66,12 @@ public final class NinjaTarget {
     public NinjaTarget build() {
       Preconditions.checkNotNull(ruleName);
       return new NinjaTarget(
-          ruleName, inputsBuilder.build(), outputsBuilder.build(), variablesBuilder.build());
+          ruleName,
+          inputsBuilder.build(),
+          outputsBuilder.build(),
+          variablesBuilder.build(),
+          scope,
+          offset);
     }
   }
 
@@ -92,16 +101,22 @@ public final class NinjaTarget {
   private final ImmutableSortedKeyListMultimap<InputKind, PathFragment> inputs;
   private final ImmutableSortedKeyListMultimap<OutputKind, PathFragment> outputs;
   private final ImmutableSortedMap<String, String> variables;
+  private final NinjaScope scope;
+  private final int offset;
 
   public NinjaTarget(
       String ruleName,
       ImmutableSortedKeyListMultimap<InputKind, PathFragment> inputs,
       ImmutableSortedKeyListMultimap<OutputKind, PathFragment> outputs,
-      ImmutableSortedMap<String, String> variables) {
+      ImmutableSortedMap<String, String> variables,
+      NinjaScope scope,
+      int offset) {
     this.ruleName = ruleName;
     this.inputs = inputs;
     this.outputs = outputs;
     this.variables = variables;
+    this.scope = scope;
+    this.offset = offset;
   }
 
   public String getRuleName() {
@@ -144,7 +159,34 @@ public final class NinjaTarget {
     return inputs.get(InputKind.ORDER_ONLY);
   }
 
-  public static Builder builder() {
-    return new Builder();
+  public NinjaScope getScope() {
+    return scope;
+  }
+
+  public int getOffset() {
+    return offset;
+  }
+
+  public static Builder builder(NinjaScope scope, int offset) {
+    return new Builder(scope, offset);
+  }
+
+  public String prettyPrint() {
+    return "build "
+        + prettyPrintPaths("\n", getOutputs())
+        + prettyPrintPaths("\n| ", getImplicitOutputs())
+        + "\n: "
+        + this.ruleName
+        + prettyPrintPaths("\n", getUsualInputs())
+        + prettyPrintPaths("\n| ", getImplicitInputs())
+        + prettyPrintPaths("\n|| ", getOrderOnlyInputs());
+  }
+
+  private static String prettyPrintPaths(String startDelimiter, Collection<PathFragment> paths) {
+    if (paths.isEmpty()) {
+      return "";
+    }
+    return startDelimiter
+        + paths.stream().map(PathFragment::getPathString).collect(Collectors.joining("$\n"));
   }
 }

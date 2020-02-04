@@ -2177,10 +2177,17 @@ public final class Attribute implements Comparable<Attribute> {
     return allowedValues;
   }
 
+  public boolean hasAspects() {
+    return !aspects.isEmpty();
+  }
+
   /**
    * Returns the list of aspects required for dependencies through this attribute.
    */
   public ImmutableList<Aspect> getAspects(Rule rule) {
+    if (aspects.isEmpty()) {
+      return ImmutableList.of();
+    }
     ImmutableList.Builder<Aspect> builder = null;
     for (RuleAspect<?> aspect : aspects) {
       Aspect a = aspect.getAspect(rule);

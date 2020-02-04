@@ -221,7 +221,7 @@ public final class Tuple<E> extends AbstractList<E> implements Sequence<E> {
   }
 
   /** Returns a Tuple containing n consecutive repeats of this tuple. */
-  public Tuple<E> repeat(int n, Mutability mutability) {
+  Tuple<E> repeat(int n) {
     if (n <= 0 || isEmpty()) {
       return empty();
     }

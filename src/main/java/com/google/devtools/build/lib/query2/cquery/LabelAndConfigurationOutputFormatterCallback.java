@@ -18,25 +18,29 @@ import com.google.devtools.build.lib.analysis.RequiredConfigFragmentsProvider;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.CoreOptions.IncludeConfigFragmentsEnum;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
+import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.TargetAccessor;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import java.io.OutputStream;
 
 /** Default Output callback for cquery. Prints a label and configuration pair per result. */
 public class LabelAndConfigurationOutputFormatterCallback extends CqueryThreadsafeCallback {
+  private final boolean showKind;
 
   public LabelAndConfigurationOutputFormatterCallback(
       ExtendedEventHandler eventHandler,
       CqueryOptions options,
       OutputStream out,
       SkyframeExecutor skyframeExecutor,
-      TargetAccessor<ConfiguredTarget> accessor) {
+      TargetAccessor<ConfiguredTarget> accessor,
+      boolean showKind) {
     super(eventHandler, options, out, skyframeExecutor, accessor);
+    this.showKind = showKind;
   }
 
   @Override
   public String getName() {
-    return "label";
+    return this.showKind ? "label_kind" : "label";
   }
 
   @Override
@@ -44,9 +48,13 @@ public class LabelAndConfigurationOutputFormatterCallback extends CqueryThreadsa
     for (ConfiguredTarget configuredTarget : partialResult) {
       BuildConfiguration config =
           skyframeExecutor.getConfiguration(eventHandler, configuredTarget.getConfigurationKey());
-
-      StringBuilder output =
-          new StringBuilder()
+      StringBuilder output = new StringBuilder();
+      if (showKind) {
+        Target actualTarget = accessor.getTargetFromConfiguredTarget(configuredTarget);
+        output = output.append(actualTarget.getTargetKind()).append(" ");
+      }
+      output =
+          output
               .append(configuredTarget.getLabel())
               .append(" (")
               .append(config != null && config.isHostConfiguration() ? "HOST" : config)

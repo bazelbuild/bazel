@@ -16,6 +16,7 @@
 
 package com.google.devtools.build.android.desugar.testing.junit;
 
+import com.google.common.base.Splitter;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
@@ -149,6 +150,26 @@ public class DesugarRuleBuilder {
       sourceInputs.add(path);
     }
     return this;
+  }
+
+  /**
+   * Add JVM-flag-specified Java source files subject to be compiled during test execution. It is
+   * expected the value associated with `jvmFlagKey` to be a space-separated Strings. E.g. on the
+   * command line you would set it like: -Dinput_srcs="path1 path2 path3", and use <code>
+   *  .addSourceInputsFromJvmFlag("input_srcs").</code> in your test class.
+   */
+  public DesugarRuleBuilder addSourceInputsFromJvmFlag(String jvmFlagKey) {
+    return addSourceInputs(getRuntimePathsFromJvmFlag(jvmFlagKey));
+  }
+
+  /**
+   * A helper method that reads file paths into an array from the JVM flag value associated with
+   * {@param jvmFlagKey}.
+   */
+  private static Path[] getRuntimePathsFromJvmFlag(String jvmFlagKey) {
+    return Splitter.on(" ").trimResults().splitToList(System.getProperty(jvmFlagKey)).stream()
+        .map(Paths::get)
+        .toArray(Path[]::new);
   }
 
   /**

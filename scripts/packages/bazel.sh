@@ -131,13 +131,6 @@ function get_bazel_version() {
 
 get_bazel_version
 
-if [[ -z $bazel_version ]]; then
-  color "31" "ERROR: No installed Bazel version found, cannot continue."
-  (echo ""
-  echo "Bazel binaries have to be installed in ${wrapper_dir}, but none were found.") 2>&1
-  exit 1
-fi
-
 BAZEL_REAL="${wrapper_dir}/bazel-${bazel_version}-${os_arch_suffix}"
 
 # Try without the architecture suffix.
@@ -154,6 +147,23 @@ if [[ ! -x ${BAZEL_REAL} && -x ${bazel_real_path} ]]; then
   if [[ $bazel_real_version == $bazel_version ]]; then
     BAZEL_REAL="${bazel_real_path}"
   fi
+fi
+
+# If the repository contains a checked-in executable called tools/bazel, we
+# assume that they know what they're doing and have their own way of versioning
+# Bazel. Thus, we don't have to print our helpful messages or error out in case
+# we couldn't find a binary.
+readonly wrapper="${workspace_dir}/tools/bazel"
+if [[ -x "$wrapper" && -f "$wrapper" ]]; then
+  export BAZEL_REAL
+  exec -a "$0" "${wrapper}" "$@"
+fi
+
+if [[ -z $bazel_version ]]; then
+  color "31" "ERROR: No installed Bazel version found, cannot continue."
+  (echo ""
+  echo "Bazel binaries have to be installed in ${wrapper_dir}, but none were found.") 2>&1
+  exit 1
 fi
 
 if [[ ! -x $BAZEL_REAL ]]; then
@@ -188,12 +198,6 @@ if [[ ! -x $BAZEL_REAL ]]; then
     fi
   fi
   exit 1
-fi
-
-readonly wrapper="${workspace_dir}/tools/bazel"
-if [[ -x "$wrapper" && -f "$wrapper" ]]; then
-  export BAZEL_REAL
-  exec -a "$0" "${wrapper}" "$@"
 fi
 
 exec -a "$0" "${BAZEL_REAL}" "$@"

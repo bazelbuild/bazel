@@ -80,6 +80,10 @@ public class AppleSkylarkCommon
           + "iterable with %s.";
 
   @VisibleForTesting
+  public static final String BAD_DIRECT_DEPENDENCY_KEY_ERROR =
+      "Key %s not allowed to be in direct_dep_provider.";
+
+  @VisibleForTesting
   public static final String NOT_SET_ERROR = "Value for key %s must be a set, instead found %s.";
 
   @VisibleForTesting

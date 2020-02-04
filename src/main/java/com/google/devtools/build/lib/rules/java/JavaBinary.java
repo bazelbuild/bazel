@@ -479,6 +479,10 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
         // executable for runfiles is the shell script).
         .setRunfilesSupport(runfilesSupport, executableToRun)
         .setPersistentTestRunnerRunfiles(persistentTestRunnerRunfiles)
+        // Add the native libraries as test action tools. Useful for the persistent test runner
+        // to include them in the worker's key and re-build a worker if the native dependencies
+        // have changed.
+        .addTestActionTools(nativeLibraries)
         .addFilesToRun(extraFilesToRunBuilder.build())
         .add(
             JavaRuntimeClasspathProvider.class,

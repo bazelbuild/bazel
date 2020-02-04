@@ -145,7 +145,14 @@ public class AndroidDevice implements RuleConfiguredTargetFactory {
         .addFilesToRun(extraFilesToRun)
         .addNativeDeclaredProvider(new ExecutionInfo(executionInfo))
         .addNativeDeclaredProvider(new AndroidDeviceBrokerInfo(DEVICE_BROKER_TYPE))
-        .addNativeDeclaredProvider(new AndroidDex2OatInfo(dex2OatEnabled))
+        .addNativeDeclaredProvider(
+            new AndroidDex2OatInfo(
+                dex2OatEnabled,
+                false /* executeDex2OatOnHost */,
+                null /* deviceForPregeneratingOatFilesForTests */,
+                null /* framework */,
+                null /* dalvikCache */,
+                null /* deviceProps */))
         .build();
   }
 

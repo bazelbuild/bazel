@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis.test;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.ActionContext;
@@ -36,6 +37,17 @@ public interface TestActionContext extends ActionContext {
 
   /** Returns whether test_keep_going is enabled. */
   boolean isTestKeepGoing();
+
+  /**
+   * Returns {@code true} to indicate that exclusive tests should be treated as regular parallel
+   * tests.
+   *
+   * <p>Returning {@code true} may make sense for certain forced remote test execution strategies
+   * where running tests in sequence would be wasteful.
+   */
+  default boolean forceParallelTestExecution() {
+    return false;
+  }
 
   /** Creates a cached test result. */
   TestResult newCachedTestResult(Path execRoot, TestRunnerAction action, TestResultData cached)
@@ -61,11 +73,25 @@ public interface TestActionContext extends ActionContext {
    * implementations.
    */
   interface TestAttemptResult {
-    /** Returns {@code true} if the test attempt passed successfully. */
-    boolean hasPassed();
+    /** Test attempt result, splitting failures into permanent vs retriable. */
+    enum Result {
+      /** Test attempt successful. */
+      PASSED,
+      /** Test failed, potentially due to test flakiness, can be retried. */
+      FAILED_CAN_RETRY,
+      /** Permanent failure. */
+      FAILED;
+
+      boolean canRetry() {
+        return this == FAILED_CAN_RETRY;
+      }
+    }
+
+    /** Returns the overall test result. */
+    Result result();
 
     /** Returns a list of spawn results for this test attempt. */
-    List<SpawnResult> spawnResults();
+    ImmutableList<SpawnResult> spawnResults();
   }
 
   /**

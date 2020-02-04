@@ -30,7 +30,6 @@ filegroup(
     ],
     visibility = [
         "//src/test/shell:__subpackages__",
-        "//src/tools/package_printer/java/com/google/devtools/build/packageprinter:__pkg__",
     ],
 )
 
@@ -352,7 +351,7 @@ sh_test(
 [
     sh_test(
         name = "bazel_java_tools_javac" + java_version + "_test",
-        size = "small",
+        size = "medium",
         srcs = ["bazel_java_tools_test.sh"],
         args = ["java" + java_version],
         data = [
@@ -596,22 +595,6 @@ sh_test(
 )
 
 sh_test(
-    name = "bazel_toolchain_test",
-    size = "medium",
-    srcs = ["bazel_toolchain_test.sh"],
-    data = [":test-deps"] + select({
-        "//src/conditions:darwin": [],
-        "//src/conditions:darwin_x86_64": [],
-        "//src/conditions:windows": [],
-        "//conditions:default": ["//src/test/shell/bazel/testdata:bazel_toolchain_test_project_pkg"],
-    }),
-    tags = [
-        "no_windows",
-        "requires-network",
-    ],
-)
-
-sh_test(
     name = "whitelist_test",
     size = "medium",
     srcs = ["whitelist_test.sh"],
@@ -669,7 +652,10 @@ sh_test(
     srcs = ["external_integration_test.sh"],
     data = [":test-deps"],
     shard_count = 15,
-    tags = ["no_windows"],
+    tags = [
+        "no_windows",
+        "requires-network",
+    ],
 )
 
 sh_test(
@@ -770,7 +756,10 @@ sh_test(
         "@bazel_tools//tools/bash/runfiles",
     ],
     shard_count = 6,
-    tags = ["no_windows"],
+    tags = [
+        "no_windows",
+        "requires-network",
+    ],
 )
 
 sh_test(
@@ -924,6 +913,7 @@ sh_test(
     tags = [
         "no-sandbox",
         "no_windows",
+        "requires-network",
     ],
 )
 
@@ -971,7 +961,10 @@ sh_test(
     srcs = ["bazel_repository_cache_test.sh"],
     data = [":test-deps"],
     shard_count = 6,
-    tags = ["no_windows"],
+    tags = [
+        "no_windows",
+        "requires-network",
+    ],
 )
 
 sh_test(
@@ -1019,6 +1012,7 @@ sh_test(
         "@bazel_tools//tools/bash/runfiles",
     ],
     exec_compatible_with = ["//:highcpu_machine"],
+    shard_count = 2,
     tags = ["block-network"],
 )
 
@@ -1132,12 +1126,15 @@ sh_test(
         ":test-deps",
         "//src/tools/workspacelog:parser",
     ],
-    tags = ["no_windows"],
+    tags = [
+        "no_windows",
+        "requires-network",
+    ],
 )
 
 sh_test(
     name = "jdeps_test",
-    size = "medium",
+    size = "large",
     srcs = ["jdeps_test.sh"],
     data = [
         ":jdeps_class_blacklist.txt",
@@ -1152,7 +1149,7 @@ sh_test(
 
 sh_test(
     name = "cc_flags_supplier_test",
-    size = "small",
+    size = "medium",
     srcs = ["cc_flags_supplier_test.sh"],
     data = [
         ":test-deps",
@@ -1197,6 +1194,9 @@ sh_test(
     name = "archive_contents_test",
     srcs = ["archive_contents_test.sh"],
     data = [":test-deps"],
+    tags = [
+        "requires-network",
+    ],
     deps = ["@bazel_tools//tools/bash/runfiles"],
 )
 
@@ -1227,6 +1227,13 @@ sh_test(
 sh_test(
     name = "unicode_filenames_test",
     srcs = ["unicode_filenames_test.sh"],
+    data = [":test-deps"],
+    deps = ["@bazel_tools//tools/bash/runfiles"],
+)
+
+sh_test(
+    name = "run_test",
+    srcs = ["run_test.sh"],
     data = [":test-deps"],
     deps = ["@bazel_tools//tools/bash/runfiles"],
 )

@@ -29,7 +29,7 @@ import org.junit.runners.JUnit4;
  * parameters with semantic flags.
  */
 @RunWith(JUnit4.class)
-public class StarlarkFlagGuardingTest extends EvaluationTestCase {
+public final class StarlarkFlagGuardingTest extends EvaluationTestCase {
 
   @Before
   public final void setup() throws Exception {

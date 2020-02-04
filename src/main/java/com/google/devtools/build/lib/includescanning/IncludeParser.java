@@ -435,7 +435,7 @@ class IncludeParser {
               .setFilesystemCalls(syscallCache)
               .addPattern(rule.findFilter)
               .glob());
-        } catch (IOException e) {
+        } catch (UnixGlob.BadPattern | IOException e) {
           logger.warning("Error in hint expansion: " + e);
         }
       }

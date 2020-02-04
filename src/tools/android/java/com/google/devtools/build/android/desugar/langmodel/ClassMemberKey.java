@@ -36,27 +36,6 @@ public abstract class ClassMemberKey {
     return "<init>".equals(name());
   }
 
-  /** The binary name of the nest host that the member owner is affiliated with. */
-  public final String nestHost() {
-    return LangModelHelper.nestHost(owner());
-  }
-
-  /**
-   * The binary name of the nest companion that the member owner is affiliated with. One nest has at
-   * most one associated nest companion class.
-   */
-  final String nestCompanion() {
-    return LangModelHelper.nestCompanion(owner());
-  }
-
-  /**
-   * The simple name for a class member mangled with its owner name to avoid member name
-   * duplication.
-   */
-  final String ownerMangledName() {
-    return owner().replace('/', '_') + '$' + name();
-  }
-
   /** The simple name with name suffix. */
   final String nameWithSuffix(String suffix) {
     return name() + '$' + suffix;

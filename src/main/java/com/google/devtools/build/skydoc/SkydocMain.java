@@ -56,6 +56,7 @@ import com.google.devtools.build.lib.skylarkbuildapi.stubs.ProviderStub;
 import com.google.devtools.build.lib.skylarkbuildapi.stubs.SkylarkAspectStub;
 import com.google.devtools.build.lib.skylarkbuildapi.test.TestingBootstrap;
 import com.google.devtools.build.lib.syntax.BaseFunction;
+import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.Expression;
@@ -65,6 +66,7 @@ import com.google.devtools.build.lib.syntax.Module;
 import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.devtools.build.lib.syntax.ParserInput;
 import com.google.devtools.build.lib.syntax.Starlark;
+import com.google.devtools.build.lib.syntax.StarlarkCallable;
 import com.google.devtools.build.lib.syntax.StarlarkFile;
 import com.google.devtools.build.lib.syntax.StarlarkFunction;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
@@ -598,6 +600,28 @@ public class SkydocMain {
     ImmutableMap.Builder<String, Object> envBuilder = ImmutableMap.builder();
 
     envBuilder.putAll(Starlark.UNIVERSE);
+
+    // Declare a fake implementation of select that just returns the first
+    // value in the dict. (This program is forbidden from depending on the real
+    // implementation of 'select' in lib.packages, and so the hacks multiply.)
+    envBuilder.put(
+        "select",
+        new StarlarkCallable() {
+          @Override
+          public Object fastcall(StarlarkThread thread, Object[] positional, Object[] named)
+              throws EvalException {
+            for (Map.Entry<?, ?> e : ((Dict<?, ?>) positional[0]).entrySet()) {
+              return e.getValue();
+            }
+            throw Starlark.errorf("select: empty dict");
+          }
+
+          @Override
+          public String getName() {
+            return "select";
+          }
+        });
+
     topLevelBootstrap.addBindingsToBuilder(envBuilder);
     androidBootstrap.addBindingsToBuilder(envBuilder);
     appleBootstrap.addBindingsToBuilder(envBuilder);

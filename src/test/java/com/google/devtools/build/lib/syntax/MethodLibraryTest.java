@@ -14,11 +14,8 @@
 
 package com.google.devtools.build.lib.syntax;
 
-import static com.google.common.truth.Truth.assertThat;
-
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.syntax.util.EvaluationTestCase;
@@ -27,11 +24,9 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/**
- * Tests for MethodLibrary.
- */
+/** Tests for MethodLibrary. */
 @RunWith(JUnit4.class)
-public class MethodLibraryTest extends EvaluationTestCase {
+public final class MethodLibraryTest extends EvaluationTestCase {
 
   private static final String LINE_SEPARATOR = System.lineSeparator();
 
@@ -623,16 +618,6 @@ public class MethodLibraryTest extends EvaluationTestCase {
         .testExpression("type(True)", "bool")
         .testExpression("type(None)", "NoneType")
         .testExpression("type(str)", "function");
-  }
-
-  // TODO(bazel-team): Move select and this test into lib/packages.
-  @Test
-  public void testSelectFunction() throws Exception {
-    enableSkylarkMode();
-    exec("a = select({'a': 1})");
-    SelectorList result = (SelectorList) lookup("a");
-    assertThat(((SelectorValue) Iterables.getOnlyElement(result.getElements())).getDictionary())
-        .containsExactly("a", 1);
   }
 
   @Test

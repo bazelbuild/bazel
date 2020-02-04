@@ -1,4 +1,4 @@
-// Copyright 2015 The Bazel Authors. All rights reserved.
+// Copyright 2019 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -314,7 +314,9 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     useConfiguration();
     setUpSkyframe();
     this.actionLogBufferPathGenerator =
-        new ActionLogBufferPathGenerator(directories.getActionTempsDirectory(getExecRoot()));
+        new ActionLogBufferPathGenerator(
+            directories.getActionTempsDirectory(getExecRoot()),
+            directories.getPersistentActionOutsDirectory(getExecRoot()));
   }
 
   public void initializeMockClient() throws IOException {
@@ -1044,7 +1046,8 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
    */
   protected Rule scratchRule(String packageName, String ruleName, String... lines)
       throws Exception {
-    String buildFilePathString = packageName + "/BUILD";
+    // Allow to create the BUILD file also in the top package.
+    String buildFilePathString = packageName.isEmpty() ? "BUILD" : packageName + "/BUILD";
     if (packageName.equals(LabelConstants.EXTERNAL_PACKAGE_NAME.getPathString())) {
       buildFilePathString = "WORKSPACE";
       scratch.overwriteFile(buildFilePathString, lines);

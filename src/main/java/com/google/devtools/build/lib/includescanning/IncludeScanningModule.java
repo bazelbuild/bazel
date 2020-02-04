@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.analysis.ArtifactsToOwnerLabels;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
 import com.google.devtools.build.lib.concurrent.ExecutorUtil;
+import com.google.devtools.build.lib.concurrent.NamedForkJoinPool;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadHostile;
 import com.google.devtools.build.lib.exec.ExecutorBuilder;
 import com.google.devtools.build.lib.exec.ExecutorLifecycleListener;
@@ -288,7 +289,11 @@ public class IncludeScanningModule extends BlazeModule {
       if (threads > 0) {
         log.info(
             String.format("Include scanning configured to use a pool with %d threads", threads));
-        includePool = ExecutorUtil.newSlackPool(threads, "Include scanner");
+        if (options.useAsyncIncludeScanner) {
+          includePool = NamedForkJoinPool.newNamedPool("Include scanner", threads);
+        } else {
+          includePool = ExecutorUtil.newSlackPool(threads, "Include scanner");
+        }
       } else {
         log.info("Include scanning configured to use a direct executor");
         includePool = MoreExecutors.newDirectExecutorService();

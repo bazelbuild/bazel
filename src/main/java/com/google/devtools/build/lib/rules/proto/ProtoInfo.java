@@ -45,14 +45,6 @@ public final class ProtoInfo extends NativeInfo implements ProtoInfoApi<Artifact
 
   public static final Provider PROVIDER = new Provider();
 
-  /**
-   * The name of the field in Skylark used to access this class.
-   *
-   * <p>This is for legacy {@code ctx.attr.deps.proto.}-style access. Those should eventually be
-   * migrated to {@code ctx.attr.deps[ProtoInfo]}.
-   */
-  public static final String LEGACY_SKYLARK_NAME = "proto";
-
   private final ImmutableList<Artifact> directProtoSources;
   private final ImmutableList<Artifact> originalDirectProtoSources;
   private final String directProtoSourceRoot;

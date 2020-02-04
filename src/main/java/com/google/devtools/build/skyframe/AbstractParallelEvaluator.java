@@ -840,10 +840,11 @@ abstract class AbstractParallelEvaluator {
 
       // Nodes are marked "force-rebuild" to ensure that they run, and to allow them to evaluate to
       // a different value than before, even if their versions remain the same.
-      restartEntry.markDirty(DirtyType.FORCE_REBUILD);
-      evaluatorContext
-          .getProgressReceiver()
-          .invalidated(keyToRestart, EvaluationProgressReceiver.InvalidationState.DIRTY);
+      if (restartEntry.markDirty(DirtyType.FORCE_REBUILD) != null) {
+        evaluatorContext
+            .getProgressReceiver()
+            .invalidated(keyToRestart, EvaluationProgressReceiver.InvalidationState.DIRTY);
+      }
     }
 
     if (missingNodes != null) {

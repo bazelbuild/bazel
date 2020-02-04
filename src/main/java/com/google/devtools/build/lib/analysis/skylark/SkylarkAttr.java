@@ -46,6 +46,7 @@ import com.google.devtools.build.lib.skylarkbuildapi.SkylarkAttrApi;
 import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
+import com.google.devtools.build.lib.syntax.Module;
 import com.google.devtools.build.lib.syntax.Printer;
 import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.SkylarkType;
@@ -139,7 +140,7 @@ public final class SkylarkAttr implements SkylarkAttrApi {
         builder.defaultValue(
             defaultValue,
             new BuildType.LabelConversionContext(
-                (Label) thread.getGlobals().getLabel(),
+                (Label) Module.ofInnermostEnclosingStarlarkFunction(thread).getLabel(),
                 BazelStarlarkContext.from(thread).getRepoMapping()),
             DEFAULT_ARG);
       }

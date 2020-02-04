@@ -77,7 +77,11 @@ import javax.annotation.Nullable;
 // Unchecked warnings should be treated as errors.
 // Ditto Sequence.
 public final class Dict<K, V>
-    implements Map<K, V>, StarlarkMutable, SkylarkIndexable, StarlarkIterable<K> {
+    implements Map<K, V>,
+        StarlarkValue,
+        Mutability.Freezable,
+        SkylarkIndexable,
+        StarlarkIterable<K> {
 
   private final LinkedHashMap<K, V> contents;
 
@@ -186,7 +190,7 @@ public final class Dict<K, V>
   public Object pop(Object key, Object defaultValue, StarlarkThread thread) throws EvalException {
     Object value = get(key);
     if (value != null) {
-      remove(key, /*loc=*/ null);
+      remove(key, (Location) null);
       return value;
     }
     if (defaultValue != Starlark.UNBOUND) {
@@ -211,7 +215,7 @@ public final class Dict<K, V>
     }
     Object key = keySet().iterator().next();
     Object value = get(key);
-    remove(key, /*loc=*/ null);
+    remove(key, (Location) null);
     return Tuple.pair(key, value);
   }
 
@@ -239,7 +243,7 @@ public final class Dict<K, V>
     if (value != null) {
       return value;
     }
-    put(key, (V) defaultValue, /*loc=*/ null);
+    put(key, (V) defaultValue, (Location) null);
     return defaultValue;
   }
 
@@ -278,7 +282,7 @@ public final class Dict<K, V>
             ? (Dict<K, V>) args
             : getDictFromArgs("update", args, thread.mutability());
     dict = Dict.plus(dict, (Dict<K, V>) kwargs, thread.mutability());
-    putAll(dict, /*loc=*/ null);
+    putAll(dict, (Location) null);
     return Starlark.NONE;
   }
 
@@ -387,11 +391,11 @@ public final class Dict<K, V>
    *
    * @param key the key of the added entry
    * @param value the value of the added entry
-   * @param loc the location to use for error reporting
+   * @param unused a nonce value to select this overload, not Map.put
    * @throws EvalException if the key is invalid or the dict is frozen
    */
-  public void put(K key, V value, Location loc) throws EvalException {
-    checkMutable(loc);
+  public void put(K key, V value, Location unused) throws EvalException {
+    checkMutable();
     EvalUtils.checkHashable(key);
     contents.put(key, value);
   }
@@ -400,12 +404,12 @@ public final class Dict<K, V>
    * Puts all the entries from a given map into the dict, after validating that mutation is allowed.
    *
    * @param map the map whose entries are added
-   * @param loc the location to use for error reporting
+   * @param unused a nonce value to select this overload, not Map.put
    * @throws EvalException if some key is invalid or the dict is frozen
    */
-  public <KK extends K, VV extends V> void putAll(Map<KK, VV> map, Location loc)
+  public <KK extends K, VV extends V> void putAll(Map<KK, VV> map, Location unused)
       throws EvalException {
-    checkMutable(loc);
+    checkMutable();
     for (Map.Entry<KK, VV> e : map.entrySet()) {
       KK k = e.getKey();
       EvalUtils.checkHashable(k);
@@ -417,12 +421,12 @@ public final class Dict<K, V>
    * Deletes the entry associated with the given key.
    *
    * @param key the key to delete
-   * @param loc the location to use for error reporting
+   * @param unused a nonce value to select this overload, not Map.put
    * @return the value associated to the key, or {@code null} if not present
    * @throws EvalException if the dict is frozen
    */
-  V remove(Object key, Location loc) throws EvalException {
-    checkMutable(loc);
+  V remove(Object key, Location unused) throws EvalException {
+    checkMutable();
     return contents.remove(key);
   }
 
@@ -435,11 +439,11 @@ public final class Dict<K, V>
   /**
    * Clears the dict.
    *
-   * @param loc the location to use for error reporting
+   * @param unused a nonce value to select this overload, not Map.put
    * @throws EvalException if the dict is frozen
    */
-  void clear(Location loc) throws EvalException {
-    checkMutable(loc);
+  private void clear(Location unused) throws EvalException {
+    checkMutable();
     contents.clear();
   }
 
@@ -619,6 +623,12 @@ public final class Dict<K, V>
   }
 
   // disallowed java.util.Map update operations
+
+  // TODO(adonovan): make MutabilityException a subclass of (unchecked)
+  // UnsupportedOperationException, allowing the primary Dict operations
+  // to satisfy the Map operations below in the usual way (like ImmutableMap does).
+  // Add "ForStarlark" suffix to disambiguate SkylarkCallable-annotated methods.
+  // Same for StarlarkList.
 
   @Deprecated
   @Override

@@ -59,6 +59,7 @@ import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.packages.Type.LabelClass;
 import com.google.devtools.build.lib.syntax.EvalException;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
 import java.util.stream.Collectors;
@@ -78,6 +79,8 @@ public final class RuleConfiguredTargetBuilder {
   private final TransitiveInfoProviderMapBuilder providersBuilder =
       new TransitiveInfoProviderMapBuilder();
   private final Map<String, NestedSetBuilder<Artifact>> outputGroupBuilders = new TreeMap<>();
+  private final ImmutableList.Builder<Artifact> additionalTestActionTools =
+      new ImmutableList.Builder<>();
 
   /** These are supported by all configured targets and need to be specially handled. */
   private NestedSet<Artifact> filesToBuild = NestedSetBuilder.emptySet(Order.STABLE_ORDER);
@@ -421,6 +424,7 @@ public final class RuleConfiguredTargetBuilder {
         testActionBuilder
             .setFilesToRunProvider(filesToRunProvider)
             .setPersistentTestRunnerRunfiles(persistentTestRunnerRunfiles)
+            .addTools(additionalTestActionTools.build())
             .setExecutionRequirements(
                 (ExecutionInfo) providersBuilder.getProvider(ExecutionInfo.PROVIDER.getKey()))
             .setShardCount(explicitShardCount)
@@ -581,6 +585,11 @@ public final class RuleConfiguredTargetBuilder {
 
   public RuleConfiguredTargetBuilder setPersistentTestRunnerRunfiles(Runfiles testSupportRunfiles) {
     this.persistentTestRunnerRunfiles = testSupportRunfiles;
+    return this;
+  }
+
+  public RuleConfiguredTargetBuilder addTestActionTools(List<Artifact> tools) {
+    this.additionalTestActionTools.addAll(tools);
     return this;
   }
 

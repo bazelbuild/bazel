@@ -1008,6 +1008,24 @@ public class ObjcSkylarkTest extends ObjcRuleTestCase {
   }
 
   @Test
+  public void testSkylarkStrictDepsWhitelist() throws Exception {
+    AssertionError e =
+        assertThrows(
+            AssertionError.class,
+            () ->
+                createObjcProviderSkylarkTarget(
+                    "   strict_defines = depset(['def1'])",
+                    "   strict_provider = apple_common.new_objc_provider\\",
+                    "(define=strict_defines)",
+                    "   created_provider = apple_common.new_objc_provider\\",
+                    "(direct_dep_providers=[strict_provider])",
+                    "   return [created_provider]"));
+    assertThat(e)
+        .hasMessageThat()
+        .contains(String.format(AppleSkylarkCommon.BAD_DIRECT_DEPENDENCY_KEY_ERROR, "define"));
+  }
+
+  @Test
   public void testSkylarkCanCreateObjcProviderFromObjcProvider() throws Exception {
     ConfiguredTarget skylarkTarget =
         createObjcProviderSkylarkTarget(

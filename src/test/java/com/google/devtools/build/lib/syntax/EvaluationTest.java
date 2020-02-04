@@ -21,7 +21,6 @@ import com.google.devtools.build.lib.events.EventCollector;
 import com.google.devtools.build.lib.syntax.util.EvaluationTestCase;
 import com.google.devtools.build.lib.testutil.TestMode;
 import java.util.Collections;
-import java.util.List;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -30,9 +29,9 @@ import org.junit.runners.JUnit4;
 /** Test of evaluation behavior. (Implicitly uses lexer + parser.) */
 // TODO(adonovan): separate tests of parser, resolver, Starlark core evaluator,
 // and BUILD and .bzl features.
+// TODO(adonovan): make final. Requires changing SkylarkEvaluationTest.
 @RunWith(JUnit4.class)
 public class EvaluationTest extends EvaluationTestCase {
-
   @Before
   public final void setBuildMode() throws Exception {
     super.setMode(TestMode.BUILD);
@@ -606,33 +605,6 @@ public class EvaluationTest extends EvaluationTestCase {
         .testExpression("-4 * (1, 2)", Tuple.empty());
   }
 
-  @SuppressWarnings("unchecked")
-  @Test
-  public void testSelectorListConcatenation() throws Exception {
-    // TODO(fwe): cannot be handled by current testing suite
-    SelectorList x = (SelectorList) eval("select({'foo': ['FOO'], 'bar': ['BAR']}) + []");
-    List<Object> elements = x.getElements();
-    assertThat(elements).hasSize(2);
-    assertThat(elements.get(0)).isInstanceOf(SelectorValue.class);
-    assertThat((Iterable<Object>) elements.get(1)).isEmpty();
-  }
-
-  @Test
-  public void testAddSelectIncompatibleType() throws Exception {
-    newTest()
-        .testIfErrorContains(
-            "'+' operator applied to incompatible types (select of list, int)",
-            "select({'foo': ['FOO'], 'bar': ['BAR']}) + 1");
-  }
-
-  @Test
-  public void testAddSelectIncompatibleType2() throws Exception {
-    newTest()
-        .testIfErrorContains(
-            "'+' operator applied to incompatible types (select of list, select of int)",
-            "select({'foo': ['FOO']}) + select({'bar': 2})");
-  }
-
   @Test
   public void testListComprehensionFailsOnNonSequence() throws Exception {
     newTest().testIfErrorContains("type 'int' is not iterable", "[x + 1 for x in 123]");
@@ -737,8 +709,7 @@ public class EvaluationTest extends EvaluationTestCase {
     newTest()
         .testIfErrorContains(
             "'in <string>' requires string as left operand, not 'int'", "1 in '123'")
-        .testIfErrorContains(
-            "unsupported binary operation: string in int (right operand must be", "'a' in 1");
+        .testIfErrorContains("unsupported binary operation: string in int", "'a' in 1");
   }
 
   @Test

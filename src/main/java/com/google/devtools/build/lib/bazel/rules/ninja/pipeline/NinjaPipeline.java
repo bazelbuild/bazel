@@ -19,6 +19,7 @@ import static com.google.devtools.build.lib.concurrent.MoreFutures.waitForFuture
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
+import com.google.common.collect.Sets;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.devtools.build.lib.bazel.rules.ninja.file.ByteFragmentAtOffset;
@@ -43,6 +44,7 @@ import java.util.ArrayDeque;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * Responsible for parsing Ninja file, all its included and subninja files, and returning {@link
@@ -55,6 +57,7 @@ public class NinjaPipeline {
   private final ListeningExecutorService service;
   private final Collection<Path> includedOrSubninjaFiles;
   private final String ownerTargetName;
+  private final Set<Path> childPaths;
 
   /**
    * @param basePath base path for resolving include and subninja paths.
@@ -71,6 +74,7 @@ public class NinjaPipeline {
     this.service = service;
     this.includedOrSubninjaFiles = includedOrSubninjaFiles;
     this.ownerTargetName = ownerTargetName;
+    this.childPaths = Sets.newConcurrentHashSet();
   }
 
   /**
@@ -79,7 +83,7 @@ public class NinjaPipeline {
    * @return {@link Pair} of {@link NinjaScope} with rules and expanded variables (and child
    *     scopes), and list of {@link NinjaTarget}.
    */
-  public Pair<NinjaScope, List<NinjaTarget>> pipeline(Path mainFile)
+  public List<NinjaTarget> pipeline(Path mainFile)
       throws GenericParsingException, InterruptedException, IOException {
     NinjaFileParseResult result =
         waitForFutureAndGetWithCheckedException(
@@ -89,7 +93,7 @@ public class NinjaPipeline {
     NinjaScope scope = new NinjaScope();
     // This will cause additional parsing of included/subninja scopes, and their recursive expand.
     result.expandIntoScope(scope, rawTargets);
-    return Pair.of(scope, iterateScopesScheduleTargetsParsing(scope, rawTargets));
+    return iterateScopesScheduleTargetsParsing(scope, rawTargets);
   }
 
   /**
@@ -176,7 +180,14 @@ public class NinjaPipeline {
    * Actually schedules the parsing of the Ninja file and returns {@link
    * ListenableFuture<NinjaFileParseResult>} for obtaining the result.
    */
-  private ListenableFuture<NinjaFileParseResult> scheduleParsing(Path path) throws IOException {
+  private ListenableFuture<NinjaFileParseResult> scheduleParsing(Path path)
+      throws IOException, GenericParsingException {
+    if (!this.childPaths.add(path)) {
+      throw new GenericParsingException(
+          String.format(
+              "Detected cycle or duplicate inclusion in Ninja files dependencies, including '%s'.",
+              path.getBaseName()));
+    }
     BlockParameters parameters = new BlockParameters(path.getFileSize());
     return service.submit(
         () -> {

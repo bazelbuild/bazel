@@ -71,6 +71,7 @@ import com.google.devtools.build.lib.skyframe.DirtinessCheckerUtils.UnionDirtine
 import com.google.devtools.build.lib.skyframe.ExternalFilesHelper.ExternalFileAction;
 import com.google.devtools.build.lib.skyframe.ExternalFilesHelper.ExternalFilesKnowledge;
 import com.google.devtools.build.lib.skyframe.ExternalFilesHelper.FileType;
+import com.google.devtools.build.lib.skyframe.FilesystemValueChecker.ImmutableBatchDirtyResult;
 import com.google.devtools.build.lib.skyframe.PackageFunction.ActionOnIOExceptionReadingBuildFile;
 import com.google.devtools.build.lib.skyframe.PackageLookupFunction.CrossRepositoryLabelViolationStrategy;
 import com.google.devtools.build.lib.skyframe.actiongraph.ActionGraphDump;
@@ -86,7 +87,6 @@ import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.BuildDriver;
 import com.google.devtools.build.skyframe.Differencer;
-import com.google.devtools.build.skyframe.Differencer.Diff;
 import com.google.devtools.build.skyframe.EvaluationContext;
 import com.google.devtools.build.skyframe.GraphInconsistencyReceiver;
 import com.google.devtools.build.skyframe.InMemoryMemoizingEvaluator;
@@ -147,6 +147,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
   private int outputDirtyFiles;
   private int modifiedFilesDuringPreviousBuild;
   private Duration sourceDiffCheckingDuration = Duration.ofSeconds(-1L);
+  private int numSourceFilesCheckedBecauseOfMissingDiffs;
   private Duration outputTreeDiffCheckingDuration = Duration.ofSeconds(-1L);
 
   // If this is null then workspace header pre-calculation won't happen.
@@ -331,6 +332,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
       throws InterruptedException, AbruptExitException {
     TimestampGranularityMonitor tsgm = this.tsgm.get();
     modifiedFiles = 0;
+    numSourceFilesCheckedBecauseOfMissingDiffs = 0;
 
     boolean managedDirectoriesChanged =
         managedDirectoriesKnowledge != null && refreshWorkspaceHeader(eventHandler);
@@ -432,6 +434,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
       handleChangedFiles(
           ImmutableList.of(pathEntry),
           getDiff(tsgm, modifiedFileSet.modifiedSourceFiles(), pathEntry),
+          /*numSourceFilesCheckedIfDiffWasMissing=*/ 0,
           managedDirectoriesChanged);
       processableModifiedFileSet.markProcessed();
     }
@@ -500,9 +503,9 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
     logger.info(
         "About to scan skyframe graph checking for filesystem nodes of types "
             + Iterables.toString(fileTypesToCheck));
-    Differencer.Diff diff;
+    ImmutableBatchDirtyResult batchDirtyResult;
     try (SilentCloseable c = Profiler.instance().profile("fsvc.getDirtyKeys")) {
-      diff =
+      batchDirtyResult =
           fsvc.getDirtyKeys(
               memoizingEvaluator.getValues(),
               new UnionDirtinessChecker(
@@ -512,7 +515,11 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
                           new ExternalDirtinessChecker(tmpExternalFilesHelper, fileTypesToCheck),
                           new MissingDiffDirtinessChecker(diffPackageRootsUnderWhichToCheck)))));
     }
-    handleChangedFiles(diffPackageRootsUnderWhichToCheck, diff, managedDirectoriesChanged);
+    handleChangedFiles(
+        diffPackageRootsUnderWhichToCheck,
+        batchDirtyResult,
+        /*numSourceFilesCheckedIfDiffWasMissing=*/ batchDirtyResult.getNumKeysChecked(),
+        managedDirectoriesChanged);
 
     for (Pair<Root, DiffAwarenessManager.ProcessableModifiedFileSet> pair :
         pathEntriesWithoutDiffInformation) {
@@ -527,7 +534,8 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
 
   private void handleChangedFiles(
       Collection<Root> diffPackageRootsUnderWhichToCheck,
-      Diff diff,
+      Differencer.Diff diff,
+      int numSourceFilesCheckedIfDiffWasMissing,
       boolean managedDirectoriesChanged) {
     int numWithoutNewValues = diff.changedKeysWithoutNewValues().size();
     Iterable<SkyKey> keysToBeChangedLaterInThisBuild = diff.changedKeysWithoutNewValues();
@@ -552,6 +560,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
     recordingDiffer.inject(changedKeysWithNewValues);
     modifiedFiles += getNumberOfModifiedFiles(keysToBeChangedLaterInThisBuild);
     modifiedFiles += getNumberOfModifiedFiles(changedKeysWithNewValues.keySet());
+    numSourceFilesCheckedBecauseOfMissingDiffs += numSourceFilesCheckedIfDiffWasMissing;
     incrementalBuildMonitor.accrue(keysToBeChangedLaterInThisBuild);
     incrementalBuildMonitor.accrue(changedKeysWithNewValues.keySet());
   }
@@ -855,11 +864,14 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
   @Override
   public ExecutionFinishedEvent createExecutionFinishedEvent() {
     ExecutionFinishedEvent result =
-        new ExecutionFinishedEvent(
-            outputDirtyFiles,
-            modifiedFilesDuringPreviousBuild,
-            sourceDiffCheckingDuration,
-            outputTreeDiffCheckingDuration);
+        ExecutionFinishedEvent.builder()
+            .setOutputDirtyFiles(outputDirtyFiles)
+            .setOutputModifiedFilesDuringPreviousBuild(modifiedFilesDuringPreviousBuild)
+            .setSourceDiffCheckingDuration(sourceDiffCheckingDuration)
+            .setNumSourceFilesCheckedBecauseOfMissingDiffs(
+                numSourceFilesCheckedBecauseOfMissingDiffs)
+            .setOutputTreeDiffCheckingDuration(outputTreeDiffCheckingDuration)
+            .build();
     outputDirtyFiles = 0;
     modifiedFilesDuringPreviousBuild = 0;
     sourceDiffCheckingDuration = Duration.ZERO;

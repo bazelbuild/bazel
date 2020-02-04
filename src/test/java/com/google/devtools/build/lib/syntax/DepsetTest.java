@@ -29,7 +29,7 @@ import org.junit.runners.JUnit4;
 
 /** Tests for Depset. */
 @RunWith(JUnit4.class)
-public class DepsetTest extends EvaluationTestCase {
+public final class DepsetTest extends EvaluationTestCase {
 
   @Test
   public void testConstructor() throws Exception {

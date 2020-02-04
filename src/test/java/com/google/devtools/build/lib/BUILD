@@ -474,7 +474,7 @@ java_library(
 
 java_test(
     name = "vfs_inmemoryfs_test",
-    size = "small",
+    size = "medium",
     srcs = glob(["vfs/inmemoryfs/*.java"]),
     tags = [
         "foundations",
@@ -603,7 +603,6 @@ java_test(
     name = "actions_test",
     srcs = glob([
         "actions/*.java",
-        "actions/cache/*.java",
     ]),
     test_class = "com.google.devtools.build.lib.AllTests",
     deps = [
@@ -1349,6 +1348,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib:io",
         "//src/main/java/com/google/devtools/build/lib:util",
         "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/actions:localhost_capacity",
         "//src/main/java/com/google/devtools/build/lib/analysis/platform",
         "//src/main/java/com/google/devtools/build/lib/buildeventstream/proto:build_event_stream_java_proto",
         "//src/main/java/com/google/devtools/build/lib/cmdline",

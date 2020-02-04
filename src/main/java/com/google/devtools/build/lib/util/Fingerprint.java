@@ -59,11 +59,6 @@ public final class Fingerprint implements Consumer<String> {
     this(DigestHashFunction.SHA256);
   }
 
-  /** Return the length of the fingerprint in bytes. */
-  public int getDigestLength() {
-    return messageDigest.getDigestLength();
-  }
-
   /**
    * Completes the hash computation by doing final operations and resets the underlying state,
    * allowing this instance to be used again.

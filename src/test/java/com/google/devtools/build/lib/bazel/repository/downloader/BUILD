@@ -16,6 +16,7 @@ java_test(
     name = "DownloaderTestSuite",
     srcs = glob(["*.java"]),
     tags = [
+        "requires-network",
         "rules",
     ],
     deps = [

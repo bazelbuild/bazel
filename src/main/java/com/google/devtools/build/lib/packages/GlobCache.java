@@ -180,10 +180,6 @@ public class GlobCache {
       // invalid as a label, plus users should say explicitly if they
       // really want to name the package directory.
       if (!relative.isEmpty()) {
-        if (relative.charAt(0) == '@') {
-          // Add explicit colon to disambiguate from external repository.
-          relative = ":" + relative;
-        }
         result.add(relative);
       }
     }
@@ -210,13 +206,17 @@ public class GlobCache {
     if (error != null) {
       throw new BadGlobException(error + " (in glob pattern '" + pattern + "')");
     }
-    return UnixGlob.forPath(packageDirectory)
-        .addPattern(pattern)
-        .setExcludeDirectories(excludeDirs)
-        .setDirectoryFilter(childDirectoryPredicate)
-        .setExecutor(globExecutor)
-        .setFilesystemCalls(syscalls)
-        .globAsync();
+    try {
+      return UnixGlob.forPath(packageDirectory)
+          .addPattern(pattern)
+          .setExcludeDirectories(excludeDirs)
+          .setDirectoryFilter(childDirectoryPredicate)
+          .setExecutor(globExecutor)
+          .setFilesystemCalls(syscalls)
+          .globAsync();
+    } catch (UnixGlob.BadPattern ex) {
+      throw new BadGlobException(ex.getMessage());
+    }
   }
 
   /**
@@ -248,7 +248,7 @@ public class GlobCache {
     // block on an individual pattern's results, but the other globs can
     // continue in the background.
     for (String pattern : includes) {
-      @SuppressWarnings("unused") 
+      @SuppressWarnings("unused")
       Future<?> possiblyIgnoredError = getGlobUnsortedAsync(pattern, excludeDirs);
     }
 
@@ -264,7 +264,11 @@ public class GlobCache {
       }
       results.addAll(items);
     }
-    UnixGlob.removeExcludes(results, excludes);
+    try {
+      UnixGlob.removeExcludes(results, excludes);
+    } catch (UnixGlob.BadPattern ex) {
+      throw new BadGlobException(ex.getMessage());
+    }
     if (!allowEmpty && results.isEmpty()) {
       throw new BadGlobException(
           "all files in the glob have been excluded, but allow_empty is set to False.");

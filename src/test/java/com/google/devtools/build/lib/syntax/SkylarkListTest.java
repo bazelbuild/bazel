@@ -27,7 +27,7 @@ import org.junit.runners.JUnit4;
 
 /** Tests for Sequence. */
 @RunWith(JUnit4.class)
-public class SkylarkListTest extends EvaluationTestCase {
+public final class SkylarkListTest extends EvaluationTestCase {
 
   @Test
   public void testIndex() throws Exception {
@@ -297,7 +297,7 @@ public class SkylarkListTest extends EvaluationTestCase {
     Mutability mutability = Mutability.create("test");
     StarlarkList<String> mutableList = StarlarkList.copyOf(mutability, copyFrom);
     copyFrom.add("added1");
-    mutableList.add("added2", /*loc=*/ null);
+    mutableList.add("added2", (Location) null);
 
     assertThat(copyFrom).containsExactly("hi", "added1").inOrder();
     assertThat(mutableList).containsExactly("hi", "added2").inOrder();

@@ -241,6 +241,16 @@ public class TestConfiguration extends Fragment {
     )
     public Label coverageReportGenerator;
 
+    @Option(
+        name = "experimental_fetch_all_coverage_outputs",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.LOADING_AND_ANALYSIS},
+        help =
+            "If true, then Bazel fetches the entire coverage data directory for each test during a "
+                + "coverage run.")
+    public boolean fetchAllCoverageOutputs;
+
     @Override
     public FragmentOptions getHost() {
       TestOptions hostOptions = (TestOptions) getDefault();
@@ -248,6 +258,8 @@ public class TestConfiguration extends Fragment {
       // configuration.
       hostOptions.coverageSupport = this.coverageSupport;
       hostOptions.coverageReportGenerator = this.coverageReportGenerator;
+      // trimTestConfiguration is a global analysis option and should be platform-agnostic
+      hostOptions.trimTestConfiguration = this.trimTestConfiguration;
       return hostOptions;
     }
   }
@@ -334,6 +346,10 @@ public class TestConfiguration extends Fragment {
 
   public boolean cancelConcurrentTests() {
     return options.cancelConcurrentTests;
+  }
+
+  public boolean fetchAllCoverageOutputs() {
+    return options.fetchAllCoverageOutputs;
   }
 
   /**

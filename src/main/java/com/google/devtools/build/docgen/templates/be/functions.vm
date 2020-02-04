@@ -253,18 +253,18 @@ package_group(
 
 <p>
   <code>exports_files()</code> specifies a list of files belonging to
-  this package that are exported to other packages but not otherwise
-  mentioned in the BUILD file.
+  this package that are exported to other packages.
 </p>
 
 <p>
-  The BUILD file for a package may only refer to files belonging to another
-  package if they are mentioned somewhere in the other packages's BUILD file,
-  whether as an input to a rule or an explicit or implicit output from a rule.
-  The remaining files are not associated with a specific rule but are just "data",
-  and for these, <code>exports_files</code> ensures that they may be referenced by
-  other packages.  (One kind of data for which this is particularly useful are
-  shell scripts.)
+  The BUILD file for a package may only refer directly to source files belonging
+  to another package if they are explicitly exported with an
+  <pre>exports_files()</pre> statement.
+  As a legacy behaviour, also files mentioned as input to a rule are exported
+  with the default visibility until the flag
+  <a href="https://github.com/bazelbuild/bazel/issues/10225"><code>--incompatible_no_implicit_file_export</code></a>
+  is flipped. However, this behavior should not be relied upon and actively
+  migrated away from.
 </p>
 
 <h3 id="exports_files_args">Arguments</h3>

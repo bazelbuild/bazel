@@ -21,7 +21,6 @@ import static org.objectweb.asm.Opcodes.ACC_SYNTHETIC;
 
 import com.google.devtools.build.android.desugar.langmodel.ClassMemberRecord;
 import com.google.devtools.build.android.desugar.langmodel.FieldKey;
-import com.google.devtools.build.android.desugar.langmodel.LangModelHelper;
 import com.google.devtools.build.android.desugar.langmodel.MethodDeclInfo;
 import com.google.devtools.build.android.desugar.langmodel.MethodKey;
 import javax.annotation.Nullable;
@@ -82,9 +81,10 @@ public final class NestDesugaring extends ClassVisitor {
     classAccess = access;
     nestCompanionVisitor = nestCompanions.getCompanionClassWriter(name);
     isNestHostWithNestCompanion =
-        (nestCompanionVisitor != null) && className.equals(LangModelHelper.nestHost(className));
+        (nestCompanionVisitor != null)
+            && className.equals(nestCompanions.nestHost(className).get());
     fieldAccessBridgeEmitter = new FieldAccessBridgeEmitter();
-    methodAccessorEmitter = new MethodAccessorEmitter();
+    methodAccessorEmitter = new MethodAccessorEmitter(nestCompanions);
     super.visit(
         Math.min(version, NestDesugarConstants.MIN_VERSION),
         access,
@@ -96,7 +96,7 @@ public final class NestDesugaring extends ClassVisitor {
       nestCompanionVisitor.visit(
           Math.min(version, NestDesugarConstants.MIN_VERSION),
           ACC_SYNTHETIC | ACC_ABSTRACT,
-          LangModelHelper.nestCompanion(className),
+          nestCompanions.nestCompanion(className),
           /* signature= */ null,
           /* superName= */ "java/lang/Object",
           /* interfaces= */ new String[0]);
@@ -137,11 +137,14 @@ public final class NestDesugaring extends ClassVisitor {
           (classAccess & ACC_INTERFACE) != 0
               ? targetMethodVisitor
               : super.visitMethod(access, name, descriptor, signature, exceptions);
-      return new NestBridgeRefConverter(primaryMethodVisitor, methodKey, classMemberRecord);
+      return new NestBridgeRefConverter(
+          primaryMethodVisitor, methodKey, classMemberRecord, nestCompanions);
     }
     // In absence of method invocation record, fallback to the delegate method visitor.
     MethodVisitor mv = super.visitMethod(access, name, descriptor, signature, exceptions);
-    return mv == null ? null : new NestBridgeRefConverter(mv, methodKey, classMemberRecord);
+    return mv == null
+        ? null
+        : new NestBridgeRefConverter(mv, methodKey, classMemberRecord, nestCompanions);
   }
 
   @Override
@@ -165,7 +168,7 @@ public final class NestDesugaring extends ClassVisitor {
   @Override
   public void visitEnd() {
     if (isNestHostWithNestCompanion) {
-      String nestCompanionClassName = LangModelHelper.nestCompanion(className);
+      String nestCompanionClassName = nestCompanions.nestCompanion(className);
       // In the nest companion class, marks its outer class as the nest host.
       nestCompanionVisitor.visitInnerClass(
           nestCompanionClassName,

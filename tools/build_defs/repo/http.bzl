@@ -80,8 +80,8 @@ def _http_archive_impl(ctx):
         canonical_id = ctx.attr.canonical_id,
         auth = auth,
     )
-    patch(ctx)
     workspace_and_buildfile(ctx)
+    patch(ctx)
 
     return update_attrs(ctx.attr, _http_archive_attrs.keys(), {"sha256": download_info.sha256})
 

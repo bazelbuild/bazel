@@ -446,6 +446,15 @@ public class BuildRequestOptions extends OptionsBase {
       help = "If this flag is set, use a fork join pool in the abstract queue visitor.")
   public boolean useForkJoinPool;
 
+  @Option(
+      name = "experimental_replay_action_out_err",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      metadataTags = OptionMetadataTag.EXPERIMENTAL,
+      effectTags = {OptionEffectTag.EXECUTION},
+      help = "If this flag is set, replay action out/err on incremental builds.")
+  public boolean replayActionOutErr;
+
   /**
    * Converter for jobs: Takes keyword ({@value #FLAG_SYNTAX}). Values must be between 1 and
    * MAX_JOBS.
@@ -507,7 +516,7 @@ public class BuildRequestOptions extends OptionsBase {
     CLEAN,
     /** Will not create or clean up any symlinks. */
     IGNORE,
-    /** TODO(b/130186610): to be implemented. Will not manage the symlinks. */
+    /** Will not create or clean up any symlinks, but will record the symlinks. */
     LOG_ONLY
   }
 }

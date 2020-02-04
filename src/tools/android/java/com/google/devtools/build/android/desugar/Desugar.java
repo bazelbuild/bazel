@@ -37,6 +37,7 @@ import com.google.devtools.build.android.desugar.io.IndexedInputs;
 import com.google.devtools.build.android.desugar.io.InputFileProvider;
 import com.google.devtools.build.android.desugar.io.OutputFileProvider;
 import com.google.devtools.build.android.desugar.io.ThrowingClassLoader;
+import com.google.devtools.build.android.desugar.langmodel.ClassAttributeRecord;
 import com.google.devtools.build.android.desugar.langmodel.ClassMemberRecord;
 import com.google.devtools.build.android.desugar.langmodel.ClassMemberUseCounter;
 import com.google.devtools.build.android.desugar.nest.NestAnalyzer;
@@ -652,9 +653,11 @@ public class Desugar {
       ImmutableSet.Builder<String> interfaceLambdaMethodCollector)
       throws IOException {
     ClassMemberRecord classMemberRecord = ClassMemberRecord.create();
+    ClassAttributeRecord classAttributeRecord = ClassAttributeRecord.create();
     ImmutableList<FileContentProvider<? extends InputStream>> inputFileContents =
         inputFiles.toInputFileStreams();
-    NestCompanions nestCompanions = NestAnalyzer.analyzeNests(inputFileContents, classMemberRecord);
+    NestCompanions nestCompanions =
+        NestAnalyzer.analyzeNests(inputFileContents, classMemberRecord, classAttributeRecord);
     for (FileContentProvider<? extends InputStream> inputFileProvider : inputFileContents) {
       String inputFilename = inputFileProvider.getBinaryPathName();
       if ("module-info.class".equals(inputFilename)
@@ -1061,7 +1064,7 @@ public class Desugar {
       }
     }
 
-    if (options.desugarNestBasedPrivateAccess && classMemberRecord.hasAnyReason()) {
+    if (options.desugarNestBasedPrivateAccess) {
       visitor = new NestDesugaring(visitor, nestCompanions, classMemberRecord);
     }
 

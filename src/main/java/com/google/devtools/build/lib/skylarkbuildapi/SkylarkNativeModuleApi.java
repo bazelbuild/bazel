@@ -178,7 +178,7 @@ public interface SkylarkNativeModuleApi extends StarlarkValue {
       name = "exports_files",
       doc =
           "Specifies a list of files belonging to this package that are exported to other "
-              + "packages but not otherwise mentioned.",
+              + "packages.",
       parameters = {
         @Param(
             name = "srcs",

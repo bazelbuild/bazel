@@ -115,6 +115,7 @@ public class TestRunnerAction extends AbstractAction
   private final PathFragment testInfrastructureFailure;
   private final PathFragment baseDir;
   private final Artifact coverageData;
+  @Nullable private final Artifact coverageDirectory;
   private final TestTargetProperties testProperties;
   private final TestTargetExecutionSettings executionSettings;
   private final int shardNum;
@@ -163,6 +164,7 @@ public class TestRunnerAction extends AbstractAction
       Artifact testLog,
       Artifact cacheStatus,
       Artifact coverageArtifact,
+      @Nullable Artifact coverageDirectory,
       TestTargetProperties testProperties,
       Map<String, String> extraTestEnv,
       TestTargetExecutionSettings executionSettings,
@@ -178,7 +180,7 @@ public class TestRunnerAction extends AbstractAction
         NestedSetBuilder.wrap(Order.STABLE_ORDER, tools),
         inputs,
         runfilesSupplier,
-        nonNullAsSet(testLog, cacheStatus, coverageArtifact),
+        nonNullAsSet(testLog, cacheStatus, coverageArtifact, coverageDirectory),
         configuration.getActionEnvironment());
     Preconditions.checkState((collectCoverageScript == null) == (coverageArtifact == null));
     this.testSetupScript = testSetupScript;
@@ -190,6 +192,7 @@ public class TestRunnerAction extends AbstractAction
     this.testLog = testLog;
     this.cacheStatus = cacheStatus;
     this.coverageData = coverageArtifact;
+    this.coverageDirectory = coverageDirectory;
     this.shardNum = shardNum;
     this.runNumber = runNumber;
     this.testProperties = Preconditions.checkNotNull(testProperties);
@@ -257,7 +260,10 @@ public class TestRunnerAction extends AbstractAction
     outputs.add(ActionInputHelper.fromPath(getUndeclaredOutputsManifestPath()));
     outputs.add(ActionInputHelper.fromPath(getUndeclaredOutputsAnnotationsPath()));
     if (isCoverageMode()) {
-      outputs.add(getCoverageData());
+      outputs.add(coverageData);
+      if (coverageDirectory != null) {
+        outputs.add(coverageDirectory);
+      }
     }
     return outputs;
   }
@@ -702,11 +708,18 @@ public class TestRunnerAction extends AbstractAction
    * execution with exception of the locally generated *.gcda files. Those are stored separately
    * using relative path within coverage directory.
    *
-   * <p>The directory name for the given test runner action is constructed as: {@code
+   * <p>If the coverageDirectory field is set, then its exec path is returned. This is a tree
+   * artifact, meaning that all files in the corresponding directories are returned from sandboxed
+   * or remote execution.
+   *
+   * <p>Otherwise, the directory name for the given test runner action is constructed as: {@code
    * _coverage/target_path/test_log_name} where {@code test_log_name} is usually a target name but
    * potentially can include extra suffix, such as a shard number (if test execution was sharded).
    */
   public PathFragment getCoverageDirectory() {
+    if (coverageDirectory != null) {
+      return coverageDirectory.getExecPath();
+    }
     return COVERAGE_TMP_ROOT.getRelative(
         FileSystemUtils.removeExtension(getTestLog().getRootRelativePath()));
   }
@@ -1083,12 +1096,14 @@ public class TestRunnerAction extends AbstractAction
     private ActionContinuationOrResult process(TestAttemptResult result, int actualMaxAttempts)
         throws ExecException, IOException, InterruptedException {
       spawnResults.addAll(result.spawnResults());
-      if (result.hasPassed()) {
+      TestAttemptResult.Result testResult = result.result();
+      if (testResult == TestAttemptResult.Result.PASSED) {
         if (cancelFuture != null) {
           cancelFuture.cancel(true);
         }
       } else {
-        boolean runAnotherAttempt = failedAttempts.size() + 1 < actualMaxAttempts;
+        boolean runAnotherAttempt =
+            testResult.canRetry() && failedAttempts.size() + 1 < actualMaxAttempts;
         TestRunnerSpawn nextRunner;
         if (runAnotherAttempt) {
           nextRunner = testRunnerSpawn;
@@ -1130,11 +1145,10 @@ public class TestRunnerAction extends AbstractAction
       }
       testRunnerSpawn.finalizeTest(result, failedAttempts);
 
-      if (!keepGoing && !result.hasPassed()) {
+      if (!keepGoing && testResult != TestAttemptResult.Result.PASSED) {
         throw new TestExecException("Test failed: aborting");
       }
       return ActionContinuationOrResult.of(ActionResult.create(spawnResults));
     }
   }
 }
-

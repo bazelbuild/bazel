@@ -19,6 +19,7 @@ import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.android.desugar.io.FileContentProvider;
+import com.google.devtools.build.android.desugar.langmodel.ClassAttributeRecord;
 import com.google.devtools.build.android.desugar.langmodel.ClassMemberRecord;
 import com.google.devtools.build.android.desugar.testing.junit.DesugarRule;
 import com.google.devtools.build.android.desugar.testing.junit.DesugarRunner;
@@ -29,7 +30,6 @@ import com.google.devtools.build.android.desugar.testing.junit.RuntimeJarEntry;
 import java.io.IOException;
 import java.io.InputStream;
 import java.lang.invoke.MethodHandles;
-import java.nio.file.Paths;
 import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
 import org.junit.Rule;
@@ -44,7 +44,7 @@ public final class NestAnalyzerTest {
   @Rule
   public final DesugarRule desugarRule =
       DesugarRule.builder(this, MethodHandles.lookup())
-          .addSourceInputs(Paths.get(System.getProperty("input_srcs")))
+          .addSourceInputsFromJvmFlag("input_srcs")
           .addJavacOptions("-source 11", "-target 11")
           .setWorkingJavaPackage(
               "com.google.devtools.build.android.desugar.nest.testsrc.nestanalyzer")
@@ -52,12 +52,15 @@ public final class NestAnalyzerTest {
           .build();
 
   private final ClassMemberRecord classMemberRecord = ClassMemberRecord.create();
-  private final NestCompanions nestCompanions = NestCompanions.create(classMemberRecord);
+  private final ClassAttributeRecord classAttributeRecord = ClassAttributeRecord.create();
+  private final NestCompanions nestCompanions =
+      NestCompanions.create(classMemberRecord, classAttributeRecord);
 
   @Test
   public void emptyInputFiles() throws IOException {
     NestAnalyzer nestAnalyzer =
-        new NestAnalyzer(ImmutableList.of(), nestCompanions, classMemberRecord);
+        new NestAnalyzer(
+            ImmutableList.of(), nestCompanions, classMemberRecord, classAttributeRecord);
     nestAnalyzer.analyze();
     assertThat(nestCompanions.getAllCompanionClasses()).isEmpty();
   }
@@ -80,7 +83,8 @@ public final class NestAnalyzerTest {
                             entry.getName(), () -> getJarEntryInputStream(jarFile, entry)))
                 .collect(toImmutableList()),
             nestCompanions,
-            classMemberRecord);
+            classMemberRecord,
+            classAttributeRecord);
 
     nestAnalyzer.analyze();
 

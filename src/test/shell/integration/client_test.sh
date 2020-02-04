@@ -153,6 +153,20 @@ function test_nonwritable_output_base() {
   expect_log "FATAL.* Output base directory '/' must be readable and writable."
 }
 
+function test_install_base_races_dont_leave_temp_files() {
+  declare -a client_pids
+  for i in {1..3}; do
+    bazel --install_base="$TEST_TMPDIR/race/install" \
+        --output_base="$TEST_TMPDIR/out$i" info install_base &
+    client_pids+=($!)
+  done
+  for pid in "${client_pids[@]}"; do
+    wait $pid
+  done
+  # Expect "install" to be the only thing in the "race" directory.
+  assert_equals "install" "$(ls "$TEST_TMPDIR/race/")"
+}
+
 function test_no_arguments() {
   bazel >&$TEST_log || fail "Expected zero exit"
   expect_log "Usage: b\\(laze\\|azel\\)"

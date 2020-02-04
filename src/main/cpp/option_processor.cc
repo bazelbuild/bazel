@@ -563,7 +563,7 @@ static bool IsValidEnvName(const char* p) {
 #if defined(_WIN32) || defined(__CYGWIN__)
   for (; *p && *p != '='; ++p) {
     if (!((*p >= 'a' && *p <= 'z') || (*p >= 'A' && *p <= 'Z') ||
-          (*p >= '0' && *p <= '9') || *p == '_')) {
+          (*p >= '0' && *p <= '9') || *p == '_' || *p == '(' || *p == ')')) {
       return false;
     }
   }

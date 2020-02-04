@@ -211,6 +211,8 @@ public class CompactPersistentActionCache implements ActionCache {
           .glob()) {
         path.renameTo(path.getParentDirectory().getChild(path.getBaseName() + ".bad"));
       }
+    } catch (UnixGlob.BadPattern ex) {
+      throw new IllegalStateException(ex); // can't happen
     } catch (IOException e) {
       // do nothing
     }

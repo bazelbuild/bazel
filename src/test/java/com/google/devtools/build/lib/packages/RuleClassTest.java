@@ -55,6 +55,7 @@ import com.google.devtools.build.lib.packages.RuleClass.Builder.ThirdPartyLicens
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory;
 import com.google.devtools.build.lib.packages.RuleFactory.BuildLangTypedAttributeValuesMap;
 import com.google.devtools.build.lib.packages.util.PackageLoadingTestCase;
+import com.google.devtools.build.lib.syntax.Module;
 import com.google.devtools.build.lib.syntax.StarlarkFunction;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
@@ -908,7 +909,9 @@ public class RuleClassTest extends PackageLoadingTestCase {
         /*optionReferenceFunction=*/ RuleClass.NO_OPTION_REFERENCE,
         ruleDefinitionStarlarkThread == null
             ? null
-            : (Label) ruleDefinitionStarlarkThread.getGlobals().getLabel(),
+            : (Label)
+                Module.ofInnermostEnclosingStarlarkFunction(ruleDefinitionStarlarkThread)
+                    .getLabel(),
         ruleDefinitionStarlarkThreadHashCode,
         new ConfigurationFragmentPolicy.Builder()
             .requiresConfigurationFragments(allowedConfigurationFragments)

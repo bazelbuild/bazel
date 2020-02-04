@@ -89,7 +89,8 @@ public final class BuildEventServiceUploader implements Runnable {
   private static final Logger logger = Logger.getLogger(BuildEventServiceUploader.class.getName());
 
   /** Configuration knobs related to RPC retries. Values chosen by good judgement. */
-  private static final int MAX_NUM_RETRIES = 4;
+  private static final int MAX_NUM_RETRIES =
+      Integer.parseInt(System.getProperty("BAZEL_BES_NUM_RETRIES_ON_RPC_FAILURE", "4"));
 
   private static final int DELAY_MILLIS = 1000;
 

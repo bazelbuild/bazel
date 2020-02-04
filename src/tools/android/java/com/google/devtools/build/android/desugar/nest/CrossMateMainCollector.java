@@ -14,6 +14,9 @@
 
 package com.google.devtools.build.android.desugar.nest;
 
+import com.google.devtools.build.android.desugar.langmodel.ClassAttributeRecord;
+import com.google.devtools.build.android.desugar.langmodel.ClassAttributes;
+import com.google.devtools.build.android.desugar.langmodel.ClassAttributes.ClassAttributesBuilder;
 import com.google.devtools.build.android.desugar.langmodel.ClassMemberKey;
 import com.google.devtools.build.android.desugar.langmodel.ClassMemberRecord;
 import com.google.devtools.build.android.desugar.langmodel.FieldKey;
@@ -33,19 +36,25 @@ final class CrossMateMainCollector extends ClassVisitor {
   /** The project-wise class member records. */
   private final ClassMemberRecord memberRecord;
 
+  private final ClassAttributeRecord classAttributeRecord;
+
   /**
    * An class member record to stage member record candidates, merging into the project-wise member
    * record during the {@link #visitEnd()} where eligible conditions are specified.
    */
   private final ClassMemberRecord stagingMemberRecord = ClassMemberRecord.create();
 
+  private final ClassAttributesBuilder classAttributesBuilder = ClassAttributes.builder();
+
   private String className;
   private int classAccessCode;
   private boolean isInNest;
 
-  public CrossMateMainCollector(ClassMemberRecord memberRecord) {
+  public CrossMateMainCollector(
+      ClassMemberRecord memberRecord, ClassAttributeRecord classAttributeRecord) {
     super(Opcodes.ASM7);
     this.memberRecord = memberRecord;
+    this.classAttributeRecord = classAttributeRecord;
   }
 
   @Override
@@ -58,6 +67,7 @@ final class CrossMateMainCollector extends ClassVisitor {
       String[] interfaces) {
     className = name;
     classAccessCode = access;
+    classAttributesBuilder.setClassBinaryName(className);
     super.visit(
         Math.min(version, NestDesugarConstants.MIN_VERSION),
         access,
@@ -105,12 +115,14 @@ final class CrossMateMainCollector extends ClassVisitor {
   @Override
   public void visitNestHost(String nestHost) {
     isInNest = true;
+    classAttributesBuilder.setNestHost(nestHost);
     super.visitNestHost(nestHost);
   }
 
   @Override
   public void visitNestMember(String nestMember) {
     isInNest = true;
+    classAttributesBuilder.addNestMember(nestMember);
     super.visitNestMember(nestMember);
   }
 
@@ -119,6 +131,7 @@ final class CrossMateMainCollector extends ClassVisitor {
     if (isInNest || (classAccessCode & Opcodes.ACC_INTERFACE) != 0) {
       memberRecord.mergeFrom(stagingMemberRecord);
     }
+    classAttributeRecord.setClassAttributes(classAttributesBuilder.build());
     super.visitEnd();
   }
 

@@ -19,6 +19,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.android.desugar.io.FileContentProvider;
+import com.google.devtools.build.android.desugar.langmodel.ClassAttributeRecord;
 import com.google.devtools.build.android.desugar.langmodel.ClassMemberRecord;
 import java.io.IOException;
 import java.io.InputStream;
@@ -33,6 +34,7 @@ public class NestAnalyzer {
   private final ImmutableList<FileContentProvider<? extends InputStream>> inputFileContents;
   private final NestCompanions nestCompanions;
   private final ClassMemberRecord classMemberRecord;
+  private final ClassAttributeRecord classAttributeRecord;
 
   /**
    * Perform a nest-based analysis of input classes, including tracking private member access
@@ -42,11 +44,13 @@ public class NestAnalyzer {
    */
   public static NestCompanions analyzeNests(
       ImmutableList<FileContentProvider<? extends InputStream>> inputFileContents,
-      ClassMemberRecord classMemberRecord)
+      ClassMemberRecord classMemberRecord,
+      ClassAttributeRecord classAttributeRecord)
       throws IOException {
-    NestCompanions nestCompanions = NestCompanions.create(classMemberRecord);
+    NestCompanions nestCompanions = NestCompanions.create(classMemberRecord, classAttributeRecord);
     NestAnalyzer nestAnalyzer =
-        new NestAnalyzer(inputFileContents, nestCompanions, classMemberRecord);
+        new NestAnalyzer(
+            inputFileContents, nestCompanions, classMemberRecord, classAttributeRecord);
     nestAnalyzer.analyze();
     return nestCompanions;
   }
@@ -55,10 +59,12 @@ public class NestAnalyzer {
   NestAnalyzer(
       ImmutableList<FileContentProvider<? extends InputStream>> inputFileContents,
       NestCompanions nestCompanions,
-      ClassMemberRecord classMemberRecord) {
+      ClassMemberRecord classMemberRecord,
+      ClassAttributeRecord classAttributeRecord) {
     this.inputFileContents = checkNotNull(inputFileContents);
     this.nestCompanions = checkNotNull(nestCompanions);
     this.classMemberRecord = checkNotNull(classMemberRecord);
+    this.classAttributeRecord = classAttributeRecord;
   }
 
   /** Performs class member declaration and usage analysis of files. */
@@ -68,13 +74,13 @@ public class NestAnalyzer {
       if (inputClassFile.isClassFile()) {
         try (InputStream inputStream = inputClassFile.get()) {
           ClassReader cr = new ClassReader(inputStream);
-          CrossMateMainCollector cv = new CrossMateMainCollector(classMemberRecord);
+          CrossMateMainCollector cv =
+              new CrossMateMainCollector(classMemberRecord, classAttributeRecord);
           cr.accept(cv, 0);
         }
       }
     }
     classMemberRecord.filterUsedMemberWithTrackedDeclaration();
-    nestCompanions.prepareCompanionClassWriters();
+    nestCompanions.prepareCompanionClasses();
   }
-
 }

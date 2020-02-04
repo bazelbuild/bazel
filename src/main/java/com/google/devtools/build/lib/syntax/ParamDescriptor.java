@@ -40,7 +40,7 @@ final class ParamDescriptor {
 
   private ParamDescriptor(
       String name,
-      @Nullable String defaultExpr,
+      String defaultExpr,
       Class<?> type,
       Class<?> generic1,
       boolean noneable,
@@ -191,19 +191,40 @@ final class ParamDescriptor {
               .useDefaultSemantics()
               .setGlobals(Module.createForBuiltins(Starlark.UNIVERSE))
               .build();
-      thread.getGlobals().put("unbound", Starlark.UNBOUND);
+
+      // Disable polling of the java.lang.Thread.interrupt flag during
+      // Starlark evaluation. Assuming the expression does not call a
+      // built-in that throws InterruptedException, this allows us to
+      // assert that InterruptedException "can't happen".
+      //
+      // Bazel Java threads are routinely interrupted during Starlark execution,
+      // and the Starlark interpreter may be in a call to LoadingCache (in CallUtils).
+      // LoadingCache computes the cache entry in the same thread that first
+      // requested the entry, propagating undesirable thread state (which Einstein
+      // called "spooky action at a distance") from an arbitrary application thread
+      // to here, which is logically one-time initialization code.
+      //
+      // A simpler non-solution would be to use a "clean" pool thread
+      // to compute each cache entry; we could safely assume such a thread
+      // is never interrupted. However, this runs afoul of JVM class initialization:
+      // the initialization of Starlark.UNIVERSE depends on Starlark.UNBOUND
+      // because of the reference above. That's fine if they are initialized by
+      // the same thread, as JVM class initialization locks are reentrant,
+      // but the reference deadlocks if made from another thread.
+      // See https://docs.oracle.com/javase/specs/jls/se12/html/jls-12.html#jls-12.4
+      thread.ignoreThreadInterrupts();
+
       x = EvalUtils.eval(ParserInput.fromLines(expr), thread);
-      defaultValueCache.put(expr, x);
-      return x;
-    } catch (Exception ex) {
-      if (ex instanceof InterruptedException) {
-        Thread.currentThread().interrupt();
-      }
+    } catch (InterruptedException ex) {
+      throw new IllegalStateException(ex); // can't happen
+    } catch (SyntaxError | EvalException ex) {
       throw new IllegalArgumentException(
           String.format(
-              "while evaluating default value '%s' of parameter '%s': %s",
-              expr, name, ex.getMessage()));
+              "failed to evaluate default value '%s' of parameter '%s': %s",
+              expr, name, ex.getMessage()),
+          ex);
     }
+    defaultValueCache.put(expr, x);
+    return x;
   }
-
 }

@@ -403,7 +403,7 @@ public final class JavaCompilationHelper {
   private boolean shouldInstrumentJar() {
     RuleContext ruleContext = getRuleContext();
     return getConfiguration().isCodeCoverageEnabled()
-        && attributes.hasSources()
+        && attributes.hasSourceFiles()
         && InstrumentedFilesCollector.shouldIncludeLocalSources(
             ruleContext.getConfiguration(), ruleContext.getLabel(), ruleContext.isTestTarget());
   }

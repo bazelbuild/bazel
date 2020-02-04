@@ -17,22 +17,25 @@ package com.google.devtools.build.lib.exec;
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.SpawnResult;
+import com.google.devtools.build.lib.analysis.test.TestActionContext;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
 import com.google.devtools.build.lib.view.test.TestStatus.BlazeTestStatus;
 import com.google.devtools.build.lib.view.test.TestStatus.TestResultData;
-import java.util.List;
 
 /** Contains information about the results of test execution. */
 @AutoValue
-public abstract class StandaloneTestResult implements TestStrategy.TestAttemptResult {
+public abstract class StandaloneTestResult implements TestActionContext.TestAttemptResult {
   @Override
-  public boolean hasPassed() {
-    return testResultDataBuilder().getStatus() == BlazeTestStatus.PASSED;
+  public TestActionContext.TestAttemptResult.Result result() {
+    // TODO(b/148785690): Establish proper retry policy for flaky tests in StandaloneTestStrategy.
+    return testResultDataBuilder().getStatus() == BlazeTestStatus.PASSED
+        ? Result.PASSED
+        : Result.FAILED_CAN_RETRY;
   }
 
   /** Returns the SpawnResults created by the test, if any. */
   @Override
-  public abstract List<SpawnResult> spawnResults();
+  public abstract ImmutableList<SpawnResult> spawnResults();
 
   /** Returns the TestResultData for the test. */
   public abstract TestResultData.Builder testResultDataBuilder();
@@ -49,10 +52,10 @@ public abstract class StandaloneTestResult implements TestStrategy.TestAttemptRe
   public abstract static class Builder {
 
     /** Returns the SpawnResults for the test, if any. */
-    abstract List<SpawnResult> spawnResults();
+    abstract ImmutableList<SpawnResult> spawnResults();
 
     /** Sets the SpawnResults for the test. */
-    public abstract Builder setSpawnResults(List<SpawnResult> spawnResults);
+    public abstract Builder setSpawnResults(ImmutableList<SpawnResult> spawnResults);
 
     /** Sets the TestResultData for the test. */
     public abstract Builder setTestResultDataBuilder(TestResultData.Builder testResultDataBuilder);
@@ -68,7 +71,7 @@ public abstract class StandaloneTestResult implements TestStrategy.TestAttemptRe
      * <p>The list of SpawnResults is also made immutable here.
      */
     public StandaloneTestResult build() {
-      return this.setSpawnResults(ImmutableList.copyOf(spawnResults())).realBuild();
+      return this.setSpawnResults(spawnResults()).realBuild();
     }
   }
 }

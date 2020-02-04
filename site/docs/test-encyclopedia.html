@@ -130,6 +130,11 @@ test's <code>size</code> as follows:</p>
 900 seconds to run. A "medium" test with a timeout of "short" will be allotted
 60 seconds.</p>
 
+<p>Unlike <code>timeout</code>, the <code>size</code> also determines the
+limits for other resources like RAM, as described in
+<a href="be/common-definitions.html?cl=head#common-attributes-tests">Common
+definitions</a>.</p>
+
 <p>All combinations of <code>size</code> and <code>timeout</code> labels are
 legal, so an "enormous" test may be declared to have a timeout of "short".
 Presumably it would do some really horrible things very quickly.</p>
@@ -423,7 +428,7 @@ prematurely and mark it as having failed.</p>
 <p>
   Some tags in the test rules have a special
   meaning. See also the <a href="be/common-definitions.html#common.tags">Bazel
-  Build Encyplopedia on the <code>tags</code> attribute</a>.
+  Build Encyclopedia on the <code>tags</code> attribute</a>.
 </p>
 
 <table class="table table-bordered table-striped table-condensed">
@@ -446,7 +451,7 @@ prematurely and mark it as having failed.</p>
     </tr>
 
     <tr>
-      <th><code>manual*</code></th>
+      <th><code>manual</code>*</th>
 
       <td>don't include test target in wildcard target patterns like <code>:...</code>, <code>:*</code>, or <code>:all</code>)</td>
     </tr>

@@ -390,9 +390,10 @@ final class Parser {
     }
   }
 
-  // create an error expression
   private Identifier makeErrorExpression(int start, int end) {
-    // TODO(adonovan): replace this with a dedicated BadExpression node.
+    // It's tempting to define a dedicated BadExpression type,
+    // but it is convenient for parseIdent to return an Identifier
+    // even when it fails.
     return setLocation(Identifier.of("$error$"), start, end);
   }
 

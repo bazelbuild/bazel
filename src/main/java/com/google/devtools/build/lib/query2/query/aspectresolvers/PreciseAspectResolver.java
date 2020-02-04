@@ -51,17 +51,21 @@ public class PreciseAspectResolver implements AspectResolver {
   @Override
   public ImmutableMultimap<Attribute, Label> computeAspectDependencies(
       Target target, DependencyFilter dependencyFilter) throws InterruptedException {
+    if (!(target instanceof Rule)) {
+      return ImmutableMultimap.of();
+    }
+    Rule rule = (Rule) target;
+    if (!rule.hasAspects()) {
+      return ImmutableMultimap.of();
+    }
     Multimap<Attribute, Label> result = LinkedListMultimap.create();
-    if (target instanceof Rule) {
-      Rule rule = (Rule) target;
-      Multimap<Attribute, Label> transitions =
-          rule.getTransitions(DependencyFilter.NO_NODEP_ATTRIBUTES);
-      for (Attribute attribute : transitions.keySet()) {
-        for (Aspect aspect : attribute.getAspects(rule)) {
-          if (hasDepThatSatisfies(aspect, transitions.get(attribute))) {
-            AspectDefinition.forEachLabelDepFromAllAttributesOfAspect(
-                rule, aspect, dependencyFilter, result::put);
-          }
+    Multimap<Attribute, Label> transitions =
+        rule.getTransitions(DependencyFilter.NO_NODEP_ATTRIBUTES);
+    for (Attribute attribute : transitions.keySet()) {
+      for (Aspect aspect : attribute.getAspects(rule)) {
+        if (hasDepThatSatisfies(aspect, transitions.get(attribute))) {
+          AspectDefinition.forEachLabelDepFromAllAttributesOfAspect(
+              rule, aspect, dependencyFilter, result::put);
         }
       }
     }

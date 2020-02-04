@@ -21,7 +21,6 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkInterfaceUtils;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.syntax.Concatable.Concatter;
 import com.google.devtools.build.lib.util.SpellChecker;
 import java.util.IllegalFormatException;
 import java.util.List;
@@ -217,10 +216,6 @@ public final class EvalUtils {
         Depset set = (Depset) object;
         return "depset of " + set.getContentType() + "s";
       }
-      if (object instanceof SelectorList) {
-        SelectorList list = (SelectorList) object;
-        return "select of " + getDataTypeNameFromClass(list.getType());
-      }
     }
     return getDataTypeNameFromClass(object.getClass());
   }
@@ -257,8 +252,6 @@ public final class EvalUtils {
     } else if (StarlarkCallable.class.isAssignableFrom(c)) {
       // TODO(adonovan): each StarlarkCallable should report its own type string.
       return "function";
-    } else if (c.equals(SelectorValue.class)) {
-      return "select";
     } else {
       if (c.getSimpleName().isEmpty()) {
         return c.getName();
@@ -269,15 +262,15 @@ public final class EvalUtils {
   }
 
   public static void lock(Object object, Location loc) {
-    if (object instanceof StarlarkMutable) {
-      StarlarkMutable x = (StarlarkMutable) object;
+    if (object instanceof Mutability.Freezable) {
+      Mutability.Freezable x = (Mutability.Freezable) object;
       x.mutability().lock(x, loc);
     }
   }
 
   public static void unlock(Object object, Location loc) {
-    if (object instanceof StarlarkMutable) {
-      StarlarkMutable x = (StarlarkMutable) object;
+    if (object instanceof Mutability.Freezable) {
+      Mutability.Freezable x = (Mutability.Freezable) object;
       x.mutability().unlock(x, loc);
     }
   }
@@ -374,75 +367,285 @@ public final class EvalUtils {
   }
 
   /** Evaluates an eager binary operation, {@code x op y}. (Excludes AND and OR.) */
-  static Object binaryOp(TokenKind op, Object x, Object y, StarlarkThread thread, Location location)
+  static Object binaryOp(
+      TokenKind op, Object x, Object y, StarlarkSemantics semantics, Mutability mu)
       throws EvalException {
-    try {
-      switch (op) {
-        case PLUS:
-          return plus(x, y, thread, location);
+    switch (op) {
+      case PLUS:
+        if (x instanceof Integer) {
+          if (y instanceof Integer) {
+            // int + int
+            int xi = (Integer) x;
+            int yi = (Integer) y;
+            int z = xi + yi;
+            // Overflow Detection, §2-13 Hacker's Delight:
+            // "operands have the same sign and the sum
+            // has a sign opposite to that of the operands."
+            if (((xi ^ z) & (yi ^ z)) < 0) {
+              throw Starlark.errorf("integer overflow in addition");
+            }
+            return z;
+          }
 
-        case PIPE:
-          return pipe(thread.getSemantics(), x, y);
+        } else if (x instanceof String) {
+          if (y instanceof String) {
+            // string + string
+            return (String) x + (String) y;
+          }
 
-        case AMPERSAND:
-          return and(x, y);
+        } else if (x instanceof Tuple) {
+          if (y instanceof Tuple) {
+            // tuple + tuple
+            return Tuple.concat((Tuple<?>) x, (Tuple<?>) y);
+          }
 
-        case CARET:
-          return xor(x, y);
+        } else if (x instanceof StarlarkList) {
+          if (y instanceof StarlarkList) {
+            // list + list
+            return StarlarkList.concat((StarlarkList<?>) x, (StarlarkList<?>) y, mu);
+          }
 
-        case GREATER_GREATER:
-          return rightShift(x, y);
+        } else if (x instanceof Depset) {
+          // depset + any
+          // TODO(bazel-team): Remove deprecated operator.
+          if (semantics.incompatibleDepsetUnion()) {
+            throw Starlark.errorf(
+                "`+` operator on a depset is forbidden. See "
+                    + "https://docs.bazel.build/versions/master/skylark/depsets.html for "
+                    + "recommendations. Use --incompatible_depset_union=false "
+                    + "to temporarily disable this check.");
+          }
+          return Depset.unionOf((Depset) x, y);
+        }
+        break;
 
-        case LESS_LESS:
-          return leftShift(x, y);
+      case PIPE:
+        if (x instanceof Integer) {
+          if (y instanceof Integer) {
+            // int | int
+            return ((Integer) x) | (Integer) y;
+          }
+        } else if (x instanceof Depset) {
+          // depset | any
+          if (semantics.incompatibleDepsetUnion()) {
+            throw Starlark.errorf(
+                "`|` operator on a depset is forbidden. See "
+                    + "https://docs.bazel.build/versions/master/skylark/depsets.html for "
+                    + "recommendations. Use --incompatible_depset_union=false "
+                    + "to temporarily disable this check.");
+          }
+          return Depset.unionOf((Depset) x, y);
+        }
+        break;
 
-        case MINUS:
-          return minus(x, y);
+      case AMPERSAND:
+        if (x instanceof Integer && y instanceof Integer) {
+          // int & int
+          return (Integer) x & (Integer) y;
+        }
+        break;
 
-        case STAR:
-          return star(thread.mutability(), x, y);
+      case CARET:
+        if (x instanceof Integer && y instanceof Integer) {
+          // int ^ int
+          return (Integer) x ^ (Integer) y;
+        }
+        break;
 
-        case SLASH:
-          throw Starlark.errorf(
-              "The `/` operator is not allowed. Please use the `//` operator for integer"
-                  + " division.");
+      case GREATER_GREATER:
+        if (x instanceof Integer && y instanceof Integer) {
+          // int >> int
+          int xi = (Integer) x;
+          int yi = (Integer) y;
+          if (yi < 0) {
+            throw Starlark.errorf("negative shift count: %d", yi);
+          } else if (yi >= Integer.SIZE) {
+            return xi < 0 ? -1 : 0;
+          }
+          return xi >> yi;
+        }
+        break;
 
-        case SLASH_SLASH:
-          return slash(x, y);
+      case LESS_LESS:
+        if (x instanceof Integer && y instanceof Integer) {
+          // int << int
+          int xi = (Integer) x;
+          int yi = (Integer) y;
+          if (yi < 0) {
+            throw Starlark.errorf("negative shift count: %d", yi);
+          }
+          int z = xi << yi;
+          if (z >> yi != xi) {
+            throw Starlark.errorf("integer overflow");
+          }
+          return z;
+        }
+        break;
 
-        case PERCENT:
-          return percent(x, y);
+      case MINUS:
+        if (x instanceof Integer && y instanceof Integer) {
+          // int - int
+          int xi = (Integer) x;
+          int yi = (Integer) y;
+          int z = xi - yi;
+          if (((xi ^ yi) & (xi ^ z)) < 0) {
+            throw Starlark.errorf("integer overflow in subtraction");
+          }
+          return z;
+        }
+        break;
 
-        case EQUALS_EQUALS:
-          return x.equals(y);
+      case STAR:
+        if (x instanceof Integer) {
+          int xi = (Integer) x;
+          if (y instanceof Integer) {
+            // int * int
+            long z = (long) xi * (long) (Integer) y;
+            if ((int) z != z) {
+              throw Starlark.errorf("integer overflow in multiplication");
+            }
+            return (int) z;
+          } else if (y instanceof String) {
+            // int * string
+            return repeatString((String) y, xi);
+          } else if (y instanceof Tuple) {
+            //  int * tuple
+            return ((Tuple<?>) y).repeat(xi);
+          } else if (y instanceof StarlarkList) {
+            // int * list
+            return ((StarlarkList<?>) y).repeat(xi, mu);
+          }
 
-        case NOT_EQUALS:
-          return !x.equals(y);
+        } else if (x instanceof String) {
+          if (y instanceof Integer) {
+            // string * int
+            return repeatString((String) x, (Integer) y);
+          }
 
-        case LESS:
-          return compare(x, y) < 0;
+        } else if (x instanceof Tuple) {
+          if (y instanceof Integer) {
+            // tuple * int
+            return ((Tuple<?>) x).repeat((Integer) y);
+          }
 
-        case LESS_EQUALS:
-          return compare(x, y) <= 0;
+        } else if (x instanceof StarlarkList) {
+          if (y instanceof Integer) {
+            // list * int
+            return ((StarlarkList<?>) x).repeat((Integer) y, mu);
+          }
+        }
+        break;
 
-        case GREATER:
-          return compare(x, y) > 0;
+      case SLASH:
+        throw Starlark.errorf("The `/` operator is not allowed. For integer division, use `//`.");
 
-        case GREATER_EQUALS:
-          return compare(x, y) >= 0;
+      case SLASH_SLASH:
+        if (x instanceof Integer && y instanceof Integer) {
+          // int // int
+          int xi = (Integer) x;
+          int yi = (Integer) y;
+          if (yi == 0) {
+            throw Starlark.errorf("integer division by zero");
+          }
+          // http://python-history.blogspot.com/2010/08/why-pythons-integer-division-floors.html
+          int quo = xi / yi;
+          int rem = xi % yi;
+          if ((xi < 0) != (yi < 0) && rem != 0) {
+            quo--;
+          }
+          return quo;
+        }
+        break;
 
-        case IN:
-          return in(thread.getSemantics(), x, y);
+      case PERCENT:
+        if (x instanceof Integer) {
+          if (y instanceof Integer) {
+            // int % int
+            int xi = (Integer) x;
+            int yi = (Integer) y;
+            if (yi == 0) {
+              throw Starlark.errorf("integer modulo by zero");
+            }
+            // In Starlark, the sign of the result is the sign of the divisor.
+            int z = xi % yi;
+            if ((xi < 0) != (yi < 0) && z != 0) {
+              z += yi;
+            }
+            return z;
+          }
 
-        case NOT_IN:
-          return !in(thread.getSemantics(), x, y);
+        } else if (x instanceof String) {
+          // string % any
+          String xs = (String) x;
+          try {
+            if (y instanceof Tuple) {
+              return Starlark.formatWithList(xs, (Tuple) y);
+            } else {
+              return Starlark.format(xs, y);
+            }
+          } catch (IllegalFormatException ex) {
+            throw new EvalException(null, ex.getMessage());
+          }
+        }
+        break;
 
-        default:
-          throw new AssertionError("Unsupported binary operator: " + op);
-      }
-    } catch (ArithmeticException ex) {
-      throw new EvalException(null, ex.getMessage());
+      case EQUALS_EQUALS:
+        return x.equals(y);
+
+      case NOT_EQUALS:
+        return !x.equals(y);
+
+      case LESS:
+        return compare(x, y) < 0;
+
+      case LESS_EQUALS:
+        return compare(x, y) <= 0;
+
+      case GREATER:
+        return compare(x, y) > 0;
+
+      case GREATER_EQUALS:
+        return compare(x, y) >= 0;
+
+      case IN:
+        if (y instanceof SkylarkQueryable) {
+          return ((SkylarkQueryable) y).containsKey(semantics, x);
+        } else if (y instanceof String) {
+          if (!(x instanceof String)) {
+            throw Starlark.errorf(
+                "'in <string>' requires string as left operand, not '%s'", Starlark.type(x));
+          }
+          return ((String) y).contains((String) x);
+        }
+        break;
+
+      case NOT_IN:
+        Object z = binaryOp(TokenKind.IN, x, y, semantics, mu);
+        if (z != null) {
+          return !Starlark.truth(z);
+        }
+        break;
+
+      default:
+        throw new AssertionError("not a binary operator: " + op);
     }
+
+    // custom binary operator?
+    if (x instanceof HasBinary) {
+      Object z = ((HasBinary) x).binaryOp(op, y, true);
+      if (z != null) {
+        return z;
+      }
+    }
+    if (y instanceof HasBinary) {
+      Object z = ((HasBinary) y).binaryOp(op, x, false);
+      if (z != null) {
+        return z;
+      }
+    }
+
+    throw Starlark.errorf(
+        "unsupported binary operation: %s %s %s", Starlark.type(x), op, Starlark.type(y));
   }
 
   /** Implements comparison operators. */
@@ -454,232 +657,8 @@ public final class EvalUtils {
     }
   }
 
-  /** Implements 'x + y'. */
-  // StarlarkThread is needed for Mutability and Semantics.
-  // Location is exposed to Selector{List,Value} and Concatter.
-  static Object plus(Object x, Object y, StarlarkThread thread, Location location)
-      throws EvalException {
-    // int + int
-    if (x instanceof Integer && y instanceof Integer) {
-      return Math.addExact((Integer) x, (Integer) y);
-    }
-
-    // string + string
-    if (x instanceof String && y instanceof String) {
-      return (String) x + (String) y;
-    }
-
-    if (x instanceof SelectorValue
-        || y instanceof SelectorValue
-        || x instanceof SelectorList
-        || y instanceof SelectorList) {
-      return SelectorList.concat(location, x, y);
-    }
-
-    if (x instanceof Tuple && y instanceof Tuple) {
-      return Tuple.concat((Tuple<?>) x, (Tuple<?>) y);
-    }
-
-    if (x instanceof StarlarkList && y instanceof StarlarkList) {
-      return StarlarkList.concat((StarlarkList<?>) x, (StarlarkList<?>) y, thread.mutability());
-    }
-
-    if (x instanceof Concatable && y instanceof Concatable) {
-      Concatable lobj = (Concatable) x;
-      Concatable robj = (Concatable) y;
-      Concatter concatter = lobj.getConcatter();
-      if (concatter != null && concatter.equals(robj.getConcatter())) {
-        return concatter.concat(lobj, robj, location);
-      } else {
-        throw unknownBinaryOperator(x, y, TokenKind.PLUS);
-      }
-    }
-
-    // TODO(bazel-team): Remove deprecated operator.
-    if (x instanceof Depset) {
-      if (thread.getSemantics().incompatibleDepsetUnion()) {
-        throw new EvalException(
-            location,
-            "`+` operator on a depset is forbidden. See "
-                + "https://docs.bazel.build/versions/master/skylark/depsets.html for "
-                + "recommendations. Use --incompatible_depset_union=false "
-                + "to temporarily disable this check.");
-      }
-      return Depset.unionOf((Depset) x, y);
-    }
-    throw unknownBinaryOperator(x, y, TokenKind.PLUS);
-  }
-
-  /** Implements 'x | y'. */
-  private static Object pipe(StarlarkSemantics semantics, Object x, Object y) throws EvalException {
-    if (x instanceof Integer && y instanceof Integer) {
-      return ((Integer) x) | ((Integer) y);
-    } else if (x instanceof Depset) {
-      if (semantics.incompatibleDepsetUnion()) {
-        throw Starlark.errorf(
-            "`|` operator on a depset is forbidden. See "
-                + "https://docs.bazel.build/versions/master/skylark/depsets.html for "
-                + "recommendations. Use --incompatible_depset_union=false "
-                + "to temporarily disable this check.");
-      }
-      return Depset.unionOf((Depset) x, y);
-    }
-    throw unknownBinaryOperator(x, y, TokenKind.PIPE);
-  }
-
-  /** Implements 'x - y'. */
-  private static Object minus(Object x, Object y) throws EvalException {
-    if (x instanceof Integer && y instanceof Integer) {
-      return Math.subtractExact((Integer) x, (Integer) y);
-    }
-    throw unknownBinaryOperator(x, y, TokenKind.MINUS);
-  }
-
-  /** Implements 'x * y'. */
-  private static Object star(Mutability mu, Object x, Object y) throws EvalException {
-    Integer number = null;
-    Object otherFactor = null;
-
-    if (x instanceof Integer) {
-      number = (Integer) x;
-      otherFactor = y;
-    } else if (y instanceof Integer) {
-      number = (Integer) y;
-      otherFactor = x;
-    }
-
-    if (number != null) {
-      if (otherFactor instanceof Integer) {
-        return Math.multiplyExact(number, (Integer) otherFactor);
-      } else if (otherFactor instanceof String) {
-        return Strings.repeat((String) otherFactor, Math.max(0, number));
-      } else if (otherFactor instanceof Tuple) {
-        return ((Tuple<?>) otherFactor).repeat(number, mu);
-      } else if (otherFactor instanceof StarlarkList) {
-        return ((StarlarkList<?>) otherFactor).repeat(number, mu);
-      }
-    }
-    throw unknownBinaryOperator(x, y, TokenKind.STAR);
-  }
-
-  /** Implements 'x // y'. */
-  private static Object slash(Object x, Object y) throws EvalException {
-    // int / int
-    if (x instanceof Integer && y instanceof Integer) {
-      if (y.equals(0)) {
-        throw Starlark.errorf("integer division by zero");
-      }
-      // Integer division doesn't give the same result in Java and in Python 2 with
-      // negative numbers.
-      // Java:   -7/3 = -2
-      // Python: -7/3 = -3
-      // We want to follow Python semantics, so we use float division and round down.
-      return (int) Math.floor(Double.valueOf((Integer) x) / (Integer) y);
-    }
-    throw unknownBinaryOperator(x, y, TokenKind.SLASH_SLASH);
-  }
-
-  /** Implements 'x % y'. */
-  private static Object percent(Object x, Object y) throws EvalException {
-    // int % int
-    if (x instanceof Integer && y instanceof Integer) {
-      if (y.equals(0)) {
-        throw Starlark.errorf("integer modulo by zero");
-      }
-      // Python and Java implement division differently, wrt negative numbers.
-      // In Python, sign of the result is the sign of the divisor.
-      int div = (Integer) y;
-      int result = ((Integer) x).intValue() % Math.abs(div);
-      if (result > 0 && div < 0) {
-        result += div; // make the result negative
-      } else if (result < 0 && div > 0) {
-        result += div; // make the result positive
-      }
-      return result;
-    }
-
-    // string % tuple, string % dict, string % anything-else
-    if (x instanceof String) {
-      String pattern = (String) x;
-      try {
-        if (y instanceof Tuple) {
-          return Starlark.formatWithList(pattern, (Tuple) y);
-        }
-        return Starlark.format(pattern, y);
-      } catch (IllegalFormatException ex) {
-        throw new EvalException(null, ex.getMessage());
-      }
-    }
-    throw unknownBinaryOperator(x, y, TokenKind.PERCENT);
-  }
-
-  /** Implements 'x & y'. */
-  private static Object and(Object x, Object y) throws EvalException {
-    if (x instanceof Integer && y instanceof Integer) {
-      return (Integer) x & (Integer) y;
-    }
-    throw unknownBinaryOperator(x, y, TokenKind.AMPERSAND);
-  }
-
-  /** Implements 'x ^ y'. */
-  private static Object xor(Object x, Object y) throws EvalException {
-    if (x instanceof Integer && y instanceof Integer) {
-      return (Integer) x ^ (Integer) y;
-    }
-    throw unknownBinaryOperator(x, y, TokenKind.CARET);
-  }
-
-  /** Implements 'x >> y'. */
-  private static Object rightShift(Object x, Object y) throws EvalException {
-    if (x instanceof Integer && y instanceof Integer) {
-      if ((Integer) y < 0) {
-        throw Starlark.errorf("negative shift count: %s", y);
-      } else if ((Integer) y >= Integer.SIZE) {
-        return ((Integer) x < 0) ? -1 : 0;
-      }
-      return (Integer) x >> (Integer) y;
-    }
-    throw unknownBinaryOperator(x, y, TokenKind.GREATER_GREATER);
-  }
-
-  /** Implements 'x << y'. */
-  private static Object leftShift(Object x, Object y) throws EvalException {
-    if (x instanceof Integer && y instanceof Integer) {
-      if ((Integer) y < 0) {
-        throw Starlark.errorf("negative shift count: %s", y);
-      }
-      Integer result = (Integer) x << (Integer) y;
-      if (!rightShift(result, y).equals(x)) {
-        throw new ArithmeticException("integer overflow");
-      }
-      return result;
-    }
-    throw unknownBinaryOperator(x, y, TokenKind.LESS_LESS);
-  }
-
-  /** Implements 'x in y'. */
-  private static boolean in(StarlarkSemantics semantics, Object x, Object y) throws EvalException {
-    if (y instanceof SkylarkQueryable) {
-      return ((SkylarkQueryable) y).containsKey(semantics, x);
-    } else if (y instanceof String) {
-      if (x instanceof String) {
-        return ((String) y).contains((String) x);
-      } else {
-        throw Starlark.errorf(
-            "'in <string>' requires string as left operand, not '%s'", Starlark.type(x));
-      }
-    } else {
-      throw Starlark.errorf(
-          "unsupported binary operation: %s in %s (right operand must be string, sequence, or"
-              + " dict)",
-          Starlark.type(x), Starlark.type(y));
-    }
-  }
-
-  /** Returns an exception signifying incorrect types for the given operator. */
-  private static EvalException unknownBinaryOperator(Object x, Object y, TokenKind op) {
-    return Starlark.errorf(
-        "unsupported binary operation: %s %s %s", Starlark.type(x), op, Starlark.type(y));
+  private static String repeatString(String s, int n) {
+    return n <= 0 ? "" : Strings.repeat(s, n);
   }
 
   /** Evaluates a unary operation. */
@@ -690,12 +669,11 @@ public final class EvalUtils {
 
       case MINUS:
         if (x instanceof Integer) {
-          try {
-            return Math.negateExact((Integer) x);
-          } catch (ArithmeticException e) {
-            // Fails for -MIN_INT.
-            throw new EvalException(null, e.getMessage());
+          int xi = (Integer) x;
+          if (xi == Integer.MIN_VALUE) {
+            throw Starlark.errorf("integer overflow in negation");
           }
+          return -xi;
         }
         break;
 
@@ -738,6 +716,31 @@ public final class EvalUtils {
     } else {
       throw Starlark.errorf(
           "type '%s' has no operator [](%s)", Starlark.type(object), Starlark.type(key));
+    }
+  }
+
+  /**
+   * Updates an object as if by the Starlark statement {@code object[key] = value}.
+   *
+   * @throws EvalException if the object is not a list or dict.
+   */
+  static void setIndex(Object object, Object key, Object value) throws EvalException {
+    if (object instanceof Dict) {
+      @SuppressWarnings("unchecked")
+      Dict<Object, Object> dict = (Dict<Object, Object>) object;
+      dict.put(key, value, (Location) null);
+
+    } else if (object instanceof StarlarkList) {
+      @SuppressWarnings("unchecked")
+      StarlarkList<Object> list = (StarlarkList<Object>) object;
+      int index = Starlark.toInt(key, "list index");
+      index = EvalUtils.getSequenceIndex(index, list.size());
+      list.set(index, value, (Location) null);
+
+    } else {
+      throw Starlark.errorf(
+          "can only assign an element in a dictionary or a list, not in a '%s'",
+          Starlark.type(object));
     }
   }
 

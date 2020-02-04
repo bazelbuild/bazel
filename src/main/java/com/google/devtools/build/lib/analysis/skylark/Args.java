@@ -36,9 +36,9 @@ import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.devtools.build.lib.syntax.Printer;
 import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.Starlark;
-import com.google.devtools.build.lib.syntax.StarlarkMutable;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
+import com.google.devtools.build.lib.syntax.StarlarkValue;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -230,7 +230,7 @@ public abstract class Args implements CommandLineArgsApi {
   }
 
   /** Args module. */
-  private static class MutableArgs extends Args implements StarlarkMutable {
+  private static class MutableArgs extends Args implements StarlarkValue, Mutability.Freezable {
     private final Mutability mutability;
     private final SkylarkCustomCommandLine.Builder commandLine;
     private final List<NestedSet<?>> potentialDirectoryArtifacts = new ArrayList<>();
@@ -268,7 +268,7 @@ public abstract class Args implements CommandLineArgsApi {
         Object mapFn,
         StarlarkThread thread)
         throws EvalException {
-      checkMutable(null);
+      checkMutable();
       final String argName;
       if (value == Starlark.UNBOUND) {
         value = argNameOrValue;
@@ -315,7 +315,7 @@ public abstract class Args implements CommandLineArgsApi {
         Object terminateWith,
         StarlarkThread thread)
         throws EvalException {
-      checkMutable(null);
+      checkMutable();
       final String argName;
       if (values == Starlark.UNBOUND) {
         values = argNameOrValue;
@@ -355,7 +355,7 @@ public abstract class Args implements CommandLineArgsApi {
         Boolean expandDirectories,
         StarlarkThread thread)
         throws EvalException {
-      checkMutable(null);
+      checkMutable();
       final String argName;
       if (values == Starlark.UNBOUND) {
         values = argNameOrValue;
@@ -503,7 +503,7 @@ public abstract class Args implements CommandLineArgsApi {
     @Override
     public CommandLineArgsApi useParamsFile(String paramFileArg, Boolean useAlways)
         throws EvalException {
-      checkMutable(null);
+      checkMutable();
       if (!SingleStringArgFormatter.isValid(paramFileArg)) {
         throw new EvalException(
             null,
@@ -519,7 +519,7 @@ public abstract class Args implements CommandLineArgsApi {
 
     @Override
     public CommandLineArgsApi setParamFileFormat(String format) throws EvalException {
-      checkMutable(null);
+      checkMutable();
       final ParameterFileType parameterFileType;
       switch (format) {
         case "shell":

@@ -16,6 +16,7 @@ package com.google.devtools.build.android.desugar.nest;
 
 import static com.google.devtools.build.android.desugar.langmodel.LangModelHelper.isCrossMateRefInNest;
 
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.android.desugar.langmodel.ClassMemberRecord;
 import com.google.devtools.build.android.desugar.langmodel.FieldInstrVisitor;
 import com.google.devtools.build.android.desugar.langmodel.FieldKey;
@@ -36,12 +37,16 @@ public final class NestBridgeRefConverter extends MethodVisitor {
   private final MethodToBridgeRedirector methodToBridgeRedirector;
 
   NestBridgeRefConverter(
-      @Nullable MethodVisitor methodVisitor, MethodKey methodKey, ClassMemberRecord bridgeOrigins) {
+      @Nullable MethodVisitor methodVisitor,
+      MethodKey methodKey,
+      ClassMemberRecord bridgeOrigins,
+      NestCompanions nestCompanions) {
     super(Opcodes.ASM7, methodVisitor);
     this.enclosingMethodKey = methodKey;
     this.bridgeOrigins = bridgeOrigins;
+
     directFieldAccessReplacer = new FieldAccessToBridgeRedirector();
-    methodToBridgeRedirector = new MethodToBridgeRedirector();
+    methodToBridgeRedirector = new MethodToBridgeRedirector(nestCompanions);
   }
 
   @Override
@@ -73,6 +78,12 @@ public final class NestBridgeRefConverter extends MethodVisitor {
   static class MethodToBridgeRedirector
       implements MethodInstrVisitor<MethodKey, MethodKey, MethodVisitor> {
 
+    private final NestCompanions nestCompanions;
+
+    MethodToBridgeRedirector(NestCompanions nestCompanions) {
+      this.nestCompanions = nestCompanions;
+    }
+
     @Override
     public MethodKey visitInvokeVirtual(MethodKey methodKey, MethodVisitor mv) {
       MethodKey bridgeMethodKey = methodKey.bridgeOfClassInstanceMethod();
@@ -99,7 +110,8 @@ public final class NestBridgeRefConverter extends MethodVisitor {
 
     @Override
     public MethodKey visitConstructorInvokeSpecial(MethodKey methodKey, MethodVisitor mv) {
-      MethodKey constructorBridge = methodKey.bridgeOfConstructor();
+      String nestCompanion = nestCompanions.nestCompanion(methodKey.owner());
+      MethodKey constructorBridge = methodKey.bridgeOfConstructor(nestCompanion);
       mv.visitInsn(Opcodes.ACONST_NULL);
       mv.visitMethodInsn(
           Opcodes.INVOKESPECIAL,
@@ -195,7 +207,8 @@ public final class NestBridgeRefConverter extends MethodVisitor {
       // The bridge method for an instance field writer pushes the new field value to its invoker
       // operand stack, we emit a pop instruction to be consistent with putfield instruction which
       // consumes the updated field value on the operand stack.
-      mv.visitInsn(LangModelHelper.getTypeSizeAlignedOpcode(Opcodes.POP, fieldKey.getFieldType()));
+      mv.visitInsn(
+          LangModelHelper.getTypeSizeAlignedPopOpcode(ImmutableList.of(fieldKey.getFieldType())));
       return bridgeMethodKey;
     }
 
@@ -223,7 +236,8 @@ public final class NestBridgeRefConverter extends MethodVisitor {
       // The bridge method for an instance field writer pushes the new field value to its invoker
       // operand stack, we emit a pop instruction to be consistent with putfield instruction which
       // consumes the updated field value on the operand stack.
-      mv.visitInsn(LangModelHelper.getTypeSizeAlignedOpcode(Opcodes.POP, fieldKey.getFieldType()));
+      mv.visitInsn(
+          LangModelHelper.getTypeSizeAlignedPopOpcode(ImmutableList.of(fieldKey.getFieldType())));
       return bridgeMethodKey;
     }
   }

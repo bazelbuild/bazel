@@ -90,6 +90,22 @@ EOF
  assert_contains "name: \"//$pkg:japanese\"" output
 }
 
+function test_basic_query_output_labelkind() {
+  local -r pkg=$FUNCNAME
+  mkdir -p $pkg
+  cat > $pkg/BUILD <<EOF
+sh_library(name='maple', data=[':japanese'])
+cc_binary(name='japanese', srcs = ['japanese.cc'])
+EOF
+
+ bazel cquery --output=label_kind "deps(//$pkg:maple)" > output 2>"$TEST_log" ||
+ --noimplicit_deps --nohost_deps fail "Expected success"
+
+ assert_contains "sh_library rule //$pkg:maple" output
+ assert_contains "cc_binary rule //$pkg:japanese" output
+ assert_contains "source file //$pkg:japanese.cc" output
+}
+
 function test_respects_selects() {
   local -r pkg=$FUNCNAME
   mkdir -p $pkg
@@ -574,6 +590,32 @@ EOF
   # Given this use case's unimportance, we just leave things as-is for the sake
   # of simplicity in the wider code base. We can always re-evaluate if needed.
   assert_not_contains "//$pkg:foo_feature .*//$pkg:foo_feature" output
+}
+
+function test_show_config_fragments_on_define() {
+  local -r pkg=$FUNCNAME
+  mkdir -p $pkg
+  cat > $pkg/BUILD <<EOF
+config_setting(
+    name = "is_a_on",
+    define_values = {"a": "on"}
+)
+
+cc_library(
+    name = "cclib_with_select",
+    srcs = select({
+        ":is_a_on": ["version1.cc"],
+        "//conditions:default": ["version2.cc"],
+    })
+)
+EOF
+
+  bazel cquery "//$pkg:all" --show_config_fragments=direct --define a=on \
+    --define b=on > output 2>"$TEST_log" || fail "Expected success"
+
+  assert_contains "//$pkg:cclib_with_select .*CppConfiguration" output
+  assert_contains "//$pkg:cclib_with_select .*--define:a" output
+  assert_not_contains "//$pkg:cclib_with_select .*--define:b" output
 }
 
 function test_manual_tagged_targets_always_included_for_queries() {

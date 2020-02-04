@@ -52,6 +52,7 @@ import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.causes.Cause;
 import com.google.devtools.build.lib.causes.LabelCause;
 import com.google.devtools.build.lib.clock.BlazeClock;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.collect.compacthashset.CompactHashSet;
@@ -391,6 +392,10 @@ public class ActionExecutionFunction implements SkyFunction {
    */
   private static boolean evalInputsAsNestedSet(
       int nestedSetSizeThreshold, NestedSet<Artifact> inputs) {
+    if (nestedSetSizeThreshold == 1) {
+      // Don't even flatten in this case.
+      return true;
+    }
     return nestedSetSizeThreshold > 0
         && (inputs.memoizedFlattenAndGetSize() >= nestedSetSizeThreshold);
   }
@@ -771,7 +776,8 @@ public class ActionExecutionFunction implements SkyFunction {
               metadataHandler,
               actionStartTime,
               state.allInputs.actionCacheInputs,
-              clientEnv);
+              clientEnv,
+              pathResolver);
     }
 
     if (state.token == null) {
@@ -794,6 +800,7 @@ public class ActionExecutionFunction implements SkyFunction {
     metadataHandler.discardOutputMetadata();
 
     if (action.discoversInputs()) {
+      Duration discoveredInputsDuration = Duration.ZERO;
       if (state.discoveredInputs == null) {
         try (SilentCloseable c = Profiler.instance().profile(ProfilerTask.INFO, "discoverInputs")) {
           try {
@@ -825,9 +832,7 @@ public class ActionExecutionFunction implements SkyFunction {
                 action,
                 /*catastrophe=*/ false);
           } finally {
-            state.discoveredInputsDuration =
-                state.discoveredInputsDuration.plus(
-                    Duration.ofNanos(BlazeClock.nanoTime() - actionStartTime));
+            discoveredInputsDuration = Duration.ofNanos(BlazeClock.nanoTime() - actionStartTime);
           }
           Preconditions.checkState(
               env.valuesMissing() == (state.discoveredInputs == null),
@@ -868,8 +873,8 @@ public class ActionExecutionFunction implements SkyFunction {
           .post(
               new DiscoveredInputsEvent(
                   new SpawnMetrics.Builder()
-                      .setParseTime(state.discoveredInputsDuration)
-                      .setTotalTime(state.discoveredInputsDuration)
+                      .setParseTime(discoveredInputsDuration)
+                      .setTotalTime(discoveredInputsDuration)
                       .build(),
                   action,
                   actionStartTime));
@@ -897,7 +902,8 @@ public class ActionExecutionFunction implements SkyFunction {
             expandedFilesets,
             ImmutableMap.copyOf(state.topLevelFilesets),
             state.actionFileSystem,
-            skyframeDepsResult);
+            skyframeDepsResult,
+            env.getListener());
     ActionExecutionValue result;
     try {
       result =
@@ -1165,14 +1171,16 @@ public class ActionExecutionFunction implements SkyFunction {
     // some deps are still missing.
     boolean populateInputData = !env.valuesMissing();
     NestedSetBuilder<Cause> rootCauses = NestedSetBuilder.stableOrder();
-    S inputArtifactData = actionInputMapSinkFactory.apply(populateInputData ? inputDeps.size() : 0);
+    ImmutableList<Artifact> allInputsList = allInputs.toList();
+    S inputArtifactData =
+        actionInputMapSinkFactory.apply(populateInputData ? allInputsList.size() : 0);
     Map<Artifact, Collection<Artifact>> expandedArtifacts =
         new HashMap<>(populateInputData ? 128 : 0);
     Map<Artifact, ImmutableList<FilesetOutputSymlink>> filesetsInsideRunfiles = new HashMap<>();
     Map<Artifact, ImmutableList<FilesetOutputSymlink>> topLevelFilesets = new HashMap<>();
 
     ActionExecutionException firstActionExecutionException = null;
-    for (Artifact input : allInputs.toList()) {
+    for (Artifact input : allInputsList) {
       ValueOrException2<IOException, ActionExecutionException> valueOrException =
           inputDeps.get(Artifact.key(input));
       if (valueOrException == null) {
@@ -1294,10 +1302,21 @@ public class ActionExecutionFunction implements SkyFunction {
         || action instanceof NotifyOnActionCacheHit;
   }
 
-  /** All info/warning messages associated with actions should be always displayed. */
   @Override
   public String extractTag(SkyKey skyKey) {
-    return null;
+    // The return value from this method is only applied to non-error, non-debug events that are
+    // posted through the EventHandler associated with the SkyFunction.Environment. For those
+    // events, this setting overrides whatever tag is set.
+    //
+    // If action out/err replay is enabled, then we intentionally post through the Environment to
+    // ensure that the output is replayed on subsequent builds. In that case, we need this to be the
+    // action owner's label.
+    //
+    // Otherwise, Events from action execution are posted to the global Reporter rather than through
+    // the Environment, so this setting is ignored. Note that the SkyframeActionExecutor manually
+    // checks the action owner's label against the Reporter's output filter in that case, which has
+    // the same effect as setting it as a tag on the corresponding event.
+    return Label.print(((ActionLookupData) skyKey).getActionLookupKey().getLabel());
   }
 
   /**
@@ -1347,7 +1366,6 @@ public class ActionExecutionFunction implements SkyFunction {
     Token token = null;
     NestedSet<Artifact> discoveredInputs = null;
     FileSystem actionFileSystem = null;
-    Duration discoveredInputsDuration = Duration.ZERO;
 
     /**
      * Stores the ArtifactNestedSetKeys created from the inputs of this actions. Objective: avoid

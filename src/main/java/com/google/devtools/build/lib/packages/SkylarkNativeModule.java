@@ -46,6 +46,7 @@ import com.google.devtools.build.lib.syntax.Tuple;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
@@ -100,7 +101,7 @@ public class SkylarkNativeModule implements SkylarkNativeModuleApi {
     try {
       Globber.Token globToken =
           context.globber.runAsync(includes, excludes, excludeDirs != 0, allowEmpty);
-      matches = context.globber.fetch(globToken);
+      matches = context.globber.fetchUnsorted(globToken);
     } catch (IOException e) {
       String errorMessage =
           String.format(
@@ -114,11 +115,19 @@ public class SkylarkNativeModule implements SkylarkNativeModuleApi {
       matches = ImmutableList.of();
     } catch (BadGlobException e) {
       throw new EvalException(null, e.getMessage());
-    } catch (IllegalArgumentException e) {
-      throw new EvalException(null, "illegal argument in call to glob", e);
     }
 
-    return StarlarkList.copyOf(thread.mutability(), matches);
+    ArrayList<String> result = new ArrayList<>(matches.size());
+    for (String match : matches) {
+      if (match.charAt(0) == '@') {
+        // Add explicit colon to disambiguate from external repository.
+        match = ":" + match;
+      }
+      result.add(match);
+    }
+    result.sort(Comparator.naturalOrder());
+
+    return StarlarkList.copyOf(thread.mutability(), result);
   }
 
   @Override
@@ -399,7 +408,7 @@ public class SkylarkNativeModule implements SkylarkNativeModuleApi {
       // Even though this is clearly imperfect, we return this value because otherwise
       // native.rules() fails if there is any rule using a select() in the BUILD file.
       //
-      // To remedy this, we should return a syntax.SelectorList. To do so, we have to
+      // To remedy this, we should return a SelectorList. To do so, we have to
       // 1) recurse into the Selector contents of SelectorList, so those values are skylarkified too
       // 2) get the right Class<?> value. We could probably get at that by looking at
       //    ((SelectorList)val).getSelectors().first().getEntries().first().getClass().

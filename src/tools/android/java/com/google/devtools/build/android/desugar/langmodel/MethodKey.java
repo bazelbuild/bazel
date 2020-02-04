@@ -56,9 +56,9 @@ public abstract class MethodKey extends ClassMemberKey {
   }
 
   /** The synthetic constructor for a private constructor. */
-  public final MethodKey bridgeOfConstructor() {
+  public final MethodKey bridgeOfConstructor(String nestCompanion) {
     checkState(isConstructor(), "Expect to use for a constructor but is %s", this);
-    Type companionClassType = Type.getObjectType(nestCompanion());
+    Type companionClassType = Type.getObjectType(nestCompanion);
     Type[] argumentTypes = getArgumentTypes();
     Type[] bridgeConstructorArgTypes = Arrays.copyOf(argumentTypes, argumentTypes.length + 1);
     bridgeConstructorArgTypes[argumentTypes.length] = companionClassType;

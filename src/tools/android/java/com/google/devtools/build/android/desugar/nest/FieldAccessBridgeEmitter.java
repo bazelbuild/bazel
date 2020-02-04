@@ -20,6 +20,7 @@ import static org.objectweb.asm.Opcodes.ACC_STATIC;
 import static org.objectweb.asm.Opcodes.ACC_SYNTHETIC;
 import static org.objectweb.asm.Opcodes.GETSTATIC;
 
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.android.desugar.langmodel.FieldInstrVisitor;
 import com.google.devtools.build.android.desugar.langmodel.FieldKey;
 import com.google.devtools.build.android.desugar.langmodel.LangModelHelper;
@@ -69,7 +70,8 @@ final class FieldAccessBridgeEmitter
     mv.visitCode();
     Type fieldType = fieldKey.getFieldType();
     mv.visitVarInsn(fieldType.getOpcode(Opcodes.ILOAD), 0);
-    mv.visitInsn(LangModelHelper.getTypeSizeAlignedOpcode(Opcodes.DUP, fieldType));
+    mv.visitInsn(
+        LangModelHelper.getTypeSizeAlignedDupOpcode(ImmutableList.of(fieldKey.getFieldType())));
     mv.visitFieldInsn(Opcodes.PUTSTATIC, fieldKey.owner(), fieldKey.name(), fieldKey.descriptor());
     mv.visitInsn(fieldType.getOpcode(Opcodes.IRETURN));
     int fieldTypeSize = fieldType.getSize();
@@ -115,7 +117,10 @@ final class FieldAccessBridgeEmitter
     mv.visitVarInsn(Opcodes.ALOAD, 0);
     Type fieldType = fieldKey.getFieldType();
     mv.visitVarInsn(fieldType.getOpcode(Opcodes.ILOAD), 1);
-    mv.visitInsn(LangModelHelper.getTypeSizeAlignedOpcode(Opcodes.DUP_X1, fieldType));
+    mv.visitInsn(
+        LangModelHelper.getTypeSizeAlignedDupOpcode(
+            ImmutableList.of(fieldKey.getFieldType()),
+            ImmutableList.of(Type.getType(Object.class))));
     mv.visitFieldInsn(Opcodes.PUTFIELD, fieldKey.owner(), fieldKey.name(), fieldKey.descriptor());
     mv.visitInsn(fieldType.getOpcode(Opcodes.IRETURN));
     int fieldTypeSize = fieldType.getSize();

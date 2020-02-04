@@ -92,6 +92,8 @@ bind(
 # This will allow us to stop bundling the full JDK with Bazel.
 # Note that while these are currently the same as the openjdk_* rules in
 # Bazel's WORKSPACE file, but they don't have to be the same.
+
+# This must be kept in sync with the top-level WORKSPACE file.
 maybe(
     http_archive,
     name = "remotejdk_linux",
@@ -103,6 +105,7 @@ maybe(
     ],
 )
 
+# This must be kept in sync with the top-level WORKSPACE file.
 maybe(
     http_archive,
     name = "remotejdk_macos",
@@ -114,6 +117,7 @@ maybe(
     ],
 )
 
+# This must be kept in sync with the top-level WORKSPACE file.
 maybe(
     http_archive,
     name = "remotejdk_win",
@@ -127,6 +131,7 @@ maybe(
 
 # The source-code for this OpenJDK can be found at:
 # https://openjdk.linaro.org/releases/jdk9-src-1708.tar.xz
+# This must be kept in sync with the top-level WORKSPACE file.
 maybe(
     http_archive,
     name = "remotejdk_linux_aarch64",
@@ -140,6 +145,7 @@ maybe(
     ],
 )
 
+# This must be kept in sync with the top-level WORKSPACE file.
 maybe(
     http_archive,
     name = "remotejdk10_linux",
@@ -151,6 +157,7 @@ maybe(
     ],
 )
 
+# This must be kept in sync with the top-level WORKSPACE file.
 maybe(
     http_archive,
     name = "remotejdk10_macos",
@@ -162,6 +169,7 @@ maybe(
     ],
 )
 
+# This must be kept in sync with the top-level WORKSPACE file.
 maybe(
     http_archive,
     name = "remotejdk10_win",
@@ -175,6 +183,7 @@ maybe(
 
 # The source-code for this OpenJDK can be found at:
 # https://openjdk.linaro.org/releases/jdk10-src-1804.tar.xz
+# This must be kept in sync with the top-level WORKSPACE file.
 maybe(
     http_archive,
     name = "remotejdk10_linux_aarch64",
@@ -188,6 +197,7 @@ maybe(
     ],
 )
 
+# This must be kept in sync with the top-level WORKSPACE file.
 maybe(
     http_archive,
     name = "remotejdk11_linux",
@@ -199,6 +209,7 @@ maybe(
     ],
 )
 
+# This must be kept in sync with the top-level WORKSPACE file.
 maybe(
     http_archive,
     name = "remotejdk11_linux_aarch64",
@@ -210,6 +221,7 @@ maybe(
     ],
 )
 
+# This must be kept in sync with the top-level WORKSPACE file.
 maybe(
     http_archive,
     name = "remotejdk11_macos",
@@ -221,6 +233,7 @@ maybe(
     ],
 )
 
+# This must be kept in sync with the top-level WORKSPACE file.
 maybe(
     http_archive,
     name = "remotejdk11_win",
@@ -232,6 +245,7 @@ maybe(
     ],
 )
 
+# This must be kept in sync with the top-level WORKSPACE file.
 maybe(
     http_archive,
     name = "remote_java_tools_linux",
@@ -242,6 +256,7 @@ maybe(
     ],
 )
 
+# This must be kept in sync with the top-level WORKSPACE file.
 maybe(
     http_archive,
     name = "remote_java_tools_windows",
@@ -252,6 +267,7 @@ maybe(
     ],
 )
 
+# This must be kept in sync with the top-level WORKSPACE file.
 maybe(
     http_archive,
     name = "remote_java_tools_darwin",

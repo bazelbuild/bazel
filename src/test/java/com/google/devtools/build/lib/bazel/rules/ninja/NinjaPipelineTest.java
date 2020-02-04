@@ -112,7 +112,7 @@ public class NinjaPipelineTest {
     NinjaPipeline pipeline =
         new NinjaPipeline(
             vfsPath.getParentDirectory(), tester.getService(), ImmutableList.of(), "ninja_target");
-    List<NinjaTarget> targets = pipeline.pipeline(vfsPath).getSecond();
+    List<NinjaTarget> targets = pipeline.pipeline(vfsPath);
     checkTargets(targets);
   }
 
@@ -128,7 +128,7 @@ public class NinjaPipelineTest {
             tester.getService(),
             ImmutableList.of(childFile),
             "ninja_target");
-    List<NinjaTarget> targets = pipeline.pipeline(vfsPath).getSecond();
+    List<NinjaTarget> targets = pipeline.pipeline(vfsPath);
     checkTargets(targets);
   }
 
@@ -148,7 +148,7 @@ public class NinjaPipelineTest {
             tester.getService(),
             ImmutableList.of(childFile),
             "ninja_target");
-    List<NinjaTarget> targets = pipeline.pipeline(vfsPath).getSecond();
+    List<NinjaTarget> targets = pipeline.pipeline(vfsPath);
     checkTargets(targets);
   }
 
@@ -176,7 +176,7 @@ public class NinjaPipelineTest {
             tester.getService(),
             ImmutableList.of(childFile, subFile),
             "ninja_target");
-    List<NinjaTarget> targets = pipeline.pipeline(vfsPath).getSecond();
+    List<NinjaTarget> targets = pipeline.pipeline(vfsPath);
     checkTargets(targets);
   }
 
@@ -186,7 +186,7 @@ public class NinjaPipelineTest {
     NinjaPipeline pipeline =
         new NinjaPipeline(
             vfsPath.getParentDirectory(), tester.getService(), ImmutableList.of(), "ninja_target");
-    List<NinjaTarget> targets = pipeline.pipeline(vfsPath).getSecond();
+    List<NinjaTarget> targets = pipeline.pipeline(vfsPath);
     assertThat(targets).isEmpty();
   }
 
@@ -208,6 +208,26 @@ public class NinjaPipelineTest {
         .isEqualTo(
             "Ninja file requested from 'test.ninja' "
                 + "not declared in 'srcs' attribute of 'ninja_target'.");
+  }
+
+  @Test
+  public void testIncludeCycle() throws Exception {
+    Path vfsPath = tester.writeTmpFile("test.ninja", "include one.ninja");
+    Path oneFile = tester.writeTmpFile("one.ninja", "include two.ninja");
+    Path twoFile = tester.writeTmpFile("two.ninja", "include one.ninja");
+    NinjaPipeline pipeline =
+        new NinjaPipeline(
+            vfsPath.getParentDirectory(),
+            tester.getService(),
+            ImmutableList.of(oneFile, twoFile),
+            "ninja_target");
+    GenericParsingException exception =
+        assertThrows(GenericParsingException.class, () -> pipeline.pipeline(vfsPath));
+    assertThat(exception)
+        .hasMessageThat()
+        .isEqualTo(
+            "Detected cycle or duplicate inclusion in Ninja files dependencies, "
+                + "including 'one.ninja'.");
   }
 
   private static void checkTargets(List<NinjaTarget> targets) {

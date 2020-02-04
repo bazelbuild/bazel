@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.collect.nestedset;
 
-import static com.google.common.collect.ImmutableSet.toImmutableSet;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSet;
@@ -101,10 +100,13 @@ public class NestedSetView<E> {
     if (!(set instanceof Object[])) {
       return ImmutableSet.of();
     }
-    return Arrays.stream((Object[]) set)
-        .filter(c -> c instanceof Object[])
-        .map(c -> new NestedSetView<E>(c))
-        .collect(toImmutableSet());
+    ImmutableSet.Builder<NestedSetView<E>> nestedSetViewSetBuilder = new ImmutableSet.Builder<>();
+    for (Object c : (Object[]) set) {
+      if (c instanceof Object[]) {
+        nestedSetViewSetBuilder.add(new NestedSetView<>(c));
+      }
+    }
+    return nestedSetViewSetBuilder.build();
   }
 
   /**
@@ -118,9 +120,12 @@ public class NestedSetView<E> {
     if (!(set instanceof Object[])) {
       return ImmutableSet.of((E) set);
     }
-    return Arrays.stream((Object[]) set)
-        .filter(c -> !(c instanceof Object[]))
-        .map(c -> (E) c)
-        .collect(toImmutableSet());
+    ImmutableSet.Builder<E> setBuilder = new ImmutableSet.Builder<>();
+    for (Object c : (Object[]) set) {
+      if (!(c instanceof Object[])) {
+        setBuilder.add((E) c);
+      }
+    }
+    return setBuilder.build();
   }
 }

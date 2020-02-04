@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.StarlarkDefinedConfigTransition;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
@@ -174,7 +175,7 @@ public class FunctionTransitionUtil {
           FragmentOptions options = buildOptions.get(optionInfo.getOptionClass());
           Object optionValue = field.get(options);
 
-          dict.put(optionKey, optionValue == null ? Starlark.NONE : optionValue, /*loc=*/ null);
+          dict.put(optionKey, optionValue == null ? Starlark.NONE : optionValue, (Location) null);
         } catch (IllegalAccessException e) {
           // These exceptions should not happen, but if they do, throw a RuntimeException.
           throw new RuntimeException(e);
@@ -186,7 +187,7 @@ public class FunctionTransitionUtil {
         if (!remainingInputs.remove(starlarkOption.getKey().toString())) {
           continue;
         }
-        dict.put(starlarkOption.getKey().toString(), starlarkOption.getValue(), /*loc=*/ null);
+        dict.put(starlarkOption.getKey().toString(), starlarkOption.getValue(), (Location) null);
       }
 
       if (!remainingInputs.isEmpty()) {

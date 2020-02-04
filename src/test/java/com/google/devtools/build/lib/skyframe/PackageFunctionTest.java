@@ -360,6 +360,23 @@ public class PackageFunctionTest extends BuildViewTestCase {
     assertSrcs(validPackageWithoutErrors(skyKey), "foo", "//foo:a.config", "//foo:b.txt");
   }
 
+  @Test
+  public void globEscapesAt() throws Exception {
+    scratch.file("foo/BUILD", "filegroup(name = 'foo', srcs = glob(['*.txt']))");
+    scratch.file("foo/@f.txt");
+    preparePackageLoading(rootDirectory);
+    SkyKey skyKey = PackageValue.key(PackageIdentifier.parse("@//foo"));
+    assertSrcs(validPackageWithoutErrors(skyKey), "foo", "//foo:@f.txt");
+
+    scratch.overwriteFile("foo/BUILD", "filegroup(name = 'foo', srcs = glob(['*.txt'])) # comment");
+    getSkyframeExecutor()
+        .invalidateFilesUnderPathForTesting(
+            reporter,
+            ModifiedFileSet.builder().modify(PathFragment.create("foo/BUILD")).build(),
+            Root.fromPath(rootDirectory));
+    assertSrcs(validPackageWithoutErrors(skyKey), "foo", "//foo:@f.txt");
+  }
+
   /**
    * Tests that a symlink to a file outside of the package root is handled consistently. If the
    * default behavior of Bazel was changed from {@code

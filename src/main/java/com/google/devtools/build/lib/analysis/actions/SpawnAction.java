@@ -67,8 +67,6 @@ import com.google.devtools.build.lib.analysis.skylark.Args;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.events.Location;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.skylarkbuildapi.CommandLineArgsApi;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Sequence;
@@ -91,7 +89,6 @@ import javax.annotation.CheckReturnValue;
 import javax.annotation.Nullable;
 
 /** An Action representing an arbitrary subprocess to be forked and exec'd. */
-@AutoCodec
 public class SpawnAction extends AbstractAction implements CommandAction {
 
   /** Sets extensions on {@link ExtraActionInfo}. */
@@ -101,8 +98,8 @@ public class SpawnAction extends AbstractAction implements CommandAction {
 
   private static final String GUID = "ebd6fce3-093e-45ee-adb6-bf513b602f0d";
 
-  @VisibleForSerialization protected final CommandLines commandLines;
-  @VisibleForSerialization protected final CommandLineLimits commandLineLimits;
+  private final CommandLines commandLines;
+  private final CommandLineLimits commandLineLimits;
 
   private final boolean executeUnconditionally;
   private final boolean isShellCommand;
@@ -137,7 +134,6 @@ public class SpawnAction extends AbstractAction implements CommandAction {
    * @param progressMessage the message printed during the progression of the build.
    * @param mnemonic the mnemonic that is reported in the master log.
    */
-  @AutoCodec.Instantiator
   public SpawnAction(
       ActionOwner owner,
       NestedSet<Artifact> tools,
@@ -1304,7 +1300,6 @@ public class SpawnAction extends AbstractAction implements CommandAction {
    * Command line implementation that optimises for containing executable args, command lines, and
    * command lines spilled to param files.
    */
-  @AutoCodec
   static class SpawnActionCommandLine extends CommandLine {
     private final Object[] values;
 

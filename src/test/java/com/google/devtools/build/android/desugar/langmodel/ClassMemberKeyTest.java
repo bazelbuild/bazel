@@ -117,7 +117,7 @@ public class ClassMemberKeyTest {
     MethodKey methodKey =
         MethodKey.create(
             /* ownerClass= */ "a/b/Charlie", /* name= */ "<init>", /* descriptor= */ "(JJ)V");
-    assertThat(methodKey.bridgeOfConstructor())
+    assertThat(methodKey.bridgeOfConstructor("a/b/Charlie$NestCC"))
         .isEqualTo(
             MethodKey.create(
                 /* ownerClass= */ "a/b/Charlie",
@@ -155,23 +155,4 @@ public class ClassMemberKeyTest {
                 /* descriptor= */ "(JJ)J"));
   }
 
-  @Test
-  public void nestHost() {
-    MethodKey methodKey =
-        MethodKey.create(
-            /* ownerClass= */ "a/b/Charlie$Depth1$Depth2",
-            /* name= */ "instanceStaticMethod",
-            /* descriptor= */ "(JJ)J");
-    assertThat(methodKey.nestHost()).isEqualTo("a/b/Charlie");
-  }
-
-  @Test
-  public void nestCompanion() {
-    MethodKey methodKey =
-        MethodKey.create(
-            /* ownerClass= */ "a/b/Charlie$Depth1$Depth2",
-            /* name= */ "instanceStaticMethod",
-            /* descriptor= */ "(JJ)J");
-    assertThat(methodKey.nestCompanion()).isEqualTo("a/b/Charlie$NestCC");
-  }
 }

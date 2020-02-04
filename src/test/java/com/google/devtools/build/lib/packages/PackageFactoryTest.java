@@ -752,6 +752,27 @@ public class PackageFactoryTest extends PackageFactoryTestBase {
    assertGlobFails("glob(['?'])", "glob pattern '?' contains forbidden '?' wildcard");
   }
 
+  @Test
+  public void testBadExcludePattern() throws Exception {
+    events.setFailFast(false);
+    // The 'exclude' check is currently only reached if the pattern is "complex".
+    // This seems like a bug:
+    //   assertGlobFails("glob(['BUILD'], ['/'])", "pattern cannot be absolute");
+    assertGlobFails("glob(['BUILD'], ['/*/*'])", "pattern cannot be absolute");
+  }
+
+  @Test
+  public void testGlobEscapesAt() throws Exception {
+    // See lib.skyframe.PackageFunctionTest.globEscapesAt and
+    // https://github.com/bazelbuild/bazel/issues/10606.
+    scratch.file("/p/@f.txt");
+    Path file = scratch.file("/p/BUILD", "print(glob(['*.txt'])[0])");
+    events.setFailFast(false); // we need this to use print (!)
+    packages.eval("p", RootedPath.toRootedPath(root, file));
+    events.assertNoWarningsOrErrors();
+    events.assertContainsDebug(":@f.txt"); // observe prepended colon
+  }
+
   /**
    * Tests that a glob evaluation that encounters an I/O error throws instead of constructing a
    * package.

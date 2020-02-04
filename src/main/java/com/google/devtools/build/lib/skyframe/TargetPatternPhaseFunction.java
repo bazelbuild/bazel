@@ -22,6 +22,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
+import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -45,6 +46,7 @@ import com.google.devtools.build.lib.pkgcache.LoadingPhaseCompleteEvent;
 import com.google.devtools.build.lib.pkgcache.ParsingFailedEvent;
 import com.google.devtools.build.lib.pkgcache.TargetParsingCompleteEvent;
 import com.google.devtools.build.lib.pkgcache.TestFilter;
+import com.google.devtools.build.lib.repository.ExternalPackageUtil;
 import com.google.devtools.build.lib.skyframe.TargetPatternPhaseValue.TargetPatternPhaseKey;
 import com.google.devtools.build.lib.skyframe.TargetPatternValue.TargetPatternKey;
 import com.google.devtools.build.lib.skyframe.TargetPatternValue.TargetPatternSkyKeyOrException;
@@ -85,6 +87,8 @@ final class TargetPatternPhaseFunction implements SkyFunction {
       env.getListener().handle(Event.error(e.getMessage()));
       workspaceError = true;
     }
+    ImmutableSortedSet<String> notSymlinkedInExecrootDirectories =
+        ExternalPackageUtil.getNotSymlinkedInExecrootDirectories(env);
     if (env.valuesMissing()) {
       return null;
     }
@@ -226,7 +230,8 @@ final class TargetPatternPhaseFunction implements SkyFunction {
             testsToRunLabels,
             targets.hasError(),
             expandedTargets.hasError() || workspaceError,
-            workspaceName);
+            workspaceName,
+            notSymlinkedInExecrootDirectories);
 
     env.getListener()
         .post(

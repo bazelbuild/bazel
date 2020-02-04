@@ -48,6 +48,7 @@ public class ActionExecutedEvent implements BuildEventWithConfiguration, Progres
   private final Path stdout;
   private final Path stderr;
   private final ImmutableList<MetadataLog> actionMetadataLogs;
+  private final boolean isInMemoryFs;
   private final ErrorTiming timing;
 
   public ActionExecutedEvent(
@@ -58,7 +59,8 @@ public class ActionExecutedEvent implements BuildEventWithConfiguration, Progres
       Path stdout,
       Path stderr,
       ImmutableList<MetadataLog> actionMetadataLogs,
-      ErrorTiming timing) {
+      ErrorTiming timing,
+      boolean isInMemoryFs) {
     this.actionId = actionId;
     this.action = action;
     this.exception = exception;
@@ -67,6 +69,7 @@ public class ActionExecutedEvent implements BuildEventWithConfiguration, Progres
     this.stderr = stderr;
     this.timing = timing;
     this.actionMetadataLogs = actionMetadataLogs;
+    this.isInMemoryFs = isInMemoryFs;
     Preconditions.checkNotNull(this.actionMetadataLogs, this);
     Preconditions.checkState(
         (this.exception == null) == (this.timing == ErrorTiming.NO_ERROR), this);
@@ -83,6 +86,10 @@ public class ActionExecutedEvent implements BuildEventWithConfiguration, Progres
 
   public ErrorTiming errorTiming() {
     return timing;
+  }
+
+  public boolean hasInMemoryFs() {
+    return isInMemoryFs;
   }
 
   public String getStdout() {

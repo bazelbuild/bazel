@@ -21,6 +21,7 @@ import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.ValueOrException2;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Map;
 import java.util.concurrent.ConcurrentMap;
 
@@ -98,15 +99,14 @@ class ArtifactNestedSetFunction implements SkyFunction {
                 artifactNestedSetKey.directKeys(),
                 IOException.class,
                 ActionExecutionException.class);
-    if (env.valuesMissing()) {
-      return null;
-    }
 
     // Evaluate all children.
+    ArrayList<SkyKey> transitiveKeys = new ArrayList<>();
     for (Object transitive : artifactNestedSetKey.transitiveMembers()) {
       nestedSetToSkyKey.putIfAbsent(transitive, new ArtifactNestedSetKey(transitive));
-      env.getValue(nestedSetToSkyKey.get(transitive));
+      transitiveKeys.add(nestedSetToSkyKey.get(transitive));
     }
+    env.getValues(transitiveKeys);
 
     if (env.valuesMissing()) {
       return null;

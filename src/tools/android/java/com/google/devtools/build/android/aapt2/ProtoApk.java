@@ -320,6 +320,10 @@ public class ProtoApk implements Closeable {
         }
         ANGLE_OPEN.writeTo(out);
         FORWARD_SLASH.writeTo(out);
+        if (!element.getNamespaceUriBytes().isEmpty()) {
+          findNamespacePrefix(element.getNamespaceUriBytes()).writeTo(out);
+          COLON.writeTo(out);
+        }
         name.writeTo(out);
         ANGLE_CLOSE.writeTo(out);
       }
@@ -441,6 +445,7 @@ public class ProtoApk implements Closeable {
 
         strings.add(new String(bytes, stringOffset, length, "UTF8"));
       } else {
+        // TODO(b/148817379): this next block of lines is forming an int with holes in it.
         int characterCount = byteBuffer.get(stringOffset) & 0xFFFF;
         if ((characterCount & 0x8000) != 0) {
           characterCount =

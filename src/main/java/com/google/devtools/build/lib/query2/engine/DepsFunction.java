@@ -60,21 +60,16 @@ final class DepsFunction implements QueryFunction {
       List<Argument> args,
       final Callback<T> callback) {
     QueryExpression queryExpression = args.get(0).getExpression();
-    if (env instanceof StreamableQueryEnvironment && args.size() == 1) {
-      StreamableQueryEnvironment<T> streamableEnv = (StreamableQueryEnvironment<T>) env;
-      return streamableEnv.getDepsUnboundedParallel(
-          queryExpression,
-          context,
-          /*callback=*/ partialResult -> {
-            callback.process(partialResult);
-            ThreadSafeMutableSet<T> set = env.createThreadSafeMutableSet();
-            Iterables.addAll(set, partialResult);
-            // Ensure the proper error messages are reported.
-            env.buildTransitiveClosure(expression, set, /*maxDepth=*/ 1);
-          });
+    final int depthBound = args.size() > 1 ? args.get(1).getInteger() : Integer.MAX_VALUE;
+    if (env instanceof StreamableQueryEnvironment) {
+      if (args.size() == 1) {
+        return ((StreamableQueryEnvironment<T>) env)
+            .getDepsUnboundedParallel(queryExpression, context, callback, expression);
+      }
+      return ((StreamableQueryEnvironment<T>) env)
+          .getDepsBounded(queryExpression, context, callback, depthBound, expression);
     }
 
-    final int depthBound = args.size() > 1 ? args.get(1).getInteger() : Integer.MAX_VALUE;
     if (env instanceof QueryEnvironment.CustomFunctionQueryEnvironment) {
       return env.eval(
           queryExpression,

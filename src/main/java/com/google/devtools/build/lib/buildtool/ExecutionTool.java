@@ -22,6 +22,7 @@ import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableSortedSet;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionCacheChecker;
 import com.google.devtools.build.lib.actions.ActionGraph;
@@ -80,7 +81,6 @@ import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.LoggingUtil;
-import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
 import com.google.devtools.build.lib.vfs.OutputService;
 import com.google.devtools.build.lib.vfs.Path;
@@ -201,6 +201,10 @@ public class ExecutionTool {
     }
   }
 
+  TestActionContext getTestActionContext() {
+    return spawnActionContextMaps.getContext(TestActionContext.class);
+  }
+
   /**
    * Performs the execution phase (phase 3) of the build, in which the Builder is applied to the
    * action graph to bring the targets up to date. (This function will return prior to
@@ -221,7 +225,7 @@ public class ExecutionTool {
       TopLevelArtifactContext topLevelArtifactContext)
       throws BuildFailedException, InterruptedException, TestExecException, AbruptExitException {
     Stopwatch timer = Stopwatch.createStarted();
-    prepare(packageRoots);
+    prepare(packageRoots, analysisResult.getNonSymlinkedDirectoriesUnderExecRoot());
 
     ActionGraph actionGraph = analysisResult.getActionGraph();
 
@@ -406,8 +410,9 @@ public class ExecutionTool {
     }
   }
 
-  private void prepare(PackageRoots packageRoots)
-      throws ExecutorInitException, InterruptedException {
+  private void prepare(
+      PackageRoots packageRoots, ImmutableSortedSet<String> nonSymlinkedDirectoriesUnderExecRoot)
+      throws AbruptExitException, InterruptedException {
     Optional<ImmutableMap<PackageIdentifier, Root>> packageRootMap =
         packageRoots.getPackageRootsMap();
     if (packageRootMap.isPresent()) {
@@ -416,8 +421,13 @@ public class ExecutionTool {
 
       // Plant the symlink forest.
       try (SilentCloseable c = Profiler.instance().profile("plantSymlinkForest")) {
-        new SymlinkForest(packageRootMap.get(), getExecRoot(), runtime.getProductName())
-            .plantSymlinkForest();
+        SymlinkForest symlinkForest =
+            new SymlinkForest(
+                packageRootMap.get(),
+                getExecRoot(),
+                runtime.getProductName(),
+                nonSymlinkedDirectoriesUnderExecRoot);
+        symlinkForest.plantSymlinkForest();
       } catch (IOException e) {
         throw new ExecutorInitException("Source forest creation failed", e);
       }
@@ -436,9 +446,15 @@ public class ExecutionTool {
     }
 
     try {
-      FileSystemUtils.createDirectoryAndParents(directory);
+      directory.createDirectoryAndParents();
     } catch (IOException e) {
       throw new ExecutorInitException("Couldn't create action output directory", e);
+    }
+
+    try {
+      env.getPersistentActionOutsDirectory().createDirectoryAndParents();
+    } catch (IOException e) {
+      throw new ExecutorInitException("Couldn't create persistent action output directory", e);
     }
   }
 
@@ -663,11 +679,11 @@ public class ExecutionTool {
       ModifiedFileSet modifiedOutputFiles) {
     BuildRequestOptions options = request.getBuildOptions();
 
-    Path actionOutputRoot = env.getActionTempsDirectory();
+    skyframeExecutor.setActionOutputRoot(
+        env.getActionTempsDirectory(), env.getPersistentActionOutsDirectory());
+
     Predicate<Action> executionFilter =
         CheckUpToDateFilter.fromOptions(request.getOptions(ExecutionOptions.class));
-
-    skyframeExecutor.setActionOutputRoot(actionOutputRoot);
     ArtifactFactory artifactFactory = env.getSkyframeBuildView().getArtifactFactory();
     return new SkyframeBuilder(
         skyframeExecutor,

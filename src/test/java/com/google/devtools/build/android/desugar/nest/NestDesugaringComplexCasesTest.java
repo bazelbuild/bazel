@@ -18,7 +18,6 @@ package com.google.devtools.build.android.desugar.nest;
 
 import static com.google.common.truth.Truth.assertThat;
 
-import com.google.common.base.Splitter;
 import com.google.devtools.build.android.desugar.testing.junit.AsmNode;
 import com.google.devtools.build.android.desugar.testing.junit.DesugarRule;
 import com.google.devtools.build.android.desugar.testing.junit.DesugarRunner;
@@ -27,8 +26,6 @@ import com.google.devtools.build.android.desugar.testing.junit.JdkVersion;
 import com.google.devtools.build.android.desugar.testing.junit.RuntimeMethodHandle;
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -47,10 +44,7 @@ public final class NestDesugaringComplexCasesTest {
   @Rule
   public final DesugarRule desugarRule =
       DesugarRule.builder(this, lookup)
-          .addSourceInputs(
-              Splitter.on(" ").trimResults().splitToList(System.getProperty("input_srcs")).stream()
-                  .map(Paths::get)
-                  .toArray(Path[]::new))
+          .addSourceInputsFromJvmFlag("input_srcs")
           .addJavacOptions("-source 11", "-target 11")
           .setWorkingJavaPackage(
               "com.google.devtools.build.android.desugar.nest.testsrc.complexcase")
