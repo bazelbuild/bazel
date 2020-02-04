@@ -131,6 +131,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.Lock;
 import java.util.function.Function;
 import java.util.function.Supplier;
+import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.annotation.Nullable;
 
@@ -1040,6 +1041,11 @@ public final class SkyframeActionExecutor {
               // keep previous outputs in place.
               action.prepare(actionExecutionContext.getExecRoot());
             } catch (IOException e) {
+              logger.log(
+                  Level.WARNING,
+                  String.format(
+                      "failed to delete output files before executing action: '%s'", action),
+                  e);
               throw toActionExecutionException(
                   "failed to delete output files before executing action", e, action, null);
             }
@@ -1200,6 +1206,7 @@ public final class SkyframeActionExecutor {
           try {
             outputService.finalizeAction(action, metadataHandler);
           } catch (EnvironmentalExecException | IOException e) {
+            logger.log(Level.WARNING, String.format("unable to finalize action: '%s'", action), e);
             throw toActionExecutionException("unable to finalize action", e, action, fileOutErr);
           }
         }
