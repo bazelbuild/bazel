@@ -150,10 +150,6 @@ public interface ActionCache {
       return this == CORRUPTED;
     }
 
-    public Map<String, FileArtifactValue> getMdMap() {
-        return mdMap;
-    }
-
     /**
      * @return stored path strings, or null if the corresponding action does not discover inputs.
      */

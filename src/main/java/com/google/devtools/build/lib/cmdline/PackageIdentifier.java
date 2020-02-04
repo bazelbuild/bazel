@@ -22,9 +22,9 @@ import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
-import javax.annotation.concurrent.Immutable;
 import java.io.Serializable;
 import java.util.Objects;
+import javax.annotation.concurrent.Immutable;
 
 /**
  * Uniquely identifies a package, given a repository name and a package's path fragment.

@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.analysis.actions.SymlinkAction;
 import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.StrictDepsMode;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.events.Location;
@@ -269,6 +270,8 @@ public class ProtoCommon {
     PathFragment stripImportPrefixAttribute =
         getPathFragmentAttribute(ruleContext, "strip_import_prefix");
     boolean hasGeneratedSources = false;
+    boolean allowExternalDirectory =
+            ruleContext.getAnalysisEnvironment().getSkylarkSemantics().experimentalAllowExternalDirectory();
 
     if (generatedProtosInVirtualImports) {
       for (Artifact protoSource : protoSources) {
@@ -329,13 +332,13 @@ public class ProtoCommon {
               .getLabel()
               .getPackageIdentifier()
               .getRepository()
-              .getExecPath(
-                  ruleContext
-                      .getAnalysisEnvironment()
-                      .getSkylarkSemantics()
-                      .experimentalAllowExternalDirectory());
+              .getExecPath(allowExternalDirectory);
 
       importPrefix = PathFragment.EMPTY_FRAGMENT;
+    }
+
+    if (allowExternalDirectory && stripImportPrefix.startsWith(LabelConstants.EXPERIMENTAL_EXTERNAL_PATH_PREFIX)) {
+        stripImportPrefix = stripImportPrefix.subFragment(1);
     }
 
     ImmutableList.Builder<Artifact> symlinks = ImmutableList.builder();

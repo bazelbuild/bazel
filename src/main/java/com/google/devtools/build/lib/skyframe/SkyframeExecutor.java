@@ -1421,28 +1421,19 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
 
   protected ImmutableMap<Root, ArtifactRoot> createSourceArtifactRootMapOnNewPkgLocator(
       PathPackageLocator oldLocator, PathPackageLocator pkgLocator) {
+    ImmutableMap.Builder<Root, ArtifactRoot> result = ImmutableMap.builder();
+
+    Root absoluteRoot = Root.absoluteRoot(fileSystem);
+    result.put(absoluteRoot, ArtifactRoot.asSourceRoot(absoluteRoot));
+
     Root externalRoot = Root.fromPath(
             directories.getOutputBase().getRelative(LabelConstants.EXTERNAL_PATH_PREFIX));
-    Root absoluteRoot = Root.absoluteRoot(fileSystem);
+    result.put(externalRoot, ArtifactRoot.asExternalSourceRoot(externalRoot));
 
-    ImmutableMap.Builder<Root, ArtifactRoot> result = ImmutableMap.builder();
     for (Root packagePathEntry : pkgLocator.getPathEntries()) {
       result.put(packagePathEntry, ArtifactRoot.asSourceRoot(packagePathEntry));
     }
-
-    result.put(absoluteRoot, ArtifactRoot.asSourceRoot(absoluteRoot));
-    result.put(externalRoot, ArtifactRoot.asExternalSourceRoot(externalRoot));
     return result.build();
-    // TODO(bazel-team): The output base is a legitimate "source root" because external repositories
-    // stage their sources under output_base/external. The root here should really be
-    // output_base/external, but for some reason it isn't.
-//    return Stream.concat(
-//            pkgLocator.getPathEntries().stream(),
-//            Stream.of(Root.absoluteRoot(fileSystem), Root.fromPath(directories.getOutputBase())))
-//        .distinct()
-//        .collect(
-//            ImmutableMap.toImmutableMap(
-//                java.util.function.Function.identity(), ArtifactRoot::asSourceRoot));
   }
 
   public SkyframeBuildView getSkyframeBuildView() {
