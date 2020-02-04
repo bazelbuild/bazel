@@ -123,16 +123,15 @@ public class JacocoCoverageRunner {
     // report. The lcov formatter doesn't seem to care, and we're only using one bundle anyway.
     final IBundleCoverage bundleCoverage = analyzeStructure();
 
-    final Map<String, BranchCoverageDetail> branchDetails = analyzeBranch();
-    createReport(bundleCoverage, branchDetails);
+    createReport(bundleCoverage);
   }
 
   @VisibleForTesting
   void createReport(
-      final IBundleCoverage bundleCoverage, final Map<String, BranchCoverageDetail> branchDetails)
+      final IBundleCoverage bundleCoverage)
       throws IOException {
     JacocoLCOVFormatter formatter = new JacocoLCOVFormatter(createPathsSet());
-    final IReportVisitor visitor = formatter.createVisitor(reportFile, branchDetails);
+    final IReportVisitor visitor = formatter.createVisitor(reportFile);
 
     // Initialize the report with all of the execution and session information. At this point the
     // report doesn't know about the structure of the report being created.
@@ -182,27 +181,6 @@ public class JacocoCoverageRunner {
 
     // TODO(bazel-team): Find out where the name of the bundle can pop out in the report.
     return coverageBuilder.getBundle("isthisevenused");
-  }
-
-  // Additional pass to process the branch details of the classes
-  private Map<String, BranchCoverageDetail> analyzeBranch() throws IOException {
-    final BranchDetailAnalyzer analyzer =
-        new BranchDetailAnalyzer(execFileLoader.getExecutionDataStore());
-
-    Map<String, BranchCoverageDetail> result = new TreeMap<>();
-    Set<String> alreadyInstrumentedClasses = new HashSet<>();
-    if (uninstrumentedClasses == null) {
-      for (File classesJar : classesJars) {
-        analyzeUninstrumentedClassesFromJar(analyzer, classesJar, alreadyInstrumentedClasses);
-        result.putAll(analyzer.getBranchDetails());
-      }
-    } else {
-      for (Map.Entry<String, byte[]> entry : uninstrumentedClasses.entrySet()) {
-        analyzer.analyzeClass(entry.getValue(), entry.getKey());
-      }
-      result.putAll(analyzer.getBranchDetails());
-    }
-    return result;
   }
 
   /**

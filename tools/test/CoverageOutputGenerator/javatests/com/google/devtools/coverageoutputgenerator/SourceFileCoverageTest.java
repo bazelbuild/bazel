@@ -14,6 +14,7 @@
 
 package com.google.devtools.coverageoutputgenerator;
 
+import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.coverageoutputgenerator.LcovMergerTestUtils.assertMergedFunctionsExecution;
 import static com.google.devtools.coverageoutputgenerator.LcovMergerTestUtils.assertMergedLineNumbers;
 import static com.google.devtools.coverageoutputgenerator.LcovMergerTestUtils.assertMergedLines;
@@ -23,6 +24,9 @@ import static com.google.devtools.coverageoutputgenerator.LcovMergerTestUtils.cr
 import static com.google.devtools.coverageoutputgenerator.LcovMergerTestUtils.createLinesExecution2;
 import static com.google.devtools.coverageoutputgenerator.LcovMergerTestUtils.createSourceFile1;
 import static com.google.devtools.coverageoutputgenerator.LcovMergerTestUtils.createSourceFile2;
+
+import java.util.List;
+import java.util.TreeMap;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -73,5 +77,61 @@ public class SourceFileCoverageTest {
   public void testMerge() {
     assertMergedSourceFile(
         SourceFileCoverage.merge(sourceFile1, sourceFile2), linesExecution1, linesExecution2);
+
+    SourceFileCoverage c4 = new SourceFileCoverage("");
+    c4.addBranch(1, BranchCoverage.createWithBlockAndBranch(1, "1", "1", -1));
+    SourceFileCoverage c5 = new SourceFileCoverage("");
+    c5.addBranch(1, BranchCoverage.createWithBlockAndBranch(1, "1", "1", -1));
+    SourceFileCoverage c6 = new SourceFileCoverage("");
+    c6.addBranch(1, BranchCoverage.createWithBlockAndBranch(1, "1", "1", 0));
+    SourceFileCoverage c7 = new SourceFileCoverage("");
+    c7.addBranch(1, BranchCoverage.createWithBlockAndBranch(1, "1", "1", 1));
+    SourceFileCoverage c8 = new SourceFileCoverage("");
+    c8.addBranch(1, BranchCoverage.createWithBlockAndBranch(1, "1", "1", 4));
+
+    assertThat(SourceFileCoverage.merge(c4, c5).nrBranchesHit()).isEqualTo(0);
+    assertThat(SourceFileCoverage.merge(c4, c6).nrBranchesHit()).isEqualTo(0);
+    assertThat(SourceFileCoverage.merge(c4, c7).nrBranchesHit()).isEqualTo(1);
+    assertThat(SourceFileCoverage.merge(c7, c8).nrBranchesHit()).isEqualTo(1);
+  }
+
+  @Test
+  public void testMergeBranches() {
+    SourceFileCoverage c1 = new SourceFileCoverage("");
+    c1.addBranch(1, BranchCoverage.createWithBlockAndBranch(1, "1", "1", 0));
+
+    SourceFileCoverage c2 = new SourceFileCoverage("");
+    c2.addBranch(1, BranchCoverage.createWithBlockAndBranch(1, "1", "2", 1));
+    c2.addBranch(1, BranchCoverage.createWithBlockAndBranch(1, "1", "2", 2));
+
+    SourceFileCoverage c3 = new SourceFileCoverage("");
+    c3.addBranch(2, BranchCoverage.createWithBlockAndBranch(2, "2", "1", 2));
+
+    assertThat(SourceFileCoverage.mergeBranches(c1, c2).size()).isEqualTo(1);
+    assertThat(SourceFileCoverage.mergeBranches(c1, c3).size()).isEqualTo(2);
+  }
+
+  @Test
+  public void testNrBranchesHit() {
+    SourceFileCoverage c1 = new SourceFileCoverage("");
+    c1.addBranch(1, BranchCoverage.createWithBlockAndBranch(1, "1", "1", 0));
+    assertThat(c1.nrBranchesHit()).isEqualTo(0);
+    c1.addBranch(1, BranchCoverage.createWithBlockAndBranch(1, "1", "2", 0));
+    assertThat(c1.nrBranchesHit()).isEqualTo(0);
+    c1.addBranch(1, BranchCoverage.createWithBlockAndBranch(1, "1", "3", 1));
+    assertThat(c1.nrBranchesHit()).isEqualTo(1);
+
+    SourceFileCoverage c2 = new SourceFileCoverage("");
+    c2.addBranch(1, BranchCoverage.createWithBlockAndBranch(1, "1", "2", 1));
+    c2.addBranch(1, BranchCoverage.createWithBlockAndBranch(1, "1", "2", 2));
+    assertThat(c2.nrBranchesHit()).isEqualTo(1);
+
+    SourceFileCoverage c3 = new SourceFileCoverage("");
+    c3.addBranch(2, BranchCoverage.createWithBlockAndBranch(2, "2", "1", 2));
+    c3.addBranch(2, BranchCoverage.createWithBlockAndBranch(2, "2", "2", 0));
+    assertThat(c3.nrBranchesHit()).isEqualTo(1);
+
+    c3.addBranch(2, BranchCoverage.createWithBlockAndBranch(2, "2", "2", 1));
+    assertThat(c3.nrBranchesHit()).isEqualTo(2);
   }
 }

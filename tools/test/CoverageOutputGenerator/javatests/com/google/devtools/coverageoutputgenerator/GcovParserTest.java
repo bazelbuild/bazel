@@ -168,13 +168,13 @@ public class GcovParserTest {
 
     assertThat(sourceFileCoverage.getAllBranches())
         .containsExactly(
-            BranchCoverage.create(21, 2),
-            BranchCoverage.create(23, 2),
-            BranchCoverage.create(24, 2),
-            BranchCoverage.create(27, 2),
-            BranchCoverage.create(30, 2),
-            BranchCoverage.create(32, 2),
-            BranchCoverage.create(33, 0),
-            BranchCoverage.create(35, 2));
+            List.of(BranchCoverage.create(21, 2)),
+            List.of(BranchCoverage.create(23, 2)),
+            List.of(BranchCoverage.create(24, 2)),
+            List.of(BranchCoverage.create(27, 2)),
+            List.of(BranchCoverage.create(30, 2)),
+            List.of(BranchCoverage.create(32, 2)),
+            List.of(BranchCoverage.create(33, 0)),
+            List.of(BranchCoverage.create(35, 2)));
   }
 }

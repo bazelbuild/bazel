@@ -45,7 +45,9 @@ abstract class BranchCoverage {
         first.lineNumber(),
         first.blockNumber(),
         first.branchNumber(),
-        first.nrOfExecutions() + second.nrOfExecutions());
+        first.nrOfExecutions() > -1 && second.nrOfExecutions() > -1
+            ? first.nrOfExecutions() + second.nrOfExecutions()
+            : Math.max(first.nrOfExecutions(), second.nrOfExecutions()));
   }
 
   abstract int lineNumber();

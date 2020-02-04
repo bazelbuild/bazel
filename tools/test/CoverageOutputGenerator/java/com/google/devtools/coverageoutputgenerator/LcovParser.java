@@ -278,11 +278,9 @@ class LcovParser {
       String branchNumber = lineData[2];
       String taken = lineData[3];
 
-      boolean wasExecuted = false;
-      int executionCount = 0;
-      if (taken.equals(TAKEN)) {
+      int executionCount = -1; // not executed
+      if (!taken.equals(TAKEN)) {
         executionCount = Integer.parseInt(taken);
-        wasExecuted = true;
       }
       BranchCoverage branchCoverage =
           BranchCoverage.createWithBlockAndBranch(

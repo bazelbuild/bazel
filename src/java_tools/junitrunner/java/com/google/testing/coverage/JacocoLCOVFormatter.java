@@ -30,6 +30,7 @@ import java.util.TreeMap;
 import org.jacoco.core.analysis.IBundleCoverage;
 import org.jacoco.core.analysis.IClassCoverage;
 import org.jacoco.core.analysis.ICounter;
+import org.jacoco.core.analysis.ILine;
 import org.jacoco.core.analysis.IMethodCoverage;
 import org.jacoco.core.analysis.IPackageCoverage;
 import org.jacoco.core.analysis.ISourceFileCoverage;
@@ -59,8 +60,7 @@ public class JacocoLCOVFormatter {
     this.execPathsOfUninstrumentedFiles = ImmutableSet.of();
   }
 
-  public IReportVisitor createVisitor(
-      final File output, final Map<String, BranchCoverageDetail> branchCoverageDetail) {
+  public IReportVisitor createVisitor(final File output) {
     return new IReportVisitor() {
 
       private Map<String, Map<String, IClassCoverage>> sourceToClassCoverage = new TreeMap<>();
@@ -143,23 +143,23 @@ public class JacocoLCOVFormatter {
           }
 
           for (IClassCoverage clsCoverage : sourceToClassCoverage.get(sourceFile).values()) {
-            BranchCoverageDetail detail = branchCoverageDetail.get(clsCoverage.getName());
-            if (detail != null) {
-              for (int line : detail.linesWithBranches()) {
-                int numBranches = detail.getBranches(line);
-                boolean executed = detail.getExecutedBit(line);
-                if (executed) {
-                  for (int branchIdx = 0; branchIdx < numBranches; branchIdx++) {
-                    if (detail.getTakenBit(line, branchIdx)) {
-                      writer.printf("BA:%d,%d\n", line, 2); // executed, taken
-                    } else {
-                      writer.printf("BA:%d,%d\n", line, 1); // executed, not taken
-                    }
+            for (int lineno = clsCoverage.getFirstLine(), lastLine = srcCoverage.getLastLine(); lineno <= lastLine; lineno++) {
+              ILine line = clsCoverage.getLine(lineno);
+              ICounter branches = line.getBranchCounter();
+              if (branches.getTotalCount() > 0) {
+                int branchIdx = 1;
+                // TODO determine correct branch order
+                for (int i = 0, size = branches.getCoveredCount(); i < size; i++) {
+                  writer.printf("BRDA:%d,%d,%d,%s\n", lineno, lineno, branchIdx, 1); // executed, taken
+                  branchIdx++;
+                }
+                for (int i = 0, size = branches.getMissedCount(); i < size; i++) {
+                  if (branches.getCoveredCount() == 0) {
+                    writer.printf("BRDA:%d,%d,%d,%s\n", lineno, lineno, branchIdx, "-"); // not executed
+                  } else {
+                    writer.printf("BRDA:%d,%d,%d,%s\n", lineno, lineno, branchIdx, "0"); // executed, not taken
                   }
-                } else {
-                  for (int branchIdx = 0; branchIdx < numBranches; branchIdx++) {
-                    writer.printf("BA:%d,%d\n", line, 0); // not executed
-                  }
+                  branchIdx++;
                 }
               }
             }

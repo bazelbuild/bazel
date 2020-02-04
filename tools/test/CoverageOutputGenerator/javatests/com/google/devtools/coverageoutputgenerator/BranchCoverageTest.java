@@ -91,6 +91,24 @@ public class BranchCoverageTest {
   }
 
   @Test
+  public void testExecuted() {
+    BranchCoverage b1 = BranchCoverage.createWithBlockAndBranch(1, "1", "1", -1);
+    BranchCoverage b2 = BranchCoverage.createWithBlockAndBranch(1, "1", "1", -1);
+    BranchCoverage b3 = BranchCoverage.createWithBlockAndBranch(1, "1", "1", 0);
+    BranchCoverage b4 = BranchCoverage.createWithBlockAndBranch(1, "1", "1", 1);
+
+    assertThat(b1.wasExecuted()).isFalse();
+    assertThat(b2.wasExecuted()).isFalse();
+    assertThat(b3.wasExecuted()).isFalse();
+    assertThat(b4.wasExecuted()).isTrue();
+
+    assertThat(BranchCoverage.merge(b1, b2).wasExecuted()).isFalse();
+    assertThat(BranchCoverage.merge(b1, b3).wasExecuted()).isFalse();
+    assertThat(BranchCoverage.merge(b1, b4).wasExecuted()).isTrue();
+    assertThat(BranchCoverage.merge(b3, b4).wasExecuted()).isTrue();
+  }
+
+  @Test
   public void testMergeBranch1Branch2AssertationError() {
     BranchCoverage branch1 = getBranch1CoverageData();
     BranchCoverage branch2 = getBranch2CoverageData();
