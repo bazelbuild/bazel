@@ -527,7 +527,8 @@ test_suite(
         "//src/test/java/com/google/devtools/common/options:all_windows_tests",
         "//src/test/native/windows:all_windows_tests",
         "//src/test/py/bazel:all_windows_tests",
-        "//src/test/res:all_windows_tests",
+        # TODO(philwo): Enable again after fixing windows workers.
+        # "//src/test/res:all_windows_tests",
         "//src/test/shell:all_windows_tests",
         "//src/test/shell/bazel/android:all_windows_tests",
         "//src/tools/launcher:all_windows_tests",

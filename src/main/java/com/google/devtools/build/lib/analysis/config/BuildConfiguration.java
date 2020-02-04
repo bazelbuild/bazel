@@ -14,8 +14,6 @@
 
 package com.google.devtools.build.lib.analysis.config;
 
-import static java.util.Comparator.comparing;
-import static java.util.stream.Collectors.joining;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Suppliers;
@@ -206,34 +204,6 @@ public class BuildConfiguration implements BuildConfigurationApi {
 
   private int computeHashCode() {
     return Objects.hash(fragments, buildOptions.getNativeOptions());
-  }
-
-  public void describe(StringBuilder sb) {
-    sb.append("BuildConfiguration ").append(checksum()).append(":\n");
-    // Fragments.
-    sb.append("  fragments: ")
-        .append(
-            getFragmentsMap().keySet().stream()
-                .sorted(comparing(Class::getName))
-                .map(Class::getName)
-                .collect(joining(",")))
-        .append("\n");
-    // Options.
-    getOptions().getFragmentClasses().stream()
-        .sorted(comparing(Class::getName))
-        .map(optionsClass -> getOptions().get(optionsClass))
-        .forEach(options -> options.describe(sb));
-    // User-defined options.
-    sb.append("Fragment user-defined {\n");
-    buildOptions.getStarlarkOptions().entrySet().stream()
-        .sorted(Comparator.comparing(Map.Entry::getKey))
-        .forEach(
-            entry ->
-                sb.append("  ")
-                    .append(entry.getKey().toString())
-                    .append(": ")
-                    .append(entry.getValue()));
-    sb.append("\n}");
   }
 
   @Override
