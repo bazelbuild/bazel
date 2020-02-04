@@ -160,6 +160,7 @@ public class SymlinkForest {
           && (allowExternalDirectory
               || !baseName.equals(LabelConstants.EXTERNAL_PATH_PREFIX.getBaseName()))) {
         execPath.createSymbolicLink(target);
+        // TODO(jingwen-external): is this creating execroot/io_bazel/external?
       }
     }
   }
@@ -331,8 +332,6 @@ public class SymlinkForest {
       PackageIdentifier pkgId = entry.getKey();
       if (!allowExternalDirectory && pkgId.equals(LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER)) {
         // This isn't a "real" package, don't add it to the symlink tree.
-        // Also, ignore external/ directory if user has it in the source tree
-        // because it conflicts with external repository location.
         continue;
       }
       RepositoryName repository = pkgId.getRepository();
@@ -352,6 +351,11 @@ public class SymlinkForest {
           shouldLinkAllTopLevelItems = true;
         } else {
           String baseName = pkgId.getPackageFragment().getSegment(0);
+          if (!allowExternalDirectory && baseName.equals(LabelConstants.EXTERNAL_PATH_PREFIX.getBaseName())) {
+              // ignore external/ directory if user has it in the source tree
+              // because it conflicts with external repository location.
+              continue;
+          }
           Path execrootLink = execroot.getRelative(baseName);
           Path sourcePath = entry.getValue().getRelative(pkgId.getSourceRoot().getSegment(0));
           mainRepoLinks.putIfAbsent(execrootLink, sourcePath);

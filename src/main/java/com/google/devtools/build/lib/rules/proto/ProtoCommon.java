@@ -14,6 +14,10 @@
 
 package com.google.devtools.build.lib.rules.proto;
 
+import static com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode.TARGET;
+import static com.google.devtools.build.lib.collect.nestedset.Order.STABLE_ORDER;
+import static com.google.devtools.build.lib.packages.Type.STRING;
+
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -36,12 +40,7 @@ import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
-
 import javax.annotation.Nullable;
-
-import static com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode.TARGET;
-import static com.google.devtools.build.lib.collect.nestedset.Order.STABLE_ORDER;
-import static com.google.devtools.build.lib.packages.Type.STRING;
 
 /**
  * Utility functions for proto_library and proto aspect implementations.
@@ -350,7 +349,7 @@ public class ProtoCommon {
         ruleContext.ruleError(
             String.format(
                 ".proto file '%s' is not under the specified strip prefix '%s'",
-                realProtoSource.getRootRelativePath(), stripImportPrefix.getPathString()));
+                realProtoSource.getExecPathString(), stripImportPrefix.getPathString()));
         continue;
       }
       Pair<PathFragment, Artifact> importsPair =
