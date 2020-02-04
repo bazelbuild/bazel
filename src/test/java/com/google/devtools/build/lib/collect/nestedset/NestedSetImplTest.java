@@ -250,6 +250,16 @@ public class NestedSetImplTest {
   }
 
   @Test
+  public void hoistingKeepsSetSmall() {
+    NestedSet<String> first = NestedSetBuilder.<String>stableOrder().add("a").build();
+    NestedSet<String> second = NestedSetBuilder.<String>stableOrder().add("a").build();
+    NestedSet<String> singleton =
+        NestedSetBuilder.<String>stableOrder().addTransitive(first).addTransitive(second).build();
+    assertThat(singleton.toList()).containsExactly("a");
+    assertThat(singleton.isSingleton()).isTrue();
+  }
+
+  @Test
   public void addTransitiveAndBlockIfFuture_propagatesInterrupt() throws Exception {
     SettableFuture<Object[]> deserializationFuture = SettableFuture.create();
     NestedSet<String> deserialzingNestedSet =
