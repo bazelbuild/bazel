@@ -95,12 +95,14 @@ mono-repository.
 
 #### BUILD File
 
-The main build configuration file containing [rule](#rule) declarations (e.g.
-`cc_binary`, `go_library`). When [BUILD files](#build-file) are evaluated and
-analyzed, the rules create new targets in the [target graph](#target-graph). A
-BUILD file can load and use rules from [`.bzl` files](#bzl-file). A BUILD file
-marks a directory and any sub-directories not containing a BUILD file as a
-[package](#package). A BUILD file can also be named BUILD.bazel.
+A BUILD file is the main configuration file that tells Bazel what software
+outputs to build, what their dependencies are, and how to build them. Bazel
+takes a BUILD file as input and uses the file to create a graph of dependencies
+and to derive the actions that must be completed to build intermediate and final
+software outputs. A BUILD file marks a directory and any sub-directories not
+containing a BUILD file as a [package](#package), and can contain
+[targets](#target) created by [rules](#rule). The file can also be named
+BUILD.bazel.
 
 #### BUILD.bazel File
 
@@ -122,8 +124,8 @@ files](#build-file) using the load() function.
 The dependency graph that Bazel constructs and traverses to perform a build.
 Includes nodes like [targets](#target), [configured
 targets](#configured-target), [actions](#action), and [artifacts](#artifact). A
-build is considered "complete" when all [artifacts](#artifact) a set of
-requested targets transitively depends on are verified "up to date".
+build is considered complete when all [artifacts](#artifact) on which a set of
+requested targets depend are verified as up-to-date.
 
 #### Build setting
 
@@ -175,9 +177,9 @@ configurations, e.g. for host tools or cross-compilation.
 
 The process of only including the pieces of [configuration](#configuration) a
 target actually needs. For example, if you build Java binary `//:j` with C++
-dependency `//:c`, it's wasteful to include `--javacopt` in `//:c`,'s
-configuration because changing `--javacopt` unnecessarily breaks C++ build
-cacheability.
+dependency `//:c`, it's wasteful to include the value of `--javacopt` in the
+configuration of `//:c` because changing `--javacopt` unnecessarily breaks C++
+build cacheability.
 
 #### Configured query (cquery)
 
@@ -196,8 +198,11 @@ build, it has two configured targets: `<//:foo, x86>` and `<//:foo, arm>`.
 
 #### Correctness
 
-The property that a build's output faithfully reflects the state after applying
-a series of [actions](#action) on its transitive inputs.
+A build is correct when its output faithfully reflects the state of its
+transitive inputs. To achieve correct builds, Bazel strives to be
+[hermetic](#hermeticity), reproducible, and making [build
+analysis](#analysis-phase) and [action execution](#execution-phase)
+deterministic.
 
 #### Dependency
 
