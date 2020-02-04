@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.bazel.rules.ninja.actions;
 
+import static com.google.devtools.build.lib.packages.BuildType.LABEL_KEYED_STRING_DICT;
+
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSortedMap;
@@ -21,12 +23,17 @@ import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
+import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.bazel.rules.ninja.file.GenericParsingException;
+import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
+import java.util.Map;
 import java.util.SortedMap;
 
 /**
@@ -45,6 +52,7 @@ class NinjaGraphArtifactsHelper {
   private final PathFragment workingDirectory;
   private final ArtifactRoot derivedOutputRoot;
 
+  private ImmutableSortedMap<PathFragment, Artifact> depsNameToArtifact;
   private ImmutableSortedMap<PathFragment, Artifact> srcsMap;
   private final SortedMap<PathFragment, Artifact> outputsMap;
 
@@ -75,12 +83,29 @@ class NinjaGraphArtifactsHelper {
     this.derivedOutputRoot = ArtifactRoot.asDerivedRoot(execRoot, outputRootPath);
   }
 
-  void prepare() {
+  void prepare() throws GenericParsingException {
     ImmutableList<Artifact> srcs = ruleContext.getPrerequisiteArtifacts("srcs", Mode.TARGET).list();
     ImmutableSortedMap.Builder<PathFragment, Artifact> inputsMapBuilder =
         ImmutableSortedMap.naturalOrder();
     srcs.forEach(a -> inputsMapBuilder.put(a.getRootRelativePath(), a));
     srcsMap = inputsMapBuilder.build();
+
+    Map<String, TransitiveInfoCollection> mapping = ruleContext
+        .getPrerequisiteMap("deps_mapping");
+    ImmutableSortedMap.Builder<PathFragment, Artifact> builder = ImmutableSortedMap.naturalOrder();
+    for (Map.Entry<String, TransitiveInfoCollection> entry : mapping.entrySet()) {
+      NestedSet<Artifact> filesToBuild = entry.getValue()
+          .getProvider(FileProvider.class)
+          .getFilesToBuild();
+      if (!filesToBuild.isSingleton()) {
+        throw new GenericParsingException(
+            String.format("'%s' contains more then one output. "
+                + "deps_mapping should only contain targets, producing a single output file.",
+                entry.getValue().getLabel().getName()));
+      }
+      builder.put(PathFragment.create(entry.getKey()), filesToBuild.getSingleton());
+    }
+    depsNameToArtifact = builder.build();
   }
 
   PathFragment createAbsolutePathUnderOutputRoot(PathFragment pathUnderOutputRoot) {
@@ -113,6 +138,10 @@ class NinjaGraphArtifactsHelper {
     Artifact asInput = srcsMap.get(pathRelativeToWorkspaceRoot);
     if (asInput != null) {
       return asInput;
+    }
+    Artifact depsMappingArtifact = depsNameToArtifact.get(pathRelativeToWorkingDirectory);
+    if (depsMappingArtifact != null) {
+      return depsMappingArtifact;
     }
     return createOutputArtifact(pathRelativeToWorkingDirectory);
   }

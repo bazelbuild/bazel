@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.bazel.rules.ninja.actions;
 
+import static com.google.devtools.build.lib.packages.BuildType.LABEL_KEYED_STRING_DICT;
+
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSortedMap;
@@ -34,6 +36,7 @@ import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTa
 import com.google.devtools.build.lib.bazel.rules.ninja.file.GenericParsingException;
 import com.google.devtools.build.lib.bazel.rules.ninja.parser.NinjaTarget;
 import com.google.devtools.build.lib.bazel.rules.ninja.pipeline.NinjaPipeline;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ExecutorUtil;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
@@ -49,6 +52,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.stream.Collectors;
 

@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.bazel.rules.ninja.parser.NinjaRuleVariable;
 import com.google.devtools.build.lib.bazel.rules.ninja.parser.NinjaScope;
 import com.google.devtools.build.lib.bazel.rules.ninja.parser.NinjaTarget;
 import com.google.devtools.build.lib.bazel.rules.ninja.parser.NinjaVariableValue;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -38,6 +39,7 @@ import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 /**

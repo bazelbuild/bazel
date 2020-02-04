@@ -273,4 +273,49 @@ public class NinjaGraphTest extends BuildViewTestCase {
       }
     }
   }
+
+  @Test
+  public void testDepsMapping() throws Exception {
+    rewriteWorkspace(
+        "workspace(name = 'test')",
+        "dont_symlink_directories_in_execroot(paths = ['build_config'])");
+
+    scratch.file("input.txt", "World");
+    scratch.file(
+        "build_config/build.ninja",
+        "rule echo",
+        "  command = echo \"Hello $$(cat ${in})!\" > ${out}",
+        "build hello.txt: echo placeholder");
+
+    ConfiguredTarget configuredTarget =
+        scratchConfiguredTarget(
+            "",
+            "graph",
+            "ninja_graph(name = 'graph', output_root = 'build_config',",
+            " working_directory = 'build_config',",
+            " main = 'build_config/build.ninja',",
+            " deps_mapping = {'placeholder': ':input.txt'})");
+    NinjaGraphProvider provider = configuredTarget.getProvider(NinjaGraphProvider.class);
+    assertThat(provider).isNotNull();
+    assertThat(provider.getOutputRoot()).isEqualTo(PathFragment.create("build_config"));
+    assertThat(provider.getWorkingDirectory()).isEqualTo(PathFragment.create("build_config"));
+
+    assertThat(configuredTarget).isInstanceOf(RuleConfiguredTarget.class);
+    RuleConfiguredTarget ninjaConfiguredTarget = (RuleConfiguredTarget) configuredTarget;
+    ImmutableList<ActionAnalysisMetadata> actions = ninjaConfiguredTarget.getActions();
+    assertThat(actions).hasSize(1);
+
+    ActionAnalysisMetadata action = Iterables.getOnlyElement(actions);
+    assertThat(action).isInstanceOf(NinjaAction.class);
+    NinjaAction ninjaAction = (NinjaAction) action;
+    List<CommandLineAndParamFileInfo> commandLines =
+        ninjaAction.getCommandLines().getCommandLines();
+    assertThat(commandLines).hasSize(1);
+    assertThat(commandLines.get(0).commandLine.toString())
+        .endsWith("cd build_config && echo \"Hello $(cat placeholder)!\" > hello.txt");
+    assertThat(ninjaAction.getPrimaryInput().getExecPathString())
+        .isEqualTo("input.txt");
+    assertThat(ninjaAction.getPrimaryOutput().getExecPathString())
+        .isEqualTo("build_config/hello.txt");
+    }
 }

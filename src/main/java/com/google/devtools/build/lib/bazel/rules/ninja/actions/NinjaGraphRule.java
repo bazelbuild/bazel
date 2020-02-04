@@ -16,14 +16,17 @@ package com.google.devtools.build.lib.bazel.rules.ninja.actions;
 
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
+import static com.google.devtools.build.lib.packages.BuildType.LABEL_KEYED_STRING_DICT;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
 import static com.google.devtools.build.lib.packages.Type.STRING;
 import static com.google.devtools.build.lib.packages.Type.STRING_LIST;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
+import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.syntax.Sequence;
@@ -77,6 +80,12 @@ public class NinjaGraphRule implements RuleDefinition {
                     "Directory under workspace's exec root to be the root for relative paths and "
                         + "working directory for all Ninja actions. "
                         + "Must be empty or set to the value or output_root."))
+        .add(attr("deps_mapping", BuildType.LABEL_DICT_UNARY)
+            .allowedFileTypes(FileTypeSet.ANY_FILE)
+            .setDoc("Mapping of paths in the Ninja file to the Bazel-built dependencies. "
+                + "Main output of each dependency will be used as an input to the Ninja action,"
+                + "which refers to the corresponding path.")
+            .value(ImmutableMap.of()))
         .build();
   }
 
