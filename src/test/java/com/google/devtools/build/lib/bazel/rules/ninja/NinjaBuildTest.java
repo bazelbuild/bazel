@@ -254,7 +254,7 @@ public class NinjaBuildTest extends BuildViewTestCase {
     assertThat(getFilesToBuild(buildTarget).toList()).isEmpty();
   }
 
-  private List<String> artifactsToExecPaths(NestedSet<Artifact> filesToBuild) {
+  private static List<String> artifactsToExecPaths(NestedSet<Artifact> filesToBuild) {
     return filesToBuild.toList().stream()
         .map(Artifact::getExecPathString)
         .collect(Collectors.toList());

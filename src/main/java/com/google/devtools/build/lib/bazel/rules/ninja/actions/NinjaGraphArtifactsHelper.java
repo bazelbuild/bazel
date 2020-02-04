@@ -46,7 +46,7 @@ class NinjaGraphArtifactsHelper {
   private final ArtifactRoot derivedOutputRoot;
 
   private ImmutableSortedMap<PathFragment, Artifact> srcsMap;
-  private SortedMap<PathFragment, Artifact> outputsMap;
+  private final SortedMap<PathFragment, Artifact> outputsMap;
 
   /**
    * Constructor
