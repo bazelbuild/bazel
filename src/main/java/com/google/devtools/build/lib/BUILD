@@ -1212,6 +1212,7 @@ java_library(
         "//src/main/java/com/google/devtools/common/options:invocation_policy",
         "//src/main/protobuf:command_server_java_grpc",
         "//src/main/protobuf:command_server_java_proto",
+        "//src/main/protobuf:failure_details_java_proto",
         "//src/main/protobuf:invocation_policy_java_proto",
         "//third_party:guava",
         "//third_party:jsr305",

@@ -1,0 +1,39 @@
+// Copyright 2020 The Bazel Authors. All rights reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//    http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+// This file's messages describe any failure(s) that occurred during Bazel's
+// handling of a request. The intent is to provide more detail to a Bazel client
+// than is conveyed with an exit code, to help those clients decide how to
+// respond to, or classify, a failure.
+
+syntax = "proto3";
+
+package failure_details;
+
+option java_package = "com.google.devtools.build.lib.server";
+
+import "google/protobuf/descriptor.proto";
+
+message FailureDetailMetadata {
+  uint32 exit_code = 1;
+}
+
+  extend google.protobuf.EnumValueOptions {
+  FailureDetailMetadata metadata = 1078;
+}
+
+message FailureDetail {
+  // A short human-readable message describing the failure, for debugging.
+  string message = 1;
+}

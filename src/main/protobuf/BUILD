@@ -21,7 +21,6 @@ FILES = [
     "bazel_flags",
     "build",
     "builtin",
-    "command_server",
     "crosstool_config",
     "deps",
     "desugar_deps",
@@ -95,6 +94,38 @@ java_proto_library(
 java_library_srcs(
     name = "analysis_v2_java_proto_srcs",
     deps = [":analysis_v2_java_proto"],
+)
+
+proto_library(
+    name = "command_server_proto",
+    srcs = ["command_server.proto"],
+    deps = [":failure_details_proto"],
+)
+
+java_proto_library(
+    name = "command_server_java_proto",
+    deps = [":command_server_proto"],
+)
+
+java_library_srcs(
+    name = "command_server_java_proto_srcs",
+    deps = [":command_server_java_proto"],
+)
+
+proto_library(
+    name = "failure_details_proto",
+    srcs = ["failure_details.proto"],
+    deps = ["@com_google_protobuf//:descriptor_proto"],
+)
+
+java_proto_library(
+    name = "failure_details_java_proto",
+    deps = [":failure_details_proto"],
+)
+
+java_library_srcs(
+    name = "failure_details_java_proto_srcs",
+    deps = [":failure_details_java_proto"],
 )
 
 # This new option tagging method is in flux while being applied to the options
@@ -237,6 +268,8 @@ filegroup(
         ":analysis_v2_java_proto_srcs",
         ":command_line_java_proto_srcs",
         ":command_server_java_grpc_srcs",
+        ":command_server_java_proto_srcs",
+        ":failure_details_java_proto_srcs",
         ":option_filters_java_proto_srcs",
         ":profile_java_proto_srcs",
         ":remote_execution_log_java_proto_srcs",
