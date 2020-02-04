@@ -219,22 +219,22 @@ string GetHomeDir() { return GetPathEnv("HOME"); }
 string GetJavaBinaryUnderJavabase() { return "bin/java"; }
 
 string Which(const string& executable) {
-  string path = GetPathEnv("PATH");
+  const string path = GetPathEnv("PATH");
   if (path.empty()) {
     return "";
   }
 
-  vector<string> pieces = blaze_util::Split(path, ':');
+  const vector<string> pieces = blaze_util::Split(path, ':');
   for (string piece : pieces) {
     if (piece.empty()) {
       piece = ".";
     }
 
     struct stat file_stat;
-    string candidate = blaze_util::JoinPath(piece, executable);
+    const string candidate = blaze_util::JoinPath(piece, executable);
     if (access(candidate.c_str(), X_OK) == 0 &&
         stat(candidate.c_str(), &file_stat) == 0 &&
-        (S_ISREG(file_stat.st_mode) || S_ISLNK(file_stat.st_mode))) {
+        S_ISREG(file_stat.st_mode)) {
       return candidate;
     }
   }

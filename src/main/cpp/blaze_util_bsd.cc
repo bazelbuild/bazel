@@ -132,7 +132,7 @@ string GetSelfPath(const char* argv0) {
   }
 
   // Otherwise, try to find the executable by searching the PATH.
-  std::string from_search_path = Which(argv0);
+  const std::string from_search_path = Which(argv0);
   if (!from_search_path.empty()) {
     return from_search_path;
   }
