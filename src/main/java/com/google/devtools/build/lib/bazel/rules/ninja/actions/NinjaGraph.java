@@ -129,24 +129,23 @@ public class NinjaGraph implements RuleConfiguredTargetFactory {
     ImmutableSortedMap<PathFragment, NinjaTarget> usualTargets = usualTargetsBuilder.build();
     ImmutableSortedMap<PathFragment, NestedSet<Artifact>> phonyTargetsMap;
 
+    Root sourceRoot = mainArtifact.getRoot().getRoot();
+    NinjaGraphArtifactsHelper artifactsHelper =
+        new NinjaGraphArtifactsHelper(ruleContext, sourceRoot, outputRoot, workingDirectory);
     try {
-      Root sourceRoot = mainArtifact.getRoot().getRoot();
-      NinjaGraphArtifactsHelper artifactsHelper =
-          new NinjaGraphArtifactsHelper(ruleContext, sourceRoot, outputRoot, workingDirectory);
       artifactsHelper.prepare();
       phonyTargetsMap =
           NinjaPhonyTargetsUtil.getPhonyPathsMap(
               phonyTargetsBuilder.build(), artifactsHelper::getInputArtifact);
-      NinjaActionsHelper ninjaActionsHelper =
-          new NinjaActionsHelper(
+      NinjaActionsHelper ninjaActionsHelper = new NinjaActionsHelper(
               ruleContext, artifactsHelper, outputRootInputs, usualTargets, phonyTargetsMap);
       ninjaActionsHelper.process();
     } catch (GenericParsingException e) {
       throw new RuleErrorException(e.getMessage());
     }
 
-    NinjaGraphProvider graphProvider =
-        new NinjaGraphProvider(outputRoot, workingDirectory, phonyTargetsMap);
+    NinjaGraphProvider graphProvider = new NinjaGraphProvider(outputRoot, workingDirectory,
+        phonyTargetsMap, artifactsHelper.getOutputsMap());
 
     RuleConfiguredTargetBuilder builder = new RuleConfiguredTargetBuilder(ruleContext);
     builder
