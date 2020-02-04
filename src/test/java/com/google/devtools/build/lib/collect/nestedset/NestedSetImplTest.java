@@ -272,4 +272,12 @@ public class NestedSetImplTest {
 
     assertThat(interruptPropagated.get()).isTrue();
   }
+
+  @Test
+  public void getChildrenInterruptibly_propagatesInterrupt() {
+    NestedSet<String> deserialzingNestedSet =
+        NestedSet.withFuture(Order.STABLE_ORDER, SettableFuture.create());
+    Thread.currentThread().interrupt();
+    assertThrows(InterruptedException.class, deserialzingNestedSet::getChildrenInterruptibly);
+  }
 }

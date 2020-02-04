@@ -211,7 +211,17 @@ public final class NestedSet<E> {
 
   /** Same as {@link #getChildren}, except propagates {@link InterruptedException}. */
   Object getChildrenInterruptibly() throws InterruptedException {
-    return getChildren(/*handleInterruptedException=*/ true);
+    return getChildrenInternal(InterruptStrategy.PROPAGATE);
+  }
+
+  /**
+   * What to do when an interruption occurs while getting the result of a deserialization future.
+   */
+  private enum InterruptStrategy {
+    /** Crash with {@link ExitCode#INTERRUPTED}. */
+    CRASH,
+    /** Throw {@link InterruptedException}. */
+    PROPAGATE
   }
 
   /** Implementation of {@link #getChildren} that will catch an InterruptedException and crash. */
@@ -233,18 +243,21 @@ public final class NestedSet<E> {
 
   /**
    * Private implementation of getChildren that will propagate an InterruptedException from a future
-   * in the nested set based on the value of {@code handleInterruptedException}.
+   * in the nested set based on the value of {@code interruptStrategy}.
    */
-  private Object getChildren(boolean handleInterruptedException) throws InterruptedException {
-    if (handleInterruptedException) {
-      return getChildrenUninterruptibly();
-    } else {
-      if (children instanceof ListenableFuture) {
-        return MoreFutures.waitForFutureAndGet((ListenableFuture<Object[]>) children);
-      } else {
-        return children;
-      }
+  private Object getChildrenInternal(InterruptStrategy interruptStrategy)
+      throws InterruptedException {
+    switch (interruptStrategy) {
+      case CRASH:
+        return getChildrenUninterruptibly();
+      case PROPAGATE:
+        if (children instanceof ListenableFuture) {
+          return MoreFutures.waitForFutureAndGet((ListenableFuture<Object[]>) children);
+        } else {
+          return children;
+        }
     }
+    throw new IllegalStateException("Unknown interrupt strategy " + interruptStrategy);
   }
 
   /**
@@ -287,7 +300,7 @@ public final class NestedSet<E> {
    * but will propagate an {@code InterruptedException} if one is thrown.
    */
   public ImmutableList<E> toListInterruptibly() throws InterruptedException {
-    return toList(/*handleInterruptedException=*/ false);
+    return toList(InterruptStrategy.PROPAGATE);
   }
 
   /**
@@ -299,7 +312,7 @@ public final class NestedSet<E> {
    */
   public ImmutableList<E> toList() {
     try {
-      return toList(/*handleInterruptedException=*/ true);
+      return toList(InterruptStrategy.CRASH);
     } catch (InterruptedException e) {
       throw new IllegalStateException("InterruptedException should have already been caught", e);
     }
@@ -308,9 +321,9 @@ public final class NestedSet<E> {
   /**
    * Private implementation of toList which will either propagate an {@code InterruptedException} if
    * one occurs while waiting for a {@code Future} in {@link #getChildren} or will have {@link
-   * #getChildren(boolean)} handle it.
+   * #getChildrenInternal} handle it.
    */
-  private ImmutableList<E> toList(boolean handleInterruptedException) throws InterruptedException {
+  private ImmutableList<E> toList(InterruptStrategy interruptStrategy) throws InterruptedException {
     if (isSingleton()) {
       // No need to check for ListenableFuture members - singletons can't have them.
       return ImmutableList.of((E) children);
@@ -319,8 +332,8 @@ public final class NestedSet<E> {
       return ImmutableList.of();
     }
     return getOrder() == Order.LINK_ORDER
-        ? expand(handleInterruptedException).reverse()
-        : expand(handleInterruptedException);
+        ? expand(interruptStrategy).reverse()
+        : expand(interruptStrategy);
   }
 
   /**
@@ -420,16 +433,16 @@ public final class NestedSet<E> {
    * this.memo}: wrap our direct items in a list, call {@link #lockedExpand} to perform the initial
    * {@link #walk}, or call {@link #replay} if we have a nontrivial memo.
    */
-  private ImmutableList<E> expand(boolean handleInterruptedException) throws InterruptedException {
+  private ImmutableList<E> expand(InterruptStrategy interruptStrategy) throws InterruptedException {
     // This value is only set in the constructor, so safe to test here with no lock.
     if (memo == LEAF_MEMO) {
       return ImmutableList.copyOf(new ArraySharingCollection<>((Object[]) children));
     }
-    CompactHashSet<E> members = lockedExpand(handleInterruptedException);
+    CompactHashSet<E> members = lockedExpand(interruptStrategy);
     if (members != null) {
       return ImmutableList.copyOf(members);
     }
-    Object[] children = (Object[]) this.getChildren(handleInterruptedException);
+    Object[] children = (Object[]) getChildrenInternal(interruptStrategy);
     ImmutableList.Builder<E> output = ImmutableList.builderWithExpectedSize(orderAndSize >> 2);
     replay(output, children, memo, 0);
     return output.build();
@@ -463,12 +476,12 @@ public final class NestedSet<E> {
    * If this is the first call for this object, fills {@code this.memo} and returns a set from
    * {@link #walk}. Otherwise returns null; the caller should use {@link #replay} instead.
    */
-  private synchronized CompactHashSet<E> lockedExpand(boolean handleInterruptedException)
+  private synchronized CompactHashSet<E> lockedExpand(InterruptStrategy interruptStrategy)
       throws InterruptedException {
     if (memo != null) {
       return null;
     }
-    Object[] children = (Object[]) this.getChildren(handleInterruptedException);
+    Object[] children = (Object[]) getChildrenInternal(interruptStrategy);
     CompactHashSet<E> members = CompactHashSet.createWithExpectedSize(128);
     CompactHashSet<Object> sets = CompactHashSet.createWithExpectedSize(128);
     sets.add(children);
