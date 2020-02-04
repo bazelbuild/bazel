@@ -79,7 +79,9 @@ public final class NestedSet<E> {
     this.memo = LEAF_MEMO;
   }
 
-  NestedSet(Order order, Set<E> direct, Set<NestedSet<E>> transitive) {
+  NestedSet(
+      Order order, Set<E> direct, Set<NestedSet<E>> transitive, InterruptStrategy interruptStrategy)
+      throws InterruptedException {
     this.orderAndSize = order.ordinal();
 
     // The iteration order of these collections is the order in which we add the items.
@@ -131,7 +133,7 @@ public final class NestedSet<E> {
         CompactHashSet<E> hoisted = null;
         for (NestedSet<E> subset : transitiveOrder) {
           // If this is a deserialization future, this call blocks.
-          Object c = subset.getChildren();
+          Object c = subset.getChildrenInternal(interruptStrategy);
           if (c instanceof Object[]) {
             Object[] a = (Object[]) c;
             if (a.length < 2) {
@@ -217,7 +219,7 @@ public final class NestedSet<E> {
   /**
    * What to do when an interruption occurs while getting the result of a deserialization future.
    */
-  private enum InterruptStrategy {
+  enum InterruptStrategy {
     /** Crash with {@link ExitCode#INTERRUPTED}. */
     CRASH,
     /** Throw {@link InterruptedException}. */

@@ -20,9 +20,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.MapMaker;
-import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.collect.compacthashset.CompactHashSet;
-import com.google.devtools.build.lib.concurrent.MoreFutures;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet.InterruptStrategy;
 import com.google.errorprone.annotations.DoNotCall;
 import java.util.concurrent.ConcurrentMap;
 
@@ -150,33 +149,32 @@ public final class NestedSetBuilder<E> {
   }
 
   /**
-   * Similar to {@link #addTransitive} except that if the subset is based on a deserialization
-   * future, blocks for that future to complete.
-   *
-   * <p>The block would occur anyway upon calling {@link #build}. However, {@link #build} crashes
-   * instead of propagating {@link InterruptedException}. This method may be preferable if the
-   * caller can propagate {@link InterruptedException}.
-   */
-  // TODO(b/146789490): Remove this workaround.
-  public NestedSetBuilder<E> addTransitiveAndBlockIfFuture(NestedSet<? extends E> subset)
-      throws InterruptedException {
-    Object children = subset.rawChildren();
-    if (children instanceof ListenableFuture) {
-      MoreFutures.waitForFutureAndGet((ListenableFuture<?>) children);
-    }
-    return addTransitive(subset);
-  }
-
-  /**
    * Builds the actual nested set.
    *
    * <p>This method may be called multiple times with interleaved {@link #add}, {@link #addAll} and
    * {@link #addTransitive} calls.
    */
+  public NestedSet<E> build() {
+    try {
+      return buildInternal(InterruptStrategy.CRASH);
+    } catch (InterruptedException e) {
+      throw new IllegalStateException("Cannot throw with InterruptStrategy.CRASH", e);
+    }
+  }
+
+  /**
+   * Similar to {@link #build} except that if any subset is based on a deserialization future and an
+   * interrupt is observed, {@link InterruptedException} is propagated.
+   */
+  public NestedSet<E> buildInterruptibly() throws InterruptedException {
+    return buildInternal(InterruptStrategy.PROPAGATE);
+  }
+
   // Casting from CompactHashSet<NestedSet<? extends E>> to CompactHashSet<NestedSet<E>> by way of
   // CompactHashSet<?>.
   @SuppressWarnings("unchecked")
-  public NestedSet<E> build() {
+  private NestedSet<E> buildInternal(InterruptStrategy interruptStrategy)
+      throws InterruptedException {
     if (isEmpty()) {
       return order.emptySet();
     }
@@ -195,7 +193,8 @@ public final class NestedSetBuilder<E> {
     return new NestedSet<>(
         order,
         items == null ? ImmutableSet.of() : items,
-        transitiveSetsCast == null ? ImmutableSet.of() : transitiveSetsCast);
+        transitiveSetsCast == null ? ImmutableSet.of() : transitiveSetsCast,
+        interruptStrategy);
   }
 
   private static final ConcurrentMap<ImmutableList<?>, NestedSet<?>> immutableListCache =

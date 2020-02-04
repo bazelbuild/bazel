@@ -21,7 +21,6 @@ import com.google.common.testing.EqualsTester;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
-import java.util.concurrent.atomic.AtomicBoolean;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -260,27 +259,13 @@ public class NestedSetImplTest {
   }
 
   @Test
-  public void addTransitiveAndBlockIfFuture_propagatesInterrupt() throws Exception {
-    SettableFuture<Object[]> deserializationFuture = SettableFuture.create();
+  public void buildInterruptibly_propagatesInterrupt() {
     NestedSet<String> deserialzingNestedSet =
-        NestedSet.withFuture(Order.STABLE_ORDER, deserializationFuture);
-    NestedSetBuilder<String> builder = NestedSetBuilder.stableOrder();
-    AtomicBoolean interruptPropagated = new AtomicBoolean();
-
-    Thread add =
-        new Thread(
-            () -> {
-              try {
-                builder.addTransitiveAndBlockIfFuture(deserialzingNestedSet);
-              } catch (InterruptedException e) {
-                interruptPropagated.set(true);
-              }
-            });
-    add.start();
-    add.interrupt();
-    add.join();
-
-    assertThat(interruptPropagated.get()).isTrue();
+        NestedSet.withFuture(Order.STABLE_ORDER, SettableFuture.create());
+    NestedSetBuilder<String> builder =
+        NestedSetBuilder.<String>stableOrder().addTransitive(deserialzingNestedSet).add("a");
+    Thread.currentThread().interrupt();
+    assertThrows(InterruptedException.class, builder::buildInterruptibly);
   }
 
   @Test

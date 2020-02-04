@@ -648,11 +648,11 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
     NestedSetBuilder<Artifact> discoveredModulesBuilder = NestedSetBuilder.stableOrder();
     for (Artifact module : topLevel) {
       topLevelModulesBuilder.add(module);
-      discoveredModulesBuilder.addTransitiveAndBlockIfFuture(transitivelyUsedModules.get(module));
+      discoveredModulesBuilder.addTransitive(transitivelyUsedModules.get(module));
     }
     topLevelModules = topLevelModulesBuilder.build();
     discoveredModulesBuilder.addTransitive(topLevelModules);
-    NestedSet<Artifact> discoveredModules = discoveredModulesBuilder.build();
+    NestedSet<Artifact> discoveredModules = discoveredModulesBuilder.buildInterruptibly();
 
     additionalInputs =
         NestedSetBuilder.fromNestedSet(additionalInputs).addTransitive(discoveredModules).build();
