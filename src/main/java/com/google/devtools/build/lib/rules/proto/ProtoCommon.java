@@ -270,8 +270,6 @@ public class ProtoCommon {
     PathFragment stripImportPrefixAttribute =
         getPathFragmentAttribute(ruleContext, "strip_import_prefix");
     boolean hasGeneratedSources = false;
-    boolean allowExternalDirectory =
-            ruleContext.getAnalysisEnvironment().getSkylarkSemantics().experimentalAllowExternalDirectory();
 
     if (generatedProtosInVirtualImports) {
       for (Artifact protoSource : protoSources) {
@@ -332,12 +330,13 @@ public class ProtoCommon {
               .getLabel()
               .getPackageIdentifier()
               .getRepository()
-              .getExecPath(allowExternalDirectory);
+              .getExecPath(starlarkSemantics.experimentalAllowExternalDirectory());
 
       importPrefix = PathFragment.EMPTY_FRAGMENT;
     }
 
-    if (allowExternalDirectory && stripImportPrefix.startsWith(LabelConstants.EXPERIMENTAL_EXTERNAL_PATH_PREFIX)) {
+    if (starlarkSemantics.experimentalAllowExternalDirectory()
+            && stripImportPrefix.startsWith(LabelConstants.EXPERIMENTAL_EXTERNAL_PATH_PREFIX)) {
         stripImportPrefix = stripImportPrefix.subFragment(1);
     }
 
