@@ -60,6 +60,29 @@ filegroup(
     ],
 )
 
+pkg_tar(
+    name = "bootstrap-jars",
+    srcs = [
+        "@com_google_protobuf//:protobuf_java",
+        "@com_google_protobuf//:protobuf_java_util",
+    ],
+    remap_paths = {
+        "..": "derived/jars",
+    },
+    strip_prefix = ".",
+    # Public but bazel-only visibility.
+    visibility = ["//:__subpackages__"],
+)
+
+filegroup(
+    name = "bootstrap-derived-java-jars",
+    srcs = glob(
+        ["derived/jars/**/*.jar"],
+        allow_empty = True,
+    ),
+    visibility = ["//:__subpackages__"],
+)
+
 filegroup(
     name = "bootstrap-derived-java-srcs",
     srcs = glob(
@@ -101,6 +124,7 @@ genrule(
     name = "bazel-distfile",
     srcs = [
         ":bazel-srcs",
+        ":bootstrap-jars",
         ":platforms-srcs",
         "//src:derived_java_srcs",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec:bootstrap_autocodec.tar",
@@ -117,6 +141,7 @@ genrule(
     name = "bazel-distfile-tar",
     srcs = [
         ":bazel-srcs",
+        ":bootstrap-jars",
         ":platforms-srcs",
         "//src:derived_java_srcs",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec:bootstrap_autocodec.tar",
