@@ -121,32 +121,15 @@ public class ValidationTest {
     assertInvalid(
         "load statement defines 'x' more than once", //
         "load('module', 'x', x='y')");
-    // This test of the special-case redeclaration check for loads
-    // is disabled until we fix a bug parsing load after
-    // semicolon (b/148802200).
-    // (The previous test design ignored parse errors.)
-    // TODO(b/148802200): fix the parser and reenable the test.
-    if (false) {
-      assertInvalid(
-          "load statement defines 'x' more than once", //
-          "x=1; load('module', 'x')");
-    }
-    // This version uses a newline, but that triggers the generic
-    // check (in declare, not collectDefinitions):
+
+    // Eventually load bindings will be local,
+    // at which point these errors will need adjusting.
     assertInvalid(
         "cannot reassign global 'x'", //
-        "x=1",
-        "load('module', 'x')");
-    // Ditto with these two assertions:
-    if (false) {
-      assertInvalid(
-          "load statement defines 'x' more than once", //
-          "load('module', 'x'); x=1");
-    }
+        "x=1; load('module', 'x')");
     assertInvalid(
         "cannot reassign global 'x'", //
-        "load('module', 'x')",
-        "x=1");
+        "load('module', 'x'); x=1");
   }
 
   @Test

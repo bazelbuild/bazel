@@ -1150,9 +1150,15 @@ public final class ParserTest {
 
   @Test
   public void testLoadNotAtTopLevel() throws Exception {
+    // "This is not a parse error." --Magritte
+    parseFile("if 1: load('', 'x')\n");
+  }
+
+  @Test
+  public void testLoadModuleNotStringLiteral() throws Exception {
     setFailFast(false);
-    parseFile("if 1: load(8)\n");
-    assertContainsError("syntax error at 'load': expected expression");
+    parseFile("load(123, 'x')");
+    assertContainsError("syntax error at '123': expected string literal");
   }
 
   @Test
@@ -1199,6 +1205,12 @@ public final class ParserTest {
 
     parseFile("load(':foo.bzl', test3 = old)\n");
     assertContainsError("syntax error at 'old': expected string");
+  }
+
+  @Test
+  public void testLoadIsASmallStatement() throws Exception {
+    // Regression test for b/148802200.
+    parseFile("a=1; load('file', 'b'); c=3");
   }
 
   @Test
