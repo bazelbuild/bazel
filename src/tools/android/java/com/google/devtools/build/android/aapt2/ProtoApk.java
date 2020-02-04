@@ -445,6 +445,7 @@ public class ProtoApk implements Closeable {
 
         strings.add(new String(bytes, stringOffset, length, "UTF8"));
       } else {
+        // TODO(b/148817379): this next block of lines is forming an int with holes in it.
         int characterCount = byteBuffer.get(stringOffset) & 0xFFFF;
         if ((characterCount & 0x8000) != 0) {
           characterCount =
