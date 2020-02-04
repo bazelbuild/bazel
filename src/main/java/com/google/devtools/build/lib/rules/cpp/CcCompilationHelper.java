@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.rules.cpp;
 
+import static java.util.stream.Collectors.toCollection;
+
 import com.google.common.base.Function;
 import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
@@ -52,7 +54,6 @@ import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
-import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -64,8 +65,8 @@ import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.stream.Collectors;
+import javax.annotation.Nullable;
 
-import static java.util.stream.Collectors.toCollection;
 
 /**
  * A class to create C/C++ compile actions in a way that is consistent with cc_library. Rules that
@@ -951,7 +952,6 @@ public final class CcCompilationHelper {
   private CcCompilationContext initializeCcCompilationContext() throws InterruptedException {
     CcCompilationContext.Builder ccCompilationContextBuilder =
         CcCompilationContext.builder(actionConstructionContext, configuration, label);
-
     // Setup the include path; local include directories come before those inherited from deps or
     // from the toolchain; in case of aliasing (same include file found on different entries),
     // prefer the local include rather than the inherited one.
@@ -960,16 +960,12 @@ public final class CcCompilationHelper {
     // generated files. It is important that the execRoot (EMPTY_FRAGMENT) comes
     // before the genfilesFragment to preferably pick up source files. Otherwise
     // we might pick up stale generated files.
-    PathFragment repositoryPath =
-        // label.getPackageIdentifier().getRepository().getPathUnderExecRoot();
-        label
-            .getPackageIdentifier()
-            .getRepository()
-            .getExecPath(
-                actionConstructionContext
+    boolean allowExternalDirectory =
+            actionConstructionContext
                     .getAnalysisEnvironment()
                     .getSkylarkSemantics()
-                    .experimentalAllowExternalDirectory());
+                    .experimentalAllowExternalDirectory();
+    PathFragment repositoryPath = label.getPackageIdentifier().getRepository().getExecPath(allowExternalDirectory);
     ccCompilationContextBuilder.addQuoteIncludeDir(repositoryPath);
     ccCompilationContextBuilder.addQuoteIncludeDir(
         configuration.getGenfilesFragment().getRelative(repositoryPath));

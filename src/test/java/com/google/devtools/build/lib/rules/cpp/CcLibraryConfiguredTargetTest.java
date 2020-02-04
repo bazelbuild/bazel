@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction;
+import com.google.devtools.build.lib.packages.StarlarkSemanticsOptions;
 import com.google.devtools.build.lib.packages.util.Crosstool.CcToolchainConfig;
 import com.google.devtools.build.lib.packages.util.MockCcSupport;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
@@ -1279,7 +1280,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
         "cc_library(name='a', srcs=['a.cc'], copts=['-Id/../../somewhere'])");
     CppCompileAction compileAction = getCppCompileAction("//root:a");
     try {
-      compileAction.verifyActionIncludePaths(compileAction.getSystemIncludeDirs());
+      compileAction.verifyActionIncludePaths(compileAction.getSystemIncludeDirs(), actionExecutionContext.getOptions().getOptions(StarlarkSemanticsOptions.class).experimentalAllowExternalDirectory);
     } catch (ActionExecutionException exception) {
       assertThat(exception)
           .hasMessageThat()
@@ -1296,7 +1297,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
         "cc_library(name='a', srcs=['a.cc'], copts=['-I/somewhere'])");
     CppCompileAction compileAction = getCppCompileAction("//root:a");
     try {
-      compileAction.verifyActionIncludePaths(compileAction.getSystemIncludeDirs());
+      compileAction.verifyActionIncludePaths(compileAction.getSystemIncludeDirs(), actionExecutionContext.getOptions().getOptions(StarlarkSemanticsOptions.class).experimentalAllowExternalDirectory);
     } catch (ActionExecutionException exception) {
       assertThat(exception)
           .hasMessageThat()
@@ -1313,7 +1314,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
         "cc_library(name='a', srcs=['a.cc'], copts=['-isystem../system'])");
     CppCompileAction compileAction = getCppCompileAction("//root:a");
     try {
-      compileAction.verifyActionIncludePaths(compileAction.getSystemIncludeDirs());
+      compileAction.verifyActionIncludePaths(compileAction.getSystemIncludeDirs(), actionExecutionContext.getOptions().getOptions(StarlarkSemanticsOptions.class).experimentalAllowExternalDirectory);
     } catch (ActionExecutionException exception) {
       assertThat(exception)
           .hasMessageThat()
@@ -1330,7 +1331,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
         "cc_library(name='a', srcs=['a.cc'], copts=['-isystem/system'])");
     CppCompileAction compileAction = getCppCompileAction("//root:a");
     try {
-      compileAction.verifyActionIncludePaths(compileAction.getSystemIncludeDirs());
+      compileAction.verifyActionIncludePaths(compileAction.getSystemIncludeDirs(), actionExecutionContext.getOptions().getOptions(StarlarkSemanticsOptions.class).experimentalAllowExternalDirectory);
     } catch (ActionExecutionException exception) {
       assertThat(exception)
           .hasMessageThat()

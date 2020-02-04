@@ -367,14 +367,6 @@ public abstract class Artifact
     @Override
     public PathFragment getRootRelativePath() {
         return getExecPath().relativeTo(getRoot().getExecPath());
-//      PathFragment outputDirectory = getRoot().getExecPath().getParentDirectory();
-//      PathFragment mainRepo = PathFragment.create(getRoot().getExecPath().getBaseName());
-//      PathFragment execPath = getExecPath().relativeTo(outputDirectory);
-//      if (execPath.startsWith(mainRepo)) {
-//        return execPath.relativeTo(mainRepo);
-//      } else {
-//        return LabelConstants.EXPERIMENTAL_EXTERNAL_PATH_PREFIX.getRelative(execPath);
-//      }
     }
 
     @Override

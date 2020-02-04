@@ -61,6 +61,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
+import com.google.devtools.build.lib.packages.StarlarkSemanticsOptions;
 import com.google.devtools.build.lib.profiler.AutoProfiler;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
@@ -594,7 +595,10 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
                   .setCmdlineIncludes(getCmdlineIncludes(options))
                   .build());
       if (needsIncludeValidation) {
-        verifyActionIncludePaths(systemIncludeDirs);
+        verifyActionIncludePaths(
+                systemIncludeDirs,
+                actionExecutionContext
+                        .getOptions().getOptions(StarlarkSemanticsOptions.class).experimentalAllowExternalDirectory);
       }
 
       if (!shouldScanIncludes) {
@@ -1035,7 +1039,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
   }
 
   @VisibleForTesting
-  void verifyActionIncludePaths(List<PathFragment> systemIncludeDirs)
+  void verifyActionIncludePaths(List<PathFragment> systemIncludeDirs, boolean allowExternalDirectory)
       throws ActionExecutionException {
     ImmutableSet<PathFragment> ignoredDirs = ImmutableSet.copyOf(getValidationIgnoredDirs());
     // We currently do not check the output of:
@@ -1052,15 +1056,13 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
           || FileSystemUtils.startsWithAny(includePath, ignoredDirs)) {
         continue;
       }
-      // TODO(jingwen-external): plumb conditional
+
       // One starting ../ is okay for getting to a sibling repository.
-      if (includePath.startsWith(LabelConstants.EXPERIMENTAL_EXTERNAL_PATH_PREFIX)) {
-//        includePath = includePath.relativeTo(LabelConstants.EXPERIMENTAL_EXTERNAL_PATH_PREFIX);
-      } else if (includePath.startsWith(LabelConstants.EXTERNAL_PATH_PREFIX)) {
+      if (!allowExternalDirectory && includePath.startsWith(LabelConstants.EXTERNAL_PATH_PREFIX)) {
         includePath = includePath.relativeTo(LabelConstants.EXTERNAL_PATH_PREFIX);
       }
 
-      if (includePath.isAbsolute()) {  // || includePath.containsUplevelReferences()) {
+      if (includePath.isAbsolute() || (!allowExternalDirectory && includePath.containsUplevelReferences() )) {
         throw new ActionExecutionException(
             String.format(
                 "The include path '%s' references a path outside of the execution root.",

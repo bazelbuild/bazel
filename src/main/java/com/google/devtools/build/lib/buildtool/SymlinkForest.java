@@ -32,7 +32,6 @@ import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
-
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
