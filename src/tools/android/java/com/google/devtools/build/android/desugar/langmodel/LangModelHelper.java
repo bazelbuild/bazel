@@ -16,7 +16,6 @@
 
 package com.google.devtools.build.android.desugar.langmodel;
 
-
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableTable;

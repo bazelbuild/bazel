@@ -16,5 +16,4 @@ package com.google.devtools.build.android.desugar.testdata.java8;
 import com.google.devtools.build.android.desugar.testdata.separate8.SeparateInterfaceWithDefaultMethod;
 
 /** Test class that inherits default method defined in separate target for testing b/65645388. */
-public class DefaultMethodFromSeparateJava8Target
-    implements SeparateInterfaceWithDefaultMethod {}
+public class DefaultMethodFromSeparateJava8Target implements SeparateInterfaceWithDefaultMethod {}

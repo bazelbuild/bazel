@@ -110,5 +110,4 @@ public final class ClassMemberTrackReason {
         "%s{hasDeclReason=%s, ownerAccess=%d, memberAccess=%d, useAccesses=%s}",
         getClass().getSimpleName(), hasDeclReason, ownerAccess, memberAccess, useAccesses);
   }
-
 }

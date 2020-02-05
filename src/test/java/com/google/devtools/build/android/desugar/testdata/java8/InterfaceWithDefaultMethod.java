@@ -34,8 +34,8 @@ public interface InterfaceWithDefaultMethod {
   static class Version2Base implements Redefine {}
 
   /**
-   * Subclass that implements an interface explicitly that the superclass also implements,
-   * but the superclass implements a more specific interface that overrides a defautl method.
+   * Subclass that implements an interface explicitly that the superclass also implements, but the
+   * superclass implements a more specific interface that overrides a defautl method.
    */
   public static class AlsoVersion2 extends Version2Base implements InterfaceWithDefaultMethod {}
 }

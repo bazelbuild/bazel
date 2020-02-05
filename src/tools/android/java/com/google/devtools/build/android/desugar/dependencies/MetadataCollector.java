@@ -36,18 +36,27 @@ public final class MetadataCollector implements DependencyCollector {
 
   @Override
   public void assumeCompanionClass(String origin, String target) {
-    checkArgument(target.endsWith(INTERFACE_COMPANION_SUFFIX),
-        "target not a companion: %s -> %s", origin, target);
+    checkArgument(
+        target.endsWith(INTERFACE_COMPANION_SUFFIX),
+        "target not a companion: %s -> %s",
+        origin,
+        target);
     info.addAssumePresent(
         Dependency.newBuilder().setOrigin(wrapType(origin)).setTarget(wrapType(target)));
   }
 
   @Override
   public void missingImplementedInterface(String origin, String target) {
-    checkArgument(!target.endsWith(INTERFACE_COMPANION_SUFFIX),
-        "target seems to be a companion: %s -> %s", origin, target);
-    checkState(tolerateMissingDeps,
-        "Couldn't find interface %s on the classpath for desugaring %s", target, origin);
+    checkArgument(
+        !target.endsWith(INTERFACE_COMPANION_SUFFIX),
+        "target seems to be a companion: %s -> %s",
+        origin,
+        target);
+    checkState(
+        tolerateMissingDeps,
+        "Couldn't find interface %s on the classpath for desugaring %s",
+        target,
+        origin);
     info.addMissingInterface(
         Dependency.newBuilder().setOrigin(wrapType(origin)).setTarget(wrapType(target)));
   }
@@ -55,8 +64,7 @@ public final class MetadataCollector implements DependencyCollector {
   @Override
   public void recordExtendedInterfaces(String origin, String... targets) {
     if (targets.length > 0) {
-      InterfaceDetails.Builder details =
-          InterfaceDetails.newBuilder().setOrigin(wrapType(origin));
+      InterfaceDetails.Builder details = InterfaceDetails.newBuilder().setOrigin(wrapType(origin));
       for (String target : targets) {
         details.addExtendedInterface(wrapType(target));
       }
@@ -66,8 +74,8 @@ public final class MetadataCollector implements DependencyCollector {
 
   @Override
   public void recordDefaultMethods(String origin, int count) {
-    checkArgument(!origin.endsWith(INTERFACE_COMPANION_SUFFIX),
-        "seems to be a companion: %s", origin);
+    checkArgument(
+        !origin.endsWith(INTERFACE_COMPANION_SUFFIX), "seems to be a companion: %s", origin);
     info.addInterfaceWithCompanion(
         InterfaceWithCompanion.newBuilder()
             .setOrigin(wrapType(origin))

@@ -40,5 +40,4 @@ public abstract class ClassMemberKey {
   final String nameWithSuffix(String suffix) {
     return name() + '$' + suffix;
   }
-
 }

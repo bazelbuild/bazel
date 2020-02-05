@@ -154,5 +154,4 @@ public class ClassMemberKeyTest {
                 /* name= */ "instanceStaticMethod",
                 /* descriptor= */ "(JJ)J"));
   }
-
 }
