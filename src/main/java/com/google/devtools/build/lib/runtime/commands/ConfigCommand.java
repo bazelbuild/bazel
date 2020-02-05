@@ -17,6 +17,7 @@ import static com.google.common.collect.ImmutableSortedMap.toImmutableSortedMap;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Comparator.comparing;
 
+import com.google.common.base.Verify;
 import com.google.common.collect.HashBasedTable;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSortedMap;
@@ -25,6 +26,7 @@ import com.google.common.collect.Ordering;
 import com.google.common.collect.Sets;
 import com.google.common.collect.Table;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Event;
@@ -344,23 +346,37 @@ public class ConfigCommand implements BlazeCommand {
   private static ImmutableSortedMap<String, String> getOrderedNativeOptions(
       FragmentOptions options) {
     return options.asMap().entrySet().stream()
+        // While technically part of CoreOptions, --define is practically a user-definable flag so
+        // we include it in the user-defined fragment for clarity. See getOrderedUserDefinedOptions.
+        .filter(
+            entry ->
+                !(options.getClass().equals(CoreOptions.class) && entry.getKey().equals("define")))
         .collect(
             toImmutableSortedMap(
                 Ordering.natural(), e -> e.getKey(), e -> String.valueOf(e.getValue())));
   }
 
   /**
-   * Returns a configuration's Starlark settings in canonical order.
+   * Returns a configuration's user-definable settings in canonical order.
    *
    * <p>While actual option values are objects, we serialize them to strings to prevent command
    * output from interpreting them more deeply than we want for simple "name=value" output.
    */
   private static ImmutableSortedMap<String, String> getOrderedUserDefinedOptions(
       BuildConfiguration config) {
-    return config.getOptions().getStarlarkOptions().entrySet().stream()
-        .collect(
-            toImmutableSortedMap(
-                Ordering.natural(), e -> e.getKey().toString(), e -> String.valueOf(e.getValue())));
+    ImmutableSortedMap.Builder<String, String> ans = ImmutableSortedMap.naturalOrder();
+
+    // Starlark-defined options:
+    for (Map.Entry<Label, Object> entry : config.getOptions().getStarlarkOptions().entrySet()) {
+      ans.put(entry.getKey().toString(), String.valueOf(entry.getValue()));
+    }
+
+    // --define:
+    for (Map.Entry<String, String> entry :
+        config.getOptions().get(CoreOptions.class).commandLineBuildVariables) {
+      ans.put("--define:" + entry.getKey(), Verify.verifyNotNull(entry.getValue()));
+    }
+    return ans.build();
   }
 
   /**

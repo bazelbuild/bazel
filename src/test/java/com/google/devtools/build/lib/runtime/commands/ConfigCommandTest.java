@@ -269,4 +269,30 @@ public class ConfigCommandTest extends BuildIntegrationTestCase {
     assertThat(getOptionValue(targetConfig, "user-defined", "//custom_flags:my_flag"))
         .isEqualTo("hello");
   }
+
+  @Test
+  public void defineFlagsIndividuallyListedInUserDefinedFragment() throws Exception {
+    analyzeTarget("--define", "a=1", "--define", "b=2");
+
+    ConfigurationForOutput targetConfig = null;
+    for (JsonElement configJson :
+        new JsonParser().parse(callConfigCommand("--dump_all")).getAsJsonArray()) {
+      ConfigurationForOutput config = new Gson().fromJson(configJson, ConfigurationForOutput.class);
+      if (isTargetConfig(config)) {
+        targetConfig = config;
+        break;
+      }
+    }
+
+    assertThat(targetConfig).isNotNull();
+    assertThat(getOptionValue(targetConfig, "user-defined", "--define:a")).isEqualTo("1");
+    assertThat(getOptionValue(targetConfig, "user-defined", "--define:b")).isEqualTo("2");
+    assertThat(
+            targetConfig.fragments.stream()
+                .filter(fragment -> fragment.name.endsWith("CoreOptions"))
+                .flatMap(fragment -> fragment.options.keySet().stream())
+                .filter(name -> name.equals("define"))
+                .collect(Collectors.toList()))
+        .isEmpty();
+  }
 }
