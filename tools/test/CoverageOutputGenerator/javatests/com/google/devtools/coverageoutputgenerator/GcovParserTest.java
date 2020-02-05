@@ -19,6 +19,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Lists;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.util.List;
@@ -168,13 +169,13 @@ public class GcovParserTest {
 
     assertThat(sourceFileCoverage.getAllBranches())
         .containsExactly(
-            List.of(BranchCoverage.create(21, 2)),
-            List.of(BranchCoverage.create(23, 2)),
-            List.of(BranchCoverage.create(24, 2)),
-            List.of(BranchCoverage.create(27, 2)),
-            List.of(BranchCoverage.create(30, 2)),
-            List.of(BranchCoverage.create(32, 2)),
-            List.of(BranchCoverage.create(33, 0)),
-            List.of(BranchCoverage.create(35, 2)));
+            Lists.newArrayList(BranchCoverage.create(21, 2)),
+            Lists.newArrayList(BranchCoverage.create(23, 2)),
+            Lists.newArrayList(BranchCoverage.create(24, 2)),
+            Lists.newArrayList(BranchCoverage.create(27, 2)),
+            Lists.newArrayList(BranchCoverage.create(30, 2)),
+            Lists.newArrayList(BranchCoverage.create(32, 2)),
+            Lists.newArrayList(BranchCoverage.create(33, 0)),
+            Lists.newArrayList(BranchCoverage.create(35, 2)));
   }
 }
