@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.bazel.rules.ninja.actions;
 
+
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSortedMap;
@@ -26,10 +27,12 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
+import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.bazel.rules.ninja.file.GenericParsingException;
 import com.google.devtools.build.lib.bazel.rules.ninja.parser.NinjaTarget;
@@ -49,6 +52,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.stream.Collectors;
 
@@ -129,11 +133,20 @@ public class NinjaGraph implements RuleConfiguredTargetFactory {
     ImmutableSortedMap<PathFragment, NinjaTarget> usualTargets = usualTargetsBuilder.build();
     ImmutableSortedMap<PathFragment, NestedSet<Artifact>> phonyTargetsMap;
 
+    Root sourceRoot = mainArtifact.getRoot().getRoot();
+    ImmutableSortedMap<PathFragment, Artifact> depsMap = createDepsMap(ruleContext);
+    if (ruleContext.hasErrors()) {
+      return null;
+    }
+    NinjaGraphArtifactsHelper artifactsHelper =
+        new NinjaGraphArtifactsHelper(
+            ruleContext,
+            sourceRoot,
+            outputRoot,
+            workingDirectory,
+            createSrcsMap(ruleContext),
+            depsMap);
     try {
-      Root sourceRoot = mainArtifact.getRoot().getRoot();
-      NinjaGraphArtifactsHelper artifactsHelper =
-          new NinjaGraphArtifactsHelper(ruleContext, sourceRoot, outputRoot, workingDirectory);
-      artifactsHelper.prepare();
       phonyTargetsMap =
           NinjaPhonyTargetsUtil.getPhonyPathsMap(
               phonyTargetsBuilder.build(), artifactsHelper::getInputArtifact);
@@ -146,13 +159,42 @@ public class NinjaGraph implements RuleConfiguredTargetFactory {
     }
 
     NinjaGraphProvider graphProvider =
-        new NinjaGraphProvider(outputRoot, workingDirectory, phonyTargetsMap);
+        new NinjaGraphProvider(
+            outputRoot, workingDirectory, phonyTargetsMap, artifactsHelper.getOutputsMap());
 
     RuleConfiguredTargetBuilder builder = new RuleConfiguredTargetBuilder(ruleContext);
     builder
         .addProvider(NinjaGraphProvider.class, graphProvider)
         .addProvider(RunfilesProvider.class, RunfilesProvider.EMPTY);
 
+    return builder.build();
+  }
+
+  private static ImmutableSortedMap<PathFragment, Artifact> createSrcsMap(RuleContext ruleContext) {
+    ImmutableList<Artifact> srcs = ruleContext.getPrerequisiteArtifacts("srcs", Mode.TARGET).list();
+    ImmutableSortedMap.Builder<PathFragment, Artifact> inputsMapBuilder =
+        ImmutableSortedMap.naturalOrder();
+    srcs.forEach(a -> inputsMapBuilder.put(a.getRootRelativePath(), a));
+    return inputsMapBuilder.build();
+  }
+
+  private static ImmutableSortedMap<PathFragment, Artifact> createDepsMap(RuleContext ruleContext) {
+    Map<String, TransitiveInfoCollection> mapping = ruleContext.getPrerequisiteMap("deps_mapping");
+    ImmutableSortedMap.Builder<PathFragment, Artifact> builder = ImmutableSortedMap.naturalOrder();
+    for (Map.Entry<String, TransitiveInfoCollection> entry : mapping.entrySet()) {
+      NestedSet<Artifact> filesToBuild =
+          entry.getValue().getProvider(FileProvider.class).getFilesToBuild();
+      if (!filesToBuild.isSingleton()) {
+        ruleContext.attributeError(
+            "deps_mapping",
+            String.format(
+                "'%s' contains more than one output. "
+                    + "deps_mapping should only contain targets, producing a single output file.",
+                entry.getValue().getLabel().getCanonicalForm()));
+        return ImmutableSortedMap.of();
+      }
+      builder.put(PathFragment.create(entry.getKey()), filesToBuild.getSingleton());
+    }
     return builder.build();
   }
 

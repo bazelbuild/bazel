@@ -31,6 +31,7 @@ public final class NinjaGraphProvider implements TransitiveInfoProvider {
   private final PathFragment outputRoot;
   private final PathFragment workingDirectory;
   private final ImmutableSortedMap<PathFragment, NestedSet<Artifact>> phonyTargets;
+  private final ImmutableSortedMap<PathFragment, Artifact> outputsMap;
 
   /**
    * Constructor
@@ -38,14 +39,17 @@ public final class NinjaGraphProvider implements TransitiveInfoProvider {
    * @param outputRoot name of output directory for Ninja actions under execroot
    * @param workingDirectory relative path under execroot, the root for interpreting all paths
    * @param phonyTargets mapping between phony target names and their input files
+   * @param outputsMap mapping between output paths in Ninja file and derived artifacts
    */
   NinjaGraphProvider(
       PathFragment outputRoot,
       PathFragment workingDirectory,
-      ImmutableSortedMap<PathFragment, NestedSet<Artifact>> phonyTargets) {
+      ImmutableSortedMap<PathFragment, NestedSet<Artifact>> phonyTargets,
+      ImmutableSortedMap<PathFragment, Artifact> outputsMap) {
     this.outputRoot = outputRoot;
     this.workingDirectory = workingDirectory;
     this.phonyTargets = phonyTargets;
+    this.outputsMap = outputsMap;
   }
 
   public PathFragment getOutputRoot() {
@@ -59,5 +63,9 @@ public final class NinjaGraphProvider implements TransitiveInfoProvider {
   @Nullable
   public NestedSet<Artifact> getPhonyArtifacts(PathFragment fragment) {
     return phonyTargets.get(fragment);
+  }
+
+  public Artifact getUsualArtifact(PathFragment fragment) {
+    return outputsMap.get(fragment);
   }
 }
