@@ -24,11 +24,7 @@ import java.util.regex.Pattern;
  * C++-related file type definitions.
  */
 public final class CppFileTypes {
-  // .cu and .cl are CUDA and OpenCL source extensions, respectively. They are expected to only be
-  // supported with clang. Bazel is not officially supporting these targets, and the extensions are
-  // listed only as long as they work with the existing C++ actions.
-  public static final FileType CPP_SOURCE =
-      FileType.of(".cc", ".cpp", ".cxx", ".c++", ".C", ".cu", ".cl");
+  public static final FileType CPP_SOURCE = FileType.of(".cc", ".cpp", ".cxx", ".c++", ".C");
   public static final FileType C_SOURCE = FileType.of(".c");
   public static final FileType OBJC_SOURCE = FileType.of(".m");
   public static final FileType OBJCPP_SOURCE = FileType.of(".mm");
@@ -49,8 +45,7 @@ public final class CppFileTypes {
 
   public static final FileType CPP_HEADER =
       FileType.of(
-          ".h", ".hh", ".hpp", ".ipp", ".hxx", ".h++", ".inc", ".inl", ".tlh", ".tli", ".H", ".inl",
-          ".cuh");
+          ".h", ".hh", ".hpp", ".ipp", ".hxx", ".h++", ".inc", ".inl", ".tlh", ".tli", ".H");
   public static final FileType PCH = FileType.of(".pch");
   public static final FileTypeSet OBJC_HEADER = FileTypeSet.of(CPP_HEADER, PCH);
 
