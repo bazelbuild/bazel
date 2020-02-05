@@ -166,8 +166,7 @@ public final class BuiltinCallable implements StarlarkCallable {
       }
 
       // disabled?
-      StarlarkSemantics.FlagIdentifier flag = param.disabledByFlag();
-      if (flag != null) {
+      if (param.disabledByFlag() != null) {
         // Skip disabled parameter as if not present at all.
         // The default value will be filled in below.
         continue;
@@ -239,7 +238,7 @@ public final class BuiltinCallable implements StarlarkCallable {
       }
 
       // disabled?
-      StarlarkSemantics.FlagIdentifier flag = param.disabledByFlag();
+      String flag = param.disabledByFlag();
       if (flag != null) {
         // spill to **kwargs
         if (kwargs == null) {
@@ -342,20 +341,19 @@ public final class BuiltinCallable implements StarlarkCallable {
   }
 
   // Returns a phrase meaning "disabled" appropriate to the specified flag.
-  private static String disabled(
-      StarlarkSemantics.FlagIdentifier flag, StarlarkSemantics semantics) {
+  private static String disabled(String flag, StarlarkSemantics semantics) {
     // If the flag is True, it must be a deprecation flag. Otherwise it's an experimental flag.
     // TODO(adonovan): is that assumption sound?
     if (semantics.flagValue(flag)) {
       return String.format(
           "deprecated and will be removed soon. It may be temporarily re-enabled by setting"
               + " --%s=false",
-          flag.getFlagName());
+          flag);
     } else {
       return String.format(
           "experimental and thus unavailable with the current flags. It may be enabled by setting"
               + " --%s",
-          flag.getFlagName());
+          flag);
     }
   }
 }

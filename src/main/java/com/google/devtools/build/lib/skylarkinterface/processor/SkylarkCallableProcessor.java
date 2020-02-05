@@ -21,7 +21,6 @@ import com.google.devtools.build.lib.skylarkinterface.ParamType;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkGlobalLibrary;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
 import com.google.errorprone.annotations.FormatMethod;
 import java.util.HashSet;
 import java.util.List;
@@ -149,8 +148,7 @@ public final class SkylarkCallableProcessor extends AbstractProcessor {
       if (annot.selfCall() && !classesWithSelfcall.add(cls)) {
         errorf(method, "Containing class has more than one selfCall method defined.");
       }
-      if (annot.enableOnlyWithFlag() != FlagIdentifier.NONE
-          && annot.disableWithFlag() != FlagIdentifier.NONE) {
+      if (!annot.enableOnlyWithFlag().isEmpty() && !annot.disableWithFlag().isEmpty()) {
         errorf(
             method,
             "Only one of SkylarkCallable.enablingFlag and SkylarkCallable.disablingFlag may be"
@@ -394,16 +392,14 @@ public final class SkylarkCallableProcessor extends AbstractProcessor {
     }
 
     // Check sense of flag-controlled parameters.
-    if (paramAnnot.enableOnlyWithFlag() != FlagIdentifier.NONE
-        && paramAnnot.disableWithFlag() != FlagIdentifier.NONE) {
+    if (!paramAnnot.enableOnlyWithFlag().isEmpty() && !paramAnnot.disableWithFlag().isEmpty()) {
       errorf(
           param,
           "Parameter '%s' has enableOnlyWithFlag and disableWithFlag set. At most one may be set",
           paramAnnot.name());
     }
     boolean isParamControlledByFlag =
-        paramAnnot.enableOnlyWithFlag() != FlagIdentifier.NONE
-            || paramAnnot.disableWithFlag() != FlagIdentifier.NONE;
+        !paramAnnot.enableOnlyWithFlag().isEmpty() || !paramAnnot.disableWithFlag().isEmpty();
     if (!isParamControlledByFlag && !paramAnnot.valueWhenDisabled().isEmpty()) {
       errorf(
           param,
@@ -442,12 +438,12 @@ public final class SkylarkCallableProcessor extends AbstractProcessor {
   }
 
   private void checkSpecialParams(ExecutableElement method, SkylarkCallable annot) {
-    if (annot.extraPositionals().enableOnlyWithFlag() != FlagIdentifier.NONE
-        || annot.extraPositionals().disableWithFlag() != FlagIdentifier.NONE) {
+    if (!annot.extraPositionals().enableOnlyWithFlag().isEmpty()
+        || !annot.extraPositionals().disableWithFlag().isEmpty()) {
       errorf(method, "The extraPositionals parameter may not be toggled by semantic flag");
     }
-    if (annot.extraKeywords().enableOnlyWithFlag() != FlagIdentifier.NONE
-        || annot.extraKeywords().disableWithFlag() != FlagIdentifier.NONE) {
+    if (!annot.extraKeywords().enableOnlyWithFlag().isEmpty()
+        || !annot.extraKeywords().disableWithFlag().isEmpty()) {
       errorf(method, "The extraKeywords parameter may not be toggled by semantic flag");
     }
 

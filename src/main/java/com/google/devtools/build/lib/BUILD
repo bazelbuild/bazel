@@ -71,6 +71,7 @@ filegroup(
         "//src/main/java/com/google/devtools/build/lib/skylarkdebug/module:srcs",
         "//src/main/java/com/google/devtools/build/lib/skylarkdebug/proto:srcs",
         "//src/main/java/com/google/devtools/build/lib/skylarkdebug/server:srcs",
+        "//src/main/java/com/google/devtools/build/lib/skylarkinterface:srcs",
         "//src/main/java/com/google/devtools/build/lib/skylarkinterface/processor:srcs",
         "//src/main/java/com/google/devtools/build/lib/ssd:srcs",
         "//src/main/java/com/google/devtools/build/lib/standalone:srcs",
@@ -369,41 +370,10 @@ java_library(
     visibility = ["//visibility:public"],
     exports = [
         ":events",
-        ":skylarkinterface",
         ":syntax",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/java/com/google/devtools/build/lib/vfs/inmemoryfs",
-    ],
-)
-
-java_library(
-    name = "skylarkinterface",
-    exported_plugins = ["//src/main/java/com/google/devtools/build/lib/skylarkinterface/processor:annotation_preprocessor"],
-    exports = [":skylarkinterface_internal"],
-)
-
-java_library(
-    name = "skylarkinterface_internal",
-    srcs = glob([
-        "skylarkinterface/*.java",
-    ]),
-    visibility = [
-        "//src/main/java/com/google/devtools/build/lib/skylarkinterface/processor:__pkg__",
-        "//src/test/java/com/google/devtools/build/lib/skyframe:__pkg__",
-    ],
-    deps = [
-        ":skylark_semantics",
-        "//third_party:jsr305",
-    ],
-)
-
-java_library(
-    name = "skylark_semantics",
-    srcs = [],
-    visibility = ["//visibility:public"],  # needed by Copybara
-    exports = [
-        "//src/main/java/com/google/devtools/build/lib/syntax:semantics",
     ],
 )
 
@@ -413,8 +383,8 @@ java_library(
         "packages/StarlarkSemanticsOptions.java",
     ],
     deps = [
-        ":skylark_semantics",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
+        "//src/main/java/com/google/devtools/build/lib/syntax:frontend",
         "//src/main/java/com/google/devtools/common/options",
         "//third_party:auto_value",
         "//third_party:guava",
@@ -491,8 +461,6 @@ java_library(
         ":config-transitions",
         ":events",
         ":rule-definition-context",
-        ":skylark_semantics",
-        ":skylarkinterface",
         ":syntax",
         ":transitive-info-provider",
         ":util",
@@ -506,6 +474,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
         "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi",
         "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi/core",
+        "//src/main/java/com/google/devtools/build/lib/skylarkinterface",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//src/main/java/com/google/devtools/common/options",
@@ -633,8 +602,6 @@ java_library(
         ":process_util",
         ":provider-collection",
         ":resource-converter",
-        ":skylark_semantics",
-        ":skylarkinterface",
         ":syntax",
         ":transitive-info-provider",
         ":unix",
@@ -669,6 +636,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi/core",
         "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi/platform",
         "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi/test",
+        "//src/main/java/com/google/devtools/build/lib/skylarkinterface",
         "//src/main/java/com/google/devtools/build/lib/supplier",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:output_service",
@@ -931,7 +899,6 @@ java_library(
         ":out-err",
         ":packages-internal",
         ":runtime",
-        ":skylark_semantics",
         ":string_util",
         ":util",
         "//src/java_tools/singlejar/java/com/google/devtools/build/zip",
@@ -987,7 +954,6 @@ java_library(
         ":build-base",
         ":events",
         ":packages-internal",
-        ":skylarkinterface",
         ":util",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:commandline_item",
@@ -997,6 +963,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi",
         "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi/core",
         "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi/proto",
+        "//src/main/java/com/google/devtools/build/lib/skylarkinterface",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/common/options",
         "//third_party:auto_value",
@@ -1041,7 +1008,6 @@ java_library(
         ":build-base",
         ":core-rules",
         ":packages-internal",
-        ":skylarkinterface",
         ":syntax",
         ":transitive-info-provider",
         ":util",
@@ -1049,6 +1015,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/buildeventstream/proto:build_event_stream_proto",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi/test",
+        "//src/main/java/com/google/devtools/build/lib/skylarkinterface",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/protobuf:test_status_java_proto",
         "//third_party:guava",
@@ -1114,7 +1081,6 @@ java_library(
         ":filetype",
         ":os_util",
         ":packages-internal",
-        ":skylarkinterface",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/analysis/platform",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
@@ -1124,6 +1090,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
         "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi/cpp",
         "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi/python",
+        "//src/main/java/com/google/devtools/build/lib/skylarkinterface",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/java/com/google/devtools/common/options",
@@ -1279,7 +1246,6 @@ java_library(
         ":packages-internal",
         ":process_util",
         ":shared-base-rules",
-        ":skylark_semantics",
         ":unix",
         ":util",
         "//src/main/java/com/google/devtools/build/lib/actions",

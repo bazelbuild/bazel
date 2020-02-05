@@ -17,11 +17,9 @@ package com.google.devtools.build.lib.syntax;
 
 import com.google.auto.value.AutoValue;
 import com.google.auto.value.extension.memoized.Memoized;
-import com.google.common.base.Ascii;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import java.util.List;
-import java.util.function.Function;
 
 /**
  * Options that affect Starlark semantics.
@@ -37,57 +35,103 @@ import java.util.function.Function;
 public abstract class StarlarkSemantics {
 
   /**
-   * Enum where each element represents a starlark semantics flag. The name of each value should be
-   * the exact name of the flag transformed to upper case (for error representation).
+   * A set of names of boolean application flags each corresponding to a StarlarkSemantics feature.
    */
-  // TODO(adonovan): This class, being part of the core Starlark frontend, shouldn't refer to Bazel
+  // TODO(adonovan): StarlarkSemantics, being part of the core frontend, shouldn't refer to Bazel
   // features. There's no need for an enumeration to represent a set of boolean features. Instead,
   // have StarlarkSemantics hold a set of enabled features (strings), and have callers query
   // features by name. The features can be named string constants, defined close to the code they
   // affect, to avoid accidential misspellings.
-  public enum FlagIdentifier {
-    EXPERIMENTAL_ACTION_ARGS(StarlarkSemantics::experimentalActionArgs),
-    EXPERIMENTAL_ALLOW_INCREMENTAL_REPOSITORY_UPDATES(
-        StarlarkSemantics::experimentalAllowIncrementalRepositoryUpdates),
-    EXPERIMENTAL_ASPECT_OUTPUT_PROPAGATION(StarlarkSemantics::experimentalAspectOutputPropagation),
-    EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS(
-        StarlarkSemantics::experimentalEnableAndroidMigrationApis),
-    EXPERIMENTAL_BUILD_SETTING_API(StarlarkSemantics::experimentalBuildSettingApi),
-    EXPERIMENTAL_GOOGLE_LEGACY_API(StarlarkSemantics::experimentalGoogleLegacyApi),
-    EXPERIMENTAL_NINJA_ACTIONS(StarlarkSemantics::experimentalNinjaActions),
-    EXPERIMENTAL_PLATFORM_API(StarlarkSemantics::experimentalPlatformsApi),
-    EXPERIMENTAL_STARLARK_CONFIG_TRANSITION(
-        StarlarkSemantics::experimentalStarlarkConfigTransitions),
-    EXPERIMENTAL_STARLARK_UNUSED_INPUTS_LIST(
-        StarlarkSemantics::experimentalStarlarkUnusedInputsList),
-    EXPERIMENTAL_CC_SHARED_LIBRARY(StarlarkSemantics::experimentalCcSharedLibrary),
-    EXPERIMENTAL_REPO_REMOTE_EXEC(StarlarkSemantics::experimentalRepoRemoteExec),
-    INCOMPATIBLE_APPLICABLE_LICENSES(StarlarkSemantics::incompatibleApplicableLicenses),
-    INCOMPATIBLE_DISABLE_DEPSET_INPUTS(StarlarkSemantics::incompatibleDisableDepsetItems),
-    INCOMPATIBLE_NO_OUTPUT_ATTR_DEFAULT(StarlarkSemantics::incompatibleNoOutputAttrDefault),
-    INCOMPATIBLE_NO_RULE_OUTPUTS_PARAM(StarlarkSemantics::incompatibleNoRuleOutputsParam),
-    INCOMPATIBLE_NO_TARGET_OUTPUT_GROUP(StarlarkSemantics::incompatibleNoTargetOutputGroup),
-    INCOMPATIBLE_NO_ATTR_LICENSE(StarlarkSemantics::incompatibleNoAttrLicense),
-    INCOMPATIBLE_ALLOW_TAGS_PROPAGATION(StarlarkSemantics::experimentalAllowTagsPropagation),
-    INCOMPATIBLE_REMOVE_ENABLE_TOOLCHAIN_TYPES(
-        StarlarkSemantics::incompatibleRemoveEnabledToolchainTypes),
-    NONE(null);
+  public static final class FlagIdentifier {
+    private FlagIdentifier() {} // uninstantiable
 
-    // Using a Function here makes the enum definitions far cleaner, and, since this is
-    // a private field, and we can ensure no callers treat this field as mutable.
-    @SuppressWarnings("ImmutableEnumChecker")
-    private final Function<StarlarkSemantics, Boolean> semanticsFunction;
+    // The strings here match the names of the StarlarkSemantics methods,
+    // which in turn match the actual flag names; they should be kept
+    // consistent as they may appear in error messages.
+    // TODO(adonovan): move these constants up into the relevant packages of
+    // Bazel, and make them identical to the strings used in flag declarations.
+    public static final String EXPERIMENTAL_ACTION_ARGS = "experimental_action_args";
+    public static final String EXPERIMENTAL_ALLOW_INCREMENTAL_REPOSITORY_UPDATES =
+        "experimental_allow_incremental_repository_updates";
+    public static final String EXPERIMENTAL_ASPECT_OUTPUT_PROPAGATION =
+        "experimental_aspect_output_propagation";
+    public static final String EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS =
+        "experimental_enable_android_migration_apis";
+    public static final String EXPERIMENTAL_BUILD_SETTING_API = "experimental_build_setting_api";
+    public static final String EXPERIMENTAL_GOOGLE_LEGACY_API = "experimental_google_legacy_api";
+    public static final String EXPERIMENTAL_NINJA_ACTIONS = "experimental_ninja_actions";
+    public static final String EXPERIMENTAL_PLATFORM_API = "experimental_platform_api";
+    public static final String EXPERIMENTAL_STARLARK_CONFIG_TRANSITION =
+        "experimental_starlark_config_transition";
+    public static final String EXPERIMENTAL_STARLARK_UNUSED_INPUTS_LIST =
+        "experimental_starlark_unused_inputs_list";
+    public static final String EXPERIMENTAL_CC_SHARED_LIBRARY = "experimental_cc_shared_library";
+    public static final String EXPERIMENTAL_REPO_REMOTE_EXEC = "experimental_repo_remote_exec";
+    public static final String INCOMPATIBLE_APPLICABLE_LICENSES =
+        "incompatible_applicable_licenses";
+    public static final String INCOMPATIBLE_DISABLE_DEPSET_INPUTS =
+        "incompatible_disable_depset_inputs";
+    public static final String INCOMPATIBLE_NO_OUTPUT_ATTR_DEFAULT =
+        "incompatible_no_output_attr_default";
+    public static final String INCOMPATIBLE_NO_RULE_OUTPUTS_PARAM =
+        "incompatible_no_rule_outputs_param";
+    public static final String INCOMPATIBLE_NO_TARGET_OUTPUT_GROUP =
+        "incompatible_no_target_output_group";
+    public static final String INCOMPATIBLE_NO_ATTR_LICENSE = "incompatible_no_attr_license";
+    public static final String INCOMPATIBLE_ALLOW_TAGS_PROPAGATION =
+        "incompatible_allow_tags_propagation";
+    public static final String INCOMPATIBLE_REMOVE_ENABLE_TOOLCHAIN_TYPES =
+        "incompatible_remove_enable_toolchain_types";
+  }
 
-    FlagIdentifier(Function<StarlarkSemantics, Boolean> semanticsFunction) {
-      this.semanticsFunction = semanticsFunction;
-    }
-
-    /**
-     * Returns the name of the flag that this identifier controls. For example, EXPERIMENTAL_FOO
-     * would return 'experimental_foo'.
-     */
-    public String getFlagName() {
-      return Ascii.toLowerCase(this.name());
+  // TODO(adonovan): replace the fields of StarlarkSemantics
+  // by a map from string to object, and make it the clients's job
+  // to know the type. This function would then become simply:
+  //  return Boolean.TRUE.equals(map.get(flag)).
+  boolean flagValue(String flag) {
+    switch (flag) {
+      case FlagIdentifier.EXPERIMENTAL_ACTION_ARGS:
+        return experimentalActionArgs();
+      case FlagIdentifier.EXPERIMENTAL_ALLOW_INCREMENTAL_REPOSITORY_UPDATES:
+        return experimentalAllowIncrementalRepositoryUpdates();
+      case FlagIdentifier.EXPERIMENTAL_ASPECT_OUTPUT_PROPAGATION:
+        return experimentalAspectOutputPropagation();
+      case FlagIdentifier.EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS:
+        return experimentalEnableAndroidMigrationApis();
+      case FlagIdentifier.EXPERIMENTAL_BUILD_SETTING_API:
+        return experimentalBuildSettingApi();
+      case FlagIdentifier.EXPERIMENTAL_GOOGLE_LEGACY_API:
+        return experimentalGoogleLegacyApi();
+      case FlagIdentifier.EXPERIMENTAL_NINJA_ACTIONS:
+        return experimentalNinjaActions();
+      case FlagIdentifier.EXPERIMENTAL_PLATFORM_API:
+        return experimentalPlatformsApi();
+      case FlagIdentifier.EXPERIMENTAL_STARLARK_CONFIG_TRANSITION:
+        return experimentalStarlarkConfigTransitions();
+      case FlagIdentifier.EXPERIMENTAL_STARLARK_UNUSED_INPUTS_LIST:
+        return experimentalStarlarkUnusedInputsList();
+      case FlagIdentifier.EXPERIMENTAL_CC_SHARED_LIBRARY:
+        return experimentalCcSharedLibrary();
+      case FlagIdentifier.EXPERIMENTAL_REPO_REMOTE_EXEC:
+        return experimentalRepoRemoteExec();
+      case FlagIdentifier.INCOMPATIBLE_APPLICABLE_LICENSES:
+        return incompatibleApplicableLicenses();
+      case FlagIdentifier.INCOMPATIBLE_DISABLE_DEPSET_INPUTS:
+        return incompatibleDisableDepsetItems();
+      case FlagIdentifier.INCOMPATIBLE_NO_OUTPUT_ATTR_DEFAULT:
+        return incompatibleNoOutputAttrDefault();
+      case FlagIdentifier.INCOMPATIBLE_NO_RULE_OUTPUTS_PARAM:
+        return incompatibleNoRuleOutputsParam();
+      case FlagIdentifier.INCOMPATIBLE_NO_TARGET_OUTPUT_GROUP:
+        return incompatibleNoTargetOutputGroup();
+      case FlagIdentifier.INCOMPATIBLE_NO_ATTR_LICENSE:
+        return incompatibleNoAttrLicense();
+      case FlagIdentifier.INCOMPATIBLE_ALLOW_TAGS_PROPAGATION:
+        return experimentalAllowTagsPropagation();
+      case FlagIdentifier.INCOMPATIBLE_REMOVE_ENABLE_TOOLCHAIN_TYPES:
+        return incompatibleRemoveEnabledToolchainTypes();
+      default:
+        throw new IllegalArgumentException(flag);
     }
   }
 
@@ -95,32 +139,26 @@ public abstract class StarlarkSemantics {
    * Returns true if a feature attached to the given toggling flags should be enabled.
    *
    * <ul>
-   *   <li>If both parameters are {@code NONE}, this indicates the feature is not controlled by
-   *       flags, and should thus be enabled.
-   *   <li>If the {@code enablingFlag} parameter is non-{@code NONE}, this returns true if and only
-   *       if that flag is true. (This represents a feature that is only on if a given flag is
-   *       *on*).
-   *   <li>If the {@code disablingFlag} parameter is non-{@code NONE}, this returns true if and only
-   *       if that flag is false. (This represents a feature that is only on if a given flag is
-   *       *off*).
-   *   <li>It is illegal to pass both parameters as non-{@code NONE}.
+   *   <li>If both parameters are empty, this indicates the feature is not controlled by flags, and
+   *       should thus be enabled.
+   *   <li>If the {@code enablingFlag} parameter is non-empty, this returns true if and only if that
+   *       flag is true. (This represents a feature that is only on if a given flag is *on*).
+   *   <li>If the {@code disablingFlag} parameter is non-empty, this returns true if and only if
+   *       that flag is false. (This represents a feature that is only on if a given flag is *off*).
+   *   <li>It is illegal to pass both parameters as non-empty.
    * </ul>
    */
-  public boolean isFeatureEnabledBasedOnTogglingFlags(
-      FlagIdentifier enablingFlag, FlagIdentifier disablingFlag) {
+  boolean isFeatureEnabledBasedOnTogglingFlags(String enablingFlag, String disablingFlag) {
     Preconditions.checkArgument(
-        enablingFlag == FlagIdentifier.NONE || disablingFlag == FlagIdentifier.NONE,
-        "at least one of 'enablingFlag' or 'disablingFlag' must be NONE");
-    if (enablingFlag != FlagIdentifier.NONE) {
-      return enablingFlag.semanticsFunction.apply(this);
+        enablingFlag.isEmpty() || disablingFlag.isEmpty(),
+        "at least one of 'enablingFlag' or 'disablingFlag' must be empty");
+    if (!enablingFlag.isEmpty()) {
+      return this.flagValue(enablingFlag);
+    } else if (!disablingFlag.isEmpty()) {
+      return !this.flagValue(disablingFlag);
     } else {
-      return disablingFlag == FlagIdentifier.NONE || !disablingFlag.semanticsFunction.apply(this);
+      return true;
     }
-  }
-
-  /** Returns the value of the given flag. */
-  public boolean flagValue(FlagIdentifier flagIdentifier) {
-    return flagIdentifier.semanticsFunction.apply(this);
   }
 
   /**

@@ -131,26 +131,15 @@ java_library(
     deps = [
         ":frontend",
         "//src/main/java/com/google/devtools/build/lib:events",
-        "//src/main/java/com/google/devtools/build/lib:skylarkinterface",
         "//src/main/java/com/google/devtools/build/lib:util",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/profiler",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
+        "//src/main/java/com/google/devtools/build/lib/skylarkinterface",
         "//third_party:auto_value",
         "//third_party:guava",
         "//third_party:jsr305",
         "//third_party/protobuf:protobuf_java",
-    ],
-)
-
-# TODO(adonovan): merge this into :frontend and eliminate.
-# Requires that lib.skylarkinterface depend on :frontend.
-java_library(
-    name = "semantics",
-    srcs = ["StarlarkSemantics.java"],
-    deps = [
-        "//third_party:auto_value",
-        "//third_party:guava",
     ],
 )

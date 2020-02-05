@@ -17,7 +17,6 @@ package com.google.devtools.build.lib.syntax;
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.ParamType;
-import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
 import java.util.concurrent.ConcurrentHashMap;
 import javax.annotation.Nullable;
 
@@ -36,7 +35,7 @@ final class ParamDescriptor {
   private final SkylarkType skylarkType;
   // The semantics flag responsible for disabling this parameter, or null if enabled.
   // It is an error for Starlark code to supply a value to a disabled parameter.
-  @Nullable private final FlagIdentifier disabledByFlag;
+  @Nullable private final String disabledByFlag;
 
   private ParamDescriptor(
       String name,
@@ -47,7 +46,7 @@ final class ParamDescriptor {
       boolean named,
       boolean positional,
       SkylarkType skylarkType,
-      @Nullable FlagIdentifier disabledByFlag) {
+      @Nullable String disabledByFlag) {
     this.name = name;
     this.defaultValue = defaultExpr.isEmpty() ? null : evalDefault(name, defaultExpr);
     this.type = type;
@@ -69,14 +68,15 @@ final class ParamDescriptor {
     boolean noneable = param.noneable();
 
     String defaultExpr = param.defaultValue();
-    FlagIdentifier disabledByFlag = null;
+    String disabledByFlag = null;
     if (!starlarkSemantics.isFeatureEnabledBasedOnTogglingFlags(
         param.enableOnlyWithFlag(), param.disableWithFlag())) {
       defaultExpr = param.valueWhenDisabled();
       disabledByFlag =
-          param.enableOnlyWithFlag() != FlagIdentifier.NONE
+          !param.enableOnlyWithFlag().isEmpty()
               ? param.enableOnlyWithFlag()
               : param.disableWithFlag();
+      Preconditions.checkState(!disabledByFlag.isEmpty());
     }
 
     return new ParamDescriptor(
@@ -157,7 +157,7 @@ final class ParamDescriptor {
 
   /** Returns the flag responsible for disabling this parameter, or null if it is enabled. */
   @Nullable
-  FlagIdentifier disabledByFlag() {
+  String disabledByFlag() {
     return disabledByFlag;
   }
 

@@ -13,8 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skylarkinterface;
 
-import com.google.devtools.build.lib.syntax.StarlarkSemantics;
-import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
@@ -189,16 +187,16 @@ public @interface SkylarkCallable {
   boolean useStarlarkSemantics() default false;
 
   /**
-   * If not NONE, the annotated method will only be callable if the given semantic flag is true.
+   * If non-empty, the annotated method will only be callable if the given semantic flag is true.
    * Note that at most one of {@link #enableOnlyWithFlag} and {@link #disableWithFlag} can be
-   * non-NONE.
+   * non-empty.
    */
-  StarlarkSemantics.FlagIdentifier enableOnlyWithFlag() default FlagIdentifier.NONE;
+  String enableOnlyWithFlag() default "";
 
   /**
-   * If not NONE, the annotated method will only be callable if the given semantic flag is false.
+   * If non-empty, the annotated method will only be callable if the given semantic flag is false.
    * Note that at most one of {@link #enableOnlyWithFlag} and {@link #disableWithFlag} can be
-   * non-NONE.
+   * non-empty.
    */
-  StarlarkSemantics.FlagIdentifier disableWithFlag() default FlagIdentifier.NONE;
+  String disableWithFlag() default "";
 }
