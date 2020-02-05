@@ -366,7 +366,7 @@ public abstract class Artifact
 
     @Override
     public PathFragment getRootRelativePath() {
-        return getExecPath().relativeTo(getRoot().getExecPath());
+      return getExecPath().relativeTo(getRoot().getExecPath());
     }
 
     @Override

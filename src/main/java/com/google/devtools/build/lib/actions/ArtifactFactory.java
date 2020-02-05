@@ -334,8 +334,6 @@ public class ArtifactFactory implements ArtifactResolver {
 
     // Double-checked locking to avoid locking cost when possible.
     SourceArtifact artifact = sourceArtifactCache.getArtifact(execPath);
-    PathFragment execPathAccountingForExternalRepos = root.getExecPath().getRelative(execPath);
-    // SourceArtifact artifact = sourceArtifactCache.getArtifact(execPathAccountingForExternalRepos);
     if (artifact == null || artifact.differentOwnerOrRoot(owner, root)) {
       Lock lock = STRIPED_LOCK.get(execPath);
       lock.lock();
