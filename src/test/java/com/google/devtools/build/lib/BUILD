@@ -1084,9 +1084,10 @@ java_test(
 
 java_test(
     name = "syntax_test",
-    srcs = glob([
-        "syntax/*.java",
-    ]),
+    srcs = glob(
+        include = ["syntax/*.java"],
+        exclude = ["syntax/CpuProfilerTest.java"],  # open source, but runs under Blaze only
+    ),
     test_class = "com.google.devtools.build.lib.AllTests",
     deps = [
         ":foundations_testutil",

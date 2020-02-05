@@ -94,6 +94,7 @@ java_library(
         "CallUtils.java",
         "Callstack.java",
         "ClassObject.java",
+        "CpuProfiler.java",
         "Debug.java",
         "Debugger.java",
         "Depset.java",
@@ -105,6 +106,7 @@ java_library(
         "FlagGuardedValue.java",
         "FormatParser.java",
         "HasBinary.java",
+        "JNI.java",
         "MethodDescriptor.java",
         "MethodLibrary.java",
         "Module.java",
@@ -128,6 +130,7 @@ java_library(
         "StringModule.java",
         "Tuple.java",
     ],
+    data = [":libcpu_profiler.so"],  # will be loaded dynamically
     deps = [
         ":frontend",
         "//src/main/java/com/google/devtools/build/lib:events",
@@ -142,4 +145,35 @@ java_library(
         "//third_party:jsr305",
         "//third_party/protobuf:protobuf_java",
     ],
+)
+
+# The C++ portion of the Starlark CPU profiler.
+cc_binary(
+    name = "libcpu_profiler.so",
+    srcs = select({
+        "//src/conditions:darwin": ["cpu_profiler_posix.cc"],
+        "//src/conditions:linux_x86_64": ["cpu_profiler_posix.cc"],
+        "//conditions:default": ["cpu_profiler_unimpl.cc"],
+    }),
+    linkshared = 1,
+    deps = [":jni"],
+)
+
+# TODO(adonovan): move this to @bazel_tools//tools/jdk:jni where it belongs.
+# TODO(adonovan): why is there no condition for "just linux"?
+cc_library(
+    name = "jni",
+    hdrs = ["@bazel_tools//tools/jdk:jni_header"] + select({
+        "//src/conditions:linux_x86_64": ["@bazel_tools//tools/jdk:jni_md_header-linux"],
+        "//src/conditions:darwin": ["@bazel_tools//tools/jdk:jni_md_header-darwin"],
+        "//src/conditions:windows": ["@bazel_tools//tools/jdk:jni_md_header-windows"],
+        "//conditions:default": [],
+    }),
+    includes = ["../../../../../../../../../external/bazel_tools/tools/jdk/include"] + select({
+        # Remove these crazy prefixes when we move this rule.
+        "//src/conditions:linux_x86_64": ["../../../../../../../../../external/bazel_tools/tools/jdk/include/linux"],
+        "//src/conditions:darwin": ["../../../../../../../../../external/bazel_tools/tools/jdk/include/darwin"],
+        "//src/conditions:windows": ["../../../../../../../../../external/bazel_tools/tools/jdk/include/win32"],
+        "//conditions:default": [],
+    }),
 )

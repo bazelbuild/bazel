@@ -21,6 +21,9 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.errorprone.annotations.CheckReturnValue;
 import com.google.errorprone.annotations.FormatMethod;
+import java.io.IOException;
+import java.io.OutputStream;
+import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -626,5 +629,25 @@ public final class Starlark {
     // module = new module(env)
     // return new StarlarkFunction(prog.toplevel, module)
     throw new UnsupportedOperationException();
+  }
+
+  /**
+   * Starts the CPU profiler with the specified sampling period, writing a pprof profile to {@code
+   * out}. All running Starlark threads are profiled. May be called concurrent with Starlark
+   * execution.
+   *
+   * @throws IllegalStateException exception if the Starlark profiler is already running or if the
+   *     operating system's profiling resources for this process are already in use.
+   */
+  public static void startCpuProfile(OutputStream out, Duration period) {
+    CpuProfiler.start(out, period);
+  }
+
+  /**
+   * Stops the profiler and waits for the log to be written. Throws an unchecked exception if the
+   * profiler was not already started by a prior call to {@link #startCpuProfile}.
+   */
+  public static void stopCpuProfile() throws IOException {
+    CpuProfiler.stop();
   }
 }

@@ -22,12 +22,14 @@ import com.google.devtools.build.lib.syntax.ParserInput;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.lib.syntax.SyntaxError;
 import java.io.BufferedReader;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Paths;
+import java.time.Duration;
 
 /**
  * Starlark is a standalone starlark intepreter. The environment doesn't
@@ -137,18 +139,67 @@ class Starlark {
     }
   }
 
-  public static void main(String[] args) {
-    int ret = 0;
-    if (args.length == 0) {
-      new Starlark().readEvalPrintLoop();
-    } else if (args.length == 1 && !args[0].equals("-c")) {
-      ret = new Starlark().executeFile(args[0]);
-    } else if (args.length == 2 && args[0].equals("-c")) {
-      ret = new Starlark().execute("<command-line>", args[1]);
-    } else {
-      System.err.println("USAGE: Starlark [-c \"<cmdLineProgram>\" | <fileName>]");
-      ret = 1;
+  public static void main(String[] args) throws IOException {
+    String file = null;
+    String cmd = null;
+    String cpuprofile = null;
+
+    // parse flags
+    int i;
+    for (i = 0; i < args.length; i++) {
+      if (!args[i].startsWith("-")) {
+        break;
+      }
+      if (args[i].equals("--")) {
+        i++;
+        break;
+      }
+      if (args[i].equals("-c")) {
+        if (i + 1 == args.length) {
+          throw new IOException("-c <cmd> flag needs an argument");
+        }
+        cmd = args[++i];
+      } else if (args[i].equals("-cpuprofile")) {
+        if (i + 1 == args.length) {
+          throw new IOException("-cpuprofile <file> flag needs an argument");
+        }
+        cpuprofile = args[++i];
+      } else {
+        throw new IOException("unknown flag: " + args[i]);
+      }
     }
-    System.exit(ret);
+    // positional arguments
+    if (i < args.length) {
+      if (i + 1 < args.length) {
+        throw new IOException("too many positional arguments");
+      }
+      file = args[i];
+    }
+
+    if (cpuprofile != null) {
+      FileOutputStream out = new FileOutputStream(cpuprofile);
+      com.google.devtools.build.lib.syntax.Starlark.startCpuProfile(out, Duration.ofMillis(10));
+    }
+
+    int exit;
+    if (file == null) {
+      if (cmd != null) {
+        exit = new Starlark().execute("<command-line>", cmd);
+      } else {
+        new Starlark().readEvalPrintLoop();
+        exit = 0;
+      }
+    } else if (cmd == null) {
+      exit = new Starlark().executeFile(file);
+    } else {
+      System.err.println("usage: Starlark [-cpuprofile file] [-c cmd | file]");
+      exit = 1;
+    }
+
+    if (cpuprofile != null) {
+      com.google.devtools.build.lib.syntax.Starlark.stopCpuProfile();
+    }
+
+    System.exit(exit);
   }
 }
