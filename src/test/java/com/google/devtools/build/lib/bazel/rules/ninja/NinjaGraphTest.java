@@ -28,7 +28,6 @@ import com.google.devtools.build.lib.analysis.actions.SymlinkAction;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.bazel.rules.ninja.actions.NinjaAction;
-import com.google.devtools.build.lib.bazel.rules.ninja.actions.NinjaGraphProvider;
 import com.google.devtools.build.lib.bazel.rules.ninja.actions.NinjaGraphRule;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -77,11 +76,6 @@ public class NinjaGraphTest extends BuildViewTestCase {
             " working_directory = 'build_config',",
             " main = 'build_config/build.ninja',",
             " output_root_inputs = ['input.txt'])");
-    NinjaGraphProvider provider = configuredTarget.getProvider(NinjaGraphProvider.class);
-    assertThat(provider).isNotNull();
-    assertThat(provider.getOutputRoot()).isEqualTo(PathFragment.create("build_config"));
-    assertThat(provider.getWorkingDirectory()).isEqualTo(PathFragment.create("build_config"));
-
     assertThat(configuredTarget).isInstanceOf(RuleConfiguredTarget.class);
     RuleConfiguredTarget ninjaConfiguredTarget = (RuleConfiguredTarget) configuredTarget;
     ImmutableList<ActionAnalysisMetadata> actions = ninjaConfiguredTarget.getActions();
@@ -135,11 +129,6 @@ public class NinjaGraphTest extends BuildViewTestCase {
             " working_directory = 'build_config',",
             " main = 'build_config/build.ninja',",
             " output_root_inputs = ['input.txt'])");
-    NinjaGraphProvider provider = configuredTarget.getProvider(NinjaGraphProvider.class);
-    assertThat(provider).isNotNull();
-    assertThat(provider.getOutputRoot()).isEqualTo(PathFragment.create("build_config"));
-    assertThat(provider.getWorkingDirectory()).isEqualTo(PathFragment.create("build_config"));
-
     assertThat(configuredTarget).isInstanceOf(RuleConfiguredTarget.class);
     RuleConfiguredTarget ninjaConfiguredTarget = (RuleConfiguredTarget) configuredTarget;
     ImmutableList<ActionAnalysisMetadata> actions = ninjaConfiguredTarget.getActions();
@@ -208,11 +197,6 @@ public class NinjaGraphTest extends BuildViewTestCase {
             " working_directory = 'build_config',",
             " main = 'build_config/build.ninja',",
             " output_root_inputs = ['a.txt', 'b.txt', 'c.txt', 'd.txt', 'e.txt'])");
-    NinjaGraphProvider provider = configuredTarget.getProvider(NinjaGraphProvider.class);
-    assertThat(provider).isNotNull();
-    assertThat(provider.getOutputRoot()).isEqualTo(PathFragment.create("build_config"));
-    assertThat(provider.getWorkingDirectory()).isEqualTo(PathFragment.create("build_config"));
-
     assertThat(configuredTarget).isInstanceOf(RuleConfiguredTarget.class);
     RuleConfiguredTarget ninjaConfiguredTarget = (RuleConfiguredTarget) configuredTarget;
     ImmutableList<ActionAnalysisMetadata> actions = ninjaConfiguredTarget.getActions();
@@ -296,11 +280,6 @@ public class NinjaGraphTest extends BuildViewTestCase {
             " working_directory = 'build_config',",
             " main = 'build_config/build.ninja',",
             " deps_mapping = {'placeholder': ':input.txt'})");
-    NinjaGraphProvider provider = configuredTarget.getProvider(NinjaGraphProvider.class);
-    assertThat(provider).isNotNull();
-    assertThat(provider.getOutputRoot()).isEqualTo(PathFragment.create("build_config"));
-    assertThat(provider.getWorkingDirectory()).isEqualTo(PathFragment.create("build_config"));
-
     assertThat(configuredTarget).isInstanceOf(RuleConfiguredTarget.class);
     RuleConfiguredTarget ninjaConfiguredTarget = (RuleConfiguredTarget) configuredTarget;
     ImmutableList<ActionAnalysisMetadata> actions = ninjaConfiguredTarget.getActions();
