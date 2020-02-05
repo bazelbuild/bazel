@@ -15,4 +15,4 @@
 def proto_alias(name, version):
   native.alias(
       name = name,
-      actual = "//third_party/protobuf/" + version + ":" + name)
+      actual = "@com_google_protobuf//:" + name)
