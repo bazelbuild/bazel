@@ -47,7 +47,9 @@ public class JavaRuntime implements RuleConfiguredTargetFactory {
     JavaCommon.checkRuleLoadedThroughMacro(ruleContext);
     NestedSetBuilder<Artifact> filesBuilder = NestedSetBuilder.stableOrder();
     filesBuilder.addTransitive(PrerequisiteArtifacts.nestedSet(ruleContext, "srcs", Mode.TARGET));
-    PathFragment javaHome = defaultJavaHome(ruleContext.getLabel());
+    PathFragment javaHome = defaultJavaHome(
+            ruleContext.getLabel(),
+            ruleContext.getAnalysisEnvironment().getSkylarkSemantics().experimentalAllowExternalDirectory());
     if (ruleContext.attributes().isAttributeValueExplicitlySpecified("java_home")) {
       PathFragment javaHomeAttribute =
           PathFragment.create(ruleContext.getExpander().expand("java_home"));
@@ -124,12 +126,11 @@ public class JavaRuntime implements RuleConfiguredTargetFactory {
         || path.endsWith(PathFragment.create("bin/java.exe"));
   }
 
-  static PathFragment defaultJavaHome(Label javabase) {
+  static PathFragment defaultJavaHome(Label javabase, boolean allowExternalDirectory) {
     if (javabase.getPackageIdentifier().getRepository().isDefault()) {
       return javabase.getPackageFragment();
     }
-    // TODO(jingwen-external): add conditional
-    return javabase.getPackageIdentifier().getExecPath(true);
+    return javabase.getPackageIdentifier().getExecPath(allowExternalDirectory);
   }
 
   private static PathFragment getRunfilesJavaExecutable(PathFragment javaHome, Label javabase) {
