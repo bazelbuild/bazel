@@ -92,11 +92,11 @@ public class WorkerExecRootTest {
 
   @Test
   public void createsAndCleansInputSymlinks() throws Exception {
-    FileSystemUtils.ensureSymbolicLink(
-        workspaceDir.getRelative("dir/input_symlink_1"), "old_content");
-    FileSystemUtils.ensureSymbolicLink(
-        workspaceDir.getRelative("dir/input_symlink_2"), "unchanged");
-    FileSystemUtils.ensureSymbolicLink(workspaceDir.getRelative("dir/input_symlink_3"), "whatever");
+    // Simulate existing symlinks in the exec root to check that `WorkerExecRoot` correctly deletes
+    // the unnecessary ones and updates the ones that don't point to the right target.
+    FileSystemUtils.ensureSymbolicLink(execRoot.getRelative("dir/input_symlink_1"), "old_content");
+    FileSystemUtils.ensureSymbolicLink(execRoot.getRelative("dir/input_symlink_2"), "unchanged");
+    FileSystemUtils.ensureSymbolicLink(execRoot.getRelative("dir/input_symlink_3"), "whatever");
 
     WorkerExecRoot workerExecRoot =
         new WorkerExecRoot(
@@ -118,5 +118,40 @@ public class WorkerExecRootTest {
     assertThat(execRoot.getRelative("dir/input_symlink_2").readSymbolicLink())
         .isEqualTo(PathFragment.create("unchanged"));
     assertThat(execRoot.getRelative("dir/input_symlink_3").exists()).isFalse();
+  }
+
+  @Test
+  public void workspaceFilesAreNotDeleted() throws Exception {
+    // We want to check that `WorkerExecRoot` deletes pre-existing symlinks if they're not in the
+    // `SandboxInputs`, but it does not delete the files that the symlinks point to (i.e., the files
+    // in the workspace directory).
+
+    Path neededWorkspaceFile = workspaceDir.getRelative("needed_file");
+    FileSystemUtils.writeContentAsLatin1(neededWorkspaceFile, "needed workspace content");
+
+    Path otherWorkspaceFile = workspaceDir.getRelative("other_file");
+    FileSystemUtils.writeContentAsLatin1(otherWorkspaceFile, "other workspace content");
+
+    FileSystemUtils.ensureSymbolicLink(execRoot.getRelative("needed_file"), neededWorkspaceFile);
+    FileSystemUtils.ensureSymbolicLink(execRoot.getRelative("other_file"), otherWorkspaceFile);
+
+    WorkerExecRoot workerExecRoot =
+        new WorkerExecRoot(
+            execRoot,
+            new SandboxInputs(
+                ImmutableMap.of(PathFragment.create("needed_file"), neededWorkspaceFile),
+                ImmutableMap.of()),
+            SandboxOutputs.create(ImmutableSet.of(), ImmutableSet.of()),
+            ImmutableSet.of());
+    workerExecRoot.createFileSystem();
+
+    assertThat(execRoot.getRelative("needed_file").readSymbolicLink())
+        .isEqualTo(neededWorkspaceFile.asFragment());
+    assertThat(execRoot.getRelative("other_file").exists()).isFalse();
+
+    assertThat(FileSystemUtils.readContent(neededWorkspaceFile, Charset.defaultCharset()))
+        .isEqualTo("needed workspace content");
+    assertThat(FileSystemUtils.readContent(otherWorkspaceFile, Charset.defaultCharset()))
+        .isEqualTo("other workspace content");
   }
 }
