@@ -110,8 +110,7 @@ public final class BazelAnalysisMock extends AnalysisMock {
     config.create("/platforms/WORKSPACE", "workspace(name = 'platforms')");
     config.create("/bazel_tools_workspace/WORKSPACE", "workspace(name = 'bazel_tools')");
     Runfiles runfiles = Runfiles.create();
-    for (String filename :
-        Arrays.asList("tools/jdk/toolchain_utils.bzl", "tools/jdk/java_toolchain_alias.bzl")) {
+    for (String filename : Arrays.asList("tools/jdk/java_toolchain_alias.bzl")) {
       java.nio.file.Path path = Paths.get(runfiles.rlocation("io_bazel/" + filename));
       if (!Files.exists(path)) {
         continue; // the io_bazel workspace root only exists for Bazel
