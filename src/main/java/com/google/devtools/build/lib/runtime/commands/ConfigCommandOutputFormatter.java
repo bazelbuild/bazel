@@ -38,11 +38,14 @@ abstract class ConfigCommandOutputFormatter {
     this.writer = writer;
   }
 
-  /** Outputs a list of configuration hash IDS. * */
+  /** Outputs a list of configuration hash IDs. * */
   public abstract void writeConfigurationIDs(Iterable<String> configurationIDs);
 
   /** Outputs a single configuration. * */
   public abstract void writeConfiguration(ConfigurationForOutput configuration);
+
+  /** Outputs a series of configurations. * */
+  public abstract void writeConfigurations(Iterable<ConfigurationForOutput> configurations);
 
   /** Outputs the diff between two configurations * */
   public abstract void writeConfigurationDiff(ConfigurationDiffForOutput diff);
@@ -66,22 +69,29 @@ abstract class ConfigCommandOutputFormatter {
       for (FragmentForOutput fragment : configuration.fragments) {
         writer.println("Fragment " + fragment.name + " {");
         for (Map.Entry<String, String> optionSetting : fragment.options.entrySet()) {
-          writer.printf("  %s: %s", optionSetting.getKey(), optionSetting.getValue());
+          writer.printf("  %s: %s\n", optionSetting.getKey(), optionSetting.getValue());
         }
         writer.println("}");
       }
     }
 
     @Override
+    public void writeConfigurations(Iterable<ConfigurationForOutput> configurations) {
+      for (ConfigurationForOutput config : configurations) {
+        writeConfiguration(config);
+      }
+    }
+
+    @Override
     public void writeConfigurationDiff(ConfigurationDiffForOutput diff) {
       writer.printf(
-          "Displaying diff between configs %s and %s", diff.configHash1, diff.configHash2);
+          "Displaying diff between configs %s and %s\n", diff.configHash1, diff.configHash2);
       for (FragmentDiffForOutput fragmentDiff : diff.fragmentsDiff) {
         writer.println("Fragment " + fragmentDiff.name + " {");
         for (Map.Entry<String, Pair<String, String>> optionDiff :
             fragmentDiff.optionsDiff.entrySet()) {
           writer.printf(
-              "  %s: %s, %s",
+              "  %s: %s, %s\n",
               optionDiff.getKey(), optionDiff.getValue().first, optionDiff.getValue().second);
         }
         writer.println("}");
@@ -106,6 +116,11 @@ abstract class ConfigCommandOutputFormatter {
     @Override
     public void writeConfiguration(ConfigurationForOutput configuration) {
       writer.println(gson.toJson(configuration));
+    }
+
+    @Override
+    public void writeConfigurations(Iterable<ConfigurationForOutput> configurations) {
+      writer.println(gson.toJson(configurations));
     }
 
     @Override

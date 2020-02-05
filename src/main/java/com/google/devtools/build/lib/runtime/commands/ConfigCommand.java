@@ -18,6 +18,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Comparator.comparing;
 
 import com.google.common.collect.HashBasedTable;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Ordering;
@@ -51,6 +52,7 @@ import java.io.OutputStreamWriter;
 import java.io.PrintWriter;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -72,14 +74,8 @@ import javax.annotation.Nullable;
 public class ConfigCommand implements BlazeCommand {
   /** Defines the types of output this command can produce. */
   public enum OutputType {
-    TEXT("text"),
-    JSON("json");
-
-    private final String formatName;
-
-    OutputType(String formatName) {
-      this.formatName = formatName;
-    }
+    TEXT,
+    JSON
   }
 
   /** Options for the "config" command. */
@@ -121,13 +117,28 @@ public class ConfigCommand implements BlazeCommand {
   protected static class ConfigurationForOutput {
     final String skyKey;
     final String configHash;
-    final Collection<FragmentForOutput> fragments;
+    final List<FragmentForOutput> fragments;
 
-    ConfigurationForOutput(
-        String skyKey, String configHash, Collection<FragmentForOutput> fragments) {
+    ConfigurationForOutput(String skyKey, String configHash, List<FragmentForOutput> fragments) {
       this.skyKey = skyKey;
       this.configHash = configHash;
       this.fragments = fragments;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+      if (o instanceof ConfigurationForOutput) {
+        ConfigurationForOutput other = (ConfigurationForOutput) o;
+        return other.skyKey.equals(skyKey)
+            && other.configHash.equals(configHash)
+            && other.fragments.equals(fragments);
+      }
+      return false;
+    }
+
+    @Override
+    public int hashCode() {
+      return Objects.hash(skyKey, configHash, fragments);
     }
   }
 
@@ -144,6 +155,20 @@ public class ConfigCommand implements BlazeCommand {
       this.name = name;
       this.options = options;
     }
+
+    @Override
+    public boolean equals(Object o) {
+      if (o instanceof FragmentForOutput) {
+        FragmentForOutput other = (FragmentForOutput) o;
+        return other.name.equals(name) && other.options.equals(options);
+      }
+      return false;
+    }
+
+    @Override
+    public int hashCode() {
+      return Objects.hash(name, options);
+    }
   }
 
   /**
@@ -155,13 +180,29 @@ public class ConfigCommand implements BlazeCommand {
   protected static class ConfigurationDiffForOutput {
     final String configHash1;
     final String configHash2;
-    final Collection<FragmentDiffForOutput> fragmentsDiff;
+    final List<FragmentDiffForOutput> fragmentsDiff;
 
     ConfigurationDiffForOutput(
-        String configHash1, String configHash2, Collection<FragmentDiffForOutput> fragmentsDiff) {
+        String configHash1, String configHash2, List<FragmentDiffForOutput> fragmentsDiff) {
       this.configHash1 = configHash1;
       this.configHash2 = configHash2;
       this.fragmentsDiff = fragmentsDiff;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+      if (o instanceof ConfigurationDiffForOutput) {
+        ConfigurationDiffForOutput other = (ConfigurationDiffForOutput) o;
+        return other.configHash1.equals(configHash1)
+            && other.configHash2.equals(configHash2)
+            && other.fragmentsDiff.equals(fragmentsDiff);
+      }
+      return false;
+    }
+
+    @Override
+    public int hashCode() {
+      return Objects.hash(configHash1, configHash2, fragmentsDiff);
     }
   }
 
@@ -178,6 +219,20 @@ public class ConfigCommand implements BlazeCommand {
     FragmentDiffForOutput(String name, Map<String, Pair<String, String>> optionsDiff) {
       this.name = name;
       this.optionsDiff = optionsDiff;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+      if (o instanceof FragmentDiffForOutput) {
+        FragmentDiffForOutput other = (FragmentDiffForOutput) o;
+        return other.name.equals(name) && other.optionsDiff.equals(optionsDiff);
+      }
+      return false;
+    }
+
+    @Override
+    public int hashCode() {
+      return Objects.hash(name, optionsDiff);
     }
   }
 
@@ -263,7 +318,7 @@ public class ConfigCommand implements BlazeCommand {
   ConfigurationForOutput getConfigurationForOutput(
       BuildConfigurationValue.Key skyKey, String configHash, BuildConfiguration config) {
     ImmutableSortedSet.Builder<FragmentForOutput> fragments =
-        ImmutableSortedSet.orderedBy(comparing(e -> e.getClass().getName()));
+        ImmutableSortedSet.orderedBy(comparing(e -> e.name));
     config.getOptions().getFragmentClasses().stream()
         .map(optionsClass -> config.getOptions().get(optionsClass))
         .forEach(
@@ -276,7 +331,8 @@ public class ConfigCommand implements BlazeCommand {
     fragments.add(
         new FragmentForOutput(
             UserDefinedFragment.DESCRIPTIVE_NAME, getOrderedUserDefinedOptions(config)));
-    return new ConfigurationForOutput(skyKey.toString(), configHash, fragments.build());
+    return new ConfigurationForOutput(
+        skyKey.toString(), configHash, ImmutableList.copyOf(fragments.build()));
   }
 
   /**
@@ -303,7 +359,8 @@ public class ConfigCommand implements BlazeCommand {
       BuildConfiguration config) {
     return config.getOptions().getStarlarkOptions().entrySet().stream()
         .collect(
-            toImmutableSortedMap(Ordering.natural(), e -> e.toString(), e -> String.valueOf(e)));
+            toImmutableSortedMap(
+                Ordering.natural(), e -> e.getKey().toString(), e -> String.valueOf(e.getValue())));
   }
 
   /**
@@ -313,9 +370,7 @@ public class ConfigCommand implements BlazeCommand {
   private static BlazeCommandResult reportAllConfigurations(
       ConfigCommandOutputFormatter writer,
       ImmutableSortedSet<ConfigurationForOutput> configurations) {
-    for (ConfigurationForOutput config : configurations) {
-      writer.writeConfiguration(config);
-    }
+    writer.writeConfigurations(configurations);
     return BlazeCommandResult.exitCode(ExitCode.SUCCESS);
   }
 
@@ -457,7 +512,7 @@ public class ConfigCommand implements BlazeCommand {
       String configHash2,
       Table<Class<? extends FragmentOptions>, String, Pair<Object, Object>> diffs) {
     ImmutableSortedSet.Builder<FragmentDiffForOutput> fragmentDiffs =
-        ImmutableSortedSet.orderedBy(comparing(e -> e.getClass().getName()));
+        ImmutableSortedSet.orderedBy(comparing(e -> e.name));
     diffs.rowKeySet().stream()
         .forEach(
             fragmentClass -> {
@@ -474,7 +529,8 @@ public class ConfigCommand implements BlazeCommand {
                               e -> toNullableStringPair(e.getValue())));
               fragmentDiffs.add(new FragmentDiffForOutput(fragmentName, sortedOptionDiffs));
             });
-    return new ConfigurationDiffForOutput(configHash1, configHash2, fragmentDiffs.build());
+    return new ConfigurationDiffForOutput(
+        configHash1, configHash2, ImmutableList.copyOf(fragmentDiffs.build()));
   }
 
   private static Pair<String, String> toNullableStringPair(Pair<Object, Object> pair) {

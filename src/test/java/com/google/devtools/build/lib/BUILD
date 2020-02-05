@@ -1242,10 +1242,13 @@ java_test(
 
 java_test(
     name = "runtime-tests",
-    srcs = glob([
-        "runtime/*.java",
-        "runtime/commands/*.java",
-    ]),
+    srcs = glob(
+        [
+            "runtime/*.java",
+            "runtime/commands/*.java",
+        ],
+        exclude = ["runtime/commands/ConfigCommandTest.java"],
+    ),
     test_class = "com.google.devtools.build.lib.AllTests",
     deps = [
         ":actions_testutil",
@@ -1287,6 +1290,13 @@ java_test(
         "//third_party:apache_commons_lang",
         "//third_party:mockito",
     ],
+)
+
+java_test(
+    name = "ConfigCommandTest",
+    srcs = ["runtime/commands/ConfigCommandTest.java"],
+    # TODO(bazel-team) The test is currently broken due to BazelAnalysisMock not supporting integration tests.
+    tags = ["manual"],
 )
 
 java_test(
