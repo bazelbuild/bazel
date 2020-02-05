@@ -337,6 +337,9 @@ public class ProtoCommon {
     if (starlarkSemantics.experimentalAllowExternalDirectory()
             && stripImportPrefix.startsWith(LabelConstants.EXPERIMENTAL_EXTERNAL_PATH_PREFIX)) {
         stripImportPrefix = stripImportPrefix.subFragment(1);
+    } else if (!starlarkSemantics.experimentalAllowExternalDirectory()
+            && stripImportPrefix.startsWith(LabelConstants.EXTERNAL_PATH_PREFIX)) {
+        stripImportPrefix = stripImportPrefix.subFragment(1);
     }
 
     ImmutableList.Builder<Artifact> symlinks = ImmutableList.builder();

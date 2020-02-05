@@ -37,6 +37,7 @@ import com.google.devtools.build.lib.analysis.config.PerLabelOptions;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -837,7 +838,7 @@ public final class CcCompilationHelper {
     }
   }
 
-  private PublicHeaders computePublicHeaders() {
+  private PublicHeaders computePublicHeaders() throws InterruptedException {
     PathFragment prefix = null;
     if (includePrefix != null) {
       prefix = PathFragment.create(includePrefix);
@@ -891,6 +892,12 @@ public final class CcCompilationHelper {
     ImmutableList.Builder<Artifact> moduleHeadersBuilder = ImmutableList.builder();
     NestedSetBuilder<Pair<String, String>> virtualToOriginalHeaders =
         NestedSetBuilder.stableOrder();
+
+    boolean allowExternalDirectory =
+            actionConstructionContext
+                    .getAnalysisEnvironment()
+                    .getSkylarkSemantics()
+                    .experimentalAllowExternalDirectory();
     for (Artifact originalHeader : publicHeaders) {
       if (!originalHeader.getRootRelativePath().startsWith(stripPrefix)) {
         ruleErrorConsumer.ruleError(

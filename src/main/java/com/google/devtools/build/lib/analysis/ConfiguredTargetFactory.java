@@ -47,25 +47,10 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
-import com.google.devtools.build.lib.packages.AdvertisedProviderSet;
-import com.google.devtools.build.lib.packages.Aspect;
-import com.google.devtools.build.lib.packages.Attribute;
-import com.google.devtools.build.lib.packages.ConfigurationFragmentPolicy;
+import com.google.devtools.build.lib.packages.*;
 import com.google.devtools.build.lib.packages.ConfigurationFragmentPolicy.MissingFragmentPolicy;
-import com.google.devtools.build.lib.packages.ConstantRuleVisibility;
-import com.google.devtools.build.lib.packages.EnvironmentGroup;
-import com.google.devtools.build.lib.packages.InputFile;
-import com.google.devtools.build.lib.packages.OutputFile;
-import com.google.devtools.build.lib.packages.PackageGroup;
-import com.google.devtools.build.lib.packages.PackageGroupsRuleVisibility;
-import com.google.devtools.build.lib.packages.PackageSpecification;
 import com.google.devtools.build.lib.packages.PackageSpecification.PackageGroupContents;
-import com.google.devtools.build.lib.packages.Rule;
-import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
-import com.google.devtools.build.lib.packages.RuleVisibility;
-import com.google.devtools.build.lib.packages.SkylarkProviderIdentifier;
-import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.profiler.memory.CurrentRuleTracker;
 import com.google.devtools.build.lib.skyframe.AspectFunction.AspectFunctionException;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
@@ -238,7 +223,7 @@ public final class ConfiguredTargetFactory {
               visibility);
       SourceArtifact artifact =
           artifactFactory.getSourceArtifact(
-              inputFile.getExecPath(),
+              inputFile.getExecPath(analysisEnvironment.getSkylarkSemantics().experimentalAllowExternalDirectory()),
               inputFile.getPackage().getSourceRoot(),
               ConfiguredTargetKey.of(target.getLabel(), config));
       return new InputFileConfiguredTarget(targetContext, inputFile, artifact);
