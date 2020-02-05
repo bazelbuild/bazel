@@ -126,7 +126,7 @@ JAVA_TOOLS = [
                "//src/tools/launcher:srcs",
                "//src/main/cpp/util:embedded_tools",
                "//src/main/native:embedded_tools",
-               "//src/main/protobuf:srcs",
+               "//src/main/protobuf:embedded_tools",
                "//third_party/def_parser:srcs",
                "//third_party/zlib:embedded_tools",
            ] + select({

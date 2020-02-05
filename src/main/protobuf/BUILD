@@ -276,6 +276,15 @@ filegroup(
 )
 
 filegroup(
+    name = "embedded_tools",
+    srcs = glob([
+        "BUILD.tools",
+        "*.proto",
+    ]),
+    visibility = ["//visibility:public"],
+)
+
+filegroup(
     name = "dist_jars",
     srcs = [s + "_java_proto_srcs" for s in FILES] + [
         ":analysis_java_proto_srcs",
