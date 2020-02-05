@@ -256,8 +256,8 @@ public abstract class Artifact
   public static final Predicate<Artifact> MIDDLEMAN_FILTER = input -> !input.isMiddlemanArtifact();
 
   private final int hashCode;
-  protected final ArtifactRoot root;
-  protected final PathFragment execPath;
+  private final ArtifactRoot root;
+  private final PathFragment execPath;
 
   /**
    * Content-based output paths are experimental. Only derived artifacts that are explicitly opted
@@ -360,11 +360,6 @@ public abstract class Artifact
     }
 
     @Override
-    public final PathFragment getExecPath() {
-      return execPath;
-    }
-
-    @Override
     public PathFragment getRootRelativePath() {
       return getExecPath().relativeTo(getRoot().getExecPath());
     }
@@ -411,14 +406,11 @@ public abstract class Artifact
       artifact.setGeneratingActionKey(generatingActionKey);
       return INTERNER.intern(artifact);
     }
-
-    @Override
-    public final Path getPath() {
-      return root.getRoot().getRelative(getRootRelativePath());
-    }
   }
 
-  public abstract Path getPath();
+  public final Path getPath() {
+    return root.getRoot().getRelative(getRootRelativePath());
+  }
 
   public boolean hasParent() {
     return getParent() != null;
@@ -502,6 +494,11 @@ public abstract class Artifact
   @Override
   public final ArtifactRoot getRoot() {
     return root;
+  }
+
+  @Override
+  public final PathFragment getExecPath() {
+    return execPath;
   }
 
   @Override
@@ -591,12 +588,10 @@ public abstract class Artifact
    * */
   public static final class SourceArtifact extends Artifact {
     private final ArtifactOwner owner;
-    private final PathFragment rootRelativePath;
 
     @VisibleForTesting
     public SourceArtifact(ArtifactRoot root, PathFragment execPath, ArtifactOwner owner) {
-      super(root, root.getExecPath().getRelative(execPath), /*contentBasedPath=*/ false);
-      this.rootRelativePath = execPath;
+      super(root, execPath, /*contentBasedPath=*/ false);
       this.owner = owner;
     }
 
@@ -611,19 +606,7 @@ public abstract class Artifact
 
     @Override
     public PathFragment getRootRelativePath() {
-        return rootRelativePath;
-//      return root.getExecPath().getRelative(execPath);
-    }
-
-    @Override
-    public final Path getPath(){
-      return root.getRoot().getRelative(rootRelativePath);
-    }
-
-    @Override
-    public final PathFragment getExecPath() {
-      return execPath;
-//      return getRootRelativePath();
+      return getExecPath().relativeTo(getRoot().getExecPath());
     }
 
     @Override
@@ -833,9 +816,6 @@ public abstract class Artifact
    */
   public final PathFragment getRunfilesPath() {
     PathFragment relativePath = getRootRelativePath();
-//    if (relativePath.startsWith(LabelConstants.EXPERIMENTAL_EXTERNAL_PATH_PREFIX)) {
-//      relativePath = relativePath.relativeTo(LabelConstants.EXPERIMENTAL_EXTERNAL_PATH_PREFIX);
-//    }
     if (relativePath.startsWith(LabelConstants.EXTERNAL_PATH_PREFIX)) {
       // Turn external/repo/foo into ../repo/foo.
       relativePath = relativePath.relativeTo(LabelConstants.EXTERNAL_PATH_PREFIX);

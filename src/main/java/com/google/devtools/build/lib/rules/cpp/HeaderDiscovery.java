@@ -149,7 +149,8 @@ public class HeaderDiscovery {
         if (execPath.startsWith(execRoot)) {
           execPathFragment = execPath.relativeTo(execRoot); // funky but tolerable path
         } else if (execPath.startsWith(execRoot.getParentDirectory())) { // for --experimental_allow_external_directory
-          execPathFragment = execPath.relativeTo(execRoot.getParentDirectory());
+          // TODO(jingwen-external): add conditional plumbing
+          execPathFragment = LabelConstants.EXPERIMENTAL_EXTERNAL_PATH_PREFIX.getRelative(execPath.relativeTo(execRoot.getParentDirectory()));
         } else {
           problems.add(execPathFragment.getPathString());
           continue;

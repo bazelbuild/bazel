@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.packages;
 
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.events.Location;
@@ -104,7 +105,13 @@ public final class InputFile extends FileTarget {
    * Returns the exec path of the file, i.e. the path relative to the package source root.
    */
   public PathFragment getExecPath() {
-    return label.getPackageIdentifier().getSourceRoot().getRelative(label.getName());
+    RepositoryName repositoryName = label.getPackageIdentifier().getRepository();
+    if (repositoryName.isDefault() || repositoryName.isMain()) {
+      return label.getPackageIdentifier().getSourceRoot().getRelative(label.getName());
+    } else {
+      // TODO(jingwen-external): add conditional
+      return repositoryName.getExecPath(true).getRelative(label.getPackageName()).getRelative(label.getName());
+    }
   }
 
   @Override

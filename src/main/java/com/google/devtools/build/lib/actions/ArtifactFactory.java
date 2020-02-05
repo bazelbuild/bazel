@@ -399,11 +399,12 @@ public class ArtifactFactory implements ArtifactResolver {
     PathFragment execPath =
         baseExecPath != null ? baseExecPath.getRelative(relativePath) : relativePath;
     if (execPath.startsWith(LabelConstants.EXPERIMENTAL_EXTERNAL_PATH_PREFIX)) {
-      execPath = execPath.relativeTo(LabelConstants.EXPERIMENTAL_EXTERNAL_PATH_PREFIX);
+//      execPath = execPath.relativeTo(LabelConstants.EXPERIMENTAL_EXTERNAL_PATH_PREFIX);
     }
     if (execPath.containsUplevelReferences()) {
       // Source exec paths cannot escape the source root.
-      return null;
+      // TODO(jingwen-external): plumb conditional; the exec path may start with .. here
+//      return null;
     }
     // Don't create an artifact if it's derived.
     if (isDerivedArtifact(execPath)) {
