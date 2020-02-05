@@ -162,6 +162,17 @@ public class AppleCommandLineOptions extends FragmentOptions {
               + "If unspecified, uses 'macos_sdk_version'.")
   public DottedVersion.Option macosMinimumOs;
 
+  @Option(
+      name = "experimental_prefer_mutual_xcode",
+      defaultValue = "true",
+      documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
+      effectTags = {OptionEffectTag.LOSES_INCREMENTAL_STATE},
+      help =
+          "If true, use the most recent Xcode that is available both locally and remotely. If"
+              + " false, or if there are no mutual available versions, use the local Xcode version"
+              + " selected via xcode-select.")
+  public boolean preferMutualXcode;
+
   @VisibleForTesting public static final String DEFAULT_IOS_SDK_VERSION = "8.4";
   @VisibleForTesting public static final String DEFAULT_WATCHOS_SDK_VERSION = "2.0";
   @VisibleForTesting public static final String DEFAULT_MACOS_SDK_VERSION = "10.10";

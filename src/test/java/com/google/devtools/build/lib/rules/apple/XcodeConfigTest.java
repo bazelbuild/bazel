@@ -402,6 +402,64 @@ public class XcodeConfigTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testPreferMutualXcodeFalseOverridesMutual() throws Exception {
+    scratch.file(
+        "xcode/BUILD",
+        "xcode_config(",
+        "    name = 'foo',",
+        "    remote_versions = ':remote',",
+        "    local_versions = ':local',",
+        ")",
+        "",
+        "xcode_version(",
+        "    name = 'version512',",
+        "    version = '5.1.2',",
+        "    aliases = ['5', '5.1'],",
+        ")",
+        "xcode_version(",
+        "    name = 'version84',",
+        "    version = '8.4',",
+        ")",
+        "xcode_version(",
+        "    name = 'version92',",
+        "    version = '9.2',",
+        ")",
+        "xcode_version(",
+        "    name = 'version9',",
+        "    version = '9',",
+        ")",
+        "xcode_version(",
+        "    name = 'version10',",
+        "    version = '10',",
+        "    aliases = [ '10.0'],",
+        ")",
+        "xcode_version(",
+        "    name = 'other_version10',",
+        "    version = '10.0',",
+        ")",
+        "available_xcodes(",
+        "    name = 'remote',",
+        "    versions = [':version512', ':version92', ':version9', ':version10'],",
+        "    default = ':version512',",
+        ")",
+        "available_xcodes(",
+        "    name = 'local',",
+        "    versions = [':version84', ':other_version10', ':version92', ':version9'],",
+        "    default = ':version84',",
+        ")");
+    useConfiguration(
+        "--xcode_version_config=//xcode:foo", "--experimental_prefer_mutual_xcode=false");
+    assertXcodeVersion("8.4");
+    assertAvailability(XcodeConfigInfo.Availability.LOCAL);
+    assertHasRequirements(
+        ImmutableList.of(
+            ExecutionRequirements.REQUIRES_DARWIN, ExecutionRequirements.REQUIREMENTS_SET));
+
+    assertContainsEvent("You passed --experimental_prefer_mutual_xcode=false");
+    assertContainsEvent("consider using --experimental_prefer_mutual_xcode=true");
+  }
+
+  @Test
   public void testInvalidXcodeFromMutualThrows() throws Exception {
     scratch.file(
         "xcode/BUILD",
