@@ -190,7 +190,8 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
         "test/skylark/test_rule.bzl",
         "def _impl(ctx):",
         "  output = ctx.outputs.out",
-        "  ctx.actions.write(output = output, content = 'hello')",
+        "  ctx.actions.write(output = output, content = 'hello', is_executable=True)",
+        "  return [DefaultInfo(executable = output)]",
         "",
         "fake_test = rule(",
         "  implementation = _impl,",
@@ -202,7 +203,7 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
         "test/skylark/BUILD",
         "load('//test/skylark:test_rule.bzl', 'fake_test')",
         "fake_test(name = 'test_name')");
-    getConfiguredTarget("//test/skylark:fake_test");
+    getConfiguredTarget("//test/skylark:test_name");
   }
 
   @Test

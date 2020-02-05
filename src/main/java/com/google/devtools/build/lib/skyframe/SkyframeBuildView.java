@@ -635,6 +635,16 @@ public final class SkyframeBuildView {
       }
 
       if (inTest && !(errorKey.argument() instanceof ConfiguredTargetKey)) {
+        // This means that we are in a BuildViewTestCase.
+        //
+        // Tests don't call target pattern parsing before requesting the analysis of a target.
+        // Therefore if the package that contains them cannot be loaded, we get an error key that's
+        // not a ConfiguredTargetKey, which cannot happen in production code.
+        //
+        // If it's an existing target in a nonexistent package, the error is signaled by posting an
+        // AnalysisFailureEvent on the event bus, which is null in when running a BuildViewTestCase,
+        // so we emit the root cause labels directly to the event handler below.
+        eventHandler.handle(Event.error(errorInfo.toString()));
         continue;
       }
       Preconditions.checkState(
@@ -704,6 +714,9 @@ public final class SkyframeBuildView {
         eventBus.post(
             new AnalysisFailureEvent(
                 label, configuration == null ? null : configuration.getEventId(), rootCauses));
+      } else {
+        // eventBus is null, but test can still assert on the expected root causes being found.
+        eventHandler.handle(Event.error(rootCauses.toList().toString()));
       }
     }
     return Pair.of(hasLoadingError, noKeepGoingException);
