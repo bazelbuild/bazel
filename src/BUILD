@@ -10,27 +10,11 @@ exports_files(["jdeps_modules.golden"])
 # OpenBSD; here we use `dd` instead.
 md5_cmd = "set -e -o pipefail && echo $(SRCS) | sort | xargs %s | %s | dd bs=32 count=1 > $@"
 
-# TODO(bazel-team): find a better way to handle dylib extensions.
-filegroup(
-    name = "libunix",
-    srcs = select({
-        "//src/conditions:darwin": ["//src/main/native:libunix.dylib"],
-        "//src/conditions:darwin_x86_64": ["//src/main/native:libunix.dylib"],
-        "//src/conditions:windows": ["//src/main/native/windows:windows_jni.dll"],
-        "//conditions:default": ["//src/main/native:libunix.so"],
-    }),
-    visibility = [
-        "//src/test/java:__pkg__",
-        "//src/tools/remote:__subpackages__",
-    ],
-)
-
 [genrule(
     name = "install_base_key-file" + suffix,
     srcs = [
         "//src/main/java/com/google/devtools/build/lib:bazel/BazelServer_deploy.jar",
         "//src/main/cpp:client",
-        ":libunix",
         "//src/main/tools:build-runfiles",
         "//src/main/tools:process-wrapper",
         "//src/main/tools:linux-sandbox",
@@ -343,7 +327,8 @@ filegroup(
         "//src/main/java/com/google/devtools/build/lib:bazel/BazelServer_deploy.jar",
         "install_base_key" + suffix,
         ":platforms_archive",
-        ":libunix",
+        "//src/main/native:target-os-unix-native-lib",
+        "//src/main/native/windows:target-os-native-lib",
         "//src/main/tools:build-runfiles",
         "//src/main/tools:process-wrapper",
         "//src/main/tools:jdk-support",

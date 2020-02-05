@@ -11,7 +11,6 @@ filegroup(
 java_library(
     name = "worker",
     srcs = glob(["*.java"]),
-    data = ["//src:libunix"],
     resources = ["//src/main/tools:linux-sandbox"],
     visibility = ["//src/tools/remote:__subpackages__"],
     deps = [

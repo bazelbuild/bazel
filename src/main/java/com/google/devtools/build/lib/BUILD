@@ -93,16 +93,17 @@ filegroup(
 )
 
 #   Java interfaces to various native UNIX system services.
+#
+#   All programs that depend on libraries in this package will have
+#   JNI (native code) dependencies.
 java_library(
     name = "unix",
     srcs = glob([
         "unix/*.java",
     ]) + ["UnixJniLoader.java"],
-    resources = select({
-        # todo(dslomov): Get rid of this whole library on Windows.
-        "//src/conditions:windows": [],
-        "//conditions:default": ["//src/main/native:libunix.so"],
-    }),
+    # Enable tests to pick up the native lib if using this library.
+    # See JavaBinary#collectNativeLibraries.
+    data = ["//src/main/native:target-os-unix-native-lib"],
     deps = [
         ":os_util",
         "//src/main/java/com/google/devtools/build/lib/concurrent",

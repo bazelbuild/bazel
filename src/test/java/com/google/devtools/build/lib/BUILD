@@ -28,14 +28,6 @@ WINDOWS_ON_WINDOWS_TESTS = glob(
 # All Windows-specific tests. Use this to exclude Windows tests from globs.
 ALL_WINDOWS_TESTS = CROSS_PLATFORM_WINDOWS_TESTS + WINDOWS_ON_WINDOWS_TESTS
 
-JNI_LIB = select({
-    "//src/conditions:windows": ["//src/main/native/windows:windows_jni.dll"],
-    "//conditions:default": [
-        "//src/main/native:libunix.dylib",
-        "//src/main/native:libunix.so",
-    ],
-})
-
 # Generate list of all srcs via:
 # bazel query 'filter("srcs", kind("filegroup rule", //src/test/java/com/google/devtools/build/lib/...))' | sort | sed -e "s/^/\"/" | sed -e "s/$/\",/" | fgrep -v "build/lib:srcs"
 filegroup(
@@ -151,7 +143,6 @@ java_library(
         "vfs/util/*.java",
         "events/util/*.java",
     ]),
-    data = JNI_LIB,
     deps = [
         ":guava_junit_truth",
         ":testutil",
@@ -537,7 +528,7 @@ java_test(
     data = [
         ":MockSubprocess_deploy.jar",
         ":printarg",
-    ] + JNI_LIB,
+    ],
     jvm_flags = [
         "-Dbazel.windows_unix_root=C:/fake/msys",
     ],
