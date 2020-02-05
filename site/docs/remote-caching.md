@@ -121,7 +121,7 @@ larger value if you have larger output files. The server will require other
 configuration such as authentication.
 
 
-Example configuration for `server section` in `nginx.conf`:
+Example configuration for `server` section in `nginx.conf`:
 
 ```nginx
 location /cache/ {
@@ -268,7 +268,7 @@ build --remote_upload_local_results=false
 To exclude specific targets from using the remote cache, tag the target with
 `no-cache`. For example:
 
-```
+```starlark
 java_library(
     name = "target",
     tags = ["no-cache"],
