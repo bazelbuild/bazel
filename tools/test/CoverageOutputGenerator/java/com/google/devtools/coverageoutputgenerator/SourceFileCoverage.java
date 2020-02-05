@@ -254,10 +254,12 @@ class SourceFileCoverage {
     Optional<BranchCoverage> match = branches.stream()
         .filter(b -> b.blockNumber().equals(branch.blockNumber()) && b.branchNumber().equals(branch.branchNumber()))
         .collect(toOptional());
-    match.ifPresentOrElse(b -> {
-            branches.remove(b);
-            branches.add(BranchCoverage.merge(b, branch));
-        },
-        () -> branches.add(branch));
+    if (match.isPresent()) {
+      BranchCoverage b = match.get();
+      branches.remove(b);
+      branches.add(BranchCoverage.merge(b, branch));
+    } else {
+      branches.add(branch);
+    }
   }
 }
