@@ -114,7 +114,6 @@ public final class ArtifactRoot implements Comparable<ArtifactRoot>, Serializabl
 
   @AutoCodec.VisibleForSerialization
   enum RootType {
-    ExternalSource,
     Source,
     Output,
     Middleman
@@ -156,10 +155,6 @@ public final class ArtifactRoot implements Comparable<ArtifactRoot>, Serializabl
 
   public ImmutableList<PathFragment> getComponents() {
     return components;
-  }
-
-  public boolean isExternalSourceRoot() {
-    return rootType == RootType.ExternalSource;
   }
 
   public boolean isSourceRoot() {

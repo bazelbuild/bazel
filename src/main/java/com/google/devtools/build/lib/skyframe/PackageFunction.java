@@ -498,7 +498,11 @@ public class PackageFunction implements SkyFunction {
       // bother checking for missing values and instead piggyback on the env.missingValues() call
       // for the former. This avoids a Skyframe restart.
       handleLabelsCrossingSubpackagesAndPropagateInconsistentFilesystemExceptions(
-          packageLookupValue.getRoot(), packageId, pkgBuilder, env);
+          packageLookupValue.getRoot(),
+          packageId,
+          pkgBuilder,
+          env,
+          starlarkSemantics.experimentalAllowExternalDirectory());
     } catch (InternalInconsistentFilesystemException e) {
       packageFunctionCache.invalidate(packageId);
       throw new PackageFunctionException(
@@ -769,8 +773,11 @@ public class PackageFunction implements SkyFunction {
   }
 
   private static void handleLabelsCrossingSubpackagesAndPropagateInconsistentFilesystemExceptions(
-      Root pkgRoot, PackageIdentifier pkgId, Package.Builder pkgBuilder, Environment env)
-      throws InternalInconsistentFilesystemException, InterruptedException {
+          Root pkgRoot,
+          PackageIdentifier pkgId,
+          Package.Builder pkgBuilder,
+          Environment env,
+          boolean allowExternalDirectory) throws InternalInconsistentFilesystemException, InterruptedException {
     PathFragment pkgDir = pkgId.getPackageFragment();
     Set<SkyKey> containingPkgLookupKeys = Sets.newHashSet();
     Map<Target, SkyKey> targetToKey = new HashMap<>();
@@ -807,7 +814,8 @@ public class PackageFunction implements SkyFunction {
           pkgRoot,
           target.getLabel(),
           target.getLocation(),
-          containingPackageLookupValue)) {
+          containingPackageLookupValue,
+          allowExternalDirectory)) {
         iterator.remove();
         pkgBuilder.setContainsErrors();
       }
@@ -833,11 +841,12 @@ public class PackageFunction implements SkyFunction {
   }
 
   private static boolean maybeAddEventAboutLabelCrossingSubpackage(
-      Package.Builder pkgBuilder,
-      Root pkgRoot,
-      Label label,
-      @Nullable Location location,
-      @Nullable ContainingPackageLookupValue containingPkgLookupValue) {
+          Package.Builder pkgBuilder,
+          Root pkgRoot,
+          Label label,
+          @Nullable Location location,
+          @Nullable ContainingPackageLookupValue containingPkgLookupValue,
+          boolean allowExternalDirectory) {
     if (containingPkgLookupValue == null) {
       return true;
     }
@@ -851,9 +860,8 @@ public class PackageFunction implements SkyFunction {
       // The label does not cross a subpackage boundary.
       return false;
     }
-    // TODO(jingwen-external): wire up starlark semantics
     if (!containingPkg.getSourceRoot().startsWith(
-        label.getPackageIdentifier().getExecPath(true))) {
+        label.getPackageIdentifier().getExecPath(allowExternalDirectory))) {
       // This label is referencing an imaginary package, because the containing package should
       // extend the label's package: if the label is //a/b:c/d, the containing package could be
       // //a/b/c or //a/b, but should never be //a. Usually such errors will be caught earlier, but

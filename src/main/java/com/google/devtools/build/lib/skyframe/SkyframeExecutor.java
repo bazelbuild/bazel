@@ -1373,7 +1373,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     setShowLoadingProgress(packageCacheOptions.showLoadingProgress);
     setDefaultVisibility(packageCacheOptions.defaultVisibility);
     setSkylarkSemantics(getEffectiveStarlarkSemantics(starlarkSemanticsOptions));
-    setPackageLocator(pkgLocator);
+    setPackageLocator(pkgLocator, starlarkSemanticsOptions.experimentalAllowExternalDirectory);
 
     syscalls.set(getPerBuildSyscallCache(packageCacheOptions.globbingThreads));
     this.pkgFactory.setGlobbingThreads(packageCacheOptions.globbingThreads);
@@ -1398,7 +1398,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     return starlarkSemanticsOptions.toSkylarkSemantics();
   }
 
-  private void setPackageLocator(PathPackageLocator pkgLocator) {
+  private void setPackageLocator(PathPackageLocator pkgLocator, boolean allowExternalDirectory) {
     EventBus eventBus = this.eventBus.get();
     if (eventBus != null) {
       eventBus.post(pkgLocator);
@@ -1415,20 +1415,28 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       artifactFactory
           .get()
           .setSourceArtifactRoots(
-              createSourceArtifactRootMapOnNewPkgLocator(oldLocator, pkgLocator));
+              createSourceArtifactRootMapOnNewPkgLocator(oldLocator, pkgLocator, allowExternalDirectory));
     }
   }
 
   protected ImmutableMap<Root, ArtifactRoot> createSourceArtifactRootMapOnNewPkgLocator(
-      PathPackageLocator oldLocator, PathPackageLocator pkgLocator) {
+          PathPackageLocator oldLocator, PathPackageLocator pkgLocator, boolean allowExternalDirectory) {
     ImmutableMap.Builder<Root, ArtifactRoot> result = ImmutableMap.builder();
 
     Root absoluteRoot = Root.absoluteRoot(fileSystem);
     result.put(absoluteRoot, ArtifactRoot.asSourceRoot(absoluteRoot));
 
-    Root externalRoot = Root.fromPath(
-            directories.getOutputBase().getRelative(LabelConstants.EXTERNAL_PATH_PREFIX));
-    result.put(externalRoot, ArtifactRoot.asExternalSourceRoot(externalRoot));
+    if (allowExternalDirectory) {
+      Root externalRoot = Root.fromPath(
+              directories.getOutputBase().getRelative(LabelConstants.EXTERNAL_PATH_PREFIX));
+      result.put(externalRoot, ArtifactRoot.asExternalSourceRoot(externalRoot));
+    } else {
+      // TODO(bazel-team): The output base is a legitimate "source root" because external repositories
+      // stage their sources under output_base/external. The root here should really be
+      // output_base/external, but for some reason it isn't.
+      Root outputBaseRoot = Root.fromPath(directories.getOutputBase());
+      result.put(outputBaseRoot, ArtifactRoot.asSourceRoot(outputBaseRoot));
+    }
 
     for (Root packagePathEntry : pkgLocator.getPathEntries()) {
       result.put(packagePathEntry, ArtifactRoot.asSourceRoot(packagePathEntry));

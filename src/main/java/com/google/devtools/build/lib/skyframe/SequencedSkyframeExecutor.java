@@ -279,9 +279,9 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
 
   @Override
   protected ImmutableMap<Root, ArtifactRoot> createSourceArtifactRootMapOnNewPkgLocator(
-      PathPackageLocator oldLocator, PathPackageLocator pkgLocator) {
+      PathPackageLocator oldLocator, PathPackageLocator pkgLocator, boolean allowExternalDirectory) {
     invalidate(SkyFunctionName.functionIsIn(PACKAGE_LOCATOR_DEPENDENT_VALUES));
-    return super.createSourceArtifactRootMapOnNewPkgLocator(oldLocator, pkgLocator);
+    return super.createSourceArtifactRootMapOnNewPkgLocator(oldLocator, pkgLocator, allowExternalDirectory);
   }
 
   @Override
