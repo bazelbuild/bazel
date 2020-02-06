@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.bazel.rules.ninja.file.GenericParsingExcept
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
+import java.util.List;
 import java.util.SortedMap;
 
 /**
@@ -33,12 +34,13 @@ import java.util.SortedMap;
  * All created output artifacts are accumulated in the NestedSetBuilder.
  *
  * <p>Input and putput paths are interpreted relative to the working directory, see
- * working_directory property in {@link NinjaGraphRule}. All input artifacts are searched by the
- * index, created in {@link #prepare} method. All output artifact are created under the derived
- * artifacts root <execroot>/<outputRoot>, see output_root property in {@link NinjaGraphRule}.
+ * working_directory property in {@link NinjaGraphRule}. All output artifact are created under the
+ * derived artifacts root <execroot>/<outputRoot>, see output_root property in {@link
+ * NinjaGraphRule}.
  */
 class NinjaGraphArtifactsHelper {
   private final RuleContext ruleContext;
+  private final List<PathFragment> pathsToBuild;
   private final Path outputRootInSources;
   private final PathFragment outputRootPath;
   private final PathFragment workingDirectory;
@@ -59,7 +61,7 @@ class NinjaGraphArtifactsHelper {
    * @param srcsMap mapping between the path fragment and artifact for the files passed in 'srcs'
    *     attribute
    * @param depsNameToArtifact mapping between the path fragment in the Ninja file and prebuilt
-   *     artifact
+   * @param pathsToBuild list of paths to files required in output groups
    */
   NinjaGraphArtifactsHelper(
       RuleContext ruleContext,
@@ -67,8 +69,10 @@ class NinjaGraphArtifactsHelper {
       PathFragment outputRootPath,
       PathFragment workingDirectory,
       ImmutableSortedMap<PathFragment, Artifact> srcsMap,
-      ImmutableSortedMap<PathFragment, Artifact> depsNameToArtifact) {
+      ImmutableSortedMap<PathFragment, Artifact> depsNameToArtifact,
+      List<PathFragment> pathsToBuild) {
     this.ruleContext = ruleContext;
+    this.pathsToBuild = pathsToBuild;
     this.outputRootInSources =
         Preconditions.checkNotNull(sourceRoot.asPath()).getRelative(outputRootPath);
     this.outputRootPath = outputRootPath;
@@ -101,7 +105,9 @@ class NinjaGraphArtifactsHelper {
     DerivedArtifact derivedArtifact =
         ruleContext.getDerivedArtifact(
             pathRelativeToWorkspaceRoot.relativeTo(outputRootPath), derivedOutputRoot);
-    outputsMap.put(pathRelativeToWorkingDirectory, derivedArtifact);
+    if (pathsToBuild.contains(pathRelativeToWorkingDirectory)) {
+      outputsMap.put(pathRelativeToWorkingDirectory, derivedArtifact);
+    }
     return derivedArtifact;
   }
 

@@ -28,13 +28,13 @@ import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
+import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.lib.util.FileTypeSet;
 
 /**
- * The rule that parses the Ninja graph and creates the provider {@link NinjaGraphProvider}
- * describing it.
+ * The rule that parses the Ninja graph and creates {@link NinjaAction} actions.
  *
  * <p>Important aspect is relation to non-symlinked-under-execroot-directories: {@link
  * com.google.devtools.build.lib.skylarkbuildapi.WorkspaceGlobalsApi#dontSymlinkDirectoriesInExecroot(Sequence,
@@ -55,9 +55,14 @@ public class NinjaGraphRule implements RuleDefinition {
             attr("srcs", LABEL_LIST)
                 .allowedFileTypes(FileTypeSet.ANY_FILE)
                 .setDoc("Source files requested by Ninja graph actions."))
-        .add(attr("main", LABEL).allowedFileTypes(FileTypeSet.ANY_FILE).setDoc("Main Ninja file."))
+        .add(
+            attr("main", LABEL)
+                .allowedFileTypes(FileTypeSet.ANY_FILE)
+                .mandatory()
+                .setDoc("Main Ninja file."))
         .add(
             attr("output_root", STRING)
+                .mandatory()
                 .setDoc(
                     "<p>Directory under workspace, where all the intermediate and output artifacts"
                         + " will be created.</p><p>Must not be symlinked to the execroot. For"
@@ -87,6 +92,12 @@ public class NinjaGraphRule implements RuleDefinition {
                         + " output of each dependency will be used as an input to the Ninja"
                         + " action,which refers to the corresponding path.")
                 .value(ImmutableMap.of()))
+        .add(
+            attr("output_groups", Type.STRING_LIST_DICT)
+                .setDoc(
+                    "Mapping of output groups to the list of output paths in the Ninja file. "
+                        + "Only the output paths mentioned in this attribute will be built."
+                        + " Phony target names may be specified as the output paths."))
         .build();
   }
 
