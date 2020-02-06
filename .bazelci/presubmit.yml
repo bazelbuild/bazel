@@ -174,12 +174,11 @@ tasks:
     shards: 4
     batch_commands:
       - powershell -Command "(Get-Content WORKSPACE) -Replace '# android_', 'android_' | Set-Content WORKSPACE"
-      - mkdir D:\\bazeltest
     build_flags:
       - "--copt=-w"
       - "--host_copt=-w"
       - "--test_env=JAVA_HOME"
-      - "--test_env=TEST_INSTALL_BASE=D:/bazeltest/install_base"
+      - "--test_env=TEST_INSTALL_BASE=$HOME/bazeltest_install_base"
       - "--test_env=TEST_REPOSITORY_HOME=$OUTPUT_BASE/external"
     build_targets:
       - "//src:bazel.exe"
@@ -189,7 +188,7 @@ tasks:
       - "--copt=-w"
       - "--host_copt=-w"
       - "--test_env=JAVA_HOME"
-      - "--test_env=TEST_INSTALL_BASE=D:/bazeltest/install_base"
+      - "--test_env=TEST_INSTALL_BASE=$HOME/bazeltest_install_base"
       - "--test_env=TEST_REPOSITORY_HOME=$OUTPUT_BASE/external"
     test_targets:
       - "//src:all_windows_tests"
