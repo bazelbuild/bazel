@@ -147,8 +147,10 @@ public class FullyQualifiedName implements DataKey {
         protoKey.getKeyValue());
   }
 
+  // Note that while "$" is not allowed in source code, it's used in generated names (precisely to
+  // avoid colliding with source code).
   static final Pattern QUALIFIED_REFERENCE =
-      Pattern.compile("^((?<package>[^:]+):)?(?<type>\\w+)/(?<name>[A-Za-z0-9_.]+)$");
+      Pattern.compile("^((?<package>[^:]+):)?(?<type>\\w+)/(?<name>[A-Za-z0-9_.$]+)$");
 
   public static FullyQualifiedName fromReference(
       String qualifiedReference, Optional<String> packageName) {

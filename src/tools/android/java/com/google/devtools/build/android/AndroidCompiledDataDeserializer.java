@@ -762,20 +762,22 @@ public class AndroidCompiledDataDeserializer implements AndroidDataDeserializer 
                       : null;
             } else {
               ByteStreams.skipFully(
-                  dataInputStream,
-                  ((payloadSize + 1) / AAPT_FLAT_FILE_ALIGNMENT) * AAPT_FLAT_FILE_ALIGNMENT);
+                  dataInputStream, roundUpToNearest(payloadSize, AAPT_FLAT_FILE_ALIGNMENT));
               fingerprint = null;
               rootXmlNode = null;
             }
 
             compiledFiles.add(CompiledFileWithData.create(compiledFile, fingerprint, rootXmlNode));
           }
-
-          break; // TODO(b/146528588): remove this line
         }
       }
     }
     return ResourceContainer.create(resourceTables, compiledFiles);
+  }
+
+  /** Rounds {@code n} up to the nearest multiple of {@code k}. */
+  private static long roundUpToNearest(long n, int k) {
+    return ((n + k - 1) / k) * k;
   }
 
   // TODO(b/26297204): implied "private"ness needs to be segregated by res/ directory; see also
