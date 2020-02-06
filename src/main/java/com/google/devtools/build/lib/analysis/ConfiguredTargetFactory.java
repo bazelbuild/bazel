@@ -342,6 +342,35 @@ public final class ConfiguredTargetFactory {
       requiredFragments.add(rule.getLabel().toString());
     }
 
+    // Optionally add transitively required fragments:
+    requiredFragments.addAll(getRequiredConfigFragmentsFromDeps(configuration, prerequisites));
+    return ImmutableSet.copyOf(requiredFragments);
+  }
+
+  /**
+   * Subset of {@link #getRequiredConfigFragments} that only returns fragments required by deps.
+   * This includes:
+   *
+   * <ul>
+   *   <li>Requirements transitively required by deps iff {@link
+   *       CoreOptions#includeRequiredConfigFragmentsProvider} is {@link
+   *       CoreOptions.IncludeConfigFragmentsEnum#TRANSITIVE},
+   *   <li>Dependencies on Starlark build settings iff {@link
+   *       CoreOptions#includeRequiredConfigFragmentsProvider} is not {@link
+   *       CoreOptions.IncludeConfigFragmentsEnum#OFF}. These are considered direct requirements on
+   *       the rule.
+   * </ul>
+   */
+  private static ImmutableSet<String> getRequiredConfigFragmentsFromDeps(
+      BuildConfiguration configuration, Iterable<ConfiguredTargetAndData> prerequisites) {
+
+    TreeSet<String> requiredFragments = new TreeSet<>();
+    CoreOptions coreOptions = configuration.getOptions().get(CoreOptions.class);
+    if (coreOptions.includeRequiredConfigFragmentsProvider
+        == CoreOptions.IncludeConfigFragmentsEnum.OFF) {
+      return ImmutableSet.of();
+    }
+
     for (ConfiguredTargetAndData prereq : prerequisites) {
       // If the rule depends on a Starlark build setting, conceptually that means the rule directly
       // requires that as an option (even though it's technically a dependency).
@@ -599,6 +628,10 @@ public final class ConfiguredTargetFactory {
             .setUniversalFragments(ruleClassProvider.getUniversalFragments())
             .setToolchainContext(toolchainContext)
             .setConstraintSemantics(ruleClassProvider.getConstraintSemantics())
+            .setRequiredConfigFragments(
+                // Aspects have no direct fragment requirements: all requirements come from implicit
+                // label dependencies.
+                getRequiredConfigFragmentsFromDeps(aspectConfiguration, prerequisiteMap.values()))
             .build();
 
     // If allowing analysis failures, targets should be created as normal as possible, and errors

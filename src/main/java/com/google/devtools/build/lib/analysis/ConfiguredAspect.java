@@ -26,6 +26,8 @@ import com.google.devtools.build.lib.actions.Actions;
 import com.google.devtools.build.lib.actions.Actions.GeneratingActions;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
+import com.google.devtools.build.lib.analysis.config.CoreOptions;
+import com.google.devtools.build.lib.analysis.config.CoreOptions.IncludeConfigFragmentsEnum;
 import com.google.devtools.build.lib.analysis.skylark.SkylarkApiProvider;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -280,6 +282,18 @@ public final class ConfiguredAspect {
               analysisEnvironment.getRegisteredActions(),
               ruleContext.getOwner(),
               /*outputFiles=*/ null);
+
+      if (ruleContext
+              .getConfiguration()
+              .getOptions()
+              .get(CoreOptions.class)
+              .includeRequiredConfigFragmentsProvider
+          != IncludeConfigFragmentsEnum.OFF) {
+        // This guarantees aspects pass through the requirements of their dependencies. But native
+        // aspects can also declare direct requirements.
+        // TODO(gregce): support native aspect direct requirements.
+        addProvider(new RequiredConfigFragmentsProvider(ruleContext.getRequiredConfigFragments()));
+      }
 
       return new ConfiguredAspect(
           descriptor,

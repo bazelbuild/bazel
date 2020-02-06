@@ -649,6 +649,70 @@ EOF
   assert_contains "//$pkg:buildme .*JavaConfiguration" output
 }
 
+# Starlark aspects can't directly require configuration fragments. But they can
+# have implicit label dependencies on rules that do. This test ensures that
+# gets factored in.
+#
+# Note that cquery doesn't support queries over aspects: `deps(//foo)` won't
+# list aspects or traverse their dependencies. This makes it hard to understand
+# *why* a rule requires a fragment if only through an aspect. That's an argument
+# for making cquery generally aspect-aware.
+function test_show_config_fragments_includes_starlark_aspects() {
+  local -r pkg=$FUNCNAME
+  mkdir -p $pkg
+  cat > $pkg/defs.bzl <<EOF
+def _aspect_impl(target, ctx):
+    return []
+
+cc_depending_aspect = aspect(
+    attrs = {
+        # This creates an implicit dependency on a C++ library that
+        # only comes through the aspect.
+        "_extra_dep": attr.label(default = "//$pkg:cclib"),
+    },
+    implementation = _aspect_impl,
+)
+
+def _impl(ctx):
+    pass
+
+simple_rule = rule(
+  implementation = _impl,
+  attrs = {
+    "deps": attr.label_list(aspects = [cc_depending_aspect])
+  }
+)
+EOF
+
+  cat > $pkg/BUILD <<EOF
+load("//$pkg:defs.bzl", "simple_rule")
+
+simple_rule(
+    name = "buildme",
+    deps = [":simple_dep"],
+)
+
+simple_rule(
+    name = "simple_dep",
+)
+
+cc_library(
+    name = "cclib",
+    srcs = ["cclib.cc"],
+)
+EOF
+
+  # No direct requirement:
+  bazel cquery "//$pkg:buildme" --show_config_fragments=direct \
+    > output 2>"$TEST_log" || fail "Expected success"
+  assert_not_contains "//$pkg:buildme .*CppConfiguration" output
+
+  # But there is a transitive requirement through the aspect:
+  bazel cquery "//$pkg:buildme" --show_config_fragments=transitive \
+    > output 2>"$TEST_log" || fail "Expected success"
+  assert_contains "//$pkg:buildme .*CppConfiguration" output
+}
+
 function test_manual_tagged_targets_always_included_for_queries() {
   local -r pkg=$FUNCNAME
   mkdir -p $pkg
