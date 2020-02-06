@@ -80,7 +80,7 @@ all_link_actions = [
 ]
 
 def _use_msvc_toolchain(ctx):
-    return ctx.attr.cpu == "x64_windows" and (ctx.attr.compiler == "msvc-cl" or ctx.attr.compiler == "clang-cl")
+    return (ctx.attr.cpu == "x64_windows" or ctx.attr.cpu == "x86_windows") and (ctx.attr.compiler == "msvc-cl" or ctx.attr.compiler == "clang-cl")
 
 def _impl(ctx):
     if _use_msvc_toolchain(ctx):
@@ -497,9 +497,7 @@ def _impl(ctx):
                             flags = ["/OUT:%{output_execpath}"],
                             expand_if_available = "output_execpath",
                         ),
-                        flag_group(
-                            flags = ["/MACHINE:X64"],
-                        ),
+                        flag_group(flags = ctx.attr.default_link_flags),
                     ],
                 ),
             ],

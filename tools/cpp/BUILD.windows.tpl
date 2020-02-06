@@ -54,6 +54,7 @@ cc_toolchain_suite(
         "x64_windows|clang-cl": ":cc-compiler-x64_windows-clang-cl",
         "x64_windows_msys": ":cc-compiler-x64_windows_msys",
         "x64_windows": ":cc-compiler-x64_windows",
+        "x86_windows": ":cc-compiler-x86_windows",
         "armeabi-v7a": ":cc-compiler-armeabi-v7a",
     },
 )
@@ -216,9 +217,9 @@ toolchain(
 )
 
 cc_toolchain(
-    name = "cc-compiler-x64_windows",
-    toolchain_identifier = "msvc_x64",
-    toolchain_config = ":msvc_x64",
+    name = "cc-compiler-x86_windows",
+    toolchain_identifier = "msvc_x86",
+    toolchain_config = ":msvc_x86",
     all_files = ":empty",
     ar_files = ":empty",
     as_files = ":msvc_compiler_files",
@@ -231,52 +232,52 @@ cc_toolchain(
 )
 
 cc_toolchain_config(
-    name = "msvc_x64",
-    cpu = "x64_windows",
+    name = "msvc_x86",
+    cpu = "x86_windows",
     compiler = "msvc-cl",
     host_system_name = "local",
     target_system_name = "local",
     target_libc = "msvcrt",
     abi_version = "local",
     abi_libc_version = "local",
-    toolchain_identifier = "msvc_x64",
+    toolchain_identifier = "msvc_x86",
     msvc_env_tmp = "%{msvc_env_tmp}",
-    msvc_env_path = "%{msvc_env_path}",
-    msvc_env_include = "%{msvc_env_include}",
-    msvc_env_lib = "%{msvc_env_lib}",
-    msvc_cl_path = "%{msvc_cl_path}",
-    msvc_ml_path = "%{msvc_ml_path}",
-    msvc_link_path = "%{msvc_link_path}",
-    msvc_lib_path = "%{msvc_lib_path}",
-    cxx_builtin_include_directories = [%{msvc_cxx_builtin_include_directories}],
+    msvc_env_path = "%{msvc_x86_env_path}",
+    msvc_env_include = "%{msvc_x86_env_include}",
+    msvc_env_lib = "%{msvc_x86_env_lib}",
+    msvc_cl_path = "%{msvc_x86_cl_path}",
+    msvc_ml_path = "%{msvc_x86_ml_path}",
+    msvc_link_path = "%{msvc_x86_link_path}",
+    msvc_lib_path = "%{msvc_x86_lib_path}",
+    cxx_builtin_include_directories = [%{msvc_x86_cxx_builtin_include_directories}],
     tool_paths = {
-        "ar": "%{msvc_lib_path}",
-        "ml": "%{msvc_ml_path}",
-        "cpp": "%{msvc_cl_path}",
-        "gcc": "%{msvc_cl_path}",
+        "ar": "%{msvc_x86_lib_path}",
+        "ml": "%{msvc_x86_ml_path}",
+        "cpp": "%{msvc_x86_cl_path}",
+        "gcc": "%{msvc_x86_cl_path}",
         "gcov": "wrapper/bin/msvc_nop.bat",
-        "ld": "%{msvc_link_path}",
+        "ld": "%{msvc_x86_link_path}",
         "nm": "wrapper/bin/msvc_nop.bat",
         "objcopy": "wrapper/bin/msvc_nop.bat",
         "objdump": "wrapper/bin/msvc_nop.bat",
         "strip": "wrapper/bin/msvc_nop.bat",
     },
-    default_link_flags = ["/MACHINE:X64"],
+    default_link_flags = ["/MACHINE:X86"],
     dbg_mode_debug_flag = "%{dbg_mode_debug_flag}",
     fastbuild_mode_debug_flag = "%{fastbuild_mode_debug_flag}",
 )
 
 toolchain(
-    name = "cc-toolchain-x64_windows",
+    name = "cc-toolchain-x86_windows",
     exec_compatible_with = [
         "@platforms//cpu:x86_64",
         "@platforms//os:windows",
     ],
     target_compatible_with = [
-        "@platforms//cpu:x86_64",
+        "@platforms//cpu:x86_32",
         "@platforms//os:windows",
     ],
-    toolchain = ":cc-compiler-x64_windows",
+    toolchain = ":cc-compiler-x86_windows",
     toolchain_type = "@bazel_tools//tools/cpp:toolchain_type",
 )
 
