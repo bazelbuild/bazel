@@ -1642,6 +1642,38 @@ echo "STABLE_USER_NAME $USER"
     incremental builds slower.
 </p>
 
+<h4 id='flag--starlark_cpu_profile'><code class='flag'>--starlark_cpu_profile=<i>file</i></code></h4>
+<p>
+  This flag, whose value is the name of a file, causes Bazel to gather
+  statistics about CPU usage by all Starlark threads,
+  and write the profile, in <a href='https://github.com/google/pprof'>pprof</a> format,
+  to the named file.
+
+  Use this option to help identify Starlark functions that
+  make loading and analysis slow due to excessive computation. For example:
+</p>
+<pre>
+$ bazel build --nobuild --starlark_cpu_profile=/tmp/pprof.gz my/project/...
+$ pprof /tmp/pprof.gz
+(pprof) top
+Type: CPU
+Time: Feb 6, 2020 at 12:06pm (PST)
+Duration: 5.26s, Total samples = 3.34s (63.55%)
+Showing nodes accounting for 3.34s, 100% of 3.34s total
+      flat  flat%   sum%        cum   cum%
+     1.86s 55.69% 55.69%      1.86s 55.69%  sort_source_files
+     1.02s 30.54% 86.23%      1.02s 30.54%  expand_all_combinations
+     0.44s 13.17% 99.40%      0.44s 13.17%  range
+     0.02s   0.6%   100%      3.34s   100%  sorted
+         0     0%   100%      1.38s 41.32%  my/project/main/BUILD
+         0     0%   100%      1.96s 58.68%  my/project/library.bzl
+         0     0%   100%      3.34s   100%  main
+</pre>
+<p>
+  For different views of the same data, try the <code>pprof</code> commands <code>svg</code>,
+  <code>web</code>, and <code>list</code>.
+</p>
+
 <h2 id='bazel-releng'>Using Bazel for releases</h2>
 <p>
   Bazel is used both by software engineers during the development

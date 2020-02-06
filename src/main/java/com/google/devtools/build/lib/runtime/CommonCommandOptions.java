@@ -332,6 +332,14 @@ public class CommonCommandOptions extends OptionsBase {
   public PathFragment profilePath;
 
   @Option(
+      name = "starlark_cpu_profile",
+      defaultValue = "",
+      documentationCategory = OptionDocumentationCategory.LOGGING,
+      effectTags = {OptionEffectTag.BAZEL_MONITORING},
+      help = "Writes into the specified file a pprof profile of CPU usage by all Starlark threads.")
+  public String starlarkCpuProfile;
+
+  @Option(
       name = "record_full_profiler_data",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
