@@ -17,13 +17,16 @@ package com.google.devtools.coverageoutputgenerator;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.coverageoutputgenerator.Constants.TRACEFILE_EXTENSION;
 
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
+import org.junit.rules.TemporaryFolder;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
@@ -31,11 +34,12 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public class MainTest {
 
+  @Rule public TemporaryFolder temporaryFolder = new TemporaryFolder();
   private Path coverageDir;
 
   @Before
   public void createCoverageDirectory() throws IOException {
-    coverageDir = Files.createTempDirectory("coverage-dir");
+    coverageDir = temporaryFolder.newFolder("coverage-dir").toPath();
   }
 
   @Test
@@ -54,5 +58,35 @@ public class MainTest {
     List<File> coverageFiles = Main.getCoverageFilesInDir(coverageDir.toAbsolutePath().toString());
     List<File> tracefiles = Main.getFilesWithExtension(coverageFiles, TRACEFILE_EXTENSION);
     assertThat(tracefiles).hasSize(2);
+  }
+
+  @Test
+  public void testParallelParse_1KLoC_1KLcovFiles() throws IOException {
+    assertParallelParse(1024, 4, 256);
+  }
+
+  @Test
+  public void testParallelParse_1MLoC_4LcovFiles() throws IOException {
+    assertParallelParse(4, 1024, 1024);
+  }
+
+  private void assertParallelParse(int numLcovFiles, int numSourceFiles, int numLinesPerSourceFile)
+      throws IOException {
+
+    ByteArrayOutputStream sequentialOutput = new ByteArrayOutputStream();
+    ByteArrayOutputStream parallelOutput = new ByteArrayOutputStream();
+
+    LcovMergerTestUtils.generateLcovFiles(
+        "test_data/simple_test", numLcovFiles, numSourceFiles, numLinesPerSourceFile, coverageDir);
+
+    List<File> coverageFiles = Main.getCoverageFilesInDir(coverageDir.toAbsolutePath().toString());
+
+    Coverage sequentialCoverage = Main.parseFilesSequentially(coverageFiles, LcovParser::parse);
+    LcovPrinter.print(sequentialOutput, sequentialCoverage);
+
+    Coverage parallelCoverage = Main.parseFilesInParallel(coverageFiles, LcovParser::parse);
+    LcovPrinter.print(parallelOutput, parallelCoverage);
+
+    assertThat(parallelOutput.toString()).isEqualTo(sequentialOutput.toString());
   }
 }

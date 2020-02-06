@@ -35,6 +35,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -45,7 +46,7 @@ import java.util.stream.Stream;
 public class Main {
   private static final Logger logger = Logger.getLogger(Main.class.getName());
 
-  public static void main(String[] args) {
+  public static void main(String... args) {
     LcovMergerFlags flags = null;
     try {
       flags = LcovMergerFlags.parseFlags(args);
@@ -62,8 +63,14 @@ public class Main {
             : Collections.emptyList();
     Coverage coverage =
         Coverage.merge(
-            parseFiles(getTracefiles(flags, filesInCoverageDir), LcovParser::parse),
-            parseFiles(getGcovInfoFiles(filesInCoverageDir), GcovParser::parse));
+            parseFiles(
+                getTracefiles(flags, filesInCoverageDir),
+                LcovParser::parse,
+                flags.parseSequentially()),
+            parseFiles(
+                getGcovInfoFiles(filesInCoverageDir),
+                GcovParser::parse,
+                flags.parseSequentially()));
 
     if (flags.sourcesToReplaceFile() != null) {
       coverage.maybeReplaceSourceFileNames(getMapFromFile(flags.sourcesToReplaceFile()));
@@ -246,7 +253,15 @@ public class Main {
     return mapBuilder.build();
   }
 
-  private static Coverage parseFiles(List<File> files, Parser parser) {
+  static Coverage parseFiles(List<File> files, Parser parser, boolean parseSequentially) {
+    if (parseSequentially) {
+      return parseFilesSequentially(files, parser);
+    } else {
+      return parseFilesInParallel(files, parser);
+    }
+  }
+
+  static Coverage parseFilesSequentially(List<File> files, Parser parser) {
     Coverage coverage = new Coverage();
     for (File file : files) {
       try {
@@ -263,6 +278,31 @@ public class Main {
       }
     }
     return coverage;
+  }
+
+  static Coverage parseFilesInParallel(List<File> files, Parser parser) {
+    return files.stream()
+        .parallel()
+        .map(
+            file -> {
+              try (FileInputStream inputStream = new FileInputStream(file)) {
+                logger.log(Level.INFO, "Parsing file " + file);
+                return parser.parse(inputStream);
+              } catch (IOException e) {
+                logger.log(
+                    Level.SEVERE,
+                    "File "
+                        + file.getAbsolutePath()
+                        + " could not be parsed due to: "
+                        + e.getMessage());
+                System.exit(1);
+              }
+              return null;
+            })
+        .filter(Objects::nonNull)
+        .map(Coverage::create)
+        .reduce(Coverage::merge)
+        .orElse(Coverage.create());
   }
 
   /**

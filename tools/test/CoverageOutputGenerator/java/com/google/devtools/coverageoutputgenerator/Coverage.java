@@ -18,6 +18,7 @@ import static com.google.devtools.coverageoutputgenerator.Constants.CC_EXTENSION
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import java.util.Set;
@@ -49,6 +50,18 @@ class Coverage {
       merged.add(sourceFile);
     }
     return merged;
+  }
+
+  static Coverage create(SourceFileCoverage... sourceFilesCoverage) {
+    return create(Arrays.asList(sourceFilesCoverage));
+  }
+
+  static Coverage create(List<SourceFileCoverage> sourceFilesCoverage) {
+    Coverage coverage = new Coverage();
+    for (SourceFileCoverage sourceFileCoverage : sourceFilesCoverage) {
+      coverage.add(sourceFileCoverage);
+    }
+    return coverage;
   }
 
   /**
