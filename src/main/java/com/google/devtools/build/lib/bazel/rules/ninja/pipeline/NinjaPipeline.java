@@ -22,6 +22,7 @@ import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
+import com.google.devtools.build.lib.bazel.rules.ninja.file.ByteBufferFragment;
 import com.google.devtools.build.lib.bazel.rules.ninja.file.ByteFragmentAtOffset;
 import com.google.devtools.build.lib.bazel.rules.ninja.file.CollectingListFuture;
 import com.google.devtools.build.lib.bazel.rules.ninja.file.GenericParsingException;
@@ -112,12 +113,17 @@ public class NinjaPipeline {
       NinjaScope currentScope = queue.removeFirst();
       List<ByteFragmentAtOffset> targetFragments = rawTargets.get(currentScope);
       Preconditions.checkNotNull(targetFragments);
-      for (ByteFragmentAtOffset fragment : targetFragments) {
+      for (ByteFragmentAtOffset byteFragmentAtOffset : targetFragments) {
         future.add(
             service.submit(
-                () ->
-                    new NinjaParserStep(new NinjaLexer(fragment.getFragment()))
-                        .parseNinjaTarget(currentScope, fragment.getRealStartOffset())));
+                () -> {
+                  // Lexer should start at the beginning of fragment -> apply offset.
+                  ByteBufferFragment bufferFragment = byteFragmentAtOffset.getFragment();
+                  ByteBufferFragment subFragment = bufferFragment
+                      .subFragment(byteFragmentAtOffset.getOffset(), bufferFragment.length());
+                  return new NinjaParserStep(new NinjaLexer(subFragment))
+                      .parseNinjaTarget(currentScope, byteFragmentAtOffset.getRealStartOffset());
+                }));
       }
       queue.addAll(currentScope.getIncludedScopes());
       queue.addAll(currentScope.getSubNinjaScopes());

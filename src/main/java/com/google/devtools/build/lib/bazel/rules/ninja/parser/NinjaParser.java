@@ -49,7 +49,11 @@ public class NinjaParser implements DeclarationConsumer {
     ByteBufferFragment fragment = byteFragmentAtOffset.getFragment();
     int offset = byteFragmentAtOffset.getRealStartOffset();
 
-    NinjaLexer lexer = new NinjaLexer(fragment);
+    // Lexer should start at the beginning of byteFragmentAtOffset -> apply offset.
+    ByteBufferFragment subFragment = fragment.subFragment(
+        byteFragmentAtOffset.getOffset(),
+        fragment.length());
+    NinjaLexer lexer = new NinjaLexer(subFragment);
 
     if (!lexer.hasNextToken()) {
       throw new IllegalStateException("Empty fragment passed as declaration.");
@@ -99,7 +103,8 @@ public class NinjaParser implements DeclarationConsumer {
         ByteFragmentAtOffset targetFragment =
             declarationStart == offset
                 ? byteFragmentAtOffset
-                : new ByteFragmentAtOffset(declarationStart, fragment);
+                // We pass an offset *inside the fragment* into ByteFragmentAtOffset constructor
+                : new ByteFragmentAtOffset(declarationStart - fragment.getStartIncl(), fragment);
         parseResult.addTarget(targetFragment);
         break;
       case DEFAULT:
