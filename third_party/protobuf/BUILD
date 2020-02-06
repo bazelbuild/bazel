@@ -1,8 +1,10 @@
-package(default_visibility = ["//visibility:public"])
+load(":proto_alias.bzl", "proto_alias")
 
 licenses(["notice"])
 
-load(":proto_alias.bzl", "proto_alias")
+package(default_visibility = ["//visibility:public"])
+
+exports_files(["3.11.3.patch"])
 
 PROTOBUF_VERSION = "3.6.1"
 
