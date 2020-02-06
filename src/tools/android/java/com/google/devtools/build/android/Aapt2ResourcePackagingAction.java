@@ -316,13 +316,14 @@ public class Aapt2ResourcePackagingAction {
         effectTags = {OptionEffectTag.NO_OP},
         help = "Unused/deprecated option.")
     public boolean isTestWithResources;
+
   }
 
   public static void main(String[] args) throws Exception {
     Profiler profiler = InMemoryProfiler.createAndStart("setup");
     OptionsParser optionsParser =
         OptionsParser.builder()
-            .optionsClasses(Options.class, Aapt2ConfigOptions.class)
+            .optionsClasses(Options.class, Aapt2ConfigOptions.class, ResourceProcessorCommonOptions.class)
             .argsPreProcessor(new ShellQuotedParamsFilePreProcessor(FileSystems.getDefault()))
             .build();
     optionsParser.parseAndExitUponError(args);
@@ -365,7 +366,8 @@ public class Aapt2ResourcePackagingAction {
                               options.versionCode,
                               options.versionName,
                               manifest,
-                              processedManifest))
+                              processedManifest,
+                              optionsParser.getOptions(ResourceProcessorCommonOptions.class).logWarnings))
               .processManifest(
                   manifest ->
                       new DensitySpecificManifestProcessor(options.densities, densityManifest)

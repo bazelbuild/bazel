@@ -150,7 +150,7 @@ public class RClassGeneratorAction {
     final Stopwatch timer = Stopwatch.createStarted();
     OptionsParser optionsParser =
         OptionsParser.builder()
-            .optionsClasses(Options.class)
+            .optionsClasses(Options.class, ResourceProcessorCommonOptions.class)
             .argsPreProcessor(new ShellQuotedParamsFilePreProcessor(FileSystems.getDefault()))
             .build();
     optionsParser.parseAndExitUponError(args);

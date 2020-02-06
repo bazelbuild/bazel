@@ -36,7 +36,7 @@ class Aapt2OptimizeAction {
   private static List<String> buildCommand(String... args) {
     OptionsParser optionsParser =
         OptionsParser.builder()
-            .optionsClasses(Aapt2ConfigOptions.class)
+            .optionsClasses(Aapt2ConfigOptions.class, ResourceProcessorCommonOptions.class)
             .argsPreProcessor(new ShellQuotedParamsFilePreProcessor(FileSystems.getDefault()))
             .allowResidue(true)
             .build();

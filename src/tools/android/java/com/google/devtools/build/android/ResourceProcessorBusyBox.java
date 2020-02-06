@@ -170,13 +170,13 @@ public class ResourceProcessorBusyBox {
     // initialize Options/OptionsParser here. This keeps the processRequest interface minimal and
     // minimizes moving option state between these methods.
     if (args.length == 1 && args[0].equals("--persistent_worker")) {
-      System.exit(runPersistentWorker());
+      runPersistentWorker();
     } else {
-      System.exit(processRequest(Arrays.asList(args)));
+      processRequest(Arrays.asList(args));
     }
   }
 
-  private static int runPersistentWorker() throws Exception {
+  private static void runPersistentWorker() throws Exception {
     while (true) {
       try {
         WorkRequest request = WorkRequest.parseDelimitedFrom(System.in);
@@ -194,10 +194,8 @@ public class ResourceProcessorBusyBox {
       } catch (IOException e) {
         logger.severe(e.getMessage());
         e.printStackTrace();
-        return 1;
       }
     }
-    return 0;
   }
 
   private static int processRequest(List<String> args) throws Exception {

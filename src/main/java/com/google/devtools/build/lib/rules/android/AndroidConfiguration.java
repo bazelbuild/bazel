@@ -799,11 +799,10 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment
           "--strategy=AndroidAssetMerger=worker",
           "--strategy=AndroidResourceMerger=worker",
           "--strategy=AndroidCompiledResourceMerger=worker",
-          // TODO(jingwen): ManifestMerger prints to stdout when there's a manifest merge
-          // conflict. The worker protocol does not like this because it uses std i/o to
-          // for communication. To get around this, re-configure manifest merger to *not*
-          // use stdout for merge conflict warnings.
-          // "--strategy=ManifestMerger=worker",
+          "--strategy=ManifestMerger=worker",
+          "--strategy=AndroidManifestMerger=worker",
+          "--strategy=Aapt2Optimize=worker",
+          "--strategy=AARGenerator=worker",
         })
     public Void persistentResourceProcessor;
 

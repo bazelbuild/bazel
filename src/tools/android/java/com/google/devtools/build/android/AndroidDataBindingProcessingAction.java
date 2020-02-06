@@ -101,7 +101,8 @@ public class AndroidDataBindingProcessingAction {
 
     OptionsParser optionsParser =
         OptionsParser.builder()
-            .optionsClasses(Options.class, AaptConfigOptions.class)
+            .allowResidue(true)
+            .optionsClasses(Options.class, AaptConfigOptions.class, ResourceProcessorCommonOptions.class)
             .argsPreProcessor(new ShellQuotedParamsFilePreProcessor(FileSystems.getDefault()))
             .build();
     optionsParser.parseAndExitUponError(args);

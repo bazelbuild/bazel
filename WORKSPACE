@@ -230,8 +230,8 @@ distdir_tar(
             "https://mirror.bazel.build/github.com/bazelbuild/rules_nodejs/archive/rules_nodejs-1.3.0.tar.gz",
             "https://github.com/bazelbuild/rules_nodejs/archive/rules_nodejs-1.3.0.tar.gz",
         ],
-        "android_tools_pkg-0.14.tar.gz": [
-            "https://mirror.bazel.build/bazel_android_tools/android_tools_pkg-0.14.tar.gz",
+        "android_tools_pkg-0.15.tar.gz": [
+            "https://mirror.bazel.build/bazel_android_tools/android_tools_pkg-0.15.tar.gz",
         ],
         # bazelbuild/bazel-skylib
         "2d4c9528e0f453b5950eeaeac11d8d09f5a504d4.tar.gz": [
@@ -628,8 +628,8 @@ http_archive(
     name = "android_tools_for_testing",
     patch_cmds = EXPORT_WORKSPACE_IN_BUILD_FILE,
     patch_cmds_win = EXPORT_WORKSPACE_IN_BUILD_FILE_WIN,
-    sha256 = "a3a951838448483e7af25afd10671b266cc6283104b4a2a427d31cac12cf0912",  # built at 6c63d70ef9c11a662b8323c0ae4f6d3ac53b1a60
-    url = "https://mirror.bazel.build/bazel_android_tools/android_tools_pkg-0.14.tar.gz",
+    sha256 = "bfe86223e08e457c3dd50fe3eb381e9643d236d04e353b8e8e5018085e68722f", # ANDROID_TOOLS_UPDATE_MARKER_DO_NOT_REMOVE
+    url = "https://mirror.bazel.build/bazel_android_tools/android_tools_pkg-0.15.tar.gz",
 )
 
 # This must be kept in sync with src/main/java/com/google/devtools/build/lib/bazel/rules/coverage.WORKSPACE.
