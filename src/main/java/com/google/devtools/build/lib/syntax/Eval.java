@@ -421,23 +421,10 @@ final class Eval {
 
   private static Object eval(StarlarkThread.Frame fr, Expression expr)
       throws EvalException, InterruptedException {
-    // TODO(adonovan): don't push and pop all the time. We should only need the stack of function
-    // call frames, and we should recycle them.
-    // TODO(adonovan): put the StarlarkThread into the Java thread-local store
-    // once only, in push, and undo this in pop.
     try {
-      if (Callstack.enabled) {
-        Callstack.push(expr);
-      }
-      try {
-        return doEval(fr, expr);
-      } catch (EvalException ex) {
-        throw maybeTransformException(expr, ex);
-      }
-    } finally {
-      if (Callstack.enabled) {
-        Callstack.pop();
-      }
+      return doEval(fr, expr);
+    } catch (EvalException ex) {
+      throw maybeTransformException(expr, ex);
     }
   }
 

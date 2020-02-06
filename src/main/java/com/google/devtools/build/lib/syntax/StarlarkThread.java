@@ -367,10 +367,9 @@ public final class StarlarkThread {
     Frame fr = new Frame(this, fn);
     callstack.add(fr);
 
-    // Push the function onto the allocation tracker's stack.
-    // TODO(adonovan): optimize it out of existence.
-    if (Callstack.enabled) {
-      Callstack.push(fn);
+    // Notify debug tools of the thread's first push.
+    if (callstack.size() == 1 && Debug.threadHook != null) {
+      Debug.threadHook.onPushFirst(this);
     }
 
     ProfilerTask taskKind;
@@ -432,8 +431,9 @@ public final class StarlarkThread {
       fr.profileSpan.close();
     }
 
-    if (Callstack.enabled) {
-      Callstack.pop();
+    // Notify debug tools of the thread's last pop.
+    if (last == 0 && Debug.threadHook != null) {
+      Debug.threadHook.onPopLast(this);
     }
   }
 

@@ -92,7 +92,6 @@ java_library(
         "BaseFunction.java",
         "BuiltinCallable.java",
         "CallUtils.java",
-        "Callstack.java",
         "ClassObject.java",
         "CpuProfiler.java",
         "Debug.java",
