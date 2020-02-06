@@ -19,7 +19,7 @@ import static com.google.devtools.build.lib.analysis.skylark.SkylarkAttributesCo
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
-import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.StarlarkDefinedConfigTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.SplitTransition;
@@ -36,7 +36,7 @@ import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Printer;
 import com.google.devtools.build.lib.syntax.Starlark;
 import java.util.LinkedHashMap;
-import java.util.List;
+import java.util.Map;
 
 /**
  * This class implements {@link TransitionFactory} to provide a starlark-defined transition that
@@ -102,10 +102,9 @@ public class StarlarkAttributeTransitionProvider
      *     error was encountered during transition application/validation.
      */
     @Override
-    public final List<BuildOptions> split(BuildOptions buildOptions) {
-      List<BuildOptions> toReturn;
+    public final Map<String, BuildOptions> split(BuildOptions buildOptions) {
       try {
-        toReturn = applyAndValidate(buildOptions, starlarkDefinedConfigTransition, attrObject);
+        return applyAndValidate(buildOptions, starlarkDefinedConfigTransition, attrObject);
       } catch (InterruptedException | EvalException e) {
         starlarkDefinedConfigTransition
             .getEventHandler()
@@ -113,9 +112,8 @@ public class StarlarkAttributeTransitionProvider
                 Event.error(
                     starlarkDefinedConfigTransition.getLocationForErrorReporting(),
                     e.getMessage()));
-        return ImmutableList.of(buildOptions.clone());
+        return ImmutableMap.of("error", buildOptions.clone());
       }
-      return toReturn;
     }
   }
 }

@@ -1413,6 +1413,26 @@ public class ObjcSkylarkTest extends ObjcRuleTestCase {
   }
 
   @Test
+  public void testMultiArchSplitTransitionWithDuplicateFlagValues() throws Exception {
+    scratch.file("examples/rule/BUILD");
+    writeObjcSplitTransitionTestFiles();
+
+    useConfiguration("--ios_multi_cpus=armv7,arm64,armv7");
+    ConfiguredTarget skylarkTarget = getConfiguredTarget("//examples/apple_skylark:my_target");
+    StructImpl myInfo = getMyInfoFromTarget(skylarkTarget);
+    ObjcProvider armv7Objc =
+        ((SkylarkInfo) myInfo.getValue("ios_armv7")).getValue("objc", ObjcProvider.class);
+    ObjcProvider arm64Objc =
+        ((SkylarkInfo) myInfo.getValue("ios_arm64")).getValue("objc", ObjcProvider.class);
+    assertThat(armv7Objc).isNotNull();
+    assertThat(arm64Objc).isNotNull();
+    assertThat(Iterables.getOnlyElement(armv7Objc.getObjcLibraries()).getExecPathString())
+        .contains("ios_armv7");
+    assertThat(Iterables.getOnlyElement(arm64Objc.getObjcLibraries()).getExecPathString())
+        .contains("ios_arm64");
+  }
+
+  @Test
   public void testNoSplitTransitionUsesCpuFlagValue() throws Exception {
     scratch.file("examples/rule/BUILD");
     writeObjcSplitTransitionTestFiles();
