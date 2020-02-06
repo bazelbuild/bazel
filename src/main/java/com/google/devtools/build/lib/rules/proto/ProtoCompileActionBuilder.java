@@ -274,7 +274,6 @@ public class ProtoCompileActionBuilder {
     if (areDepsStrict) {
       // Note: the %s in the line below is used by proto-compiler. That is, the string we create
       // here should have a literal %s in it.
-
       result.addFormatted(STRICT_DEPS_FLAG_TEMPLATE, ruleContext.getLabel());
     }
 
@@ -624,6 +623,8 @@ public class ProtoCompileActionBuilder {
       } else if (proto.getExecPath().startsWith(LabelConstants.EXPERIMENTAL_EXTERNAL_PATH_PREFIX) && proto.getExecPath().startsWith(sourceRootPath)) {
           // TODO(jingwen-external): add conditional plumbing
           return proto.getExecPath().relativeTo(sourceRootPath).getPathString();
+      } else if (proto.getExecPath().startsWith(LabelConstants.EXTERNAL_PATH_PREFIX) && proto.getExecPath().startsWith(sourceRootPath)) {
+        return proto.getExecPath().relativeTo(sourceRootPath).getPathString();
       }
     }
 
