@@ -31,5 +31,7 @@ java_test(
         "//third_party:guava",
         "//third_party:jsr305",
         "//third_party:junit4",
+        "//third_party:mockito",
+        "//third_party:truth",
     ],
 )
