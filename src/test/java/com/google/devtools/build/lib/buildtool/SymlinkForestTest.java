@@ -36,6 +36,7 @@ import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -129,7 +130,7 @@ public class SymlinkForestTest {
   @Test
   public void testDeleteTreesBelowNotPrefixed() throws IOException {
     createTestDirectoryTree();
-    SymlinkForest.deleteTreesBelowNotPrefixed(topDir, "file-");
+    new SymlinkForest(ImmutableMap.of(), topDir, "").deleteTreesBelowNotPrefixed(topDir, "file-");
     assertThat(file1.exists()).isTrue();
     assertThat(file2.exists()).isTrue();
     assertThat(aDir.exists()).isFalse();
@@ -424,6 +425,51 @@ public class SymlinkForestTest {
     assertLinksTo(linkRoot, mainRepo, "dir3");
     assertLinksTo(linkRoot, outputBase, LabelConstants.EXTERNAL_PATH_PREFIX + "/X");
     assertThat(linkRoot.getChild("build").exists()).isFalse();
+  }
+
+  @Test
+  public void testNotSymlinkedDirectoriesNotDeletedBetweenCommands() throws Exception {
+    Root outputBase = Root.fromPath(fileSystem.getPath("/ob"));
+    Root mainRepo = Root.fromPath(fileSystem.getPath("/my_repo"));
+    Path linkRoot = outputBase.getRelative("execroot/ws_name");
+
+    linkRoot.createDirectoryAndParents();
+    mainRepo.asPath().createDirectoryAndParents();
+    mainRepo.getRelative("build").createDirectoryAndParents();
+
+    ImmutableMap<PackageIdentifier, Root> packageRootMap =
+        ImmutableMap.<PackageIdentifier, Root>builder()
+            .put(createMainPkg(mainRepo, "dir1/pkg"), mainRepo)
+            // Empty package will cause every top-level files to be linked, except external/
+            .put(createMainPkg(mainRepo, ""), mainRepo)
+            .build();
+
+    SymlinkForest symlinkForest =
+        new SymlinkForest(
+            packageRootMap, linkRoot, TestConstants.PRODUCT_NAME, ImmutableSortedSet.of("build"));
+    symlinkForest.plantSymlinkForest();
+
+    assertLinksTo(linkRoot, mainRepo, "dir1");
+    assertThat(linkRoot.getChild("build").exists()).isFalse();
+
+    // Create some file in 'build' directory under exec root.
+    Path notSymlinkedDir = linkRoot.getChild("build");
+    notSymlinkedDir.createDirectoryAndParents();
+
+    byte[] bytes = "text".getBytes(StandardCharsets.ISO_8859_1);
+    Path childPath = notSymlinkedDir.getChild("child.txt");
+    FileSystemUtils.writeContent(childPath, bytes);
+
+    symlinkForest.plantSymlinkForest();
+
+    assertLinksTo(linkRoot, mainRepo, "dir1");
+    // Exists because it was explicitly created.
+    assertThat(linkRoot.getChild("build").exists()).isTrue();
+    // The presence of the manually added file indicates that SymlinkForest did not delete
+    // the directory it's in.
+    assertThat(childPath.exists()).isTrue();
+    assertThat(FileSystemUtils.readContent(childPath, StandardCharsets.ISO_8859_1))
+        .isEqualTo("text");
   }
 
   @Test

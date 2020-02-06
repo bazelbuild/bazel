@@ -53,7 +53,7 @@ java_test(
 
 java_test(
     name = "NinjaBlackBoxTest",
-    size = "small",
+    timeout = "moderate",
     srcs = ["NinjaBlackBoxTest.java"],
     tags = ["black_box_test"],
     deps = [
