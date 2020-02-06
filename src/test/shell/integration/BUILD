@@ -334,7 +334,6 @@ sh_test(
     srcs = ["modify_execution_info_test.sh"],
     data = [
         ":test-deps",
-        "//third_party/protobuf/3.6.1:srcs",
         "@bazel_tools//tools/bash/runfiles",
     ],
 )

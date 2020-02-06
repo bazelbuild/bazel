@@ -726,6 +726,7 @@ filegroup(
     name = "test_repos",
     srcs = [
         "@android_tools_for_testing//:WORKSPACE",
+        "@bazel_skylib//:WORKSPACE",
         "@bazel_toolchains//:WORKSPACE",
         "@com_google_protobuf//:WORKSPACE",
         "@openjdk10_darwin_archive//:WORKSPACE",

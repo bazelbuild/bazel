@@ -55,12 +55,6 @@ bind(
     actual = "//third_party:guava",
 )
 
-# Used by //third_party/protobuf:protobuf_python
-bind(
-    name = "six",
-    actual = "//third_party/py/six",
-)
-
 http_archive(
     name = "bazel_j2objc",
     # Computed using "shasum -a 256 j2objc-2.5.zip"
@@ -99,10 +93,18 @@ bind(
     actual = "@bazel_tools//tools/objc:xcrunwrapper",
 )
 
-new_local_repository(
+http_archive(
     name = "com_google_protobuf",
-    build_file = "./third_party/protobuf/3.6.1/BUILD",
-    path = "./third_party/protobuf/3.6.1/",
+    patch_args = ["-p1"],
+    patches = ["@io_bazel//third_party/protobuf:3.11.3.patch"],
+    patch_cmds = EXPORT_WORKSPACE_IN_BUILD_FILE,
+    patch_cmds_win = EXPORT_WORKSPACE_IN_BUILD_FILE_WIN,
+    sha256 = "cf754718b0aa945b00550ed7962ddc167167bd922b842199eeb6505e6f344852",
+    strip_prefix = "protobuf-3.11.3",
+    urls = [
+        "https://mirror.bazel.build/github.com/protocolbuffers/protobuf/archive/v3.11.3.tar.gz",
+        "https://github.com/protocolbuffers/protobuf/archive/v3.11.3.tar.gz",
+    ],
 )
 
 # This is a mock version of bazelbuild/rules_python that contains only
@@ -144,7 +146,6 @@ distdir_tar(
     # Keep in sync with the archives fetched as part of building bazel.
     archives = [
         "e0b0291b2c51fbe5a7cfa14473a1ae850f94f021.zip",
-        "f83cb8dd6f5658bc574ccd873e25197055265d1c.tar.gz",
         "java_tools_javac11_linux-v7.0.zip",
         "java_tools_javac11_windows-v7.0.zip",
         "java_tools_javac11_darwin-v7.0.zip",
@@ -153,6 +154,8 @@ distdir_tar(
         "8ccf4f1c351928b55d5dddf3672e3667f6978d60.tar.gz",
         "0.16.2.zip",
         "android_tools_pkg-0.14.tar.gz",
+        # bazelbuild/bazel-skylib
+        "f83cb8dd6f5658bc574ccd873e25197055265d1c.tar.gz",
         # bazelbuild/platforms
         "46993efdd33b73649796c5fc5c9efb193ae19d51.zip",
         # bazelbuild/rules_java
@@ -165,11 +168,12 @@ distdir_tar(
         "rules_pkg-0.2.4.tar.gz",
         # bazelbuild/rules_proto
         "97d8af4dc474595af3900dd85cb3a29ad28cc313.tar.gz",
+        # protocolbuffers/protobuf
+        "v3.11.3.tar.gz",
     ],
     dirname = "derived/distdir",
     sha256 = {
         "e0b0291b2c51fbe5a7cfa14473a1ae850f94f021.zip": "fe2e04f91ce8c59d49d91b8102edc6627c6fa2906c1b0e7346f01419ec4f419d",
-        "f83cb8dd6f5658bc574ccd873e25197055265d1c.tar.gz": "ba5d15ca230efca96320085d8e4d58da826d1f81b444ef8afccd8b23e0799b52",
         "java_tools_javac11_linux-v7.0.zip": "3ff465e82954a70f49982610dd63f6f651beaa83c707dd637870b0e41cdcd2f0",
         "java_tools_javac11_windows-v7.0.zip": "11d90a147919e74d11870cdd58c4ee5de3062c08d11b16aa72d3f3bbfa9497a0",
         "java_tools_javac11_darwin-v7.0.zip": "373a4226906ae9ba908550da16e133c4cd1f01b8973af82b9a2eb6903cb4d645",
@@ -178,6 +182,8 @@ distdir_tar(
         "8ccf4f1c351928b55d5dddf3672e3667f6978d60.tar.gz": "d868ce50d592ef4aad7dec4dd32ae68d2151261913450fac8390b3fd474bb898",
         "0.16.2.zip": "9b72bb0aea72d7cbcfc82a01b1e25bf3d85f791e790ddec16c65e2d906382ee0",
         "android_tools_pkg-0.14.tar.gz": "a3a951838448483e7af25afd10671b266cc6283104b4a2a427d31cac12cf0912",  # built at 6c63d70ef9c11a662b8323c0ae4f6d3ac53b1a60
+        # bazelbuild/bazel-skylib
+        "f83cb8dd6f5658bc574ccd873e25197055265d1c.tar.gz": "ba5d15ca230efca96320085d8e4d58da826d1f81b444ef8afccd8b23e0799b52",
         # bazelbuild/platforms
         "46993efdd33b73649796c5fc5c9efb193ae19d51.zip": "66184688debeeefcc2a16a2f80b03f514deac8346fe888fb7e691a52c023dd88",
         # bazelbuild/rules_java
@@ -190,15 +196,13 @@ distdir_tar(
         "rules_pkg-0.2.4.tar.gz": "4ba8f4ab0ff85f2484287ab06c0d871dcb31cc54d439457d28fd4ae14b18450a",
         # bazelbuild/rules_proto
         "97d8af4dc474595af3900dd85cb3a29ad28cc313.tar.gz": "602e7161d9195e50246177e7c55b2f39950a9cf7366f74ed5f22fd45750cd208",
+        # protocolbuffers/protobuf
+        "v3.11.3.tar.gz": "cf754718b0aa945b00550ed7962ddc167167bd922b842199eeb6505e6f344852",
     },
     urls = {
         "e0b0291b2c51fbe5a7cfa14473a1ae850f94f021.zip": [
             "https://mirror.bazel.build/github.com/google/desugar_jdk_libs/archive/e0b0291b2c51fbe5a7cfa14473a1ae850f94f021.zip",
             "https://github.com/google/desugar_jdk_libs/archive/e0b0291b2c51fbe5a7cfa14473a1ae850f94f021.zip",
-        ],
-        "f83cb8dd6f5658bc574ccd873e25197055265d1c.tar.gz": [
-            "https://mirror.bazel.build/github.com/bazelbuild/bazel-skylib/archive/f83cb8dd6f5658bc574ccd873e25197055265d1c.tar.gz",
-            "https://github.com/bazelbuild/bazel-skylib/archive/f83cb8dd6f5658bc574ccd873e25197055265d1c.tar.gz",
         ],
         "java_tools_javac11_linux-v7.0.zip": [
             "https://mirror.bazel.build/bazel_java_tools/releases/javac11/v7.0/java_tools_javac11_linux-v7.0.zip",
@@ -226,6 +230,11 @@ distdir_tar(
         ],
         "android_tools_pkg-0.14.tar.gz": [
             "https://mirror.bazel.build/bazel_android_tools/android_tools_pkg-0.14.tar.gz",
+        ],
+        # bazelbuild/bazel-skylib
+        "f83cb8dd6f5658bc574ccd873e25197055265d1c.tar.gz": [
+            "https://mirror.bazel.build/github.com/bazelbuild/bazel-skylib/archive/f83cb8dd6f5658bc574ccd873e25197055265d1c.tar.gz",
+            "https://github.com/bazelbuild/bazel-skylib/archive/f83cb8dd6f5658bc574ccd873e25197055265d1c.tar.gz",
         ],
         # bazelbuild/platforms
         "46993efdd33b73649796c5fc5c9efb193ae19d51.zip": [
@@ -256,6 +265,11 @@ distdir_tar(
         "97d8af4dc474595af3900dd85cb3a29ad28cc313.tar.gz": [
             "https://mirror.bazel.build/github.com/bazelbuild/rules_proto/archive/97d8af4dc474595af3900dd85cb3a29ad28cc313.tar.gz",
             "https://github.com/bazelbuild/rules_proto/archive/97d8af4dc474595af3900dd85cb3a29ad28cc313.tar.gz",
+        ],
+        # protocolbuffers/protobuf
+        "v3.11.3.tar.gz": [
+            "https://mirror.bazel.build/github.com/protocolbuffers/protobuf/archive/v3.11.3.tar.gz",
+            "https://github.com/protocolbuffers/protobuf/archive/v3.11.3.tar.gz",
         ],
     },
 )
@@ -417,6 +431,8 @@ http_archive(
 
 http_archive(
     name = "bazel_skylib",
+    patch_cmds = EXPORT_WORKSPACE_IN_BUILD_FILE,
+    patch_cmds_win = EXPORT_WORKSPACE_IN_BUILD_FILE_WIN,
     # Commit f83cb8dd6f5658bc574ccd873e25197055265d1c of 2018-11-26
     sha256 = "ba5d15ca230efca96320085d8e4d58da826d1f81b444ef8afccd8b23e0799b52",
     strip_prefix = "bazel-skylib-f83cb8dd6f5658bc574ccd873e25197055265d1c",
@@ -500,6 +516,8 @@ distdir_tar(
         "zulu11.29.3-ca-jdk11.0.2-macosx_x64.zip",
         "zulu11.29.3-ca-jdk11.0.2-win_x64.zip",
         "android_tools_pkg-0.14.tar.gz",
+        # bazelbuild/bazel-skylib
+        "f83cb8dd6f5658bc574ccd873e25197055265d1c.tar.gz",
         # bazelbuild/platforms
         "46993efdd33b73649796c5fc5c9efb193ae19d51.zip",
         # bazelbuild/rules_java
@@ -508,6 +526,8 @@ distdir_tar(
         "8bd6cd75d03c01bb82561a96d9c1f9f7157b13d0.zip",
         # bazelbuild/rules_proto
         "97d8af4dc474595af3900dd85cb3a29ad28cc313.tar.gz",
+        # protocolbuffers/protobuf
+        "v3.11.3.tar.gz",
     ],
     dirname = "test_WORKSPACE/distdir",
     sha256 = {
@@ -531,6 +551,8 @@ distdir_tar(
         "zulu11.29.3-ca-jdk11.0.2-macosx_x64.zip": "059f8e3484bf07b63a8f2820d5f528f473eff1befdb1896ee4f8ff06be3b8d8f",
         "zulu11.29.3-ca-jdk11.0.2-win_x64.zip": "e1f5b4ce1b9148140fae2fcfb8a96d1c9b7eac5b8df0e13fbcad9b8561284880",
         "android_tools_pkg-0.14.tar.gz": "a3a951838448483e7af25afd10671b266cc6283104b4a2a427d31cac12cf0912",  # built at 6c63d70ef9c11a662b8323c0ae4f6d3ac53b1a60
+        # bazelbuild/bazel-skylib
+        "f83cb8dd6f5658bc574ccd873e25197055265d1c.tar.gz": "ba5d15ca230efca96320085d8e4d58da826d1f81b444ef8afccd8b23e0799b52",
         # bazelbuild/platforms
         "46993efdd33b73649796c5fc5c9efb193ae19d51.zip": "66184688debeeefcc2a16a2f80b03f514deac8346fe888fb7e691a52c023dd88",
         # bazelbuild/rules_java
@@ -539,6 +561,8 @@ distdir_tar(
         "8bd6cd75d03c01bb82561a96d9c1f9f7157b13d0.zip": "1d4dbbd1e1e9b57d40bb0ade51c9e882da7658d5bfbf22bbd15b68e7879d761f",
         # bazelbuild/rules_proto
         "97d8af4dc474595af3900dd85cb3a29ad28cc313.tar.gz": "602e7161d9195e50246177e7c55b2f39950a9cf7366f74ed5f22fd45750cd208",
+        # protocolbuffers/protobuf
+        "v3.11.3.tar.gz": "cf754718b0aa945b00550ed7962ddc167167bd922b842199eeb6505e6f344852",
     },
     urls = {
         "zulu9.0.7.1-jdk9.0.7-linux_x64-allmodules.tar.gz": ["https://mirror.bazel.build/openjdk/azul-zulu-9.0.7.1-jdk9.0.7/zulu9.0.7.1-jdk9.0.7-linux_x64-allmodules.tar.gz"],
@@ -563,6 +587,11 @@ distdir_tar(
         "android_tools_pkg-0.14.tar.gz": [
             "https://mirror.bazel.build/bazel_android_tools/android_tools_pkg-0.14.tar.gz",
         ],
+        # bazelbuild/bazel-skylib
+        "f83cb8dd6f5658bc574ccd873e25197055265d1c.tar.gz": [
+            "https://mirror.bazel.build/github.com/bazelbuild/bazel-skylib/archive/f83cb8dd6f5658bc574ccd873e25197055265d1c.tar.gz",
+            "https://github.com/bazelbuild/bazel-skylib/archive/f83cb8dd6f5658bc574ccd873e25197055265d1c.tar.gz",
+        ],
         # bazelbuild/platforms
         "46993efdd33b73649796c5fc5c9efb193ae19d51.zip": [
             "https://mirror.bazel.build/github.com/bazelbuild/platforms/archive/46993efdd33b73649796c5fc5c9efb193ae19d51.zip",
@@ -582,6 +611,11 @@ distdir_tar(
         "97d8af4dc474595af3900dd85cb3a29ad28cc313.tar.gz": [
             "https://mirror.bazel.build/github.com/bazelbuild/rules_proto/archive/97d8af4dc474595af3900dd85cb3a29ad28cc313.tar.gz",
             "https://github.com/bazelbuild/rules_proto/archive/97d8af4dc474595af3900dd85cb3a29ad28cc313.tar.gz",
+        ],
+        # protocolbuffers/protobuf
+        "v3.11.3.tar.gz": [
+            "https://mirror.bazel.build/github.com/protocolbuffers/protobuf/archive/v3.11.3.tar.gz",
+            "https://github.com/protocolbuffers/protobuf/archive/v3.11.3.tar.gz",
         ],
     },
 )
