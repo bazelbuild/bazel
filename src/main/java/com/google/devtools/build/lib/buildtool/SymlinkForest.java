@@ -102,14 +102,17 @@ public class SymlinkForest {
   }
 
   /**
-   * Delete all dir trees under a given 'dir' that don't start with a given 'prefix'. Does not
-   * follow any symbolic links.
+   * Delete all dir trees under a given 'dir' that don't start with a given 'prefix',
+   * and is not special case of not symlinked to exec root directories (those directories are
+   * special case of output roots, so they must be kept before commands).
+   * Does not follow any symbolic links.
    */
   @VisibleForTesting
   @ThreadSafety.ThreadSafe
-  static void deleteTreesBelowNotPrefixed(Path dir, String prefix) throws IOException {
+  void deleteTreesBelowNotPrefixed(Path dir, String prefix) throws IOException {
     for (Path p : dir.getDirectoryEntries()) {
-      if (!p.getBaseName().startsWith(prefix)) {
+      if (!p.getBaseName().startsWith(prefix)
+          && !notSymlinkedInExecrootDirectories.contains(p.getBaseName())) {
         p.deleteTree();
       }
     }

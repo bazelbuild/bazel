@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.blackbox.framework.ProcessResult;
 import com.google.devtools.build.lib.blackbox.junit.AbstractBlackBoxTest;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 import org.junit.Test;
 
 /** Integration test for Ninja execution functionality. */
@@ -200,5 +201,37 @@ public class NinjaBlackBoxTest extends AbstractBlackBoxTest {
     assertThat(result.errString())
         .doesNotContain(
             "INFO: Analyzed target //:graph (0 packages loaded, 0 targets configured).");
+  }
+
+  @Test
+  public void testNullBuild() throws Exception {
+    context().write(".bazelignore", "build_config");
+    context().write(WORKSPACE,
+        "workspace(name = 'test')",
+        "dont_symlink_directories_in_execroot(paths = ['build_config'])");
+    // Print nanoseconds fraction of the current time into the output file.
+    context().write("build_config/build.ninja",
+        "rule echo_time",
+        "  command = date +%N >> ${out}",
+        "build nano.txt: echo_time");
+    context().write("BUILD",
+        "ninja_graph(name = 'graph', ",
+        "output_root = 'build_config',",
+        " working_directory = 'build_config',",
+        " main = 'build_config/build.ninja',",
+        " output_groups = {'main': ['nano.txt']})");
+
+    BuilderRunner bazel = context().bazel().withFlags("--experimental_ninja_actions");
+    assertConfigured(bazel.build("//:graph"));
+    Path path = context().resolveExecRootPath(bazel, "build_config/nano.txt");
+    assertThat(path.toFile().exists()).isTrue();
+    List<String> text = Files.readAllLines(path);
+    assertThat(text).isNotEmpty();
+    long lastModified = path.toFile().lastModified();
+
+    // Should be null build, as nothing changed.
+    assertNothingConfigured(bazel.build("//:graph"));
+    assertThat(Files.readAllLines(path)).containsExactly(text.get(0));
+    assertThat(path.toFile().lastModified()).isEqualTo(lastModified);
   }
 }
