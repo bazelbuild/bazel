@@ -331,6 +331,16 @@ public final class JavaLibraryBuildRequest {
             .sourceOutput(getSourceGenDir())
             .processorPath(getProcessorPath())
             .plugins(getPlugins());
+    // Performance optimization: when reduced classpaths are enabled, stop the compilation after
+    // the first diagnostic that would result in fallback to the transitive classpath. The user
+    // only sees diagnostics from the fallback compilation, so collecting additional diagnostics
+    // from the reduced classpath compilation is a waste of time.
+    // Exception: this doesn't hold if annotation processing is enabled, since diagnostics may be
+    // resolved during subsequent processing rounds.
+    if (reduceClasspathMode.equals(OptionsParser.ReduceClasspathMode.BAZEL_REDUCED)
+        && getProcessors().isEmpty()) {
+      builder.failFast(getProcessors().isEmpty());
+    }
     if (getNativeHeaderOutput() != null) {
       builder.nativeHeaderOutput(getNativeHeaderDir());
     }

@@ -90,7 +90,7 @@ public class BlazeJavacMain {
     // TODO(cushon): where is this used when a diagnostic listener is registered? Consider removing
     // it and handling exceptions directly in callers.
     PrintWriter errWriter = new PrintWriter(errOutput);
-    Listener diagnostics = new Listener(context);
+    Listener diagnostics = new Listener(arguments.failFast(), context);
     BlazeJavaCompiler compiler;
 
     try (JavacFileManager fileManager =
