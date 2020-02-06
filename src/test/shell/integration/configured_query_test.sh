@@ -217,6 +217,12 @@ java_plugin(name = "plugin")
 EOF
 }
 
+# TODO(gregce): --show_config_fragments and RequiredConfigFragmentsProvider
+# (the native Java code that powers --show_config_fragments) were originally
+# conceived as two pieces of the same functionality. But the former is just
+# a provider, which means it can be consumed by other logic. Consider moving
+# these tests out of cquery and into proper Java integration tests.
+
 function test_show_transitive_config_fragments() {
   local -r pkg=$FUNCNAME
   mkdir -p $pkg
@@ -616,6 +622,31 @@ EOF
   assert_contains "//$pkg:cclib_with_select .*CppConfiguration" output
   assert_contains "//$pkg:cclib_with_select .*--define:a" output
   assert_not_contains "//$pkg:cclib_with_select .*--define:b" output
+}
+
+function test_show_config_fragments_on_starlark_required_fragments() {
+  local -r pkg=$FUNCNAME
+  mkdir -p $pkg
+  cat > $pkg/defs.bzl <<EOF
+def _impl(ctx):
+  pass
+
+java_requiring_rule = rule(
+  implementation = _impl,
+  fragments = ["java"],
+  attrs = {}
+)
+EOF
+  cat > $pkg/BUILD <<EOF
+load("//$pkg:defs.bzl", "java_requiring_rule")
+java_requiring_rule(
+  name = "buildme"
+)
+EOF
+
+  bazel cquery "//$pkg:all" --show_config_fragments=direct \
+    > output 2>"$TEST_log" || fail "Expected success"
+  assert_contains "//$pkg:buildme .*JavaConfiguration" output
 }
 
 function test_manual_tagged_targets_always_included_for_queries() {
