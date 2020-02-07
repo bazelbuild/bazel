@@ -589,12 +589,12 @@ public class ProtoCompileActionBuilder {
 
   @VisibleForTesting
   static void addIncludeMapArguments(
-          String outputDirectory,
-          CustomCommandLine.Builder commandLine,
-          @Nullable NestedSet<Pair<Artifact, String>> protosInDirectDependencies,
-          NestedSet<String> directProtoSourceRoots,
-          NestedSet<Artifact> transitiveImports,
-          boolean allowExternalDirectory) {
+      String outputDirectory,
+      CustomCommandLine.Builder commandLine,
+      @Nullable NestedSet<Pair<Artifact, String>> protosInDirectDependencies,
+      NestedSet<String> directProtoSourceRoots,
+      NestedSet<Artifact> transitiveImports,
+      boolean allowExternalDirectory) {
     // For each import, include both the import as well as the import relativized against its
     // protoSourceRoot. This ensures that protos can reference either the full path or the short
     // path when including other protos.
@@ -618,7 +618,7 @@ public class ProtoCompileActionBuilder {
   }
 
   private static String guessProtoPathUnderRoot(
-          String outputDirectory, PathFragment sourceRootPath, Artifact proto, boolean allowExternalDirectory) {
+      String outputDirectory, PathFragment sourceRootPath, Artifact proto, boolean allowExternalDirectory) {
     // TODO(lberki): Instead of guesswork like this, we should track which proto belongs to
     // which source root. Unfortunately, that's a non-trivial migration since
     // ProtoInfo is on the Starlark API. Therefore, we hack:
@@ -635,12 +635,12 @@ public class ProtoCompileActionBuilder {
       if (proto.getRootRelativePath().startsWith(sourceRootPath)) {
         return proto.getRootRelativePath().relativeTo(sourceRootPath).getPathString();
       } else if (allowExternalDirectory &&
-              proto.getExecPath().startsWith(LabelConstants.EXPERIMENTAL_EXTERNAL_PATH_PREFIX) &&
-              proto.getExecPath().startsWith(sourceRootPath)) {
-          return proto.getExecPath().relativeTo(sourceRootPath).getPathString();
+          proto.getExecPath().startsWith(LabelConstants.EXPERIMENTAL_EXTERNAL_PATH_PREFIX) &&
+          proto.getExecPath().startsWith(sourceRootPath)) {
+        return proto.getExecPath().relativeTo(sourceRootPath).getPathString();
       } else if (!allowExternalDirectory &&
-              proto.getExecPath().startsWith(LabelConstants.EXTERNAL_PATH_PREFIX) &&
-              proto.getExecPath().startsWith(sourceRootPath)) {
+          proto.getExecPath().startsWith(LabelConstants.EXTERNAL_PATH_PREFIX) &&
+          proto.getExecPath().startsWith(sourceRootPath)) {
         return proto.getExecPath().relativeTo(sourceRootPath).getPathString();
       }
     }
