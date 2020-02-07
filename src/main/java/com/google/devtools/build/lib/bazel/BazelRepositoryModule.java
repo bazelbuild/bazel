@@ -217,7 +217,7 @@ public class BazelRepositoryModule extends BlazeModule {
 
     boolean allowExternalDirectory =
             env.getOptions().getOptions(StarlarkSemanticsOptions.class).experimentalAllowExternalDirectory;
-    env.getSkyframeBuildView().setAllowExternalDirectory(allowExternalDirectory);
+    env.getSkyframeBuildView().getArtifactFactory().setAllowExternalDirectory(allowExternalDirectory);
     env.getSkyframeExecutor().setAllowExternalDirectory(allowExternalDirectory);
 
     RepositoryOptions repoOptions = env.getOptions().getOptions(RepositoryOptions.class);

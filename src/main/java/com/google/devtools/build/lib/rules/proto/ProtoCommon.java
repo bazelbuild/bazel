@@ -334,14 +334,6 @@ public class ProtoCommon {
       importPrefix = PathFragment.EMPTY_FRAGMENT;
     }
 
-    if (starlarkSemantics.experimentalAllowExternalDirectory()
-            && stripImportPrefix.startsWith(LabelConstants.EXPERIMENTAL_EXTERNAL_PATH_PREFIX)) {
-//        stripImportPrefix = stripImportPrefix.subFragment(1);
-    } else if (!starlarkSemantics.experimentalAllowExternalDirectory()
-            && stripImportPrefix.startsWith(LabelConstants.EXTERNAL_PATH_PREFIX)) {
-//        stripImportPrefix = stripImportPrefix.subFragment(1);
-    }
-
     ImmutableList.Builder<Artifact> symlinks = ImmutableList.builder();
     ImmutableList.Builder<Pair<Artifact, String>> protoSourceImportPair = ImmutableList.builder();
 
@@ -491,8 +483,7 @@ public class ProtoCommon {
    * ruleContext}.
    */
   public static ProtoInfo createProtoInfo(
-      RuleContext ruleContext, boolean generatedProtosInVirtualImports)
-      throws InterruptedException {
+      RuleContext ruleContext, boolean generatedProtosInVirtualImports) throws InterruptedException {
     checkSourceFilesAreInSamePackage(ruleContext);
     ImmutableList<Artifact> directProtoSources =
         ruleContext.getPrerequisiteArtifacts("srcs", Mode.TARGET).list();

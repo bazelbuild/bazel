@@ -716,8 +716,7 @@ public class ActionExecutionFunction implements SkyFunction {
               path,
               SkyframeExecutor.maybeTransformRootForRepository(
                   value.getContainingPackageRoot(),
-                  value.getContainingPackageName().getRepository(),
-                  allowExternalDirectory));
+                  value.getContainingPackageName().getRepository()));
         } else {
           // We haven't found corresponding root for current execPath.
           result.put(path, null);
