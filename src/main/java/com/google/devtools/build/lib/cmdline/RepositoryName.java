@@ -139,8 +139,10 @@ public final class RepositoryName implements Serializable {
    * of "external/"-prefix and repository name, or null if none was found or the repository name
    * was invalid.
    */
-  public static Pair<RepositoryName, PathFragment> fromPathFragment(PathFragment path) {
-    if (path.segmentCount() < 2 || !path.startsWith(LabelConstants.EXPERIMENTAL_EXTERNAL_PATH_PREFIX) || !path.startsWith(LabelConstants.EXTERNAL_PATH_PREFIX)) {
+  public static Pair<RepositoryName, PathFragment> fromPathFragment(PathFragment path, boolean allowExternalDirectory) {
+    if (path.segmentCount() < 2 ||
+        (allowExternalDirectory && !path.startsWith(LabelConstants.EXPERIMENTAL_EXTERNAL_PATH_PREFIX)) ||
+        (!allowExternalDirectory && !path.startsWith(LabelConstants.EXTERNAL_PATH_PREFIX))) {
       return null;
     }
     try {
@@ -272,6 +274,7 @@ public final class RepositoryName implements Serializable {
     // TODO(jingwen-external): plumb conditional
     return isDefault() || isMain()
         ? PathFragment.EMPTY_FRAGMENT
+//        : PathFragment.create("..").getRelative(strippedName());
         : PathFragment.create(strippedName());
   }
 

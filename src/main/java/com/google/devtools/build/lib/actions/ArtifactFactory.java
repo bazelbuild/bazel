@@ -20,7 +20,6 @@ import com.google.common.util.concurrent.Striped;
 import com.google.devtools.build.lib.actions.ActionLookupValue.ActionLookupKey;
 import com.google.devtools.build.lib.actions.Artifact.SourceArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifactType;
-import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
@@ -420,7 +419,11 @@ public class ArtifactFactory implements ArtifactResolver {
     }
     Root sourceRoot =
         findSourceRoot(
-            execPath, baseExecPath, baseRoot == null ? null : baseRoot.getRoot(), repositoryName);
+            execPath,
+            baseExecPath,
+            baseRoot == null ? null : baseRoot.getRoot(),
+            repositoryName,
+            allowExternalDirectory);
     return createArtifactIfNotValid(sourceRoot, execPath);
   }
 
@@ -433,13 +436,14 @@ public class ArtifactFactory implements ArtifactResolver {
       PathFragment execPath,
       @Nullable PathFragment baseExecPath,
       @Nullable Root baseRoot,
-      RepositoryName repositoryName) {
+      RepositoryName repositoryName,
+      boolean allowExternalDirectory) {
     PathFragment dir = execPath.getParentDirectory();
     if (dir == null) {
       return null;
     }
 
-    Pair<RepositoryName, PathFragment> repo = RepositoryName.fromPathFragment(dir);
+    Pair<RepositoryName, PathFragment> repo = RepositoryName.fromPathFragment(dir, allowExternalDirectory);
     if (repo != null) {
       repositoryName = repo.getFirst();
       dir = repo.getSecond();
