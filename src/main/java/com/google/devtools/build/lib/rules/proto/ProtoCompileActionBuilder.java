@@ -492,7 +492,7 @@ public class ProtoCompileActionBuilder {
    *
    * Note {@code toolchainInvocations} is ordered, and affects the order in which plugins are
    * called. As some plugins rely on output from other plugins, their order matters.
-   *  @param toolchainInvocations See {@link #createCommandLineFromToolchains}.
+   * @param toolchainInvocations See {@link #createCommandLineFromToolchains}.
    * @param ruleLabel Name of the proto_library for which we're compiling. This string is used to
    *     populate an error message format that's passed to proto-compiler.
    * @param allowServices If false, the compilation will break if any .proto file has
@@ -500,14 +500,14 @@ public class ProtoCompileActionBuilder {
    */
   @VisibleForTesting
   static CustomCommandLine createCommandLineFromToolchains(
-          List<ToolchainInvocation> toolchainInvocations,
-          String outputDirectory,
-          ProtoInfo protoInfo,
-          Label ruleLabel,
-          Deps strictDeps,
-          Exports useExports,
-          Services allowServices,
-          ImmutableList<String> protocOpts, boolean allowExternalDirectory) {
+      List<ToolchainInvocation> toolchainInvocations,
+      String outputDirectory,
+      ProtoInfo protoInfo,
+      Label ruleLabel,
+      Deps strictDeps,
+      Exports useExports,
+      Services allowServices,
+      ImmutableList<String> protocOpts, boolean allowExternalDirectory) {
     CustomCommandLine.Builder cmdLine = CustomCommandLine.builder();
 
     cmdLine.addAll(

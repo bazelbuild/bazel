@@ -55,7 +55,7 @@ public class SymlinkForest {
 
   /** Constructor for a symlink forest creator without non-symlinked directories parameter. */
   public SymlinkForest(
-          ImmutableMap<PackageIdentifier, Root> packageRoots, Path execroot, String productName) {
+      ImmutableMap<PackageIdentifier, Root> packageRoots, Path execroot, String productName) {
     this(packageRoots, execroot, productName, ImmutableSortedSet.of(), false);
   }
 
@@ -354,9 +354,9 @@ public class SymlinkForest {
         } else {
           String baseName = pkgId.getPackageFragment().getSegment(0);
           if (!allowExternalDirectory && baseName.equals(LabelConstants.EXTERNAL_PATH_PREFIX.getBaseName())) {
-              // ignore external/ directory if user has it in the source tree
-              // because it conflicts with external repository location.
-              continue;
+            // ignore external/ directory if user has it in the source tree
+            // because it conflicts with external repository location.
+            continue;
           }
           Path execrootLink = execroot.getRelative(baseName);
           Path sourcePath = entry.getValue().getRelative(pkgId.getSourceRoot().getSegment(0));

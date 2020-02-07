@@ -54,7 +54,6 @@ import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
-
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -67,7 +66,6 @@ import java.util.Set;
 import java.util.TreeMap;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
-
 
 /**
  * A class to create C/C++ compile actions in a way that is consistent with cc_library. Rules that

@@ -583,9 +583,7 @@ public class LegacyIncludeScanner implements IncludeScanner {
    * @return the resolved Path, or null if no file could be found
    */
   private Artifact locateRelative(
-      Inclusion inclusion,
-      Map<PathFragment, Artifact> legalOutputFiles,
-      Artifact includer) {
+      Inclusion inclusion, Map<PathFragment, Artifact> legalOutputFiles, Artifact includer) {
     if (inclusion.kind != Kind.QUOTE) {
       return null;
     }

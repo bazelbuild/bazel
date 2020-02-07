@@ -269,8 +269,10 @@ public final class RepositoryName implements Serializable {
    */
   // TODO(kchodorow): remove once execroot is reorg-ed.
   public PathFragment getRunfilesPath() {
+    // TODO(jingwen-external): plumb conditional
     return isDefault() || isMain()
-        ? PathFragment.EMPTY_FRAGMENT : PathFragment.create(strippedName());
+        ? PathFragment.EMPTY_FRAGMENT
+        : PathFragment.create(strippedName());
   }
 
   /**
