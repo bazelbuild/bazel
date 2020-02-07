@@ -19,8 +19,12 @@ java_test(
         exclude = [
             "CcImportBaseConfiguredTargetTest.java",
             "SkylarkCcCommonTestHelper.java",
+            "NonWindowsCcBinaryThinLtoTest.java",
         ],
-    ) + ["proto/CcProtoLibraryTest.java"],
+    ) + ["proto/CcProtoLibraryTest.java"] + select({
+        "//src/conditions:windows": [],
+        "//conditions:default": ["NonWindowsCcBinaryThinLtoTest.java"],
+    }),
     resources = [
         "@rules_cc//cc:srcs",
     ],
@@ -46,6 +50,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
+        "//src/main/java/com/google/devtools/build/lib/rules/apple",
         "//src/main/java/com/google/devtools/build/lib/rules/cpp",
         "//src/main/java/com/google/devtools/build/lib/rules/platform",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
