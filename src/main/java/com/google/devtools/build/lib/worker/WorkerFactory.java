@@ -55,7 +55,7 @@ final class WorkerFactory extends BaseKeyedPooledObjectFactory<WorkerKey, Worker
   public Worker create(WorkerKey key) throws Exception {
     int workerId = pidCounter.getAndIncrement();
     Path logFile =
-        workerBaseDir.getRelative("worker-" + workerId + "-" + key.getMnemonic() + ".log");
+        workerBaseDir.getRelative(key.getWorkerTypeName() + "-" + workerId + "-" + key.getMnemonic() + ".log");
 
     Worker worker;
     boolean sandboxed = workerOptions.workerSandboxing || key.mustBeSandboxed();
@@ -77,9 +77,10 @@ final class WorkerFactory extends BaseKeyedPooledObjectFactory<WorkerKey, Worker
       reporter.handle(
           Event.info(
               String.format(
-                  "Created new %s %s worker (id %d), logging to %s",
+                  "Created new %s %s %s (id %d), logging to %s",
                   sandboxed ? "sandboxed" : "non-sandboxed",
                   key.getMnemonic(),
+                  key.getWorkerTypeName(),
                   workerId,
                   logFile)));
     }
@@ -89,7 +90,7 @@ final class WorkerFactory extends BaseKeyedPooledObjectFactory<WorkerKey, Worker
   Path getSandboxedWorkerPath(WorkerKey key, int workerId) {
     String workspaceName = key.getExecRoot().getBaseName();
     return workerBaseDir
-        .getRelative("worker-" + workerId + "-" + key.getMnemonic())
+        .getRelative(key.getWorkerTypeName() + "-" + workerId + "-" + key.getMnemonic())
         .getRelative(workspaceName);
   }
 
@@ -110,7 +111,7 @@ final class WorkerFactory extends BaseKeyedPooledObjectFactory<WorkerKey, Worker
       reporter.handle(
           Event.info(
               String.format(
-                  "Destroying %s worker (id %d)", key.getMnemonic(), p.getObject().getWorkerId())));
+                  "Destroying %s %s (id %d)", key.getMnemonic(), key.getWorkerTypeName(), p.getObject().getWorkerId())));
     }
     p.getObject().destroy();
   }
@@ -126,8 +127,8 @@ final class WorkerFactory extends BaseKeyedPooledObjectFactory<WorkerKey, Worker
       StringBuilder msg = new StringBuilder();
       msg.append(
           String.format(
-              "%s worker (id %d) can no longer be used, because its files have changed on disk:",
-              key.getMnemonic(), worker.getWorkerId()));
+              "%s %s (id %d) can no longer be used, because its files have changed on disk:",
+              key.getMnemonic(), key.getWorkerTypeName(), worker.getWorkerId()));
       TreeSet<PathFragment> files = new TreeSet<>();
       files.addAll(key.getWorkerFilesWithHashes().keySet());
       files.addAll(worker.getWorkerFilesWithHashes().keySet());

@@ -110,6 +110,15 @@ final class WorkerKey {
     return proxied;
   }
 
+  /** Getter function for worker type name. */
+  public String getWorkerTypeName() {
+    if (proxied) {
+      return "multiplex-worker";
+    } else {
+      return "worker";
+    }
+  }
+
   @Override
   public boolean equals(Object o) {
     if (this == o) {

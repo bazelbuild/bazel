@@ -112,6 +112,14 @@ final class WorkerSpawnRunner implements SpawnRunner {
     return "worker";
   }
 
+  private String getMultiplexPrefixName(boolean proxied) {
+    if (proxied) {
+      return "multiplex-" + getName();
+    } else {
+      return getName();
+    }
+  }
+
   @Override
   public SpawnResult exec(Spawn spawn, SpawnExecutionContext context)
       throws ExecException, IOException, InterruptedException {
@@ -124,7 +132,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
       return fallbackRunner.exec(spawn, context);
     }
 
-    context.report(ProgressStatus.SCHEDULING, getName());
+    context.report(ProgressStatus.SCHEDULING, getMultiplexPrefixName(Spawns.supportsMultiplexWorkers(spawn)));
     return actuallyExec(spawn, context);
   }
 
@@ -335,7 +343,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
 
       try (ResourceHandle handle =
           resourceManager.acquireResources(owner, spawn.getLocalResources())) {
-        context.report(ProgressStatus.EXECUTING, getName());
+        context.report(ProgressStatus.EXECUTING, getMultiplexPrefixName(key.getProxied()));
         try {
           worker.prepareExecution(inputFiles, outputs, key.getWorkerFilesWithHashes().keySet());
         } catch (IOException e) {
