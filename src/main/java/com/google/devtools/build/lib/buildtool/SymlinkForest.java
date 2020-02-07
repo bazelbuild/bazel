@@ -135,7 +135,6 @@ public class SymlinkForest {
     if (!allowExternalDirectory && externalRepoLinks.isEmpty()) {
       execroot.getRelative(LabelConstants.EXTERNAL_PACKAGE_NAME).createDirectoryAndParents();
     }
-
     if (!externalRepoLinks.add(execrootLink)) {
       return;
     }

@@ -391,8 +391,7 @@ public class ArtifactFactory implements ArtifactResolver {
       PathFragment relativePath,
       PathFragment baseExecPath,
       ArtifactRoot baseRoot,
-      RepositoryName repositoryName,
-      boolean allowExternalDirectory) {
+      RepositoryName repositoryName) {
     Preconditions.checkState(
         (baseExecPath == null) == (baseRoot == null),
         "%s %s %s",
@@ -422,8 +421,7 @@ public class ArtifactFactory implements ArtifactResolver {
             execPath,
             baseExecPath,
             baseRoot == null ? null : baseRoot.getRoot(),
-            repositoryName,
-            allowExternalDirectory);
+            repositoryName);
     return createArtifactIfNotValid(sourceRoot, execPath);
   }
 
@@ -436,8 +434,7 @@ public class ArtifactFactory implements ArtifactResolver {
       PathFragment execPath,
       @Nullable PathFragment baseExecPath,
       @Nullable Root baseRoot,
-      RepositoryName repositoryName,
-      boolean allowExternalDirectory) {
+      RepositoryName repositoryName) {
     PathFragment dir = execPath.getParentDirectory();
     if (dir == null) {
       return null;
@@ -464,7 +461,7 @@ public class ArtifactFactory implements ArtifactResolver {
   @Override
   public Artifact resolveSourceArtifact(PathFragment execPath,
       @SuppressWarnings("unused") RepositoryName repositoryName) {
-    return resolveSourceArtifactWithAncestor(execPath, null, null, repositoryName, allowExternalDirectory);
+    return resolveSourceArtifactWithAncestor(execPath, null, null, repositoryName);
   }
 
   @Override
