@@ -117,6 +117,33 @@ public class NinjaPipelineTest {
   }
 
   @Test
+  public void testOneFilePipelineWithNewlines() throws Exception {
+    Path vfsPath =
+        tester.writeTmpFile(
+            "test.ninja",
+            "",
+            "",
+            "",
+            "",
+            "rule r1",
+            "  command = c $in $out",
+            "",
+            "",
+            "",
+            "build t1: r1 in1 in2",
+            "",
+            "",
+            "",
+            "build t2: r1 in3",
+            "");
+    NinjaPipeline pipeline =
+        new NinjaPipeline(
+            vfsPath.getParentDirectory(), tester.getService(), ImmutableList.of(), "ninja_target");
+    List<NinjaTarget> targets = pipeline.pipeline(vfsPath);
+    checkTargets(targets);
+  }
+
+  @Test
   public void testWithIncluded() throws Exception {
     Path vfsPath =
         tester.writeTmpFile(
