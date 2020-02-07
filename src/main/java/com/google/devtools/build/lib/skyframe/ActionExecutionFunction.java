@@ -673,6 +673,8 @@ public class ActionExecutionFunction implements SkyFunction {
         return null;
       }
 
+      boolean allowExternalDirectory = starlarkSemantics.experimentalAllowExternalDirectory();
+
       // Create SkyKeys list based on execPaths.
       Map<PathFragment, SkyKey> depKeys = new HashMap<>();
       for (PathFragment path : execPaths) {
@@ -683,8 +685,7 @@ public class ActionExecutionFunction implements SkyFunction {
         try {
           SkyKey depKey =
               ContainingPackageLookupValue.key(
-                      PackageIdentifier.discoverFromExecPath(
-                              path, true, starlarkSemantics.experimentalAllowExternalDirectory()));
+                      PackageIdentifier.discoverFromExecPath(path, true, allowExternalDirectory));
           depKeys.put(path, depKey);
           keysRequested.add(depKey);
         } catch (LabelSyntaxException e) {
@@ -715,7 +716,8 @@ public class ActionExecutionFunction implements SkyFunction {
               path,
               SkyframeExecutor.maybeTransformRootForRepository(
                   value.getContainingPackageRoot(),
-                  value.getContainingPackageName().getRepository()));
+                  value.getContainingPackageName().getRepository(),
+                  allowExternalDirectory));
         } else {
           // We haven't found corresponding root for current execPath.
           result.put(path, null);

@@ -1208,7 +1208,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
             execPath,
             maybeTransformRootForRepository(
                 value.getContainingPackageRoot(),
-                value.getContainingPackageName().getRepository()));
+                value.getContainingPackageName().getRepository(),
+                allowExternalDirectory));
       } else {
         roots.put(execPath, null);
       }
@@ -1218,7 +1219,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
 
   // This must always be consistent with Package.getSourceRoot; otherwise computing source roots
   // from exec paths does not work, which can break the action cache for input-discovering actions.
-  static Root maybeTransformRootForRepository(Root packageRoot, RepositoryName repository) {
+  static Root maybeTransformRootForRepository(Root packageRoot, RepositoryName repository, boolean allowExternalDirectory) {
     if (repository.isMain()) {
       return packageRoot;
     } else {
@@ -1432,17 +1433,17 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     Root absoluteRoot = Root.absoluteRoot(fileSystem);
     result.put(absoluteRoot, ArtifactRoot.asSourceRoot(absoluteRoot));
 
-    if (allowExternalDirectory) {
-      Root externalRoot = Root.fromPath(
-              directories.getOutputBase().getRelative(LabelConstants.EXTERNAL_PATH_PREFIX));
-      result.put(externalRoot, ArtifactRoot.asExternalSourceRoot(externalRoot));
-    } else {
+//    if (allowExternalDirectory) {
+//      Root externalRoot = Root.fromPath(
+//              directories.getOutputBase().getRelative(LabelConstants.EXTERNAL_PATH_PREFIX));
+//      result.put(externalRoot, ArtifactRoot.asExternalSourceRoot(externalRoot));
+//    } else {
       // TODO(bazel-team): The output base is a legitimate "source root" because external repositories
       // stage their sources under output_base/external. The root here should really be
       // output_base/external, but for some reason it isn't.
       Root outputBaseRoot = Root.fromPath(directories.getOutputBase());
       result.put(outputBaseRoot, ArtifactRoot.asSourceRoot(outputBaseRoot));
-    }
+//    }
 
     for (Root packagePathEntry : pkgLocator.getPathEntries()) {
       result.put(packagePathEntry, ArtifactRoot.asSourceRoot(packagePathEntry));

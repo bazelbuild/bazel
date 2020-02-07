@@ -107,6 +107,7 @@ public final class InputFile extends FileTarget {
    * Returns the exec path of the file, i.e. the path relative to the package source root.
    */
   public PathFragment getExecPath(boolean allowExternalDirectory) {
+//    return label.getPackageIdentifier().getSourceRoot().getRelative(label.getName());
     // TODO(jingwen-external): clean up
     if (!allowExternalDirectory) {
       PackageIdentifier packageIdentifier = label.getPackageIdentifier();

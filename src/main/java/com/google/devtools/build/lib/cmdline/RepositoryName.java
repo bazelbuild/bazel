@@ -240,11 +240,15 @@ public final class RepositoryName implements Serializable {
    * external/[repository name] for external repositories.
    */
   public PathFragment getSourceRoot() {
-    return isDefault() || isMain()
-        ? PathFragment.EMPTY_FRAGMENT
-//        : LabelConstants.EXTERNAL_PACKAGE_NAME.getRelative(strippedName());
-    // TODO(jingwen-external): plumb conditional or switch suages to getExecPath
-        : PathFragment.create(strippedName());
+    if (isDefault() || isMain()) {
+      return PathFragment.EMPTY_FRAGMENT;
+    }
+
+//    if (allowExternalDirectory) {
+//      return PathFragment.create(strippedName());
+//    }
+
+    return LabelConstants.EXTERNAL_PACKAGE_NAME.getRelative(strippedName());
   }
 
   /**

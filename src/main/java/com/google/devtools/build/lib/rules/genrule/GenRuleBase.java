@@ -184,7 +184,7 @@ public abstract class GenRuleBase implements RuleConfiguredTargetFactory {
       // Add the genrule environment setup script before the actual shell command.
       command =
           String.format(
-              "source %s; %s",
+              "set -e; source %s; %s",
               ruleContext.getPrerequisiteArtifact("$genrule_setup", Mode.HOST).getExecPath(),
               command);
     }

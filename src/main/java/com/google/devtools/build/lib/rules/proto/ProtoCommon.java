@@ -336,10 +336,10 @@ public class ProtoCommon {
 
     if (starlarkSemantics.experimentalAllowExternalDirectory()
             && stripImportPrefix.startsWith(LabelConstants.EXPERIMENTAL_EXTERNAL_PATH_PREFIX)) {
-        stripImportPrefix = stripImportPrefix.subFragment(1);
+//        stripImportPrefix = stripImportPrefix.subFragment(1);
     } else if (!starlarkSemantics.experimentalAllowExternalDirectory()
             && stripImportPrefix.startsWith(LabelConstants.EXTERNAL_PATH_PREFIX)) {
-        stripImportPrefix = stripImportPrefix.subFragment(1);
+//        stripImportPrefix = stripImportPrefix.subFragment(1);
     }
 
     ImmutableList.Builder<Artifact> symlinks = ImmutableList.builder();
@@ -348,7 +348,7 @@ public class ProtoCommon {
     PathFragment sourceRootPath = ruleContext.getUniqueDirectory("_virtual_imports");
 
     for (Artifact realProtoSource : protoSources) {
-      if (!realProtoSource.getRootRelativePath().startsWith(stripImportPrefix)) {
+      if (!realProtoSource.getExecPath().startsWith(stripImportPrefix)) {
         ruleContext.ruleError(
             String.format(
                 ".proto file '%s' is not under the specified strip prefix '%s'",
@@ -357,7 +357,7 @@ public class ProtoCommon {
       }
       Pair<PathFragment, Artifact> importsPair =
           computeImports(
-              ruleContext, realProtoSource, sourceRootPath, importPrefix, stripImportPrefix);
+              ruleContext, realProtoSource, sourceRootPath, importPrefix, stripImportPrefix, starlarkSemantics.experimentalAllowExternalDirectory());
       protoSourceImportPair.add(new Pair<>(realProtoSource, importsPair.first.toString()));
       symlinks.add(importsPair.second);
     }
@@ -376,12 +376,20 @@ public class ProtoCommon {
       Artifact realProtoSource,
       PathFragment sourceRootPath,
       PathFragment importPrefix,
-      PathFragment stripImportPrefix) {
-    PathFragment importPath =
-        importPrefix.getRelative(
-            realProtoSource.getRootRelativePath().relativeTo(stripImportPrefix));
+      PathFragment stripImportPrefix,
+      boolean allowExternalDirectory) {
+    PathFragment importPath;
 
-      Artifact virtualProtoSource =
+    if (allowExternalDirectory) {
+      importPath = importPrefix.getRelative(
+          realProtoSource.getExecPath().relativeTo(stripImportPrefix));
+    } else {
+      importPath = importPrefix.getRelative(
+          realProtoSource.getRootRelativePath().relativeTo(stripImportPrefix));
+    }
+
+
+    Artifact virtualProtoSource =
           ruleContext.getDerivedArtifact(
               sourceRootPath.getRelative(importPath), ruleContext.getBinOrGenfilesDirectory());
 
