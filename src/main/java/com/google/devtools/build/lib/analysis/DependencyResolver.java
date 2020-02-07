@@ -263,8 +263,7 @@ public abstract class DependencyResolver {
     OrderedSetMultimap<DependencyKind, Label> outgoingLabels = OrderedSetMultimap.create();
 
     // TODO(bazel-team): Figure out a way to implement the below (and partiallyResolveDependencies)
-    // using
-    // LabelVisitationUtils.
+    // using LabelVisitationUtils.
     Rule fromRule = null;
     ConfiguredAttributeMapper attributeMap = null;
     if (target instanceof OutputFile) {
@@ -292,15 +291,46 @@ public abstract class DependencyResolver {
       return OrderedSetMultimap.create();
     }
 
+    // TODO(#10523): Remove this when the migration period for toolchain transitions has ended.
+    boolean useToolchainTransition =
+        determineToolchainTransition(node.getConfiguration(), fromRule, attributeMap);
     OrderedSetMultimap<DependencyKind, PartiallyResolvedDependency> partiallyResolvedDeps =
         partiallyResolveDependencies(
-            outgoingLabels, fromRule, attributeMap, toolchainContext, aspects);
+            outgoingLabels,
+            fromRule,
+            attributeMap,
+            toolchainContext,
+            useToolchainTransition,
+            aspects);
 
     OrderedSetMultimap<DependencyKind, Dependency> outgoingEdges =
         fullyResolveDependencies(
             partiallyResolvedDeps, targetMap, node.getConfiguration(), trimmingTransitionFactory);
 
     return outgoingEdges;
+  }
+
+  /**
+   * Returns whether or not to use the new toolchain transition. Checks the global incompatible
+   * change flag and the rule's toolchain transition readiness attribute.
+   */
+  private boolean determineToolchainTransition(
+      BuildConfiguration configuration,
+      @Nullable Rule fromRule,
+      @Nullable ConfiguredAttributeMapper attributeMap) {
+    // Check whether the global incompatible change flag is set.
+    PlatformOptions platformOptions = configuration.getOptions().get(PlatformOptions.class);
+    if (platformOptions != null && platformOptions.overrideToolchainTransition) {
+      return true;
+    }
+
+    // Check the rule definition to see if it is ready.
+    if (fromRule != null && fromRule.getRuleClassObject().useToolchainTransition()) {
+      return true;
+    }
+
+    // Default to false.
+    return false;
   }
 
   /**
@@ -317,6 +347,7 @@ public abstract class DependencyResolver {
           @Nullable Rule fromRule,
           ConfiguredAttributeMapper attributeMap,
           @Nullable ToolchainContext toolchainContext,
+          boolean useToolchainTransition,
           Iterable<Aspect> aspects) {
     OrderedSetMultimap<DependencyKind, PartiallyResolvedDependency> partiallyResolvedDeps =
         OrderedSetMultimap.create();
@@ -334,8 +365,9 @@ public abstract class DependencyResolver {
             TOOLCHAIN_DEPENDENCY,
             PartiallyResolvedDependency.of(
                 toLabel,
-                // TODO(jcater): Replace this with a proper transition for the execution platform.
-                HostTransition.INSTANCE,
+                useToolchainTransition
+                    ? ToolchainTransition.create(toolchainContext)
+                    : HostTransition.INSTANCE,
                 ImmutableList.of()));
         continue;
       }
