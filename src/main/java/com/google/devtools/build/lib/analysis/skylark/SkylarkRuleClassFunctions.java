@@ -288,6 +288,7 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
       Sequence<?> hostFragments,
       Boolean skylarkTestable,
       Sequence<?> toolchains,
+      boolean useToolchainTransition,
       String doc,
       Sequence<?> providesArg,
       Sequence<?> execCompatibleWith,
@@ -364,6 +365,7 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
         collectToolchainLabels(
             toolchains.getContents(String.class, "toolchains"),
             bazelContext.getRepoMapping()));
+    builder.useToolchainTransition(useToolchainTransition);
 
     if (!buildSetting.equals(Starlark.NONE) && !cfg.equals(Starlark.NONE)) {
       throw Starlark.errorf(
