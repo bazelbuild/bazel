@@ -14,7 +14,6 @@
 package com.google.devtools.build.android.desugar;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.android.desugar.io.CoreLibraryRewriter;
@@ -23,11 +22,13 @@ import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentMap;
+import org.junit.Assert;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 import org.objectweb.asm.Opcodes;
 
+/** Tests for {@link CoreLibrarySupport}. */
 @RunWith(JUnit4.class)
 public class CoreLibrarySupportTest {
 
@@ -140,12 +141,18 @@ public class CoreLibrarySupportTest {
         .isEqualTo("com/google/Helper");
     assertThat(support.getFromCoreLibraryConverter("java/util/Existing"))
         .isEqualTo("com/google/Helper");
-    assertThrows(
-        NullPointerException.class,
-        () -> support.getFromCoreLibraryConverter("__/java/util/Existing2"));
-    assertThrows(
-        NullPointerException.class,
-        () -> support.getFromCoreLibraryConverter("java/util/Existing2"));
+    try {
+      support.getFromCoreLibraryConverter("__/java/util/Existing2");
+      Assert.fail("expected failure");
+    } catch (NullPointerException e) {
+      // expected
+    }
+    try {
+      support.getFromCoreLibraryConverter("java/util/Existing2");
+      Assert.fail("expected failure");
+    } catch (NullPointerException e) {
+      // expected
+    }
     assertThat(support.usedRuntimeHelpers()).containsExactly("com/google/Helper");
   }
 
