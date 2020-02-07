@@ -126,7 +126,7 @@ public class ProtoCompileActionBuilderTest {
             Deps.NON_STRICT,
             Exports.DO_NOT_USE,
             Services.ALLOW,
-            /* protocOpts= */ ImmutableList.of());
+            /* protocOpts= */ ImmutableList.of(), allowExternalDirectory);
 
     assertThat(cmdLine.arguments())
         .containsExactly(
@@ -158,7 +158,7 @@ public class ProtoCompileActionBuilderTest {
             Deps.NON_STRICT,
             Exports.DO_NOT_USE,
             Services.ALLOW,
-            /* protocOpts= */ ImmutableList.of());
+            /* protocOpts= */ ImmutableList.of(), allowExternalDirectory);
 
     assertThat(cmdLine.arguments()).containsExactly("out/source_file.proto");
   }
@@ -193,7 +193,7 @@ public class ProtoCompileActionBuilderTest {
             Deps.STRICT,
             Exports.DO_NOT_USE,
             Services.ALLOW,
-            /* protocOpts= */ ImmutableList.of());
+            /* protocOpts= */ ImmutableList.of(), allowExternalDirectory);
 
     assertThat(cmdLine.arguments())
         .containsExactly(
@@ -237,7 +237,7 @@ public class ProtoCompileActionBuilderTest {
             Deps.NON_STRICT,
             Exports.USE,
             Services.ALLOW,
-            /* protocOpts= */ ImmutableList.of());
+            /* protocOpts= */ ImmutableList.of(), allowExternalDirectory);
 
     assertThat(cmdLine.arguments())
         .containsExactly(
@@ -267,7 +267,7 @@ public class ProtoCompileActionBuilderTest {
             Deps.STRICT,
             Exports.DO_NOT_USE,
             Services.DISALLOW,
-            /* protocOpts= */ ImmutableList.of("--foo", "--bar"));
+            /* protocOpts= */ ImmutableList.of("--foo", "--bar"), allowExternalDirectory);
 
     assertThat(cmdLine.arguments()).containsAtLeast("--disallow_services", "--foo", "--bar");
   }
@@ -308,7 +308,7 @@ public class ProtoCompileActionBuilderTest {
             Deps.STRICT,
             Exports.DO_NOT_USE,
             Services.ALLOW,
-            /* protocOpts= */ ImmutableList.of());
+            /* protocOpts= */ ImmutableList.of(), allowExternalDirectory);
 
     assertThat(hasBeenCalled[0]).isFalse();
     cmdLine.arguments();
@@ -356,7 +356,7 @@ public class ProtoCompileActionBuilderTest {
                     Deps.STRICT,
                     Exports.DO_NOT_USE,
                     Services.ALLOW,
-                    /* protocOpts= */ ImmutableList.of()));
+                    /* protocOpts= */ ImmutableList.of(), allowExternalDirectory));
     assertThat(e)
         .hasMessageThat()
         .isEqualTo(
@@ -460,7 +460,7 @@ public class ProtoCompileActionBuilderTest {
         commandLine,
         protosInDirectDependenciesBuilder,
         NestedSetBuilder.wrap(Order.STABLE_ORDER, protoSourceRoots),
-        transitiveImportsNestedSet);
+        transitiveImportsNestedSet, allowExternalDirectory);
     return commandLine.build().arguments();
   }
 }

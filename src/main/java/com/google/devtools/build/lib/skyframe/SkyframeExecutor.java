@@ -1178,7 +1178,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     for (PathFragment execPath : execPaths) {
       try {
         PackageIdentifier pkgIdentifier =
-            PackageIdentifier.discoverFromExecPath(execPath, forFiles);
+            PackageIdentifier.discoverFromExecPath(execPath, forFiles, allowExternalDirectory);
         packageKeys.put(execPath, ContainingPackageLookupValue.key(pkgIdentifier));
       } catch (LabelSyntaxException e) {
         continue;

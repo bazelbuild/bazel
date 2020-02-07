@@ -69,6 +69,7 @@ import com.google.devtools.build.lib.rules.cpp.IncludeScannable;
 import com.google.devtools.build.lib.skyframe.ActionRewindStrategy.RewindPlan;
 import com.google.devtools.build.lib.skyframe.ArtifactFunction.MissingFileArtifactValue;
 import com.google.devtools.build.lib.skyframe.SkyframeActionExecutor.ActionPostprocessing;
+import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.FileSystem;
@@ -667,6 +668,11 @@ public class ActionExecutionFunction implements SkyFunction {
           "resolver should only be called once: %s %s",
           keysRequested,
           execPaths);
+      StarlarkSemantics starlarkSemantics = PrecomputedValue.STARLARK_SEMANTICS.get(env);
+      if (starlarkSemantics == null) {
+        return null;
+      }
+
       // Create SkyKeys list based on execPaths.
       Map<PathFragment, SkyKey> depKeys = new HashMap<>();
       for (PathFragment path : execPaths) {
@@ -676,7 +682,9 @@ public class ActionExecutionFunction implements SkyFunction {
         Preconditions.checkArgument(!parent.isAbsolute(), path);
         try {
           SkyKey depKey =
-              ContainingPackageLookupValue.key(PackageIdentifier.discoverFromExecPath(path, true));
+              ContainingPackageLookupValue.key(
+                      PackageIdentifier.discoverFromExecPath(
+                              path, true, starlarkSemantics.experimentalAllowExternalDirectory()));
           depKeys.put(path, depKey);
           keysRequested.add(depKey);
         } catch (LabelSyntaxException e) {

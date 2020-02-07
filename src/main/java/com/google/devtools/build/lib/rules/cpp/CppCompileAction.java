@@ -1471,7 +1471,8 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
       Path execRoot,
       ArtifactResolver artifactResolver,
       ShowIncludesFilter showIncludesFilterForStdout,
-      ShowIncludesFilter showIncludesFilterForStderr)
+      ShowIncludesFilter showIncludesFilterForStderr,
+      boolean allowExternalDirectory)
       throws ActionExecutionException {
     if (!needsDotdInputPruning) {
       return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
@@ -1491,7 +1492,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
       discoveryBuilder.shouldValidateInclusions();
     }
 
-    return discoveryBuilder.build().discoverInputsFromDependencies(execRoot, artifactResolver);
+    return discoveryBuilder.build().discoverInputsFromDependencies(execRoot, artifactResolver, allowExternalDirectory);
   }
 
   @VisibleForTesting
@@ -1499,7 +1500,8 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
       ActionExecutionContext actionExecutionContext,
       Path execRoot,
       ArtifactResolver artifactResolver,
-      byte[] dotDContents)
+      byte[] dotDContents,
+      boolean allowExternalDirectory)
       throws ActionExecutionException {
     if (!needsDotdInputPruning || getDotdFile() == null) {
       return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
@@ -1517,7 +1519,9 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
       discoveryBuilder.shouldValidateInclusions();
     }
 
-    return discoveryBuilder.build().discoverInputsFromDependencies(execRoot, artifactResolver);
+    return discoveryBuilder
+            .build()
+            .discoverInputsFromDependencies(execRoot, artifactResolver, allowExternalDirectory);
   }
 
   public DependencySet processDepset(
@@ -1792,6 +1796,11 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
       CppIncludeExtractionContext scanningContext =
           actionExecutionContext.getContext(CppIncludeExtractionContext.class);
       Path execRoot = actionExecutionContext.getExecRoot();
+      boolean allowExternalDirectory =
+              actionExecutionContext
+                      .getOptions()
+                      .getOptions(StarlarkSemanticsOptions.class)
+                      .experimentalAllowExternalDirectory;
 
       NestedSet<Artifact> discoveredInputs;
       if (featureConfiguration.isEnabled(CppRuleClasses.PARSE_SHOWINCLUDES)) {
@@ -1800,14 +1809,16 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
                 execRoot,
                 scanningContext.getArtifactResolver(),
                 showIncludesFilterForStdout,
-                showIncludesFilterForStderr);
+                showIncludesFilterForStderr,
+                allowExternalDirectory);
       } else {
         discoveredInputs =
             discoverInputsFromDotdFiles(
                 actionExecutionContext,
                 execRoot,
                 scanningContext.getArtifactResolver(),
-                dotDContents);
+                dotDContents,
+                allowExternalDirectory);
       }
       dotDContents = null; // Garbage collect in-memory .d contents.
 

@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.rules.proto;
 
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.Iterables.all;
 import static com.google.common.collect.Iterables.isEmpty;
 import static com.google.devtools.build.lib.collect.nestedset.Order.STABLE_ORDER;
 import static com.google.devtools.build.lib.rules.proto.ProtoCommon.areDepsStrict;
@@ -198,12 +199,12 @@ public class ProtoCompileActionBuilder {
 
     try {
       return createAction().build(ruleContext);
-    } catch (MissingPrerequisiteException e) {
+    } catch (MissingPrerequisiteException | InterruptedException e) {
       return NO_ACTIONS;
     }
   }
 
-  private SpawnAction.Builder createAction() throws MissingPrerequisiteException {
+  private SpawnAction.Builder createAction() throws MissingPrerequisiteException, InterruptedException {
     SpawnAction.Builder result =
         new SpawnAction.Builder().addTransitiveInputs(protoInfo.getTransitiveProtoSources());
 
@@ -245,7 +246,7 @@ public class ProtoCompileActionBuilder {
 
   /** Commandline generator for protoc invocations. */
   @VisibleForTesting
-  CustomCommandLine.Builder createProtoCompilerCommandLine() {
+  CustomCommandLine.Builder createProtoCompilerCommandLine() throws InterruptedException {
     CustomCommandLine.Builder result = CustomCommandLine.builder();
 
     if (langPlugin != null) {
@@ -263,13 +264,17 @@ public class ProtoCompileActionBuilder {
 
     boolean areDepsStrict = areDepsStrict(ruleContext);
 
+    boolean allowExternalDirectory =
+            ruleContext.getAnalysisEnvironment().getSkylarkSemantics().experimentalAllowExternalDirectory();
+
     // Add include maps
     addIncludeMapArguments(
         getOutputDirectory(ruleContext),
         result,
         areDepsStrict ? protoInfo.getStrictImportableProtoSourcesImportPaths() : null,
         protoInfo.getStrictImportableProtoSourceRoots(),
-        protoInfo.getTransitiveProtoSources());
+        protoInfo.getTransitiveProtoSources(),
+        allowExternalDirectory);
 
     if (areDepsStrict) {
       // Note: the %s in the line below is used by proto-compiler. That is, the string we create
@@ -298,7 +303,8 @@ public class ProtoCompileActionBuilder {
                 .mapped(
                     new ExpandToPathFnWithImports(
                         getOutputDirectory(ruleContext),
-                        protoInfo.getTransitiveProtoSourceRoots())));
+                        protoInfo.getTransitiveProtoSourceRoots(),
+                        allowExternalDirectory)));
       }
     }
 
@@ -313,7 +319,7 @@ public class ProtoCompileActionBuilder {
   private static class MissingPrerequisiteException extends Exception {}
 
   public static void writeDescriptorSet(
-      RuleContext ruleContext, ProtoInfo protoInfo, Services allowServices) {
+      RuleContext ruleContext, ProtoInfo protoInfo, Services allowServices) throws InterruptedException {
     Artifact output = protoInfo.getDirectDescriptorSet();
     NestedSet<Artifact> dependenciesDescriptorSets =
         ProtoCommon.computeDependenciesDescriptorSets(ruleContext);
@@ -395,7 +401,7 @@ public class ProtoCompileActionBuilder {
       Iterable<Artifact> outputs,
       String flavorName,
       Exports useExports,
-      Services allowServices) {
+      Services allowServices) throws InterruptedException {
     SpawnAction.Builder actions =
         createActions(
             ruleContext,
@@ -420,7 +426,7 @@ public class ProtoCompileActionBuilder {
       Iterable<Artifact> outputs,
       String flavorName,
       Exports useExports,
-      Services allowServices) {
+      Services allowServices) throws InterruptedException {
 
     if (isEmpty(outputs)) {
       return null;
@@ -442,6 +448,9 @@ public class ProtoCompileActionBuilder {
       return null;
     }
 
+    boolean allowExternalDirectory =
+            ruleContext.getAnalysisEnvironment().getSkylarkSemantics().experimentalAllowExternalDirectory();
+
     result
         .addOutputs(outputs)
         .setResources(AbstractAction.DEFAULT_RESOURCE_SET)
@@ -456,7 +465,8 @@ public class ProtoCompileActionBuilder {
                 areDepsStrict(ruleContext) ? Deps.STRICT : Deps.NON_STRICT,
                 arePublicImportsStrict(ruleContext) ? useExports : Exports.DO_NOT_USE,
                 allowServices,
-                ruleContext.getFragment(ProtoConfiguration.class).protocOpts()),
+                ruleContext.getFragment(ProtoConfiguration.class).protocOpts(),
+                allowExternalDirectory),
             ParamFileInfo.builder(ParameterFileType.UNQUOTED).build())
         .setProgressMessage("Generating %s proto_library %s", flavorName, ruleContext.getLabel())
         .setMnemonic(MNEMONIC);
@@ -482,22 +492,22 @@ public class ProtoCompileActionBuilder {
    *
    * Note {@code toolchainInvocations} is ordered, and affects the order in which plugins are
    * called. As some plugins rely on output from other plugins, their order matters.
-   *
-   * @param toolchainInvocations See {@link #createCommandLineFromToolchains}.
+   *  @param toolchainInvocations See {@link #createCommandLineFromToolchains}.
    * @param ruleLabel Name of the proto_library for which we're compiling. This string is used to
    *     populate an error message format that's passed to proto-compiler.
    * @param allowServices If false, the compilation will break if any .proto file has
+   * @param allowExternalDirectory
    */
   @VisibleForTesting
   static CustomCommandLine createCommandLineFromToolchains(
-      List<ToolchainInvocation> toolchainInvocations,
-      String outputDirectory,
-      ProtoInfo protoInfo,
-      Label ruleLabel,
-      Deps strictDeps,
-      Exports useExports,
-      Services allowServices,
-      ImmutableList<String> protocOpts) {
+          List<ToolchainInvocation> toolchainInvocations,
+          String outputDirectory,
+          ProtoInfo protoInfo,
+          Label ruleLabel,
+          Deps strictDeps,
+          Exports useExports,
+          Services allowServices,
+          ImmutableList<String> protocOpts, boolean allowExternalDirectory) {
     CustomCommandLine.Builder cmdLine = CustomCommandLine.builder();
 
     cmdLine.addAll(
@@ -542,7 +552,8 @@ public class ProtoCompileActionBuilder {
         cmdLine,
         strictDeps == Deps.STRICT ? protoInfo.getStrictImportableProtoSourcesImportPaths() : null,
         protoInfo.getStrictImportableProtoSourceRoots(),
-        protoInfo.getTransitiveProtoSources());
+        protoInfo.getTransitiveProtoSources(),
+        allowExternalDirectory);
 
     if (strictDeps == Deps.STRICT) {
       cmdLine.addFormatted(STRICT_DEPS_FLAG_TEMPLATE, ruleLabel);
@@ -560,7 +571,8 @@ public class ProtoCompileActionBuilder {
                 .mapped(
                     new ExpandToPathFnWithImports(
                         outputDirectory,
-                        protoInfo.getExportedProtoSourceRoots())));
+                        protoInfo.getExportedProtoSourceRoots(),
+                        allowExternalDirectory)));
       }
     }
 
@@ -577,24 +589,26 @@ public class ProtoCompileActionBuilder {
 
   @VisibleForTesting
   static void addIncludeMapArguments(
-      String outputDirectory,
-      CustomCommandLine.Builder commandLine,
-      @Nullable NestedSet<Pair<Artifact, String>> protosInDirectDependencies,
-      NestedSet<String> directProtoSourceRoots,
-      NestedSet<Artifact> transitiveImports) {
+          String outputDirectory,
+          CustomCommandLine.Builder commandLine,
+          @Nullable NestedSet<Pair<Artifact, String>> protosInDirectDependencies,
+          NestedSet<String> directProtoSourceRoots,
+          NestedSet<Artifact> transitiveImports,
+          boolean allowExternalDirectory) {
     // For each import, include both the import as well as the import relativized against its
     // protoSourceRoot. This ensures that protos can reference either the full path or the short
     // path when including other protos.
     commandLine.addAll(
         VectorArg.of(transitiveImports)
-            .mapped(new ExpandImportArgsFn(outputDirectory, directProtoSourceRoots)));
+            .mapped(new ExpandImportArgsFn(outputDirectory, directProtoSourceRoots, allowExternalDirectory)));
     if (protosInDirectDependencies != null) {
       if (!protosInDirectDependencies.isEmpty()) {
         commandLine.addAll(
             "--direct_dependencies",
             VectorArg.join(":")
                 .each(protosInDirectDependencies)
-                .mapped(new ExpandToPathFnWithImports(outputDirectory, directProtoSourceRoots)));
+                .mapped(new ExpandToPathFnWithImports(
+                        outputDirectory, directProtoSourceRoots, allowExternalDirectory)));
 
       } else {
         // The proto compiler requires an empty list to turn on strict deps checking
@@ -604,7 +618,7 @@ public class ProtoCompileActionBuilder {
   }
 
   private static String guessProtoPathUnderRoot(
-      String outputDirectory, PathFragment sourceRootPath, Artifact proto) {
+          String outputDirectory, PathFragment sourceRootPath, Artifact proto, boolean allowExternalDirectory) {
     // TODO(lberki): Instead of guesswork like this, we should track which proto belongs to
     // which source root. Unfortunately, that's a non-trivial migration since
     // ProtoInfo is on the Starlark API. Therefore, we hack:
@@ -620,10 +634,13 @@ public class ProtoCompileActionBuilder {
     } else {
       if (proto.getRootRelativePath().startsWith(sourceRootPath)) {
         return proto.getRootRelativePath().relativeTo(sourceRootPath).getPathString();
-      } else if (proto.getExecPath().startsWith(LabelConstants.EXPERIMENTAL_EXTERNAL_PATH_PREFIX) && proto.getExecPath().startsWith(sourceRootPath)) {
-          // TODO(jingwen-external): add conditional plumbing
+      } else if (allowExternalDirectory &&
+              proto.getExecPath().startsWith(LabelConstants.EXPERIMENTAL_EXTERNAL_PATH_PREFIX) &&
+              proto.getExecPath().startsWith(sourceRootPath)) {
           return proto.getExecPath().relativeTo(sourceRootPath).getPathString();
-      } else if (proto.getExecPath().startsWith(LabelConstants.EXTERNAL_PATH_PREFIX) && proto.getExecPath().startsWith(sourceRootPath)) {
+      } else if (!allowExternalDirectory &&
+              proto.getExecPath().startsWith(LabelConstants.EXTERNAL_PATH_PREFIX) &&
+              proto.getExecPath().startsWith(sourceRootPath)) {
         return proto.getExecPath().relativeTo(sourceRootPath).getPathString();
       }
     }
@@ -645,12 +662,15 @@ public class ProtoCompileActionBuilder {
   static final class ExpandImportArgsFn implements CapturingMapFn<Artifact> {
     private final String outputDirectory;
     private final NestedSet<String> directProtoSourceRoots;
+    private final boolean allowExternalDirectory;
 
     public ExpandImportArgsFn(
         String outputDirectory,
-        NestedSet<String> directProtoSourceRoots) {
+        NestedSet<String> directProtoSourceRoots,
+        boolean allowExternalDirectory) {
       this.outputDirectory = outputDirectory;
       this.directProtoSourceRoots = directProtoSourceRoots;
+      this.allowExternalDirectory = allowExternalDirectory;
     }
 
     /**
@@ -662,7 +682,7 @@ public class ProtoCompileActionBuilder {
     public void expandToCommandLine(Artifact proto, Consumer<String> args) {
       for (String directProtoSourceRoot : directProtoSourceRoots.toList()) {
         PathFragment sourceRootPath = PathFragment.create(directProtoSourceRoot);
-        String arg = guessProtoPathUnderRoot(outputDirectory, sourceRootPath, proto);
+        String arg = guessProtoPathUnderRoot(outputDirectory, sourceRootPath, proto, allowExternalDirectory);
         if (arg != null) {
           args.accept("-I" + arg + "=" + proto.getExecPathString());
         }
@@ -675,12 +695,15 @@ public class ProtoCompileActionBuilder {
   static final class ExpandToPathFnWithImports implements CapturingMapFn<Pair<Artifact, String>> {
     private final String outputDirectory;
     private final NestedSet<String> directProtoSourceRoots;
+    private final boolean allowExternalDirectory;
 
     public ExpandToPathFnWithImports(
         String outputDirectory,
-        NestedSet<String> directProtoSourceRoots) {
+        NestedSet<String> directProtoSourceRoots,
+        boolean allowExternalDirectory) {
       this.outputDirectory = outputDirectory;
       this.directProtoSourceRoots = directProtoSourceRoots;
+      this.allowExternalDirectory = allowExternalDirectory;
     }
 
     @Override
@@ -690,7 +713,8 @@ public class ProtoCompileActionBuilder {
       } else {
         for (String directProtoSourceRoot : directProtoSourceRoots.toList()) {
           PathFragment sourceRootPath = PathFragment.create(directProtoSourceRoot);
-          String arg = guessProtoPathUnderRoot(outputDirectory, sourceRootPath, proto.first);
+          String arg = guessProtoPathUnderRoot(
+                  outputDirectory, sourceRootPath, proto.first, allowExternalDirectory);
           if (arg != null) {
             args.accept(arg);
           }
