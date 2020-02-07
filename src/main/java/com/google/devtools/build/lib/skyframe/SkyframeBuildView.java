@@ -775,6 +775,10 @@ public final class SkyframeBuildView {
     }
   }
 
+  public void setAllowExternalDirectory(boolean allowExternalDirectory) {
+    this.getArtifactFactory().setAllowExternalDirectory(allowExternalDirectory);
+  }
+
   /** Special flake for error cases when loading CROSSTOOL for C++ rules */
   // TODO(b/110087561): Remove when CROSSTOOL file is not loaded anymore
   public static class CcCrosstoolException extends Exception {

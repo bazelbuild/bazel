@@ -336,6 +336,12 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   private final TrimmedConfigurationProgressReceiver trimmingListener =
       new TrimmedConfigurationProgressReceiver(trimmingCache);
 
+  private boolean allowExternalDirectory = false;
+
+  public void setAllowExternalDirectory(boolean allowExternalDirectory) {
+    this.allowExternalDirectory = allowExternalDirectory;
+  }
+
   /** An {@link ArtifactResolverSupplier} that supports setting of an {@link ArtifactFactory}. */
   public static class MutableArtifactFactorySupplier implements ArtifactResolverSupplier {
 
@@ -1373,7 +1379,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     setShowLoadingProgress(packageCacheOptions.showLoadingProgress);
     setDefaultVisibility(packageCacheOptions.defaultVisibility);
     setSkylarkSemantics(getEffectiveStarlarkSemantics(starlarkSemanticsOptions));
-    setPackageLocator(pkgLocator, starlarkSemanticsOptions.experimentalAllowExternalDirectory);
+    setPackageLocator(pkgLocator);
 
     syscalls.set(getPerBuildSyscallCache(packageCacheOptions.globbingThreads));
     this.pkgFactory.setGlobbingThreads(packageCacheOptions.globbingThreads);
@@ -1398,7 +1404,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     return starlarkSemanticsOptions.toSkylarkSemantics();
   }
 
-  private void setPackageLocator(PathPackageLocator pkgLocator, boolean allowExternalDirectory) {
+  private void setPackageLocator(PathPackageLocator pkgLocator) {
     EventBus eventBus = this.eventBus.get();
     if (eventBus != null) {
       eventBus.post(pkgLocator);
@@ -1415,12 +1421,12 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       artifactFactory
           .get()
           .setSourceArtifactRoots(
-              createSourceArtifactRootMapOnNewPkgLocator(oldLocator, pkgLocator, allowExternalDirectory));
+              createSourceArtifactRootMapOnNewPkgLocator(oldLocator, pkgLocator));
     }
   }
 
   protected ImmutableMap<Root, ArtifactRoot> createSourceArtifactRootMapOnNewPkgLocator(
-          PathPackageLocator oldLocator, PathPackageLocator pkgLocator, boolean allowExternalDirectory) {
+          PathPackageLocator oldLocator, PathPackageLocator pkgLocator) {
     ImmutableMap.Builder<Root, ArtifactRoot> result = ImmutableMap.builder();
 
     Root absoluteRoot = Root.absoluteRoot(fileSystem);
@@ -2685,6 +2691,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       throw new AbruptExitException(e.getMessage(), ExitCode.COMMAND_LINE_ERROR, e);
     }
     setRemoteExecutionEnabled(remoteOptions != null && remoteOptions.isRemoteExecutionEnabled());
+    setAllowExternalDirectory(starlarkSemanticsOptions.experimentalAllowExternalDirectory);
     syncPackageLoading(
         packageCacheOptions,
         pathPackageLocator,

@@ -45,6 +45,7 @@ public class ArtifactFactory implements ArtifactResolver {
   private final Path execRootParent;
   private final PathFragment derivedPathPrefix;
   private ImmutableMap<Root, ArtifactRoot> sourceArtifactRoots;
+  private boolean allowExternalDirectory = false;
 
   /**
    * Cache of source artifacts.
@@ -56,6 +57,10 @@ public class ArtifactFactory implements ArtifactResolver {
    * execPaths in the symlink forest.
    */
   private PackageRoots.PackageRootLookup packageRoots;
+
+  public void setAllowExternalDirectory(boolean allowExternalDirectory) {
+    this.allowExternalDirectory = allowExternalDirectory;
+  }
 
   private static class SourceArtifactCache {
 
@@ -387,7 +392,8 @@ public class ArtifactFactory implements ArtifactResolver {
       PathFragment relativePath,
       PathFragment baseExecPath,
       ArtifactRoot baseRoot,
-      RepositoryName repositoryName) {
+      RepositoryName repositoryName,
+      boolean allowExternalDirectory) {
     Preconditions.checkState(
         (baseExecPath == null) == (baseRoot == null),
         "%s %s %s",
@@ -398,12 +404,11 @@ public class ArtifactFactory implements ArtifactResolver {
         !relativePath.isEmpty(), "%s %s %s", relativePath, baseExecPath, baseRoot);
     PathFragment execPath =
         baseExecPath != null ? baseExecPath.getRelative(relativePath) : relativePath;
-    if (execPath.containsUplevelReferences()) {
+    if (!allowExternalDirectory && execPath.containsUplevelReferences() ||
+         allowExternalDirectory && execPath.subFragment(1).containsUplevelReferences()) {
       // Source exec paths cannot escape the source root.
-      // TODO(jingwen-external): plumb conditional; the exec path may start with .. here if
-      // using --experimental_allow_external_directory
-
-//      return null;
+      // However, the exec path may start with .. if using --experimental_allow_external_directory.
+      return null;
     }
     // Don't create an artifact if it's derived.
     if (isDerivedArtifact(execPath)) {
@@ -455,7 +460,7 @@ public class ArtifactFactory implements ArtifactResolver {
   @Override
   public Artifact resolveSourceArtifact(PathFragment execPath,
       @SuppressWarnings("unused") RepositoryName repositoryName) {
-    return resolveSourceArtifactWithAncestor(execPath, null, null, repositoryName);
+    return resolveSourceArtifactWithAncestor(execPath, null, null, repositoryName, allowExternalDirectory);
   }
 
   @Override

@@ -43,6 +43,7 @@ import com.google.devtools.build.lib.bazel.rules.android.AndroidSdkRepositoryFun
 import com.google.devtools.build.lib.bazel.rules.android.AndroidSdkRepositoryRule;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.packages.StarlarkSemanticsOptions;
 import com.google.devtools.build.lib.pkgcache.PackageCacheOptions;
 import com.google.devtools.build.lib.rules.repository.LocalRepositoryFunction;
 import com.google.devtools.build.lib.rules.repository.LocalRepositoryRule;
@@ -213,6 +214,11 @@ public class BazelRepositoryModule extends BlazeModule {
     resolvedFile = Optional.<RootedPath>absent();
     resolvedFileReplacingWorkspace = Optional.<RootedPath>absent();
     outputVerificationRules = ImmutableSet.<String>of();
+
+    boolean allowExternalDirectory =
+            env.getOptions().getOptions(StarlarkSemanticsOptions.class).experimentalAllowExternalDirectory;
+    env.getSkyframeBuildView().setAllowExternalDirectory(allowExternalDirectory);
+    env.getSkyframeExecutor().setAllowExternalDirectory(allowExternalDirectory);
 
     RepositoryOptions repoOptions = env.getOptions().getOptions(RepositoryOptions.class);
     if (repoOptions != null) {

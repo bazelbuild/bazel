@@ -89,6 +89,7 @@ public class IncludeScannerSupplierImpl implements IncludeScannerSupplier {
   private final Supplier<SpawnIncludeScanner> spawnIncludeScannerSupplier;
   private final Path execRoot;
   private final boolean useAsyncIncludeScanner;
+  private final boolean allowExternalDirectory;
 
   /** Cache of include scanner instances mapped by include-path hashes. */
   private final LoadingCache<IncludeScannerParams, IncludeScanner> scanners =
@@ -109,7 +110,8 @@ public class IncludeScannerSupplierImpl implements IncludeScannerSupplier {
                       execRoot,
                       artifactFactory,
                       spawnIncludeScannerSupplier,
-                      useAsyncIncludeScanner);
+                      useAsyncIncludeScanner,
+                      allowExternalDirectory);
                 }
               });
 
@@ -119,7 +121,8 @@ public class IncludeScannerSupplierImpl implements IncludeScannerSupplier {
       ArtifactFactory artifactFactory,
       Supplier<SpawnIncludeScanner> spawnIncludeScannerSupplier,
       Path execRoot,
-      boolean useAsyncIncludeScanner) {
+      boolean useAsyncIncludeScanner,
+      boolean allowExternalDirectory) {
     this.directories = directories;
     this.includePool = includePool;
     this.artifactFactory = artifactFactory;
@@ -127,6 +130,7 @@ public class IncludeScannerSupplierImpl implements IncludeScannerSupplier {
     this.execRoot = execRoot;
     this.pathCache = new PathExistenceCache(execRoot, artifactFactory);
     this.useAsyncIncludeScanner = useAsyncIncludeScanner;
+    this.allowExternalDirectory = allowExternalDirectory;
   }
 
   @Override

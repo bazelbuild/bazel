@@ -167,7 +167,9 @@ public class SymlinkForest {
 
   private void plantSymlinkForestWithPartialMainRepository(Map<Path, Path> mainRepoLinks)
       throws IOException, AbruptExitException {
-    execroot.createDirectory();
+    if (allowExternalDirectory) {
+      execroot.createDirectory();
+    }
     for (Map.Entry<Path, Path> entry : mainRepoLinks.entrySet()) {
       Path link = entry.getKey();
       Path target = entry.getValue();

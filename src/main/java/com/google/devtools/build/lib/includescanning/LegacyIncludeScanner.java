@@ -526,6 +526,8 @@ public class LegacyIncludeScanner implements IncludeScanner {
   // the seed.
   private static final Random CONSTANT_SEED_RANDOM = new Random(88);
 
+  private final boolean allowExternalDirectory;
+
   /**
    * Constructs a new IncludeScanner
    *
@@ -547,7 +549,8 @@ public class LegacyIncludeScanner implements IncludeScanner {
       Path execRoot,
       ArtifactFactory artifactFactory,
       Supplier<SpawnIncludeScanner> spawnIncludeScannerSupplier,
-      boolean useAsyncIncludeScanner) {
+      boolean useAsyncIncludeScanner,
+      boolean allowExternalDirectory) {
     this.parser = parser;
     this.includePool = includePool;
     this.fileParseCache = cache;
@@ -569,6 +572,7 @@ public class LegacyIncludeScanner implements IncludeScanner {
         outputPathFragment.getRelative(BlazeDirectories.RELATIVE_INCLUDE_DIR);
     this.absoluteRoot = Root.absoluteRoot(execRoot.getFileSystem());
     this.useAsyncIncludeScanner = useAsyncIncludeScanner;
+    this.allowExternalDirectory = allowExternalDirectory;
   }
 
   /**
@@ -579,7 +583,9 @@ public class LegacyIncludeScanner implements IncludeScanner {
    * @return the resolved Path, or null if no file could be found
    */
   private Artifact locateRelative(
-      Inclusion inclusion, Map<PathFragment, Artifact> legalOutputFiles, Artifact includer) {
+      Inclusion inclusion,
+      Map<PathFragment, Artifact> legalOutputFiles,
+      Artifact includer) {
     if (inclusion.kind != Kind.QUOTE) {
       return null;
     }
@@ -602,7 +608,7 @@ public class LegacyIncludeScanner implements IncludeScanner {
     ArtifactRoot root = includer.getRoot();
     Artifact sourceArtifact =
         artifactFactory.resolveSourceArtifactWithAncestor(
-            name, parentDirectory, root, RepositoryName.MAIN);
+            name, parentDirectory, root, RepositoryName.MAIN, allowExternalDirectory);
     if (sourceArtifact == null) {
       // If the name had up-level references, this path may not be under any package. Otherwise,
       // we must have gotten an artifact, since it should be under the same package as the
