@@ -275,21 +275,26 @@ public class ExecutionOptions extends OptionsBase {
   public boolean useResourceAutoSense;
 
   @Option(
+      name = "incompatible_remove_ram_utilization_factor",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.EXECUTION},
+      metadataTags = {
+        OptionMetadataTag.INCOMPATIBLE_CHANGE,
+        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+      },
+      help = "If true, fully deprecates --ram_utilization_factor.")
+  public boolean removeRamUtilizationFactor;
+
+  @Option(
       name = "ram_utilization_factor",
       defaultValue = "0",
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
-      help =
-          "Specify what percentage of the system's RAM Bazel should try to use for its "
-              + "subprocesses. This option affects how many processes Bazel will try to run in "
-              + "parallel. If you run several Bazel builds in parallel, using a lower value for "
-              + "this option may avoid thrashing and thus improve overall throughput. "
-              + "Using a value higher than 67 is NOT recommended. "
-              + "Note that Blaze's estimates are very coarse, so the actual RAM usage may be much "
-              + "higher or much lower than specified. "
-              + "Note also that this option does not affect the amount of memory that the Bazel "
-              + "server itself will use. "
-              + "Setting this value overrides --local_ram_resources")
+      deprecationWarning =
+          "--ram_utilization_factor will be deprecated. Please use"
+              + " --local_ram_resources=HOST_RAM*<float> instead.",
+      help = "This flag will be deprecated. Please use --local_ram_resources.")
   public int ramUtilizationPercentage;
 
   @Option(

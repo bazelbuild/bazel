@@ -168,6 +168,12 @@ public class ExecutionTool {
           "--local_resources is deprecated. Please use "
               + "--local_ram_resources and/or --local_cpu_resources");
     }
+
+    if (options.removeRamUtilizationFactor && options.ramUtilizationPercentage != 0) {
+      throw new ExecutorInitException(
+          "--ram_utilization_factor is deprecated. "
+              + "Please use --local_ram_resources=HOST_RAM*<float>");
+    }
   }
 
   Executor getExecutor() throws ExecutorInitException {
