@@ -715,6 +715,7 @@ public class RuleClass {
     private final Map<String, Attribute> attributes = new LinkedHashMap<>();
     private final Set<Label> requiredToolchains = new HashSet<>();
     private boolean useToolchainResolution = true;
+    private boolean useToolchainTransition = false;
     private Set<Label> executionPlatformConstraints = new HashSet<>();
     private OutputFile.Kind outputFileKind = OutputFile.Kind.FILE;
     private final Map<String, ExecGroup> execGroups = new HashMap<>();
@@ -750,6 +751,7 @@ public class RuleClass {
 
         addRequiredToolchains(parent.getRequiredToolchains());
         useToolchainResolution = parent.useToolchainResolution;
+        useToolchainTransition = parent.useToolchainTransition;
         addExecutionPlatformConstraints(parent.getExecutionPlatformConstraints());
         try {
           addExecGroups(parent.getExecGroups());
@@ -837,6 +839,7 @@ public class RuleClass {
         // Build setting rules should opt out of toolchain resolution, since they form part of the
         // configuration.
         this.useToolchainResolution(false);
+        this.useToolchainTransition(false);
       }
 
       return new RuleClass(
@@ -871,6 +874,7 @@ public class RuleClass {
           thirdPartyLicenseExistencePolicy,
           requiredToolchains,
           useToolchainResolution,
+          useToolchainTransition,
           executionPlatformConstraints,
           execGroups,
           outputFileKind,
@@ -1453,6 +1457,11 @@ public class RuleClass {
       return this;
     }
 
+    public Builder useToolchainTransition(boolean flag) {
+      this.useToolchainTransition = flag;
+      return this;
+    }
+
     /**
      * Adds additional execution platform constraints that apply for all targets from this rule.
      *
@@ -1604,6 +1613,7 @@ public class RuleClass {
 
   private final ImmutableSet<Label> requiredToolchains;
   private final boolean useToolchainResolution;
+  private final boolean useToolchainTransition;
   private final ImmutableSet<Label> executionPlatformConstraints;
   private final ImmutableMap<String, ExecGroup> execGroups;
 
@@ -1660,6 +1670,7 @@ public class RuleClass {
       ThirdPartyLicenseExistencePolicy thirdPartyLicenseExistencePolicy,
       Set<Label> requiredToolchains,
       boolean useToolchainResolution,
+      boolean useToolchainTransition,
       Set<Label> executionPlatformConstraints,
       Map<String, ExecGroup> execGroups,
       OutputFile.Kind outputFileKind,
@@ -1700,6 +1711,7 @@ public class RuleClass {
     this.thirdPartyLicenseExistencePolicy = thirdPartyLicenseExistencePolicy;
     this.requiredToolchains = ImmutableSet.copyOf(requiredToolchains);
     this.useToolchainResolution = useToolchainResolution;
+    this.useToolchainTransition = useToolchainTransition;
     this.executionPlatformConstraints = ImmutableSet.copyOf(executionPlatformConstraints);
     this.execGroups = ImmutableMap.copyOf(execGroups);
     this.buildSetting = buildSetting;
@@ -2610,6 +2622,10 @@ public class RuleClass {
 
   public boolean useToolchainResolution() {
     return useToolchainResolution;
+  }
+
+  public boolean useToolchainTransition() {
+    return useToolchainTransition;
   }
 
   public ImmutableSet<Label> getExecutionPlatformConstraints() {
