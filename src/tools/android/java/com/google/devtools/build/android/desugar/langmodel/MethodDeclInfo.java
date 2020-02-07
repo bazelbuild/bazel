@@ -22,7 +22,7 @@ import org.objectweb.asm.Opcodes;
 
 /** A unit data object represents a class or interface declaration. */
 // TODO(deltazulu): Consider @AutoValue-ize this class. (String[] as attribute is not supported).
-public final class MethodDeclInfo {
+public final class MethodDeclInfo implements TypeMappable<MethodDeclInfo> {
   public final MethodKey methodKey;
   public final int ownerAccess;
   public final int memberAccess;
@@ -62,5 +62,11 @@ public final class MethodDeclInfo {
           ? visitor.visitClassStaticMethod(this, param)
           : visitor.visitClassInstanceMethod(this, param);
     }
+  }
+
+  @Override
+  public MethodDeclInfo acceptTypeMapper(TypeMapper typeMapper) {
+    return new MethodDeclInfo(
+        methodKey.acceptTypeMapper(typeMapper), ownerAccess, memberAccess, signature, exceptions);
   }
 }

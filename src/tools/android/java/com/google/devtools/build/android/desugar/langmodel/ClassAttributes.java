@@ -26,13 +26,13 @@ import java.util.Optional;
  * <p>https://docs.oracle.com/javase/specs/jvms/se11/html/jvms-4.html#jvms-4.7
  */
 @AutoValue
-public abstract class ClassAttributes {
+public abstract class ClassAttributes implements TypeMappable<ClassAttributes> {
 
-  public abstract String classBinaryName();
+  public abstract ClassName classBinaryName();
 
-  public abstract Optional<String> nestHost();
+  public abstract Optional<ClassName> nestHost();
 
-  public abstract ImmutableSet<String> nestMembers();
+  public abstract ImmutableSet<ClassName> nestMembers();
 
   // Include other class attributes as necessary.
 
@@ -40,17 +40,29 @@ public abstract class ClassAttributes {
     return new AutoValue_ClassAttributes.Builder();
   }
 
+  @Override
+  public ClassAttributes acceptTypeMapper(TypeMapper typeMapper) {
+    ClassAttributesBuilder mappedBuilder = builder();
+    mappedBuilder.setClassBinaryName(classBinaryName().acceptTypeMapper(typeMapper));
+    if (nestHost().isPresent()) {
+      mappedBuilder.setNestHost(nestHost().get().acceptTypeMapper(typeMapper));
+    }
+    nestMembers().stream().map(typeMapper::map).forEach(mappedBuilder::addNestMember);
+    mappedBuilder.setClassBinaryName(classBinaryName().acceptTypeMapper(typeMapper));
+    return mappedBuilder.build();
+  }
+
   /** The builder of {@link ClassAttributes}. */
   @AutoValue.Builder
   public abstract static class ClassAttributesBuilder {
 
-    public abstract ClassAttributesBuilder setClassBinaryName(String classBinaryName);
+    public abstract ClassAttributesBuilder setClassBinaryName(ClassName classBinaryName);
 
-    public abstract ClassAttributesBuilder setNestHost(String nestHost);
+    public abstract ClassAttributesBuilder setNestHost(ClassName nestHost);
 
-    abstract ImmutableSet.Builder<String> nestMembersBuilder();
+    abstract ImmutableSet.Builder<ClassName> nestMembersBuilder();
 
-    public ClassAttributesBuilder addNestMember(String nestMember) {
+    public ClassAttributesBuilder addNestMember(ClassName nestMember) {
       nestMembersBuilder().add(nestMember);
       return this;
     }

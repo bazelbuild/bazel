@@ -16,24 +16,29 @@
 
 package com.google.devtools.build.android.desugar.langmodel;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.stream.Collectors.toMap;
+
 import com.google.common.collect.ImmutableSet;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 
 /** Tracks {@link ClassAttributes} for all classes under investigation. */
-public class ClassAttributeRecord {
+public final class ClassAttributeRecord implements TypeMappable<ClassAttributeRecord> {
 
-  private final Map<String, ClassAttributes> record = new HashMap<>();
+  private final Map<ClassName, ClassAttributes> record;
 
   public static ClassAttributeRecord create() {
-    return new ClassAttributeRecord();
+    return new ClassAttributeRecord(new HashMap<>());
   }
 
-  private ClassAttributeRecord() {}
+  private ClassAttributeRecord(Map<ClassName, ClassAttributes> record) {
+    this.record = record;
+  }
 
   public ClassAttributes setClassAttributes(ClassAttributes classAttributes) {
-    String classBinaryName = classAttributes.classBinaryName();
+    ClassName classBinaryName = classAttributes.classBinaryName();
     if (record.containsKey(classBinaryName)) {
       throw new IllegalStateException(
           String.format(
@@ -44,19 +49,36 @@ public class ClassAttributeRecord {
     return record.put(classBinaryName, classAttributes);
   }
 
-  public Optional<String> getNestHost(String className) {
+  public Optional<ClassName> getNestHost(ClassName className) {
     ClassAttributes classAttributes = record.get(className);
-    if (classAttributes != null) {
-      return classAttributes.nestHost();
-    }
-    return Optional.empty();
+    checkNotNull(
+        classAttributes,
+        "Expected recorded ClassAttributes for (%s). Available record: %s",
+        className,
+        record.keySet());
+    return classAttributes.nestHost();
   }
 
-  public ImmutableSet<String> getNestMembers(String className) {
+  public ImmutableSet<ClassName> getNestMembers(ClassName className) {
     ClassAttributes classAttributes = record.get(className);
-    if (classAttributes != null) {
-      return classAttributes.nestMembers();
-    }
-    return ImmutableSet.of();
+    checkNotNull(
+        classAttributes,
+        "Expected recorded ClassAttributes for (%s). Available record: %s",
+        className,
+        record.keySet());
+    return classAttributes.nestMembers();
+  }
+
+  @Override
+  public ClassAttributeRecord acceptTypeMapper(TypeMapper typeMapper) {
+    return new ClassAttributeRecord(
+        this.record.values().stream()
+            .map(attr -> attr.acceptTypeMapper(typeMapper))
+            .collect(
+                toMap(
+                    ClassAttributes::classBinaryName,
+                    attr -> attr,
+                    (prev, next) -> next,
+                    HashMap::new)));
   }
 }

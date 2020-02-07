@@ -19,109 +19,114 @@ import static com.google.common.truth.Truth.assertThat;
 import com.google.devtools.build.android.desugar.langmodel.ClassAttributeRecord;
 import com.google.devtools.build.android.desugar.langmodel.ClassAttributes;
 import com.google.devtools.build.android.desugar.langmodel.ClassMemberRecord;
+import com.google.devtools.build.android.desugar.langmodel.ClassName;
 import com.google.devtools.build.android.desugar.langmodel.MethodKey;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 import org.objectweb.asm.Opcodes;
 
-/** The tests for {@link NestCompanions}. */
+/** The tests for {@link NestDigest}. */
 @RunWith(JUnit4.class)
-public class NestCompanionsTest {
+public class NestDigestTest {
 
   private final ClassMemberRecord classMemberRecord = ClassMemberRecord.create();
   private final ClassAttributeRecord classAttributeRecord = ClassAttributeRecord.create();
-  private final NestCompanions nestCompanions =
-      NestCompanions.create(classMemberRecord, classAttributeRecord);
+  private final NestDigest nestDigest = NestDigest.create(classMemberRecord, classAttributeRecord);
 
   @Test
   public void prepareCompanionClassWriters_noCompanionClassesGenerated() {
     classMemberRecord.logMemberDecl(
-        MethodKey.create("package/path/OwnerClass", "method", "(II)I"),
+        MethodKey.create(ClassName.create("package/path/OwnerClass"), "method", "(II)I"),
         /* ownerAccess= */ Opcodes.ACC_PUBLIC | Opcodes.ACC_INTERFACE,
         /* memberDeclAccess= */ Opcodes.ACC_PRIVATE);
 
-    nestCompanions.prepareCompanionClasses();
+    nestDigest.prepareCompanionClasses();
 
-    assertThat(nestCompanions.getAllCompanionClasses()).isEmpty();
+    assertThat(nestDigest.getAllCompanionClassNames()).isEmpty();
   }
 
   @Test
   public void prepareCompanionClassWriters_companionClassesGenerated() {
-    MethodKey constructor = MethodKey.create("package/path/OwnerClass", "<init>", "()V");
+    MethodKey constructor =
+        MethodKey.create(ClassName.create("package/path/OwnerClass"), "<init>", "()V");
     classMemberRecord.logMemberDecl(
         constructor, Opcodes.ACC_PUBLIC | Opcodes.ACC_SUPER, Opcodes.ACC_PRIVATE);
     classMemberRecord.logMemberUse(constructor, Opcodes.INVOKESPECIAL);
     classAttributeRecord.setClassAttributes(
         ClassAttributes.builder()
-            .setClassBinaryName("package/path/OwnerClass$NestedClass")
-            .setNestHost("package/path/OwnerClass")
+            .setClassBinaryName(ClassName.create("package/path/OwnerClass$NestedClass"))
+            .setNestHost(ClassName.create("package/path/OwnerClass"))
             .build());
     classAttributeRecord.setClassAttributes(
         ClassAttributes.builder()
-            .setClassBinaryName("package/path/OwnerClass")
-            .addNestMember("package/path/OwnerClass$NestedClass")
+            .setClassBinaryName(ClassName.create("package/path/OwnerClass"))
+            .addNestMember(ClassName.create("package/path/OwnerClass$NestedClass"))
             .build());
 
-    nestCompanions.prepareCompanionClasses();
+    nestDigest.prepareCompanionClasses();
 
-    assertThat(nestCompanions.getAllCompanionClasses())
+    assertThat(nestDigest.getAllCompanionClassNames())
         .containsExactly("package/path/OwnerClass$NestCC");
   }
 
   @Test
   public void preparCompanionClassWriters_multipleCompanionClassesGenerated() {
     classMemberRecord.logMemberDecl(
-        MethodKey.create("package/path/OwnerClassA", "<init>", "()V"),
+        MethodKey.create(ClassName.create("package/path/OwnerClassA"), "<init>", "()V"),
         Opcodes.ACC_PUBLIC | Opcodes.ACC_SUPER,
         Opcodes.ACC_PRIVATE);
     classMemberRecord.logMemberDecl(
-        MethodKey.create("package/path/OwnerClassA", "method", "(II)I"),
+        MethodKey.create(ClassName.create("package/path/OwnerClassA"), "method", "(II)I"),
         Opcodes.ACC_PUBLIC | Opcodes.ACC_SUPER,
         Opcodes.ACC_PRIVATE);
     classMemberRecord.logMemberDecl(
-        MethodKey.create("package/path/OwnerClassB", "<init>", "()V"),
+        MethodKey.create(ClassName.create("package/path/OwnerClassB"), "<init>", "()V"),
         Opcodes.ACC_PUBLIC | Opcodes.ACC_SUPER,
         Opcodes.ACC_PRIVATE);
 
     classMemberRecord.logMemberUse(
-        MethodKey.create("package/path/OwnerClassA", "<init>", "()V"), Opcodes.INVOKESPECIAL);
+        MethodKey.create(ClassName.create("package/path/OwnerClassA"), "<init>", "()V"),
+        Opcodes.INVOKESPECIAL);
     classMemberRecord.logMemberUse(
-        MethodKey.create("package/path/OwnerClassA", "method", "(II)I"), Opcodes.INVOKESPECIAL);
+        MethodKey.create(ClassName.create("package/path/OwnerClassA"), "method", "(II)I"),
+        Opcodes.INVOKESPECIAL);
     classMemberRecord.logMemberUse(
-        MethodKey.create("package/path/OwnerClassB", "<init>", "()V"), Opcodes.INVOKESPECIAL);
+        MethodKey.create(ClassName.create("package/path/OwnerClassB"), "<init>", "()V"),
+        Opcodes.INVOKESPECIAL);
 
     classAttributeRecord.setClassAttributes(
         ClassAttributes.builder()
-            .setClassBinaryName("package/path/OwnerClassA$NestedClass")
-            .setNestHost("package/path/OwnerClassA")
+            .setClassBinaryName(ClassName.create("package/path/OwnerClassA$NestedClass"))
+            .setNestHost(ClassName.create("package/path/OwnerClassA"))
             .build());
     classAttributeRecord.setClassAttributes(
         ClassAttributes.builder()
-            .setClassBinaryName("package/path/OwnerClassB$NestedClass")
-            .setNestHost("package/path/OwnerClassB")
+            .setClassBinaryName(ClassName.create("package/path/OwnerClassB$NestedClass"))
+            .setNestHost(ClassName.create("package/path/OwnerClassB"))
             .build());
 
     classAttributeRecord.setClassAttributes(
         ClassAttributes.builder()
-            .setClassBinaryName("package/path/OwnerClassA")
-            .addNestMember("package/path/OwnerClassA$NestedClass")
+            .setClassBinaryName(ClassName.create("package/path/OwnerClassA"))
+            .addNestMember(ClassName.create("package/path/OwnerClassA$NestedClass"))
             .build());
     classAttributeRecord.setClassAttributes(
         ClassAttributes.builder()
-            .setClassBinaryName("package/path/OwnerClassB")
-            .addNestMember("package/path/OwnerClassB$NestedClass")
+            .setClassBinaryName(ClassName.create("package/path/OwnerClassB"))
+            .addNestMember(ClassName.create("package/path/OwnerClassB$NestedClass"))
             .build());
 
-    nestCompanions.prepareCompanionClasses();
+    nestDigest.prepareCompanionClasses();
 
-    assertThat(nestCompanions.getAllCompanionClasses())
+    assertThat(nestDigest.getAllCompanionClassNames())
         .containsExactly("package/path/OwnerClassA$NestCC", "package/path/OwnerClassB$NestCC");
   }
 
   @Test
   public void prepareCompanionClassWriters_classNameWithDollarSign() {
-    MethodKey constructor = MethodKey.create("package/path/$Owner$Class$", "<init>", "()V");
+    MethodKey constructor =
+        MethodKey.create(ClassName.create("package/path/$Owner$Class$"), "<init>", "()V");
 
     classMemberRecord.logMemberDecl(
         constructor, Opcodes.ACC_PUBLIC | Opcodes.ACC_SUPER, Opcodes.ACC_PRIVATE);
@@ -129,18 +134,18 @@ public class NestCompanionsTest {
 
     classAttributeRecord.setClassAttributes(
         ClassAttributes.builder()
-            .setClassBinaryName(constructor.owner() + "$NestClass")
-            .setNestHost(constructor.owner())
+            .setClassBinaryName(ClassName.create(constructor.ownerName() + "$NestClass"))
+            .setNestHost(ClassName.create(constructor.ownerName()))
             .build());
     classAttributeRecord.setClassAttributes(
         ClassAttributes.builder()
-            .setClassBinaryName(constructor.owner())
-            .addNestMember(constructor.owner() + "$NestClass")
+            .setClassBinaryName(ClassName.create(constructor.ownerName()))
+            .addNestMember(ClassName.create(constructor.ownerName() + "$NestClass"))
             .build());
 
-    nestCompanions.prepareCompanionClasses();
+    nestDigest.prepareCompanionClasses();
 
-    assertThat(nestCompanions.getAllCompanionClasses())
+    assertThat(nestDigest.getAllCompanionClassNames())
         .containsExactly("package/path/$Owner$Class$$NestCC");
   }
 }

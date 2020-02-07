@@ -16,14 +16,21 @@ package com.google.devtools.build.android.desugar.nest;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.devtools.build.android.desugar.langmodel.LangModelConstants.NEST_COMPANION_CLASS_SIMPLE_NAME;
+import static java.util.stream.Collectors.toMap;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Streams;
 import com.google.devtools.build.android.desugar.io.FileContentProvider;
 import com.google.devtools.build.android.desugar.langmodel.ClassAttributeRecord;
+import com.google.devtools.build.android.desugar.langmodel.ClassMemberKey;
 import com.google.devtools.build.android.desugar.langmodel.ClassMemberRecord;
+import com.google.devtools.build.android.desugar.langmodel.ClassName;
+import com.google.devtools.build.android.desugar.langmodel.MemberUseKind;
+import com.google.devtools.build.android.desugar.langmodel.TypeMappable;
+import com.google.devtools.build.android.desugar.langmodel.TypeMapper;
 import java.io.ByteArrayInputStream;
 import java.util.HashMap;
 import java.util.Map;
@@ -33,30 +40,33 @@ import javax.annotation.Nullable;
 import org.objectweb.asm.ClassWriter;
 
 /** Manages the creation and IO stream for nest-companion classes. */
-public class NestCompanions {
+public class NestDigest implements TypeMappable<NestDigest> {
 
   private final ClassMemberRecord classMemberRecord;
   private final ClassAttributeRecord classAttributeRecord;
-  private final Map<String, String> nestCompanionToHostMap;
+  private final Map<ClassName, ClassName> nestCompanionToHostMap;
 
   /**
    * A map from the class binary names of nest hosts to the associated class writer of the nest's
    * companion.
    */
-  private ImmutableMap<String, ClassWriter> companionWriters;
+  private ImmutableMap<ClassName, ClassWriter> companionWriters;
 
-  public static NestCompanions create(
+  public static NestDigest create(
       ClassMemberRecord classMemberRecord, ClassAttributeRecord classAttributeRecord) {
-    return new NestCompanions(classMemberRecord, classAttributeRecord, new HashMap<>());
+    return new NestDigest(
+        classMemberRecord, classAttributeRecord, new HashMap<>(), /* companionWriters= */ null);
   }
 
-  private NestCompanions(
+  private NestDigest(
       ClassMemberRecord classMemberRecord,
       ClassAttributeRecord classAttributeRecord,
-      HashMap<String, String> nestCompanionToHostMap) {
+      Map<ClassName, ClassName> nestCompanionToHostMap,
+      ImmutableMap<ClassName, ClassWriter> companionWriters) {
     this.classMemberRecord = classMemberRecord;
     this.classAttributeRecord = classAttributeRecord;
     this.nestCompanionToHostMap = nestCompanionToHostMap;
+    this.companionWriters = companionWriters;
   }
 
   /**
@@ -65,7 +75,7 @@ public class NestCompanions {
    * any invocation in other classes in nest.
    */
   void prepareCompanionClasses() {
-    ImmutableList<String> nestHostsWithCompanion =
+    ImmutableList<ClassName> nestHostsWithCompanion =
         classMemberRecord.findAllConstructorMemberKeys().stream()
             .map(
                 constructor ->
@@ -73,13 +83,25 @@ public class NestCompanions {
             .flatMap(Streams::stream)
             .distinct()
             .collect(toImmutableList());
-    ImmutableMap.Builder<String, ClassWriter> companionWriterBuilders = ImmutableMap.builder();
-    for (String nestHost : nestHostsWithCompanion) {
-      String nestCompanion = nestHost + '$' + NEST_COMPANION_CLASS_SIMPLE_NAME;
+    ImmutableMap.Builder<ClassName, ClassWriter> companionWriterBuilders = ImmutableMap.builder();
+    for (ClassName nestHost : nestHostsWithCompanion) {
+      ClassName nestCompanion = nestHost.innerClass(NEST_COMPANION_CLASS_SIMPLE_NAME);
       nestCompanionToHostMap.put(nestCompanion, nestHost);
       companionWriterBuilders.put(nestHost, new ClassWriter(ClassWriter.COMPUTE_MAXS));
     }
     companionWriters = companionWriterBuilders.build();
+  }
+
+  public boolean hasAnyTrackingReason(ClassMemberKey<?> classMemberKey) {
+    return classMemberRecord.hasTrackingReason(classMemberKey);
+  }
+
+  public boolean hasAnyUse(ClassMemberKey<?> classMemberKey, MemberUseKind useKind) {
+    return findAllMemberUseKinds(classMemberKey).contains(useKind);
+  }
+
+  public ImmutableList<MemberUseKind> findAllMemberUseKinds(ClassMemberKey<?> classMemberKey) {
+    return classMemberRecord.findAllMemberUseKind(classMemberKey);
   }
 
   /**
@@ -88,10 +110,10 @@ public class NestCompanions {
    * Optional#empty()} if the class is not part of a nest. A generated nest companion class and its
    * nest host are considered to be a nest host/member relationship.
    */
-  public Optional<String> nestHost(String classBinaryName) {
+  public Optional<ClassName> nestHost(ClassName className) {
     // Ensures prepareCompanionClasses has been executed.
     checkNotNull(companionWriters);
-    return nestHost(classBinaryName, classAttributeRecord, nestCompanionToHostMap);
+    return nestHost(className, classAttributeRecord, nestCompanionToHostMap);
   }
 
   /**
@@ -103,20 +125,20 @@ public class NestCompanions {
    * class under investigation itself for a class with NestMembers_attribute but without
    * NestHost_attribute.
    */
-  private static Optional<String> nestHost(
-      String classBinaryName,
+  private static Optional<ClassName> nestHost(
+      ClassName className,
       ClassAttributeRecord classAttributeRecord,
-      Map<String, String> companionToHostMap) {
-    if (companionToHostMap.containsKey(classBinaryName)) {
-      return Optional.of(companionToHostMap.get(classBinaryName));
+      Map<ClassName, ClassName> companionToHostMap) {
+    if (companionToHostMap.containsKey(className)) {
+      return Optional.of(companionToHostMap.get(className));
     }
-    Optional<String> nestHost = classAttributeRecord.getNestHost(classBinaryName);
+    Optional<ClassName> nestHost = classAttributeRecord.getNestHost(className);
     if (nestHost.isPresent()) {
       return nestHost;
     }
-    Set<String> nestMembers = classAttributeRecord.getNestMembers(classBinaryName);
+    Set<ClassName> nestMembers = classAttributeRecord.getNestMembers(className);
     if (!nestMembers.isEmpty()) {
-      return Optional.of(classBinaryName);
+      return Optional.of(className);
     }
     return Optional.empty();
   }
@@ -126,15 +148,15 @@ public class NestCompanions {
    *
    * <p>e.g. The nest host of a/b/C$D is a/b/C$NestCC
    */
-  public String nestCompanion(String classBinaryName) {
-    return nestHost(classBinaryName)
-        .map(nestHost -> nestHost + '$' + NEST_COMPANION_CLASS_SIMPLE_NAME)
+  public ClassName nestCompanion(ClassName className) {
+    return nestHost(className)
+        .map(nestHost -> nestHost.innerClass(NEST_COMPANION_CLASS_SIMPLE_NAME))
         .orElseThrow(
             () ->
                 new IllegalStateException(
                     String.format(
                         "Expected the presence of NestHost attribute of %s to get nest companion.",
-                        classBinaryName)));
+                        className)));
   }
 
   /**
@@ -142,12 +164,16 @@ public class NestCompanions {
    * com/google/a/b/Delta$Echo, it returns the class visitor of com/google/a/b/Delta$NestCC
    */
   @Nullable
-  public ClassWriter getCompanionClassWriter(String classInternalName) {
-    return nestHost(classInternalName).map(nestHost -> companionWriters.get(nestHost)).orElse(null);
+  public ClassWriter getCompanionClassWriter(ClassName className) {
+    return nestHost(className).map(nestHost -> companionWriters.get(nestHost)).orElse(null);
   }
 
   /** Gets all nest companion classes required to be generated. */
-  public ImmutableList<String> getAllCompanionClasses() {
+  public ImmutableList<String> getAllCompanionClassNames() {
+    return getAllCompanionClasses().stream().map(ClassName::binaryName).collect(toImmutableList());
+  }
+
+  public ImmutableList<ClassName> getAllCompanionClasses() {
     return companionWriters.keySet().stream().map(this::nestCompanion).collect(toImmutableList());
   }
 
@@ -155,20 +181,40 @@ public class NestCompanions {
   public ImmutableList<FileContentProvider<ByteArrayInputStream>> getCompanionFileProviders() {
     ImmutableList.Builder<FileContentProvider<ByteArrayInputStream>> fileContents =
         ImmutableList.builder();
-    for (String companion : getAllCompanionClasses()) {
+    for (ClassName companion : getAllCompanionClasses()) {
       fileContents.add(
           new FileContentProvider<>(
-              companion + ".class", () -> getByteArrayInputStreamOfCompanionClass(companion)));
+              companion.classFilePathName(),
+              () -> getByteArrayInputStreamOfCompanionClass(companion)));
     }
     return fileContents.build();
   }
 
-  private ByteArrayInputStream getByteArrayInputStreamOfCompanionClass(String companion) {
+  private ByteArrayInputStream getByteArrayInputStreamOfCompanionClass(ClassName companion) {
     ClassWriter companionClassWriter = getCompanionClassWriter(companion);
+    companionClassWriter.visitEnd();
     checkNotNull(
         companionClassWriter,
         "Expected companion class (%s) to be present in (%s)",
         companionWriters);
     return new ByteArrayInputStream(companionClassWriter.toByteArray());
+  }
+
+  @Override
+  public NestDigest acceptTypeMapper(TypeMapper typeMapper) {
+    return new NestDigest(
+        classMemberRecord.acceptTypeMapper(typeMapper),
+        classAttributeRecord.acceptTypeMapper(typeMapper),
+        nestCompanionToHostMap.keySet().stream()
+            .collect(
+                toMap(
+                    companion -> companion.acceptTypeMapper(typeMapper),
+                    companion ->
+                        nestCompanionToHostMap.get(companion).acceptTypeMapper(typeMapper))),
+        companionWriters.keySet().stream()
+            .collect(
+                toImmutableMap(
+                    nestHost -> nestHost.acceptTypeMapper(typeMapper),
+                    nestHost -> new ClassWriter(ClassWriter.COMPUTE_MAXS))));
   }
 }

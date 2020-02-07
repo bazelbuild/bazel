@@ -61,10 +61,10 @@ java_test(
 )
 
 java_test(
-    name = "NestCompanionsTest",
+    name = "NestDigestTest",
     size = "small",
-    srcs = ["NestCompanionsTest.java"],
-    test_class = "com.google.devtools.build.android.desugar.nest.NestCompanionsTest",
+    srcs = ["NestDigestTest.java"],
+    test_class = "com.google.devtools.build.android.desugar.nest.NestDigestTest",
     deps = [
         "//src/tools/android/java/com/google/devtools/build/android/desugar/langmodel",
         "//src/tools/android/java/com/google/devtools/build/android/desugar/nest",
@@ -218,6 +218,7 @@ filegroup(
         "//src/test/java/com/google/devtools/build/android/desugar/nest/testsrc/complexcase:srcs",
         "//src/test/java/com/google/devtools/build/android/desugar/nest/testsrc/nestanalyzer:srcs",
         "//src/test/java/com/google/devtools/build/android/desugar/nest/testsrc/simpleunit/constructor:srcs",
+        "//src/test/java/com/google/devtools/build/android/desugar/nest/testsrc/simpleunit/core/javadesugar/testing:srcs",
         "//src/test/java/com/google/devtools/build/android/desugar/nest/testsrc/simpleunit/classfileformat:srcs",
         "//src/test/java/com/google/devtools/build/android/desugar/nest/testsrc/simpleunit/field:srcs",
         "//src/test/java/com/google/devtools/build/android/desugar/nest/testsrc/simpleunit/interfacemethod:srcs",

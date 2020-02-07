@@ -21,6 +21,7 @@ import static org.objectweb.asm.Opcodes.ACC_PUBLIC;
 import static org.objectweb.asm.Opcodes.ACC_STATIC;
 import static org.objectweb.asm.Opcodes.ACC_SYNTHETIC;
 
+import com.google.devtools.build.android.desugar.langmodel.ClassName;
 import com.google.devtools.build.android.desugar.langmodel.MethodDeclInfo;
 import com.google.devtools.build.android.desugar.langmodel.MethodDeclVisitor;
 import com.google.devtools.build.android.desugar.langmodel.MethodKey;
@@ -36,10 +37,10 @@ import org.objectweb.asm.Type;
 final class MethodAccessorEmitter
     implements MethodDeclVisitor<MethodVisitor, MethodDeclInfo, ClassVisitor> {
 
-  private final NestCompanions nestCompanions;
+  private final NestDigest nestDigest;
 
-  MethodAccessorEmitter(NestCompanions nestCompanions) {
-    this.nestCompanions = nestCompanions;
+  MethodAccessorEmitter(NestDigest nestDigest) {
+    this.nestDigest = nestDigest;
   }
 
   /**
@@ -59,7 +60,7 @@ final class MethodAccessorEmitter
    */
   @Override
   public MethodVisitor visitClassConstructor(MethodDeclInfo methodDeclInfo, ClassVisitor cv) {
-    String nestCompanion = nestCompanions.nestCompanion(methodDeclInfo.methodKey.owner());
+    ClassName nestCompanion = nestDigest.nestCompanion(methodDeclInfo.methodKey.owner());
     MethodKey constructorBridge = methodDeclInfo.methodKey.bridgeOfConstructor(nestCompanion);
     MethodVisitor mv =
         cv.visitMethod(
@@ -79,7 +80,7 @@ final class MethodAccessorEmitter
     }
     mv.visitMethodInsn(
         Opcodes.INVOKESPECIAL,
-        methodDeclInfo.methodKey.owner(),
+        methodDeclInfo.methodKey.ownerName(),
         methodDeclInfo.methodKey.name(),
         methodDeclInfo.methodKey.descriptor(),
         /* isInterface= */ false);
@@ -126,7 +127,7 @@ final class MethodAccessorEmitter
 
     mv.visitMethodInsn(
         Opcodes.INVOKESTATIC,
-        methodDeclInfo.methodKey.owner(),
+        methodDeclInfo.methodKey.ownerName(),
         methodDeclInfo.methodKey.name(),
         methodDeclInfo.methodKey.descriptor(),
         /* isInterface= */ false);
@@ -169,7 +170,7 @@ final class MethodAccessorEmitter
 
     mv.visitMethodInsn(
         Opcodes.INVOKESPECIAL,
-        methodDeclInfo.methodKey.owner(),
+        methodDeclInfo.methodKey.ownerName(),
         methodDeclInfo.methodKey.name(),
         methodDeclInfo.methodKey.descriptor(),
         /* isInterface= */ false);

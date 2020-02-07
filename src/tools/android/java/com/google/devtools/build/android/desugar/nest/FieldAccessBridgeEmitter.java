@@ -47,7 +47,7 @@ final class FieldAccessBridgeEmitter
             /* signature= */ null,
             /* exceptions= */ null);
 
-    mv.visitFieldInsn(GETSTATIC, fieldKey.owner(), fieldKey.name(), fieldKey.descriptor());
+    mv.visitFieldInsn(GETSTATIC, fieldKey.ownerName(), fieldKey.name(), fieldKey.descriptor());
     Type fieldType = fieldKey.getFieldType();
     mv.visitInsn(fieldType.getOpcode(Opcodes.IRETURN));
     int fieldTypeSize = fieldType.getSize();
@@ -72,7 +72,8 @@ final class FieldAccessBridgeEmitter
     mv.visitVarInsn(fieldType.getOpcode(Opcodes.ILOAD), 0);
     mv.visitInsn(
         LangModelHelper.getTypeSizeAlignedDupOpcode(ImmutableList.of(fieldKey.getFieldType())));
-    mv.visitFieldInsn(Opcodes.PUTSTATIC, fieldKey.owner(), fieldKey.name(), fieldKey.descriptor());
+    mv.visitFieldInsn(
+        Opcodes.PUTSTATIC, fieldKey.ownerName(), fieldKey.name(), fieldKey.descriptor());
     mv.visitInsn(fieldType.getOpcode(Opcodes.IRETURN));
     int fieldTypeSize = fieldType.getSize();
     mv.visitMaxs(fieldTypeSize, fieldTypeSize);
@@ -93,7 +94,8 @@ final class FieldAccessBridgeEmitter
             /* exceptions= */ null);
     mv.visitCode();
     mv.visitVarInsn(Opcodes.ALOAD, 0);
-    mv.visitFieldInsn(Opcodes.GETFIELD, fieldKey.owner(), fieldKey.name(), fieldKey.descriptor());
+    mv.visitFieldInsn(
+        Opcodes.GETFIELD, fieldKey.ownerName(), fieldKey.name(), fieldKey.descriptor());
     Type fieldType = fieldKey.getFieldType();
     mv.visitInsn(fieldType.getOpcode(Opcodes.IRETURN));
     int fieldTypeSize = fieldType.getSize();
@@ -121,7 +123,8 @@ final class FieldAccessBridgeEmitter
         LangModelHelper.getTypeSizeAlignedDupOpcode(
             ImmutableList.of(fieldKey.getFieldType()),
             ImmutableList.of(Type.getType(Object.class))));
-    mv.visitFieldInsn(Opcodes.PUTFIELD, fieldKey.owner(), fieldKey.name(), fieldKey.descriptor());
+    mv.visitFieldInsn(
+        Opcodes.PUTFIELD, fieldKey.ownerName(), fieldKey.name(), fieldKey.descriptor());
     mv.visitInsn(fieldType.getOpcode(Opcodes.IRETURN));
     int fieldTypeSize = fieldType.getSize();
     mv.visitMaxs(fieldTypeSize, fieldTypeSize);

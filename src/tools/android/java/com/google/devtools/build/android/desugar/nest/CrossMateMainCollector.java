@@ -17,8 +17,8 @@ package com.google.devtools.build.android.desugar.nest;
 import com.google.devtools.build.android.desugar.langmodel.ClassAttributeRecord;
 import com.google.devtools.build.android.desugar.langmodel.ClassAttributes;
 import com.google.devtools.build.android.desugar.langmodel.ClassAttributes.ClassAttributesBuilder;
-import com.google.devtools.build.android.desugar.langmodel.ClassMemberKey;
 import com.google.devtools.build.android.desugar.langmodel.ClassMemberRecord;
+import com.google.devtools.build.android.desugar.langmodel.ClassName;
 import com.google.devtools.build.android.desugar.langmodel.FieldKey;
 import com.google.devtools.build.android.desugar.langmodel.LangModelHelper;
 import com.google.devtools.build.android.desugar.langmodel.MethodKey;
@@ -46,7 +46,7 @@ final class CrossMateMainCollector extends ClassVisitor {
 
   private final ClassAttributesBuilder classAttributesBuilder = ClassAttributes.builder();
 
-  private String className;
+  private ClassName className;
   private int classAccessCode;
   private boolean isInNest;
 
@@ -65,7 +65,7 @@ final class CrossMateMainCollector extends ClassVisitor {
       String signature,
       String superName,
       String[] interfaces) {
-    className = name;
+    className = ClassName.create(name);
     classAccessCode = access;
     classAttributesBuilder.setClassBinaryName(className);
     super.visit(
@@ -115,14 +115,14 @@ final class CrossMateMainCollector extends ClassVisitor {
   @Override
   public void visitNestHost(String nestHost) {
     isInNest = true;
-    classAttributesBuilder.setNestHost(nestHost);
+    classAttributesBuilder.setNestHost(ClassName.create(nestHost));
     super.visitNestHost(nestHost);
   }
 
   @Override
   public void visitNestMember(String nestMember) {
     isInNest = true;
-    classAttributesBuilder.addNestMember(nestMember);
+    classAttributesBuilder.addNestMember(ClassName.create(nestMember));
     super.visitNestMember(nestMember);
   }
 
@@ -161,7 +161,7 @@ final class CrossMateMainCollector extends ClassVisitor {
 
     @Override
     public void visitFieldInsn(int opcode, String owner, String name, String descriptor) {
-      ClassMemberKey memberKey = FieldKey.create(owner, name, descriptor);
+      FieldKey memberKey = FieldKey.create(ClassName.create(owner), name, descriptor);
       if (LangModelHelper.isCrossMateRefInNest(memberKey, enclosingMethodKey)) {
         memberRecord.logMemberUse(memberKey, opcode);
       }
@@ -171,7 +171,7 @@ final class CrossMateMainCollector extends ClassVisitor {
     @Override
     public void visitMethodInsn(
         int opcode, String owner, String name, String descriptor, boolean isInterface) {
-      ClassMemberKey memberKey = MethodKey.create(owner, name, descriptor);
+      MethodKey memberKey = MethodKey.create(ClassName.create(owner), name, descriptor);
       if (isInterface || LangModelHelper.isCrossMateRefInNest(memberKey, enclosingMethodKey)) {
         memberRecord.logMemberUse(memberKey, opcode);
       }

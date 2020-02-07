@@ -94,7 +94,10 @@ class CoreLibrarySupport {
     this.rewriter = rewriter;
     this.targetLoader = targetLoader;
     checkArgument(
-        renamedPrefixes.stream().allMatch(prefix -> prefix.startsWith("java/")), renamedPrefixes);
+        renamedPrefixes.stream()
+            .allMatch(prefix -> prefix.startsWith("java/") || prefix.startsWith("javadesugar/")),
+        "Unexpected renamedPrefixes: Actual (%s).",
+        renamedPrefixes);
     this.renamedPrefixes = ImmutableSet.copyOf(renamedPrefixes);
     this.excludeFromEmulation = ImmutableSet.copyOf(excludeFromEmulation);
 
@@ -122,7 +125,8 @@ class CoreLibrarySupport {
           "Original renamed, no need to move it: %s",
           move);
       checkArgument(
-          !pair.get(1).startsWith("java/") || isRenamedCoreLibrary(pair.get(1)),
+          !(pair.get(1).startsWith("java/") || pair.get(1).startsWith("javadesugar/"))
+              || isRenamedCoreLibrary(pair.get(1)),
           "Core library target not renamed: %s",
           move);
       checkArgument(
@@ -178,20 +182,26 @@ class CoreLibrarySupport {
 
   public boolean isRenamedCoreLibrary(String internalName) {
     String unprefixedName = rewriter.unprefix(internalName);
-    if (!unprefixedName.startsWith("java/") || renamedPrefixes.isEmpty()) {
+    if (!(unprefixedName.startsWith("java/") || unprefixedName.startsWith("javadesugar/"))
+        || renamedPrefixes.isEmpty()) {
       return false; // shortcut
     }
     // Rename any classes desugar might generate under java/ (for emulated interfaces) as well as
     // configured prefixes
     return looksGenerated(unprefixedName)
-        || renamedPrefixes.stream().anyMatch(prefix -> unprefixedName.startsWith(prefix));
+        || renamedPrefixes.stream().anyMatch(unprefixedName::startsWith);
   }
 
   public String renameCoreLibrary(String internalName) {
     internalName = rewriter.unprefix(internalName);
-    return (internalName.startsWith("java/"))
-        ? "j$/" + internalName.substring(/* cut away "java/" prefix */ 5)
-        : internalName;
+    if (internalName.startsWith("java/")) {
+      return "j$/" + internalName.substring(/* cut away "java/" prefix */ 5);
+    }
+    if (internalName.startsWith("javadesugar/")) {
+      return "jd$/" + internalName.substring(/* cut away "javadesugar/" prefix */ 12);
+    }
+
+    return internalName;
   }
 
   public Remapper getRemapper() {

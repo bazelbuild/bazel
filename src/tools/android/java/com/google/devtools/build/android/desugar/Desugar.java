@@ -24,6 +24,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import com.google.common.io.ByteStreams;
 import com.google.common.io.Closer;
 import com.google.common.io.Resources;
@@ -41,8 +42,8 @@ import com.google.devtools.build.android.desugar.langmodel.ClassAttributeRecord;
 import com.google.devtools.build.android.desugar.langmodel.ClassMemberRecord;
 import com.google.devtools.build.android.desugar.langmodel.ClassMemberUseCounter;
 import com.google.devtools.build.android.desugar.nest.NestAnalyzer;
-import com.google.devtools.build.android.desugar.nest.NestCompanions;
 import com.google.devtools.build.android.desugar.nest.NestDesugaring;
+import com.google.devtools.build.android.desugar.nest.NestDigest;
 import com.google.devtools.build.android.desugar.strconcat.IndyStringConcatDesugaring;
 import com.google.devtools.build.lib.worker.WorkerProtocol.WorkRequest;
 import com.google.devtools.build.lib.worker.WorkerProtocol.WorkResponse;
@@ -53,7 +54,6 @@ import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.ShellQuotedParamsFilePreProcessor;
-import java.io.ByteArrayInputStream;
 import java.io.IOError;
 import java.io.IOException;
 import java.io.InputStream;
@@ -70,6 +70,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.regex.Pattern;
 import javax.annotation.Nullable;
@@ -397,7 +398,8 @@ public class Desugar {
   private final CoreLibraryRewriter rewriter;
   private final LambdaClassMaker lambdas;
   private final GeneratedClassStore store = new GeneratedClassStore();
-  private final ClassMemberUseCounter classMemberUseCounter = new ClassMemberUseCounter();
+  private final ClassMemberUseCounter classMemberUseCounter =
+      new ClassMemberUseCounter(new ConcurrentHashMap<>());
   private final Set<String> visitedExceptionTypes = new LinkedHashSet<>();
   /** The counter to record the times of try-with-resources desugaring is invoked. */
   private final AtomicInteger numOfTryWithResourcesInvoked = new AtomicInteger();
@@ -494,7 +496,7 @@ public class Desugar {
 
       ImmutableSet.Builder<String> interfaceLambdaMethodCollector = ImmutableSet.builder();
       ClassVsInterface interfaceCache = new ClassVsInterface(classpathReader);
-      CoreLibrarySupport coreLibrarySupport =
+      final CoreLibrarySupport coreLibrarySupport =
           options.desugarCoreLibs
               ? new CoreLibrarySupport(
                   rewriter,
@@ -656,9 +658,14 @@ public class Desugar {
     ClassAttributeRecord classAttributeRecord = ClassAttributeRecord.create();
     ImmutableList<FileContentProvider<? extends InputStream>> inputFileContents =
         inputFiles.toInputFileStreams();
-    NestCompanions nestCompanions =
+    NestDigest nestDigest =
         NestAnalyzer.analyzeNests(inputFileContents, classMemberRecord, classAttributeRecord);
-    for (FileContentProvider<? extends InputStream> inputFileProvider : inputFileContents) {
+    // Apply core library type name remapping to the digest instance produced by the nest analyzer,
+    // since the analysis-oriented nest analyzer visits core library classes without name remapping
+    // as those transformation-oriented visitors.
+    nestDigest = nestDigest.acceptTypeMapper(rewriter.getPrefixer());
+    for (FileContentProvider<? extends InputStream> inputFileProvider :
+        Iterables.concat(inputFileContents, nestDigest.getCompanionFileProviders())) {
       String inputFilename = inputFileProvider.getBinaryPathName();
       if ("module-info.class".equals(inputFilename)
           || (inputFilename.endsWith("/module-info.class")
@@ -691,8 +698,7 @@ public class Desugar {
                   interfaceLambdaMethodCollector,
                   writer,
                   reader,
-                  classMemberRecord,
-                  nestCompanions);
+                  nestDigest);
           if (writer == visitor) {
             // Just copy the input if there are no rewritings
             outputFileProvider.write(inputFilename, reader.b);
@@ -726,15 +732,6 @@ public class Desugar {
           }
           outputFileProvider.copyFrom(inputFilename, inputFiles, outputFilename);
         }
-      }
-    }
-
-    for (FileContentProvider<ByteArrayInputStream> companionFileProvider :
-        nestCompanions.getCompanionFileProviders()) {
-      try (ByteArrayInputStream companionInputStream = companionFileProvider.get()) {
-        outputFileProvider.write(
-            companionFileProvider.getBinaryPathName(),
-            ByteStreams.toByteArray(companionInputStream));
       }
     }
   }
@@ -985,8 +982,7 @@ public class Desugar {
       ImmutableSet.Builder<String> interfaceLambdaMethodCollector,
       UnprefixingClassWriter writer,
       ClassReader input,
-      ClassMemberRecord classMemberRecord,
-      NestCompanions nestCompanions) {
+      NestDigest nestDigest) {
     ClassVisitor visitor = checkNotNull(writer);
 
     if (coreLibrarySupport != null) {
@@ -1065,7 +1061,7 @@ public class Desugar {
     }
 
     if (options.desugarNestBasedPrivateAccess) {
-      visitor = new NestDesugaring(visitor, nestCompanions, classMemberRecord);
+      visitor = new NestDesugaring(visitor, nestDigest);
     }
 
     if (options.desugarIndifyStringConcat) {

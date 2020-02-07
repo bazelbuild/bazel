@@ -17,7 +17,7 @@ package com.google.devtools.build.android.desugar.nest;
 import static com.google.devtools.build.android.desugar.langmodel.LangModelHelper.isCrossMateRefInNest;
 
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.android.desugar.langmodel.ClassMemberRecord;
+import com.google.devtools.build.android.desugar.langmodel.ClassName;
 import com.google.devtools.build.android.desugar.langmodel.FieldInstrVisitor;
 import com.google.devtools.build.android.desugar.langmodel.FieldKey;
 import com.google.devtools.build.android.desugar.langmodel.LangModelHelper;
@@ -32,29 +32,26 @@ import org.objectweb.asm.Opcodes;
 public final class NestBridgeRefConverter extends MethodVisitor {
 
   private final MethodKey enclosingMethodKey;
-  private final ClassMemberRecord bridgeOrigins;
+  private final NestDigest nestDigest;
   private final FieldAccessToBridgeRedirector directFieldAccessReplacer;
   private final MethodToBridgeRedirector methodToBridgeRedirector;
 
   NestBridgeRefConverter(
-      @Nullable MethodVisitor methodVisitor,
-      MethodKey methodKey,
-      ClassMemberRecord bridgeOrigins,
-      NestCompanions nestCompanions) {
+      @Nullable MethodVisitor methodVisitor, MethodKey methodKey, NestDigest nestDigest) {
     super(Opcodes.ASM7, methodVisitor);
     this.enclosingMethodKey = methodKey;
-    this.bridgeOrigins = bridgeOrigins;
+    this.nestDigest = nestDigest;
 
     directFieldAccessReplacer = new FieldAccessToBridgeRedirector();
-    methodToBridgeRedirector = new MethodToBridgeRedirector(nestCompanions);
+    methodToBridgeRedirector = new MethodToBridgeRedirector(nestDigest);
   }
 
   @Override
   public void visitFieldInsn(int opcode, String owner, String name, String descriptor) {
-    FieldKey fieldKey = FieldKey.create(owner, name, descriptor);
+    FieldKey fieldKey = FieldKey.create(ClassName.create(owner), name, descriptor);
     MemberUseKind useKind = MemberUseKind.fromValue(opcode);
     if (isCrossMateRefInNest(fieldKey, enclosingMethodKey)
-        && bridgeOrigins.findAllMemberUseKind(fieldKey).contains(useKind)) {
+        && nestDigest.hasAnyUse(fieldKey, useKind)) {
       fieldKey.accept(useKind, directFieldAccessReplacer, mv);
       return;
     }
@@ -64,10 +61,10 @@ public final class NestBridgeRefConverter extends MethodVisitor {
   @Override
   public void visitMethodInsn(
       int opcode, String owner, String name, String descriptor, boolean isInterface) {
-    MethodKey methodKey = MethodKey.create(owner, name, descriptor);
+    MethodKey methodKey = MethodKey.create(ClassName.create(owner), name, descriptor);
     MemberUseKind useKind = MemberUseKind.fromValue(opcode);
     if ((isInterface || isCrossMateRefInNest(methodKey, enclosingMethodKey))
-        && bridgeOrigins.findAllMemberUseKind(methodKey).contains(useKind)) {
+        && nestDigest.hasAnyUse(methodKey, useKind)) {
       methodKey.accept(useKind, isInterface, methodToBridgeRedirector, mv);
       return;
     }
@@ -78,10 +75,10 @@ public final class NestBridgeRefConverter extends MethodVisitor {
   static class MethodToBridgeRedirector
       implements MethodInstrVisitor<MethodKey, MethodKey, MethodVisitor> {
 
-    private final NestCompanions nestCompanions;
+    private final NestDigest nestDigest;
 
-    MethodToBridgeRedirector(NestCompanions nestCompanions) {
-      this.nestCompanions = nestCompanions;
+    MethodToBridgeRedirector(NestDigest nestDigest) {
+      this.nestDigest = nestDigest;
     }
 
     @Override
@@ -89,7 +86,7 @@ public final class NestBridgeRefConverter extends MethodVisitor {
       MethodKey bridgeMethodKey = methodKey.bridgeOfClassInstanceMethod();
       mv.visitMethodInsn(
           Opcodes.INVOKESTATIC,
-          bridgeMethodKey.owner(),
+          bridgeMethodKey.ownerName(),
           bridgeMethodKey.name(),
           bridgeMethodKey.descriptor(),
           /* isInterface= */ false);
@@ -101,7 +98,7 @@ public final class NestBridgeRefConverter extends MethodVisitor {
       MethodKey bridgeMethodKey = methodKey.bridgeOfClassInstanceMethod();
       mv.visitMethodInsn(
           Opcodes.INVOKESTATIC,
-          bridgeMethodKey.owner(),
+          bridgeMethodKey.ownerName(),
           bridgeMethodKey.name(),
           bridgeMethodKey.descriptor(),
           /* isInterface= */ false);
@@ -110,12 +107,12 @@ public final class NestBridgeRefConverter extends MethodVisitor {
 
     @Override
     public MethodKey visitConstructorInvokeSpecial(MethodKey methodKey, MethodVisitor mv) {
-      String nestCompanion = nestCompanions.nestCompanion(methodKey.owner());
+      ClassName nestCompanion = nestDigest.nestCompanion(ClassName.create(methodKey.ownerName()));
       MethodKey constructorBridge = methodKey.bridgeOfConstructor(nestCompanion);
       mv.visitInsn(Opcodes.ACONST_NULL);
       mv.visitMethodInsn(
           Opcodes.INVOKESPECIAL,
-          constructorBridge.owner(),
+          constructorBridge.ownerName(),
           constructorBridge.name(),
           constructorBridge.descriptor(),
           /* isInterface= */ false);
@@ -127,7 +124,7 @@ public final class NestBridgeRefConverter extends MethodVisitor {
       MethodKey methodBridge = methodKey.substituteOfInterfaceInstanceMethod();
       mv.visitMethodInsn(
           Opcodes.INVOKESTATIC,
-          methodBridge.owner(),
+          methodBridge.ownerName(),
           methodBridge.name(),
           methodBridge.descriptor(),
           /* isInterface= */ true);
@@ -140,7 +137,7 @@ public final class NestBridgeRefConverter extends MethodVisitor {
       bridgeMethodKey = methodKey.bridgeOfClassStaticMethod();
       mv.visitMethodInsn(
           Opcodes.INVOKESTATIC,
-          bridgeMethodKey.owner(),
+          bridgeMethodKey.ownerName(),
           bridgeMethodKey.name(),
           bridgeMethodKey.descriptor(),
           /* isInterface= */ false);
@@ -153,7 +150,7 @@ public final class NestBridgeRefConverter extends MethodVisitor {
       methodBridge = methodKey.substituteOfInterfaceStaticMethod();
       mv.visitMethodInsn(
           Opcodes.INVOKESTATIC,
-          methodBridge.owner(),
+          methodBridge.ownerName(),
           methodBridge.name(),
           methodBridge.descriptor(),
           /* isInterface= */ true);
@@ -166,7 +163,7 @@ public final class NestBridgeRefConverter extends MethodVisitor {
       methodBridge = methodKey.substituteOfInterfaceInstanceMethod();
       mv.visitMethodInsn(
           Opcodes.INVOKESTATIC,
-          methodBridge.owner(),
+          methodBridge.ownerName(),
           methodBridge.name(),
           methodBridge.descriptor(),
           /* isInterface= */ true);
@@ -188,7 +185,7 @@ public final class NestBridgeRefConverter extends MethodVisitor {
       MethodKey bridgeMethodKey = fieldKey.bridgeOfStaticRead();
       mv.visitMethodInsn(
           Opcodes.INVOKESTATIC,
-          bridgeMethodKey.owner(),
+          bridgeMethodKey.ownerName(),
           bridgeMethodKey.name(),
           bridgeMethodKey.descriptor(),
           false);
@@ -200,7 +197,7 @@ public final class NestBridgeRefConverter extends MethodVisitor {
       MethodKey bridgeMethodKey = fieldKey.bridgeOfStaticWrite();
       mv.visitMethodInsn(
           Opcodes.INVOKESTATIC,
-          bridgeMethodKey.owner(),
+          bridgeMethodKey.ownerName(),
           bridgeMethodKey.name(),
           bridgeMethodKey.descriptor(),
           false);
@@ -217,7 +214,7 @@ public final class NestBridgeRefConverter extends MethodVisitor {
       MethodKey bridgeMethodKey = fieldKey.bridgeOfInstanceRead();
       mv.visitMethodInsn(
           Opcodes.INVOKESTATIC,
-          bridgeMethodKey.owner(),
+          bridgeMethodKey.ownerName(),
           bridgeMethodKey.name(),
           bridgeMethodKey.descriptor(),
           false);
@@ -229,7 +226,7 @@ public final class NestBridgeRefConverter extends MethodVisitor {
       MethodKey bridgeMethodKey = fieldKey.bridgeOfInstanceWrite();
       mv.visitMethodInsn(
           Opcodes.INVOKESTATIC,
-          bridgeMethodKey.owner(),
+          bridgeMethodKey.ownerName(),
           bridgeMethodKey.name(),
           bridgeMethodKey.descriptor(),
           /* isInterface= */ false);

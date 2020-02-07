@@ -53,16 +53,14 @@ public final class NestAnalyzerTest {
 
   private final ClassMemberRecord classMemberRecord = ClassMemberRecord.create();
   private final ClassAttributeRecord classAttributeRecord = ClassAttributeRecord.create();
-  private final NestCompanions nestCompanions =
-      NestCompanions.create(classMemberRecord, classAttributeRecord);
+  private final NestDigest nestDigest = NestDigest.create(classMemberRecord, classAttributeRecord);
 
   @Test
   public void emptyInputFiles() throws IOException {
     NestAnalyzer nestAnalyzer =
-        new NestAnalyzer(
-            ImmutableList.of(), nestCompanions, classMemberRecord, classAttributeRecord);
+        new NestAnalyzer(ImmutableList.of(), nestDigest, classMemberRecord, classAttributeRecord);
     nestAnalyzer.analyze();
-    assertThat(nestCompanions.getAllCompanionClasses()).isEmpty();
+    assertThat(nestDigest.getAllCompanionClassNames()).isEmpty();
   }
 
   @Test
@@ -82,13 +80,13 @@ public final class NestAnalyzerTest {
                         new FileContentProvider<>(
                             entry.getName(), () -> getJarEntryInputStream(jarFile, entry)))
                 .collect(toImmutableList()),
-            nestCompanions,
+            nestDigest,
             classMemberRecord,
             classAttributeRecord);
 
     nestAnalyzer.analyze();
 
-    assertThat(nestCompanions.getAllCompanionClasses())
+    assertThat(nestDigest.getAllCompanionClassNames())
         .containsExactly(
             "com/google/devtools/build/android/desugar/nest/testsrc/nestanalyzer/AnalyzedTarget$NestCC");
   }

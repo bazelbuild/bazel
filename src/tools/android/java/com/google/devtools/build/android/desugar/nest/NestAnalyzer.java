@@ -27,12 +27,12 @@ import org.objectweb.asm.ClassReader;
 
 /**
  * An analyzer that performs nest-based analysis and save the states to {@link ClassMemberRecord}
- * and generated {@link NestCompanions}.
+ * and generated {@link NestDigest}.
  */
 public class NestAnalyzer {
 
   private final ImmutableList<FileContentProvider<? extends InputStream>> inputFileContents;
-  private final NestCompanions nestCompanions;
+  private final NestDigest nestDigest;
   private final ClassMemberRecord classMemberRecord;
   private final ClassAttributeRecord classAttributeRecord;
 
@@ -42,27 +42,26 @@ public class NestAnalyzer {
    *
    * @return A manager class for nest companions.
    */
-  public static NestCompanions analyzeNests(
+  public static NestDigest analyzeNests(
       ImmutableList<FileContentProvider<? extends InputStream>> inputFileContents,
       ClassMemberRecord classMemberRecord,
       ClassAttributeRecord classAttributeRecord)
       throws IOException {
-    NestCompanions nestCompanions = NestCompanions.create(classMemberRecord, classAttributeRecord);
+    NestDigest nestDigest = NestDigest.create(classMemberRecord, classAttributeRecord);
     NestAnalyzer nestAnalyzer =
-        new NestAnalyzer(
-            inputFileContents, nestCompanions, classMemberRecord, classAttributeRecord);
+        new NestAnalyzer(inputFileContents, nestDigest, classMemberRecord, classAttributeRecord);
     nestAnalyzer.analyze();
-    return nestCompanions;
+    return nestDigest;
   }
 
   @VisibleForTesting
   NestAnalyzer(
       ImmutableList<FileContentProvider<? extends InputStream>> inputFileContents,
-      NestCompanions nestCompanions,
+      NestDigest nestDigest,
       ClassMemberRecord classMemberRecord,
       ClassAttributeRecord classAttributeRecord) {
     this.inputFileContents = checkNotNull(inputFileContents);
-    this.nestCompanions = checkNotNull(nestCompanions);
+    this.nestDigest = checkNotNull(nestDigest);
     this.classMemberRecord = checkNotNull(classMemberRecord);
     this.classAttributeRecord = classAttributeRecord;
   }
@@ -81,6 +80,6 @@ public class NestAnalyzer {
       }
     }
     classMemberRecord.filterUsedMemberWithTrackedDeclaration();
-    nestCompanions.prepareCompanionClasses();
+    nestDigest.prepareCompanionClasses();
   }
 }

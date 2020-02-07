@@ -17,19 +17,24 @@
 package com.google.devtools.build.android.desugar.langmodel;
 
 /** The key that indexes a class member, including fields, constructors and methods. */
-public abstract class ClassMemberKey {
+public abstract class ClassMemberKey<T extends ClassMemberKey<T>> implements TypeMappable<T> {
 
   /**
    * The class or interface that owns the class member, i.e. the immediate enclosing class of the
    * declaration site of a field, constructor or method.
    */
-  public abstract String owner();
+  public abstract ClassName owner();
 
   /** The simple name of the class member. */
   public abstract String name();
 
   /** The descriptor of the class member. */
   public abstract String descriptor();
+
+  /** The binary name of {@link #owner()} */
+  public final String ownerName() {
+    return owner().binaryName();
+  }
 
   /** Whether member key represents a constructor. */
   public final boolean isConstructor() {
@@ -40,4 +45,8 @@ public abstract class ClassMemberKey {
   final String nameWithSuffix(String suffix) {
     return name() + '$' + suffix;
   }
+
+  /** Produces a new class member key by mapping this key instance. */
+  @Override
+  public abstract T acceptTypeMapper(TypeMapper typeMapper);
 }

@@ -24,17 +24,10 @@ import org.objectweb.asm.Type;
 
 /** The key to index a class or interface method or constructor. */
 @AutoValue
-public abstract class MethodKey extends ClassMemberKey {
+public abstract class MethodKey extends ClassMemberKey<MethodKey> {
 
   /** The factory method for {@link MethodKey}. */
-  public static MethodKey create(String ownerClass, String name, String descriptor) {
-    checkState(
-        !ownerClass.contains("."),
-        "Expected a binary/internal class name ('/'-delimited) instead of a qualified name."
-            + " Actual: (%s#%s:%s)",
-        ownerClass,
-        name,
-        descriptor);
+  public static MethodKey create(ClassName ownerClass, String name, String descriptor) {
     checkState(
         descriptor.isEmpty() // Allows empty descriptor for non-overloaded methods.
             || descriptor.startsWith("("),
@@ -56,37 +49,36 @@ public abstract class MethodKey extends ClassMemberKey {
   }
 
   /** The synthetic constructor for a private constructor. */
-  public final MethodKey bridgeOfConstructor(String nestCompanion) {
+  public final MethodKey bridgeOfConstructor(ClassName nestCompanion) {
     checkState(isConstructor(), "Expect to use for a constructor but is %s", this);
-    Type companionClassType = Type.getObjectType(nestCompanion);
+    Type companionClassType = nestCompanion.toAsmObjectType();
     Type[] argumentTypes = getArgumentTypes();
     Type[] bridgeConstructorArgTypes = Arrays.copyOf(argumentTypes, argumentTypes.length + 1);
     bridgeConstructorArgTypes[argumentTypes.length] = companionClassType;
-    return MethodKey.create(
+    return create(
         owner(), name(), Type.getMethodDescriptor(getReturnType(), bridgeConstructorArgTypes));
   }
 
   /** The synthetic bridge method for a private static method in a class. */
   public final MethodKey bridgeOfClassStaticMethod() {
     checkState(!isConstructor(), "Expect a non-constructor method but is a constructor %s", this);
-    return MethodKey.create(owner(), nameWithSuffix("bridge"), descriptor());
+    return create(owner(), nameWithSuffix("bridge"), descriptor());
   }
 
   /** The synthetic bridge method for a private instance method in a class. */
   public final MethodKey bridgeOfClassInstanceMethod() {
-    return MethodKey.create(
-        owner(), nameWithSuffix("bridge"), instanceMethodToStaticDescriptor(this));
+    return create(owner(), nameWithSuffix("bridge"), instanceMethodToStaticDescriptor(this));
   }
 
   /** The substitute method for a private static method in an interface. */
   public final MethodKey substituteOfInterfaceStaticMethod() {
     checkState(!isConstructor(), "Expect a non-constructor: %s", this);
-    return MethodKey.create(owner(), name(), descriptor());
+    return create(owner(), name(), descriptor());
   }
 
   /** The substitute method for a private instance method in an interface. */
   public final MethodKey substituteOfInterfaceInstanceMethod() {
-    return MethodKey.create(owner(), name(), instanceMethodToStaticDescriptor(this));
+    return create(owner(), name(), instanceMethodToStaticDescriptor(this));
   }
 
   /** The descriptor of the static version of a given instance method. */
@@ -94,9 +86,14 @@ public abstract class MethodKey extends ClassMemberKey {
     checkState(!methodKey.isConstructor(), "Expect a Non-constructor method: %s", methodKey);
     Type[] argumentTypes = methodKey.getArgumentTypes();
     Type[] bridgeMethodArgTypes = new Type[argumentTypes.length + 1];
-    bridgeMethodArgTypes[0] = Type.getObjectType(methodKey.owner());
+    bridgeMethodArgTypes[0] = Type.getObjectType(methodKey.ownerName());
     System.arraycopy(argumentTypes, 0, bridgeMethodArgTypes, 1, argumentTypes.length);
     return Type.getMethodDescriptor(methodKey.getReturnType(), bridgeMethodArgTypes);
+  }
+
+  @Override
+  public MethodKey acceptTypeMapper(TypeMapper typeMapper) {
+    return MethodKey.create(typeMapper.map(owner()), name(), typeMapper.mapDesc(descriptor()));
   }
 
   /**

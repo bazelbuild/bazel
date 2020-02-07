@@ -23,6 +23,7 @@ import static com.google.devtools.build.android.desugar.langmodel.LangModelHelpe
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.android.desugar.langmodel.ClassMemberUse;
 import com.google.devtools.build.android.desugar.langmodel.ClassMemberUseCounter;
+import com.google.devtools.build.android.desugar.langmodel.ClassName;
 import com.google.devtools.build.android.desugar.langmodel.LangModelHelper;
 import com.google.devtools.build.android.desugar.langmodel.MemberUseKind;
 import com.google.devtools.build.android.desugar.langmodel.MethodKey;
@@ -38,7 +39,7 @@ public final class IndyStringConcatDesugaring extends ClassVisitor {
   public static final ClassMemberUse INVOKE_JDK11_STRING_CONCAT =
       ClassMemberUse.create(
           MethodKey.create(
-              "java/lang/invoke/StringConcatFactory",
+              ClassName.create("java/lang/invoke/StringConcatFactory"),
               "makeConcatWithConstants",
               "(Ljava/lang/invoke/MethodHandles$Lookup;"
                   + "Ljava/lang/String;"
@@ -51,7 +52,7 @@ public final class IndyStringConcatDesugaring extends ClassVisitor {
   private static final ClassMemberUse INVOKE_STRING_CONCAT_REPLACEMENT_METHOD =
       ClassMemberUse.create(
           MethodKey.create(
-              "com/google/devtools/build/android/desugar/runtime/StringConcats",
+              ClassName.create("com/google/devtools/build/android/desugar/runtime/StringConcats"),
               "concat",
               "([Ljava/lang/Object;"
                   + "Ljava/lang/String;"
@@ -95,7 +96,7 @@ public final class IndyStringConcatDesugaring extends ClassVisitor {
       ClassMemberUse bootstrapMethodInvocation =
           ClassMemberUse.create(
               MethodKey.create(
-                  bootstrapMethodHandle.getOwner(),
+                  ClassName.create(bootstrapMethodHandle.getOwner()),
                   bootstrapMethodHandle.getName(),
                   bootstrapMethodHandle.getDesc()),
               MemberUseKind.INVOKEDYNAMIC);

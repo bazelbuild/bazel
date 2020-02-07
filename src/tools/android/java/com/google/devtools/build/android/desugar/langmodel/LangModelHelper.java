@@ -142,9 +142,9 @@ public final class LangModelHelper {
    * enclosing method.
    */
   public static boolean isCrossMateRefInNest(
-      ClassMemberKey referencedMember, MethodKey enclosingMethod) {
-    String enclosingClassName = enclosingMethod.owner();
-    String referencedMemberName = referencedMember.owner();
+      ClassMemberKey<?> referencedMember, MethodKey enclosingMethod) {
+    String enclosingClassName = enclosingMethod.ownerName();
+    String referencedMemberName = referencedMember.ownerName();
     return (isEligibleAsInnerClass(enclosingClassName)
             || isEligibleAsInnerClass(referencedMemberName))
         && !referencedMemberName.equals(enclosingClassName);

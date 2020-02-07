@@ -19,7 +19,7 @@ import static org.objectweb.asm.Opcodes.ACC_ABSTRACT;
 import static org.objectweb.asm.Opcodes.ACC_INTERFACE;
 import static org.objectweb.asm.Opcodes.ACC_SYNTHETIC;
 
-import com.google.devtools.build.android.desugar.langmodel.ClassMemberRecord;
+import com.google.devtools.build.android.desugar.langmodel.ClassName;
 import com.google.devtools.build.android.desugar.langmodel.FieldKey;
 import com.google.devtools.build.android.desugar.langmodel.MethodDeclInfo;
 import com.google.devtools.build.android.desugar.langmodel.MethodKey;
@@ -42,31 +42,21 @@ public final class NestDesugaring extends ClassVisitor {
   private static final int NEST_COMPANION_CLASS_ACCESS_CODE =
       Opcodes.ACC_SYNTHETIC | Opcodes.ACC_ABSTRACT | Opcodes.ACC_STATIC;
 
-  private final NestCompanions nestCompanions;
-
-  /**
-   * All originating members of bridges, i.e. all fields, constructors, methods with an associated
-   * bridge method or companion method.
-   */
-  private final ClassMemberRecord classMemberRecord;
+  private final NestDigest nestDigest;
 
   private FieldAccessBridgeEmitter fieldAccessBridgeEmitter;
   private MethodAccessorEmitter methodAccessorEmitter;
 
-  private String className;
+  private ClassName className;
   private int classAccess;
   @Nullable private ClassVisitor nestCompanionVisitor;
 
   /** Whether the class being visited is a nest host with with a nest companion class. */
   private boolean isNestHostWithNestCompanion;
 
-  public NestDesugaring(
-      ClassVisitor classVisitor,
-      NestCompanions nestCompanions,
-      ClassMemberRecord classMemberRecord) {
+  public NestDesugaring(ClassVisitor classVisitor, NestDigest nestDigest) {
     super(Opcodes.ASM7, classVisitor);
-    this.nestCompanions = nestCompanions;
-    this.classMemberRecord = classMemberRecord;
+    this.nestDigest = nestDigest;
   }
 
   @Override
@@ -77,14 +67,13 @@ public final class NestDesugaring extends ClassVisitor {
       String signature,
       String superName,
       String[] interfaces) {
-    className = name;
+    className = ClassName.create(name);
     classAccess = access;
-    nestCompanionVisitor = nestCompanions.getCompanionClassWriter(name);
+    nestCompanionVisitor = nestDigest.getCompanionClassWriter(className);
     isNestHostWithNestCompanion =
-        (nestCompanionVisitor != null)
-            && className.equals(nestCompanions.nestHost(className).get());
+        (nestCompanionVisitor != null) && className.equals(nestDigest.nestHost(className).get());
     fieldAccessBridgeEmitter = new FieldAccessBridgeEmitter();
-    methodAccessorEmitter = new MethodAccessorEmitter(nestCompanions);
+    methodAccessorEmitter = new MethodAccessorEmitter(nestDigest);
     super.visit(
         Math.min(version, NestDesugarConstants.MIN_VERSION),
         access,
@@ -96,7 +85,7 @@ public final class NestDesugaring extends ClassVisitor {
       nestCompanionVisitor.visit(
           Math.min(version, NestDesugarConstants.MIN_VERSION),
           ACC_SYNTHETIC | ACC_ABSTRACT,
-          nestCompanions.nestCompanion(className),
+          nestDigest.nestCompanion(className).binaryName(),
           /* signature= */ null,
           /* superName= */ "java/lang/Object",
           /* interfaces= */ new String[0]);
@@ -109,8 +98,8 @@ public final class NestDesugaring extends ClassVisitor {
     FieldKey fieldKey = FieldKey.create(className, name, descriptor);
     // Generates necessary bridge methods for this field, including field getter methods and field
     // setter methods. See FieldAccessBridgeEmitter.
-    classMemberRecord
-        .findAllMemberUseKind(fieldKey)
+    nestDigest
+        .findAllMemberUseKinds(fieldKey)
         .forEach(useKind -> fieldKey.accept(useKind, fieldAccessBridgeEmitter, cv));
     return super.visitField(access, name, descriptor, signature, value);
   }
@@ -119,7 +108,7 @@ public final class NestDesugaring extends ClassVisitor {
   public MethodVisitor visitMethod(
       int access, String name, String descriptor, String signature, String[] exceptions) {
     MethodKey methodKey = MethodKey.create(className, name, descriptor);
-    if (classMemberRecord.hasTrackingReason(methodKey)) {
+    if (nestDigest.hasAnyTrackingReason(methodKey)) {
       MethodDeclInfo methodDeclInfo =
           new MethodDeclInfo(methodKey, classAccess, access, signature, exceptions);
       // For interfaces, the following .accept converts the original method into a
@@ -137,14 +126,11 @@ public final class NestDesugaring extends ClassVisitor {
           (classAccess & ACC_INTERFACE) != 0
               ? targetMethodVisitor
               : super.visitMethod(access, name, descriptor, signature, exceptions);
-      return new NestBridgeRefConverter(
-          primaryMethodVisitor, methodKey, classMemberRecord, nestCompanions);
+      return new NestBridgeRefConverter(primaryMethodVisitor, methodKey, nestDigest);
     }
     // In absence of method invocation record, fallback to the delegate method visitor.
     MethodVisitor mv = super.visitMethod(access, name, descriptor, signature, exceptions);
-    return mv == null
-        ? null
-        : new NestBridgeRefConverter(mv, methodKey, classMemberRecord, nestCompanions);
+    return mv == null ? null : new NestBridgeRefConverter(mv, methodKey, nestDigest);
   }
 
   @Override
@@ -168,17 +154,17 @@ public final class NestDesugaring extends ClassVisitor {
   @Override
   public void visitEnd() {
     if (isNestHostWithNestCompanion) {
-      String nestCompanionClassName = nestCompanions.nestCompanion(className);
+      ClassName nestCompanion = nestDigest.nestCompanion(className);
       // In the nest companion class, marks its outer class as the nest host.
       nestCompanionVisitor.visitInnerClass(
-          nestCompanionClassName,
-          className,
+          nestCompanion.binaryName(),
+          className.binaryName(),
           NEST_COMPANION_CLASS_SIMPLE_NAME,
           NEST_COMPANION_CLASS_ACCESS_CODE);
       // In the nest host class, marks the nest companion as one of its inner classes.
       cv.visitInnerClass(
-          nestCompanionClassName,
-          className,
+          nestCompanion.binaryName(),
+          className.binaryName(),
           NEST_COMPANION_CLASS_SIMPLE_NAME,
           NEST_COMPANION_CLASS_ACCESS_CODE);
     }

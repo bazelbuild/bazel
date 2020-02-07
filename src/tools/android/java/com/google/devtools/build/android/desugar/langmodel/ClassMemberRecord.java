@@ -17,6 +17,7 @@
 package com.google.devtools.build.android.desugar.langmodel;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static java.util.stream.Collectors.toMap;
 
 import com.google.common.collect.ImmutableList;
 import java.util.LinkedHashMap;
@@ -27,10 +28,10 @@ import java.util.function.Predicate;
  * A record that tracks the declarations and usages of a class member, including fields,
  * constructors and methods.
  */
-public final class ClassMemberRecord {
+public final class ClassMemberRecord implements TypeMappable<ClassMemberRecord> {
 
   /** Tracks a class member with a reason. */
-  private final Map<ClassMemberKey, ClassMemberTrackReason> reasons;
+  private final Map<ClassMemberKey<?>, ClassMemberTrackReason> reasons;
 
   /** The factory method of this class. */
   public static ClassMemberRecord create() {
@@ -49,7 +50,7 @@ public final class ClassMemberRecord {
             });
   }
 
-  private ClassMemberRecord(Map<ClassMemberKey, ClassMemberTrackReason> reasons) {
+  private ClassMemberRecord(Map<ClassMemberKey<?>, ClassMemberTrackReason> reasons) {
     this.reasons = reasons;
   }
 
@@ -68,16 +69,16 @@ public final class ClassMemberRecord {
     return !reasons.isEmpty();
   }
 
-  public boolean hasTrackingReason(ClassMemberKey classMemberKey) {
+  public boolean hasTrackingReason(ClassMemberKey<?> classMemberKey) {
     return reasons.containsKey(classMemberKey);
   }
 
-  boolean hasDeclReason(ClassMemberKey classMemberKey) {
+  boolean hasDeclReason(ClassMemberKey<?> classMemberKey) {
     return hasTrackingReason(classMemberKey) && reasons.get(classMemberKey).hasDeclReason();
   }
 
   /** Find the original access code for the owner of the class member. */
-  int findOwnerAccessCode(ClassMemberKey memberKey) {
+  int findOwnerAccessCode(ClassMemberKey<?> memberKey) {
     if (reasons.containsKey(memberKey)) {
       return reasons.get(memberKey).getOwnerAccess();
     }
@@ -85,7 +86,7 @@ public final class ClassMemberRecord {
   }
 
   /** Find the original access code for the class member declaration. */
-  int findMemberAccessCode(ClassMemberKey memberKey) {
+  int findMemberAccessCode(ClassMemberKey<?> memberKey) {
     if (reasons.containsKey(memberKey)) {
       return reasons.get(memberKey).getMemberAccess();
     }
@@ -93,7 +94,7 @@ public final class ClassMemberRecord {
   }
 
   /** Find all invocation codes of a class member. */
-  public ImmutableList<MemberUseKind> findAllMemberUseKind(ClassMemberKey memberKey) {
+  public ImmutableList<MemberUseKind> findAllMemberUseKind(ClassMemberKey<?> memberKey) {
     if (reasons.containsKey(memberKey)) {
       return ImmutableList.copyOf(reasons.get(memberKey).getUseAccesses());
     }
@@ -102,14 +103,14 @@ public final class ClassMemberRecord {
 
   /** Logs the declaration of a class member. */
   public ClassMemberTrackReason logMemberDecl(
-      ClassMemberKey memberKey, int ownerAccess, int memberDeclAccess) {
+      ClassMemberKey<?> memberKey, int ownerAccess, int memberDeclAccess) {
     return reasons
         .computeIfAbsent(memberKey, classMemberKey -> new ClassMemberTrackReason())
         .setDeclAccess(ownerAccess, memberDeclAccess);
   }
 
   /** Logs the use of a class member, including field access and method invocations. */
-  public ClassMemberTrackReason logMemberUse(ClassMemberKey memberKey, int invokeOpcode) {
+  public ClassMemberTrackReason logMemberUse(ClassMemberKey<?> memberKey, int invokeOpcode) {
     return reasons
         .computeIfAbsent(memberKey, classMemberKey -> new ClassMemberTrackReason())
         .addUseAccess(invokeOpcode);
@@ -121,5 +122,12 @@ public final class ClassMemberRecord {
         (classMemberKey, classMemberTrackReason) ->
             reasons.merge(
                 classMemberKey, classMemberTrackReason, ClassMemberTrackReason::mergeFrom));
+  }
+
+  @Override
+  public ClassMemberRecord acceptTypeMapper(TypeMapper typeMapper) {
+    return new ClassMemberRecord(
+        reasons.keySet().stream()
+            .collect(toMap(key -> key.acceptTypeMapper(typeMapper), reasons::get)));
   }
 }

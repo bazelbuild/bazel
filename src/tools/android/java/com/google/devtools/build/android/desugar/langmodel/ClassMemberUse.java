@@ -24,24 +24,29 @@ import org.objectweb.asm.MethodVisitor;
  * access.
  */
 @AutoValue
-public abstract class ClassMemberUse {
+public abstract class ClassMemberUse implements TypeMappable<ClassMemberUse> {
 
-  public abstract ClassMemberKey method();
+  public abstract ClassMemberKey<?> method();
 
   public abstract MemberUseKind useKind();
 
-  public static ClassMemberUse create(ClassMemberKey memberKey, MemberUseKind memberUseKind) {
+  public static ClassMemberUse create(ClassMemberKey<?> memberKey, MemberUseKind memberUseKind) {
     return new AutoValue_ClassMemberUse(memberKey, memberUseKind);
   }
 
   // Performs the current member use on the given class visitor.
   public final void acceptClassMethodInsn(MethodVisitor mv) {
-    ClassMemberKey method = method();
+    ClassMemberKey<?> method = method();
     mv.visitMethodInsn(
         useKind().getOpcode(),
-        method.owner(),
+        method.ownerName(),
         method.name(),
         method.descriptor(),
         /* isInterface= */ false);
+  }
+
+  @Override
+  public ClassMemberUse acceptTypeMapper(TypeMapper typeMapper) {
+    return create(method().acceptTypeMapper(typeMapper), useKind());
   }
 }

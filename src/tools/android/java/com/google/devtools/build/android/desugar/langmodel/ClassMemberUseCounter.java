@@ -16,15 +16,19 @@
 
 package com.google.devtools.build.android.desugar.langmodel;
 
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.LongAdder;
+import java.util.stream.Collectors;
 
 /** The counter used to track a class member use. */
-public final class ClassMemberUseCounter {
+public final class ClassMemberUseCounter implements TypeMappable<ClassMemberUseCounter> {
 
   /** Tracks a class member with its associated count. */
-  private final ConcurrentHashMap<ClassMemberUse, LongAdder> memberUseCounter =
-      new ConcurrentHashMap<>();
+  private final ConcurrentMap<ClassMemberUse, LongAdder> memberUseCounter;
+
+  public ClassMemberUseCounter(ConcurrentMap<ClassMemberUse, LongAdder> memberUseCounter) {
+    this.memberUseCounter = memberUseCounter;
+  }
 
   /** Increases the member use count by one when an member access is encountered. */
   public void incrementMemberUseCount(ClassMemberUse classMemberUse) {
@@ -34,5 +38,14 @@ public final class ClassMemberUseCounter {
   /** Retrieves the total use count of a given class member. */
   public long getMemberUseCount(ClassMemberUse memberKey) {
     return memberUseCounter.getOrDefault(memberKey, new LongAdder()).longValue();
+  }
+
+  @Override
+  public ClassMemberUseCounter acceptTypeMapper(TypeMapper typeMapper) {
+    return new ClassMemberUseCounter(
+        memberUseCounter.keySet().stream()
+            .collect(
+                Collectors.toConcurrentMap(
+                    memberUse -> memberUse.acceptTypeMapper(typeMapper), memberUseCounter::get)));
   }
 }
