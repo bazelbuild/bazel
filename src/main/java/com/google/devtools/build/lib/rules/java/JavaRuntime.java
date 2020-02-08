@@ -47,9 +47,9 @@ public class JavaRuntime implements RuleConfiguredTargetFactory {
     JavaCommon.checkRuleLoadedThroughMacro(ruleContext);
     NestedSetBuilder<Artifact> filesBuilder = NestedSetBuilder.stableOrder();
     filesBuilder.addTransitive(PrerequisiteArtifacts.nestedSet(ruleContext, "srcs", Mode.TARGET));
-    PathFragment javaHome = defaultJavaHome(
-            ruleContext.getLabel(),
-            ruleContext.getAnalysisEnvironment().getSkylarkSemantics().experimentalAllowExternalDirectory());
+    boolean allowExternalDirectory =
+        ruleContext.getAnalysisEnvironment().getSkylarkSemantics().experimentalAllowExternalDirectory();
+    PathFragment javaHome = defaultJavaHome(ruleContext.getLabel(), allowExternalDirectory);
     if (ruleContext.attributes().isAttributeValueExplicitlySpecified("java_home")) {
       PathFragment javaHomeAttribute =
           PathFragment.create(ruleContext.getExpander().expand("java_home"));
