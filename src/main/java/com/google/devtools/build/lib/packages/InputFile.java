@@ -16,9 +16,6 @@ package com.google.devtools.build.lib.packages;
 
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.cmdline.LabelConstants;
-import com.google.devtools.build.lib.cmdline.PackageIdentifier;
-import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.events.Location;
@@ -107,24 +104,12 @@ public final class InputFile extends FileTarget {
    * Returns the exec path of the file, i.e. the path relative to the package source root.
    */
   public PathFragment getExecPath(boolean allowExternalDirectory) {
-//    return label.getPackageIdentifier().getSourceRoot().getRelative(label.getName());
-    // TODO(jingwen-external): clean up
-    if (!allowExternalDirectory) {
-      PackageIdentifier packageIdentifier = label.getPackageIdentifier();
-      RepositoryName repositoryName = packageIdentifier.getRepository();
-      PathFragment retVal = label.getPackageFragment().getRelative(label.getName());
-      if (!repositoryName.isDefault() && !repositoryName.isMain()) {
-        retVal = LabelConstants.EXTERNAL_PACKAGE_NAME.getRelative(repositoryName.strippedName()).getRelative(label.getPackageName()).getRelative(label.getName());
-      }
-      return retVal;
-    }
-
     return label
-            .getPackageIdentifier()
-            .getRepository()
-            .getExecPath(true)
-            .getRelative(label.getPackageName())
-            .getRelative(label.getName());
+        .getPackageIdentifier()
+        .getRepository()
+        .getExecPath(allowExternalDirectory)
+        .getRelative(label.getPackageName())
+        .getRelative(label.getName());
   }
 
   @Override

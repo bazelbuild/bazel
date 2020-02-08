@@ -267,9 +267,10 @@ public final class RepositoryName implements Serializable {
   /**
    * Returns the runfiles path relative to the x.runfiles/main-repo directory.
    */
-  // TODO(jingwen): remove once execroot is reorg-ed.
+  // TODO(kchodorow): remove once execroot is reorg-ed.
   public PathFragment getRunfilesPath() {
-    return getExecPath(true);
+    return isDefault() || isMain()
+        ? PathFragment.EMPTY_FRAGMENT : PathFragment.create("..").getRelative(strippedName());
   }
 
   /**

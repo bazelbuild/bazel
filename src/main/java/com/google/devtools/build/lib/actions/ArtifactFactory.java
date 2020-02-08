@@ -418,10 +418,7 @@ public class ArtifactFactory implements ArtifactResolver {
     }
     Root sourceRoot =
         findSourceRoot(
-            execPath,
-            baseExecPath,
-            baseRoot == null ? null : baseRoot.getRoot(),
-            repositoryName);
+            execPath, baseExecPath, baseRoot == null ? null : baseRoot.getRoot(), repositoryName);
     return createArtifactIfNotValid(sourceRoot, execPath);
   }
 
