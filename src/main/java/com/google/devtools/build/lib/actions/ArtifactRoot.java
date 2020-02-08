@@ -62,7 +62,8 @@ public final class ArtifactRoot implements Comparable<ArtifactRoot>, Serializabl
   }
 
   public static ArtifactRoot asExternalSourceRoot(Root root) {
-    return new ArtifactRoot(root, LabelConstants.EXPERIMENTAL_EXTERNAL_PATH_PREFIX, RootType.Source);
+    return new ArtifactRoot(
+        root, LabelConstants.EXPERIMENTAL_EXTERNAL_PATH_PREFIX, RootType.Source);
   }
 
   /**

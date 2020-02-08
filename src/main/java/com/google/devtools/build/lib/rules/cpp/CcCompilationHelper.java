@@ -336,7 +336,8 @@ public final class CcCompilationHelper {
   }
 
   /** Sets fields that overlap for cc_library and cc_binary rules. */
-  public CcCompilationHelper fromCommon(CcCommon common, ImmutableList<String> additionalCopts) throws InterruptedException {
+  public CcCompilationHelper fromCommon(CcCommon common, ImmutableList<String> additionalCopts)
+      throws InterruptedException {
     Preconditions.checkNotNull(additionalCopts);
 
     setCopts(ImmutableList.copyOf(Iterables.concat(common.getCopts(), additionalCopts)));
@@ -892,10 +893,10 @@ public final class CcCompilationHelper {
         NestedSetBuilder.stableOrder();
 
     boolean allowExternalDirectory =
-            actionConstructionContext
-                    .getAnalysisEnvironment()
-                    .getSkylarkSemantics()
-                    .experimentalAllowExternalDirectory();
+        actionConstructionContext
+            .getAnalysisEnvironment()
+            .getSkylarkSemantics()
+            .experimentalAllowExternalDirectory();
     for (Artifact originalHeader : publicHeaders) {
       if (!originalHeader.getRootRelativePath().startsWith(stripPrefix)) {
         ruleErrorConsumer.ruleError(
@@ -951,9 +952,7 @@ public final class CcCompilationHelper {
         virtualToOriginalHeaders.build());
   }
 
-  /**
-   * Create {@code CcCompilationContext} for cc compile action from generated inputs.
-   */
+  /** Create {@code CcCompilationContext} for cc compile action from generated inputs. */
   private CcCompilationContext initializeCcCompilationContext() throws InterruptedException {
     CcCompilationContext.Builder ccCompilationContextBuilder =
         CcCompilationContext.builder(actionConstructionContext, configuration, label);
@@ -966,11 +965,12 @@ public final class CcCompilationHelper {
     // before the genfilesFragment to preferably pick up source files. Otherwise
     // we might pick up stale generated files.
     boolean allowExternalDirectory =
-            actionConstructionContext
-                    .getAnalysisEnvironment()
-                    .getSkylarkSemantics()
-                    .experimentalAllowExternalDirectory();
-    PathFragment repositoryPath = label.getPackageIdentifier().getRepository().getExecPath(allowExternalDirectory);
+        actionConstructionContext
+            .getAnalysisEnvironment()
+            .getSkylarkSemantics()
+            .experimentalAllowExternalDirectory();
+    PathFragment repositoryPath =
+        label.getPackageIdentifier().getRepository().getExecPath(allowExternalDirectory);
     ccCompilationContextBuilder.addQuoteIncludeDir(repositoryPath);
     ccCompilationContextBuilder.addQuoteIncludeDir(
         configuration.getGenfilesFragment().getRelative(repositoryPath));

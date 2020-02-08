@@ -220,7 +220,7 @@ public class StarlarkSemanticsOptions extends OptionsBase implements Serializabl
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
       effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS, OptionEffectTag.LOADING_AND_ANALYSIS},
       metadataTags = {
-          OptionMetadataTag.EXPERIMENTAL,
+        OptionMetadataTag.EXPERIMENTAL,
       },
       help = "If set to true, repository_rule gains some remote execution capabilities.")
   public boolean experimentalAllowExternalDirectory;

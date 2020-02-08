@@ -627,7 +627,10 @@ public final class CcCommon {
 
   List<PathFragment> getSystemIncludeDirs() throws InterruptedException {
     boolean allowExternalDirectory =
-            ruleContext.getAnalysisEnvironment().getSkylarkSemantics().experimentalAllowExternalDirectory();
+        ruleContext
+            .getAnalysisEnvironment()
+            .getSkylarkSemantics()
+            .experimentalAllowExternalDirectory();
     List<PathFragment> result = new ArrayList<>();
     PackageIdentifier packageIdentifier = ruleContext.getLabel().getPackageIdentifier();
     PathFragment packageFragment = packageIdentifier.getExecPath(allowExternalDirectory);

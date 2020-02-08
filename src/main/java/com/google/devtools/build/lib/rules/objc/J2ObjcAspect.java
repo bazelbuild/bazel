@@ -616,7 +616,8 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
       ProtoLangToolchainProvider protoToolchain,
       RuleContext ruleContext,
       ImmutableList<Artifact> filteredProtoSources,
-      J2ObjcSource j2ObjcSource) throws InterruptedException {
+      J2ObjcSource j2ObjcSource)
+      throws InterruptedException {
     ImmutableList<Artifact> outputHeaderMappingFiles =
         ProtoCommon.getGeneratedOutputs(ruleContext, filteredProtoSources, ".j2objc.mapping");
     ImmutableList<Artifact> outputClassMappingFiles =
@@ -768,7 +769,8 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
         headerSearchPaths);
   }
 
-  private static PathFragment getProtoOutputRoot(RuleContext ruleContext) throws InterruptedException {
+  private static PathFragment getProtoOutputRoot(RuleContext ruleContext)
+      throws InterruptedException {
     return ruleContext
         .getConfiguration()
         .getGenfilesFragment()

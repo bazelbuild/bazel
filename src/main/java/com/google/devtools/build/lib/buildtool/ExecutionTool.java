@@ -434,7 +434,8 @@ public class ExecutionTool {
                 getExecRoot(),
                 runtime.getProductName(),
                 nonSymlinkedDirectoriesUnderExecRoot,
-                request.getOptions(StarlarkSemanticsOptions.class).experimentalAllowExternalDirectory);
+                request.getOptions(StarlarkSemanticsOptions.class)
+                    .experimentalAllowExternalDirectory);
         symlinkForest.plantSymlinkForest();
       } catch (IOException e) {
         throw new ExecutorInitException("Source forest creation failed", e);

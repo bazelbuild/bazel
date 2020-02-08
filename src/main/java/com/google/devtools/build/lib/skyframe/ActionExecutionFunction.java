@@ -685,7 +685,7 @@ public class ActionExecutionFunction implements SkyFunction {
         try {
           SkyKey depKey =
               ContainingPackageLookupValue.key(
-                      PackageIdentifier.discoverFromExecPath(path, true, allowExternalDirectory));
+                  PackageIdentifier.discoverFromExecPath(path, true, allowExternalDirectory));
           depKeys.put(path, depKey);
           keysRequested.add(depKey);
         } catch (LabelSyntaxException e) {

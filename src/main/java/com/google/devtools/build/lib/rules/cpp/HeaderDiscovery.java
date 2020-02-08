@@ -127,7 +127,8 @@ public class HeaderDiscovery {
    */
   @ThreadCompatible
   NestedSet<Artifact> discoverInputsFromDependencies(
-      Path execRoot, ArtifactResolver artifactResolver, boolean allowExternalDirectory) throws ActionExecutionException {
+      Path execRoot, ArtifactResolver artifactResolver, boolean allowExternalDirectory)
+      throws ActionExecutionException {
     NestedSetBuilder<Artifact> inputs = NestedSetBuilder.stableOrder();
     if (dependencies == null) {
       return inputs.build();
@@ -151,9 +152,8 @@ public class HeaderDiscovery {
         } else if (allowExternalDirectory && execPath.startsWith(execRoot.getParentDirectory())) {
           // for --experimental_allow_external_directory
           execPathFragment =
-                  LabelConstants
-                          .EXPERIMENTAL_EXTERNAL_PATH_PREFIX
-                          .getRelative(execPath.relativeTo(execRoot.getParentDirectory()));
+              LabelConstants.EXPERIMENTAL_EXTERNAL_PATH_PREFIX.getRelative(
+                  execPath.relativeTo(execRoot.getParentDirectory()));
         } else {
           problems.add(execPathFragment.getPathString());
           continue;
@@ -164,7 +164,8 @@ public class HeaderDiscovery {
         try {
           RepositoryName repository =
               PackageIdentifier.discoverFromExecPath(
-                      execPathFragment, false, allowExternalDirectory).getRepository();
+                      execPathFragment, false, allowExternalDirectory)
+                  .getRepository();
           artifact = artifactResolver.resolveSourceArtifact(execPathFragment, repository);
         } catch (LabelSyntaxException e) {
           throw new ActionExecutionException(

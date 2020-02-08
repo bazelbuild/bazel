@@ -369,15 +369,14 @@ public final class Label
    * it will returns an empty string.
    */
   @SkylarkCallable(
-    name = "workspace_root",
-    structField = true,
-    doc =
-        "Returns the execution root for the workspace of this label, relative to the execroot. "
-            + "For instance:<br>"
-            + "<pre class=language-python>Label(\"@repo//pkg/foo:abc\").workspace_root =="
-            + " \"external/repo\"</pre>",
-    useStarlarkSemantics = true
-  )
+      name = "workspace_root",
+      structField = true,
+      doc =
+          "Returns the execution root for the workspace of this label, relative to the execroot. "
+              + "For instance:<br>"
+              + "<pre class=language-python>Label(\"@repo//pkg/foo:abc\").workspace_root =="
+              + " \"external/repo\"</pre>",
+      useStarlarkSemantics = true)
   public String getWorkspaceRoot(StarlarkSemantics semantics) {
     if (semantics.experimentalAllowExternalDirectory()) {
       return packageIdentifier.getRepository().getExecPath(true).toString();

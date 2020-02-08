@@ -172,12 +172,16 @@ public class FakeCppCompileAction extends CppCompileAction {
       }
 
       boolean allowExternalDirectory =
-              actionExecutionContext.getOptions().getOptions(StarlarkSemanticsOptions.class).experimentalAllowExternalDirectory;
+          actionExecutionContext
+              .getOptions()
+              .getOptions(StarlarkSemanticsOptions.class)
+              .experimentalAllowExternalDirectory;
 
       discoveredInputs =
           discoveryBuilder
               .build()
-              .discoverInputsFromDependencies(execRoot, scanningContext.getArtifactResolver(), allowExternalDirectory);
+              .discoverInputsFromDependencies(
+                  execRoot, scanningContext.getArtifactResolver(), allowExternalDirectory);
     }
 
     dotDContents = null; // Garbage collect in-memory .d contents.

@@ -71,9 +71,12 @@ public class CcToolchainProviderHelper {
     ImmutableMap<String, PathFragment> toolPaths;
     CcToolchainFeatures toolchainFeatures;
     PathFragment toolsDirectory =
-            getToolsDirectory(
-                    ruleContext.getLabel(),
-                    ruleContext.getAnalysisEnvironment().getSkylarkSemantics().experimentalAllowExternalDirectory());
+        getToolsDirectory(
+            ruleContext.getLabel(),
+            ruleContext
+                .getAnalysisEnvironment()
+                .getSkylarkSemantics()
+                .experimentalAllowExternalDirectory());
     try {
       toolPaths = computeToolPaths(toolchainConfigInfo, toolsDirectory);
       toolchainFeatures = new CcToolchainFeatures(toolchainConfigInfo, toolsDirectory);

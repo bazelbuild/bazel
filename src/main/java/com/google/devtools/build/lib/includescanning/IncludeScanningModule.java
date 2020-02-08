@@ -255,7 +255,8 @@ public class IncludeScanningModule extends BlazeModule {
       this.spawnScannerSupplier = spawnScannerSupplier;
       useAsyncIncludeScanner = options.useAsyncIncludeScanner;
       allowExternalDirectory =
-          buildRequest.getOptions(StarlarkSemanticsOptions.class).experimentalAllowExternalDirectory;
+          buildRequest.getOptions(StarlarkSemanticsOptions.class)
+              .experimentalAllowExternalDirectory;
       env.getEventBus().register(this);
     }
 
@@ -265,7 +266,11 @@ public class IncludeScanningModule extends BlazeModule {
 
     private SwigIncludeScanningContextImpl getSwigActionContext() {
       return new SwigIncludeScanningContextImpl(
-          env, spawnScannerSupplier, () -> includePool, useAsyncIncludeScanner, allowExternalDirectory);
+          env,
+          spawnScannerSupplier,
+          () -> includePool,
+          useAsyncIncludeScanner,
+          allowExternalDirectory);
     }
 
     @Override
@@ -314,7 +319,8 @@ public class IncludeScanningModule extends BlazeModule {
               spawnScannerSupplier,
               env.getExecRoot(),
               options.useAsyncIncludeScanner,
-              buildRequest.getOptions(StarlarkSemanticsOptions.class).experimentalAllowExternalDirectory);
+              buildRequest.getOptions(StarlarkSemanticsOptions.class)
+                  .experimentalAllowExternalDirectory);
 
       spawnScannerSupplier.get().setOutputService(env.getOutputService());
       spawnScannerSupplier.get().setInMemoryOutput(options.inMemoryIncludesFiles);

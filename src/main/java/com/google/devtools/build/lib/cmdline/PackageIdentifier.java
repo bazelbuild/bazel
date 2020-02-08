@@ -77,13 +77,15 @@ public final class PackageIdentifier implements Comparable<PackageIdentifier>, S
    *     not have a valid repository name (see {@link RepositoryName#create})
    */
   public static PackageIdentifier discoverFromExecPath(
-      PathFragment execPath, boolean forFiles, boolean allowExternalDirectory) throws LabelSyntaxException {
+      PathFragment execPath, boolean forFiles, boolean allowExternalDirectory)
+      throws LabelSyntaxException {
     Preconditions.checkArgument(!execPath.isAbsolute(), execPath);
     PathFragment tofind = forFiles
         ? Preconditions.checkNotNull(
             execPath.getParentDirectory(), "Must pass in files, not root directory")
         : execPath;
-    if (allowExternalDirectory && tofind.startsWith(LabelConstants.EXPERIMENTAL_EXTERNAL_PATH_PREFIX)) {
+    if (allowExternalDirectory
+        && tofind.startsWith(LabelConstants.EXPERIMENTAL_EXTERNAL_PATH_PREFIX)) {
       RepositoryName repository = RepositoryName.create("@" + tofind.getSegment(1));
       return PackageIdentifier.create(repository, tofind.subFragment(2));
     } else if (!allowExternalDirectory && tofind.startsWith(LabelConstants.EXTERNAL_PATH_PREFIX)) {

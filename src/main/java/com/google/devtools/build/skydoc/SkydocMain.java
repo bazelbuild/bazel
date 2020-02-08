@@ -479,7 +479,8 @@ public class SkydocMain {
 
   private Path pathOfLabel(Label label, StarlarkSemantics semantics) {
     String workspacePrefix = "";
-    if (!label.getWorkspaceRoot(semantics).isEmpty() && !label.getWorkspaceName().equals(workspaceName)) {
+    if (!label.getWorkspaceRoot(semantics).isEmpty()
+        && !label.getWorkspaceName().equals(workspaceName)) {
       workspacePrefix = label.getWorkspaceRoot(semantics) + "/";
     }
 

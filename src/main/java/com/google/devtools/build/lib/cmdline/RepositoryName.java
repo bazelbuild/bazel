@@ -132,17 +132,19 @@ public final class RepositoryName implements Serializable {
   }
 
   /**
-   * Extracts the repository name from a PathFragment that was created with
-   * {@code PackageIdentifier.getSourceRoot}.
+   * Extracts the repository name from a PathFragment that was created with {@code
+   * PackageIdentifier.getSourceRoot}.
    *
-   * @return a {@code Pair} of the extracted repository name and the path fragment with stripped
-   * of "external/"-prefix and repository name, or null if none was found or the repository name
-   * was invalid.
+   * @return a {@code Pair} of the extracted repository name and the path fragment with stripped of
+   *     "external/"-prefix and repository name, or null if none was found or the repository name
+   *     was invalid.
    */
-  public static Pair<RepositoryName, PathFragment> fromPathFragment(PathFragment path, boolean allowExternalDirectory) {
-    if (path.segmentCount() < 2 ||
-        (allowExternalDirectory && !path.startsWith(LabelConstants.EXPERIMENTAL_EXTERNAL_PATH_PREFIX)) ||
-        (!allowExternalDirectory && !path.startsWith(LabelConstants.EXTERNAL_PATH_PREFIX))) {
+  public static Pair<RepositoryName, PathFragment> fromPathFragment(
+      PathFragment path, boolean allowExternalDirectory) {
+    if (path.segmentCount() < 2
+        || (allowExternalDirectory
+            && !path.startsWith(LabelConstants.EXPERIMENTAL_EXTERNAL_PATH_PREFIX))
+        || (!allowExternalDirectory && !path.startsWith(LabelConstants.EXTERNAL_PATH_PREFIX))) {
       return null;
     }
     try {
@@ -249,8 +251,8 @@ public final class RepositoryName implements Serializable {
    * Returns the runfiles/execRoot path for this repository. If we don't know the name of this repo
    * (i.e., it is in the main repository), return an empty path fragment.
    *
-   * If --experimental_allow_external_directory is true, return "$execroot/../repo" (sibling of __main__), instead of
-   * "$execroot/external/repo".
+   * <p>If --experimental_allow_external_directory is true, return "$execroot/../repo" (sibling of
+   * __main__), instead of "$execroot/external/repo".
    */
   public PathFragment getExecPath(boolean allowExternalDir) {
     if (isDefault() || isMain()) {

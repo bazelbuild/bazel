@@ -596,9 +596,11 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
                   .build());
       if (needsIncludeValidation) {
         verifyActionIncludePaths(
-                systemIncludeDirs,
-                actionExecutionContext
-                        .getOptions().getOptions(StarlarkSemanticsOptions.class).experimentalAllowExternalDirectory);
+            systemIncludeDirs,
+            actionExecutionContext
+                .getOptions()
+                .getOptions(StarlarkSemanticsOptions.class)
+                .experimentalAllowExternalDirectory);
       }
 
       if (!shouldScanIncludes) {
@@ -1039,7 +1041,8 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
   }
 
   @VisibleForTesting
-  void verifyActionIncludePaths(List<PathFragment> systemIncludeDirs, boolean allowExternalDirectory)
+  void verifyActionIncludePaths(
+      List<PathFragment> systemIncludeDirs, boolean allowExternalDirectory)
       throws ActionExecutionException {
     ImmutableSet<PathFragment> ignoredDirs = ImmutableSet.copyOf(getValidationIgnoredDirs());
     // We currently do not check the output of:
@@ -1062,7 +1065,8 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
         includePath = includePath.relativeTo(LabelConstants.EXTERNAL_PATH_PREFIX);
       }
 
-      if (includePath.isAbsolute() || (!allowExternalDirectory && includePath.containsUplevelReferences() )) {
+      if (includePath.isAbsolute()
+          || (!allowExternalDirectory && includePath.containsUplevelReferences())) {
         throw new ActionExecutionException(
             String.format(
                 "The include path '%s' references a path outside of the execution root.",
@@ -1492,7 +1496,9 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
       discoveryBuilder.shouldValidateInclusions();
     }
 
-    return discoveryBuilder.build().discoverInputsFromDependencies(execRoot, artifactResolver, allowExternalDirectory);
+    return discoveryBuilder
+        .build()
+        .discoverInputsFromDependencies(execRoot, artifactResolver, allowExternalDirectory);
   }
 
   @VisibleForTesting
@@ -1520,8 +1526,8 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
     }
 
     return discoveryBuilder
-            .build()
-            .discoverInputsFromDependencies(execRoot, artifactResolver, allowExternalDirectory);
+        .build()
+        .discoverInputsFromDependencies(execRoot, artifactResolver, allowExternalDirectory);
   }
 
   public DependencySet processDepset(
@@ -1797,10 +1803,10 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
           actionExecutionContext.getContext(CppIncludeExtractionContext.class);
       Path execRoot = actionExecutionContext.getExecRoot();
       boolean allowExternalDirectory =
-              actionExecutionContext
-                      .getOptions()
-                      .getOptions(StarlarkSemanticsOptions.class)
-                      .experimentalAllowExternalDirectory;
+          actionExecutionContext
+              .getOptions()
+              .getOptions(StarlarkSemanticsOptions.class)
+              .experimentalAllowExternalDirectory;
 
       NestedSet<Artifact> discoveredInputs;
       if (featureConfiguration.isEnabled(CppRuleClasses.PARSE_SHOWINCLUDES)) {

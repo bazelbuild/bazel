@@ -250,7 +250,8 @@ public class SymlinkForest {
                   + " "
                   + execroot.getRelative(dir.getExecPath(allowExternalDirectory)));
         }
-        execroot.getRelative(dir.getExecPath(allowExternalDirectory))
+        execroot
+            .getRelative(dir.getExecPath(allowExternalDirectory))
             .createSymbolicLink(root.getRelative(dir.getSourceRoot()));
       }
     }
@@ -352,7 +353,8 @@ public class SymlinkForest {
           shouldLinkAllTopLevelItems = true;
         } else {
           String baseName = pkgId.getPackageFragment().getSegment(0);
-          if (!allowExternalDirectory && baseName.equals(LabelConstants.EXTERNAL_PATH_PREFIX.getBaseName())) {
+          if (!allowExternalDirectory
+              && baseName.equals(LabelConstants.EXTERNAL_PATH_PREFIX.getBaseName())) {
             // ignore external/ directory if user has it in the source tree
             // because it conflicts with external repository location.
             continue;

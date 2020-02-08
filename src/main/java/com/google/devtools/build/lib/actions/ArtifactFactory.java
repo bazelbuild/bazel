@@ -402,8 +402,8 @@ public class ArtifactFactory implements ArtifactResolver {
         !relativePath.isEmpty(), "%s %s %s", relativePath, baseExecPath, baseRoot);
     PathFragment execPath =
         baseExecPath != null ? baseExecPath.getRelative(relativePath) : relativePath;
-    if (!allowExternalDirectory && execPath.containsUplevelReferences() ||
-         allowExternalDirectory && execPath.subFragment(1).containsUplevelReferences()) {
+    if (!allowExternalDirectory && execPath.containsUplevelReferences()
+        || allowExternalDirectory && execPath.subFragment(1).containsUplevelReferences()) {
       // Source exec paths cannot escape the source root.
       // However, the exec path may start with .. if using --experimental_allow_external_directory.
       return null;
@@ -437,7 +437,8 @@ public class ArtifactFactory implements ArtifactResolver {
       return null;
     }
 
-    Pair<RepositoryName, PathFragment> repo = RepositoryName.fromPathFragment(dir, allowExternalDirectory);
+    Pair<RepositoryName, PathFragment> repo =
+        RepositoryName.fromPathFragment(dir, allowExternalDirectory);
     if (repo != null) {
       repositoryName = repo.getFirst();
       dir = repo.getSecond();

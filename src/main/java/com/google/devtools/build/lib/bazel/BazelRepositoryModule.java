@@ -216,8 +216,12 @@ public class BazelRepositoryModule extends BlazeModule {
     outputVerificationRules = ImmutableSet.<String>of();
 
     boolean allowExternalDirectory =
-            env.getOptions().getOptions(StarlarkSemanticsOptions.class).experimentalAllowExternalDirectory;
-    env.getSkyframeBuildView().getArtifactFactory().setAllowExternalDirectory(allowExternalDirectory);
+        env.getOptions()
+            .getOptions(StarlarkSemanticsOptions.class)
+            .experimentalAllowExternalDirectory;
+    env.getSkyframeBuildView()
+        .getArtifactFactory()
+        .setAllowExternalDirectory(allowExternalDirectory);
     env.getSkyframeExecutor().setAllowExternalDirectory(allowExternalDirectory);
 
     RepositoryOptions repoOptions = env.getOptions().getOptions(RepositoryOptions.class);
