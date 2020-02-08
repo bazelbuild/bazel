@@ -18,6 +18,7 @@ import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.testing.EqualsTester;
+import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.regex.Pattern;
@@ -466,9 +467,9 @@ public class LabelTest {
   public void testGetWorkspaceRoot() throws Exception {
     Label label = Label.parseAbsolute("//bar/baz", ImmutableMap.of());
     // TODO(jin-external): add a mock StarlarkSemantics instead
-    assertThat(label.getWorkspaceRoot()).isEmpty();
+    assertThat(label.getWorkspaceRoot(StarlarkSemantics.DEFAULT_SEMANTICS)).isEmpty();
     label = Label.parseAbsolute("@repo//bar/baz", ImmutableMap.of());
-    assertThat(label.getWorkspaceRoot()).isEqualTo("external/repo");
+    assertThat(label.getWorkspaceRoot(StarlarkSemantics.DEFAULT_SEMANTICS)).isEqualTo("external/repo");
   }
 
   @Test

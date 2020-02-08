@@ -462,7 +462,7 @@ public class SkydocMain {
           throw new StarlarkEvaluationException(
               String.format(
                   "File %s imported '%s', yet %s was not found, even at roots %s.",
-                  path, module, pathOfLabel(relativeLabel), depRoots),
+                  path, module, pathOfLabel(relativeLabel, semantics), depRoots),
               noSuchFileException);
         }
       }

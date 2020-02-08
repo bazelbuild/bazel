@@ -205,7 +205,7 @@ public class SymlinkForestTest {
 
     Path linkRoot = fileSystem.getPath("/linkRoot");
     linkRoot.createDirectoryAndParents();
-    new SymlinkForest(packageRootMap, linkRoot, TestConstants.PRODUCT_NAME, ImmutableSortedSet.of())
+    new SymlinkForest(packageRootMap, linkRoot, TestConstants.PRODUCT_NAME, ImmutableSortedSet.of(), false)
         .plantSymlinkForest();
 
     assertLinksTo(linkRoot, rootA, "pkgA");
@@ -233,7 +233,7 @@ public class SymlinkForestTest {
             .put(createPkg(rootX, rootY, "foo"), rootX)
             .build();
 
-    new SymlinkForest(packageRootMap, linkRoot, TestConstants.PRODUCT_NAME, ImmutableSortedSet.of())
+    new SymlinkForest(packageRootMap, linkRoot, TestConstants.PRODUCT_NAME, ImmutableSortedSet.of(), false)
         .plantSymlinkForest();
     assertLinksTo(linkRoot, rootX, "file");
   }
@@ -261,7 +261,7 @@ public class SymlinkForestTest {
             .put(createExternalPkg(outputBase, "Z", ""), outputBase)
             .build();
 
-    new SymlinkForest(packageRootMap, linkRoot, TestConstants.PRODUCT_NAME, ImmutableSortedSet.of())
+    new SymlinkForest(packageRootMap, linkRoot, TestConstants.PRODUCT_NAME, ImmutableSortedSet.of(), false)
         .plantSymlinkForest();
 
     assertLinksTo(linkRoot, mainRepo, "dir_main");
@@ -305,7 +305,7 @@ public class SymlinkForestTest {
             .put(createExternalPkg(outputBase, "X", "dir_x/pkg"), outputBase)
             .build();
 
-    new SymlinkForest(packageRootMap, linkRoot, TestConstants.PRODUCT_NAME, ImmutableSortedSet.of())
+    new SymlinkForest(packageRootMap, linkRoot, TestConstants.PRODUCT_NAME, ImmutableSortedSet.of(), false)
         .plantSymlinkForest();
 
     assertLinksTo(linkRoot, mainRepo, "dir1");
@@ -338,7 +338,7 @@ public class SymlinkForestTest {
             .put(createExternalPkg(outputBase, "X", "dir_x/pkg"), outputBase)
             .build();
 
-    new SymlinkForest(packageRootMap, linkRoot, TestConstants.PRODUCT_NAME, ImmutableSortedSet.of())
+    new SymlinkForest(packageRootMap, linkRoot, TestConstants.PRODUCT_NAME, ImmutableSortedSet.of(), false)
         .plantSymlinkForest();
 
     assertLinksTo(linkRoot, mainRepo, "dir1");
@@ -369,7 +369,7 @@ public class SymlinkForestTest {
             .put(createExternalPkg(outputBase, "X", "dir_x/pkg"), outputBase)
             .build();
 
-    new SymlinkForest(packageRootMap, linkRoot, TestConstants.PRODUCT_NAME, ImmutableSortedSet.of())
+    new SymlinkForest(packageRootMap, linkRoot, TestConstants.PRODUCT_NAME, ImmutableSortedSet.of(), false)
         .plantSymlinkForest();
 
     assertLinksTo(linkRoot, mainRepo, "dir1");
@@ -391,7 +391,7 @@ public class SymlinkForestTest {
             .put(LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER, root)
             .build();
 
-    new SymlinkForest(packageRootMap, linkRoot, TestConstants.PRODUCT_NAME, ImmutableSortedSet.of())
+    new SymlinkForest(packageRootMap, linkRoot, TestConstants.PRODUCT_NAME, ImmutableSortedSet.of(), false)
         .plantSymlinkForest();
     assertThat(linkRoot.getRelative(LabelConstants.EXTERNAL_PATH_PREFIX).exists()).isFalse();
   }
@@ -417,7 +417,7 @@ public class SymlinkForestTest {
             .build();
 
     new SymlinkForest(
-            packageRootMap, linkRoot, TestConstants.PRODUCT_NAME, ImmutableSortedSet.of("build"))
+            packageRootMap, linkRoot, TestConstants.PRODUCT_NAME, ImmutableSortedSet.of("build"), false)
         .plantSymlinkForest();
 
     assertLinksTo(linkRoot, mainRepo, "dir1");
@@ -446,7 +446,7 @@ public class SymlinkForestTest {
 
     SymlinkForest symlinkForest =
         new SymlinkForest(
-            packageRootMap, linkRoot, TestConstants.PRODUCT_NAME, ImmutableSortedSet.of("build"));
+            packageRootMap, linkRoot, TestConstants.PRODUCT_NAME, ImmutableSortedSet.of("build"), false);
     symlinkForest.plantSymlinkForest();
 
     assertLinksTo(linkRoot, mainRepo, "dir1");
@@ -491,7 +491,7 @@ public class SymlinkForestTest {
             .build();
 
     new SymlinkForest(
-            packageRootMap, linkRoot, TestConstants.PRODUCT_NAME, ImmutableSortedSet.of("build"))
+            packageRootMap, linkRoot, TestConstants.PRODUCT_NAME, ImmutableSortedSet.of("build"), false)
         .plantSymlinkForest();
 
     assertLinksTo(linkRoot, mainRepo, "dir1");
@@ -522,7 +522,8 @@ public class SymlinkForestTest {
                         packageRootMap,
                         linkRoot,
                         TestConstants.PRODUCT_NAME,
-                        ImmutableSortedSet.of("build"))
+                        ImmutableSortedSet.of("build"),
+                        false)
                     .plantSymlinkForest());
     assertThat(exception)
         .hasMessageThat()
@@ -558,7 +559,8 @@ public class SymlinkForestTest {
                         packageRootMap,
                         linkRoot,
                         TestConstants.PRODUCT_NAME,
-                        ImmutableSortedSet.of("build"))
+                        ImmutableSortedSet.of("build"),
+                        false)
                     .plantSymlinkForest());
     assertThat(exception)
         .hasMessageThat()

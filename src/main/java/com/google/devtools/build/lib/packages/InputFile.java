@@ -101,7 +101,7 @@ public final class InputFile extends FileTarget {
   }
 
   /**
-   * Returns the exec path of the file, i.e. the path relative to the package source root.
+   * Returns the exec path of the file, i.e. the path relative to the execution root working directory.
    */
   public PathFragment getExecPath(boolean allowExternalDirectory) {
     return label

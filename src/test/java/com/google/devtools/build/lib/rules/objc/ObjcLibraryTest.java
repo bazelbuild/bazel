@@ -971,7 +971,7 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
     assertThat(
             compileAction
                 .discoverInputsFromDotdFiles(
-                    new ActionExecutionContextBuilder().build(), null, null, null)
+                    new ActionExecutionContextBuilder().build(), null, null, null, false)
                 .toList())
         .isEmpty();
   }
@@ -1629,7 +1629,7 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
             ActionExecutionException.class,
             () ->
                 compileAction.discoverInputsFromDotdFiles(
-                    new ActionExecutionContextBuilder().build(), null, null, null));
+                    new ActionExecutionContextBuilder().build(), null, null, null, false));
     assertThat(expected).hasMessageThat().contains("error while parsing .d file");
   }
 

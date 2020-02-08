@@ -605,8 +605,7 @@ public class LegacyIncludeScanner implements IncludeScanner {
     }
     ArtifactRoot root = includer.getRoot();
     Artifact sourceArtifact =
-        artifactFactory.resolveSourceArtifactWithAncestor(
-            name, parentDirectory, root, RepositoryName.MAIN, allowExternalDirectory);
+        artifactFactory.resolveSourceArtifactWithAncestor(name, parentDirectory, root, RepositoryName.MAIN);
     if (sourceArtifact == null) {
       // If the name had up-level references, this path may not be under any package. Otherwise,
       // we must have gotten an artifact, since it should be under the same package as the
