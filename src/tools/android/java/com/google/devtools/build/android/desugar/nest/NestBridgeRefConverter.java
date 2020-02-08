@@ -133,8 +133,7 @@ public final class NestBridgeRefConverter extends MethodVisitor {
 
     @Override
     public MethodKey visitInvokeStatic(MethodKey methodKey, MethodVisitor mv) {
-      final MethodKey bridgeMethodKey;
-      bridgeMethodKey = methodKey.bridgeOfClassStaticMethod();
+      MethodKey bridgeMethodKey = methodKey.bridgeOfClassStaticMethod();
       mv.visitMethodInsn(
           Opcodes.INVOKESTATIC,
           bridgeMethodKey.ownerName(),
@@ -146,8 +145,7 @@ public final class NestBridgeRefConverter extends MethodVisitor {
 
     @Override
     public MethodKey visitInterfaceInvokeStatic(MethodKey methodKey, MethodVisitor mv) {
-      final MethodKey methodBridge;
-      methodBridge = methodKey.substituteOfInterfaceStaticMethod();
+      final MethodKey methodBridge = methodKey.substituteOfInterfaceStaticMethod();
       mv.visitMethodInsn(
           Opcodes.INVOKESTATIC,
           methodBridge.ownerName(),
@@ -159,8 +157,7 @@ public final class NestBridgeRefConverter extends MethodVisitor {
 
     @Override
     public MethodKey visitInvokeInterface(MethodKey methodKey, MethodVisitor mv) {
-      final MethodKey methodBridge;
-      methodBridge = methodKey.substituteOfInterfaceInstanceMethod();
+      final MethodKey methodBridge = methodKey.substituteOfInterfaceInstanceMethod();
       mv.visitMethodInsn(
           Opcodes.INVOKESTATIC,
           methodBridge.ownerName(),

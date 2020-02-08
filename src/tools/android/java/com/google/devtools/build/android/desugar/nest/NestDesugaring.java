@@ -110,7 +110,7 @@ public final class NestDesugaring extends ClassVisitor {
     MethodKey methodKey = MethodKey.create(className, name, descriptor);
     if (nestDigest.hasAnyTrackingReason(methodKey)) {
       MethodDeclInfo methodDeclInfo =
-          new MethodDeclInfo(methodKey, classAccess, access, signature, exceptions);
+          MethodDeclInfo.create(methodKey, classAccess, access, signature, exceptions);
       // For interfaces, the following .accept converts the original method into a
       // visibility-broadened renamed method in-place while preserving the method body
       // implementation; for classes, the following .accept generates synthetic bridge methods and

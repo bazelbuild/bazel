@@ -16,15 +16,10 @@
 
 package com.google.devtools.build.android.desugar.nest;
 
-import static org.objectweb.asm.Opcodes.ACC_PRIVATE;
-import static org.objectweb.asm.Opcodes.ACC_PUBLIC;
-import static org.objectweb.asm.Opcodes.ACC_STATIC;
-import static org.objectweb.asm.Opcodes.ACC_SYNTHETIC;
-
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.android.desugar.langmodel.ClassName;
 import com.google.devtools.build.android.desugar.langmodel.MethodDeclInfo;
 import com.google.devtools.build.android.desugar.langmodel.MethodDeclVisitor;
-import com.google.devtools.build.android.desugar.langmodel.MethodKey;
 import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
@@ -60,29 +55,23 @@ final class MethodAccessorEmitter
    */
   @Override
   public MethodVisitor visitClassConstructor(MethodDeclInfo methodDeclInfo, ClassVisitor cv) {
-    ClassName nestCompanion = nestDigest.nestCompanion(methodDeclInfo.methodKey.owner());
-    MethodKey constructorBridge = methodDeclInfo.methodKey.bridgeOfConstructor(nestCompanion);
-    MethodVisitor mv =
-        cv.visitMethod(
-            (methodDeclInfo.memberAccess & ~ACC_PRIVATE) | ACC_SYNTHETIC,
-            constructorBridge.name(),
-            constructorBridge.descriptor(),
-            /* signature= */ null,
-            methodDeclInfo.exceptions);
+    ClassName nestCompanion = nestDigest.nestCompanion(methodDeclInfo.owner());
+    MethodDeclInfo constructorBridge = methodDeclInfo.bridgeOfConstructor(nestCompanion);
+    MethodVisitor mv = constructorBridge.accept(cv);
     mv.visitCode();
     mv.visitVarInsn(Opcodes.ALOAD, 0);
 
-    Type[] constructorBridgeArgTypes = constructorBridge.getArgumentTypes();
+    ImmutableList<Type> constructorBridgeArgTypes = constructorBridge.argumentTypes();
     // Exclude last placeholder element loading.
-    for (int i = 0, slotOffset = 1; i < constructorBridgeArgTypes.length - 1; i++) {
-      mv.visitVarInsn(constructorBridgeArgTypes[i].getOpcode(Opcodes.ILOAD), slotOffset);
-      slotOffset += constructorBridgeArgTypes[i].getSize();
+    for (int i = 0, slotOffset = 1; i < constructorBridgeArgTypes.size() - 1; i++) {
+      mv.visitVarInsn(constructorBridgeArgTypes.get(i).getOpcode(Opcodes.ILOAD), slotOffset);
+      slotOffset += constructorBridgeArgTypes.get(i).getSize();
     }
     mv.visitMethodInsn(
         Opcodes.INVOKESPECIAL,
-        methodDeclInfo.methodKey.ownerName(),
-        methodDeclInfo.methodKey.name(),
-        methodDeclInfo.methodKey.descriptor(),
+        methodDeclInfo.ownerName(),
+        methodDeclInfo.name(),
+        methodDeclInfo.descriptor(),
         /* isInterface= */ false);
     mv.visitInsn(Opcodes.RETURN);
     int slot = 0;
@@ -110,28 +99,22 @@ final class MethodAccessorEmitter
    */
   @Override
   public MethodVisitor visitClassStaticMethod(MethodDeclInfo methodDeclInfo, ClassVisitor cv) {
-    MethodKey bridgeMethod = methodDeclInfo.methodKey.bridgeOfClassStaticMethod();
-    MethodVisitor mv =
-        cv.visitMethod(
-            ACC_STATIC | ACC_SYNTHETIC,
-            bridgeMethod.name(),
-            bridgeMethod.descriptor(),
-            /* signature= */ null,
-            methodDeclInfo.exceptions);
+    MethodDeclInfo bridgeMethod = methodDeclInfo.bridgeOfClassStaticMethod();
+    MethodVisitor mv = bridgeMethod.accept(cv);
     mv.visitCode();
     int slotOffset = 0;
-    for (Type argType : bridgeMethod.getArgumentTypes()) {
+    for (Type argType : bridgeMethod.argumentTypes()) {
       mv.visitVarInsn(argType.getOpcode(Opcodes.ILOAD), slotOffset);
       slotOffset += argType.getSize();
     }
 
     mv.visitMethodInsn(
         Opcodes.INVOKESTATIC,
-        methodDeclInfo.methodKey.ownerName(),
-        methodDeclInfo.methodKey.name(),
-        methodDeclInfo.methodKey.descriptor(),
+        methodDeclInfo.ownerName(),
+        methodDeclInfo.name(),
+        methodDeclInfo.descriptor(),
         /* isInterface= */ false);
-    mv.visitInsn(bridgeMethod.getReturnType().getOpcode(Opcodes.IRETURN));
+    mv.visitInsn(bridgeMethod.returnType().getOpcode(Opcodes.IRETURN));
     mv.visitMaxs(slotOffset, slotOffset);
     mv.visitEnd();
     return mv;
@@ -153,28 +136,22 @@ final class MethodAccessorEmitter
    */
   @Override
   public MethodVisitor visitClassInstanceMethod(MethodDeclInfo methodDeclInfo, ClassVisitor cv) {
-    MethodKey bridgeMethod = methodDeclInfo.methodKey.bridgeOfClassInstanceMethod();
-    MethodVisitor mv =
-        cv.visitMethod(
-            ACC_STATIC | ACC_SYNTHETIC,
-            bridgeMethod.name(),
-            bridgeMethod.descriptor(),
-            /* signature= */ null,
-            methodDeclInfo.exceptions);
+    MethodDeclInfo bridgeMethod = methodDeclInfo.bridgeOfClassInstanceMethod();
+    MethodVisitor mv = bridgeMethod.accept(cv);
     mv.visitCode();
     int slotOffset = 0;
-    for (Type argType : bridgeMethod.getArgumentTypes()) {
+    for (Type argType : bridgeMethod.argumentTypes()) {
       mv.visitVarInsn(argType.getOpcode(Opcodes.ILOAD), slotOffset);
       slotOffset += argType.getSize();
     }
 
     mv.visitMethodInsn(
         Opcodes.INVOKESPECIAL,
-        methodDeclInfo.methodKey.ownerName(),
-        methodDeclInfo.methodKey.name(),
-        methodDeclInfo.methodKey.descriptor(),
+        methodDeclInfo.ownerName(),
+        methodDeclInfo.name(),
+        methodDeclInfo.descriptor(),
         /* isInterface= */ false);
-    mv.visitInsn(bridgeMethod.getReturnType().getOpcode(Opcodes.IRETURN));
+    mv.visitInsn(bridgeMethod.returnType().getOpcode(Opcodes.IRETURN));
     mv.visitMaxs(slotOffset, slotOffset);
     mv.visitEnd();
     return mv;
@@ -212,15 +189,7 @@ final class MethodAccessorEmitter
    */
   @Override
   public MethodVisitor visitInterfaceStaticMethod(MethodDeclInfo methodDeclInfo, ClassVisitor cv) {
-    MethodKey methodSubstitute = methodDeclInfo.methodKey.substituteOfInterfaceStaticMethod();
-
-    // Unset static and access modifier bits.
-    return cv.visitMethod(
-        (methodDeclInfo.memberAccess & ~0xf) | ACC_PUBLIC | ACC_STATIC,
-        methodSubstitute.name(),
-        methodSubstitute.descriptor(),
-        /* signature= */ null,
-        methodDeclInfo.exceptions);
+    return methodDeclInfo.substituteOfInterfaceStaticMethod().accept(cv);
   }
 
   /**
@@ -254,14 +223,6 @@ final class MethodAccessorEmitter
   @Override
   public MethodVisitor visitInterfaceInstanceMethod(
       MethodDeclInfo methodDeclInfo, ClassVisitor cv) {
-    MethodKey methodSubstitute = methodDeclInfo.methodKey.substituteOfInterfaceInstanceMethod();
-
-    // Unset static and access modifier bits.
-    return cv.visitMethod(
-        (methodDeclInfo.memberAccess & ~0xf) | ACC_PUBLIC | ACC_STATIC,
-        methodSubstitute.name(),
-        methodSubstitute.descriptor(),
-        /* signature= */ null,
-        methodDeclInfo.exceptions);
+    return methodDeclInfo.substituteOfInterfaceInstanceMethod().accept(cv);
   }
 }
