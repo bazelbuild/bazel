@@ -290,6 +290,7 @@ public class ProtoCommon {
     PathFragment importPrefix;
 
     StarlarkSemantics starlarkSemantics = ruleContext.getAnalysisEnvironment().getSkylarkSemantics();
+    boolean allowExternalDirectory = starlarkSemantics.experimentalAllowExternalDirectory();
     if (stripImportPrefixAttribute != null || importPrefixAttribute != null) {
       if (stripImportPrefixAttribute == null) {
         stripImportPrefix =
@@ -301,14 +302,14 @@ public class ProtoCommon {
                 .getLabel()
                 .getPackageIdentifier()
                 .getRepository()
-                .getExecPath(starlarkSemantics.experimentalAllowExternalDirectory())
+                .getExecPath(allowExternalDirectory)
                 .getRelative(stripImportPrefixAttribute.toRelative());
       } else {
         stripImportPrefix =
                 ruleContext
                         .getLabel()
                         .getPackageIdentifier()
-                        .getExecPath(starlarkSemantics.experimentalAllowExternalDirectory())
+                        .getExecPath(allowExternalDirectory)
                         .getRelative(stripImportPrefixAttribute);
       }
 
@@ -329,7 +330,7 @@ public class ProtoCommon {
               .getLabel()
               .getPackageIdentifier()
               .getRepository()
-              .getExecPath(starlarkSemantics.experimentalAllowExternalDirectory());
+              .getExecPath(allowExternalDirectory);
 
       importPrefix = PathFragment.EMPTY_FRAGMENT;
     }
@@ -340,7 +341,8 @@ public class ProtoCommon {
     PathFragment sourceRootPath = ruleContext.getUniqueDirectory("_virtual_imports");
 
     for (Artifact realProtoSource : protoSources) {
-      if (!realProtoSource.getExecPath().startsWith(stripImportPrefix)) {
+      if ((allowExternalDirectory && !realProtoSource.getExecPath().startsWith(stripImportPrefix)) ||
+          (!allowExternalDirectory && !realProtoSource.getRootRelativePath().startsWith(stripImportPrefix))) {
         ruleContext.ruleError(
             String.format(
                 ".proto file '%s' is not under the specified strip prefix '%s'",

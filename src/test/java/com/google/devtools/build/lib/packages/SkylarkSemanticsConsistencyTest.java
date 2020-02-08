@@ -121,6 +121,7 @@ public class SkylarkSemanticsConsistencyTest {
         // <== Add new options here in alphabetic order ==>
         "--debug_depset_depth=" + rand.nextBoolean(),
         "--experimental_action_args=" + rand.nextBoolean(),
+        "--experimental_allow_external_directory=" + rand.nextBoolean(),
         "--experimental_allow_incremental_repository_updates=" + rand.nextBoolean(),
         "--experimental_aspect_output_propagation=" + rand.nextBoolean(),
         "--experimental_build_setting_api=" + rand.nextBoolean(),
@@ -174,6 +175,7 @@ public class SkylarkSemanticsConsistencyTest {
         // <== Add new options here in alphabetic order ==>
         .debugDepsetDepth(rand.nextBoolean())
         .experimentalActionArgs(rand.nextBoolean())
+        .experimentalAllowExternalDirectory(rand.nextBoolean())
         .experimentalAllowIncrementalRepositoryUpdates(rand.nextBoolean())
         .experimentalAspectOutputPropagation(rand.nextBoolean())
         .experimentalBuildSettingApi(rand.nextBoolean())
