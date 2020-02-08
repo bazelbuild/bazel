@@ -62,7 +62,6 @@ java_toolchain(
     # single jar that contains the contents of both the bootclasspath and
     # extdirs.
     bootclasspath = ["//tools/jdk:platformclasspath.jar"],
-    extclasspath = [],
     genclass = ["bootstrap_genclass_deploy.jar"],
     ijar = ["//third_party/ijar"],
     javabuilder = ["bootstrap_VanillaJavaBuilder_deploy.jar"],

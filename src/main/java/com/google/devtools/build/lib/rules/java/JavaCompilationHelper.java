@@ -284,7 +284,6 @@ public final class JavaCompilationHelper {
     builder.setClasspathEntries(attributes.getCompileTimeClassPath());
     builder.setBootclasspathEntries(getBootclasspathOrDefault());
     builder.setSourcePathEntries(attributes.getSourcePath());
-    builder.setExtdirInputs(getExtdirInputs());
     builder.setToolsJars(javaToolchain.getTools());
     builder.setJavaBuilder(javaToolchain.getJavaBuilder());
     if (!turbineAnnotationProcessing) {
@@ -488,11 +487,7 @@ public final class JavaCompilationHelper {
     builder.setSourceFiles(attributes.getSourceFiles());
     builder.setSourceJars(attributes.getSourceJars());
     builder.setClasspathEntries(attributes.getCompileTimeClassPath());
-    builder.setBootclasspathEntries(
-        NestedSetBuilder.<Artifact>stableOrder()
-            .addTransitive(getBootclasspathOrDefault())
-            .addTransitive(getExtdirInputs())
-            .build());
+    builder.setBootclasspathEntries(getBootclasspathOrDefault());
     // Exclude any per-package configured data (see JavaCommon.computePerPackageData).
     // It is used to allow Error Prone checks to load additional data,
     // and Error Prone doesn't run during header compilation.
@@ -833,11 +828,6 @@ public final class JavaCompilationHelper {
    */
   public static NestedSet<Artifact> getBootClasspath(JavaToolchainProvider javaToolchain) {
     return javaToolchain.getBootclasspath();
-  }
-
-  /** Returns the extdir artifacts. */
-  private final NestedSet<Artifact> getExtdirInputs() {
-    return javaToolchain.getExtclasspath();
   }
 
   /**
