@@ -156,16 +156,19 @@ public class IncludeScanningModule extends BlazeModule {
     private final ConcurrentMap<Artifact, ListenableFuture<Collection<Inclusion>>> cache =
         new ConcurrentHashMap<>();
     private final boolean useAsyncIncludeScanner;
+    private final boolean allowExternalDirectory;
 
     SwigIncludeScanningContextImpl(
         CommandEnvironment env,
         Supplier<SpawnIncludeScanner> spawnScannerSupplier,
         Supplier<ExecutorService> includePool,
-        boolean useAsyncIncludeScanner) {
+        boolean useAsyncIncludeScanner,
+        boolean allowExternalDirectory) {
       this.env = env;
       this.spawnScannerSupplier = spawnScannerSupplier;
       this.includePool = includePool;
       this.useAsyncIncludeScanner = useAsyncIncludeScanner;
+      this.allowExternalDirectory = allowExternalDirectory;
     }
 
     @Override
@@ -187,7 +190,8 @@ public class IncludeScanningModule extends BlazeModule {
               env.getDirectories(),
               env.getSkyframeBuildView().getArtifactFactory(),
               env.getExecRoot(),
-              useAsyncIncludeScanner);
+              useAsyncIncludeScanner,
+              allowExternalDirectory);
       ImmutableMap.Builder<PathFragment, Artifact> pathToLegalOutputArtifact =
           ImmutableMap.builder();
       for (Artifact path : legalOutputPaths) {
@@ -234,6 +238,7 @@ public class IncludeScanningModule extends BlazeModule {
     private final boolean useAsyncIncludeScanner;
     private IncludeScannerSupplierImpl includeScannerSupplier;
     private ExecutorService includePool;
+    private final boolean allowExternalDirectory;
 
     public IncludeScannerLifecycleManager(
         CommandEnvironment env,
@@ -249,6 +254,8 @@ public class IncludeScanningModule extends BlazeModule {
               options.experimentalRemoteExtractionThreshold));
       this.spawnScannerSupplier = spawnScannerSupplier;
       useAsyncIncludeScanner = options.useAsyncIncludeScanner;
+      allowExternalDirectory =
+          buildRequest.getOptions(StarlarkSemanticsOptions.class).experimentalAllowExternalDirectory;
       env.getEventBus().register(this);
     }
 
@@ -258,7 +265,7 @@ public class IncludeScanningModule extends BlazeModule {
 
     private SwigIncludeScanningContextImpl getSwigActionContext() {
       return new SwigIncludeScanningContextImpl(
-          env, spawnScannerSupplier, () -> includePool, useAsyncIncludeScanner);
+          env, spawnScannerSupplier, () -> includePool, useAsyncIncludeScanner, allowExternalDirectory);
     }
 
     @Override

@@ -46,7 +46,8 @@ public class SwigIncludeScanner extends LegacyIncludeScanner {
       BlazeDirectories directories,
       ArtifactFactory artifactFactory,
       Path execRoot,
-      boolean useAsyncIncludeScanner) {
+      boolean useAsyncIncludeScanner,
+      boolean allowExternalDirectory) {
     super(
         new SwigIncludeParser(),
         includePool,
@@ -59,6 +60,7 @@ public class SwigIncludeScanner extends LegacyIncludeScanner {
         execRoot,
         artifactFactory,
         () -> spawnIncludeScanner,
-        useAsyncIncludeScanner);
+        useAsyncIncludeScanner,
+        allowExternalDirectory);
   }
 }
