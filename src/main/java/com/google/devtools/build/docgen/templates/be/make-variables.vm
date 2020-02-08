@@ -123,7 +123,7 @@ title: Make Variables
 
     <p>
       If you want to run a tool from within a <code>genrule</code>, the
-      recommended way to get its path is <code>($<a
+      recommended way to get its path is <code>$(<a
       href="#predefined_label_variables">execpath</a> toolname)</code>,
       where <i>toolname</i> must be listed in the <code>genrule</code>'s
       <code><a
