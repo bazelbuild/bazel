@@ -54,6 +54,7 @@ public final class JavaLibraryBuildRequest {
   private final ImmutableList<Path> sourcePath;
   private final ImmutableList<Path> classPath;
   private final ImmutableList<Path> bootClassPath;
+  private final ImmutableList<Path> extClassPath;
 
   private final ImmutableList<Path> processorPath;
   private final List<String> processorNames;
@@ -122,7 +123,10 @@ public final class JavaLibraryBuildRequest {
     }
     depsBuilder.addDepsArtifacts(asPaths(optionsParser.getDepsArtifacts()));
     depsBuilder.setPlatformJars(
-        optionsParser.getBootClassPath().stream().map(Paths::get).collect(toImmutableSet()));
+        ImmutableSet.<Path>builder()
+            .addAll(asPaths(optionsParser.getBootClassPath()))
+            .addAll(asPaths(optionsParser.getExtClassPath()))
+            .build());
     if (optionsParser.reduceClasspathMode() != OptionsParser.ReduceClasspathMode.NONE) {
       depsBuilder.setReduceClasspath();
     }
@@ -155,6 +159,7 @@ public final class JavaLibraryBuildRequest {
     this.classPath = asPaths(optionsParser.getClassPath());
     this.sourcePath = asPaths(optionsParser.getSourcePath());
     this.bootClassPath = asPaths(optionsParser.getBootClassPath());
+    this.extClassPath = asPaths(optionsParser.getExtClassPath());
     this.processorPath = asPaths(optionsParser.getProcessorPath());
     this.processorNames = optionsParser.getProcessorNames();
     this.builtinProcessorNames = ImmutableSet.copyOf(optionsParser.getBuiltinProcessorNames());
@@ -230,6 +235,10 @@ public final class JavaLibraryBuildRequest {
 
   public ImmutableList<Path> getBootClassPath() {
     return bootClassPath;
+  }
+
+  public ImmutableList<Path> getExtClassPath() {
+    return extClassPath;
   }
 
   public ImmutableList<Path> getProcessorPath() {
@@ -309,7 +318,11 @@ public final class JavaLibraryBuildRequest {
         BlazeJavacArguments.builder()
             .classPath(classPath)
             .classOutput(getClassDir())
-            .bootClassPath(getBootClassPath())
+            .bootClassPath(
+                ImmutableList.<Path>builder()
+                    .addAll(getBootClassPath())
+                    .addAll(getExtClassPath())
+                    .build())
             .javacOptions(makeJavacArguments())
             .sourceFiles(ImmutableList.copyOf(getSourceFiles()))
             .processors(null)

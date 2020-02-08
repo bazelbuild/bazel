@@ -78,6 +78,7 @@ public class JavaToolchainProvider extends ToolchainInfo
       ImmutableList<String> turbineJvmOptions,
       boolean javacSupportsWorkers,
       NestedSet<Artifact> bootclasspath,
+      NestedSet<Artifact> extclasspath,
       @Nullable Artifact javac,
       NestedSet<Artifact> tools,
       FilesToRunProvider javaBuilder,
@@ -102,6 +103,7 @@ public class JavaToolchainProvider extends ToolchainInfo
     return new JavaToolchainProvider(
         label,
         bootclasspath,
+        extclasspath,
         javac,
         tools,
         javaBuilder,
@@ -132,6 +134,7 @@ public class JavaToolchainProvider extends ToolchainInfo
 
   private final Label label;
   private final NestedSet<Artifact> bootclasspath;
+  private final NestedSet<Artifact> extclasspath;
   @Nullable private final Artifact javac;
   private final NestedSet<Artifact> tools;
   private final FilesToRunProvider javaBuilder;
@@ -163,6 +166,7 @@ public class JavaToolchainProvider extends ToolchainInfo
   JavaToolchainProvider(
       Label label,
       NestedSet<Artifact> bootclasspath,
+      NestedSet<Artifact> extclasspath,
       @Nullable Artifact javac,
       NestedSet<Artifact> tools,
       FilesToRunProvider javaBuilder,
@@ -193,6 +197,7 @@ public class JavaToolchainProvider extends ToolchainInfo
 
     this.label = label;
     this.bootclasspath = bootclasspath;
+    this.extclasspath = extclasspath;
     this.javac = javac;
     this.tools = tools;
     this.javaBuilder = javaBuilder;
@@ -229,6 +234,11 @@ public class JavaToolchainProvider extends ToolchainInfo
   /** @return the target Java bootclasspath */
   public NestedSet<Artifact> getBootclasspath() {
     return bootclasspath;
+  }
+
+  /** @return the target Java extclasspath */
+  public NestedSet<Artifact> getExtclasspath() {
+    return extclasspath;
   }
 
   /** Returns the {@link Artifact} of the javac jar */

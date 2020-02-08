@@ -158,6 +158,7 @@ public final class JavaCompileActionBuilder {
   private NestedSet<Artifact> bootclasspathEntries =
       NestedSetBuilder.emptySet(Order.NAIVE_LINK_ORDER);
   private ImmutableList<Artifact> sourcePathEntries = ImmutableList.of();
+  private NestedSet<Artifact> extdirInputs = NestedSetBuilder.emptySet(Order.NAIVE_LINK_ORDER);
   private FilesToRunProvider javaBuilder;
   private NestedSet<Artifact> toolsJars = NestedSetBuilder.emptySet(Order.NAIVE_LINK_ORDER);
   private PathFragment sourceGenDirectory;
@@ -240,7 +241,8 @@ public final class JavaCompileActionBuilder {
         .addAll(sourceFiles)
         .addTransitive(javabaseInputs)
         .addTransitive(bootclasspathEntries)
-        .addAll(sourcePathEntries);
+        .addAll(sourcePathEntries)
+        .addTransitive(extdirInputs);
     if (coverageArtifact != null) {
       mandatoryInputs.add(coverageArtifact);
     }
@@ -330,6 +332,7 @@ public final class JavaCompileActionBuilder {
       result.add("--compress_jar");
     }
     result.addExecPath("--output_deps_proto", outputs.depsProto());
+    result.addExecPaths("--extclasspath", extdirInputs);
     result.addExecPaths("--bootclasspath", bootclasspathEntries);
     result.addExecPaths("--sourcepath", sourcePathEntries);
     result.addExecPaths("--processorpath", plugins.processorClasspath());
@@ -463,6 +466,11 @@ public final class JavaCompileActionBuilder {
 
   public JavaCompileActionBuilder setSourcePathEntries(ImmutableList<Artifact> sourcePathEntries) {
     this.sourcePathEntries = Preconditions.checkNotNull(sourcePathEntries);
+    return this;
+  }
+
+  public JavaCompileActionBuilder setExtdirInputs(NestedSet<Artifact> extdirEntries) {
+    this.extdirInputs = extdirEntries;
     return this;
   }
 

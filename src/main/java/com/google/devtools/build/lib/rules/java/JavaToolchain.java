@@ -59,6 +59,8 @@ public class JavaToolchain implements RuleConfiguredTargetFactory {
     ImmutableList<String> javacopts = getJavacOpts(ruleContext);
     NestedSet<Artifact> bootclasspath =
         PrerequisiteArtifacts.nestedSet(ruleContext, "bootclasspath", Mode.HOST);
+    NestedSet<Artifact> extclasspath =
+        PrerequisiteArtifacts.nestedSet(ruleContext, "extclasspath", Mode.HOST);
     boolean javacSupportsWorkers =
         ruleContext.attributes().get("javac_supports_workers", Type.BOOLEAN);
     Artifact javac = ruleContext.getPrerequisiteArtifact("javac", Mode.HOST);
@@ -140,6 +142,7 @@ public class JavaToolchain implements RuleConfiguredTargetFactory {
             turbineJvmOpts,
             javacSupportsWorkers,
             bootclasspath,
+            extclasspath,
             javac,
             tools,
             javabuilder,
