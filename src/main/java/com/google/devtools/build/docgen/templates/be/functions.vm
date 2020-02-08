@@ -327,7 +327,7 @@ If the <code>exclude_directories</code> argument is enabled (set to 1), files of
 type directory will be omitted from the results (default 1).
 </p>
 <p>
-If the <code>allow_empty</code> argument is set to <code>False<\code>, the
+If the <code>allow_empty</code> argument is set to <code>False</code>, the
 <code>glob</code> function will error-out if the result would otherwise be the
 empty list.
 </p>
