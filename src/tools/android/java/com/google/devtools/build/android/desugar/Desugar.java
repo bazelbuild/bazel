@@ -21,6 +21,7 @@ import static com.google.devtools.build.android.desugar.strconcat.IndyStringConc
 
 import com.google.auto.value.AutoValue;
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.ConcurrentHashMultiset;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -70,7 +71,6 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.regex.Pattern;
 import javax.annotation.Nullable;
@@ -399,7 +399,7 @@ public class Desugar {
   private final LambdaClassMaker lambdas;
   private final GeneratedClassStore store = new GeneratedClassStore();
   private final ClassMemberUseCounter classMemberUseCounter =
-      new ClassMemberUseCounter(new ConcurrentHashMap<>());
+      new ClassMemberUseCounter(ConcurrentHashMultiset.create());
   private final Set<String> visitedExceptionTypes = new LinkedHashSet<>();
   /** The counter to record the times of try-with-resources desugaring is invoked. */
   private final AtomicInteger numOfTryWithResourcesInvoked = new AtomicInteger();

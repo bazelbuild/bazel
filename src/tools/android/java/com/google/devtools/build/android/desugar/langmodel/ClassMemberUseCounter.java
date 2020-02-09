@@ -16,36 +16,35 @@
 
 package com.google.devtools.build.android.desugar.langmodel;
 
-import java.util.concurrent.ConcurrentMap;
-import java.util.concurrent.atomic.LongAdder;
-import java.util.stream.Collectors;
+import static java.util.stream.Collectors.toCollection;
+
+import com.google.common.collect.ConcurrentHashMultiset;
 
 /** The counter used to track a class member use. */
 public final class ClassMemberUseCounter implements TypeMappable<ClassMemberUseCounter> {
 
   /** Tracks a class member with its associated count. */
-  private final ConcurrentMap<ClassMemberUse, LongAdder> memberUseCounter;
+  private final ConcurrentHashMultiset<ClassMemberUse> memberUseCounter;
 
-  public ClassMemberUseCounter(ConcurrentMap<ClassMemberUse, LongAdder> memberUseCounter) {
+  public ClassMemberUseCounter(ConcurrentHashMultiset<ClassMemberUse> memberUseCounter) {
     this.memberUseCounter = memberUseCounter;
   }
 
   /** Increases the member use count by one when an member access is encountered. */
-  public void incrementMemberUseCount(ClassMemberUse classMemberUse) {
-    memberUseCounter.computeIfAbsent(classMemberUse, k -> new LongAdder()).increment();
+  public boolean incrementMemberUseCount(ClassMemberUse classMemberUse) {
+    return memberUseCounter.add(classMemberUse);
   }
 
   /** Retrieves the total use count of a given class member. */
   public long getMemberUseCount(ClassMemberUse memberKey) {
-    return memberUseCounter.getOrDefault(memberKey, new LongAdder()).longValue();
+    return memberUseCounter.count(memberKey);
   }
 
   @Override
   public ClassMemberUseCounter acceptTypeMapper(TypeMapper typeMapper) {
     return new ClassMemberUseCounter(
-        memberUseCounter.keySet().stream()
-            .collect(
-                Collectors.toConcurrentMap(
-                    memberUse -> memberUse.acceptTypeMapper(typeMapper), memberUseCounter::get)));
+        memberUseCounter.stream()
+            .map(memberUse -> memberUse.acceptTypeMapper(typeMapper))
+            .collect(toCollection(ConcurrentHashMultiset::create)));
   }
 }
