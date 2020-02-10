@@ -1012,7 +1012,6 @@ sh_test(
         "@bazel_tools//tools/bash/runfiles",
     ],
     exec_compatible_with = ["//:highcpu_machine"],
-    shard_count = 2,
     tags = ["block-network"],
 )
 
