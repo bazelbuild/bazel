@@ -356,4 +356,13 @@ EOF
      //:sample &> $TEST_log || fail "Build failed"
 
   # TODO: verify contents of bazel-bin/sample.log.
+  cat bazel-bin/sample.log >> $TEST_log
+  # The execution platform should be beta.
+  expect_log '"rule message: "Hello", exec platform: "exec (beta)"'
+  # The toolchain should have proper target and exec matching the top target.
+  expect_log 'sample_toolchain: message: beta toolchain, target_dep: target, tool_dep: exec (beta)'
+  # The toolchain's dependencies should use alpha for exec.
+  expect_log 'extra_lib: message: extra_lib foo, target_dep: target, tool_dep: exec (alpha)'
 }
+
+run_suite "toolchain transition tests"
