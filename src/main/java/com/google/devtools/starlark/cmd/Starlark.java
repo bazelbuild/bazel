@@ -11,7 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-package com.google.devtools.starlark;
+package com.google.devtools.starlark.cmd;
 
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.syntax.EvalException;
