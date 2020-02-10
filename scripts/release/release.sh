@@ -144,7 +144,6 @@ function __create_release() {
   # Fetch everything from remote repositories to avoid conflicts
   git fetch -f "${RELEASE_REPOSITORY}"
 
-
   echo "Creating new release branch ${branch_name} for release ${release_name}"
   git checkout -B ${branch_name} ${baseline}
 
