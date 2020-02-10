@@ -104,7 +104,7 @@ public class TestConstants {
   /** The workspace repository label under which built-in tools reside. */
   public static final String TOOLS_REPOSITORY = "@bazel_tools";
   /** The file path in which to create files so that they end up under {@link #TOOLS_REPOSITORY}. */
-  public static final String TOOLS_REPOSITORY_SCRATCH = "/bazel_tools_workspace/";
+  public static final String TOOLS_REPOSITORY_SCRATCH = "bazel_tools_workspace/";
 
   /** The output file path prefix for tool file dependencies. */
   public static final String TOOLS_REPOSITORY_PATH_PREFIX = "external/bazel_tools/";
@@ -114,7 +114,7 @@ public class TestConstants {
   /**
    * The file path in which to create files so that they end up under {@link #RULES_CC_REPOSITORY}.
    */
-  public static final String RULES_CC_REPOSITORY_SCRATCH = "/rules_cc_workspace/";
+  public static final String RULES_CC_REPOSITORY_SCRATCH = "rules_cc_workspace/";
   /** The directory in which rules_cc repo resides in execroot. */
   public static final String RULES_CC_REPOSITORY_EXECROOT = "external/rules_cc/";
 
@@ -158,9 +158,9 @@ public class TestConstants {
   public static final String PLATFORM_PACKAGE_ROOT = "@bazel_tools//platforms";
   public static final String CONSTRAINTS_PACKAGE_ROOT = "@platforms//";
 
-  public static final String PLATFORMS_PATH = "/bazel_tools_workspace/platforms";
-  public static final String CONSTRAINTS_PATH = "/platforms";
-  public static final String LOCAL_CONFIG_PLATFORM_PATH = "/local_config_platform_workspace";
+  public static final String PLATFORMS_PATH = "bazel_tools_workspace/platforms";
+  public static final String CONSTRAINTS_PATH = "platforms_workspace";
+  public static final String LOCAL_CONFIG_PLATFORM_PATH = "local_config_platform_workspace";
 
   public static final String PLATFORM_LABEL =
       PLATFORM_PACKAGE_ROOT + ":default_host + " + PLATFORM_PACKAGE_ROOT + ":default_target";
