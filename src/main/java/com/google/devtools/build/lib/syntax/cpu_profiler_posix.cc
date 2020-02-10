@@ -76,7 +76,14 @@ void onsigprof(int sig) {
           "events\n";
       write(2, msg, strlen(msg));
     } else {
-      perror("write");
+      // We shouldn't use perror in a signal handler.
+      // Strictly, we shouldn't use strerror either,
+      // but for all errors returned by write it merely
+      // returns a constant.
+      char buf[1024] = "write: ";
+      strncat(buf, strerror(errno), sizeof buf - strlen(buf) - 1);
+      strncat(buf, "\n", sizeof buf - strlen(buf) - 1);
+      write(2, buf, strlen(buf));
       abort();
     }
   }

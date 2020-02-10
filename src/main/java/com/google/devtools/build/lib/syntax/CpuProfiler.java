@@ -71,12 +71,12 @@ import javax.annotation.Nullable;
 // thread's stack sampling, during which Starlark execution may have
 // moved on to another function. Assuming uniform delay, this is
 // equivalent to shifting the phase but not the frequency of CPU ticks.
-// Nonetheless it may may bias the profile because, for example,
+// Nonetheless it may bias the profile because, for example,
 // it would cause a Starlark 'sleep' function to accrue a nonzero
 // number of CPU ticks that properly belong to the preceding computation.
 //
 // When a Starlark thread leaves any function, it reads and clears
-// it counter of CPU ticks. If the counter was nonzero, the thread
+// its counter of CPU ticks. If the counter was nonzero, the thread
 // writes a copy of its stack to the profiler log in pprof form,
 // which is a gzip-compressed stream of protocol messages.
 //
@@ -240,8 +240,7 @@ final class CpuProfiler {
   // Returns false if SIGPROF is already in use.
   private static native boolean startTimer(long periodMicros);
 
-  // Stops the operating system's interval timer
-  // and closes the write end of the pipe.
+  // Stops the operating system's interval timer.
   private static native void stopTimer();
 
   // Returns the operating system's identifier for the calling thread.
