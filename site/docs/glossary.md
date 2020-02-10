@@ -67,7 +67,6 @@ cached and reused between targets requiring the same aspect. Created with the
 `aspect()` Starlark Build API function. Can be used, for example, to generate
 metadata for IDEs, and create actions for linting.
 
-=======
 **See also:** [Aspects documentation](skylark/aspects.html)
 
 #### Aspect-on-aspect
