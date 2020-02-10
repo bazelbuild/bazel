@@ -268,24 +268,25 @@ See [Artifact](#artifact).
 
 #### Hermeticity
 
-The property of a build or test where there are no external influences on the
-build or test. This helps to enable deterministic and [correct](#correctness)
-results. This usually means disallowing network access to actions, only allowing
-access to declared input [artifacts](#artifact), making timestamps and timezones
-fixed, restricting access/resetting environment variables, and using fixed seeds
-for random number generators.
+A build is hermetic if there are no external influences on its build and test
+operations, which helps to make sure that results are deterministic and
+[correct](#correctness). For example, hermetic builds typically disallow network
+access to actions, restrict access to declared inputs, use fixed timestamps and
+timezones, restrict access to environment variables, and use fixed seeds for
+random number generators
 
 #### Incremental build
 
-A build that reuses the results of earlier builds to reduce build time and
-resource needs. Bazel aims to guarantee correct results for incremental builds.
-This is the opposite of a clean build.
+An incremental build reuses the results of earlier builds to reduce build time
+and resource usage. Dependency checking and caching aim to produce correct
+results for this type of build. An incremental build is the opposite of a clean
+build.
 
 <!-- TODO: #### Install base -->
 
 #### Label
 
-An identifier for a [target](#target). A fully qualified label such as
+An identifier for a [target](#target). A fully-qualified label such as
 `//path/to/package:target` consists of `//` to mark the workspace root
 directory, `path/to/package` as the directory that contains the [BUILD
 file](#build-file) declaring the target, and `:target` as the name of the target
@@ -295,7 +296,7 @@ repository] named `my_repository`.
 
 #### Loading phase
 
-The first phase of a build where Bazel parses WORKSPACE, BUILD, and [.bzl
+The first phase of a build where Bazel parses `WORKSPACE`, `BUILD`, and [.bzl
 files](#bzl-file) to create [packages](#package). [Macros](#macro) and certain
 functions like `glob()` are evaluated in this phase. Interleaved with the second
 phase of the build, the [analysis phase](#analysis-phase), to build up a [target
@@ -310,9 +311,11 @@ during the [loading phase](#loading-phase).
 
 #### Mnemonic
 
-A short, human-readable string to quickly understand what an [action](#action)
-is doing. Can be used as identifiers for *spawn strategy* selections. For
-example: Javac, CppCompile, AndroidManifestMerger.
+A short, human-readable string selected by a rule author to quickly understand
+what an [action](#action) in the rule is doing. Mnemonics can be used as
+identifiers for *spawn strategy* selections. Some examples of action mnemonics
+are `Javac` from Java rules, `CppCompile` from C++ rules, and
+`AndroidManifestMerger` from Android rules.
 
 #### Native rules
 
@@ -540,7 +543,7 @@ specific packages or be completely public.
 
 #### Workspace
 
-A directory containing a WORKSPACE file and source code for the software you
+A directory containing a `WORKSPACE` file and source code for the software you
 want to build. Labels that start with `//` are relative to the workspace
 directory.
 
