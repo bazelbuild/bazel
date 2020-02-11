@@ -231,8 +231,7 @@ public final class ValidationEnvironment extends NodeVisitor {
     }
   }
 
-  // This is exposed to Eval until validation becomes a precondition for evaluation.
-  static String createInvalidIdentifierException(String name, Set<String> candidates) {
+  private static String createInvalidIdentifierException(String name, Set<String> candidates) {
     if (name.equals("$error$")) {
       return "contains syntax error(s)";
     }

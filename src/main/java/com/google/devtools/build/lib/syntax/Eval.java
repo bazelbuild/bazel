@@ -607,10 +607,17 @@ final class Eval {
             if (result != null) {
               return result;
             }
-            String error =
-                ValidationEnvironment.createInvalidIdentifierException(
-                    name, fr.thread.getVariableNames());
-            throw new EvalException(id.getStartLocation(), error);
+
+            // Assuming validation was successfully applied before execution
+            // (which is not yet true for copybara, but will be soon),
+            // then the identifier must have been resolved but the
+            // resolution was not annotated onto the syntax tree---because
+            // it's a BUILD file that may share trees with the prelude.
+            // So this error does not mean "undefined variable" (morally a
+            // static error), but "variable was (dynamically) referenced
+            // before being bound", as in 'print(x); x=1'.
+            throw new EvalException(
+                id.getStartLocation(), "variable '" + name + "' is referenced before assignment");
           }
 
           Object result;
