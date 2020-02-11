@@ -221,12 +221,9 @@ public class NinjaLexerStep {
   public void tryReadIdentifier() {
     end = readIdentifier(position, true);
     if (position >= end) {
-      String textAround = fragment
-          .subFragment(Math.max(0, position - 200), Math.min(fragment.length(), position + 200))
-          .toString();
       error = String.format("Symbol '%s' is not allowed in the identifier,"
               + " the text fragment with the symbol:\n%s\n",
-          fragment.subFragment(position, position + 1), textAround);
+          fragment.subFragment(position, position + 1), fragment.getFragmentAround(position));
       end = position + 1;
     }
   }
