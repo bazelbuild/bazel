@@ -68,7 +68,7 @@ public class ExecutionTransitionFactory implements TransitionFactory<AttributeTr
   private static class ExecutionTransition implements PatchTransition {
     @Nullable private final Label executionPlatform;
 
-    public ExecutionTransition(@Nullable Label executionPlatform) {
+    private ExecutionTransition(@Nullable Label executionPlatform) {
       this.executionPlatform = executionPlatform;
     }
 
@@ -93,6 +93,12 @@ public class ExecutionTransitionFactory implements TransitionFactory<AttributeTr
         // No execution platform is known, so don't change anything.
         return options;
       }
+      final Label execPlatformLabel;
+      if (options.get(PlatformOptions.class).toolchainExecPlatformPassthrough != null) {
+        execPlatformLabel = options.get(PlatformOptions.class).toolchainExecPlatformPassthrough;
+      } else {
+         execPlatformLabel = this.executionPlatform;
+      }
       return cache.applyTransition(
           options,
           // The execution platform impacts the output's --platform_suffix and --platforms flags.
@@ -113,7 +119,7 @@ public class ExecutionTransitionFactory implements TransitionFactory<AttributeTr
             // Then set the target to the saved execution platform if there is one.
             if (execConfiguration.get(PlatformOptions.class) != null) {
               execConfiguration.get(PlatformOptions.class).platforms =
-                  ImmutableList.of(executionPlatform);
+                  ImmutableList.of(execPlatformLabel);
             }
 
             return execConfiguration;
