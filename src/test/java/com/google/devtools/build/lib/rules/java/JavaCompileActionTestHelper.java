@@ -86,10 +86,6 @@ public final class JavaCompileActionTestHelper {
     return getOptions(javac).getBootClassPath();
   }
 
-  public static List<String> getExtdir(JavaCompileAction javac) throws Exception {
-    return getOptions(javac).getExtClassPath();
-  }
-
   /** Returns the JavaBuilder command line, up to the main class or deploy jar. */
   public static List<String> getJavacCommand(JavaCompileAction action) throws Exception {
     List<String> args = action.getCommandLines().allArguments();
