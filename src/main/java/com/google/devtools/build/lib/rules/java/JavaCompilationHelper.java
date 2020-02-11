@@ -293,6 +293,14 @@ public final class JavaCompilationHelper {
       builder.setSourceGenDirectory(sourceGenDir(outputs.output(), label));
       builder.setPlugins(plugins);
       builder.setManifestOutput(outputs.manifestProto());
+    } else {
+      // Don't do annotation processing, but pass the processorpath through to allow service-loading
+      // Error Prone plugins.
+      builder.setPlugins(
+          JavaPluginInfo.create(
+              /* processorClasses= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+              plugins.processorClasspath(),
+              plugins.data()));
     }
     builder.setOutputs(outputs);
 
