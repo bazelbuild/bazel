@@ -63,10 +63,17 @@ constraint_value(
 )
 EOF
 }
+
 function write_platforms() {
   mkdir platform
   cat >platform/platform.bzl <<EOF
 ShowPlatformInfo = provider(fields = ["platform_type", "level"])
+
+def describe_platform_info(platform_info):
+    if platform_info.level:
+        return "%s-%s" % (platform_info.platform_type, platform_info.level)
+    else:
+        return platform_info.platform_type
 
 def _show_platform_impl(ctx):
     target_constraint = ctx.attr._target_constraint[platform_common.ConstraintValueInfo]
@@ -158,18 +165,12 @@ EOF
 function write_toolchains() {
   mkdir toolchain
   cat >toolchain/toolchain.bzl <<EOF
-load("//platform:platform.bzl", "ShowPlatformInfo")
+load("//platform:platform.bzl", "ShowPlatformInfo", "describe_platform_info")
 load(":extra_lib.bzl", "ExtraMessageProvider")
 
-def _get_message(info):
-    if info.level:
-        return "%s (%s)" % (info.platform_type, info.level)
-    else:
-        return info.platform_type
-
 def _sample_toolchain_impl(ctx):
-    target_dep = _get_message(ctx.attr._target_dep[ShowPlatformInfo])
-    tool_dep = _get_message(ctx.attr._tool_dep[ShowPlatformInfo])
+    target_dep = describe_platform_info(ctx.attr._target_dep[ShowPlatformInfo])
+    tool_dep = describe_platform_info(ctx.attr._tool_dep[ShowPlatformInfo])
     dep_messages = []
     for dep in ctx.attr.deps:
         message = dep[ExtraMessageProvider].message
@@ -197,19 +198,13 @@ sample_toolchain = rule(
 )
 EOF
   cat >toolchain/extra_lib.bzl <<EOF
-load("//platform:platform.bzl", "ShowPlatformInfo")
+load("//platform:platform.bzl", "ShowPlatformInfo", "describe_platform_info")
 
 ExtraMessageProvider = provider(fields = ["message"])
 
-def _get_message(info):
-    if info.level:
-        return "%s (%s)" % (info.platform_type, info.level)
-    else:
-        return info.platform_type
-
 def _extra_lib_impl(ctx):
-    target_dep = _get_message(ctx.attr._target_dep[ShowPlatformInfo])
-    tool_dep = _get_message(ctx.attr._tool_dep[ShowPlatformInfo])
+    target_dep = describe_platform_info(ctx.attr._target_dep[ShowPlatformInfo])
+    tool_dep = describe_platform_info(ctx.attr._tool_dep[ShowPlatformInfo])
     message = "extra_lib: message: %s, target_dep: %s, tool_dep: %s" % (
         ctx.attr.message,
         target_dep,
@@ -289,18 +284,12 @@ EOF
 function write_rule() {
   mkdir rule
   cat >rule/rule.bzl <<EOF
-load("//platform:platform.bzl", "ShowPlatformInfo")
-
-def _get_message(info):
-    if info.level:
-        return "%s (%s)" % (info.platform_type, info.level)
-    else:
-        return info.platform_type
+load("//platform:platform.bzl", "ShowPlatformInfo", "describe_platform_info")
 
 def _sample_impl(ctx):
     toolchain = ctx.toolchains["//toolchain:toolchain_type"]
     message = ctx.attr.message
-    exec_platform = _get_message(ctx.attr._exec[ShowPlatformInfo])
+    exec_platform = describe_platform_info(ctx.attr._exec[ShowPlatformInfo])
 
     str = 'Using toolchain: rule message: "%s", exec platform: "%s", toolchain message: "%s"\n' % (message, exec_platform, toolchain.message)
 
@@ -358,11 +347,11 @@ EOF
   # TODO: verify contents of bazel-bin/sample.log.
   cat bazel-bin/sample.log >> $TEST_log
   # The execution platform should be beta.
-  expect_log '"rule message: "Hello", exec platform: "exec (beta)"'
+  expect_log 'rule message: "Hello", exec platform: "exec-beta"'
   # The toolchain should have proper target and exec matching the top target.
-  expect_log 'sample_toolchain: message: beta toolchain, target_dep: target, tool_dep: exec (beta)'
+  expect_log 'sample_toolchain: message: beta toolchain, target_dep: target, tool_dep: exec-beta'
   # The toolchain's dependencies should use alpha for exec.
-  expect_log 'extra_lib: message: extra_lib foo, target_dep: target, tool_dep: exec (alpha)'
+  expect_log 'extra_lib: message: extra_lib foo, target_dep: target, tool_dep: exec-alpha'
 }
 
 run_suite "toolchain transition tests"
