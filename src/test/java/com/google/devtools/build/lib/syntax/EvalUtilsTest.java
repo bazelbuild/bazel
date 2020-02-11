@@ -74,19 +74,22 @@ public final class EvalUtilsTest extends EvaluationTestCase {
 
     assertThat(EvalUtils.isImmutable(makeList(null))).isTrue();
     assertThat(EvalUtils.isImmutable(makeDict(null))).isTrue();
-    assertThat(EvalUtils.isImmutable(makeList(thread.mutability()))).isFalse();
-    assertThat(EvalUtils.isImmutable(makeDict(thread.mutability()))).isFalse();
+
+    Mutability mu = Mutability.create("test");
+    assertThat(EvalUtils.isImmutable(makeList(mu))).isFalse();
+    assertThat(EvalUtils.isImmutable(makeDict(mu))).isFalse();
   }
 
   @Test
   public void testDatatypeMutabilityDeep() throws Exception {
+    Mutability mu = Mutability.create("test");
     assertThat(EvalUtils.isImmutable(Tuple.of(makeList(null)))).isTrue();
-
-    assertThat(EvalUtils.isImmutable(Tuple.of(makeList(thread.mutability())))).isFalse();
+    assertThat(EvalUtils.isImmutable(Tuple.of(makeList(mu)))).isFalse();
   }
 
   @Test
   public void testComparatorWithDifferentTypes() throws Exception {
+    Mutability mu = Mutability.create("test");
     Object[] objects = {
       "1",
       2,
@@ -94,10 +97,10 @@ public final class EvalUtilsTest extends EvaluationTestCase {
       Starlark.NONE,
       Tuple.of(1, 2, 3),
       Tuple.of("1", "2", "3"),
-      StarlarkList.of(thread.mutability(), 1, 2, 3),
-      StarlarkList.of(thread.mutability(), "1", "2", "3"),
-      Dict.of(thread.mutability(), "key", 123),
-      Dict.of(thread.mutability(), 123, "value"),
+      StarlarkList.of(mu, 1, 2, 3),
+      StarlarkList.of(mu, "1", "2", "3"),
+      Dict.of(mu, "key", 123),
+      Dict.of(mu, 123, "value"),
       StructProvider.STRUCT.create(ImmutableMap.of("key", (Object) "value"), "no field %s"),
     };
 

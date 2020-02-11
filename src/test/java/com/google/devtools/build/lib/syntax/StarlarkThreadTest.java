@@ -172,7 +172,7 @@ public final class StarlarkThreadTest extends EvaluationTestCase {
 
   @Test
   public void testBuiltinsCanBeShadowed() throws Exception {
-    StarlarkThread thread = newStarlarkThreadWithSkylarkOptions();
+    StarlarkThread thread = newStarlarkThread();
     EvalUtils.exec(ParserInput.fromLines("True = 123"), thread);
     assertThat(thread.getGlobals().lookup("True")).isEqualTo(123);
   }

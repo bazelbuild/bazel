@@ -37,7 +37,7 @@ public final class MethodLibraryTest extends EvaluationTestCase {
 
   @Test
   public void testStackTraceLocation() throws Exception {
-    new SkylarkTest()
+    new Scenario()
         .testIfErrorContains(
             "Traceback (most recent call last):"
                 + LINE_SEPARATOR
@@ -64,7 +64,7 @@ public final class MethodLibraryTest extends EvaluationTestCase {
 
   @Test
   public void testStackTraceWithIf() throws Exception {
-    new SkylarkTest()
+    new Scenario()
         .testIfErrorContains(
             "File \"\", line 5"
                 + LINE_SEPARATOR
@@ -82,7 +82,7 @@ public final class MethodLibraryTest extends EvaluationTestCase {
 
   @Test
   public void testStackTraceWithAugmentedAssignment() throws Exception {
-    new SkylarkTest()
+    new Scenario()
         .testIfErrorContains(
             "File \"\", line 4"
                 + LINE_SEPARATOR
@@ -103,7 +103,7 @@ public final class MethodLibraryTest extends EvaluationTestCase {
   public void testStackTraceSkipBuiltInOnly() throws Exception {
     // The error message should not include the stack trace when there is
     // only one built-in function.
-    new BothModesTest()
+    new Scenario()
         .testIfExactError(
             "in call to index(), parameter 'sub' got value of type 'int', want 'string'",
             "'test'.index(1)");
@@ -113,7 +113,7 @@ public final class MethodLibraryTest extends EvaluationTestCase {
   public void testStackTrace() throws Exception {
     // Unlike SkylarintegrationTests#testStackTraceErrorInFunction(), this test
     // has neither a BUILD nor a bzl file.
-    new SkylarkTest()
+    new Scenario()
         .testIfExactError(
             "Traceback (most recent call last):"
                 + LINE_SEPARATOR
@@ -140,7 +140,7 @@ public final class MethodLibraryTest extends EvaluationTestCase {
 
   @Test
   public void testBuiltinFunctionErrorMessage() throws Exception {
-    new BothModesTest()
+    new Scenario()
         .testIfErrorContains("substring \"z\" not found in \"abc\"", "'abc'.index('z')")
         .testIfErrorContains(
             "in call to startswith(), parameter 'sub' got value of type 'int', want 'string or"
@@ -151,7 +151,7 @@ public final class MethodLibraryTest extends EvaluationTestCase {
 
   @Test
   public void testHasAttr() throws Exception {
-    new SkylarkTest()
+    new Scenario()
         .testExpression("hasattr(depset(), 'to_list')", Boolean.TRUE)
         .testExpression("hasattr('test', 'count')", Boolean.TRUE)
         .testExpression("hasattr(dict(a = 1, b = 2), 'items')", Boolean.TRUE)
@@ -160,7 +160,7 @@ public final class MethodLibraryTest extends EvaluationTestCase {
 
   @Test
   public void testGetAttrMissingField() throws Exception {
-    new SkylarkTest()
+    new Scenario()
         .testIfExactError(
             "'string' value has no field or method 'not_there'", "getattr('a string', 'not_there')")
         .testExpression("getattr('a string', 'not_there', 'use this')", "use this")
@@ -192,7 +192,7 @@ public final class MethodLibraryTest extends EvaluationTestCase {
 
   @Test
   public void testGetAttrMissingField_typoDetection() throws Exception {
-    new SkylarkTest()
+    new Scenario()
         .update("s", new AStruct())
         .testIfExactError(
             "'AStruct' value has no field or method 'feild' (did you mean 'field'?)",
@@ -202,14 +202,14 @@ public final class MethodLibraryTest extends EvaluationTestCase {
   @Test
   public void testGetAttrWithMethods() throws Exception {
     String msg = "'string' value has no field or method 'cnt'";
-    new SkylarkTest()
+    new Scenario()
         .testIfExactError(msg, "getattr('a string', 'cnt')")
         .testExpression("getattr('a string', 'cnt', 'default')", "default");
   }
 
   @Test
   public void testDir() throws Exception {
-    new SkylarkTest()
+    new Scenario()
         .testExpression(
             "str(dir({}))",
             "[\"clear\", \"get\", \"items\", \"keys\","
@@ -218,18 +218,17 @@ public final class MethodLibraryTest extends EvaluationTestCase {
 
   @Test
   public void testBoolean() throws Exception {
-    new BothModesTest().testExpression("False", Boolean.FALSE).testExpression("True", Boolean.TRUE);
+    new Scenario().testExpression("False", Boolean.FALSE).testExpression("True", Boolean.TRUE);
   }
 
   @Test
   public void testBooleanUnsupportedOperationFails() throws Exception {
-    new BothModesTest()
-        .testIfErrorContains("unsupported binary operation: bool + bool", "True + True");
+    new Scenario().testIfErrorContains("unsupported binary operation: bool + bool", "True + True");
   }
 
   @Test
   public void testListSort() throws Exception {
-    new BothModesTest()
+    new Scenario()
         .testEval("sorted([0,1,2,3])", "[0, 1, 2, 3]")
         .testEval("sorted([])", "[]")
         .testEval("sorted([3, 2, 1, 0])", "[0, 1, 2, 3]")
@@ -245,28 +244,24 @@ public final class MethodLibraryTest extends EvaluationTestCase {
 
   @Test
   public void testDictionaryCopy() throws Exception {
-    new BothModesTest()
-        .setUp("x = {1 : 2}", "y = dict(x)")
-        .testEval("x[1] == 2 and y[1] == 2", "True");
+    new Scenario().setUp("x = {1 : 2}", "y = dict(x)").testEval("x[1] == 2 and y[1] == 2", "True");
   }
 
   @Test
   public void testDictionaryCopyKeyCollision() throws Exception {
-    new BothModesTest()
-        .setUp("x = {'test' : 2}", "y = dict(x, test = 3)")
-        .testEval("y['test']", "3");
+    new Scenario().setUp("x = {'test' : 2}", "y = dict(x, test = 3)").testEval("y['test']", "3");
   }
 
   @Test
   public void testDictionaryKeyNotFound() throws Exception {
-    new BothModesTest()
+    new Scenario()
         .testIfErrorContains("key \"0\" not found in dictionary", "{}['0']")
         .testIfErrorContains("key 0 not found in dictionary", "{'0': 1, 2: 3, 4: 5}[0]");
   }
 
   @Test
   public void testDictionaryAccess() throws Exception {
-    new BothModesTest()
+    new Scenario()
         .testEval("{1: ['foo']}[1]", "['foo']")
         .testExpression("{'4': 8}['4']", 8)
         .testExpression("{'a': 'aa', 'b': 'bb', 'c': 'cc'}['b']", "bb");
@@ -274,14 +269,14 @@ public final class MethodLibraryTest extends EvaluationTestCase {
 
   @Test
   public void testDictionaryVariableAccess() throws Exception {
-    new BothModesTest().setUp("d = {'a' : 1}", "a = d['a']").testLookup("a", 1);
+    new Scenario().setUp("d = {'a' : 1}", "a = d['a']").testLookup("a", 1);
   }
 
   @Test
   public void testDictionaryCreation() throws Exception {
     String expected = "{'a': 1, 'b': 2, 'c': 3}";
 
-    new BothModesTest()
+    new Scenario()
         .testEval("dict([('a', 1), ('b', 2), ('c', 3)])", expected)
         .testEval("dict(a = 1, b = 2, c = 3)", expected)
         .testEval("dict([('a', 1)], b = 2, c = 3)", expected);
@@ -289,19 +284,19 @@ public final class MethodLibraryTest extends EvaluationTestCase {
 
   @Test
   public void testDictionaryCreationInnerLists() throws Exception {
-    new BothModesTest().testEval("dict([[1, 2], [3, 4]], a = 5)", "{1: 2, 3: 4, 'a': 5}");
+    new Scenario().testEval("dict([[1, 2], [3, 4]], a = 5)", "{1: 2, 3: 4, 'a': 5}");
   }
 
   @Test
   public void testDictionaryCreationEmpty() throws Exception {
-    new BothModesTest().testEval("dict()", "{}").testEval("dict([])", "{}");
+    new Scenario().testEval("dict()", "{}").testEval("dict([])", "{}");
   }
 
   @Test
   public void testDictionaryCreationDifferentKeyTypes() throws Exception {
     String expected = "{'a': 1, 2: 3}";
 
-    new BothModesTest()
+    new Scenario()
         .testEval("dict([('a', 1), (2, 3)])", expected)
         .testEval("dict([(2, 3)], a = 1)", expected);
   }
@@ -310,15 +305,15 @@ public final class MethodLibraryTest extends EvaluationTestCase {
   public void testDictionaryCreationKeyCollision() throws Exception {
     String expected = "{'a': 1, 'b': 2, 'c': 3}";
 
-    new BothModesTest()
+    new Scenario()
         .testEval("dict([('a', 42), ('b', 2), ('a', 1), ('c', 3)])", expected)
         .testEval("dict([('a', 42)], a = 1, b = 2, c = 3)", expected);
-    new SkylarkTest().testEval("dict([('a', 42)], **{'a': 1, 'b': 2, 'c': 3})", expected);
+    new Scenario().testEval("dict([('a', 42)], **{'a': 1, 'b': 2, 'c': 3})", expected);
   }
 
   @Test
   public void testDictionaryCreationInvalidPositional() throws Exception {
-    new BothModesTest()
+    new Scenario()
         .testIfErrorContains("in dict, got string, want iterable", "dict('a')")
         .testIfErrorContains(
             "in dict, dictionary update sequence element #0 is not iterable (string)",
@@ -336,7 +331,7 @@ public final class MethodLibraryTest extends EvaluationTestCase {
 
   @Test
   public void testDictionaryValues() throws Exception {
-    new BothModesTest()
+    new Scenario()
         .testEval("{1: 'foo'}.values()", "['foo']")
         .testEval("{}.values()", "[]")
         .testEval("{True: 3, False: 5}.values()", "[3, 5]")
@@ -346,7 +341,7 @@ public final class MethodLibraryTest extends EvaluationTestCase {
 
   @Test
   public void testDictionaryKeys() throws Exception {
-    new BothModesTest()
+    new Scenario()
         .testEval("{1: 'foo'}.keys()", "[1]")
         .testEval("{}.keys()", "[]")
         .testEval("{True: 3, False: 5}.keys()", "[True, False]")
@@ -356,7 +351,7 @@ public final class MethodLibraryTest extends EvaluationTestCase {
 
   @Test
   public void testDictionaryGet() throws Exception {
-    new BuildTest()
+    new Scenario()
         .testExpression("{1: 'foo'}.get(1)", "foo")
         .testExpression("{1: 'foo'}.get(2)", Starlark.NONE)
         .testExpression("{1: 'foo'}.get(2, 'a')", "a")
@@ -366,7 +361,7 @@ public final class MethodLibraryTest extends EvaluationTestCase {
 
   @Test
   public void testDictionaryItems() throws Exception {
-    new BothModesTest()
+    new Scenario()
         .testEval("{'a': 'foo'}.items()", "[('a', 'foo')]")
         .testEval("{}.items()", "[]")
         .testEval("{1: 3, 2: 5}.items()", "[(1, 3), (2, 5)]")
@@ -375,7 +370,7 @@ public final class MethodLibraryTest extends EvaluationTestCase {
 
   @Test
   public void testDictionaryClear() throws Exception {
-    new SkylarkTest()
+    new Scenario()
         .setUp(
             "d = {1: 'foo', 2: 'bar', 3: 'baz'}",
             "len(d) == 3 or fail('clear 1')",
@@ -385,7 +380,7 @@ public final class MethodLibraryTest extends EvaluationTestCase {
 
   @Test
   public void testDictionaryPop() throws Exception {
-    new SkylarkTest()
+    new Scenario()
         .testIfErrorContains(
             "KeyError: 1",
             "d = {1: 'foo', 2: 'bar', 3: 'baz'}\n"
@@ -400,7 +395,7 @@ public final class MethodLibraryTest extends EvaluationTestCase {
 
   @Test
   public void testDictionaryPopItem() throws Exception {
-    new SkylarkTest()
+    new Scenario()
         .testIfErrorContains(
             "popitem(): dictionary is empty",
             "d = {2: 'bar', 3: 'baz', 1: 'foo'}\n"
@@ -414,17 +409,17 @@ public final class MethodLibraryTest extends EvaluationTestCase {
 
   @Test
   public void testDictionaryUpdate() throws Exception {
-    new BothModesTest()
+    new Scenario()
         .setUp("foo = {'a': 2}", "foo.update({'b': 4})")
         .testEval("foo", "{'a': 2, 'b': 4}");
-    new BothModesTest()
+    new Scenario()
         .setUp("foo = {'a': 2}", "foo.update({'a': 3, 'b': 4})")
         .testEval("foo", "{'a': 3, 'b': 4}");
   }
 
   @Test
   public void testDictionarySetDefault() throws Exception {
-    new SkylarkTest()
+    new Scenario()
         .setUp(
             "d = {2: 'bar', 1: 'foo'}",
             "len(d) == 2 or fail('setdefault 0')",
@@ -437,7 +432,7 @@ public final class MethodLibraryTest extends EvaluationTestCase {
 
   @Test
   public void testListIndexMethod() throws Exception {
-    new BothModesTest()
+    new Scenario()
         .testExpression("['a', 'b', 'c'].index('a')", 0)
         .testExpression("['a', 'b', 'c'].index('b')", 1)
         .testExpression("['a', 'b', 'c'].index('c')", 2)
@@ -451,7 +446,7 @@ public final class MethodLibraryTest extends EvaluationTestCase {
   @Test
   public void testHash() throws Exception {
     // We specify the same string hashing algorithm as String.hashCode().
-    new SkylarkTest()
+    new Scenario()
         .testExpression("hash('skylark')", "skylark".hashCode())
         .testExpression("hash('google')", "google".hashCode())
         .testIfErrorContains(
@@ -461,7 +456,7 @@ public final class MethodLibraryTest extends EvaluationTestCase {
 
   @Test
   public void testRangeType() throws Exception {
-    new BothModesTest()
+    new Scenario()
         .setUp("a = range(3)")
         .testExpression("len(a)", 3)
         .testExpression("str(a)", "range(0, 3)")
@@ -532,7 +527,7 @@ public final class MethodLibraryTest extends EvaluationTestCase {
 
   @Test
   public void testEnumerate() throws Exception {
-    new BothModesTest()
+    new Scenario()
         .testExpression("str(enumerate([]))", "[]")
         .testExpression("str(enumerate([5]))", "[(0, 5)]")
         .testExpression("str(enumerate([5, 3]))", "[(0, 5), (1, 3)]")
@@ -542,12 +537,12 @@ public final class MethodLibraryTest extends EvaluationTestCase {
 
   @Test
   public void testEnumerateBadArg() throws Exception {
-    new BothModesTest().testIfErrorContains("type 'string' is not iterable", "enumerate('a')");
+    new Scenario().testIfErrorContains("type 'string' is not iterable", "enumerate('a')");
   }
 
   @Test
   public void testReassignmentOfPrimitivesNotForbiddenByCoreLanguage() throws Exception {
-    new BuildTest()
+    new Scenario()
         .setUp("cc_binary = (['hello.cc'])")
         .testIfErrorContains(
             "'list' object is not callable",
@@ -556,34 +551,34 @@ public final class MethodLibraryTest extends EvaluationTestCase {
 
   @Test
   public void testLenOnString() throws Exception {
-    new BothModesTest().testExpression("len('abc')", 3);
+    new Scenario().testExpression("len('abc')", 3);
   }
 
   @Test
   public void testLenOnList() throws Exception {
-    new BothModesTest().testExpression("len([1,2,3])", 3);
+    new Scenario().testExpression("len([1,2,3])", 3);
   }
 
   @Test
   public void testLenOnDict() throws Exception {
-    new BothModesTest().testExpression("len({'a' : 1, 'b' : 2})", 2);
+    new Scenario().testExpression("len({'a' : 1, 'b' : 2})", 2);
   }
 
   @Test
   public void testLenOnBadType() throws Exception {
-    new BothModesTest().testIfErrorContains("int is not iterable", "len(1)");
+    new Scenario().testIfErrorContains("int is not iterable", "len(1)");
   }
 
   @Test
   public void testIndexOnFunction() throws Exception {
-    new BothModesTest()
+    new Scenario()
         .testIfErrorContains("type 'function' has no operator [](int)", "len[1]")
         .testIfErrorContains("invalid slice operand: function", "len[1:4]");
   }
 
   @Test
   public void testBool() throws Exception {
-    new BothModesTest()
+    new Scenario()
         .testExpression("bool(1)", Boolean.TRUE)
         .testExpression("bool(0)", Boolean.FALSE)
         .testExpression("bool([1, 2])", Boolean.TRUE)
@@ -593,7 +588,7 @@ public final class MethodLibraryTest extends EvaluationTestCase {
 
   @Test
   public void testStr() throws Exception {
-    new BothModesTest()
+    new Scenario()
         .testExpression("str(1)", "1")
         .testExpression("str(-2)", "-2")
         .testExpression("str([1, 2])", "[1, 2]")
@@ -605,12 +600,12 @@ public final class MethodLibraryTest extends EvaluationTestCase {
 
   @Test
   public void testStrFunction() throws Exception {
-    new SkylarkTest().setUp("def foo(x): pass").testExpression("str(foo)", "<function foo>");
+    new Scenario().setUp("def foo(x): pass").testExpression("str(foo)", "<function foo>");
   }
 
   @Test
   public void testType() throws Exception {
-    new SkylarkTest()
+    new Scenario()
         .testExpression("type(1)", "int")
         .testExpression("type('a')", "string")
         .testExpression("type([1, 2])", "list")
@@ -622,7 +617,7 @@ public final class MethodLibraryTest extends EvaluationTestCase {
 
   @Test
   public void testZipFunction() throws Exception {
-    new BothModesTest()
+    new Scenario()
         .testExpression("str(zip())", "[]")
         .testExpression("str(zip([1, 2]))", "[(1,), (2,)]")
         .testExpression("str(zip([1, 2], ['a', 'b']))", "[(1, \"a\"), (2, \"b\")]")
@@ -642,13 +637,13 @@ public final class MethodLibraryTest extends EvaluationTestCase {
       String input, Object chars,
       String expLeft, String expRight, String expBoth) throws Exception {
     if (chars == null) {
-      new BothModesTest()
+      new Scenario()
           .update("s", input)
           .testExpression("s.lstrip()", expLeft)
           .testExpression("s.rstrip()", expRight)
           .testExpression("s.strip()", expBoth);
     } else {
-      new BothModesTest()
+      new Scenario()
           .update("s", input)
           .update("chars", chars)
           .testExpression("s.lstrip(chars)", expLeft)
@@ -684,14 +679,12 @@ public final class MethodLibraryTest extends EvaluationTestCase {
 
   @Test
   public void testFail() throws Exception {
-    new SkylarkTest()
-        .testIfErrorContains("abc", "fail('abc')")
-        .testIfErrorContains("18", "fail(18)");
+    new Scenario().testIfErrorContains("abc", "fail('abc')").testIfErrorContains("18", "fail(18)");
   }
 
   @Test
   public void testTupleCoercion() throws Exception {
-    new BothModesTest()
+    new Scenario()
         .testExpression("tuple([1, 2]) == (1, 2)", true)
         // Depends on current implementation of dict
         .testExpression("tuple({1: 'foo', 2: 'bar'}) == (1, 2)", true);
@@ -702,7 +695,7 @@ public final class MethodLibraryTest extends EvaluationTestCase {
   // keyword, or may be None, even in places where it does not quite make sense.
   @Test
   public void testLegacyNamed() throws Exception {
-    new SkylarkTest("--incompatible_restrict_named_params=false")
+    new Scenario("--incompatible_restrict_named_params=false")
         // Parameters which may be specified by keyword but are not explicitly 'named'.
         .testExpression("all(elements=[True, True])", Boolean.TRUE)
         .testExpression("any(elements=[True, False])", Boolean.TRUE)
@@ -740,7 +733,7 @@ public final class MethodLibraryTest extends EvaluationTestCase {
 
   @Test
   public void testExperimentalStarlarkConfig() throws Exception {
-    new SkylarkTest("--incompatible_restrict_named_params")
+    new Scenario("--incompatible_restrict_named_params")
         .testIfErrorContains(
             "join() got named argument for positional-only parameter 'elements'",
             "','.join(elements=['foo', 'bar'])");
@@ -748,14 +741,14 @@ public final class MethodLibraryTest extends EvaluationTestCase {
 
   @Test
   public void testStringJoinRequiresStrings() throws Exception {
-    new SkylarkTest()
+    new Scenario()
         .testIfErrorContains(
             "expected string for sequence element 1, got 'int'", "', '.join(['foo', 2])");
   }
 
   @Test
   public void testDepsetItemsKeywordAndPositional() throws Exception {
-    new SkylarkTest("--incompatible_disable_depset_items=false")
+    new Scenario("--incompatible_disable_depset_items=false")
         .testIfErrorContains(
             "parameter 'items' cannot be specified both positionally and by keyword",
             "depset([0, 1], 'default', items=[0,1])");
@@ -763,7 +756,7 @@ public final class MethodLibraryTest extends EvaluationTestCase {
 
   @Test
   public void testDepsetDirectInvalidType() throws Exception {
-    new SkylarkTest()
+    new Scenario()
         .testIfErrorContains(
             "expected type 'sequence' for direct but got type 'string' instead",
             "depset(direct='hello')");
@@ -771,7 +764,7 @@ public final class MethodLibraryTest extends EvaluationTestCase {
 
   @Test
   public void testDisableDepsetItems() throws Exception {
-    new SkylarkTest("--incompatible_disable_depset_items")
+    new Scenario("--incompatible_disable_depset_items")
         .setUp("x = depset([0])", "y = depset(direct = [1])")
         .testEval("depset([2, 3], transitive = [x, y]).to_list()", "[0, 1, 2, 3]")
         .testIfErrorContains(
@@ -787,7 +780,7 @@ public final class MethodLibraryTest extends EvaluationTestCase {
   @Test
   public void testDepsetDepthLimit() throws Exception {
     NestedSet.setApplicationDepthLimit(2000);
-    new SkylarkTest()
+    new Scenario()
         .setUp(
             "def create_depset(depth):",
             "  x = depset([0])",
@@ -806,7 +799,7 @@ public final class MethodLibraryTest extends EvaluationTestCase {
   @Test
   public void testDepsetDebugDepth() throws Exception {
     NestedSet.setApplicationDepthLimit(2000);
-    new SkylarkTest("--debug_depset_depth=true")
+    new Scenario("--debug_depset_depth=true")
         .setUp(
             "def create_depset(depth):",
             "  x = depset([0])",

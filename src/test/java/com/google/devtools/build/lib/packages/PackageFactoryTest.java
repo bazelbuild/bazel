@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.RootedPath;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -1208,5 +1209,57 @@ public class PackageFactoryTest extends PackageFactoryTestBase {
         file, globs, globsWithDirs, new HashMap<>(), /*eventHandler=*/ null);
     assertThat(globs).containsExactly("ab", "a", "**/*");
     assertThat(globsWithDirs).containsExactly("c");
+  }
+
+  // Tests of BUILD file dialect checks:
+
+  @Test
+  public void testDefInBuild() throws Exception {
+    checkBuildDialectError(
+        "def func(): pass", //
+        "function definitions are not allowed in BUILD files");
+  }
+
+  @Test
+  public void testForStatementForbiddenInBuild() throws Exception {
+    checkBuildDialectError(
+        "for _ in []: pass", //
+        "for loops are not allowed");
+  }
+
+  @Test
+  public void testIfStatementForbiddenInBuild() throws Exception {
+    checkBuildDialectError(
+        "if False: pass", //
+        "if statements are not allowed");
+  }
+
+  @Test
+  public void testKwargsForbiddenInBuild() throws Exception {
+    checkBuildDialectError(
+        "print(**dict)", //
+        "**kwargs arguments are not allowed in BUILD files");
+    checkBuildDialectError(
+        "len(dict(**{'a': 1}))", //
+        "**kwargs arguments are not allowed in BUILD files");
+  }
+
+  @Test
+  public void testArgsForbiddenInBuild() throws Exception {
+    checkBuildDialectError(
+        "print(*['a'])", //
+        "*args arguments are not allowed in BUILD files");
+  }
+
+  // Asserts that evaluation of the specified BUILD file produces the expected error.
+  // Modifies: scratch, events, packages; be careful when calling more than once per @Test!
+  private void checkBuildDialectError(String content, String expectedError)
+      throws IOException, InterruptedException, NoSuchPackageException {
+    events.clear();
+    events.setFailFast(false);
+    Path file = scratch.overwriteFile("/p/BUILD", content);
+    Package pkg = packages.eval("p", RootedPath.toRootedPath(root, file));
+    assertThat(pkg.containsErrors()).isTrue();
+    events.assertContainsError(expectedError);
   }
 }

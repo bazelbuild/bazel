@@ -50,8 +50,8 @@ public class SkylarkCcToolchainConfigureTest extends EvaluationTestCase {
         .testExpression("split_escaped('a%:', ':')", StarlarkList.of(mu, "a:"));
   }
 
-  private ModalTestCase newTest(String... skylarkOptions) throws IOException {
-    return new SkylarkTest(skylarkOptions)
+  private Scenario newTest(String... skylarkOptions) throws IOException {
+    return new Scenario(skylarkOptions)
         // A mock implementation of Label to be able to parse lib_cc_configure under default
         // Skylark environment (lib_cc_configure is meant to be used from the repository
         // environment).

@@ -35,35 +35,19 @@ import com.google.devtools.build.lib.skylarkinterface.ParamType;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkGlobalLibrary;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
-import com.google.devtools.build.lib.testutil.TestMode;
+import com.google.devtools.build.lib.syntax.util.EvaluationTestCase;
 import java.util.List;
 import java.util.Map;
-import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
 /** Tests of Starlark evaluation. */
-// This test uses 'extends' to make a copy of EvaluationTest whose
-// mode is overridden to SKYLARK, changing various environmental parameters.
+// There is no clear distinction between this and EvaluationTest.
+// TODO(adonovan): reorganize.
 @SkylarkGlobalLibrary // required for @SkylarkCallable-annotated methods
 @RunWith(JUnit4.class)
-public final class SkylarkEvaluationTest extends EvaluationTest {
-
-  @Before
-  public final void setup() throws Exception {
-    setMode(TestMode.SKYLARK);
-  }
-
-  /**
-   * Creates an instance of {@code SkylarkTest} in order to run the tests from the base class in a
-   * Skylark context
-   */
-  @Override
-  protected ModalTestCase newTest(String... skylarkOptions) {
-    return new SkylarkTest(skylarkOptions);
-  }
+public final class SkylarkEvaluationTest extends EvaluationTestCase {
 
   @Immutable
   static class Bad {
@@ -543,7 +527,7 @@ public final class SkylarkEvaluationTest extends EvaluationTest {
   // declaration, due to the interface's method declaration being generic.
   @Test
   public void testParameterizedMock() throws Exception {
-    new SkylarkTest()
+    new Scenario()
         .update("mock", new ParameterizedMock())
         .setUp("result = mock.method('bar')")
         .testLookup("result", "bar");
@@ -551,22 +535,16 @@ public final class SkylarkEvaluationTest extends EvaluationTest {
 
   @Test
   public void testSimpleIf() throws Exception {
-    new SkylarkTest().setUp("def foo():",
-        "  a = 0",
-        "  x = 0",
-        "  if x: a = 5",
-        "  return a",
-        "a = foo()").testLookup("a", 0);
+    new Scenario()
+        .setUp("def foo():", "  a = 0", "  x = 0", "  if x: a = 5", "  return a", "a = foo()")
+        .testLookup("a", 0);
   }
 
   @Test
   public void testIfPass() throws Exception {
-    new SkylarkTest().setUp("def foo():",
-        "  a = 1",
-        "  x = True",
-        "  if x: pass",
-        "  return a",
-        "a = foo()").testLookup("a", 1);
+    new Scenario()
+        .setUp("def foo():", "  a = 1", "  x = True", "  if x: pass", "  return a", "a = foo()")
+        .testLookup("a", 1);
   }
 
   @Test
@@ -578,17 +556,20 @@ public final class SkylarkEvaluationTest extends EvaluationTest {
 
   private void executeNestedIf(int x, int y, int expected) throws Exception {
     String fun = String.format("foo%s%s", x, y);
-    new SkylarkTest().setUp("def " + fun + "():",
-        "  x = " + x,
-        "  y = " + y,
-        "  a = 0",
-        "  b = 0",
-        "  if x:",
-        "    if y:",
-        "      a = 2",
-        "    b = 3",
-        "  return a + b",
-        "x = " + fun + "()").testLookup("x", expected);
+    new Scenario()
+        .setUp(
+            "def " + fun + "():",
+            "  x = " + x,
+            "  y = " + y,
+            "  a = 0",
+            "  b = 0",
+            "  if x:",
+            "    if y:",
+            "      a = 2",
+            "    b = 3",
+            "  return a + b",
+            "x = " + fun + "()")
+        .testLookup("x", expected);
   }
 
   @Test
@@ -598,14 +579,17 @@ public final class SkylarkEvaluationTest extends EvaluationTest {
   }
 
   private void executeIfElse(String fun, String y, int expected) throws Exception {
-    new SkylarkTest().setUp("def " + fun + "():",
-        "  y = '" + y + "'",
-        "  x = 5",
-        "  if x:",
-        "    if y: a = 2",
-        "    else: a = 3",
-        "  return a",
-        "z = " + fun + "()").testLookup("z", expected);
+    new Scenario()
+        .setUp(
+            "def " + fun + "():",
+            "  y = '" + y + "'",
+            "  x = 5",
+            "  if x:",
+            "    if y: a = 2",
+            "    else: a = 3",
+            "  return a",
+            "z = " + fun + "()")
+        .testLookup("z", expected);
   }
 
   @Test
@@ -624,147 +608,172 @@ public final class SkylarkEvaluationTest extends EvaluationTest {
   }
 
   private void execIfElifElse(int x, int y, int v) throws Exception {
-    new SkylarkTest().setUp("def foo():",
-        "  x = " + x + "",
-        "  y = " + y + "",
-        "  if x:",
-        "    return 1",
-        "  elif y:",
-        "    return 2",
-        "  else:",
-        "    return 3",
-        "v = foo()").testLookup("v", v);
+    new Scenario()
+        .setUp(
+            "def foo():",
+            "  x = " + x + "",
+            "  y = " + y + "",
+            "  if x:",
+            "    return 1",
+            "  elif y:",
+            "    return 2",
+            "  else:",
+            "    return 3",
+            "v = foo()")
+        .testLookup("v", v);
   }
 
   @Test
   public void testForOnList() throws Exception {
-    new SkylarkTest().setUp("def foo():",
-        "  s = ''",
-        "  for i in ['hello', ' ', 'world']:",
-        "    s = s + i",
-        "  return s",
-        "s = foo()").testLookup("s", "hello world");
+    new Scenario()
+        .setUp(
+            "def foo():",
+            "  s = ''",
+            "  for i in ['hello', ' ', 'world']:",
+            "    s = s + i",
+            "  return s",
+            "s = foo()")
+        .testLookup("s", "hello world");
   }
 
   @Test
   public void testForAssignmentList() throws Exception {
-    new SkylarkTest().setUp("def foo():",
-        "  d = ['a', 'b', 'c']",
-        "  s = ''",
-        "  for i in d:",
-        "    s = s + i",
-        "    d = ['d', 'e', 'f']", // check that we use the old list
-        "  return s",
-        "s = foo()").testLookup("s", "abc");
+    new Scenario()
+        .setUp(
+            "def foo():",
+            "  d = ['a', 'b', 'c']",
+            "  s = ''",
+            "  for i in d:",
+            "    s = s + i",
+            "    d = ['d', 'e', 'f']", // check that we use the old list
+            "  return s",
+            "s = foo()")
+        .testLookup("s", "abc");
   }
 
   @Test
   public void testForAssignmentDict() throws Exception {
-    new SkylarkTest().setUp("def func():",
-        "  d = {'a' : 1, 'b' : 2, 'c' : 3}",
-        "  s = ''",
-        "  for i in d:",
-        "    s = s + i",
-        "    d = {'d' : 1, 'e' : 2, 'f' : 3}",
-        "  return s",
-        "s = func()").testLookup("s", "abc");
+    new Scenario()
+        .setUp(
+            "def func():",
+            "  d = {'a' : 1, 'b' : 2, 'c' : 3}",
+            "  s = ''",
+            "  for i in d:",
+            "    s = s + i",
+            "    d = {'d' : 1, 'e' : 2, 'f' : 3}",
+            "  return s",
+            "s = func()")
+        .testLookup("s", "abc");
   }
 
   @Test
   public void testForUpdateList() throws Exception {
-    new SkylarkTest().setUp("def foo():",
-        "  xs = [1, 2, 3]",
-        "  for x in xs:",
-        "    if x == 1:",
-        "      xs.append(10)"
-        ).testIfErrorContains("trying to mutate a locked object", "foo()");
+    new Scenario()
+        .setUp(
+            "def foo():",
+            "  xs = [1, 2, 3]",
+            "  for x in xs:",
+            "    if x == 1:",
+            "      xs.append(10)")
+        .testIfErrorContains("trying to mutate a locked object", "foo()");
   }
 
   @Test
   public void testForUpdateDict() throws Exception {
-    new SkylarkTest().setUp("def foo():",
-        "  d = {'a': 1, 'b': 2, 'c': 3}",
-        "  for k in d:",
-        "    d[k] *= 2"
-        ).testIfErrorContains("trying to mutate a locked object", "foo()");
+    new Scenario()
+        .setUp("def foo():", "  d = {'a': 1, 'b': 2, 'c': 3}", "  for k in d:", "    d[k] *= 2")
+        .testIfErrorContains("trying to mutate a locked object", "foo()");
   }
 
   @Test
   public void testForUnlockedAfterBreak() throws Exception {
-    new SkylarkTest().setUp("def foo():",
-        "  xs = [1, 2]",
-        "  for x in xs:",
-        "    break",
-        "  xs.append(3)",
-        "  return xs"
-        ).testEval("foo()", "[1, 2, 3]");
+    new Scenario()
+        .setUp(
+            "def foo():",
+            "  xs = [1, 2]",
+            "  for x in xs:",
+            "    break",
+            "  xs.append(3)",
+            "  return xs")
+        .testEval("foo()", "[1, 2, 3]");
   }
 
   @Test
   public void testForNestedOnSameListStillLocked() throws Exception {
-    new SkylarkTest().setUp("def foo():",
-        "  xs = [1, 2]",
-        "  ys = []",
-        "  for x1 in xs:",
-        "    for x2 in xs:",
-        "      ys.append(x1 * x2)",
-        "    xs.append(4)",
-        "  return ys"
-        ).testIfErrorContains("trying to mutate a locked object", "foo()");
+    new Scenario()
+        .setUp(
+            "def foo():",
+            "  xs = [1, 2]",
+            "  ys = []",
+            "  for x1 in xs:",
+            "    for x2 in xs:",
+            "      ys.append(x1 * x2)",
+            "    xs.append(4)",
+            "  return ys")
+        .testIfErrorContains("trying to mutate a locked object", "foo()");
   }
 
   @Test
   public void testForNestedOnSameListErrorMessage() throws Exception {
-    new SkylarkTest().setUp("def foo():",
-        "  xs = [1, 2]",
-        "  ys = []",
-        "  for x1 in xs:",
-        "    for x2 in xs:",
-        "      ys.append(x1 * x2)",
-        "      xs.append(4)",
-        "  return ys"
-        // No file name in message, due to how test is set up.
-        ).testIfErrorContains("Object locked at the following location(s): :4:3, :5:5", "foo()");
+    new Scenario()
+        .setUp(
+            "def foo():",
+            "  xs = [1, 2]",
+            "  ys = []",
+            "  for x1 in xs:",
+            "    for x2 in xs:",
+            "      ys.append(x1 * x2)",
+            "      xs.append(4)",
+            "  return ys"
+            // No file name in message, due to how test is set up.
+            )
+        .testIfErrorContains("Object locked at the following location(s): :4:3, :5:5", "foo()");
   }
 
   @Test
   public void testForNestedOnSameListUnlockedAtEnd() throws Exception {
-    new SkylarkTest().setUp("def foo():",
-        "  xs = [1, 2]",
-        "  ys = []",
-        "  for x1 in xs:",
-        "    for x2 in xs:",
-        "      ys.append(x1 * x2)",
-        "  xs.append(4)",
-        "  return ys"
-        ).testEval("foo()", "[1, 2, 2, 4]");
+    new Scenario()
+        .setUp(
+            "def foo():",
+            "  xs = [1, 2]",
+            "  ys = []",
+            "  for x1 in xs:",
+            "    for x2 in xs:",
+            "      ys.append(x1 * x2)",
+            "  xs.append(4)",
+            "  return ys")
+        .testEval("foo()", "[1, 2, 2, 4]");
   }
 
   @Test
   public void testForNestedWithListCompGood() throws Exception {
-    new SkylarkTest().setUp("def foo():",
-        "  xs = [1, 2]",
-        "  ys = []",
-        "  for x in xs:",
-        "    zs = [None for x in xs for y in (ys.append(x) or ys)]",
-        "  return ys"
-        ).testEval("foo()", "[1, 2, 1, 2]");
+    new Scenario()
+        .setUp(
+            "def foo():",
+            "  xs = [1, 2]",
+            "  ys = []",
+            "  for x in xs:",
+            "    zs = [None for x in xs for y in (ys.append(x) or ys)]",
+            "  return ys")
+        .testEval("foo()", "[1, 2, 1, 2]");
   }
   @Test
   public void testForNestedWithListCompBad() throws Exception {
-    new SkylarkTest().setUp("def foo():",
-        "  xs = [1, 2, 3]",
-        "  ys = []",
-        "  for x in xs:",
-        "    zs = [None for x in xs for y in (xs.append(x) or ys)]",
-        "  return ys"
-        ).testIfErrorContains("trying to mutate a locked object", "foo()");
+    new Scenario()
+        .setUp(
+            "def foo():",
+            "  xs = [1, 2, 3]",
+            "  ys = []",
+            "  for x in xs:",
+            "    zs = [None for x in xs for y in (xs.append(x) or ys)]",
+            "  return ys")
+        .testIfErrorContains("trying to mutate a locked object", "foo()");
   }
 
   @Test
   public void testForDeepUpdate() throws Exception {
     // Check that indirectly reachable values can still be manipulated as normal.
-    new SkylarkTest()
+    new Scenario()
         .setUp(
             "def foo():",
             "  xs = [['a'], ['b'], ['c']]",
@@ -780,7 +789,7 @@ public final class SkylarkEvaluationTest extends EvaluationTest {
 
   @Test
   public void testForNotIterable() throws Exception {
-    new SkylarkTest()
+    new Scenario()
         .update("mock", new Mock())
         .testIfErrorContains(
             "type 'int' is not iterable",
@@ -791,7 +800,7 @@ public final class SkylarkEvaluationTest extends EvaluationTest {
 
   @Test
   public void testForStringNotIterable() throws Exception {
-    new SkylarkTest()
+    new Scenario()
         .update("mock", new Mock())
         .testIfErrorContains(
             "type 'string' is not iterable", "def func():", "  for i in 'abc': a = i", "func()\n");
@@ -799,39 +808,46 @@ public final class SkylarkEvaluationTest extends EvaluationTest {
 
   @Test
   public void testForOnDictionary() throws Exception {
-    new SkylarkTest().setUp("def foo():",
-        "  d = {1: 'a', 2: 'b', 3: 'c'}",
-        "  s = ''",
-        "  for i in d: s = s + d[i]",
-        "  return s",
-        "s = foo()").testLookup("s", "abc");
+    new Scenario()
+        .setUp(
+            "def foo():",
+            "  d = {1: 'a', 2: 'b', 3: 'c'}",
+            "  s = ''",
+            "  for i in d: s = s + d[i]",
+            "  return s",
+            "s = foo()")
+        .testLookup("s", "abc");
   }
 
   @Test
   public void testBadDictKey() throws Exception {
-    new SkylarkTest().testIfErrorContains(
-        "unhashable type: 'list'",
-        "{ [1, 2]: [3, 4] }");
+    new Scenario().testIfErrorContains("unhashable type: 'list'", "{ [1, 2]: [3, 4] }");
   }
 
   @Test
   public void testForLoopReuseVariable() throws Exception {
-    new SkylarkTest().setUp("def foo():",
-        "  s = ''",
-        "  for i in ['a', 'b']:",
-        "    for i in ['c', 'd']: s = s + i",
-        "  return s",
-        "s = foo()").testLookup("s", "cdcd");
+    new Scenario()
+        .setUp(
+            "def foo():",
+            "  s = ''",
+            "  for i in ['a', 'b']:",
+            "    for i in ['c', 'd']: s = s + i",
+            "  return s",
+            "s = foo()")
+        .testLookup("s", "cdcd");
   }
 
   @Test
   public void testForLoopMultipleVariables() throws Exception {
-    new SkylarkTest().setUp("def foo():",
-        "  s = ''",
-        "  for [i, j] in [[1, 2], [3, 4]]:",
-        "    s = s + str(i) + str(j) + '.'",
-        "  return s",
-        "s = foo()").testLookup("s", "12.34.");
+    new Scenario()
+        .setUp(
+            "def foo():",
+            "  s = ''",
+            "  for [i, j] in [[1, 2], [3, 4]]:",
+            "    s = s + str(i) + str(j) + '.'",
+            "  return s",
+            "s = foo()")
+        .testLookup("s", "12.34.");
   }
 
   @Test
@@ -980,7 +996,7 @@ public final class SkylarkEvaluationTest extends EvaluationTest {
 
   @Test
   public void testNoneAssignment() throws Exception {
-    new SkylarkTest()
+    new Scenario()
         .setUp("def foo(x=None):", "  x = 1", "  x = None", "  return 2", "s = foo()")
         .testLookup("s", 2);
   }
@@ -999,7 +1015,7 @@ public final class SkylarkEvaluationTest extends EvaluationTest {
 
   @Test
   public void testJavaCalls() throws Exception {
-    new SkylarkTest()
+    new Scenario()
         .update("mock", new Mock())
         .setUp("b = mock.is_empty('a')")
         .testLookup("b", Boolean.FALSE);
@@ -1007,7 +1023,7 @@ public final class SkylarkEvaluationTest extends EvaluationTest {
 
   @Test
   public void testJavaCallsOnSubClass() throws Exception {
-    new SkylarkTest()
+    new Scenario()
         .update("mock", new MockSubClass())
         .setUp("b = mock.is_empty('a')")
         .testLookup("b", Boolean.FALSE);
@@ -1015,7 +1031,7 @@ public final class SkylarkEvaluationTest extends EvaluationTest {
 
   @Test
   public void testJavaCallsOnInterface() throws Exception {
-    new SkylarkTest()
+    new Scenario()
         .update("mock", new MockSubClass())
         .setUp("b = mock.is_empty_interface('a')")
         .testLookup("b", Boolean.FALSE);
@@ -1023,34 +1039,34 @@ public final class SkylarkEvaluationTest extends EvaluationTest {
 
   @Test
   public void testJavaCallsNotSkylarkCallable() throws Exception {
-    new SkylarkTest()
+    new Scenario()
         .update("mock", new Mock())
         .testIfExactError("'Mock' value has no field or method 'value'", "mock.value()");
   }
 
   @Test
   public void testNoOperatorIndex() throws Exception {
-    new SkylarkTest()
+    new Scenario()
         .update("mock", new Mock())
         .testIfExactError("type 'Mock' has no operator [](int)", "mock[2]");
   }
 
   @Test
   public void testJavaCallsNoMethod() throws Exception {
-    new SkylarkTest()
+    new Scenario()
         .update("mock", new Mock())
         .testIfExactError("'Mock' value has no field or method 'bad'", "mock.bad()");
   }
 
   @Test
   public void testJavaCallsNoMethodErrorMsg() throws Exception {
-    new SkylarkTest()
+    new Scenario()
         .testIfExactError("'int' value has no field or method 'bad'", "s = 3.bad('a', 'b', 'c')");
   }
 
   @Test
   public void testJavaCallWithKwargs() throws Exception {
-    new SkylarkTest()
+    new Scenario()
         .update("mock", new Mock())
         .testIfExactError(
             "'Mock' value has no field or method 'isEmpty'", "mock.isEmpty(str='abc')");
@@ -1058,7 +1074,7 @@ public final class SkylarkEvaluationTest extends EvaluationTest {
 
   @Test
   public void testStringListDictValues() throws Exception {
-    new SkylarkTest()
+    new Scenario()
         .update("mock", new Mock())
         .setUp(
             "def func(mock):",
@@ -1066,40 +1082,38 @@ public final class SkylarkEvaluationTest extends EvaluationTest {
             "    modified_list = v + ['extra_string']",
             "  return modified_list",
             "m = func(mock)")
-        .testLookup("m", StarlarkList.of(thread.mutability(), "b", "c", "extra_string"));
+        .testLookup("m", StarlarkList.of(null, "b", "c", "extra_string"));
   }
 
   @Test
   public void testProxyMethodsObject() throws Exception {
-    new SkylarkTest()
+    new Scenario()
         .update("mock", new Mock())
-        .setUp(
-            "m = mock.proxy_methods_object()",
-            "b = m.with_params(1, True, named=True)")
+        .setUp("m = mock.proxy_methods_object()", "b = m.with_params(1, True, named=True)")
         .testLookup("b", "with_params(1, true, false, true, false, a)");
   }
 
   @Test
   public void testLegacyNamed() throws Exception {
-    new SkylarkTest("--incompatible_restrict_named_params=false")
+    new Scenario("--incompatible_restrict_named_params=false")
         .update("mock", new Mock())
         .setUp("b = mock.legacy_method(True, legacyNamed=True, named=True)")
         .testLookup("b", "legacy_method(true, true, true)");
 
-    new SkylarkTest("--incompatible_restrict_named_params=false")
+    new Scenario("--incompatible_restrict_named_params=false")
         .update("mock", new Mock())
         .setUp("b = mock.legacy_method(True, True, named=True)")
         .testLookup("b", "legacy_method(true, true, true)");
 
     // Verify legacyNamed also works with proxy method objects.
-    new SkylarkTest("--incompatible_restrict_named_params=false")
+    new Scenario("--incompatible_restrict_named_params=false")
         .update("mock", new Mock())
         .setUp(
             "m = mock.proxy_methods_object()",
             "b = m.legacy_method(True, legacyNamed=True, named=True)")
         .testLookup("b", "legacy_method(true, true, true)");
 
-    new SkylarkTest("--incompatible_restrict_named_params=false")
+    new Scenario("--incompatible_restrict_named_params=false")
         .update("mock", new Mock())
         .setUp("m = mock.proxy_methods_object()", "b = m.legacy_method(True, True, named=True)")
         .testLookup("b", "legacy_method(true, true, true)");
@@ -1113,7 +1127,7 @@ public final class SkylarkEvaluationTest extends EvaluationTest {
   public void testArgSpecifiedBothByNameAndPosition() throws Exception {
     // in with_params, 'posOrNamed' is positional parameter index 2. So by specifying both
     // posOrNamed by name and three positional parameters, there is a conflict.
-    new SkylarkTest()
+    new Scenario()
         .update("mock", new Mock())
         .testIfErrorContains(
             "with_params() got multiple values for argument 'posOrNamed'",
@@ -1122,19 +1136,19 @@ public final class SkylarkEvaluationTest extends EvaluationTest {
 
   @Test
   public void testTooManyPositionalArgs() throws Exception {
-    new SkylarkTest()
+    new Scenario()
         .update("mock", new Mock())
         .testIfErrorContains(
             "with_params() accepts no more than 3 positional arguments but got 4",
             "mock.with_params(1, True, True, 'toomany', named=True)");
 
-    new SkylarkTest()
+    new Scenario()
         .update("mock", new Mock())
         .testIfErrorContains(
             "with_params() accepts no more than 3 positional arguments but got 5",
             "mock.with_params(1, True, True, 'toomany', 'alsotoomany', named=True)");
 
-    new SkylarkTest()
+    new Scenario()
         .update("mock", new Mock())
         .testIfErrorContains(
             "is_empty() accepts no more than 1 positional argument but got 2",
@@ -1143,68 +1157,68 @@ public final class SkylarkEvaluationTest extends EvaluationTest {
 
   @Test
   public void testJavaCallWithPositionalAndKwargs() throws Exception {
-    new SkylarkTest()
+    new Scenario()
         .update("mock", new Mock())
         .setUp("b = mock.with_params(1, True, named=True)")
         .testLookup("b", "with_params(1, true, false, true, false, a)");
-    new SkylarkTest()
+    new Scenario()
         .update("mock", new Mock())
         .setUp("b = mock.with_params(1, True, named=True, multi=1)")
         .testLookup("b", "with_params(1, true, false, true, false, a, 1)");
-    new SkylarkTest()
+    new Scenario()
         .update("mock", new Mock())
         .setUp("b = mock.with_params(1, True, named=True, multi='abc')")
         .testLookup("b", "with_params(1, true, false, true, false, a, abc)");
 
-    new SkylarkTest()
+    new Scenario()
         .update("mock", new Mock())
         .setUp("b = mock.with_params(1, True, named=True, multi=[1,2,3])")
         .testLookup("b", "with_params(1, true, false, true, false, a, [1, 2, 3])");
 
-    new SkylarkTest()
+    new Scenario()
         .update("mock", new Mock())
         .setUp("")
         .testIfExactError(
             "with_params() missing 1 required named argument: named", "mock.with_params(1, True)");
-    new SkylarkTest()
+    new Scenario()
         .update("mock", new Mock())
         .setUp("")
         .testIfExactError(
             "with_params() missing 1 required named argument: named",
             "mock.with_params(1, True, True)");
-    new SkylarkTest()
+    new Scenario()
         .update("mock", new Mock())
         .setUp("b = mock.with_params(1, True, True, named=True)")
         .testLookup("b", "with_params(1, true, true, true, false, a)");
-    new SkylarkTest()
+    new Scenario()
         .update("mock", new Mock())
         .setUp("b = mock.with_params(1, True, named=True, posOrNamed=True)")
         .testLookup("b", "with_params(1, true, true, true, false, a)");
-    new SkylarkTest()
+    new Scenario()
         .update("mock", new Mock())
         .setUp("b = mock.with_params(1, True, named=True, posOrNamed=True, optionalNamed=True)")
         .testLookup("b", "with_params(1, true, true, true, true, a)");
-    new SkylarkTest()
+    new Scenario()
         .update("mock", new Mock())
         .setUp("")
         .testIfExactError(
             "with_params() got unexpected keyword argument 'posornamed' (did you mean"
                 + " 'posOrNamed'?)",
             "mock.with_params(1, True, named=True, posornamed=True)");
-    new SkylarkTest()
+    new Scenario()
         .update("mock", new Mock())
         .setUp("")
         .testIfExactError(
             "with_params() got unexpected keyword argument 'n'",
             "mock.with_params(1, True, named=True, posOrNamed=True, n=2)");
-    new SkylarkTest()
+    new Scenario()
         .update("mock", new Mock())
         .setUp("")
         .testIfExactError(
             "in call to with_params(), parameter 'nonNoneable' cannot be None",
             "mock.with_params(1, True, True, named=True, optionalNamed=False, nonNoneable=None)");
 
-    new SkylarkTest()
+    new Scenario()
         .update("mock", new Mock())
         .setUp("")
         .testIfExactError(
@@ -1214,7 +1228,7 @@ public final class SkylarkEvaluationTest extends EvaluationTest {
 
     // We do not enforce list item parameter type constraints.
     // Test for this behavior.
-    new SkylarkTest()
+    new Scenario()
         .update("mock", new Mock())
         .setUp("b = mock.with_params(1, True, named=True, multi=['a', 'b'])")
         .testLookup("b", "with_params(1, true, false, true, false, a, [\"a\", \"b\"])");
@@ -1222,38 +1236,35 @@ public final class SkylarkEvaluationTest extends EvaluationTest {
 
   @Test
   public void testNoJavaCallsWithoutSkylark() throws Exception {
-    new SkylarkTest()
+    new Scenario()
         .testIfExactError("'int' value has no field or method 'to_string'", "s = 3.to_string()");
   }
 
   @Test
   public void testStructAccess() throws Exception {
-    new SkylarkTest()
-        .update("mock", new Mock())
-        .setUp("v = mock.struct_field")
-        .testLookup("v", "a");
+    new Scenario().update("mock", new Mock()).setUp("v = mock.struct_field").testLookup("v", "a");
   }
 
   @Test
   public void testStructAccessAsFuncallNonCallable() throws Exception {
-    new SkylarkTest()
+    new Scenario()
         .update("mock", new Mock())
         .testIfExactError("'string' object is not callable", "v = mock.struct_field()");
   }
 
   @Test
   public void testSelfCall() throws Exception {
-    new SkylarkTest()
+    new Scenario()
         .update("mock", new Mock())
         .setUp("v = mock('bestmock')")
         .testLookup("v", "I'm a mock named bestmock");
 
-    new SkylarkTest()
+    new Scenario()
         .update("mock", new Mock())
         .setUp("mockfunction = mock", "v = mockfunction('bestmock')")
         .testLookup("v", "I'm a mock named bestmock");
 
-    new SkylarkTest()
+    new Scenario()
         .update("mock", new Mock())
         .testIfErrorContains(
             "in call to MockFn(), parameter 'pos' got value of type 'int', want 'string'",
@@ -1262,7 +1273,7 @@ public final class SkylarkEvaluationTest extends EvaluationTest {
 
   @Test
   public void testStructAccessAsFuncall() throws Exception {
-    new SkylarkTest()
+    new Scenario()
         .update("mock", new Mock())
         .setUp("v = mock.struct_field_callable()")
         .testLookup("v", "foobar");
@@ -1288,7 +1299,7 @@ public final class SkylarkEvaluationTest extends EvaluationTest {
 
   @Test
   public void testJavaFunctionWithExtraInterpreterParams() throws Exception {
-    new SkylarkTest()
+    new Scenario()
         .update("mock", new Mock())
         .setUp("v = mock.with_extra()")
         .testLookup("v", "with_extra(1)");
@@ -1296,7 +1307,7 @@ public final class SkylarkEvaluationTest extends EvaluationTest {
 
   @Test
   public void testStructFieldWithExtraInterpreterParams() throws Exception {
-    new SkylarkTest()
+    new Scenario()
         .update("mock", new Mock())
         .setUp("v = mock.struct_field_with_extra")
         .testLookup("v", "struct_field_with_extra(true)");
@@ -1304,7 +1315,7 @@ public final class SkylarkEvaluationTest extends EvaluationTest {
 
   @Test
   public void testJavaFunctionWithParamsAndExtraInterpreterParams() throws Exception {
-    new SkylarkTest()
+    new Scenario()
         .update("mock", new Mock())
         .setUp("b = mock.with_params_and_extra(1, True, named=True)")
         .testLookup("b", "with_params_and_extra(1, true, false, true, false, a, 1)");
@@ -1312,13 +1323,13 @@ public final class SkylarkEvaluationTest extends EvaluationTest {
 
   @Test
   public void testJavaFunctionWithExtraArgsAndThread() throws Exception {
-    new SkylarkTest()
+    new Scenario()
         .update("mock", new Mock())
         .setUp("b = mock.with_args_and_thread(1, True, 'extraArg1', 'extraArg2', named=True)")
         .testLookup("b", "with_args_and_thread(1, true, true, args(extraArg1, extraArg2))");
 
     // Use an args list.
-    new SkylarkTest()
+    new Scenario()
         .update("mock", new Mock())
         .setUp(
             "myargs = ['extraArg2']",
@@ -1328,13 +1339,13 @@ public final class SkylarkEvaluationTest extends EvaluationTest {
 
   @Test
   public void testJavaFunctionWithExtraKwargs() throws Exception {
-    new SkylarkTest()
+    new Scenario()
         .update("mock", new Mock())
         .setUp("b = mock.with_kwargs(True, extraKey1=True, named=True, extraKey2='x')")
         .testLookup("b", "with_kwargs(true, true, kwargs(extraKey1=true, extraKey2=x))");
 
     // Use a kwargs dict.
-    new SkylarkTest()
+    new Scenario()
         .update("mock", new Mock())
         .setUp(
             "mykwargs = {'extraKey2':'x', 'named':True}",
@@ -1345,14 +1356,14 @@ public final class SkylarkEvaluationTest extends EvaluationTest {
   @Test
   public void testJavaFunctionWithArgsAndKwargs() throws Exception {
     // Foo is used positionally
-    new SkylarkTest()
+    new Scenario()
         .update("mock", new Mock())
         .setUp("b = mock.with_args_and_kwargs('foo', 'bar', 'baz', extraKey1=True, extraKey2='x')")
         .testLookup(
             "b", "with_args_and_kwargs(foo, args(bar, baz), kwargs(extraKey1=true, extraKey2=x))");
 
     // Use an args list and a kwargs dict
-    new SkylarkTest()
+    new Scenario()
         .update("mock", new Mock())
         .setUp(
             "mykwargs = {'extraKey1':True}",
@@ -1362,13 +1373,13 @@ public final class SkylarkEvaluationTest extends EvaluationTest {
             "b", "with_args_and_kwargs(foo, args(bar, baz), kwargs(extraKey2=x, extraKey1=true))");
 
     // Foo is used by name
-    new SkylarkTest()
+    new Scenario()
         .update("mock", new Mock())
         .setUp("b = mock.with_args_and_kwargs(foo='foo', extraKey1=True)")
         .testLookup("b", "with_args_and_kwargs(foo, args(), kwargs(extraKey1=true))");
 
     // Empty args and kwargs.
-    new SkylarkTest()
+    new Scenario()
         .update("mock", new Mock())
         .setUp("b = mock.with_args_and_kwargs('foo')")
         .testLookup("b", "with_args_and_kwargs(foo, args(), kwargs())");
@@ -1377,7 +1388,7 @@ public final class SkylarkEvaluationTest extends EvaluationTest {
   @Test
   public void testProxyMethodsObjectWithArgsAndKwargs() throws Exception {
     // Foo is used positionally
-    new SkylarkTest()
+    new Scenario()
         .update("mock", new Mock())
         .setUp(
             "m = mock.proxy_methods_object()",
@@ -1386,7 +1397,7 @@ public final class SkylarkEvaluationTest extends EvaluationTest {
             "b", "with_args_and_kwargs(foo, args(bar, baz), kwargs(extraKey1=true, extraKey2=x))");
 
     // Use an args list and a kwargs dict
-    new SkylarkTest()
+    new Scenario()
         .update("mock", new Mock())
         .setUp(
             "mykwargs = {'extraKey1':True}",
@@ -1397,7 +1408,7 @@ public final class SkylarkEvaluationTest extends EvaluationTest {
             "b", "with_args_and_kwargs(foo, args(bar, baz), kwargs(extraKey2=x, extraKey1=true))");
 
     // Foo is used by name
-    new SkylarkTest()
+    new Scenario()
         .update("mock", new Mock())
         .setUp(
             "m = mock.proxy_methods_object()",
@@ -1405,7 +1416,7 @@ public final class SkylarkEvaluationTest extends EvaluationTest {
         .testLookup("b", "with_args_and_kwargs(foo, args(), kwargs(extraKey1=true))");
 
     // Empty args and kwargs.
-    new SkylarkTest()
+    new Scenario()
         .update("mock", new Mock())
         .setUp("m = mock.proxy_methods_object()", "b = m.with_args_and_kwargs('foo')")
         .testLookup("b", "with_args_and_kwargs(foo, args(), kwargs())");
@@ -1413,13 +1424,13 @@ public final class SkylarkEvaluationTest extends EvaluationTest {
 
   @Test
   public void testStructAccessOfMethod() throws Exception {
-    new SkylarkTest().update("mock", new Mock()).testExpression("type(mock.function)", "function");
-    new SkylarkTest().update("mock", new Mock()).testExpression("mock.function()", "a");
+    new Scenario().update("mock", new Mock()).testExpression("type(mock.function)", "function");
+    new Scenario().update("mock", new Mock()).testExpression("mock.function()", "a");
   }
 
   @Test
   public void testStructAccessTypo() throws Exception {
-    new SkylarkTest()
+    new Scenario()
         .update("mock", new MockClassObject())
         .testIfExactError(
             "'MockClassObject' value has no field or method 'fild' (did you mean 'field'?)",
@@ -1428,7 +1439,7 @@ public final class SkylarkEvaluationTest extends EvaluationTest {
 
   @Test
   public void testStructAccessType_nonClassObject() throws Exception {
-    new SkylarkTest()
+    new Scenario()
         .update("mock", new Mock())
         .testIfExactError(
             "'Mock' value has no field or method 'sturct_field' (did you mean 'struct_field'?)",
@@ -1457,7 +1468,7 @@ public final class SkylarkEvaluationTest extends EvaluationTest {
 
   @Test
   public void testClassObjectAccess() throws Exception {
-    new SkylarkTest()
+    new Scenario()
         .update("mock", new MockClassObject())
         .setUp("v = mock.field")
         .testLookup("v", "a");
@@ -1465,7 +1476,7 @@ public final class SkylarkEvaluationTest extends EvaluationTest {
 
   @Test
   public void testUnionSet() throws Exception {
-    new SkylarkTest("--incompatible_depset_union=false")
+    new Scenario("--incompatible_depset_union=false")
         .testExpression("str(depset([1, 3]) | depset([1, 2]))", "depset([1, 2, 3])")
         .testExpression("str(depset([1, 2]) | [1, 3])", "depset([1, 2, 3])")
         .testIfExactError("unsupported binary operation: int | bool", "2 | False");
@@ -1473,7 +1484,7 @@ public final class SkylarkEvaluationTest extends EvaluationTest {
 
   @Test
   public void testSetIsNotIterable() throws Exception {
-    new SkylarkTest()
+    new Scenario()
         .testIfErrorContains("not iterable", "list(depset(['a', 'b']))")
         .testIfErrorContains("not iterable", "max(depset([1, 2, 3]))")
         .testIfErrorContains(
@@ -1498,7 +1509,7 @@ public final class SkylarkEvaluationTest extends EvaluationTest {
 
   @Test
   public void testJavaFunctionReturnsNone() throws Exception {
-    new SkylarkTest()
+    new Scenario()
         .update("mock", new Mock())
         .setUp("v = mock.nullfunc_working()")
         .testLookup("v", Starlark.NONE);
@@ -1506,7 +1517,7 @@ public final class SkylarkEvaluationTest extends EvaluationTest {
 
   @Test
   public void testVoidJavaFunctionReturnsNone() throws Exception {
-    new SkylarkTest()
+    new Scenario()
         .update("mock", new Mock())
         .setUp("v = mock.voidfunc()")
         .testLookup("v", Starlark.NONE);
@@ -1514,17 +1525,15 @@ public final class SkylarkEvaluationTest extends EvaluationTest {
 
   @Test
   public void testAugmentedAssignment() throws Exception {
-    new SkylarkTest().setUp("def f1(x):",
-        "  x += 1",
-        "  return x",
-        "",
-        "foo = f1(41)").testLookup("foo", 42);
+    new Scenario()
+        .setUp("def f1(x):", "  x += 1", "  return x", "", "foo = f1(41)")
+        .testLookup("foo", 42);
   }
 
   @Test
   public void testAugmentedAssignmentHasNoSideEffects() throws Exception {
     // Check object position.
-    new SkylarkTest()
+    new Scenario()
         .setUp(
             "counter = [0]",
             "value = [1, 2]",
@@ -1534,10 +1543,10 @@ public final class SkylarkEvaluationTest extends EvaluationTest {
             "  return value",
             "",
             "f()[1] += 1") // `f()` should be called only once here
-        .testLookup("counter", StarlarkList.of(thread.mutability(), 1));
+        .testLookup("counter", StarlarkList.of(null, 1));
 
     // Check key position.
-    new SkylarkTest()
+    new Scenario()
         .setUp(
             "counter = [0]",
             "value = [1, 2]",
@@ -1547,7 +1556,7 @@ public final class SkylarkEvaluationTest extends EvaluationTest {
             "  return 1",
             "",
             "value[f()] += 1") // `f()` should be called only once here
-        .testLookup("counter", StarlarkList.of(thread.mutability(), 1));
+        .testLookup("counter", StarlarkList.of(null, 1));
   }
 
   @Test
@@ -1571,7 +1580,7 @@ public final class SkylarkEvaluationTest extends EvaluationTest {
 
   @Test
   public void testAssignmentEvaluationOrder() throws Exception {
-    new SkylarkTest()
+    new Scenario()
         .setUp(
             "ordinary = []",
             "augmented = []",
@@ -1587,31 +1596,33 @@ public final class SkylarkEvaluationTest extends EvaluationTest {
             "",
             "f(ordinary)[0] = g(ordinary)[1]",
             "f(augmented)[0] += g(augmented)[1]")
-        .testLookup(
-            "ordinary", StarlarkList.of(thread.mutability(), "g", "f")) // This order is consistent
-        .testLookup("augmented", StarlarkList.of(thread.mutability(), "f", "g")); // with Python
+        .testLookup("ordinary", StarlarkList.of(null, "g", "f")) // This order is consistent
+        .testLookup("augmented", StarlarkList.of(null, "f", "g")); // with Python
   }
 
   @Test
   public void testDictComprehensions_IterationOrder() throws Exception {
-    new SkylarkTest().setUp("def foo():",
-        "  d = {x : x for x in ['c', 'a', 'b']}",
-        "  s = ''",
-        "  for a in d:",
-        "    s += a",
-        "  return s",
-        "s = foo()").testLookup("s", "cab");
+    new Scenario()
+        .setUp(
+            "def foo():",
+            "  d = {x : x for x in ['c', 'a', 'b']}",
+            "  s = ''",
+            "  for a in d:",
+            "    s += a",
+            "  return s",
+            "s = foo()")
+        .testLookup("s", "cab");
   }
 
   @Test
   public void testDotExpressionOnNonStructObject() throws Exception {
-    new SkylarkTest()
+    new Scenario()
         .testIfExactError("'string' value has no field or method 'field'", "x = 'a'.field");
   }
 
   @Test
   public void testPlusEqualsOnListMutating() throws Exception {
-    new SkylarkTest()
+    new Scenario()
         .setUp(
             "def func():",
             "  l1 = [1, 2]",
@@ -1622,7 +1633,7 @@ public final class SkylarkEvaluationTest extends EvaluationTest {
         .testLookup("lists", "([1, 2, 3, 4], [1, 2, 3, 4])");
 
     // The same but with += after an IndexExpression
-    new SkylarkTest()
+    new Scenario()
         .setUp(
             "def func():",
             "  l = [1, 2]",
@@ -1635,7 +1646,7 @@ public final class SkylarkEvaluationTest extends EvaluationTest {
 
   @Test
   public void testPlusEqualsOnTuple() throws Exception {
-    new SkylarkTest()
+    new Scenario()
         .setUp(
             "def func():",
             "  t1 = (1, 2)",
@@ -1648,9 +1659,9 @@ public final class SkylarkEvaluationTest extends EvaluationTest {
 
   @Test
   public void testPlusOnDictDeprecated() throws Exception {
-    new SkylarkTest()
+    new Scenario()
         .testIfErrorContains("unsupported binary operation: dict + dict", "{1: 2} + {3: 4}");
-    new SkylarkTest()
+    new Scenario()
         .testIfErrorContains(
             "unsupported binary operation: dict + dict",
             "def func():",
@@ -1661,93 +1672,96 @@ public final class SkylarkEvaluationTest extends EvaluationTest {
 
   @Test
   public void testDictAssignmentAsLValue() throws Exception {
-    new SkylarkTest().setUp("def func():",
-        "  d = {'a' : 1}",
-        "  d['b'] = 2",
-        "  return d",
-        "d = func()").testLookup("d", ImmutableMap.of("a", 1, "b", 2));
+    new Scenario()
+        .setUp("def func():", "  d = {'a' : 1}", "  d['b'] = 2", "  return d", "d = func()")
+        .testLookup("d", ImmutableMap.of("a", 1, "b", 2));
   }
 
   @Test
   public void testNestedDictAssignmentAsLValue() throws Exception {
-    new SkylarkTest().setUp("def func():",
-        "  d = {'a' : 1}",
-        "  e = {'d': d}",
-        "  e['d']['b'] = 2",
-        "  return e",
-        "e = func()").testLookup("e", ImmutableMap.of("d", ImmutableMap.of("a", 1, "b", 2)));
+    new Scenario()
+        .setUp(
+            "def func():",
+            "  d = {'a' : 1}",
+            "  e = {'d': d}",
+            "  e['d']['b'] = 2",
+            "  return e",
+            "e = func()")
+        .testLookup("e", ImmutableMap.of("d", ImmutableMap.of("a", 1, "b", 2)));
   }
 
   @Test
   public void testListAssignmentAsLValue() throws Exception {
-    new SkylarkTest().setUp("def func():",
-        "  a = [1, 2]",
-        "  a[1] = 3",
-        "  a[-2] = 4",
-        "  return a",
-        "a = str(func())").testLookup("a", "[4, 3]");
+    new Scenario()
+        .setUp(
+            "def func():",
+            "  a = [1, 2]",
+            "  a[1] = 3",
+            "  a[-2] = 4",
+            "  return a",
+            "a = str(func())")
+        .testLookup("a", "[4, 3]");
   }
 
   @Test
   public void testNestedListAssignmentAsLValue() throws Exception {
-    new SkylarkTest().setUp("def func():",
-        "  d = [1, 2]",
-        "  e = [3, d]",
-        "  e[1][1] = 4",
-        "  return e",
-        "e = str(func())").testLookup("e", "[3, [1, 4]]");
+    new Scenario()
+        .setUp(
+            "def func():",
+            "  d = [1, 2]",
+            "  e = [3, d]",
+            "  e[1][1] = 4",
+            "  return e",
+            "e = str(func())")
+        .testLookup("e", "[3, [1, 4]]");
   }
 
   @Test
   public void testDictTupleAssignmentAsLValue() throws Exception {
-    new SkylarkTest().setUp("def func():",
-        "  d = {'a' : 1}",
-        "  d['b'], d['c'] = 2, 3",
-        "  return d",
-        "d = func()").testLookup("d", ImmutableMap.of("a", 1, "b", 2, "c", 3));
+    new Scenario()
+        .setUp(
+            "def func():", "  d = {'a' : 1}", "  d['b'], d['c'] = 2, 3", "  return d", "d = func()")
+        .testLookup("d", ImmutableMap.of("a", 1, "b", 2, "c", 3));
   }
 
   @Test
   public void testDictItemPlusEqual() throws Exception {
-    new SkylarkTest().setUp("def func():",
-        "  d = {'a' : 2}",
-        "  d['a'] += 3",
-        "  return d",
-        "d = func()").testLookup("d", ImmutableMap.of("a", 5));
+    new Scenario()
+        .setUp("def func():", "  d = {'a' : 2}", "  d['a'] += 3", "  return d", "d = func()")
+        .testLookup("d", ImmutableMap.of("a", 5));
   }
 
   @Test
   public void testDictAssignmentAsLValueSideEffects() throws Exception {
-    new SkylarkTest()
+    new Scenario()
         .setUp("def func(d):", "  d['b'] = 2", "d = {'a' : 1}", "func(d)")
         .testLookup("d", Dict.of((Mutability) null, "a", 1, "b", 2));
   }
 
   @Test
   public void testAssignmentToListInDictSideEffect() throws Exception {
-    new SkylarkTest()
+    new Scenario()
         .setUp("l = [1, 2]", "d = {0: l}", "d[0].append(3)")
         .testLookup("l", StarlarkList.of(null, 1, 2, 3));
   }
 
   @Test
   public void testUserFunctionKeywordArgs() throws Exception {
-    new SkylarkTest().setUp("def foo(a, b, c):",
-        "  return a + b + c", "s = foo(1, c=2, b=3)")
+    new Scenario()
+        .setUp("def foo(a, b, c):", "  return a + b + c", "s = foo(1, c=2, b=3)")
         .testLookup("s", 6);
   }
 
   @Test
   public void testFunctionCallOrdering() throws Exception {
-    new SkylarkTest().setUp("def func(): return foo() * 2",
-         "def foo(): return 2",
-         "x = func()")
-         .testLookup("x", 4);
+    new Scenario()
+        .setUp("def func(): return foo() * 2", "def foo(): return 2", "x = func()")
+        .testLookup("x", 4);
   }
 
   @Test
   public void testFunctionCallBadOrdering() throws Exception {
-    new SkylarkTest()
+    new Scenario()
         .testIfErrorContains(
             "global variable 'foo' is referenced before assignment.",
             "def func(): return foo() * 2",
@@ -1757,7 +1771,7 @@ public final class SkylarkEvaluationTest extends EvaluationTest {
 
   @Test
   public void testLocalVariableDefinedBelow() throws Exception {
-    new SkylarkTest()
+    new Scenario()
         .setUp(
             "def beforeEven(li):", // returns the value before the first even number
             "    for i in li:",
@@ -1771,7 +1785,7 @@ public final class SkylarkEvaluationTest extends EvaluationTest {
 
   @Test
   public void testShadowisNotInitialized() throws Exception {
-    new SkylarkTest()
+    new Scenario()
         .testIfErrorContains(
             /* error message */ "local variable 'gl' is referenced before assignment",
             "gl = 5",
@@ -1783,7 +1797,7 @@ public final class SkylarkEvaluationTest extends EvaluationTest {
 
   @Test
   public void testShadowBuiltin() throws Exception {
-    new SkylarkTest()
+    new Scenario()
         .testIfErrorContains(
             "global variable 'len' is referenced before assignment",
             "x = len('abc')",
@@ -1793,7 +1807,7 @@ public final class SkylarkEvaluationTest extends EvaluationTest {
 
   @Test
   public void testFunctionCallRecursion() throws Exception {
-    new SkylarkTest()
+    new Scenario()
         .testIfErrorContains(
             "function 'f' called recursively",
             "def main():",
@@ -1817,7 +1831,7 @@ public final class SkylarkEvaluationTest extends EvaluationTest {
 
   @Test
   public void testNoneTrueFalseInSkylark() throws Exception {
-    new SkylarkTest()
+    new Scenario()
         .setUp("a = None", "b = True", "c = False")
         .testLookup("a", Starlark.NONE)
         .testLookup("b", Boolean.TRUE)
@@ -1826,10 +1840,13 @@ public final class SkylarkEvaluationTest extends EvaluationTest {
 
   @Test
   public void testHasattrMethods() throws Exception {
-    new SkylarkTest()
+    new Scenario()
         .update("mock", new Mock())
-        .setUp("a = hasattr(mock, 'struct_field')", "b = hasattr(mock, 'function')",
-            "c = hasattr(mock, 'is_empty')", "d = hasattr('str', 'replace')",
+        .setUp(
+            "a = hasattr(mock, 'struct_field')",
+            "b = hasattr(mock, 'function')",
+            "c = hasattr(mock, 'is_empty')",
+            "d = hasattr('str', 'replace')",
             "e = hasattr(mock, 'other')\n")
         .testLookup("a", Boolean.TRUE)
         .testLookup("b", Boolean.TRUE)
@@ -1840,7 +1857,7 @@ public final class SkylarkEvaluationTest extends EvaluationTest {
 
   @Test
   public void testGetattrMethods() throws Exception {
-    new SkylarkTest()
+    new Scenario()
         .update("mock", new Mock())
         .setUp(
             "a = str(getattr(mock, 'struct_field', 'no'))",
@@ -1857,44 +1874,45 @@ public final class SkylarkEvaluationTest extends EvaluationTest {
 
   @Test
   public void testListAnTupleConcatenationDoesNotWorkInSkylark() throws Exception {
-    new SkylarkTest()
+    new Scenario()
         .testIfExactError("unsupported binary operation: list + tuple", "[1, 2] + (3, 4)");
   }
 
   @Test
   public void testCannotCreateMixedListInSkylark() throws Exception {
-    new SkylarkTest().testExactOrder("['a', 'b', 1, 2]", "a", "b", 1, 2);
+    new Scenario().testExactOrder("['a', 'b', 1, 2]", "a", "b", 1, 2);
   }
 
   @Test
   public void testCannotConcatListInSkylarkWithDifferentGenericTypes() throws Exception {
-    new SkylarkTest().testExactOrder("[1, 2] + ['a', 'b']", 1, 2, "a", "b");
+    new Scenario().testExactOrder("[1, 2] + ['a', 'b']", 1, 2, "a", "b");
   }
 
   @Test
   public void testConcatEmptyListWithNonEmptyWorks() throws Exception {
-    new SkylarkTest().testExactOrder("[] + ['a', 'b']", "a", "b");
+    new Scenario().testExactOrder("[] + ['a', 'b']", "a", "b");
   }
 
   @Test
   public void testFormatStringWithTuple() throws Exception {
-    new SkylarkTest().setUp("v = '%s%s' % ('a', 1)").testLookup("v", "a1");
+    new Scenario().setUp("v = '%s%s' % ('a', 1)").testLookup("v", "a1");
   }
 
   @Test
   public void testSingletonTuple() throws Exception {
-    new SkylarkTest().testExactOrder("(1,)", 1);
+    new Scenario().testExactOrder("(1,)", 1);
   }
 
   @Test
   public void testDirFindsClassObjectFields() throws Exception {
-    new SkylarkTest().update("mock", new MockClassObject())
+    new Scenario()
+        .update("mock", new MockClassObject())
         .testExactOrder("dir(mock)", "field", "nset");
   }
 
   @Test
   public void testDirFindsJavaObjectStructFieldsAndMethods() throws Exception {
-    new SkylarkTest()
+    new Scenario()
         .update("mock", new Mock())
         .testExactOrder(
             "dir(mock)",
@@ -1925,7 +1943,7 @@ public final class SkylarkEvaluationTest extends EvaluationTest {
 
   @Test
   public void testStrNativeInfo() throws Exception {
-    new SkylarkTest()
+    new Scenario()
         .update("mock", new NativeInfoMock())
         .testEval(
             "str(mock)",
@@ -1935,7 +1953,7 @@ public final class SkylarkEvaluationTest extends EvaluationTest {
 
   @Test
   public void testNativeInfoAttrs() throws Exception {
-    new SkylarkTest()
+    new Scenario()
         .update("mock", new NativeInfoMock())
         .testEval(
             "dir(mock)",
@@ -1959,85 +1977,19 @@ public final class SkylarkEvaluationTest extends EvaluationTest {
 
   @Test
   public void testPrintBadKwargs() throws Exception {
-    new SkylarkTest()
+    new Scenario()
         .testIfErrorContains(
             "print() got unexpected keyword argument 'end'", "print(end='x', other='y')");
   }
 
-  // Override tests in EvaluationTest incompatible with Skylark
-
-  @SuppressWarnings("unchecked")
-  @Override
-  @Test
-  public void testConcatLists() throws Exception {
-    new SkylarkTest().testExactOrder("[1,2] + [3,4]", 1, 2, 3, 4).testExactOrder("(1,2)", 1, 2)
-        .testExactOrder("(1,2) + (3,4)", 1, 2, 3, 4);
-
-    // TODO(fwe): cannot be handled by current testing suite
-    // list
-    Object x = eval("[1,2] + [3,4]");
-    assertThat((Iterable<Object>) x).containsExactly(1, 2, 3, 4).inOrder();
-
-    // tuple
-    x = eval("(1,2)");
-    assertThat((Iterable<Object>) x).containsExactly(1, 2).inOrder();
-    assertThat(x).isInstanceOf(Tuple.class);
-
-    x = eval("(1,2) + (3,4)");
-    assertThat((Iterable<Object>) x).containsExactly(1, 2, 3, 4).inOrder();
-    assertThat(x).isInstanceOf(Tuple.class);
-  }
-
-  @Override
-  @Test
-  public void testListConcatenation() throws Exception {}
-
-  @Override
-  @Test
-  public void testListComprehensionsMultipleVariablesFail() throws Exception {
-    new SkylarkTest()
-        .testIfErrorContains(
-            "assignment length mismatch: left-hand side has length 3, but right-hand side "
-                + "evaluates to value of length 2",
-            "def foo (): return [x + y for x, y, z in [(1, 2), (3, 4)]]",
-            "foo()");
-
-    new SkylarkTest()
-        .testIfErrorContains(
-            "type 'int' is not iterable", "def bar (): return [x + y for x, y in (1, 2)]", "bar()");
-
-    new SkylarkTest()
-        .testIfErrorContains(
-            "assignment length mismatch: left-hand side has length 3, but right-hand side "
-                + "evaluates to value of length 2",
-            "[x + y for x, y, z in [(1, 2), (3, 4)]]");
-
-    new SkylarkTest()
-        .testIfErrorContains("type 'int' is not iterable", "[x2 + y2 for x2, y2 in (1, 2)]");
-
-    new SkylarkTest()
-        // returns [2] in Python, it's an error in Skylark
-        .testIfErrorContains("must have at least one item", "[2 for [] in [()]]");
-  }
-
-  @Override
-  @Test
-  public void testNotCallInt() throws Exception {
-    new SkylarkTest()
-        .setUp("sum = 123456")
-        .testLookup("sum", 123456)
-        .testIfExactError("'int' object is not callable", "sum(1, 2, 3, 4, 5, 6)")
-        .testExpression("sum", 123456);
-  }
-
   @Test
   public void testConditionalExpressionAtToplevel() throws Exception {
-    new SkylarkTest().setUp("x = 1 if 2 else 3").testLookup("x", 1);
+    new Scenario().setUp("x = 1 if 2 else 3").testLookup("x", 1);
   }
 
   @Test
   public void testConditionalExpressionInFunction() throws Exception {
-    new SkylarkTest()
+    new Scenario()
         .setUp("def foo(a, b, c): return a+b if c else a-b\n")
         .testExpression("foo(23, 5, 0)", 18);
   }
@@ -2118,7 +2070,7 @@ public final class SkylarkEvaluationTest extends EvaluationTest {
 
   @Test
   public void testStructFieldDefinedOnlyInValues() throws Exception {
-    new SkylarkTest()
+    new Scenario()
         .update("val", new SkylarkClassObjectWithSkylarkCallables())
         .setUp("v = val.values_only_field")
         .testLookup("v", "fromValues");
@@ -2126,7 +2078,7 @@ public final class SkylarkEvaluationTest extends EvaluationTest {
 
   @Test
   public void testStructMethodDefinedOnlyInValues() throws Exception {
-    new SkylarkTest()
+    new Scenario()
         .update("val", new SkylarkClassObjectWithSkylarkCallables())
         .setUp("v = val.values_only_method()")
         .testLookup("v", "fromValues");
@@ -2134,7 +2086,7 @@ public final class SkylarkEvaluationTest extends EvaluationTest {
 
   @Test
   public void testStructFieldDefinedOnlyInSkylarkCallable() throws Exception {
-    new SkylarkTest()
+    new Scenario()
         .update("val", new SkylarkClassObjectWithSkylarkCallables())
         .setUp("v = val.callable_only_field")
         .testLookup("v", "fromSkylarkCallable");
@@ -2142,7 +2094,7 @@ public final class SkylarkEvaluationTest extends EvaluationTest {
 
   @Test
   public void testStructMethodDefinedOnlyInSkylarkCallable() throws Exception {
-    new SkylarkTest()
+    new Scenario()
         .update("val", new SkylarkClassObjectWithSkylarkCallables())
         .setUp("v = val.callable_only_method()")
         .testLookup("v", "fromSkylarkCallable");
@@ -2153,7 +2105,7 @@ public final class SkylarkEvaluationTest extends EvaluationTest {
   public void testStructMethodDefinedInValuesAndSkylarkCallable() throws Exception {
     // This test exercises the resolution of ambiguity between @SkylarkCallable-annotated
     // fields and those reported by ClassObject.getValue.
-    new SkylarkTest()
+    new Scenario()
         .update("val", new SkylarkClassObjectWithSkylarkCallables())
         .setUp("v = val.collision_method()")
         .testLookup("v", "fromSkylarkCallable");
@@ -2161,7 +2113,7 @@ public final class SkylarkEvaluationTest extends EvaluationTest {
 
   @Test
   public void testStructFieldNotDefined() throws Exception {
-    new SkylarkTest()
+    new Scenario()
         .update("val", new SkylarkClassObjectWithSkylarkCallables())
         .testIfExactError(
             // TODO(bazel-team): This should probably list callable_only_method as well.
@@ -2173,7 +2125,7 @@ public final class SkylarkEvaluationTest extends EvaluationTest {
 
   @Test
   public void testStructMethodNotDefined() throws Exception {
-    new SkylarkTest()
+    new Scenario()
         .update("val", new SkylarkClassObjectWithSkylarkCallables())
         .testIfExactError(
             "'struct_with_skylark_callables' value has no field or method 'nonexistent_method'\n"
@@ -2210,7 +2162,7 @@ public final class SkylarkEvaluationTest extends EvaluationTest {
 
     AnalysisFailureInfo info = AnalysisFailureInfo.forAnalysisFailures(ImmutableList.of(cause));
 
-    new SkylarkTest()
+    new Scenario()
         .update("val", info)
         .setUp(
             "causes = val.causes",
@@ -2221,76 +2173,9 @@ public final class SkylarkEvaluationTest extends EvaluationTest {
   }
 
   @Test
-  // TODO(adonovan): move to Validation tests.
-  public void testExperimentalFlagGuardedValue() throws Exception {
-    // This test uses an arbitrary experimental flag to verify this functionality. If this
-    // experimental flag were to go away, this test may be updated to use any experimental flag.
-    // The flag itself is unimportant to the test.
-    FlagGuardedValue val =
-        FlagGuardedValue.onlyWhenExperimentalFlagIsTrue(
-            FlagIdentifier.EXPERIMENTAL_BUILD_SETTING_API, "foo");
-    String errorMessage =
-        "GlobalSymbol is experimental and thus unavailable with the current "
-            + "flags. It may be enabled by setting --experimental_build_setting_api";
-
-
-    new SkylarkTest(ImmutableMap.of("GlobalSymbol", val), "--experimental_build_setting_api=true")
-        .setUp("var = GlobalSymbol")
-        .testLookup("var", "foo");
-
-    new SkylarkTest(ImmutableMap.of("GlobalSymbol", val), "--experimental_build_setting_api=false")
-        .testIfErrorContains(errorMessage, "var = GlobalSymbol");
-
-    new SkylarkTest(ImmutableMap.of("GlobalSymbol", val), "--experimental_build_setting_api=false")
-        .testIfErrorContains(errorMessage, "def my_function():", "  var = GlobalSymbol");
-
-    new SkylarkTest(ImmutableMap.of("GlobalSymbol", val), "--experimental_build_setting_api=false")
-        .setUp("GlobalSymbol = 'other'", "var = GlobalSymbol")
-        .testLookup("var", "other");
-  }
-
-  @Test
-  public void testIncompatibleFlagGuardedValue() throws Exception {
-    // This test uses an arbitrary incompatible flag to verify this functionality. If this
-    // incompatible flag were to go away, this test may be updated to use any incompatible flag.
-    // The flag itself is unimportant to the test.
-    FlagGuardedValue val = FlagGuardedValue.onlyWhenIncompatibleFlagIsFalse(
-        FlagIdentifier.INCOMPATIBLE_NO_TARGET_OUTPUT_GROUP,
-        "foo");
-    String errorMessage = "GlobalSymbol is deprecated and will be removed soon. It may be "
-        + "temporarily re-enabled by setting --incompatible_no_target_output_group=false";
-
-    new SkylarkTest(
-            ImmutableMap.of("GlobalSymbol", val),
-            "--incompatible_no_target_output_group=false")
-        .setUp("var = GlobalSymbol")
-        .testLookup("var", "foo");
-
-    new SkylarkTest(
-            ImmutableMap.of("GlobalSymbol", val),
-            "--incompatible_no_target_output_group=true")
-        .testIfErrorContains(errorMessage,
-            "var = GlobalSymbol");
-
-    new SkylarkTest(
-            ImmutableMap.of("GlobalSymbol", val),
-            "--incompatible_no_target_output_group=true")
-        .testIfErrorContains(errorMessage,
-            "def my_function():",
-            "  var = GlobalSymbol");
-
-    new SkylarkTest(
-            ImmutableMap.of("GlobalSymbol", val),
-            "--incompatible_no_target_output_group=true")
-        .setUp("GlobalSymbol = 'other'",
-            "var = GlobalSymbol")
-        .testLookup("var", "other");
-  }
-
-  @Test
   public void testFunctionEvaluatedBeforeArguments() throws Exception {
     // ''.nonesuch must be evaluated (and fail) before f().
-    new SkylarkTest()
+    new Scenario()
         .testIfErrorContains(
             "'string' value has no field or method 'nonesuch'",
             "def f(): x = 1//0",
