@@ -573,7 +573,7 @@ public class SpawnStrategyRegistryTest {
     public ImmutableList<SpawnResult> exec(
         Spawn spawn,
         ActionExecutionContext actionExecutionContext,
-        @Nullable StopConcurrentSpawns stopConcurrentSpawns) {
+        @Nullable SandboxedSpawnStrategy.StopConcurrentSpawns stopConcurrentSpawns) {
       throw new UnsupportedOperationException();
     }
   }

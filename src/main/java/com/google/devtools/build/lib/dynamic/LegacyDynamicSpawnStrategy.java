@@ -27,7 +27,6 @@ import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.SandboxedSpawnStrategy;
-import com.google.devtools.build.lib.actions.SandboxedSpawnStrategy.StopConcurrentSpawns;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.SpawnStrategy;
@@ -353,7 +352,7 @@ public class LegacyDynamicSpawnStrategy implements SpawnStrategy {
         && Spawns.supportsWorkers(spawn));
   }
 
-  private static StopConcurrentSpawns lockOutputFiles(
+  private static SandboxedSpawnStrategy.StopConcurrentSpawns lockOutputFiles(
       SandboxedSpawnStrategy token, @Nullable AtomicReference<SpawnStrategy> outputWriteBarrier) {
     if (outputWriteBarrier == null) {
       return null;

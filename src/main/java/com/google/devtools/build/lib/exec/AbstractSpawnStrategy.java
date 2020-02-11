@@ -98,7 +98,7 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnStrategy {
   public ImmutableList<SpawnResult> exec(
       Spawn spawn,
       ActionExecutionContext actionExecutionContext,
-      @Nullable StopConcurrentSpawns stopConcurrentSpawns)
+      @Nullable SandboxedSpawnStrategy.StopConcurrentSpawns stopConcurrentSpawns)
       throws ExecException, InterruptedException {
     actionExecutionContext.maybeReportSubcommand(spawn);
 
@@ -174,7 +174,7 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnStrategy {
   private final class SpawnExecutionContextImpl implements SpawnExecutionContext {
     private final Spawn spawn;
     private final ActionExecutionContext actionExecutionContext;
-    @Nullable private final StopConcurrentSpawns stopConcurrentSpawns;
+    @Nullable private final SandboxedSpawnStrategy.StopConcurrentSpawns stopConcurrentSpawns;
     private final Duration timeout;
 
     private final int id = execCount.incrementAndGet();
@@ -185,7 +185,7 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnStrategy {
     SpawnExecutionContextImpl(
         Spawn spawn,
         ActionExecutionContext actionExecutionContext,
-        @Nullable StopConcurrentSpawns stopConcurrentSpawns,
+        @Nullable SandboxedSpawnStrategy.StopConcurrentSpawns stopConcurrentSpawns,
         Duration timeout) {
       this.spawn = spawn;
       this.actionExecutionContext = actionExecutionContext;
