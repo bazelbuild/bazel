@@ -106,27 +106,44 @@ readonly wrapper_dir="$(dirname "$(get_realpath "${BASH_SOURCE[0]}")")"
 readonly os_arch_suffix="$(uname -s | tr '[:upper:]' '[:lower:]')-$(uname -m)"
 
 function get_bazel_version() {
+  bazel_version=""
+
   if [[ -n ${USE_BAZEL_VERSION:-} ]]; then
-    readonly reason="specified in \$USE_BAZEL_VERSION"
-    readonly bazel_version="${USE_BAZEL_VERSION}"
+    reason="specified in \$USE_BAZEL_VERSION"
+    bazel_version="${USE_BAZEL_VERSION}"
   elif [[ -e "${workspace_dir}/.bazelversion" ]]; then
-    readonly reason="specified in ${workspace_dir}/.bazelversion"
-    read -r bazel_version < "${workspace_dir}/.bazelversion"
-    readonly bazel_version="${bazel_version}"
-  elif [[ -x "${wrapper_dir}/bazel-real" ]]; then
-    readonly reason="automatically selected bazel-real"
-    readonly bazel_version="real"
-  else
-    # Find the latest Bazel version installed on the system.
-    readonly reason="automatically selected latest available version"
-    bazel_version="$(basename "$(find -H "${wrapper_dir}" -maxdepth 1 -name 'bazel-[0-9]*-${os_arch_suffix}' -type f | sort -V | tail -n 1)")"
-    if [[ -z $bazel_version ]]; then
-      bazel_version="$(basename "$(find -H "${wrapper_dir}" -maxdepth 1 -name 'bazel-[0-9]*' -type f | sort -V | tail -n 1)")"
-    fi
-    # Remove the "bazel-" prefix from the file name.
-    bazel_version="${bazel_version#"bazel-"}"
-    readonly bazel_version
+    reason="specified in ${workspace_dir}/.bazelversion"
+    # The "read" can fail if the .bazelversion file does not contain a final
+    # newline character. It will still correctly assign the read data to the
+    # variable. Of course it can also fail due to real I/O errors. Because we do
+    # validation of the read data later, we can just ignore the error here.
+    # Alternatives like 'bazel_version=$(head -1 ...)' are not better either,
+    # because bash does not care about the exit code of processes used in
+    # command substitution.
+    read -r bazel_version < "${workspace_dir}/.bazelversion" || true
   fi
+
+  # If we read an empty string or the magic word "latest" from .bazelversion or
+  # $USE_BAZEL_VERSION, then we should use the latest available stable version.
+  # This mimics the behavior of Bazelisk.
+  if [[ -z $bazel_version || $bazel_version == "latest" ]]; then
+    if [[ -x "${wrapper_dir}/bazel-real" ]]; then
+      reason="${reason:-"automatically selected bazel-real"}"
+      bazel_version="real"
+    else
+      # Find the latest Bazel version installed on the system.
+      reason="${reason:-"automatically selected latest available version"}"
+      bazel_version="$(basename "$(find -H "${wrapper_dir}" -maxdepth 1 -name 'bazel-[0-9]*-${os_arch_suffix}' -type f | sort -V | tail -n 1)")"
+      if [[ -z $bazel_version ]]; then
+        bazel_version="$(basename "$(find -H "${wrapper_dir}" -maxdepth 1 -name 'bazel-[0-9]*' -type f | sort -V | tail -n 1)")"
+      fi
+      # Remove the "bazel-" prefix from the file name.
+      bazel_version="${bazel_version#"bazel-"}"
+    fi
+  fi
+
+  readonly reason
+  readonly bazel_version
 }
 
 get_bazel_version

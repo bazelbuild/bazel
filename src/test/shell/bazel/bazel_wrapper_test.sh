@@ -103,6 +103,26 @@ test_bazelversion_file() {
   expect_log "My args: build //src:bazel"
 }
 
+test_empty_bazelversion_file() {
+  setup_mock
+
+  touch .bazelversion
+  ../bin/bazel info &> "$TEST_log"
+  expect_log "Hello from bazel-real"
+
+  echo "" > .bazelversion
+  ../bin/bazel info &> "$TEST_log"
+  expect_log "Hello from bazel-real"
+}
+
+test_explicit_latest_bazel() {
+  setup_mock
+
+  echo "latest" > .bazelversion
+  ../bin/bazel info &> "$TEST_log"
+  expect_log "Hello from bazel-real"
+}
+
 test_uses_bazelreal() {
   setup_mock
 
@@ -253,6 +273,17 @@ test_wrapper_detects_version_of_bazel_real() {
   ../bin/bazel &> "$TEST_log"
   expect_log "Hello from bazel-real"
   expect_log "My args:"
+}
+
+# Regression test for https://github.com/bazelbuild/bazel/issues/10459
+test_bazelversion_without_newline() {
+  setup_mock
+
+  echo -n "1.0.1" > .bazelversion
+
+  ../bin/bazel info &> "$TEST_log"
+  expect_log "Hello from bazel-1.0.1"
+  expect_log "My args: info"
 }
 
 run_suite "Integration tests for scripts/packages/bazel.sh."
