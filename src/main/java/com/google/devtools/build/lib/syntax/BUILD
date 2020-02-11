@@ -164,6 +164,7 @@ cc_library(
     name = "jni",
     hdrs = ["@bazel_tools//tools/jdk:jni_header"] + select({
         "//src/conditions:linux_x86_64": ["@bazel_tools//tools/jdk:jni_md_header-linux"],
+        "//src/conditions:linux_aarch64": ["@bazel_tools//tools/jdk:jni_md_header-linux"],
         "//src/conditions:darwin": ["@bazel_tools//tools/jdk:jni_md_header-darwin"],
         "//src/conditions:windows": ["@bazel_tools//tools/jdk:jni_md_header-windows"],
         "//conditions:default": [],
@@ -171,6 +172,7 @@ cc_library(
     includes = ["../../../../../../../../../external/bazel_tools/tools/jdk/include"] + select({
         # Remove these crazy prefixes when we move this rule.
         "//src/conditions:linux_x86_64": ["../../../../../../../../../external/bazel_tools/tools/jdk/include/linux"],
+        "//src/conditions:linux_aarch64": ["../../../../../../../../../external/bazel_tools/tools/jdk/include/linux"],
         "//src/conditions:darwin": ["../../../../../../../../../external/bazel_tools/tools/jdk/include/darwin"],
         "//src/conditions:windows": ["../../../../../../../../../external/bazel_tools/tools/jdk/include/win32"],
         "//conditions:default": [],
