@@ -34,10 +34,6 @@ public abstract class ComposingTransitionFactory<T> implements TransitionFactory
   /**
    * Creates a {@link ComposingTransitionFactory} that applies the given factories in sequence:
    * {@code fromOptions -> transition1 -> transition2 -> toOptions }.
-   *
-   * <p>Note that this method checks for transition factories that cannot be composed, such as if
-   * one of the transitions is {@link NoTransition} or the host transition, and returns an
-   * efficiently composed transition.
    */
   public static <T> TransitionFactory<T> of(
       TransitionFactory<T> transitionFactory1, TransitionFactory<T> transitionFactory2) {
@@ -48,15 +44,9 @@ public abstract class ComposingTransitionFactory<T> implements TransitionFactory
     if (isFinal(transitionFactory1)) {
       // Since no other transition can be composed with transitionFactory1, use it directly.
       return transitionFactory1;
-    } else if (NoTransition.isInstance(transitionFactory1)) {
-      // Since transitionFactory1 causes no changes, use transitionFactory2 directly.
-      return transitionFactory2;
     }
 
-    if (NoTransition.isInstance(transitionFactory2)) {
-      // Since transitionFactory2 causes no changes, use transitionFactory1 directly.
-      return transitionFactory1;
-    } else if (isFinal(transitionFactory2)) {
+    if (isFinal(transitionFactory2)) {
       // When the second transition is null or a HOST transition, there's no need to compose. But
       // this also
       // improves performance: host transitions are common, and ConfiguredTargetFunction has special

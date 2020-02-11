@@ -154,7 +154,12 @@ public class ComposingTransitionTest {
     ConfigurationTransition composed = ComposingTransition.of(NoTransition.INSTANCE, patch);
 
     assertThat(composed).isNotNull();
-    assertThat(composed).isEqualTo(patch);
+    List<BuildOptions> results = composed.apply(BuildOptions.builder().build());
+    assertThat(results).isNotNull();
+    assertThat(results).hasSize(1);
+    BuildOptions result = Iterables.getOnlyElement(results);
+    assertThat(result).isNotNull();
+    assertThat(result.getStarlarkOptions()).containsEntry(FLAG_1, "value");
   }
 
   @Test
@@ -163,7 +168,12 @@ public class ComposingTransitionTest {
     ConfigurationTransition composed = ComposingTransition.of(patch, NoTransition.INSTANCE);
 
     assertThat(composed).isNotNull();
-    assertThat(composed).isEqualTo(patch);
+    List<BuildOptions> results = composed.apply(BuildOptions.builder().build());
+    assertThat(results).isNotNull();
+    assertThat(results).hasSize(1);
+    BuildOptions result = Iterables.getOnlyElement(results);
+    assertThat(result).isNotNull();
+    assertThat(result.getStarlarkOptions()).containsEntry(FLAG_1, "value");
   }
 
   // Helper methods and classes for the tests.

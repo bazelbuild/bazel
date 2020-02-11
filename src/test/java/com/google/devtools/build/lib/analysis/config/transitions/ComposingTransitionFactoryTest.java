@@ -172,7 +172,13 @@ public class ComposingTransitionFactoryTest {
         ComposingTransitionFactory.of(NoTransition.createFactory(), patch);
 
     assertThat(composed).isNotNull();
-    assertThat(composed).isEqualTo(patch);
+    ConfigurationTransition transition = composed.create(new StubData());
+    List<BuildOptions> results = transition.apply(BuildOptions.builder().build());
+    assertThat(results).isNotNull();
+    assertThat(results).hasSize(1);
+    BuildOptions result = Iterables.getOnlyElement(results);
+    assertThat(result).isNotNull();
+    assertThat(result.getStarlarkOptions()).containsEntry(FLAG_1, "value");
   }
 
   @Test
@@ -182,7 +188,13 @@ public class ComposingTransitionFactoryTest {
         ComposingTransitionFactory.of(patch, NoTransition.createFactory());
 
     assertThat(composed).isNotNull();
-    assertThat(composed).isEqualTo(patch);
+    ConfigurationTransition transition = composed.create(new StubData());
+    List<BuildOptions> results = transition.apply(BuildOptions.builder().build());
+    assertThat(results).isNotNull();
+    assertThat(results).hasSize(1);
+    BuildOptions result = Iterables.getOnlyElement(results);
+    assertThat(result).isNotNull();
+    assertThat(result.getStarlarkOptions()).containsEntry(FLAG_1, "value");
   }
 
   @Test

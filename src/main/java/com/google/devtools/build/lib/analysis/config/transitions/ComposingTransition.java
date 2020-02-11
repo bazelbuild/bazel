@@ -88,10 +88,6 @@ public class ComposingTransition implements ConfigurationTransition {
   /**
    * Creates a {@link ComposingTransition} that applies the sequence: {@code fromOptions ->
    * transition1 -> transition2 -> toOptions }.
-   *
-   * <p>Note that this method checks for transitions that cannot be composed, such as if one of the
-   * transitions is {@link NoTransition} or the host transition, and returns an efficiently composed
-   * transition.
    */
   public static ConfigurationTransition of(
       ConfigurationTransition transition1, ConfigurationTransition transition2) {
@@ -101,15 +97,9 @@ public class ComposingTransition implements ConfigurationTransition {
     if (isFinal(transition1)) {
       // Since no other transition can be composed with transition1, use it directly.
       return transition1;
-    } else if (transition1 == NoTransition.INSTANCE) {
-      // Since transition1 causes no changes, use transition2 directly.
-      return transition2;
     }
 
-    if (transition2 == NoTransition.INSTANCE) {
-      // Since transition2 causes no changes, use transition 1 directly.
-      return transition1;
-    } else if (isFinal(transition2)) {
+    if (isFinal(transition2)) {
       // When the second transition is null or a HOST transition, there's no need to compose. But
       // this also
       // improves performance: host transitions are common, and ConfiguredTargetFunction has special
