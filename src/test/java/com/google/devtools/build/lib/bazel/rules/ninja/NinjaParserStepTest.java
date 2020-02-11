@@ -54,12 +54,12 @@ public class NinjaParserStepTest {
 
   @Test
   public void testVariableParsingException() {
-    doTestVariableParsingException(" ", "Expected identifier, but got indent");
-    doTestVariableParsingException("a", "Expected = after 'a'");
+    doTestVariableParsingException(" ", "Expected identifier, but got indent in fragment:\n \n");
+    doTestVariableParsingException("a", "Expected = after 'a' in fragment:\na\n");
     doTestVariableParsingException("a=", "Variable 'a' has no value.");
     doTestVariableParsingException(
         "^a=", "Expected identifier, but got error: 'Symbol '^' is not allowed in the identifier, "
-            + "the text fragment with the symbol:\n^a=\n'");
+            + "the text fragment with the symbol:\n^a=\n' in fragment:\n^a=\n");
   }
 
   private static void doTestVariableParsingException(String text, String message) {
@@ -120,7 +120,7 @@ public class NinjaParserStepTest {
         .hasMessageThat()
         .isEqualTo(
             "Expected newline, but got error: "
-                + "'Bad $-escape (literal $ must be written as $$)'");
+                + "'Bad $-escape (literal $ must be written as $$)' in fragment:\ninclude x $\n");
 
     GenericParsingException exception2 =
         assertThrows(
@@ -136,6 +136,7 @@ public class NinjaParserStepTest {
 
   @Test
   public void testNinjaRule() throws Exception {
+    // Additionally test the situation when we get more line separators in the end.
     NinjaParserStep parser =
         createParser(
             "rule testRule  \n"
@@ -143,7 +144,7 @@ public class NinjaParserStepTest {
                 + " description = Test rule for $TARGET\n"
                 + " rspfile = $TARGET.in\n"
                 + " deps = ${abc} $\n"
-                + " ${cde}\n");
+                + " ${cde}\n\n\n");
     NinjaRule ninjaRule = parser.parseNinjaRule();
     ImmutableSortedMap<NinjaRuleVariable, NinjaVariableValue> variables = ninjaRule.getVariables();
     assertThat(variables.keySet())
@@ -164,21 +165,26 @@ public class NinjaParserStepTest {
   @Test
   public void testNinjaRuleParsingException() {
     doTestNinjaRuleParsingException(
-        "rule testRule extra-word\n", "Expected newline, but got identifier");
+        "rule testRule extra-word\n", "Expected newline, but got identifier in fragment:\n"
+            + "rule testRule extra-word\n\n");
     doTestNinjaRuleParsingException(
         "rule testRule\n command =", "Variable 'command' has no value.");
     doTestNinjaRuleParsingException(
-        "rule testRule\ncommand =", "Expected indent, but got identifier");
+        "rule testRule\ncommand =", "Expected indent, but got identifier in fragment:\n"
+            + "rule testRule\ncommand =\n");
     doTestNinjaRuleParsingException(
         "rule testRule\n ^custom = a",
         "Expected identifier, but got error: 'Symbol '^' is not allowed in the identifier, "
-            + "the text fragment with the symbol:\nrule testRule\n ^custom = a\n'");
+            + "the text fragment with the symbol:\nrule testRule\n ^custom = a\n' in fragment:\n"
+            + "rule testRule\n ^custom = a\n");
     doTestNinjaRuleParsingException("rule testRule\n custom = a", "Unexpected variable 'custom'");
   }
 
   @Test
   public void testNinjaTargets() throws Exception {
-    NinjaTarget target = parseNinjaTarget("build output: command input");
+    // Additionally test the situation when the target does not have the variables section and
+    // we get more line separators in the end.
+    NinjaTarget target = parseNinjaTarget("build output: command input\n\n");
     assertThat(target.getRuleName()).isEqualTo("command");
     assertThat(target.getOutputs()).containsExactly(PathFragment.create("output"));
     assertThat(target.getUsualInputs()).containsExactly(PathFragment.create("input"));
