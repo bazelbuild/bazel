@@ -141,7 +141,7 @@ public class NinjaLexerStep {
   }
 
   public void skipSpaces() {
-    end = eatSequence(position, aByte -> ' ' != aByte);
+    end = eatSequence(position, aByte -> ' ' != aByte && '\t' != aByte);
   }
 
   public void skipComment() {
