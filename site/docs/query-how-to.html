@@ -130,8 +130,13 @@ what is included in the artifact you built, and not every possible job.
 <p>To visualize the graph of all dependencies, pipe the bazel query output through
   the <code>dot</code> command-line tool:</p>
 <pre>
-$ bazel query "allpaths(//foo, third_party/...)" --notool_deps --output graph | dot -Tpng > graph.png
+$ bazel query "allpaths(//foo, third_party/...)" --notool_deps --output graph | dot -Tsvg > /tmp/deps.svg
 </pre>
+
+<p>
+  Note that <code>dot</code> supports other image formats, just replace <code>svg</code> with the
+  format identifier, for example, <code>png</code>.
+</p>
 
 <p>When a dependency graph is big and complicated, it can be helpful start with a single path:</p>
 
@@ -453,9 +458,9 @@ name to it using <code>let</code> to avoid duplication.</p>
 
 <h4>What dependency paths do I have to break to make <code>bar</code> no longer depend on X?</h4>
 
-<p>To output the graph to a <code>png</code> file:</p>
+<p>To output the graph to a <code>svg</code> file:</p>
 
-<pre>bazel query 'allpaths(bar/...,X)' --output graph | dot -Tpng &gt; /tmp/dep.png</pre>
+<pre>bazel query 'allpaths(bar/...,X)' --output graph | dot -Tsvg &gt; /tmp/dep.svg</pre>
 
 <p><a name="Misc_"></a></p>
 
