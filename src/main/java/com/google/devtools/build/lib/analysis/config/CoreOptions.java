@@ -564,7 +564,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
 
   @Option(
       name = "analysis_testing_deps_limit",
-      defaultValue = "500",
+      defaultValue = "600",
       documentationCategory = OptionDocumentationCategory.TESTING,
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
       help =
