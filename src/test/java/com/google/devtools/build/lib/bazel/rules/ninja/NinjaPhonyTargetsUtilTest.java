@@ -62,6 +62,27 @@ public class NinjaPhonyTargetsUtilTest {
     checkMapping(pathsMap, "alias4", "direct3", "direct4");
   }
 
+  @Test
+  public void testDag() throws Exception {
+    ImmutableList<String> targetTexts =
+            ImmutableList.of(
+                    "build _alias9: phony alias1 alias2",
+                    "build alias1: phony deep1",
+                    "build alias2: phony deep2",
+                    "build deep1: phony leaf1",
+                    "build deep2: phony leaf2 alias1");
+
+    ImmutableSortedMap<PathFragment, NestedSet<PathFragment>> pathsMap =
+            NinjaPhonyTargetsUtil.getPhonyPathsMap(buildPhonyTargets(targetTexts), pf -> pf);
+
+    assertThat(pathsMap).hasSize(5);
+    checkMapping(pathsMap, "_alias9", "leaf1", "leaf2");
+    checkMapping(pathsMap, "alias1", "leaf1");
+    checkMapping(pathsMap, "alias2", "leaf1", "leaf2");
+    checkMapping(pathsMap, "deep1", "leaf1");
+    checkMapping(pathsMap, "deep2", "leaf1", "leaf2");
+  }
+
   private static void checkMapping(
       ImmutableSortedMap<PathFragment, NestedSet<PathFragment>> pathsMap,
       String key,
