@@ -233,6 +233,7 @@ java_library(
             "util/BlazeClock.java",
             "util/Clock.java",
             "util/ExitCode.java",
+            "util/FailureDetailUtil.java",
             "util/FileType.java",
             "util/FileTypeSet.java",
             "util/JavaClock.java",
@@ -319,6 +320,7 @@ java_library(
     ],
     deps = [
         "//third_party:guava",
+        "//third_party:jsr305",
     ],
 )
 
@@ -326,6 +328,17 @@ java_library(
     name = "custom-exit-code-publisher",
     srcs = ["util/CustomExitCodePublisher.java"],
     deps = ["//third_party:jsr305"],
+)
+
+java_library(
+    name = "failure_detail_util",
+    srcs = ["util/FailureDetailUtil.java"],
+    deps = [
+        ":exitcode-external",
+        "//src/main/protobuf:failure_details_java_proto",
+        "//third_party:guava",
+        "//third_party/protobuf:protobuf_java",
+    ],
 )
 
 # Event reporting infrastructure.
@@ -1172,6 +1185,7 @@ java_library(
     deps = [
         ":bug-report",
         ":exitcode-external",
+        ":failure_detail_util",
         ":os_util",
         ":out-err",
         ":runtime",
@@ -1244,6 +1258,7 @@ java_library(
         ":custom-exit-code-publisher",
         ":events",
         ":exitcode-external",
+        ":failure_detail_util",
         ":io",
         ":keep-going-option",
         ":loading-phase-threads-option",
@@ -1288,6 +1303,7 @@ java_library(
         "//src/main/protobuf:command_line_java_proto",
         "//src/main/protobuf:command_server_java_proto",
         "//src/main/protobuf:extra_actions_base_java_proto",
+        "//src/main/protobuf:failure_details_java_proto",
         "//src/main/protobuf:invocation_policy_java_proto",
         "//src/main/protobuf:option_filters_java_proto",
         "//src/main/protobuf:test_status_java_proto",

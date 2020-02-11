@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.util;
 import com.google.common.base.Objects;
 import java.util.Collection;
 import java.util.HashMap;
+import javax.annotation.Nullable;
 
 /**
  *  <p>Anything marked FAILURE is generally from a problem with the source code
@@ -131,6 +132,18 @@ public class ExitCode {
   public static Collection<ExitCode> values() {
     synchronized (exitCodeRegistry) {
       return exitCodeRegistry.values();
+    }
+  }
+
+  /**
+   * Returns a registered {@link ExitCode} with the given {@code code}.
+   *
+   * <p>Note that there *are* unregistered ExitCodes. This will never return them.
+   */
+  @Nullable
+  static ExitCode forCode(int code) {
+    synchronized (exitCodeRegistry) {
+      return exitCodeRegistry.get(code);
     }
   }
 
