@@ -56,7 +56,6 @@ public class NinjaParserStepTest {
   public void testVariableParsingException() {
     doTestVariableParsingException(" ", "Expected identifier, but got indent");
     doTestVariableParsingException("a", "Expected = after 'a'");
-    doTestVariableParsingException("a=", "Variable 'a' has no value.");
     doTestVariableParsingException(
         "^a=", "Expected identifier, but got error: 'Symbol is not allowed in the identifier.'");
   }
@@ -68,7 +67,7 @@ public class NinjaParserStepTest {
   }
 
   @Test
-  public void testNoValue() {
+  public void testNoValue() throws Exception {
     doTestNoValue("a=");
     doTestNoValue("a=\u000018");
     doTestNoValue("a  =    ");
@@ -161,11 +160,25 @@ public class NinjaParserStepTest {
   }
 
   @Test
+  public void testVariableWithoutValue() throws Exception {
+    NinjaParserStep parser =
+        createParser(
+            "rule testRule  \n"
+                + " command = executable --flag $TARGET $out && $POST_BUILD\n"
+                + " description =\n");
+    NinjaRule ninjaRule = parser.parseNinjaRule();
+    ImmutableSortedMap<NinjaRuleVariable, NinjaVariableValue> variables = ninjaRule.getVariables();
+    assertThat(variables.keySet())
+        .containsExactly(
+            NinjaRuleVariable.NAME, NinjaRuleVariable.COMMAND, NinjaRuleVariable.DESCRIPTION);
+    assertThat(variables.get(NinjaRuleVariable.NAME).getRawText()).isEqualTo("testRule");
+    assertThat(variables.get(NinjaRuleVariable.DESCRIPTION).getRawText()).isEmpty();
+  }
+
+  @Test
   public void testNinjaRuleParsingException() {
     doTestNinjaRuleParsingException(
         "rule testRule extra-word\n", "Expected newline, but got identifier");
-    doTestNinjaRuleParsingException(
-        "rule testRule\n command =", "Variable 'command' has no value.");
     doTestNinjaRuleParsingException(
         "rule testRule\ncommand =", "Expected indent, but got identifier");
     doTestNinjaRuleParsingException(
@@ -300,11 +313,11 @@ public class NinjaParserStepTest {
     assertThat(expander.getRequestedVariables()).isEmpty();
   }
 
-  private static void doTestNoValue(String text) {
+  private static void doTestNoValue(String text) throws Exception {
     NinjaParserStep parser = createParser(text);
-    GenericParsingException exception =
-        assertThrows(GenericParsingException.class, parser::parseVariable);
-    assertThat(exception).hasMessageThat().isEqualTo("Variable 'a' has no value.");
+    NinjaVariableValue value = parser.parseVariable().getSecond();
+    assertThat(value).isNotNull();
+    assertThat(value.getRawText()).isEmpty();
   }
 
   private static void doTestWithVariablesInValue(
