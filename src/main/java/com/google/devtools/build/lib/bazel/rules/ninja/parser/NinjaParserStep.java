@@ -49,13 +49,13 @@ public class NinjaParserStep {
     String name = asString(parseExpected(NinjaToken.IDENTIFIER));
     parseExpected(NinjaToken.EQUALS);
 
-    NinjaVariableValue value = parseVariableValue(name);
+    NinjaVariableValue value = parseVariableValue();
     return Pair.of(name, value);
   }
 
   @VisibleForTesting
-  public NinjaVariableValue parseVariableValue(String name) throws GenericParsingException {
-    return parseVariableValueImpl(() -> String.format("Variable '%s' has no value.", name));
+  public NinjaVariableValue parseVariableValue() throws GenericParsingException {
+    return parseVariableValueImpl(() -> null);
   }
 
   private NinjaVariableValue parseVariableValueImpl(Supplier<String> messageForNoValue)
@@ -88,7 +88,13 @@ public class NinjaParserStep {
     }
     if (previous == -1) {
       // We read no value.
-      throw new GenericParsingException(messageForNoValue.get());
+      // Throw exception if the message was passed:
+      String errorMessage = messageForNoValue.get();
+      if (errorMessage != null) {
+        throw new GenericParsingException(errorMessage);
+      }
+      // Otherwise, use empty string for value.
+      return NinjaVariableValue.createPlainText("");
     }
     return varBuilder.build();
   }
@@ -178,7 +184,7 @@ public class NinjaParserStep {
       parseExpected(NinjaToken.INDENT);
       String variableName = asString(parseExpected(NinjaToken.IDENTIFIER));
       parseExpected(NinjaToken.EQUALS);
-      NinjaVariableValue value = parseVariableValue(variableName);
+      NinjaVariableValue value = parseVariableValue();
 
       NinjaRuleVariable ninjaRuleVariable = NinjaRuleVariable.nullOrValue(variableName);
       if (ninjaRuleVariable == null) {
