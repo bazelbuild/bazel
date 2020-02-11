@@ -68,13 +68,17 @@ public class NinjaLexerTest {
   }
 
   @Test
-  public void testDisallowedSymbols() {
+  public void testTabsAreAllowed() {
     String text = "abc\n\tcde";
     NinjaLexer lexer = createLexer(text);
     assertTokenBytes(lexer, NinjaToken.IDENTIFIER, "abc");
     assertTokenBytes(lexer, NinjaToken.NEWLINE, null);
-    assertError(lexer, "Tabs are not allowed, use spaces.", "\t");
+    assertTokenBytes(lexer, NinjaToken.INDENT, null);
+    assertTokenBytes(lexer, NinjaToken.IDENTIFIER, "cde");
+  }
 
+  @Test
+  public void testDisallowedSymbols() {
     assertError(createLexer("^"), "Symbol is not allowed in the identifier.", "^");
   }
 
