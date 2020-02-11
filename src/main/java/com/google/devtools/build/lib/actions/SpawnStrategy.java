@@ -44,4 +44,15 @@ public interface SpawnStrategy extends ActionContext {
 
   /** Returns whether this SpawnActionContext supports executing the given Spawn. */
   boolean canExec(Spawn spawn, ActionContext.ActionContextRegistry actionContextRegistry);
+
+  /**
+   * Performs any actions conditional on this strategy not only being registered but triggered as
+   * used because its identifier was requested and it was not overridden.
+   *
+   * @param actionContextRegistry a registry containing all available contexts
+   */
+  // TODO(katre): Remove once strategies are only instantiated if used, the callback can then be
+  //  done upon construction.
+  @Override
+  default void usedContext(ActionContext.ActionContextRegistry actionContextRegistry) {}
 }
