@@ -29,7 +29,7 @@ function set_up() {
 function write_constraints() {
   mkdir constraint
   cat >constraint/BUILD.bazel <<EOF
-  package(default_visibility = ["//visibility:public"])
+package(default_visibility = ["//visibility:public"])
 
 # Common constraints for testing.
 
@@ -66,7 +66,7 @@ EOF
 function write_platforms() {
   mkdir platform
   cat >platform/platform.bzl <<EOF
-  ShowPlatformInfo = provider(fields = ["platform_type", "level"])
+ShowPlatformInfo = provider(fields = ["platform_type", "level"])
 
 def _show_platform_impl(ctx):
     target_constraint = ctx.attr._target_constraint[platform_common.ConstraintValueInfo]
