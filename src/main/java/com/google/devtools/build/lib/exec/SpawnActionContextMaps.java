@@ -191,7 +191,7 @@ public final class SpawnActionContextMaps
   }
 
   @Override
-  public void notifyUsedDynamic(ActionContextRegistry actionContextRegistry) {
+  public void notifyUsedDynamic(ActionContext.ActionContextRegistry actionContextRegistry) {
     for (SandboxedSpawnStrategy context : mnemonicToRemoteDynamicStrategies.values()) {
       context.usedContext(actionContextRegistry);
     }

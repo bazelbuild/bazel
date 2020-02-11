@@ -153,7 +153,7 @@ public class ModuleActionContextRegistryTest {
     private int usedCalls = 0;
 
     @Override
-    public void usedContext(ActionContextRegistry actionContextRegistry) {
+    public void usedContext(ActionContext.ActionContextRegistry actionContextRegistry) {
       usedCalls++;
     }
   }

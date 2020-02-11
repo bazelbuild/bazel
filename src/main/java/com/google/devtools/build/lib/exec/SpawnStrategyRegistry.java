@@ -108,7 +108,7 @@ public final class SpawnStrategyRegistry
   }
 
   @Override
-  public void notifyUsedDynamic(ActionContextRegistry actionContextRegistry) {
+  public void notifyUsedDynamic(ActionContext.ActionContextRegistry actionContextRegistry) {
     for (SandboxedSpawnStrategy strategy : mnemonicToLocalDynamicStrategies.values()) {
       strategy.usedContext(actionContextRegistry);
     }
@@ -140,7 +140,7 @@ public final class SpawnStrategyRegistry
    * Notifies all (non-dynamic) strategies stored in this registry that they are {@linkplain
    * SpawnStrategy#usedContext used}.
    */
-  public void notifyUsed(ActionContextRegistry actionContextRegistry) {
+  public void notifyUsed(ActionContext.ActionContextRegistry actionContextRegistry) {
     for (SpawnStrategy strategy : filterToStrategies.values()) {
       strategy.usedContext(actionContextRegistry);
     }

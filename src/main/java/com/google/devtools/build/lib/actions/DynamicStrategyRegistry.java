@@ -37,5 +37,5 @@ public interface DynamicStrategyRegistry extends ActionContext {
    *
    * @param actionContextRegistry a complete registry containing all available action contexts
    */
-  void notifyUsedDynamic(ActionContextRegistry actionContextRegistry);
+  void notifyUsedDynamic(ActionContext.ActionContextRegistry actionContextRegistry);
 }

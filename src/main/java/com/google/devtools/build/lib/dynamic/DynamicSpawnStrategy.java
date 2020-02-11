@@ -23,6 +23,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.SettableFuture;
+import com.google.devtools.build.lib.actions.ActionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.DynamicStrategyRegistry;
 import com.google.devtools.build.lib.actions.ExecException;
@@ -327,7 +328,7 @@ public class DynamicSpawnStrategy implements SpawnStrategy {
   }
 
   @Override
-  public boolean canExec(Spawn spawn, ActionContextRegistry actionContextRegistry) {
+  public boolean canExec(Spawn spawn, ActionContext.ActionContextRegistry actionContextRegistry) {
     DynamicStrategyRegistry dynamicStrategyRegistry =
         actionContextRegistry.getContext(DynamicStrategyRegistry.class);
     for (SandboxedSpawnStrategy strategy :
@@ -348,10 +349,10 @@ public class DynamicSpawnStrategy implements SpawnStrategy {
   }
 
   @Override
-  public void usedContext(ActionContextRegistry actionExecutionContext) {
-    actionExecutionContext
+  public void usedContext(ActionContext.ActionContextRegistry actionExecutionRegistry) {
+    actionExecutionRegistry
         .getContext(DynamicStrategyRegistry.class)
-        .notifyUsedDynamic(actionExecutionContext);
+        .notifyUsedDynamic(actionExecutionRegistry);
   }
 
   private static FileOutErr getSuffixedFileOutErr(FileOutErr fileOutErr, String suffix) {

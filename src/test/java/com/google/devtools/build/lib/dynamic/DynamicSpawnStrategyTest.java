@@ -194,7 +194,7 @@ public class DynamicSpawnStrategyTest {
     }
 
     @Override
-    public boolean canExec(Spawn spawn, ActionContextRegistry actionContextRegistry) {
+    public boolean canExec(Spawn spawn, ActionContext.ActionContextRegistry actionContextRegistry) {
       return true;
     }
 

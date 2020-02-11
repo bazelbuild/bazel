@@ -43,5 +43,5 @@ public interface SpawnStrategy extends ActionContext {
   }
 
   /** Returns whether this SpawnActionContext supports executing the given Spawn. */
-  boolean canExec(Spawn spawn, ActionContextRegistry actionContextRegistry);
+  boolean canExec(Spawn spawn, ActionContext.ActionContextRegistry actionContextRegistry);
 }
