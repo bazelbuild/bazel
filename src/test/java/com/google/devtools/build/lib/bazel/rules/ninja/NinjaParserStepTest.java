@@ -57,7 +57,9 @@ public class NinjaParserStepTest {
     doTestVariableParsingException(" ", "Expected identifier, but got indent");
     doTestVariableParsingException("a", "Expected = after 'a'");
     doTestVariableParsingException(
-        "^a=", "Expected identifier, but got error: 'Symbol is not allowed in the identifier.'");
+        "^a=",
+        "Expected identifier, but got error: 'Symbol '^' is not allowed in the identifier, "
+            + "the text fragment with the symbol:\n^a=\n'");
   }
 
   private static void doTestVariableParsingException(String text, String message) {
@@ -183,7 +185,8 @@ public class NinjaParserStepTest {
         "rule testRule\ncommand =", "Expected indent, but got identifier");
     doTestNinjaRuleParsingException(
         "rule testRule\n ^custom = a",
-        "Expected identifier, but got error: 'Symbol is not allowed in the identifier.'");
+        "Expected identifier, but got error: 'Symbol '^' is not allowed in the identifier, "
+            + "the text fragment with the symbol:\nrule testRule\n ^custom = a\n'");
     doTestNinjaRuleParsingException("rule testRule\n custom = a", "Unexpected variable 'custom'");
   }
 

@@ -91,6 +91,21 @@ public class ByteBufferFragment {
     return bytes;
   }
 
+  /**
+   * Helper method for forming error messages with text fragment around a place with a problem.
+   *
+   * @param index position of the problematic symbol.
+   * @return a fragment if text around the problematic place, that can be retrieved from this buffer
+   */
+  public String getFragmentAround(int index) {
+    if (index < 0 || index >= length()) {
+      throw new IndexOutOfBoundsException(
+          String.format("Index out of bounds: %d (%d, %d).", index, 0, length()));
+    }
+    byte[] bytes = getBytes(Math.max(0, index - 200), Math.min(length(), index + 200));
+    return new String(bytes, StandardCharsets.ISO_8859_1);
+  }
+
   private void getBytes(byte[] dst, int offset) {
     if (dst.length - offset < length()) {
       throw new IndexOutOfBoundsException(
