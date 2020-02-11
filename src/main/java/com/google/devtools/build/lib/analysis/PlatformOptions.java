@@ -233,6 +233,23 @@ public class PlatformOptions extends FragmentOptions {
               + " 'test'.")
   public List<Map.Entry<RegexFilter, List<Label>>> targetFilterToAdditionalExecConstraints;
 
+  /**
+   * Fake option used to pass the label of the exec platform after the toolchain transition.
+   * Should be cleared as soon as possible and not re-used.
+   */
+  @Option(
+          name = "toolchain exec platform passthrough",
+          defaultValue = "",
+          converter = EmptyToNullLabelConverter.class,
+          documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+          effectTags = {
+                  OptionEffectTag.LOSES_INCREMENTAL_STATE,
+                  OptionEffectTag.AFFECTS_OUTPUTS,
+                  OptionEffectTag.LOADING_AND_ANALYSIS
+          },
+          metadataTags = {OptionMetadataTag.INTERNAL})
+  public Label toolchainExecPlatformPassthrough;
+
   @Option(
       name = "incompatible_override_toolchain_transition",
       defaultValue = "false",
@@ -262,6 +279,10 @@ public class PlatformOptions extends FragmentOptions {
     host.useToolchainResolutionForJavaRules = this.useToolchainResolutionForJavaRules;
     host.targetPlatformFallback = this.targetPlatformFallback;
     host.overrideToolchainTransition = this.overrideToolchainTransition;
+
+    // This should never be copied to a host/exec transition.
+    host.toolchainExecPlatformPassthrough = null;
+
     return host;
   }
 
