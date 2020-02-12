@@ -7,6 +7,7 @@ filegroup(
     srcs = glob(["**"]) + [
         "//scripts/packages/debian:srcs",
         "//scripts/packages/fedora:srcs",
+        "//scripts/packages/dmg:srcs",
     ],
     visibility = [
         "//scripts:__pkg__",
