@@ -40,9 +40,9 @@ import javax.annotation.Nullable;
  * nodes. (In the future, it will attach additional information to functions to support lexical
  * scope, and even compilation of the trees to bytecode.) Validation errors are reported in the
  * analogous manner to scan/parse errors: for a StarlarkFile, they are appended to {@code
- * StarlarkFile.errors}; for an expression they will be [TODO(adonovan): implement] reported by an
- * SyntaxError exception. It is legal to validate a file that already contains scan/parse errors,
- * though it may lead to secondary validation errors.
+ * StarlarkFile.errors}; for an expression they are reported by an SyntaxError exception. It is
+ * legal to validate a file that already contains scan/parse errors, though it may lead to secondary
+ * validation errors.
  */
 // TODO(adonovan): make this class private. Call it through the EvalUtils facade.
 public final class ValidationEnvironment extends NodeVisitor {
@@ -71,6 +71,16 @@ public final class ValidationEnvironment extends NodeVisitor {
    * use during name resolution.
    */
   public interface Module {
+
+    // TODO(adonovan): opt: for efficiency, turn this into a predicate, not an enumerable set,
+    // and look up bindings as they are needed, not preemptively.
+    // Otherwise we must do work proportional to the number of bindings in the
+    // environment, not the number of free variables of the file/expression.
+    //
+    // A single method will then suffice:
+    //   Scope resolve(String name) throws Undeclared
+    // This requires that the Module retain its semantics.
+
     /** Returns the set of names defined by this module. The caller must not modify the set. */
     Set<String> getNames();
 
@@ -492,9 +502,7 @@ public final class ValidationEnvironment extends NodeVisitor {
     ValidationEnvironment venv =
         new ValidationEnvironment(errors, module, semantics, /*isBuildFile=*/ false);
 
-    venv.openBlock(Scope.Local); // needed?
     venv.visit(expr);
-    venv.closeBlock();
 
     if (!errors.isEmpty()) {
       throw new SyntaxError(errors);

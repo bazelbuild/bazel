@@ -196,31 +196,6 @@ public final class StarlarkThreadTest extends EvaluationTestCase {
   }
 
   @Test
-  public void testVarOrderDeterminism() throws Exception {
-    Mutability parentMutability = Mutability.create("parent env");
-    StarlarkThread parentThread =
-        StarlarkThread.builder(parentMutability).useDefaultSemantics().build();
-    parentThread.getGlobals().put("a", 1);
-    parentThread.getGlobals().put("c", 2);
-    parentThread.getGlobals().put("b", 3);
-    Module parentFrame = parentThread.getGlobals();
-    parentMutability.freeze();
-    Mutability mutability = Mutability.create("testing");
-    StarlarkThread thread =
-        StarlarkThread.builder(mutability).useDefaultSemantics().setGlobals(parentFrame).build();
-    thread.getGlobals().put("x", 4);
-    thread.getGlobals().put("z", 5);
-    thread.getGlobals().put("y", 6);
-    // The order just has to be deterministic, but for definiteness this test spells out the exact
-    // order returned by the implementation: parent frame before current environment, and bindings
-    // within a frame ordered by when they were added.
-    assertThat(thread.getVariableNames()).containsExactly("a", "c", "b", "x", "z", "y").inOrder();
-    assertThat(thread.getGlobals().getTransitiveBindings())
-        .containsExactly("a", 1, "c", 2, "b", 3, "x", 4, "z", 5, "y", 6)
-        .inOrder();
-  }
-
-  @Test
   public void testTransitiveHashCodeDeterminism() throws Exception {
     // As a proxy for determinism, test that changing the order of imports doesn't change the hash
     // code (within any one execution).

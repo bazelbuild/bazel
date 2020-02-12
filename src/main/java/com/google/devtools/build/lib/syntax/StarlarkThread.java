@@ -196,8 +196,6 @@ public final class StarlarkThread {
      * StarlarkThread}, and that {@code StarlarkThread}'s transitive hash code.
      */
     public Extension(StarlarkThread thread) {
-      // Legacy behavior: all symbols from the global Frame are exported (including symbols
-      // introduced by load).
       this(
           ImmutableMap.copyOf(thread.module.getExportedBindings()),
           thread.getTransitiveContentHashCode());
@@ -270,9 +268,16 @@ public final class StarlarkThread {
           continue;
         }
         if (value instanceof Depset) {
-          if (otherValue instanceof Depset
-              && ((Depset) value).toCollection().equals(((Depset) otherValue).toCollection())) {
-            continue;
+          if (otherValue instanceof Depset) {
+            // Widen to Object to avoid static checker warning
+            // about Collection.equals(Collection). We may assume
+            // these collections have the same class, even if we
+            // can't assume its equality is List-like or Set-like.
+            Object x = ((Depset) value).toCollection();
+            Object y = ((Depset) otherValue).toCollection();
+            if (x.equals(y)) {
+              continue;
+            }
           }
         } else if (value instanceof Dict) {
           if (otherValue instanceof Dict) {
@@ -605,21 +610,6 @@ public final class StarlarkThread {
       if (semantics == null) {
         throw new IllegalArgumentException("must call either setSemantics or useDefaultSemantics");
       }
-      if (parent != null) {
-        Preconditions.checkArgument(parent.mutability().isFrozen(), "parent frame must be frozen");
-        if (parent.universe != null) { // This code path doesn't happen in Bazel.
-
-          // Flatten the frame, ensure all builtins are in the same frame.
-          parent =
-              new Module(
-                  parent.mutability(),
-                  null /* parent */,
-                  parent.label,
-                  parent.getTransitiveBindings(),
-                  parent.restrictedBindings);
-        }
-      }
-
       // Filter out restricted objects from the universe scope. This cannot be done in-place in
       // creation of the input global universe scope, because this environment's semantics may not
       // have been available during its creation. Thus, create a new universe scope for this
