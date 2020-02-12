@@ -226,6 +226,12 @@ public final class Actions {
     for (ActionAnalysisMetadata action : actions) {
       ActionLookupData generatingActionKey = ActionLookupData.create(actionLookupKey, actionIndex);
       for (Artifact artifact : action.getOutputs()) {
+        Preconditions.checkState(
+            !artifact.isSourceArtifact(),
+            "Source in outputs: %s %s %s",
+            artifact,
+            generatingActionKey,
+            action);
         Artifact.DerivedArtifact output = (Artifact.DerivedArtifact) artifact;
         // Has an artifact with this execPath been seen before?
         Artifact.DerivedArtifact equalOutput =
