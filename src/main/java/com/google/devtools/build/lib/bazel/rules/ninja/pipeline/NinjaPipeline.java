@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.bazel.rules.ninja.pipeline;
 
 import static com.google.devtools.build.lib.concurrent.MoreFutures.waitForFutureAndGetWithCheckedException;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
@@ -59,6 +60,7 @@ public class NinjaPipeline {
   private final Collection<Path> includedOrSubninjaFiles;
   private final String ownerTargetName;
   private final Set<Path> childPaths;
+  private Integer readBlockSize;
 
   /**
    * @param basePath base path for resolving include and subninja paths.
@@ -171,6 +173,15 @@ public class NinjaPipeline {
     }
   }
 
+  /**
+   * Set the size of the block read by {@link ParallelFileProcessing}.
+   * Method is mainly intended to be used in tests.
+   */
+  @VisibleForTesting
+  public void setReadBlockSize(Integer readBlockSize) {
+    this.readBlockSize = readBlockSize;
+  }
+
   private Path getChildNinjaPath(String rawText, String parentNinjaFileName)
       throws GenericParsingException {
     Path childPath = basePath.getRelative(rawText);
@@ -196,6 +207,9 @@ public class NinjaPipeline {
               path.getBaseName()));
     }
     BlockParameters parameters = new BlockParameters(path.getFileSize());
+    if (readBlockSize != null) {
+      parameters.setReadBlockSize(readBlockSize);
+    }
     return service.submit(
         () -> {
           try (ReadableByteChannel channel = path.createReadableByteChannel()) {

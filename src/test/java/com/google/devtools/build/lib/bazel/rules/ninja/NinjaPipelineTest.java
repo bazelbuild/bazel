@@ -23,9 +23,13 @@ import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.google.devtools.build.lib.bazel.rules.ninja.file.GenericParsingException;
+import com.google.devtools.build.lib.bazel.rules.ninja.parser.NinjaRule;
+import com.google.devtools.build.lib.bazel.rules.ninja.parser.NinjaRuleVariable;
 import com.google.devtools.build.lib.bazel.rules.ninja.parser.NinjaTarget;
+import com.google.devtools.build.lib.bazel.rules.ninja.parser.NinjaVariableValue;
 import com.google.devtools.build.lib.bazel.rules.ninja.pipeline.NinjaPipeline;
 import com.google.devtools.build.lib.concurrent.ExecutorUtil;
+import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.DigestHashFunction.DefaultHashFunctionNotSetException;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -36,6 +40,7 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.Executors;
 import org.junit.After;
 import org.junit.Before;
@@ -255,6 +260,33 @@ public class NinjaPipelineTest {
         .isEqualTo(
             "Detected cycle or duplicate inclusion in Ninja files dependencies, "
                 + "including 'one.ninja'.");
+  }
+
+  @Test
+  public void testBigFile() throws Exception {
+    String [] lines = new String[1000];
+    for (int i = 0; i < lines.length - 1; i++) {
+      lines[i] = "rule rule" + i + "\n command = echo 'Hello' > ${out}";
+    }
+    lines[999] = "build out: rule1";
+    Path path = tester.writeTmpFile("big_file.ninja", lines);
+    NinjaPipeline pipeline =
+        new NinjaPipeline(
+            path.getParentDirectory(),
+            tester.getService(),
+            ImmutableList.of(),
+            "ninja_target");
+    pipeline.setReadBlockSize(100);
+    List<NinjaTarget> targets = pipeline.pipeline(path);
+    assertThat(targets).hasSize(1);
+    Map<String, List<Pair<Integer, NinjaRule>>> rules = targets.get(0).getScope().getRules();
+    assertThat(rules).hasSize(999);
+    assertThat(rules.get("rule1")).hasSize(1);
+    NinjaVariableValue expectedValue = NinjaVariableValue.builder().addText("echo 'Hello' > ")
+        .addVariable("out").build();
+    assertThat(rules.get("rule1").get(0).getSecond().getVariables()
+        .get(NinjaRuleVariable.COMMAND).getRawText())
+        .isEqualTo(expectedValue.getRawText());
   }
 
   private static void checkTargets(List<NinjaTarget> targets) {
