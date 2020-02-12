@@ -63,7 +63,13 @@ public class ComposingTransition implements ConfigurationTransition {
 
   @Override
   public String getName() {
-    return "(" + transition1.getName() + " + " + transition2.getName() + ")";
+    if (transition1 == NoTransition.INSTANCE) {
+      return transition2.getName();
+    } else if (transition2 == NoTransition.INSTANCE) {
+      return transition1.getName();
+    } else {
+      return "(" + transition1.getName() + " + " + transition2.getName() + ")";
+    }
   }
 
   // Override to allow recursive visiting.
