@@ -41,6 +41,10 @@ public abstract class ComposingTransitionFactory<T> implements TransitionFactory
     Preconditions.checkNotNull(transitionFactory1);
     Preconditions.checkNotNull(transitionFactory2);
 
+    if (transitionFactory1.equals(transitionFactory2)) {
+      return transitionFactory1;
+    }
+
     if (isFinal(transitionFactory1)) {
       // Since no other transition can be composed with transitionFactory1, use it directly.
       return transitionFactory1;

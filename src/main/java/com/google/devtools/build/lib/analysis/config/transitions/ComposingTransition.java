@@ -94,6 +94,10 @@ public class ComposingTransition implements ConfigurationTransition {
     Preconditions.checkNotNull(transition1);
     Preconditions.checkNotNull(transition2);
 
+    if (transition1.equals(transition2)) {
+      return transition1;
+    }
+
     if (isFinal(transition1)) {
       // Since no other transition can be composed with transition1, use it directly.
       return transition1;
