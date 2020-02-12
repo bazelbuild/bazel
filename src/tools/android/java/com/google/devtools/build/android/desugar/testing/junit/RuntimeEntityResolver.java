@@ -381,8 +381,7 @@ final class RuntimeEntityResolver {
     if (restoredClassMemberKey == null || restoredClassMemberKey.isEmpty()) {
       throw new IllegalStateException(
           String.format(
-              "Unable to find class member (%s). Please check its presence.",
-              restoredClassMemberKey));
+              "Unable to find class member (%s). Please check its presence.", classMemberKey));
     } else if (restoredClassMemberKey.size() > 1) {
       throw new IllegalStateException(
           String.format(

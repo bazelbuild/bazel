@@ -44,7 +44,11 @@ public abstract class ClassName implements TypeMappable<ClassName> {
   }
 
   public static ClassName create(Class<?> clazz) {
-    return create(Type.getInternalName(clazz));
+    return create(Type.getType(clazz));
+  }
+
+  public static ClassName create(Type asmType) {
+    return create(asmType.getInternalName());
   }
 
   public final Type toAsmObjectType() {

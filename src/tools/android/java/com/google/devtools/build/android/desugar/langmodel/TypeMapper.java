@@ -16,6 +16,13 @@
 
 package com.google.devtools.build.android.desugar.langmodel;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
+
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import java.util.function.Function;
 import org.objectweb.asm.commons.Remapper;
 
@@ -35,5 +42,22 @@ public final class TypeMapper extends Remapper {
 
   public ClassName map(ClassName internalName) {
     return classNameMapper.apply(internalName);
+  }
+
+  public <E extends TypeMappable<E>> ImmutableList<? extends E> map(
+      ImmutableList<E> mappableTypes) {
+    return mappableTypes.stream().map(e -> e.acceptTypeMapper(this)).collect(toImmutableList());
+  }
+
+  public <E extends TypeMappable<E>> ImmutableSet<? extends E> map(ImmutableSet<E> mappableTypes) {
+    return mappableTypes.stream().map(e -> e.acceptTypeMapper(this)).collect(toImmutableSet());
+  }
+
+  public <K extends TypeMappable<K>, V extends TypeMappable<V>> ImmutableMap<K, V> map(
+      ImmutableMap<K, V> mappableTypes) {
+    return mappableTypes.entrySet().stream()
+        .collect(
+            toImmutableMap(
+                e -> e.getKey().acceptTypeMapper(this), e -> e.getValue().acceptTypeMapper(this)));
   }
 }

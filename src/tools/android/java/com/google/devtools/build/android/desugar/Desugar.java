@@ -31,6 +31,7 @@ import com.google.common.io.Closer;
 import com.google.common.io.Resources;
 import com.google.devtools.build.android.Converters.ExistingPathConverter;
 import com.google.devtools.build.android.Converters.PathConverter;
+import com.google.devtools.build.android.desugar.covariantreturn.NioBufferRefConverter;
 import com.google.devtools.build.android.desugar.io.CoreLibraryRewriter;
 import com.google.devtools.build.android.desugar.io.CoreLibraryRewriter.UnprefixingClassWriter;
 import com.google.devtools.build.android.desugar.io.FileContentProvider;
@@ -1067,6 +1068,8 @@ public class Desugar {
     if (options.desugarIndifyStringConcat) {
       visitor = new IndyStringConcatDesugaring(classMemberUseCounter, visitor);
     }
+
+    visitor = NioBufferRefConverter.create(visitor, rewriter.getPrefixer());
 
     return visitor;
   }

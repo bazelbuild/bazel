@@ -55,12 +55,13 @@ public final class ClassMemberRecord implements TypeMappable<ClassMemberRecord> 
   }
 
   /** Find all member keys that represent a constructor. */
-  public ImmutableList<ClassMemberKey> findAllConstructorMemberKeys() {
+  public ImmutableList<ClassMemberKey<?>> findAllConstructorMemberKeys() {
     return findAllMatchedMemberKeys(ClassMemberKey::isConstructor);
   }
 
   /** Find all member keys based on the given member key predicate. */
-  ImmutableList<ClassMemberKey> findAllMatchedMemberKeys(Predicate<ClassMemberKey> predicate) {
+  ImmutableList<ClassMemberKey<?>> findAllMatchedMemberKeys(
+      Predicate<ClassMemberKey<?>> predicate) {
     return reasons.keySet().stream().filter(predicate).collect(toImmutableList());
   }
 

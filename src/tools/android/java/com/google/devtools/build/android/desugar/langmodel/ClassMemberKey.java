@@ -16,6 +16,8 @@
 
 package com.google.devtools.build.android.desugar.langmodel;
 
+import org.objectweb.asm.Type;
+
 /** The key that indexes a class member, including fields, constructors and methods. */
 public abstract class ClassMemberKey<T extends ClassMemberKey<T>> implements TypeMappable<T> {
 
@@ -34,6 +36,11 @@ public abstract class ClassMemberKey<T extends ClassMemberKey<T>> implements Typ
   /** The binary name of {@link #owner()} */
   public final String ownerName() {
     return owner().binaryName();
+  }
+
+  /** The asm type name of {@link #owner()} */
+  public final Type ownerAsmObjectType() {
+    return owner().toAsmObjectType();
   }
 
   /** Whether member key represents a constructor. */
