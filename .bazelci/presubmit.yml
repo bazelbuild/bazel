@@ -70,6 +70,8 @@ tasks:
       # Re-enable once fixed: https://github.com/bazelbuild/bazel/issues/8162
       - "-//src/java_tools/buildjar/..."
       - "-//src/java_tools/import_deps_checker/..."
+      # Bazel CI uses Podman, but it's not available on Ubuntu 16.04.
+      - "-//src/test/shell/bazel:bazel_docker_sandboxing_test"
   ubuntu1804:
     shards: 4
     shell_commands:
