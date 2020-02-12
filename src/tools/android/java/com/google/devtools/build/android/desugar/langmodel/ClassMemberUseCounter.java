@@ -16,7 +16,6 @@
 
 package com.google.devtools.build.android.desugar.langmodel;
 
-import static java.util.stream.Collectors.toCollection;
 
 import com.google.common.collect.ConcurrentHashMultiset;
 
@@ -42,9 +41,6 @@ public final class ClassMemberUseCounter implements TypeMappable<ClassMemberUseC
 
   @Override
   public ClassMemberUseCounter acceptTypeMapper(TypeMapper typeMapper) {
-    return new ClassMemberUseCounter(
-        memberUseCounter.stream()
-            .map(memberUse -> memberUse.acceptTypeMapper(typeMapper))
-            .collect(toCollection(ConcurrentHashMultiset::create)));
+    return new ClassMemberUseCounter(typeMapper.map(memberUseCounter));
   }
 }

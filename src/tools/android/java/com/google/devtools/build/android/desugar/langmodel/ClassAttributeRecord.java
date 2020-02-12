@@ -17,7 +17,6 @@
 package com.google.devtools.build.android.desugar.langmodel;
 
 import static com.google.common.base.Preconditions.checkNotNull;
-import static java.util.stream.Collectors.toMap;
 
 import com.google.common.collect.ImmutableSet;
 import java.util.HashMap;
@@ -71,14 +70,6 @@ public final class ClassAttributeRecord implements TypeMappable<ClassAttributeRe
 
   @Override
   public ClassAttributeRecord acceptTypeMapper(TypeMapper typeMapper) {
-    return new ClassAttributeRecord(
-        this.record.values().stream()
-            .map(attr -> attr.acceptTypeMapper(typeMapper))
-            .collect(
-                toMap(
-                    ClassAttributes::classBinaryName,
-                    attr -> attr,
-                    (prev, next) -> next,
-                    HashMap::new)));
+    return new ClassAttributeRecord(typeMapper.mapMutable(record));
   }
 }

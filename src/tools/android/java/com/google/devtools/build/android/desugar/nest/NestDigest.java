@@ -16,9 +16,7 @@ package com.google.devtools.build.android.desugar.nest;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.devtools.build.android.desugar.langmodel.LangModelConstants.NEST_COMPANION_CLASS_SIMPLE_NAME;
-import static java.util.stream.Collectors.toMap;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -205,16 +203,7 @@ public class NestDigest implements TypeMappable<NestDigest> {
     return new NestDigest(
         classMemberRecord.acceptTypeMapper(typeMapper),
         classAttributeRecord.acceptTypeMapper(typeMapper),
-        nestCompanionToHostMap.keySet().stream()
-            .collect(
-                toMap(
-                    companion -> companion.acceptTypeMapper(typeMapper),
-                    companion ->
-                        nestCompanionToHostMap.get(companion).acceptTypeMapper(typeMapper))),
-        companionWriters.keySet().stream()
-            .collect(
-                toImmutableMap(
-                    nestHost -> nestHost.acceptTypeMapper(typeMapper),
-                    nestHost -> new ClassWriter(ClassWriter.COMPUTE_MAXS))));
+        typeMapper.mapMutable(nestCompanionToHostMap),
+        typeMapper.mapKey(companionWriters));
   }
 }

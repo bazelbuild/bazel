@@ -17,7 +17,6 @@
 package com.google.devtools.build.android.desugar.langmodel;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static java.util.stream.Collectors.toMap;
 
 import com.google.common.collect.ImmutableList;
 import java.util.LinkedHashMap;
@@ -127,8 +126,6 @@ public final class ClassMemberRecord implements TypeMappable<ClassMemberRecord> 
 
   @Override
   public ClassMemberRecord acceptTypeMapper(TypeMapper typeMapper) {
-    return new ClassMemberRecord(
-        reasons.keySet().stream()
-            .collect(toMap(key -> key.acceptTypeMapper(typeMapper), reasons::get)));
+    return new ClassMemberRecord(typeMapper.mapKey(reasons));
   }
 }
