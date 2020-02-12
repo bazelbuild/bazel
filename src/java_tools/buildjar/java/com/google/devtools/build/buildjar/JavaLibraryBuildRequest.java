@@ -54,6 +54,7 @@ public final class JavaLibraryBuildRequest {
   private final ImmutableList<Path> sourcePath;
   private final ImmutableList<Path> classPath;
   private final ImmutableList<Path> bootClassPath;
+  private final Path system;
 
   private final ImmutableList<Path> processorPath;
   private final List<String> processorNames;
@@ -155,6 +156,7 @@ public final class JavaLibraryBuildRequest {
     this.classPath = asPaths(optionsParser.getClassPath());
     this.sourcePath = asPaths(optionsParser.getSourcePath());
     this.bootClassPath = asPaths(optionsParser.getBootClassPath());
+    this.system = asPath(optionsParser.getSystem());
     this.processorPath = asPaths(optionsParser.getProcessorPath());
     this.processorNames = optionsParser.getProcessorNames();
     this.builtinProcessorNames = ImmutableSet.copyOf(optionsParser.getBuiltinProcessorNames());
@@ -230,6 +232,10 @@ public final class JavaLibraryBuildRequest {
 
   public ImmutableList<Path> getBootClassPath() {
     return bootClassPath;
+  }
+
+  public Path getSystem() {
+    return system;
   }
 
   public ImmutableList<Path> getProcessorPath() {
@@ -310,6 +316,7 @@ public final class JavaLibraryBuildRequest {
             .classPath(classPath)
             .classOutput(getClassDir())
             .bootClassPath(getBootClassPath())
+            .system(getSystem())
             .javacOptions(makeJavacArguments())
             .sourceFiles(ImmutableList.copyOf(getSourceFiles()))
             .processors(null)

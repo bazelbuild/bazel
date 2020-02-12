@@ -231,10 +231,16 @@ public class BlazeJavacMain {
       }
       fileManager.setLocationFromPaths(StandardLocation.SOURCE_PATH, sourcePath);
 
-      // The bootclasspath may legitimately be empty if --release is being used.
-      Collection<Path> bootClassPath = arguments.bootClassPath();
-      if (!bootClassPath.isEmpty()) {
-        fileManager.setLocationFromPaths(StandardLocation.PLATFORM_CLASS_PATH, bootClassPath);
+      Path system = arguments.system();
+      if (system != null) {
+        fileManager.setLocationFromPaths(
+            StandardLocation.locationFor("SYSTEM_MODULES"), ImmutableList.of(system));
+      } else {
+        // The bootclasspath may legitimately be empty if --release is being used.
+        Collection<Path> bootClassPath = arguments.bootClassPath();
+        if (!bootClassPath.isEmpty()) {
+          fileManager.setLocationFromPaths(StandardLocation.PLATFORM_CLASS_PATH, bootClassPath);
+        }
       }
       fileManager.setLocationFromPaths(
           StandardLocation.ANNOTATION_PROCESSOR_PATH, arguments.processorPath());

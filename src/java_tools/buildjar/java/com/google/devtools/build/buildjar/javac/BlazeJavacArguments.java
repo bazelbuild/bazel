@@ -43,6 +43,9 @@ public abstract class BlazeJavacArguments {
   /** The compilation bootclasspath. */
   public abstract ImmutableList<Path> bootClassPath();
 
+  @Nullable
+  public abstract Path system();
+
   /** The compilation source path. */
   public abstract ImmutableList<Path> sourcePath();
 
@@ -100,6 +103,8 @@ public abstract class BlazeJavacArguments {
     Builder nativeHeaderOutput(Path nativeHeaderOutput);
 
     Builder bootClassPath(ImmutableList<Path> bootClassPath);
+
+    Builder system(Path system);
 
     Builder javacOptions(ImmutableList<String> javacOptions);
 
