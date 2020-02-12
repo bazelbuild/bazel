@@ -315,13 +315,15 @@ public abstract class DependencyResolver {
    * change flag and the rule's toolchain transition readiness attribute.
    */
   private boolean determineToolchainTransition(
-      BuildConfiguration configuration,
+      @Nullable BuildConfiguration configuration,
       @Nullable Rule fromRule,
       @Nullable ConfiguredAttributeMapper attributeMap) {
     // Check whether the global incompatible change flag is set.
-    PlatformOptions platformOptions = configuration.getOptions().get(PlatformOptions.class);
-    if (platformOptions != null && platformOptions.overrideToolchainTransition) {
-      return true;
+    if (configuration != null) {
+      PlatformOptions platformOptions = configuration.getOptions().get(PlatformOptions.class);
+      if (platformOptions != null && platformOptions.overrideToolchainTransition) {
+        return true;
+      }
     }
 
     // Check the rule definition to see if it is ready.
