@@ -286,6 +286,16 @@ public class PlatformOptions extends FragmentOptions {
     return host;
   }
 
+  @Override
+  public FragmentOptions clearPassthrough() {
+    if (toolchainExecPlatformPassthrough != null) {
+      PlatformOptions newOptions = (PlatformOptions) this.clone();
+      newOptions.toolchainExecPlatformPassthrough = null;
+      return newOptions;
+    }
+    return this;
+  }
+
   /** Returns the intended target platform value based on options defined in this fragment. */
   public Label computeTargetPlatform() {
     // Handle default values for the host and target platform.

@@ -77,6 +77,10 @@ public abstract class FragmentOptions extends OptionsBase implements Cloneable, 
     return this;
   }
 
+  public FragmentOptions clearPassthrough() {
+    return this;
+  }
+
   /** Tracks limitations on referring to an option in a {@code config_setting}. */
   // TODO(bazel-team): There will likely also be a need to customize whether or not an option is
   // visible to users for setting on the command line (or perhaps even in a test of a Starlark

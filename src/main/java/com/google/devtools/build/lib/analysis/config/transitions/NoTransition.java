@@ -26,7 +26,8 @@ public final class NoTransition implements PatchTransition {
 
   @Override
   public BuildOptions patch(BuildOptions options) {
-    return options;
+    // TODO: use a cache
+    return options.cloneClearingPassthrough();
   }
 
   /** Returns a {@link TransitionFactory} instance that generates the no transition. */

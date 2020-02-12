@@ -244,6 +244,16 @@ public final class BuildOptions implements Cloneable, Serializable {
     return new BuildOptions(nativeOptionsBuilder.build(), ImmutableMap.copyOf(skylarkOptionsMap));
   }
 
+  public BuildOptions cloneClearingPassthrough() {
+    ImmutableMap.Builder<Class<? extends FragmentOptions>, FragmentOptions> nativeOptionsBuilder =
+            ImmutableMap.builder();
+    for (Map.Entry<Class<? extends FragmentOptions>, FragmentOptions> entry :
+            fragmentOptionsMap.entrySet()) {
+      nativeOptionsBuilder.put(entry.getKey(), entry.getValue().clearPassthrough());
+    }
+    return new BuildOptions(nativeOptionsBuilder.build(), ImmutableMap.copyOf(skylarkOptionsMap));
+  }
+
   private boolean fingerprintAndHashCodeInitialized() {
     return fingerprint != null;
   }
