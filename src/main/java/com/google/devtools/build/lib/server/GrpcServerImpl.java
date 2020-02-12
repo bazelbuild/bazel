@@ -615,7 +615,7 @@ public class GrpcServerImpl extends CommandServerGrpc.CommandServerImplBase impl
     } catch (InterruptedException e) {
       result =
           BlazeCommandResult.failureDetail(
-              FailureDetailUtil.interrupted(InterruptedCode.UNSPECIFIED));
+              FailureDetailUtil.interrupted(InterruptedCode.INTERRUPTED_UNSPECIFIED));
       commandId = ""; // The default value, the client will ignore it
     }
 
