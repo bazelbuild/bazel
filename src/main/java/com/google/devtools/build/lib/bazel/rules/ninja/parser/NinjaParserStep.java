@@ -180,8 +180,7 @@ public class NinjaParserStep {
     variablesBuilder.put(NinjaRuleVariable.NAME, NinjaVariableValue.createPlainText(name));
 
     parseExpected(NinjaToken.NEWLINE);
-    while (lexer.hasNextToken()) {
-      parseExpected(NinjaToken.INDENT);
+    while (parseIndentOrFinishDeclaration()) {
       String variableName = asString(parseExpected(NinjaToken.IDENTIFIER));
       parseExpected(NinjaToken.EQUALS);
       NinjaVariableValue value = parseVariableValue();
@@ -304,9 +303,7 @@ public class NinjaParserStep {
       throws GenericParsingException {
     Map<String, List<Pair<Integer, String>>> expandedVariables = Maps.newHashMap();
     lexer.interpretPoolAsVariable();
-    while (lexer.hasNextToken()) {
-      parseExpected(NinjaToken.INDENT);
-
+    while (parseIndentOrFinishDeclaration()) {
       Pair<String, NinjaVariableValue> pair = parseVariable();
       String name = Preconditions.checkNotNull(pair.getFirst());
       NinjaVariableValue value = Preconditions.checkNotNull(pair.getSecond());
@@ -402,30 +399,76 @@ public class NinjaParserStep {
     return new String(value, StandardCharsets.ISO_8859_1);
   }
 
+  /**
+   * It is expected that indent is preceding to the identifier in the scoped variable declaration.
+   * It can be, however, that it is just an empty line with spaces - in that case, we want to
+   * interpret it as the finish of the currently parsed lexeme.
+   *
+   * @return true if indent was parsed and there is something different than the newline after it.
+   */
+  private boolean parseIndentOrFinishDeclaration() throws GenericParsingException {
+    if (!lexer.hasNextToken()) {
+      return false;
+    }
+    NinjaToken token = lexer.nextToken();
+    boolean isIndent = NinjaToken.INDENT.equals(token);
+    if (!isIndent && !NinjaToken.NEWLINE.equals(token)) {
+      throwNotExpectedTokenError(NinjaToken.INDENT, token);
+    }
+    // Check for indent followed by newline, or end of file.
+    if (lexer.hasNextToken()) {
+      NinjaToken afterIndent = lexer.nextToken();
+      lexer.undo();
+      if (NinjaToken.NEWLINE.equals(afterIndent)) {
+        return false;
+      }
+    } else {
+      return false;
+    }
+    return isIndent;
+  }
+
   private byte[] parseExpected(NinjaToken expectedToken) throws GenericParsingException {
+    checkLexerHasNextToken(expectedToken);
+    NinjaToken token = lexer.nextToken();
+    if (!expectedToken.equals(token)) {
+      throwNotExpectedTokenError(expectedToken, token);
+    }
+    return lexer.getTokenBytes();
+  }
+
+  private void throwNotExpectedTokenError(NinjaToken expectedToken, NinjaToken token)
+      throws GenericParsingException {
+    String actual =
+        NinjaToken.ERROR.equals(token)
+            ? String.format("error: '%s'", lexer.getError())
+            : asString(token.getBytes());
+    throw new GenericParsingException(
+        String.format(
+            "Expected %s, but got %s in fragment:\n%s\n",
+            asString(expectedToken.getBytes()),
+            actual,
+            lexer.getFragment().getFragmentAround(lexer.getLastStart())));
+  }
+
+  private void checkLexerHasNextToken(NinjaToken expectedToken) throws GenericParsingException {
     if (!lexer.hasNextToken()) {
       String message;
       if (lexer.haveReadAnyTokens()) {
         message =
             String.format(
-                "Expected %s after '%s'",
-                asString(expectedToken.getBytes()), asString(lexer.getTokenBytes()));
+                "Expected %s after '%s' in fragment:\n%s\n",
+                asString(expectedToken.getBytes()),
+                asString(lexer.getTokenBytes()),
+                lexer.getFragment().getFragmentAround(lexer.getLastStart()));
       } else {
         message =
             String.format(
-                "Expected %s, but found no text to parse", asString(expectedToken.getBytes()));
+                "Expected %s, but found no text to parse after fragment:\n%s\n",
+                asString(expectedToken.getBytes()),
+                lexer.getFragment().getFragmentAround(lexer.getLastStart()));
       }
       throw new GenericParsingException(message);
     }
-    NinjaToken token = lexer.nextToken();
-    if (!expectedToken.equals(token)) {
-      String actual =
-          NinjaToken.ERROR.equals(token)
-              ? String.format("error: '%s'", lexer.getError())
-              : asString(token.getBytes());
-      throw new GenericParsingException(
-          String.format("Expected %s, but got %s", asString(expectedToken.getBytes()), actual));
-    }
-    return lexer.getTokenBytes();
   }
 }
