@@ -257,6 +257,36 @@ public class NinjaPipelineTest {
                 + "including 'one.ninja'.");
   }
 
+  @Test
+  public void testSpacesInEmptyLine() throws Exception {
+    Path vfsPath =
+        tester.writeTmpFile(
+            "test.ninja",
+            "subfile=child",
+            "   ",
+            "subninja_file=sub",
+            "   ",
+            "rule r1",
+            "  command = c $in $out",
+            // This could be interpreted as indent, but should be skipped as the empty line.
+            "   ",
+            "   \n\n\n\n",
+            "include ${subfile}.ninja",
+            "   ",
+            "build t2: r1 in3",
+            "   ",
+            "build t1: r1 in1 in2");
+    Path childFile = tester.writeTmpFile("child.ninja");
+    NinjaPipeline pipeline =
+        new NinjaPipeline(
+            vfsPath.getParentDirectory(),
+            tester.getService(),
+            ImmutableList.of(childFile),
+            "ninja_target");
+    List<NinjaTarget> targets = pipeline.pipeline(vfsPath);
+    checkTargets(targets);
+  }
+
   private static void checkTargets(List<NinjaTarget> targets) {
     assertThat(targets).hasSize(2);
     for (NinjaTarget target : targets) {

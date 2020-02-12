@@ -180,10 +180,7 @@ public class NinjaParserStep {
     variablesBuilder.put(NinjaRuleVariable.NAME, NinjaVariableValue.createPlainText(name));
 
     parseExpected(NinjaToken.NEWLINE);
-    while (lexer.hasNextToken()) {
-      if (!parseExpectedOrNewline(NinjaToken.INDENT)) {
-        break;
-      }
+    while (parseIndentOrFinishDeclaration()) {
       String variableName = asString(parseExpected(NinjaToken.IDENTIFIER));
       parseExpected(NinjaToken.EQUALS);
       NinjaVariableValue value = parseVariableValue();
@@ -306,11 +303,7 @@ public class NinjaParserStep {
       throws GenericParsingException {
     Map<String, List<Pair<Integer, String>>> expandedVariables = Maps.newHashMap();
     lexer.interpretPoolAsVariable();
-    while (lexer.hasNextToken()) {
-      if (!parseExpectedOrNewline(NinjaToken.INDENT)) {
-        break;
-      }
-
+    while (parseIndentOrFinishDeclaration()) {
       Pair<String, NinjaVariableValue> pair = parseVariable();
       String name = Preconditions.checkNotNull(pair.getFirst());
       NinjaVariableValue value = Preconditions.checkNotNull(pair.getSecond());
@@ -406,14 +399,33 @@ public class NinjaParserStep {
     return new String(value, StandardCharsets.ISO_8859_1);
   }
 
-  private boolean parseExpectedOrNewline(NinjaToken expectedToken) throws GenericParsingException {
-    checkLexerHasNextToken(expectedToken);
-    NinjaToken token = lexer.nextToken();
-    boolean isExpected = expectedToken.equals(token);
-    if (!isExpected && !NinjaToken.NEWLINE.equals(token)) {
-      throwNotExpectedTokenError(expectedToken, token);
+  /**
+   * It is expected that indent is preceding to the identifier in the scoped variable declaration.
+   * It can be, however, that it is just an empty line with spaces - in that case, we want to
+   * interpret it as the finish of the currently parsed lexeme.
+   *
+   * @return true if indent was parsed and there is something different then the newline after it.
+   */
+  private boolean parseIndentOrFinishDeclaration() throws GenericParsingException {
+    if (!lexer.hasNextToken()) {
+      return false;
     }
-    return isExpected;
+    NinjaToken token = lexer.nextToken();
+    boolean isIndent = NinjaToken.INDENT.equals(token);
+    if (!isIndent && !NinjaToken.NEWLINE.equals(token)) {
+      throwNotExpectedTokenError(NinjaToken.INDENT, token);
+    }
+    // Check for indent followed by newline, or end of file.
+    if (lexer.hasNextToken()) {
+      NinjaToken afterIndent = lexer.nextToken();
+      lexer.undo();
+      if (NinjaToken.NEWLINE.equals(afterIndent)) {
+        return false;
+      }
+    } else {
+      return false;
+    }
+    return isIndent;
   }
 
   private byte[] parseExpected(NinjaToken expectedToken) throws GenericParsingException {
