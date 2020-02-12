@@ -17,7 +17,6 @@ package com.google.devtools.build.buildjar;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.base.Splitter;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import java.io.File;
 import java.io.IOException;
@@ -415,11 +414,6 @@ public final class OptionsParser {
 
   public List<String> getBootClassPath() {
     return bootClassPath;
-  }
-
-  public List<String> getExtClassPath() {
-    // TODO(b/149114743): delete once Blaze stops accessing this in tests
-    return ImmutableList.of();
   }
 
   public List<String> getSourcePath() {
