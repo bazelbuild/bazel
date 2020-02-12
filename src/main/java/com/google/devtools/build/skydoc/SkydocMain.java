@@ -512,9 +512,10 @@ public class SkydocMain {
             semantics,
             globalFrame(ruleInfoList, providerInfoList, aspectInfoList),
             imports);
+    Module module = thread.getGlobals();
 
     try {
-      EvalUtils.exec(file, thread);
+      EvalUtils.exec(file, module, thread);
     } catch (EvalException | InterruptedException ex) {
       // This exception class seems a bit unnecessary. Replace with EvalException?
       throw new StarlarkEvaluationException("Starlark evaluation error", ex);

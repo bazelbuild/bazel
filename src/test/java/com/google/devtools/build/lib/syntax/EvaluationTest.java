@@ -35,8 +35,9 @@ public final class EvaluationTest extends EvaluationTestCase {
     EventCollector printEvents = new EventCollector();
     StarlarkThread thread = createStarlarkThread(StarlarkThread.makeDebugPrintHandler(printEvents));
     ParserInput input = ParserInput.fromLines("print('hello'); x = 1//0; print('goodbye')");
+    Module module = thread.getGlobals();
 
-    assertThrows(EvalException.class, () -> EvalUtils.exec(input, thread));
+    assertThrows(EvalException.class, () -> EvalUtils.exec(input, module, thread));
 
     // Only expect hello, should have been an error before goodbye.
     assertThat(printEvents).hasSize(1);
@@ -48,10 +49,11 @@ public final class EvaluationTest extends EvaluationTestCase {
     EventCollector printEvents = new EventCollector();
     StarlarkThread thread = createStarlarkThread(StarlarkThread.makeDebugPrintHandler(printEvents));
     ParserInput input = ParserInput.fromLines("print('hello');");
+    Module module = thread.getGlobals();
 
     try {
       Thread.currentThread().interrupt();
-      assertThrows(InterruptedException.class, () -> EvalUtils.exec(input, thread));
+      assertThrows(InterruptedException.class, () -> EvalUtils.exec(input, module, thread));
     } finally {
       // Reset interrupt bit in case the test failed to do so.
       Thread.interrupted();
@@ -64,7 +66,8 @@ public final class EvaluationTest extends EvaluationTestCase {
   public void testForLoopAbortedOnInterrupt() throws Exception {
     StarlarkThread thread = createStarlarkThread((th, msg) -> {});
     InterruptFunction interruptFunction = new InterruptFunction();
-    thread.getGlobals().put("interrupt", interruptFunction);
+    Module module = thread.getGlobals();
+    module.put("interrupt", interruptFunction);
 
     ParserInput input =
         ParserInput.fromLines(
@@ -74,7 +77,7 @@ public final class EvaluationTest extends EvaluationTestCase {
             "foo()");
 
     try {
-      assertThrows(InterruptedException.class, () -> EvalUtils.exec(input, thread));
+      assertThrows(InterruptedException.class, () -> EvalUtils.exec(input, module, thread));
     } finally {
       // Reset interrupt bit in case the test failed to do so.
       Thread.interrupted();
@@ -86,13 +89,14 @@ public final class EvaluationTest extends EvaluationTestCase {
   @Test
   public void testForComprehensionAbortedOnInterrupt() throws Exception {
     StarlarkThread thread = createStarlarkThread((th, msg) -> {});
+    Module module = thread.getGlobals();
     InterruptFunction interruptFunction = new InterruptFunction();
-    thread.getGlobals().put("interrupt", interruptFunction);
+    module.put("interrupt", interruptFunction);
 
     ParserInput input = ParserInput.fromLines("[interrupt(i == 5) for i in range(100)]");
 
     try {
-      assertThrows(InterruptedException.class, () -> EvalUtils.exec(input, thread));
+      assertThrows(InterruptedException.class, () -> EvalUtils.exec(input, module, thread));
     } finally {
       // Reset interrupt bit in case the test failed to do so.
       Thread.interrupted();
@@ -104,14 +108,15 @@ public final class EvaluationTest extends EvaluationTestCase {
   @Test
   public void testFunctionCallsNotStartedOnInterrupt() throws Exception {
     StarlarkThread thread = createStarlarkThread((th, msg) -> {});
+    Module module = thread.getGlobals();
     InterruptFunction interruptFunction = new InterruptFunction();
-    thread.getGlobals().put("interrupt", interruptFunction);
+    module.put("interrupt", interruptFunction);
 
     ParserInput input =
         ParserInput.fromLines("interrupt(False); interrupt(True); interrupt(False);");
 
     try {
-      assertThrows(InterruptedException.class, () -> EvalUtils.exec(input, thread));
+      assertThrows(InterruptedException.class, () -> EvalUtils.exec(input, module, thread));
     } finally {
       // Reset interrupt bit in case the test failed to do so.
       Thread.interrupted();
@@ -503,11 +508,12 @@ public final class EvaluationTest extends EvaluationTestCase {
     StarlarkSemantics semantics = StarlarkSemantics.DEFAULT_SEMANTICS;
     StarlarkThread thread =
         StarlarkThread.builder(Mutability.create("test")).setSemantics(semantics).build();
-    ValidationEnvironment.validateFile(file, thread.getGlobals(), semantics, /*isBuildFile=*/ true);
+    Module module = thread.getGlobals();
+    ValidationEnvironment.validateFile(file, module, semantics, /*isBuildFile=*/ true);
     if (!file.ok()) {
       throw new SyntaxError(file.errors());
     }
-    EvalUtils.exec(file, thread);
+    EvalUtils.exec(file, module, thread);
   }
 
   @Test

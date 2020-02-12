@@ -173,19 +173,21 @@ public final class StarlarkThreadTest extends EvaluationTestCase {
   @Test
   public void testBuiltinsCanBeShadowed() throws Exception {
     StarlarkThread thread = newStarlarkThread();
-    EvalUtils.exec(ParserInput.fromLines("True = 123"), thread);
+    EvalUtils.exec(ParserInput.fromLines("True = 123"), thread.getGlobals(), thread);
     assertThat(thread.getGlobals().lookup("True")).isEqualTo(123);
   }
 
   @Test
   public void testVariableIsReferencedBeforeAssignment() throws Exception {
     StarlarkThread thread = newStarlarkThread();
-    thread.getGlobals().put("global_var", 666);
+    Module module = thread.getGlobals();
+    module.put("global_var", 666);
     try {
       EvalUtils.exec(
           ParserInput.fromLines(
               "def foo(x): x += global_var; global_var = 36; return x", //
               "foo(1)"),
+          module,
           thread);
       throw new AssertionError("failed to fail");
     } catch (EvalExceptionWithStackTrace e) {

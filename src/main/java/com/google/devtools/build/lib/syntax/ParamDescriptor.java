@@ -191,6 +191,7 @@ final class ParamDescriptor {
               .useDefaultSemantics()
               .setGlobals(Module.createForBuiltins(Starlark.UNIVERSE))
               .build();
+      Module module = thread.getGlobals();
 
       // Disable polling of the java.lang.Thread.interrupt flag during
       // Starlark evaluation. Assuming the expression does not call a
@@ -214,7 +215,7 @@ final class ParamDescriptor {
       // See https://docs.oracle.com/javase/specs/jls/se12/html/jls-12.html#jls-12.4
       thread.ignoreThreadInterrupts();
 
-      x = EvalUtils.eval(ParserInput.fromLines(expr), thread);
+      x = EvalUtils.eval(ParserInput.fromLines(expr), module, thread);
     } catch (InterruptedException ex) {
       throw new IllegalStateException(ex); // can't happen
     } catch (SyntaxError | EvalException ex) {

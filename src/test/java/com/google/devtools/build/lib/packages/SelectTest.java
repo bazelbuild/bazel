@@ -40,7 +40,8 @@ public class SelectTest {
             .setGlobals(Module.createForBuiltins(StarlarkLibrary.COMMON)) // select et al
             .useDefaultSemantics()
             .build();
-    return EvalUtils.eval(input, thread);
+    Module module = thread.getGlobals();
+    return EvalUtils.eval(input, module, thread);
   }
 
   private static void assertFails(String expr, String wantError) {

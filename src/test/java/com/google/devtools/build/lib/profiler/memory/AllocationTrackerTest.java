@@ -199,7 +199,8 @@ public final class AllocationTrackerTest {
                         "myrule", new MyRuleFunction())))
             .build();
     ParserInput input = ParserInput.create(Joiner.on("\n").join(lines), "a.star");
-    EvalUtils.exec(input, thread);
+    Module module = thread.getGlobals();
+    EvalUtils.exec(input, module, thread);
   }
 
   // A fake Bazel rule. The allocation tracker reports retained memory broken down by rule class.

@@ -62,15 +62,12 @@ public final class CpuProfilerTest {
             "f()");
 
     // Execute the workload.
-    Mutability mu = Mutability.create("test");
     StarlarkThread thread =
-        StarlarkThread.builder(mu)
+        StarlarkThread.builder(Mutability.create("test"))
             .setGlobals(Module.createForBuiltins(Starlark.UNIVERSE))
             .useDefaultSemantics()
             .build();
-    StarlarkFile file = StarlarkFile.parse(input);
-    ValidationEnvironment.validateFile(file, thread.getGlobals(), thread.getSemantics(), false);
-    EvalUtils.exec(file, thread);
+    EvalUtils.exec(input, thread.getGlobals(), thread);
 
     Starlark.stopCpuProfile();
 

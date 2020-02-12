@@ -983,10 +983,10 @@ public final class PackageFactory {
               .setImportedExtensions(imports)
               .build();
       thread.setPrintHandler(StarlarkThread.makeDebugPrintHandler(pkgContext.eventHandler));
+      Module module = thread.getGlobals();
 
       // Validate.
-      ValidationEnvironment.validateFile(
-          file, thread.getGlobals(), semantics, /*isBuildFile=*/ true);
+      ValidationEnvironment.validateFile(file, module, semantics, /*isBuildFile=*/ true);
       if (!file.ok()) {
         Event.replayEventsOn(pkgContext.eventHandler, file.errors());
         return false;
@@ -1041,7 +1041,7 @@ public final class PackageFactory {
 
       // Execute.
       try {
-        EvalUtils.exec(file, thread);
+        EvalUtils.exec(file, module, thread);
       } catch (EvalException ex) {
         pkgContext.eventHandler.handle(Event.error(ex.getLocation(), ex.getMessage()));
         return false;

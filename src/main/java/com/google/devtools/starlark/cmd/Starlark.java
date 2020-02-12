@@ -43,17 +43,19 @@ class Starlark {
   private static final Charset CHARSET = StandardCharsets.ISO_8859_1;
   private final BufferedReader reader =
       new BufferedReader(new InputStreamReader(System.in, CHARSET));
-  private final Mutability mutability = Mutability.create("interpreter");
   private final StarlarkThread thread;
+  private final Module module;
 
   {
     thread =
-        StarlarkThread.builder(mutability)
+        StarlarkThread.builder(Mutability.create("interpreter"))
             .useDefaultSemantics()
             .setGlobals(
                 Module.createForBuiltins(com.google.devtools.build.lib.syntax.Starlark.UNIVERSE))
             .build();
     thread.setPrintHandler((th, msg) -> System.out.println(msg));
+
+    module = thread.getGlobals();
   }
 
   private String prompt() {
@@ -92,7 +94,7 @@ class Starlark {
     while ((line = prompt()) != null) {
       ParserInput input = ParserInput.create(line, "<stdin>");
       try {
-        Object result = EvalUtils.execAndEvalOptionalFinalExpression(input, thread);
+        Object result = EvalUtils.execAndEvalOptionalFinalExpression(input, module, thread);
         if (result != null) {
           System.out.println(com.google.devtools.build.lib.syntax.Starlark.repr(result));
         }
@@ -123,7 +125,7 @@ class Starlark {
   /** Execute a Starlark file. */
   private int execute(String filename, String content) {
     try {
-      EvalUtils.exec(ParserInput.create(content, filename), thread);
+      EvalUtils.exec(ParserInput.create(content, filename), module, thread);
       return 0;
     } catch (SyntaxError ex) {
       for (Event ev : ex.errors()) {

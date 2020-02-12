@@ -39,16 +39,8 @@ public class ValidationTest {
   // Validates a file using the current semantics.
   private StarlarkFile validateFile(String... lines) throws SyntaxError {
     ParserInput input = ParserInput.fromLines(lines);
-
-    // TODO(adonovan): make parseAndValidateSkylark not depend on StarlarkThread.
-    // All we should need is the StarlarkSemantics and Module.
-    StarlarkThread thread =
-        StarlarkThread.builder(Mutability.create("test"))
-            .setGlobals(Module.createForBuiltins(Starlark.UNIVERSE))
-            .setSemantics(semantics)
-            .build();
-
-    return EvalUtils.parseAndValidateSkylark(input, thread);
+    Module module = Module.createForBuiltins(Starlark.UNIVERSE);
+    return EvalUtils.parseAndValidate(input, module, semantics);
   }
 
   // Assertions that parsing and validation succeeds.
