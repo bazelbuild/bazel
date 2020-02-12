@@ -141,6 +141,7 @@ public class FakeSkylarkRuleFunctionsApi implements SkylarkRuleFunctionsApi<File
       Sequence<?> hostFragments,
       Boolean skylarkTestable,
       Sequence<?> toolchains,
+      boolean useToolchainTransition,
       String doc,
       Sequence<?> providesArg,
       Sequence<?> execCompatibleWith,
