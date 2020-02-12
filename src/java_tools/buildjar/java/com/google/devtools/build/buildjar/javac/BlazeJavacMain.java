@@ -280,7 +280,7 @@ public class BlazeJavacMain {
                   || name.startsWith("com.google.common.collect.")
                   || name.startsWith("com.google.common.base.")
                   || name.startsWith("com.google.common.graph.")
-                  || name.startsWith("org.checkerframework.dataflow.")
+                  || name.startsWith("org.checkerframework.shaded.dataflow.")
                   || name.startsWith("com.sun.source.")
                   || name.startsWith("com.sun.tools.")
                   || name.startsWith("com.google.devtools.build.buildjar.javac.statistics.")
