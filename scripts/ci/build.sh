@@ -24,8 +24,9 @@ set -eu
 #     Also prepare an email for announcing the release.
 
 # Load common.sh
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-source "$(dirname ${SCRIPT_DIR})/release/common.sh"
+BUILD_SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$(dirname ${BUILD_SCRIPT_DIR})/release/common.sh"
+source "$(dirname ${BUILD_SCRIPT_DIR})/release/relnotes.sh"
 
 if ! command -v gsutil &>/dev/null; then
   echo "Required tool 'gsutil' not found. Please install it:"
@@ -100,14 +101,14 @@ function generate_email() {
         "%url%" "$(generate_from_template "${RELEASE_CANDIDATE_URL}" "${args[@]}")"
     )
     generate_from_template \
-        "$(cat "${SCRIPT_DIR}/rc_email.txt")" \
+        "$(cat "${BUILD_SCRIPT_DIR}/rc_email.txt")" \
         "${args[@]}"
   elif [ -n "${release_name}" ]; then
     args+=(
         "%url%" "$(generate_from_template "${RELEASE_URL}" "${args[@]}")"
     )
     generate_from_template \
-        "$(cat "${SCRIPT_DIR}/release_email.txt")" "${args[@]}"
+        "$(cat "${BUILD_SCRIPT_DIR}/release_email.txt")" "${args[@]}"
   fi
 }
 
