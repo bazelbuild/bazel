@@ -16,6 +16,8 @@
 
 # The script for creating a dmg file for Bazel installation on macOS.
 
+set -e
+
 for i in "$@"
 do
 case $i in
