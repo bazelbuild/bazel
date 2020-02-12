@@ -13,7 +13,9 @@
 // limitations under the License.
 package com.google.devtools.build.android.desugar.runtime;
 
+import android.accessibilityservice.AccessibilityService;
 import android.app.DirectAction;
+import android.graphics.Bitmap;
 import android.os.Bundle;
 import android.os.CancellationSignal;
 import android.service.voice.VoiceInteractionSession;
@@ -25,7 +27,7 @@ import java.util.function.Consumer;
 
 /**
  * Conversion from desugared to built-in {@link Consumer} for calling built-in Android APIs (see
- * b/128638076).
+ * b/128638076). Includes the APIs that are only available in the experimental SDK.
  */
 // TODO(b/74087778): Unnecessary when j$.u.f.Consumer becomes subtype of built-in j.u.f.Consumer
 @SuppressWarnings("AndroidJdkLibsChecker")
@@ -92,5 +94,14 @@ public final class ConsumerWrapper<T> implements Consumer<T> {
         cancellationSignal,
         resultExecutor,
         callback != null ? new ConsumerWrapper<List<DirectAction>>(callback) : null);
+  }
+
+  public static boolean takeScreenshot(
+      AccessibilityService receiver,
+      int displayId,
+      Executor resultExecutor,
+      j$.util.function.Consumer<Bitmap> callback) {
+    return receiver.takeScreenshot(
+        displayId, resultExecutor, callback != null ? new ConsumerWrapper<Bitmap>(callback) : null);
   }
 }
