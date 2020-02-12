@@ -49,11 +49,7 @@ public class NinjaParser implements DeclarationConsumer {
     ByteBufferFragment fragment = byteFragmentAtOffset.getFragment();
     int offset = byteFragmentAtOffset.getRealStartOffset();
 
-    // Lexer should start at the beginning of byteFragmentAtOffset -> apply offset.
-    ByteBufferFragment subFragment =
-        fragment.subFragment(byteFragmentAtOffset.getOffset(), fragment.length());
-    NinjaLexer lexer = new NinjaLexer(subFragment);
-
+    NinjaLexer lexer = new NinjaLexer(fragment);
     if (!lexer.hasNextToken()) {
       throw new IllegalStateException("Empty fragment passed as declaration.");
     }
@@ -99,11 +95,21 @@ public class NinjaParser implements DeclarationConsumer {
         parseResult.addSubNinjaScope(declarationStart, subNinjaFuture);
         break;
       case BUILD:
-        ByteFragmentAtOffset targetFragment =
-            declarationStart == offset
-                ? byteFragmentAtOffset
-                // We pass an offset *inside the fragment* into ByteFragmentAtOffset constructor
-                : new ByteFragmentAtOffset(declarationStart - fragment.getStartIncl(), fragment);
+        ByteFragmentAtOffset targetFragment;
+        if (declarationStart == offset) {
+          targetFragment = byteFragmentAtOffset;
+        } else {
+          // Method subFragment accepts only the offset *inside fragment*.
+          // So we should subtract the offset of fragment's buffer in file
+          // (byteFragmentAtOffset.getOffset()),
+          // and start of fragment inside buffer (fragment.getStartIncl()).
+          int fragmentStart =
+              declarationStart - byteFragmentAtOffset.getOffset() - fragment.getStartIncl();
+          targetFragment =
+              new ByteFragmentAtOffset(
+                  byteFragmentAtOffset.getOffset(),
+                  fragment.subFragment(fragmentStart, fragment.length()));
+        }
         parseResult.addTarget(targetFragment);
         break;
       case DEFAULT:

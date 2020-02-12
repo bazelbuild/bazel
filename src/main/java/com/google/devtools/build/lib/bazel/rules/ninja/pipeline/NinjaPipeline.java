@@ -16,13 +16,13 @@ package com.google.devtools.build.lib.bazel.rules.ninja.pipeline;
 
 import static com.google.devtools.build.lib.concurrent.MoreFutures.waitForFutureAndGetWithCheckedException;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
-import com.google.devtools.build.lib.bazel.rules.ninja.file.ByteBufferFragment;
 import com.google.devtools.build.lib.bazel.rules.ninja.file.ByteFragmentAtOffset;
 import com.google.devtools.build.lib.bazel.rules.ninja.file.CollectingListFuture;
 import com.google.devtools.build.lib.bazel.rules.ninja.file.GenericParsingException;
@@ -59,6 +59,7 @@ public class NinjaPipeline {
   private final Collection<Path> includedOrSubninjaFiles;
   private final String ownerTargetName;
   private final Set<Path> childPaths;
+  private Integer readBlockSize;
 
   /**
    * @param basePath base path for resolving include and subninja paths.
@@ -116,15 +117,10 @@ public class NinjaPipeline {
       for (ByteFragmentAtOffset byteFragmentAtOffset : targetFragments) {
         future.add(
             service.submit(
-                () -> {
-                  // Lexer should start at the beginning of fragment -> apply offset.
-                  ByteBufferFragment bufferFragment = byteFragmentAtOffset.getFragment();
-                  ByteBufferFragment subFragment =
-                      bufferFragment.subFragment(
-                          byteFragmentAtOffset.getOffset(), bufferFragment.length());
-                  return new NinjaParserStep(new NinjaLexer(subFragment))
-                      .parseNinjaTarget(currentScope, byteFragmentAtOffset.getRealStartOffset());
-                }));
+                () ->
+                    new NinjaParserStep(new NinjaLexer(byteFragmentAtOffset.getFragment()))
+                        .parseNinjaTarget(
+                            currentScope, byteFragmentAtOffset.getRealStartOffset())));
       }
       queue.addAll(currentScope.getIncludedScopes());
       queue.addAll(currentScope.getSubNinjaScopes());
@@ -171,6 +167,15 @@ public class NinjaPipeline {
     }
   }
 
+  /**
+   * Set the size of the block read by {@link ParallelFileProcessing}. Method is mainly intended to
+   * be used in tests.
+   */
+  @VisibleForTesting
+  public void setReadBlockSize(Integer readBlockSize) {
+    this.readBlockSize = readBlockSize;
+  }
+
   private Path getChildNinjaPath(String rawText, String parentNinjaFileName)
       throws GenericParsingException {
     Path childPath = basePath.getRelative(rawText);
@@ -196,6 +201,9 @@ public class NinjaPipeline {
               path.getBaseName()));
     }
     BlockParameters parameters = new BlockParameters(path.getFileSize());
+    if (readBlockSize != null) {
+      parameters.setReadBlockSize(readBlockSize);
+    }
     return service.submit(
         () -> {
           try (ReadableByteChannel channel = path.createReadableByteChannel()) {
