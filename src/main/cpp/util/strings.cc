@@ -30,6 +30,8 @@
 
 #include <cassert>
 #include <memory>  // unique_ptr
+#include <sstream>
+#include <iomanip>
 
 #include "src/main/cpp/util/exit_code.h"
 
@@ -269,6 +271,13 @@ void StringPrintf(string *str, const char *format, ...) {
 
   *str = buf;
   delete[] buf;
+}
+
+std::string Quoted(const std::string s)
+{
+  std::ostringstream ss;
+  ss << std::quoted( s.c_str() );
+  return ss.str();
 }
 
 void ToLower(string *str) {

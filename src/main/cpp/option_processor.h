@@ -108,6 +108,9 @@ class OptionProcessor {
   // executed in.
   std::vector<std::string> GetCommandArguments() const;
 
+  // TODO
+  bool UsingParamFile() const;
+
   // Gets the arguments explicitly provided by the user's command line.
   std::vector<std::string> GetExplicitCommandArguments() const;
 

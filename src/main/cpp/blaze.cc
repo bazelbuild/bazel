@@ -715,6 +715,20 @@ static void RunBatchMode(
 
   jvm_args_vector.insert(jvm_args_vector.end(), command_arguments.begin(),
                          command_arguments.end());
+  if (option_processor.UsingParamFile()) {
+    blaze_util::Path param_file =
+      blaze_util::Path(startup_options.output_base).GetRelative("params");
+    string jvm_execve_exe = jvm_args_vector[0];
+
+    string content;
+    for(auto i = jvm_args_vector.begin()+1; i != jvm_args_vector.end(); ++i) {
+      content.length() == 0 ?
+        content = blaze_util::Quoted(*i) :
+        content += '\n' + blaze_util::Quoted(*i);
+    }
+    blaze_util::WriteFile(content, param_file);
+    jvm_args_vector = {jvm_execve_exe, "@" + param_file.AsCommandLineArgument()};
+  }
 
   GoToWorkspace(workspace_layout, workspace);
 

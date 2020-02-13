@@ -102,6 +102,9 @@ void Tokenize(const std::string &str, const char &comment,
 // Evaluate a format string and store the result in 'str'.
 void StringPrintf(std::string *str, const char *format, ...);
 
+// TODO
+std::string Quoted(const std::string s);
+
 // Convert str to lower case. No locale handling, this is just for ASCII.
 void ToLower(std::string *str);
 

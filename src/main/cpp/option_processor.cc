@@ -727,6 +727,11 @@ std::string OptionProcessor::GetCommand() const {
   return cmd_line_->command;
 }
 
+bool OptionProcessor::UsingParamFile() const {
+  assert(cmd_line_ != nullptr);
+  return cmd_line_->using_param_file;
+}
+
 StartupOptions* OptionProcessor::GetParsedStartupOptions() const {
   assert(parse_options_called_);
   return startup_options_.get();
