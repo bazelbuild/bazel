@@ -140,7 +140,8 @@ public class LegacyDynamicSpawnStrategy implements SpawnStrategy {
       throws ExecException, InterruptedException {
     if (options.requireAvailabilityInfo) {
       if (spawn.getExecutionInfo().containsKey(ExecutionRequirements.REQUIRES_DARWIN)
-          && !spawn.getMnemonic().equals("Genrule")) {
+          && !spawn.getMnemonic().equals("Genrule")
+          && !spawn.getMnemonic().contains("Test")) {
         if (!spawn.getExecutionInfo().containsKey(ExecutionRequirements.REQUIREMENTS_SET)) {
           throw new EnvironmentalExecException(
               String.format(
