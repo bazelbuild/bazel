@@ -27,6 +27,7 @@
 
 #include "src/main/cpp/blaze_util.h"
 #include "src/main/cpp/blaze_util_platform.h"
+#include "src/main/cpp/util/errors.h"
 #include "src/main/cpp/util/file.h"
 #include "src/main/cpp/util/logging.h"
 #include "src/main/cpp/util/path.h"
@@ -74,11 +75,28 @@ std::string OptionProcessor::GetLowercaseProductName() const {
 std::unique_ptr<CommandLine> OptionProcessor::SplitCommandLine(
     vector<string> args, string* error) const {
   const string lowercase_product_name = GetLowercaseProductName();
+  bool using_param_file = false;
 
   if (args.empty()) {
     blaze_util::StringPrintf(error,
                              "Unable to split command line, args is empty");
     return nullptr;
+  }
+
+  if (args.size() == 2 && args[1].at(0) == '@') {
+    using_param_file = true;
+    string filename = args[1].substr(1, args[1].length()-1);
+    string contents;
+    if (!blaze_util::ReadFile(filename, &contents)) {
+     blaze_util::StringPrintf(error,
+           "Unexpected error reading param file '%s': %s",
+           blaze_util::MakeAbsolute(filename).c_str(),
+           blaze_util::GetLastErrorString().c_str());
+     return nullptr;
+    }
+    vector<string> param_args = blaze_util::Split(contents, '\n');
+    args.pop_back();
+    args.insert(args.end(), param_args.begin(), param_args.end());
   }
 
   string& path_to_binary = args[0];
@@ -137,7 +155,7 @@ std::unique_ptr<CommandLine> OptionProcessor::SplitCommandLine(
   // The command is the arg right after the startup options.
   if (i == args.size()) {
     return std::unique_ptr<CommandLine>(new CommandLine(
-        std::move(path_to_binary), std::move(startup_args), "", {}));
+        std::move(path_to_binary), std::move(startup_args), "", {}, using_param_file));
   }
   string& command = args[i];
 
@@ -147,7 +165,7 @@ std::unique_ptr<CommandLine> OptionProcessor::SplitCommandLine(
 
   return std::unique_ptr<CommandLine>(
       new CommandLine(std::move(path_to_binary), std::move(startup_args),
-                      std::move(command), std::move(command_args)));
+                      std::move(command), std::move(command_args), using_param_file));
 }
 
 namespace internal {

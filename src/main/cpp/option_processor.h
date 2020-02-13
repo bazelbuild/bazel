@@ -38,15 +38,18 @@ struct CommandLine {
   std::vector<std::string> startup_args;
   std::string command;
   std::vector<std::string> command_args;
+  bool using_param_file;
 
   CommandLine(std::string path_to_binary_arg,
               std::vector<std::string> startup_args_arg,
               std::string command_arg,
-              std::vector<std::string> command_args_arg)
+              std::vector<std::string> command_args_arg,
+              bool using_param_file)
       : path_to_binary(std::move(path_to_binary_arg)),
         startup_args(std::move(startup_args_arg)),
         command(std::move(command_arg)),
-        command_args(std::move(command_args_arg)) {}
+        command_args(std::move(command_args_arg)),
+        using_param_file(using_param_file) {}
 };
 
 // This class is responsible for parsing the command line of the Blaze binary,
