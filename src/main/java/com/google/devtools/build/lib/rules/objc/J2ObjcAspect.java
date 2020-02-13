@@ -616,7 +616,8 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
       ProtoLangToolchainProvider protoToolchain,
       RuleContext ruleContext,
       ImmutableList<Artifact> filteredProtoSources,
-      J2ObjcSource j2ObjcSource) {
+      J2ObjcSource j2ObjcSource)
+      throws InterruptedException {
     ImmutableList<Artifact> outputHeaderMappingFiles =
         ProtoCommon.getGeneratedOutputs(ruleContext, filteredProtoSources, ".j2objc.mapping");
     ImmutableList<Artifact> outputClassMappingFiles =
@@ -753,7 +754,7 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
   }
 
   private static J2ObjcSource protoJ2ObjcSource(
-      RuleContext ruleContext, ImmutableList<Artifact> protoSources) {
+      RuleContext ruleContext, ImmutableList<Artifact> protoSources) throws InterruptedException {
     PathFragment objcFileRootExecPath = getProtoOutputRoot(ruleContext);
 
     List<PathFragment> headerSearchPaths =
@@ -768,12 +769,21 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
         headerSearchPaths);
   }
 
-  private static PathFragment getProtoOutputRoot(RuleContext ruleContext) {
+  private static PathFragment getProtoOutputRoot(RuleContext ruleContext)
+      throws InterruptedException {
     return ruleContext
         .getConfiguration()
         .getGenfilesFragment()
         .getRelative(
-            ruleContext.getLabel().getPackageIdentifier().getRepository().getPathUnderExecRoot());
+            ruleContext
+                .getLabel()
+                .getPackageIdentifier()
+                .getRepository()
+                .getExecPath(
+                    ruleContext
+                        .getAnalysisEnvironment()
+                        .getSkylarkSemantics()
+                        .experimentalSiblingRepositoryLayout()));
   }
 
   private static boolean isProtoRule(ConfiguredTarget base) {

@@ -44,4 +44,54 @@ EOF
   assert_contains "$(dirname $execroot)/${ws_name}/bazel-out" out
 }
 
+function test_sibling_repository_layout() {
+    touch WORKSPACE
+
+    mkdir -p external/foo
+    cat > external/foo/BUILD <<'EOF'
+genrule(
+  name = "use-srcs",
+  srcs = ["BUILD"],
+  cmd = "cp $< $@",
+  outs = ["used-srcs"],
+)
+EOF
+
+    bazel build --experimental_sibling_repository_layout //external/foo:use-srcs \
+        || fail "expected success"
+
+    execroot="$(bazel info execution_root)"
+
+    test -e "$execroot/external/foo/BUILD"
+
+    test -e "$execroot/../bazel_tools/tools/genrule/genrule-setup.sh"
+    test ! -e "$execroot/external/bazel_tools/tools/genrule/genrule-setup.sh"
+}
+
+function test_no_sibling_repository_layout() {
+    touch WORKSPACE
+
+    mkdir -p external/foo
+    cat > external/foo/BUILD <<'EOF'
+genrule(
+  name = "use-srcs",
+  srcs = ["BUILD"],
+  cmd = "cp $< $@",
+  outs = ["used-srcs"],
+)
+EOF
+
+    bazel build //external/foo:use-srcs --experimental_sibling_repository_layout=false \
+        &> $TEST_log && fail "should have failed" || true
+    expect_log "external/foo/BUILD.*: No such file or directory"
+
+    execroot="$(bazel info execution_root)"
+
+    test ! -e "$execroot/external/foo/BUILD"
+
+    test ! -e "$execroot/../bazel_tools/tools/genrule/genrule-setup.sh"
+    test -e "$execroot/external/bazel_tools/tools/genrule/genrule-setup.sh"
+
+}
+
 run_suite "execution root tests"

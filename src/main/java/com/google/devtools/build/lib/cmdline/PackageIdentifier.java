@@ -76,19 +76,21 @@ public final class PackageIdentifier implements Comparable<PackageIdentifier>, S
    * @throws LabelSyntaxException if the exec path seems to be for an external repository that does
    *     not have a valid repository name (see {@link RepositoryName#create})
    */
-  public static PackageIdentifier discoverFromExecPath(PathFragment execPath, boolean forFiles)
-      throws LabelSyntaxException {
+  public static PackageIdentifier discoverFromExecPath(
+      PathFragment execPath, boolean forFiles, boolean siblingRepositoryLayout) {
     Preconditions.checkArgument(!execPath.isAbsolute(), execPath);
     PathFragment tofind = forFiles
         ? Preconditions.checkNotNull(
             execPath.getParentDirectory(), "Must pass in files, not root directory")
         : execPath;
-    if (tofind.startsWith(LabelConstants.EXTERNAL_PATH_PREFIX)) {
-      // TODO(ulfjack): Remove this when kchodorow@'s exec root rearrangement has been rolled out.
-      RepositoryName repository = RepositoryName.create("@" + tofind.getSegment(1));
-      return PackageIdentifier.create(repository, tofind.subFragment(2));
-    } else if (tofind.containsUplevelReferences()) {
-      RepositoryName repository = RepositoryName.create("@" + tofind.getSegment(1));
+    PathFragment prefix =
+        siblingRepositoryLayout
+            ? LabelConstants.EXPERIMENTAL_EXTERNAL_PATH_PREFIX
+            : LabelConstants.EXTERNAL_PATH_PREFIX;
+    if (tofind.startsWith(prefix)) {
+      // Using the path prefix can be either "external" or "..", depending on whether the sibling
+      // repository layout is used.
+      RepositoryName repository = RepositoryName.createFromValidStrippedName(tofind.getSegment(1));
       return PackageIdentifier.create(repository, tofind.subFragment(2));
     } else {
       return PackageIdentifier.createInMainRepo(tofind);
@@ -175,8 +177,8 @@ public final class PackageIdentifier implements Comparable<PackageIdentifier>, S
     return repository.getSourceRoot().getRelative(pkgName);
   }
 
-  public PathFragment getPathUnderExecRoot() {
-    return repository.getPathUnderExecRoot().getRelative(pkgName);
+  public PathFragment getExecPath(boolean siblingRepositoryLayout) {
+    return repository.getExecPath(siblingRepositoryLayout).getRelative(pkgName);
   }
 
   /**

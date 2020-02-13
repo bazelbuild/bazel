@@ -238,7 +238,8 @@ public final class ConfiguredTargetFactory {
               visibility);
       SourceArtifact artifact =
           artifactFactory.getSourceArtifact(
-              inputFile.getExecPath(),
+              inputFile.getExecPath(
+                  analysisEnvironment.getSkylarkSemantics().experimentalSiblingRepositoryLayout()),
               inputFile.getPackage().getSourceRoot(),
               ConfiguredTargetKey.of(target.getLabel(), config));
       return new InputFileConfiguredTarget(targetContext, inputFile, artifact);

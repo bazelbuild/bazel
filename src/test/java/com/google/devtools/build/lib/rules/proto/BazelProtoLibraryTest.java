@@ -348,8 +348,7 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
             ".");
   }
 
-  @Test
-  public void testExternalRepoWithGeneratedProto() throws Exception {
+  private void testExternalRepoWithGeneratedProto(boolean siblingRepoLayout) throws Exception {
     if (!isThisBazel()) {
       return;
     }
@@ -357,6 +356,10 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
     FileSystemUtils.appendIsoLatin1(
         scratch.resolve("WORKSPACE"), "local_repository(name = 'foo', path = '/foo')");
     invalidatePackages();
+
+    if (siblingRepoLayout) {
+      setSkylarkSemanticsOptions("--experimental_sibling_repository_layout");
+    }
 
     scratch.file("/foo/WORKSPACE");
     scratch.file(
@@ -380,6 +383,16 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
     ProtoInfo xInfo = x.get(ProtoInfo.PROVIDER);
     assertThat(xInfo.getTransitiveProtoSourceRoots().toList())
         .containsExactly(genfiles + "/external/foo/x/_virtual_imports/x");
+  }
+
+  @Test
+  public void testExternalRepoWithGeneratedProto_withSubdirRepoLayout() throws Exception {
+    testExternalRepoWithGeneratedProto(/*siblingRepoLayout=*/ false);
+  }
+
+  @Test
+  public void test_siblingRepoLayout_ExternalRepoWithGeneratedProto() throws Exception {
+    testExternalRepoWithGeneratedProto(/*siblingRepoLayout=*/ true);
   }
 
   @Test
@@ -441,8 +454,7 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
         .containsExactly(genfiles + "/a/_virtual_imports/a", genfiles + "/c/_virtual_imports/c");
   }
 
-  @Test
-  public void testImportPrefixInExternalRepo() throws Exception {
+  private void testImportPrefixInExternalRepo(boolean siblingRepoLayout) throws Exception {
     if (!isThisBazel()) {
       return;
     }
@@ -450,6 +462,10 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
     FileSystemUtils.appendIsoLatin1(
         scratch.resolve("WORKSPACE"), "local_repository(name = 'yolo_repo', path = '/yolo_repo')");
     invalidatePackages();
+
+    if (siblingRepoLayout) {
+      setSkylarkSemanticsOptions("--experimental_sibling_repository_layout");
+    }
 
     scratch.file("/yolo_repo/WORKSPACE");
     scratch.file("/yolo_repo/yolo_pkg/yolo.proto");
@@ -483,7 +499,16 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testImportPrefixAndStripInExternalRepo() throws Exception {
+  public void testImportPrefixInExternalRepo_withSubdirRepoLayout() throws Exception {
+    testImportPrefixInExternalRepo(/*siblingRepoLayout=*/ false);
+  }
+
+  @Test
+  public void testImportPrefixInExternalRepo_withSiblingRepoLayout() throws Exception {
+    testImportPrefixInExternalRepo(/*siblingRepoLayout=*/ true);
+  }
+
+  private void testImportPrefixAndStripInExternalRepo(boolean siblingRepoLayout) throws Exception {
     if (!isThisBazel()) {
       return;
     }
@@ -491,6 +516,10 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
     FileSystemUtils.appendIsoLatin1(
         scratch.resolve("WORKSPACE"), "local_repository(name = 'yolo_repo', path = '/yolo_repo')");
     invalidatePackages();
+
+    if (siblingRepoLayout) {
+      setSkylarkSemanticsOptions("--experimental_sibling_repository_layout");
+    }
 
     scratch.file("/yolo_repo/WORKSPACE");
     scratch.file("/yolo_repo/yolo_pkg_to_be_stripped/yolo_pkg/yolo.proto");
@@ -525,7 +554,16 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testStripImportPrefixInExternalRepo() throws Exception {
+  public void testImportPrefixAndStripInExternalRepo_withSubdirRepoLayout() throws Exception {
+    testImportPrefixAndStripInExternalRepo(/*siblingRepoLayout=*/ false);
+  }
+
+  @Test
+  public void testImportPrefixAndStripInExternalRepo_withSiblingRepoLayout() throws Exception {
+    testImportPrefixAndStripInExternalRepo(/*siblingRepoLayout=*/ true);
+  }
+
+  private void testStripImportPrefixInExternalRepo(boolean siblingRepoLayout) throws Exception {
     if (!isThisBazel()) {
       return;
     }
@@ -533,6 +571,10 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
     FileSystemUtils.appendIsoLatin1(
         scratch.resolve("WORKSPACE"), "local_repository(name = 'yolo_repo', path = '/yolo_repo')");
     invalidatePackages();
+
+    if (siblingRepoLayout) {
+      setSkylarkSemanticsOptions("--experimental_sibling_repository_layout");
+    }
 
     scratch.file("/yolo_repo/WORKSPACE");
     scratch.file("/yolo_repo/yolo_pkg_to_be_stripped/yolo_pkg/yolo.proto");
@@ -565,7 +607,17 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testRelativeStripImportPrefixInExternalRepo() throws Exception {
+  public void testStripImportPrefixInExternalRepo_withSubdirRepoLayout() throws Exception {
+    testStripImportPrefixInExternalRepo(/*siblingRepoLayout=*/ false);
+  }
+
+  @Test
+  public void testStripImportPrefixInExternalRepo_withSiblingRepoLayout() throws Exception {
+    testStripImportPrefixInExternalRepo(/*siblingRepoLayout=*/ true);
+  }
+
+  private void testRelativeStripImportPrefixInExternalRepo(boolean siblingRepoLayout)
+      throws Exception {
     if (!isThisBazel()) {
       return;
     }
@@ -573,6 +625,10 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
     FileSystemUtils.appendIsoLatin1(
         scratch.resolve("WORKSPACE"), "local_repository(name = 'yolo_repo', path = '/yolo_repo')");
     invalidatePackages();
+
+    if (siblingRepoLayout) {
+      setSkylarkSemanticsOptions("--experimental_sibling_repository_layout");
+    }
 
     scratch.file("/yolo_repo/WORKSPACE");
     scratch.file("/yolo_repo/yolo_pkg_to_be_stripped/yolo_pkg/yolo.proto");
@@ -602,6 +658,16 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
         protoInfo.getStrictImportableProtoSourcesImportPaths().toList();
     assertThat(importPaths).isNotEmpty();
     assertThat(importPaths.get(0).second).isEqualTo("yolo_pkg/yolo.proto");
+  }
+
+  @Test
+  public void testRelativeStripImportPrefixInExternalRepo_withSubdirRepoLayout() throws Exception {
+    testRelativeStripImportPrefixInExternalRepo(/*siblingRepoLayout=*/ false);
+  }
+
+  @Test
+  public void testRelativeStripImportPrefixInExternalRepo_withSiblingRepoLayout() throws Exception {
+    testRelativeStripImportPrefixInExternalRepo(/*siblingRepoLayout=*/ true);
   }
 
   @Test

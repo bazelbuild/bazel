@@ -66,6 +66,7 @@ import com.google.devtools.build.lib.exec.ExecutorBuilder;
 import com.google.devtools.build.lib.exec.ExecutorLifecycleListener;
 import com.google.devtools.build.lib.exec.SpawnActionContextMaps;
 import com.google.devtools.build.lib.exec.SymlinkTreeStrategy;
+import com.google.devtools.build.lib.packages.StarlarkSemanticsOptions;
 import com.google.devtools.build.lib.profiler.AutoProfiler;
 import com.google.devtools.build.lib.profiler.ProfilePhase;
 import com.google.devtools.build.lib.profiler.Profiler;
@@ -432,7 +433,9 @@ public class ExecutionTool {
                 packageRootMap.get(),
                 getExecRoot(),
                 runtime.getProductName(),
-                nonSymlinkedDirectoriesUnderExecRoot);
+                nonSymlinkedDirectoriesUnderExecRoot,
+                request.getOptions(StarlarkSemanticsOptions.class)
+                    .experimentalSiblingRepositoryLayout);
         symlinkForest.plantSymlinkForest();
       } catch (IOException e) {
         throw new ExecutorInitException("Source forest creation failed", e);

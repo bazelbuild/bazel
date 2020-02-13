@@ -826,7 +826,10 @@ public abstract class CcModule
                   .getRuleContext()
                   .getLabel()
                   .getPackageIdentifier()
-                  .getPathUnderExecRoot()
+                  .getExecPath(
+                      skylarkRuleContext
+                          .getSkylarkSemantics()
+                          .experimentalSiblingRepositoryLayout())
                   .getRelative(PathFragment.create(tool.second))
                   .getPathString();
         }

@@ -123,7 +123,14 @@ public abstract class AbstractContainerizingSandboxedSpawn implements SandboxedS
             outputs.files(),
             outputs.dirs())) {
       Preconditions.checkArgument(!path.isAbsolute());
-      Preconditions.checkArgument(!path.containsUplevelReferences());
+      if (path.segmentCount() > 1) {
+        // Allow a single up-level reference to allow inputs from the siblings of the main
+        // repository in the sandbox execution root.
+        Preconditions.checkArgument(
+            !path.subFragment(1).containsUplevelReferences(),
+            "%s escapes the sandbox exec root.",
+            path);
+      }
       for (int i = 0; i < path.segmentCount(); i++) {
         dirsToCreate.add(sandboxExecRoot.getRelative(path.subFragment(0, i)));
       }

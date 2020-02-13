@@ -215,6 +215,27 @@ public class StarlarkSemanticsOptions extends OptionsBase implements Serializabl
   public boolean experimentalRepoRemoteExec;
 
   @Option(
+      name = "experimental_sibling_repository_layout",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
+      effectTags = {
+        OptionEffectTag.ACTION_COMMAND_LINES,
+        OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION,
+        OptionEffectTag.LOADING_AND_ANALYSIS,
+        OptionEffectTag.LOSES_INCREMENTAL_STATE
+      },
+      metadataTags = {
+        OptionMetadataTag.EXPERIMENTAL,
+      },
+      help =
+          "If set to true, non-main repositories are planted as symlinks to the main repository in"
+              + " the execution root. That is, all repositories are direct children of the"
+              + " $output_base/execution_root directory. This has the side effect of freeing up"
+              + " $output_base/execution_root/__main__/external for the real top-level 'external' "
+              + "directory.")
+  public boolean experimentalSiblingRepositoryLayout;
+
+  @Option(
       name = "incompatible_bzl_disallow_load_after_statement",
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
@@ -633,6 +654,7 @@ public class StarlarkSemanticsOptions extends OptionsBase implements Serializabl
             .experimentalStarlarkUnusedInputsList(experimentalStarlarkUnusedInputsList)
             .experimentalCcSharedLibrary(experimentalCcSharedLibrary)
             .experimentalRepoRemoteExec(experimentalRepoRemoteExec)
+            .experimentalSiblingRepositoryLayout(experimentalSiblingRepositoryLayout)
             .incompatibleApplicableLicenses(incompatibleApplicableLicenses)
             .incompatibleBzlDisallowLoadAfterStatement(incompatibleBzlDisallowLoadAfterStatement)
             .incompatibleDepsetUnion(incompatibleDepsetUnion)

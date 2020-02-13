@@ -427,7 +427,7 @@ public class SkydocMain {
       List<AspectInfoWrapper> aspectInfoList,
       ImmutableMap.Builder<Label, String> moduleDocMap)
       throws InterruptedException, IOException, LabelSyntaxException, StarlarkEvaluationException {
-    Path path = pathOfLabel(label);
+    Path path = pathOfLabel(label, semantics);
 
     if (pending.contains(path)) {
       throw new StarlarkEvaluationException("cycle with " + path);
@@ -462,7 +462,7 @@ public class SkydocMain {
           throw new StarlarkEvaluationException(
               String.format(
                   "File %s imported '%s', yet %s was not found, even at roots %s.",
-                  path, module, pathOfLabel(relativeLabel), depRoots),
+                  path, module, pathOfLabel(relativeLabel, semantics), depRoots),
               noSuchFileException);
         }
       }
@@ -477,10 +477,11 @@ public class SkydocMain {
     return thread;
   }
 
-  private Path pathOfLabel(Label label) {
+  private Path pathOfLabel(Label label, StarlarkSemantics semantics) {
     String workspacePrefix = "";
-    if (!label.getWorkspaceRoot().isEmpty() && !label.getWorkspaceName().equals(workspaceName)) {
-      workspacePrefix = label.getWorkspaceRoot() + "/";
+    if (!label.getWorkspaceRoot(semantics).isEmpty()
+        && !label.getWorkspaceName().equals(workspaceName)) {
+      workspacePrefix = label.getWorkspaceRoot(semantics) + "/";
     }
 
     return Paths.get(workspacePrefix + label.toPathFragment());

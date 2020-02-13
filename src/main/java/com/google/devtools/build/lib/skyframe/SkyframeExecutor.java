@@ -93,7 +93,6 @@ import com.google.devtools.build.lib.analysis.skylark.StarlarkTransition;
 import com.google.devtools.build.lib.analysis.skylark.StarlarkTransition.TransitionException;
 import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
@@ -334,6 +333,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       trimmingCache = TrimmedConfigurationProgressReceiver.buildCache();
   private final TrimmedConfigurationProgressReceiver trimmingListener =
       new TrimmedConfigurationProgressReceiver(trimmingCache);
+
+  private boolean siblingRepositoryLayout = false;
 
   /** An {@link ArtifactResolverSupplier} that supports setting of an {@link ArtifactFactory}. */
   public static class MutableArtifactFactorySupplier implements ArtifactResolverSupplier {
@@ -1169,13 +1170,9 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       throws InterruptedException {
     final Map<PathFragment, SkyKey> packageKeys = new HashMap<>();
     for (PathFragment execPath : execPaths) {
-      try {
-        PackageIdentifier pkgIdentifier =
-            PackageIdentifier.discoverFromExecPath(execPath, forFiles);
-        packageKeys.put(execPath, ContainingPackageLookupValue.key(pkgIdentifier));
-      } catch (LabelSyntaxException e) {
-        continue;
-      }
+      PackageIdentifier pkgIdentifier =
+          PackageIdentifier.discoverFromExecPath(execPath, forFiles, siblingRepositoryLayout);
+      packageKeys.put(execPath, ContainingPackageLookupValue.key(pkgIdentifier));
     }
 
     EvaluationResult<ContainingPackageLookupValue> result;
@@ -1185,6 +1182,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
             .setNumThreads(1)
             .setEventHander(eventHandler)
             .build();
+
     synchronized (valueLookupLock) {
       result = buildDriver.evaluate(packageKeys.values(), evaluationContext);
     }
@@ -1371,7 +1369,10 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
 
     setShowLoadingProgress(packageCacheOptions.showLoadingProgress);
     setDefaultVisibility(packageCacheOptions.defaultVisibility);
-    setSkylarkSemantics(getEffectiveStarlarkSemantics(starlarkSemanticsOptions));
+
+    StarlarkSemantics starlarkSemantics = getEffectiveStarlarkSemantics(starlarkSemanticsOptions);
+    setSkylarkSemantics(starlarkSemantics);
+    setSiblingDirectoryLayout(starlarkSemantics.experimentalSiblingRepositoryLayout());
     setPackageLocator(pkgLocator);
 
     syscalls.set(getPerBuildSyscallCache(packageCacheOptions.globbingThreads));
@@ -1390,6 +1391,11 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
 
     // Reset the stateful SkyframeCycleReporter, which contains cycles from last run.
     cyclesReporter.set(createCyclesReporter());
+  }
+
+  private void setSiblingDirectoryLayout(boolean experimentalSiblingRepositoryLayout) {
+    this.siblingRepositoryLayout = experimentalSiblingRepositoryLayout;
+    this.artifactFactory.get().setSiblingRepositoryLayout(experimentalSiblingRepositoryLayout);
   }
 
   public StarlarkSemantics getEffectiveStarlarkSemantics(

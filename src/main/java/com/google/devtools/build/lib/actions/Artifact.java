@@ -606,6 +606,11 @@ public abstract class Artifact
 
     @Override
     public PathFragment getRootRelativePath() {
+      // flag-less way of checking of the root is <execroot>/.., or sibling of __main__.
+      if (getExecPath().startsWith(LabelConstants.EXPERIMENTAL_EXTERNAL_PATH_PREFIX)) {
+        return LabelConstants.EXTERNAL_PATH_PREFIX.getRelative(getExecPath().subFragment(1));
+      }
+
       return getExecPath();
     }
 

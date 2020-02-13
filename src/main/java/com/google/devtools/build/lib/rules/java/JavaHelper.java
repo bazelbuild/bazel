@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.shell.ShellUtils;
+import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
 import java.util.List;
@@ -108,11 +109,15 @@ public abstract class JavaHelper {
   }
 
   public static PathFragment getJavaResourcePath(
-      JavaSemantics semantics, RuleContext ruleContext, Artifact resource) {
+      JavaSemantics semantics, RuleContext ruleContext, Artifact resource)
+      throws InterruptedException {
     PathFragment rootRelativePath = resource.getRootRelativePath();
+    StarlarkSemantics starlarkSemantics =
+        ruleContext.getAnalysisEnvironment().getSkylarkSemantics();
 
-    if (!ruleContext.getLabel().getWorkspaceRoot().isEmpty()) {
-      PathFragment workspace = PathFragment.create(ruleContext.getLabel().getWorkspaceRoot());
+    if (!ruleContext.getLabel().getWorkspaceRoot(starlarkSemantics).isEmpty()) {
+      PathFragment workspace =
+          PathFragment.create(ruleContext.getLabel().getWorkspaceRoot(starlarkSemantics));
       rootRelativePath = rootRelativePath.relativeTo(workspace);
     }
 

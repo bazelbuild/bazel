@@ -335,7 +335,8 @@ public final class CcCompilationHelper {
   }
 
   /** Sets fields that overlap for cc_library and cc_binary rules. */
-  public CcCompilationHelper fromCommon(CcCommon common, ImmutableList<String> additionalCopts) {
+  public CcCompilationHelper fromCommon(CcCommon common, ImmutableList<String> additionalCopts)
+      throws InterruptedException {
     Preconditions.checkNotNull(additionalCopts);
 
     setCopts(ImmutableList.copyOf(Iterables.concat(common.getCopts(), additionalCopts)));
@@ -754,7 +755,7 @@ public final class CcCompilationHelper {
    *
    * @throws RuleErrorException
    */
-  public CompilationInfo compile() throws RuleErrorException {
+  public CompilationInfo compile() throws RuleErrorException, InterruptedException {
 
     if (!generatePicAction && !generateNoPicAction) {
       ruleErrorConsumer.ruleError("Either PIC or no PIC actions have to be created.");
@@ -835,7 +836,7 @@ public final class CcCompilationHelper {
     }
   }
 
-  private PublicHeaders computePublicHeaders() {
+  private PublicHeaders computePublicHeaders() throws InterruptedException {
     PathFragment prefix = null;
     if (includePrefix != null) {
       prefix = PathFragment.create(includePrefix);
@@ -944,10 +945,8 @@ public final class CcCompilationHelper {
         virtualToOriginalHeaders.build());
   }
 
-  /**
-   * Create {@code CcCompilationContext} for cc compile action from generated inputs.
-   */
-  private CcCompilationContext initializeCcCompilationContext() {
+  /** Create {@code CcCompilationContext} for cc compile action from generated inputs. */
+  private CcCompilationContext initializeCcCompilationContext() throws InterruptedException {
     CcCompilationContext.Builder ccCompilationContextBuilder =
         CcCompilationContext.builder(actionConstructionContext, configuration, label);
 
@@ -959,8 +958,13 @@ public final class CcCompilationHelper {
     // generated files. It is important that the execRoot (EMPTY_FRAGMENT) comes
     // before the genfilesFragment to preferably pick up source files. Otherwise
     // we might pick up stale generated files.
+    boolean siblingRepositoryLayout =
+        actionConstructionContext
+            .getAnalysisEnvironment()
+            .getSkylarkSemantics()
+            .experimentalSiblingRepositoryLayout();
     PathFragment repositoryPath =
-        label.getPackageIdentifier().getRepository().getPathUnderExecRoot();
+        label.getPackageIdentifier().getRepository().getExecPath(siblingRepositoryLayout);
     ccCompilationContextBuilder.addQuoteIncludeDir(repositoryPath);
     ccCompilationContextBuilder.addQuoteIncludeDir(
         configuration.getGenfilesFragment().getRelative(repositoryPath));
