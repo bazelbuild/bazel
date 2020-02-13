@@ -182,7 +182,9 @@ public class NinjaGraphTest extends BuildViewTestCase {
         "build b: cat b.txt",
         "build c: cat c.txt",
         "build d: cat d.txt",
-        "build e: cat e.txt",
+        // e should be executed unconditionally as it depends on always-dirty phony action
+        "build e: cat e.txt always_dirty",
+        "build always_dirty: phony",
         "build group1: phony a b c",
         "build group2: phony d e",
         "build inputs_alias: phony group1 group2",
@@ -255,6 +257,15 @@ public class NinjaGraphTest extends BuildViewTestCase {
         assertThat(execRootPath.getParentDirectory())
             .isEqualTo(PathFragment.create("build_config"));
         assertThat(execRootPath.getFileExtension()).isEqualTo("txt");
+      } else if ("e".equals(artifact.getFilename())) {
+        assertThat(action).isInstanceOf(NinjaAction.class);
+        NinjaAction ninjaAction = (NinjaAction) action;
+        List<CommandLineAndParamFileInfo> commandLines =
+            ninjaAction.getCommandLines().getCommandLines();
+        assertThat(commandLines).hasSize(1);
+        assertThat(commandLines.get(0).commandLine.toString())
+            .endsWith("cd build_config && cat e.txt always_dirty > e");
+        assertThat(ninjaAction.executeUnconditionally()).isTrue();
       }
     }
   }

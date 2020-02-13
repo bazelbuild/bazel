@@ -25,12 +25,12 @@ import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.bazel.rules.ninja.file.GenericParsingException;
 import com.google.devtools.build.lib.bazel.rules.ninja.parser.NinjaTarget;
-import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayDeque;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -48,7 +48,7 @@ public class NinjaPhonyTargetsUtil {
   private NinjaPhonyTargetsUtil() {}
 
   @VisibleForTesting
-  public static <T> ImmutableSortedMap<PathFragment, NestedSet<T>> getPhonyPathsMap(
+  public static <T> ImmutableSortedMap<PathFragment, PhonyTarget<T>> getPhonyPathsMap(
       ImmutableSortedMap<PathFragment, NinjaTarget> phonyTargets,
       InputArtifactCreator<T> artifactsHelper)
       throws GenericParsingException {
@@ -71,26 +71,30 @@ public class NinjaPhonyTargetsUtil {
 
     checkState(topoOrderedTargets.size() == phonyTargets.size());
 
-    SortedMap<PathFragment, NestedSet<T>> result = Maps.newTreeMap();
+    SortedMap<PathFragment, PhonyTarget<T>> result = Maps.newTreeMap();
     for (NinjaTarget target : topoOrderedTargets) {
+      PathFragment onlyOutput = Iterables.getOnlyElement(target.getAllOutputs());
       NestedSetBuilder<T> builder = new NestedSetBuilder<>(Order.STABLE_ORDER);
-      for (PathFragment input : target.getAllInputs()) {
+      Collection<PathFragment> allInputs = target.getAllInputs();
+      boolean isAlwaysDirty = allInputs.isEmpty();
+      for (PathFragment input : allInputs) {
         NinjaTarget phonyInput = phonyTargets.get(input);
         if (phonyInput != null) {
           // The input is the other phony target.
           // Add the corresponding already computed NestedSet as transitive.
           // Phony target must have only one output (alias); it is checked during parsing.
           PathFragment phonyName = Iterables.getOnlyElement(phonyInput.getAllOutputs());
-          NestedSet<T> alreadyComputedSet = result.get(phonyName);
-          Preconditions.checkNotNull(alreadyComputedSet);
-          builder.addTransitive(alreadyComputedSet);
+          PhonyTarget<T> alreadyComputed = result.get(phonyName);
+          Preconditions.checkNotNull(alreadyComputed);
+          isAlwaysDirty |= alreadyComputed.isAlwaysDirty();
+          builder.addTransitive(alreadyComputed.getInputs());
         } else {
           // The input is the usual file.
           // We do not check for the duplicates, this would make NestedSet optimization senseless.
           builder.add(artifactsHelper.createArtifact(input));
         }
       }
-      result.put(Iterables.getOnlyElement(target.getAllOutputs()), builder.build());
+      result.put(onlyOutput, new PhonyTarget<>(builder.build(), isAlwaysDirty));
     }
 
     return ImmutableSortedMap.copyOf(result);
