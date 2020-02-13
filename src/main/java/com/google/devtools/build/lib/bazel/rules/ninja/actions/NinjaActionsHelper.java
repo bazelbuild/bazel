@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.bazel.rules.ninja.actions;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSortedMap;
+import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
 import com.google.devtools.build.lib.actions.CommandLines;
@@ -37,7 +38,11 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import java.util.ArrayDeque;
+import java.util.Collection;
 import java.util.List;
+import java.util.Set;
+import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
 /**
@@ -49,29 +54,35 @@ public class NinjaActionsHelper {
   private final RuleContext ruleContext;
   private final List<String> outputRootInputs;
   private final ImmutableSortedMap<PathFragment, NinjaTarget> allUsualTargets;
-  private final ImmutableSortedMap<PathFragment, NestedSet<Artifact>> phonyTargets;
+  private final ImmutableSortedMap<PathFragment, PhonyTarget> phonyTargets;
 
   private final NinjaGraphArtifactsHelper artifactsHelper;
 
   private final PathFragment shellExecutable;
   private final ImmutableSortedMap<String, String> executionInfo;
+  private final PhonyTargetArtifacts phonyTargetArtifacts;
+  private final List<PathFragment> pathsToBuild;
 
   /**
    * Constructor
-   *
    * @param ruleContext parent NinjaGraphRule rule context
    * @param artifactsHelper helper object to create artifacts
    * @param outputRootInputs inputs under output_root directory. Should be symlinked by absolute
-   *     paths under execroot/output_root.
+*     paths under execroot/output_root.
    * @param allUsualTargets mapping of outputs to all non-phony Ninja targets from Ninja file
    * @param phonyTargets mapping of names to all phony Ninja actions from Ninja file
+   * @param phonyTargetArtifacts helper class for computing transitively included artifacts
+   * of phony targets
+   * @param pathsToBuild paths requested by the user to be build (in output_groups attribute)
    */
   NinjaActionsHelper(
       RuleContext ruleContext,
       NinjaGraphArtifactsHelper artifactsHelper,
       List<String> outputRootInputs,
       ImmutableSortedMap<PathFragment, NinjaTarget> allUsualTargets,
-      ImmutableSortedMap<PathFragment, NestedSet<Artifact>> phonyTargets) {
+      ImmutableSortedMap<PathFragment, PhonyTarget> phonyTargets,
+      PhonyTargetArtifacts phonyTargetArtifacts,
+      List<PathFragment> pathsToBuild) {
     this.ruleContext = ruleContext;
     this.artifactsHelper = artifactsHelper;
     this.outputRootInputs = outputRootInputs;
@@ -79,6 +90,8 @@ public class NinjaActionsHelper {
     this.phonyTargets = phonyTargets;
     this.shellExecutable = ShToolchain.getPathOrError(ruleContext);
     this.executionInfo = createExecutionInfo(ruleContext);
+    this.phonyTargetArtifacts = phonyTargetArtifacts;
+    this.pathsToBuild = pathsToBuild;
   }
 
   void process() throws GenericParsingException {
@@ -107,8 +120,43 @@ public class NinjaActionsHelper {
   }
 
   private void createNinjaActions() throws GenericParsingException {
+    // Traverse the action graph starting from the targets, specified by the user.
+    // Only create the required actions.
+    Set<PathFragment> visited = Sets.newHashSet();
+    visited.addAll(pathsToBuild);
+    ArrayDeque<PathFragment> queue = new ArrayDeque<>(pathsToBuild);
+    Consumer<Collection<PathFragment>> enqueuer = paths -> {
+      for (PathFragment input : paths) {
+        if (!visited.contains(input)) {
+          visited.add(input);
+          queue.add(input);
+        }
+      }
+    };
+    while (!queue.isEmpty()) {
+      PathFragment fragment = queue.remove();
+      NinjaTarget target = allUsualTargets.get(fragment);
+      if (target != null) {
+        enqueuer.accept(target.getAllInputs());
+      } else {
+        PhonyTarget phonyTarget = phonyTargets.get(fragment);
+        if (phonyTarget != null) {
+          phonyTarget.visitUsualInputs(phonyTargets, enqueuer::accept);
+        }
+      }
+    }
+    Set<NinjaTarget> filtered = Sets.newHashSet();
     for (NinjaTarget target : allUsualTargets.values()) {
-      createNinjaAction(target);
+      for (PathFragment output : target.getAllOutputs()) {
+        if (visited.contains(output)) {
+          // If target is visited, do not check other outputs, break.
+          if (filtered.add(target)) {
+            // If the target has not been reported before, report it to consumer.
+            createNinjaAction(target);
+          }
+          break;
+        }
+      }
     }
   }
 
@@ -149,8 +197,8 @@ public class NinjaActionsHelper {
       ImmutableList.Builder<Artifact> outputsBuilder)
       throws GenericParsingException {
     for (PathFragment input : target.getAllInputs()) {
-      NestedSet<Artifact> nestedSet = this.phonyTargets.get(input);
-      if (nestedSet != null) {
+      if (phonyTargets.containsKey(input)) {
+        NestedSet<Artifact> nestedSet = phonyTargetArtifacts.getPhonyTargetArtifacts(input);
         inputsBuilder.addTransitive(nestedSet);
       } else {
         inputsBuilder.add(artifactsHelper.getInputArtifact(input));
