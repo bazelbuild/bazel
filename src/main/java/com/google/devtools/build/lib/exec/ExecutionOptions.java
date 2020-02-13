@@ -303,13 +303,11 @@ public class ExecutionOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
       help =
-          "Explicitly set amount of local resources available to Blaze. By default, Bazel will "
-              + "query system configuration to estimate amount of RAM (in MB) "
-              + "and number of CPU cores available for the locally executed build actions. It "
-              + "would also assume default I/O capabilities of the local workstation (1.0). This "
-              + "options allows to explicitly set all 3 values. Note, that if this option is used, "
-              + "Bazel will ignore --ram_utilization_factor, --local_cpu_resources, and "
-              + "--local_ram_resources.",
+          "Deprecated by '--incompatible_remove_local_resources'. Please use "
+              + "'--local_ram_resources' and '--local_cpu_resources'",
+      deprecationWarning =
+          "--local_resources will be deprecated. Please use"
+              + " --local_ram_resources and --local_cpu_resources instead.",
       converter = ResourceSet.ResourceSetConverter.class)
   public ResourceSet availableResources;
 
