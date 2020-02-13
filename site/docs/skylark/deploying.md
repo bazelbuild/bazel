@@ -68,7 +68,7 @@ For example, suppose we are writing new rules for the (make-believe)
 ### WORKSPACE
 
 In the project's `WORKSPACE`, you should define the name that users will use
-to reference you rules. If your rules belong to the
+to reference your rules. If your rules belong to the
 [bazelbuild](https://github.com/bazelbuild) organization, you must use
 `rules_<lang>` (e.g. `rules_mockascript`). Otherwise, you should name your
 repository `<org>_rules_<lang>` (e.g. `build_stack_rules_proto`). Please contact
