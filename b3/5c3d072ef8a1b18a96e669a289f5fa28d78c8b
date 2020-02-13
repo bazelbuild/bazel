@@ -1,0 +1,3 @@
+9a823d9: Prevent NPE on backwards seek on Chunker.
+
+This release contains contributions from many people at Google, as well as George Gensure.
