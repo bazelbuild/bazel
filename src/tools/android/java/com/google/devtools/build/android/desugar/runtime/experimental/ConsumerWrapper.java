@@ -14,8 +14,8 @@
 package com.google.devtools.build.android.desugar.runtime;
 
 import android.accessibilityservice.AccessibilityService;
+import android.accessibilityservice.AccessibilityService.ScreenshotResult;
 import android.app.DirectAction;
-import android.graphics.Bitmap;
 import android.os.Bundle;
 import android.os.CancellationSignal;
 import android.service.voice.VoiceInteractionSession;
@@ -100,8 +100,10 @@ public final class ConsumerWrapper<T> implements Consumer<T> {
       AccessibilityService receiver,
       int displayId,
       Executor resultExecutor,
-      j$.util.function.Consumer<Bitmap> callback) {
+      j$.util.function.Consumer<ScreenshotResult> callback) {
     return receiver.takeScreenshot(
-        displayId, resultExecutor, callback != null ? new ConsumerWrapper<Bitmap>(callback) : null);
+        displayId,
+        resultExecutor,
+        callback != null ? new ConsumerWrapper<ScreenshotResult>(callback) : null);
   }
 }
