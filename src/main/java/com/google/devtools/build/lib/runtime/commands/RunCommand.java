@@ -714,9 +714,12 @@ public class RunCommand implements BlazeCommand  {
     Target target;
     try {
       target = env.getPackageManager().getTarget(env.getReporter(), configuredTarget.getLabel());
-    } catch (NoSuchTargetException | NoSuchPackageException | InterruptedException e) {
+    } catch (InterruptedException e) {
+      env.getReporter().handle(Event.error("interrupted"));
+      return ExitCode.INTERRUPTED;
+    } catch (NoSuchTargetException | NoSuchPackageException e) {
       env.getReporter().handle(Event.error("Failed to find a target to validate. " + e));
-      throw new IllegalStateException("Failed to find a target to validate");
+      throw new IllegalStateException("Failed to find a target to validate", e);
     }
 
     String targetError = validateTarget(target);
