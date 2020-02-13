@@ -75,6 +75,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Stopwatch;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.hash.HashCode;
 import com.google.common.hash.Hashing;
 import com.google.common.io.ByteStreams;
@@ -637,7 +638,11 @@ public class AndroidCompiledDataDeserializer implements AndroidDataDeserializer 
       throws IOException {
     final ResourceTable resourceTable =
         ResourceTable.parseFrom(in, ExtensionRegistry.getEmptyRegistry());
-    consumeResourceTable(dependencyInfo, consumers, resourceTable, new VisibilityRegistry());
+    consumeResourceTable(
+        dependencyInfo,
+        consumers,
+        resourceTable,
+        new VisibilityRegistry(ImmutableSet.of(), ImmutableSet.of()));
   }
 
   public Map<DataKey, DataResource> read(DependencyInfo dependencyInfo, Path inPath) {
@@ -661,7 +666,7 @@ public class AndroidCompiledDataDeserializer implements AndroidDataDeserializer 
     try (ZipFile zipFile = new ZipFile(inPath.toFile())) {
       ResourceContainer resourceContainer =
           readResourceContainer(zipFile, includeFileContentsForValidation);
-      VisibilityRegistry registry = findPublicResources(resourceContainer);
+      VisibilityRegistry registry = computeResourceVisibility(resourceContainer);
 
       for (ResourceTable resourceTable : resourceContainer.resourceTables()) {
         consumeResourceTable(dependencyInfo, consumers, resourceTable, registry);
@@ -780,26 +785,128 @@ public class AndroidCompiledDataDeserializer implements AndroidDataDeserializer 
     return ((n + k - 1) / k) * k;
   }
 
-  // TODO(b/26297204): implied "private"ness needs to be segregated by res/ directory; see also
-  // b/148110689.
-  private static VisibilityRegistry findPublicResources(ResourceContainer resourceContainer) {
-    VisibilityRegistry registry = new VisibilityRegistry();
+  /**
+   * Classifies resources as public/private/unknown.
+   *
+   * <p>Per https://developer.android.com/studio/projects/android-library#PrivateResources, the
+   * {@code <public/>} tag marks a resource as public with all others inferred to be private. Since
+   * {@code android_library} allows mixing directories (with varying ownership) in {@code
+   * resource_files} (b/148110689), we perform the classification on a per-directory basis, so that
+   * marking something in {@code foo/res} public has no impact on {@code bar/res}.
+   */
+  private static VisibilityRegistry computeResourceVisibility(ResourceContainer resourceContainer)
+      throws UnsupportedEncodingException {
+    if (!ResourceCompiler.USE_VISIBILITY_FROM_AAPT2) {
+      return new VisibilityRegistry(ImmutableSet.of(), ImmutableSet.of());
+    }
+
+    // decode source pools ahead of time to avoid having to repeatedly do so later.
+    List<List<String>> sourcePools = new ArrayList<>();
     for (ResourceTable resourceTable : resourceContainer.resourceTables()) {
+      sourcePools.add(decodeSourcePool(resourceTable.getSourcePool().getData().toByteArray()));
+    }
+
+    PublicResources publicResources = findExplicitlyPublicResources(resourceContainer, sourcePools);
+    return new VisibilityRegistry(
+        publicResources.explicitlyPublicResources(),
+        findImpliedPrivateResources(resourceContainer, sourcePools, publicResources));
+  }
+
+  private static PublicResources findExplicitlyPublicResources(
+      ResourceContainer resourceContainer, List<List<String>> sourcePools) {
+    Set<ResourceName> explicitlyPublicResources = new HashSet<>();
+    Set<Path> directoriesWithPublicResources = new HashSet<>();
+    for (int i = 0; i < resourceContainer.resourceTables().size(); i++) {
+      ResourceTable resourceTable = resourceContainer.resourceTables().get(i);
+      List<String> sourcePool = sourcePools.get(i);
+
       for (Package pkg : resourceTable.getPackageList()) {
         for (Resources.Type type : pkg.getTypeList()) {
           ResourceType resourceType = ResourceType.getEnum(type.getName());
           for (Resources.Entry entry : type.getEntryList()) {
-            if (entry.getVisibility().getLevel()
-                != com.android.aapt.Resources.Visibility.Level.PUBLIC) {
+            if (entry.getVisibility().getLevel() != Resources.Visibility.Level.PUBLIC) {
               continue;
             }
-            registry.markPublic(
+
+            explicitlyPublicResources.add(
                 ResourceName.create(pkg.getPackageName(), resourceType, entry.getName()));
+            directoriesWithPublicResources.add(
+                getNormalizedResourceDirectory(
+                    sourcePool.get(entry.getVisibility().getSource().getPathIdx())));
           }
         }
       }
     }
-    return registry;
+    return PublicResources.create(explicitlyPublicResources, directoriesWithPublicResources);
+  }
+
+  private static ImmutableSet<ResourceName> findImpliedPrivateResources(
+      ResourceContainer resourceContainer,
+      List<List<String>> sourcePools,
+      PublicResources publicResources) {
+    Set<ResourceName> explicitlyPublicResources = publicResources.explicitlyPublicResources();
+    Set<Path> directoriesWithPublicResources = publicResources.directoriesWithPublicResources();
+    Set<ResourceName> impliedPrivateResources = new HashSet<>();
+    for (int i = 0; i < resourceContainer.resourceTables().size(); i++) {
+      ResourceTable resourceTable = resourceContainer.resourceTables().get(i);
+      List<String> sourcePool = sourcePools.get(i);
+
+      for (Package pkg : resourceTable.getPackageList()) {
+        for (Resources.Type type : pkg.getTypeList()) {
+          ResourceType resourceType = ResourceType.getEnum(type.getName());
+          for (Resources.Entry entry : type.getEntryList()) {
+            if (entry.getVisibility().getLevel() == Resources.Visibility.Level.PUBLIC) {
+              continue;
+            }
+
+            ResourceName resourceName =
+                ResourceName.create(pkg.getPackageName(), resourceType, entry.getName());
+            if (explicitlyPublicResources.contains(resourceName)
+                || impliedPrivateResources.contains(resourceName)) {
+              continue; // we already figured out a classification for this resource.
+            }
+
+            boolean inDirectoryWithPublic =
+                entry.getConfigValueList().stream()
+                    .map(
+                        configValue ->
+                            getNormalizedResourceDirectory(
+                                sourcePool.get(configValue.getValue().getSource().getPathIdx())))
+                    .anyMatch(directoriesWithPublicResources::contains);
+            if (inDirectoryWithPublic) {
+              impliedPrivateResources.add(resourceName);
+            }
+          }
+        }
+      }
+    }
+    for (CompiledFileWithData compiledFileWithData : resourceContainer.compiledFiles()) {
+      CompiledFile compiledFile = compiledFileWithData.compiledFile();
+      ResourceName resourceName = ResourceName.parse(compiledFile.getResourceName());
+      if (explicitlyPublicResources.contains(resourceName)
+          || impliedPrivateResources.contains(resourceName)) {
+        continue; // we already figured out a classification for this resource.
+      }
+      if (directoriesWithPublicResources.contains(
+          getNormalizedResourceDirectory(compiledFile.getSourcePath()))) {
+        impliedPrivateResources.add(resourceName);
+      }
+    }
+    return ImmutableSet.copyOf(impliedPrivateResources);
+  }
+
+  /**
+   * Returns the resource directory (e.g. {@code java/com/pkg/res/}) which contains a file,
+   * stripping off any {@code blaze-*} prefix for normalization.
+   */
+  private static Path getNormalizedResourceDirectory(String filename) {
+    Path resDir = Paths.get(filename).getParent().getParent();
+    if (resDir.getName(0).toString().startsWith("blaze-")) {
+      // strip off stuff like blaze-out/k8-fastbuild/bin/.
+      return resDir.subpath(3, resDir.getNameCount());
+    } else {
+      return resDir;
+    }
   }
 
   private static byte[] readBytesAndSkipPadding(LittleEndianDataInputStream input, int size)
@@ -899,24 +1006,42 @@ public class AndroidCompiledDataDeserializer implements AndroidDataDeserializer 
     }
   }
 
-  private static class VisibilityRegistry {
-    private final Set<ResourceName> explicitlyPublicResources = new HashSet<>();
+  /**
+   * Wraps metadata regarding {@code <public/>} tags and their locations to help work around targets
+   * which mix res/ directories they own with ones they don't (b/148110689).
+   */
+  @AutoValue
+  abstract static class PublicResources {
+    abstract ImmutableSet<ResourceName> explicitlyPublicResources();
 
-    void markPublic(ResourceName resourceName) {
-      explicitlyPublicResources.add(resourceName);
+    abstract ImmutableSet<Path> directoriesWithPublicResources();
+
+    static PublicResources create(
+        Set<ResourceName> explicitlyPublicResources, Set<Path> directoriesWithPublicResources) {
+      return new AutoValue_AndroidCompiledDataDeserializer_PublicResources(
+          ImmutableSet.copyOf(explicitlyPublicResources),
+          ImmutableSet.copyOf(directoriesWithPublicResources));
+    }
+  }
+
+  private static class VisibilityRegistry {
+    private final Set<ResourceName> explicitlyPublicResources;
+    private final Set<ResourceName> impliedPrivateResources;
+
+    VisibilityRegistry(
+        Set<ResourceName> explicitlyPublicResources, Set<ResourceName> impliedPrivateResources) {
+      this.explicitlyPublicResources = ImmutableSet.copyOf(explicitlyPublicResources);
+      this.impliedPrivateResources = ImmutableSet.copyOf(impliedPrivateResources);
     }
 
     Visibility getVisibility(ResourceName resourceName) {
-      if (!ResourceCompiler.USE_VISIBILITY_FROM_AAPT2) {
-        return Visibility.UNKNOWN;
+      if (explicitlyPublicResources.contains(resourceName)) {
+        return Visibility.PUBLIC;
       }
-      if (explicitlyPublicResources.isEmpty()) {
-        // TODO(b/146647897): make resources private by default
-        return Visibility.UNKNOWN;
-      }
-      return explicitlyPublicResources.contains(resourceName)
-          ? Visibility.PUBLIC
-          : Visibility.PRIVATE;
+      // TODO(b/146647897): make resources private by default
+      return impliedPrivateResources.contains(resourceName)
+          ? Visibility.PRIVATE
+          : Visibility.UNKNOWN;
     }
   }
 }
