@@ -112,7 +112,12 @@ final class WorkerSpawnRunner implements SpawnRunner {
     return "worker";
   }
 
-  private String getMultiplexPrefixName(boolean proxied) {
+  /**
+   * For logging purpose, we want to show if the multiplex worker is used.
+   * Since we are not able to pass in parameters to {@code getName()},
+   * this is a separate function to get around.
+   */
+  private String getNameForReporting(boolean proxied) {
     if (proxied) {
       return "multiplex-" + getName();
     } else {
@@ -132,7 +137,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
       return fallbackRunner.exec(spawn, context);
     }
 
-    context.report(ProgressStatus.SCHEDULING, getMultiplexPrefixName(Spawns.supportsMultiplexWorkers(spawn)));
+    context.report(ProgressStatus.SCHEDULING, getNameForReporting(Spawns.supportsMultiplexWorkers(spawn)));
     return actuallyExec(spawn, context);
   }
 
@@ -190,7 +195,8 @@ final class WorkerSpawnRunner implements SpawnRunner {
             workerFilesCombinedHash,
             workerFiles,
             context.speculating(),
-            Spawns.supportsMultiplexWorkers(spawn));
+            Spawns.supportsMultiplexWorkers(spawn),
+            getNameForReporting(Spawns.supportsMultiplexWorkers(spawn)));
 
     long startTime = System.currentTimeMillis();
     WorkResponse response =
@@ -343,7 +349,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
 
       try (ResourceHandle handle =
           resourceManager.acquireResources(owner, spawn.getLocalResources())) {
-        context.report(ProgressStatus.EXECUTING, getMultiplexPrefixName(key.getProxied()));
+        context.report(ProgressStatus.EXECUTING, getNameForReporting(key.getProxied()));
         try {
           worker.prepareExecution(inputFiles, outputs, key.getWorkerFilesWithHashes().keySet());
         } catch (IOException e) {
