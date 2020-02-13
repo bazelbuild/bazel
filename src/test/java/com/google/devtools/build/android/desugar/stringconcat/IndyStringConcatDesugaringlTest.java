@@ -29,7 +29,6 @@ import com.google.devtools.build.android.desugar.testing.junit.ParameterValueSou
 import com.google.devtools.build.android.desugar.testing.junit.RuntimeMethodHandle;
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
-import java.nio.file.Paths;
 import java.util.Arrays;
 import org.junit.Rule;
 import org.junit.Test;
@@ -43,18 +42,19 @@ import org.objectweb.asm.tree.MethodNode;
  * within a nest.
  */
 @RunWith(DesugarRunner.class)
+@JdkSuppress(minJdkVersion = JdkVersion.V11)
 public final class IndyStringConcatDesugaringlTest {
 
   @Rule
   public final DesugarRule desugarRule =
       DesugarRule.builder(this, MethodHandles.lookup())
-          .addInputs(Paths.get(System.getProperty("input_jar")))
+          .addSourceInputsFromJvmFlag("input_srcs")
+          .addJavacOptions("-source 11", "-target 11", "-XDstringConcat=indyWithConstants")
           .setWorkingJavaPackage("com.google.devtools.build.android.desugar.stringconcat")
           .addCommandOptions("desugar_indy_string_concat", "true")
           .build();
 
   @Test
-  @JdkSuppress(minJdkVersion = JdkVersion.V11)
   public void invokeDynamicInstr_presentBeforeDesugaring(
       @AsmNode(className = "StringConcatTestCases", memberName = "simplePrefix", round = 0)
           MethodNode simpleStrConcatBeforeDesugar) {
@@ -64,7 +64,6 @@ public final class IndyStringConcatDesugaringlTest {
   }
 
   @Test
-  @JdkSuppress(minJdkVersion = JdkVersion.V11)
   public void invokeDynamicInstr_absentAfterDesugaring(
       @AsmNode(className = "StringConcatTestCases", memberName = "simplePrefix", round = 1)
           MethodNode simpleStrConcatAfterDesugar) {
