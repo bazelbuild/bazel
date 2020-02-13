@@ -22,6 +22,7 @@ import static com.google.devtools.build.lib.packages.Type.BOOLEAN;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
+import com.google.devtools.build.lib.analysis.test.TestConfiguration;
 import com.google.devtools.build.lib.bazel.rules.java.BazelJavaRuleClasses.BaseJavaBinaryRule;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.AttributeMap;
@@ -43,7 +44,12 @@ public final class BazelJavaBinaryRule implements RuleDefinition {
     <code>Main.java</code>, then your name could be <code>Main</code>.
     <!-- #END_BLAZE_RULE.NAME --> */
     return builder
-        .requiresConfigurationFragments(JavaConfiguration.class, CppConfiguration.class)
+        .requiresConfigurationFragments(
+            JavaConfiguration.class,
+            CppConfiguration.class,
+            // TestConfiguration is only required by the java rules to know when the persistent
+            // test runner is enabled.
+            TestConfiguration.class)
         /* <!-- #BLAZE_RULE(java_binary).IMPLICIT_OUTPUTS -->
         <ul>
           <li><code><var>name</var>.jar</code>: A Java archive, containing the class files and other

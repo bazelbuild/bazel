@@ -23,6 +23,7 @@ import static com.google.devtools.build.lib.packages.Type.STRING_LIST;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
+import com.google.devtools.build.lib.analysis.test.TestConfiguration;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.packages.SkylarkProviderIdentifier;
@@ -35,7 +36,12 @@ public class JavaImportBaseRule implements RuleDefinition {
   @Override
   public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment environment) {
     return builder
-        .requiresConfigurationFragments(JavaConfiguration.class, CppConfiguration.class)
+        .requiresConfigurationFragments(
+            JavaConfiguration.class,
+            CppConfiguration.class,
+            // TestConfiguration is only required by the java rules to know when the persistent test
+            // runner is enabled.
+            TestConfiguration.class)
         /* <!-- #BLAZE_RULE($java_import_base).ATTRIBUTE(jars) -->
         The list of JAR files provided to Java targets that depend on this target.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */

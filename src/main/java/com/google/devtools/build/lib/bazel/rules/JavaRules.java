@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.bazel.rules;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider.RuleSet;
+import com.google.devtools.build.lib.analysis.test.TestConfiguration;
 import com.google.devtools.build.lib.bazel.rules.java.BazelJavaBinaryRule;
 import com.google.devtools.build.lib.bazel.rules.java.BazelJavaBuildInfoFactory;
 import com.google.devtools.build.lib.bazel.rules.java.BazelJavaImportRule;
@@ -63,6 +64,9 @@ public class JavaRules implements RuleSet {
   public void init(ConfiguredRuleClassProvider.Builder builder) {
     builder.addConfigurationOptions(JavaOptions.class);
     builder.addConfigurationFragment(new JavaConfigurationLoader());
+    // TestConfiguration is only required by the java rules to know when the persistent test runner
+    // is enabled.
+    builder.addConfigurationFragment(new TestConfiguration.Loader());
 
     builder.addBuildInfoFactory(new BazelJavaBuildInfoFactory());
 
