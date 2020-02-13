@@ -93,6 +93,9 @@ class SandboxfsSandboxedSpawn implements SandboxedSpawn {
    */
   private final String sandboxName;
 
+  /** Flag to track whether the sandbox needs to be unmapped. */
+  private boolean sandboxIsMapped;
+
   @Nullable private final Path statisticsPath;
 
   /**
@@ -143,6 +146,7 @@ class SandboxfsSandboxedSpawn implements SandboxedSpawn {
 
     int id = lastId.getAndIncrement();
     this.sandboxName = "" + id;
+    this.sandboxIsMapped = false;
     this.execRoot = process.getMountPoint().getRelative(this.sandboxName);
     this.statisticsPath = statisticsPath;
   }
@@ -183,6 +187,7 @@ class SandboxfsSandboxedSpawn implements SandboxedSpawn {
     }
 
     process.createSandbox(sandboxName, mappings);
+    sandboxIsMapped = true;
   }
 
   @Override
@@ -195,13 +200,19 @@ class SandboxfsSandboxedSpawn implements SandboxedSpawn {
 
   @Override
   public void delete() {
-    try {
-      process.destroySandbox(sandboxName);
-    } catch (IOException e) {
-      // We use independent subdirectories for each action, so a failure to unmap one, while
-      // annoying, is not a big deal.  The sandboxfs instance will be unmounted anyway after
-      // the build, which will cause these to go away anyway.
-      log.warning("Cannot unmap " + sandboxName + ": " + e);
+    // We can only ask sandboxfs to unmap a sandbox if we successfully finished creating it.
+    // Otherwise, the request may fail, or we may fail our own sanity-checks that validate the
+    // lifecycle of the sandboxes.
+    if (sandboxIsMapped) {
+      try {
+        process.destroySandbox(sandboxName);
+      } catch (IOException e) {
+        // We use independent subdirectories for each action, so a failure to unmap one, while
+        // annoying, is not a big deal.  The sandboxfs instance will be unmounted anyway after
+        // the build, which will cause these to go away anyway.
+        log.warning("Cannot unmap " + sandboxName + ": " + e);
+      }
+      sandboxIsMapped = false;
     }
 
     try {
