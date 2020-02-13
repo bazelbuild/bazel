@@ -14,6 +14,7 @@ filegroup(
 java_library(
     name = "skylarkinterface",
     exported_plugins = ["//src/main/java/com/google/devtools/build/lib/skylarkinterface/processor:annotation_preprocessor"],
+    visibility = ["//visibility:public"],
     exports = [":annotations"],
 )
 
