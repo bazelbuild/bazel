@@ -75,7 +75,7 @@ public class NinjaGraphTest extends BuildViewTestCase {
             "ninja_graph(name = 'graph', output_root = 'build_config',",
             " working_directory = 'build_config',",
             " main = 'build_config/build.ninja',",
-            " output_root_inputs = ['input.txt'])");
+            " output_root_inputs = ['input.txt'], output_groups= {'main': ['hello.txt']})");
     assertThat(configuredTarget).isInstanceOf(RuleConfiguredTarget.class);
     RuleConfiguredTarget ninjaConfiguredTarget = (RuleConfiguredTarget) configuredTarget;
     ImmutableList<ActionAnalysisMetadata> actions = ninjaConfiguredTarget.getActions();
@@ -128,7 +128,7 @@ public class NinjaGraphTest extends BuildViewTestCase {
             "ninja_graph(name = 'graph', output_root = 'build_config',",
             " working_directory = 'build_config',",
             " main = 'build_config/build.ninja',",
-            " output_root_inputs = ['input.txt'])");
+            " output_root_inputs = ['input.txt'], output_groups= {'main': ['alias']})");
     assertThat(configuredTarget).isInstanceOf(RuleConfiguredTarget.class);
     RuleConfiguredTarget ninjaConfiguredTarget = (RuleConfiguredTarget) configuredTarget;
     ImmutableList<ActionAnalysisMetadata> actions = ninjaConfiguredTarget.getActions();
@@ -198,7 +198,8 @@ public class NinjaGraphTest extends BuildViewTestCase {
             "ninja_graph(name = 'graph', output_root = 'build_config',",
             " working_directory = 'build_config',",
             " main = 'build_config/build.ninja',",
-            " output_root_inputs = ['a.txt', 'b.txt', 'c.txt', 'd.txt', 'e.txt'])");
+            " output_root_inputs = ['a.txt', 'b.txt', 'c.txt', 'd.txt', 'e.txt'],",
+            " output_groups= {'main': ['alias']})");
     assertThat(configuredTarget).isInstanceOf(RuleConfiguredTarget.class);
     RuleConfiguredTarget ninjaConfiguredTarget = (RuleConfiguredTarget) configuredTarget;
     ImmutableList<ActionAnalysisMetadata> actions = ninjaConfiguredTarget.getActions();
@@ -290,7 +291,8 @@ public class NinjaGraphTest extends BuildViewTestCase {
             "ninja_graph(name = 'graph', output_root = 'build_config',",
             " working_directory = 'build_config',",
             " main = 'build_config/build.ninja',",
-            " deps_mapping = {'placeholder': ':input.txt'})");
+            " deps_mapping = {'placeholder': ':input.txt'},",
+            " output_groups= {'main': ['hello.txt']})");
     assertThat(configuredTarget).isInstanceOf(RuleConfiguredTarget.class);
     RuleConfiguredTarget ninjaConfiguredTarget = (RuleConfiguredTarget) configuredTarget;
     ImmutableList<ActionAnalysisMetadata> actions = ninjaConfiguredTarget.getActions();
@@ -307,5 +309,63 @@ public class NinjaGraphTest extends BuildViewTestCase {
     assertThat(ninjaAction.getPrimaryInput().getExecPathString()).isEqualTo("input.txt");
     assertThat(ninjaAction.getPrimaryOutput().getExecPathString())
         .isEqualTo("build_config/hello.txt");
+  }
+
+  @Test
+  public void testOnlySubGraphIsCreated() throws Exception {
+    rewriteWorkspace(
+        "workspace(name = 'test')",
+        "dont_symlink_directories_in_execroot(paths = ['build_config'])");
+
+    scratch.file("build_config/a.txt", "A");
+    scratch.file("build_config/b.txt", "B");
+    scratch.file("build_config/c.txt", "C");
+    scratch.file("build_config/d.txt", "D");
+    scratch.file("build_config/e.txt", "E");
+
+    scratch.file(
+        "build_config/build.ninja",
+        "rule cat",
+        "  command = cat ${in} > ${out}",
+        "rule echo",
+        "  command = echo \"Hello $$(cat ${in} | tr '\\r\\n' ' ')!\" > ${out}",
+        "build a: cat a.txt",
+        "build b: cat b.txt",
+        "build c: cat c.txt",
+        "build d: cat d.txt",
+        "build e: cat e.txt",
+        "build group1: phony a b c",
+        "build group2: phony d e",
+        "build inputs_alias: phony group1 group2",
+        "build hello.txt: echo inputs_alias",
+        "build alias: phony hello.txt");
+
+    ConfiguredTarget configuredTarget =
+        scratchConfiguredTarget(
+            "",
+            "graph",
+            "ninja_graph(name = 'graph', output_root = 'build_config',",
+            " working_directory = 'build_config',",
+            " main = 'build_config/build.ninja',",
+            " output_root_inputs = ['a.txt', 'b.txt', 'c.txt', 'd.txt', 'e.txt'],",
+            " output_groups= {'main': ['group1']})");
+    assertThat(configuredTarget).isInstanceOf(RuleConfiguredTarget.class);
+    RuleConfiguredTarget ninjaConfiguredTarget = (RuleConfiguredTarget) configuredTarget;
+    ImmutableList<ActionAnalysisMetadata> actions = ninjaConfiguredTarget.getActions();
+    assertThat(actions).hasSize(8);
+    List<String> outputs = Lists.newArrayList();
+    actions.forEach(a -> outputs.add(Iterables.getOnlyElement(a.getOutputs()).getExecPathString()));
+    assertThat(outputs)
+        .containsExactlyElementsIn(
+            new String[]{
+                "build_config/a.txt",
+                "build_config/b.txt",
+                "build_config/c.txt",
+                "build_config/d.txt",
+                "build_config/e.txt",
+                "build_config/a",
+                "build_config/b",
+                "build_config/c",
+            });
   }
 }

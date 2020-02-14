@@ -18,6 +18,7 @@ import static com.google.common.base.Preconditions.checkState;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
@@ -25,8 +26,6 @@ import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.bazel.rules.ninja.file.GenericParsingException;
 import com.google.devtools.build.lib.bazel.rules.ninja.parser.NinjaTarget;
-import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayDeque;
@@ -35,7 +34,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.SortedMap;
-import javax.annotation.Nullable;
 
 /**
  * An utility class for gathering non-phony input dependencies of phony {@link NinjaTarget} objects
@@ -48,9 +46,8 @@ public class NinjaPhonyTargetsUtil {
   private NinjaPhonyTargetsUtil() {}
 
   @VisibleForTesting
-  public static <T> ImmutableSortedMap<PathFragment, PhonyTarget<T>> getPhonyPathsMap(
-      ImmutableSortedMap<PathFragment, NinjaTarget> phonyTargets,
-      InputArtifactCreator<T> artifactsHelper)
+  public static ImmutableSortedMap<PathFragment, PhonyTarget> getPhonyPathsMap(
+      ImmutableSortedMap<PathFragment, NinjaTarget> phonyTargets)
       throws GenericParsingException {
     // There is always a DAG (or forest) of phony targets (as item can be included into several
     // phony targets).
@@ -71,30 +68,30 @@ public class NinjaPhonyTargetsUtil {
 
     checkState(topoOrderedTargets.size() == phonyTargets.size());
 
-    SortedMap<PathFragment, PhonyTarget<T>> result = Maps.newTreeMap();
+    SortedMap<PathFragment, PhonyTarget> result = Maps.newTreeMap();
     for (NinjaTarget target : topoOrderedTargets) {
       PathFragment onlyOutput = Iterables.getOnlyElement(target.getAllOutputs());
-      NestedSetBuilder<T> builder = new NestedSetBuilder<>(Order.STABLE_ORDER);
+      ImmutableList.Builder<PathFragment> phonyNames = ImmutableList.builder();
+      ImmutableList.Builder<PathFragment> directInputs = ImmutableList.builder();
       Collection<PathFragment> allInputs = target.getAllInputs();
       boolean isAlwaysDirty = allInputs.isEmpty();
       for (PathFragment input : allInputs) {
         NinjaTarget phonyInput = phonyTargets.get(input);
         if (phonyInput != null) {
           // The input is the other phony target.
-          // Add the corresponding already computed NestedSet as transitive.
           // Phony target must have only one output (alias); it is checked during parsing.
           PathFragment phonyName = Iterables.getOnlyElement(phonyInput.getAllOutputs());
-          PhonyTarget<T> alreadyComputed = result.get(phonyName);
+          PhonyTarget alreadyComputed = result.get(phonyName);
           Preconditions.checkNotNull(alreadyComputed);
           isAlwaysDirty |= alreadyComputed.isAlwaysDirty();
-          builder.addTransitive(alreadyComputed.getInputs());
+          phonyNames.add(Iterables.getOnlyElement(phonyInput.getAllOutputs()));
         } else {
           // The input is the usual file.
-          // We do not check for the duplicates, this would make NestedSet optimization senseless.
-          builder.add(artifactsHelper.createArtifact(input));
+          directInputs.add(input);
         }
       }
-      result.put(onlyOutput, new PhonyTarget<>(builder.build(), isAlwaysDirty));
+      result.put(onlyOutput,
+          new PhonyTarget(phonyNames.build(), directInputs.build(), isAlwaysDirty));
     }
 
     return ImmutableSortedMap.copyOf(result);
@@ -153,14 +150,5 @@ public class NinjaPhonyTargetsUtil {
       }
     }
     return fragment;
-  }
-
-  /**
-   * Helper interface for artifact creation. We do not pass NinjaArtifactsHelper directly to keep
-   * tests simpler.
-   */
-  public interface InputArtifactCreator<T> {
-    @Nullable
-    T createArtifact(PathFragment pathFragment) throws GenericParsingException;
   }
 }
