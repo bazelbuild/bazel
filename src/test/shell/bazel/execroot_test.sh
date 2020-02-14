@@ -68,6 +68,28 @@ EOF
     test ! -e "$execroot/external/bazel_tools/tools/genrule/genrule-setup.sh"
 }
 
+function test_sibling_repository_layout_with_glob() {
+    touch WORKSPACE
+
+    mkdir -p external/foo
+    cat > external/foo/input.txt <<'EOF'
+12345
+EOF
+    cat > BUILD <<'EOF'
+genrule(
+  name = "use-srcs",
+  srcs = glob(["**/**"]),
+  cmd = "cp $< $@",
+  outs = ["used-srcs"],
+)
+EOF
+
+    bazel build --experimental_sibling_repository_layout //:use-srcs \
+        || fail "expected success"
+
+    cat "$(bazel info execution_root)/used-srcs"
+}
+
 function test_no_sibling_repository_layout() {
     touch WORKSPACE
 
