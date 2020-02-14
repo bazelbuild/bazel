@@ -109,7 +109,16 @@ public class StarlarkRuleTransitionProvider implements TransitionFactory<Rule> {
       Map<String, BuildOptions> result;
       try {
         result = applyAndValidate(buildOptions, starlarkDefinedConfigTransition, attrObject);
-      } catch (EvalException | InterruptedException e) {
+      } catch (InterruptedException e) {
+        Thread.currentThread().interrupt();
+        starlarkDefinedConfigTransition
+            .getEventHandler()
+            .handle(
+                Event.error(
+                    starlarkDefinedConfigTransition.getLocationForErrorReporting(),
+                    "Starlark transition interrupted during rule transition implementation"));
+        return buildOptions.clone();
+      } catch (EvalException e) {
         starlarkDefinedConfigTransition
             .getEventHandler()
             .handle(
