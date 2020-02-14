@@ -471,7 +471,7 @@ bool ExportUserName() {
   std::wstring userValue;
   std::wstring lognameValue;
   if (!GetEnv(L"USER", &userValue) || !GetEnv(L"LOGNAME", &lognameValue)) {
-    LogError(__LINE__, "Unable to getenv USER or LOGNAME")l
+    LogError(__LINE__, "Unable to getenv USER or LOGNAME");
     return false;
   }
   if (!userValue.empty() && !lognameValue.empty()) {
