@@ -487,7 +487,7 @@ bool ExportUserName() {
   if (userValue.empty() && !SetEnv(L"USER", buffer)) {
     return false;
   }
-  if (!lognameValue.empty() && !SetEnv(L"LOGNAME", buffer)) {
+  if (lognameValue.empty() && !SetEnv(L"LOGNAME", buffer)) {
     return false;
   }
   return true;
