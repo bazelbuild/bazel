@@ -898,6 +898,7 @@ sh_test(
     ],
     tags = [
         "local",
+        "manual",  # TODO(philwo) re-enable once Bazel CI supports Docker again
         "no_windows",
     ],
 )
