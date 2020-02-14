@@ -155,7 +155,7 @@ fi
 
 # This header marks where --test_output=streamed will start being printed.
 if [[ -z "$no_echo" ]]; then
-  echo "-----------------------------------------------------------------------------"
+  echo "----- [test-setup.sh] -------------------------------------------------------"
 fi
 
 # Unused if EXPERIMENTAL_SPLIT_XML_GENERATION is set.
