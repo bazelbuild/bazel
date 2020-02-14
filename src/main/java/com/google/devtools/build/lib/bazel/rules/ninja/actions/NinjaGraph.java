@@ -189,13 +189,13 @@ public class NinjaGraph implements RuleConfiguredTargetFactory {
 
   private static class TargetsPreparer {
     private ImmutableSortedMap<PathFragment, NinjaTarget> usualTargets;
-    private ImmutableSortedMap<PathFragment, NestedSet<Artifact>> phonyTargetsMap;
+    private ImmutableSortedMap<PathFragment, PhonyTarget<Artifact>> phonyTargetsMap;
 
     public ImmutableSortedMap<PathFragment, NinjaTarget> getUsualTargets() {
       return usualTargets;
     }
 
-    public ImmutableSortedMap<PathFragment, NestedSet<Artifact>> getPhonyTargetsMap() {
+    public ImmutableSortedMap<PathFragment, PhonyTarget<Artifact>> getPhonyTargetsMap() {
       return phonyTargetsMap;
     }
 
@@ -268,14 +268,14 @@ public class NinjaGraph implements RuleConfiguredTargetFactory {
   private static NestedSet<Artifact> getGroupArtifacts(
       RuleContext ruleContext,
       List<String> targets,
-      ImmutableSortedMap<PathFragment, NestedSet<Artifact>> phonyTargetsMap,
+      ImmutableSortedMap<PathFragment, PhonyTarget<Artifact>> phonyTargetsMap,
       ImmutableSortedMap<PathFragment, Artifact> outputsMap) {
     NestedSetBuilder<Artifact> nestedSetBuilder = NestedSetBuilder.stableOrder();
     for (String target : targets) {
       PathFragment path = PathFragment.create(target);
-      NestedSet<Artifact> artifacts = phonyTargetsMap.get(path);
-      if (artifacts != null) {
-        nestedSetBuilder.addTransitive(artifacts);
+      PhonyTarget<Artifact> phonyTarget = phonyTargetsMap.get(path);
+      if (phonyTarget != null) {
+        nestedSetBuilder.addTransitive(phonyTarget.getInputs());
       } else {
         Artifact usualArtifact = outputsMap.get(path);
         if (usualArtifact == null) {

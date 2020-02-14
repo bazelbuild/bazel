@@ -44,7 +44,8 @@ public class NinjaAction extends SpawnAction {
       CommandLines commandLines,
       ActionEnvironment env,
       ImmutableMap<String, String> executionInfo,
-      RunfilesSupplier runfilesSupplier) {
+      RunfilesSupplier runfilesSupplier,
+      boolean executeUnconditionally) {
     super(
         /* owner= */ owner,
         /* tools= */ tools,
@@ -60,7 +61,7 @@ public class NinjaAction extends SpawnAction {
         /* progressMessage= */ createProgressMessage(outputs),
         /* runfilesSupplier= */ runfilesSupplier,
         /* mnemonic= */ MNEMONIC,
-        /* executeUnconditionally= */ false,
+        /* executeUnconditionally= */ executeUnconditionally,
         /* extraActionInfoSupplier= */ null,
         /* resultConsumer= */ null);
   }

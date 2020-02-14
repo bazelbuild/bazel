@@ -31,7 +31,6 @@ import com.google.devtools.build.lib.bazel.rules.ninja.parser.NinjaRuleVariable;
 import com.google.devtools.build.lib.bazel.rules.ninja.parser.NinjaScope;
 import com.google.devtools.build.lib.bazel.rules.ninja.parser.NinjaTarget;
 import com.google.devtools.build.lib.bazel.rules.ninja.parser.NinjaVariableValue;
-import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.TargetUtils;
@@ -49,7 +48,7 @@ public class NinjaActionsHelper {
   private final RuleContext ruleContext;
   private final List<String> outputRootInputs;
   private final ImmutableSortedMap<PathFragment, NinjaTarget> allUsualTargets;
-  private final ImmutableSortedMap<PathFragment, NestedSet<Artifact>> phonyTargets;
+  private final ImmutableSortedMap<PathFragment, PhonyTarget<Artifact>> phonyTargets;
 
   private final NinjaGraphArtifactsHelper artifactsHelper;
 
@@ -71,7 +70,7 @@ public class NinjaActionsHelper {
       NinjaGraphArtifactsHelper artifactsHelper,
       List<String> outputRootInputs,
       ImmutableSortedMap<PathFragment, NinjaTarget> allUsualTargets,
-      ImmutableSortedMap<PathFragment, NestedSet<Artifact>> phonyTargets) {
+      ImmutableSortedMap<PathFragment, PhonyTarget<Artifact>> phonyTargets) {
     this.ruleContext = ruleContext;
     this.artifactsHelper = artifactsHelper;
     this.outputRootInputs = outputRootInputs;
@@ -117,7 +116,7 @@ public class NinjaActionsHelper {
 
     NestedSetBuilder<Artifact> inputsBuilder = NestedSetBuilder.stableOrder();
     ImmutableList.Builder<Artifact> outputsBuilder = ImmutableList.builder();
-    fillArtifacts(target, inputsBuilder, outputsBuilder);
+    boolean isAlwaysDirty = fillArtifacts(target, inputsBuilder, outputsBuilder);
 
     NinjaScope targetScope = createTargetScope(target);
     int targetOffset = target.getOffset();
@@ -140,18 +139,22 @@ public class NinjaActionsHelper {
             commandLines,
             Preconditions.checkNotNull(ruleContext.getConfiguration()).getActionEnvironment(),
             executionInfo,
-            EmptyRunfilesSupplier.INSTANCE));
+            EmptyRunfilesSupplier.INSTANCE,
+            isAlwaysDirty));
   }
 
-  private void fillArtifacts(
+  /** Returns true is the action shpould be marked as always dirty. */
+  private boolean fillArtifacts(
       NinjaTarget target,
       NestedSetBuilder<Artifact> inputsBuilder,
       ImmutableList.Builder<Artifact> outputsBuilder)
       throws GenericParsingException {
+    boolean isAlwaysDirty = false;
     for (PathFragment input : target.getAllInputs()) {
-      NestedSet<Artifact> nestedSet = this.phonyTargets.get(input);
-      if (nestedSet != null) {
-        inputsBuilder.addTransitive(nestedSet);
+      PhonyTarget<Artifact> phonyTarget = this.phonyTargets.get(input);
+      if (phonyTarget != null) {
+        inputsBuilder.addTransitive(phonyTarget.getInputs());
+        isAlwaysDirty |= phonyTarget.isAlwaysDirty();
       } else {
         inputsBuilder.add(artifactsHelper.getInputArtifact(input));
       }
@@ -160,6 +163,7 @@ public class NinjaActionsHelper {
     for (PathFragment output : target.getAllOutputs()) {
       outputsBuilder.add(artifactsHelper.createOutputArtifact(output));
     }
+    return isAlwaysDirty;
   }
 
   private void maybeCreateRspFile(
