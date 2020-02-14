@@ -49,8 +49,7 @@ public class WorkerFactoryTest {
             /* workerFilesCombinedHash= */ HashCode.fromInt(0),
             /* workerFilesWithHashes= */ ImmutableSortedMap.of(),
             /* mustBeSandboxed= */ true,
-            /* proxied= */ false,
-            /* name= */ "worker");
+            /* proxied= */ false);
     Path sandboxedWorkerPath = workerFactory.getSandboxedWorkerPath(workerKey, 1);
 
     assertThat(sandboxedWorkerPath.getBaseName()).isEqualTo("workspace");
@@ -70,8 +69,7 @@ public class WorkerFactoryTest {
             /* workerFilesCombinedHash= */ HashCode.fromInt(0),
             /* workerFilesWithHashes= */ ImmutableSortedMap.of(),
             /* mustBeSandboxed= */ true,
-            /* proxied= */ false,
-            /* name= */ "worker");
+            /* proxied= */ false);
     Worker sandboxedWorker = workerFactory.create(sandboxedWorkerKey);
     assertThat(sandboxedWorker.getClass()).isEqualTo(SandboxedWorker.class);
 
@@ -84,8 +82,7 @@ public class WorkerFactoryTest {
             /* workerFilesCombinedHash= */ HashCode.fromInt(0),
             /* workerFilesWithHashes= */ ImmutableSortedMap.of(),
             /* mustBeSandboxed= */ false,
-            /* proxied= */ false,
-            /* name= */ "worker");
+            /* proxied= */ false);
     Worker nonProxiedWorker = workerFactory.create(nonProxiedWorkerKey);
     assertThat(nonProxiedWorker.getClass()).isEqualTo(Worker.class);
 
@@ -98,8 +95,7 @@ public class WorkerFactoryTest {
             /* workerFilesCombinedHash= */ HashCode.fromInt(0),
             /* workerFilesWithHashes= */ ImmutableSortedMap.of(),
             /* mustBeSandboxed= */ false,
-            /* proxied= */ true,
-            /* name= */ "multiplex-worker");
+            /* proxied= */ true);
     Worker proxiedWorker = workerFactory.create(proxiedWorkerKey);
     // If proxied = true, WorkerProxy is created along with a WorkerMultiplexer.
     // Destroy WorkerMultiplexer to avoid unexpected behavior in WorkerMultiplexerManagerTest.

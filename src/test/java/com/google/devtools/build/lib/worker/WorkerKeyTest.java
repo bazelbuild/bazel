@@ -42,14 +42,14 @@ public class WorkerKeyTest {
           /* workerFilesCombinedHash= */ HashCode.fromInt(0),
           /* workerFilesWithHashes= */ ImmutableSortedMap.of(),
           /* mustBeSandboxed= */ true,
-          /* proxied= */ true,
-          /* name= */ "multiplex-worker");
+          /* proxied= */ true);
 
   @Test
   public void testWorkerKeyGetter() {
     assertThat(workerKey.mustBeSandboxed()).isEqualTo(true);
     assertThat(workerKey.getProxied()).isEqualTo(true);
-    assertThat(workerKey.getWorkerTypeName()).isEqualTo("multiplex-worker");
+    assertThat(WorkerKey.getWorkerTypeName(false)).isEqualTo("worker");
+    assertThat(WorkerKey.getWorkerTypeName(true)).isEqualTo("multiplex-worker");
     // Hash code contains args, env, execRoot, and mnemonic.
     assertThat(workerKey.hashCode()).isEqualTo(322455166);
   }

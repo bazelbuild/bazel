@@ -42,8 +42,6 @@ final class WorkerKey {
   private final boolean mustBeSandboxed;
   /** A WorkerProxy will be instantiated if true, instantiate a regular Worker if false. */
   private final boolean proxied;
-  /** A user-friendly name for this worker type */
-  private final String name;
 
   WorkerKey(
       ImmutableList<String> args,
@@ -53,8 +51,7 @@ final class WorkerKey {
       HashCode workerFilesCombinedHash,
       SortedMap<PathFragment, HashCode> workerFilesWithHashes,
       boolean mustBeSandboxed,
-      boolean proxied,
-      String name) {
+      boolean proxied) {
     /** Build options. */
     this.args = Preconditions.checkNotNull(args);
     /** Environment variables. */
@@ -71,8 +68,6 @@ final class WorkerKey {
     this.mustBeSandboxed = mustBeSandboxed;
     /** Set it to true if this job should be run with WorkerProxy. */
     this.proxied = proxied;
-    /** If multiplex worker is used, it should be "multiplex-worker", otherwise return "worker" */
-    this.name = name;
   }
 
   /** Getter function for variable args. */
@@ -116,8 +111,12 @@ final class WorkerKey {
   }
 
   /** Returns a user-friendly name for this worker type. */
-  public String getWorkerTypeName() {
-    return name;
+  public static String getWorkerTypeName(boolean proxied) {
+    if (proxied) {
+      return "multiplex-worker";
+    } else {
+      return "worker";
+    }
   }
 
   @Override
