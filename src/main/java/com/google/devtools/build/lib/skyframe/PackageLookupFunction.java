@@ -184,8 +184,6 @@ public class PackageLookupFunction implements SkyFunction {
               + fileRootedPath.asPath()),
           Transience.PERSISTENT);
     } catch (IOException e) {
-      // TODO(bazel-team): throw an IOException here and let PackageFunction wrap that into a
-      // BuildFileNotFoundException.
       throw new PackageLookupFunctionException(new BuildFileNotFoundException(packageIdentifier,
           "IO errors while looking for " + basename + " file reading "
               + fileRootedPath.asPath() + ": " + e.getMessage(), e),
