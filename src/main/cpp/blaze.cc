@@ -261,7 +261,7 @@ class BlazeServer final {
   // is in connected state.
   unsigned int Communicate(
       const std::string &command, const std::vector<std::string> &command_args,
-      const std::string &invocation_policy,
+      bool uses_param_file, const std::string &invocation_policy,
       const std::vector<RcStartupFlag> &original_startup_options,
       const LoggingInfo &logging_info,
       const DurationMillis client_startup_duration,
@@ -1306,7 +1306,7 @@ static ATTRIBUTE_NORETURN void RunClientServerMode(
       CancelServer);
   SignalHandler::Get().PropagateSignalOrExit(server->Communicate(
       option_processor.GetCommand(), option_processor.GetCommandArguments(),
-      startup_options.invocation_policy,
+      option_processor.UsingParamFile(), startup_options.invocation_policy,
       startup_options.original_startup_options_, *logging_info,
       client_startup_duration, extract_data_duration,
       command_wait_duration_ms));
@@ -1964,7 +1964,7 @@ void BlazeServer::KillRunningServer() {
 }
 
 unsigned int BlazeServer::Communicate(
-    const string &command, const vector<string> &command_args,
+    const string &command, const vector<string> &command_args, bool uses_param_file,
     const string &invocation_policy,
     const vector<RcStartupFlag> &original_startup_options,
     const LoggingInfo &logging_info,
@@ -1987,8 +1987,16 @@ unsigned int BlazeServer::Communicate(
   request.set_cookie(request_cookie_);
   request.set_block_for_lock(block_for_lock_);
   request.set_client_description("pid=" + blaze::GetProcessIdAsString());
-  for (const string &arg : arg_vector) {
-    request.add_arg(arg);
+  if (uses_param_file) {
+    blaze_util::Path param_file = output_base_.GetRelative("params");
+    string content;
+    blaze_util::JoinStrings(arg_vector, '\0', &content);
+    blaze_util::WriteFile(content, param_file);
+    request.set_parameter_file(param_file.AsCommandLineArgument());
+  } else {
+    for (const string &arg : arg_vector) {
+      request.add_arg(arg);
+    }
   }
   if (!invocation_policy.empty()) {
     request.set_invocation_policy(invocation_policy);

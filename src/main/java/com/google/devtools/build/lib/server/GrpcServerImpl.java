@@ -50,6 +50,7 @@ import io.grpc.StatusRuntimeException;
 import io.grpc.netty.NettyServerBuilder;
 import io.grpc.stub.ServerCallStreamObserver;
 import io.grpc.stub.StreamObserver;
+import java.io.File;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.PrintWriter;
@@ -60,6 +61,7 @@ import java.security.SecureRandom;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.Scanner;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
@@ -594,6 +596,20 @@ public class GrpcServerImpl extends CommandServerGrpc.CommandServerImplBase impl
         ImmutableList<String> args = request.getArgList().stream()
             .map(arg -> arg.toString(StandardCharsets.ISO_8859_1))
             .collect(ImmutableList.toImmutableList());
+
+        if (args.isEmpty() && !request.getParameterFile().isEmpty()) {
+          ImmutableList.Builder<String> builder = ImmutableList.builder();
+          File file = new File(request.getParameterFile());
+          try {
+            Scanner sc = new Scanner(file);
+            sc.useDelimiter("\u0000");
+            while (sc.hasNext()) {
+              builder.add(sc.next());
+            }
+            args = builder.build();
+          } catch (IOException e) {
+          }
+        }
 
         InvocationPolicy policy = InvocationPolicyParser.parsePolicy(request.getInvocationPolicy());
         logger.info(BlazeRuntime.getRequestLogString(args));
