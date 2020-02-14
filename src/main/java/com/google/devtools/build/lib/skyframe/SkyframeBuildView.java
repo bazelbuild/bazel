@@ -52,6 +52,7 @@ import com.google.devtools.build.lib.analysis.config.BuildOptions.OptionsDiff;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.FragmentClassSet;
+import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
 import com.google.devtools.build.lib.causes.Cause;
 import com.google.devtools.build.lib.causes.LabelCause;
@@ -87,7 +88,9 @@ import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
+import com.google.devtools.build.skyframe.WalkableGraph;
 import com.google.devtools.common.options.OptionDefinition;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
@@ -602,14 +605,15 @@ public final class SkyframeBuildView {
       SkyframeExecutor skyframeExecutor,
       ExtendedEventHandler eventHandler,
       boolean keepGoing,
-      @Nullable EventBus eventBus) {
+      @Nullable EventBus eventBus)
+      throws InterruptedException {
     boolean inTest = eventBus == null;
     boolean hasLoadingError = false;
     ViewCreationFailedException noKeepGoingException = null;
     for (Map.Entry<SkyKey, ErrorInfo> errorEntry : result.errorMap().entrySet()) {
       SkyKey errorKey = errorEntry.getKey();
       ErrorInfo errorInfo = errorEntry.getValue();
-      assertSaneAnalysisError(errorInfo, errorKey);
+      assertSaneAnalysisError(errorInfo, errorKey, result.getWalkableGraph());
       skyframeExecutor
           .getCyclesReporter().reportCycles(errorInfo.getCycleInfo(), errorKey, eventHandler);
       Exception cause = errorInfo.getException();
@@ -752,27 +756,48 @@ public final class SkyframeBuildView {
     return null;
   }
 
-  private static void assertSaneAnalysisError(ErrorInfo errorInfo, SkyKey key) {
+  private static void assertSaneAnalysisError(
+      ErrorInfo errorInfo, SkyKey key, WalkableGraph walkableGraph) throws InterruptedException {
     Throwable cause = errorInfo.getException();
-    if (cause != null) {
-      // We should only be trying to configure targets when the loading phase succeeds, meaning
-      // that the only errors should be analysis errors.
-      Preconditions.checkState(
-          cause instanceof ConfiguredValueCreationException
-              || cause instanceof ActionConflictException
-              || cause instanceof CcCrosstoolException
-              // For top-level aspects
-              || cause instanceof AspectCreationException
-              || cause instanceof SkylarkImportFailedException
-              // Only if we run the reduced loading phase and then analyze with --nokeep_going.
-              || cause instanceof NoSuchTargetException
-              || cause instanceof NoSuchPackageException
-              // Platform-related:
-              || cause instanceof InvalidExecutionPlatformLabelException,
-          "%s -> %s",
-          key,
-          errorInfo);
+    // We should only be trying to configure targets when the loading phase succeeds, meaning
+    // that the only errors should be analysis errors.
+    if (cause != null && !isSaneAnalysisError(cause)) {
+      // Walk the graph to find a path to the lowest-level node that threw unexpected exception.
+      List<SkyKey> path = new ArrayList<>();
+      try {
+        SkyKey currentKey = key;
+        boolean foundDep;
+        do {
+          path.add(currentKey);
+          foundDep = false;
+          for (SkyKey dep : walkableGraph.getDirectDeps(currentKey)) {
+            if (cause.equals(walkableGraph.getException(dep))) {
+              currentKey = dep;
+              foundDep = true;
+              break;
+            }
+          }
+        } while (foundDep);
+      } finally {
+        BugReport.sendBugReport(
+            new IllegalStateException(
+                "Unexpected analysis error: " + key + " -> " + errorInfo + ", (" + path + ")"));
+      }
     }
+  }
+
+  private static boolean isSaneAnalysisError(Throwable cause) {
+    return cause instanceof ConfiguredValueCreationException
+        || cause instanceof ActionConflictException
+        || cause instanceof CcCrosstoolException
+        // For top-level aspects
+        || cause instanceof AspectCreationException
+        || cause instanceof SkylarkImportFailedException
+        // Only if we run the reduced loading phase and then analyze with --nokeep_going.
+        || cause instanceof NoSuchTargetException
+        || cause instanceof NoSuchPackageException
+        // Platform-related:
+        || cause instanceof InvalidExecutionPlatformLabelException;
   }
 
   /** Special flake for error cases when loading CROSSTOOL for C++ rules */

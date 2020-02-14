@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.skyframe;
 
+import com.google.common.base.MoreObjects;
 import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
@@ -387,6 +388,17 @@ public final class AspectValue extends BasicActionLookupValue {
           && Objects.equal(baseConfiguredTargetKey, that.baseConfiguredTargetKey)
           && Objects.equal(skylarkFileLabel, that.skylarkFileLabel)
           && Objects.equal(skylarkValueName, that.skylarkValueName);
+    }
+
+    @Override
+    public String toString() {
+      return MoreObjects.toStringHelper(this)
+          .add("targetLabel", targetLabel)
+          .add("aspectConfigurationKey", aspectConfigurationKey)
+          .add("baseConfiguredTargetKey", baseConfiguredTargetKey)
+          .add("skylarkFileLabel", skylarkFileLabel)
+          .add("skylarkValueName", skylarkValueName)
+          .toString();
     }
 
     AspectKey toAspectKey(AspectClass aspectClass) {

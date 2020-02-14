@@ -1664,7 +1664,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       ExtendedEventHandler eventHandler,
       BuildConfiguration originalConfig,
       Iterable<Dependency> keys)
-      throws TransitionException, InvalidConfigurationException {
+      throws TransitionException, InvalidConfigurationException, InterruptedException {
     return getConfiguredTargetMapForTesting(eventHandler, originalConfig, keys).values().asList();
   }
 
@@ -1681,7 +1681,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       ExtendedEventHandler eventHandler,
       BuildConfigurationValue.Key originalConfig,
       Iterable<Dependency> keys)
-      throws TransitionException, InvalidConfigurationException {
+      throws InvalidConfigurationException, InterruptedException {
     return getConfiguredTargetMapForTesting(eventHandler, originalConfig, keys).values().asList();
   }
 
@@ -1699,7 +1699,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       ExtendedEventHandler eventHandler,
       BuildConfigurationValue.Key originalConfig,
       Iterable<Dependency> keys)
-      throws TransitionException, InvalidConfigurationException {
+      throws InvalidConfigurationException, InterruptedException {
     return getConfiguredTargetMapForTesting(
         eventHandler, getConfiguration(eventHandler, originalConfig), keys);
   }
@@ -1718,7 +1718,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       ExtendedEventHandler eventHandler,
       BuildConfiguration originalConfig,
       Iterable<Dependency> keys)
-      throws InvalidConfigurationException {
+      throws InvalidConfigurationException, InterruptedException {
     checkActive();
 
     Multimap<Dependency, BuildConfiguration> configs;
@@ -2294,7 +2294,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   @Nullable
   public ConfiguredTarget getConfiguredTargetForTesting(
       ExtendedEventHandler eventHandler, Label label, BuildConfiguration configuration)
-      throws TransitionException, InvalidConfigurationException {
+      throws TransitionException, InvalidConfigurationException, InterruptedException {
     return getConfiguredTargetForTesting(eventHandler, label, configuration, NoTransition.INSTANCE);
   }
 
@@ -2306,7 +2306,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       Label label,
       BuildConfiguration configuration,
       ConfigurationTransition transition)
-      throws TransitionException, InvalidConfigurationException {
+      throws TransitionException, InvalidConfigurationException, InterruptedException {
     ConfiguredTargetAndData configuredTargetAndData =
         getConfiguredTargetAndDataForTesting(eventHandler, label, configuration, transition);
     return configuredTargetAndData == null ? null : configuredTargetAndData.getConfiguredTarget();
@@ -2319,7 +2319,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       Label label,
       BuildConfiguration configuration,
       ConfigurationTransition transition)
-      throws TransitionException, InvalidConfigurationException {
+      throws TransitionException, InvalidConfigurationException, InterruptedException {
     return Iterables.getFirst(
         getConfiguredTargetsForTesting(
             eventHandler,
@@ -2336,7 +2336,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   @Nullable
   public ConfiguredTargetAndData getConfiguredTargetAndDataForTesting(
       ExtendedEventHandler eventHandler, Label label, BuildConfiguration configuration)
-      throws TransitionException, InvalidConfigurationException {
+      throws TransitionException, InvalidConfigurationException, InterruptedException {
     return getConfiguredTargetAndDataForTesting(
         eventHandler, label, configuration, NoTransition.INSTANCE);
   }

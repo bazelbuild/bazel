@@ -465,7 +465,7 @@ public abstract class BuildIntegrationTestCase {
 
   protected ConfiguredTarget getConfiguredTarget(
       ExtendedEventHandler eventHandler, Label label, BuildConfiguration config)
-      throws TransitionException, InvalidConfigurationException {
+      throws TransitionException, InvalidConfigurationException, InterruptedException {
     return getSkyframeExecutor().getConfiguredTargetForTesting(eventHandler, label, config);
   }
 
@@ -498,7 +498,7 @@ public abstract class BuildIntegrationTestCase {
    * If they used multiple different configurations, or if none of them had a configuration, then
    * falls back to the base top-level configuration.
    */
-  protected BuildConfiguration getTargetConfiguration() throws InterruptedException {
+  protected BuildConfiguration getTargetConfiguration() {
     BuildConfiguration baseConfiguration =
         Iterables.getOnlyElement(getConfigurationCollection().getTargetConfigurations());
     BuildResult result = getResult();
@@ -537,14 +537,6 @@ public abstract class BuildIntegrationTestCase {
     events.setOutErr(this.outErr);
     runtimeWrapper.executeBuild(Arrays.asList(targets));
     return runtimeWrapper.getLastResult();
-  }
-
-  /**
-   * Create a BuildRequest for the specified list of targets, using the
-   * currently-installed request options.
-   */
-  protected BuildRequest createRequest(String... targets) throws Exception {
-    return createNewRequest("BuildIntegrationTestCase", targets);
   }
 
   /**
@@ -784,7 +776,7 @@ public abstract class BuildIntegrationTestCase {
 
   protected ConfiguredTargetAndData getConfiguredTargetAndTarget(
       ExtendedEventHandler eventHandler, Label label, BuildConfiguration config)
-      throws TransitionException, InvalidConfigurationException {
+      throws TransitionException, InvalidConfigurationException, InterruptedException {
     return getSkyframeExecutor().getConfiguredTargetAndDataForTesting(eventHandler, label, config);
   }
 
