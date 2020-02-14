@@ -48,8 +48,8 @@ public class WorkerKeyTest {
   public void testWorkerKeyGetter() {
     assertThat(workerKey.mustBeSandboxed()).isEqualTo(true);
     assertThat(workerKey.getProxied()).isEqualTo(true);
-    assertThat(WorkerKey.getWorkerTypeName(false)).isEqualTo("worker");
-    assertThat(WorkerKey.getWorkerTypeName(true)).isEqualTo("multiplex-worker");
+    assertThat(WorkerKey.makeWorkerTypeName(false)).isEqualTo("worker");
+    assertThat(WorkerKey.makeWorkerTypeName(true)).isEqualTo("multiplex-worker");
     // Hash code contains args, env, execRoot, and mnemonic.
     assertThat(workerKey.hashCode()).isEqualTo(322455166);
   }

@@ -55,7 +55,7 @@ final class WorkerFactory extends BaseKeyedPooledObjectFactory<WorkerKey, Worker
   public Worker create(WorkerKey key) throws Exception {
     int workerId = pidCounter.getAndIncrement();
     Path logFile =
-        workerBaseDir.getRelative(WorkerKey.getWorkerTypeName(key.getProxied()) + "-" + workerId + "-" + key.getMnemonic() + ".log");
+        workerBaseDir.getRelative(WorkerKey.makeWorkerTypeName(key.getProxied()) + "-" + workerId + "-" + key.getMnemonic() + ".log");
 
     Worker worker;
     boolean sandboxed = workerOptions.workerSandboxing || key.mustBeSandboxed();
@@ -80,7 +80,7 @@ final class WorkerFactory extends BaseKeyedPooledObjectFactory<WorkerKey, Worker
                   "Created new %s %s %s (id %d), logging to %s",
                   sandboxed ? "sandboxed" : "non-sandboxed",
                   key.getMnemonic(),
-                  WorkerKey.getWorkerTypeName(key.getProxied()),
+                  WorkerKey.makeWorkerTypeName(key.getProxied()),
                   workerId,
                   logFile)));
     }
@@ -90,7 +90,7 @@ final class WorkerFactory extends BaseKeyedPooledObjectFactory<WorkerKey, Worker
   Path getSandboxedWorkerPath(WorkerKey key, int workerId) {
     String workspaceName = key.getExecRoot().getBaseName();
     return workerBaseDir
-        .getRelative(WorkerKey.getWorkerTypeName(key.getProxied()) + "-" + workerId + "-" + key.getMnemonic())
+        .getRelative(WorkerKey.makeWorkerTypeName(key.getProxied()) + "-" + workerId + "-" + key.getMnemonic())
         .getRelative(workspaceName);
   }
 
@@ -111,7 +111,7 @@ final class WorkerFactory extends BaseKeyedPooledObjectFactory<WorkerKey, Worker
       reporter.handle(
           Event.info(
               String.format(
-                  "Destroying %s %s (id %d)", key.getMnemonic(), WorkerKey.getWorkerTypeName(key.getProxied()), p.getObject().getWorkerId())));
+                  "Destroying %s %s (id %d)", key.getMnemonic(), WorkerKey.makeWorkerTypeName(key.getProxied()), p.getObject().getWorkerId())));
     }
     p.getObject().destroy();
   }
@@ -128,7 +128,7 @@ final class WorkerFactory extends BaseKeyedPooledObjectFactory<WorkerKey, Worker
       msg.append(
           String.format(
               "%s %s (id %d) can no longer be used, because its files have changed on disk:",
-              key.getMnemonic(), WorkerKey.getWorkerTypeName(key.getProxied()), worker.getWorkerId()));
+              key.getMnemonic(), WorkerKey.makeWorkerTypeName(key.getProxied()), worker.getWorkerId()));
       TreeSet<PathFragment> files = new TreeSet<>();
       files.addAll(key.getWorkerFilesWithHashes().keySet());
       files.addAll(worker.getWorkerFilesWithHashes().keySet());

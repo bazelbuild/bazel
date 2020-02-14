@@ -111,7 +111,7 @@ final class WorkerKey {
   }
 
   /** Returns a user-friendly name for this worker type. */
-  public static String getWorkerTypeName(boolean proxied) {
+  public static String makeWorkerTypeName(boolean proxied) {
     if (proxied) {
       return "multiplex-worker";
     } else {

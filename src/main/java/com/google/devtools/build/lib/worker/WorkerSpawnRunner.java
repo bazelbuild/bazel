@@ -124,7 +124,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
       return fallbackRunner.exec(spawn, context);
     }
 
-    context.report(ProgressStatus.SCHEDULING, WorkerKey.getWorkerTypeName(Spawns.supportsMultiplexWorkers(spawn)));
+    context.report(ProgressStatus.SCHEDULING, WorkerKey.makeWorkerTypeName(Spawns.supportsMultiplexWorkers(spawn)));
     return actuallyExec(spawn, context);
   }
 
@@ -335,7 +335,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
 
       try (ResourceHandle handle =
           resourceManager.acquireResources(owner, spawn.getLocalResources())) {
-        context.report(ProgressStatus.EXECUTING, WorkerKey.getWorkerTypeName(key.getProxied()));
+        context.report(ProgressStatus.EXECUTING, WorkerKey.makeWorkerTypeName(key.getProxied()));
         try {
           worker.prepareExecution(inputFiles, outputs, key.getWorkerFilesWithHashes().keySet());
         } catch (IOException e) {
