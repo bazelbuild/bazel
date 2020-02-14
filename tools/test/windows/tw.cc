@@ -1107,7 +1107,7 @@ bool PrintTestLogStartMarker() {
   }
 
   // This header marks where --test_output=streamed will start being printed.
-  ss << "---------------------------------------------------------------------"
+  ss << "-----8<----8<----8<-----8<----8<-------------------------------------"
         "--------\n";
   WriteStdout(ss.str());
   return true;
