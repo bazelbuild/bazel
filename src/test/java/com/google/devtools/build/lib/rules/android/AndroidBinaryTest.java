@@ -199,6 +199,42 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
   }
 
   @Test
+  public void testLegacyMainDexListGenerator() throws Exception {
+    scratch.file(
+        "java/a/BUILD",
+        "android_binary(",
+        "    name = 'a',",
+        "    srcs = ['A.java'],",
+        "    manifest = 'AndroidManifest.xml',",
+        "    multidex = 'legacy')");
+    scratch.file(
+        "tools/fake/BUILD",
+        "cc_binary(",
+        "    name = 'generate_main_dex_list',",
+        "    srcs = ['main.cc'])");
+    useConfiguration("--legacy_main_dex_list_generator=//tools/fake:generate_main_dex_list");
+
+    ConfiguredTarget binary = getConfiguredTarget("//java/a:a");
+    Artifact mainDexList =
+        ActionsTestUtil.getFirstArtifactEndingWith(
+            actionsTestUtil().artifactClosureOf(getFilesToBuild(binary)), "main_dex_list.txt");
+    List<String> args = getGeneratingSpawnActionArgs(mainDexList);
+    NestedSet<Artifact> mainDexInputs = getGeneratingAction(mainDexList).getInputs();
+
+    MoreAsserts.assertContainsSublist(args, "--lib", getAndroidJarPath());
+    MoreAsserts.assertContainsSublist(args, "--main-dex-rules", getMainDexClassesPath());
+
+    assertThat(ActionsTestUtil.baseArtifactNames(mainDexInputs)).contains("generate_main_dex_list");
+    assertThat(ActionsTestUtil.baseArtifactNames(mainDexInputs)).contains("a_deploy.jar");
+    assertThat(ActionsTestUtil.baseArtifactNames(mainDexInputs)).contains(getAndroidJarFilename());
+    assertThat(ActionsTestUtil.baseArtifactNames(mainDexInputs))
+        .contains(getMainDexClassesFilename());
+    assertThat(ActionsTestUtil.baseArtifactNames(mainDexInputs))
+        .contains("main_dex_a_proguard.cfg");
+    assertThat(getFirstArtifactEndingWith(mainDexInputs, "main_dex_list_creator")).isNull();
+  }
+
+  @Test
   public void testMainDexListObfuscation() throws Exception {
     useConfiguration("--noincremental_dexing");
     scratch.file("/java/a/list.txt");

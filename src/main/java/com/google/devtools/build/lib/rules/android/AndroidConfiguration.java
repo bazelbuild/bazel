@@ -40,6 +40,7 @@ import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionMetadataTag;
 import java.util.List;
+import javax.annotation.Nullable;
 
 /** Configuration fragment for Android rules. */
 @Immutable
@@ -883,6 +884,19 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment
         help = "Use R.txt from the merging action, instead of from the validation action.")
     public boolean useRTxtFromMergedResources;
 
+    @Option(
+        name = "legacy_main_dex_list_generator",
+        // TODO(b/147692286): Update this default value to R8's GenerateMainDexList binary after
+        // migrating usage.
+        defaultValue = "null",
+        converter = LabelConverter.class,
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        help =
+            "Specifies a binary to use to generate the list of classes that must be in the main"
+                + " dex when compiling legacy multidex.")
+    public Label legacyMainDexListGenerator;
+
     @Override
     public FragmentOptions getHost() {
       Options host = (Options) super.getHost();
@@ -979,6 +993,7 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment
   private final boolean alwaysFilterDuplicateClassesFromAndroidTest;
   private final boolean filterLibraryJarWithProgramJar;
   private final boolean useRTxtFromMergedResources;
+  private final Label legacyMainDexListGenerator;
 
   private AndroidConfiguration(Options options) throws InvalidConfigurationException {
     this.sdk = options.sdk;
@@ -1032,6 +1047,7 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment
         options.alwaysFilterDuplicateClassesFromAndroidTest;
     this.filterLibraryJarWithProgramJar = options.filterLibraryJarWithProgramJar;
     this.useRTxtFromMergedResources = options.useRTxtFromMergedResources;
+    this.legacyMainDexListGenerator = options.legacyMainDexListGenerator;
 
     if (options.androidAaptVersion != AndroidAaptVersion.AAPT2) {
       throw new InvalidConfigurationException(
@@ -1282,5 +1298,15 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment
 
   boolean useRTxtFromMergedResources() {
     return useRTxtFromMergedResources;
+  }
+
+  /** Returns the label provided with --legacy_main_dex_list_generator, if any. */
+  // TODO(b/147692286): Move R8's main dex list tool into tool repository.
+  @SkylarkConfigurationField(
+      name = "legacy_main_dex_list_generator",
+      doc = "Returns the label provided with --legacy_main_dex_list_generator, if any.")
+  @Nullable
+  public Label getLegacyMainDexListGenerator() {
+    return legacyMainDexListGenerator;
   }
 }

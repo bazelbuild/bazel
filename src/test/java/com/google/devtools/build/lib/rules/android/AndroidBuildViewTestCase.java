@@ -337,8 +337,20 @@ public abstract class AndroidBuildViewTestCase extends BuildViewTestCase {
     return getAndroidSdk().getAndroidJar().getRootRelativePathString();
   }
 
+  protected String getAndroidJarFilename() throws Exception {
+    return getAndroidSdk().getAndroidJar().getFilename();
+  }
+
   protected Artifact getProguardBinary() throws Exception {
     return getAndroidSdk().getProguard().getExecutable();
+  }
+
+  protected String getMainDexClassesPath() throws Exception {
+    return getAndroidSdk().getMainDexClasses().getRootRelativePathString();
+  }
+
+  protected String getMainDexClassesFilename() throws Exception {
+    return getAndroidSdk().getMainDexClasses().getFilename();
   }
 
   private AndroidSdkProvider getAndroidSdk() throws Exception {
