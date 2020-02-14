@@ -28,7 +28,7 @@ filegroup(
 )
 
 # Executable for the databinding resource compiler.
-java_import(
+alias(
     name = "exec",
-    jars = ["v2_3_1/exec.jar"],
+    actual = "//third_party/java/android_databinding/v3_4_0:exec",
 )
