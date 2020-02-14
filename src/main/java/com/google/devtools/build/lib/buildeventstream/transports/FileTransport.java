@@ -43,6 +43,7 @@ import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
 import java.util.concurrent.LinkedBlockingDeque;
+import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
@@ -228,8 +229,13 @@ abstract class FileTransport implements BuildEventTransport {
     if (writer.isClosed.get()) {
       return;
     }
-    if (!writer.pendingWrites.add(asStreamProto(event, namer))) {
-      logger.log(Level.SEVERE, "Failed to add BEP event to the write queue");
+    try {
+      if (!writer.pendingWrites.add(asStreamProto(event, namer))) {
+        logger.log(Level.SEVERE, "Failed to add BEP event to the write queue");
+      }
+    } catch (RejectedExecutionException e) {
+      // If early shutdown races with this event, log but otherwise ignore.
+      logger.log(Level.WARNING, "Event upload started after shutdown");
     }
   }
 
