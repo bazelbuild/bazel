@@ -202,10 +202,10 @@ maybe(
     http_archive,
     name = "remotejdk11_linux",
     build_file = "@local_jdk//:BUILD.bazel",
-    sha256 = "232b1c3511f0d26e92582b7c3cc363be7ac633e371854ca2f2e9f2b50eb72a75",
-    strip_prefix = "zulu11.2.3-jdk11.0.1-linux_x64",
+    sha256 = "360626cc19063bc411bfed2914301b908a8f77a7919aaea007a977fa8fb3cde1",
+    strip_prefix = "zulu11.37.17-ca-jdk11.0.6-linux_x64",
     urls = [
-        "https://mirror.bazel.build/openjdk/azul-zulu11.2.3-jdk11.0.1/zulu11.2.3-jdk11.0.1-linux_x64.tar.gz",
+        "https://mirror.bazel.build/openjdk/azul-zulu11.37.17-ca-jdk11.0.6/zulu11.37.17-ca-jdk11.0.6-linux_x64.tar.gz",
     ],
 )
 
@@ -214,10 +214,10 @@ maybe(
     http_archive,
     name = "remotejdk11_linux_aarch64",
     build_file = "@local_jdk//:BUILD.bazel",
-    sha256 = "3b0d91611b1bdc4d409afcf9eab4f0e7f4ae09f88fc01bd9f2b48954882ae69b",
-    strip_prefix = "zulu11.31.15-ca-jdk11.0.3-linux_aarch64",
+    sha256 = "a452f1b9682d9f83c1c14e54d1446e1c51b5173a3a05dcb013d380f9508562e4",
+    strip_prefix = "zulu11.37.48-ca-jdk11.0.6-linux_aarch64",
     urls = [
-        "https://mirror.bazel.build/openjdk/azul-zulu11.31.15-ca-jdk11.0.3/zulu11.31.15-ca-jdk11.0.3-linux_aarch64.tar.gz",
+        "https://mirror.bazel.build/openjdk/azul-zulu11.37.48-ca-jdk11.0.6/zulu11.37.48-ca-jdk11.0.6-linux_aarch64.tar.gz",
     ],
 )
 
@@ -226,10 +226,10 @@ maybe(
     http_archive,
     name = "remotejdk11_macos",
     build_file = "@local_jdk//:BUILD.bazel",
-    sha256 = "1edf366ee821e5db8e348152fcb337b28dfd6bf0f97943c270dcc6747cedb6cb",
-    strip_prefix = "zulu11.2.3-jdk11.0.1-macosx_x64",
+    sha256 = "e1fe56769f32e2aaac95e0a8f86b5a323da5af3a3b4bba73f3086391a6cc056f",
+    strip_prefix = "zulu11.37.17-ca-jdk11.0.6-macosx_x64",
     urls = [
-        "https://mirror.bazel.build/openjdk/azul-zulu11.2.3-jdk11.0.1/zulu11.2.3-jdk11.0.1-macosx_x64.tar.gz",
+        "https://mirror.bazel.build/openjdk/azul-zulu11.37.17-ca-jdk11.0.6/zulu11.37.17-ca-jdk11.0.6-macosx_x64.tar.gz",
     ],
 )
 
@@ -238,10 +238,10 @@ maybe(
     http_archive,
     name = "remotejdk11_win",
     build_file = "@local_jdk//:BUILD.bazel",
-    sha256 = "8e1e2b8347de6746f3fd1538840dd643201533ab113abc4ed93678e342d28aa3",
-    strip_prefix = "zulu11.2.3-jdk11.0.1-win_x64",
+    sha256 = "a9695617b8374bfa171f166951214965b1d1d08f43218db9a2a780b71c665c18",
+    strip_prefix = "zulu11.37.17-ca-jdk11.0.6-win_x64",
     urls = [
-        "https://mirror.bazel.build/openjdk/azul-zulu11.2.3-jdk11.0.1/zulu11.2.3-jdk11.0.1-win_x64.zip",
+        "https://mirror.bazel.build/openjdk/azul-zulu11.37.17-ca-jdk11.0.6/zulu11.37.17-ca-jdk11.0.6-win_x64.zip",
     ],
 )
 

@@ -165,28 +165,25 @@ http_archive(
 http_archive(
     name = "openjdk11_linux_archive",
     build_file_content = "java_runtime(name = 'runtime', srcs =  glob(['**']), visibility = ['//visibility:public'])",
-    strip_prefix = "zulu11.31.11-ca-jdk11.0.3-linux_x64",
-    urls = [
-        "https://mirror.bazel.build/openjdk/azul-zulu11.31.11-ca-jdk11.0.3/zulu11.31.11-ca-jdk11.0.3-linux_x64.tar.gz",
-    ],
+    sha256 = "360626cc19063bc411bfed2914301b908a8f77a7919aaea007a977fa8fb3cde1",
+    strip_prefix = "zulu11.37.17-ca-jdk11.0.6-linux_x64",
+    urls = ["https://mirror.bazel.build/openjdk/azul-zulu11.37.17-ca-jdk11.0.6/zulu11.37.17-ca-jdk11.0.6-linux_x64.tar.gz"],
 )
 # This must be kept in sync with the top-level WORKSPACE file.
 http_archive(
     name = "openjdk11_darwin_archive",
     build_file_content = "java_runtime(name = 'runtime', srcs =  glob(['**']), visibility = ['//visibility:public'])",
-    strip_prefix = "zulu11.31.11-ca-jdk11.0.3-macosx_x64",
-    urls = [
-        "https://mirror.bazel.build/openjdk/azul-zulu11.31.11-ca-jdk11.0.3/zulu11.31.11-ca-jdk11.0.3-macosx_x64.tar.gz",
-    ],
+    sha256 = "e1fe56769f32e2aaac95e0a8f86b5a323da5af3a3b4bba73f3086391a6cc056f",
+    strip_prefix = "zulu11.37.17-ca-jdk11.0.6-macosx_x64",
+    urls = ["https://mirror.bazel.build/openjdk/azul-zulu11.37.17-ca-jdk11.0.6/zulu11.37.17-ca-jdk11.0.6-macosx_x64.tar.gz"],
 )
 # This must be kept in sync with the top-level WORKSPACE file.
 http_archive(
     name = "openjdk11_windows_archive",
     build_file_content = "java_runtime(name = 'runtime', srcs =  glob(['**']), visibility = ['//visibility:public'])",
-    strip_prefix = "zulu11.31.11-ca-jdk11.0.3-win_x64",
-    urls = [
-        "https://mirror.bazel.build/openjdk/azul-zulu11.31.11-ca-jdk11.0.3/zulu11.31.11-ca-jdk11.0.3-win_x64.zip",
-    ],
+    sha256 = "a9695617b8374bfa171f166951214965b1d1d08f43218db9a2a780b71c665c18",
+    strip_prefix = "zulu11.37.17-ca-jdk11.0.6-win_x64",
+    urls = ["https://mirror.bazel.build/openjdk/azul-zulu11.37.17-ca-jdk11.0.6/zulu11.37.17-ca-jdk11.0.6-win_x64.zip"],
 )
 
 #################################### JDK 12 ####################################
