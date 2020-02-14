@@ -471,12 +471,12 @@ bool ExportUserName() {
   std::wstring userValue;
   std::wstring lognameValue;
   if (!GetEnv(L"USER", &userValue) || !GetEnv(L"LOGNAME", &lognameValue)) {
-    cerr << "Unable to getenv USER or LOGNAME";
+    LogError(__LINE__, "Unable to getenv USER or LOGNAME")l
     return false;
   }
   if (!userValue.empty() && !lognameValue.empty()) {
     // Respect the values passed by Bazel via --test_env.
-    cerr << "USER and LOGNAME are non-empty";
+    LogError(__LINE__, "USER and LOGNAME are non-empty");
     return true;
   }
   WCHAR buffer[UNLEN + 1];
@@ -487,14 +487,14 @@ bool ExportUserName() {
     return false;
   }
   if (userValue.empty() && !SetEnv(L"USER", buffer)) {
-    cerr << "Error setting USER";
+    LogError(__LINE__, "Error setting USER");
     return false;
   }
   if (lognameValue.empty() && !SetEnv(L"LOGNAME", buffer)) {
-    cerr << "Error setting LOGNAME";
+    LogError(__LINE__, "Error setting LOGNAME");
     return false;
   }
-  cerr << "USER and LOGNAME should now be set";
+  LogError(__LINE__, "USER and LOGNAME should now be set");
   return true;
 }
 
