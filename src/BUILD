@@ -6,9 +6,7 @@ load(":rule_size_test.bzl", "rule_size_test")
 
 exports_files(["jdeps_modules.golden"])
 
-# We avoid using the `head` tool's `-c` option, since it does not exist on
-# OpenBSD; here we use `dd` instead.
-md5_cmd = "set -e -o pipefail && echo $(SRCS) | sort | xargs %s | %s | dd bs=32 count=1 > $@"
+md5_cmd = "set -e -o pipefail && %s $(SRCS) | %s | %s > $@"
 
 [genrule(
     name = "install_base_key-file" + suffix,
@@ -22,11 +20,13 @@ md5_cmd = "set -e -o pipefail && echo $(SRCS) | sort | xargs %s | %s | dd bs=32 
     ] + embedded_tools_target,
     outs = ["install_base_key" + suffix],
     cmd = select({
-        "//src/conditions:darwin": md5_cmd % ("/sbin/md5", "/sbin/md5"),
-        "//src/conditions:darwin_x86_64": md5_cmd % ("/sbin/md5", "/sbin/md5"),
-        "//src/conditions:freebsd": md5_cmd % ("/sbin/md5", "/sbin/md5"),
-        "//src/conditions:openbsd": md5_cmd % ("/bin/md5", "/bin/md5"),
-        "//conditions:default": md5_cmd % ("md5sum", "md5sum"),
+        "//src/conditions:darwin": md5_cmd % ("/sbin/md5", "/sbin/md5", "head -c 32"),
+        "//src/conditions:darwin_x86_64": md5_cmd % ("/sbin/md5", "/sbin/md5", "head -c 32"),
+        "//src/conditions:freebsd": md5_cmd % ("/sbin/md5", "/sbin/md5", "head -c 32"),
+        # We avoid using the `head` tool's `-c` option, since it does not exist
+        # on OpenBSD.
+        "//src/conditions:openbsd": md5_cmd % ("/bin/md5", "/bin/md5", "dd bs=32 count=1"),
+        "//conditions:default": md5_cmd % ("md5sum", "md5sum", "head -c 32"),
     }),
 ) for suffix, embedded_tools_target in {
     "_jdk_allmodules": [":embedded_tools_jdk_allmodules"],
