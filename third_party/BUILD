@@ -9,15 +9,20 @@ filegroup(
     name = "srcs",
     srcs = glob(["**"]) + [
         "//third_party/allocation_instrumenter:srcs",
+        "//third_party/animal_sniffer:srcs",
+        "//third_party/antlr:srcs",
         "//third_party/aws-sdk-auth-lite:srcs",
+        "//third_party/checker_framework_dataflow:srcs",
+        "//third_party/checker_framework_javacutil:srcs",
         "//third_party/css/bootstrap:srcs",
         "//third_party/css/font_awesome:srcs",
-        "//third_party/ijar:srcs",
+        "//third_party/def_parser:srcs",
         "//third_party/grpc:srcs",
+        "//third_party/ijar:srcs",
         "//third_party/jarjar:srcs",
-        "//third_party/jaxb:srcs",
         "//third_party/java/android_databinding:srcs",
         "//third_party/java/aosp_gradle_core:srcs",
+        "//third_party/java/j2objc-annotations:srcs",
         "//third_party/java/j2objc:srcs",
         "//third_party/java/jacoco:srcs",
         "//third_party/java/javapoet:srcs",
@@ -25,9 +30,13 @@ filegroup(
         "//third_party/java/jdk/langtools:srcs",
         "//third_party/java/proguard:srcs",
         "//third_party/javascript/bootstrap:srcs",
-        "//third_party/checker_framework_dataflow:srcs",
-        "//third_party/checker_framework_javacutil:srcs",
+        "//third_party/jaxb:srcs",
+        "//third_party/jetbrains_annotations:srcs",
+        "//third_party/jetifier:srcs",
         "//third_party/jformatstring:srcs",
+        "//third_party/juniversalchardet:srcs",
+        "//third_party/kotlin_stdlib:srcs",
+        "//third_party/pprof:srcs",
         "//third_party/protobuf:srcs",
         "//third_party/py/abseil:srcs",
         "//third_party/py/concurrent:srcs",
@@ -36,8 +45,6 @@ filegroup(
         "//third_party/py/six:srcs",
         "//third_party/rules_python:srcs",
         "//third_party/zlib:srcs",
-        "//third_party/def_parser:srcs",
-        "//third_party/pprof:srcs",
         "@googleapis//:srcs",
         "@remoteapis//:srcs",
     ],
@@ -66,6 +73,11 @@ distrib_java_import(
         "//third_party/jaxb",
     ],
     enable_distributions = ["debian"],
+)
+
+java_import(
+    name = "android-annotations",
+    jars = ["android_common/com.android_annotations_25.0.0.jar"],
 )
 
 java_import(
@@ -102,10 +114,20 @@ java_import(
     ],
 )
 
+java_import(
+    name = "apache_commons_codec",
+    jars = ["apache_commons_codec/commons-codec-1.10.jar"],
+)
+
 distrib_java_import(
     name = "apache_commons_collections",
     jars = ["apache_commons_collections/commons-collections-3.2.2.jar"],
     enable_distributions = ["debian"],
+)
+
+java_import(
+    name = "apache_commons_io",
+    jars = ["apache_commons_io/commons-io-2.4.jar"],
 )
 
 distrib_java_import(
@@ -314,7 +336,7 @@ java_import(
 
 distrib_java_import(
     name = "gson",
-    jars = ["gson/gson-2.2.4.jar"],
+    jars = ["gson/gson-2.8.0.jar"],
     enable_distributions = ["debian"],
 )
 
@@ -446,6 +468,12 @@ distrib_jar_filegroup(
     name = "guava-jars",
     srcs = ["guava/guava-25.1-jre.jar"],
     enable_distributions = ["debian"],
+)
+
+java_import(
+    name = "javax_activation",
+    jars = ["javax_activation/javax.activation-api-1.2.0.jar"],
+    srcjar = "javax_annotations/javax.activation-api-1.2.0-sources.jar",
 )
 
 # javax.annotation.Generated is not included in the default root modules in 9,
