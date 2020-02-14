@@ -1101,9 +1101,9 @@ bool PrintTestLogStartMarker() {
   if (test_target.empty()) {
     // According to the Bazel Test Encyclopedia, setting TEST_TARGET is
     // optional.
-    ss << "Executing tests from unknown target\n";
+    ss << "* Executing tests from unknown target\n";
   } else {
-    ss << "Executing tests from " << acp_test_target << "\n";
+    ss << "* Executing tests from " << acp_test_target << "\n";
   }
 
   // This header marks where --test_output=streamed will start being printed.
