@@ -10,6 +10,6 @@ filegroup(
 )
 
 java_import(
-  name = "kotlin_stdlib",
-  jars = glob(["*.jar"]),
+    name = "kotlin_stdlib",
+    jars = glob(["*.jar"]),
 )

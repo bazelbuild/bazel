@@ -14,6 +14,6 @@ filegroup(
 )
 
 java_import(
-  name = "j2objc-annotations",
-  jars = [":j2objc-annotations-1.1.jar"],
+    name = "j2objc-annotations",
+    jars = [":j2objc-annotations-1.1.jar"],
 )

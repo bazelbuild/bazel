@@ -10,6 +10,6 @@ filegroup(
 )
 
 java_import(
-  name = "juniversalchardet",
-  jars = glob(["*.jar"]),
+    name = "juniversalchardet",
+    jars = glob(["*.jar"]),
 )
