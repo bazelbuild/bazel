@@ -66,14 +66,14 @@ public class NinjaGraphTest extends BuildViewTestCase {
         "build_config/build.ninja",
         "rule echo",
         "  command = echo \"Hello $$(cat ${in})!\" > ${out}",
-        "build hello.txt: echo input.txt");
+        "build build_config/hello.txt: echo build_config/input.txt");
 
+    // Working directory is workspace root.
     ConfiguredTarget configuredTarget =
         scratchConfiguredTarget(
             "",
             "graph",
             "ninja_graph(name = 'graph', output_root = 'build_config',",
-            " working_directory = 'build_config',",
             " main = 'build_config/build.ninja',",
             " output_root_inputs = ['input.txt'])");
     assertThat(configuredTarget).isInstanceOf(RuleConfiguredTarget.class);
@@ -90,7 +90,7 @@ public class NinjaGraphTest extends BuildViewTestCase {
             ninjaAction.getCommandLines().getCommandLines();
         assertThat(commandLines).hasSize(1);
         assertThat(commandLines.get(0).commandLine.toString())
-            .endsWith("cd build_config && echo \"Hello $(cat input.txt)!\" > hello.txt");
+            .endsWith("echo \"Hello $(cat build_config/input.txt)!\" > build_config/hello.txt");
         assertThat(ninjaAction.getPrimaryInput().getExecPathString())
             .isEqualTo("build_config/input.txt");
         assertThat(ninjaAction.getPrimaryOutput().getExecPathString())
