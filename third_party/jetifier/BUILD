@@ -8,11 +8,11 @@ filegroup(
 )
 
 java_import(
-	name = "jetifier",
-	jars = glob(["*.jar"]),
-	deps = [
-    "//third_party:gson",
-    "//third_party/jetbrains_annotations",
-    "//third_party/kotlin_stdlib",
-	],
+    name = "jetifier",
+    jars = glob(["*.jar"]),
+    deps = [
+      "//third_party:gson",
+      "//third_party/jetbrains_annotations",
+      "//third_party/kotlin_stdlib",
+    ],
 )
