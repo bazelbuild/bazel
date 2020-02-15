@@ -24,7 +24,9 @@ package(
 
 filegroup(
     name = "srcs",
-    srcs = glob(["**"]),
+    srcs = glob(["**"]) + [
+        "//third_party/java/android_databinding/v3_4_0:srcs",
+    ],
 )
 
 # Executable for the databinding resource compiler.
