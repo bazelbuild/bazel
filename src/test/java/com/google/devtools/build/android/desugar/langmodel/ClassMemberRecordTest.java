@@ -18,6 +18,7 @@ package com.google.devtools.build.android.desugar.langmodel;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import com.google.devtools.build.android.desugar.langmodel.ClassMemberRecord.ClassMemberRecordBuilder;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -25,9 +26,9 @@ import org.objectweb.asm.Opcodes;
 
 /** Tests for {@link ClassMemberRecord}. */
 @RunWith(JUnit4.class)
-public class ClassMemberRecordTest {
+public final class ClassMemberRecordTest {
 
-  private final ClassMemberRecord classMemberRecord = ClassMemberRecord.create();
+  private final ClassMemberRecordBuilder classMemberRecord = ClassMemberRecord.builder();
 
   @Test
   public void trackFieldUse() {
@@ -38,7 +39,7 @@ public class ClassMemberRecordTest {
     classMemberRecord.logMemberUse(classMemberKey, Opcodes.H_GETFIELD);
     classMemberRecord.logMemberUse(classMemberKey, Opcodes.H_PUTFIELD);
 
-    assertThat(classMemberRecord.findAllMemberUseKind(classMemberKey))
+    assertThat(classMemberRecord.build().findAllMemberUseKind(classMemberKey))
         .containsExactly(
             MemberUseKind.GETFIELD,
             MemberUseKind.PUTFIELD,
@@ -53,7 +54,7 @@ public class ClassMemberRecordTest {
     classMemberRecord.logMemberUse(classMemberKey, Opcodes.INVOKESPECIAL);
     classMemberRecord.logMemberUse(classMemberKey, Opcodes.H_NEWINVOKESPECIAL);
 
-    assertThat(classMemberRecord.findAllMemberUseKind(classMemberKey))
+    assertThat(classMemberRecord.build().findAllMemberUseKind(classMemberKey))
         .containsExactly(MemberUseKind.INVOKESPECIAL, MemberUseKind.H_NEWINVOKESPECIAL);
   }
 
@@ -72,7 +73,7 @@ public class ClassMemberRecordTest {
     classMemberRecord.logMemberUse(classMemberKey, Opcodes.H_NEWINVOKESPECIAL);
     classMemberRecord.logMemberUse(classMemberKey, Opcodes.H_INVOKEINTERFACE);
 
-    assertThat(classMemberRecord.findAllMemberUseKind(classMemberKey))
+    assertThat(classMemberRecord.build().findAllMemberUseKind(classMemberKey))
         .containsExactly(
             MemberUseKind.INVOKEVIRTUAL,
             MemberUseKind.INVOKESPECIAL,
@@ -93,9 +94,10 @@ public class ClassMemberRecordTest {
     classMemberRecord.logMemberDecl(
         classMemberKey, Opcodes.ACC_PUBLIC | Opcodes.ACC_SUPER, Opcodes.ACC_PRIVATE);
 
-    assertThat(classMemberRecord.findOwnerAccessCode(classMemberKey))
+    ClassMemberRecord readOnlyClassMemberRecord = classMemberRecord.build();
+    assertThat(readOnlyClassMemberRecord.findOwnerAccessCode(classMemberKey))
         .isEqualTo(Opcodes.ACC_PUBLIC | Opcodes.ACC_SUPER);
-    assertThat(classMemberRecord.findMemberAccessCode(classMemberKey))
+    assertThat(readOnlyClassMemberRecord.findMemberAccessCode(classMemberKey))
         .isEqualTo(Opcodes.ACC_PRIVATE);
   }
 
@@ -107,15 +109,16 @@ public class ClassMemberRecordTest {
         classMemberKey,
         Opcodes.ACC_DEPRECATED | Opcodes.ACC_PUBLIC | Opcodes.ACC_SUPER,
         Opcodes.ACC_DEPRECATED | Opcodes.ACC_PRIVATE);
-    assertThat(classMemberRecord.findOwnerAccessCode(classMemberKey))
+    ClassMemberRecord rawClassMemberRecord = classMemberRecord.build();
+    assertThat(rawClassMemberRecord.findOwnerAccessCode(classMemberKey))
         .isEqualTo(Opcodes.ACC_DEPRECATED | Opcodes.ACC_PUBLIC | Opcodes.ACC_SUPER);
-    assertThat(classMemberRecord.findMemberAccessCode(classMemberKey))
+    assertThat(rawClassMemberRecord.findMemberAccessCode(classMemberKey))
         .isEqualTo(Opcodes.ACC_DEPRECATED | Opcodes.ACC_PRIVATE);
   }
 
   @Test
   public void mergeRecord_trackingReasons() {
-    ClassMemberRecord otherClassMemberRecord = ClassMemberRecord.create();
+    ClassMemberRecordBuilder otherClassMemberRecord = ClassMemberRecord.builder();
 
     MethodKey method1 =
         MethodKey.create(ClassName.create("package/path/OwnerClass"), "method1", "(II)I");
@@ -131,23 +134,24 @@ public class ClassMemberRecordTest {
     otherClassMemberRecord.logMemberUse(method2, Opcodes.INVOKESPECIAL);
     otherClassMemberRecord.logMemberUse(method3, Opcodes.INVOKEVIRTUAL);
 
-    classMemberRecord.mergeFrom(otherClassMemberRecord);
+    ClassMemberRecord mergedRecord =
+        classMemberRecord.mergeFrom(otherClassMemberRecord.build()).build();
 
-    assertThat(classMemberRecord.hasDeclReason(method1)).isTrue();
-    assertThat(classMemberRecord.findOwnerAccessCode(method1)).isEqualTo(Opcodes.ACC_SUPER);
-    assertThat(classMemberRecord.findMemberAccessCode(method1)).isEqualTo(Opcodes.ACC_PRIVATE);
-    assertThat(classMemberRecord.findAllMemberUseKind(method1)).isEmpty();
+    assertThat(mergedRecord.hasDeclReason(method1)).isTrue();
+    assertThat(mergedRecord.findOwnerAccessCode(method1)).isEqualTo(Opcodes.ACC_SUPER);
+    assertThat(mergedRecord.findMemberAccessCode(method1)).isEqualTo(Opcodes.ACC_PRIVATE);
+    assertThat(mergedRecord.findAllMemberUseKind(method1)).isEmpty();
 
-    assertThat(classMemberRecord.hasDeclReason(method2)).isTrue();
-    assertThat(classMemberRecord.findOwnerAccessCode(method2)).isEqualTo(Opcodes.ACC_SUPER);
-    assertThat(classMemberRecord.findMemberAccessCode(method2)).isEqualTo(Opcodes.ACC_PRIVATE);
-    assertThat(classMemberRecord.findAllMemberUseKind(method2))
+    assertThat(mergedRecord.hasDeclReason(method2)).isTrue();
+    assertThat(mergedRecord.findOwnerAccessCode(method2)).isEqualTo(Opcodes.ACC_SUPER);
+    assertThat(mergedRecord.findMemberAccessCode(method2)).isEqualTo(Opcodes.ACC_PRIVATE);
+    assertThat(mergedRecord.findAllMemberUseKind(method2))
         .containsExactly(MemberUseKind.INVOKEVIRTUAL, MemberUseKind.INVOKESPECIAL);
 
-    assertThat(classMemberRecord.hasDeclReason(method3)).isFalse();
-    assertThat(classMemberRecord.findOwnerAccessCode(method3)).isEqualTo(0);
-    assertThat(classMemberRecord.findMemberAccessCode(method3)).isEqualTo(0);
-    assertThat(classMemberRecord.findAllMemberUseKind(method3))
+    assertThat(mergedRecord.hasDeclReason(method3)).isFalse();
+    assertThat(mergedRecord.findOwnerAccessCode(method3)).isEqualTo(0);
+    assertThat(mergedRecord.findMemberAccessCode(method3)).isEqualTo(0);
+    assertThat(mergedRecord.findAllMemberUseKind(method3))
         .containsExactly(MemberUseKind.INVOKEVIRTUAL);
   }
 
@@ -157,10 +161,12 @@ public class ClassMemberRecordTest {
         MethodKey.create(ClassName.create("package/path/OwnerClass"), "method", "(II)I");
 
     classMemberRecord.logMemberUse(classMemberKey, Opcodes.INVOKEVIRTUAL);
-    assertThat(classMemberRecord.hasTrackingReason(classMemberKey)).isTrue();
+    ClassMemberRecord rawClassMemberRecord = classMemberRecord.build();
+    assertThat(rawClassMemberRecord.hasTrackingReason(classMemberKey)).isTrue();
 
-    classMemberRecord.filterUsedMemberWithTrackedDeclaration();
-    assertThat(classMemberRecord.hasTrackingReason(classMemberKey)).isFalse();
+    ClassMemberRecord filteredRecord =
+        rawClassMemberRecord.filterUsedMemberWithTrackedDeclaration();
+    assertThat(filteredRecord.hasTrackingReason(classMemberKey)).isFalse();
   }
 
   @Test
@@ -170,10 +176,12 @@ public class ClassMemberRecordTest {
 
     classMemberRecord.logMemberDecl(
         classMemberKey, Opcodes.ACC_PUBLIC | Opcodes.ACC_SUPER, Opcodes.ACC_PRIVATE);
-    assertThat(classMemberRecord.hasTrackingReason(classMemberKey)).isTrue();
+    ClassMemberRecord rawClassMemberRecord = classMemberRecord.build();
+    assertThat(rawClassMemberRecord.hasTrackingReason(classMemberKey)).isTrue();
 
-    classMemberRecord.filterUsedMemberWithTrackedDeclaration();
-    assertThat(classMemberRecord.hasTrackingReason(classMemberKey)).isFalse();
+    ClassMemberRecord filteredRecord =
+        rawClassMemberRecord.filterUsedMemberWithTrackedDeclaration();
+    assertThat(filteredRecord.hasTrackingReason(classMemberKey)).isFalse();
   }
 
   @Test
@@ -183,9 +191,11 @@ public class ClassMemberRecordTest {
 
     classMemberRecord.logMemberDecl(
         classMemberKey, Opcodes.ACC_PUBLIC | Opcodes.ACC_INTERFACE, Opcodes.ACC_PRIVATE);
-    assertThat(classMemberRecord.hasTrackingReason(classMemberKey)).isTrue();
+    ClassMemberRecord rawClassMemberRecord = classMemberRecord.build();
+    assertThat(rawClassMemberRecord.hasTrackingReason(classMemberKey)).isTrue();
 
-    classMemberRecord.filterUsedMemberWithTrackedDeclaration();
-    assertThat(classMemberRecord.hasTrackingReason(classMemberKey)).isTrue();
+    ClassMemberRecord filteredRecord =
+        rawClassMemberRecord.filterUsedMemberWithTrackedDeclaration();
+    assertThat(filteredRecord.hasTrackingReason(classMemberKey)).isTrue();
   }
 }

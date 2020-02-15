@@ -17,8 +17,13 @@
 package com.google.devtools.build.android.desugar.langmodel;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 
+import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Maps;
+import com.google.devtools.build.android.desugar.langmodel.ClassMemberTrackReason.ClassMemberTrackReasonBuilder;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.function.Predicate;
@@ -27,105 +32,123 @@ import java.util.function.Predicate;
  * A record that tracks the declarations and usages of a class member, including fields,
  * constructors and methods.
  */
-public final class ClassMemberRecord implements TypeMappable<ClassMemberRecord> {
+@AutoValue
+public abstract class ClassMemberRecord implements TypeMappable<ClassMemberRecord> {
 
   /** Tracks a class member with a reason. */
-  private final Map<ClassMemberKey<?>, ClassMemberTrackReason> reasons;
+  abstract ImmutableMap<ClassMemberKey<?>, ClassMemberTrackReason> reasons();
 
-  /** The factory method of this class. */
-  public static ClassMemberRecord create() {
-    return new ClassMemberRecord(new LinkedHashMap<>());
+  /** Creates a builder instance for this class. */
+  public static ClassMemberRecordBuilder builder() {
+    return new AutoValue_ClassMemberRecord.Builder();
   }
 
   /** Gets class members with both tracked declarations and tracked usage. */
-  public boolean filterUsedMemberWithTrackedDeclaration() {
-    return reasons
-        .values()
-        .removeIf(
-            reason -> {
-              // keep interface members and class members with use references.
-              return !(reason.hasInterfaceDeclReason()
-                  || (reason.hasDeclReason() && reason.hasMemberUseReason()));
-            });
-  }
-
-  private ClassMemberRecord(Map<ClassMemberKey<?>, ClassMemberTrackReason> reasons) {
-    this.reasons = reasons;
+  public final ClassMemberRecord filterUsedMemberWithTrackedDeclaration() {
+    return builder()
+        .setReasons(
+            reasons().entrySet().stream()
+                .filter(
+                    entry -> {
+                      ClassMemberTrackReason reason = entry.getValue();
+                      // keep interface members and class members with use references.
+                      return reason.hasInterfaceDeclReason()
+                          || (reason.hasDeclReason() && reason.hasMemberUseReason());
+                    })
+                .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue)))
+        .autoInternalBuild();
   }
 
   /** Find all member keys that represent a constructor. */
-  public ImmutableList<ClassMemberKey<?>> findAllConstructorMemberKeys() {
+  public final ImmutableList<ClassMemberKey<?>> findAllConstructorMemberKeys() {
     return findAllMatchedMemberKeys(ClassMemberKey::isConstructor);
   }
 
   /** Find all member keys based on the given member key predicate. */
-  ImmutableList<ClassMemberKey<?>> findAllMatchedMemberKeys(
+  private ImmutableList<ClassMemberKey<?>> findAllMatchedMemberKeys(
       Predicate<ClassMemberKey<?>> predicate) {
-    return reasons.keySet().stream().filter(predicate).collect(toImmutableList());
+    return reasons().keySet().stream().filter(predicate).collect(toImmutableList());
   }
 
-  /** Whether this record has any reason to desugar a nest. */
-  public boolean hasAnyReason() {
-    return !reasons.isEmpty();
+  public final boolean hasTrackingReason(ClassMemberKey<?> classMemberKey) {
+    return reasons().containsKey(classMemberKey);
   }
 
-  public boolean hasTrackingReason(ClassMemberKey<?> classMemberKey) {
-    return reasons.containsKey(classMemberKey);
-  }
-
-  boolean hasDeclReason(ClassMemberKey<?> classMemberKey) {
-    return hasTrackingReason(classMemberKey) && reasons.get(classMemberKey).hasDeclReason();
+  final boolean hasDeclReason(ClassMemberKey<?> classMemberKey) {
+    return hasTrackingReason(classMemberKey) && reasons().get(classMemberKey).hasDeclReason();
   }
 
   /** Find the original access code for the owner of the class member. */
-  int findOwnerAccessCode(ClassMemberKey<?> memberKey) {
-    if (reasons.containsKey(memberKey)) {
-      return reasons.get(memberKey).getOwnerAccess();
+  final int findOwnerAccessCode(ClassMemberKey<?> memberKey) {
+    if (reasons().containsKey(memberKey)) {
+      return reasons().get(memberKey).ownerAccess();
     }
     throw new IllegalStateException(String.format("ClassMemberKey Not Found: %s", memberKey));
   }
 
   /** Find the original access code for the class member declaration. */
-  int findMemberAccessCode(ClassMemberKey<?> memberKey) {
-    if (reasons.containsKey(memberKey)) {
-      return reasons.get(memberKey).getMemberAccess();
+  final int findMemberAccessCode(ClassMemberKey<?> memberKey) {
+    if (reasons().containsKey(memberKey)) {
+      return reasons().get(memberKey).memberAccess();
     }
     throw new IllegalStateException(String.format("ClassMemberKey Not Found: %s", memberKey));
   }
 
   /** Find all invocation codes of a class member. */
-  public ImmutableList<MemberUseKind> findAllMemberUseKind(ClassMemberKey<?> memberKey) {
-    if (reasons.containsKey(memberKey)) {
-      return ImmutableList.copyOf(reasons.get(memberKey).getUseAccesses());
-    }
-    return ImmutableList.of();
-  }
-
-  /** Logs the declaration of a class member. */
-  public ClassMemberTrackReason logMemberDecl(
-      ClassMemberKey<?> memberKey, int ownerAccess, int memberDeclAccess) {
-    return reasons
-        .computeIfAbsent(memberKey, classMemberKey -> new ClassMemberTrackReason())
-        .setDeclAccess(ownerAccess, memberDeclAccess);
-  }
-
-  /** Logs the use of a class member, including field access and method invocations. */
-  public ClassMemberTrackReason logMemberUse(ClassMemberKey<?> memberKey, int invokeOpcode) {
-    return reasons
-        .computeIfAbsent(memberKey, classMemberKey -> new ClassMemberTrackReason())
-        .addUseAccess(invokeOpcode);
-  }
-
-  /** Merge an another member record into this record. */
-  public void mergeFrom(ClassMemberRecord otherClassMemberRecord) {
-    otherClassMemberRecord.reasons.forEach(
-        (classMemberKey, classMemberTrackReason) ->
-            reasons.merge(
-                classMemberKey, classMemberTrackReason, ClassMemberTrackReason::mergeFrom));
+  public final ImmutableList<MemberUseKind> findAllMemberUseKind(ClassMemberKey<?> memberKey) {
+    return reasons().containsKey(memberKey)
+        ? reasons().get(memberKey).useAccesses().asList()
+        : ImmutableList.of();
   }
 
   @Override
   public ClassMemberRecord acceptTypeMapper(TypeMapper typeMapper) {
-    return new ClassMemberRecord(typeMapper.mapKey(reasons));
+    return builder().setReasons(typeMapper.mapKey(reasons())).autoInternalBuild();
+  }
+
+  /** The builder for {@link ClassMemberRecord}. */
+  @AutoValue.Builder
+  public abstract static class ClassMemberRecordBuilder {
+
+    private final Map<ClassMemberKey<?>, ClassMemberTrackReasonBuilder> reasonsCollector =
+        new LinkedHashMap<>();
+
+    abstract ClassMemberRecordBuilder setReasons(
+        Map<ClassMemberKey<?>, ClassMemberTrackReason> value);
+
+    /** Logs the declaration of a class member. */
+    public final ClassMemberTrackReasonBuilder logMemberDecl(
+        ClassMemberKey<?> memberKey, int ownerAccess, int memberDeclAccess) {
+      return getTrackReason(memberKey).setDeclAccess(ownerAccess, memberDeclAccess);
+    }
+
+    /** Logs the use of a class member, including field access and method invocations. */
+    public final ClassMemberTrackReasonBuilder logMemberUse(
+        ClassMemberKey<?> memberKey, int invokeOpcode) {
+      return getTrackReason(memberKey).addUseAccess(invokeOpcode);
+    }
+
+    /** Merges an another member record into this record builder. */
+    public final ClassMemberRecordBuilder mergeFrom(ClassMemberRecord otherClassMemberRecord) {
+      otherClassMemberRecord
+          .reasons()
+          .forEach(
+              (otherMemberKey, otherMemberTrackReason) ->
+                  getTrackReason(otherMemberKey).mergeFrom(otherMemberTrackReason));
+      return this;
+    }
+
+    private ClassMemberTrackReasonBuilder getTrackReason(ClassMemberKey<?> memberKey) {
+      return reasonsCollector.computeIfAbsent(
+          memberKey, classMemberKey -> ClassMemberTrackReason.builder());
+    }
+
+    public final ClassMemberRecord build() {
+      return setReasons(
+              Maps.transformValues(reasonsCollector, ClassMemberTrackReasonBuilder::build))
+          .autoInternalBuild();
+    }
+
+    abstract ClassMemberRecord autoInternalBuild();
   }
 }

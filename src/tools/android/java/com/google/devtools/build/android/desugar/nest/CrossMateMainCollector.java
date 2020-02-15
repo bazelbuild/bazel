@@ -14,10 +14,11 @@
 
 package com.google.devtools.build.android.desugar.nest;
 
-import com.google.devtools.build.android.desugar.langmodel.ClassAttributeRecord;
+import com.google.devtools.build.android.desugar.langmodel.ClassAttributeRecord.ClassAttributeRecordBuilder;
 import com.google.devtools.build.android.desugar.langmodel.ClassAttributes;
 import com.google.devtools.build.android.desugar.langmodel.ClassAttributes.ClassAttributesBuilder;
 import com.google.devtools.build.android.desugar.langmodel.ClassMemberRecord;
+import com.google.devtools.build.android.desugar.langmodel.ClassMemberRecord.ClassMemberRecordBuilder;
 import com.google.devtools.build.android.desugar.langmodel.ClassName;
 import com.google.devtools.build.android.desugar.langmodel.FieldKey;
 import com.google.devtools.build.android.desugar.langmodel.LangModelHelper;
@@ -34,15 +35,15 @@ import org.objectweb.asm.Opcodes;
 final class CrossMateMainCollector extends ClassVisitor {
 
   /** The project-wise class member records. */
-  private final ClassMemberRecord memberRecord;
+  private final ClassMemberRecordBuilder memberRecord;
 
-  private final ClassAttributeRecord classAttributeRecord;
+  private final ClassAttributeRecordBuilder classAttributeRecord;
 
   /**
    * An class member record to stage member record candidates, merging into the project-wise member
    * record during the {@link #visitEnd()} where eligible conditions are specified.
    */
-  private final ClassMemberRecord stagingMemberRecord = ClassMemberRecord.create();
+  private final ClassMemberRecordBuilder stagingMemberRecord = ClassMemberRecord.builder();
 
   private final ClassAttributesBuilder classAttributesBuilder = ClassAttributes.builder();
 
@@ -51,7 +52,7 @@ final class CrossMateMainCollector extends ClassVisitor {
   private boolean isInNest;
 
   public CrossMateMainCollector(
-      ClassMemberRecord memberRecord, ClassAttributeRecord classAttributeRecord) {
+      ClassMemberRecordBuilder memberRecord, ClassAttributeRecordBuilder classAttributeRecord) {
     super(Opcodes.ASM7);
     this.memberRecord = memberRecord;
     this.classAttributeRecord = classAttributeRecord;
@@ -129,9 +130,9 @@ final class CrossMateMainCollector extends ClassVisitor {
   @Override
   public void visitEnd() {
     if (isInNest || (classAccessCode & Opcodes.ACC_INTERFACE) != 0) {
-      memberRecord.mergeFrom(stagingMemberRecord);
+      memberRecord.mergeFrom(stagingMemberRecord.build());
     }
-    classAttributeRecord.setClassAttributes(classAttributesBuilder.build());
+    classAttributeRecord.addClassAttributes(classAttributesBuilder.build());
     super.visitEnd();
   }
 
@@ -150,10 +151,12 @@ final class CrossMateMainCollector extends ClassVisitor {
      *
      * <p>@see CrossMateMainCollector#stagingMemberRecord for more details.
      */
-    private final ClassMemberRecord memberRecord;
+    private final ClassMemberRecordBuilder memberRecord;
 
     CrossMateRefCollector(
-        MethodVisitor methodVisitor, MethodKey enclosingMethodKey, ClassMemberRecord memberRecord) {
+        MethodVisitor methodVisitor,
+        MethodKey enclosingMethodKey,
+        ClassMemberRecordBuilder memberRecord) {
       super(Opcodes.ASM7, methodVisitor);
       this.enclosingMethodKey = enclosingMethodKey;
       this.memberRecord = memberRecord;

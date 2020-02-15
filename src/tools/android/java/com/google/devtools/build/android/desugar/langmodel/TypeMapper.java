@@ -20,14 +20,11 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.util.stream.Collectors.toCollection;
-import static java.util.stream.Collectors.toMap;
 
 import com.google.common.collect.ConcurrentHashMultiset;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import java.util.HashMap;
-import java.util.Map;
 import java.util.function.Function;
 import org.objectweb.asm.commons.Remapper;
 
@@ -73,32 +70,10 @@ public final class TypeMapper extends Remapper {
                 e -> e.getKey().acceptTypeMapper(this), e -> e.getValue().acceptTypeMapper(this)));
   }
 
-  // TODO(b/149403079): Remove this method once the map collection used by referencing classes have
-  // been migrated to immutable.
-  public <K extends TypeMappable<? extends K>, V extends TypeMappable<V>> Map<K, V> mapMutable(
-      Map<K, V> mappableTypes) {
-    return mappableTypes.entrySet().stream()
-        .collect(
-            toMap(
-                e -> e.getKey().acceptTypeMapper(this),
-                e -> e.getValue().acceptTypeMapper(this),
-                (prev, next) -> next,
-                HashMap::new));
-  }
-
   public <K extends TypeMappable<? extends K>, V> ImmutableMap<K, V> mapKey(
       ImmutableMap<K, V> mappableTypes) {
     return mappableTypes.entrySet().stream()
         .collect(toImmutableMap(e -> e.getKey().acceptTypeMapper(this), e -> e.getValue()));
   }
 
-  public <K extends TypeMappable<? extends K>, V> Map<K, V> mapKey(Map<K, V> mappableTypes) {
-    return mappableTypes.entrySet().stream()
-        .collect(
-            toMap(
-                e -> e.getKey().acceptTypeMapper(this),
-                e -> e.getValue(),
-                (prev, next) -> next,
-                HashMap::new));
-  }
 }

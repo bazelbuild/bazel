@@ -16,11 +16,12 @@ package com.google.devtools.build.android.desugar.nest;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.android.desugar.io.FileContentProvider;
 import com.google.devtools.build.android.desugar.langmodel.ClassAttributeRecord;
+import com.google.devtools.build.android.desugar.langmodel.ClassAttributeRecord.ClassAttributeRecordBuilder;
 import com.google.devtools.build.android.desugar.langmodel.ClassMemberRecord;
+import com.google.devtools.build.android.desugar.langmodel.ClassMemberRecord.ClassMemberRecordBuilder;
 import java.io.IOException;
 import java.io.InputStream;
 import org.objectweb.asm.ClassReader;
@@ -32,9 +33,8 @@ import org.objectweb.asm.ClassReader;
 public class NestAnalyzer {
 
   private final ImmutableList<FileContentProvider<? extends InputStream>> inputFileContents;
-  private final NestDigest nestDigest;
-  private final ClassMemberRecord classMemberRecord;
-  private final ClassAttributeRecord classAttributeRecord;
+  private final ClassMemberRecordBuilder classMemberRecord;
+  private final ClassAttributeRecordBuilder classAttributeRecord;
 
   /**
    * Perform a nest-based analysis of input classes, including tracking private member access
@@ -43,32 +43,25 @@ public class NestAnalyzer {
    * @return A manager class for nest companions.
    */
   public static NestDigest analyzeNests(
-      ImmutableList<FileContentProvider<? extends InputStream>> inputFileContents,
-      ClassMemberRecord classMemberRecord,
-      ClassAttributeRecord classAttributeRecord)
+      ImmutableList<FileContentProvider<? extends InputStream>> inputFileContents)
       throws IOException {
-    NestDigest nestDigest = NestDigest.create(classMemberRecord, classAttributeRecord);
     NestAnalyzer nestAnalyzer =
-        new NestAnalyzer(inputFileContents, nestDigest, classMemberRecord, classAttributeRecord);
-    nestAnalyzer.analyze();
-    return nestDigest;
+        new NestAnalyzer(
+            inputFileContents, ClassAttributeRecord.builder(), ClassMemberRecord.builder());
+    return nestAnalyzer.analyze();
   }
 
-  @VisibleForTesting
-  NestAnalyzer(
+  private NestAnalyzer(
       ImmutableList<FileContentProvider<? extends InputStream>> inputFileContents,
-      NestDigest nestDigest,
-      ClassMemberRecord classMemberRecord,
-      ClassAttributeRecord classAttributeRecord) {
+      ClassAttributeRecordBuilder classAttributeRecord,
+      ClassMemberRecordBuilder classMemberRecord) {
     this.inputFileContents = checkNotNull(inputFileContents);
-    this.nestDigest = checkNotNull(nestDigest);
-    this.classMemberRecord = checkNotNull(classMemberRecord);
+    this.classMemberRecord = classMemberRecord;
     this.classAttributeRecord = classAttributeRecord;
   }
 
   /** Performs class member declaration and usage analysis of files. */
-  @VisibleForTesting
-  void analyze() throws IOException {
+  private NestDigest analyze() throws IOException {
     for (FileContentProvider<? extends InputStream> inputClassFile : inputFileContents) {
       if (inputClassFile.isClassFile()) {
         try (InputStream inputStream = inputClassFile.get()) {
@@ -79,7 +72,10 @@ public class NestAnalyzer {
         }
       }
     }
-    classMemberRecord.filterUsedMemberWithTrackedDeclaration();
-    nestDigest.prepareCompanionClasses();
+
+    return NestDigest.builder()
+        .setClassMemberRecord(classMemberRecord.build().filterUsedMemberWithTrackedDeclaration())
+        .setClassAttributeRecord(classAttributeRecord.build())
+        .build();
   }
 }
