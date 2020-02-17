@@ -219,35 +219,7 @@ sh_test(
     exec_compatible_with = ["//:highcpu_machine"],
 )
 
-sh_test(
-    name = "bazel_java_test_jdk9_toolchain_released",
-    size = "large",
-    timeout = "eternal",
-    srcs = ["bazel_java_test.sh"],
-    args = select({
-        "//src/conditions:darwin": ["@remote_java_tools_javac9_test_darwin//:toolchain"],
-        "//src/conditions:darwin_x86_64": ["@remote_java_tools_javac9_test_darwin//:toolchain"],
-        "//src/conditions:windows": ["@remote_java_tools_javac9_test_windows//:toolchain"],
-        "//src/conditions:linux_x86_64": ["@remote_java_tools_javac9_test_linux//:toolchain"],
-    }) + [
-        # java_tools zip to test
-        "released",
-        # --javabase value
-    ] + select({
-        "//src/conditions:darwin": ["@openjdk9_darwin_archive//:runtime"],
-        "//src/conditions:darwin_x86_64": ["@openjdk9_darwin_archive//:runtime"],
-        "//src/conditions:windows": ["@openjdk9_windows_archive//:runtime"],
-        "//src/conditions:linux_x86_64": ["@openjdk9_linux_archive//:runtime"],
-    }),
-    data = [
-        ":test-deps",
-        "//src/test/shell/bazel/testdata:jdk_http_archives_filegroup",
-        "@bazel_tools//tools/bash/runfiles",
-    ],
-    exec_compatible_with = ["//:highcpu_machine"],
-)
-
-JAVA_VERSIONS = ("9", "10", "11", "12")
+JAVA_VERSIONS = ("11", "12")
 
 [
     sh_test(

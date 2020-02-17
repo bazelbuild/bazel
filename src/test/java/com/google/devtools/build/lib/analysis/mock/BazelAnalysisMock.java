@@ -180,8 +180,6 @@ public final class BazelAnalysisMock extends AnalysisMock {
         ")",
         "java_runtime(name = 'jdk', srcs = [])",
         "java_runtime(name = 'host_jdk', srcs = [])",
-        "java_runtime(name = 'remote_jdk', srcs = [])",
-        "java_runtime(name = 'remote_jdk10', srcs = [])",
         "java_runtime(name = 'remote_jdk11', srcs = [])",
         "java_toolchain_alias(name = 'current_java_toolchain')",
         "legacy_java_toolchain_alias(name = 'legacy_current_java_toolchain')",
