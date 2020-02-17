@@ -377,16 +377,16 @@ rbe_autoconfig(
     name = "rbe_ubuntu1804_java11",
     detect_java_home = True,
     registry = "gcr.io",
-    repository = "bazel-public/ubuntu1804/bazel",
-    tag = "java11",
+    repository = "bazel-public/ubuntu1804-bazel-java11",
+    tag = "latest",
 )
 
 rbe_autoconfig(
     name = "rbe_ubuntu1604_java8",
     detect_java_home = True,
     registry = "gcr.io",
-    repository = "bazel-public/ubuntu1604/bazel",
-    tag = "java8",
+    repository = "bazel-public/ubuntu1604-bazel-java8",
+    tag = "latest",
 )
 
 # Creates toolchain configuration for remote execution with BuildKite CI
