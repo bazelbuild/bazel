@@ -17,7 +17,6 @@ package com.google.devtools.build.lib.bazel.rules.ninja.actions;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSortedMap;
-import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
@@ -26,8 +25,6 @@ import com.google.devtools.build.lib.bazel.rules.ninja.file.GenericParsingExcept
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
-import java.util.List;
-import java.util.SortedMap;
 
 /**
  * Helper class to create artifacts for {@link NinjaAction} to be used from {@link NinjaGraphRule}.
@@ -40,7 +37,6 @@ import java.util.SortedMap;
  */
 class NinjaGraphArtifactsHelper {
   private final RuleContext ruleContext;
-  private final List<PathFragment> pathsToBuild;
   private final Path outputRootInSources;
   private final PathFragment outputRootPath;
   private final PathFragment workingDirectory;
@@ -48,7 +44,6 @@ class NinjaGraphArtifactsHelper {
 
   private final ImmutableSortedMap<PathFragment, Artifact> depsNameToArtifact;
   private final ImmutableSortedMap<PathFragment, Artifact> srcsMap;
-  private final SortedMap<PathFragment, Artifact> outputsMap;
 
   /**
    * Constructor
@@ -61,7 +56,6 @@ class NinjaGraphArtifactsHelper {
    * @param srcsMap mapping between the path fragment and artifact for the files passed in 'srcs'
    *     attribute
    * @param depsNameToArtifact mapping between the path fragment in the Ninja file and prebuilt
-   * @param pathsToBuild list of paths to files required in output groups
    */
   NinjaGraphArtifactsHelper(
       RuleContext ruleContext,
@@ -69,15 +63,12 @@ class NinjaGraphArtifactsHelper {
       PathFragment outputRootPath,
       PathFragment workingDirectory,
       ImmutableSortedMap<PathFragment, Artifact> srcsMap,
-      ImmutableSortedMap<PathFragment, Artifact> depsNameToArtifact,
-      List<PathFragment> pathsToBuild) {
+      ImmutableSortedMap<PathFragment, Artifact> depsNameToArtifact) {
     this.ruleContext = ruleContext;
-    this.pathsToBuild = pathsToBuild;
     this.outputRootInSources =
         Preconditions.checkNotNull(sourceRoot.asPath()).getRelative(outputRootPath);
     this.outputRootPath = outputRootPath;
     this.workingDirectory = workingDirectory;
-    this.outputsMap = Maps.newTreeMap();
     this.srcsMap = srcsMap;
     this.depsNameToArtifact = depsNameToArtifact;
     Path execRoot =
@@ -105,9 +96,6 @@ class NinjaGraphArtifactsHelper {
     DerivedArtifact derivedArtifact =
         ruleContext.getDerivedArtifact(
             pathRelativeToWorkspaceRoot.relativeTo(outputRootPath), derivedOutputRoot);
-    if (pathsToBuild.contains(pathRelativeToWorkingDirectory)) {
-      outputsMap.put(pathRelativeToWorkingDirectory, derivedArtifact);
-    }
     return derivedArtifact;
   }
 
@@ -139,9 +127,5 @@ class NinjaGraphArtifactsHelper {
 
   public PathFragment getWorkingDirectory() {
     return workingDirectory;
-  }
-
-  public ImmutableSortedMap<PathFragment, Artifact> getOutputsMap() {
-    return ImmutableSortedMap.copyOf(outputsMap);
   }
 }

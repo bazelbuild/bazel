@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.errorprone.annotations.Immutable;
 import java.util.Collection;
 import java.util.List;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 /** Ninja target (build statement) representation. */
@@ -180,6 +181,25 @@ public final class NinjaTarget {
         + prettyPrintPaths("\n", getUsualInputs())
         + prettyPrintPaths("\n| ", getImplicitInputs())
         + prettyPrintPaths("\n|| ", getOrderOnlyInputs());
+  }
+
+  @Override
+  public boolean equals(Object o) {
+    if (this == o) {
+      return true;
+    }
+    if (o == null || getClass() != o.getClass()) {
+      return false;
+    }
+    NinjaTarget that = (NinjaTarget) o;
+    // Note: NinjaScope is compared with default Object#equals; it is enough
+    // because we do not do any copies of NinjaScope.
+    return offset == that.offset && scope.equals(that.scope);
+  }
+
+  @Override
+  public int hashCode() {
+    return Objects.hash(scope, offset);
   }
 
   private static String prettyPrintPaths(String startDelimiter, Collection<PathFragment> paths) {
