@@ -39,6 +39,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
+/** Test for {@link NinjaBuild} configured target factory. */
 @RunWith(JUnit4.class)
 public class NinjaBuildTest extends BuildViewTestCase {
 
@@ -271,7 +272,7 @@ public class NinjaBuildTest extends BuildViewTestCase {
         ninjaAction.getCommandLines().getCommandLines();
     assertThat(commandLines).hasSize(1);
     assertThat(commandLines.get(0).commandLine.toString())
-        .endsWith("cd build_config && echo \"Hello $(cat placeholder)!\" > hello.txt");
+        .endsWith("cd build_config && echo \"Hello $(cat /workspace/input.txt)!\" > hello.txt");
     assertThat(ninjaAction.getPrimaryInput().getExecPathString()).isEqualTo("input.txt");
     assertThat(ninjaAction.getPrimaryOutput().getExecPathString())
         .isEqualTo("build_config/hello.txt");

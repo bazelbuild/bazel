@@ -53,7 +53,7 @@ public class PhonyTargetArtifacts {
     Preconditions.checkNotNull(phonyTarget);
     NestedSetBuilder<Artifact> builder = NestedSetBuilder.stableOrder();
     for (PathFragment input : phonyTarget.getDirectUsualInputs()) {
-      builder.add(artifactsHelper.getInputArtifact(input).getFirst());
+      builder.add(artifactsHelper.getInputArtifact(input));
     }
     for (PathFragment phonyName : phonyTarget.getPhonyNames()) {
       // We already checked for cycles during loading.

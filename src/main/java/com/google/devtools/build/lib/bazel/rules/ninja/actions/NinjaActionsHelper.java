@@ -133,7 +133,7 @@ public class NinjaActionsHelper {
     TreeMap<PathFragment, Artifact> depsReplacements = Maps.newTreeMap();
     boolean isAlwaysDirty = fillArtifacts(target, inputsBuilder, outputsBuilder, depsReplacements);
 
-    NinjaScope targetScope = createTargetScope(target, depsReplacements);
+    NinjaScope targetScope = createTargetScope(target);
     int targetOffset = target.getOffset();
     maybeCreateRspFile(rule, targetScope, targetOffset, inputsBuilder);
 
@@ -166,19 +166,14 @@ public class NinjaActionsHelper {
       SortedMap<PathFragment, Artifact> depsReplacements)
       throws GenericParsingException {
     boolean isAlwaysDirty = false;
-    Set<PathFragment> usualInputs = Sets.newHashSet(target.getUsualInputs());
     for (PathFragment input : target.getAllInputs()) {
       PhonyTarget phonyTarget = this.phonyTargets.get(input);
       if (phonyTarget != null) {
         inputsBuilder.addTransitive(phonyTargetArtifacts.getPhonyTargetArtifacts(input));
         isAlwaysDirty |= phonyTarget.isAlwaysDirty();
       } else {
-        Pair<Artifact, Boolean> pair = artifactsHelper.getInputArtifact(input);
-        Artifact artifact = pair.getFirst();
+        Artifact artifact = artifactsHelper.getInputArtifact(input);
         inputsBuilder.add(artifact);
-        if (pair.getSecond() && usualInputs.contains(input)) {
-          depsReplacements.put(input, artifact);
-        }
       }
     }
 
@@ -217,8 +212,7 @@ public class NinjaActionsHelper {
     }
   }
 
-  private static NinjaScope createTargetScope(NinjaTarget target,
-      TreeMap<PathFragment, Artifact> depsReplacements) {
+  private NinjaScope createTargetScope(NinjaTarget target) {
     ImmutableSortedMap.Builder<String, List<Pair<Integer, String>>> builder =
         ImmutableSortedMap.naturalOrder();
     target
@@ -227,7 +221,7 @@ public class NinjaActionsHelper {
     String inNewline =
         target.getUsualInputs().stream()
             .map(fragment -> {
-              Artifact bazelArtifact = depsReplacements.get(fragment);
+              Artifact bazelArtifact = artifactsHelper.getDepsMappingArtifact(fragment);
               if (bazelArtifact != null) {
                 return bazelArtifact.getPath().getPathString();
               }

@@ -22,7 +22,6 @@ import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.bazel.rules.ninja.file.GenericParsingException;
-import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
@@ -42,30 +41,33 @@ class NinjaGraphArtifactsHelper {
   private final ArtifactRoot derivedOutputRoot;
 
   private final ImmutableSortedMap<PathFragment, Artifact> depsNameToArtifact;
+  private final ImmutableSortedMap<PathFragment, Artifact> symlinkPathToArtifact;
   private final ImmutableSortedMap<PathFragment, Artifact> srcsMap;
 
   /**
    * Constructor
-   *
-   * @param ruleContext parent NinjaGraphRule rule context
+   *  @param ruleContext parent NinjaGraphRule rule context
    * @param outputRootPath name of output directory for Ninja actions under execroot
    * @param workingDirectory relative path under execroot, the root for interpreting all paths in
-   *     Ninja file
+ *     Ninja file
    * @param srcsMap mapping between the path fragment and artifact for the files passed in 'srcs'
-   *     attribute
+*     attribute
    * @param depsNameToArtifact mapping between the path fragment in the Ninja file and prebuilt
+   * @param symlinkPathToArtifact
    */
   NinjaGraphArtifactsHelper(
       RuleContext ruleContext,
       PathFragment outputRootPath,
       PathFragment workingDirectory,
       ImmutableSortedMap<PathFragment, Artifact> srcsMap,
-      ImmutableSortedMap<PathFragment, Artifact> depsNameToArtifact) {
+      ImmutableSortedMap<PathFragment, Artifact> depsNameToArtifact,
+      ImmutableSortedMap<PathFragment, Artifact> symlinkPathToArtifact) {
     this.ruleContext = ruleContext;
     this.outputRootPath = outputRootPath;
     this.workingDirectory = workingDirectory;
     this.srcsMap = srcsMap;
     this.depsNameToArtifact = depsNameToArtifact;
+    this.symlinkPathToArtifact = symlinkPathToArtifact;
     Path execRoot =
         Preconditions.checkNotNull(ruleContext.getConfiguration())
             .getDirectories()
@@ -90,13 +92,15 @@ class NinjaGraphArtifactsHelper {
     return derivedArtifact;
   }
 
-  Pair<Artifact, Boolean> getInputArtifact(PathFragment pathRelativeToWorkingDirectory)
+  Artifact getInputArtifact(PathFragment pathRelativeToWorkingDirectory)
       throws GenericParsingException {
     Preconditions.checkNotNull(srcsMap);
     PathFragment pathRelativeToWorkspaceRoot =
         workingDirectory.getRelative(pathRelativeToWorkingDirectory);
     Artifact asInput = srcsMap.get(pathRelativeToWorkspaceRoot);
     Artifact depsMappingArtifact = depsNameToArtifact.get(pathRelativeToWorkingDirectory);
+    Artifact symlinkMappingArtifact = symlinkPathToArtifact.get(pathRelativeToWorkingDirectory);
+    // Symlinked artifact is by definition outside of sources, in the output directory.
     if (asInput != null && depsMappingArtifact != null) {
       throw new GenericParsingException(
           String.format(
@@ -104,12 +108,19 @@ class NinjaGraphArtifactsHelper {
               pathRelativeToWorkingDirectory));
     }
     if (asInput != null) {
-      return Pair.of(asInput, false);
+      return asInput;
     }
     if (depsMappingArtifact != null) {
-      return Pair.of(depsMappingArtifact, true);
+      return depsMappingArtifact;
     }
-    return Pair.of(createOutputArtifact(pathRelativeToWorkingDirectory), false);
+    if (symlinkMappingArtifact != null) {
+      return symlinkMappingArtifact;
+    }
+    return createOutputArtifact(pathRelativeToWorkingDirectory);
+  }
+
+  public Artifact getDepsMappingArtifact(PathFragment fragment) {
+    return depsNameToArtifact.get(fragment);
   }
 
   public PathFragment getOutputRootPath() {

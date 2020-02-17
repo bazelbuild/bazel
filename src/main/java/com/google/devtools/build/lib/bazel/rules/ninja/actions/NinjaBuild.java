@@ -18,6 +18,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedMap;
+import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
@@ -58,13 +59,20 @@ public class NinjaBuild implements RuleConfiguredTargetFactory {
             .flatMap(List::stream)
             .map(PathFragment::create)
             .collect(Collectors.toList());
+    ImmutableSortedMap.Builder<PathFragment, Artifact> depsMapBuilder = ImmutableSortedMap
+        .naturalOrder();
+    ImmutableSortedMap.Builder<PathFragment, Artifact> symlinksMapBuilder = ImmutableSortedMap
+        .naturalOrder();
+    createDepsMap(ruleContext, graphProvider.getWorkingDirectory(),
+        depsMapBuilder, symlinksMapBuilder);
     NinjaGraphArtifactsHelper artifactsHelper =
         new NinjaGraphArtifactsHelper(
             ruleContext,
             graphProvider.getOutputRoot(),
             graphProvider.getWorkingDirectory(),
             createSrcsMap(ruleContext),
-            createDepsMap(ruleContext, graphProvider.getWorkingDirectory()));
+            depsMapBuilder.build(),
+            symlinksMapBuilder.build());
     if (ruleContext.hasErrors()) {
       return null;
     }
@@ -158,19 +166,20 @@ public class NinjaBuild implements RuleConfiguredTargetFactory {
     return inputsMapBuilder.build();
   }
 
-  private static ImmutableSortedMap<PathFragment, Artifact> createDepsMap(
+  private static void createDepsMap(
       RuleContext ruleContext,
-      PathFragment workingDirectory)
+      PathFragment workingDirectory,
+      ImmutableSortedMap.Builder<PathFragment, Artifact> depsMapBuilder,
+      ImmutableSortedMap.Builder<PathFragment, Artifact> symlinksMapBuilder)
       throws InterruptedException {
     FileProvider fileProvider = ruleContext
         .getPrerequisite("ninja_graph", Mode.TARGET, FileProvider.class);
     Preconditions.checkNotNull(fileProvider);
-    Map<String, TransitiveInfoCollection> mapping = ruleContext.getPrerequisiteMap("deps_mapping");
-    ImmutableSortedMap.Builder<PathFragment, Artifact> builder = ImmutableSortedMap.naturalOrder();
     new NestedSetVisitor<Artifact>(a -> {
-      builder.put(a.getExecPath().relativeTo(workingDirectory), a);
-    },
-        new VisitedState<>()).visit(fileProvider.getFilesToBuild());
+      symlinksMapBuilder.put(a.getExecPath().relativeTo(workingDirectory), a);
+    }, new VisitedState<>()).visit(fileProvider.getFilesToBuild());
+
+    Map<String, TransitiveInfoCollection> mapping = ruleContext.getPrerequisiteMap("deps_mapping");
     for (Map.Entry<String, TransitiveInfoCollection> entry : mapping.entrySet()) {
       NestedSet<Artifact> filesToBuild =
           entry.getValue().getProvider(FileProvider.class).getFilesToBuild();
@@ -181,10 +190,9 @@ public class NinjaBuild implements RuleConfiguredTargetFactory {
                 "'%s' contains more than one output. "
                     + "deps_mapping should only contain targets, producing a single output file.",
                 entry.getValue().getLabel().getCanonicalForm()));
-        return ImmutableSortedMap.of();
+        return;
       }
-      builder.put(PathFragment.create(entry.getKey()), filesToBuild.getSingleton());
+      depsMapBuilder.put(PathFragment.create(entry.getKey()), filesToBuild.getSingleton());
     }
-    return builder.build();
   }
 }
