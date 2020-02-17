@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import java.io.IOException;
 import java.nio.charset.Charset;
+import java.util.HashMap;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -153,5 +154,31 @@ public class WorkerExecRootTest {
         .isEqualTo("needed workspace content");
     assertThat(FileSystemUtils.readContent(otherWorkspaceFile, Charset.defaultCharset()))
         .isEqualTo("other workspace content");
+  }
+
+  @Test
+  public void recreatesEmptyFiles() throws Exception {
+    // Simulate existing non-empty file in the exec root to check that `WorkerExecRoot` will clear
+    // the contents as requested by `SandboxInputs`.
+    FileSystemUtils.writeContentAsLatin1(execRoot.getRelative("some_file"), "some content");
+
+    HashMap<PathFragment, Path> inputs = new HashMap<>();
+    inputs.put(PathFragment.create("some_file"), null);
+    WorkerExecRoot workerExecRoot =
+        new WorkerExecRoot(
+            execRoot,
+            new SandboxInputs(inputs, ImmutableMap.of()),
+            SandboxOutputs.create(ImmutableSet.of(), ImmutableSet.of()),
+            ImmutableSet.of());
+
+    // This is interesting, because the filepath is a key in `SandboxInputs`, but its value is
+    // `null`, which means "create an empty file". So after `createFileSystem` the file should be
+    // empty.
+    workerExecRoot.createFileSystem();
+
+    assertThat(
+            FileSystemUtils.readContent(
+                execRoot.getRelative("some_file"), Charset.defaultCharset()))
+        .isEmpty();
   }
 }
