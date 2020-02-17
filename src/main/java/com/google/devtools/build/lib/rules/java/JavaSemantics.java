@@ -321,9 +321,13 @@ public interface JavaSemantics {
    */
   boolean isJavaExecutableSubstitution();
 
-  static boolean isPersistentTestRunner(RuleContext ruleContext) {
+  static boolean isTestTargetAndPersistentTestRunner(RuleContext ruleContext) {
     return ruleContext.isTestTarget()
         && ruleContext.getFragment(TestConfiguration.class).isPersistentTestRunner();
+  }
+
+  static boolean isPersistentTestRunner(RuleContext ruleContext) {
+    return ruleContext.getFragment(TestConfiguration.class).isPersistentTestRunner();
   }
 
   static Runfiles getTestSupportRunfiles(RuleContext ruleContext) {

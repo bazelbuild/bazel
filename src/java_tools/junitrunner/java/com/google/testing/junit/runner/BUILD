@@ -38,7 +38,6 @@ java_binary(
     name = "persistent_test_runner",
     srcs = [
         "PersistentTestRunner.java",
-        "PersistentTestRunnerClassLoader.java",
         "SuiteTestRunner.java",
     ],
     deps = [

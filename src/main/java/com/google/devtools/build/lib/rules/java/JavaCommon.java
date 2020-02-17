@@ -55,6 +55,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 import javax.annotation.Nullable;
 
@@ -958,6 +959,23 @@ public class JavaCommon {
       }
     }
     return directDeps.build();
+  }
+
+  /**
+   * Return the runtime jars of the transitive closure of the target, excluding the first level of
+   * dependencies and the current target itself.
+   *
+   * <p>This particular set of jars is used by the persistent test runner, to create a classloader
+   * for the transitive dependencies. The target itself and its direct dependencies are loaded into
+   * a different classloader.
+   */
+  public NestedSet<Artifact> getRuntimeClasspathExcludingDirect() {
+    NestedSetBuilder<Artifact> classpath = new NestedSetBuilder<>(Order.STABLE_ORDER);
+    targetsTreatedAsDeps(ClasspathType.RUNTIME_ONLY).stream()
+        .map(JavaInfo::getJavaInfo)
+        .filter(Objects::nonNull)
+        .forEach(j -> classpath.addTransitive(j.getTransitiveOnlyRuntimeJars()));
+    return classpath.build();
   }
 
   /**

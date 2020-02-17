@@ -351,7 +351,7 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
           RunfilesSupport.withExecutable(
               ruleContext, defaultRunfiles, executableForRunfiles, extraArgs);
       extraFilesToRunBuilder.add(runfilesSupport.getRunfilesMiddleman());
-      if (JavaSemantics.isPersistentTestRunner(ruleContext)) {
+      if (JavaSemantics.isTestTargetAndPersistentTestRunner(ruleContext)) {
         persistentTestRunnerRunfiles = JavaSemantics.getTestSupportRunfiles(ruleContext);
       }
     }
@@ -465,6 +465,8 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
             .addProvider(
                 JavaSourceInfoProvider.class,
                 JavaSourceInfoProvider.fromJavaTargetAttributes(attributes, semantics))
+            .maybeTransitiveOnlyRuntimeJarsToJavaInfo(
+                common.getDependencies(), JavaSemantics.isPersistentTestRunner(ruleContext))
             .build();
 
     return builder
