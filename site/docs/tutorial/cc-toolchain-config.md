@@ -170,7 +170,7 @@ using an older release of Bazel, look for the "Configuring CROSSTOOL" tutorial.
     Rule '//toolchain:asmjs-toolchain' does not exist
     ```
 
-    Let's add a ":asmjs-toolchain-config" target to the `toolchain/BUILD` file:
+    Let's add a ":asmjs_toolchain_config" target to the `toolchain/BUILD` file:
 
     ```
     filegroup(name = "asmjs_toolchain_config")
