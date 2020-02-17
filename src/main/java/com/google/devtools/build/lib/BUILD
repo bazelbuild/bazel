@@ -77,6 +77,7 @@ filegroup(
         "//src/main/java/com/google/devtools/build/lib/standalone:srcs",
         "//src/main/java/com/google/devtools/build/lib/supplier:srcs",
         "//src/main/java/com/google/devtools/build/lib/syntax:srcs",
+        "//src/main/java/com/google/devtools/build/lib/util/io:srcs",
         "//src/main/java/com/google/devtools/build/lib/versioning:srcs",
         "//src/main/java/com/google/devtools/build/lib/vfs/inmemoryfs:srcs",
         "//src/main/java/com/google/devtools/build/lib/vfs:srcs",
@@ -123,37 +124,6 @@ java_library(
         "util/VarInt.java",
     ],
     exports = [":string_util"],
-)
-
-# I/O utilities.
-
-OUT_ERR_SRCS = [
-    "util/io/OutErr.java",
-    "util/io/LinePrefixingOutputStream.java",
-    "util/io/LineFlushingOutputStream.java",
-]
-
-java_library(
-    name = "io",
-    srcs = glob(
-        ["util/io/*.java"],
-        exclude = OUT_ERR_SRCS,
-    ),
-    deps = [
-        ":out-err",
-        "//src/main/java/com/google/devtools/build/lib/clock",
-        "//src/main/java/com/google/devtools/build/lib/concurrent",
-        "//src/main/java/com/google/devtools/build/lib/profiler",
-        "//src/main/java/com/google/devtools/build/lib/vfs",
-        "//third_party:guava",
-        "//third_party/protobuf:protobuf_java",
-        "//third_party/protobuf:protobuf_java_util",
-    ],
-)
-
-java_library(
-    name = "out-err",
-    srcs = OUT_ERR_SRCS,
 )
 
 # General utilities.
@@ -346,10 +316,10 @@ java_library(
     name = "events",
     srcs = glob(["events/*.java"]),
     deps = [
-        ":io",
-        ":out-err",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
+        "//src/main/java/com/google/devtools/build/lib/util/io",
+        "//src/main/java/com/google/devtools/build/lib/util/io:out-err",
         "//third_party:guava",
         "//third_party:jsr305",
     ],
@@ -607,10 +577,8 @@ java_library(
         ":command-utils",
         ":events",
         ":exitcode-external",
-        ":io",
         ":keep-going-option",
         ":os_util",
-        ":out-err",
         ":packages-internal",
         ":process_util",
         ":provider-collection",
@@ -651,6 +619,8 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi/test",
         "//src/main/java/com/google/devtools/build/lib/skylarkinterface",
         "//src/main/java/com/google/devtools/build/lib/supplier",
+        "//src/main/java/com/google/devtools/build/lib/util/io",
+        "//src/main/java/com/google/devtools/build/lib/util/io:out-err",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:output_service",
         "//src/main/java/com/google/devtools/build/skyframe",
@@ -836,7 +806,6 @@ java_library(
         ":command-utils",
         ":events",
         ":exitcode-external",
-        ":io",
         ":runtime",
         ":util",
         "//src/main/java/com/google/devtools/build/lib/actions",
@@ -845,6 +814,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/remote/options",
         "//src/main/java/com/google/devtools/build/lib/shell",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
+        "//src/main/java/com/google/devtools/build/lib/util/io",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/java/com/google/devtools/common/options",
@@ -913,8 +883,6 @@ java_library(
     deps = [
         ":build-base",
         ":events",
-        ":io",
-        ":out-err",
         ":packages-internal",
         ":runtime",
         ":string_util",
@@ -929,6 +897,8 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/profiler",
         "//src/main/java/com/google/devtools/build/lib/shell",
         "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi/repository",
+        "//src/main/java/com/google/devtools/build/lib/util/io",
+        "//src/main/java/com/google/devtools/build/lib/util/io:out-err",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/skyframe",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
@@ -1187,13 +1157,13 @@ java_library(
         ":exitcode-external",
         ":failure_detail_util",
         ":os_util",
-        ":out-err",
         ":runtime",
         ":string_util",
         ":unix",
         ":util",
         "//src/main/java/com/google/devtools/build/lib/clock",
         "//src/main/java/com/google/devtools/build/lib/profiler",
+        "//src/main/java/com/google/devtools/build/lib/util/io:out-err",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/common/options",
         "//src/main/java/com/google/devtools/common/options:invocation_policy",
@@ -1216,7 +1186,7 @@ java_library(
         ":custom-exit-code-publisher",
         ":exitcode-external",
         ":logging-util",
-        ":out-err",
+        "//src/main/java/com/google/devtools/build/lib/util/io:out-err",
         "//third_party:guava",
         "//third_party:jsr305",
     ],
@@ -1259,10 +1229,8 @@ java_library(
         ":events",
         ":exitcode-external",
         ":failure_detail_util",
-        ":io",
         ":keep-going-option",
         ":loading-phase-threads-option",
-        ":out-err",
         ":packages-internal",
         ":process_util",
         ":shared-base-rules",
@@ -1289,6 +1257,8 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/query2/engine",
         "//src/main/java/com/google/devtools/build/lib/query2/query/output",
         "//src/main/java/com/google/devtools/build/lib/shell",
+        "//src/main/java/com/google/devtools/build/lib/util/io",
+        "//src/main/java/com/google/devtools/build/lib/util/io:out-err",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:output_service",
         "//src/main/java/com/google/devtools/build/lib/windows",

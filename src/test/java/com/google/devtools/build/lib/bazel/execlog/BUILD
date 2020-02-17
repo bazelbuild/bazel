@@ -17,8 +17,8 @@ java_test(
     srcs = ["StableSortTest.java"],
     test_class = "com.google.devtools.build.lib.bazel.execlog.StableSortTest",
     deps = [
-        "//src/main/java/com/google/devtools/build/lib:io",
         "//src/main/java/com/google/devtools/build/lib/bazel/execlog:stable_sort",
+        "//src/main/java/com/google/devtools/build/lib/util/io",
         "//src/main/protobuf:spawn_java_proto",
         "//third_party:guava",
         "//third_party:guava-testlib",

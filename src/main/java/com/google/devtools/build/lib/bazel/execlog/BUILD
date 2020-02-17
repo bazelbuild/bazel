@@ -14,7 +14,7 @@ java_library(
         "//src/test/java/com/google/devtools/build/lib/bazel/execlog:__pkg__",
     ],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib:io",
+        "//src/main/java/com/google/devtools/build/lib/util/io",
         "//src/main/protobuf:spawn_java_proto",
         "//third_party:guava",
     ],
