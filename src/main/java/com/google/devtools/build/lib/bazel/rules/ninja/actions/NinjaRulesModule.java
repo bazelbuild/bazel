@@ -22,5 +22,6 @@ public class NinjaRulesModule extends BlazeModule {
   @Override
   public void initializeRuleClasses(ConfiguredRuleClassProvider.Builder builder) {
     builder.addRuleDefinition(new NinjaGraphRule());
+    builder.addRuleDefinition(new NinjaBuildRule());
   }
 }

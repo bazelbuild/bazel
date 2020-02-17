@@ -22,9 +22,9 @@ import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.bazel.rules.ninja.file.GenericParsingException;
+import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import com.google.devtools.build.lib.vfs.Root;
 
 /**
  * Helper class to create artifacts for {@link NinjaAction} to be used from {@link NinjaGraphRule}.
@@ -37,7 +37,6 @@ import com.google.devtools.build.lib.vfs.Root;
  */
 class NinjaGraphArtifactsHelper {
   private final RuleContext ruleContext;
-  private final Path outputRootInSources;
   private final PathFragment outputRootPath;
   private final PathFragment workingDirectory;
   private final ArtifactRoot derivedOutputRoot;
@@ -49,7 +48,6 @@ class NinjaGraphArtifactsHelper {
    * Constructor
    *
    * @param ruleContext parent NinjaGraphRule rule context
-   * @param sourceRoot the source root, under which the main Ninja file resides.
    * @param outputRootPath name of output directory for Ninja actions under execroot
    * @param workingDirectory relative path under execroot, the root for interpreting all paths in
    *     Ninja file
@@ -59,14 +57,11 @@ class NinjaGraphArtifactsHelper {
    */
   NinjaGraphArtifactsHelper(
       RuleContext ruleContext,
-      Root sourceRoot,
       PathFragment outputRootPath,
       PathFragment workingDirectory,
       ImmutableSortedMap<PathFragment, Artifact> srcsMap,
       ImmutableSortedMap<PathFragment, Artifact> depsNameToArtifact) {
     this.ruleContext = ruleContext;
-    this.outputRootInSources =
-        Preconditions.checkNotNull(sourceRoot.asPath()).getRelative(outputRootPath);
     this.outputRootPath = outputRootPath;
     this.workingDirectory = workingDirectory;
     this.srcsMap = srcsMap;
@@ -76,10 +71,6 @@ class NinjaGraphArtifactsHelper {
             .getDirectories()
             .getExecRoot(ruleContext.getWorkspaceName());
     this.derivedOutputRoot = ArtifactRoot.asDerivedRoot(execRoot, outputRootPath);
-  }
-
-  PathFragment createAbsolutePathUnderOutputRoot(PathFragment pathUnderOutputRoot) {
-    return outputRootInSources.getRelative(pathUnderOutputRoot).asFragment();
   }
 
   DerivedArtifact createOutputArtifact(PathFragment pathRelativeToWorkingDirectory)
@@ -99,7 +90,7 @@ class NinjaGraphArtifactsHelper {
     return derivedArtifact;
   }
 
-  Artifact getInputArtifact(PathFragment pathRelativeToWorkingDirectory)
+  Pair<Artifact, Boolean> getInputArtifact(PathFragment pathRelativeToWorkingDirectory)
       throws GenericParsingException {
     Preconditions.checkNotNull(srcsMap);
     PathFragment pathRelativeToWorkspaceRoot =
@@ -113,12 +104,12 @@ class NinjaGraphArtifactsHelper {
               pathRelativeToWorkingDirectory));
     }
     if (asInput != null) {
-      return asInput;
+      return Pair.of(asInput, false);
     }
     if (depsMappingArtifact != null) {
-      return depsMappingArtifact;
+      return Pair.of(depsMappingArtifact, true);
     }
-    return createOutputArtifact(pathRelativeToWorkingDirectory);
+    return Pair.of(createOutputArtifact(pathRelativeToWorkingDirectory), false);
   }
 
   public PathFragment getOutputRootPath() {

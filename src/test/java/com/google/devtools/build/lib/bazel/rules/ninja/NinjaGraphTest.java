@@ -28,7 +28,10 @@ import com.google.devtools.build.lib.analysis.actions.SymlinkAction;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.bazel.rules.ninja.actions.NinjaAction;
+import com.google.devtools.build.lib.bazel.rules.ninja.actions.NinjaGraphProvider;
 import com.google.devtools.build.lib.bazel.rules.ninja.actions.NinjaGraphRule;
+import com.google.devtools.build.lib.bazel.rules.ninja.actions.PhonyTarget;
+import com.google.devtools.build.lib.bazel.rules.ninja.parser.NinjaTarget;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.List;
@@ -75,37 +78,34 @@ public class NinjaGraphTest extends BuildViewTestCase {
             "graph",
             "ninja_graph(name = 'graph', output_root = 'build_config',",
             " main = 'build_config/build.ninja',",
-            " output_root_inputs = ['input.txt'],",
-            " output_groups= {'main': ['build_config/hello.txt']})");
+            " output_root_inputs = ['input.txt'])");
     assertThat(configuredTarget).isInstanceOf(RuleConfiguredTarget.class);
     RuleConfiguredTarget ninjaConfiguredTarget = (RuleConfiguredTarget) configuredTarget;
     ImmutableList<ActionAnalysisMetadata> actions = ninjaConfiguredTarget.getActions();
-    assertThat(actions).hasSize(2);
+    assertThat(actions).hasSize(1);
 
-    for (ActionAnalysisMetadata action : actions) {
-      Artifact artifact = action.getPrimaryOutput();
-      if ("hello.txt".equals(artifact.getFilename())) {
-        assertThat(action).isInstanceOf(NinjaAction.class);
-        NinjaAction ninjaAction = (NinjaAction) action;
-        List<CommandLineAndParamFileInfo> commandLines =
-            ninjaAction.getCommandLines().getCommandLines();
-        assertThat(commandLines).hasSize(1);
-        assertThat(commandLines.get(0).commandLine.toString())
-            .endsWith("echo \"Hello $(cat build_config/input.txt)!\" > build_config/hello.txt");
-        assertThat(ninjaAction.getPrimaryInput().getExecPathString())
-            .isEqualTo("build_config/input.txt");
-        assertThat(ninjaAction.getPrimaryOutput().getExecPathString())
-            .isEqualTo("build_config/hello.txt");
-      } else {
-        assertThat(action).isInstanceOf(SymlinkAction.class);
-        SymlinkAction symlinkAction = (SymlinkAction) action;
-        assertThat(symlinkAction.executeUnconditionally()).isTrue();
-        assertThat(symlinkAction.getInputPath())
-            .isEqualTo(PathFragment.create("/workspace/build_config/input.txt"));
-        assertThat(symlinkAction.getPrimaryOutput().getExecPathString())
-            .isEqualTo("build_config/input.txt");
-      }
-    }
+    ActionAnalysisMetadata action = Iterables.getOnlyElement(actions);
+    assertThat(action).isInstanceOf(SymlinkAction.class);
+    SymlinkAction symlinkAction = (SymlinkAction) action;
+    assertThat(symlinkAction.executeUnconditionally()).isTrue();
+    assertThat(symlinkAction.getInputPath())
+        .isEqualTo(PathFragment.create("/workspace/build_config/input.txt"));
+    assertThat(symlinkAction.getPrimaryOutput().getExecPathString())
+        .isEqualTo("build_config/input.txt");
+
+    NinjaGraphProvider provider = configuredTarget.getProvider(NinjaGraphProvider.class);
+    assertThat(provider).isNotNull();
+    assertThat(provider.getOutputRoot()).isEqualTo(PathFragment.create("build_config"));
+    assertThat(provider.getWorkingDirectory()).isEqualTo(PathFragment.EMPTY_FRAGMENT);
+    assertThat(provider.getPhonyTargetsMap()).isEmpty();
+    assertThat(provider.getUsualTargets()).hasSize(1);
+
+    NinjaTarget target = Iterables.getOnlyElement(provider.getUsualTargets().values());
+    assertThat(target.getRuleName()).isEqualTo("echo");
+    assertThat(target.getAllInputs())
+        .containsExactly(PathFragment.create("build_config/input.txt"));
+    assertThat(target.getAllOutputs())
+        .containsExactly(PathFragment.create("build_config/hello.txt"));
   }
 
   @Test
@@ -114,7 +114,8 @@ public class NinjaGraphTest extends BuildViewTestCase {
         "workspace(name = 'test')",
         "dont_symlink_directories_in_execroot(paths = ['build_config'])");
 
-    scratch.file("build_config/input.txt", "World");
+    // We do not have to have the real files in place, the rule only reads
+    // the contents of Ninja files.
     scratch.file(
         "build_config/build.ninja",
         "rule echo",
@@ -129,36 +130,42 @@ public class NinjaGraphTest extends BuildViewTestCase {
             "ninja_graph(name = 'graph', output_root = 'build_config',",
             " working_directory = 'build_config',",
             " main = 'build_config/build.ninja',",
-            " output_root_inputs = ['input.txt'], output_groups= {'main': ['alias']})");
+            " output_root_inputs = ['input.txt'])");
     assertThat(configuredTarget).isInstanceOf(RuleConfiguredTarget.class);
     RuleConfiguredTarget ninjaConfiguredTarget = (RuleConfiguredTarget) configuredTarget;
     ImmutableList<ActionAnalysisMetadata> actions = ninjaConfiguredTarget.getActions();
-    assertThat(actions).hasSize(2);
+    assertThat(configuredTarget).isInstanceOf(RuleConfiguredTarget.class);
 
-    for (ActionAnalysisMetadata action : actions) {
-      Artifact artifact = action.getPrimaryOutput();
-      if ("hello.txt".equals(artifact.getFilename())) {
-        assertThat(action).isInstanceOf(NinjaAction.class);
-        NinjaAction ninjaAction = (NinjaAction) action;
-        List<CommandLineAndParamFileInfo> commandLines =
-            ninjaAction.getCommandLines().getCommandLines();
-        assertThat(commandLines).hasSize(1);
-        assertThat(commandLines.get(0).commandLine.toString())
-            .endsWith("cd build_config && echo \"Hello $(cat input.txt)!\" > hello.txt");
-        assertThat(ninjaAction.getPrimaryInput().getExecPathString())
-            .isEqualTo("build_config/input.txt");
-        assertThat(ninjaAction.getPrimaryOutput().getExecPathString())
-            .isEqualTo("build_config/hello.txt");
-      } else {
-        assertThat(action).isInstanceOf(SymlinkAction.class);
-        SymlinkAction symlinkAction = (SymlinkAction) action;
-        assertThat(symlinkAction.executeUnconditionally()).isTrue();
-        assertThat(symlinkAction.getInputPath())
-            .isEqualTo(PathFragment.create("/workspace/build_config/input.txt"));
-        assertThat(symlinkAction.getPrimaryOutput().getExecPathString())
-            .isEqualTo("build_config/input.txt");
-      }
-    }
+    assertThat(actions).hasSize(1);
+    ActionAnalysisMetadata action = Iterables.getOnlyElement(actions);
+    assertThat(action).isInstanceOf(SymlinkAction.class);
+    SymlinkAction symlinkAction = (SymlinkAction) action;
+    assertThat(symlinkAction.executeUnconditionally()).isTrue();
+    assertThat(symlinkAction.getInputPath())
+        .isEqualTo(PathFragment.create("/workspace/build_config/input.txt"));
+    assertThat(symlinkAction.getPrimaryOutput().getExecPathString())
+        .isEqualTo("build_config/input.txt");
+
+    NinjaGraphProvider provider = configuredTarget.getProvider(NinjaGraphProvider.class);
+    assertThat(provider).isNotNull();
+    assertThat(provider.getOutputRoot()).isEqualTo(PathFragment.create("build_config"));
+    assertThat(provider.getWorkingDirectory()).isEqualTo(PathFragment.create("build_config"));
+    assertThat(provider.getUsualTargets()).hasSize(1);
+
+    NinjaTarget target = Iterables.getOnlyElement(provider.getUsualTargets().values());
+    assertThat(target.getRuleName()).isEqualTo("echo");
+    assertThat(target.getAllInputs())
+        .containsExactly(PathFragment.create("input.txt"));
+    assertThat(target.getAllOutputs())
+        .containsExactly(PathFragment.create("hello.txt"));
+
+    PathFragment alias = PathFragment.create("alias");
+    assertThat(provider.getPhonyTargetsMap().keySet()).containsExactly(alias);
+    PhonyTarget phonyTarget = provider.getPhonyTargetsMap().get(alias);
+    assertThat(phonyTarget.isAlwaysDirty()).isFalse();
+    assertThat(phonyTarget.getPhonyNames()).isEmpty();
+    assertThat(phonyTarget.getDirectUsualInputs())
+        .containsExactly(PathFragment.create("hello.txt"));
   }
 
   @Test
@@ -167,12 +174,8 @@ public class NinjaGraphTest extends BuildViewTestCase {
         "workspace(name = 'test')",
         "dont_symlink_directories_in_execroot(paths = ['build_config'])");
 
-    scratch.file("build_config/a.txt", "A");
-    scratch.file("build_config/b.txt", "B");
-    scratch.file("build_config/c.txt", "C");
-    scratch.file("build_config/d.txt", "D");
-    scratch.file("build_config/e.txt", "E");
-
+    // We do not have to have the real files in place, the rule only reads
+    // the contents of Ninja files.
     scratch.file(
         "build_config/build.ninja",
         "rule cat",
@@ -199,174 +202,34 @@ public class NinjaGraphTest extends BuildViewTestCase {
             "ninja_graph(name = 'graph', output_root = 'build_config',",
             " working_directory = 'build_config',",
             " main = 'build_config/build.ninja',",
-            " output_root_inputs = ['a.txt', 'b.txt', 'c.txt', 'd.txt', 'e.txt'],",
-            " output_groups= {'main': ['alias']})");
+            " output_root_inputs = ['a.txt', 'b.txt', 'c.txt', 'd.txt', 'e.txt'])");
     assertThat(configuredTarget).isInstanceOf(RuleConfiguredTarget.class);
     RuleConfiguredTarget ninjaConfiguredTarget = (RuleConfiguredTarget) configuredTarget;
     ImmutableList<ActionAnalysisMetadata> actions = ninjaConfiguredTarget.getActions();
-    assertThat(actions).hasSize(11);
+    assertThat(actions).hasSize(5);
     List<String> outputs = Lists.newArrayList();
     actions.forEach(a -> outputs.add(Iterables.getOnlyElement(a.getOutputs()).getExecPathString()));
     assertThat(outputs)
         .containsExactlyElementsIn(
             new String[] {
-              "build_config/hello.txt",
               "build_config/a.txt",
               "build_config/b.txt",
               "build_config/c.txt",
               "build_config/d.txt",
-              "build_config/e.txt",
-              "build_config/a",
-              "build_config/b",
-              "build_config/c",
-              "build_config/d",
-              "build_config/e"
+              "build_config/e.txt"
             });
 
     for (ActionAnalysisMetadata action : actions) {
-      Artifact artifact = action.getPrimaryOutput();
-      if ("hello.txt".equals(artifact.getFilename())) {
-        assertThat(action).isInstanceOf(NinjaAction.class);
-        NinjaAction ninjaAction = (NinjaAction) action;
-        List<CommandLineAndParamFileInfo> commandLines =
-            ninjaAction.getCommandLines().getCommandLines();
-        assertThat(commandLines).hasSize(1);
-        assertThat(commandLines.get(0).commandLine.toString())
-            .contains(
-                "cd build_config && echo \"Hello $(cat inputs_alias | tr '\\r\\n' ' ')!\""
-                    + " > hello.txt");
-        List<String> inputPaths =
-            ninjaAction.getInputs().toList().stream()
-                .map(Artifact::getExecPathString)
-                .collect(Collectors.toList());
-        assertThat(inputPaths)
-            .containsExactly(
-                "build_config/a",
-                "build_config/b",
-                "build_config/c",
-                "build_config/d",
-                "build_config/e");
-        assertThat(ninjaAction.getPrimaryOutput().getExecPathString())
-            .isEqualTo("build_config/hello.txt");
-      } else if (artifact.getFilename().endsWith(".txt")) {
-        assertThat(action).isInstanceOf(SymlinkAction.class);
-        SymlinkAction symlinkAction = (SymlinkAction) action;
-        assertThat(symlinkAction.executeUnconditionally()).isTrue();
-        assertThat(symlinkAction.getInputPath().getParentDirectory())
-            .isEqualTo(PathFragment.create("/workspace/build_config"));
-        assertThat(symlinkAction.getInputPath().getFileExtension()).isEqualTo("txt");
-        PathFragment execRootPath = symlinkAction.getPrimaryOutput().getExecPath();
-        assertThat(execRootPath.getParentDirectory())
-            .isEqualTo(PathFragment.create("build_config"));
-        assertThat(execRootPath.getFileExtension()).isEqualTo("txt");
-      } else if ("e".equals(artifact.getFilename())) {
-        assertThat(action).isInstanceOf(NinjaAction.class);
-        NinjaAction ninjaAction = (NinjaAction) action;
-        List<CommandLineAndParamFileInfo> commandLines =
-            ninjaAction.getCommandLines().getCommandLines();
-        assertThat(commandLines).hasSize(1);
-        assertThat(commandLines.get(0).commandLine.toString())
-            .endsWith("cd build_config && cat e.txt always_dirty > e");
-        assertThat(ninjaAction.executeUnconditionally()).isTrue();
-      }
+      assertThat(action).isInstanceOf(SymlinkAction.class);
+      SymlinkAction symlinkAction = (SymlinkAction) action;
+      assertThat(symlinkAction.executeUnconditionally()).isTrue();
+      assertThat(symlinkAction.getInputPath().getParentDirectory())
+          .isEqualTo(PathFragment.create("/workspace/build_config"));
+      assertThat(symlinkAction.getInputPath().getFileExtension()).isEqualTo("txt");
+      PathFragment execRootPath = symlinkAction.getPrimaryOutput().getExecPath();
+      assertThat(execRootPath.getParentDirectory())
+          .isEqualTo(PathFragment.create("build_config"));
+      assertThat(execRootPath.getFileExtension()).isEqualTo("txt");
     }
-  }
-
-  @Test
-  public void testDepsMapping() throws Exception {
-    rewriteWorkspace(
-        "workspace(name = 'test')",
-        "dont_symlink_directories_in_execroot(paths = ['build_config'])");
-
-    scratch.file("input.txt", "World");
-    scratch.file(
-        "build_config/build.ninja",
-        "rule echo",
-        "  command = echo \"Hello $$(cat ${in})!\" > ${out}",
-        "build hello.txt: echo placeholder");
-
-    ConfiguredTarget configuredTarget =
-        scratchConfiguredTarget(
-            "",
-            "graph",
-            "ninja_graph(name = 'graph', output_root = 'build_config',",
-            " working_directory = 'build_config',",
-            " main = 'build_config/build.ninja',",
-            " deps_mapping = {'placeholder': ':input.txt'},",
-            " output_groups= {'main': ['hello.txt']})");
-    assertThat(configuredTarget).isInstanceOf(RuleConfiguredTarget.class);
-    RuleConfiguredTarget ninjaConfiguredTarget = (RuleConfiguredTarget) configuredTarget;
-    ImmutableList<ActionAnalysisMetadata> actions = ninjaConfiguredTarget.getActions();
-    assertThat(actions).hasSize(1);
-
-    ActionAnalysisMetadata action = Iterables.getOnlyElement(actions);
-    assertThat(action).isInstanceOf(NinjaAction.class);
-    NinjaAction ninjaAction = (NinjaAction) action;
-    List<CommandLineAndParamFileInfo> commandLines =
-        ninjaAction.getCommandLines().getCommandLines();
-    assertThat(commandLines).hasSize(1);
-    assertThat(commandLines.get(0).commandLine.toString())
-        .endsWith("cd build_config && echo \"Hello $(cat placeholder)!\" > hello.txt");
-    assertThat(ninjaAction.getPrimaryInput().getExecPathString()).isEqualTo("input.txt");
-    assertThat(ninjaAction.getPrimaryOutput().getExecPathString())
-        .isEqualTo("build_config/hello.txt");
-  }
-
-  @Test
-  public void testOnlySubGraphIsCreated() throws Exception {
-    rewriteWorkspace(
-        "workspace(name = 'test')",
-        "dont_symlink_directories_in_execroot(paths = ['build_config'])");
-
-    scratch.file("build_config/a.txt", "A");
-    scratch.file("build_config/b.txt", "B");
-    scratch.file("build_config/c.txt", "C");
-    scratch.file("build_config/d.txt", "D");
-    scratch.file("build_config/e.txt", "E");
-
-    scratch.file(
-        "build_config/build.ninja",
-        "rule cat",
-        "  command = cat ${in} > ${out}",
-        "rule echo",
-        "  command = echo \"Hello $$(cat ${in} | tr '\\r\\n' ' ')!\" > ${out}",
-        "build a: cat a.txt",
-        "build b: cat b.txt",
-        "build c: cat c.txt",
-        "build d: cat d.txt",
-        "build e: cat e.txt",
-        "build group1: phony a b c",
-        "build group2: phony d e",
-        "build inputs_alias: phony group1 group2",
-        "build hello.txt: echo inputs_alias",
-        "build alias: phony hello.txt");
-
-    ConfiguredTarget configuredTarget =
-        scratchConfiguredTarget(
-            "",
-            "graph",
-            "ninja_graph(name = 'graph', output_root = 'build_config',",
-            " working_directory = 'build_config',",
-            " main = 'build_config/build.ninja',",
-            " output_root_inputs = ['a.txt', 'b.txt', 'c.txt', 'd.txt', 'e.txt'],",
-            " output_groups= {'main': ['group1']})");
-    assertThat(configuredTarget).isInstanceOf(RuleConfiguredTarget.class);
-    RuleConfiguredTarget ninjaConfiguredTarget = (RuleConfiguredTarget) configuredTarget;
-    ImmutableList<ActionAnalysisMetadata> actions = ninjaConfiguredTarget.getActions();
-    assertThat(actions).hasSize(8);
-    List<String> outputs = Lists.newArrayList();
-    actions.forEach(a -> outputs.add(Iterables.getOnlyElement(a.getOutputs()).getExecPathString()));
-    assertThat(outputs)
-        .containsExactlyElementsIn(
-            new String[] {
-              "build_config/a.txt",
-              "build_config/b.txt",
-              "build_config/c.txt",
-              "build_config/d.txt",
-              "build_config/e.txt",
-              "build_config/a",
-              "build_config/b",
-              "build_config/c",
-            });
   }
 }
