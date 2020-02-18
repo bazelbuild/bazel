@@ -68,6 +68,56 @@ EOF
     test ! -e "$execroot/external/bazel_tools/tools/genrule/genrule-setup.sh"
 }
 
+# Regression test for b/149771751
+function test_sibling_repository_layout_indirect_dependency() {
+    touch WORKSPACE
+
+    mkdir external
+    mkdir -p foo
+    cat > BUILD <<'EOF'
+package(default_visibility = ["//visibility:public"])
+
+filegroup(
+    name = "srcs",
+    srcs = ["BUILD"],
+)
+EOF
+    cat > foo/BUILD <<'EOF'
+# cc_library depends on //external:cc_toolchain
+cc_library(
+  name = "srcs",
+  data = ["//:srcs"], # load from root package to trigger symlinking planting of the top level external dir
+)
+EOF
+
+    bazel build --experimental_sibling_repository_layout //foo:srcs || fail "expected success"
+}
+
+# Regression test for b/149771751
+function test_subdirectory_repository_layout_indirect_dependency() {
+    touch WORKSPACE
+
+    mkdir external
+    mkdir -p foo
+    cat > BUILD <<'EOF'
+package(default_visibility = ["//visibility:public"])
+
+filegroup(
+    name = "srcs",
+    srcs = ["BUILD"],
+)
+EOF
+    cat > foo/BUILD <<'EOF'
+# cc_library depends on //external:cc_toolchain
+cc_library(
+  name = "srcs",
+  data = ["//:srcs"], # load from root package to trigger symlinking planting of the top level external dir
+)
+EOF
+
+    bazel build --noexperimental_sibling_repository_layout //foo:srcs || fail "expected success"
+}
+
 function test_no_sibling_repository_layout() {
     touch WORKSPACE
 
