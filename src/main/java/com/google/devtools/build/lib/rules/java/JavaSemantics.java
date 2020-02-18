@@ -78,6 +78,7 @@ public interface JavaSemantics {
   SafeImplicitOutputsFunction JAVA_BINARY_PROGUARD_CONFIG =
       fromTemplates("%{name}_proguard.config");
   SafeImplicitOutputsFunction JAVA_ONE_VERSION_ARTIFACT = fromTemplates("%{name}-one-version.txt");
+  SafeImplicitOutputsFunction SHARED_ARCHIVE_ARTIFACT = fromTemplates("%{name}.jsa");
 
   SafeImplicitOutputsFunction JAVA_COVERAGE_RUNTIME_CLASS_PATH_TXT =
       fromTemplates("%{name}-runtime-classpath.txt");
@@ -263,7 +264,8 @@ public interface JavaSemantics {
       Artifact launcher,
       boolean usingNativeSinglejar,
       OneVersionEnforcementLevel oneVersionEnforcementLevel,
-      Artifact oneVersionWhitelistArtifact);
+      Artifact oneVersionWhitelistArtifact,
+      Artifact sharedArchive);
 
   /**
    * Creates the action that writes the Java executable stub script.
