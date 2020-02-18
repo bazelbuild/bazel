@@ -283,8 +283,8 @@ class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
       eventBuilder.addTransitive(ValueWithMetadata.getEvents(value));
       postBuilder.addTransitive(ValueWithMetadata.getPosts(value));
     }
-    NestedSet<TaggedEvents> taggedEvents = eventBuilder.build();
-    NestedSet<Postable> postables = postBuilder.build();
+    NestedSet<TaggedEvents> taggedEvents = eventBuilder.buildInterruptibly();
+    NestedSet<Postable> postables = postBuilder.buildInterruptibly();
     evaluatorContext.getReplayingNestedSetEventVisitor().visit(taggedEvents);
     evaluatorContext.getReplayingNestedSetPostableVisitor().visit(postables);
     return Pair.of(taggedEvents, postables);
