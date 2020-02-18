@@ -70,14 +70,13 @@ android/ @ahumesky @jin
 /src/main/java/com/google/devtools/build/lib/ssd/ @philwo
 /src/main/java/com/google/devtools/build/lib/standalone/ @philwo
 /src/main/java/com/google/devtools/build/lib/worker/ @philwo
-/src/main/java/com/google/devtools/build/lib/rules/java/ @iirina
-/src/main/java/com/google/devtools/build/lib/rules/ @hlopko
+/src/main/java/com/google/devtools/build/lib/rules/ @lberki
 
 # Skylark
 
 /src/main/java/com/google/devtools/build/lib/syntax/ @brandjon @c-parsons @dslomov @laurentlb @vladmos
 
-/tools/coverage/ @iirina
-/tools/test/collect_coverage.sh @iirina
-/tools/test/collect_cc_coverage.sh @iirina
-/tools/test/CoverageOutputGenerator/ @iirina
+/tools/coverage/ @lberki
+/tools/test/collect_coverage.sh @lberki
+/tools/test/collect_cc_coverage.sh @lberki
+/tools/test/CoverageOutputGenerator/ @lberki
