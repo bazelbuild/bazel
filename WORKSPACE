@@ -151,11 +151,11 @@ distdir_tar(
         "java_tools_javac11_darwin-v7.0.zip",
         "coverage_output_generator-v2.1.zip",
         "c7bbde2950769aac9a99364b0926230060a3ce04.tar.gz",
-        "8ccf4f1c351928b55d5dddf3672e3667f6978d60.tar.gz",
-        "0.16.2.zip",
+        "1.25.0.zip",
+        "rules_nodejs-1.3.0.tar.gz",
         "android_tools_pkg-0.14.tar.gz",
         # bazelbuild/bazel-skylib
-        "f83cb8dd6f5658bc574ccd873e25197055265d1c.tar.gz",
+        "2d4c9528e0f453b5950eeaeac11d8d09f5a504d4.tar.gz",
         # bazelbuild/platforms
         "46993efdd33b73649796c5fc5c9efb193ae19d51.zip",
         # bazelbuild/rules_java
@@ -179,11 +179,13 @@ distdir_tar(
         "java_tools_javac11_darwin-v7.0.zip": "373a4226906ae9ba908550da16e133c4cd1f01b8973af82b9a2eb6903cb4d645",
         "coverage_output_generator-v2.1.zip": "96ac6bc9b9fbc67b532bcae562da1642409791e6a4b8e522f04946ee5cc3ff8e",
         "c7bbde2950769aac9a99364b0926230060a3ce04.tar.gz": "e6a76586b264f30679688f65f7e71ac112d1446681010a13bf22d9ca071f34b7",
-        "8ccf4f1c351928b55d5dddf3672e3667f6978d60.tar.gz": "d868ce50d592ef4aad7dec4dd32ae68d2151261913450fac8390b3fd474bb898",
-        "0.16.2.zip": "9b72bb0aea72d7cbcfc82a01b1e25bf3d85f791e790ddec16c65e2d906382ee0",
+        # rules_sass
+        "1.25.0.zip": "c78be58f5e0a29a04686b628cf54faaee0094322ae0ac99da5a8a8afca59a647",
+        # rules_nodejs
+        "rules_nodejs-1.3.0.tar.gz": "b6670f9f43faa66e3009488bbd909bc7bc46a5a9661a33f6bc578068d1837f37",
         "android_tools_pkg-0.14.tar.gz": "a3a951838448483e7af25afd10671b266cc6283104b4a2a427d31cac12cf0912",  # built at 6c63d70ef9c11a662b8323c0ae4f6d3ac53b1a60
         # bazelbuild/bazel-skylib
-        "f83cb8dd6f5658bc574ccd873e25197055265d1c.tar.gz": "ba5d15ca230efca96320085d8e4d58da826d1f81b444ef8afccd8b23e0799b52",
+        "2d4c9528e0f453b5950eeaeac11d8d09f5a504d4.tar.gz": "c00ceec469dbcf7929972e3c79f20c14033824538038a554952f5c31d8832f96",
         # bazelbuild/platforms
         "46993efdd33b73649796c5fc5c9efb193ae19d51.zip": "66184688debeeefcc2a16a2f80b03f514deac8346fe888fb7e691a52c023dd88",
         # bazelbuild/rules_java
@@ -220,21 +222,21 @@ distdir_tar(
             "https://mirror.bazel.build/github.com/bazelbuild/skydoc/archive/c7bbde2950769aac9a99364b0926230060a3ce04.tar.gz",
             "https://github.com/bazelbuild/skydoc/archive/c7bbde2950769aac9a99364b0926230060a3ce04.tar.gz",
         ],
-        "8ccf4f1c351928b55d5dddf3672e3667f6978d60.tar.gz": [
-            "https://mirror.bazel.build/github.com/bazelbuild/rules_sass/archive/8ccf4f1c351928b55d5dddf3672e3667f6978d60.tar.gz",
-            "https://github.com/bazelbuild/rules_sass/archive/8ccf4f1c351928b55d5dddf3672e3667f6978d60.tar.gz",
+        "1.25.0.zip": [
+            "https://mirror.bazel.build/github.com/bazelbuild/rules_sass/archive/1.25.0.zip",
+            "https://github.com/bazelbuild/rules_sass/archive/1.25.0.zip",
         ],
-        "0.16.2.zip": [
-            "https://mirror.bazel.build/github.com/bazelbuild/rules_nodejs/archive/0.16.2.zip",
-            "https://github.com/bazelbuild/rules_nodejs/archive/0.16.2.zip",
+        "rules_nodejs-1.3.0.tar.gz": [
+            "https://mirror.bazel.build/github.com/bazelbuild/rules_nodejs/archive/rules_nodejs-1.3.0.tar.gz",
+            "https://github.com/bazelbuild/rules_nodejs/archive/rules_nodejs-1.3.0.tar.gz",
         ],
         "android_tools_pkg-0.14.tar.gz": [
             "https://mirror.bazel.build/bazel_android_tools/android_tools_pkg-0.14.tar.gz",
         ],
         # bazelbuild/bazel-skylib
-        "f83cb8dd6f5658bc574ccd873e25197055265d1c.tar.gz": [
-            "https://mirror.bazel.build/github.com/bazelbuild/bazel-skylib/archive/f83cb8dd6f5658bc574ccd873e25197055265d1c.tar.gz",
-            "https://github.com/bazelbuild/bazel-skylib/archive/f83cb8dd6f5658bc574ccd873e25197055265d1c.tar.gz",
+        "2d4c9528e0f453b5950eeaeac11d8d09f5a504d4.tar.gz": [
+            "https://mirror.bazel.build/github.com/bazelbuild/bazel-skylib/archive/2d4c9528e0f453b5950eeaeac11d8d09f5a504d4.tar.gz",
+            "https://github.com/bazelbuild/bazel-skylib/archive/2d4c9528e0f453b5950eeaeac11d8d09f5a504d4.tar.gz",
         ],
         # bazelbuild/platforms
         "46993efdd33b73649796c5fc5c9efb193ae19d51.zip": [
@@ -409,12 +411,12 @@ http_archive(
     name = "bazel_skylib",
     patch_cmds = EXPORT_WORKSPACE_IN_BUILD_FILE,
     patch_cmds_win = EXPORT_WORKSPACE_IN_BUILD_FILE_WIN,
-    # Commit f83cb8dd6f5658bc574ccd873e25197055265d1c of 2018-11-26
-    sha256 = "ba5d15ca230efca96320085d8e4d58da826d1f81b444ef8afccd8b23e0799b52",
-    strip_prefix = "bazel-skylib-f83cb8dd6f5658bc574ccd873e25197055265d1c",
+    # Commit 2d4c9528e0f453b5950eeaeac11d8d09f5a504d4 of 2020-02-06
+    sha256 = "c00ceec469dbcf7929972e3c79f20c14033824538038a554952f5c31d8832f96",
+    strip_prefix = "bazel-skylib-2d4c9528e0f453b5950eeaeac11d8d09f5a504d4",
     urls = [
-        "https://mirror.bazel.build/github.com/bazelbuild/bazel-skylib/archive/f83cb8dd6f5658bc574ccd873e25197055265d1c.tar.gz",
-        "https://github.com/bazelbuild/bazel-skylib/archive/f83cb8dd6f5658bc574ccd873e25197055265d1c.tar.gz",
+        "https://mirror.bazel.build/github.com/bazelbuild/bazel-skylib/archive/2d4c9528e0f453b5950eeaeac11d8d09f5a504d4.tar.gz",
+        "https://github.com/bazelbuild/bazel-skylib/archive/2d4c9528e0f453b5950eeaeac11d8d09f5a504d4.tar.gz",
     ],
 )
 
@@ -482,7 +484,7 @@ distdir_tar(
         "zulu11.37.17-ca-jdk11.0.6-win_x64.zip",
         "android_tools_pkg-0.14.tar.gz",
         # bazelbuild/bazel-skylib
-        "f83cb8dd6f5658bc574ccd873e25197055265d1c.tar.gz",
+        "2d4c9528e0f453b5950eeaeac11d8d09f5a504d4.tar.gz",
         # bazelbuild/platforms
         "46993efdd33b73649796c5fc5c9efb193ae19d51.zip",
         # bazelbuild/rules_java
@@ -506,7 +508,7 @@ distdir_tar(
         "zulu11.37.17-ca-jdk11.0.6-win_x64.zip": "a9695617b8374bfa171f166951214965b1d1d08f43218db9a2a780b71c665c18",
         "android_tools_pkg-0.14.tar.gz": "a3a951838448483e7af25afd10671b266cc6283104b4a2a427d31cac12cf0912",  # built at 6c63d70ef9c11a662b8323c0ae4f6d3ac53b1a60
         # bazelbuild/bazel-skylib
-        "f83cb8dd6f5658bc574ccd873e25197055265d1c.tar.gz": "ba5d15ca230efca96320085d8e4d58da826d1f81b444ef8afccd8b23e0799b52",
+        "2d4c9528e0f453b5950eeaeac11d8d09f5a504d4.tar.gz": "c00ceec469dbcf7929972e3c79f20c14033824538038a554952f5c31d8832f96",
         # bazelbuild/platforms
         "46993efdd33b73649796c5fc5c9efb193ae19d51.zip": "66184688debeeefcc2a16a2f80b03f514deac8346fe888fb7e691a52c023dd88",
         # bazelbuild/rules_java
@@ -531,9 +533,9 @@ distdir_tar(
             "https://mirror.bazel.build/bazel_android_tools/android_tools_pkg-0.14.tar.gz",
         ],
         # bazelbuild/bazel-skylib
-        "f83cb8dd6f5658bc574ccd873e25197055265d1c.tar.gz": [
-            "https://mirror.bazel.build/github.com/bazelbuild/bazel-skylib/archive/f83cb8dd6f5658bc574ccd873e25197055265d1c.tar.gz",
-            "https://github.com/bazelbuild/bazel-skylib/archive/f83cb8dd6f5658bc574ccd873e25197055265d1c.tar.gz",
+        "2d4c9528e0f453b5950eeaeac11d8d09f5a504d4.tar.gz": [
+            "https://mirror.bazel.build/github.com/bazelbuild/bazel-skylib/archive/2d4c9528e0f453b5950eeaeac11d8d09f5a504d4.tar.gz",
+            "https://github.com/bazelbuild/bazel-skylib/archive/2d4c9528e0f453b5950eeaeac11d8d09f5a504d4.tar.gz",
         ],
         # bazelbuild/platforms
         "46993efdd33b73649796c5fc5c9efb193ae19d51.zip": [
@@ -578,21 +580,20 @@ load("//scripts/docs:doc_versions.bzl", "DOC_VERSIONS")
 # distribution archive self-contained.
 http_archive(
     name = "io_bazel_rules_sass",
-    sha256 = "d868ce50d592ef4aad7dec4dd32ae68d2151261913450fac8390b3fd474bb898",
-    strip_prefix = "rules_sass-8ccf4f1c351928b55d5dddf3672e3667f6978d60",
+    sha256 = "c78be58f5e0a29a04686b628cf54faaee0094322ae0ac99da5a8a8afca59a647",
     urls = [
-        "https://mirror.bazel.build/github.com/bazelbuild/rules_sass/archive/8ccf4f1c351928b55d5dddf3672e3667f6978d60.tar.gz",
-        "https://github.com/bazelbuild/rules_sass/archive/8ccf4f1c351928b55d5dddf3672e3667f6978d60.tar.gz",
+        "https://mirror.bazel.build/github.com/bazelbuild/rules_sass/archive/1.25.0.zip",
+        "https://github.com/bazelbuild/rules_sass/archive/1.25.0.zip",
     ],
+    strip_prefix = "rules_sass-1.25.0",
 )
 
 http_archive(
     name = "build_bazel_rules_nodejs",
-    sha256 = "9b72bb0aea72d7cbcfc82a01b1e25bf3d85f791e790ddec16c65e2d906382ee0",
-    strip_prefix = "rules_nodejs-0.16.2",
+    sha256 = "b6670f9f43faa66e3009488bbd909bc7bc46a5a9661a33f6bc578068d1837f37",
     urls = [
-        "https://mirror.bazel.build/github.com/bazelbuild/rules_nodejs/archive/0.16.2.zip",
-        "https://github.com/bazelbuild/rules_nodejs/archive/0.16.2.zip",
+        "https://mirror.bazel.build/github.com/bazelbuild/rules_nodejs/releases/download/1.3.0/rules_nodejs-1.3.0.tar.gz",
+        "https://github.com/bazelbuild/rules_nodejs/releases/download/1.3.0/rules_nodejs-1.3.0.tar.gz",
     ],
 )
 
@@ -866,7 +867,7 @@ load("@io_bazel_rules_sass//:package.bzl", "rules_sass_dependencies")
 
 rules_sass_dependencies()
 
-load("@build_bazel_rules_nodejs//:defs.bzl", "node_repositories")
+load("@build_bazel_rules_nodejs//:index.bzl", "node_repositories")
 
 node_repositories()
 
