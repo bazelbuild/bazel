@@ -131,7 +131,7 @@ tasks:
     test_targets:
       - "//src/test/shell/bazel:cc_integration_test"
   macos:
-    shards: 4
+    shards: 5
     shell_commands:
       - sed -i.bak -e 's/^# android_sdk_repository/android_sdk_repository/' -e 's/^#
         android_ndk_repository/android_ndk_repository/' WORKSPACE
