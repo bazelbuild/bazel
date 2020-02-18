@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.devtools.build.lib;
+package com.google.devtools.build.lib.unix.jni;
 
 /**
  * A class to load JNI dependencies for Bazel.

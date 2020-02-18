@@ -77,6 +77,7 @@ filegroup(
         "//src/main/java/com/google/devtools/build/lib/standalone:srcs",
         "//src/main/java/com/google/devtools/build/lib/supplier:srcs",
         "//src/main/java/com/google/devtools/build/lib/syntax:srcs",
+        "//src/main/java/com/google/devtools/build/lib/unix:srcs",
         "//src/main/java/com/google/devtools/build/lib/util/io:srcs",
         "//src/main/java/com/google/devtools/build/lib/versioning:srcs",
         "//src/main/java/com/google/devtools/build/lib/vfs/inmemoryfs:srcs",
@@ -91,29 +92,6 @@ filegroup(
     visibility = [
         "//src:__pkg__",
         "//src/test/shell/bazel:__pkg__",
-    ],
-)
-
-#   Java interfaces to various native UNIX system services.
-#
-#   All programs that depend on libraries in this package will have
-#   JNI (native code) dependencies.
-java_library(
-    name = "unix",
-    srcs = glob([
-        "unix/*.java",
-    ]) + ["UnixJniLoader.java"],
-    # Enable tests to pick up the native lib if using this library.
-    # See JavaBinary#collectNativeLibraries.
-    data = ["//src/main/native:target-os-unix-native-lib"],
-    deps = [
-        ":os_util",
-        "//src/main/java/com/google/devtools/build/lib/concurrent",
-        "//src/main/java/com/google/devtools/build/lib/profiler",
-        "//src/main/java/com/google/devtools/build/lib/shell",
-        "//src/main/java/com/google/devtools/build/lib/vfs",
-        "//third_party:flogger",
-        "//third_party:guava",
     ],
 )
 
@@ -145,8 +123,8 @@ java_library(
     srcs = ["util/ProcessUtils.java"],
     deps = [
         ":os_util",
-        ":unix",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
+        "//src/main/java/com/google/devtools/build/lib/unix",
         "//src/main/java/com/google/devtools/build/lib/windows/jni:processes",
     ],
 )
@@ -585,7 +563,6 @@ java_library(
         ":resource-converter",
         ":syntax",
         ":transitive-info-provider",
-        ":unix",
         ":util",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:commandline_item",
@@ -619,6 +596,8 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi/test",
         "//src/main/java/com/google/devtools/build/lib/skylarkinterface",
         "//src/main/java/com/google/devtools/build/lib/supplier",
+        "//src/main/java/com/google/devtools/build/lib/unix",
+        "//src/main/java/com/google/devtools/build/lib/unix/jni",
         "//src/main/java/com/google/devtools/build/lib/util/io",
         "//src/main/java/com/google/devtools/build/lib/util/io:out-err",
         "//src/main/java/com/google/devtools/build/lib/vfs",
@@ -1159,10 +1138,10 @@ java_library(
         ":os_util",
         ":runtime",
         ":string_util",
-        ":unix",
         ":util",
         "//src/main/java/com/google/devtools/build/lib/clock",
         "//src/main/java/com/google/devtools/build/lib/profiler",
+        "//src/main/java/com/google/devtools/build/lib/unix",
         "//src/main/java/com/google/devtools/build/lib/util/io:out-err",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/common/options",
@@ -1234,7 +1213,6 @@ java_library(
         ":packages-internal",
         ":process_util",
         ":shared-base-rules",
-        ":unix",
         ":util",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:localhost_capacity",
@@ -1257,6 +1235,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/query2/engine",
         "//src/main/java/com/google/devtools/build/lib/query2/query/output",
         "//src/main/java/com/google/devtools/build/lib/shell",
+        "//src/main/java/com/google/devtools/build/lib/unix",
         "//src/main/java/com/google/devtools/build/lib/util/io",
         "//src/main/java/com/google/devtools/build/lib/util/io:out-err",
         "//src/main/java/com/google/devtools/build/lib/vfs",
