@@ -555,7 +555,7 @@ JAVA_TOOLS_DEPLOY_JARS = [
     "//conditions:default": [],
 })
 
-JAVA_VERSIONS = ("9", "10", "11", "12")
+JAVA_VERSIONS = ("11", "12")
 
 [
     genrule(
