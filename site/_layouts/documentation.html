@@ -49,27 +49,32 @@ nav: docs
 
             <h3>Home</h3>
             <ul class="sidebar-nav">
-              <li><a href="/versions/{{ current_version }}/bazel-overview.html">Bazel Overview</a></li>
+              <li><a href="/versions/{{ current_version }}/bazel-overview.html">Overview</a></li>
               <li><a href="/versions/{{ current_version }}/bazel-vision.html">Bazel Vision</a></li>
               <li><a href="/versions/{{ current_version }}/getting-started.html">Getting Started</a></li>
               <li><a href="/versions/{{ current_version }}/backward-compatibility.html">Backward Compatibility</a></li>
             </ul>
 
-            <h3>Installing and Using Bazel</h3>
+            <h3>Installing Bazel</h3>
             <ul class="sidebar-nav">
+
+	      <li class="sidebar-nav">
+                <a href="/versions/{{ current_version }}/install.html">Overview</a>
+	      </li>
+
 
               <li>
                 <a class="sidebar-nav-heading" data-toggle="collapse"
                     href="#installing-menu" aria-expanded="false"
                     aria-controls="installing-menu">
-                  Installing Bazel<span class="caret"></span>
+                  Instructions<span class="caret"></span>
                 </a>
                 <ul class="collapse sidebar-nav sidebar-submenu" id="installing-menu">
-                   <li><a href="/versions/{{ current_version }}/install.html">Installation Overview</a></li>
-                   <li><a href="/versions/{{ current_version }}/install-ubuntu.html">Installing on Ubuntu</a></li>
-                   <li><a href="/versions/{{ current_version }}/install-redhat.html">Installing on Fedora/CentOS</a></li>
-                   <li><a href="/versions/{{ current_version }}/install-os-x.html">Installing on macOS</a></li>
-                   <li><a href="/versions/{{ current_version }}/install-windows.html">Installing on Windows</a></li>
+
+                   <li><a href="/versions/{{ current_version }}/install-ubuntu.html">Ubuntu</a></li>
+                   <li><a href="/versions/{{ current_version }}/install-redhat.html">Fedora/CentOS</a></li>
+                   <li><a href="/versions/{{ current_version }}/install-os-x.html">macOS</a></li>
+                   <li><a href="/versions/{{ current_version }}/install-windows.html">Windows</a></li>
                    <li><a href="/versions/{{ current_version }}/install-compile-source.html">Compiling from Source</a></li>
                    <li><a href="/versions/{{ current_version }}/completion.html">Command-Line Completion</a></li>
                    <li><a href="/versions/{{ current_version }}/ide.html">Integrating with IDEs</a></li>
@@ -81,36 +86,36 @@ nav: docs
                 <a href="/versions/{{ current_version }}/updating-bazel.html">Updating Bazel</a>
               </li>
               {% endif %}
+            </ul>
 
+            <h3>Using Bazel</h3>
+            <ul class="sidebar-nav">
               <li>
                 <a class="sidebar-nav-heading" data-toggle="collapse"
                     href="#using-menu" aria-expanded="false"
                     aria-controls="using-menu">
-                  Using Bazel<span class="caret"></span>
+                  Concepts<span class="caret"></span>
                 </a>
                 <ul class="collapse sidebar-nav sidebar-submenu" id="using-menu">
-                  <li><a href="/versions/{{ current_version }}/build-ref.html">Bazel Concepts</a></li>
-                  <li><a href="/versions/{{ current_version }}/guide.html">User's Guide (Bazel commands)</a></li>
+                  <li><a href="/versions/{{ current_version }}/build-ref.html">Basic Concepts</a></li>
                   <li><a href="/versions/{{ current_version }}/external.html">External Dependencies</a></li>
                   <li><a href="/versions/{{ current_version }}/configurable-attributes.html">Configurable Attributes</a></li>
-                  <li><a href="/versions/{{ current_version }}/best-practices.html">Best Practices</a></li>
-                  <li><a href="/versions/{{ current_version }}/memory-saving-mode.html">Memory-saving Mode</a></li>
-                  <li><a href="/versions/{{ current_version }}/windows.html">Using Bazel on Windows</a></li>
+		  <li><a href="/versions/master/platforms-intro.html">Platforms</a></li>
                 </ul>
               </li>
 
               <li>
                 <a class="sidebar-nav-heading" data-toggle="collapse"
-                    href="#build-files-menu" aria-expanded="false"
+                    href="#guides-menu" aria-expanded="false"
                     aria-controls="build-files-menu">
-                  BUILD files<span class="caret"></span>
+                  Guides<span class="caret"></span>
                 </a>
-                <ul class="collapse sidebar-nav sidebar-submenu" id="build-files-menu">
-                  <li><a href="/versions/{{ current_version }}/be/functions.html">Functions</a></li>
-                  <li><a href="/versions/{{ current_version }}/be/common-definitions.html">Common Definitions</a></li>
-                  <li><a href="/versions/{{ current_version }}/be/make-variables.html">"Make" Variables</a></li>
+                <ul class="collapse sidebar-nav sidebar-submenu" id="guides-menu">
+                  <li><a href="/versions/{{ current_version }}/guide.html">User's Guide</a></li>
                   <li><a href="/versions/{{ current_version }}/skylark/tutorial-sharing-variables.html">Sharing Variables</a></li>
                   <li><a href="/versions/{{ current_version }}/skylark/tutorial-creating-a-macro.html">Creating a Macro</a></li>
+                  <li><a href="/versions/{{ current_version }}/memory-saving-mode.html">Memory-saving Mode</a></li>
+                  <li><a href="/versions/{{ current_version }}/windows.html">Using Bazel on Windows</a></li>
                 </ul>
               </li>
 
@@ -134,26 +139,38 @@ nav: docs
 
               <li>
                 <a class="sidebar-nav-heading" data-toggle="collapse"
+                    href="#best-practices-menu" aria-expanded="false"
+                    aria-controls="best-practices-menu">
+                  Best Practices<span class="caret"></span>
+                </a>
+                <ul class="collapse sidebar-nav sidebar-submenu" id="best-practices-menu">
+                  <li><a href="/versions/{{ current_version }}/best-practices.html">General</a></li>
+                  <li><a href="/versions/{{ current_version }}/skylark/tutorial-sharing-variables.html">Sharing BUILD Variables</a></li>
+                </ul>
+              </li>
+
+              <li>
+                <a class="sidebar-nav-heading" data-toggle="collapse"
                     href="#remote-execution-menu" aria-expanded="false"
                     aria-controls="remote-execution-menu">
                   Remote Execution<span class="caret"></span>
                 </a>
                 <ul class="collapse sidebar-nav sidebar-submenu" id="remote-execution-menu">
-                   <li><a href="/versions/{{ current_version }}/remote-execution.html">Remote Execution Overview</a></li>
-                   <li><a href="/versions/{{ current_version }}/remote-execution-rules.html">Guidelines for Remote Execution</a></li>
+                   <li><a href="/versions/{{ current_version }}/remote-execution.html">Overview</a></li>
+                   <li><a href="/versions/{{ current_version }}/remote-execution-rules.html">Guidelines</a></li>
                    <li>
                       <a class="sidebar-nav-heading" data-toggle="collapse"
                           href="#troubleshoot-remote-execution-menu" aria-expanded="false"
                           aria-controls="troubleshoot-remote-execution-menu">
-                        Troubleshooting Remote Execution<span class="caret"></span>
+                        Troubleshooting<span class="caret"></span>
                       </a>
                       <ul class="collapse sidebar-nav sidebar-submenu" id="troubleshoot-remote-execution-menu">
-                         <li><a href="/versions/{{ current_version }}/remote-execution-sandbox.html">Troubleshooting Remote Execution with Bazel Sandbox</a></li>
+                         <li><a href="/versions/{{ current_version }}/remote-execution-sandbox.html">Troubleshooting with Bazel Sandbox</a></li>
                          <li><a href="/versions/{{ current_version }}/workspace-log.html">Finding non-hermetic behavior in WORKSPACE rules</a></li>
                          <li><a href="/versions/{{ current_version }}/remote-execution-caching-debug.html">Debugging Remote Cache Hit Rate</a></li>
                       </ul>
                   </li>
-                   <li><a href="/versions/{{ current_version }}/remote-execution-ci.html">Configuring Bazel CI for Remote Execution Rule Testing</a></li>
+                   <li><a href="/versions/{{ current_version }}/remote-execution-ci.html">Configuring CI for Remote Execution Rule Testing</a></li>
                  </ul>
               </li>
 
@@ -164,12 +181,11 @@ nav: docs
                     Remote Caching<span class="caret"></span>
                   </a>
                   <ul class="collapse sidebar-nav sidebar-submenu" id="remote-caching-menu">
-                     <li><a href="/versions/{{ current_version }}/remote-caching.html">Remote Caching Overview</a></li>
+                     <li><a href="/versions/{{ current_version }}/remote-caching.html">Overview</a></li>
                      <li><a href="/versions/{{ current_version }}/remote-caching-debug.html">Debugging Remote Cache Hit Rate for Local Execution</a></li>
                   </ul>
               </li>
               {% if major_version == "master" or major_version > 1 or major_version == 1 and minor_version >= 1 %}
-              <li><a href="/versions/master/platforms-intro.html">Building With Platforms</a></li>
               {% endif %}
              </ul>
 
@@ -268,7 +284,23 @@ nav: docs
            <h3>Reference</h3>
            <ul class="sidebar-nav">
              <li><a href="/versions/{{ current_version }}/user-manual.html">Commands and Options</a></li>
-             <li><a href="/versions/{{ current_version }}/skylark/build-style.html">BUILD Style Guide</a></li>
+
+	     <li>
+                <a class="sidebar-nav-heading" data-toggle="collapse"
+                    href="#build-files-menu" aria-expanded="false"
+                    aria-controls="build-files-menu">
+                  BUILD Files<span class="caret"></span>
+                </a>
+                <ul class="collapse sidebar-nav sidebar-submenu" id="build-files-menu">
+		  <li><a href="/versions/{{ current_version }}/be/functions.html">Functions</a></li>
+                  <li><a href="/versions/{{ current_version }}/be/common-definitions.html">Common Definitions</a></li>
+                  <li><a href="/versions/{{ current_version }}/be/make-variables.html">"Make" Variables</a></li>
+		  <li><a href="/versions/{{ current_version }}/skylark/build-style.html">BUILD Style Guide</a></li>
+                </ul>
+              </li>
+
+
+
              <li><a href="/versions/{{ current_version }}/command-line-reference.html">Command Line Reference</a></li>
              <li><a href="/versions/{{ current_version }}/test-encyclopedia.html">Writing Tests</a></li>
              <li><a href="/versions/{{ current_version }}/build-event-protocol.html">Build Event Protocol</a></li>
@@ -298,10 +330,10 @@ nav: docs
                 </ul>
               </li>
 
-              <li>
+	      <li>
                 <a class="sidebar-nav-heading" data-toggle="collapse"
-                    href="#starlark-practices" aria-expanded="false"
-                    aria-controls="starlark-practices">
+                   href="#starlark-practices" aria-expanded="false"
+                   aria-controls="starlark-practices">
                   Best Practices<span class="caret"></span>
                 </a>
                 <ul class="collapse sidebar-nav sidebar-submenu" id="starlark-practices">
@@ -314,7 +346,7 @@ nav: docs
                   <li><a href="/versions/{{ current_version }}/skylark/windows_tips.html">Writing rules on Windows</a></li>
                 </ul>
               </li>
-
+ 
               <li><a href="https://github.com/bazelbuild/examples/tree/master/rules">Examples</a></li>
               <li><a href="/versions/{{ current_version }}/skylark/lib/skylark-overview.html">API Reference</a></li>
               <li><a href="/versions/{{ current_version }}/skylark/language.html">Starlark Language</a></li>
