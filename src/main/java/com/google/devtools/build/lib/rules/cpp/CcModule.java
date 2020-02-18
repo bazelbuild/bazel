@@ -142,6 +142,13 @@ public abstract class CcModule
               + "Please add 'ctx' as a named parameter. See "
               + "https://github.com/bazelbuild/bazel/issues/7793 for details.");
     }
+    if (ruleContext != null
+        && !ruleContext.getRuleContext().isLegalFragment(CppConfiguration.class)) {
+      throw Starlark.errorf(
+          "%s must declare '%s' as a required fragment to access it.",
+          ruleContext.getRuleContext().getRuleClassNameForLogging(),
+          CppConfiguration.class.getSimpleName());
+    }
     CppConfiguration cppConfiguration =
         ruleContext == null
             ? toolchain.getCppConfigurationEvenThoughItCanBeDifferentThanWhatTargetHas()
