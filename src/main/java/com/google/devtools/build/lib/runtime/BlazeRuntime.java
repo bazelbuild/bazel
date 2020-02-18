@@ -282,7 +282,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
   }
 
   private BuildEventArtifactUploader newUploader(
-      CommandEnvironment env, String buildEventUploadStrategy) {
+      CommandEnvironment env, String buildEventUploadStrategy) throws IOException {
     return getBuildEventArtifactUploaderFactoryMap().select(buildEventUploadStrategy).create(env);
   }
 
