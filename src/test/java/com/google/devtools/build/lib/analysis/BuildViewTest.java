@@ -83,6 +83,14 @@ public class BuildViewTest extends BuildViewTestBase {
   };
 
   @Test
+  public void directoryArtifactInRoot() throws Exception {
+    scratch.file(
+        "BUILD", "genrule(name = 'slurps_dir', srcs = ['.'], outs = ['out'], cmd = 'touch $@')");
+    // Expect no errors.
+    update("//:slurps_dir");
+  }
+
+  @Test
   public void testRuleConfiguredTarget() throws Exception {
     scratch.file("pkg/BUILD",
         "genrule(name='foo', ",

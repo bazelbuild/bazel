@@ -269,10 +269,6 @@ public abstract class Artifact
 
   private Artifact(ArtifactRoot root, PathFragment execPath, boolean contentBasedPath) {
     Preconditions.checkNotNull(root);
-    if (execPath.isEmpty()) {
-      throw new IllegalArgumentException(
-          "it is illegal to create an artifact with an empty execPath");
-    }
     // The ArtifactOwner is not part of this computation because it is very rare that two Artifacts
     // have the same execPath and different owners, so a collision is fine there. If this is
     // changed, OwnerlessArtifactWrapper must also be changed.
