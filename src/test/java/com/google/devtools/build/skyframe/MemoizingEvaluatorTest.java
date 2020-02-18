@@ -171,6 +171,8 @@ public class MemoizingEvaluatorTest {
    *
    * <p>Returns a concurrent {@link Set} containing {@link InconsistencyData}s discovered during
    * evaluation. Callers should assert the desired properties on the returned set.
+   *
+   * <p>Calls {@code tester.initialize} under the hood, so call early in test setup!
    */
   protected Set<InconsistencyData> setupGraphInconsistencyReceiver(boolean allowDuplicates) {
     Set<InconsistencyData> inconsistencies = Sets.newConcurrentHashSet();
@@ -205,6 +207,7 @@ public class MemoizingEvaluatorTest {
     return inconsistencies;
   }
 
+  /** Calls {@code tester.initialize} under the hood, so call early in test setup! */
   protected Set<InconsistencyData> setupGraphInconsistencyReceiver() {
     return setupGraphInconsistencyReceiver(/*allowDuplicates=*/ false);
   }
@@ -5285,6 +5288,7 @@ public class MemoizingEvaluatorTest {
         GraphInconsistencyReceiver.THROWING;
     private EventFilter eventFilter = InMemoryMemoizingEvaluator.DEFAULT_STORED_EVENT_FILTER;
 
+    /** Constructs a new {@link #evaluator}, so call before injecting a transformer into it! */
     public void initialize(boolean keepEdges) {
       this.differencer = getRecordingDifferencer();
       this.evaluator =
