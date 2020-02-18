@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.syntax.ClassObject;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.HasBinary;
+import com.google.devtools.build.lib.syntax.SkylarkType;
 import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.syntax.TokenKind;
 import java.util.Arrays;
@@ -31,6 +32,8 @@ import javax.annotation.Nullable;
 
 /** An Info (provider instance) for providers defined in Starlark. */
 public final class SkylarkInfo extends StructImpl implements HasBinary, ClassObject {
+
+  public static final SkylarkType TYPE = SkylarkType.of(SkylarkInfo.class);
 
   // For a n-element info, the table contains n key strings, sorted,
   // followed by the n corresponding legal Starlark values.
