@@ -470,7 +470,11 @@ $ bazel cquery 'somepath(//foo, //bar)' --universe_scope=//foo
   <li>
     <strong>No support
       for <a href="https://docs.bazel.build/versions/master/skylark/aspects.html">aspects</a>.</strong>
-  </li>
+    Aspects can add additional dependencies which <code>cquery</code> will not see.
+    This can manifest as seeing a failure on target X while building target Y but a <code>cquery
+    somepath(Y, X)</code> and <code>cquery deps(Y) | grep 'X'</code> will return no results because
+    somewhere in the path between Y and X there's an aspect dependency.
+      </li>
 
   <li>
     <strong>No support
