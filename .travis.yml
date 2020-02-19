@@ -1,0 +1,29 @@
+os: linux
+arch: ppc64le
+sudo: required
+language: go
+go:
+- "1.13.x"
+
+jobs:
+  include:
+    - dist: xenial
+      env: dist_version=16.04
+    - dist: bionic
+      env: dist_version=18.04
+
+before_install:
+  - sudo apt update
+  - sudo apt install build-essential python zip unzip gcc
+  - sudo apt install default-jre default-jdk
+
+script:
+  - wget -q https://oplab9.parqtec.unicamp.br/pub/ppc64el/bazel/ubuntu_${dist_version}/bazel_bin_ppc64le_1.0.0
+  - sudo mv bazel_bin_ppc64le_1.0.0 /usr/local/bin/bazel
+  - sudo chmod +x /usr/local/bin/bazel
+  - git clone https://github.com/bazelbuild/bazel
+  - cd bazel
+  - git checkout 314cd3353b018420598188cf54c3f97358baa2e3
+  - bazel --nomaster_bazelrc --bazelrc=/dev/null version
+  - bazel --nomaster_bazelrc --bazelrc=/dev/null info
+  - bazel build --host_javabase=@local_jdk//:jdk -- //src:bazel //src:bazel_jdk_minimal
