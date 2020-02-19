@@ -332,8 +332,10 @@ public class SymlinkForest {
 
     for (Map.Entry<PackageIdentifier, Root> entry : packageRoots.entrySet()) {
       PackageIdentifier pkgId = entry.getKey();
-      if (!siblingRepositoryLayout && pkgId.equals(LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER)) {
-        // This isn't a "real" package, don't add it to the symlink tree.
+      if (pkgId.equals(LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER)) {
+        // //external is a virtual package regardless , don't add it to the symlink tree.
+        // Subpackages of
+        // external, like //external/foo, are fine though.
         continue;
       }
       RepositoryName repository = pkgId.getRepository();
