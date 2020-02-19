@@ -203,7 +203,7 @@ public class GrpcCacheClient implements RemoteCacheClient, MissingDigestsFinder 
             MoreExecutors.directExecutor());
     return Futures.catchingAsync(
         success,
-        Exception.class,
+        RuntimeException.class,
         (e) -> Futures.immediateFailedFuture(
             new IOException(
                 String.format(
