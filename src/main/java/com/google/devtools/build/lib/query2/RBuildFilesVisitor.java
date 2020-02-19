@@ -89,7 +89,10 @@ public class RBuildFilesVisitor extends ParallelQueryVisitor<SkyKey, PackageIden
         if (resultUniquifier.unique(rdep)) {
           keysToUseForResult.add((PackageIdentifier) rdep.argument());
         }
-        // Every package has a dep on the external package, so we need to include those edges too.
+        // PackageValue(//p) has a transitive dep on the PackageValue(//external), so we need to
+        // make sure these dep paths are traversed. These dep paths go through the singleton
+        // WorkspaceNameValue(), and that node has a direct dep on PackageValue(//external), so it
+        // suffices to ensure we visit PackageValue(//external).
         if (rdep.equals(EXTERNAL_PACKAGE_KEY)) {
           keysToVisitNext.add(rdep);
         }
