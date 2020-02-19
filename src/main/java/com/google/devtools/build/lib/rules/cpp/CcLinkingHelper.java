@@ -699,7 +699,7 @@ public final class CcLinkingHelper {
             ccToolchain.getDynamicRuntimeLinkMiddleman(ruleErrorConsumer, featureConfiguration),
             ccToolchain.getDynamicRuntimeLinkInputs(featureConfiguration));
       } catch (EvalException e) {
-        throw ruleErrorConsumer.throwWithRuleError(e.getMessage());
+        throw ruleErrorConsumer.throwWithRuleError(e);
       }
     } else {
       try {
@@ -708,7 +708,7 @@ public final class CcLinkingHelper {
             ccToolchain.getStaticRuntimeLinkMiddleman(ruleErrorConsumer, featureConfiguration),
             ccToolchain.getStaticRuntimeLinkInputs(featureConfiguration));
       } catch (EvalException e) {
-        throw ruleErrorConsumer.throwWithRuleError(e.getMessage());
+        throw ruleErrorConsumer.throwWithRuleError(e);
       }
     }
 

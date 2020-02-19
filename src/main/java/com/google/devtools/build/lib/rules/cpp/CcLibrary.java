@@ -347,7 +347,7 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
                             ArtifactCategory.DYNAMIC_LIBRARY, ruleContext.getLabel().getName()));
             targetBuilder.addOutputGroup(DEF_FILE_OUTPUT_GROUP_NAME, generatedDefFile);
           } catch (EvalException e) {
-            throw ruleContext.throwWithRuleError(e.getMessage());
+            throw ruleContext.throwWithRuleError(e);
           }
         }
         linkingHelper.setDefFile(
@@ -447,7 +447,7 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
         builder.addTransitiveArtifacts(
             ccToolchain.getDynamicRuntimeLinkInputs(featureConfiguration));
       } catch (EvalException e) {
-        throw ruleContext.throwWithRuleError(e.getMessage());
+        throw ruleContext.throwWithRuleError(e);
       }
     }
     Runfiles runfiles = builder.build();

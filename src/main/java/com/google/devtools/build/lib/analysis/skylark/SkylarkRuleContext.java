@@ -266,7 +266,7 @@ public final class SkylarkRuleContext implements SkylarkRuleContextApi<Constrain
     try {
       makeVariables = ruleContext.getConfigurationMakeVariableContext().collectMakeVariables();
     } catch (ExpansionException e) {
-      throw ruleContext.throwWithRuleError(e.getMessage());
+      throw ruleContext.throwWithRuleError(e);
     }
   }
 

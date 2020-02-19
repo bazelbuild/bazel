@@ -221,7 +221,7 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
       try {
         builder.addTransitiveArtifacts(toolchain.getDynamicRuntimeLinkInputs(featureConfiguration));
       } catch (EvalException e) {
-        throw ruleContext.throwWithRuleError(e.getMessage());
+        throw ruleContext.throwWithRuleError(e);
       }
     }
     if (linkCompileOutputSeparately) {

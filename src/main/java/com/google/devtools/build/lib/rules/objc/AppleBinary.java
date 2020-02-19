@@ -226,8 +226,7 @@ public class AppleBinary implements RuleConfiguredTargetFactory {
             new AppleLoadableBundleBinaryInfo(outputArtifact, objcProvider);
         break;
       default:
-        ruleContext.ruleError("Unhandled binary type " + getBinaryType(ruleContext));
-        throw new RuleErrorException();
+        throw ruleContext.throwWithRuleError("Unhandled binary type " + getBinaryType(ruleContext));
     }
 
     AppleDebugOutputsInfo.Builder builder = AppleDebugOutputsInfo.Builder.create();
@@ -355,8 +354,7 @@ public class AppleBinary implements RuleConfiguredTargetFactory {
         outputArtifact = loadableBundleProvider.getAppleLoadableBundleBinary();
         break;
       default:
-        ruleContext.ruleError("Unhandled binary type " + getBinaryType(ruleContext));
-        throw new RuleErrorException();
+        throw ruleContext.throwWithRuleError("Unhandled binary type " + getBinaryType(ruleContext));
     }
 
     NestedSetBuilder<Artifact> filesToBuild =

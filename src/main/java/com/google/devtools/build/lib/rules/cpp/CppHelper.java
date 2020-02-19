@@ -247,7 +247,7 @@ public class CppHelper {
     try {
       return getDefaultCcToolchainDynamicRuntimeInputsFromStarlark(ruleContext);
     } catch (EvalException e) {
-      throw ruleContext.throwWithRuleError(e.getMessage());
+      throw ruleContext.throwWithRuleError(e);
     }
   }
 
@@ -287,7 +287,7 @@ public class CppHelper {
     try {
       return defaultToolchain.getStaticRuntimeLinkInputs(featureConfiguration);
     } catch (EvalException e) {
-      throw ruleContext.throwWithRuleError(e.getMessage());
+      throw ruleContext.throwWithRuleError(e);
     }
   }
 
@@ -748,7 +748,7 @@ public class CppHelper {
     try {
       return ImmutableList.copyOf(featureConfiguration.getCommandLine(actionName, variables));
     } catch (ExpansionException e) {
-      throw ruleErrorConsumer.throwWithRuleError(e.getMessage());
+      throw ruleErrorConsumer.throwWithRuleError(e);
     }
   }
 
@@ -761,7 +761,7 @@ public class CppHelper {
     try {
       return featureConfiguration.getEnvironmentVariables(actionName, variables);
     } catch (ExpansionException e) {
-      throw ruleErrorConsumer.throwWithRuleError(e.getMessage());
+      throw ruleErrorConsumer.throwWithRuleError(e);
     }
   }
 
@@ -814,7 +814,7 @@ public class CppHelper {
     try {
       return toolchain.getFeatures().getArtifactNameForCategory(category, outputName);
     } catch (EvalException e) {
-      ruleErrorConsumer.throwWithRuleError(e.getMessage());
+      ruleErrorConsumer.throwWithRuleError(e);
       throw new IllegalStateException("Should not be reached");
     }
   }

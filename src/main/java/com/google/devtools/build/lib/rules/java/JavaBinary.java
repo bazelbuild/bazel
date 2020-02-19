@@ -328,7 +328,7 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
     try {
       dynamicRuntimeActionInputs = ccToolchain.getDynamicRuntimeLinkInputs(featureConfiguration);
     } catch (EvalException e) {
-      throw ruleContext.throwWithRuleError(e.getMessage());
+      throw ruleContext.throwWithRuleError(e);
     }
 
     collectDefaultRunfiles(

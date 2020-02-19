@@ -208,18 +208,21 @@ public class CppCompileActionBuilder {
    * <p>This method may be called multiple times to create multiple compile actions (usually after
    * calling some setters to modify the generated action).
    */
-  public CppCompileAction buildOrThrowRuleError(RuleErrorConsumer ruleErrorConsumer)
+  CppCompileAction buildOrThrowRuleError(RuleErrorConsumer ruleErrorConsumer)
       throws RuleErrorException {
     List<String> errorMessages = new ArrayList<>();
     CppCompileAction result =
         buildAndVerify((String errorMessage) -> errorMessages.add(errorMessage));
 
     if (!errorMessages.isEmpty()) {
-      for (String errorMessage : errorMessages) {
-        ruleErrorConsumer.ruleError(errorMessage);
+      RuleErrorException exception = null;
+      try {
+        exception = ruleErrorConsumer.throwWithRuleError(errorMessages.get(0));
+      } catch (RuleErrorException e) {
+        exception = e;
       }
-
-      throw new RuleErrorException(errorMessages.get(0));
+      errorMessages.stream().skip(1L).forEach(ruleErrorConsumer::ruleError);
+      throw exception;
     }
 
     return result;

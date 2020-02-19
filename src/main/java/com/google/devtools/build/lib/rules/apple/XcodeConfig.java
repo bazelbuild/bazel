@@ -228,7 +228,7 @@ public class XcodeConfig implements RuleConfiguredTargetFactory {
     try {
       aliasesToVersionMap = aliasesToVersionMap(explicitVersions);
     } catch (XcodeConfigException e) {
-      ruleContext.throwWithRuleError(e.getMessage());
+      throw ruleContext.throwWithRuleError(e);
     }
     if (!Strings.isNullOrEmpty(versionOverrideFlag)) {
       // The version override flag is not necessarily an actual version - it may be a version
@@ -271,7 +271,7 @@ public class XcodeConfig implements RuleConfiguredTargetFactory {
       localAliasesToVersionMap = aliasesToVersionMap(localVersions.getAvailableVersions());
       remoteAliasesToVersionMap = aliasesToVersionMap(remoteVersions.getAvailableVersions());
     } catch (XcodeConfigException e) {
-      throw ruleContext.throwWithRuleError(e.getMessage());
+      throw ruleContext.throwWithRuleError(e);
     }
     // Mutually available Xcode versions are versions that are available both locally and remotely,
     // but are referred to by the aliases listed in remote_xcodes.

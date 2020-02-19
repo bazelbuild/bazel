@@ -210,13 +210,21 @@ public class RuleClass {
      * messaging should be done via {@link RuleErrorConsumer}; this exception only interrupts
      * configured target creation in cases where it can no longer continue.
      */
-    public static final class RuleErrorException extends Exception {
-      public RuleErrorException() {
+    final class RuleErrorException extends Exception {
+      RuleErrorException() {
         super();
       }
 
-      public RuleErrorException(String message) {
+      RuleErrorException(String message) {
         super(message);
+      }
+
+      RuleErrorException(Throwable cause) {
+        super(cause);
+      }
+
+      RuleErrorException(String message, Throwable cause) {
+        super(message, cause);
       }
     }
   }
