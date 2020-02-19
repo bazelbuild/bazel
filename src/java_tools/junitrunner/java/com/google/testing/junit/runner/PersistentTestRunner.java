@@ -66,7 +66,16 @@ final class PersistentTestRunner {
    *
    * <p>For example, given the following dependency graph:
    *
-   * <p>TestTarget / | \ * * * a b c | * | * / * d e | * f
+   *                TestTarget
+   *                /  |     \
+   *               *   *     *
+   *              a    b     c
+   *              |   *      |
+   *              *  /       *
+   *               d         e
+   *               |
+   *               *
+   *               f
    *
    * <p>the classloaders load the following: - the direct classloader loads the classes of
    * TestTarget, a and c, which are direct deps - the transitive classloader loads the classes of b,
