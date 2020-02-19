@@ -98,15 +98,24 @@ public class ObjcCppSemantics implements CppSemantics {
     if (includeProcessingType == NO_PROCESSING) {
       // TODO(b/62060839): Identify the mechanism used to add generated headers in c++, and recycle
       // it here.
+      //
+      // This is used to patch the action graph of missing dependencies.  We only need to do this
+      // for headers in depObjcProviderCompileInfo.  We can rid of this in the migraiton cl.
       actionBuilder.addTransitiveMandatoryInputs(objcProvider.getGeneratedHeaders());
     }
   }
 
   @Override
   public NestedSet<Artifact> getAdditionalPrunableIncludes() {
+    // This is a hook used when header processing is off, to supply CppCompilationAction with
+    // additional inputs that are not properly added to CcCompilationContext.  We will delete this
+    // in the migration cl.
     return objcProvider.get(HEADER);
   }
 
+  // This function now returns "additional" (not "alternate" include scanning data inputs, over
+  // those already accounted for in dependent CcCompilationContext.  We can delete this in the
+  // migration cl so no point renaming it.
   @Override
   public Iterable<Artifact> getAlternateIncludeScanningDataInputs() {
     // Include scanning data only cares about generated artifacts.  Since the generated headers from

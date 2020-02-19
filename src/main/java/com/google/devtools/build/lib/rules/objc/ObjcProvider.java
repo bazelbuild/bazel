@@ -341,6 +341,11 @@ public final class ObjcProvider implements Info, ObjcProviderApi<Artifact> {
   // Lazily initialized because it's only needed for including scanning.
   @Nullable private volatile ImmutableList<Artifact> generatedHeaderList;
 
+  /** All keys in ObjProvider corresponding to information needed for compile actions. */
+  static final ImmutableSet<Key<?>> KEYS_FOR_COMPILE_INFO =
+      ImmutableSet.<Key<?>>of(
+          DEFINE, FRAMEWORK_SEARCH_PATHS, HEADER, INCLUDE, INCLUDE_SYSTEM, IQUOTE);
+
   /** All keys in ObjcProvider that will be passed in the corresponding Skylark provider. */
   static final ImmutableList<Key<?>> KEYS_FOR_SKYLARK =
       ImmutableList.<Key<?>>of(
@@ -1084,6 +1089,68 @@ public final class ObjcProvider implements Info, ObjcProviderApi<Artifact> {
       return this;
     }
 
+    // The following CompileInfo/NonCompileInfo family of methods will be deleted in the migration
+    // CL.
+
+    /**
+     * Add compile info from providers, and propagate it to any (transitive) dependers on this
+     * ObjcProvider.
+     */
+    public Builder addTransitiveAndPropagateCompileInfo(Iterable<ObjcProvider> providers) {
+      for (ObjcProvider provider : providers) {
+        addTransitiveAndPropagateCompileInfo(provider);
+      }
+      return this;
+    }
+
+    /**
+     * Add compile info from provider, and propagate it to any (transitive) dependers on this
+     * ObjcProvider.
+     */
+    public Builder addTransitiveAndPropagateCompileInfo(ObjcProvider provider) {
+      for (Map.Entry<Key<?>, NestedSet<?>> typeEntry : provider.items.entrySet()) {
+        if (KEYS_FOR_COMPILE_INFO.contains(typeEntry.getKey())) {
+          uncheckedAddTransitive(typeEntry.getKey(), typeEntry.getValue(), this.items);
+        }
+      }
+      for (Map.Entry<Key<?>, NestedSet<?>> typeEntry : provider.strictDependencyItems.entrySet()) {
+        if (KEYS_FOR_COMPILE_INFO.contains(typeEntry.getKey())) {
+          uncheckedAddTransitive(typeEntry.getKey(), typeEntry.getValue(), this.nonPropagatedItems);
+        }
+      }
+      return this;
+    }
+
+    /**
+     * Add non-compile info from providers, and propagate it to any (transitive) dependers on this
+     * ObjcProvider.
+     */
+    public Builder addTransitiveAndPropagateNonCompileInfo(Iterable<ObjcProvider> providers) {
+      for (ObjcProvider provider : providers) {
+        addTransitiveAndPropagateNonCompileInfo(provider);
+      }
+      return this;
+    }
+
+    /**
+     * Add non-compile info from provider, and propagate it to any (transitive) dependers on this
+     * ObjcProvider.
+     */
+    public Builder addTransitiveAndPropagateNonCompileInfo(ObjcProvider provider) {
+      for (Map.Entry<Key<?>, NestedSet<?>> typeEntry : provider.items.entrySet()) {
+        if (!KEYS_FOR_COMPILE_INFO.contains(typeEntry.getKey())) {
+          uncheckedAddTransitive(typeEntry.getKey(), typeEntry.getValue(), this.items);
+        }
+      }
+      for (Map.Entry<Key<?>, NestedSet<?>> typeEntry : provider.strictDependencyItems.entrySet()) {
+        if (!KEYS_FOR_COMPILE_INFO.contains(typeEntry.getKey())) {
+          uncheckedAddTransitive(typeEntry.getKey(), typeEntry.getValue(), this.nonPropagatedItems);
+        }
+      }
+      return this;
+    }
+
+    /** Return an EvalException for having a bad key in the direct dependency provider. */
     private static <E> EvalException badDirectDependencyKeyError(Key<E> key) {
       return new EvalException(
           null,

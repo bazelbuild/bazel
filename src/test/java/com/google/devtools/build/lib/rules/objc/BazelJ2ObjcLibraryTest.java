@@ -1194,12 +1194,12 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
         getActionGraph().getGeneratingAction(objectFilesFromGenJar);
     Artifact sourceFilesFromGenJar =
         getFirstArtifactEndingWith(actionTemplate.getInputs(), "source_files");
-    Artifact headerFilesFromGenJar =
-        getFirstArtifactEndingWith(actionTemplate.getInputs(), "header_files");
     assertThat(sourceFilesFromGenJar.getRootRelativePathString())
         .isEqualTo("java/com/google/app/test/_j2objc/src_jar_files/test/source_files");
-    assertThat(headerFilesFromGenJar.getRootRelativePathString())
-        .isEqualTo("java/com/google/app/test/_j2objc/src_jar_files/test/header_files");
+    // We can't easily access the header artifact through the middleman artifact, so use its
+    // expected path directly.
+    String headerFilesFromGenJar =
+        "java/com/google/app/test/_j2objc/src_jar_files/test/header_files";
 
     // The files contained inside the tree artifacts are not known until execution time.
     // Therefore we need to fake some files inside them to test the action template in this
@@ -1240,7 +1240,7 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
             .add("-I")
             .add(binFragment + "/java/com/google/app/test/_j2objc/test")
             .add("-I")
-            .add(headerFilesFromGenJar.getExecPathString())
+            .add(headerFilesFromGenJar)
             .add("-fno-strict-overflow")
             .add("-fno-objc-arc")
             .add("-c")

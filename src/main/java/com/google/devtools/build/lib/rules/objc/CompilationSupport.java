@@ -61,7 +61,6 @@ import com.google.devtools.build.lib.analysis.AnalysisUtils;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.PrerequisiteArtifacts;
 import com.google.devtools.build.lib.analysis.RuleContext;
-import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine.VectorArg;
 import com.google.devtools.build.lib.analysis.actions.ParameterFileWriteAction;
@@ -87,7 +86,6 @@ import com.google.devtools.build.lib.rules.cpp.CcCompilationContext;
 import com.google.devtools.build.lib.rules.cpp.CcCompilationHelper;
 import com.google.devtools.build.lib.rules.cpp.CcCompilationHelper.CompilationInfo;
 import com.google.devtools.build.lib.rules.cpp.CcCompilationOutputs;
-import com.google.devtools.build.lib.rules.cpp.CcInfo;
 import com.google.devtools.build.lib.rules.cpp.CcLinkingHelper;
 import com.google.devtools.build.lib.rules.cpp.CcToolchain;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.CollidingProvidesException;
@@ -275,7 +273,7 @@ public class CompilationSupport {
   }
 
   private CompilationInfo compile(
-      ObjcProvider objcProvider,
+      ObjcCompilationContext objcCompilationContext,
       VariablesExtension extension,
       ExtraCompileArgs extraCompileArgs,
       CcToolchainProvider ccToolchain,
@@ -286,12 +284,11 @@ public class CompilationSupport {
       Collection<Artifact> publicHdrs,
       Collection<Artifact> dependentGeneratedHdrs,
       Artifact pchHdr,
-      // TODO(b/70777494): Find out how deps get used and remove if not needed.
-      Iterable<? extends TransitiveInfoCollection> deps,
       ObjcCppSemantics semantics,
       String purpose,
       boolean generateModuleMap)
       throws RuleErrorException, InterruptedException {
+    ObjcProvider depObjcProvidersSummary = objcCompilationContext.getDepObjcProvidersSummary();
     CcCompilationHelper result =
         new CcCompilationHelper(
                 ruleContext,
@@ -307,14 +304,21 @@ public class CompilationSupport {
                 TargetUtils.getExecutionInfo(
                     ruleContext.getRule(), ruleContext.isAllowTagsPropagation()))
             .addSources(sources)
-            .addPrivateHeaders(privateHdrs)
-            .addDefines(objcProvider.get(DEFINE))
             .addPublicHeaders(publicHdrs)
+            .addPublicTextualHeaders(objcCompilationContext.getPublicTextualHeaders())
+            .addPrivateHeaders(privateHdrs)
             .addPrivateHeadersUnchecked(dependentGeneratedHdrs)
-            .addCcCompilationContexts(
-                AnalysisUtils.getProviders(deps, CcInfo.PROVIDER).stream()
-                    .map(CcInfo::getCcCompilationContext)
-                    .collect(ImmutableList.toImmutableList()))
+            .addDefines(depObjcProvidersSummary.get(DEFINE))
+            .addDefines(objcCompilationContext.getDefines())
+            .addIncludeDirs(priorityHeaders)
+            .addIncludeDirs(objcCompilationContext.getIncludes())
+            .addIncludeDirs(depObjcProvidersSummary.get(INCLUDE))
+            .addSystemIncludeDirs(objcCompilationContext.getSystemIncludes())
+            .addSystemIncludeDirs(depObjcProvidersSummary.get(INCLUDE_SYSTEM))
+            .addQuoteIncludeDirs(objcCompilationContext.getQuoteIncludes())
+            .addQuoteIncludeDirs(depObjcProvidersSummary.get(IQUOTE))
+            .addFrameworkIncludeDirs(frameworkHeaderSearchPathFragments(depObjcProvidersSummary))
+            .addCcCompilationContexts(objcCompilationContext.getDepCcCompilationContexts())
             .setCopts(
                 ImmutableList.<String>builder()
                     .addAll(getCompileRuleCopts())
@@ -324,15 +328,10 @@ public class CompilationSupport {
                             .getCoptsForCompilationMode())
                     .addAll(extraCompileArgs)
                     .build())
-            .addFrameworkIncludeDirs(frameworkHeaderSearchPathFragments(objcProvider))
-            .addIncludeDirs(priorityHeaders)
-            .addIncludeDirs(objcProvider.get(INCLUDE))
-            .addSystemIncludeDirs(objcProvider.get(INCLUDE_SYSTEM))
             .setCppModuleMap(intermediateArtifacts.moduleMap())
             .setPropagateModuleMapToCompileAction(false)
             .addVariableExtension(extension)
             .setPurpose(purpose)
-            .addQuoteIncludeDirs(objcProvider.get(IQUOTE))
             .setCodeCoverageEnabled(CcCompilationHelper.isCodeCoverageEnabled(ruleContext))
             .setHeadersCheckingMode(semantics.determineHeadersCheckingMode(ruleContext));
 
@@ -348,7 +347,7 @@ public class CompilationSupport {
   }
 
   private Pair<CcCompilationOutputs, ImmutableMap<String, NestedSet<Artifact>>> ccCompileAndLink(
-      ObjcProvider objcProvider,
+      ObjcCompilationContext objcCompilationContext,
       CompilationArtifacts compilationArtifacts,
       ObjcVariablesExtension.Builder extensionBuilder,
       ExtraCompileArgs extraCompileArgs,
@@ -375,22 +374,23 @@ public class CompilationSupport {
     // CcCompilationContexts, but ObjcProvider does not propagate that.  This issue will go away
     // when we finish migrating the compile info in ObjcProvider to CcCompilationContext.
     //
-    // To limit the extra work we're adding, we only add what is required, i.e. the
-    // generated headers.
+    // To limit the extra work we're adding, we only add what is required, i.e. the generated
+    // headers.  Headers from own rule's attributes and from dependent CcCompilationContext are
+    // already accounted for, so we only need the ones from depObjcProviders.
     Collection<Artifact> dependentGeneratedHdrs =
         (includeProcessingType == IncludeProcessingType.INCLUDE_SCANNING)
-            ? objcProvider.getGeneratedHeaderList()
+            ? objcCompilationContext.getDepObjcProvidersSummary().getGeneratedHeaderList()
             : ImmutableList.of();
     Artifact pchHdr = getPchFile().orNull();
-    Iterable<? extends TransitiveInfoCollection> deps =
-        ruleContext.getPrerequisites("deps", Mode.TARGET);
-    ObjcCppSemantics semantics = createObjcCppSemantics(objcProvider, privateHdrs, pchHdr);
+    ObjcCppSemantics semantics =
+        createObjcCppSemantics(
+            objcCompilationContext.getDepObjcProvidersSummary(), privateHdrs, pchHdr);
 
     String purpose = String.format("%s_objc_arc", semantics.getPurpose());
     extensionBuilder.setArcEnabled(true);
     CompilationInfo objcArcCompilationInfo =
         compile(
-            objcProvider,
+            objcCompilationContext,
             extensionBuilder.build(),
             extraCompileArgs,
             ccToolchain,
@@ -401,7 +401,6 @@ public class CompilationSupport {
             publicHdrs,
             dependentGeneratedHdrs,
             pchHdr,
-            deps,
             semantics,
             purpose,
             /* generateModuleMap= */ true);
@@ -410,7 +409,7 @@ public class CompilationSupport {
     extensionBuilder.setArcEnabled(false);
     CompilationInfo nonObjcArcCompilationInfo =
         compile(
-            objcProvider,
+            objcCompilationContext,
             extensionBuilder.build(),
             extraCompileArgs,
             ccToolchain,
@@ -421,7 +420,6 @@ public class CompilationSupport {
             publicHdrs,
             dependentGeneratedHdrs,
             pchHdr,
-            deps,
             semantics,
             purpose,
             // Only generate the module map once (see above) and re-use it here.
@@ -940,16 +938,16 @@ public class CompilationSupport {
    * Registers all actions necessary to compile this rule's sources and archive them.
    *
    * @param compilationArtifacts collection of artifacts required for the compilation
-   * @param objcProvider provides all compiling and linking information to register these actions
+   * @param objcCompilationContext provides the compiling information to register these actions
    * @return this compilation support
    * @throws RuleErrorException for invalid crosstool files
    */
   CompilationSupport registerCompileAndArchiveActions(
-      CompilationArtifacts compilationArtifacts, ObjcProvider objcProvider)
+      CompilationArtifacts compilationArtifacts, ObjcCompilationContext objcCompilationContext)
       throws RuleErrorException, InterruptedException {
     return registerCompileAndArchiveActions(
         compilationArtifacts,
-        objcProvider,
+        objcCompilationContext,
         ExtraCompileArgs.NONE,
         ImmutableList.<PathFragment>of());
   }
@@ -985,7 +983,7 @@ public class CompilationSupport {
    * Registers all actions necessary to compile this rule's sources and archive them.
    *
    * @param compilationArtifacts collection of artifacts required for the compilation
-   * @param objcProvider provides all compiling and linking information to register these actions
+   * @param objcCompilationContext provides the compiling information to register these actions
    * @param extraCompileArgs args to be added to compile actions
    * @param priorityHeaders priority headers to be included before the dependency headers
    * @return this compilation support
@@ -993,7 +991,7 @@ public class CompilationSupport {
    */
   private CompilationSupport registerCompileAndArchiveActions(
       CompilationArtifacts compilationArtifacts,
-      ObjcProvider objcProvider,
+      ObjcCompilationContext objcCompilationContext,
       ExtraCompileArgs extraCompileArgs,
       List<PathFragment> priorityHeaders)
       throws RuleErrorException, InterruptedException {
@@ -1015,7 +1013,7 @@ public class CompilationSupport {
 
       compilationInfo =
           ccCompileAndLink(
-              objcProvider,
+              objcCompilationContext,
               compilationArtifacts,
               extension,
               extraCompileArgs,
@@ -1032,7 +1030,7 @@ public class CompilationSupport {
     } else {
       compilationInfo =
           ccCompileAndLink(
-              objcProvider,
+              objcCompilationContext,
               compilationArtifacts,
               extension,
               extraCompileArgs,
@@ -1064,7 +1062,7 @@ public class CompilationSupport {
     if (common.getCompilationArtifacts().isPresent()) {
       registerCompileAndArchiveActions(
           common.getCompilationArtifacts().get(),
-          common.getObjcProvider(),
+          common.getObjcCompilationContext(),
           extraCompileArgs,
           priorityHeaders);
     }

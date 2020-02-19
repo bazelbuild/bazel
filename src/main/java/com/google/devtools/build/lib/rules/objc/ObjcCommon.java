@@ -100,7 +100,6 @@ public final class ObjcCommon {
     private ImmutableSet.Builder<Artifact> textualHeaders = ImmutableSet.builder();
     private Iterable<ObjcProvider> depObjcProviders = ImmutableList.of();
     private Iterable<ObjcProvider> runtimeDepObjcProviders = ImmutableList.of();
-    private Iterable<String> defines = ImmutableList.of();
     private Iterable<PathFragment> includes = ImmutableList.of();
     private IntermediateArtifacts intermediateArtifacts;
     private boolean alwayslink;
@@ -229,11 +228,6 @@ public final class ObjcCommon {
       return this;
     }
 
-    public Builder addDefines(Iterable<String> defines) {
-      this.defines = Iterables.concat(this.defines, defines);
-      return this;
-    }
-
     Builder setIntermediateArtifacts(IntermediateArtifacts intermediateArtifacts) {
       this.intermediateArtifacts = intermediateArtifacts;
       return this;
@@ -273,30 +267,28 @@ public final class ObjcCommon {
 
     ObjcCommon build() {
 
+      ObjcCompilationContext.Builder objcCompilationContextBuilder =
+          ObjcCompilationContext.builder(semantics);
+
       ObjcProvider.Builder objcProvider =
           new ObjcProvider.Builder(semantics)
               .addAll(IMPORTED_LIBRARY, extraImportLibraries)
-              .addAll(INCLUDE, includes)
-              .add(IQUOTE, buildConfiguration.getGenfilesFragment())
-              .addAll(DEFINE, defines)
-              .addTransitiveAndPropagate(depObjcProviders);
+              .addTransitiveAndPropagateNonCompileInfo(depObjcProviders);
+
+      objcCompilationContextBuilder
+          .addIncludes(includes)
+          .addDepObjcProviders(depObjcProviders)
+          .addDepObjcProviders(runtimeDepObjcProviders)
+          .addDepCcCompilationContexts(depCcHeaderProviders);
+
+      for (CcCompilationContext headerProvider : depCcHeaderProviders) {
+        textualHeaders.addAll(headerProvider.getTextualHdrs());
+      }
 
       for (ObjcProvider provider : runtimeDepObjcProviders) {
-        objcProvider.addTransitiveAndPropagate(ObjcProvider.FRAMEWORK_SEARCH_PATHS, provider);
-        objcProvider.addTransitiveAndPropagate(ObjcProvider.HEADER, provider);
         objcProvider.addTransitiveAndPropagate(ObjcProvider.MERGE_ZIP, provider);
       }
 
-      for (CcCompilationContext headerProvider : depCcHeaderProviders) {
-        objcProvider.addAll(HEADER, filterFileset(headerProvider.getDeclaredIncludeSrcs()));
-        objcProvider.addAll(INCLUDE, headerProvider.getIncludeDirs());
-        // TODO(bazel-team): This pulls in stl via
-        // CppHelper.mergeToolchainDependentCcCompilationContext but
-        // probably shouldn't.
-        objcProvider.addAll(INCLUDE_SYSTEM, headerProvider.getSystemIncludeDirs());
-        objcProvider.addAll(DEFINE, headerProvider.getDefines());
-        textualHeaders.addAll(headerProvider.getTextualHdrs());
-      }
       for (CcLinkingContext linkProvider : depCcLinkProviders) {
         ImmutableList<String> linkOpts = linkProvider.getFlattenedUserLinkFlags();
         ImmutableSet.Builder<SdkFramework> frameworkLinkOpts = new ImmutableSet.Builder<>();
@@ -329,15 +321,16 @@ public final class ObjcCommon {
             Iterables.transform(
                 attributes.sdkIncludes().toList(), (p) -> usrIncludeDir.getRelative(p));
         objcProvider
-            .addAll(HEADER, filterFileset(attributes.hdrs()))
-            .addAll(HEADER, filterFileset(attributes.textualHdrs()))
-            .addAll(DEFINE, attributes.defines())
-            .addTransitiveAndPropagate(
-                INCLUDE, attributes.headerSearchPaths(buildConfiguration.getGenfilesFragment()))
-            .addAll(INCLUDE, sdkIncludes)
             .addAll(SDK_FRAMEWORK, attributes.sdkFrameworks())
             .addAll(WEAK_SDK_FRAMEWORK, attributes.weakSdkFrameworks())
             .addAll(SDK_DYLIB, attributes.sdkDylibs());
+        objcCompilationContextBuilder
+            .addPublicHeaders(filterFileset(attributes.hdrs().toList()))
+            .addPublicTextualHeaders(filterFileset(attributes.textualHdrs().toList()))
+            .addDefines(attributes.defines())
+            .addIncludes(
+                attributes.headerSearchPaths(buildConfiguration.getGenfilesFragment()).toList())
+            .addIncludes(sdkIncludes);
       }
 
       for (CompilationArtifacts artifacts : compilationArtifacts.asSet()) {
@@ -346,9 +339,11 @@ public final class ObjcCommon {
         // TODO(bazel-team): Add private headers to the provider when we have module maps to enforce
         // them.
         objcProvider
-            .addAll(HEADER, filterFileset(artifacts.getAdditionalHdrs()))
             .addAll(LIBRARY, artifacts.getArchive().asSet())
             .addAll(SOURCE, allSources);
+        objcCompilationContextBuilder.addPublicHeaders(
+            filterFileset(artifacts.getAdditionalHdrs()));
+        objcCompilationContextBuilder.addPrivateHeaders(artifacts.getPrivateHdrs());
 
         if (artifacts.getArchive().isPresent()
             && J2ObjcLibrary.J2OBJC_SUPPORTED_RULES.contains(context.getRule().getRuleClass())) {
@@ -388,7 +383,38 @@ public final class ObjcCommon {
 
       objcProvider.addAll(LINKED_BINARY, linkedBinary.asSet());
 
-      return new ObjcCommon(objcProvider.build(), compilationArtifacts, textualHeaders.build());
+      ObjcCompilationContext objcCompilationContext = objcCompilationContextBuilder.build();
+      addObjcCompilationContext(objcProvider, objcCompilationContext);
+
+      return new ObjcCommon(
+          objcProvider.build(),
+          objcCompilationContext,
+          compilationArtifacts,
+          textualHeaders.build());
+    }
+
+    private static void addObjcCompilationContext(
+        ObjcProvider.Builder objcProvider, ObjcCompilationContext objcCompilationContext) {
+      // No need to add frameworkIncludes because same info is used for linking so should
+      // already have been added.
+      objcProvider
+          .addAll(DEFINE, objcCompilationContext.getDefines())
+          .addAll(HEADER, objcCompilationContext.getPublicHeaders())
+          .addAll(HEADER, objcCompilationContext.getPublicTextualHeaders())
+          .addAll(INCLUDE, objcCompilationContext.getIncludes())
+          .addAll(INCLUDE_SYSTEM, objcCompilationContext.getSystemIncludes())
+          .addAll(IQUOTE, objcCompilationContext.getQuoteIncludes())
+          // We can't use the summary provider here because it would mess up the strict
+          // dependency and non-propagate items.
+          .addTransitiveAndPropagateCompileInfo(objcCompilationContext.getDepObjcProviders());
+      for (CcCompilationContext ccCompilationContext :
+          objcCompilationContext.getDepCcCompilationContexts()) {
+        objcProvider
+            .addAll(DEFINE, ccCompilationContext.getDefines())
+            .addAll(HEADER, ccCompilationContext.getDeclaredIncludeSrcs())
+            .addAll(INCLUDE, ccCompilationContext.getIncludeDirs())
+            .addAll(INCLUDE_SYSTEM, ccCompilationContext.getSystemIncludeDirs());
+      }
     }
 
     private static boolean isCcLibrary(ConfiguredTargetAndData info) {
@@ -408,21 +434,28 @@ public final class ObjcCommon {
   }
 
   private final ObjcProvider objcProvider;
+  private final ObjcCompilationContext objcCompilationContext;
 
   private final Optional<CompilationArtifacts> compilationArtifacts;
   private final ImmutableSet<Artifact> textualHdrs;
 
   private ObjcCommon(
       ObjcProvider objcProvider,
+      ObjcCompilationContext objcCompilationContext,
       Optional<CompilationArtifacts> compilationArtifacts,
       ImmutableSet<Artifact> textualHdrs) {
     this.objcProvider = Preconditions.checkNotNull(objcProvider);
+    this.objcCompilationContext = Preconditions.checkNotNull(objcCompilationContext);
     this.compilationArtifacts = Preconditions.checkNotNull(compilationArtifacts);
     this.textualHdrs = textualHdrs;
   }
 
   public ObjcProvider getObjcProvider() {
     return objcProvider;
+  }
+
+  public ObjcCompilationContext getObjcCompilationContext() {
+    return objcCompilationContext;
   }
 
   public Optional<CompilationArtifacts> getCompilationArtifacts() {

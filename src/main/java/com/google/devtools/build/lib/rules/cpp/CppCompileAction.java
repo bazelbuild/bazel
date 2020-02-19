@@ -515,11 +515,25 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
    * This method returns null when a required SkyValue is missing and a Skyframe restart is
    * required.
    */
+  // Note: this function will be deleted in the migration cl.
   @Nullable
   private static IncludeScanningHeaderData.Builder createIncludeScanningHeaderData(
-      SkyFunction.Environment env, Iterable<Artifact> inputs) throws InterruptedException {
+      SkyFunction.Environment env,
+      List<CcCompilationContext.HeaderInfo> headerInfos,
+      Iterable<Artifact> inputs)
+      throws InterruptedException {
     Map<PathFragment, Artifact> pathToLegalOutputArtifact = new HashMap<>();
     ArrayList<Artifact> treeArtifacts = new ArrayList<>();
+    // Not using range-based for loops here and below as the additional overhead of the
+    // ImmutableList iterators has shown up in profiles.
+    for (CcCompilationContext.HeaderInfo headerInfo : headerInfos) {
+      for (Artifact a : headerInfo.modularHeaders) {
+        IncludeScanningHeaderDataHelper.handleArtifact(a, pathToLegalOutputArtifact, treeArtifacts);
+      }
+      for (Artifact a : headerInfo.textualHeaders) {
+        IncludeScanningHeaderDataHelper.handleArtifact(a, pathToLegalOutputArtifact, treeArtifacts);
+      }
+    }
     for (Artifact a : inputs) {
       IncludeScanningHeaderDataHelper.handleArtifact(a, pathToLegalOutputArtifact, treeArtifacts);
     }
@@ -544,7 +558,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
       List<CcCompilationContext.HeaderInfo> headerInfo)
       throws InterruptedException {
     if (alternateIncludeScanningDataInputs != null) {
-      return createIncludeScanningHeaderData(env, alternateIncludeScanningDataInputs);
+      return createIncludeScanningHeaderData(env, headerInfo, alternateIncludeScanningDataInputs);
     } else {
       return ccCompilationContext.createIncludeScanningHeaderData(
           env, usePic, useHeaderModules, headerInfo);

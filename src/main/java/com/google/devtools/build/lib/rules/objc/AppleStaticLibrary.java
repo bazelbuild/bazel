@@ -164,7 +164,8 @@ public class AppleStaticLibrary implements RuleConfiguredTargetFactory {
               .build();
 
       compilationSupport
-          .registerCompileAndArchiveActions(common.getCompilationArtifacts().get(), objcProvider)
+          .registerCompileAndArchiveActions(
+              common.getCompilationArtifacts().get(), ObjcCompilationContext.EMPTY)
           .registerFullyLinkAction(
               objcProvider, intermediateArtifacts.strippedSingleArchitectureLibrary())
           .validateAttributes();
