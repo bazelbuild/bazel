@@ -5,11 +5,21 @@ title: Updating Bazel
 
 # Updating Bazel
 
-Bazel defined a [backwards compatibility policy](https://docs.bazel.build/versions/master/backward-compatibility.html)
+Bazel has a [backwards compatibility policy](https://docs.bazel.build/versions/master/backward-compatibility.html)
 (see [guidance for rolling out incompatible changes](https://www.bazel.build/breaking-changes-guide.html) if you are the author of one).
-This page summarized best practices on how to test and migrate your project with upcoming incompatible
+This page summarizes best practices on how to test and migrate your project with upcoming incompatible
 changes and how to provide feedback to the incompatible change authors.
 
+## Managing Bazel versions with Bazelisk
+
+Bazel team implemented a Bazel wrapper called [bazelisk](https://github.com/bazelbuild/bazelisk) that helps you
+manage Bazel versions.
+
+Bazelisk can:
+*   Auto-update Bazel to the latest version
+*   Build the project with a Bazel version specified in the .bazelversion file. Check in that file into your version control to ensure reproducibility of your builds.
+*   Help migrate your project for incompatible changes (see above)
+*   Easily try release candidates
 
 ## Recommended migration process
 
@@ -41,15 +51,3 @@ greatly simplify the migration process described above.
 
 *   `bazelisk --strict` will build given targets with all incompatible flags for changes with appropriate migration-* labels.
 *   `bazelisk --migrate` will do even more: it will try every flag and report those for which the build was unsuccessful
-
-
-## Managing Bazel versions with Bazelisk
-
-Bazel team implemented a Bazel wrapper called [bazelisk](https://github.com/bazelbuild/bazelisk) that helps you
-manage Bazel versions.
-
-Bazelisk can:
-*   Autoupdate Bazel to the latest version
-*   Build the project with a Bazel version specified in the .bazelversion file. Check in that file into your version control to ensure reproducibility of your builds.
-*   Help migrate your project for incompatible changes (see above)
-*   Easily try release candidates
