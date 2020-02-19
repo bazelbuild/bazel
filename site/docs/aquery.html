@@ -383,11 +383,23 @@ $ bazel aquery 'inputs(".*cpp", deps(//src/target_a))'
 
 <h2 id='known-issues'>Known Issues</h2>
 
+<h3 id='shared-actions'>Handling Shared Actions</h3>
+
+<p>
+  Sometimes actions are
+  <a href="https://source.bazel.build/bazel/+/master:src/main/java/com/google/devtools/build/lib/actions/Actions.java;l=59;drc=146d51aa1ec9dcb721a7483479ef0b1ac21d39f1">shared</a>
+  between configured targets.
+
+  In the execution phase, those shared actions are
+  <a href="https://source.bazel.build/bazel/+/master:src/main/java/com/google/devtools/build/lib/actions/Actions.java;l=241;drc=003b8734036a07b496012730964ac220f486b61f">simply considered as one</a> and only executed once.
+  However, aquery operates on the pre-execution, post-analysis action graph, and hence treats these
+  like separate actions whose output Artifacts have the exact same <code>execPath</code>. As a result,
+  we'll have equivalent Artifacts appearing duplicated.
+</p>
 <p>
   The list of aquery issues/planned features can be found on
   <a href="https://github.com/bazelbuild/bazel/labels/team-Performance">GitHub</a>.
 </p>
-
 <h2 id='updates'>Updates</h2>
 
 <p>
