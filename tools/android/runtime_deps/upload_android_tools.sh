@@ -48,7 +48,7 @@ cp $android_tools_archive $versioned_android_tools_archive
 
 # Upload the tarball to GCS.
 # -n for no-clobber, so we don't overwrite existing files
-gsutil cp -n $versioned_android_tools_archive \
+gsutil cp $versioned_android_tools_archive \
   gs://bazel-mirror/bazel_android_tools/$VERSIONED_FILENAME
 
 checksum=$(sha256sum $versioned_android_tools_archive | cut -f 1 -d ' ')
