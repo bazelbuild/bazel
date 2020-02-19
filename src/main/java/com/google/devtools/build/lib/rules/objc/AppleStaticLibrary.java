@@ -100,7 +100,7 @@ public class AppleStaticLibrary implements RuleConfiguredTargetFactory {
             .add(ruleIntermediateArtifacts.combinedArchitectureArchive());
 
     ObjcProvider.Builder objcProviderBuilder =
-        new ObjcProvider.Builder(ruleContext.getAnalysisEnvironment().getSkylarkSemantics());
+        new ObjcProvider.NativeBuilder(ruleContext.getAnalysisEnvironment().getSkylarkSemantics());
 
     ImmutableListMultimap<BuildConfiguration, ObjcProtoProvider> objcProtoProvidersByConfig =
         ruleContext.getPrerequisitesByConfiguration(
@@ -146,7 +146,8 @@ public class AppleStaticLibrary implements RuleConfiguredTargetFactory {
               protosObjcProvider);
       ObjcProvider objcProvider =
           common
-              .getObjcProvider()
+              .getObjcProviderBuilder()
+              .build()
               .subtractSubtrees(
                   cpuToObjcAvoidDepsMap.get(childCpu),
                   cpuToCcAvoidDepsMap.get(childCpu).stream()
@@ -220,7 +221,7 @@ public class AppleStaticLibrary implements RuleConfiguredTargetFactory {
 
     CompilationArtifacts compilationArtifacts = new CompilationArtifacts.Builder().build();
 
-    return new ObjcCommon.Builder(ruleContext, buildConfiguration)
+    return new ObjcCommon.Builder(ObjcCommon.Purpose.LINK_ONLY, ruleContext, buildConfiguration)
         .setCompilationAttributes(
             CompilationAttributes.Builder.fromRuleContext(ruleContext).build())
         .setCompilationArtifacts(compilationArtifacts)

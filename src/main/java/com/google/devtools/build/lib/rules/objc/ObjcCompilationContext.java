@@ -14,14 +14,13 @@
 
 package com.google.devtools.build.lib.rules.objc;
 
-import static com.google.devtools.build.lib.rules.objc.ObjcProvider.HEADER;
-
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.rules.cpp.CcCompilationContext;
-import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
 import java.util.List;
@@ -33,8 +32,7 @@ import java.util.List;
  */
 @Immutable
 public final class ObjcCompilationContext {
-  public static final ObjcCompilationContext EMPTY =
-      builder(StarlarkSemantics.DEFAULT_SEMANTICS).build();
+  public static final ObjcCompilationContext EMPTY = builder().build();
 
   private final ImmutableList<String> defines;
 
@@ -49,9 +47,8 @@ public final class ObjcCompilationContext {
   private final ImmutableList<PathFragment> includes;
   private final ImmutableList<PathFragment> systemIncludes;
   private final ImmutableList<PathFragment> quoteIncludes;
-  private final ImmutableList<ObjcProvider> depObjcProviders;
+  private final ImmutableList<PathFragment> strictDependencyIncludes;
   private final ImmutableList<CcCompilationContext> depCcCompilationContexts;
-  private final ObjcProvider depObjcProvidersSummary;
 
   ObjcCompilationContext(
       Iterable<String> defines,
@@ -61,9 +58,8 @@ public final class ObjcCompilationContext {
       Iterable<PathFragment> includes,
       Iterable<PathFragment> systemIncludes,
       Iterable<PathFragment> quoteIncludes,
-      Iterable<ObjcProvider> depObjcProviders,
-      Iterable<CcCompilationContext> depCcCompilationContexts,
-      ObjcProvider depObjcProvidersSummary) {
+      Iterable<PathFragment> strictDependencyIncludes,
+      Iterable<CcCompilationContext> depCcCompilationContexts) {
     this.defines = ImmutableList.copyOf(defines);
     this.publicHeaders = ImmutableList.copyOf(publicHeaders);
     this.publicTextualHeaders = ImmutableList.copyOf(publicTextualHeaders);
@@ -71,9 +67,8 @@ public final class ObjcCompilationContext {
     this.includes = ImmutableList.copyOf(includes);
     this.systemIncludes = ImmutableList.copyOf(systemIncludes);
     this.quoteIncludes = ImmutableList.copyOf(quoteIncludes);
-    this.depObjcProviders = ImmutableList.copyOf(depObjcProviders);
+    this.strictDependencyIncludes = ImmutableList.copyOf(strictDependencyIncludes);
     this.depCcCompilationContexts = ImmutableList.copyOf(depCcCompilationContexts);
-    this.depObjcProvidersSummary = depObjcProvidersSummary;
   }
 
   public ImmutableList<String> getDefines() {
@@ -104,36 +99,38 @@ public final class ObjcCompilationContext {
     return quoteIncludes;
   }
 
-  public ImmutableList<ObjcProvider> getDepObjcProviders() {
-    return depObjcProviders;
+  public ImmutableList<PathFragment> getStrictDependencyIncludes() {
+    return strictDependencyIncludes;
   }
 
   public ImmutableList<CcCompilationContext> getDepCcCompilationContexts() {
     return depCcCompilationContexts;
   }
 
-  public ObjcProvider getDepObjcProvidersSummary() {
-    return depObjcProvidersSummary;
+  public CcCompilationContext createCcCompilationContext() {
+    CcCompilationContext.Builder builder =
+        CcCompilationContext.builder(
+            /* actionConstructionContext= */ null, /* configuration= */ null, /* label= */ null);
+    builder
+        .addDefines(NestedSetBuilder.wrap(Order.LINK_ORDER, getDefines()))
+        .addDeclaredIncludeSrcs(getPublicHeaders())
+        .addDeclaredIncludeSrcs(getPrivateHeaders())
+        .addDeclaredIncludeSrcs(getPublicTextualHeaders())
+        .addModularHdrs(ImmutableList.copyOf(getPublicHeaders()))
+        .addModularHdrs(ImmutableList.copyOf(getPrivateHeaders()))
+        .addTextualHdrs(ImmutableList.copyOf(getPublicTextualHeaders()))
+        .addIncludeDirs(getIncludes())
+        .addSystemIncludeDirs(getSystemIncludes())
+        .addQuoteIncludeDirs(getQuoteIncludes())
+        .mergeDependentCcCompilationContexts(getDepCcCompilationContexts());
+    return builder.build();
   }
 
-  // Note: this function will be deleted in the migration cl.
-  public ImmutableList<Artifact> getAllTransitiveHeaders() {
-    ImmutableList.Builder<Artifact> allHeaders = ImmutableList.builder();
-    allHeaders.addAll(publicHeaders);
-    allHeaders.addAll(publicTextualHeaders);
-    allHeaders.addAll(depObjcProvidersSummary.get(HEADER).toList());
-    for (CcCompilationContext ccCompilationContext : depCcCompilationContexts) {
-      allHeaders.addAll(ccCompilationContext.getDeclaredIncludeSrcs().toList());
-    }
-    return allHeaders.build();
-  }
-
-  public static Builder builder(StarlarkSemantics semantics) {
-    return new Builder(semantics);
+  public static Builder builder() {
+    return new Builder();
   }
 
   static class Builder {
-    private final StarlarkSemantics semantics;
     private final List<String> defines = new ArrayList<>();
     private final List<Artifact> publicHeaders = new ArrayList<>();
     private final List<Artifact> publicTextualHeaders = new ArrayList<>();
@@ -141,12 +138,10 @@ public final class ObjcCompilationContext {
     private final List<PathFragment> includes = new ArrayList<>();
     private final List<PathFragment> systemIncludes = new ArrayList<>();
     private final List<PathFragment> quoteIncludes = new ArrayList<>();
-    private final List<ObjcProvider> depObjcProviders = new ArrayList<>();
+    private final List<PathFragment> strictDependencyIncludes = new ArrayList<>();
     private final List<CcCompilationContext> depCcCompilationContexts = new ArrayList<>();
 
-    Builder(StarlarkSemantics semantics) {
-      this.semantics = semantics;
-    }
+    Builder() {}
 
     public Builder addDefines(Iterable<String> defines) {
       Iterables.addAll(this.defines, defines);
@@ -184,9 +179,11 @@ public final class ObjcCompilationContext {
     }
 
     public Builder addDepObjcProviders(Iterable<ObjcProvider> objcProviders) {
-      // After migration, we will have nice embedded CcCompilationContexts that we can
-      // addDepCcCompilationContexts().
-      Iterables.addAll(this.depObjcProviders, objcProviders);
+      for (ObjcProvider objcProvider : objcProviders) {
+        this.depCcCompilationContexts.add(objcProvider.getCcCompilationContext());
+
+        this.strictDependencyIncludes.addAll(objcProvider.getStrictDependencyIncludes());
+      }
       return this;
     }
 
@@ -202,12 +199,6 @@ public final class ObjcCompilationContext {
     }
 
     ObjcCompilationContext build() {
-      ObjcProvider.Builder depObjcProvidersSummaryBuilder = new ObjcProvider.Builder(semantics);
-      for (ObjcProvider dep : depObjcProviders) {
-        depObjcProvidersSummaryBuilder.addTransitiveAndPropagateCompileInfo(dep);
-      }
-      ObjcProvider depObjcProvidersSummary = depObjcProvidersSummaryBuilder.build();
-
       return new ObjcCompilationContext(
           defines,
           publicHeaders,
@@ -216,9 +207,8 @@ public final class ObjcCompilationContext {
           includes,
           systemIncludes,
           quoteIncludes,
-          depObjcProviders,
-          depCcCompilationContexts,
-          depObjcProvidersSummary);
+          strictDependencyIncludes,
+          depCcCompilationContexts);
     }
   }
 }

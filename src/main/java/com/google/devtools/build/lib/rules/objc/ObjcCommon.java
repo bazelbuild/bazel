@@ -15,15 +15,11 @@
 package com.google.devtools.build.lib.rules.objc;
 
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.CC_LIBRARY;
-import static com.google.devtools.build.lib.rules.objc.ObjcProvider.DEFINE;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.FLAG;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.FORCE_LOAD_LIBRARY;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.Flag.USES_CPP;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.HEADER;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.IMPORTED_LIBRARY;
-import static com.google.devtools.build.lib.rules.objc.ObjcProvider.INCLUDE;
-import static com.google.devtools.build.lib.rules.objc.ObjcProvider.INCLUDE_SYSTEM;
-import static com.google.devtools.build.lib.rules.objc.ObjcProvider.IQUOTE;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.J2OBJC_LIBRARY;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.LIBRARY;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.LINKED_BINARY;
@@ -86,18 +82,29 @@ public final class ObjcCommon {
     return inputs.build();
   }
 
-  /** Filters fileset artifacts out of a group of artifacts. */
-  public static ImmutableList<Artifact> filterFileset(NestedSet<Artifact> artifacts) {
-    return filterFileset(artifacts.toList());
+  /**
+   * Indicates the purpose the ObjcCommon is used for.
+   *
+   * <p>The purpose determines whether ObjcCommon.build() will build an ObjcProvider or an
+   * ObjcProvider.Builder. In compile-and-link mode, ObjcCommon.build() will output an
+   * ObjcProvider.Builder. The builder is expected to combine with the CcCompilationContext from a
+   * compile action, to form a complete ObjcProvider. In link-only mode, ObjcCommon can (and does)
+   * output the full ObjcProvider.
+   */
+  public enum Purpose {
+    /** The ObjcCommon will be used for compile and link. */
+    COMPILE_AND_LINK,
+    /** The ObjcCommon will be used for linking only. */
+    LINK_ONLY,
   }
 
   static class Builder {
+    private final Purpose purpose;
     private final RuleContext context;
     private final StarlarkSemantics semantics;
     private final BuildConfiguration buildConfiguration;
     private Optional<CompilationAttributes> compilationAttributes = Optional.absent();
     private Optional<CompilationArtifacts> compilationArtifacts = Optional.absent();
-    private ImmutableSet.Builder<Artifact> textualHeaders = ImmutableSet.builder();
     private Iterable<ObjcProvider> depObjcProviders = ImmutableList.of();
     private Iterable<ObjcProvider> runtimeDepObjcProviders = ImmutableList.of();
     private Iterable<PathFragment> includes = ImmutableList.of();
@@ -110,11 +117,11 @@ public final class ObjcCommon {
     private Iterable<CcLinkingContext> depCcLinkProviders = ImmutableList.of();
 
     /**
-     * Builder for {@link ObjcCommon} obtaining both attribute data and configuration data from
-     * the given rule context.
+     * Builder for {@link ObjcCommon} obtaining both attribute data and configuration data from the
+     * given rule context.
      */
-    Builder(RuleContext context) throws InterruptedException {
-      this(context, context.getConfiguration());
+    Builder(Purpose purpose, RuleContext context) throws InterruptedException {
+      this(purpose, context, context.getConfiguration());
     }
 
     /**
@@ -122,8 +129,9 @@ public final class ObjcCommon {
      * configuration data from the given configuration object for use in situations where a single
      * target's outputs are under multiple configurations.
      */
-    Builder(RuleContext context, BuildConfiguration buildConfiguration)
+    Builder(Purpose purpose, RuleContext context, BuildConfiguration buildConfiguration)
         throws InterruptedException {
+      this.purpose = purpose;
       this.context = Preconditions.checkNotNull(context);
       this.semantics = context.getAnalysisEnvironment().getSkylarkSemantics();
       this.buildConfiguration = Preconditions.checkNotNull(buildConfiguration);
@@ -268,21 +276,24 @@ public final class ObjcCommon {
     ObjcCommon build() {
 
       ObjcCompilationContext.Builder objcCompilationContextBuilder =
-          ObjcCompilationContext.builder(semantics);
+          ObjcCompilationContext.builder();
 
-      ObjcProvider.Builder objcProvider =
-          new ObjcProvider.Builder(semantics)
-              .addAll(IMPORTED_LIBRARY, extraImportLibraries)
-              .addTransitiveAndPropagateNonCompileInfo(depObjcProviders);
+      ObjcProvider.Builder objcProvider = new ObjcProvider.NativeBuilder(semantics);
+
+      objcProvider
+          .addAll(IMPORTED_LIBRARY, extraImportLibraries)
+          .addTransitiveAndPropagate(depObjcProviders);
 
       objcCompilationContextBuilder
           .addIncludes(includes)
           .addDepObjcProviders(depObjcProviders)
           .addDepObjcProviders(runtimeDepObjcProviders)
+          // TODO(bazel-team): This pulls in stl via
+          // CcCompilationHelper.getStlCcCompilationContext(), but probably shouldn't.
           .addDepCcCompilationContexts(depCcHeaderProviders);
 
       for (CcCompilationContext headerProvider : depCcHeaderProviders) {
-        textualHeaders.addAll(headerProvider.getTextualHdrs());
+        objcProvider.addAllDirect(HEADER, headerProvider.getDeclaredIncludeSrcs().toList());
       }
 
       for (ObjcProvider provider : runtimeDepObjcProviders) {
@@ -323,7 +334,9 @@ public final class ObjcCommon {
         objcProvider
             .addAll(SDK_FRAMEWORK, attributes.sdkFrameworks())
             .addAll(WEAK_SDK_FRAMEWORK, attributes.weakSdkFrameworks())
-            .addAll(SDK_DYLIB, attributes.sdkDylibs());
+            .addAll(SDK_DYLIB, attributes.sdkDylibs())
+            .addAllDirect(HEADER, attributes.hdrs().toList())
+            .addAllDirect(HEADER, attributes.textualHdrs().toList());
         objcCompilationContextBuilder
             .addPublicHeaders(filterFileset(attributes.hdrs().toList()))
             .addPublicTextualHeaders(filterFileset(attributes.textualHdrs().toList()))
@@ -340,9 +353,11 @@ public final class ObjcCommon {
         // them.
         objcProvider
             .addAll(LIBRARY, artifacts.getArchive().asSet())
-            .addAll(SOURCE, allSources);
+            .addAll(SOURCE, allSources)
+            .addAllDirect(SOURCE, allSources)
+            .addAllDirect(HEADER, filterFileset(artifacts.getAdditionalHdrs().toList()));
         objcCompilationContextBuilder.addPublicHeaders(
-            filterFileset(artifacts.getAdditionalHdrs()));
+            filterFileset(artifacts.getAdditionalHdrs().toList()));
         objcCompilationContextBuilder.addPrivateHeaders(artifacts.getPrivateHdrs());
 
         if (artifacts.getArchive().isPresent()
@@ -378,43 +393,22 @@ public final class ObjcCommon {
           objcProvider.add(UMBRELLA_HEADER, umbrellaHeader.get());
         }
         objcProvider.add(MODULE_MAP, moduleMap.getArtifact());
+        objcProvider.addDirect(MODULE_MAP, moduleMap.getArtifact());
         objcProvider.add(TOP_LEVEL_MODULE_MAP, moduleMap);
       }
 
       objcProvider.addAll(LINKED_BINARY, linkedBinary.asSet());
 
       ObjcCompilationContext objcCompilationContext = objcCompilationContextBuilder.build();
-      addObjcCompilationContext(objcProvider, objcCompilationContext);
 
-      return new ObjcCommon(
-          objcProvider.build(),
-          objcCompilationContext,
-          compilationArtifacts,
-          textualHeaders.build());
-    }
-
-    private static void addObjcCompilationContext(
-        ObjcProvider.Builder objcProvider, ObjcCompilationContext objcCompilationContext) {
-      // No need to add frameworkIncludes because same info is used for linking so should
-      // already have been added.
-      objcProvider
-          .addAll(DEFINE, objcCompilationContext.getDefines())
-          .addAll(HEADER, objcCompilationContext.getPublicHeaders())
-          .addAll(HEADER, objcCompilationContext.getPublicTextualHeaders())
-          .addAll(INCLUDE, objcCompilationContext.getIncludes())
-          .addAll(INCLUDE_SYSTEM, objcCompilationContext.getSystemIncludes())
-          .addAll(IQUOTE, objcCompilationContext.getQuoteIncludes())
-          // We can't use the summary provider here because it would mess up the strict
-          // dependency and non-propagate items.
-          .addTransitiveAndPropagateCompileInfo(objcCompilationContext.getDepObjcProviders());
-      for (CcCompilationContext ccCompilationContext :
-          objcCompilationContext.getDepCcCompilationContexts()) {
-        objcProvider
-            .addAll(DEFINE, ccCompilationContext.getDefines())
-            .addAll(HEADER, ccCompilationContext.getDeclaredIncludeSrcs())
-            .addAll(INCLUDE, ccCompilationContext.getIncludeDirs())
-            .addAll(INCLUDE_SYSTEM, ccCompilationContext.getSystemIncludeDirs());
+      ObjcProvider.NativeBuilder objcProviderNativeBuilder =
+          (ObjcProvider.NativeBuilder) objcProvider;
+      if (purpose == Purpose.LINK_ONLY) {
+        objcProviderNativeBuilder.setCcCompilationContext(
+            objcCompilationContext.createCcCompilationContext());
       }
+      return new ObjcCommon(
+          purpose, objcProviderNativeBuilder, objcCompilationContext, compilationArtifacts);
     }
 
     private static boolean isCcLibrary(ConfiguredTargetAndData info) {
@@ -433,25 +427,29 @@ public final class ObjcCommon {
     }
   }
 
-  private final ObjcProvider objcProvider;
+  private final Purpose purpose;
+  private final ObjcProvider.NativeBuilder objcProviderBuilder;
   private final ObjcCompilationContext objcCompilationContext;
 
   private final Optional<CompilationArtifacts> compilationArtifacts;
-  private final ImmutableSet<Artifact> textualHdrs;
 
   private ObjcCommon(
-      ObjcProvider objcProvider,
+      Purpose purpose,
+      ObjcProvider.NativeBuilder objcProviderBuilder,
       ObjcCompilationContext objcCompilationContext,
-      Optional<CompilationArtifacts> compilationArtifacts,
-      ImmutableSet<Artifact> textualHdrs) {
-    this.objcProvider = Preconditions.checkNotNull(objcProvider);
+      Optional<CompilationArtifacts> compilationArtifacts) {
+    this.purpose = purpose;
+    this.objcProviderBuilder = Preconditions.checkNotNull(objcProviderBuilder);
     this.objcCompilationContext = Preconditions.checkNotNull(objcCompilationContext);
     this.compilationArtifacts = Preconditions.checkNotNull(compilationArtifacts);
-    this.textualHdrs = textualHdrs;
   }
 
-  public ObjcProvider getObjcProvider() {
-    return objcProvider;
+  public Purpose getPurpose() {
+    return purpose;
+  }
+
+  public ObjcProvider.NativeBuilder getObjcProviderBuilder() {
+    return objcProviderBuilder;
   }
 
   public ObjcCompilationContext getObjcCompilationContext() {
@@ -460,10 +458,6 @@ public final class ObjcCommon {
 
   public Optional<CompilationArtifacts> getCompilationArtifacts() {
     return compilationArtifacts;
-  }
-
-  public ImmutableSet<Artifact> getTextualHdrs() {
-    return textualHdrs;
   }
 
   /**

@@ -56,7 +56,6 @@ import com.google.devtools.build.lib.actions.extra.ExtraActionInfo;
 import com.google.devtools.build.lib.analysis.skylark.Args;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.collect.CollectionUtils;
-import com.google.devtools.build.lib.collect.compacthashset.CompactHashSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -67,7 +66,6 @@ import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.rules.cpp.CcCommon.CoptsFilter;
-import com.google.devtools.build.lib.rules.cpp.CcCompilationContext.IncludeScanningHeaderDataHelper;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.IncludeScanner.IncludeScanningHeaderData;
 import com.google.devtools.build.lib.skyframe.ActionExecutionValue;
@@ -92,8 +90,6 @@ import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Collections;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
@@ -198,8 +194,6 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
 
   private ParamFileActionInput paramFileActionInput;
   private PathFragment paramFilePath;
-
-  private final Iterable<Artifact> alternateIncludeScanningDataInputs;
 
   /**
    * Creates a new action to compile C/C++ source files.
@@ -310,7 +304,6 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
               .getParentDirectory()
               .getChild(outputFile.getFilename() + ".params");
     }
-    this.alternateIncludeScanningDataInputs = cppSemantics.getAlternateIncludeScanningDataInputs();
   }
 
   static CompileCommandLine buildCommandLine(
@@ -515,60 +508,6 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
    * This method returns null when a required SkyValue is missing and a Skyframe restart is
    * required.
    */
-  // Note: this function will be deleted in the migration cl.
-  @Nullable
-  private static IncludeScanningHeaderData.Builder createIncludeScanningHeaderData(
-      SkyFunction.Environment env,
-      List<CcCompilationContext.HeaderInfo> headerInfos,
-      Iterable<Artifact> inputs)
-      throws InterruptedException {
-    Map<PathFragment, Artifact> pathToLegalOutputArtifact = new HashMap<>();
-    ArrayList<Artifact> treeArtifacts = new ArrayList<>();
-    // Not using range-based for loops here and below as the additional overhead of the
-    // ImmutableList iterators has shown up in profiles.
-    for (CcCompilationContext.HeaderInfo headerInfo : headerInfos) {
-      for (Artifact a : headerInfo.modularHeaders) {
-        IncludeScanningHeaderDataHelper.handleArtifact(a, pathToLegalOutputArtifact, treeArtifacts);
-      }
-      for (Artifact a : headerInfo.textualHeaders) {
-        IncludeScanningHeaderDataHelper.handleArtifact(a, pathToLegalOutputArtifact, treeArtifacts);
-      }
-    }
-    for (Artifact a : inputs) {
-      IncludeScanningHeaderDataHelper.handleArtifact(a, pathToLegalOutputArtifact, treeArtifacts);
-    }
-    if (!IncludeScanningHeaderDataHelper.handleTreeArtifacts(
-        env, pathToLegalOutputArtifact, treeArtifacts)) {
-      return null;
-    }
-    return new IncludeScanningHeaderData.Builder(
-        Collections.unmodifiableMap(pathToLegalOutputArtifact),
-        Collections.unmodifiableSet(CompactHashSet.create()));
-  }
-
-  /**
-   * This method returns null when a required SkyValue is missing and a Skyframe restart is
-   * required.
-   */
-  @Nullable
-  public IncludeScanningHeaderData.Builder createIncludeScanningHeaderData(
-      SkyFunction.Environment env,
-      boolean usePic,
-      boolean useHeaderModules,
-      List<CcCompilationContext.HeaderInfo> headerInfo)
-      throws InterruptedException {
-    if (alternateIncludeScanningDataInputs != null) {
-      return createIncludeScanningHeaderData(env, headerInfo, alternateIncludeScanningDataInputs);
-    } else {
-      return ccCompilationContext.createIncludeScanningHeaderData(
-          env, usePic, useHeaderModules, headerInfo);
-    }
-  }
-
-  /**
-   * This method returns null when a required SkyValue is missing and a Skyframe restart is
-   * required.
-   */
   @Nullable
   @Override
   public NestedSet<Artifact> discoverInputs(ActionExecutionContext actionExecutionContext)
@@ -593,7 +532,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
       List<CcCompilationContext.HeaderInfo> headerInfo =
           ccCompilationContext.getTransitiveHeaderInfos();
       IncludeScanningHeaderData.Builder includeScanningHeaderData =
-          createIncludeScanningHeaderData(
+          ccCompilationContext.createIncludeScanningHeaderData(
               actionExecutionContext.getEnvironmentForDiscoveringInputs(),
               usePic,
               useHeaderModules,
@@ -1612,7 +1551,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
       throws ActionExecutionException, InterruptedException {
     try {
       IncludeScanningHeaderData.Builder includeScanningHeaderData =
-          createIncludeScanningHeaderData(
+          ccCompilationContext.createIncludeScanningHeaderData(
               actionExecutionContext.getEnvironmentForDiscoveringInputs(),
               usePic,
               useHeaderModules,

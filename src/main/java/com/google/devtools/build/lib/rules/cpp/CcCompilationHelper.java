@@ -444,17 +444,6 @@ public final class CcCompilationHelper {
   }
 
   /**
-   * Add directly to privateHeaders, which are added to the compilation prerequisites and can be
-   * removed by include scanning. This is only used to work around cases where we are not
-   * propagating transitive dependencies properly via scheduling dependency middleman (i.e. objc
-   * compiles).
-   */
-  public CcCompilationHelper addPrivateHeadersUnchecked(Collection<Artifact> privateHeaders) {
-    this.privateHeaders.addAll(privateHeaders);
-    return this;
-  }
-
-  /**
    * Add the corresponding files as source files. These may also be header files, in which case they
    * will not be compiled, but also not made visible as includes to dependent rules. The given build
    * variables will be added to those used for compiling this source.

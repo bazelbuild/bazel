@@ -258,10 +258,12 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
       throws InterruptedException, ActionConflictException {
     ConfiguredAspect.Builder builder = new ConfiguredAspect.Builder(this, parameters, ruleContext);
     ObjcCommon common;
+    ObjcProvider objcProvider = null;
 
     if (!j2ObjcSource.getObjcSrcs().isEmpty()) {
       common =
           common(
+              ObjcCommon.Purpose.COMPILE_AND_LINK,
               ruleContext,
               j2ObjcSource.getObjcSrcs(),
               j2ObjcSource.getObjcHdrs(),
@@ -284,26 +286,29 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
             .registerCompileAndArchiveActions(
                 common, EXTRA_COMPILE_ARGS, ImmutableList.<PathFragment>of())
             .registerFullyLinkAction(
-                common.getObjcProvider(),
+                compilationSupport.getObjcProvider(),
                 ruleContext.getImplicitOutputArtifact(CompilationSupport.FULLY_LINKED_LIB));
+        objcProvider = compilationSupport.getObjcProvider();
       } catch (RuleErrorException e) {
         ruleContext.ruleError(e.getMessage());
       }
     } else {
       common =
           common(
+              ObjcCommon.Purpose.LINK_ONLY,
               ruleContext,
               ImmutableList.<Artifact>of(),
               ImmutableList.<Artifact>of(),
               ImmutableList.<PathFragment>of(),
               depAttributes,
               otherDeps);
+      objcProvider = common.getObjcProviderBuilder().build();
     }
 
     return builder
         .addProvider(
             exportedJ2ObjcMappingFileProvider(base, ruleContext, directJ2ObjcMappingFileProvider))
-        .addNativeDeclaredProvider(common.getObjcProvider())
+        .addNativeDeclaredProvider(objcProvider)
         .build();
   }
 
@@ -832,6 +837,7 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
 
   /** Sets up and returns an {@link ObjcCommon} object containing the J2ObjC-translated code. */
   private static ObjcCommon common(
+      ObjcCommon.Purpose purpose,
       RuleContext ruleContext,
       List<Artifact> transpiledSources,
       List<Artifact> transpiledHeaders,
@@ -839,7 +845,7 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
       List<Attribute> dependentAttributes,
       List<TransitiveInfoCollection> otherObjcProviders)
       throws InterruptedException {
-    ObjcCommon.Builder builder = new ObjcCommon.Builder(ruleContext);
+    ObjcCommon.Builder builder = new ObjcCommon.Builder(purpose, ruleContext);
     IntermediateArtifacts intermediateArtifacts =
         ObjcRuleClasses.j2objcIntermediateArtifacts(ruleContext);
 

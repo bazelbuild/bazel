@@ -965,12 +965,10 @@ public final class CcCompilationContext implements CcCompilationContextApi {
     private final Artifact.DerivedArtifact picHeaderModule;
 
     /** All header files that are compiled into this module. */
-    // Note: this change will be reverted in the migration cl.
-    public final ImmutableList<Artifact> modularHeaders;
+    private final ImmutableList<Artifact> modularHeaders;
 
     /** All header files that are contained in this module. */
-    // Note: this change will be reverted in the migration cl.
-    public final ImmutableList<Artifact> textualHeaders;
+    private final ImmutableList<Artifact> textualHeaders;
 
     HeaderInfo(
         Artifact.DerivedArtifact headerModule,

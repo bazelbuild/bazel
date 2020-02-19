@@ -14,17 +14,14 @@
 
 package com.google.devtools.build.lib.rules.objc;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableSortedSet.toImmutableSortedSet;
 import static com.google.devtools.build.lib.packages.ImplicitOutputsFunction.fromTemplates;
 import static com.google.devtools.build.lib.rules.cpp.Link.LINK_LIBRARY_FILETYPES;
-import static com.google.devtools.build.lib.rules.objc.ObjcProvider.DEFINE;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.DYNAMIC_FRAMEWORK_FILE;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.FORCE_LOAD_LIBRARY;
-import static com.google.devtools.build.lib.rules.objc.ObjcProvider.FRAMEWORK_SEARCH_PATHS;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.IMPORTED_LIBRARY;
-import static com.google.devtools.build.lib.rules.objc.ObjcProvider.INCLUDE;
-import static com.google.devtools.build.lib.rules.objc.ObjcProvider.INCLUDE_SYSTEM;
-import static com.google.devtools.build.lib.rules.objc.ObjcProvider.IQUOTE;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.LIBRARY;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.LINK_INPUTS;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.SDK_DYLIB;
@@ -42,7 +39,6 @@ import static java.util.stream.Collectors.toCollection;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Optional;
-import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
@@ -249,19 +245,6 @@ public class CompilationSupport {
   public static final SafeImplicitOutputsFunction FULLY_LINKED_LIB =
       fromTemplates("%{name}_fully_linked.a");
 
-  /**
-   * Returns additional inputs to include processing, outside of the headers provided by
-   * ObjProvider.
-   */
-  private Iterable<Artifact> getExtraIncludeProcessingInputs(
-      Collection<Artifact> privateHdrs, Artifact pchHdr) {
-    Iterable<Artifact> extraInputs = privateHdrs;
-    if (pchHdr != null) {
-      extraInputs = Iterables.concat(extraInputs, ImmutableList.of(pchHdr));
-    }
-    return extraInputs;
-  }
-
   /** Create and return the include processing to be used. */
   private IncludeProcessing createIncludeProcessing() {
     switch (includeProcessingType) {
@@ -270,6 +253,14 @@ public class CompilationSupport {
       default:
         return NoProcessing.INSTANCE;
     }
+  }
+
+  private static ImmutableList<String> pathsToIncludeArgs(Iterable<PathFragment> paths) {
+    ImmutableList.Builder<String> builder = ImmutableList.<String>builder();
+    for (PathFragment path : paths) {
+      builder.add("-I" + path);
+    }
+    return builder.build();
   }
 
   private CompilationInfo compile(
@@ -282,13 +273,11 @@ public class CompilationSupport {
       Collection<Artifact> sources,
       Collection<Artifact> privateHdrs,
       Collection<Artifact> publicHdrs,
-      Collection<Artifact> dependentGeneratedHdrs,
       Artifact pchHdr,
       ObjcCppSemantics semantics,
       String purpose,
       boolean generateModuleMap)
       throws RuleErrorException, InterruptedException {
-    ObjcProvider depObjcProvidersSummary = objcCompilationContext.getDepObjcProvidersSummary();
     CcCompilationHelper result =
         new CcCompilationHelper(
                 ruleContext,
@@ -307,17 +296,12 @@ public class CompilationSupport {
             .addPublicHeaders(publicHdrs)
             .addPublicTextualHeaders(objcCompilationContext.getPublicTextualHeaders())
             .addPrivateHeaders(privateHdrs)
-            .addPrivateHeadersUnchecked(dependentGeneratedHdrs)
-            .addDefines(depObjcProvidersSummary.get(DEFINE))
-            .addDefines(objcCompilationContext.getDefines())
+            .addDefines(
+                NestedSetBuilder.wrap(Order.LINK_ORDER, objcCompilationContext.getDefines()))
             .addIncludeDirs(priorityHeaders)
             .addIncludeDirs(objcCompilationContext.getIncludes())
-            .addIncludeDirs(depObjcProvidersSummary.get(INCLUDE))
             .addSystemIncludeDirs(objcCompilationContext.getSystemIncludes())
-            .addSystemIncludeDirs(depObjcProvidersSummary.get(INCLUDE_SYSTEM))
             .addQuoteIncludeDirs(objcCompilationContext.getQuoteIncludes())
-            .addQuoteIncludeDirs(depObjcProvidersSummary.get(IQUOTE))
-            .addFrameworkIncludeDirs(frameworkHeaderSearchPathFragments(depObjcProvidersSummary))
             .addCcCompilationContexts(objcCompilationContext.getDepCcCompilationContexts())
             .setCopts(
                 ImmutableList.<String>builder()
@@ -327,6 +311,8 @@ public class CompilationSupport {
                             .getFragment(ObjcConfiguration.class)
                             .getCoptsForCompilationMode())
                     .addAll(extraCompileArgs)
+                    .addAll(
+                        pathsToIncludeArgs(objcCompilationContext.getStrictDependencyIncludes()))
                     .build())
             .setCppModuleMap(intermediateArtifacts.moduleMap())
             .setPropagateModuleMapToCompileAction(false)
@@ -336,7 +322,7 @@ public class CompilationSupport {
             .setHeadersCheckingMode(semantics.determineHeadersCheckingMode(ruleContext));
 
     if (pchHdr != null) {
-      result.addAdditionalInputs(ImmutableList.of(pchHdr));
+      result.addPublicTextualHeaders(ImmutableList.of(pchHdr));
     }
 
     if (getCustomModuleMap(ruleContext).isPresent() || !generateModuleMap) {
@@ -346,7 +332,34 @@ public class CompilationSupport {
     return result.compile();
   }
 
-  private Pair<CcCompilationOutputs, ImmutableMap<String, NestedSet<Artifact>>> ccCompileAndLink(
+  private static class CompilationResult {
+    private final CcCompilationContext ccCompilationContext;
+    private final CcCompilationOutputs ccCompilationOutputs;
+    private final ImmutableMap<String, NestedSet<Artifact>> outputGroups;
+
+    public CompilationResult(
+        CcCompilationContext ccCompilationContext,
+        CcCompilationOutputs ccCompilationOutputs,
+        ImmutableMap<String, NestedSet<Artifact>> outputGroups) {
+      this.ccCompilationContext = ccCompilationContext;
+      this.ccCompilationOutputs = ccCompilationOutputs;
+      this.outputGroups = outputGroups;
+    }
+
+    public CcCompilationContext getCcCompilationContext() {
+      return ccCompilationContext;
+    }
+
+    public CcCompilationOutputs getCcCompilationOutputs() {
+      return ccCompilationOutputs;
+    }
+
+    public ImmutableMap<String, NestedSet<Artifact>> getOutputGroups() {
+      return outputGroups;
+    }
+  }
+
+  private CompilationResult ccCompileAndLink(
       ObjcCompilationContext objcCompilationContext,
       CompilationArtifacts compilationArtifacts,
       ObjcVariablesExtension.Builder extensionBuilder,
@@ -369,22 +382,8 @@ public class CompilationSupport {
                 attributes.hdrs().toList().stream(),
                 compilationArtifacts.getAdditionalHdrs().toList().stream())
             .collect(toImmutableSortedSet(naturalOrder()));
-    // This is a hack to inject generated headers into the action graph for include scanning.  This
-    // is supposed to be done via the compilation prerequisite middleman artifact of dependent
-    // CcCompilationContexts, but ObjcProvider does not propagate that.  This issue will go away
-    // when we finish migrating the compile info in ObjcProvider to CcCompilationContext.
-    //
-    // To limit the extra work we're adding, we only add what is required, i.e. the generated
-    // headers.  Headers from own rule's attributes and from dependent CcCompilationContext are
-    // already accounted for, so we only need the ones from depObjcProviders.
-    Collection<Artifact> dependentGeneratedHdrs =
-        (includeProcessingType == IncludeProcessingType.INCLUDE_SCANNING)
-            ? objcCompilationContext.getDepObjcProvidersSummary().getGeneratedHeaderList()
-            : ImmutableList.of();
     Artifact pchHdr = getPchFile().orNull();
-    ObjcCppSemantics semantics =
-        createObjcCppSemantics(
-            objcCompilationContext.getDepObjcProvidersSummary(), privateHdrs, pchHdr);
+    ObjcCppSemantics semantics = createObjcCppSemantics();
 
     String purpose = String.format("%s_objc_arc", semantics.getPurpose());
     extensionBuilder.setArcEnabled(true);
@@ -399,7 +398,6 @@ public class CompilationSupport {
             arcSources,
             privateHdrs,
             publicHdrs,
-            dependentGeneratedHdrs,
             pchHdr,
             semantics,
             purpose,
@@ -418,7 +416,6 @@ public class CompilationSupport {
             nonArcSources,
             privateHdrs,
             publicHdrs,
-            dependentGeneratedHdrs,
             pchHdr,
             semantics,
             purpose,
@@ -511,17 +508,16 @@ public class CompilationSupport {
     Map<String, NestedSet<Artifact>> mergedOutputGroups =
         CcCommon.mergeOutputGroups(ImmutableList.of(arcOutputGroups, nonArcOutputGroups));
 
-    return new Pair<>(compilationOutputsBuilder.build(), ImmutableMap.copyOf(mergedOutputGroups));
+    return new CompilationResult(
+        ccCompilationContextBuilder.build(),
+        compilationOutputsBuilder.build(),
+        ImmutableMap.copyOf(mergedOutputGroups));
   }
 
-  ObjcCppSemantics createObjcCppSemantics(
-      ObjcProvider objcProvider, Collection<Artifact> privateHdrs, Artifact pchHdr) {
-    Iterable<Artifact> extraInputs = getExtraIncludeProcessingInputs(privateHdrs, pchHdr);
+  ObjcCppSemantics createObjcCppSemantics() {
     return new ObjcCppSemantics(
-        objcProvider,
         includeProcessingType,
         createIncludeProcessing(),
-        extraInputs,
         ruleContext.getFragment(ObjcConfiguration.class),
         intermediateArtifacts,
         buildConfiguration,
@@ -666,11 +662,6 @@ public class CompilationSupport {
         .build();
   }
 
-  /** Returns a list of framework header search path fragments. */
-  static ImmutableList<PathFragment> frameworkHeaderSearchPathFragments(ObjcProvider provider) {
-    return uniqueParentDirectories(provider.get(FRAMEWORK_SEARCH_PATHS)).asList();
-  }
-
   /** Returns a list of framework library search paths. */
   static ImmutableList<String> frameworkLibrarySearchPaths(ObjcProvider provider) {
     ImmutableList.Builder<String> searchPaths = new ImmutableList.Builder<>();
@@ -694,6 +685,17 @@ public class CompilationSupport {
   private final boolean isTestRule;
   private final boolean usePch;
   private final IncludeProcessingType includeProcessingType;
+  private Optional<ObjcProvider> objcProvider;
+
+  private void setObjcProvider(ObjcProvider objcProvider) {
+    checkState(!this.objcProvider.isPresent());
+    this.objcProvider = Optional.of(objcProvider);
+  }
+
+  public ObjcProvider getObjcProvider() {
+    checkState(objcProvider.isPresent());
+    return objcProvider.get();
+  }
 
   /**
    * Creates a new compilation support for the given rule and build configuration.
@@ -728,6 +730,7 @@ public class CompilationSupport {
     this.isTestRule = isTestRule;
     this.outputGroupCollector = outputGroupCollector;
     this.objectFilesCollector = objectFilesCollector;
+    this.objcProvider = Optional.absent();
     this.usePch = usePch;
     if (toolchain == null
         && ruleContext
@@ -833,7 +836,7 @@ public class CompilationSupport {
 
     /** Returns a {@link CompilationSupport} instance. */
     public CompilationSupport build() throws InterruptedException {
-      Preconditions.checkNotNull(ruleContext, "CompilationSupport is missing RuleContext");
+      checkNotNull(ruleContext, "CompilationSupport is missing RuleContext");
 
       if (buildConfiguration == null) {
         buildConfiguration = ruleContext.getConfiguration();
@@ -948,6 +951,7 @@ public class CompilationSupport {
     return registerCompileAndArchiveActions(
         compilationArtifacts,
         objcCompilationContext,
+        Optional.absent(),
         ExtraCompileArgs.NONE,
         ImmutableList.<PathFragment>of());
   }
@@ -992,11 +996,12 @@ public class CompilationSupport {
   private CompilationSupport registerCompileAndArchiveActions(
       CompilationArtifacts compilationArtifacts,
       ObjcCompilationContext objcCompilationContext,
+      Optional<ObjcCommon> objcCommon,
       ExtraCompileArgs extraCompileArgs,
       List<PathFragment> priorityHeaders)
       throws RuleErrorException, InterruptedException {
-    Preconditions.checkNotNull(toolchain);
-    Preconditions.checkNotNull(toolchain.getFdoContext());
+    checkNotNull(toolchain);
+    checkNotNull(toolchain.getFdoContext());
     ObjcVariablesExtension.Builder extension =
         new ObjcVariablesExtension.Builder()
             .setRuleContext(ruleContext)
@@ -1004,14 +1009,14 @@ public class CompilationSupport {
             .setIntermediateArtifacts(intermediateArtifacts)
             .setConfiguration(buildConfiguration);
 
-    Pair<CcCompilationOutputs, ImmutableMap<String, NestedSet<Artifact>>> compilationInfo;
+    CompilationResult compilationResult;
 
     if (compilationArtifacts.getArchive().isPresent()) {
       Artifact objList = intermediateArtifacts.archiveObjList();
 
       extension.addVariableCategory(VariableCategory.ARCHIVE_VARIABLES);
 
-      compilationInfo =
+      compilationResult =
           ccCompileAndLink(
               objcCompilationContext,
               compilationArtifacts,
@@ -1025,10 +1030,11 @@ public class CompilationSupport {
 
       // TODO(b/30783125): Signal the need for this action in the CROSSTOOL.
       registerObjFilelistAction(
-          ImmutableSet.copyOf(compilationInfo.getFirst().getObjectFiles(/* usePic= */ false)),
+          ImmutableSet.copyOf(
+              compilationResult.getCcCompilationOutputs().getObjectFiles(/* usePic= */ false)),
           objList);
     } else {
-      compilationInfo =
+      compilationResult =
           ccCompileAndLink(
               objcCompilationContext,
               compilationArtifacts,
@@ -1041,8 +1047,21 @@ public class CompilationSupport {
               /* linkActionInput */ null);
     }
 
-    objectFilesCollector.addAll(compilationInfo.getFirst().getObjectFiles(/* usePic= */ false));
-    outputGroupCollector.putAll(compilationInfo.getSecond());
+    objectFilesCollector.addAll(
+        compilationResult.getCcCompilationOutputs().getObjectFiles(/* usePic= */ false));
+    outputGroupCollector.putAll(compilationResult.getOutputGroups());
+
+    if (objcCommon.isPresent()
+        && objcCommon.get().getPurpose() == ObjcCommon.Purpose.COMPILE_AND_LINK) {
+
+      ObjcProvider.NativeBuilder objcProviderBuilder = objcCommon.get().getObjcProviderBuilder();
+      ObjcProvider objcProvider =
+          objcProviderBuilder
+              .setCcCompilationContext(compilationResult.getCcCompilationContext())
+              .build();
+
+      setObjcProvider(objcProvider);
+    }
 
     return this;
   }
@@ -1063,6 +1082,7 @@ public class CompilationSupport {
       registerCompileAndArchiveActions(
           common.getCompilationArtifacts().get(),
           common.getObjcCompilationContext(),
+          Optional.of(common),
           extraCompileArgs,
           priorityHeaders);
     }
@@ -1156,8 +1176,7 @@ public class CompilationSupport {
                 toolchain,
                 toolchain.getFdoContext(),
                 getFeatureConfiguration(ruleContext, toolchain, buildConfiguration),
-                createObjcCppSemantics(
-                    objcProvider, /* privateHdrs= */ ImmutableList.of(), /* pchHdr= */ null))
+                createObjcCppSemantics())
             .setGrepIncludes(CppHelper.getGrepIncludes(ruleContext))
             .setIsStampingEnabled(AnalysisUtils.isStampingEnabled(ruleContext))
             .setTestOrTestOnlyTarget(ruleContext.isTestOnlyTarget() || ruleContext.isTestTarget())
@@ -1286,8 +1305,8 @@ public class CompilationSupport {
    */
   CompilationSupport registerFullyLinkAction(ObjcProvider objcProvider, Artifact outputArchive)
       throws InterruptedException, RuleErrorException {
-    Preconditions.checkNotNull(toolchain);
-    Preconditions.checkNotNull(toolchain.getFdoContext());
+    checkNotNull(toolchain);
+    checkNotNull(toolchain.getFdoContext());
     PathFragment labelName = PathFragment.create(ruleContext.getLabel().getName());
     String libraryIdentifier =
         ruleContext
@@ -1313,8 +1332,7 @@ public class CompilationSupport {
                 toolchain,
                 toolchain.getFdoContext(),
                 getFeatureConfiguration(ruleContext, toolchain, buildConfiguration),
-                createObjcCppSemantics(
-                    objcProvider, /* privateHdrs= */ ImmutableList.of(), /* pchHdr= */ null))
+                createObjcCppSemantics())
             .setGrepIncludes(CppHelper.getGrepIncludes(ruleContext))
             .setIsStampingEnabled(AnalysisUtils.isStampingEnabled(ruleContext))
             .setTestOrTestOnlyTarget(ruleContext.isTestOnlyTarget() || ruleContext.isTestTarget())
@@ -1667,14 +1685,6 @@ public class CompilationSupport {
         }
       }
     }
-  }
-
-  private static ImmutableSet<PathFragment> uniqueParentDirectories(NestedSet<PathFragment> paths) {
-    ImmutableSet.Builder<PathFragment> parents = new ImmutableSet.Builder<>();
-    for (PathFragment path : paths.toList()) {
-      parents.add(path.getParentDirectory());
-    }
-    return parents.build();
   }
 
   public static Optional<Artifact> getCustomModuleMap(RuleContext ruleContext) {

@@ -16,8 +16,6 @@ package com.google.devtools.build.lib.rules.objc;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.getFirstArtifactEndingWith;
-import static com.google.devtools.build.lib.rules.objc.ObjcProvider.HEADER;
-import static com.google.devtools.build.lib.rules.objc.ObjcProvider.INCLUDE;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.MODULE_MAP;
 import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.LIPO;
 import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.SRCS_TYPE;
@@ -527,16 +525,20 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
     assertContainsSublist(compileAction("//x:x", "b.o").getArguments(), includeFlags);
   }
 
-  protected void checkProvidesHdrsAndIncludes(RuleType ruleType) throws Exception {
+  protected void checkProvidesHdrsAndIncludes(RuleType ruleType, Optional<String> privateHdr)
+      throws Exception {
     scratch.file("x/a.h");
-    ruleType.scratchTarget(scratch,
-        "hdrs", "['a.h']",
-        "includes", "['incdir']");
+    ruleType.scratchTarget(scratch, "hdrs", "['a.h']", "includes", "['incdir']");
     ObjcProvider provider =
         getConfiguredTarget("//x:x", getAppleCrosstoolConfiguration())
             .get(ObjcProvider.SKYLARK_CONSTRUCTOR);
-    assertThat(provider.get(HEADER).toList()).containsExactly(getSourceArtifact("x/a.h"));
-    assertThat(provider.get(INCLUDE).toList())
+    if (privateHdr.isPresent()) {
+      assertThat(provider.header().toList())
+          .containsExactly(getSourceArtifact("x/a.h"), getSourceArtifact(privateHdr.get()));
+    } else {
+      assertThat(provider.header().toList()).containsExactly(getSourceArtifact("x/a.h"));
+    }
+    assertThat(provider.include())
         .containsExactly(
             PathFragment.create("x/incdir"),
             getAppleCrosstoolConfiguration().getGenfilesFragment().getRelative("x/incdir"));

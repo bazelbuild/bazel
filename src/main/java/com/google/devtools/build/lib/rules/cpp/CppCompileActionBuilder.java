@@ -362,9 +362,7 @@ public class CppCompileActionBuilder {
   }
 
   NestedSet<Artifact> buildPrunableHeaders() {
-    return NestedSetBuilder.fromNestedSet(cppSemantics.getAdditionalPrunableIncludes())
-        .addAll(additionalPrunableHeaders)
-        .build();
+    return NestedSetBuilder.<Artifact>stableOrder().addAll(additionalPrunableHeaders).build();
   }
 
   NestedSet<Artifact> buildInputsForInvalidation() {
