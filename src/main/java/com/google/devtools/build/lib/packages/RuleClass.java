@@ -135,6 +135,10 @@ public class RuleClass {
   public static final PathFragment EXPERIMENTAL_PREFIX = PathFragment.create("experimental");
   public static final String EXEC_COMPATIBLE_WITH_ATTR = "exec_compatible_with";
   public static final String EXEC_PROPERTIES = "exec_properties";
+  /*
+   * The attribute that declares the set of license labels which apply to this target.
+   */
+  public static final String APPLICABLE_LICENSES_ATTR = "applicable_licenses";
 
   /**
    * A constraint for the package name of the Rule instances.
@@ -2183,6 +2187,11 @@ public class RuleClass {
    */
   private static Object getAttributeNoncomputedDefaultValue(Attribute attr,
       Package.Builder pkgBuilder) {
+    // TODO(b/149505729): Determine the right semantics for someone trying to define their own
+    // attribute named applicable_licenses.
+    if (attr.getName().equals("applicable_licenses")) {
+      return pkgBuilder.getDefaultApplicableLicenses();
+    }
     // Starlark rules may define their own "licenses" attributes with different types -
     // we shouldn't trigger the special "licenses" on those cases.
     if (attr.getName().equals("licenses") && attr.getType() == BuildType.LICENSE) {

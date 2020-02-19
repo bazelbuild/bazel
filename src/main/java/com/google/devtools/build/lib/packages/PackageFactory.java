@@ -199,6 +199,26 @@ public final class PackageFactory {
     }
   }
 
+  /**
+   * Declares the package() attribute specifying the default value for {@link
+   * com.google.devtools.build.lib.packages.RuleClass#APPLICABLE_LICENSES_ATTR} when not explicitly
+   * specified.
+   */
+  private static class DefaultApplicableLicenses extends PackageArgument<List<Label>> {
+    private static final String DEFAULT_APPLICABLE_LICENSES_ATTRIBUTE =
+        "default_applicable_licenses";
+
+    private DefaultApplicableLicenses() {
+      super(DEFAULT_APPLICABLE_LICENSES_ATTRIBUTE, BuildType.LABEL_LIST);
+    }
+
+    @Override
+    protected void process(Package.Builder pkgBuilder, Location location, List<Label> value) {
+      pkgBuilder.setDefaultApplicableLicenses(
+          value, DEFAULT_APPLICABLE_LICENSES_ATTRIBUTE, location);
+    }
+  }
+
   private static class DefaultLicenses extends PackageArgument<License> {
     private DefaultLicenses() {
       super("licenses", BuildType.LICENSE);
@@ -448,6 +468,7 @@ public final class PackageFactory {
         ImmutableList.<PackageArgument<?>>builder()
             .add(new DefaultDeprecation())
             .add(new DefaultDistribs())
+            .add(new DefaultApplicableLicenses())
             .add(new DefaultLicenses())
             .add(new DefaultTestOnly())
             .add(new DefaultVisibility())
