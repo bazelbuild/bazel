@@ -41,7 +41,7 @@ Alternatively you can:
 *   [Install Bazel from Scoop](#using-scoop)
 *   [Build Bazel from source](install-compile-source.html)
 
-### Step 4: Optionally configure output directories
+### Step 4 (optional): Configure output directories
 
 **You can skip this step. Bazel can work without configuring the output directories, and will use
 its default values.**
@@ -70,7 +70,7 @@ By default, Bazel also writes in the workspace directory:
 
     You can tell Bazel not to create these junctions with `--symlink_prefix=/`.
 
-### Step 5: Optionally install compilers and language runtimes
+### Step 5 (optional): Install compilers and language runtimes
 
 **You can skip this step. Bazel can work without these programs, but you may need them.**
 
