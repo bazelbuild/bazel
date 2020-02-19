@@ -90,6 +90,7 @@ command line. Specficially, `deps` becomes:
     <td><code>[":generic_lib"]</code></td>
   </tr>
 </table>
+
 `select()` serves as a placeholder for a value that will be chosen based on
 *configuration conditions*. These conditions are labels that refer to
 [`config_setting`](be/general.html#config_setting) targets. By using `select()`
@@ -733,7 +734,7 @@ $ bazel cquery 'deps(//myproject:my_lib)' --define dog=pug
 
 ## FAQ
 
-## <a name="macros-select"></a>Why doesn't select() work in macros?
+### <a name="macros-select"></a>Why doesn't select() work in macros?
 select() *does* work in rules! See [Rules compatibility](#rules) for
 details.
 
@@ -844,7 +845,7 @@ DEBUG: /myworkspace/myproject/defs.bzl:23:3: Invoking macro sad_macro_less_sad.
 DEBUG: /myworkspace/myproject/defs.bzl:15:3: My name is sad_macro_less_sad with custom message: FIRST STRING.
 ```
 
-## <a name="boolean-select"></a>Why does select() always return true?
+### <a name="boolean-select"></a>Why does select() always return true?
 Because *macros* (but not rules) by definition
 [can't evaluate select(s)](#macros-select), any attempt to do so
 usually produces an error:
@@ -888,7 +889,8 @@ So what they're really evaluting is the `select()` object itself. According to
 [Pythonic](https://docs.python.org/release/2.5.2/lib/truth.html) design
 standards, all objects aside from a very small number of exceptions
 automatically return true.
-## <a name="inspectable-select"></a>Can I read select() like a dict?
+
+### <a name="inspectable-select"></a>Can I read select() like a dict?
 Fine. Macros [can't](#macros-select) evaluate select(s) because
 macros are evaluated before Bazel knows what the command line flags are.
 
@@ -946,7 +948,7 @@ def selecty_genrule(name, select_cmd):
     )
 ```
 
-## <a name="bind-select"></a>Why doesn't select() work with bind()?
+### <a name="bind-select"></a>Why doesn't select() work with bind()?
 
 Because [`bind()`](be/workspace.html#bind) is a WORKSPACE rule, not a BUILD rule.
 
