@@ -47,12 +47,22 @@ public class Main {
   private static final Logger logger = Logger.getLogger(Main.class.getName());
 
   public static void main(String... args) {
+    try {
+      int exitCode = runWithArgs(args);
+      System.exit(exitCode);
+    } catch (Exception e) {
+      logger.log(Level.SEVERE, "Unhandled exception on lcov tool: " + e.getMessage());
+      System.exit(1);
+    }
+  }
+
+  static int runWithArgs(String... args) {
     LcovMergerFlags flags = null;
     try {
       flags = LcovMergerFlags.parseFlags(args);
     } catch (IllegalArgumentException e) {
       logger.log(Level.SEVERE, e.getMessage());
-      System.exit(1);
+      return 1;
     }
 
     File outputFile = new File(flags.outputFile());
@@ -80,8 +90,19 @@ public class Main {
     if (coverage.isEmpty()) {
       int exitStatus = 0;
       if (profdataFile == null) {
-        logger.log(Level.WARNING, "There was no coverage found.");
-        exitStatus = 0;
+        try {
+          logger.log(Level.WARNING, "There was no coverage found.");
+          Files.createFile(outputFile.toPath()); // Generate empty declared output
+          exitStatus = 0;
+        } catch (IOException e) {
+          logger.log(
+              Level.SEVERE,
+              "Could not create empty output file "
+                  + outputFile.getName()
+                  + " due to: "
+                  + e.getMessage());
+          exitStatus = 1;
+        }
       } else {
         // Bazel doesn't support yet converting profdata files to lcov. We still want to output a
         // coverage report so we copy the content of the profdata file to the output file. This is
@@ -102,7 +123,7 @@ public class Main {
           exitStatus = 1;
         }
       }
-      System.exit(exitStatus);
+      return exitStatus;
     }
 
     if (!coverage.isEmpty() && profdataFile != null) {
@@ -112,7 +133,7 @@ public class Main {
       logger.log(
           Level.WARNING,
           "Bazel doesn't support LLVM profdata coverage amongst other coverage formats.");
-      System.exit(0);
+      return 0;
     }
 
     if (!flags.filterSources().isEmpty()) {
@@ -129,8 +150,19 @@ public class Main {
     }
 
     if (coverage.isEmpty()) {
-      logger.log(Level.WARNING, "There was no coverage found.");
-      System.exit(0);
+      try {
+        logger.log(Level.WARNING, "There was no coverage found.");
+        Files.createFile(outputFile.toPath()); // Generate empty declared output
+        return 0;
+      } catch (IOException e) {
+        logger.log(
+            Level.SEVERE,
+            "Could not create empty output file "
+                + outputFile.getName()
+                + " due to: "
+                + e.getMessage());
+        return 1;
+      }
     }
 
     int exitStatus = 0;
@@ -143,7 +175,7 @@ public class Main {
           "Could not write to output file " + outputFile + " due to " + e.getMessage());
       exitStatus = 1;
     }
-    System.exit(exitStatus);
+    return exitStatus;
   }
 
   /**

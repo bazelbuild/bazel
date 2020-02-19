@@ -22,11 +22,13 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.List;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
+import org.junit.rules.TestName;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
@@ -35,6 +37,7 @@ import org.junit.runners.JUnit4;
 public class MainTest {
 
   @Rule public TemporaryFolder temporaryFolder = new TemporaryFolder();
+  @Rule public TestName testName = new TestName();
   private Path coverageDir;
 
   @Before
@@ -68,6 +71,37 @@ public class MainTest {
   @Test
   public void testParallelParse_1MLoC_4LcovFiles() throws IOException {
     assertParallelParse(4, 1024, 1024);
+  }
+
+  @Test
+  public void testEmptyInputProducesEmptyOutput() throws IOException {
+    Path output =
+        Paths.get(
+            temporaryFolder.getRoot().getAbsolutePath(),
+            testName.getMethodName() + ".coverage.dat");
+    int exitCode =
+        Main.runWithArgs(
+            "--coverage_dir", coverageDir.toAbsolutePath().toString(),
+            "--output_file", output.toAbsolutePath().toString());
+    assertThat(exitCode).isEqualTo(0);
+    assertThat(output.toFile().exists()).isTrue();
+    assertThat(output.toFile().length()).isEqualTo(0L);
+  }
+
+  @Test
+  public void testNonEmptyInputProducesNonEmptyOutput() throws IOException {
+    LcovMergerTestUtils.generateLcovFiles("test_data/simple_test", 8, 8, 8, coverageDir);
+    Path output =
+        Paths.get(
+            temporaryFolder.getRoot().getAbsolutePath(),
+            testName.getMethodName() + ".coverage.dat");
+    int exitCode =
+        Main.runWithArgs(
+            "--coverage_dir", coverageDir.toAbsolutePath().toString(),
+            "--output_file", output.toAbsolutePath().toString());
+    assertThat(exitCode).isEqualTo(0);
+    assertThat(output.toFile().exists()).isTrue();
+    assertThat(output.toFile().length()).isGreaterThan(0L);
   }
 
   private void assertParallelParse(int numLcovFiles, int numSourceFiles, int numLinesPerSourceFile)
