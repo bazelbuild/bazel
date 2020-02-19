@@ -313,6 +313,16 @@ public class CommonCommandOptions extends OptionsBase {
   public boolean enableJsonProfileDiet;
 
   @Option(
+      name = "experimental_include_primary_output",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.LOGGING,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.BAZEL_MONITORING},
+      help =
+          "Includes the extra \"out\" attribute in action events that contains the exec path "
+              + "to the action's primary output.")
+  public boolean includePrimaryOutput;
+
+  @Option(
       name = "experimental_announce_profile_path",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.LOGGING,

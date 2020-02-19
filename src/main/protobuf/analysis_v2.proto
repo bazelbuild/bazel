@@ -97,6 +97,9 @@ message Action {
 
   // The list of param files. This will be only set if explicitly requested.
   repeated ParamFile param_files = 12;
+
+  // The id to an Artifact that is the primary output of this action.
+  uint32 primary_output_id = 13;
 }
 
 // Represents a single target (without configuration information) that is

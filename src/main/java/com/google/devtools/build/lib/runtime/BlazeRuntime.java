@@ -357,6 +357,13 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
       }
       ImmutableSet<ProfilerTask> profiledTasks = profiledTasksBuilder.build();
       if (!profiledTasks.isEmpty()) {
+        if (options.enableJsonProfileDiet && options.includePrimaryOutput) {
+          eventHandler.handle(
+              Event.warn(
+                  "Enabling both --experimental_slim_json_profile and"
+                      + " --experimental_include_primary_output: the \"out\" field"
+                      + " will be omitted in merged actions."));
+        }
         Profiler profiler = Profiler.instance();
         profiler.start(
             profiledTasks,
@@ -369,7 +376,8 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
             execStartTimeNanos,
             options.enableCpuUsageProfiling,
             options.enableJsonProfileDiet,
-            options.enableActionCountProfile);
+            options.enableActionCountProfile,
+            options.includePrimaryOutput);
         // Instead of logEvent() we're calling the low level function to pass the timings we took in
         // the launcher. We're setting the INIT phase marker so that it follows immediately the
         // LAUNCH phase.

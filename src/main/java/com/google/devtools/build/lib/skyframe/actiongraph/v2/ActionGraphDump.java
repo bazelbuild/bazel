@@ -160,12 +160,11 @@ public class ActionGraphDump {
       // environment as well.
       Map<String, String> fixedEnvironment = spawnAction.getEnvironment().getFixedEnv().toMap();
       for (Map.Entry<String, String> environmentVariable : fixedEnvironment.entrySet()) {
-        AnalysisProtosV2.KeyValuePair.Builder keyValuePairBuilder =
-            AnalysisProtosV2.KeyValuePair.newBuilder();
-        keyValuePairBuilder
-            .setKey(environmentVariable.getKey())
-            .setValue(environmentVariable.getValue());
-        actionBuilder.addEnvironmentVariables(keyValuePairBuilder.build());
+        actionBuilder.addEnvironmentVariables(
+            AnalysisProtosV2.KeyValuePair.newBuilder()
+                .setKey(environmentVariable.getKey())
+                .setValue(environmentVariable.getValue())
+                .build());
       }
     }
 
@@ -221,7 +220,7 @@ public class ActionGraphDump {
       NestedSet<Artifact> inputs = action.getInputs();
       NestedSetView<Artifact> nestedSetView = new NestedSetView<>(inputs);
 
-      if (nestedSetView.directs().size() > 0 || nestedSetView.transitives().size() > 0) {
+      if (!nestedSetView.directs().isEmpty() || !nestedSetView.transitives().isEmpty()) {
         actionBuilder.addInputDepSetIds(
             knownNestedSets.dataToIdAndStreamOutputProto(nestedSetView));
       }
@@ -230,6 +229,9 @@ public class ActionGraphDump {
       for (Artifact artifact : action.getOutputs()) {
         actionBuilder.addOutputIds(knownArtifacts.dataToIdAndStreamOutputProto(artifact));
       }
+
+      actionBuilder.setPrimaryOutputId(
+          knownArtifacts.dataToIdAndStreamOutputProto(action.getPrimaryOutput()));
     }
 
     aqueryOutputHandler.outputAction(actionBuilder.build());

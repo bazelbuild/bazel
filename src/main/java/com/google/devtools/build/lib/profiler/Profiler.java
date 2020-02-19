@@ -187,14 +187,13 @@ public final class Profiler {
   }
 
   /**
-   * Container for the single task record.
-   * Should never be instantiated directly - use TaskStack.create() instead.
+   * Container for the single task record. Should never be instantiated directly - use
+   * TaskStack.create() instead.
    *
-   * Class itself is not thread safe, but all access to it from Profiler
-   * methods is.
+   * <p>Class itself is not thread safe, but all access to it from Profiler methods is.
    */
   @ThreadCompatible
-  private static final class TaskData {
+  private static class TaskData {
     final long threadId;
     final long startTimeNanos;
     final int id;
@@ -244,6 +243,21 @@ public final class Profiler {
     }
   }
 
+  private static final class ActionTaskData extends TaskData {
+    final String primaryOutputPath;
+
+    ActionTaskData(
+        int id,
+        long startTimeNanos,
+        TaskData parent,
+        ProfilerTask eventType,
+        String description,
+        String primaryOutputPath) {
+      super(id, startTimeNanos, parent, eventType, description);
+      this.primaryOutputPath = primaryOutputPath;
+    }
+  }
+
   /**
    * Tracks nested tasks for each thread.
    *
@@ -283,6 +297,16 @@ public final class Profiler {
 
     public TaskData create(long startTimeNanos, ProfilerTask eventType, String description) {
       return new TaskData(taskId.incrementAndGet(), startTimeNanos, peek(), eventType, description);
+    }
+
+    public void pushActionTask(ProfilerTask eventType, String description, String primaryOutput) {
+      get().add(createActionTask(clock.nanoTime(), eventType, description, primaryOutput));
+    }
+
+    public ActionTaskData createActionTask(
+        long startTimeNanos, ProfilerTask eventType, String description, String primaryOutput) {
+      return new ActionTaskData(
+          taskId.incrementAndGet(), startTimeNanos, peek(), eventType, description, primaryOutput);
     }
 
     @Override
@@ -493,7 +517,8 @@ public final class Profiler {
       long execStartTimeNanos,
       boolean enabledCpuUsageProfiling,
       boolean slimProfile,
-      boolean enableActionCountProfile)
+      boolean enableActionCountProfile,
+      boolean includePrimaryOutput)
       throws IOException {
     Preconditions.checkState(!isActive(), "Profiler already active");
     initHistograms();
@@ -520,7 +545,13 @@ public final class Profiler {
       switch (format) {
         case JSON_TRACE_FILE_FORMAT:
           writer =
-              new JsonTraceFileWriter(stream, execStartTimeNanos, slimProfile, outputBase, buildID);
+              new JsonTraceFileWriter(
+                  stream,
+                  execStartTimeNanos,
+                  slimProfile,
+                  outputBase,
+                  buildID,
+                  includePrimaryOutput);
           break;
         case JSON_TRACE_FILE_COMPRESSED_FORMAT:
           writer =
@@ -529,7 +560,8 @@ public final class Profiler {
                   execStartTimeNanos,
                   slimProfile,
                   outputBase,
-                  buildID);
+                  buildID,
+                  includePrimaryOutput);
       }
       writer.start();
     }
@@ -793,6 +825,22 @@ public final class Profiler {
   }
 
   /**
+   * Similar to {@link #profile}, but specific to action-related events. Takes an extra argument:
+   * primaryOutput.
+   */
+  public SilentCloseable profileAction(
+      ProfilerTask type, String description, String primaryOutput) {
+
+    Preconditions.checkNotNull(description);
+    if (isActive() && isProfiling(type)) {
+      taskStack.pushActionTask(type, description, primaryOutput);
+      return () -> completeTask(type);
+    } else {
+      return () -> {};
+    }
+  }
+
+  /**
    * Records the beginning of a task as specified, and returns a {@link SilentCloseable} instance
    * that ends the task. This lets the system do the work of ending the task, with the compiler
    * giving a warning if the returned instance is not closed.
@@ -913,6 +961,7 @@ public final class Profiler {
     private final ThreadLocal<Boolean> metadataPosted =
         ThreadLocal.withInitial(() -> Boolean.FALSE);
     private final boolean slimProfile;
+    private final boolean includePrimaryOutput;
     private final UUID buildID;
     private final String outputBase;
 
@@ -928,12 +977,14 @@ public final class Profiler {
         long profileStartTimeNanos,
         boolean slimProfile,
         String outputBase,
-        UUID buildID) {
+        UUID buildID,
+        boolean includePrimaryOutput) {
       this.outStream = outStream;
       this.profileStartTimeNanos = profileStartTimeNanos;
       this.slimProfile = slimProfile;
       this.buildID = buildID;
       this.outputBase = outputBase;
+      this.includePrimaryOutput = includePrimaryOutput;
     }
 
     @Override
@@ -1035,6 +1086,11 @@ public final class Profiler {
         writer.name("dur").value(TimeUnit.NANOSECONDS.toMicros(data.duration));
       }
       writer.name("pid").value(1);
+
+      // Primary outputs are non-mergeable, thus incompatible with slim profiles.
+      if (includePrimaryOutput && data instanceof ActionTaskData) {
+        writer.name("out").value(((ActionTaskData) data).primaryOutputPath);
+      }
       long threadId =
           data.type == ProfilerTask.CRITICAL_PATH_COMPONENT
               ? CRITICAL_PATH_THREAD_ID

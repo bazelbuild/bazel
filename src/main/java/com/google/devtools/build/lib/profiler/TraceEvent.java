@@ -35,8 +35,20 @@ public abstract class TraceEvent {
       String name,
       @Nullable Duration timestamp,
       @Nullable Duration duration,
+      long threadId,
+      @Nullable String primaryOutputPath) {
+    return new AutoValue_TraceEvent(
+        category, name, timestamp, duration, threadId, primaryOutputPath);
+  }
+
+  public static TraceEvent create(
+      @Nullable String category,
+      String name,
+      @Nullable Duration timestamp,
+      @Nullable Duration duration,
       long threadId) {
-    return new AutoValue_TraceEvent(category, name, timestamp, duration, threadId);
+    return new AutoValue_TraceEvent(
+        category, name, timestamp, duration, threadId, /* primaryOutputPath= */ null);
   }
 
   @Nullable
@@ -52,12 +64,17 @@ public abstract class TraceEvent {
 
   public abstract long threadId();
 
+  // Only applicable to action-related TraceEvents.
+  @Nullable
+  public abstract String primaryOutputPath();
+
   private static TraceEvent createFromJsonReader(JsonReader reader) throws IOException {
     String category = null;
     String name = null;
     Duration timestamp = null;
     Duration duration = null;
     long threadId = -1;
+    String primaryOutputPath = null;
 
     reader.beginObject();
     while (reader.hasNext()) {
@@ -78,12 +95,15 @@ public abstract class TraceEvent {
         case "tid":
           threadId = reader.nextLong();
           break;
+        case "out":
+          primaryOutputPath = reader.nextString();
+          break;
         default:
           reader.skipValue();
       }
     }
     reader.endObject();
-    return TraceEvent.create(category, name, timestamp, duration, threadId);
+    return TraceEvent.create(category, name, timestamp, duration, threadId, primaryOutputPath);
   }
 
   public static List<TraceEvent> parseTraceEvents(JsonReader reader) throws IOException {
