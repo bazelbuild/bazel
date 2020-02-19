@@ -28,6 +28,9 @@ import javax.annotation.Nullable;
 
 /** The result of a {@link Spawn}'s execution. */
 public interface SpawnResult {
+
+  int POSIX_TIMEOUT_EXIT_CODE = /*SIGNAL_BASE=*/ 128 + /*SIGALRM=*/ 14;
+
   /** The status of the attempted Spawn execution. */
   enum Status {
     /** Subprocess executed successfully, and returned a zero exit code. */
@@ -91,17 +94,25 @@ public interface SpawnResult {
   }
 
   /**
-   * Returns whether the spawn was actually run, regardless of the exit code. I.e., returns
-   * {@code true} if {@link #status} is any of {@link Status#SUCCESS}, {@link Status#NON_ZERO_EXIT},
-   * {@link Status#TIMEOUT} or {@link Status#OUT_OF_MEMORY}.
+   * Returns whether the spawn was actually run, regardless of the exit code. I.e., returns {@code
+   * true} if {@link #status} is any of {@link Status#SUCCESS}, {@link Status#NON_ZERO_EXIT}, {@link
+   * Status#TIMEOUT} or {@link Status#OUT_OF_MEMORY}.
    *
    * <p>Returns false if there were errors that prevented the spawn from being run, such as network
    * errors, missing local files, errors setting up sandboxing, etc.
    */
-  boolean setupSuccess();
+  default boolean setupSuccess() {
+    Status status = status();
+    return status == Status.SUCCESS
+        || status == Status.NON_ZERO_EXIT
+        || status == Status.TIMEOUT
+        || status == Status.OUT_OF_MEMORY;
+  }
 
   /** Returns true if the status was {@link Status#EXECUTION_FAILED_CATASTROPHICALLY}. */
-  boolean isCatastrophe();
+  default boolean isCatastrophe() {
+    return status() == Status.EXECUTION_FAILED_CATASTROPHICALLY;
+  }
 
   /** Returns the status of the attempted Spawn execution. */
   Status status();
@@ -116,7 +127,10 @@ public interface SpawnResult {
    *
    * <p>Returns 128 + 14 (corresponding to the Unix signal SIGALRM) if {@link #status} returns
    * {@link Status#TIMEOUT}.
+   *
+   * <p>Otherwise, the returned value is not meaningful.
    */
+  // TODO(mschaller): clean up all uses of this method when {@code !this.setupSuccess()}
   int exitCode();
 
   /**
@@ -254,19 +268,6 @@ public interface SpawnResult {
       this.inMemoryOutputFile = builder.inMemoryOutputFile;
       this.inMemoryContents = builder.inMemoryContents;
       this.actionMetadataLog = builder.actionMetadataLog;
-    }
-
-    @Override
-    public boolean setupSuccess() {
-      return status == Status.SUCCESS
-          || status == Status.NON_ZERO_EXIT
-          || status == Status.TIMEOUT
-          || status == Status.OUT_OF_MEMORY;
-    }
-
-    @Override
-    public boolean isCatastrophe() {
-      return status == Status.EXECUTION_FAILED_CATASTROPHICALLY;
     }
 
     @Override
@@ -416,10 +417,9 @@ public interface SpawnResult {
       Preconditions.checkArgument(!runnerName.isEmpty());
       if (status == Status.SUCCESS) {
         Preconditions.checkArgument(exitCode == 0);
-      }
-      if (status == Status.NON_ZERO_EXIT
-          || status == Status.TIMEOUT
-          || status == Status.OUT_OF_MEMORY) {
+      } else if (status == Status.TIMEOUT) {
+        Preconditions.checkArgument(exitCode == POSIX_TIMEOUT_EXIT_CODE);
+      } else if (status == Status.NON_ZERO_EXIT || status == Status.OUT_OF_MEMORY) {
         Preconditions.checkArgument(exitCode != 0);
       }
       return new SimpleSpawnResult(this);

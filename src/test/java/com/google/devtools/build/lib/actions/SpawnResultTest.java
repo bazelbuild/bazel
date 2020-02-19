@@ -38,7 +38,7 @@ public final class SpawnResultTest {
         new SpawnResult.Builder()
             .setStatus(SpawnResult.Status.TIMEOUT)
             .setWallTime(Duration.ofSeconds(5))
-            .setExitCode(1)
+            .setExitCode(SpawnResult.POSIX_TIMEOUT_EXIT_CODE)
             .setRunnerName("test")
             .build();
     assertThat(r.getDetailMessage("", "", false, false, false))
@@ -50,7 +50,7 @@ public final class SpawnResultTest {
     SpawnResult r =
         new SpawnResult.Builder()
             .setStatus(SpawnResult.Status.TIMEOUT)
-            .setExitCode(1)
+            .setExitCode(SpawnResult.POSIX_TIMEOUT_EXIT_CODE)
             .setRunnerName("test")
             .build();
     assertThat(r.getDetailMessage("", "", false, false, false))
