@@ -34,10 +34,9 @@ extend.</font></p>
 
 **We believe Bazel has the potential to fulfill this vision.**
 
-Bazel was built
-from the ground up to enable builds that are reproducible (a given set of inputs
-will always produce the same outputs) and portable (a build can be run on any
-machine without affecting the output).
+Bazel was built from the ground up to enable builds that are reproducible (a
+given set of inputs will always produce the same outputs) and portable (a build
+can be run on any machine without affecting the output).
 
 These characteristics support safe incrementality (rebuilding only changed
 inputs doesn't introduce the risk of corruption) and distributability (build
