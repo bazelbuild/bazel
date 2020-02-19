@@ -77,6 +77,7 @@ import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.ShellEscaper;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.errorprone.annotations.CompileTimeConstant;
+import com.google.errorprone.annotations.DoNotCall;
 import com.google.errorprone.annotations.FormatMethod;
 import com.google.errorprone.annotations.FormatString;
 import java.io.IOException;
@@ -844,7 +845,8 @@ public class SpawnAction extends AbstractAction implements CommandAction {
 
     /** @deprecated Use {@link #addTransitiveInputs} to avoid excessive memory use. */
     @Deprecated
-    public Builder addInputs(NestedSet<Artifact> artifacts) {
+    @DoNotCall
+    public final Builder addInputs(NestedSet<Artifact> artifacts) {
       // Do not delete this method, or else addInputs(Iterable) calls with a NestedSet argument
       // will not be flagged.
       inputsBuilder.addAll(artifacts.toList());
