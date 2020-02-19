@@ -26,9 +26,9 @@ incompatible and require some changes from Bazel users.
 1. APIs and behavior guarded by an `--experimental_*` flag can change at any time.
 1. Users should never run their production builds with `--experimental_*`  or `--incompatible_*` flags.
 
-### How to follow this policy
+## How to follow this policy
 
-* [For Bazel Users - how to update
+* [For Bazel users - how to update
   Bazel](updating-bazel.html)
 * [For contributors - best practices for incompatible changes](https://bazel.build/breaking-changes-guide.html)
 * <a href='https://github.com/bazelbuild/continuous-integration/tree/master/docs/release-playbook.%6D%64'>For release managers - how to update issue labels and release</a>
