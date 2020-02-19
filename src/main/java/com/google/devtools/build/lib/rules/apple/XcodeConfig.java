@@ -343,6 +343,7 @@ public class XcodeConfig implements RuleConfiguredTargetFactory {
     }
     // Select the local default.
     Availability availability = null;
+    XcodeVersionRuleData localVersion = null;
     if (mutuallyAvailableVersions.isEmpty()) {
       ruleContext.ruleWarning(
           String.format(
@@ -352,18 +353,22 @@ public class XcodeConfig implements RuleConfiguredTargetFactory {
                   + " performance.",
               localVersions.getDefaultVersion().getVersion(),
               printableXcodeVersions(remoteVersions.getAvailableVersions())));
+      localVersion = localVersions.getDefaultVersion();
       availability = Availability.LOCAL;
     } else if (remoteAliasesToVersionMap.containsKey(
         localVersions.getDefaultVersion().getVersion().toString())) {
       availability = Availability.BOTH;
+      localVersion =
+          remoteAliasesToVersionMap.get(localVersions.getDefaultVersion().getVersion().toString());
     } else {
       ruleContext.ruleWarning(
           "You passed --experimental_prefer_mutual_xcode=false, which prevents Bazel from"
               + " selecting an Xcode version that optimizes your performance. Please consider"
               + " using --experimental_prefer_mutual_xcode=true.");
       availability = Availability.LOCAL;
+      localVersion = localVersions.getDefaultVersion();
     }
-    return Maps.immutableEntry(localVersions.getDefaultVersion(), availability);
+    return Maps.immutableEntry(localVersion, availability);
   }
 
   private static String printableXcodeVersions(Iterable<XcodeVersionRuleData> xcodeVersions) {
