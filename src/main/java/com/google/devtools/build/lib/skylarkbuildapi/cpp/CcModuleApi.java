@@ -74,7 +74,7 @@ public interface CcModuleApi<
 
   @SkylarkCallable(
       name = "configure_features",
-      doc = "Creates a feature_configuration instance.",
+      doc = "Creates a feature_configuration instance. Requires the cpp configuration fragment.",
       parameters = {
         @Param(
             name = "ctx",
