@@ -26,7 +26,7 @@ targets to build</a>" section of the User's Guide.
   identified in the on-line help with the text 'may be used multiple times'.
 </p>
 
-<h3>Options that affect how packages are located</h3>
+<h3>Package location</h3>
 
 <h4 id='flag--package_path'><code class='flag'>--package_path</code></h4>
 <p>
@@ -92,7 +92,7 @@ Package path elements may be specified in three formats:
   % touch WORKSPACE
   % bazel build --package_path /some/other/path //foo
 </pre>
-<h3 id='checking-options'>Error checking options</h3>
+<h3 id='checking-options'>Error checking</h3>
 <p>
   These options control Bazel's error-checking and/or warnings.
 </p>
@@ -157,7 +157,7 @@ Package path elements may be specified in three formats:
   </tr>
 </table>
 
-<h3 id='flags-options'>Flags options</h3>
+<h3 id='flags-options'>Tool flags</h3>
 <p>
   These options control which options Bazel will pass to other tools.
 </p>
@@ -447,7 +447,7 @@ Package path elements may be specified in three formats:
   </li>
 </ul>
 
-<h3 id='semantics-options'>Semantics options</h3>
+<h3 id='semantics-options'>Build semantics</h3>
 <p>
   These options affect the build commands and/or the output file contents.
 </p>
@@ -791,7 +791,7 @@ The default is <code>armeabi-v7a</code>.
   option.
 </p>
 
-<h3 id='strategy-options'>Build strategy options</h3>
+<h3 id='strategy-options'>Execution strategy</h3>
 <p>
   These options affect how Bazel will execute the build.
   They should not have any significant effect on the output files
@@ -1034,7 +1034,7 @@ memory-saving mode</a>.
   unnecessarily.
 </p>
 
-<h3 id='output-selection-options'>Output selection options</h3>
+<h3 id='output-selection-options'>Output selection</h3>
 <p>
   These options determine what to build or test.
 </p>
@@ -1241,7 +1241,7 @@ memory-saving mode</a>.
   but not all frameworks support it.
 </p>
 
-<h3 id='verbosity'>Verbosity options: options that control what Bazel prints</h3>
+<h3 id='verbosity'>Verbosity</h3>
 
 These options control the verbosity of Bazel's output,
 either to the terminal, or to additional log files.
@@ -1396,8 +1396,7 @@ either to the terminal, or to additional log files.
   for copying and pasting to a shell prompt.
 </p>
 
-<h3 id='workspace_status'>Options that control how Bazel embeds workspace status information
-into binaries ("stamping")</h3>
+<h3 id='workspace_status'>Workspace status</h3>
 
 <p>
   Use these options to "stamp" Bazel-built binaries: to embed additional information into the
@@ -1524,7 +1523,7 @@ echo "STABLE_USER_NAME $USER"
   built for the host configuration, regardless of the stamp attribute.
 </p>
 
-<h3 id='platform_build_options'>Platform options</h3>
+<h3 id='platform_build_options'>Platform</h3>
 
 <p>
   Use these options to control the host and target platforms that configure how builds work, and to
@@ -1579,7 +1578,7 @@ echo "STABLE_USER_NAME $USER"
   implementations that toolchain resolution should be used.
 </p>
 
-<h3 id='misc_build_options'>Miscellaneous options</h3>
+<h3 id='misc_build_options'>Miscellaneous</h3>
 
 <h4 id='flag--symlink_prefix'><code class='flag'>--symlink_prefix <var>string</var></code></h4>
 <p>
@@ -1697,7 +1696,7 @@ Showing nodes accounting for 3.34s, 100% of 3.34s total
 </ul>
 
 <p>
-  These options (q.v.) are also important:
+  These options are also important:
 </p>
 
 <ul>
@@ -1711,7 +1710,7 @@ Showing nodes accounting for 3.34s, 100% of 3.34s total
   </li>
 </ul>
 
-<h2 id='test'>Running tests with Bazel</h2>
+<h2 id='test'>Running tests</h2>
 <p>
   To build and run tests with bazel, type <code>bazel test</code> followed by
   the name of the test targets.
@@ -2047,7 +2046,7 @@ Examples:
 </p>
 
 
-<h3 id='clean'>Deleting the outputs of a build</h3>
+<h3 id='clean'>Cleaning build outputs</h3>
 
 <h4>The <code>clean</code> command</h4>
 
@@ -2102,7 +2101,7 @@ Examples:
 </p>
 
 
-<h2 id='run'>Running executables with Bazel</h2>
+<h2 id='run'>Running executables</h2>
 <p>
   The <code>bazel run</code> command is similar to <code>bazel build</code>, except
   it is used to build <em>and run</em> a single target.  Here is a typical session:
@@ -2183,7 +2182,7 @@ a user-friendly way.
   <code>--test_arg</code> .
 </p>
 
-<h2 id='query'>Querying the dependency graph with Bazel</h2>
+<h2 id='query'>Querying the dependency graph</h2>
 
 <p>
   Bazel includes a query language for asking questions about the
@@ -2229,7 +2228,7 @@ a user-friendly way.
   bazel query --output location 'kind(genrule, deps(kind(".*_test rule", foo/bar/pebl/...)))'
 </pre>
 
-<h2 id='aquery'>Querying the action graph with Bazel</h2>
+<h2 id='aquery'>Querying the action graph</h2>
 
 <b>Caution</b>: The aquery command is still experimental and its API will change.
 
@@ -2258,9 +2257,9 @@ a user-friendly way.
   More details on aquery can be found <a href="aquery.html">here</a>.
 </p>
 
-<h2 id='misc'>Miscellaneous Bazel commands and options</h2>
+<h2 id='misc'>Miscellaneous commands and options</h2>
 
-<h3 id='help'>The <code>help</code> command</h3>
+<h3 id='help'><code>help</code></h3>
 
 <p>
   The <code>help</code> command provides on-line help.  By default, it
@@ -2280,7 +2279,7 @@ a user-friendly way.
   and full description of each option is also printed.
 </p>
 
-<h3 id='shutdown'>The <code>shutdown</code> command</h3>
+<h3 id='shutdown'><code>shutdown</code></h3>
 
 <p>
   Bazel server processes (see <a href='guide.html#client/server'>Client/server
@@ -2303,7 +2302,7 @@ a user-friendly way.
   occasion; performing a conditional restart preempts this condition.
 </p>
 
-<h3 id='info'>The <code>info</code> command</h3>
+<h3 id='info'><code>info</code></h3>
 
 <p>
   The <code>info</code> command prints various values associated with
@@ -2440,7 +2439,7 @@ a user-friendly way.
   (e.g. you are building from a read-only directory).
 </p>
 
-<h3 id='version'>The <code>version</code> command</h3>
+<h3 id='version'><code>version</code> and <code>--version</code></h3>
 
 <p>
   The version command prints version details about the built Bazel
@@ -2459,17 +2458,14 @@ a user-friendly way.
   </li>
 </ul>
 
-<h3 id='--version'><code>bazel --version</code></h3>
 <p>
   <code>bazel --version</code>, with no other args, will emit the same output as
   <code>bazel version --gnu_format</code>, except without the side-effect of potentially starting
-  a Bazel server or unpacking the server archive.
-</p>
-<p>
-  <code>bazel --version</code> can be run from anywhere - it does not require a workspace directory.
+  a Bazel server or unpacking the server archive. <code>bazel --version</code> can be run from
+  anywhere - it does not require a workspace directory.
 </p>
 
-<h3 id='mobile-install'>The <code>mobile-install</code> command</h3>
+<h3 id='mobile-install'><code>mobile-install</code></h3>
 <p>
   The <code>mobile-install</code> command installs apps to mobile devices.
   Currently only Android devices running ART are supported.
@@ -2557,7 +2553,7 @@ adb -s deadbeef install ...
 </p>
 
 
-<h3 id='dump'>The <code>dump</code> command</h3>
+<h3 id='dump'><code>dump</code></h3>
 
 <p>
   The <code>dump</code> command prints to stdout a dump of the
@@ -2632,7 +2628,7 @@ adb -s deadbeef install ...
     dump --skylark_memory=$HOME/prof.gz
     % pprof -flame $HOME/prof.gz
   </pre>
-<h3 id='analyze-profile'>The <code>analyze-profile</code> command</h3>
+<h3 id='analyze-profile'><code>analyze-profile</code></h3>
 
 <p>
   The <code>analyze-profile</code> command analyzes data previously gathered
@@ -2679,7 +2675,7 @@ adb -s deadbeef install ...
 
 </p>
 
-<h3 id='canonicalize'>The <code>canonicalize-flags</code> command</h3>
+<h3 id='canonicalize'><code>canonicalize-flags</code></h3>
 
 <p>
   The <code>canonicalize-flags</code> command, which takes a list of options for
@@ -2697,7 +2693,7 @@ adb -s deadbeef install ...
   ensure that the effect is identical.
 </p>
 
-<h3 id='startup_options'>Bazel startup options</h3>
+<h3 id='startup_options'>Startup options</h3>
 
 <p>
   The options described in this section affect the startup of the Java
