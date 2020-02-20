@@ -39,7 +39,7 @@ ${module.documentation}
     ${method.documentation}
 
     #if (!$method.params.isEmpty())
-      <h3>Parameters</h3>
+      <h3 class="no_toc">Parameters</h3>
       <table class="table table-bordered table-condensed table-params">
         <colgroup>
           <col class="col-param">
