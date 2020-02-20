@@ -38,9 +38,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
-import com.google.devtools.build.lib.actions.FileStateValue;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.cmdline.TargetPattern;
@@ -85,11 +83,8 @@ import com.google.devtools.build.lib.query2.engine.StreamableQueryEnvironment;
 import com.google.devtools.build.lib.query2.engine.ThreadSafeOutputFormatterCallback;
 import com.google.devtools.build.lib.query2.engine.Uniquifier;
 import com.google.devtools.build.lib.query2.query.BlazeTargetAccessor;
-import com.google.devtools.build.lib.rules.repository.WorkspaceFileHelper;
 import com.google.devtools.build.lib.skyframe.BlacklistedPackagePrefixesValue;
-import com.google.devtools.build.lib.skyframe.ContainingPackageLookupFunction;
 import com.google.devtools.build.lib.skyframe.GraphBackedRecursivePackageProvider;
-import com.google.devtools.build.lib.skyframe.PackageLookupValue;
 import com.google.devtools.build.lib.skyframe.PackageValue;
 import com.google.devtools.build.lib.skyframe.PrepareDepsOfPatternsFunction;
 import com.google.devtools.build.lib.skyframe.RecursivePackageProviderBackedTargetPatternResolver;
@@ -101,7 +96,6 @@ import com.google.devtools.build.lib.supplier.InterruptibleSupplier;
 import com.google.devtools.build.lib.supplier.MemoizingInterruptibleSupplier;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.EvaluationContext;
 import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.SkyFunctionName;
@@ -1209,115 +1203,6 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
   @Override
   public Target getOrCreate(Target target) {
     return target;
-  }
-
-  private static ImmutableList<SkyKey> getDependenciesForWorkspaceFile(
-      PathFragment originalFileFragment, PathFragment currentPathFragment) {
-    if (originalFileFragment.equals(currentPathFragment)
-        && WorkspaceFileHelper.matchWorkspaceFileName(originalFileFragment)) {
-      // TODO(mschaller): this should not be checked at runtime. These are constants!
-      Preconditions.checkState(
-          LabelConstants.WORKSPACE_FILE_NAME
-              .getParentDirectory()
-              .equals(PathFragment.EMPTY_FRAGMENT),
-          LabelConstants.WORKSPACE_FILE_NAME);
-      // The WORKSPACE file is a transitive dependency of every package. Unfortunately, there is no
-      // specific SkyValue that we can use to figure out under which package path entries it lives,
-      // so we add another dependency that's a transitive dependency of every package.
-      //
-      // The PackageLookupValue for //external is not a good choice, because it's not requested when
-      // that package is built so that we can have a directory called external/ in the workspace
-      // (this is special-cased in PackageFunction). The principled solution would be to not rely
-      // on external/ and introduce a SkyValue for the concept of "the WORKSPACE file of the main
-      // repository", but we don't have that yet, so we improvise.
-      return ImmutableList.of(PackageValue.key(LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER));
-    }
-
-    return ImmutableList.of();
-  }
-
-  /**
-   * Returns package lookup keys for looking up the package root for which there may be a relevant
-   * (from the perspective of {@link #getRBuildFiles}) {@link FileStateValue} node in the graph for
-   * {@code originalFileFragment}, which is assumed to be a file path.
-   *
-   * <p>This is a helper function for {@link #getSkyKeysForFileFragments}.
-   */
-  private static Iterable<SkyKey> getPkgLookupKeysForFile(PathFragment currentPathFragment) {
-    PathFragment parentPathFragment = currentPathFragment.getParentDirectory();
-    return parentPathFragment == null
-        ? ImmutableList.of()
-        : ImmutableList.of(
-            PackageLookupValue.key(PackageIdentifier.createInMainRepo(parentPathFragment)));
-  }
-
-  /**
-   * Returns SkyKeys for which there may be relevant (from the perspective of {@link
-   * #getRBuildFiles}) FileStateValues in the graph corresponding to the given {@code
-   * pathFragments}, which are assumed to be file paths.
-   *
-   * <p>The passed in {@link PathFragment}s can be associated uniquely to a {@link FileStateValue}
-   * with the following logic (the same logic that's in {@link ContainingPackageLookupFunction}):
-   * For each given file path, we look for the nearest ancestor directory (starting with its parent
-   * directory), if any, that has a package. The {@link PackageLookupValue} for this package tells
-   * us the package root that we should use for the {@link RootedPath} for the {@link
-   * FileStateValue} key.
-   *
-   * <p>For the reverse graph traversal in {@link #getRBuildFiles}, we are looking for all packages
-   * that are transitively reverse dependencies of those {@link FileStateValue} keys. This function
-   * returns a collection of SkyKeys whose transitive reverse dependencies must contain the exact
-   * same set of packages.
-   *
-   * <p>Note that there may not be nodes in the graph corresponding to the returned SkyKeys.
-   */
-  protected Collection<SkyKey> getSkyKeysForFileFragments(Iterable<PathFragment> pathFragments)
-      throws InterruptedException {
-    Set<SkyKey> result = new HashSet<>();
-    Multimap<PathFragment, PathFragment> currentToOriginal = ArrayListMultimap.create();
-    for (PathFragment pathFragment : pathFragments) {
-      currentToOriginal.put(pathFragment, pathFragment);
-    }
-    while (!currentToOriginal.isEmpty()) {
-      Multimap<SkyKey, PathFragment> packageLookupKeysToOriginal = ArrayListMultimap.create();
-      Multimap<SkyKey, PathFragment> packageLookupKeysToCurrent = ArrayListMultimap.create();
-      for (Map.Entry<PathFragment, PathFragment> entry : currentToOriginal.entries()) {
-        PathFragment current = entry.getKey();
-        PathFragment original = entry.getValue();
-        for (SkyKey packageLookupKey : getPkgLookupKeysForFile(current)) {
-          packageLookupKeysToOriginal.put(packageLookupKey, original);
-          packageLookupKeysToCurrent.put(packageLookupKey, current);
-        }
-
-        result.addAll(getDependenciesForWorkspaceFile(original, current));
-      }
-      Map<SkyKey, SkyValue> lookupValues =
-          graph.getSuccessfulValues(packageLookupKeysToOriginal.keySet());
-      for (Map.Entry<SkyKey, SkyValue> entry : lookupValues.entrySet()) {
-        SkyKey packageLookupKey = entry.getKey();
-        PackageLookupValue packageLookupValue = (PackageLookupValue) entry.getValue();
-        if (packageLookupValue.packageExists()) {
-          Collection<PathFragment> originalFiles =
-              packageLookupKeysToOriginal.get(packageLookupKey);
-          Preconditions.checkState(!originalFiles.isEmpty(), entry);
-          for (PathFragment fileName : originalFiles) {
-            result.add(FileStateValue.key(
-                RootedPath.toRootedPath(packageLookupValue.getRoot(), fileName)));
-          }
-          for (PathFragment current : packageLookupKeysToCurrent.get(packageLookupKey)) {
-            currentToOriginal.removeAll(current);
-          }
-        }
-      }
-      Multimap<PathFragment, PathFragment> newCurrentToOriginal = ArrayListMultimap.create();
-      for (PathFragment pathFragment : currentToOriginal.keySet()) {
-        PathFragment parent = pathFragment.getParentDirectory();
-        if (parent != null) {
-          newCurrentToOriginal.putAll(parent, currentToOriginal.get(pathFragment));
-        }
-      }
-      currentToOriginal = newCurrentToOriginal;
-    }
-    return result;
   }
 
   protected Iterable<Target> getBuildFileTargetsForPackageKeys(

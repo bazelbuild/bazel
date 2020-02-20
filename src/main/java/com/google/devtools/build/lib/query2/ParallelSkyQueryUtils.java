@@ -154,7 +154,7 @@ public class ParallelSkyQueryUtils {
             /*resultUniquifier=*/ env.createSkyKeyUniquifier(),
             context,
             callback);
-    visitor.visitAndWaitForCompletion(env.getSkyKeysForFileFragments(fileIdentifiers));
+    visitor.visitFileIdentifiersAndWaitForCompletion(env.graph, fileIdentifiers);
   }
 
   static QueryTaskFuture<Void> getDepsUnboundedParallel(
