@@ -16,6 +16,8 @@ package com.google.devtools.build.lib.runtime;
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.eventbus.SubscriberExceptionContext;
+import com.google.common.eventbus.SubscriberExceptionHandler;
 import com.google.devtools.build.lib.actions.ExecutorInitException;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.BlazeVersionInfo;
@@ -122,6 +124,18 @@ public abstract class BlazeModule {
     public static ModuleFileSystem create(FileSystem fileSystem) {
       return create(fileSystem, null);
     }
+  }
+
+  /**
+   * Returns handler for {@link com.google.common.eventbus.EventBus} subscriber and async thread
+   * exceptions. For async thread exceptions, {@link
+   * SubscriberExceptionHandler#handleException(Throwable, SubscriberExceptionContext)} will be
+   * called with null {@link SubscriberExceptionContext}. If all modules return null, a handler that
+   * crashes on all async exceptions and files bug reports for all EventBus subscriber exceptions
+   * will be used.
+   */
+  public SubscriberExceptionHandler getEventBusAndAsyncExceptionHandler() {
+    return null;
   }
 
   /**
