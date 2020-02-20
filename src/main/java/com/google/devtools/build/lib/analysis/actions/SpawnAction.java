@@ -342,7 +342,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
         failMessage =
             "error executing shell command: "
                 + "'"
-                + truncate(Joiner.on(" ").join(getArguments()), 200)
+                + getShellCommandForErrorMessage()
                 + "'";
       } catch (CommandLineExpansionException commandLineExpansionException) {
         failMessage =
@@ -355,11 +355,15 @@ public class SpawnAction extends AbstractAction implements CommandAction {
     return e.toActionExecutionException(failMessage, verboseFailures, this);
   }
 
+  protected String getShellCommandForErrorMessage() throws CommandLineExpansionException {
+    return truncate(Joiner.on(" ").join(getArguments()), 200);
+  }
+
   /**
    * Returns s, truncated to no more than maxLen characters, appending an
    * ellipsis if truncation occurred.
    */
-  private static String truncate(String s, int maxLen) {
+  protected static String truncate(String s, int maxLen) {
     return s.length() > maxLen
         ? s.substring(0, maxLen - "...".length()) + "..."
         : s;

@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.actions.ActionEnvironment;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.CommandLines;
 import com.google.devtools.build.lib.actions.CommandLines.CommandLineLimits;
 import com.google.devtools.build.lib.actions.RunfilesSupplier;
@@ -84,5 +85,10 @@ public class NinjaAction extends SpawnAction {
   protected void afterExecute(
       ActionExecutionContext actionExecutionContext, List<SpawnResult> spawnResults) {
     checkOutputsForDirectories(actionExecutionContext);
+  }
+
+  @Override
+  protected String getShellCommandForErrorMessage() throws CommandLineExpansionException {
+    return String.join(" ", getArguments());
   }
 }
