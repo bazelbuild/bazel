@@ -173,7 +173,9 @@ public class NinjaActionsHelper {
         isAlwaysDirty |= phonyTarget.isAlwaysDirty();
       } else {
         Artifact artifact = artifactsHelper.getInputArtifact(input);
-        inputsBuilder.add(artifact);
+        if (artifact != null) {
+          inputsBuilder.add(artifact);
+        }
       }
     }
 

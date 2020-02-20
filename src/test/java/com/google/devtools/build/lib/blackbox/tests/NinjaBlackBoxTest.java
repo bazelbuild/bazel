@@ -605,4 +605,30 @@ public class NinjaBlackBoxTest extends AbstractBlackBoxTest {
     Exception exception = assertThrows(Exception.class, () -> bazel.build("//..."));
     assertThat(exception).hasMessageThat().contains("cycle in dependency graph");
   }
+
+  @Test
+  public void testDirectoryAsInput() throws Exception {
+    context().write("abc/input.txt", "input");
+
+    context()
+        .write(
+            "build_dir/build.ninja",
+            "rule append",
+            "  command = echo '<<' $$(cat ${in}) '>>' >> ${out}",
+            "build out.txt: append ../abc/input.txt | ../abc");
+
+    context()
+        .write(
+            "BUILD",
+            "ninja_graph(name = 'graph', output_root = 'build_dir',",
+            " working_directory = 'build_dir',",
+            " main = 'build_dir/build.ninja')",
+            "ninja_build(name = 'ninja_target', ninja_graph = 'graph',",
+            " output_groups= {'main': ['out.txt']}, srcs = ['abc/input.txt'])");
+
+    BuilderRunner bazel = context().bazel().withFlags("--experimental_ninja_actions");
+    bazel.build("//...");
+    Path pathFirst = context().resolveExecRootPath(bazel, "build_dir/out.txt");
+    assertThat(Files.readAllLines(pathFirst)).containsExactly("<< input >>");
+  }
 }

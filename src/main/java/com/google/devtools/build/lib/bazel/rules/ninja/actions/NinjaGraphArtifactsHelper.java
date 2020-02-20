@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.bazel.rules.ninja.actions;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSortedMap;
+import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
@@ -24,6 +25,8 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.bazel.rules.ninja.file.GenericParsingException;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.Root;
+import javax.annotation.Nullable;
 
 /**
  * Helper class to create artifacts for {@link NinjaAction} to be used from {@link NinjaGraphRule}.
@@ -93,6 +96,13 @@ class NinjaGraphArtifactsHelper {
     return derivedArtifact;
   }
 
+  /**
+   * Finds inputs artifact from sources, deps_mapping attribute, or files symlinked by
+   * ninja_graph in output_root_inputs.
+   *
+   * Returns <code>null</code> if the path to directory is passed.
+   */
+  @Nullable
   Artifact getInputArtifact(PathFragment pathRelativeToWorkingDirectory)
       throws GenericParsingException {
     Preconditions.checkNotNull(srcsMap);
@@ -116,6 +126,13 @@ class NinjaGraphArtifactsHelper {
     }
     if (symlinkMappingArtifact != null) {
       return symlinkMappingArtifact;
+    }
+    if (!pathRelativeToWorkspaceRoot.startsWith(outputRootPath)) {
+      Path sourceRoot = ruleContext.getHostConfiguration().getDirectories().getWorkspace();
+      Path path = sourceRoot.getRelative(pathRelativeToWorkspaceRoot);
+      if (path.isDirectory()) {
+        return null;
+      }
     }
     return createOutputArtifact(pathRelativeToWorkingDirectory);
   }
