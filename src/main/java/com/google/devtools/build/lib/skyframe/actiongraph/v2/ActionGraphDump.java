@@ -39,6 +39,7 @@ import com.google.devtools.build.lib.query2.aquery.AqueryUtils;
 import com.google.devtools.build.lib.rules.AliasConfiguredTarget;
 import com.google.devtools.build.lib.skyframe.AspectValue;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetValue;
+import com.google.devtools.build.lib.util.Pair;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.List;
@@ -59,7 +60,7 @@ public class ActionGraphDump {
   private final KnownConfigurations knownConfigurations;
   private final KnownNestedSets knownNestedSets;
   private final KnownAspectDescriptors knownAspectDescriptors;
-  private final KnownRuleConfiguredTargets knownRuleConfiguredTargets;
+  private final KnownTargets knownTargets;
   private final AqueryActionFilter actionFilters;
   private final boolean includeActionCmdLine;
   private final boolean includeArtifacts;
@@ -102,8 +103,7 @@ public class ActionGraphDump {
     knownConfigurations = new KnownConfigurations(aqueryOutputHandler);
     knownNestedSets = new KnownNestedSets(aqueryOutputHandler, knownArtifacts);
     knownAspectDescriptors = new KnownAspectDescriptors(aqueryOutputHandler);
-    knownRuleConfiguredTargets =
-        new KnownRuleConfiguredTargets(aqueryOutputHandler, knownRuleClassStrings);
+    knownTargets = new KnownTargets(aqueryOutputHandler, knownRuleClassStrings);
   }
 
   public ActionKeyContext getActionKeyContext() {
@@ -139,12 +139,14 @@ public class ActionGraphDump {
     }
 
     Preconditions.checkState(configuredTarget instanceof RuleConfiguredTarget);
-    RuleConfiguredTarget ruleConfiguredTarget = (RuleConfiguredTarget) configuredTarget;
+    Pair<String, String> targetIdentifier =
+        new Pair<>(
+            configuredTarget.getLabel().toString(),
+            ((RuleConfiguredTarget) configuredTarget).getRuleClassString());
     AnalysisProtosV2.Action.Builder actionBuilder =
         AnalysisProtosV2.Action.newBuilder()
             .setMnemonic(action.getMnemonic())
-            .setTargetId(
-                knownRuleConfiguredTargets.dataToIdAndStreamOutputProto(ruleConfiguredTarget));
+            .setTargetId(knownTargets.dataToIdAndStreamOutputProto(targetIdentifier));
 
     if (action instanceof ActionExecutionMetadata) {
       ActionExecutionMetadata actionExecutionMetadata = (ActionExecutionMetadata) action;

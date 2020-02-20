@@ -15,18 +15,19 @@ package com.google.devtools.build.lib.skyframe.actiongraph;
 
 import com.google.devtools.build.lib.analysis.AnalysisProtos;
 import com.google.devtools.build.lib.analysis.AnalysisProtos.ActionGraphContainer;
-import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
-import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.util.Pair;
 
 /**
  * Cache for RuleConfiguredTargets in the action graph.
+ *
+ * <p>The cache maps a target identifier, which is a {@code Pair<String, String>} of
+ * (label, rule class string).
  */
-public class KnownRuleConfiguredTargets
-    extends BaseCache<RuleConfiguredTarget, AnalysisProtos.Target> {
+public class KnownTargets extends BaseCache<Pair<String, String>, AnalysisProtos.Target> {
 
   private final KnownRuleClassStrings knownRuleClassStrings;
 
-  KnownRuleConfiguredTargets(
+  KnownTargets(
       ActionGraphContainer.Builder actionGraphBuilder,
       KnownRuleClassStrings knownRuleClassStrings) {
     super(actionGraphBuilder);
@@ -34,12 +35,11 @@ public class KnownRuleConfiguredTargets
   }
 
   @Override
-  AnalysisProtos.Target createProto(RuleConfiguredTarget ruleConfiguredTarget, String id) {
-    Label label = ruleConfiguredTarget.getLabel();
-    String ruleClassString = ruleConfiguredTarget.getRuleClassString();
-    AnalysisProtos.Target.Builder targetBuilder = AnalysisProtos.Target.newBuilder()
-        .setId(id)
-        .setLabel(label.toString());
+  AnalysisProtos.Target createProto(Pair<String, String> targetIdentifier, String id) {
+    String labelString = targetIdentifier.getFirst();
+    String ruleClassString = targetIdentifier.getSecond();
+    AnalysisProtos.Target.Builder targetBuilder =
+        AnalysisProtos.Target.newBuilder().setId(id).setLabel(labelString);
     if (ruleClassString != null) {
       targetBuilder.setRuleClassId(knownRuleClassStrings.dataToId(ruleClassString));
     }

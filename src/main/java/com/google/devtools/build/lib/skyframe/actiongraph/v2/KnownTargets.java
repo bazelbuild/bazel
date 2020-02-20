@@ -14,26 +14,30 @@
 package com.google.devtools.build.lib.skyframe.actiongraph.v2;
 
 import com.google.devtools.build.lib.analysis.AnalysisProtosV2.Target;
-import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
-import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.util.Pair;
 import java.io.IOException;
 
-/** Cache for RuleConfiguredTargets in the action graph. */
-public class KnownRuleConfiguredTargets extends BaseCache<RuleConfiguredTarget, Target> {
+/**
+ * Cache for RuleConfiguredTargets in the action graph.
+ *
+ * <p>The cache maps a target identifier, which is a {@code Pair<String, String>} of
+ * (label, rule class string).
+ * */
+public class KnownTargets extends BaseCache<Pair<String, String>, Target> {
 
   private final KnownRuleClassStrings knownRuleClassStrings;
 
-  KnownRuleConfiguredTargets(
+  KnownTargets(
       AqueryOutputHandler aqueryOutputHandler, KnownRuleClassStrings knownRuleClassStrings) {
     super(aqueryOutputHandler);
     this.knownRuleClassStrings = knownRuleClassStrings;
   }
 
   @Override
-  Target createProto(RuleConfiguredTarget ruleConfiguredTarget, int id) throws IOException {
-    Label label = ruleConfiguredTarget.getLabel();
-    String ruleClassString = ruleConfiguredTarget.getRuleClassString();
-    Target.Builder targetBuilder = Target.newBuilder().setId(id).setLabel(label.toString());
+  Target createProto(Pair<String, String> targetIdentifier, int id) throws IOException {
+    String labelString = targetIdentifier.getFirst();
+    String ruleClassString = targetIdentifier.getSecond();
+    Target.Builder targetBuilder = Target.newBuilder().setId(id).setLabel(labelString);
     if (ruleClassString != null) {
       targetBuilder.setRuleClassId(
           knownRuleClassStrings.dataToIdAndStreamOutputProto(ruleClassString));
