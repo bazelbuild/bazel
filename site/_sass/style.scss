@@ -177,6 +177,11 @@ $md-shadow-3: rgba(0, 0, 0, .12);
   .content {
     max-width: 85%;
   }
+
+  .container {
+    padding-left: 0;
+    padding-right: 0;
+  }
 }
 
 .content {

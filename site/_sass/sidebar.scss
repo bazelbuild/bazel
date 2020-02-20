@@ -82,6 +82,16 @@ $sidebar-hover-border-color: #66bb6a;
   }
 }
 
+.sidebar-toggle {
+  margin-top: 50px;
+}
+
+@media (max-width: 991px) {
+  .right-sidebar {
+    display: none;
+  }
+}
+
 @media (min-width: 992px) {
   .sidebar-toggle {
     display: none;
@@ -98,7 +108,7 @@ $sidebar-hover-border-color: #66bb6a;
       position: sticky;
       position: -webkit-sticky;
       top: 50px; // equals height of navbar.
-      height: calc(100vh);
+      height: calc(95vh);
       overflow-y: auto;
     }
   }
