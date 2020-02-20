@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.bazel.rules.ninja.actions;
 
+import com.google.common.base.Ascii;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSortedMap;
@@ -40,6 +41,7 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayDeque;
 import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.SortedMap;
 import java.util.TreeMap;
@@ -137,9 +139,7 @@ public class NinjaActionsHelper {
     int targetOffset = target.getOffset();
     maybeCreateRspFile(rule, targetScope, targetOffset, inputsBuilder);
 
-    String command =
-        targetScope.getExpandedValue(
-            targetOffset, rule.getVariables().get(NinjaRuleVariable.COMMAND));
+    String command = resolveRuleCommand(targetScope, targetOffset, rule);
     if (!artifactsHelper.getWorkingDirectory().isEmpty()) {
       command = String.format("cd %s && ", artifactsHelper.getWorkingDirectory()) + command;
     }
@@ -212,6 +212,35 @@ public class NinjaActionsHelper {
     }
   }
 
+  /**
+   * Here we resolve the rule's variables with the following assumptions: Rules variables can refer
+   * to target's variables (and file variables). Interdependence between rule variables can happen
+   * only for 'command' variable, for now we ignore other possible dependencies between rule
+   * variables (seems the only other variable which can meaningfully depend on sibling variables is
+   * description, and currently we are ignoring it).
+   *
+   * Also, for resolving rule's variables we are using scope+offset of target,
+   * according to specification (https://ninja-build.org/manual.html#_variable_expansion).
+   *
+   * <p>See {@link NinjaRuleVariable} for the list.
+   */
+  private String resolveRuleCommand(NinjaScope targetScope, int targetOffset, NinjaRule rule) {
+    ImmutableSortedMap.Builder<String, List<Pair<Integer, String>>> builder =
+        ImmutableSortedMap.naturalOrder();
+    for (Map.Entry<NinjaRuleVariable, NinjaVariableValue> entry : rule.getVariables().entrySet()) {
+      NinjaRuleVariable type = entry.getKey();
+      // Skip command for now, and description because we do not use it.
+      if (NinjaRuleVariable.COMMAND.equals(type) || NinjaRuleVariable.DESCRIPTION.equals(type)) {
+        continue;
+      }
+      String expandedValue = targetScope.getExpandedValue(targetOffset, entry.getValue());
+      builder.put(Ascii.toLowerCase(type.name()), ImmutableList.of(Pair.of(0, expandedValue)));
+    }
+    NinjaScope expandedRuleScope = targetScope.createScopeFromExpandedValues(builder.build());
+    return expandedRuleScope
+        .getExpandedValue(targetOffset, rule.getVariables().get(NinjaRuleVariable.COMMAND));
+  }
+
   private NinjaScope createTargetScope(NinjaTarget target) {
     ImmutableSortedMap.Builder<String, List<Pair<Integer, String>>> builder =
         ImmutableSortedMap.naturalOrder();
@@ -230,7 +259,7 @@ public class NinjaActionsHelper {
     builder.put("in_newline", ImmutableList.of(Pair.of(0, inNewline)));
     builder.put("out", ImmutableList.of(Pair.of(0, out)));
 
-    return target.getScope().createTargetsScope(builder.build());
+    return target.getScope().createScopeFromExpandedValues(builder.build());
   }
 
   private static NinjaRule getNinjaRule(NinjaTarget target) throws GenericParsingException {

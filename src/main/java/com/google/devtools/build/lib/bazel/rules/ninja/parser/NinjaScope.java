@@ -210,7 +210,7 @@ public class NinjaScope {
     return Pair.of(pair.getFirst(), pair.getSecond());
   }
 
-  public NinjaScope createTargetsScope(
+  public NinjaScope createScopeFromExpandedValues(
       ImmutableSortedMap<String, List<Pair<Integer, String>>> expandedVariables) {
     NinjaScope scope = new NinjaScope(this, Integer.MAX_VALUE);
     scope.expandedVariables.putAll(expandedVariables);
