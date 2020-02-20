@@ -1,9 +1,9 @@
 ---
 layout: documentation
-title: Introduction
+title: Bazel overview
 ---
 
-# Introduction
+# Bazel overview
 
 ## What is Bazel?
 
