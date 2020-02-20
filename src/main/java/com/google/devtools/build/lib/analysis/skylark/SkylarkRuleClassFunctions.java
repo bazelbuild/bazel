@@ -99,9 +99,7 @@ import java.util.Collection;
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
 
-/**
- * A helper class to provide an easier API for Skylark rule definitions.
- */
+/** A helper class to provide an easier API for Skylark rule definitions. */
 public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifact> {
 
   // TODO(bazel-team): Copied from ConfiguredRuleClassProvider for the transition from built-in
@@ -266,10 +264,12 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
                   "Expected list of strings or dictionary of string -> string for 'fields'");
       fieldNames = list;
     } else if (fields instanceof Dict) {
-      Map<String, String> dict = SkylarkType.castMap(
-          fields,
-          String.class, String.class,
-          "Expected list of strings or dictionary of string -> string for 'fields'");
+      Map<String, String> dict =
+          SkylarkType.castMap(
+              fields,
+              String.class,
+              String.class,
+              "Expected list of strings or dictionary of string -> string for 'fields'");
       fieldNames = dict.keySet();
     }
     return SkylarkProvider.createUnexportedSchemaful(fieldNames, thread.getCallerLocation());
@@ -362,8 +362,7 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
 
     builder.addRequiredToolchains(
         collectToolchainLabels(
-            toolchains.getContents(String.class, "toolchains"),
-            bazelContext.getRepoMapping()));
+            toolchains.getContents(String.class, "toolchains"), bazelContext.getRepoMapping()));
 
     if (!buildSetting.equals(Starlark.NONE) && !cfg.equals(Starlark.NONE)) {
       throw Starlark.errorf(
@@ -439,8 +438,7 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
   }
 
   private static ImmutableList<Label> collectToolchainLabels(
-      Iterable<String> rawLabels,
-      ImmutableMap<RepositoryName, RepositoryName> mapping)
+      Iterable<String> rawLabels, ImmutableMap<RepositoryName, RepositoryName> mapping)
       throws EvalException {
     ImmutableList.Builder<Label> requiredToolchains = new ImmutableList.Builder<>();
     for (String rawLabel : rawLabels) {
@@ -457,8 +455,7 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
   }
 
   private static ImmutableList<Label> collectConstraintLabels(
-      Iterable<String> rawLabels,
-      ImmutableMap<RepositoryName, RepositoryName> mapping)
+      Iterable<String> rawLabels, ImmutableMap<RepositoryName, RepositoryName> mapping)
       throws EvalException {
     ImmutableList.Builder<Label> constraintLabels = new ImmutableList.Builder<>();
     for (String rawLabel : rawLabels) {
@@ -673,15 +670,16 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
       return Starlark.NONE;
     }
 
-    /**
-     * Export a RuleFunction from a Skylark file with a given name.
-     */
+    /** Export a RuleFunction from a Skylark file with a given name. */
     public void export(Label skylarkLabel, String ruleClassName) throws EvalException {
       Preconditions.checkState(ruleClass == null && builder != null);
       this.skylarkLabel = skylarkLabel;
       if (type == RuleClassType.TEST != TargetUtils.isTestRuleName(ruleClassName)) {
-        throw new EvalException(definitionLocation, "Invalid rule class name '" + ruleClassName
-            + "', test rule class names must end with '_test' and other rule classes must not");
+        throw new EvalException(
+            definitionLocation,
+            "Invalid rule class name '"
+                + ruleClassName
+                + "', test rule class names must end with '_test' and other rule classes must not");
       }
       // Thus far, we only know if we have a rule transition. While iterating through attributes,
       // check if we have an attribute transition.
@@ -742,7 +740,9 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
           throw new EvalException(
               getLocation(),
               String.format(
-                  "Use of Starlark transition without whitelist: %s %s",
+                  "Use of Starlark transition without whitelist attribute"
+                      + " '_whitelist_function_transition'. See Starlark transitions documentation"
+                      + " for details and usage: %s %s",
                   builder.getRuleDefinitionEnvironmentLabel(), builder.getType()));
         }
       } else {

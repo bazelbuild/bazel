@@ -331,6 +331,23 @@ A configuration
 is how we change configuration of
 configured targets in the build graph.
 
+> IMPORTANT: In order to use Starlark transitions, you need to attach a
+> special attribute to the rule to which the transition is attached:
+>
+> ```python
+> "_whitelist_function_transition": attr.label(
+>      default = "@bazel_tools//tools/whitelists/function_transition_whitelist"
+>  )
+> ```
+>
+> By adding transitions you can pretty easily explode the size of
+> your build graph. This sets a whitelist on the packages in which you can
+> create targets of this rule. The default value in the codeblock above
+> whitelists everything. But if you'd like to restrict who is using your rule,
+> you can set that attribute to point to your own custom whitelist.
+> Contact bazel-discuss@googlegroups.com if you'd like advice or assistance
+> understanding how transitions can affect on your build performance.
+
 ### Defining Transitions in Starlark
 
 Transitions define configuration changes between rules. For example, a request
@@ -417,6 +434,11 @@ Transitions can be attached in two places: incoming edges and outgoing edges.
 Effectively this means rules can transition their own configuration (incoming
 edge transition) and transition their dependencies' configurations (outgoing
 edge transition).
+
+NOTE: There is currently no way to attach Starlark transitions to native rules.
+If you need to do this, contact
+bazel-discuss@googlegroups.com
+and we can help you try to figure out a workaround.
 
 #### Incoming Edge Transitions
 Incoming edge transitions are activated by attaching a `transition` object
