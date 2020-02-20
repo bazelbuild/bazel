@@ -48,6 +48,7 @@ import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyKey;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
@@ -153,7 +154,7 @@ public class NinjaGraph implements RuleConfiguredTargetFactory {
       PathFragment outputRootPath,
       List<String> outputRootInputs,
       NinjaGraphArtifactsHelper artifactsHelper)
-      throws GenericParsingException {
+      throws GenericParsingException, FileNotFoundException {
     if (outputRootInputs.isEmpty()) {
       return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
     }
@@ -171,12 +172,15 @@ public class NinjaGraph implements RuleConfiguredTargetFactory {
                   .relativeTo(artifactsHelper.getWorkingDirectory()));
       filesToBuild.add(derivedArtifact);
       // This method already expects the path relative to output_root.
-      PathFragment absolutePath =
-          outputRootInSources.getRelative(PathFragment.create(input)).asFragment();
+      Path absolute = outputRootInSources.getRelative(PathFragment.create(input));
+      if (!absolute.exists()) {
+        throw new FileNotFoundException(
+            String.format("Can not symlink '%s', file does not exist.", input));
+      }
       SymlinkAction symlinkAction =
           SymlinkAction.toAbsolutePath(
               ruleContext.getActionOwner(),
-              absolutePath,
+              absolute.asFragment(),
               derivedArtifact,
               String.format(
                   "Symlinking %s under <execroot>/%s", input, artifactsHelper.getOutputRootPath()));

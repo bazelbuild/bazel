@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.bazel.rules.ninja;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
@@ -110,8 +111,8 @@ public class NinjaGraphTest extends BuildViewTestCase {
         "workspace(name = 'test')",
         "dont_symlink_directories_in_execroot(paths = ['build_config'])");
 
-    // We do not have to have the real files in place, the rule only reads
-    // the contents of Ninja files.
+    scratch.file("build_config/input.txt");
+
     scratch.file(
         "build_config/build.ninja",
         "rule echo",
@@ -168,8 +169,12 @@ public class NinjaGraphTest extends BuildViewTestCase {
         "workspace(name = 'test')",
         "dont_symlink_directories_in_execroot(paths = ['build_config'])");
 
-    // We do not have to have the real files in place, the rule only reads
-    // the contents of Ninja files.
+    scratch.file("build_config/a.txt");
+    scratch.file("build_config/b.txt");
+    scratch.file("build_config/c.txt");
+    scratch.file("build_config/d.txt");
+    scratch.file("build_config/e.txt");
+
     scratch.file(
         "build_config/build.ninja",
         "rule cat",
@@ -224,5 +229,24 @@ public class NinjaGraphTest extends BuildViewTestCase {
       assertThat(execRootPath.getParentDirectory()).isEqualTo(PathFragment.create("build_config"));
       assertThat(execRootPath.getFileExtension()).isEqualTo("txt");
     }
+  }
+
+  @Test
+  public void testSymlinkTargetDoesNotExist() throws Exception {
+    rewriteWorkspace(
+        "workspace(name = 'test')",
+        "dont_symlink_directories_in_execroot(paths = ['build_config'])");
+
+    scratch.file("build_config/build.ninja");
+
+    AssertionError error = assertThrows(AssertionError.class, () -> scratchConfiguredTarget(
+        "",
+        "graph",
+        "ninja_graph(name = 'graph', output_root = 'build_config',",
+        " working_directory = 'build_config',",
+        " main = 'build_config/build.ninja',",
+        " output_root_inputs = ['a.txt'])"));
+    assertThat(error).hasMessageThat()
+        .contains("in ninja_graph rule //:graph: Can not symlink 'a.txt', file does not exist.");
   }
 }
