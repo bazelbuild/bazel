@@ -187,7 +187,7 @@ public class ManifestMergerAction {
   public static void main(String[] args) throws Exception {
     OptionsParser optionsParser =
         OptionsParser.builder()
-            .optionsClasses(Options.class)
+            .optionsClasses(Options.class, ResourceProcessorCommonOptions.class)
             .argsPreProcessor(new ShellQuotedParamsFilePreProcessor(FileSystems.getDefault()))
             .build();
     optionsParser.parseAndExitUponError(args);
@@ -221,7 +221,8 @@ public class ManifestMergerAction {
               options.manifestValues,
               options.customPackage,
               options.manifestOutput,
-              options.log);
+              options.log,
+              optionsParser.getOptions(ResourceProcessorCommonOptions.class).logWarnings);
 
       if (!mergedManifest.equals(options.manifestOutput)) {
         // manifestProcess.mergeManifest returns the merged manifest, or, if merging was a no-op,

@@ -339,6 +339,7 @@ public final class BusyBoxActionBuilder {
         .setMnemonic(mnemonic);
 
     if (dataContext.isPersistentBusyboxToolsEnabled()) {
+      commandLine.add("--logWarnings=false");
       spawnActionBuilder
           .setExecutionInfo(ExecutionRequirements.WORKER_MODE_ENABLED)
           .addCommandLine(commandLine.build(), WORKERS_FORCED_PARAM_FILE_INFO);

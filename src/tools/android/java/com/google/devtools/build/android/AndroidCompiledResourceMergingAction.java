@@ -183,13 +183,15 @@ public class AndroidCompiledResourceMergingAction {
         help =
             "Path to where an R.txt file declaring potentially-used resources should be written.")
     public Path rTxtOut;
+
   }
 
   public static void main(String[] args) throws Exception {
     final Stopwatch timer = Stopwatch.createStarted();
     OptionsParser optionsParser =
         OptionsParser.builder()
-            .optionsClasses(Options.class, AaptConfigOptions.class)
+            .optionsClasses(
+                Options.class, AaptConfigOptions.class, ResourceProcessorCommonOptions.class)
             .argsPreProcessor(new ShellQuotedParamsFilePreProcessor(FileSystems.getDefault()))
             .build();
     optionsParser.parseAndExitUponError(args);
@@ -248,7 +250,10 @@ public class AndroidCompiledResourceMergingAction {
       processedManifest =
           AndroidManifestProcessor.with(stdLogger)
               .processLibraryManifest(
-                  options.packageForR, options.primaryManifest, processedManifest);
+                  options.packageForR,
+                  options.primaryManifest,
+                  processedManifest,
+                  optionsParser.getOptions(ResourceProcessorCommonOptions.class).logWarnings);
 
       Files.createDirectories(options.manifestOutput.getParent());
       Files.copy(processedManifest, options.manifestOutput);
