@@ -39,7 +39,7 @@ public class RealSandboxfs02ProcessTest extends BaseRealSandboxfsProcessTest {
   @Test
   public void testNoActivity() throws IOException {
     SandboxfsProcess process = createAndStartFakeSandboxfs(ImmutableList.of("{\"id\":\"empty\"}"));
-    String expectedRequests = "{\"CreateSandbox\":{\"id\":\"empty\",\"mappings\":[]}}";
+    String expectedRequests = "{\"C\":{\"i\":\"empty\",\"m\":[]}}";
     verifyFakeSandboxfsExecution(process, expectedRequests);
   }
 
@@ -61,15 +61,21 @@ public class RealSandboxfs02ProcessTest extends BaseRealSandboxfsProcessTest {
                 .setPath(PathFragment.create("/"))
                 .setTarget(PathFragment.create("/some/path"))
                 .setWritable(true)
+                .build(),
+            Mapping.builder()
+                .setPath(PathFragment.create("/a/b/c"))
+                .setTarget(PathFragment.create("/other"))
+                .setWritable(false)
                 .build()));
     process.destroySandbox("sandbox1");
     String expectedRequests =
-        "{\"CreateSandbox\":{\"id\":\"empty\",\"mappings\":[]}}"
-            + "{\"CreateSandbox\":{\"id\":\"sandbox1\",\"mappings\":[]}}"
-            + "{\"CreateSandbox\":{\"id\":\"sandbox2\",\"mappings\":["
-            + "{\"path\":\"/\",\"underlying_path\":\"/some/path\",\"writable\":true}"
+        "{\"C\":{\"i\":\"empty\",\"m\":[]}}"
+            + "{\"C\":{\"i\":\"sandbox1\",\"m\":[]}}"
+            + "{\"C\":{\"i\":\"sandbox2\",\"m\":["
+            + "{\"p\":\"/\",\"u\":\"/some/path\",\"w\":true},"
+            + "{\"p\":\"/a/b/c\",\"u\":\"/other\"}"
             + "]}}"
-            + "{\"DestroySandbox\":\"sandbox1\"}";
+            + "{\"D\":\"sandbox1\"}";
 
     verifyFakeSandboxfsExecution(process, expectedRequests);
   }
