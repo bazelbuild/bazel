@@ -96,7 +96,7 @@ correctness, you can set up Bazel to run builds and tests
 and maximizing [reproducibility](guide.html#correctness).
 
 
-#### What is the action graph?
+## What is the action graph?
 
 The action graph represents the build artifacts, the relationships between them,
 and the build actions that Bazel will perform. Thanks to this graph, Bazel can

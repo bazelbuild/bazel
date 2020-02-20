@@ -8,9 +8,7 @@ highlighter: rouge
 paginate: 10
 sass:
   sass_dir: _sass
-plugins:
-  - jekyll-paginate
-  - jekyll-toc
+gems: [jekyll-paginate]
 
 # Update this to the newest release for the default docs.bazel.build version.
 version: "2.1.0"
@@ -43,18 +41,3 @@ doc_versions:
 main_site_url: https://www.bazel.build
 docs_site_url: "/"
 blog_site_url: https://blog.bazel.build
-
-defaults:
-  # Enable table of contents for every page
-  -
-    scope:
-      path: ""
-    values:
-      toc: true
-
-# jekyll-toc settings
-toc:
-  min_level: 2
-  max_level: 3
-  list_class: page-toc
-  sublist_class: page-toc-sublist
