@@ -5,7 +5,9 @@ title: Installing Bazel on Windows
 
 # Installing Bazel on Windows
 
-## 1. Check your system
+## Installing
+
+### Step 1: Check your system
 
 Recommended: 64 bit Windows 10, version 1703 (Creators Update) or newer, enable "Developer Mode".
 
@@ -20,11 +22,11 @@ Also supported:
 *   Older Windows 10 versions, disabled "Developer Mode" (enabling the mode just lets you use the
     `--enable_runfiles` Bazel flag)
 
-## 2. Install the prerequisites
+### Step 2: Install the prerequisites
 
 *   [Visual C++ Redistributable for Visual Studio 2015](https://www.microsoft.com/en-us/download/details.aspx?id=48145)
 
-## 3. Download Bazel
+### Step 3: Download Bazel
 
 [Download the Bazel binary (<code>bazel-&lt;version&gt;-windows-x86_64.exe</code>) from
  GitHub](https://github.com/bazelbuild/bazel/releases).
@@ -35,11 +37,11 @@ Alternatively you can:
 
 *   [Download Bazelisk](https://github.com/bazelbuild/bazelisk) instead of Bazel. Bazelisk is a
     Bazel launcher that ensures you always use the latest Bazel release.
-*   [Install Bazel from Chocolatey](#install-using-chocolatey) (see below)
-*   [Install Bazel from Scoop](#install-using-scoop) (see below)
+*   [Install Bazel from Chocolatey](#using-chocolatey)
+*   [Install Bazel from Scoop](#using-scoop)
 *   [Build Bazel from source](install-compile-source.html)
 
-## 4. Optional: configure output directories
+### Step 4 (optional): Configure output directories
 
 **You can skip this step. Bazel can work without configuring the output directories, and will use
 its default values.**
@@ -68,7 +70,7 @@ By default, Bazel also writes in the workspace directory:
 
     You can tell Bazel not to create these junctions with `--symlink_prefix=/`.
 
-## 5. Optional: install compilers and language runtimes
+### Step 5 (optional): Install compilers and language runtimes
 
 **You can skip this step. Bazel can work without these programs, but you may need them.**
 
@@ -118,32 +120,20 @@ We recommend installing:
 
     Also supported: Python 3 or newer for Windows x86-64
 
-## 5. Done
+### Step 6: Done
 
 **You have successfully installed Bazel.**
 
-Troubleshooting: see the "Appendix" &gt; "Troubleshooting" section below.
+Troubleshooting: see [troubleshooting](#troubleshooting) below.
 
-Tutorials: see the "Tutorials" section on the left navigation panel.
+Tutorials: see [Getting Started with Bazel](getting-started.html) >
+[Tutorials](getting-started.html#tutorials).
 
 ---
 
-# Appendix
-
-Table of contents:
-
-*   [Troubleshooting](#troubleshooting)
-    *   [Problem: Bazel does not find Bash or bash.exe](#problem-bazel-does-not-find-bash-or-bashexe)
-    *   [Problem: Bazel does not find Visual Studio or Visual C++](#problem-bazel-does-not-find-visual-studio-or-visual-c)
-
-*   [Other ways to install Bazel](#other-ways-to-install-bazel)
-    *   [Install from Chocolatey](#install-using-chocolatey)
-    *   [Install from Scoop](#install-using-scoop)
-    *   [Build from source](install-compile-source.html)
-
 ## Troubleshooting
 
-### Problem: Bazel does not find Bash or bash.exe
+### Bazel does not find Bash or bash.exe
 
 **Possible reasons**:
 
@@ -182,7 +172,7 @@ If that doesn't help:
 
     If you open a new cmd.exe or PowerShell terminal and run Bazel now, it will find Bash.
 
-### Problem: Bazel does not find Visual Studio or Visual C++
+### Bazel does not find Visual Studio or Visual C++
 
 **Possible reasons**:
 
@@ -222,7 +212,7 @@ If that doesn't help:
 
 ## Other ways to install Bazel
 
-### Install using Chocolatey
+### Using Chocolatey
 
 1.  Install the [Chocolatey](https://chocolatey.org) package manager
 
@@ -238,7 +228,7 @@ See [Chocolatey installation and package maintenance
 guide](https://bazel.build/windows-chocolatey-maintenance.html) for more
 information about the Chocolatey package.
 
-### Install using Scoop
+### Using Scoop
 
 1.  Install the [Scoop](https://scoop.sh/) package manager using the following PowerShell command:
 
@@ -251,3 +241,7 @@ information about the Chocolatey package.
 See [Scoop installation and package maintenance
 guide](https://bazel.build/windows-scoop-maintenance.html) for more
 information about the Scoop package.
+
+### Build from source
+
+See [here](install-compile-source.html).
