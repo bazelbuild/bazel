@@ -17,9 +17,22 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 
 /** Constants associated with {@code Label}s */
 public class LabelConstants {
+  /** The subdirectory under the output base which contains external repositories. */
+  public static final PathFragment EXTERNAL_REPOSITORY_LOCATION = PathFragment.create("external");
+
+  /**
+   * The path name under which external repositories are accessible if {@code
+   * --experimental_sibling_repository_layout} is not in effect.
+   */
   public static final PathFragment EXTERNAL_PACKAGE_NAME = PathFragment.create("external");
+
+  /**
+   * The name of the package containing information about external repositories if {@code
+   * --experimental_disable_external_package} is not in effect.
+   */
   public static final PackageIdentifier EXTERNAL_PACKAGE_IDENTIFIER =
       PackageIdentifier.createInMainRepo(EXTERNAL_PACKAGE_NAME);
+
   public static final PathFragment WORKSPACE_FILE_NAME = PathFragment.create("WORKSPACE");
   public static final PathFragment WORKSPACE_DOT_BAZEL_FILE_NAME =
       PathFragment.create("WORKSPACE.bazel");

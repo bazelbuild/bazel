@@ -144,4 +144,68 @@ EOF
 
 }
 
+function test_external_directory_globs() {
+  touch WORKSPACE
+
+  mkdir -p external/a external/c
+  echo file_ab > external/a/b
+  echo file_cd > external/c/d
+  echo file_e > external/e
+  touch external/a/b external/c/d external/e
+
+  cat > BUILD <<'EOF'
+filegroup(name='f', srcs=glob(["**/*"]))
+genrule(name="g", srcs=[":f"], outs=["go"], cmd="cat $(locations :f) > $@")
+EOF
+
+  bazel build //:g \
+    --experimental_disable_external_package \
+    --experimental_sibling_repository_layout \
+    || fail "build failed"
+  assert_contains file_ab bazel-bin/go
+  assert_contains file_cd bazel-bin/go
+  assert_contains file_e bazel-bin/go
+}
+
+function test_cc_smoke_with_new_layouts() {
+  touch WORKSPACE
+  mkdir -p external/a
+  cat > external/a/BUILD <<EOF
+cc_binary(name='a', srcs=['a.cc'])
+EOF
+
+  cat > external/a/a.cc <<EOF
+int main(void) {
+  return 0;
+}
+EOF
+
+  bazel build //external/a:a \
+    --experimental_disable_external_package \
+    --experimental_sibling_repository_layout \
+    || fail "build failed"
+}
+
+function test_java_smoke_with_new_layouts() {
+  touch WORKSPACE
+  mkdir -p external/java/a
+  cat > external/java/a/BUILD <<EOF
+java_binary(name='a', srcs=['A.java'])
+EOF
+
+  cat > external/java/a/A.java << EOF
+package a;
+public class A {
+  public static void main(String[] args) {
+    System.out.println("hello world");
+  }
+}
+EOF
+
+  bazel build //external/java/a:a \
+    --experimental_disable_external_package \
+    --experimental_sibling_repository_layout \
+    || fail "build failed"
+}
+
 run_suite "execution root tests"

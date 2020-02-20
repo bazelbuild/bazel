@@ -215,6 +215,20 @@ public class StarlarkSemanticsOptions extends OptionsBase implements Serializabl
   public boolean experimentalRepoRemoteExec;
 
   @Option(
+      name = "experimental_disable_external_package",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS, OptionEffectTag.LOSES_INCREMENTAL_STATE},
+      metadataTags = {
+        OptionMetadataTag.EXPERIMENTAL,
+      },
+      help =
+          "If set to true, the auto-generated //external package will not be available anymore. "
+              + "Bazel will still be unable to parse the file 'external/BUILD', but globs reaching "
+              + "into external/ from the unnamed package will work.")
+  public boolean experimentalDisableExternalPackage;
+
+  @Option(
       name = "experimental_sibling_repository_layout",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
@@ -654,6 +668,7 @@ public class StarlarkSemanticsOptions extends OptionsBase implements Serializabl
             .experimentalStarlarkUnusedInputsList(experimentalStarlarkUnusedInputsList)
             .experimentalCcSharedLibrary(experimentalCcSharedLibrary)
             .experimentalRepoRemoteExec(experimentalRepoRemoteExec)
+            .experimentalDisableExternalPackage(experimentalDisableExternalPackage)
             .experimentalSiblingRepositoryLayout(experimentalSiblingRepositoryLayout)
             .incompatibleApplicableLicenses(incompatibleApplicableLicenses)
             .incompatibleBzlDisallowLoadAfterStatement(incompatibleBzlDisallowLoadAfterStatement)

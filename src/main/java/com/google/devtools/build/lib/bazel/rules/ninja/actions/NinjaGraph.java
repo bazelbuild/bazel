@@ -240,6 +240,10 @@ public class NinjaGraph implements RuleConfiguredTargetFactory {
     Environment env = ruleContext.getAnalysisEnvironment().getSkyframeEnv();
     ImmutableSortedSet<String> notSymlinkedDirs =
         ExternalPackageUtil.getNotSymlinkedInExecrootDirectories(env);
+    if (env.valuesMissing()) {
+      return;
+    }
+
     // We can compare strings because notSymlinkedDirs contains normalized directory names
     if (!notSymlinkedDirs.contains(outputRoot.getPathString())) {
       ruleContext.attributeError(

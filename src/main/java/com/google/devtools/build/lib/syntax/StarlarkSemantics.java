@@ -53,6 +53,8 @@ public abstract class StarlarkSemantics {
     public static final String EXPERIMENTAL_ACTION_ARGS = "experimental_action_args";
     public static final String EXPERIMENTAL_ALLOW_INCREMENTAL_REPOSITORY_UPDATES =
         "experimental_allow_incremental_repository_updates";
+    public static final String EXPERIMENTAL_DISABLE_EXTERNAL_PACKGE =
+        "experimental_disable_external_package";
     public static final String EXPERIMENTAL_SIBLING_REPOSITORY_LAYOUT =
         "experimental_sibling_repository_layout";
     public static final String EXPERIMENTAL_ASPECT_OUTPUT_PROPAGATION =
@@ -96,6 +98,8 @@ public abstract class StarlarkSemantics {
         return experimentalActionArgs();
       case FlagIdentifier.EXPERIMENTAL_ALLOW_INCREMENTAL_REPOSITORY_UPDATES:
         return experimentalAllowIncrementalRepositoryUpdates();
+      case FlagIdentifier.EXPERIMENTAL_DISABLE_EXTERNAL_PACKGE:
+        return experimentalDisableExternalPackage();
       case FlagIdentifier.EXPERIMENTAL_SIBLING_REPOSITORY_LAYOUT:
         return experimentalSiblingRepositoryLayout();
       case FlagIdentifier.EXPERIMENTAL_ASPECT_OUTPUT_PROPAGATION:
@@ -203,6 +207,8 @@ public abstract class StarlarkSemantics {
 
   public abstract boolean experimentalRepoRemoteExec();
 
+  public abstract boolean experimentalDisableExternalPackage();
+
   public abstract boolean experimentalSiblingRepositoryLayout();
 
   public abstract boolean incompatibleAlwaysCheckDepsetElements();
@@ -307,6 +313,7 @@ public abstract class StarlarkSemantics {
           .experimentalStarlarkUnusedInputsList(true)
           .experimentalCcSharedLibrary(false)
           .experimentalRepoRemoteExec(false)
+          .experimentalDisableExternalPackage(false)
           .experimentalSiblingRepositoryLayout(false)
           .incompatibleAlwaysCheckDepsetElements(false)
           .incompatibleApplicableLicenses(false)
@@ -370,6 +377,8 @@ public abstract class StarlarkSemantics {
     public abstract Builder experimentalCcSharedLibrary(boolean value);
 
     public abstract Builder experimentalRepoRemoteExec(boolean value);
+
+    public abstract Builder experimentalDisableExternalPackage(boolean value);
 
     public abstract Builder experimentalSiblingRepositoryLayout(boolean value);
 

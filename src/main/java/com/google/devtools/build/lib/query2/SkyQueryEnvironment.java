@@ -1211,15 +1211,8 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
     return target;
   }
 
-  /**
-   * Returns package lookup keys for looking up the package root for which there may be a relevant
-   * (from the perspective of {@link #getRBuildFiles}) {@link FileStateValue} node in the graph for
-   * {@code originalFileFragment}, which is assumed to be a file path.
-   *
-   * <p>This is a helper function for {@link #getFileStateKeysForFileFragments}.
-   */
-  private static Iterable<SkyKey> getPkgLookupKeysForFile(PathFragment originalFileFragment,
-      PathFragment currentPathFragment) {
+  private static ImmutableList<SkyKey> getDependenciesForWorkspaceFile(
+      PathFragment originalFileFragment, PathFragment currentPathFragment) {
     if (originalFileFragment.equals(currentPathFragment)
         && WorkspaceFileHelper.matchWorkspaceFileName(originalFileFragment)) {
       // TODO(mschaller): this should not be checked at runtime. These are constants!
@@ -1228,10 +1221,29 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
               .getParentDirectory()
               .equals(PathFragment.EMPTY_FRAGMENT),
           LabelConstants.WORKSPACE_FILE_NAME);
-      return ImmutableList.of(
-          PackageLookupValue.key(LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER),
-          PackageLookupValue.key(PackageIdentifier.createInMainRepo(PathFragment.EMPTY_FRAGMENT)));
+      // The WORKSPACE file is a transitive dependency of every package. Unfortunately, there is no
+      // specific SkyValue that we can use to figure out under which package path entries it lives,
+      // so we add another dependency that's a transitive dependency of every package.
+      //
+      // The PackageLookupValue for //external is not a good choice, because it's not requested when
+      // that package is built so that we can have a directory called external/ in the workspace
+      // (this is special-cased in PackageFunction). The principled solution would be to not rely
+      // on external/ and introduce a SkyValue for the concept of "the WORKSPACE file of the main
+      // repository", but we don't have that yet, so we improvise.
+      return ImmutableList.of(PackageValue.key(LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER));
     }
+
+    return ImmutableList.of();
+  }
+
+  /**
+   * Returns package lookup keys for looking up the package root for which there may be a relevant
+   * (from the perspective of {@link #getRBuildFiles}) {@link FileStateValue} node in the graph for
+   * {@code originalFileFragment}, which is assumed to be a file path.
+   *
+   * <p>This is a helper function for {@link #getSkyKeysForFileFragments}.
+   */
+  private static Iterable<SkyKey> getPkgLookupKeysForFile(PathFragment currentPathFragment) {
     PathFragment parentPathFragment = currentPathFragment.getParentDirectory();
     return parentPathFragment == null
         ? ImmutableList.of()
@@ -1240,19 +1252,26 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
   }
 
   /**
-   * Returns FileStateValue keys for which there may be relevant (from the perspective of {@link
+   * Returns SkyKeys for which there may be relevant (from the perspective of {@link
    * #getRBuildFiles}) FileStateValues in the graph corresponding to the given {@code
    * pathFragments}, which are assumed to be file paths.
    *
-   * <p>To do this, we emulate the {@link ContainingPackageLookupFunction} logic: for each given
-   * file path, we look for the nearest ancestor directory (starting with its parent directory), if
-   * any, that has a package. The {@link PackageLookupValue} for this package tells us the package
-   * root that we should use for the {@link RootedPath} for the {@link FileStateValue} key.
+   * <p>The passed in {@link PathFragment}s can be associated uniquely to a {@link FileStateValue}
+   * with the following logic (the same logic that's in {@link ContainingPackageLookupFunction}):
+   * For each given file path, we look for the nearest ancestor directory (starting with its parent
+   * directory), if any, that has a package. The {@link PackageLookupValue} for this package tells
+   * us the package root that we should use for the {@link RootedPath} for the {@link
+   * FileStateValue} key.
+   *
+   * <p>For the reverse graph traversal in {@link #getRBuildFiles}, we are looking for all packages
+   * that are transitively reverse dependencies of those {@link FileStateValue} keys. This function
+   * returns a collection of SkyKeys whose transitive reverse dependencies must contain the exact
+   * same set of packages.
    *
    * <p>Note that there may not be nodes in the graph corresponding to the returned SkyKeys.
    */
-  protected Collection<SkyKey> getFileStateKeysForFileFragments(
-      Iterable<PathFragment> pathFragments) throws InterruptedException {
+  protected Collection<SkyKey> getSkyKeysForFileFragments(Iterable<PathFragment> pathFragments)
+      throws InterruptedException {
     Set<SkyKey> result = new HashSet<>();
     Multimap<PathFragment, PathFragment> currentToOriginal = ArrayListMultimap.create();
     for (PathFragment pathFragment : pathFragments) {
@@ -1264,10 +1283,12 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
       for (Map.Entry<PathFragment, PathFragment> entry : currentToOriginal.entries()) {
         PathFragment current = entry.getKey();
         PathFragment original = entry.getValue();
-        for (SkyKey packageLookupKey : getPkgLookupKeysForFile(original, current)) {
+        for (SkyKey packageLookupKey : getPkgLookupKeysForFile(current)) {
           packageLookupKeysToOriginal.put(packageLookupKey, original);
           packageLookupKeysToCurrent.put(packageLookupKey, current);
         }
+
+        result.addAll(getDependenciesForWorkspaceFile(original, current));
       }
       Map<SkyKey, SkyValue> lookupValues =
           graph.getSuccessfulValues(packageLookupKeysToOriginal.keySet());

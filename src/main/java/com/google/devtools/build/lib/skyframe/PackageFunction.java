@@ -51,6 +51,7 @@ import com.google.devtools.build.lib.packages.WorkspaceFileValue;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
+import com.google.devtools.build.lib.repository.ExternalPackageUtil;
 import com.google.devtools.build.lib.rules.repository.WorkspaceFileHelper;
 import com.google.devtools.build.lib.skyframe.GlobValue.InvalidGlobPatternException;
 import com.google.devtools.build.lib.skyframe.SkylarkImportLookupFunction.SkylarkImportFailedException;
@@ -292,26 +293,14 @@ public class PackageFunction implements SkyFunction {
    * @throws PackageFunctionException if there is an error computing the workspace file or adding
    *     its rules to the //external package.
    */
-  private SkyValue getExternalPackage(Environment env, Root packageLookupPath)
+  private SkyValue getExternalPackage(Environment env)
       throws PackageFunctionException, InterruptedException {
     StarlarkSemantics starlarkSemantics = PrecomputedValue.STARLARK_SEMANTICS.get(env);
-    if (starlarkSemantics == null) {
+    RootedPath workspacePath = ExternalPackageUtil.findWorkspaceFile(env);
+    if (env.valuesMissing()) {
       return null;
     }
-    RootedPath workspacePath;
-    try {
-      workspacePath = WorkspaceFileHelper.getWorkspaceRootedFile(packageLookupPath, env);
-      if (workspacePath == null) {
-        return null;
-      }
-    } catch (IOException e) {
-      throw new PackageFunctionException(
-          new NoSuchPackageException(
-              LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER,
-              "Could not determine workspace file (\"WORKSPACE.bazel\" or \"WORKSPACE\"): "
-                  + e.getMessage()),
-          Transience.PERSISTENT);
-    }
+
     SkyKey workspaceKey = ExternalPackageFunction.key(workspacePath);
     PackageValue workspace = null;
     try {
@@ -355,6 +344,9 @@ public class PackageFunction implements SkyFunction {
   public SkyValue compute(SkyKey key, Environment env) throws PackageFunctionException,
       InterruptedException {
     PackageIdentifier packageId = (PackageIdentifier) key.argument();
+    if (packageId.equals(LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER)) {
+      return getExternalPackage(env);
+    }
 
     SkyKey packageLookupKey = PackageLookupValue.key(packageId);
     PackageLookupValue packageLookupValue;
@@ -394,9 +386,6 @@ public class PackageFunction implements SkyFunction {
       }
     }
 
-    if (packageId.equals(LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER)) {
-      return getExternalPackage(env, packageLookupValue.getRoot());
-    }
     WorkspaceNameValue workspaceNameValue =
         (WorkspaceNameValue) env.getValue(WorkspaceNameValue.key());
 

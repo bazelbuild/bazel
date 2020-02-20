@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.query2;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.collect.compacthashset.CompactHashSet;
 import com.google.devtools.build.lib.packages.Target;
@@ -25,7 +24,6 @@ import com.google.devtools.build.lib.query2.engine.Callback;
 import com.google.devtools.build.lib.query2.engine.QueryException;
 import com.google.devtools.build.lib.query2.engine.QueryExpressionContext;
 import com.google.devtools.build.lib.query2.engine.Uniquifier;
-import com.google.devtools.build.lib.skyframe.PackageValue;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -54,8 +52,6 @@ public class RBuildFilesVisitor extends ParallelQueryVisitor<SkyKey, PackageIden
           SkyFunctions.PREPARE_DEPS_OF_PATTERN,
           SkyFunctions.PREPARE_DEPS_OF_PATTERNS);
 
-  private static final SkyKey EXTERNAL_PACKAGE_KEY =
-      PackageValue.key(LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER);
   private final SkyQueryEnvironment env;
   private final QueryExpressionContext<Target> context;
   private final Uniquifier<SkyKey> visitUniquifier;
@@ -88,13 +84,6 @@ public class RBuildFilesVisitor extends ParallelQueryVisitor<SkyKey, PackageIden
       if (rdep.functionName().equals(SkyFunctions.PACKAGE)) {
         if (resultUniquifier.unique(rdep)) {
           keysToUseForResult.add((PackageIdentifier) rdep.argument());
-        }
-        // PackageValue(//p) has a transitive dep on the PackageValue(//external), so we need to
-        // make sure these dep paths are traversed. These dep paths go through the singleton
-        // WorkspaceNameValue(), and that node has a direct dep on PackageValue(//external), so it
-        // suffices to ensure we visit PackageValue(//external).
-        if (rdep.equals(EXTERNAL_PACKAGE_KEY)) {
-          keysToVisitNext.add(rdep);
         }
       } else if (!NODES_TO_PRUNE_TRAVERSAL.contains(rdep.functionName())) {
         processNonPackageRdepAndDetermineVisitations(rdep, keysToVisitNext, keysToUseForResult);
