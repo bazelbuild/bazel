@@ -1,3 +1,24 @@
+// Heading sizes
+
+$font-size-base: 14px !default;
+
+$h1-font-size: $font-size-base * 2.25 !default;
+$h2-font-size: $font-size-base * 2 !default;
+$h3-font-size: $font-size-base * 1.5 !default;
+$h4-font-size: $font-size-base * 1.35 !default;
+$h5-font-size: $font-size-base * 1.15 !default;
+$h6-font-size: $font-size-base !default;
+
+// Font weights
+
+$font-weight-light: 300 !default;
+$font-weight-normal: 400 !default;
+$font-weight-medium: 500 !default;
+$font-weight-bold: 700 !default;
+
+$font-weight-body-text: $font-weight-normal !default;
+$headings-font-weight: $font-weight-medium !default;
+
 // Bazel logo colors
 $bazel-green: #43a047;
 $bazel-green-light: #76d275;
@@ -5,37 +26,41 @@ $bazel-green-dark-left: #00701a;
 $bazel-green-dark-right: #004300;
 $color-on-bazel-green: #fff;
 
-$body-font-family: 'RobotoDraft', 'Helvetica Neue', Helvetica, Arial,
+$body-font-family: 'Open Sans', 'Helvetica Neue', Helvetica, Arial,
                    sans-serif;
-$code-font-family: 'Source Code Pro', monospace;
+$code-font-family: 'Monaco', 'Source Code Pro', monospace;
 
-$link-color: $bazel-green;
-$link-hover-color: darken($link-color, 10%);
-$well-color: #f9f9f9;
-$text-color: #444;
+$link-color: $bazel-green-dark-left;
+$link-hover-color: lighten($link-color, 20%);
+$well-color: #eee;
+$code-color: #000;
+$text-color: #000;
 
-$vpad: 20px;
+$vpad: 0px;
 
 $table-bg: #fff;
 $table-cell-padding: 5px;
 $table-border-color: $bazel-green;
 $text-muted: $color-on-bazel-green;
-$line-height-base: 20px;
-$line-height-computed: 20px;
+$line-height-base: 1.5;
+$line-height-computed: 1.5;
 
 html {
   position: relative;
   min-height: 100%;
+  font-size: 100%;
 }
 
 body {
   padding-top: 50px;
   color: $text-color;
   font-family: $body-font-family;
+  line-height: $line-height-base;
 }
 
 a {
   color: $link-color;
+  font-weight: $font-weight-medium;
 
   &:hover,
   &:focus {
@@ -54,9 +79,8 @@ h4,
 h5,
 h6 {
   color: $text-color;
-  font-weight: 400;
-  margin-top: 30px;
-  margin-bottom: 15px;
+  margin-top: 2rem;
+  margin-bottom: 1rem;
 }
 
 h1 code,
@@ -70,12 +94,12 @@ h6 code {
 }
 
 h1 {
-  margin-top: 40px;
+  font-size: $h1-font-size;
+  font-weight: $font-weight-bold;
 }
 
 h2 {
-  font-size: 24px;
-  margin-top: 30px;
+  font-size: $h2-font-size;
 
   code {
     font-size: 24px;
@@ -83,7 +107,7 @@ h2 {
 }
 
 h3 {
-  font-size: 20px;
+  font-size: $h3-font-size;
 
   code {
     font-size: 20px;
@@ -91,32 +115,43 @@ h3 {
 }
 
 h4 {
-  font-size: 18px;
+  font-size: $h4-font-size;
 
   code {
     font-size: 18px;
   }
 }
 
+h5 {
+  font-size: $h5-font-size;
+}
+
+h6 {
+  font-size: $h6-font-size;
+}
+
 p,
 li {
-  font-size: 14px;
-  line-height: 22px;
+  font-size: $font-size-base;
+  line-height: $line-height-base;
 }
 
 pre {
   padding: 8px 16px;
+  margin: 8px 0;
   font-family: $code-font-family;
   background-color: $well-color;
   border: 0;
-  font-size: 13px;
+  font-size: 100%;
   line-height: 20px;
+  color: $code-color;
 }
 
 code {
   font-family: $code-font-family;
   font-size: 13px;
   background-color: $well-color;
+  color: $code-color;
 }
 
 
@@ -129,6 +164,28 @@ code {
 $md-shadow-1: rgba(0, 0, 0, .14);
 $md-shadow-2: rgba(0, 0, 0, .2);
 $md-shadow-3: rgba(0, 0, 0, .12);
+
+
+@media (min-width: 768px) {
+  .container {
+    width: 100%;
+    max-width: 100%;
+  }
+}
+
+@media (min-width: 992px) {
+  .content {
+    max-width: 85%;
+  }
+}
+
+.content {
+  padding: 40px 30px;
+  p {
+    line-height: 22px;
+    margin-bottom: 1rem;
+  }
+}
 
 .btn-success {
   border-radius: 2px;
@@ -178,5 +235,10 @@ $md-shadow-3: rgba(0, 0, 0, .12);
 // with the rest of the code block.
 dd > code > a,
 dl > dt > code > a {
-  color: #c7254e;
+  color: $code-color;
+}
+
+dl > dt {
+  margin-top: 1.5rem;
+  margin-bottom: 0.5rem;
 }
