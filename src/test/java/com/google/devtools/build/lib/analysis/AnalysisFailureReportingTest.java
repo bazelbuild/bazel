@@ -153,6 +153,30 @@ public class AnalysisFailureReportingTest extends AnalysisTestCase {
   }
 
   @Test
+  public void testFileVisibilityError() throws Exception {
+    scratch.file("foo/BUILD", "sh_library(name = 'foo', srcs = ['//bar:bar.sh'])");
+    scratch.file("bar/BUILD", "exports_files(['bar.sh'], visibility = ['//visibility:private'])");
+    scratch.file("bar/bar.sh");
+
+    AnalysisResult result = update(eventBus, defaultFlags().with(Flag.KEEP_GOING), "//foo");
+    assertThat(result.hasError()).isTrue();
+
+    Label topLevel = Label.parseAbsoluteUnchecked("//foo");
+    assertThat(collector.events)
+        .valuesForKey(topLevel)
+        .containsExactly(
+            new AnalysisFailedCause(
+                Label.parseAbsolute("//foo", ImmutableMap.of()),
+                toId(
+                    Iterables.getOnlyElement(result.getTopLevelTargetsWithConfigs())
+                        .getConfiguration()),
+                "in sh_library rule //foo:foo: target '//bar:bar.sh' is not visible from target "
+                    + "'//foo:foo'. Check the visibility declaration of the former target if you "
+                    + "think the dependency is legitimate. To set the visibility of that source "
+                    + "file target, use the exports_files() function"));
+  }
+
+  @Test
   public void testVisibilityErrorNoKeepGoing() throws Exception {
     scratch.file("foo/BUILD",
         "sh_library(name = 'foo', deps = ['//bar'])");
