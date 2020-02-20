@@ -623,7 +623,19 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
   private static ImmutableList<? extends Artifact> modulesToListInterruptibly(
       NestedSet<? extends Artifact> nestedSet) throws InterruptedException {
     Stopwatch blockedStopwatch = Stopwatch.createStarted();
-    ImmutableList<? extends Artifact> modules = nestedSet.toListInterruptibly();
+    ImmutableList<? extends Artifact> modules;
+    try {
+      modules = nestedSet.toListInterruptibly();
+    } catch (InterruptedException e) {
+      Duration blockedDuration = blockedStopwatch.elapsed();
+      if (BLOCKED_NESTED_SET_EXPANSION_THRESHOLD.compareTo(blockedDuration) < 0) {
+        logger.info(
+            String.format(
+                "Spent %d milliseconds doing nested set expansion, interrupted",
+                blockedDuration.toMillis()));
+      }
+      throw e;
+    }
     Duration blockedDuration = blockedStopwatch.elapsed();
     if (BLOCKED_NESTED_SET_EXPANSION_THRESHOLD.compareTo(blockedDuration) < 0) {
       logger.info(
