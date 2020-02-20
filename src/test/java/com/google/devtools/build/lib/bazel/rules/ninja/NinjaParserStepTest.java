@@ -49,7 +49,7 @@ public class NinjaParserStepTest {
     doTestSimpleVariable("a=b\nc", "a", "b");
     doTestSimpleVariable("a=b # comment", "a", "b");
     doTestSimpleVariable("a.b.c =    some long:    value", "a.b.c", "some long:    value");
-    doTestSimpleVariable("a_11_24-rt.15= ^&%=#@", "a_11_24-rt.15", "^&%=");
+    doTestSimpleVariable("a_11_24-rt.15= ^&%=#@", "a_11_24-rt.15", "^&%=#@");
   }
 
   @Test
@@ -160,6 +160,20 @@ public class NinjaParserStepTest {
     assertThat(variables.get(NinjaRuleVariable.DEPS).getExpandedValue(expander))
         .isEqualTo("###abc $\n ###cde");
     assertThat(expander.getRequestedVariables()).containsExactly("abc", "cde");
+  }
+
+  @Test
+  public void testNinjaRuleWithHash() throws Exception {
+    // Additionally test the situation when we get more line separators in the end.
+    NinjaParserStep parser =
+        createParser(
+            "rule testRule  \n"
+                + " command = executable --flag $TARGET $out && sed -e 's/#.*$$//' -e '/^$$/d'\n"
+                + " description = Test rule for $TARGET");
+    NinjaRule ninjaRule = parser.parseNinjaRule();
+    assertThat(ninjaRule.getVariables().get(NinjaRuleVariable.COMMAND).getRawText())
+        // Variables are wrapped with {} by print function, $$ escape sequence is unescaped.
+        .isEqualTo("executable --flag ${TARGET} ${out} && sed -e 's/#.*$//' -e '/^$/d'");
   }
 
   @Test

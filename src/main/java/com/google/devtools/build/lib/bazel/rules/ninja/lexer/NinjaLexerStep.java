@@ -46,7 +46,7 @@ import java.util.function.Predicate;
 public class NinjaLexerStep {
   private static final ImmutableSortedSet<Byte> IDENTIFIER_SYMBOLS =
       createByteSet("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-");
-  private static final ImmutableSortedSet<Byte> TEXT_STOPPERS = createByteSet("\n\r \t#$:\u0000");
+  private static final ImmutableSortedSet<Byte> TEXT_STOPPERS = createByteSet("\n\r \t$:\u0000");
   // We allow # symbol in the path, so the comment on the line with path can only start with space.
   private static final ImmutableSortedSet<Byte> PATH_STOPPERS = createByteSet("\n\r \t$:|\u0000");
 
