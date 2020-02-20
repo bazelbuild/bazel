@@ -1,9 +1,9 @@
 ---
 layout: documentation
-title: .bzl Style Guide
+title: .bzl style guide
 ---
 
-# .bzl Style Guide
+# .bzl style guide
 
 [Starlark](language.md) is a language that defines how software is built, and as
 such it is both a programming and a configuration language.

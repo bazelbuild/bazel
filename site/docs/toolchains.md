@@ -356,7 +356,7 @@ has `@platforms//os:linux` and therefore resolve the
 This will end up building `//bar_tools:barc_linux` but not
 `//barc_tools:barc_windows`.
 
-## Toolchain Resolution
+## Toolchain resolution
 
 **Note:** [Some Bazel rules](platforms-intro.html#status) do not yet support
 toolchain resolution.

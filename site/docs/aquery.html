@@ -1,21 +1,21 @@
 ---
 layout: documentation
-title: Aquery (Action Graph Query)
+title: Aquery (action graph query)
 ---
-<h1>Aquery (Action Graph Query)</h1>
+<h1>Aquery (action graph query)</h1>
 
 
 <ul>
   <li><a href="#overview">Overview</a></li>
-  <li><a href="#basic-syntax">Basic Syntax</a></li>
-  <li><a href="#functions">Aquery Functions</a></li>
+  <li><a href="#basic-syntax">Basic syntax</a></li>
+  <li><a href="#functions">Aquery functions</a></li>
   <li><a href="#options">Options</a></li>
   <li>
-    <a href="#misc">Other Tools and Features</a>
+    <a href="#misc">Other tools and features</a>
     <ul>
-      <li><a href="#skyframe-state">Querying Against the State of Skyframe</a></li>
-      <li><a href="#diff-tool">Comparing Aquery Outputs</a></li>
-      <li><a href="#aspect-on-aspect">Handling Aspect-on-aspect</a></li>
+      <li><a href="#skyframe-state">Querying against the state of Skyframe</a></li>
+      <li><a href="#diff-tool">Comparing aquery outputs</a></li>
+      <li><a href="#aspect-on-aspect">Handling aspect-on-aspect</a></li>
     </ul>
   </li>
   <li><a href="#known-issues">Known Issues</a></li>
@@ -61,7 +61,7 @@ action 'Writing file some_file_name'
   Outputs: [...]
 </pre>
 
-<h2 id='basic-syntax'>Basic Syntax</h2>
+<h2 id='basic-syntax'>Basic syntax</h2>
 
 <p>A simple example of the syntax for <code>aquery</code> is as follows:</p>
 
@@ -143,7 +143,7 @@ $ bazel aquery 'inputs(".*cpp", deps(//src/target_a))'
 
 <h2 id='options'>Options</h2>
 
-<h3>Build Options</h3>
+<h3>Build options</h3>
 
 <p>
   <code>aquery</code> runs on top of a regular Bazel build and thus inherits the set of
@@ -187,7 +187,7 @@ $ bazel aquery 'inputs(".*cpp", deps(//src/target_a))'
   This flag is only available with <code>--output=proto</code> or <code>--output=textproto</code>.
 </p>
 
-<h2 id='misc'>Other Tools and Features</h2>
+<h2 id='misc'>Other tools and features</h2>
 
 <h3 id="skyframe-state">Querying against the state of Skyframe</h3>
 
@@ -268,7 +268,7 @@ $ bazel aquery 'inputs(".*cpp", deps(//src/target_a))'
   $ bazel aquery --output=proto --skyframe_state 'inputs(".*.java")'
 </pre>
 
-<h3 id="diff-tool">Comparing Aquery Outputs</h3>
+<h3 id="diff-tool">Comparing aquery outputs</h3>
 
 <p>
   You can compare the outputs of two different aquery invocations using the <code>aquery_differ</code> tool.
@@ -324,7 +324,7 @@ $ bazel aquery 'inputs(".*cpp", deps(//src/target_a))'
   to be compared.
 </p>
 
-<h3 id="aspect-on-aspect">Aspect-on-Aspect</h3>
+<h3 id="aspect-on-aspect">Aspect-on-aspect</h3>
 
 <p>
   It is possible for <a href="https://docs.bazel.build/versions/master/skylark/aspects.html">Aspects</a>
@@ -381,7 +381,7 @@ $ bazel aquery 'inputs(".*cpp", deps(//src/target_a))'
   <a href="https://docs.bazel.build/versions/master/skylark/aspects.html#aspect-basics">dependency graph</a>.
 </p>
 
-<h2 id='known-issues'>Known Issues</h2>
+<h2 id='known-issues'>Known issues</h2>
 
 <h3 id='shared-actions'>Handling Shared Actions</h3>
 

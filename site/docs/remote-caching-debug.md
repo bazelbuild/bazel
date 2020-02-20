@@ -1,9 +1,9 @@
 ---
 layout: documentation
-title: Debugging Remote Cache Hits for Local Execution
+title: Debugging remote cache hits for local execution
 ---
 
-# Debugging Remote Cache Hits for Local Execution
+# Debugging remote cache hits for local execution
 
 This page describes how to investigate cache misses in the context of local
 execution.

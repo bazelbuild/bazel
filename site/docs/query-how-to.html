@@ -1,6 +1,6 @@
 ---
 layout: documentation
-title: Bazel Query How-To
+title: Bazel query how-to
 ---
 <h1>Bazel query how-to</h1>
 
@@ -21,12 +21,12 @@ title: Bazel Query How-To
 <h2>Contents</h2>
 
 <ul>
-<li><a href="#Finding_the_Dependencies_of_a_Ru">Finding the Dependencies of a Rule</a></li>
-<li><a href="#Tracing_the_Dependency_Chain_bet">Tracing the Dependency Chain between Two
-Packages</a>
+<li><a href="#Finding_the_Dependencies_of_a_Ru">Finding the dependencies of a rule</a></li>
+<li><a href="#Tracing_the_Dependency_Chain_bet">Tracing the dependency chain between two
+packages</a>
 <ul><li><a href="#Aside_implicit_dependencies">Aside: implicit dependencies</a></li></ul></li>
-<li><a href="#Reverse_Dependencies">Reverse Dependencies</a></li>
-<li><a href="#Miscellaneous_Uses">Miscellaneous Uses</a>
+<li><a href="#Reverse_Dependencies">Reverse dependencies</a></li>
+<li><a href="#Miscellaneous_Uses">Miscellaneous uses</a>
 <ul><li><a href="#What_exists_">What exists ...</a>
 <ul><li><a href="#What_packages_exist_beneath_foo_">What packages exist beneath
 <code>foo</code>?</a></li>
@@ -102,7 +102,7 @@ build?</a></li></ul></li></ul></li>
 
 <p><a name="Finding_the_Dependencies_of_a_Ru"></a></p>
 
-<h2>Finding the Dependencies of a Rule</h2>
+<h2>Finding the dependencies of a rule</h2>
 
 <p>To see the dependencies of <code>//foo</code>, use the
 <code>deps</code> function in bazel query:</p>
@@ -118,7 +118,7 @@ $ bazel query "deps(//foo)"
 
 <p><a name="Tracing_the_Dependency_Chain_bet"></a></p>
 
-<h2>Tracing the Dependency Chain between Two Packages</h2>
+<h2>Tracing the dependency chain between two packages</h2>
 
 <p>The library <code>//third_party/zlib:zlibonly</code> isn't in the BUILD file for
 <code>//foo</code>, but it is an indirect dependency. How can
@@ -196,7 +196,7 @@ but added in by the build tool.  The full set of implicit dependencies is
 
 <p><a name="Reverse_Dependencies"></a></p>
 
-<h2>Reverse Dependencies</h2>
+<h2>Reverse dependencies</h2>
 
 <p>You might want to know the set of targets that depends on some target.  e.g.,
 if you're going to change some code, you might want to know what other code
@@ -208,7 +208,7 @@ supports the <code>allrdeps</code> function which allows you to query rdeps in t
 universe of the build.
 <p><a name="Miscellaneous_Uses"></a></p>
 
-<h2>Miscellaneous Uses</h2>
+<h2>Miscellaneous uses</h2>
 
 <p>You can use <code>bazel query</code> to analyze many dependency relationships.</p>
 

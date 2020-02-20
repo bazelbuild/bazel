@@ -1,8 +1,8 @@
 ---
 layout: documentation
-title: Repository Rules
+title: Repository rules
 ---
-# Repository Rules
+# Repository rules
 
 An [external repository](../external.md) is a rule that can be used only
 in the `WORKSPACE` file and enables non-hermetic operation at the loading phase
@@ -11,7 +11,7 @@ own BUILD files and artifacts. They can be used to depend on third-party
 libraries (such as Maven packaged libraries) but also to generate BUILD files
 specific to the host Bazel is running on.
 
-## Repository Rule creation
+## Repository rule creation
 
 In a `.bzl` file, use the
 [repository_rule](lib/globals.html#repository_rule) function to create a new

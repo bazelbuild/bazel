@@ -1,25 +1,25 @@
 ---
 layout: documentation
-title: Configurable Build Attributes
+title: Configurable build attributes
 ---
 
-# Configurable Build Attributes
+# Configurable build attributes
 
 ### Contents
 * [Example](#example)
-* [Configuration Conditions](#configuration-conditions)
+* [Configuration conditions](#configuration-conditions)
 * [Defaults](#defaults)
-* [Custom Keys](#custom-keys)
+* [Custom keys](#custom-keys)
 * [Platforms](#platforms)
-* [Short Keys](#short-keys)
-* [Multiple Selects](#multiple-selects)
-* [OR Chaining](#or-chaining)
+* [Short keys](#short-keys)
+* [Multiple selects](#multiple-selects)
+* [OR chaining](#or-chaining)
   * [selects.with_or](#selects-with-or)
   * [selects.config_setting_group](#selects-config-setting-or-group)
-* [AND Chaining](#and-chaining)
-* [Custom Error Messages](#custom-error-messages)
-* [Rules Compatibility](#rules)
-* [Bazel Query and Cquery](#query)
+* [AND chaining](#and-chaining)
+* [Custom error messages](#custom-error-messages)
+* [Rules compatibility](#rules)
+* [Bazel query and query](#query)
 * [FAQ](#faq)
   * [Why doesn't select() work in macros?](#macros-select)
   * [Why does select() always return true?](#boolean-select)
@@ -115,7 +115,7 @@ beneath them. This will affect how conditions are matched within those targets
 but not within the attribute that causes the change. That is, a `select` in the
 `tools` attribute of a `genrule` will work the same as a `select` in the `srcs`.
 
-## Configuration Conditions
+## Configuration conditions
 
 Each key in a configurable attribute is a label reference to a
 [`config_setting`](be/general.html#config_setting) target. This is just a
@@ -194,7 +194,7 @@ Conditions checked:
 `select()` can include a [`no_match_error`](#custom-error-messages) for custom
 failure messages.
 
-## Custom Keys
+## Custom keys
 
 Since `config_setting` currently only supports built-in Bazel flags, the level
 of custom conditioning it can support is limited. For example, there's no Bazel
@@ -326,7 +326,7 @@ bazel build //my_app:my_rocks --define color=white --define texture=smooth --def
 Platforms are still under development. See the [documentation](platforms.html)
 and [roadmap](https://bazel.build/roadmaps/platforms.html) for details.
 
-## Short Keys
+## Short keys
 
 Since configuration keys are target labels, their names can get long and
 unwieldy. This can be mitigated with local variable definitions:
@@ -408,7 +408,7 @@ genrule(
 )
 ```
 
-## Multiple Selects
+## Multiple selects
 
 `select` can appear multiple times in the same attribute:
 
@@ -455,7 +455,7 @@ Note that this approach doesn't work for non-deps attributes (like
 If you just need a `select` to match when multiple conditions match, see [AND
 chaining](#and-chaining).
 
-## OR Chaining
+## OR chaining
 
 Consider the following:
 
@@ -565,7 +565,7 @@ Note that it's an error for multiple conditions to match unless one is a
 "specialization" of the other. See [select()](be/functions.html#select)
 documentation for details.
 
-## And Chaining
+## And chaining
 
 If you need a `select` path to match when multiple conditions match, use the
 [Skylib](https://github.com/bazelbuild/bazel-skylib) macro
@@ -602,7 +602,7 @@ Unlike OR chaining, existing `config_setting`s can't be `AND`ed together
 directly inside a `select`: you have to explicitly declare the
 `config_setting_group`.
 
-## Custom Error Messages
+## Custom error messages
 
 By default, when no condition matches, the owning target fails with the error:
 
@@ -635,7 +635,7 @@ ERROR: Configurable attribute "deps" doesn't match this configuration: Please
 build with an Android or Windows toolchain
 ```
 
-## <a name="rules"></a>Rules Compatibility
+## <a name="rules"></a>Rules compatibility
 Rule implementations receive the *resolved values* of configurable
 attributes. For example, given:
 
@@ -682,7 +682,7 @@ Second, macros that just need to iterate over *all* `select` paths, while
 technically feasible, lack a coherent UI. Further design is necessary to change
 this.
 
-## <a name="query"></a>Bazel Query and Cquery
+## <a name="query"></a>Bazel query and cquery
 Bazel `query` operates over Bazel's [loading phase](
 user-manual.html#loading-phase). This means it doesn't know what command line
 flags will be applied to a target since those flags aren't evaluated until later

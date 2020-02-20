@@ -1,9 +1,9 @@
 ---
 layout: documentation
-title: Bazel Vision
+title: Bazel vision
 ---
 
-# Bazel Vision
+# Bazel vision
 
 <p><font size='+1'>Any software developer can efficiently build, test, and package
 any project, of any size or complexity, with tooling that's easy to adopt and
@@ -46,7 +46,7 @@ Bazel's abstraction layer — instructions specific to languages, platforms, and
 toolchains implemented in a simple extensibility language — allows it to be
 easily applied to any context.
 
-## Bazel Core Competencies
+## Bazel core competencies
 
 1.  Bazel supports **multi-language, multi-platform** builds and tests. You can
     run a single command to build and test your entire source tree, no matter

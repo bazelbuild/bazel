@@ -1,6 +1,6 @@
 ---
 layout: documentation
-title: External Dependencies
+title: External dependencies
 ---
 
 # Working with external dependencies
@@ -229,7 +229,7 @@ be joined in myproject/WORKSPACE.
 
 
 <a name="using-proxies"></a>
-## Using Proxies
+## Using proxies
 
 Bazel will pick up proxy addresses from the `HTTPS_PROXY` and `HTTP_PROXY`
 environment variables and use these to download HTTP/HTTPS files (if specified).
