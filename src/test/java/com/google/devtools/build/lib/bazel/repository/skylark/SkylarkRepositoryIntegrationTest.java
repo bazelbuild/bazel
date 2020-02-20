@@ -316,7 +316,7 @@ public class SkylarkRepositoryIntegrationTest extends BuildViewTestCase {
     assertContainsEvent(
         "Cycle in the workspace file detected."
             + " This indicates that a repository is used prior to being defined.\n"
-            + "The following chain of repository dependencies lead to the missing definition.\n"
+            + "The following chain of repository dependencies led to the missing definition.\n"
             + " - @foobar\n"
             + " - @foo\n");
     assertContainsEvent("Failed to load Starlark extension '@foo//:def.bzl'.");
@@ -345,7 +345,7 @@ public class SkylarkRepositoryIntegrationTest extends BuildViewTestCase {
     assertContainsEvent(
         "Cycle in the workspace file detected."
             + " This indicates that a repository is used prior to being defined.\n"
-            + "The following chain of repository dependencies lead to the missing definition.\n"
+            + "The following chain of repository dependencies led to the missing definition.\n"
             + " - @foo");
     assertContainsEvent("Failed to load Starlark extension '@foo//:def.bzl'.");
   }

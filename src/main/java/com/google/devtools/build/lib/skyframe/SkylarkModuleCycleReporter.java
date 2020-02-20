@@ -173,7 +173,7 @@ public class SkylarkModuleCycleReporter implements CyclesReporter.SingleCycleRep
           .append("Cycle in the workspace file detected. ")
           .append("This indicates that a repository is used prior to being defined.\n")
           .append(
-              "The following chain of repository dependencies lead to the missing definition.\n");
+              "The following chain of repository dependencies led to the missing definition.\n");
       for (SkyKey repo : repos) {
         if (repo instanceof RepositoryValue.Key) {
           message
