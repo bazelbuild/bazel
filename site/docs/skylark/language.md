@@ -1,9 +1,9 @@
 ---
 layout: documentation
-title: Starlark Language
+title: Starlark language
 ---
 
-# Starlark Language
+# Starlark language
 
 <!-- [TOC] -->
 

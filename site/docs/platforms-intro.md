@@ -1,9 +1,9 @@
 ---
 layout: documentation
-title: Building With Platforms
+title: Building with platforms
 ---
 
-# Building With Platforms
+# Building with platforms
 
 - [Overview](#overview)
 - [Background](#background)

@@ -1,9 +1,9 @@
 ---
 layout: documentation
-title: Remote Caching
+title: Remote caching
 ---
 
-# Remote Caching
+# Remote caching
 
 A remote cache is used by a team of developers and/or a continuous integration
 (CI) system to share build outputs. If your build is reproducible, the
@@ -12,7 +12,7 @@ make builds significantly faster.
 
 ## Contents
 
-* [Remote caching overview](#remote-caching-overview)
+* [Overview](#overview)
 * [How a build uses remote caching](#how-a-build-uses-remote-caching)
 * [Setting up a server as the cache's backend](#setting-up-a-server-as-the-caches-backend)
     * [nginx](#nginx)
@@ -30,7 +30,7 @@ make builds significantly faster.
 * [Known Issues](#known-issues)
 * [External Links](#external-links)
 
-## Remote caching overview
+## Overview
 
 Bazel breaks a build into discrete steps, which are called actions. Each action
 has inputs, output names, a command line, and environment variables. Required

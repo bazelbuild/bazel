@@ -3,7 +3,7 @@ layout: documentation
 title: Extension FAQ
 ---
 
-# Frequently Asked Questions
+# Frequently asked questions
 
 These are some common issues and questions with writing extensions.
 

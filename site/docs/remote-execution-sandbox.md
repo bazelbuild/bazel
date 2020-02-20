@@ -1,10 +1,10 @@
 ---
 layout: documentation
-title: Troubleshooting Bazel Remote Execution with Docker Sandbox
+title: Troubleshooting Bazel remote execution with Docker sandbox
 
 ---
 
-# Troubleshooting Bazel Remote Execution with Docker Sandbox
+# Troubleshooting Bazel remote execution with Docker sandbox
 
 ## Contents
 

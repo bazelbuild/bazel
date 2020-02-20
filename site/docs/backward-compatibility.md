@@ -1,9 +1,9 @@
 ---
 layout: documentation
-title: Backward Compatibility
+title: Backward compatibility
 ---
 
-# Backward Compatibility
+# Backward compatibility
 
 Bazel is evolving, and we will make changes to Bazel that at times will be
 incompatible and require some changes from Bazel users.

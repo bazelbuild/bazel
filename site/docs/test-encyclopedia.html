@@ -1,6 +1,6 @@
 ---
 layout: documentation
-title: Test Encyclopedia
+title: Test encyclopedia
 ---
 <h1>Writing tests</h1>
 
@@ -41,7 +41,7 @@ this specification and the implemented behavior of test runner disagree, the
 specification takes precedence.</p>
 
 
-<h2>Purpose of Tests</h2>
+<h2>Purpose of tests</h2>
 
 <p>The purpose of Bazel tests is to confirm some property of the source files
 checked into the repository.  (In this document, "source files" includes test data,
@@ -62,7 +62,7 @@ their changes are at fault when the test stops passing.</p>
 <p>Currently, such behavior is not enforced. However, test runners reserve the
 right to add such enforcement in the future.</p>
 
-<h2>Role of the Build System</h2>
+<h2>Role of the build system</h2>
 
 <p>Test rules are analogous to binary rules in that each must yield an
 executable program.  For some languages, this is a stub program which combines
@@ -79,7 +79,7 @@ should ensure that the generated executable loads these files via the runfiles
 image provided by the test runner, rather than hardcoded references to absolute
 locations in the source or output tree.</p>
 
-<h2>Role of the Test Runner</h2>
+<h2>Role of the test runner</h2>
 
 <p>From the point of view of the test runner, each test is a program which can
 be invoked with <code>execve()</code>.  There may be other ways to execute
@@ -193,7 +193,7 @@ this fashion.</p>
 <p>When executing a test, the test runner must establish certain initial
 conditions.</p>
 
-<h2>Initial Conditions</h2>
+<h2>Initial conditions</h2>
 
 <p>The test runner must invoke each test with the path to the test
 executable in <code>argv[0]</code>.  This path must be relative and
@@ -310,7 +310,7 @@ utilization (as returned by <code>getrusage()</code>) are unspecified.</p>
 
 <p>The initial scheduling policy and priority are unspecified.</p>
 
-<h2>Role of the Host System</h2>
+<h2>Role of the host system</h2>
 
 <p>In addition to the aspects of user context under direct control of the
 test runner, the operating system on which tests execute must satisfy certain

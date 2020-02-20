@@ -1,9 +1,9 @@
 ---
 layout: documentation
-title: Optimizing Performance
+title: Optimizing performance
 ---
 
-# Optimizing Performance
+# Optimizing performance
 
 When writing rules, the most common performance pitfall is to traverse or copy
 data that is accumulated from dependencies. When aggregated over the whole
@@ -357,7 +357,7 @@ Note that we filter out fast tasks and certain task types completely to keep the
 profile files small enough to render fast in the Chrome Trace Viewer.
 
 
-## Memory Profiling
+## Memory profiling
 
 Bazel comes with a built-in memory profiler that can help you check your rule's
 memory use. If there is a problem you can dump the heap to find the

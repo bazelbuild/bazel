@@ -1,9 +1,9 @@
 ---
 layout: documentation
-title: Configuring Bazel CI for Testing Rules Against Remote Execution
+title: Configuring Bazel CI for testing rules against remote execution
 ---
 
-# Configuring Bazel CI to Test Bazel Rules for Remote Execution
+# Configuring Bazel CI to test Bazel rules for remote execution
 
 *  [Overview](#overview)
 *  [Prerequisites](#prerequisites)
