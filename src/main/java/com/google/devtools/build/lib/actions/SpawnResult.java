@@ -63,11 +63,18 @@ public interface SpawnResult {
     EXECUTION_FAILED_CATASTROPHICALLY,
 
     /**
-     * Subprocess did not execute, and it may be the user's fault. The user may be able to fix it.
-     * For example, a remote system may have denied the execution due to too many inputs or too
-     * large inputs.
+     * Subprocess did not execute, it may be the user's fault, and the error is not catastrophic.
+     * The user may be able to fix it. For example, a remote system may have denied the execution
+     * due to too many inputs or too large inputs.
      */
     EXECUTION_DENIED(true),
+
+    /**
+     * Subprocess did not execute, it may be the user's fault, and the error is catastrophic. The
+     * user may be able to prevent it from reoccurring. For example, an input file's contents may
+     * have been modified by the user intra-build.
+     */
+    EXECUTION_DENIED_CATASTROPHICALLY(true),
 
     /** The remote execution system is overloaded and had to refuse execution for this Spawn. */
     REMOTE_EXECUTOR_OVERLOADED,
@@ -109,9 +116,13 @@ public interface SpawnResult {
         || status == Status.OUT_OF_MEMORY;
   }
 
-  /** Returns true if the status was {@link Status#EXECUTION_FAILED_CATASTROPHICALLY}. */
+  /**
+   * Returns true if the status was {@link Status#EXECUTION_FAILED_CATASTROPHICALLY} or {@link
+   * Status#EXECUTION_DENIED_CATASTROPHICALLY}.
+   */
   default boolean isCatastrophe() {
-    return status() == Status.EXECUTION_FAILED_CATASTROPHICALLY;
+    return status() == Status.EXECUTION_FAILED_CATASTROPHICALLY
+        || status() == Status.EXECUTION_DENIED_CATASTROPHICALLY;
   }
 
   /** Returns the status of the attempted Spawn execution. */
