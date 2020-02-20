@@ -1039,8 +1039,9 @@ void OutputJar::AppendCDSArchive(const std::string &cds_archive) {
   // Write the file offset of the shared archive section as a manifest
   // attribute.
   char cds_manifest_attr[50];
-  snprintf(cds_manifest_attr, sizeof(cds_manifest_attr),
-           "Jsa-Offset: %ld", aligned_offset);
+  snprintf( cds_manifest_attr, sizeof(cds_manifest_attr),
+    "Jsa-Offset: %ld", (long)aligned_offset); // NOLINT(runtime/int,
+                                              // google-runtime-int)
   manifest_.Append(cds_manifest_attr);
   manifest_.Append("\r\n");
 
