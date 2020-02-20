@@ -12,6 +12,8 @@ A command to run during the build, for example, a call to a compiler that takes
 Includes metadata like the command line arguments, action key, environment
 variables, and declared input/output artifacts.
 
+**See also:** [Rules documentation](skylark/rules.html#actions)
+
 #### Action cache
 
 An on-disk cache that stores a mapping of executed [actions](#action) to the
@@ -172,6 +174,8 @@ target platform, action environment variables, and command-line [build
 flags](#command-flags). [Transitions](#transition) may create additional
 configurations, e.g. for host tools or cross-compilation.
 
+<!-- TODO: #### Configuration fragment -->
+
 #### Configuration trimming
 
 The process of only including the pieces of [configuration](#configuration) a
@@ -186,6 +190,8 @@ A [query](#query-concept) tool that queries over [configured
 targets](#configured-target) (after the [analysis phase](#analysis-phase)
 completes). This means `select()` and [build flags](#command-flags) (e.g.
 `--platforms`) are accurately reflected in the results.
+
+**See also:** [cquery documentation](cquery.html)
 
 #### Configured target
 
@@ -221,6 +227,8 @@ implementations should not "flatten" depsets by converting them to lists unless
 the rule is at the top level of the build graph. Flattening large depsets incurs
 huge memory consumption. Also known as *nested sets* in Bazel's internal
 implementation.
+
+**See also:** [Depset documentation](skylark/depsets.html)
 
 #### Disk cache
 
@@ -308,6 +316,8 @@ a single [Starlark](#starlark) function. Enables reusing common rule declaration
 patterns across BUILD files. Expanded to the underlying rule target declarations
 during the [loading phase](#loading-phase).
 
+**See also:** [Macro documentation](skylark/macros.html)
+
 #### Mnemonic
 
 A short, human-readable string selected by a rule author to quickly understand
@@ -373,6 +383,8 @@ Usually contains information like: compiler options, transitive source files,
 transitive output files, and build metadata. Frequently used in conjunction with
 [depsets](#depset).
 
+**See also:** [Provider documentation](rules.html#providers)
+
 #### Query (concept)
 
 The process of analyzing a [build graph](#build-graph) to understand
@@ -386,6 +398,8 @@ A [query](#query-concept) tool that operates over the build's post-[loading
 phase](#loading-phase) [target graph](#target-graph). This is relatively fast,
 but can't analyze the effects of `select()`, [build flags](#command-flags),
 [artifacts](#artifact), or build [actions](#action).
+
+**See also:** [Query how-to](query-how-to.html), [Query reference](query.html)
 
 #### Repository cache
 
@@ -414,6 +428,8 @@ Rule targets also produce and pass along information that may be useful to other
 rule targets in the form of [providers](#provider) (e.g. `DefaultInfo`
 provider).
 
+**See also:** [Rules documentation](skylark/rules.html)
+
 #### Runfiles
 
 The runtime dependencies of an executable [target](#target). Most commonly, the
@@ -421,6 +437,8 @@ executable is the executable output of a test rule, and the runfiles are runtime
 data dependencies of the test. Before the invocation of the executable (during
 bazel test), Bazel prepares the tree of runfiles alongside the test executable
 according to their source directory structure.
+
+**See also:** [Runfiles documentation](skylark/rules.html#runfiles)
 
 #### Sandboxing
 
@@ -454,6 +472,8 @@ purpose of configuration, and for better performance. Uses the [`.bzl`
 file](#bzl-file) extension. [BUILD files](#build-file) use an even more
 restricted version of Starlark (e.g. no `def` function definitions). Formerly
 known as Skylark.
+
+**See also:** [Starlark language documentation](skylark/language.html)
 
 <!-- TODO: #### Starlark rules -->
 
@@ -539,6 +559,8 @@ Defines whether a [target](#target) can be depended upon by other targets. By
 default, target visibility is private. That is, the target can only be depended
 upon by other targets in the same [package](#package). Can be made visible to
 specific packages or be completely public.
+
+**See also:** [Visibility documentation](be/common-definitions.html#common-attributes)
 
 #### Workspace
 
