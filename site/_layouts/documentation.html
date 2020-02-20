@@ -21,15 +21,9 @@ nav: docs
   <body>
     {% include header.html %}
 
-    <div class="page-title-bar">
-      <div class="container">
-        <h1>Documentation</h1>
-      </div>
-    </div>
-
     <div class="container vpad">
       <div class="row">
-        <div class="col-md-3">
+        <div class="col-md-2">
           <a class="btn btn-default btn-lg btn-block sidebar-toggle"
               data-toggle="collapse" href="#sidebar-nav" aria-expanded="false"
               aria-controls="sidebar-nav">
@@ -188,7 +182,7 @@ nav: docs
              </ul>
 
            {% if major_version == 0 %}
-           <h3>Rules</h3>
+           <h4>Rules</h4>
            <ul class="sidebar-nav">
              <li><a href="/versions/{{ current_version }}/be/overview.html">Build encyclopedia</a></li>
 
@@ -353,33 +347,46 @@ nav: docs
           </nav>
         </div>
 
-        <div class="col-md-9">
-          <a id="gh-edit" class="gh-edit default-hidden"><i class="fa fa-pencil" aria-hidden="true"></i> Edit</a>
-          <script>
-            var versionDocsURLRegex = /\/versions\/[\w\.]+\/(.*)/;
-            var ghDocsBazeURL = 'https://github.com/bazelbuild/bazel/tree/master/site/docs/';
-            var editButton = document.getElementById('gh-edit');
-            // if there is an edit button and we are not in the Build Encyclopedia
-            // or other generated files.
-            if (editButton
-                && window.location.pathname.match(versionDocsURLRegex)
-                && window.location.pathname.lastIndexOf('/be/') == -1
-                && window.location.pathname.lastIndexOf('/repo/') == -1
-                && window.location.pathname.lastIndexOf('/skylark/lib/') == -1) {
-              var docFile = window.location.pathname.match(versionDocsURLRegex)[1];
-              // some pages are not using markdown :(
-              if (docFile !== 'user-manual.html'
-                  && docFile !== 'build-ref.html'
-                  && docFile !== 'query.html'
-                  && docFile !== 'test-encyclopedia.html') {
-                docFile = docFile.replace('html', 'md');
-              }
-              editButton.href = ghDocsBazeURL + docFile;
-              editButton.style.visibility = 'visible';
-            }
-          </script>
+        <div class="col-md-8">
+          <div class="content">
+            {{ content }}
+          </div>
+        </div>
 
-          {{ content }}
+        <div class="col-md-2 sticky-sidebar">
+            <div class="right-sidebar">
+                <ul class="gh-links">
+                    <li><a href="https://github.com/bazelbuild/bazel/issues/new?title=Documentation issue: {{ page.title }}&body=Documentation URL: https://docs.bazel.build{{ page.url }}&labels=type: documentation"><i class="fa fa-github"></i> Create issue</a></li>
+                    <li id="gh-edit-list-item" class="default-hidden" aria-hidden="true"><a id="gh-edit" class="gh-edit default-hidden"><i class="fa fa-pencil" aria-hidden="true"></i> Edit this page</a></li>
+                </ul>
+                <script>
+                 var versionDocsURLRegex = /\/versions\/[\w\.]+\/(.*)/;
+                 var ghDocsBazeURL = 'https://github.com/bazelbuild/bazel/tree/master/site/docs/';
+                 var editButton = document.getElementById('gh-edit');
+                 var editButtonListItem = document.getElementById('gh-edit-list-item');
+                 // if there is an edit button and we are not in the Build Encyclopedia
+                 // or other generated files.
+                 if (editButton
+                     && window.location.pathname.match(versionDocsURLRegex)
+                     && window.location.pathname.lastIndexOf('/be/') == -1
+                     && window.location.pathname.lastIndexOf('/repo/') == -1
+                     && window.location.pathname.lastIndexOf('/skylark/lib/') == -1) {
+                     var docFile = window.location.pathname.match(versionDocsURLRegex)[1];
+                     // some pages are not using markdown :(
+                     if (docFile !== 'user-manual.html'
+                         && docFile !== 'build-ref.html'
+                         && docFile !== 'query.html'
+                         && docFile !== 'test-encyclopedia.html') {
+                         docFile = docFile.replace('html', 'md');
+                     }
+                     editButton.href = ghDocsBazeURL + docFile;
+                     editButton.style.visibility = 'visible';
+                     editButtonListItem.style.visibility = 'visible';
+                 }
+                </script>
+
+                {{ content | toc_only }}
+            </div>
         </div>
       </div>
     </div>
