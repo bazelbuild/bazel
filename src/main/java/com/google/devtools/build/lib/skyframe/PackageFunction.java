@@ -41,10 +41,10 @@ import com.google.devtools.build.lib.packages.BuildFileNotFoundException;
 import com.google.devtools.build.lib.packages.CachingPackageLocator;
 import com.google.devtools.build.lib.packages.Globber;
 import com.google.devtools.build.lib.packages.InvalidPackageNameException;
+import com.google.devtools.build.lib.packages.LegacyGlobber;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.PackageFactory;
-import com.google.devtools.build.lib.packages.PackageFactory.LegacyGlobber;
 import com.google.devtools.build.lib.packages.RuleVisibility;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.WorkspaceFileValue;
@@ -896,23 +896,23 @@ public class PackageFunction implements SkyFunction {
   }
 
   /**
-   * A {@link Globber} implemented on top of skyframe that falls back to a
-   * {@link PackageFactory.LegacyGlobber} on a skyframe cache-miss. This way we don't require a
-   * skyframe restart after a call to {@link Globber#runAsync} and before/during a call to
-   * {@link Globber#fetch}.
+   * A {@link Globber} implemented on top of skyframe that falls back to a {@link LegacyGlobber} on
+   * a skyframe cache-miss. This way we don't require a skyframe restart after a call to {@link
+   * Globber#runAsync} and before/during a call to {@link Globber#fetch}.
    *
    * <p>There are three advantages to this hybrid approach over the more obvious approach of solely
-   * using a {@link PackageFactory.LegacyGlobber}:
+   * using a {@link LegacyGlobber}:
+   *
    * <ul>
-   * <li>We trivially have the proper Skyframe {@link GlobValue} deps, whereas we would need to
-   * request them after-the-fact if we solely used a {@link PackageFactory.LegacyGlobber}.
-   * <li>We don't need to re-evaluate globs whose expression hasn't changed (e.g. in the common case
-   * of a BUILD file edit that doesn't change a glob expression), whereas legacy package loading
-   * with a {@link PackageFactory.LegacyGlobber} would naively re-evaluate globs when re-evaluating
-   * the BUILD file.
-   * <li>We don't need to re-evaluate invalidated globs *twice* (the single re-evaluation via our
-   * GlobValue deps is sufficient and optimal). See above for why the second evaluation would
-   * happen.
+   *   <li>We trivially have the proper Skyframe {@link GlobValue} deps, whereas we would need to
+   *       request them after-the-fact if we solely used a {@link LegacyGlobber}.
+   *   <li>We don't need to re-evaluate globs whose expression hasn't changed (e.g. in the common
+   *       case of a BUILD file edit that doesn't change a glob expression), whereas legacy package
+   *       loading with a {@link LegacyGlobber} would naively re-evaluate globs when re-evaluating
+   *       the BUILD file.
+   *   <li>We don't need to re-evaluate invalidated globs *twice* (the single re-evaluation via our
+   *       GlobValue deps is sufficient and optimal). See above for why the second evaluation would
+   *       happen.
    * </ul>
    */
   private static class SkyframeHybridGlobber implements GlobberWithSkyframeGlobDeps {
@@ -1023,8 +1023,8 @@ public class PackageFunction implements SkyFunction {
     /**
      * A {@link Globber.Token} that encapsulates the result of a single {@link Globber#runAsync}
      * call via the fetching of some globs from skyframe, and some other globs via a{@link
-     * PackageFactory.LegacyGlobber}. 'exclude' patterns are evaluated using {@link
-     * UnixGlob#removeExcludes} after merging legacy and skyframe glob results in {@link #resolve}.
+     * LegacyGlobber}. 'exclude' patterns are evaluated using {@link UnixGlob#removeExcludes} after
+     * merging legacy and skyframe glob results in {@link #resolve}.
      */
     private static class HybridToken extends Globber.Token {
       // The result of the Skyframe lookup for all the needed glob patterns.

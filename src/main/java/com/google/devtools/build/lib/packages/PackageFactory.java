@@ -78,7 +78,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ForkJoinPool;
-import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.logging.Logger;
 import javax.annotation.Nullable;
@@ -278,62 +277,6 @@ public final class PackageFactory {
     protected void process(Package.Builder pkgBuilder, Location location,
         List<Label> value) {
       pkgBuilder.setDefaultRestrictedTo(value, DEFAULT_RESTRICTED_TO_ATTRIBUTE, location);
-    }
-  }
-
-  /** {@link Globber} that uses the legacy GlobCache. */
-  public static class LegacyGlobber implements Globber {
-    private final GlobCache globCache;
-
-    private LegacyGlobber(GlobCache globCache) {
-      this.globCache = globCache;
-    }
-
-    private static class Token extends Globber.Token {
-      public final List<String> includes;
-      public final List<String> excludes;
-      public final boolean excludeDirs;
-      public final boolean allowEmpty;
-
-      public Token(
-          List<String> includes, List<String> excludes, boolean excludeDirs, boolean allowEmpty) {
-        this.includes = includes;
-        this.excludes = excludes;
-        this.excludeDirs = excludeDirs;
-        this.allowEmpty = allowEmpty;
-      }
-    }
-
-    @Override
-    public Token runAsync(
-        List<String> includes, List<String> excludes, boolean excludeDirs, boolean allowEmpty)
-        throws BadGlobException {
-      for (String pattern : includes) {
-        @SuppressWarnings("unused")
-        Future<?> possiblyIgnoredError = globCache.getGlobUnsortedAsync(pattern, excludeDirs);
-      }
-      return new Token(includes, excludes, excludeDirs, allowEmpty);
-    }
-
-    @Override
-    public List<String> fetchUnsorted(Globber.Token token)
-        throws BadGlobException, IOException, InterruptedException {
-      Token legacyToken = (Token) token;
-      return globCache.globUnsorted(
-          legacyToken.includes,
-          legacyToken.excludes,
-          legacyToken.excludeDirs,
-          legacyToken.allowEmpty);
-    }
-
-    @Override
-    public void onInterrupt() {
-      globCache.cancelBackgroundTasks();
-    }
-
-    @Override
-    public void onCompletion() {
-      globCache.finishBackgroundTasks();
     }
   }
 
