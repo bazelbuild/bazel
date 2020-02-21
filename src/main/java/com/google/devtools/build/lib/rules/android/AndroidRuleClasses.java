@@ -847,9 +847,9 @@ public final class AndroidRuleClasses {
                   .exec()
                   .value(env.getToolsLabel("//tools/android:dex_list_obfuscator")))
           .add(
-              attr(":bytecode_optimizers", LABEL_LIST)
+              attr(":bytecode_optimizer", LABEL)
                   .cfg(HostTransition.createFactory())
-                  .value(JavaSemantics.BYTECODE_OPTIMIZERS))
+                  .value(JavaSemantics.BYTECODE_OPTIMIZER))
           // We need the C++ toolchain for every sub-configuration to get the correct linker.
           .add(
               attr("$cc_toolchain_split", LABEL)
