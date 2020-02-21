@@ -1,3 +1,31 @@
+## Release 2.0.1 (2020-02-21)
+
+```
+Baseline: db0e32ca6296e56e5314993fe9939bc7331768ec
+
+Cherry picks:
+
+   + 85e84f7812f04bc0dbc36376f31b6dd2d229b905:
+     Set --incompatible_prohibit_aapt1 default to true.
+   + 84eae2ff550c433a3d0409cf2b5525059939439d:
+     Let shellzelisk fallback to bazel-real if it's the requested
+     version.
+   + d5ae460f1581ddf27514b4be18255481b47b4075:
+     Fix a typo in bazel.sh
+   + 59e360001031126d87beb5089838aa7385f66bdb:
+     Release 2.0.0 (2019-12-19)
+   + 9a823d9dab82631ff4600eff38d597807e8d1221:
+     Prevent NPE on backwards seek on Chunker
+   + 2a8cc7075f741721563efd9dc050ca3458cde30b:
+     Do not fail or print errors when Shellzelisk cannot find a
+     requested ?
+```
+
+9a823d9: Prevent NPE on backwards seek on Chunker.
+2a8cc70: Do not fail or print errors when Shellzelisk cannot find a requested Bazel binary, if tools/bazel exists.
+
+This release contains contributions from many people at Google, as well as George Gensure.
+
 ## Release 2.1.0 (2020-02-07)
 
 ```
