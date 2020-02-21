@@ -12,12 +12,6 @@ This page assumes that you have a build and/or test that successfully
 utilizes remote execution, and you want to ensure that you are effectively
 utilizing remote cache.
 
-## Contents
-
-* [Checking your cache hit rate](#checking-your-cache-hit-rate)
-* [Troubleshooting cache hits](#troubleshooting-cache-hits)
-* [Comparing the execution logs](#comparing-the-execution-logs)
-
 ## Checking your cache hit rate
 
 In the standard output of your Bazel run, look at the `INFO` line that lists

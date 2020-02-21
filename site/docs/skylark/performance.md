@@ -15,11 +15,6 @@ assists you in finding spots where you might have made a mistake. Be warned:
 The cost of writing an inefficient rule may not be evident until it is in
 widespread use.
 
-## Contents
-{:.no_toc}
-
-* ToC
-{:toc}
 
 ## Use depsets
 

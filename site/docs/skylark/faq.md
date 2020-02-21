@@ -7,10 +7,6 @@ title: Extension FAQ
 
 These are some common issues and questions with writing extensions.
 
-* ToC
-{:toc}
-
-
 ## Why is my file not produced / my action never executed?
 
 Bazel only executes the actions needed to produce the *requested* output files.

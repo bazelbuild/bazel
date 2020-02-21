@@ -5,14 +5,6 @@ title: Toolchains
 
 # Toolchains
 
-- [Overview](#overview)
-- [Motivation](#motivation)
-- [Writing rules that use toolchains](#writing-rules-that-use-toolchains)
-- [Defining toolchains](#defining-toolchains)
-- [Registering and building with toolchains](#registering-and-building-with-toolchains)
-- [Toolchain resolution](#toolchain-resolution)
-- [Debugging toolchains](#debugging-toolchains)
-
 ## Overview
 
 This page describes the toolchain framework -- a way for rule authors to

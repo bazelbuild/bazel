@@ -5,18 +5,6 @@ title: Configuring Bazel CI for testing rules against remote execution
 
 # Configuring Bazel CI to test Bazel rules for remote execution
 
-*  [Overview](#overview)
-*  [Prerequisites](#prerequisites)
-*  [Setting up the Bazel CI for testing](#setting-up-the-bazel-ci-for-testing)
-*  [Troubleshooting failed builds and tests](#troubleshooting-failed-builds-and-tests)
-*  [Using a custom container in the `rbe_ubuntu1604` CI config](#using-a-custom-container-in-the-rbe_ubuntu1604-ci-config)
-   *  [Pulling the `rbe-ubuntu16-04` from Container Registry](#pulling-the-rbe-ubuntu16-04-from-container-registry)
-   *  [Building the `rbe-ubuntu16-04` container from source](#building-the-rbe-ubuntu16-04-container-from-source)
-   *  [Running the custom container](#running-the-custom-container)
-   *  [Adding resources to the custom container](#adding-resources-to-the-custom-container)
-   *  [Specifying the build platform definition](#specifying-the-build-platform-definition)
-   *  [Configuring Buildkite](#configuring-buildkite)
-
 ## Overview
 
 This document is for owners and maintainers of Bazel rule repositories. It
