@@ -328,10 +328,6 @@ public interface JavaSemantics {
         && ruleContext.getFragment(TestConfiguration.class).isPersistentTestRunner();
   }
 
-  static boolean isPersistentTestRunner(RuleContext ruleContext) {
-    return ruleContext.getFragment(TestConfiguration.class).isPersistentTestRunner();
-  }
-
   static Runfiles getTestSupportRunfiles(RuleContext ruleContext) {
     TransitiveInfoCollection testSupport = getTestSupport(ruleContext);
     if (testSupport == null) {

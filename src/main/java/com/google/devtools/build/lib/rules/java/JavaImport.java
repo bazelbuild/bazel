@@ -145,8 +145,7 @@ public class JavaImport implements RuleConfiguredTargetFactory {
             .addProvider(JavaRuleOutputJarsProvider.class, ruleOutputJarsProvider)
             .addProvider(JavaSourceJarsProvider.class, sourceJarsProvider)
             .addProvider(JavaSourceInfoProvider.class, javaSourceInfoProvider)
-            .maybeTransitiveOnlyRuntimeJarsToJavaInfo(
-                common.getDependencies(), JavaSemantics.isPersistentTestRunner(ruleContext))
+            .maybeTransitiveOnlyRuntimeJarsToJavaInfo(common.getDependencies(), true)
             .setRuntimeJars(javaArtifacts.getRuntimeJars())
             .setJavaConstraints(JavaCommon.getConstraints(ruleContext))
             .setNeverlink(neverLink)

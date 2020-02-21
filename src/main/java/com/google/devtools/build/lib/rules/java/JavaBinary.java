@@ -473,8 +473,7 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
             .addProvider(
                 JavaSourceInfoProvider.class,
                 JavaSourceInfoProvider.fromJavaTargetAttributes(attributes, semantics))
-            .maybeTransitiveOnlyRuntimeJarsToJavaInfo(
-                common.getDependencies(), JavaSemantics.isPersistentTestRunner(ruleContext))
+            .maybeTransitiveOnlyRuntimeJarsToJavaInfo(common.getDependencies(), true)
             .build();
 
     return builder
