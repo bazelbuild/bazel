@@ -18,18 +18,6 @@ results, build progress, the build configuration and much more. The Build Event
 Protocol is intended to be consumed programmatically and makes parsing Bazel’s
 command line output a thing of the past.
 
-## Contents
-
-*  [Overview](#overview)
-   *  [Build event graph](#build-event-graph)
-   *  [The Build Event Protocol by example](#the-build-event-protocol-by-example)
-*  [Consuming the Build Event Protocol](#consuming-the-build-event-protocol)
-   *  [Consume in a binary format](#consume-in-a-binary-format)
-   *  [Consume in text formats](#consume-in-text-formats)
-*  [The Build Event Service](#the-build-event-service)
-   *  [Build Event Service flags](#build-event-service-flags)
-   *  [Authentication and aecurity](#authentication-and-security)
-
 ## Overview
 
 The Build Event Protocol represents information about a build as events. A

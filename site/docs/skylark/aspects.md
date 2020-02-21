@@ -5,9 +5,6 @@ title: Aspects
 
 # Aspects
 
-* ToC
-{:toc}
-
 Aspects allow augmenting build dependency graphs with additional information
 and actions. Some typical scenarios when aspects can be useful:
 

@@ -18,12 +18,6 @@ Execution](/remote-execution-caching-debug.html). Everything presented in that
 guide also applies to remote caching with local execution. However, local
 execution presents some additional challenges which we will discuss here.
 
-## Contents
-
-* [Checking your cache hit rate](#checking-your-cache-hit-rate)
-* [Troubleshooting cache hits](#troubleshooting-cache-hits)
-* [Comparing the execution logs](#comparing-the-execution-logs)
-
 ## Checking your cache hit rate
 
 Successful remote cache hits will show up in the status line, similarly to

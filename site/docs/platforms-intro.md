@@ -5,26 +5,6 @@ title: Building with platforms
 
 # Building with platforms
 
-- [Overview](#overview)
-- [Background](#background)
-- [Goal](#goal)
-- [Should I use platforms?](#should-i-use-platforms)
-- [API review](#api-review)
-- [Status](#status)
-  - [Common platform properties](#common-platform-properties)
-  - [Default platforms](#default-platforms)
-  - [C++](#c)
-  - [Java](#java)
-  - [Android](#android)
-  - [Apple](#apple)
-  - [Other languages](#other-languages)
-  - [select()](#select)
-  - [Transitions](#transitions)
-- [How to use platforms today](#how-to-use-platforms-today)
-- [Questions](#questions)
-- [See also](#see-also)
-
-## Overview
 Bazel has sophisticated support for modeling [platforms](platforms.html) and
 [toolchains](toolchains.html). Integrating this into real projects requires
 coherent cooperation between project and library owners, rule maintainers,

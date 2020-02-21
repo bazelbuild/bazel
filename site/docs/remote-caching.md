@@ -10,26 +10,6 @@ A remote cache is used by a team of developers and/or a continuous integration
 outputs from one machine can be safely reused on another machine, which can
 make builds significantly faster.
 
-## Contents
-
-* [Overview](#overview)
-* [How a build uses remote caching](#how-a-build-uses-remote-caching)
-* [Setting up a server as the cache's backend](#setting-up-a-server-as-the-caches-backend)
-    * [nginx](#nginx)
-    * [bazel-remote](#bazel-remote)
-    * [Google Cloud Storage](#google-cloud-storage)
-    * [Other servers](#other-servers)
-* [Authentication](#authentication)
-* [HTTP Caching Protocol](#http-caching-protocol)
-* [Run Bazel using the remote cache](#run-bazel-using-the-remote-cache)
-    * [Read from and write to the remote cache](#read-from-and-write-to-the-remote-cache)
-    * [Read only from the remote cache](#read-only-from-the-remote-cache)
-    * [Exclude specific targets from using the remote cache](#exclude-specific-targets-from-using-the-remote-cache)
-    * [Delete content from the remote cache](#delete-content-from-the-remote-cache)
-* [Disk cache](#disk-cache)
-* [Known Issues](#known-issues)
-* [External Links](#external-links)
-
 ## Overview
 
 Bazel breaks a build into discrete steps, which are called actions. Each action

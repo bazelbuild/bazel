@@ -43,13 +43,6 @@ needed.
 Rules also produce and pass along information that may be useful to other rules
 in the form of [providers](#providers).
 
-## Contents
-{:.no_toc}
-
-* ToC
-{:toc}
-
-
 ## Rule creation
 
 In a `.bzl` file, use the [rule](lib/globals.html#rule)

@@ -5,29 +5,6 @@ title: Configurable build attributes
 
 # Configurable build attributes
 
-### Contents
-* [Example](#example)
-* [Configuration conditions](#configuration-conditions)
-* [Defaults](#defaults)
-* [Custom keys](#custom-keys)
-* [Platforms](#platforms)
-* [Short keys](#short-keys)
-* [Multiple `select` functions](#multiple-select-functions)
-* [OR chaining](#or-chaining)
-  * [selects.with_or](#selects-with-or)
-  * [selects.config_setting_group](#selects-config-setting-or-group)
-* [AND chaining](#and-chaining)
-* [Custom error messages](#custom-error-messages)
-* [Rules compatibility](#rules)
-* [Bazel query and query](#query)
-* [FAQ](#faq)
-  * [Why doesn't select() work in macros?](#macros-select)
-  * [Why does select() always return true?](#boolean-select)
-  * [Can I read select() like a dict?](#inspectable-select)
-  * [Why doesn't select() work with bind()?](#bind-select)
-
-&nbsp;
-
 **_Configurable attributes_**, commonly known as [`select()`](
 be/functions.html#select), is a Bazel feature that lets users toggle the values
 of BUILD rule attributes at the command line.
