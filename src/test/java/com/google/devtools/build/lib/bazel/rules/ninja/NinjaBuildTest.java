@@ -327,4 +327,43 @@ public class NinjaBuildTest extends BuildViewTestCase {
               "build_config/a", "build_config/b", "build_config/c",
             });
   }
+
+  @Test
+  public void testRuleWithDepfileVariable() throws Exception {
+    rewriteWorkspace(
+        "workspace(name = 'test')",
+        "dont_symlink_directories_in_execroot(paths = ['build_config'])");
+
+    scratch.file("input");
+    scratch.file(
+        "build_config/build.ninja",
+        "rule rule123",
+        "  command = executable -d ${depfile} ${in} > ${out}",
+        "  depfile = ${out}.d",
+        "  deps = gcc",
+        "build out_file: rule123 ../input");
+
+    ConfiguredTarget configuredTarget =
+        scratchConfiguredTarget(
+            "",
+            "ninja_target",
+            "ninja_graph(name = 'graph', output_root = 'build_config',",
+            " working_directory = 'build_config',",
+            " main = 'build_config/build.ninja')",
+            "ninja_build(name = 'ninja_target', ninja_graph = 'graph',",
+            " srcs = ['input'],",
+            " output_groups= {'main': ['out_file']})");
+    assertThat(configuredTarget).isInstanceOf(RuleConfiguredTarget.class);
+    RuleConfiguredTarget ninjaConfiguredTarget = (RuleConfiguredTarget) configuredTarget;
+    ImmutableList<ActionAnalysisMetadata> actions = ninjaConfiguredTarget.getActions();
+    assertThat(actions).hasSize(1);
+
+    ActionAnalysisMetadata action = Iterables.getOnlyElement(actions);
+    assertThat(action).isInstanceOf(NinjaAction.class);
+    List<CommandLineAndParamFileInfo> commandLines =
+        ((NinjaAction) action).getCommandLines().getCommandLines();
+    assertThat(commandLines).hasSize(1);
+    assertThat(commandLines.get(0).commandLine.toString())
+        .endsWith("cd build_config && executable -d out_file.d ../input > out_file");
+  }
 }
