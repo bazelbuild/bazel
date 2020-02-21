@@ -2030,13 +2030,14 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
         if (transition == NullTransition.INSTANCE) {
           continue;
         }
-        List<BuildOptions> toOptions = Collections.singletonList(fromOptions);
+        Collection<BuildOptions> toOptions = Collections.singletonList(fromOptions);
         try {
           Map<PackageValue.Key, PackageValue> buildSettingPackages =
               getBuildSettingPackages(transition, eventHandler);
           toOptions =
               ConfigurationResolver.applyTransition(
-                  fromOptions, transition, buildSettingPackages, eventHandler);
+                      fromOptions, transition, buildSettingPackages, eventHandler)
+                  .values();
           StarlarkTransition.replayEvents(eventHandler, transition);
         } catch (TransitionException e) {
           eventHandler.handle(Event.error(e.getMessage()));
@@ -2061,13 +2062,14 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
           builder.put(key, null);
           continue;
         }
-        List<BuildOptions> toOptions = Collections.singletonList(fromOptions);
+        Collection<BuildOptions> toOptions = Collections.singletonList(fromOptions);
         try {
           Map<PackageValue.Key, PackageValue> buildSettingPackages =
               getBuildSettingPackages(key.getTransition(), eventHandler);
           toOptions =
               ConfigurationResolver.applyTransition(
-                  fromOptions, key.getTransition(), buildSettingPackages, eventHandler);
+                      fromOptions, key.getTransition(), buildSettingPackages, eventHandler)
+                  .values();
         } catch (TransitionException e) {
           eventHandler.handle(Event.error(e.getMessage()));
           builder.setHasError();

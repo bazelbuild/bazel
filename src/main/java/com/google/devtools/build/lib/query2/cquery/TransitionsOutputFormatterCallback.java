@@ -45,8 +45,8 @@ import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.util.OrderedSetMultimap;
 import java.io.OutputStream;
+import java.util.Collection;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.function.Function;
@@ -145,7 +145,7 @@ class TransitionsOutputFormatterCallback extends CqueryThreadsafeCallback {
         }
         Dependency dep = attributeAndDep.getValue();
         BuildOptions fromOptions = config.getOptions();
-        List<BuildOptions> toOptions = dep.getTransition().apply(fromOptions);
+        Collection<BuildOptions> toOptions = dep.getTransition().apply(fromOptions).values();
         String hostConfigurationChecksum = hostConfiguration.checksum();
         String dependencyName;
         if (attributeAndDep.getKey() == DependencyResolver.TOOLCHAIN_DEPENDENCY) {

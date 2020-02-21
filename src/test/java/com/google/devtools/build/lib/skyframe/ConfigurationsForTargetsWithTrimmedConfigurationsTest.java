@@ -20,6 +20,7 @@ import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
 import static com.google.devtools.build.lib.packages.Type.STRING;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
@@ -588,10 +589,11 @@ public class ConfigurationsForTargetsWithTrimmedConfigurationsTest
     ImmutableList.Builder<String> outValues = ImmutableList.builder();
     for (BuildOptions toOptions :
         ConfigurationResolver.applyTransition(
-            getTargetConfiguration().getOptions(),
-            transition,
-            ImmutableMap.of(),
-            NullEventHandler.INSTANCE)) {
+                getTargetConfiguration().getOptions(),
+                transition,
+                ImmutableMap.of(),
+                NullEventHandler.INSTANCE)
+            .values()) {
       outValues.add(toOptions.get(TestConfiguration.TestOptions.class).testFilter);
     }
     return outValues.build();
@@ -627,10 +629,11 @@ public class ConfigurationsForTargetsWithTrimmedConfigurationsTest
   @Test
   public void composedSplitTransitions() throws Exception {
     update(); // Creates the target configuration.
-    assertThat(
+    assertThrows(
+        IllegalStateException.class,
+        () ->
             getTestFilterOptionValue(
-                ComposingTransition.of(newSplitTransition("s"), newSplitTransition("t"))))
-        .containsExactly("s1t1", "s1t2", "s2t1", "s2t2");
+                ComposingTransition.of(newSplitTransition("s"), newSplitTransition("t"))));
   }
 
 }

@@ -48,6 +48,7 @@ import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.ValueOrException;
 import com.google.devtools.common.options.OptionsParsingException;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -340,9 +341,10 @@ final class PrepareAnalysisPhaseFunction implements SkyFunction {
         if (buildSettingPackages == null) {
           return null;
         }
-        List<BuildOptions> toOptions =
+        Collection<BuildOptions> toOptions =
             ConfigurationResolver.applyTransition(
-                fromOptions, transition, buildSettingPackages, env.getListener());
+                    fromOptions, transition, buildSettingPackages, env.getListener())
+                .values();
         StarlarkTransition.replayEvents(env.getListener(), transition);
         for (BuildOptions toOption : toOptions) {
           configSkyKeys.add(
@@ -374,9 +376,10 @@ final class PrepareAnalysisPhaseFunction implements SkyFunction {
         if (buildSettingPackages == null) {
           return null;
         }
-        List<BuildOptions> toOptions =
+        Collection<BuildOptions> toOptions =
             ConfigurationResolver.applyTransition(
-                fromOptions, transition, buildSettingPackages, env.getListener());
+                    fromOptions, transition, buildSettingPackages, env.getListener())
+                .values();
         for (BuildOptions toOption : toOptions) {
           SkyKey configKey =
               BuildConfigurationValue.keyWithPlatformMapping(

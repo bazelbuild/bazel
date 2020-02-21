@@ -44,6 +44,9 @@ public abstract class ComposingTransitionFactory<T> implements TransitionFactory
 
     Preconditions.checkNotNull(transitionFactory1);
     Preconditions.checkNotNull(transitionFactory2);
+    Preconditions.checkArgument(
+        !transitionFactory1.isSplit() || !transitionFactory2.isSplit(),
+        "can't compose two split transition factories");
 
     if (isFinal(transitionFactory1)) {
       // Since no other transition can be composed with transitionFactory1, use it directly.

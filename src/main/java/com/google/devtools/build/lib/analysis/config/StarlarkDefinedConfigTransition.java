@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.analysis.config;
 
+import static com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition.PATCH_TRANSITION_KEY;
+
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.events.Location;
@@ -75,7 +77,6 @@ public abstract class StarlarkDefinedConfigTransition implements ConfigurationTr
   public List<String> getOutputs() {
     return outputs;
   }
-  
 
   /**
    * Returns the location of the Starlark code responsible for determining the transition's changed
@@ -94,10 +95,11 @@ public abstract class StarlarkDefinedConfigTransition implements ConfigurationTr
    * a result of applying this transition.
    *
    * @param previousSettings a map representing the previous build settings
-   * @return a list of changed build setting maps; each element of the list represents a different
-   *     child configuration (split transitions will have multiple elements in this list, other
-   *     transitions should have a single element). Each build setting map is a map from build
-   *     setting to target setting value; all other build settings will remain unchanged
+   * @return a map of changed build setting maps; each element of the map represents a different
+   *     child configuration (split transitions will have multiple elements in this map with keys
+   *     provided by the transition impl, patch transitions should have a single element keyed by
+   *     {@code PATCH_TRANSITION_KEY}). Each build setting map is a map from build setting to target
+   *     setting value; all other build settings will remain unchanged
    * @throws EvalException if there is an error evaluating the transition
    * @throws InterruptedException if evaluating the transition is interrupted
    */
@@ -136,7 +138,7 @@ public abstract class StarlarkDefinedConfigTransition implements ConfigurationTr
     @Override
     public ImmutableMap<String, Map<String, Object>> evaluate(
         Map<String, Object> previousSettings, StructImpl attributeMapper) {
-      return ImmutableMap.of("analysis_test", changedSettings);
+      return ImmutableMap.of(PATCH_TRANSITION_KEY, changedSettings);
     }
 
     @Override
@@ -243,10 +245,9 @@ public abstract class StarlarkDefinedConfigTransition implements ConfigurationTr
           // fall through
         }
         try {
-          // Try if this is a non-split, i.e. 1:1, transition. In which case use the impl function
-          // name as the transition key though it would not be used anywhere.
+          // Try if this is a patch transition.
           return ImmutableMap.of(
-              impl.getName(),
+              PATCH_TRANSITION_KEY,
               ((Dict<?, ?>) result)
                   .getContents(String.class, Object.class, "dictionary of options"));
         } catch (EvalException e) {

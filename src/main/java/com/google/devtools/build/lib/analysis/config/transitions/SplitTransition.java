@@ -15,12 +15,10 @@
 package com.google.devtools.build.lib.analysis.config.transitions;
 
 import com.google.common.base.Verify;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.concurrent.ThreadSafety;
 import java.util.Collection;
-import java.util.List;
 import java.util.Map;
 
 /**
@@ -57,8 +55,8 @@ public interface SplitTransition extends ConfigurationTransition {
   }
 
   @Override
-  default List<BuildOptions> apply(BuildOptions buildOptions) {
-    List<BuildOptions> splitOptions = ImmutableList.copyOf(split(buildOptions).values());
+  default Map<String, BuildOptions> apply(BuildOptions buildOptions) {
+    Map<String, BuildOptions> splitOptions = split(buildOptions);
     Verify.verifyNotNull(splitOptions, "Split transition output may not be null");
     Verify.verify(!splitOptions.isEmpty(), "Split transition output may not be empty");
     return splitOptions;
