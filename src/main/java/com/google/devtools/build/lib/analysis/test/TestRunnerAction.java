@@ -337,6 +337,7 @@ public class TestRunnerAction extends AbstractAction
     fp.addString(GUID);
     fp.addStrings(executionSettings.getArgs().arguments());
     fp.addString(Strings.nullToEmpty(executionSettings.getTestFilter()));
+    fp.addBoolean(executionSettings.getTestRunnerFailFast());
     RunUnder runUnder = executionSettings.getRunUnder();
     fp.addString(runUnder == null ? "" : runUnder.getValue());
     fp.addStringMap(extraTestEnv);
@@ -534,6 +535,9 @@ public class TestRunnerAction extends AbstractAction
     String testFilter = getExecutionSettings().getTestFilter();
     if (testFilter != null) {
       env.put(TEST_BRIDGE_TEST_FILTER_ENV, testFilter);
+    }
+    if (testConfiguration.getTestRunnerFailFast()) {
+      env.put("TESTBRIDGE_TEST_RUNNER_FAIL_FAST", "1");
     }
 
     env.put("TEST_WARNINGS_OUTPUT_FILE", getTestWarningsPath().getPathString());

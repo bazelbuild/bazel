@@ -89,6 +89,16 @@ public class TestConfiguration extends Fragment {
     public String testFilter;
 
     @Option(
+        name = "test_runner_fail_fast",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        help =
+            "Forwards fail fast option to the test runner. The test runner should stop execution"
+                + " upon first failure.")
+    public boolean testRunnerFailFast;
+
+    @Option(
       name = "cache_test_results",
       defaultValue = "auto",
       abbrev = 't', // it's useful to toggle this on/off quickly
@@ -301,6 +311,10 @@ public class TestConfiguration extends Fragment {
 
   public String getTestFilter() {
     return options.testFilter;
+  }
+
+  public boolean getTestRunnerFailFast() {
+    return options.testRunnerFailFast;
   }
 
   public TriState cacheTestResults() {
