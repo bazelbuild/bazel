@@ -43,7 +43,7 @@ import java.util.concurrent.ConcurrentMap;
  * <p>[1] Heuristic: If the size of the NestedSet exceeds a certain threshold, we evaluate it as an
  * ArtifactNestedSetKey.
  */
-class ArtifactNestedSetFunction implements SkyFunction {
+public class ArtifactNestedSetFunction implements SkyFunction {
 
   /**
    * A concurrent map from Artifacts' SkyKeys to their ValueOrException, for Artifacts that are part

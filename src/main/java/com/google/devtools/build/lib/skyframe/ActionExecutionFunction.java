@@ -228,11 +228,10 @@ public class ActionExecutionFunction implements SkyFunction {
     ImmutableSet<Artifact> mandatoryInputs =
         action.discoversInputs() ? action.getMandatoryInputs().toSet() : null;
 
-    int nestedSetSizeThreshold = ArtifactNestedSetFunction.getSizeThreshold();
     NestedSet<Artifact> allInputs = state.allInputs.getAllInputs();
 
     Map<SkyKey, ValueOrException2<IOException, ActionExecutionException>> inputDeps =
-        getInputDeps(env, nestedSetSizeThreshold, allInputs, state);
+        getInputDeps(env, allInputs, state);
     // If there's a missing value.
     if (inputDeps == null) {
       return null;
@@ -342,18 +341,17 @@ public class ActionExecutionFunction implements SkyFunction {
    */
   private static Map<SkyKey, ValueOrException2<IOException, ActionExecutionException>> getInputDeps(
       Environment env,
-      int nestedSetSizeThreshold,
       NestedSet<Artifact> allInputs,
       ContinuationState state)
       throws InterruptedException {
-    if (evalInputsAsNestedSet(nestedSetSizeThreshold, allInputs)) {
+    if (evalInputsAsNestedSet(allInputs)) {
       // We "unwrap" the NestedSet and evaluate the first layer of direct Artifacts here in order
       // to save memory:
       // - This top layer costs 1 extra ArtifactNestedSetKey node.
       // - It's uncommon that 2 actions share the exact same set of inputs
       //   => the top layer offers little in terms of reusability.
       // More details: b/143205147.
-      NestedSetView<Artifact> nestedSetView = new NestedSetView<>((NestedSet<Artifact>) allInputs);
+      NestedSetView<Artifact> nestedSetView = new NestedSetView<>(allInputs);
 
       Map<SkyKey, ValueOrException2<IOException, ActionExecutionException>>
           directArtifactValuesOrExceptions =
@@ -390,8 +388,8 @@ public class ActionExecutionFunction implements SkyFunction {
    * necessary. The default case (without --experimental_nestedset_as_skykey_threshold) will ignore
    * this path.
    */
-  private static boolean evalInputsAsNestedSet(
-      int nestedSetSizeThreshold, NestedSet<Artifact> inputs) {
+  public static boolean evalInputsAsNestedSet(NestedSet<Artifact> inputs) {
+    int nestedSetSizeThreshold = ArtifactNestedSetFunction.getSizeThreshold();
     if (nestedSetSizeThreshold == 1) {
       // Don't even flatten in this case.
       return true;
