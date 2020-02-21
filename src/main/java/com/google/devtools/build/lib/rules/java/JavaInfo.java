@@ -500,6 +500,8 @@ public final class JavaInfo extends NativeInfo implements JavaInfoApi<Artifact> 
 
     public Builder maybeTransitiveOnlyRuntimeJarsToJavaInfo(
         List<? extends TransitiveInfoCollection> deps, boolean shouldAdd) {
+      // TODO(b/149926109): Currently all callers call with shouldAdd=true as a temporary workaround
+      // to make --trim_test_configuration work again.
       if (shouldAdd) {
         deps.stream()
             .map(JavaInfo::getJavaInfo)
