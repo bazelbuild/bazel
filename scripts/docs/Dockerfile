@@ -19,8 +19,11 @@ FROM ubuntu:18.04
 
 ENV DEBIAN_FRONTEND="noninteractive"
 RUN apt-get -qqy update && \
-    apt-get -qqy install build-essential curl liblzma-dev python-pygments ruby ruby-dev unzip zlib1g-dev && \
+    apt-get -qqy install build-essential curl liblzma-dev python3.7 \
+      python-pygments ruby ruby-dev unzip zlib1g-dev && \
     apt-get clean && rm -rf /var/lib/apt/lists/*
+
+RUN ln -fs /usr/bin/python3.7 /usr/bin/python
 
 RUN curl -Lo /usr/local/bin/bazel https://github.com/bazelbuild/bazelisk/releases/download/v1.3.0/bazelisk-linux-amd64 && \
     chown root:root /usr/local/bin/bazel && \
