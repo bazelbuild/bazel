@@ -1,3 +1,34 @@
+## Release 2.1.1 (2020-02-21)
+
+```
+Baseline: 41ec5a28fb30a8d6c5c60194c4bb29528352cf78
+
+Cherry picks:
+
+   + 733ac0ff7ad1e13ab68ceb2fde694d7ab71b2366:
+     Adds an alias for d8_jar_import in android.WORKSPACE.
+   + c94b1474b368dedf9f68f34fad90cc8664f2b0e0:
+     Automatic code cleanup.
+   + 2a8cc7075f741721563efd9dc050ca3458cde30b:
+     Do not fail or print errors when Shellzelisk cannot find a
+     requested ?
+   + bdf34d7fd9539411e93348ba25307f34362d9a42:
+     Fix race when extracting the install base when Bazel runs in a
+     PID namespace.
+   + d381c25bb7dd205c283f7ad91cac13190d2dfede:
+     Fix wrong mode of install base directory.
+   + eab39cc7b5a612f891fd1e5af5b45bdc1b66e6e1:
+     Disable broken test_max_open_file_descriptors.
+   + e6ee35faaa351a77e6fa667a74ed195e3d1927bf:
+     Release 2.1.0 (2020-02-07)
+   + 9a823d9dab82631ff4600eff38d597807e8d1221:
+     Prevent NPE on backwards seek on Chunker
+```
+
+9a823d9: Prevent NPE on backwards seek on Chunker.
+
+This release contains contributions from many people at Google, as well as George Gensure.
+
 ## Release 2.1.0 (2020-02-07)
 
 ```
