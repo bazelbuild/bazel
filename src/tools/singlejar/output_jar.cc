@@ -1027,10 +1027,16 @@ void OutputJar::AppendCDSArchive(const std::string &cds_archive) {
 #endif
   off64_t aligned_offset = (cur_offset + (pagesize - 1)) & ~(pagesize - 1);
   size_t gap = aligned_offset - cur_offset;
+  size_t written;
   if (gap > 0) {
-    char zero = 0;
-    size_t written = fwrite(&zero, 1, gap, file_);
+    char *zeros = (char *)malloc(gap);
+    if (!zeros) {
+      return;
+    }
+    memset(zeros, 0, gap);
+    written = fwrite(zeros, 1, gap, file_);
     outpos_ += written;
+    free(zeros);
   }
 
   // Copy archived data
