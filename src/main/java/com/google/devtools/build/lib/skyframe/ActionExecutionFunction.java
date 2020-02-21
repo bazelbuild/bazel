@@ -54,7 +54,6 @@ import com.google.devtools.build.lib.causes.LabelCause;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
-import com.google.devtools.build.lib.collect.compacthashset.CompactHashSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetView;
@@ -213,7 +212,6 @@ public class ActionExecutionFunction implements SkyFunction {
     }
     if (!state.hasCollectedInputs()) {
       state.allInputs = collectInputs(action, env);
-      state.requestedArtifactNestedSetKeys = null;
       if (state.allInputs == null) {
         // Missing deps.
         return null;
@@ -231,7 +229,7 @@ public class ActionExecutionFunction implements SkyFunction {
     NestedSet<Artifact> allInputs = state.allInputs.getAllInputs();
 
     Map<SkyKey, ValueOrException2<IOException, ActionExecutionException>> inputDeps =
-        getInputDeps(env, allInputs, state);
+        getInputDeps(env, allInputs);
     // If there's a missing value.
     if (inputDeps == null) {
       return null;
@@ -340,10 +338,7 @@ public class ActionExecutionFunction implements SkyFunction {
    * between runs.
    */
   private static Map<SkyKey, ValueOrException2<IOException, ActionExecutionException>> getInputDeps(
-      Environment env,
-      NestedSet<Artifact> allInputs,
-      ContinuationState state)
-      throws InterruptedException {
+      Environment env, NestedSet<Artifact> allInputs) throws InterruptedException {
     if (evalInputsAsNestedSet(allInputs)) {
       // We "unwrap" the NestedSet and evaluate the first layer of direct Artifacts here in order
       // to save memory:
@@ -360,14 +355,9 @@ public class ActionExecutionFunction implements SkyFunction {
                   IOException.class,
                   ActionExecutionException.class);
 
-      if (state.requestedArtifactNestedSetKeys == null) {
-        state.requestedArtifactNestedSetKeys = CompactHashSet.create();
-        for (NestedSetView<Artifact> transitive : nestedSetView.transitives()) {
-          SkyKey key = new ArtifactNestedSetKey(transitive.identifier());
-          state.requestedArtifactNestedSetKeys.add(key);
-        }
-      }
-      env.getValues(state.requestedArtifactNestedSetKeys);
+      env.getValues(
+          Iterables.transform(
+              nestedSetView.transitives(), t -> ArtifactNestedSetKey.create(t.identifier())));
 
       if (env.valuesMissing()) {
         return null;
@@ -1363,13 +1353,6 @@ public class ActionExecutionFunction implements SkyFunction {
     Token token = null;
     NestedSet<Artifact> discoveredInputs = null;
     FileSystem actionFileSystem = null;
-
-    /**
-     * Stores the ArtifactNestedSetKeys created from the inputs of this actions. Objective: avoid
-     * creating a new ArtifactNestedSetKey for the same NestedSet each time we run
-     * ActionExecutionFunction for the same action. This is wiped everytime allInputs is updated.
-     */
-    CompactHashSet<SkyKey> requestedArtifactNestedSetKeys = null;
 
     boolean hasCollectedInputs() {
       return allInputs != null;
