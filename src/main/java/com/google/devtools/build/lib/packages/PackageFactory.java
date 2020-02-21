@@ -430,12 +430,6 @@ public final class PackageFactory {
     return packageArguments.build();
   }
 
-  static class NotRepresentableException extends EvalException {
-    NotRepresentableException(String msg) {
-      super(null, msg);
-    }
-  };
-
   public static RuleVisibility getVisibility(Label ruleLabel, List<Label> original)
       throws EvalException {
     RuleVisibility result;

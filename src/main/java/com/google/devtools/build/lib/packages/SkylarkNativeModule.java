@@ -27,7 +27,6 @@ import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.Globber.BadGlobException;
-import com.google.devtools.build.lib.packages.PackageFactory.NotRepresentableException;
 import com.google.devtools.build.lib.packages.PackageFactory.PackageContext;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.ThirdPartyLicenseExistencePolicy;
 import com.google.devtools.build.lib.packages.Type.ConversionException;
@@ -420,5 +419,11 @@ public class SkylarkNativeModule implements SkylarkNativeModuleApi {
     // if we add more types that we can represent.
     throw new NotRepresentableException(
         String.format("cannot represent %s (%s) in Starlark", val, val.getClass()));
+  }
+
+  private static class NotRepresentableException extends EvalException {
+    NotRepresentableException(String msg) {
+      super(null, msg);
+    }
   }
 }
