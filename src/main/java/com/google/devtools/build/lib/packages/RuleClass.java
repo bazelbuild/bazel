@@ -2228,7 +2228,7 @@ public class RuleClass {
             eventHandler);
       }
       try {
-        rule.setVisibility(PackageFactory.getVisibility(rule.getLabel(), attrList));
+        rule.setVisibility(PackageUtils.getVisibility(rule.getLabel(), attrList));
       } catch (EvalException e) {
          rule.reportError(rule.getLabel() + " " + e.getMessage(), eventHandler);
       }

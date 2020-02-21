@@ -200,7 +200,7 @@ public class SkylarkNativeModule implements SkylarkNativeModuleApi {
     RuleVisibility visibility =
         EvalUtils.isNullOrNone(visibilityO)
             ? ConstantRuleVisibility.PUBLIC
-            : PackageFactory.getVisibility(
+            : PackageUtils.getVisibility(
                 pkgBuilder.getBuildFileLabel(),
                 BuildType.LABEL_LIST.convert(
                     visibilityO, "'exports_files' operand", pkgBuilder.getBuildFileLabel()));
