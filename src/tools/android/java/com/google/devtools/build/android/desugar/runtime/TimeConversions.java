@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.android.desugar.runtime;
 
+import android.telephony.SubscriptionPlan;
+
 /**
  * Conversions between built-in and desugared java.time primitives for calling built-in Android APIs
  * (see b/79121791).
@@ -47,6 +49,16 @@ public final class TimeConversions {
   public static j$.time.ZonedDateTime getReferenceTime(
       android.view.textclassifier.TextClassification.Request request) {
     return fromZonedDateTime(request.getReferenceTime());
+  }
+
+  public static SubscriptionPlan.Builder createNonrecurring(
+      j$.time.ZonedDateTime start, j$.time.ZonedDateTime end) {
+    return SubscriptionPlan.Builder.createNonrecurring(
+        toZonedDateTime(start), toZonedDateTime(end));
+  }
+
+  public static SubscriptionPlan.Builder createRecurringMonthly(j$.time.ZonedDateTime start) {
+    return SubscriptionPlan.Builder.createRecurringMonthly(toZonedDateTime(start));
   }
 
   private static j$.time.MonthDay fromMonthDay(java.time.MonthDay monthDay) {
