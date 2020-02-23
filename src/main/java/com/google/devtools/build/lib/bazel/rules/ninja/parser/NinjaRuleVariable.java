@@ -31,6 +31,10 @@ public enum NinjaRuleVariable {
   RSPFILE_CONTENT,
   POOL;
 
+  public String getText() {
+    return Ascii.toLowerCase(name());
+  }
+
   public static NinjaRuleVariable nullOrValue(String name) {
     try {
       return valueOf(Ascii.toUpperCase(name));
