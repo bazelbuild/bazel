@@ -145,6 +145,8 @@ pre {
   font-size: 100%;
   line-height: 20px;
   color: $code-color;
+  border-radius: 6px;
+  box-shadow: 1px 1px 5px #aaa;
 }
 
 code {
