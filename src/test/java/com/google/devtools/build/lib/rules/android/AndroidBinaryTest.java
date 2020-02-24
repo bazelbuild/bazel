@@ -1310,7 +1310,6 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
         "android_binary(name = 'hello',",
         "               srcs = ['Foo.java'],",
         "               manifest = 'AndroidManifest.xml',",
-        "               inline_constants = 0,",
         "               resource_files = ['res/values/strings.xml'],",
         "               shrink_resources = 1,)");
 
@@ -3599,7 +3598,6 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
         "android_binary(name = 'hello',",
         "               srcs = ['Foo.java'],",
         "               manifest = 'AndroidManifest.xml',",
-        "               inline_constants = 0,",
         "               resource_files = ['res/values/strings.xml'],",
         "               shrink_resources = 1,",
         "               proguard_specs = ['proguard-spec.pro'],)");
@@ -3682,7 +3680,6 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
         "android_binary(name = 'hello',",
         "               srcs = ['Foo.java'],",
         "               manifest = 'AndroidManifest.xml',",
-        "               inline_constants = 0,",
         "               resource_files = ['res/values/strings.xml'],",
         "               shrink_resources = 1,",
         "               proguard_specs = ['proguard-spec.pro'],)");
