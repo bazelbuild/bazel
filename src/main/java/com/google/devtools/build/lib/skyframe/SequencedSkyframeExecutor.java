@@ -287,26 +287,23 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
     recordingDiffer.invalidate(Iterables.filter(memoizingEvaluator.getValues().keySet(), pred));
   }
 
-  private void invalidateDeletedPackages(ImmutableSet<PackageIdentifier> deletedPackages) {
-    // Exit early if there are no packages to be deleted to avoid iterating over a large map.
-    if (deletedPackages.isEmpty()) {
-      return;
-    }
-    Predicate<PackageIdentifier> isDeleted = deletedPackages::contains;
-    memoizingEvaluator.delete(k -> PackageLookupValue.appliesToKey(k, isDeleted));
-  }
-
   /**
    * Sets the packages that should be treated as deleted and ignored.
    */
   @Override
   @VisibleForTesting  // productionVisibility = Visibility.PRIVATE
   public void setDeletedPackages(Iterable<PackageIdentifier> pkgs) {
-    // Invalidate the old deletedPackages as they may exist now.
-    invalidateDeletedPackages(deletedPackages.get());
-    deletedPackages.set(ImmutableSet.copyOf(pkgs));
-    // Invalidate the new deletedPackages as we need to pretend that they don't exist now.
-    invalidateDeletedPackages(deletedPackages.get());
+    ImmutableSet<PackageIdentifier> newDeletedPackagesSet = ImmutableSet.copyOf(pkgs);
+
+    Set<PackageIdentifier> newlyDeletedOrNotDeletedPackages =
+        Sets.symmetricDifference(deletedPackages.get(), newDeletedPackagesSet);
+    if (!newlyDeletedOrNotDeletedPackages.isEmpty()) {
+      // PackageLookupValue is a HERMETIC node type, so we can't invalidate it.
+      memoizingEvaluator.delete(
+          k -> PackageLookupValue.appliesToKey(k, newlyDeletedOrNotDeletedPackages::contains));
+    }
+
+    deletedPackages.set(newDeletedPackagesSet);
   }
 
   /** Uses diff awareness on all the package paths to invalidate changed files. */
