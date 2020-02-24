@@ -605,4 +605,36 @@ public class NinjaBlackBoxTest extends AbstractBlackBoxTest {
     Exception exception = assertThrows(Exception.class, () -> bazel.build("//..."));
     assertThat(exception).hasMessageThat().contains("cycle in dependency graph");
   }
+
+  @Test
+  public void testRspFileWritten() throws Exception {
+    context().write("input.txt", "input");
+    context()
+        .write(
+            "build_dir/build.ninja",
+            "rule cat",
+            "  command = echo '<<' $$(cat ${in}) '>>' > ${out}",
+            "  rspfile = ${out}.rsp",
+            "  rspfile_content = ${in}",
+            "build first.txt: cat ../input.txt");
+
+    context()
+        .write(
+            "BUILD",
+            "ninja_graph(name = 'graph', output_root = 'build_dir',",
+            " working_directory = 'build_dir',",
+            " main = 'build_dir/build.ninja')",
+            "ninja_build(name = 'ninja_target', ninja_graph = 'graph',",
+            "  srcs = [\":input.txt\"],",
+            " output_groups= {'main': ['first.txt']})");
+
+    BuilderRunner bazel = context().bazel().withFlags("--experimental_ninja_actions");
+    assertConfigured(bazel.build("//..."));
+    Path pathFirst = context().resolveExecRootPath(bazel, "build_dir/first.txt");
+    assertThat(Files.readAllLines(pathFirst)).containsExactly("<< input >>");
+
+    Path rspFile = context().resolveExecRootPath(bazel, "build_dir/first.txt.rsp");
+    assertThat(Files.exists(rspFile)).isTrue();
+    assertThat(Files.readAllLines(rspFile)).containsExactly("../input.txt");
+  }
 }
