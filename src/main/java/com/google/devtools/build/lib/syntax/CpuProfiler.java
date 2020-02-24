@@ -163,12 +163,14 @@ final class CpuProfiler {
 
   // ---- signal router ----
 
-  private static Thread router;
+  private static FileInputStream pipe;
 
   // Starts the routing thread if not already started (idempotent).
+  // On return, it is safe to install the signal handler.
   private static synchronized void startRouter() {
-    if (router == null) {
-      router = new Thread(CpuProfiler::router, "SIGPROF router");
+    if (pipe == null) {
+      pipe = new FileInputStream(createPipe());
+      Thread router = new Thread(CpuProfiler::router, "SIGPROF router");
       router.setDaemon(true);
       router.start();
     }
@@ -190,12 +192,10 @@ final class CpuProfiler {
   // saving 100 write+read calls per second per core.
   //
   private static void router() {
-    FileDescriptor fd = createPipe();
-    FileInputStream f = new FileInputStream(fd);
     byte[] buf = new byte[4];
     while (true) {
       try {
-        int n = f.read(buf);
+        int n = pipe.read(buf);
         if (n < 0) {
           throw new IllegalStateException("pipe closed");
         }
