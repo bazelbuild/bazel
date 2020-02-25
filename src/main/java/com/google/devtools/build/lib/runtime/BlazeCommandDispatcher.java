@@ -589,7 +589,7 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
               + Throwables.getStackTraceAsString(e));
       e.printStackTrace();
       BugReport.printBug(outErr, e, commonOptions.oomMessage);
-      bugReporter.sendBugReport(e, args, env.getCrashData());
+      bugReporter.sendBugReport(e, args);
       logger.log(Level.SEVERE, "Shutting down due to exception", e);
       result = BlazeCommandResult.shutdown(BugReport.getExitCodeForThrowable(e));
       return result;
