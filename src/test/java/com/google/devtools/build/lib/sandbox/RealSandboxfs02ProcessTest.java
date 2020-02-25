@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.sandbox;
 
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.sandbox.SandboxfsProcess.Mapping;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
 import org.junit.Test;
@@ -53,20 +52,13 @@ public class RealSandboxfs02ProcessTest extends BaseRealSandboxfsProcessTest {
                 "{\"id\":\"sandbox2\"}",
                 "{\"id\":\"sandbox1\"}"));
 
-    process.createSandbox("sandbox1", ImmutableList.of());
+    process.createSandbox("sandbox1", (mapper) -> {});
     process.createSandbox(
         "sandbox2",
-        ImmutableList.of(
-            Mapping.builder()
-                .setPath(PathFragment.create("/"))
-                .setTarget(PathFragment.create("/some/path"))
-                .setWritable(true)
-                .build(),
-            Mapping.builder()
-                .setPath(PathFragment.create("/a/b/c"))
-                .setTarget(PathFragment.create("/other"))
-                .setWritable(false)
-                .build()));
+        (mapper) -> {
+          mapper.map(PathFragment.create("/"), PathFragment.create("/some/path"), true);
+          mapper.map(PathFragment.create("/a/b/c"), PathFragment.create("/other"), false);
+        });
     process.destroySandbox("sandbox1");
     String expectedRequests =
         "{\"C\":{\"i\":\"empty\",\"m\":[]}}"

@@ -143,7 +143,7 @@ abstract class RealSandboxfsProcess implements SandboxfsProcess {
     }
     try {
       // Create an empty sandbox to ensure sandboxfs is successfully serving.
-      sandboxfs.createSandbox("empty", ImmutableList.of());
+      sandboxfs.createSandbox("empty", (mapper) -> {});
     } catch (IOException e) {
       process.destroyAndWait();
       throw new IOException("sandboxfs failed to start", e);
