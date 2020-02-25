@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesInfo;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.OutputFile;
 import com.google.devtools.build.lib.packages.PackageSpecification.PackageGroupContents;
 import com.google.devtools.build.lib.skyframe.BuildConfigurationValue;
@@ -36,6 +37,7 @@ import com.google.devtools.build.lib.syntax.Printer;
 
 /** A ConfiguredTarget for an OutputFile. */
 @AutoCodec
+@Immutable // (and Starlark-hashable)
 public class OutputFileConfiguredTarget extends FileConfiguredTarget {
 
   private final Artifact artifact;
