@@ -49,8 +49,8 @@ public class BazelCoverageReportModule extends BlazeModule {
       effectTags = {OptionEffectTag.UNKNOWN},
       defaultValue = "none",
       help =
-          "Specifies desired cumulative coverage report type. At this point only HTML "
-              + "and LCOV reports are supported."
+          "Specifies desired cumulative coverage report type. At this point only LCOV "
+              + "is supported."
     )
     public ReportType combinedReport;
   }
