@@ -180,6 +180,9 @@ public class FakeCcModule
   }
 
   @Override
+  public void checkExperimentalCcSharedLibrary(StarlarkThread thread) {}
+
+  @Override
   public CcLinkingContextApi<FileApi> createCcLinkingInfo(
       Object linkerInputs,
       Object librariesToLinkObject,

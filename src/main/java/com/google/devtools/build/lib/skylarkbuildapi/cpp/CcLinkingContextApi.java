@@ -35,6 +35,7 @@ public interface CcLinkingContextApi<FileT extends FileApi> extends StarlarkValu
   @SkylarkCallable(
       name = "user_link_flags",
       doc = "Returns the list of user link flags passed as strings.",
+      disableWithFlag = FlagIdentifier.INCOMPATIBLE_REQUIRE_LINKER_INPUT_CC_API,
       structField = true)
   Sequence<String> getSkylarkUserLinkFlags();
 
@@ -43,6 +44,7 @@ public interface CcLinkingContextApi<FileT extends FileApi> extends StarlarkValu
       doc =
           "Returns the depset of <code>LibraryToLink</code>. May return a list but this is"
               + "deprecated. See #8118.",
+      disableWithFlag = FlagIdentifier.INCOMPATIBLE_REQUIRE_LINKER_INPUT_CC_API,
       structField = true,
       useStarlarkSemantics = true)
   Object getSkylarkLibrariesToLink(StarlarkSemantics semantics);
@@ -50,13 +52,13 @@ public interface CcLinkingContextApi<FileT extends FileApi> extends StarlarkValu
   @SkylarkCallable(
       name = "additional_inputs",
       doc = "Returns the depset of additional inputs, e.g.: linker scripts.",
+      disableWithFlag = FlagIdentifier.INCOMPATIBLE_REQUIRE_LINKER_INPUT_CC_API,
       structField = true)
   Depset getSkylarkNonCodeInputs();
 
   @SkylarkCallable(
       name = "linker_inputs",
       doc = "Returns the depset of linker inputs.",
-      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_CC_SHARED_LIBRARY,
       structField = true)
   Depset getSkylarkLinkerInputs();
 }

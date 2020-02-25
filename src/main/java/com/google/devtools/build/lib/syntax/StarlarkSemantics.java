@@ -69,7 +69,6 @@ public abstract class StarlarkSemantics {
         "experimental_starlark_config_transition";
     public static final String EXPERIMENTAL_STARLARK_UNUSED_INPUTS_LIST =
         "experimental_starlark_unused_inputs_list";
-    public static final String EXPERIMENTAL_CC_SHARED_LIBRARY = "experimental_cc_shared_library";
     public static final String EXPERIMENTAL_REPO_REMOTE_EXEC = "experimental_repo_remote_exec";
     public static final String INCOMPATIBLE_APPLICABLE_LICENSES =
         "incompatible_applicable_licenses";
@@ -86,6 +85,8 @@ public abstract class StarlarkSemantics {
         "incompatible_allow_tags_propagation";
     public static final String INCOMPATIBLE_REMOVE_ENABLE_TOOLCHAIN_TYPES =
         "incompatible_remove_enable_toolchain_types";
+    public static final String INCOMPATIBLE_REQUIRE_LINKER_INPUT_CC_API =
+        "incompatible_require_linker_input_cc_api";
   }
 
   // TODO(adonovan): replace the fields of StarlarkSemantics
@@ -118,8 +119,6 @@ public abstract class StarlarkSemantics {
         return experimentalStarlarkConfigTransitions();
       case FlagIdentifier.EXPERIMENTAL_STARLARK_UNUSED_INPUTS_LIST:
         return experimentalStarlarkUnusedInputsList();
-      case FlagIdentifier.EXPERIMENTAL_CC_SHARED_LIBRARY:
-        return experimentalCcSharedLibrary();
       case FlagIdentifier.EXPERIMENTAL_REPO_REMOTE_EXEC:
         return experimentalRepoRemoteExec();
       case FlagIdentifier.INCOMPATIBLE_APPLICABLE_LICENSES:
@@ -138,6 +137,8 @@ public abstract class StarlarkSemantics {
         return experimentalAllowTagsPropagation();
       case FlagIdentifier.INCOMPATIBLE_REMOVE_ENABLE_TOOLCHAIN_TYPES:
         return incompatibleRemoveEnabledToolchainTypes();
+      case FlagIdentifier.INCOMPATIBLE_REQUIRE_LINKER_INPUT_CC_API:
+        return incompatibleRequireLinkerInputCcApi();
       default:
         throw new IllegalArgumentException(flag);
     }
@@ -259,6 +260,8 @@ public abstract class StarlarkSemantics {
 
   public abstract boolean incompatibleDepsetForLibrariesToLinkGetter();
 
+  public abstract boolean incompatibleRequireLinkerInputCcApi();
+
   public abstract boolean incompatibleRestrictStringEscapes();
 
   public abstract boolean experimentalAllowTagsPropagation();
@@ -339,6 +342,7 @@ public abstract class StarlarkSemantics {
           .internalSkylarkFlagTestCanary(false)
           .incompatibleDoNotSplitLinkingCmdline(true)
           .incompatibleDepsetForLibrariesToLinkGetter(true)
+          .incompatibleRequireLinkerInputCcApi(false)
           .incompatibleRestrictStringEscapes(false)
           .incompatibleUseCcConfigureFromRulesCc(false)
           .build();
@@ -429,6 +433,8 @@ public abstract class StarlarkSemantics {
     public abstract Builder incompatibleDoNotSplitLinkingCmdline(boolean value);
 
     public abstract Builder incompatibleDepsetForLibrariesToLinkGetter(boolean value);
+
+    public abstract Builder incompatibleRequireLinkerInputCcApi(boolean value);
 
     public abstract Builder incompatibleRestrictStringEscapes(boolean value);
 

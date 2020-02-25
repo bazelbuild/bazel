@@ -22,7 +22,6 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
-import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
 import com.google.devtools.build.lib.syntax.StarlarkValue;
 
 /** Either libraries, flags or other files that may be passed to the linker as inputs. */
@@ -36,14 +35,12 @@ public interface LinkerInputApi<
   @SkylarkCallable(
       name = "owner",
       doc = "Returns the owner of this LinkerInput.",
-      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_CC_SHARED_LIBRARY,
       structField = true)
   Label getSkylarkOwner() throws EvalException;
 
   @SkylarkCallable(
       name = "user_link_flags",
       doc = "Returns the list of user link flags passed as strings.",
-      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_CC_SHARED_LIBRARY,
       structField = true)
   Sequence<String> getSkylarkUserLinkFlags();
 
@@ -53,14 +50,12 @@ public interface LinkerInputApi<
           "Returns the depset of <code>LibraryToLink</code>. May return a list but this is "
               + "deprecated. See #8118.",
       structField = true,
-      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_CC_SHARED_LIBRARY,
       useStarlarkSemantics = true)
   Sequence<LibraryToLinkT> getSkylarkLibrariesToLink(StarlarkSemantics semantics);
 
   @SkylarkCallable(
       name = "additional_inputs",
       doc = "Returns the depset of additional inputs, e.g.: linker scripts.",
-      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_CC_SHARED_LIBRARY,
       structField = true)
   Sequence<FileT> getSkylarkNonCodeInputs();
 }

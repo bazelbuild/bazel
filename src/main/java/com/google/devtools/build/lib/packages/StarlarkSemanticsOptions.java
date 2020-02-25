@@ -204,6 +204,21 @@ public class StarlarkSemanticsOptions extends OptionsBase implements Serializabl
   public boolean experimentalCcSharedLibrary;
 
   @Option(
+      name = "incompatible_require_linker_input_cc_api",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
+      effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS, OptionEffectTag.LOADING_AND_ANALYSIS},
+      metadataTags = {
+        OptionMetadataTag.INCOMPATIBLE_CHANGE,
+        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+      },
+      help =
+          "If set to true, rule create_linking_context will require linker_inputs instead of "
+              + "libraries_to_link. The old getters of linking_context will also be disabled and "
+              + "just linker_inputs will be available.")
+  public boolean incompatibleRequireLinkerInputCcApi;
+
+  @Option(
       name = "experimental_repo_remote_exec",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
@@ -697,6 +712,7 @@ public class StarlarkSemanticsOptions extends OptionsBase implements Serializabl
             .incompatibleDoNotSplitLinkingCmdline(incompatibleDoNotSplitLinkingCmdline)
             .incompatibleUseCcConfigureFromRulesCc(incompatibleUseCcConfigureFromRulesCc)
             .incompatibleDepsetForLibrariesToLinkGetter(incompatibleDepsetForLibrariesToLinkGetter)
+            .incompatibleRequireLinkerInputCcApi(incompatibleRequireLinkerInputCcApi)
             .incompatibleRestrictStringEscapes(incompatibleRestrictStringEscapes)
             .build();
     return INTERNER.intern(semantics);

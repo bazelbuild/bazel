@@ -5827,6 +5827,13 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
     assertThat((StarlarkList) objects).isEmpty();
   }
 
+  @Test
+  public void testIncompatibleRequireLinkerInputCcApi() throws Exception {
+    setSkylarkSemanticsOptions("--incompatible_require_linker_input_cc_api");
+    setUpCcLinkingContextTest();
+    checkError("//a:a", "It may be temporarily re-enabled by setting");
+  }
+
   private void scratchObjectsProvidingRule() throws IOException {
     scratch.file(
         "foo/BUILD",

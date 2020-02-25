@@ -162,6 +162,7 @@ public class SkylarkSemanticsConsistencyTest {
         "--incompatible_restrict_named_params=" + rand.nextBoolean(),
         "--incompatible_run_shell_command_string=" + rand.nextBoolean(),
         "--incompatible_visibility_private_attributes_at_definition=" + rand.nextBoolean(),
+        "--incompatible_require_linker_input_cc_api=" + rand.nextBoolean(),
         "--incompatible_restrict_string_escapes=" + rand.nextBoolean(),
         "--incompatible_use_cc_configure_from_rules_cc=" + rand.nextBoolean(),
         "--internal_skylark_flag_test_canary=" + rand.nextBoolean());
@@ -215,6 +216,7 @@ public class SkylarkSemanticsConsistencyTest {
         .incompatibleRestrictNamedParams(rand.nextBoolean())
         .incompatibleRunShellCommandString(rand.nextBoolean())
         .incompatibleVisibilityPrivateAttributesAtDefinition(rand.nextBoolean())
+        .incompatibleRequireLinkerInputCcApi(rand.nextBoolean())
         .incompatibleRestrictStringEscapes(rand.nextBoolean())
         .incompatibleUseCcConfigureFromRulesCc(rand.nextBoolean())
         .internalSkylarkFlagTestCanary(rand.nextBoolean())

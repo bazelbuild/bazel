@@ -673,6 +673,13 @@ public abstract class CcModule
   }
 
   @Override
+  public void checkExperimentalCcSharedLibrary(StarlarkThread thread) throws EvalException {
+    if (!thread.getSemantics().experimentalCcSharedLibrary()) {
+      throw Starlark.errorf("Pass --experimental_cc_shared_library to use cc_shared_library");
+    }
+  }
+
+  @Override
   public CcLinkingContext createCcLinkingInfo(
       Object linkerInputs,
       Object librariesToLinkObject,
@@ -681,6 +688,9 @@ public abstract class CcModule
       StarlarkThread thread)
       throws EvalException {
     if (EvalUtils.isNullOrNone(linkerInputs)) {
+      if (thread.getSemantics().incompatibleRequireLinkerInputCcApi()) {
+        throw Starlark.errorf("linker_inputs cannot be None");
+      }
       @SuppressWarnings("unchecked")
       Sequence<LibraryToLink> librariesToLink = nullIfNone(librariesToLinkObject, Sequence.class);
       @SuppressWarnings("unchecked")
