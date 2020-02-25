@@ -70,8 +70,10 @@ public class JacocoLCOVFormatter {
         if (execPathsOfUninstrumentedFiles.isEmpty()) {
           return fileName;
         }
+
+        String matchingFileName = fileName.startsWith("/") ? fileName : "/" + fileName;
         for (String execPath : execPathsOfUninstrumentedFiles) {
-          if (execPath.endsWith("/" + fileName)) {
+          if (execPath.endsWith(matchingFileName)) {
             return execPath;
           }
         }
