@@ -77,7 +77,7 @@ public class JavaToolchainProvider extends ToolchainInfo
       ImmutableList<String> javabuilderJvmOptions,
       ImmutableList<String> turbineJvmOptions,
       boolean javacSupportsWorkers,
-      NestedSet<Artifact> bootclasspath,
+      BootClassPathInfo bootclasspath,
       @Nullable Artifact javac,
       NestedSet<Artifact> tools,
       FilesToRunProvider javaBuilder,
@@ -131,7 +131,7 @@ public class JavaToolchainProvider extends ToolchainInfo
   }
 
   private final Label label;
-  private final NestedSet<Artifact> bootclasspath;
+  private final BootClassPathInfo bootclasspath;
   @Nullable private final Artifact javac;
   private final NestedSet<Artifact> tools;
   private final FilesToRunProvider javaBuilder;
@@ -162,7 +162,7 @@ public class JavaToolchainProvider extends ToolchainInfo
   @VisibleForSerialization
   JavaToolchainProvider(
       Label label,
-      NestedSet<Artifact> bootclasspath,
+      BootClassPathInfo bootclasspath,
       @Nullable Artifact javac,
       NestedSet<Artifact> tools,
       FilesToRunProvider javaBuilder,
@@ -227,7 +227,7 @@ public class JavaToolchainProvider extends ToolchainInfo
   }
 
   /** @return the target Java bootclasspath */
-  public NestedSet<Artifact> getBootclasspath() {
+  public BootClassPathInfo getBootclasspath() {
     return bootclasspath;
   }
 
@@ -419,7 +419,7 @@ public class JavaToolchainProvider extends ToolchainInfo
 
   @Override
   public Depset getSkylarkBootclasspath() {
-    return Depset.of(Artifact.TYPE, getBootclasspath());
+    return Depset.of(Artifact.TYPE, getBootclasspath().bootclasspath());
   }
 
   @Override

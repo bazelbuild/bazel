@@ -1005,7 +1005,7 @@ public class JavaCommon {
     return javacOpts;
   }
 
-  public NestedSet<Artifact> getBootClasspath() {
+  public BootClassPathInfo getBootClasspath() {
     return classpathFragment.getBootClasspath();
   }
 

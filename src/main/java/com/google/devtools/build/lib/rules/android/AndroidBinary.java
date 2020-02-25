@@ -1512,7 +1512,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
           DexArchiveAspect.desugar(
               ruleContext,
               jar,
-              attributes.getBootClassPath(),
+              attributes.getBootClassPath().bootclasspath(),
               attributes.getCompileTimeClassPath(),
               ruleContext.getDerivedArtifact(
                   jarPath.replaceName(jarPath.getBaseName() + "_desugared.jar"), jar.getRoot()));

@@ -162,4 +162,9 @@ public class FakeJavaCommon
       throws EvalException {
     return null;
   }
+
+  @Override
+  public ProviderApi getBootClassPathInfo() {
+    return null;
+  }
 }

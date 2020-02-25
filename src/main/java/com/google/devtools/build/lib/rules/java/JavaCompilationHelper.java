@@ -282,7 +282,7 @@ public final class JavaCompilationHelper {
     Artifact coverageArtifact = maybeCreateCoverageArtifact(outputs.output());
     builder.setCoverageArtifact(coverageArtifact);
     builder.setClasspathEntries(attributes.getCompileTimeClassPath());
-    builder.setBootclasspathEntries(getBootclasspathOrDefault());
+    builder.setBootClassPath(getBootclasspathOrDefault());
     builder.setSourcePathEntries(attributes.getSourcePath());
     builder.setToolsJars(javaToolchain.getTools());
     builder.setJavaBuilder(javaToolchain.getJavaBuilder());
@@ -365,12 +365,12 @@ public final class JavaCompilationHelper {
   }
 
   /** Returns the bootclasspath explicit set in attributes if present, or else the default. */
-  public NestedSet<Artifact> getBootclasspathOrDefault() {
+  public BootClassPathInfo getBootclasspathOrDefault() {
     JavaTargetAttributes attributes = getAttributes();
     if (!attributes.getBootClassPath().isEmpty()) {
       return attributes.getBootClassPath();
     } else {
-      return getBootClasspath(javaToolchain);
+      return javaToolchain.getBootclasspath();
     }
   }
 
@@ -495,7 +495,7 @@ public final class JavaCompilationHelper {
     builder.setSourceFiles(attributes.getSourceFiles());
     builder.setSourceJars(attributes.getSourceJars());
     builder.setClasspathEntries(attributes.getCompileTimeClassPath());
-    builder.setBootclasspathEntries(getBootclasspathOrDefault());
+    builder.setBootclasspathEntries(getBootclasspathOrDefault().bootclasspath());
     // Exclude any per-package configured data (see JavaCommon.computePerPackageData).
     // It is used to allow Error Prone checks to load additional data,
     // and Error Prone doesn't run during header compilation.
@@ -834,7 +834,7 @@ public final class JavaCompilationHelper {
   /**
    * Returns the javac bootclasspath artifacts from the given toolchain (if it has any) or the rule.
    */
-  public static NestedSet<Artifact> getBootClasspath(JavaToolchainProvider javaToolchain) {
+  public static BootClassPathInfo getBootClasspath(JavaToolchainProvider javaToolchain) {
     return javaToolchain.getBootclasspath();
   }
 

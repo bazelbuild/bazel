@@ -561,4 +561,11 @@ public interface JavaCommonApi<
       },
       enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_GOOGLE_LEGACY_API)
   Label getJavaToolchainLabel(JavaToolchainSkylarkApiProviderApi toolchain) throws EvalException;
+
+  @SkylarkCallable(
+      name = "BootClassPathInfo",
+      doc = "The provider used to supply bootclasspath information",
+      structField = true,
+      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_GOOGLE_LEGACY_API)
+  ProviderApi getBootClassPathInfo();
 }

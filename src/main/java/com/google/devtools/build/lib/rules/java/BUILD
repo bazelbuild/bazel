@@ -79,6 +79,7 @@ java_library(
 java_library(
     name = "java-compilation",
     srcs = [
+        "BootClassPathInfo.java",
         "BuildInfoPropertiesTranslator.java",
         "ClasspathConfiguredFragment.java",
         "DeployArchiveBuilder.java",
