@@ -1570,38 +1570,4 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
         .containsExactly("//foo:foo", "//foo:bar", "//foo:baz")
         .inOrder();
   }
-
-  @Test
-  public void checkLinkedStaticallyByAttributeWithoutFlag() throws Exception {
-    checkError(
-        "test",
-        "test",
-        "The attributes 'linked_statically_by' and 'linked_statically_by_all' can only be used",
-        "cc_library(name = 'test', srcs = ['test.cc'], linked_statically_by=['bar'])");
-  }
-
-  @Test
-  public void checkLinkedStaticallyByAttributeWithFlag() throws Exception {
-    setSkylarkSemanticsOptions("--experimental_cc_shared_library");
-    scratch.file(
-        "a/BUILD",
-        "cc_library(",
-        "    name = 'test',",
-        "    srcs = ['test.cc'],",
-        "    linked_statically_by=['bar']",
-        ")");
-    getConfiguredTarget("//a:test");
-    assertNoEvents();
-  }
-
-  @Test
-  public void checkBothLinkedStaticallyByAllAndLinkedStaticallyBySpecified() throws Exception {
-    setSkylarkSemanticsOptions("--experimental_cc_shared_library");
-    checkError(
-        "test",
-        "test",
-        "Cannot specify both",
-        "cc_library(name = 'test', srcs = ['test.cc'], linked_statically_by_all=1,"
-            + " linked_statically_by=['bar'])");
-  }
 }

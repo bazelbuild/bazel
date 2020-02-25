@@ -117,24 +117,6 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
       boolean addDynamicRuntimeInputArtifactsToRunfiles)
       throws RuleErrorException, InterruptedException {
     CcCommon.checkRuleLoadedThroughMacro(ruleContext);
-    boolean linkedStaticallyBySpecified =
-        ruleContext.attributes().isAttributeValueExplicitlySpecified("linked_statically_by");
-    boolean linkedStaticallyByAllSpecified =
-        ruleContext.attributes().isAttributeValueExplicitlySpecified("linked_statically_by_all");
-
-    if ((linkedStaticallyBySpecified || linkedStaticallyByAllSpecified)
-        && !ruleContext
-            .getAnalysisEnvironment()
-            .getSkylarkSemantics()
-            .experimentalCcSharedLibrary()) {
-      ruleContext.ruleError(
-          "The attributes 'linked_statically_by' and 'linked_statically_by_all' can only be used "
-              + "with the flag --experimental_cc_shared_library.");
-    }
-    if (linkedStaticallyBySpecified && linkedStaticallyByAllSpecified) {
-      ruleContext.ruleError(
-          "Cannot specify both 'linked_statically_by' and 'linked_statically_by_all'");
-    }
     semantics.validateDeps(ruleContext);
     if (ruleContext.hasErrors()) {
       addEmptyRequiredProviders(targetBuilder);
