@@ -143,15 +143,20 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
         ruleContext.getConfiguration().getFragment(CppConfiguration.class);
     CcToolchainProvider ccToolchain =
         CppHelper.getToolchainUsingDefaultCcToolchainAttribute(ruleContext);
-    FeatureConfiguration featureConfiguration =
-        CcCommon.configureFeaturesOrReportRuleError(
-            ruleContext,
-            /* requestedFeatures= */ ImmutableSet.<String>builder()
-                .addAll(ruleContext.getFeatures())
-                .add(STATIC_LINKING_MODE)
-                .build(),
-            /* unsupportedFeatures= */ ruleContext.getDisabledFeatures(),
-            ccToolchain);
+    FeatureConfiguration featureConfiguration = null;
+    try {
+      featureConfiguration =
+          CcCommon.configureFeaturesOrThrowEvalException(
+              /* requestedFeatures= */ ImmutableSet.<String>builder()
+                  .addAll(ruleContext.getFeatures())
+                  .add(STATIC_LINKING_MODE)
+                  .build(),
+              /* unsupportedFeatures= */ ruleContext.getDisabledFeatures(),
+              ccToolchain,
+              cppConfiguration);
+    } catch (EvalException e) {
+      ruleContext.ruleError(e.getMessage());
+    }
     boolean stripAsDefault =
         ccToolchain.shouldCreatePerObjectDebugInfo(featureConfiguration, cppConfiguration)
             && cppConfiguration.getCompilationMode() == CompilationMode.OPT;

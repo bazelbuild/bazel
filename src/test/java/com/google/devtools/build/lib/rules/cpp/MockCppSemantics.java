@@ -66,4 +66,8 @@ public final class MockCppSemantics implements CppSemantics {
   public StructImpl getCcSharedLibraryInfo(TransitiveInfoCollection dep) {
     return null;
   }
+
+  @Override
+  public void validateLayeringCheckFeatures(RuleContext ruleContext) {}
+  ;
 }

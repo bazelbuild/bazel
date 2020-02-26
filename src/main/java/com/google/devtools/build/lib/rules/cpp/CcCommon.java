@@ -813,12 +813,13 @@ public final class CcCommon {
    * @return the feature configuration for the given {@code ruleContext}.
    */
   public static FeatureConfiguration configureFeaturesOrReportRuleError(
-      RuleContext ruleContext, CcToolchainProvider toolchain) {
+      RuleContext ruleContext, CcToolchainProvider toolchain, CppSemantics semantics) {
     return configureFeaturesOrReportRuleError(
         ruleContext,
         /* requestedFeatures= */ ruleContext.getFeatures(),
         /* unsupportedFeatures= */ ruleContext.getDisabledFeatures(),
-        toolchain);
+        toolchain,
+        semantics);
   }
 
   /**
@@ -830,7 +831,9 @@ public final class CcCommon {
       RuleContext ruleContext,
       ImmutableSet<String> requestedFeatures,
       ImmutableSet<String> unsupportedFeatures,
-      CcToolchainProvider toolchain) {
+      CcToolchainProvider toolchain,
+      CppSemantics cppSemantics) {
+    cppSemantics.validateLayeringCheckFeatures(ruleContext);
     try {
       return configureFeaturesOrThrowEvalException(
           requestedFeatures,

@@ -137,7 +137,7 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
 
     FdoContext fdoContext = common.getFdoContext();
     FeatureConfiguration featureConfiguration =
-        CcCommon.configureFeaturesOrReportRuleError(ruleContext, ccToolchain);
+        CcCommon.configureFeaturesOrReportRuleError(ruleContext, ccToolchain, semantics);
     PrecompiledFiles precompiledFiles = new PrecompiledFiles(ruleContext);
 
     semantics.validateAttributes(ruleContext);

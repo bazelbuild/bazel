@@ -128,4 +128,7 @@ public class ObjcCppSemantics implements CppSemantics {
   public StructImpl getCcSharedLibraryInfo(TransitiveInfoCollection dep) {
     return null;
   }
+
+  @Override
+  public void validateLayeringCheckFeatures(RuleContext ruleContext) {}
 }

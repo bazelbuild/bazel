@@ -353,7 +353,8 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
             ruleContext,
             requestedFeaturesBuilder.build(),
             /* unsupportedFeatures= */ ruleContext.getDisabledFeatures(),
-            ccToolchain);
+            ccToolchain,
+            semantics);
 
     ImmutableList<TransitiveInfoCollection> deps =
         ImmutableList.<TransitiveInfoCollection>builder()

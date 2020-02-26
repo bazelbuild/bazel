@@ -52,4 +52,7 @@ public interface CppSemantics {
 
   /** Provider for cc_shared_libraries * */
   StructImpl getCcSharedLibraryInfo(TransitiveInfoCollection dep);
+
+  /** No-op in Bazel */
+  void validateLayeringCheckFeatures(RuleContext ruleContext);
 }

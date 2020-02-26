@@ -296,7 +296,8 @@ public abstract class CcProtoAspect extends NativeAspectClass implements Configu
               ruleContext,
               requestedFeatures.build(),
               unsupportedFeatures.build(),
-              ccToolchain(ruleContext));
+              ccToolchain(ruleContext),
+              cppSemantics);
       return featureConfiguration;
     }
 

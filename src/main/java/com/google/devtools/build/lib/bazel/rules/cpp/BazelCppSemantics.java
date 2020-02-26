@@ -107,4 +107,7 @@ public class BazelCppSemantics implements AspectLegalCppSemantics {
     }
     return null;
   }
+
+  @Override
+  public void validateLayeringCheckFeatures(RuleContext ruleContext) {}
 }
