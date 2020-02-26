@@ -438,37 +438,90 @@ public final class EvaluationTest extends EvaluationTestCase {
   }
 
   @Test
+  public void testSequenceAssignment() throws Exception {
+    // assignment to empty list/tuple
+    // See https://github.com/bazelbuild/starlark/issues/93 for discussion
+    checkEvalError(
+        "can't assign to ()", //
+        "() = ()");
+    checkEvalError(
+        "can't assign to ()", //
+        "() = 1");
+    checkEvalError(
+        "can't assign to []", //
+        "[] = ()");
+
+    // RHS not iterable
+    checkEvalError(
+        "got 'int' in sequence assignment", //
+        "x, y = 1");
+    checkEvalError(
+        "got 'int' in sequence assignment", //
+        "(x,) = 1");
+    checkEvalError(
+        "got 'int' in sequence assignment", //
+        "[x] = 1");
+
+    // too few
+    checkEvalError(
+        "too few values to unpack (got 0, want 2)", //
+        "x, y = ()");
+    checkEvalError(
+        "too few values to unpack (got 0, want 2)", //
+        "[x, y] = ()");
+
+    // just right
+    exec("x, y = 1, 2");
+    exec("[x, y] = 1, 2");
+    exec("(x,) = [1]");
+
+    // too many
+    checkEvalError(
+        "too many values to unpack (got 3, want 2)", //
+        "x, y = 1, 2, 3");
+    checkEvalError(
+        "too many values to unpack (got 3, want 2)", //
+        "[x, y] = 1, 2, 3");
+  }
+
+  @Test
   public void testListComprehensionsMultipleVariablesFail() throws Exception {
     new Scenario()
         .testIfErrorContains(
-            "assignment length mismatch: left-hand side has length 3, but right-hand side"
-                + " evaluates to value of length 2",
+            "too few values to unpack (got 2, want 3)", //
             "[x + y for x, y, z in [(1, 2), (3, 4)]]")
-        .testIfExactError("type 'int' is not iterable", "[x + y for x, y in (1, 2)]");
+        .testIfExactError(
+            "got 'int' in sequence assignment", //
+            "[x + y for x, y in (1, 2)]");
 
     new Scenario()
         .testIfErrorContains(
-            "assignment length mismatch: left-hand side has length 3, but right-hand side "
-                + "evaluates to value of length 2",
+            "too few values to unpack (got 2, want 3)", //
             "def foo (): return [x + y for x, y, z in [(1, 2), (3, 4)]]",
             "foo()");
 
     new Scenario()
         .testIfErrorContains(
-            "type 'int' is not iterable", "def bar (): return [x + y for x, y in (1, 2)]", "bar()");
+            "got 'int' in sequence assignment", //
+            "def bar (): return [x + y for x, y in (1, 2)]",
+            "bar()");
 
     new Scenario()
         .testIfErrorContains(
-            "assignment length mismatch: left-hand side has length 3, but right-hand side "
-                + "evaluates to value of length 2",
+            "too few values to unpack (got 2, want 3)", //
             "[x + y for x, y, z in [(1, 2), (3, 4)]]");
 
     new Scenario()
-        .testIfErrorContains("type 'int' is not iterable", "[x2 + y2 for x2, y2 in (1, 2)]");
+        .testIfErrorContains(
+            "got 'int' in sequence assignment", //
+            "[x2 + y2 for x2, y2 in (1, 2)]");
 
     new Scenario()
-        // returns [2] in Python, it's an error in Skylark
-        .testIfErrorContains("must have at least one item", "[2 for [] in [()]]");
+        // Behavior varies across Python2 and 3 and Starlark in {Go,Java}.
+        // See https://github.com/bazelbuild/starlark/issues/93 for discussion.
+        .testIfErrorContains(
+            "can't assign to []", //
+            "[2 for [] in [()]]");
   }
 
   @Test

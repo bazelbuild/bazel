@@ -286,7 +286,12 @@ final class Eval {
     } else if (lhs instanceof ListExpression) {
       // a, b, c = ...
       ListExpression list = (ListExpression) lhs;
-      assignList(fr, list.getElements(), value);
+      // Reject assignment to empty tuple/list.
+      // See https://github.com/bazelbuild/starlark/issues/93.
+      if (list.getElements().isEmpty()) {
+        throw Starlark.errorf("can't assign to %s", list);
+      }
+      assignSequence(fr, list.getElements(), value);
 
     } else {
       // Not possible for validated ASTs.
@@ -334,29 +339,23 @@ final class Eval {
   }
 
   /**
-   * Recursively assigns an iterable value to a sequence of assignable expressions. May throw an
-   * EvalException without location.
+   * Recursively assigns an iterable value to a non-empty sequence of assignable expressions. May
+   * throw an EvalException without location.
    */
-  private static void assignList(StarlarkThread.Frame fr, List<Expression> lhs, Object x)
+  private static void assignSequence(StarlarkThread.Frame fr, List<Expression> lhs, Object x)
       throws EvalException, InterruptedException {
     // TODO(adonovan): lock/unlock rhs during iteration so that
     // assignments fail when the left side aliases the right,
     // which is a tricky case in Python assignment semantics.
     int nrhs = Starlark.len(x);
     if (nrhs < 0) {
-      throw Starlark.errorf("type '%s' is not iterable", Starlark.type(x));
+      throw Starlark.errorf("got '%s' in sequence assignment", Starlark.type(x));
     }
     Iterable<?> rhs = Starlark.toIterable(x); // fails if x is a string
-    int len = lhs.size();
-    if (len == 0) {
+    int nlhs = lhs.size();
+    if (nlhs != nrhs) {
       throw Starlark.errorf(
-          "lists or tuples on the left-hand side of assignments must have at least one item");
-    }
-    if (len != nrhs) {
-      throw Starlark.errorf(
-          "assignment length mismatch: left-hand side has length %d, but right-hand side evaluates"
-              + " to value of length %d",
-          len, nrhs);
+          "too %s values to unpack (got %d, want %d)", nrhs < nlhs ? "few" : "many", nrhs, nlhs);
     }
     int i = 0;
     for (Object item : rhs) {
