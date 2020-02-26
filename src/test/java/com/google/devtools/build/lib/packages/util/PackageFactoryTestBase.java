@@ -381,8 +381,9 @@ public abstract class PackageFactoryTestBase {
     }
 
     @Override
-    public void validate(Package pkg) throws InvalidPackageException {
-      underlying.validate(pkg);
+    public void validate(Package pkg, ExtendedEventHandler eventHandler)
+        throws InvalidPackageException {
+      underlying.validate(pkg, eventHandler);
     }
   }
 }

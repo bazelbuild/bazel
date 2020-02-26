@@ -32,6 +32,8 @@ import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
+import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.BuildFileNotFoundException;
 import com.google.devtools.build.lib.packages.ConstantRuleVisibility;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
@@ -175,12 +177,13 @@ public class PackageFunctionTest extends BuildViewTestCase {
             inv -> {
               Package pkg = inv.getArgument(0, Package.class);
               if (pkg.getName().equals("pkg")) {
+                inv.getArgument(1, ExtendedEventHandler.class).handle(Event.warn("warning event"));
                 throw new InvalidPackageException(pkg.getPackageIdentifier(), "no good");
               }
               return null;
             })
         .when(mockPackageValidator)
-        .validate(any(Package.class));
+        .validate(any(Package.class), any(ExtendedEventHandler.class));
 
     invalidatePackages();
 
@@ -198,6 +201,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
         .hasExceptionThat()
         .hasMessageThat()
         .contains("no such package 'pkg': no good");
+    assertContainsEvent("warning event");
   }
 
   @Test
