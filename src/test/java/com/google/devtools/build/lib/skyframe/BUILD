@@ -72,6 +72,7 @@ java_test(
             exclude = ["MacOSXFsEventsDiffAwarenessTest.java"] + CROSS_PLATFORM_WINDOWS_TESTS,
         ),
     }),
+    exec_compatible_with = ["//:highcpu_machine"],
     shard_count = 20,
     tags = ["skyframe"],
     test_class = "com.google.devtools.build.lib.AllTests",
