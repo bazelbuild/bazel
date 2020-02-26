@@ -281,6 +281,9 @@ public abstract class CcModule
       boolean useTestOnlyFlags,
       boolean isStaticLinkingMode)
       throws EvalException {
+    if (featureConfiguration.getFeatureConfiguration().isEnabled(CppRuleClasses.FDO_INSTRUMENT)) {
+      throw new EvalException("FDO instrumentation not supported");
+    }
     return LinkBuildVariables.setupVariables(
         isUsingLinkerNotArchiver,
         /* binDirectoryPath= */ null,
