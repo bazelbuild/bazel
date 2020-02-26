@@ -18,6 +18,8 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 import static com.google.devtools.build.skyframe.EvaluationResultSubjectFactory.assertThatEvaluationResult;
 import static org.junit.Assert.fail;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doAnswer;
 
 import com.google.common.base.Optional;
 import com.google.common.base.Predicates;
@@ -35,6 +37,8 @@ import com.google.devtools.build.lib.packages.ConstantRuleVisibility;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.Package;
+import com.google.devtools.build.lib.packages.PackageValidator;
+import com.google.devtools.build.lib.packages.PackageValidator.InvalidPackageException;
 import com.google.devtools.build.lib.packages.StarlarkSemanticsOptions;
 import com.google.devtools.build.lib.pkgcache.PackageCacheOptions;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
@@ -71,9 +75,13 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import javax.annotation.Nullable;
+import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
+import org.mockito.Mock;
+import org.mockito.junit.MockitoJUnit;
+import org.mockito.junit.MockitoRule;
 
 /**
  * Unit tests of specific functionality of PackageFunction. Note that it's already tested indirectly
@@ -81,6 +89,10 @@ import org.junit.runners.JUnit4;
  */
 @RunWith(JUnit4.class)
 public class PackageFunctionTest extends BuildViewTestCase {
+
+  @Rule public final MockitoRule mockito = MockitoJUnit.rule();
+
+  @Mock private PackageValidator mockPackageValidator;
 
   private CustomInMemoryFs fs = new CustomInMemoryFs(new ManualClock());
 
@@ -112,6 +124,11 @@ public class PackageFunctionTest extends BuildViewTestCase {
   @Override
   protected FileSystem createFileSystem() {
     return fs;
+  }
+
+  @Override
+  protected PackageValidator getPackageValidator() {
+    return mockPackageValidator;
   }
 
   private Package validPackageWithoutErrors(SkyKey skyKey) throws InterruptedException {
@@ -147,6 +164,40 @@ public class PackageFunctionTest extends BuildViewTestCase {
   public void testValidPackage() throws Exception {
     scratch.file("pkg/BUILD");
     validPackageWithoutErrors(PackageValue.key(PackageIdentifier.parse("@//pkg")));
+  }
+
+  @Test
+  public void testInvalidPackage() throws Exception {
+    scratch.file("pkg/BUILD", "sh_library(name='foo', srcs=['foo.sh'])");
+    scratch.file("pkg/foo.sh");
+
+    doAnswer(
+            inv -> {
+              Package pkg = inv.getArgument(0, Package.class);
+              if (pkg.getName().equals("pkg")) {
+                throw new InvalidPackageException(pkg.getPackageIdentifier(), "no good");
+              }
+              return null;
+            })
+        .when(mockPackageValidator)
+        .validate(any(Package.class));
+
+    invalidatePackages();
+
+    SkyKey skyKey = PackageValue.key(PackageIdentifier.parse("@//pkg"));
+    EvaluationResult<PackageValue> result =
+        SkyframeExecutorTestUtils.evaluate(
+            getSkyframeExecutor(), skyKey, /*keepGoing=*/ false, reporter);
+    assertThatEvaluationResult(result).hasError();
+    assertThatEvaluationResult(result)
+        .hasErrorEntryForKeyThat(skyKey)
+        .hasExceptionThat()
+        .isInstanceOf(InvalidPackageException.class);
+    assertThatEvaluationResult(result)
+        .hasErrorEntryForKeyThat(skyKey)
+        .hasExceptionThat()
+        .hasMessageThat()
+        .contains("no such package 'pkg': no good");
   }
 
   @Test

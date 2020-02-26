@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.exec.ExecutorBuilder;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.PackageFactory;
+import com.google.devtools.build.lib.packages.PackageValidator;
 import com.google.devtools.build.lib.skyframe.AspectValue;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.TopDownActionCache;
@@ -369,6 +370,16 @@ public abstract class BlazeModule {
    */
   public Package.Builder.Helper getPackageBuilderHelper(
       ConfiguredRuleClassProvider ruleClassProvider, FileSystem fs) {
+    return null;
+  }
+
+  /**
+   * Returns a {@link PackageValidator} to be used to validate loaded packages. If the module does
+   * not provide any validator it should return null. Only one validator per runtime is allowed -
+   * IOW, only one module per runtime may provide a validator.
+   */
+  @Nullable
+  public PackageValidator getPackageValidator() {
     return null;
   }
 

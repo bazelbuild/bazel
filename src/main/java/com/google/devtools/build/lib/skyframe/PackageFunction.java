@@ -45,6 +45,7 @@ import com.google.devtools.build.lib.packages.LegacyGlobber;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.PackageFactory;
+import com.google.devtools.build.lib.packages.PackageValidator.InvalidPackageException;
 import com.google.devtools.build.lib.packages.RuleVisibility;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.WorkspaceFileValue;
@@ -331,11 +332,15 @@ public class PackageFunction implements SkyFunction {
     }
 
     if (packageFactory != null) {
-      packageFactory.afterDoneLoadingPackage(
-          pkg,
-          starlarkSemantics,
-          // This is a lie.
-          /*loadTimeNanos=*/ 0L);
+      try {
+        packageFactory.afterDoneLoadingPackage(
+            pkg,
+            starlarkSemantics,
+            // This is a lie.
+            /*loadTimeNanos=*/ 0L);
+      } catch (InvalidPackageException e) {
+        throw new PackageFunctionException(e, Transience.PERSISTENT);
+      }
     }
     return new PackageValue(pkg);
   }
@@ -532,7 +537,13 @@ public class PackageFunction implements SkyFunction {
       env.getListener().post(post);
     }
 
-    packageFactory.afterDoneLoadingPackage(pkg, starlarkSemantics, packageCacheEntry.loadTimeNanos);
+    try {
+      packageFactory.afterDoneLoadingPackage(
+          pkg, starlarkSemantics, packageCacheEntry.loadTimeNanos);
+    } catch (InvalidPackageException e) {
+      throw new PackageFunctionException(e, Transience.PERSISTENT);
+    }
+
     return new PackageValue(pkg);
   }
 

@@ -14,11 +14,14 @@
 
 package com.google.devtools.build.lib.runtime;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
+
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.eventbus.EventBus;
 import com.google.common.eventbus.SubscriberExceptionHandler;
@@ -46,6 +49,7 @@ import com.google.devtools.build.lib.events.OutputFilter;
 import com.google.devtools.build.lib.exec.BinTools;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.PackageFactory;
+import com.google.devtools.build.lib.packages.PackageValidator;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.profiler.AutoProfiler;
 import com.google.devtools.build.lib.profiler.MemoryProfiler;
@@ -1536,7 +1540,8 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
               ruleClassProvider,
               serverBuilder.getEnvironmentExtensions(),
               BlazeVersionInfo.instance().getVersion(),
-              packageBuilderHelper);
+              packageBuilderHelper,
+              getPackageValidator(blazeModules));
 
       ProjectFile.Provider projectFileProvider = null;
       for (BlazeModule module : blazeModules) {
@@ -1643,6 +1648,17 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
     public Builder setActionKeyContext(ActionKeyContext actionKeyContext) {
       this.actionKeyContext = actionKeyContext;
       return this;
+    }
+
+    private static PackageValidator getPackageValidator(List<BlazeModule> blazeModules) {
+      List<PackageValidator> packageValidators =
+          blazeModules.stream()
+              .map(module -> module.getPackageValidator())
+              .filter(validator -> validator != null)
+              .collect(toImmutableList());
+      Preconditions.checkState(
+          packageValidators.size() <= 1, "more than one module defined a PackageValidator");
+      return Iterables.getFirst(packageValidators, PackageValidator.NOOP_VALIDATOR);
     }
   }
 }

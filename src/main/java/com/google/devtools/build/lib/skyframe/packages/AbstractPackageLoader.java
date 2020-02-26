@@ -38,6 +38,7 @@ import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.PackageFactory.EnvironmentExtension;
+import com.google.devtools.build.lib.packages.PackageValidator;
 import com.google.devtools.build.lib.packages.WorkspaceFileValue;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.rules.repository.ManagedDirectoriesKnowledge;
@@ -266,7 +267,8 @@ public abstract class AbstractPackageLoader implements PackageLoader {
             ruleClassProvider,
             getEnvironmentExtensions(),
             "PackageLoader",
-            Package.Builder.DefaultHelper.INSTANCE);
+            Package.Builder.DefaultHelper.INSTANCE,
+            PackageValidator.NOOP_VALIDATOR);
   }
 
   private static ImmutableDiff makePreinjectedDiff(
