@@ -31,6 +31,8 @@ import com.google.devtools.build.lib.packages.GlobCache;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.OutputFile;
 import com.google.devtools.build.lib.packages.Package;
+import com.google.devtools.build.lib.packages.PackageFactory.EnvironmentExtension;
+import com.google.devtools.build.lib.packages.PackageValidator;
 import com.google.devtools.build.lib.packages.RawAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.syntax.Starlark;
@@ -61,7 +63,10 @@ public abstract class PackageFactoryTestBase {
 
   protected Scratch scratch;
   protected EventCollectionApparatus events = new EventCollectionApparatus();
-  protected PackageFactoryApparatus packages = createPackageFactoryApparatus();
+  protected DummyPackageValidator dummyPackageValidator = new DummyPackageValidator();
+  protected PackageFactoryApparatus packages =
+      new PackageFactoryApparatus(
+          events.reporter(), getEnvironmentExtensions(), dummyPackageValidator);
   protected Root root;
 
   protected com.google.devtools.build.lib.packages.Package expectEvalSuccess(String... content)
@@ -82,7 +87,7 @@ public abstract class PackageFactoryTestBase {
     events.assertContainsError(expectedError);
   }
 
-  protected abstract PackageFactoryApparatus createPackageFactoryApparatus();
+  protected abstract List<EnvironmentExtension> getEnvironmentExtensions();
 
   protected Path throwOnReaddir = null;
 
@@ -363,6 +368,21 @@ public abstract class PackageFactoryTestBase {
         e.printStackTrace();
         fail("ErrorReporter thread interrupted");
       }
+    }
+  }
+
+  /** {@PackageValidator} whose functionality can be swapped out on demand via {@link #setImpl}. */
+  protected static class DummyPackageValidator implements PackageValidator {
+    private PackageValidator underlying = PackageValidator.NOOP_VALIDATOR;
+
+    /** Sets {@link PackageValidator} implementation to use. */
+    public void setImpl(PackageValidator impl) {
+      this.underlying = impl;
+    }
+
+    @Override
+    public void validate(Package pkg) throws InvalidPackageException {
+      underlying.validate(pkg);
     }
   }
 }

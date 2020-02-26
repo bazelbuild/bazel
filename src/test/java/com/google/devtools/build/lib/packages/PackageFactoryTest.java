@@ -25,10 +25,12 @@ import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.events.Reporter;
-import com.google.devtools.build.lib.packages.util.PackageFactoryApparatus;
+import com.google.devtools.build.lib.packages.PackageFactory.EnvironmentExtension;
+import com.google.devtools.build.lib.packages.PackageValidator.InvalidPackageException;
 import com.google.devtools.build.lib.packages.util.PackageFactoryTestBase;
 import com.google.devtools.build.lib.syntax.ParserInput;
 import com.google.devtools.build.lib.syntax.StarlarkFile;
+import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -54,6 +56,11 @@ import org.junit.runners.JUnit4;
  */
 @RunWith(JUnit4.class)
 public class PackageFactoryTest extends PackageFactoryTestBase {
+
+  @Override
+  public List<EnvironmentExtension> getEnvironmentExtensions() {
+    return ImmutableList.of();
+  }
 
   @Test
   public void testCreatePackage() throws Exception {
@@ -524,6 +531,31 @@ public class PackageFactoryTest extends PackageFactoryTestBase {
         .isEmpty();
     assertThat(attributes(pkg.getRule("t3")).get("$implicit_tests", BuildType.LABEL_LIST))
         .isEmpty();
+  }
+
+  @Test
+  public void testPackageValidationFailureRegisteredAfterLoading() throws Exception {
+    Path path = scratch.file("/x/BUILD", "sh_library(name='y')");
+
+    dummyPackageValidator.setImpl(
+        pkg -> {
+          if (pkg.getName().equals("x")) {
+            throw new InvalidPackageException(pkg.getPackageIdentifier(), "nope");
+          }
+        });
+
+    Package pkg = packages.createPackage("x", RootedPath.toRootedPath(root, path));
+    assertThat(pkg.containsErrors()).isFalse();
+
+    InvalidPackageException expected =
+        assertThrows(
+            InvalidPackageException.class,
+            () ->
+                packages
+                    .factory()
+                    .afterDoneLoadingPackage(
+                        pkg, StarlarkSemantics.DEFAULT_SEMANTICS, /*loadTimeNanos=*/ 0));
+    assertThat(expected).hasMessageThat().contains("no such package 'x': nope");
   }
 
   @Test
@@ -1178,11 +1210,6 @@ public class PackageFactoryTest extends PackageFactoryTestBase {
     expectEvalError(
         "'//foo:foo' is duplicated in the 'default_restricted_to' list",
         "package(default_restricted_to=['//foo', '//bar', '//foo'])");
-  }
-
-  @Override
-  protected PackageFactoryApparatus createPackageFactoryApparatus() {
-    return new PackageFactoryApparatus(events.reporter());
   }
 
   @Override
