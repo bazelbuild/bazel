@@ -206,6 +206,68 @@ static int WaitForPid1() {
   }
 }
 
+static void ExitAfterGracePeriod(int sig) {
+  // Exit with 128 + signal. Note that sig is SIGALRM, but this code path is
+  // only reached when SIGTERM was received, so we hard-code SIGTERM.
+  exit(128 + SIGTERM);
+}
+
+static void ForwardTermSignal(int signum) {
+  PRINT_DEBUG("ForwardSignal(%d)", signum);
+  kill(global_child_pid, signum);
+
+  // In case the child process does not terminate, exit after the kill timeout
+  // grace period (-t option), resulting in the child being killed with SIGKILL
+  // thanks to our PR_SET_PDEATHSIG setup.
+  InstallSignalHandler(SIGALRM, ExitAfterGracePeriod);
+  SetTimeout(opt.kill_delay_secs);
+}
+
+static void ForwardSignal(int signum) {
+  PRINT_DEBUG("ForwardSignal(%d)", signum);
+  kill(global_child_pid, signum);
+}
+
+static void SetupSignalHandlers() {
+  ClearSignalMask();
+
+  for (int signum = 1; signum < NSIG; signum++) {
+    switch (signum) {
+      // Some signals should indeed kill us and not be forwarded to the child,
+      // thus we can use the default handler.
+      case SIGABRT:
+      case SIGBUS:
+      case SIGFPE:
+      case SIGILL:
+      case SIGSEGV:
+      case SIGSYS:
+      case SIGTRAP:
+        break;
+      // It's fine to use the default handler for SIGCHLD, because we use
+      // waitpid() in the main loop to wait for children to die anyway.
+      case SIGCHLD:
+        break;
+      // One does not simply install a signal handler for these two signals
+      case SIGKILL:
+      case SIGSTOP:
+        break;
+      // Ignore SIGTTIN and SIGTTOU, as we hand off the terminal to the child in
+      // SpawnChild().
+      case SIGTTIN:
+      case SIGTTOU:
+        IgnoreSignal(signum);
+        break;
+      case SIGTERM:
+        InstallSignalHandler(signum, ForwardTermSignal);
+        break;
+      // All other signals should be forwarded to the child.
+      default:
+        InstallSignalHandler(signum, ForwardSignal);
+        break;
+    }
+  }
+}
+
 int main(int argc, char *argv[]) {
   // Ask the kernel to kill us with SIGKILL if our parent dies.
   if (prctl(PR_SET_PDEATHSIG, SIGKILL) < 0) {
@@ -223,11 +285,14 @@ int main(int argc, char *argv[]) {
 
   CloseFds();
 
+  SpawnPid1();
+
+  SetupSignalHandlers();
+
   if (opt.timeout_secs > 0) {
     InstallSignalHandler(SIGALRM, OnTimeout);
     SetTimeout(opt.timeout_secs);
   }
 
-  SpawnPid1();
   return WaitForPid1();
 }
