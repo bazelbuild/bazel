@@ -70,8 +70,10 @@ public class JacocoLCOVFormatter {
         if (execPathsOfUninstrumentedFiles.isEmpty()) {
           return fileName;
         }
+
+        String matchingFileName = fileName.startsWith("/") ? fileName : "/" + fileName;
         for (String execPath : execPathsOfUninstrumentedFiles) {
-          if (execPath.endsWith("/" + fileName)) {
+          if (execPath.endsWith(matchingFileName)) {
             return execPath;
           }
         }
@@ -103,8 +105,9 @@ public class JacocoLCOVFormatter {
         // information and process everything at the end.
         for (IPackageCoverage pkgCoverage : bundle.getPackages()) {
           for (IClassCoverage clsCoverage : pkgCoverage.getClasses()) {
-            String fileName = getExecPathForEntryName(
-                clsCoverage.getPackageName() + "/" + clsCoverage.getSourceFileName());
+            String fileName =
+                getExecPathForEntryName(
+                    clsCoverage.getPackageName() + "/" + clsCoverage.getSourceFileName());
             if (fileName == null) {
               continue;
             }
@@ -114,8 +117,8 @@ public class JacocoLCOVFormatter {
             sourceToClassCoverage.get(fileName).put(clsCoverage.getName(), clsCoverage);
           }
           for (ISourceFileCoverage srcCoverage : pkgCoverage.getSourceFiles()) {
-            String sourceName = getExecPathForEntryName(
-                srcCoverage.getPackageName() + "/" + srcCoverage.getName());
+            String sourceName =
+                getExecPathForEntryName(srcCoverage.getPackageName() + "/" + srcCoverage.getName());
             if (sourceName != null) {
               sourceToFileCoverage.put(sourceName, srcCoverage);
             }
