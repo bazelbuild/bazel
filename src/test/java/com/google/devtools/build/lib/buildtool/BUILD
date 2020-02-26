@@ -17,6 +17,7 @@ java_library(
     srcs = glob(["util/*.java"]),
     deps = [
         "//src/main/java/com/google/devtools/build/lib:bazel-main",
+        "//src/main/java/com/google/devtools/build/lib:bazel/BazelRepositoryModule",
         "//src/main/java/com/google/devtools/build/lib:build-base",
         "//src/main/java/com/google/devtools/build/lib:build-request-options",
         "//src/main/java/com/google/devtools/build/lib:command-utils",
@@ -63,7 +64,10 @@ java_library(
 
 java_test(
     name = "BuildtoolTests",
-    srcs = glob(["*.java"]),
+    srcs = [
+        "JobsConverterTest.java",
+        "SymlinkForestTest.java",
+    ],
     test_class = "com.google.devtools.build.lib.AllTests",
     runtime_deps = ["//src/test/java/com/google/devtools/build/lib:test_runner"],
     deps = [
@@ -78,6 +82,31 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/vfs/inmemoryfs",
         "//src/main/java/com/google/devtools/common/options:options_internal",
         "//src/test/java/com/google/devtools/build/lib:packages_testutil",
+        "//src/test/java/com/google/devtools/build/lib:testutil",
+        "//third_party:guava",
+        "//third_party:junit4",
+        "//third_party:truth",
+    ],
+)
+
+java_test(
+    name = "ActionListenerIntegrationTest",
+    srcs = ["ActionListenerIntegrationTest.java"],
+    tags = [
+        "no_windows",
+        # TODO(laszlocsomor): remove "manual" after BuildIntegrationTestCase works with Bazel.
+        "manual",
+    ],
+    deps = [
+        ":testutil",
+        "//src/main/java/com/google/devtools/build/lib:build-base",
+        "//src/main/java/com/google/devtools/build/lib:util",
+        "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
+        "//src/main/java/com/google/devtools/build/lib/rules/java:java-compilation",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/main/java/com/google/devtools/common/options",
+        "//src/main/protobuf:extra_actions_base_java_proto",
         "//src/test/java/com/google/devtools/build/lib:testutil",
         "//third_party:guava",
         "//third_party:junit4",
