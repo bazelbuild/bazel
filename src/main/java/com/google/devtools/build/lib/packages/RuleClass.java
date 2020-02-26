@@ -135,6 +135,7 @@ public class RuleClass {
   public static final PathFragment EXPERIMENTAL_PREFIX = PathFragment.create("experimental");
   public static final String EXEC_COMPATIBLE_WITH_ATTR = "exec_compatible_with";
   public static final String EXEC_PROPERTIES = "exec_properties";
+  public static final String TEST_EXEC_PROPERTIES = "test_exec_properties";
   /*
    * The attribute that declares the set of license labels which apply to this target.
    */

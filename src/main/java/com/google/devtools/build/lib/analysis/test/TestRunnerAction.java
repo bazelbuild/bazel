@@ -70,6 +70,7 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.logging.Level;
@@ -136,6 +137,8 @@ public class TestRunnerAction extends AbstractAction
 
   private final boolean cancelConcurrentTestsOnSuccess;
 
+  private final Map<String, String> testExecProperties;
+
   private static ImmutableSet<Artifact> nonNullAsSet(Artifact... artifacts) {
     ImmutableSet.Builder<Artifact> builder = ImmutableSet.builder();
     for (Artifact artifact : artifacts) {
@@ -174,7 +177,8 @@ public class TestRunnerAction extends AbstractAction
       String workspaceName,
       @Nullable PathFragment shExecutable,
       boolean cancelConcurrentTestsOnSuccess,
-      Iterable<Artifact> tools) {
+      Iterable<Artifact> tools,
+      Map<String, String> testExecProperties) {
     super(
         owner,
         NestedSetBuilder.wrap(Order.STABLE_ORDER, tools),
@@ -230,6 +234,7 @@ public class TestRunnerAction extends AbstractAction
                 configuration.getActionEnvironment().getInheritedEnv(),
                 configuration.getTestActionEnvironment().getInheritedEnv()));
     this.cancelConcurrentTestsOnSuccess = cancelConcurrentTestsOnSuccess;
+    this.testExecProperties = testExecProperties;
   }
 
   public BuildConfiguration getConfiguration() {
@@ -904,6 +909,19 @@ public class TestRunnerAction extends AbstractAction
   @Override
   public NestedSet<Artifact> getPossibleInputsForTesting() {
     return getInputs();
+  }
+
+  @Override
+  public ImmutableMap<String, String> getExecProperties() {
+    Map<String, String> execProperties = new HashMap<>();
+
+    // If the same key occurs both in the target and in test-specific properties, the
+    // value is taken from test-specific properties (effectively overriding the target
+    // properties).
+    execProperties.putAll(super.getExecProperties());
+    execProperties.putAll(testExecProperties);
+
+    return ImmutableMap.copyOf(execProperties);
   }
 
   /** The same set of paths as the parent test action, resolved against a given exec root. */

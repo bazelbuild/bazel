@@ -230,6 +230,8 @@ public class BaseRuleClasses {
                           env.getToolsLabel(DEFAULT_COVERAGE_REPORT_GENERATOR_VALUE))))
           // The target itself and run_under both run on the same machine.
           .add(attr(":run_under", LABEL).value(RUN_UNDER).skipPrereqValidatorCheck())
+          // Exec properties used only for the test execution
+          .add(attr(RuleClass.TEST_EXEC_PROPERTIES, Type.STRING_DICT).value(ImmutableMap.of()))
           .build();
     }
 

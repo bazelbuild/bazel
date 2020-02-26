@@ -1249,6 +1249,14 @@ public final class RuleContext extends TargetContext
     }
   }
 
+  public Map<String, String> getTestExecProperties() {
+    if (isTestTarget() && isAttrDefined(RuleClass.TEST_EXEC_PROPERTIES, Type.STRING_DICT)) {
+      return attributes.get(RuleClass.TEST_EXEC_PROPERTIES, Type.STRING_DICT);
+    } else {
+      return ImmutableMap.of();
+    }
+  }
+
   @Override
   @Nullable
   public PlatformInfo getExecutionPlatform() {
