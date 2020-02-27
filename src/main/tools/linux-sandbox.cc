@@ -115,8 +115,10 @@ static void CloseFds() {
   }
 }
 
-static void OnTimeout(int sig) {
-  global_signal = sig;
+static void OnTimeoutOrTerm(int sig) {
+  if (global_signal == 0) {
+    global_signal = sig;
+  }
   kill(global_child_pid, global_next_timeout_signal);
   if (global_next_timeout_signal == SIGTERM && opt.kill_delay_secs > 0) {
     global_next_timeout_signal = SIGKILL;
@@ -206,23 +208,6 @@ static int WaitForPid1() {
   }
 }
 
-static void ExitAfterGracePeriod(int sig) {
-  // Exit with 128 + signal. Note that sig is SIGALRM, but this code path is
-  // only reached when SIGTERM was received, so we hard-code SIGTERM.
-  exit(128 + SIGTERM);
-}
-
-static void ForwardTermSignal(int signum) {
-  PRINT_DEBUG("ForwardSignal(%d)", signum);
-  kill(global_child_pid, signum);
-
-  // In case the child process does not terminate, exit after the kill timeout
-  // grace period (-t option), resulting in the child being killed with SIGKILL
-  // thanks to our PR_SET_PDEATHSIG setup.
-  InstallSignalHandler(SIGALRM, ExitAfterGracePeriod);
-  SetTimeout(opt.kill_delay_secs);
-}
-
 static void ForwardSignal(int signum) {
   PRINT_DEBUG("ForwardSignal(%d)", signum);
   kill(global_child_pid, signum);
@@ -258,7 +243,7 @@ static void SetupSignalHandlers() {
         IgnoreSignal(signum);
         break;
       case SIGTERM:
-        InstallSignalHandler(signum, ForwardTermSignal);
+        InstallSignalHandler(signum, OnTimeoutOrTerm);
         break;
       // All other signals should be forwarded to the child.
       default:
@@ -290,7 +275,7 @@ int main(int argc, char *argv[]) {
   SetupSignalHandlers();
 
   if (opt.timeout_secs > 0) {
-    InstallSignalHandler(SIGALRM, OnTimeout);
+    InstallSignalHandler(SIGALRM, OnTimeoutOrTerm);
     SetTimeout(opt.timeout_secs);
   }
 
