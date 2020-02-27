@@ -1,4 +1,4 @@
-// Copyright 2019 The Bazel Authors. All rights reserved.
+// Copyright 2020 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,26 +17,16 @@ package com.google.devtools.build.lib.bazel.rules.ninja.parser;
 
 import com.google.common.base.Ascii;
 
-/** Enum to represent {@link NinjaRule} variables with the special value, like name or command. */
-public enum NinjaRuleVariable {
+/** Enum to represent {@link NinjaPool} variables with the special value, like name or depth. */
+public enum NinjaPoolVariable {
   NAME,
-  COMMAND,
-  DEPFILE,
-  DEPS,
-  DEPTH,
-  MSVC_DEPS_PREFIX,
-  DESCRIPTION,
-  GENERATOR,
-  RESTAT,
-  RSPFILE,
-  RSPFILE_CONTENT,
-  POOL;
+  DEPTH;
 
   public String lowerCaseName() {
     return Ascii.toLowerCase(name());
   }
 
-  public static NinjaRuleVariable nullOrValue(String name) {
+  public static NinjaPoolVariable nullOrValue(String name) {
     try {
       return valueOf(Ascii.toUpperCase(name));
     } catch (IllegalArgumentException e) {

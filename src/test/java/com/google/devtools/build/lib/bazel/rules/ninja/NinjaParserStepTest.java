@@ -26,6 +26,8 @@ import com.google.devtools.build.lib.bazel.rules.ninja.file.GenericParsingExcept
 import com.google.devtools.build.lib.bazel.rules.ninja.lexer.NinjaLexer;
 import com.google.devtools.build.lib.bazel.rules.ninja.parser.NinjaFileParseResult;
 import com.google.devtools.build.lib.bazel.rules.ninja.parser.NinjaParserStep;
+import com.google.devtools.build.lib.bazel.rules.ninja.parser.NinjaPool;
+import com.google.devtools.build.lib.bazel.rules.ninja.parser.NinjaPoolVariable;
 import com.google.devtools.build.lib.bazel.rules.ninja.parser.NinjaRule;
 import com.google.devtools.build.lib.bazel.rules.ninja.parser.NinjaRuleVariable;
 import com.google.devtools.build.lib.bazel.rules.ninja.parser.NinjaScope;
@@ -191,6 +193,38 @@ public class NinjaParserStepTest {
     assertThat(variables.get(NinjaRuleVariable.NAME).getRawText()).isEqualTo("testRule");
     assertThat(variables.get(NinjaRuleVariable.DESCRIPTION).getRawText()).isEmpty();
   }
+
+  @Test
+  public void testParsePoolInRule() throws Exception {
+    NinjaParserStep parser =
+        createParser(
+            "rule testRule  \n"
+                + " pool = some_pool\n");
+    NinjaRule ninjaRule = parser.parseNinjaRule();
+    ImmutableSortedMap<NinjaRuleVariable, NinjaVariableValue> variables = ninjaRule.getVariables();
+    assertThat(variables.keySet())
+        .containsExactly(
+            NinjaRuleVariable.NAME, NinjaRuleVariable.POOL);
+    assertThat(variables.get(NinjaRuleVariable.NAME).getRawText()).isEqualTo("testRule");
+    assertThat(variables.get(NinjaRuleVariable.POOL).getRawText()).isEqualTo("some_pool");
+  }
+
+  @Test
+  public void testParsePoolDeclaration() throws Exception {
+    NinjaParserStep parser =
+        createParser(
+            "pool link_pool\n"
+            + "  depth = 4\n");
+    NinjaPool ninjaPool = parser.parseNinjaPool();
+    ImmutableSortedMap<NinjaPoolVariable, NinjaVariableValue> variables = ninjaPool.getVariables();
+    assertThat(variables.keySet())
+        .containsExactly(
+            NinjaPoolVariable.NAME, NinjaPoolVariable.DEPTH);
+    assertThat(variables.get(NinjaPoolVariable.NAME).getRawText()).isEqualTo("link_pool");
+    assertThat(variables.get(NinjaPoolVariable.DEPTH).getRawText()).isEqualTo("4");
+  }
+
+
 
   @Test
   public void testNinjaRuleParsingException() {

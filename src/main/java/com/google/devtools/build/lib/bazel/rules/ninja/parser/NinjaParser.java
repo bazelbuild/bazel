@@ -114,7 +114,8 @@ public class NinjaParser implements DeclarationConsumer {
         break;
       case DEFAULT:
       case POOL:
-        // Do nothing.
+        NinjaPool pool = parser.parseNinjaPool();
+        parseResult.addPool(declarationStart, pool);
         break;
       default:
         throw new UnsupportedOperationException("Unknown type of Ninja token.");
