@@ -33,6 +33,7 @@ import java.util.Map;
 import java.util.Set;
 import org.junit.After;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -131,6 +132,7 @@ public class MacOSXFsEventsDiffAwarenessTest {
   }
 
   @Test
+  @Ignore("Test is flaky; see https://github.com/bazelbuild/bazel/issues/10776")
   public void testSimple() throws Exception {
     View view1 = underTest.getCurrentView(watchFsEnabledProvider);
 
