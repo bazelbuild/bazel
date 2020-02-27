@@ -34,23 +34,24 @@ public abstract class ClassAttributeRecord implements TypeMappable<ClassAttribut
   }
 
   public final Optional<ClassName> getNestHost(ClassName className) {
-    ClassAttributes classAttributes = record().get(className);
-    checkNotNull(
-        classAttributes,
-        "Expected recorded ClassAttributes for (%s). Available record: %s",
-        className,
-        record().keySet());
-    return classAttributes.nestHost();
+    return requireClassAttributes(className).nestHost();
   }
 
   public final ImmutableSet<ClassName> getNestMembers(ClassName className) {
-    ClassAttributes classAttributes = record().get(className);
-    checkNotNull(
-        classAttributes,
-        "Expected recorded ClassAttributes for (%s). Available record: %s",
+    return requireClassAttributes(className).nestMembers();
+  }
+
+  public final ImmutableSet<MethodKey> getPrivateInstanceMethods(ClassName className) {
+    return requireClassAttributes(className).privateInstanceMethods();
+  }
+
+  /** Gets the non-null class attributes record for the specified className. */
+  private ClassAttributes requireClassAttributes(ClassName className) {
+    return checkNotNull(
+        record().get(className),
+        "Expected recorded ClassAttributes for (%s). Available in record: (%s)",
         className,
         record().keySet());
-    return classAttributes.nestMembers();
   }
 
   @Override

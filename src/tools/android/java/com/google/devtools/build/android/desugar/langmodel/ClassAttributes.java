@@ -34,6 +34,8 @@ public abstract class ClassAttributes implements TypeMappable<ClassAttributes> {
 
   public abstract ImmutableSet<ClassName> nestMembers();
 
+  public abstract ImmutableSet<MethodKey> privateInstanceMethods();
+
   // Include other class attributes as necessary.
 
   public static ClassAttributesBuilder builder() {
@@ -48,6 +50,9 @@ public abstract class ClassAttributes implements TypeMappable<ClassAttributes> {
       mappedBuilder.setNestHost(nestHost().get().acceptTypeMapper(typeMapper));
     }
     nestMembers().stream().map(typeMapper::map).forEach(mappedBuilder::addNestMember);
+    privateInstanceMethods().stream()
+        .map(methodKey -> methodKey.acceptTypeMapper(typeMapper))
+        .forEach(mappedBuilder::addPrivateInstanceMethod);
     mappedBuilder.setClassBinaryName(classBinaryName().acceptTypeMapper(typeMapper));
     return mappedBuilder.build();
   }
@@ -62,8 +67,15 @@ public abstract class ClassAttributes implements TypeMappable<ClassAttributes> {
 
     abstract ImmutableSet.Builder<ClassName> nestMembersBuilder();
 
+    abstract ImmutableSet.Builder<MethodKey> privateInstanceMethodsBuilder();
+
     public ClassAttributesBuilder addNestMember(ClassName nestMember) {
       nestMembersBuilder().add(nestMember);
+      return this;
+    }
+
+    public ClassAttributesBuilder addPrivateInstanceMethod(MethodKey methodKey) {
+      privateInstanceMethodsBuilder().add(methodKey);
       return this;
     }
 

@@ -168,7 +168,7 @@ java_test(
         "//src/tools/android/java/com/google/devtools/build/android/desugar/testing/junit:jacoco_agent_jar",
     ],
     jvm_flags = [
-        "-Dinput_srcs=$(location //src/test/java/com/google/devtools/build/android/desugar/nest/testsrc/simpleunit/method)",
+        "-Dinput_srcs='$(locations //src/test/java/com/google/devtools/build/android/desugar/nest/testsrc/simpleunit/method)'",
         # Required by Desugar#verifyLambdaDumpDirectoryRegistered
         "-Djdk.internal.lambda.dumpProxyClasses=$$(mktemp -d)",
         "-Djava.lang.invoke.stringConcat=MH_INLINE_SIZED_EXACT",
@@ -178,7 +178,9 @@ java_test(
     test_class = "com.google.devtools.build.android.desugar.nest.NestDesugaringMethodAccessTest",
     deps = [
         "//src/tools/android/java/com/google/devtools/build/android/desugar/testing/junit:desugar_rule",
+        "//third_party:asm",
         "//third_party:asm-tree",
+        "//third_party:guava",
         "//third_party:jsr330_inject",
         "//third_party:junit4",
         "//third_party:truth",
