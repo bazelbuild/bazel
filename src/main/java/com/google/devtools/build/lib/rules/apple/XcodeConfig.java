@@ -37,9 +37,12 @@ import com.google.devtools.build.lib.rules.apple.XcodeConfigInfo.Availability;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.logging.Logger;
 
 /** Implementation for the {@code xcode_config} rule. */
 public class XcodeConfig implements RuleConfiguredTargetFactory {
+  private static final Logger logger = Logger.getLogger(XcodeConfig.class.getName());
+
   private static final DottedVersion MINIMUM_BITCODE_XCODE_VERSION =
       DottedVersion.fromStringUnchecked("7");
 
@@ -98,6 +101,8 @@ public class XcodeConfig implements RuleConfiguredTargetFactory {
               explicitVersions, explicitDefaultVersion, appleOptions.xcodeVersion, ruleContext);
       availability = XcodeConfigInfo.Availability.UNKNOWN;
     }
+    logger.info(
+        String.format("Using Xcode version %s", xcodeVersionProperties.getXcodeVersionString()));
     DottedVersion iosSdkVersion =
         (appleOptions.iosSdkVersion != null)
             ? DottedVersion.maybeUnwrap(appleOptions.iosSdkVersion)
@@ -224,6 +229,10 @@ public class XcodeConfig implements RuleConfiguredTargetFactory {
       ruleContext.throwWithRuleError(
           "if any versions are specified, a default version must be specified");
     }
+    logger.info(
+        String.format(
+            "Determining Xcode version using single-location Xcodes mode: versions=[%s]",
+            printableXcodeVersions(explicitVersions)));
     Map<String, XcodeVersionRuleData> aliasesToVersionMap = null;
     try {
       aliasesToVersionMap = aliasesToVersionMap(explicitVersions);
@@ -281,6 +290,13 @@ public class XcodeConfig implements RuleConfiguredTargetFactory {
         mutuallyAvailableVersions.add(remoteAliasesToVersionMap.get(version));
       }
     }
+    logger.info(
+        String.format(
+            "Determining Xcode version using available Xcodes mode:"
+                + " local=[%s], remote=[%s], mutual=[%s]",
+            printableXcodeVersions(localVersions.getAvailableVersions()),
+            printableXcodeVersions(remoteVersions.getAvailableVersions()),
+            printableXcodeVersions(mutuallyAvailableVersions)));
     if (!Strings.isNullOrEmpty(versionOverrideFlag)) {
       XcodeVersionRuleData specifiedVersionFromRemote =
           remoteAliasesToVersionMap.get(versionOverrideFlag);
