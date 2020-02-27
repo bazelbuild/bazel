@@ -384,25 +384,35 @@ public class TestRunnerAction extends AbstractAction
 
   /** Returns the cache from disk, or null if the file doesn't exist or if there is an error. */
   @Nullable
-  private TestResultData readCacheStatus() {
-    try (InputStream in = cacheStatus.getPath().getInputStream()) {
-      return TestResultData.parseFrom(in, ExtensionRegistry.getEmptyRegistry());
+  private TestResultData maybeReadCacheStatus() {
+    try {
+      return readCacheStatus();
     } catch (IOException expected) {
       return null;
+    }
+  }
+
+  @VisibleForTesting
+  TestResultData readCacheStatus() throws IOException {
+    try (InputStream in = cacheStatus.getPath().getInputStream()) {
+      return TestResultData.parseFrom(in, ExtensionRegistry.getEmptyRegistry());
     }
   }
 
   private boolean computeExecuteUnconditionallyFromTestStatus() {
     return !canBeCached(
         testConfiguration.cacheTestResults(),
-        readCacheStatus(),
+        maybeReadCacheStatus(),
         testProperties.isExternal(),
         executionSettings.getTotalRuns());
   }
 
   @VisibleForTesting
   static boolean canBeCached(
-      TriState cacheTestResults, TestResultData prevStatus, boolean isExternal, int runsPerTest) {
+      TriState cacheTestResults,
+      @Nullable TestResultData prevStatus,
+      boolean isExternal,
+      int runsPerTest) {
     if (cacheTestResults == TriState.NO) {
       return false;
     }
@@ -443,6 +453,8 @@ public class TestRunnerAction extends AbstractAction
                   .getContext(TestActionContext.class)
                   .newCachedTestResult(executor.getExecRoot(), this, readCacheStatus()));
     } catch (IOException e) {
+      // TODO(b/150311421): Produce a user facing warning/error and a TestResult with information
+      //  about the failure to retrieve cached test status.
       LoggingUtil.logToRemote(Level.WARNING, "Failed creating cached protocol buffer", e);
     }
   }
