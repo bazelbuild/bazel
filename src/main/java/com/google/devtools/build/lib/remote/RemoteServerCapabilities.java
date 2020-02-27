@@ -32,6 +32,7 @@ import io.grpc.ClientInterceptor;
 import io.grpc.Context;
 import io.grpc.StatusRuntimeException;
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 import javax.annotation.Nullable;
@@ -58,7 +59,7 @@ class RemoteServerCapabilities {
     this.callCredentials = callCredentials;
     this.callTimeoutSecs = callTimeoutSecs;
     this.retrier = retrier;
-    this.interceptors = interceptors;
+    this.interceptors = Arrays.copyOf(interceptors, interceptors.length);
   }
 
   private CapabilitiesBlockingStub capabilitiesBlockingStub() {

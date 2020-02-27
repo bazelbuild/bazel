@@ -27,6 +27,7 @@ import com.google.bytestream.ByteStreamProto.WriteResponse;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Strings;
 import com.google.common.base.Throwables;
+import com.google.common.collect.ImmutableList;
 import com.google.common.hash.HashCode;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -89,7 +90,7 @@ class ByteStreamUploader extends AbstractReferenceCounted {
 
   @GuardedBy("lock")
   private final Map<HashCode, ListenableFuture<Void>> uploadsInProgress = new HashMap<>();
-  private final ClientInterceptor[] interceptors;
+  private final ImmutableList<ClientInterceptor> interceptors;
 
   @GuardedBy("lock")
   private boolean isShutdown;
@@ -120,7 +121,7 @@ class ByteStreamUploader extends AbstractReferenceCounted {
     this.callCredentials = callCredentials;
     this.callTimeoutSecs = callTimeoutSecs;
     this.retrier = retrier;
-    this.interceptors = interceptors;
+    this.interceptors = ImmutableList.copyOf(interceptors);
   }
 
   /**
