@@ -76,9 +76,6 @@ public interface SpawnResult {
      */
     EXECUTION_DENIED_CATASTROPHICALLY(true),
 
-    /** The remote execution system is overloaded and had to refuse execution for this Spawn. */
-    REMOTE_EXECUTOR_OVERLOADED,
-
     /**
      * The result of the remotely executed Spawn could not be retrieved due to errors in the remote
      * caching layer.

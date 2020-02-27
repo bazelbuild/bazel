@@ -68,9 +68,6 @@ public class ExitCode {
   public static final ExitCode PERSISTENT_BUILD_EVENT_SERVICE_UPLOAD_ERROR =
       ExitCode.create(45, "PERSISTENT_BUILD_EVENT_SERVICE_UPLOAD_ERROR");
 
-  public static final ExitCode REMOTE_EXECUTOR_OVERLOADED =
-      ExitCode.createInfrastructureFailure(39, "REMOTE_EXECUTOR_OVERLOADED");
-
   public static final ExitCode RESERVED = ExitCode.createInfrastructureFailure(40, "RESERVED");
 
   /*
