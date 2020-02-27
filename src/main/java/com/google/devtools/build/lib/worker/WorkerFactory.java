@@ -54,8 +54,9 @@ final class WorkerFactory extends BaseKeyedPooledObjectFactory<WorkerKey, Worker
   @Override
   public Worker create(WorkerKey key) throws Exception {
     int workerId = pidCounter.getAndIncrement();
+    String workTypeName = WorkerKey.makeWorkerTypeName(key.getProxied());
     Path logFile =
-        workerBaseDir.getRelative(WorkerKey.makeWorkerTypeName(key.getProxied()) + "-" + workerId + "-" + key.getMnemonic() + ".log");
+        workerBaseDir.getRelative(workTypeName + "-" + workerId + "-" + key.getMnemonic() + ".log");
 
     Worker worker;
     boolean sandboxed = workerOptions.workerSandboxing || key.mustBeSandboxed();
@@ -80,7 +81,7 @@ final class WorkerFactory extends BaseKeyedPooledObjectFactory<WorkerKey, Worker
                   "Created new %s %s %s (id %d), logging to %s",
                   sandboxed ? "sandboxed" : "non-sandboxed",
                   key.getMnemonic(),
-                  WorkerKey.makeWorkerTypeName(key.getProxied()),
+                  workTypeName,
                   workerId,
                   logFile)));
     }
