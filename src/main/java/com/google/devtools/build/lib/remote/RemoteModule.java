@@ -107,6 +107,39 @@ public final class RemoteModule extends BlazeModule {
     return !Strings.isNullOrEmpty(options.remoteExecutor);
   }
 
+  private void verifyServerCapabilities(
+      RemoteOptions remoteOptions,
+      ReferenceCountedChannel channel,
+      CallCredentials credentials,
+      RemoteRetrier retrier,
+      CommandEnvironment env,
+      DigestUtil digestUtil,
+      ClientInterceptor... interceptors
+  ) throws AbruptExitException {
+    RemoteServerCapabilities rsc =
+        new RemoteServerCapabilities(
+            remoteOptions.remoteInstanceName,
+            channel,
+            credentials,
+            remoteOptions.remoteTimeout,
+            retrier,
+            interceptors);
+    ServerCapabilities capabilities = null;
+    try {
+      capabilities = rsc.get(env.getCommandId().toString(), env.getBuildRequestId());
+    } catch (IOException e) {
+      throw new AbruptExitException(
+          "Failed to query remote execution capabilities: " + Utils.grpcAwareErrorMessage(e),
+          ExitCode.REMOTE_ERROR,
+          e);
+    } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
+      return;
+    }
+    checkClientServerCompatibility(
+        capabilities, remoteOptions, digestUtil.getDigestFunction(), env.getReporter());
+  }
+
   @Override
   public void beforeCommand(CommandEnvironment env) throws AbruptExitException {
     Preconditions.checkState(actionContextProvider == null, "actionContextProvider must be null");
@@ -212,30 +245,16 @@ public final class RemoteModule extends BlazeModule {
       // We always query the execution server for capabilities, if it is defined. A remote
       // execution/cache system should have all its servers to return the capabilities pertaining
       // to the system as a whole.
-      RemoteServerCapabilities rsc =
-          new RemoteServerCapabilities(
-              remoteOptions.remoteInstanceName,
-              (execChannel != null ? execChannel : cacheChannel),
-              credentials,
-              remoteOptions.remoteTimeout,
-              retrier,
-              (execChannel != null ?
-                  TracingMetadataUtils.newExecHeadersInterceptor(remoteOptions) :
-                  TracingMetadataUtils.newCacheHeadersInterceptor(remoteOptions)));
-      ServerCapabilities capabilities = null;
-      try {
-        capabilities = rsc.get(buildRequestId, invocationId);
-      } catch (IOException e) {
-        throw new AbruptExitException(
-            "Failed to query remote execution capabilities: " + Utils.grpcAwareErrorMessage(e),
-            ExitCode.REMOTE_ERROR,
-            e);
-      } catch (InterruptedException e) {
-        Thread.currentThread().interrupt();
-        return;
+      if (execChannel != null) {
+        verifyServerCapabilities(
+            remoteOptions, execChannel, credentials, retrier, env, digestUtil,
+            TracingMetadataUtils.newExecHeadersInterceptor(remoteOptions));
       }
-      checkClientServerCompatibility(
-          capabilities, remoteOptions, digestUtil.getDigestFunction(), env.getReporter());
+      if (cacheChannel != execChannel) {
+        verifyServerCapabilities(
+            remoteOptions, cacheChannel, credentials, retrier, env, digestUtil,
+            TracingMetadataUtils.newCacheHeadersInterceptor(remoteOptions));
+      }
 
       ByteStreamUploader uploader =
           new ByteStreamUploader(
