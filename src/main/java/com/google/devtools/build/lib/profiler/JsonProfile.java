@@ -22,10 +22,11 @@ import com.google.gson.stream.JsonToken;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileInputStream;
-import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.util.List;
 import java.util.zip.GZIPInputStream;
 import javax.annotation.Nullable;
@@ -59,7 +60,17 @@ public final class JsonProfile {
             traceEvents = TraceEvent.parseTraceEvents(reader);
             phaseSummaryStatistics = new PhaseSummaryStatistics();
             TraceEvent lastPhaseEvent = null;
+            Duration maxEndTime = Duration.ZERO;
             for (TraceEvent traceEvent : traceEvents) {
+              if (traceEvent.timestamp() != null) {
+                Duration curEndTime = traceEvent.timestamp();
+                if (traceEvent.duration() != null) {
+                  curEndTime = curEndTime.plus(traceEvent.duration());
+                }
+                if (curEndTime.compareTo(maxEndTime) > 0) {
+                  maxEndTime = curEndTime;
+                }
+              }
               if (ProfilerTask.PHASE.description.equals(traceEvent.category())) {
                 if (lastPhaseEvent != null) {
                   phaseSummaryStatistics.addProfilePhase(
@@ -70,12 +81,10 @@ public final class JsonProfile {
               }
             }
             if (lastPhaseEvent != null) {
-              TraceEvent lastEvent = Iterables.getLast(traceEvents);
               phaseSummaryStatistics.addProfilePhase(
                   ProfilePhase.getPhaseFromDescription(lastPhaseEvent.name()),
-                  lastEvent.timestamp().minus(lastPhaseEvent.timestamp()));
+                  maxEndTime.minus(lastPhaseEvent.timestamp()));
             }
-
           } else {
             reader.skipValue();
           }
