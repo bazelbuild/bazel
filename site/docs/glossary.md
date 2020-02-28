@@ -174,6 +174,8 @@ target platform, action environment variables, and command-line [build
 flags](#command-flags). [Transitions](#transition) may create additional
 configurations, e.g. for host tools or cross-compilation.
 
+**See also:** [Configurations](skylark/rules.html#configurations)
+
 <!-- TODO: ### Configuration fragment -->
 
 ### Configuration trimming
@@ -548,6 +550,8 @@ common usage of transitions is with *split* transitions, where certain parts of
 the [target graph](#target-graph) is forked with distinct configurations for
 each fork. For example, one can build an Android APK with native binaries
 compiled for ARM and x86 using split transitions in a single build.
+
+**See also:** [User-defined transitions](skylark/config.html#user-defined-transitions)
 
 ### Tree artifact
 
