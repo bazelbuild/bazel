@@ -551,7 +551,7 @@ the [target graph](#target-graph) is forked with distinct configurations for
 each fork. For example, one can build an Android APK with native binaries
 compiled for ARM and x86 using split transitions in a single build.
 
-**See also:** [User-defind transitions](skylark/config.html#user-defined-transitions)
+**See also:** [User-defined transitions](skylark/config.html#user-defined-transitions)
 
 ### Tree artifact
 
