@@ -75,7 +75,7 @@ public interface CommandLineItem {
    * CommandLineItem#expandToCommandLine} method, else we call {@link Object#toString()}.
    */
   static String expandToCommandLine(Object object) {
-    // TODO(bazel-team): The fallback on toString() isn't great. Particularly so for
+    // TODO(b/150322434): The fallback on toString() isn't great. Particularly so for
     // SkylarkCustomCommandLine, since toString() does not necessarily give the same results as
     // Skylark's str() or repr().
     //
