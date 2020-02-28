@@ -89,6 +89,8 @@ message FailureDetail {
   oneof category {
     Interrupted interrupted = 101;
   }
+
+  reserved 102; // For internal use
 }
 
 message Interrupted {

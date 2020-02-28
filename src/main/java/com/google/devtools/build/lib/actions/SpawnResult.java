@@ -17,6 +17,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
+import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.shell.TerminationStatus;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.protobuf.ByteString;
@@ -142,6 +143,13 @@ public interface SpawnResult {
   int exitCode();
 
   /**
+   * A detailed representation of what failed if {@link #status} is not {@link Status#SUCCESS}, and
+   * {@code null} otherwise.
+   */
+  @Nullable
+  FailureDetail failureDetail();
+
+  /**
    * Returns the host name of the executor or {@code null}. This information is intended for
    * debugging purposes, especially for remote execution systems. Remote caches usually do not store
    * the original host name, so this is generally {@code null} for cache hits.
@@ -240,6 +248,7 @@ public interface SpawnResult {
   final class SimpleSpawnResult implements SpawnResult {
     private final int exitCode;
     private final Status status;
+    @Nullable private final FailureDetail failureDetail;
     private final String executorHostName;
     private final String runnerName;
     private final SpawnMetrics spawnMetrics;
@@ -260,6 +269,7 @@ public interface SpawnResult {
     SimpleSpawnResult(Builder builder) {
       this.exitCode = builder.exitCode;
       this.status = Preconditions.checkNotNull(builder.status);
+      this.failureDetail = builder.failureDetail;
       this.executorHostName = builder.executorHostName;
       this.runnerName = builder.runnerName;
       this.spawnMetrics = builder.spawnMetrics != null
@@ -286,6 +296,12 @@ public interface SpawnResult {
     @Override
     public Status status() {
       return status;
+    }
+
+    @Override
+    @Nullable
+    public FailureDetail failureDetail() {
+      return failureDetail;
     }
 
     @Override
@@ -404,6 +420,7 @@ public interface SpawnResult {
   final class Builder {
     private int exitCode;
     private Status status;
+    private FailureDetail failureDetail;
     private String executorHostName;
     private String runnerName = "";
     private SpawnMetrics spawnMetrics;
@@ -423,13 +440,19 @@ public interface SpawnResult {
 
     public SpawnResult build() {
       Preconditions.checkArgument(!runnerName.isEmpty());
+
       if (status == Status.SUCCESS) {
-        Preconditions.checkArgument(exitCode == 0);
+        Preconditions.checkArgument(exitCode == 0, exitCode);
       } else if (status == Status.TIMEOUT) {
-        Preconditions.checkArgument(exitCode == POSIX_TIMEOUT_EXIT_CODE);
+        Preconditions.checkArgument(exitCode == POSIX_TIMEOUT_EXIT_CODE, exitCode);
       } else if (status == Status.NON_ZERO_EXIT || status == Status.OUT_OF_MEMORY) {
-        Preconditions.checkArgument(exitCode != 0);
+        Preconditions.checkArgument(exitCode != 0, exitCode);
       }
+
+      // TODO(mschaller): Once SimpleSpawnResult.Builder's uses have picked up FailureDetails for
+      //  unsuccessful spawns, add a precondition that asserts failureDetail's nullity is the same
+      //  as whether status is SUCCESS.
+
       return new SimpleSpawnResult(this);
     }
 
@@ -440,6 +463,11 @@ public interface SpawnResult {
 
     public Builder setStatus(Status status) {
       this.status = status;
+      return this;
+    }
+
+    public Builder setFailureDetail(FailureDetail failureDetail) {
+      this.failureDetail = failureDetail;
       return this;
     }
 
