@@ -432,6 +432,11 @@ There are several important limitations and caveats:
     with a compound pattern, your pattern needs to begin with a <code>.</code>. For example,
     <code>*</code> and <code>.*.txt</code> will match <code>.foo.txt</code>, but <code>*.txt</code>
     will not.
+
+    Hidden directories are also matched in the same manner. Hidden directories
+    may include files that are not required as inputs, and can increase the
+    number of unnecessarily globbed files and memory consumption. To exclude
+    hidden directories, add them to the "exclude" list argument.
   </li>
 
   <li>
