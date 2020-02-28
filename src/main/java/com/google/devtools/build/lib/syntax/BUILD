@@ -155,11 +155,10 @@ cc_binary(
         "//conditions:default": ["cpu_profiler_unimpl.cc"],
     }),
     linkshared = 1,
-    deps = [":jni"],
+    deps = [":jni"],  # TODO(adonovan): use @bazel_tools//tools/jdk:jni when released
 )
 
-# TODO(adonovan): move this to @bazel_tools//tools/jdk:jni where it belongs.
-# TODO(adonovan): why is there no condition for "just linux"?
+# This has been copied to @bazel_tools//tools/jdk:jni and will appear in the next release.
 cc_library(
     name = "jni",
     hdrs = ["@bazel_tools//tools/jdk:jni_header"] + select({
@@ -173,7 +172,6 @@ cc_library(
         "//conditions:default": [],
     }),
     includes = ["../../../../../../../../../external/bazel_tools/tools/jdk/include"] + select({
-        # Remove these crazy prefixes when we move this rule.
         "//src/conditions:linux_x86_64": ["../../../../../../../../../external/bazel_tools/tools/jdk/include/linux"],
         "//src/conditions:linux_aarch64": ["../../../../../../../../../external/bazel_tools/tools/jdk/include/linux"],
         "//src/conditions:linux_ppc": ["../../../../../../../../../external/bazel_tools/tools/jdk/include/linux"],

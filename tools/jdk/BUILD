@@ -19,7 +19,7 @@ load(
     "remote_java_tools_filegroup",
     "remote_java_tools_java_import",
 )
-load("@rules_cc//cc:defs.bzl", "cc_binary")
+load("@rules_cc//cc:defs.bzl", "cc_binary", "cc_library")
 load("//tools/python:private/defs.bzl", "py_binary", "py_test")
 
 package(default_visibility = ["//visibility:public"])
@@ -91,6 +91,9 @@ alias(
     actual = "@bazel_tools//tools/jdk:current_java_runtime",
 )
 
+# These individual jni_* targets are exposed for legacy reasons.
+# Most users should depend on :jni.
+
 java_runtime_files(
     name = "jni_header",
     srcs = ["include/jni.h"],
@@ -119,6 +122,35 @@ java_runtime_files(
 java_runtime_files(
     name = "jni_md_header-openbsd",
     srcs = ["include/openbsd/jni_md.h"],
+)
+
+# The Java native interface. Depend on this package if you #include <jni.h>.
+#
+# See test_jni in third_party/bazel/src/test/shell/bazel/bazel_java_test.sh for
+# an example of using Bazel to build a Java program that calls a C function.
+#
+# TODO(adonovan): add cases for //src/conditions:linux_{ppc,s390x} when released in Bazel.
+# TODO(adonovan): why is there no //src/conditions target meaning "just linux"?
+cc_library(
+    name = "jni",
+    hdrs = [":jni_header"] + select({
+        "//src/conditions:linux_x86_64": [":jni_md_header-linux"],
+        "//src/conditions:linux_aarch64": [":jni_md_header-linux"],
+        "//src/conditions:darwin": [":jni_md_header-darwin"],
+        "//src/conditions:freebsd": [":jni_md_header-freebsd"],
+        "//src/conditions:openbsd": [":jni_md_header-openbsd"],
+        "//src/conditions:windows": [":jni_md_header-windows"],
+        "//conditions:default": [],
+    }),
+    includes = ["include"] + select({
+        "//src/conditions:linux_x86_64": ["include/linux"],
+        "//src/conditions:linux_aarch64": ["include/linux"],
+        "//src/conditions:darwin": ["include/darwin"],
+        "//src/conditions:freebsd": ["include/freebsd"],
+        "//src/conditions:openbsd": ["include/openbsd"],
+        "//src/conditions:windows": ["include/win32"],
+        "//conditions:default": [],
+    }),
 )
 
 alias(
