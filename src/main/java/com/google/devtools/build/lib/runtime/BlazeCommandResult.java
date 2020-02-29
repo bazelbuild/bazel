@@ -19,39 +19,36 @@ import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.server.CommandProtos.ExecRequest;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.ExitCode;
-import com.google.devtools.build.lib.util.FailureDetailUtil;
 import javax.annotation.Nullable;
 
 /**
- * The result of a Blaze command. It is usually an exit code, but can be an instruction to the
- * client to execute a particular binary for "blaze run".
+ * The result of a Blaze command. It is usually a {@link ExitCode} with optional {@link
+ * FailureDetail}, but can be an instruction to the client to execute a particular binary for "blaze
+ * run".
  */
 @Immutable
 public final class BlazeCommandResult {
-  private final ExitCode exitCode;
-  @Nullable private final FailureDetail failureDetail;
+  private final DetailedExitCode detailedExitCode;
+
   @Nullable private final ExecRequest execDescription;
   private final boolean shutdown;
 
   private BlazeCommandResult(
-      ExitCode exitCode,
-      @Nullable FailureDetail failureDetail,
-      ExecRequest execDescription,
-      boolean shutdown) {
-    this.exitCode = Preconditions.checkNotNull(exitCode);
-    this.failureDetail = failureDetail;
+      DetailedExitCode detailedExitCode, @Nullable ExecRequest execDescription, boolean shutdown) {
+    this.detailedExitCode = Preconditions.checkNotNull(detailedExitCode);
     this.execDescription = execDescription;
     this.shutdown = shutdown;
   }
 
   public ExitCode getExitCode() {
-    return exitCode;
+    return detailedExitCode.getExitCode();
   }
 
   @Nullable
   public FailureDetail getFailureDetail() {
-    return failureDetail;
+    return detailedExitCode.getFailureDetail();
   }
 
   public boolean shutdown() {
@@ -66,28 +63,29 @@ public final class BlazeCommandResult {
   @Override
   public String toString() {
     return MoreObjects.toStringHelper(this)
-        .add("exitCode", exitCode)
-        .add("failureDetail", failureDetail)
+        .add("exitCode", getExitCode())
+        .add("failureDetail", getFailureDetail())
         .add("execDescription", execDescription)
         .add("shutdown", shutdown)
         .toString();
   }
 
   public static BlazeCommandResult shutdown(ExitCode exitCode) {
-    return new BlazeCommandResult(exitCode, null, null, true);
+    return new BlazeCommandResult(DetailedExitCode.justExitCode(exitCode), null, true);
   }
 
   public static BlazeCommandResult exitCode(ExitCode exitCode) {
-    return new BlazeCommandResult(exitCode, null, null, false);
+    return new BlazeCommandResult(DetailedExitCode.justExitCode(exitCode), null, false);
   }
 
   public static BlazeCommandResult failureDetail(FailureDetail failureDetail) {
-    return new BlazeCommandResult(
-        FailureDetailUtil.getExitCode(failureDetail), failureDetail, null, false);
+    return new BlazeCommandResult(DetailedExitCode.of(failureDetail), null, false);
   }
 
   public static BlazeCommandResult execute(ExecRequest execDescription) {
     return new BlazeCommandResult(
-        ExitCode.SUCCESS, null, Preconditions.checkNotNull(execDescription), false);
+        DetailedExitCode.justExitCode(ExitCode.SUCCESS),
+        Preconditions.checkNotNull(execDescription),
+        false);
   }
 }

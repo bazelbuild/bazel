@@ -203,6 +203,7 @@ java_library(
             "util/BlazeClock.java",
             "util/Clock.java",
             "util/ExitCode.java",
+            "util/DetailedExitCode.java",
             "util/FailureDetailUtil.java",
             "util/FileType.java",
             "util/FileTypeSet.java",
@@ -298,6 +299,17 @@ java_library(
     name = "custom-exit-code-publisher",
     srcs = ["util/CustomExitCodePublisher.java"],
     deps = ["//third_party:jsr305"],
+)
+
+java_library(
+    name = "detailed_exit_code",
+    srcs = ["util/DetailedExitCode.java"],
+    deps = [
+        ":exitcode-external",
+        ":failure_detail_util",
+        "//src/main/protobuf:failure_details_java_proto",
+        "//third_party:jsr305",
+    ],
 )
 
 java_library(
@@ -1226,9 +1238,9 @@ java_library(
         ":build-request-options",
         ":command-utils",
         ":custom-exit-code-publisher",
+        ":detailed_exit_code",
         ":events",
         ":exitcode-external",
-        ":failure_detail_util",
         ":keep-going-option",
         ":loading-phase-threads-option",
         ":packages-internal",
