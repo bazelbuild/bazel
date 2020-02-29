@@ -35,9 +35,33 @@ Here is a selection of recommended rules:
 * [Shell](be/shell.html)
 * [Webtesting](https://github.com/bazelbuild/rules_webtesting) (Webdriver)
 
+The following rules have been recently accepted into the official [BazelBuild](https://github.com/bazelbuild) Github Org:
+
+* [Closure](https://github.com/bazelbuild/rules_closure)
+* [Dot Net](https://github.com/bazelbuild/rules_dotnet)
+* [Kotlin](https://github.com/bazelbuild/rules_kotlin)
+* [Perl](https://github.com/bazelbuild/rules_perl)
+* [Rust](https://github.com/bazelbuild/rules_rust)
+* [SASS](https://github.com/bazelbuild/rules_sass)
+* [Swift](https://github.com/bazelbuild/rules_swift)
+* [TypeScript](https://github.com/bazelbuild/rules_typescript)
+
 The repository [Skylib](https://github.com/bazelbuild/bazel-skylib) contains
-additional functions that can be useful when writing new rules and new
-macros.
+additional functions that can be useful when writing new rules and new macros.
+
+## Community Rules
+
+In addition, many additional *community* rules exist, and are supported by third 
+parties and other open source contributors, for instance:
+
+ * [R](https://github.com/grailbio/rules_r) — is a language and environment for statistical 
+   computing and graphics. R rules are distributed with the GPLv2 license.
+
+ * [Ruby](https://github.com/bazelruby/rules_ruby) — in the late stages of development,
+   with some organizations already experimenting with building ruby and rails apps using
+   Bazel. Ruby rules are distributed with the Apache License.
+
+For a complete list, see the following Github [search results](https://github.com/search?o=desc&q=bazel+rules&s=stars&type=Repositories).
 
 ## Native rules that do not apply to a specific programming language
 
@@ -71,10 +95,47 @@ BUILD files without a `load` statement.
 Bazel also embeds additional rules written in Starlark. Those can be loaded from
 the `@bazel_tools` built-in external repository.
 
-* Repository rules
+* Repository rules:
   - [`git_repository`](repo/git.md#git_repository)
   - [`new_git_repository`](repo/git.html#new_git_repository)
   - [`http_archive`](repo/http.html#http_archive)
   - [`http_file`](repo/http.html#http_archive)
   - [`http_jar`](repo/http.html#http_jar)
   - [Utility functions on patching](utils.md)
+
+## Packaging rules for creating archives
+
+These rules are often needed for writing other rules, as is much easier to pass a single archive to a new rule, compared  to passing on a very large list of files. 
+
+You can load the rules you need as shown in the 
+[README](https://github.com/bazelbuild/rules_pkg/tree/master/pkg#workspace-setup)'s example.
+
+* Packaging and archive creation rules:
+  - [`pkg_tar`](https://github.com/bazelbuild/rules_pkg/tree/master/pkg#pkg_tar)
+  - [`pkg_zip`](https://github.com/bazelbuild/rules_pkg/tree/master/pkg#pkg_zip)
+  - [`pkg_deb`](https://github.com/bazelbuild/rules_pkg/tree/master/pkg#pkg_deb)
+  - [`pkg_rpm`](https://github.com/bazelbuild/rules_pkg/tree/master/pkg#pkg_rpm)
+
+## Docker rules for deploying applications in Docker containers
+
+No list would be complete without Docker rules, which are there to package applications into executable Docker images, and create the images with Bazel. You can learn more about Docker integration on their [README](https://github.com/bazelbuild/rules_docker).
+
+* Docker Image generation rules:
+  * [`container_image`](https://github.com/bazelbuild/rules_docker#container_image-1)
+  * [`container_bundle`](https://github.com/bazelbuild/rules_docker#container_bundle-1)
+  * [`container_import`](https://github.com/bazelbuild/rules_docker#container_import)
+  * [`container_load`](https://github.com/bazelbuild/rules_docker#container_load)
+  * [`container_pull`](https://github.com/bazelbuild/rules_docker#container_pull-1)
+  * [`container_push`](https://github.com/bazelbuild/rules_docker#container_push-1)
+
+* Rules for language-specific Docker images:
+  * [`java_image`](https://github.com/bazelbuild/rules_docker#java_image)
+  * [`go_image`](https://github.com/bazelbuild/rules_docker#go_image)
+  * [`cc_image`](https://github.com/bazelbuild/rules_docker#cc_image)
+  * etc...
+
+---
+
+There are new repositories with rules popping up every day. Please make sure to do your due diligence on any rules you'd like to use which are not hosted by the `BazelBuild` GitHub organization, as the quality may be highly inconsistent.
+
+
