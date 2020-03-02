@@ -171,6 +171,7 @@ public class WorkspaceFactory {
     thread.setThreadLocal(
         PackageFactory.PackageContext.class,
         new PackageFactory.PackageContext(builder, null, localReporter));
+    Module module = thread.getGlobals();
 
     // The workspace environment doesn't need the tools repository or the fragment map
     // because executing workspace rules happens before analysis and it doesn't need a
@@ -194,7 +195,7 @@ public class WorkspaceFactory {
     } else if (PackageFactory.checkBuildSyntax(
         file, globs, globs, new HashMap<>(), localReporter)) {
       try {
-        EvalUtils.exec(file, thread);
+        EvalUtils.exec(file, module, thread);
       } catch (EvalException ex) {
         localReporter.handle(Event.error(ex.getLocation(), ex.getMessage()));
       }
@@ -274,14 +275,13 @@ public class WorkspaceFactory {
       }
 
       @Override
-      public Object call(
-          StarlarkThread thread, Location loc, Tuple<Object> args, Dict<String, Object> kwargs)
+      public Object call(StarlarkThread thread, Tuple<Object> args, Dict<String, Object> kwargs)
           throws EvalException, InterruptedException {
         if (!args.isEmpty()) {
           throw new EvalException(null, "unexpected positional arguments");
         }
         try {
-          Package.Builder builder = PackageFactory.getContext(thread, loc).pkgBuilder;
+          Package.Builder builder = PackageFactory.getContext(thread).pkgBuilder;
           // TODO(adonovan): this doesn't look safe!
           String externalRepoName = (String) kwargs.get("name");
           if (!allowOverride
@@ -298,6 +298,7 @@ public class WorkspaceFactory {
           // @<mainRepoName> as a separate repository. This will be overridden if the main
           // repository has a repo_mapping entry from <mainRepoName> to something.
           WorkspaceFactoryHelper.addMainRepoEntry(builder, externalRepoName, thread.getSemantics());
+          Location loc = thread.getCallerLocation();
           WorkspaceFactoryHelper.addRepoMappings(builder, kwargs, externalRepoName, loc);
           RuleClass ruleClass = ruleFactory.getRuleClass(ruleClassName);
           RuleClass bindRuleClass = ruleFactory.getRuleClass("bind");
@@ -349,6 +350,7 @@ public class WorkspaceFactory {
   private ImmutableMap<String, Object> getDefaultEnvironment() {
     ImmutableMap.Builder<String, Object> env = ImmutableMap.builder();
     env.putAll(Starlark.UNIVERSE);
+    env.putAll(StarlarkLibrary.COMMON); // e.g. select, depset
     env.putAll(workspaceFunctions);
     if (installDir != null) {
       env.put("__embedded_dir__", installDir.getPathString());

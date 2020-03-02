@@ -38,13 +38,11 @@ public interface StarlarkCallable extends StarlarkValue {
    * <p>The default implementation throws an exception.
    *
    * @param thread the StarlarkThread in which the function is called
-   * @param loc source location of the Starlark call expression, or BUILTIN; (going away)
    * @param args a tuple of the arguments passed by position
    * @param kwargs a new, mutable dict of the arguments passed by keyword. Iteration order is
    *     determined by keyword order in the call expression.
    */
-  default Object call(
-      StarlarkThread thread, Location loc, Tuple<Object> args, Dict<String, Object> kwargs)
+  default Object call(StarlarkThread thread, Tuple<Object> args, Dict<String, Object> kwargs)
       throws EvalException, InterruptedException {
     throw Starlark.errorf("function %s not implemented", getName());
   }
@@ -66,13 +64,11 @@ public interface StarlarkCallable extends StarlarkValue {
    * named arguments. Other implementations of this method should similarly reject duplicates.
    *
    * @param thread the StarlarkThread in which the function is called
-   * @param loc source location of the Starlark call expression, or BUILTIN; (going away)
    * @param positional a list of positional arguments
    * @param named a list of named arguments, as alternating Strings/Objects. May contain dups.
    */
   default Object fastcall(
       StarlarkThread thread,
-      Location loc, // TODO(adonovan): eliminate
       Object[] positional,
       Object[] named)
       throws EvalException, InterruptedException {
@@ -88,7 +84,7 @@ public interface StarlarkCallable extends StarlarkValue {
     Tuple<Object> args = (Tuple<Object>) arguments[0];
     @SuppressWarnings("unchecked")
     Dict<String, Object> kwargs = (Dict<String, Object>) arguments[1];
-    return call(thread, loc, args, kwargs);
+    return call(thread, args, kwargs);
   }
 
   /** Returns the form this callable value should take in a stack trace. */

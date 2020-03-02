@@ -1,4 +1,5 @@
 load("@rules_java//java:defs.bzl", "java_library")
+load("//tools/build_rules:utilities.bzl", "java_library_srcs")
 
 # Description:
 #   Skyframe Java code
@@ -32,6 +33,7 @@ java_library(
         exclude = SKYFRAME_OBJECT_SRCS,
     ),
     deps = [
+        ":graph_inconsistency_java_proto",
         ":skyframe-objects",
         "//src/main/java/com/google/devtools/build/lib:bug-report",
         "//src/main/java/com/google/devtools/build/lib:events",
@@ -49,6 +51,21 @@ java_library(
         "//third_party:guava",
         "//third_party:jsr305",
     ],
+)
+
+proto_library(
+    name = "graph_inconsistency",
+    srcs = ["graph_inconsistency.proto"],
+)
+
+java_proto_library(
+    name = "graph_inconsistency_java_proto",
+    deps = [":graph_inconsistency"],
+)
+
+java_library_srcs(
+    name = "dist_jars",
+    deps = [":graph_inconsistency_java_proto"],
 )
 
 filegroup(

@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.skylarkbuildapi;
 
-import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.skylarkbuildapi.core.StructApi;
 import com.google.devtools.build.lib.skylarkinterface.Param;
@@ -24,6 +23,7 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.syntax.Depset;
 import com.google.devtools.build.lib.syntax.EvalException;
+import com.google.devtools.build.lib.syntax.StarlarkThread;
 
 /** A provider that gives general information about a target's direct and transitive files. */
 @SkylarkModule(
@@ -149,8 +149,8 @@ public interface DefaultInfoApi extends StructApi {
                       + " should be executed to run the target. By default it is the predeclared"
                       + " output <code>ctx.outputs.executable</code>.")
         },
-        useLocation = true,
-        selfCall = true)
+        selfCall = true,
+        useStarlarkThread = true)
     @SkylarkConstructor(objectType = DefaultInfoApi.class, receiverNameForDoc = "DefaultInfo")
     DefaultInfoApi constructor(
         // TODO(cparsons): Use stricter types when Runfiles.NONE is passed as null.
@@ -159,7 +159,7 @@ public interface DefaultInfoApi extends StructApi {
         Object dataRunfiles,
         Object defaultRunfiles,
         Object executable,
-        Location loc)
+        StarlarkThread thread)
         throws EvalException;
   }
 }

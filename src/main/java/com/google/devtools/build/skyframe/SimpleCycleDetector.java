@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.util.GroupedList;
 import com.google.devtools.build.skyframe.ParallelEvaluatorContext.EnqueueParentBehavior;
 import com.google.devtools.build.skyframe.QueryableGraph.Reason;
 import com.google.devtools.build.skyframe.SkyFunctionEnvironment.UndonePreviouslyRequestedDeps;
+import com.google.devtools.build.skyframe.proto.GraphInconsistency.Inconsistency;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Deque;
@@ -297,9 +298,7 @@ public class SimpleCycleDetector implements CycleDetector {
           evaluatorContext
               .getGraphInconsistencyReceiver()
               .noteInconsistencyAndMaybeThrow(
-                  key,
-                  missingChildren,
-                  GraphInconsistencyReceiver.Inconsistency.ALREADY_DECLARED_CHILD_MISSING);
+                  key, missingChildren, Inconsistency.ALREADY_DECLARED_CHILD_MISSING);
           entry.removeUnfinishedDeps(missingChildren);
         }
       }
@@ -393,9 +392,7 @@ public class SimpleCycleDetector implements CycleDetector {
       evaluatorContext
           .getGraphInconsistencyReceiver()
           .noteInconsistencyAndMaybeThrow(
-              parent,
-              missingChildren,
-              GraphInconsistencyReceiver.Inconsistency.ALREADY_DECLARED_CHILD_MISSING);
+              parent, missingChildren, Inconsistency.ALREADY_DECLARED_CHILD_MISSING);
     }
     for (NodeEntry childNode : childMap.values()) {
       ErrorInfo errorInfo = childNode.getErrorInfo();

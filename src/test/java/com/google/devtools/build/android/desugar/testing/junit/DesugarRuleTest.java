@@ -43,7 +43,7 @@ public final class DesugarRuleTest {
   public final DesugarRule desugarRule =
       DesugarRule.builder(this, MethodHandles.lookup())
           .addInputs(Paths.get(System.getProperty("input_jar")))
-          .addSourceInputs(Paths.get(System.getProperty("input_srcs")))
+          .addSourceInputsFromJvmFlag("input_srcs")
           .addJavacOptions("-source 11", "-target 11")
           .enableIterativeTransformation(3)
           .setWorkingJavaPackage("com.google.devtools.build.android.desugar.testing.junit")
@@ -88,10 +88,6 @@ public final class DesugarRuleTest {
       memberName = "multiplier",
       memberDescriptor = "J")
   private FieldNode multiplier;
-
-  @Inject
-  @RuntimeMethodHandle(className = "DesugarRuleTestTarget$Alpha", memberName = "twoIntSum")
-  private MethodHandle twoIntSumMH;
 
   @Inject
   @RuntimeMethodHandle(className = "DesugarRuleTestTarget$Alpha", memberName = "<init>")
@@ -193,9 +189,17 @@ public final class DesugarRuleTest {
   }
 
   @Test
-  public void invokeStaticMethodHandle() throws Throwable {
-    int result = (int) twoIntSumMH.invoke(1, 2);
-    assertThat(result).isEqualTo(3);
+  @ParameterValueSource({"1", "2", "3"})
+  @ParameterValueSource({"100", "400", "500"})
+  public void invokeStaticMethodHandle(
+      @RuntimeMethodHandle(className = "DesugarRuleTestTarget$Alpha", memberName = "twoIntSum")
+          MethodHandle twoIntSum,
+      @FromParameterValueSource int x,
+      @FromParameterValueSource int y,
+      @FromParameterValueSource int expectedResult)
+      throws Throwable {
+    int result = (int) twoIntSum.invoke(x, y);
+    assertThat(result).isEqualTo(expectedResult);
   }
 
   @Test

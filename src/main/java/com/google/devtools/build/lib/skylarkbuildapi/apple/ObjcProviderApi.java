@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.skylarkbuildapi.apple;
 
 import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
+import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcCompilationContextApi;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
@@ -60,7 +61,7 @@ public interface ObjcProviderApi<FileApiT extends FileApi> extends StarlarkValue
       doc =
           "Exec paths of .framework directories corresponding to frameworks to include "
               + "in search paths, but not to link.")
-  Depset /*<String>*/ frameworkSearchPathOnly();
+  Depset /*<String>*/ frameworkIncludeForStarlark();
 
   @SkylarkCallable(
       name = "force_load_library",
@@ -94,19 +95,27 @@ public interface ObjcProviderApi<FileApiT extends FileApi> extends StarlarkValue
       doc =
           "Include search paths specified with '-I' on the command line. Also known as "
               + "header search paths (and distinct from <em>user</em> header search paths).")
-  Depset include();
+  Depset includeForStarlark();
+
+  @SkylarkCallable(
+      name = "strict_include",
+      structField = true,
+      doc =
+          "Non-propagated include search paths specified with '-I' on the command line. Also known "
+              + "as header search paths (and distinct from <em>user</em> header search paths).")
+  Depset strictIncludeForStarlark();
 
   @SkylarkCallable(
       name = "include_system",
       structField = true,
       doc = "System include search paths (typically specified with -isystem).")
-  Depset includeSystem();
+  Depset systemIncludeForStarlark();
 
   @SkylarkCallable(
       name = "iquote",
       structField = true,
       doc = "User header search paths (typically specified with -iquote).")
-  Depset iquote();
+  Depset quoteIncludeForStarlark();
 
   @SkylarkCallable(
       name = "j2objc_library",
@@ -261,4 +270,12 @@ public interface ObjcProviderApi<FileApiT extends FileApi> extends StarlarkValue
       structField = true,
       doc = "Returns all framework paths to static frameworks in this provider.")
   Depset /*<String>*/ staticFrameworkPathsForStarlark();
+
+  @SkylarkCallable(
+      name = "compilation_context",
+      doc =
+          "Returns the embedded <code>CcCompilationContext</code> that contains the"
+              + "provider's compilation information.",
+      structField = true)
+  CcCompilationContextApi getCcCompilationContext();
 }

@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.rules.java;
 
 import static com.google.common.base.Strings.isNullOrEmpty;
+import static com.google.common.collect.Iterables.getOnlyElement;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableCollection;
@@ -57,10 +58,7 @@ public class JavaToolchain implements RuleConfiguredTargetFactory {
       throws InterruptedException, RuleErrorException, ActionConflictException {
     JavaCommon.checkRuleLoadedThroughMacro(ruleContext);
     ImmutableList<String> javacopts = getJavacOpts(ruleContext);
-    NestedSet<Artifact> bootclasspath =
-        PrerequisiteArtifacts.nestedSet(ruleContext, "bootclasspath", Mode.HOST);
-    NestedSet<Artifact> extclasspath =
-        PrerequisiteArtifacts.nestedSet(ruleContext, "extclasspath", Mode.HOST);
+    BootClassPathInfo bootclasspath = getBootClassPathInfo(ruleContext);
     boolean javacSupportsWorkers =
         ruleContext.attributes().get("javac_supports_workers", Type.BOOLEAN);
     Artifact javac = ruleContext.getPrerequisiteArtifact("javac", Mode.HOST);
@@ -142,7 +140,6 @@ public class JavaToolchain implements RuleConfiguredTargetFactory {
             turbineJvmOpts,
             javacSupportsWorkers,
             bootclasspath,
-            extclasspath,
             javac,
             tools,
             javabuilder,
@@ -208,5 +205,19 @@ public class JavaToolchain implements RuleConfiguredTargetFactory {
       ImmutableMap<Label, ImmutableCollection<Artifact>> locations,
       String attribute) {
     return ruleContext.getExpander().withExecLocations(locations).list(attribute);
+  }
+
+  private static BootClassPathInfo getBootClassPathInfo(RuleContext ruleContext) {
+    List<BootClassPathInfo> bootClassPathInfos =
+        ruleContext.getPrerequisites("bootclasspath", Mode.TARGET, BootClassPathInfo.PROVIDER);
+    if (!bootClassPathInfos.isEmpty()) {
+      if (bootClassPathInfos.size() != 1) {
+        ruleContext.attributeError(
+            "bootclasspath", "expected at most one entry with a BootClassPathInfo provider");
+      }
+      return getOnlyElement(bootClassPathInfos);
+    }
+    return BootClassPathInfo.create(
+        PrerequisiteArtifacts.nestedSet(ruleContext, "bootclasspath", Mode.TARGET));
   }
 }

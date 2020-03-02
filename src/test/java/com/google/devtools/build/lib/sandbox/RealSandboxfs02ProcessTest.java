@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.sandbox;
 
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.sandbox.SandboxfsProcess.Mapping;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
 import org.junit.Test;
@@ -39,7 +38,7 @@ public class RealSandboxfs02ProcessTest extends BaseRealSandboxfsProcessTest {
   @Test
   public void testNoActivity() throws IOException {
     SandboxfsProcess process = createAndStartFakeSandboxfs(ImmutableList.of("{\"id\":\"empty\"}"));
-    String expectedRequests = "{\"CreateSandbox\":{\"id\":\"empty\",\"mappings\":[]}}";
+    String expectedRequests = "{\"C\":{\"i\":\"empty\",\"m\":[]}}";
     verifyFakeSandboxfsExecution(process, expectedRequests);
   }
 
@@ -53,23 +52,22 @@ public class RealSandboxfs02ProcessTest extends BaseRealSandboxfsProcessTest {
                 "{\"id\":\"sandbox2\"}",
                 "{\"id\":\"sandbox1\"}"));
 
-    process.createSandbox("sandbox1", ImmutableList.of());
+    process.createSandbox("sandbox1", (mapper) -> {});
     process.createSandbox(
         "sandbox2",
-        ImmutableList.of(
-            Mapping.builder()
-                .setPath(PathFragment.create("/"))
-                .setTarget(PathFragment.create("/some/path"))
-                .setWritable(true)
-                .build()));
+        (mapper) -> {
+          mapper.map(PathFragment.create("/"), PathFragment.create("/some/path"), true);
+          mapper.map(PathFragment.create("/a/b/c"), PathFragment.create("/other"), false);
+        });
     process.destroySandbox("sandbox1");
     String expectedRequests =
-        "{\"CreateSandbox\":{\"id\":\"empty\",\"mappings\":[]}}"
-            + "{\"CreateSandbox\":{\"id\":\"sandbox1\",\"mappings\":[]}}"
-            + "{\"CreateSandbox\":{\"id\":\"sandbox2\",\"mappings\":["
-            + "{\"path\":\"/\",\"underlying_path\":\"/some/path\",\"writable\":true}"
+        "{\"C\":{\"i\":\"empty\",\"m\":[]}}"
+            + "{\"C\":{\"i\":\"sandbox1\",\"m\":[]}}"
+            + "{\"C\":{\"i\":\"sandbox2\",\"m\":["
+            + "{\"p\":\"/\",\"u\":\"/some/path\",\"w\":true},"
+            + "{\"p\":\"/a/b/c\",\"u\":\"/other\"}"
             + "]}}"
-            + "{\"DestroySandbox\":\"sandbox1\"}";
+            + "{\"D\":\"sandbox1\"}";
 
     verifyFakeSandboxfsExecution(process, expectedRequests);
   }

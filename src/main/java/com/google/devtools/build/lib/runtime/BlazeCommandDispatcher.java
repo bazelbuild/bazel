@@ -40,6 +40,7 @@ import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.InvocationPolicy;
+import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.AnsiStrippingOutputStream;
 import com.google.devtools.build.lib.util.ExitCode;
@@ -53,8 +54,10 @@ import com.google.devtools.common.options.OpaqueOptionsData;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingResult;
 import java.io.BufferedOutputStream;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -326,6 +329,23 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
       storedEventHandler.post(profilerStartedEvent);
     }
 
+    // Enable Starlark CPU profiling (--starlark_cpu_profile=/tmp/foo.pprof.gz)
+    if (!commonOptions.starlarkCpuProfile.isEmpty()) {
+      FileOutputStream out;
+      try {
+        out = new FileOutputStream(commonOptions.starlarkCpuProfile);
+      } catch (IOException ex) {
+        storedEventHandler.handle(Event.error("Starlark CPU profiler: " + ex.getMessage()));
+        return BlazeCommandResult.exitCode(ExitCode.LOCAL_ENVIRONMENTAL_ERROR);
+      }
+      try {
+        Starlark.startCpuProfile(out, Duration.ofMillis(10));
+      } catch (IllegalStateException ex) { // e.g. SIGPROF in use
+        storedEventHandler.handle(Event.error(ex.getMessage()));
+        return BlazeCommandResult.exitCode(ExitCode.LOCAL_ENVIRONMENTAL_ERROR);
+      }
+    }
+
     BlazeCommandResult result = BlazeCommandResult.exitCode(ExitCode.BLAZE_INTERNAL_ERROR);
     boolean afterCommandCalled = false;
     Reporter reporter = env.getReporter();
@@ -540,11 +560,25 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
       }
       options = optionHandler.getOptionsResult();
 
+      // Run the command.
       result = command.exec(env, options);
+
       ExitCode moduleExitCode = env.precompleteCommand(result.getExitCode());
       // If Blaze did not suffer an infrastructure failure, check for errors in modules.
       if (!result.getExitCode().isInfrastructureFailure() && moduleExitCode != null) {
         result = BlazeCommandResult.exitCode(moduleExitCode);
+      }
+
+      // Finalize the Starlark CPU profile.
+      if (!commonOptions.starlarkCpuProfile.isEmpty()) {
+        try {
+          Starlark.stopCpuProfile();
+        } catch (IOException ex) {
+          reporter.handle(Event.error("Starlark CPU profiler: " + ex.getMessage()));
+          if (result.getExitCode().equals(ExitCode.SUCCESS)) { // don't clobber existing error
+            result = BlazeCommandResult.exitCode(ExitCode.LOCAL_ENVIRONMENTAL_ERROR);
+          }
+        }
       }
 
       afterCommandCalled = true;
@@ -555,7 +589,7 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
               + Throwables.getStackTraceAsString(e));
       e.printStackTrace();
       BugReport.printBug(outErr, e, commonOptions.oomMessage);
-      bugReporter.sendBugReport(e, args, env.getCrashData());
+      bugReporter.sendBugReport(e, args);
       logger.log(Level.SEVERE, "Shutting down due to exception", e);
       result = BlazeCommandResult.shutdown(BugReport.getExitCodeForThrowable(e));
       return result;
@@ -653,8 +687,12 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
     OptionsParser parser =
         OptionsParser.builder()
             .optionsData(optionsData)
+            // for starlark options
             .skippedPrefix("--//")
+            .skippedPrefix("--no//")
+            // for starlark options in other repos
             .skippedPrefix("--@")
+            .skippedPrefix("--no@")
             .allowResidue(annotation.allowResidue())
             .build();
     return parser;

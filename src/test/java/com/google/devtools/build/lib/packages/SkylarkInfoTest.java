@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.StarlarkValue;
+import com.google.devtools.build.lib.syntax.TokenKind;
 import javax.annotation.Nullable;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -84,8 +85,7 @@ public class SkylarkInfoTest {
     SkylarkInfo info1 = makeInfoWithF1F2Values(provider1, 4, 5);
     SkylarkInfo info2 = makeInfoWithF1F2Values(provider2, 4, 5);
     EvalException expected =
-        assertThrows(
-            EvalException.class, () -> info1.getConcatter().concat(info1, info2, Location.BUILTIN));
+        assertThrows(EvalException.class, () -> info1.binaryOp(TokenKind.PLUS, info2, true));
     assertThat(expected).hasMessageThat()
         .contains("Cannot use '+' operator on instances of different providers");
   }
@@ -96,8 +96,7 @@ public class SkylarkInfoTest {
     SkylarkInfo info1 = makeInfoWithF1F2Values(provider1, 4, 5);
     SkylarkInfo info2 = makeInfoWithF1F2Values(provider1, 4, null);
     EvalException expected =
-        assertThrows(
-            EvalException.class, () -> info1.getConcatter().concat(info1, info2, Location.BUILTIN));
+        assertThrows(EvalException.class, () -> info1.binaryOp(TokenKind.PLUS, info2, true));
     assertThat(expected)
         .hasMessageThat()
         .contains("cannot add struct instances with common field 'f1'");
@@ -108,7 +107,7 @@ public class SkylarkInfoTest {
     SkylarkProvider provider = makeProvider();
     SkylarkInfo info1 = makeInfoWithF1F2Values(provider, 4, null);
     SkylarkInfo info2 = makeInfoWithF1F2Values(provider, null, 5);
-    SkylarkInfo result = (SkylarkInfo) info1.getConcatter().concat(info1, info2, Location.BUILTIN);
+    SkylarkInfo result = info1.binaryOp(TokenKind.PLUS, info2, true);
     assertThat(result.getFieldNames()).containsExactly("f1", "f2");
     assertThat(result.getValue("f1")).isEqualTo(4);
     assertThat(result.getValue("f2")).isEqualTo(5);
@@ -119,7 +118,7 @@ public class SkylarkInfoTest {
     SkylarkProvider provider = makeProvider();
     SkylarkInfo info1 = makeInfoWithF1F2Values(provider, 4, null);
     SkylarkInfo info2 = makeInfoWithF1F2Values(provider, null, 5);
-    SkylarkInfo result = (SkylarkInfo) info1.getConcatter().concat(info1, info2, Location.BUILTIN);
+    SkylarkInfo result = info1.binaryOp(TokenKind.PLUS, info2, true);
     assertThat(result.getFieldNames()).containsExactly("f1", "f2");
     assertThat(result.getValue("f1")).isEqualTo(4);
     assertThat(result.getValue("f2")).isEqualTo(5);

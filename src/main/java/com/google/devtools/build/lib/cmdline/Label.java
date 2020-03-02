@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.syntax.Printer;
 import com.google.devtools.build.lib.syntax.SkylarkType;
+import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.lib.syntax.StarlarkValue;
 import com.google.devtools.build.lib.util.StringUtilities;
@@ -368,16 +369,20 @@ public final class Label
    * it will returns an empty string.
    */
   @SkylarkCallable(
-    name = "workspace_root",
-    structField = true,
-    doc =
-        "Returns the execution root for the workspace of this label, relative to the execroot. "
-            + "For instance:<br>"
-            + "<pre class=language-python>Label(\"@repo//pkg/foo:abc\").workspace_root =="
-            + " \"external/repo\"</pre>"
-  )
-  public String getWorkspaceRoot() {
-    return packageIdentifier.getRepository().getSourceRoot().toString();
+      name = "workspace_root",
+      structField = true,
+      doc =
+          "Returns the execution root for the workspace of this label, relative to the execroot. "
+              + "For instance:<br>"
+              + "<pre class=language-python>Label(\"@repo//pkg/foo:abc\").workspace_root =="
+              + " \"external/repo\"</pre>",
+      useStarlarkSemantics = true)
+  public String getWorkspaceRoot(StarlarkSemantics semantics) {
+    if (semantics.experimentalSiblingRepositoryLayout()) {
+      return packageIdentifier.getRepository().getExecPath(true).toString();
+    } else {
+      return packageIdentifier.getRepository().getSourceRoot().toString();
+    }
   }
 
   /**

@@ -164,7 +164,7 @@ public class AarGeneratorAction {
     Stopwatch timer = Stopwatch.createStarted();
     OptionsParser optionsParser =
         OptionsParser.builder()
-            .optionsClasses(AarGeneratorOptions.class)
+            .optionsClasses(AarGeneratorOptions.class, ResourceProcessorCommonOptions.class)
             .argsPreProcessor(new ShellQuotedParamsFilePreProcessor(FileSystems.getDefault()))
             .build();
     optionsParser.parseAndExitUponError(args);

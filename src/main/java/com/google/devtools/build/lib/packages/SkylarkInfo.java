@@ -19,17 +19,21 @@ import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.syntax.ClassObject;
-import com.google.devtools.build.lib.syntax.Concatable;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
+import com.google.devtools.build.lib.syntax.HasBinary;
+import com.google.devtools.build.lib.syntax.SkylarkType;
 import com.google.devtools.build.lib.syntax.Starlark;
+import com.google.devtools.build.lib.syntax.TokenKind;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import javax.annotation.Nullable;
 
 /** An Info (provider instance) for providers defined in Starlark. */
-public final class SkylarkInfo extends StructImpl implements Concatable, ClassObject {
+public final class SkylarkInfo extends StructImpl implements HasBinary, ClassObject {
+
+  public static final SkylarkType TYPE = SkylarkType.of(SkylarkInfo.class);
 
   // For a n-element info, the table contains n key strings, sorted,
   // followed by the n corresponding legal Starlark values.
@@ -187,23 +191,22 @@ public final class SkylarkInfo extends StructImpl implements Concatable, ClassOb
   }
 
   @Override
-  public Concatter getConcatter() {
-    return SkylarkInfo::concat;
+  public SkylarkInfo binaryOp(TokenKind op, Object that, boolean thisLeft) throws EvalException {
+    if (op == TokenKind.PLUS && that instanceof SkylarkInfo) {
+      return thisLeft
+          ? plus(this, (SkylarkInfo) that) //
+          : plus((SkylarkInfo) that, this);
+    }
+    return null;
   }
 
-  private static Concatable concat(Concatable left, Concatable right, Location loc)
-      throws EvalException {
-    // Casts are safe because this Concatter is only used by SkylarkInfo.
-    SkylarkInfo x = (SkylarkInfo) left;
-    SkylarkInfo y = (SkylarkInfo) right;
+  private static SkylarkInfo plus(SkylarkInfo x, SkylarkInfo y) throws EvalException {
     Provider xprov = x.getProvider();
     Provider yprov = y.getProvider();
     if (!xprov.equals(yprov)) {
-      throw new EvalException(
-          loc,
-          String.format(
-              "Cannot use '+' operator on instances of different providers (%s and %s)",
-              xprov.getPrintableName(), yprov.getPrintableName()));
+      throw Starlark.errorf(
+          "Cannot use '+' operator on instances of different providers (%s and %s)",
+          xprov.getPrintableName(), yprov.getPrintableName());
     }
 
     // ztable = merge(x.table, y.table)
@@ -227,8 +230,7 @@ public final class SkylarkInfo extends StructImpl implements Concatable, ClassOb
         ztable[zi + zsize] = y.table[yi + ysize];
         yi++;
       } else {
-        throw new EvalException(
-            loc, String.format("cannot add struct instances with common field '%s'", xk));
+        throw Starlark.errorf("cannot add struct instances with common field '%s'", xk);
       }
       zi++;
     }
@@ -245,6 +247,6 @@ public final class SkylarkInfo extends StructImpl implements Concatable, ClassOb
       zi++;
     }
 
-    return new SkylarkInfo(xprov, ztable, loc, x.unknownFieldError);
+    return new SkylarkInfo(xprov, ztable, Location.BUILTIN, x.unknownFieldError);
   }
 }

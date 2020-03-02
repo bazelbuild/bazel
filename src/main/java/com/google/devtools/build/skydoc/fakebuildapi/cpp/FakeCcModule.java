@@ -15,7 +15,6 @@
 package com.google.devtools.build.skydoc.fakebuildapi.cpp;
 
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
 import com.google.devtools.build.lib.skylarkbuildapi.SkylarkActionFactoryApi;
 import com.google.devtools.build.lib.skylarkbuildapi.SkylarkRuleContextApi;
@@ -166,7 +165,6 @@ public class FakeCcModule
       boolean alwayslink,
       String dynamicLibraryPath,
       String interfaceLibraryPath,
-      Location location,
       StarlarkThread thread) {
     return null;
   }
@@ -177,10 +175,12 @@ public class FakeCcModule
       Object librariesToLinkObject,
       Object userLinkFlagsObject,
       Object nonCodeInputs,
-      Location location,
       StarlarkThread thread) {
     return null;
   }
+
+  @Override
+  public void checkExperimentalCcSharedLibrary(StarlarkThread thread) {}
 
   @Override
   public CcLinkingContextApi<FileApi> createCcLinkingInfo(
@@ -188,7 +188,6 @@ public class FakeCcModule
       Object librariesToLinkObject,
       Object userLinkFlagsObject,
       Object nonCodeInputs,
-      Location location,
       StarlarkThread thread) {
     return null;
   }
@@ -243,7 +242,6 @@ public class FakeCcModule
       boolean disallowPicOutputs,
       boolean disallowNopicOutputs,
       Sequence<?> additionalInputs,
-      Location location,
       StarlarkThread thread)
       throws EvalException, InterruptedException {
     return null;
@@ -264,7 +262,6 @@ public class FakeCcModule
       boolean disallowStaticLibraries,
       boolean disallowDynamicLibraries,
       Object grepIncludes,
-      Location location,
       StarlarkThread thread)
       throws InterruptedException, EvalException {
     return null;
@@ -284,7 +281,6 @@ public class FakeCcModule
       boolean linkDepsStatically,
       Sequence<?> additionalInputs,
       Object grepIncludes,
-      Location location,
       StarlarkThread thread)
       throws InterruptedException, EvalException {
     return null;
@@ -315,7 +311,7 @@ public class FakeCcModule
 
   @Override
   public CcCompilationOutputsApi<FileApi> createCompilationOutputsFromSkylark(
-      Object objectsObject, Object picObjectsObject, Location location) {
+      Object objectsObject, Object picObjectsObject) {
     return null;
   }
 

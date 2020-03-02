@@ -180,7 +180,7 @@ public class MultiArchBinarySupport {
               .build();
 
       compilationSupport
-          .registerCompileAndArchiveActions(compilationArtifacts, objcProvider)
+          .registerCompileAndArchiveActions(compilationArtifacts, ObjcCompilationContext.EMPTY)
           .registerLinkActions(
               objcProvider,
               j2ObjcMappingFileProvider,
@@ -256,7 +256,7 @@ public class MultiArchBinarySupport {
               intermediateArtifacts,
               nullToEmptyList(cpuToCTATDepsCollectionMap.get(childCpu)),
               additionalDepProviders);
-      ObjcProvider objcProviderWithDylibSymbols = common.getObjcProvider();
+      ObjcProvider objcProviderWithDylibSymbols = common.getObjcProviderBuilder().build();
       ObjcProvider objcProvider =
           objcProviderWithDylibSymbols.subtractSubtrees(dylibObjcProviders, ImmutableList.of());
 
@@ -300,7 +300,7 @@ public class MultiArchBinarySupport {
       Iterable<ObjcProvider> additionalDepProviders) throws InterruptedException {
 
     ObjcCommon.Builder commonBuilder =
-        new ObjcCommon.Builder(ruleContext, buildConfiguration)
+        new ObjcCommon.Builder(ObjcCommon.Purpose.LINK_ONLY, ruleContext, buildConfiguration)
             .setCompilationAttributes(
                 CompilationAttributes.Builder.fromRuleContext(ruleContext).build())
             .addDeps(propagatedConfiguredTargetAndDataDeps)

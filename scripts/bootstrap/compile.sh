@@ -16,8 +16,8 @@
 
 # Script for building bazel from scratch without bazel
 
-PROTO_FILES=$(ls src/main/protobuf/*.proto src/main/java/com/google/devtools/build/lib/buildeventstream/proto/*.proto)
-LIBRARY_JARS=$(find third_party -name '*.jar' | grep -Fv JavaBuilder | grep -Fv third_party/guava | grep -Fv third_party/guava | grep -ve 'third_party/grpc/grpc.*jar' | tr "\n" " ")
+PROTO_FILES=$(ls src/main/protobuf/*.proto src/main/java/com/google/devtools/build/lib/buildeventstream/proto/*.proto src/main/java/com/google/devtools/build/skyframe/*.proto)
+LIBRARY_JARS=$(find derived/jars third_party -name '*.jar' | grep -Fv JavaBuilder | grep -Fv third_party/guava | grep -Fv third_party/guava | grep -ve 'third_party/grpc/grpc.*jar' | tr "\n" " ")
 GRPC_JAVA_VERSION=1.20.0
 GRPC_LIBRARY_JARS=$(find third_party/grpc -name '*.jar' | grep -e ".*${GRPC_JAVA_VERSION}.*jar" | tr "\n" " ")
 GUAVA_VERSION=25.1
@@ -228,6 +228,7 @@ if [ -z "${BAZEL_SKIP_JAVA_COMPILATION}" ]; then
                 -I. \
                 -Isrc/main/protobuf/ \
                 -Isrc/main/java/com/google/devtools/build/lib/buildeventstream/proto/ \
+                -Isrc/main/java/com/google/devtools/build/skyframe/ \
                 --java_out=${OUTPUT_DIR}/src \
                 --plugin=protoc-gen-grpc="${GRPC_JAVA_PLUGIN-}" \
                 --grpc_out=${OUTPUT_DIR}/src "$f"

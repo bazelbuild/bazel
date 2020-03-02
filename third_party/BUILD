@@ -469,9 +469,14 @@ UNNECESSARY_DYNAMIC_LIBRARIES = select({
     "//src/conditions:arm": "*.so *.jnilib *.dll",
     "//src/conditions:linux_aarch64": "*.so *.jnilib *.dll",
     "//src/conditions:linux_ppc": "*.so *.jnilib *.dll",
-    # Play it safe -- better have a big binary than a slow binary
-    # zip -d does require an argument. Supply something bogus.
-    "//conditions:default": "*.bogusextension",
+    "//src/conditions:linux_s390x": "*.so *.jnilib *.dll",
+    "//src/conditions:freebsd": "*.so *.jnilib *.dll",
+    "//src/conditions:openbsd": "*.so *.jnilib *.dll",
+    # Default is to play it safe -- better have a big binary than a slow binary
+    #   The empty string means nothing is to be removed from the library;
+    #   the rule command tests for the empty string explictly to avoid
+    #   zip erroring when it finds nothing to remove.
+    "//conditions:default": "",
 })
 
 # Remove native libraries that are for a platform different from the one we are
@@ -480,7 +485,10 @@ genrule(
     name = "filter_netty_dynamic_libs",
     srcs = ["netty_tcnative/netty-tcnative-boringssl-static-2.0.24.Final.jar"],
     outs = ["netty_tcnative/netty-tcnative-filtered.jar"],
-    cmd = "cp $< $@ && zip -qd $@ " + UNNECESSARY_DYNAMIC_LIBRARIES,
+    cmd = "cp $< $@ && " +
+      # End successfully if there is nothing to be deleted from the archive
+      "if [ -n '" + UNNECESSARY_DYNAMIC_LIBRARIES + "' ]; then " +
+      "zip -qd $@ " + UNNECESSARY_DYNAMIC_LIBRARIES + "; fi",
 )
 
 java_import(
@@ -520,7 +528,7 @@ java_import(
     name = "junit4",
     jars = [
         "hamcrest/hamcrest-core-1.3.jar",
-        "junit/junit-4.12.jar",
+        "junit/junit-4.13.jar",
     ],
 )
 
@@ -571,7 +579,7 @@ filegroup(
     name = "junit4-jars",
     srcs = [
         "hamcrest/hamcrest-core-1.3.jar",
-        "junit/junit-4.12.jar",
+        "junit/junit-4.13.jar",
     ],
 )
 
@@ -625,6 +633,11 @@ config_setting(
 config_setting(
     name = "freebsd",
     values = {"host_cpu": "freebsd"},
+)
+
+config_setting(
+    name = "openbsd",
+    values = {"host_cpu": "openbsd"},
 )
 
 config_setting(

@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.skylarkbuildapi;
 
-import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.ParamType;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
@@ -24,6 +23,7 @@ import com.google.devtools.build.lib.syntax.BaseFunction;
 import com.google.devtools.build.lib.syntax.Depset;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Sequence;
+import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.lib.syntax.StarlarkValue;
 
 /** Command line args module. */
@@ -193,7 +193,7 @@ public interface CommandLineArgsApi extends StarlarkValue {
                     + "list's length must equal the number of items. Use <code>map_each</code> "
                     + "of <code>add_all</code> or <code>add_joined</code> instead.")
       },
-      useLocation = true)
+      useStarlarkThread = true)
   CommandLineArgsApi addArgument(
       Object argNameOrValue,
       Object value,
@@ -201,7 +201,7 @@ public interface CommandLineArgsApi extends StarlarkValue {
       Object beforeEach,
       Object joinWith,
       Object mapFn,
-      Location loc)
+      StarlarkThread thread)
       throws EvalException;
 
   @SkylarkCallable(
@@ -349,7 +349,7 @@ public interface CommandLineArgsApi extends StarlarkValue {
                     + "items are appended (as happens if <code>values</code> is empty or all of "
                     + "its items are filtered)."),
       },
-      useLocation = true)
+      useStarlarkThread = true)
   CommandLineArgsApi addAll(
       Object argNameOrValue,
       Object values,
@@ -360,7 +360,7 @@ public interface CommandLineArgsApi extends StarlarkValue {
       Boolean uniquify,
       Boolean expandDirectories,
       Object terminateWith,
-      Location loc)
+      StarlarkThread thread)
       throws EvalException;
 
   @SkylarkCallable(
@@ -465,7 +465,7 @@ public interface CommandLineArgsApi extends StarlarkValue {
             defaultValue = "True",
             doc = "Same as for <a href='#add_all.expand_directories'><code>add_all</code></a>.")
       },
-      useLocation = true)
+      useStarlarkThread = true)
   CommandLineArgsApi addJoined(
       Object argNameOrValue,
       Object values,
@@ -476,7 +476,7 @@ public interface CommandLineArgsApi extends StarlarkValue {
       Boolean omitIfEmpty,
       Boolean uniquify,
       Boolean expandDirectories,
-      Location loc)
+      StarlarkThread thread)
       throws EvalException;
 
   @SkylarkCallable(

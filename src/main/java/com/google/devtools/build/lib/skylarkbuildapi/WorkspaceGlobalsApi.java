@@ -15,7 +15,6 @@
 
 package com.google.devtools.build.lib.skylarkbuildapi;
 
-import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkGlobalLibrary;
@@ -78,12 +77,10 @@ public interface WorkspaceGlobalsApi {
                     + "\nManaged directories must be excluded from the source tree by listing"
                     + " them (or their parent directories) in the .bazelignore file."),
       },
-      useLocation = true,
       useStarlarkThread = true)
   NoneType workspace(
       String name,
       Dict<?, ?> managedDirectories, // <String, Sequence<String>>
-      Location loc,
       StarlarkThread thread)
       throws EvalException, InterruptedException;
 
@@ -112,10 +109,9 @@ public interface WorkspaceGlobalsApi {
             named = true,
             positional = false)
       },
-      useLocation = true,
       useStarlarkThread = true,
       enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_NINJA_ACTIONS)
-  NoneType dontSymlinkDirectoriesInExecroot(Sequence<?> paths, Location loc, StarlarkThread thread)
+  NoneType dontSymlinkDirectoriesInExecroot(Sequence<?> paths, StarlarkThread thread)
       throws EvalException, InterruptedException;
 
   @SkylarkCallable(
@@ -128,10 +124,8 @@ public interface WorkspaceGlobalsApi {
               type = Sequence.class,
               generic1 = String.class,
               doc = "The labels of the platforms to register."),
-      useLocation = true,
       useStarlarkThread = true)
-  NoneType registerExecutionPlatforms(
-      Sequence<?> platformLabels, Location location, StarlarkThread thread)
+  NoneType registerExecutionPlatforms(Sequence<?> platformLabels, StarlarkThread thread)
       throws EvalException, InterruptedException;
 
   @SkylarkCallable(
@@ -146,9 +140,8 @@ public interface WorkspaceGlobalsApi {
               type = Sequence.class,
               generic1 = String.class,
               doc = "The labels of the toolchains to register."),
-      useLocation = true,
       useStarlarkThread = true)
-  NoneType registerToolchains(Sequence<?> toolchainLabels, Location location, StarlarkThread thread)
+  NoneType registerToolchains(Sequence<?> toolchainLabels, StarlarkThread thread)
       throws EvalException, InterruptedException;
 
   @SkylarkCallable(
@@ -175,8 +168,7 @@ public interface WorkspaceGlobalsApi {
             defaultValue = "None",
             doc = "The real label to be aliased")
       },
-      useLocation = true,
       useStarlarkThread = true)
-  NoneType bind(String name, Object actual, Location loc, StarlarkThread thread)
+  NoneType bind(String name, Object actual, StarlarkThread thread)
       throws EvalException, InterruptedException;
 }

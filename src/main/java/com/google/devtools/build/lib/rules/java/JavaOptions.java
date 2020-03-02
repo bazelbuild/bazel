@@ -117,18 +117,6 @@ public class JavaOptions extends FragmentOptions {
   public Label hostJavaBase;
 
   @Option(
-      name = "incompatible_use_jdk11_as_host_javabase",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      metadataTags = {
-        OptionMetadataTag.INCOMPATIBLE_CHANGE,
-        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
-      },
-      help = "If enabled, the default --host_javabase is JDK 11.")
-  public boolean useJDK11AsHostJavaBase;
-
-  @Option(
       name = "javacopt",
       allowMultiple = true,
       defaultValue = "",
@@ -634,10 +622,7 @@ public class JavaOptions extends FragmentOptions {
   }
 
   Label defaultHostJavaBase() {
-    if (useJDK11AsHostJavaBase) {
-      return Label.parseAbsoluteUnchecked("@bazel_tools//tools/jdk:remote_jdk11");
-    }
-    return Label.parseAbsoluteUnchecked("@bazel_tools//tools/jdk:remote_jdk10");
+    return Label.parseAbsoluteUnchecked("@bazel_tools//tools/jdk:remote_jdk11");
   }
 
   Label defaultJavaToolchain() {

@@ -277,7 +277,7 @@ public final class JavaLibraryHelper {
               javaArtifacts,
               attributes.build(),
               neverlink,
-              JavaCompilationHelper.getBootClasspath(javaToolchainProvider));
+              javaToolchainProvider.getBootclasspath());
 
       javaInfoBuilder.addProvider(
           JavaCompilationInfoProvider.class,

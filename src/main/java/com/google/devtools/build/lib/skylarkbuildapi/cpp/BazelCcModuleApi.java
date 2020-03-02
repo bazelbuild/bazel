@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.skylarkbuildapi.cpp;
 
-import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
 import com.google.devtools.build.lib.skylarkbuildapi.SkylarkActionFactoryApi;
 import com.google.devtools.build.lib.skylarkbuildapi.SkylarkRuleContextApi;
@@ -70,7 +69,6 @@ public interface BazelCcModuleApi<
           "Should be used for C++ compilation. Returns tuple of "
               + "(<code>CompilationContext</code>, <code>CcCompilationOutputs</code>).",
       useStarlarkThread = true,
-      useLocation = true,
       parameters = {
         @Param(
             name = "actions",
@@ -237,7 +235,6 @@ public interface BazelCcModuleApi<
       boolean disallowPicOutputs,
       boolean disallowNopicOutputs,
       Sequence<?> additionalInputs, // <FileT> expected
-      Location location,
       StarlarkThread thread)
       throws EvalException, InterruptedException;
 
@@ -245,7 +242,6 @@ public interface BazelCcModuleApi<
       name = "link",
       doc = "Should be used for C++ transitive linking.",
       useStarlarkThread = true,
-      useLocation = true,
       parameters = {
         @Param(
             name = "actions",
@@ -349,14 +345,12 @@ public interface BazelCcModuleApi<
       boolean linkDepsStatically,
       Sequence<?> additionalInputs, // <FileT> expected
       Object grepIncludes,
-      Location location,
       StarlarkThread thread)
       throws InterruptedException, EvalException;
 
   @SkylarkCallable(
       name = "create_compilation_outputs",
       doc = "Create compilation outputs object.",
-      useLocation = true,
       parameters = {
         @Param(
             name = "objects",
@@ -376,7 +370,7 @@ public interface BazelCcModuleApi<
             allowedTypes = {@ParamType(type = Depset.class), @ParamType(type = NoneType.class)}),
       })
   CompilationOutputsT createCompilationOutputsFromSkylark(
-      Object objectsObject, Object picObjectsObject, Location location) throws EvalException;
+      Object objectsObject, Object picObjectsObject) throws EvalException;
 
   @SkylarkCallable(
       name = "merge_compilation_outputs",

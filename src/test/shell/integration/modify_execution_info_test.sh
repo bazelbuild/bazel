@@ -153,10 +153,25 @@ function test_modify_execution_info_various_types() {
   if [[ "$PRODUCT_NAME" = "bazel" ]]; then
     # proto_library requires this external workspace.
     cat >> WORKSPACE << EOF
+http_archive(
+    name = "rules_proto",
+    strip_prefix = "rules_proto-97d8af4dc474595af3900dd85cb3a29ad28cc313",
+    sha256 = "602e7161d9195e50246177e7c55b2f39950a9cf7366f74ed5f22fd45750cd208",
+    urls = [
+        "https://mirror.bazel.build/github.com/bazelbuild/rules_proto/archive/97d8af4dc474595af3900dd85cb3a29ad28cc313.tar.gz",
+        "https://github.com/bazelbuild/rules_proto/archive/97d8af4dc474595af3900dd85cb3a29ad28cc313.tar.gz",
+    ],
+)
+load("@rules_proto//proto:repositories.bzl", "rules_proto_dependencies", "rules_proto_toolchains")
+rules_proto_dependencies()
+rules_proto_toolchains()
+
+# @com_google_protobuf//:protoc depends on @io_bazel//third_party/zlib.
 new_local_repository(
-    name = "com_google_protobuf",
-    path = "$(dirname $(rlocation io_bazel/third_party/protobuf/3.6.1/BUILD))",
-    build_file = "$(rlocation io_bazel/third_party/protobuf/3.6.1/BUILD)",
+    name = "io_bazel",
+    path = "$(dirname $(rlocation io_bazel/third_party/rules_python/rules_python.WORKSPACE))/../..",
+    build_file_content = "# Intentionally left empty.",
+    workspace_file_content = "workspace(name = 'io_bazel')",
 )
 
 # TODO(#9029): May require some adjustment if/when we depend on the real

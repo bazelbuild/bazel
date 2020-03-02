@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.syntax;
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.util.SpellChecker;
 import java.util.ArrayList;
@@ -63,14 +62,14 @@ public final class BuiltinCallable implements StarlarkCallable {
   }
 
   @Override
-  public Object fastcall(StarlarkThread thread, Location loc, Object[] positional, Object[] named)
+  public Object fastcall(StarlarkThread thread, Object[] positional, Object[] named)
       throws EvalException, InterruptedException {
     MethodDescriptor desc =
         this.desc != null ? this.desc : getMethodDescriptor(thread.getSemantics());
     Preconditions.checkArgument(
         !desc.isStructField(),
         "struct field methods should be handled by DotExpression separately");
-    Object[] vector = getArgumentVector(thread, loc, desc, positional, named);
+    Object[] vector = getArgumentVector(thread, desc, positional, named);
     return desc.call(
         obj instanceof String ? StringModule.INSTANCE : obj, vector, thread.mutability());
   }
@@ -120,7 +119,6 @@ public final class BuiltinCallable implements StarlarkCallable {
    */
   private Object[] getArgumentVector(
       StarlarkThread thread,
-      Location loc,
       MethodDescriptor desc, // intentionally shadows this.desc
       Object[] positional,
       Object[] named)
@@ -148,9 +146,6 @@ public final class BuiltinCallable implements StarlarkCallable {
     if (desc.acceptsExtraKwargs()) {
       n++;
     }
-    if (desc.isUseLocation()) {
-      n++;
-    }
     if (desc.isUseStarlarkThread()) {
       n++;
     }
@@ -171,8 +166,7 @@ public final class BuiltinCallable implements StarlarkCallable {
       }
 
       // disabled?
-      StarlarkSemantics.FlagIdentifier flag = param.disabledByFlag();
-      if (flag != null) {
+      if (param.disabledByFlag() != null) {
         // Skip disabled parameter as if not present at all.
         // The default value will be filled in below.
         continue;
@@ -244,7 +238,7 @@ public final class BuiltinCallable implements StarlarkCallable {
       }
 
       // disabled?
-      StarlarkSemantics.FlagIdentifier flag = param.disabledByFlag();
+      String flag = param.disabledByFlag();
       if (flag != null) {
         // spill to **kwargs
         if (kwargs == null) {
@@ -319,9 +313,6 @@ public final class BuiltinCallable implements StarlarkCallable {
     if (desc.acceptsExtraKwargs()) {
       vector[i++] = Dict.wrap(thread.mutability(), kwargs);
     }
-    if (desc.isUseLocation()) {
-      vector[i++] = loc;
-    }
     if (desc.isUseStarlarkThread()) {
       vector[i++] = thread;
     }
@@ -350,20 +341,19 @@ public final class BuiltinCallable implements StarlarkCallable {
   }
 
   // Returns a phrase meaning "disabled" appropriate to the specified flag.
-  private static String disabled(
-      StarlarkSemantics.FlagIdentifier flag, StarlarkSemantics semantics) {
+  private static String disabled(String flag, StarlarkSemantics semantics) {
     // If the flag is True, it must be a deprecation flag. Otherwise it's an experimental flag.
     // TODO(adonovan): is that assumption sound?
     if (semantics.flagValue(flag)) {
       return String.format(
           "deprecated and will be removed soon. It may be temporarily re-enabled by setting"
               + " --%s=false",
-          flag.getFlagName());
+          flag);
     } else {
       return String.format(
           "experimental and thus unavailable with the current flags. It may be enabled by setting"
               + " --%s",
-          flag.getFlagName());
+          flag);
     }
   }
 }

@@ -1512,7 +1512,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
           DexArchiveAspect.desugar(
               ruleContext,
               jar,
-              attributes.getBootClassPath(),
+              attributes.getBootClassPath().bootclasspath(),
               attributes.getCompileTimeClassPath(),
               ruleContext.getDerivedArtifact(
                   jarPath.replaceName(jarPath.getBaseName() + "_desugared.jar"), jar.getRoot()));
@@ -1754,75 +1754,122 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
       @Nullable Artifact mainDexProguardSpec,
       @Nullable Artifact proguardOutputMap)
       throws InterruptedException {
-    // Process the input jar through Proguard into an intermediate, streamlined jar.
-    Artifact strippedJar = AndroidBinary.getDxArtifact(ruleContext, "main_dex_intermediate.jar");
+    AndroidConfiguration config = AndroidCommon.getAndroidConfig(ruleContext);
     AndroidSdkProvider sdk = AndroidSdkProvider.fromRuleContext(ruleContext);
-    SpawnAction.Builder streamlinedBuilder =
-        new SpawnAction.Builder()
-            .useDefaultShellEnvironment()
-            .addOutput(strippedJar)
-            .setExecutable(sdk.getProguard())
-            .setProgressMessage("Generating streamlined input jar for main dex classes list")
-            .setMnemonic("MainDexClassesIntermediate")
-            .addInput(jar)
-            .addInput(sdk.getShrinkedAndroidJar());
-    CustomCommandLine.Builder streamlinedCommandLine =
-        CustomCommandLine.builder()
-            .add("-forceprocessing")
-            .addExecPath("-injars", jar)
-            .addExecPath("-libraryjars", sdk.getShrinkedAndroidJar())
-            .addExecPath("-outjars", strippedJar)
-            .add("-dontwarn")
-            .add("-dontnote")
-            .add("-dontoptimize")
-            .add("-dontobfuscate");
-
-    List<Artifact> specs = new ArrayList<>();
-    specs.addAll(
-        ruleContext.getPrerequisiteArtifacts("main_dex_proguard_specs", Mode.TARGET).list());
-    if (specs.isEmpty()) {
-      specs.add(sdk.getMainDexClasses());
-    }
-    if (mainDexProguardSpec != null) {
-      specs.add(mainDexProguardSpec);
-    }
-
-    for (Artifact spec : specs) {
-      streamlinedBuilder.addInput(spec);
-      streamlinedCommandLine.addExecPath("-include", spec);
-    }
-
-    androidSemantics.addMainDexListActionArguments(
-        ruleContext, streamlinedBuilder, streamlinedCommandLine, proguardOutputMap);
-
-    streamlinedBuilder.addCommandLine(streamlinedCommandLine.build());
-    ruleContext.registerAction(streamlinedBuilder.build(ruleContext));
-
     // Create the main dex classes list.
     Artifact mainDexList = AndroidBinary.getDxArtifact(ruleContext, "main_dex_list.txt");
-    SpawnAction.Builder builder =
-        new SpawnAction.Builder()
-            .setMnemonic("MainDexClasses")
-            .setProgressMessage("Generating main dex classes list");
 
-    ruleContext.registerAction(
-        builder
-            .setExecutable(sdk.getMainDexListCreator())
-            .addOutput(mainDexList)
-            .addInput(strippedJar)
-            .addInput(jar)
-            .addCommandLine(
-                CustomCommandLine.builder()
-                    .addExecPath(mainDexList)
-                    .addExecPath(strippedJar)
-                    .addExecPath(jar)
-                    .addAll(
-                        ruleContext
-                            .getExpander()
-                            .withDataLocations()
-                            .tokenized("main_dex_list_opts"))
-                    .build())
-            .build(ruleContext));
+    List<Artifact> proguardSpecs = new ArrayList<>();
+    proguardSpecs.addAll(
+        ruleContext.getPrerequisiteArtifacts("main_dex_proguard_specs", Mode.TARGET).list());
+    if (proguardSpecs.isEmpty()) {
+      proguardSpecs.add(sdk.getMainDexClasses());
+    }
+    if (mainDexProguardSpec != null) {
+      proguardSpecs.add(mainDexProguardSpec);
+    }
+
+    // If --legacy_main_dex_list_generator is not set, use ProGuard and the main dext list creator
+    // specified by the android_sdk rule. If --legacy_main_dex_list_generator is provided, use that
+    // tool instead.
+    // TODO(b/147692286): Remove the old main-dex list generation that relied on ProGuard.
+    if (config.getLegacyMainDexListGenerator() == null) {
+      // Process the input jar through Proguard into an intermediate, streamlined jar.
+      Artifact strippedJar = AndroidBinary.getDxArtifact(ruleContext, "main_dex_intermediate.jar");
+      SpawnAction.Builder streamlinedBuilder =
+          new SpawnAction.Builder()
+              .useDefaultShellEnvironment()
+              .addOutput(strippedJar)
+              .setExecutable(sdk.getProguard())
+              .setProgressMessage("Generating streamlined input jar for main dex classes list")
+              .setMnemonic("MainDexClassesIntermediate")
+              .addInput(jar)
+              .addInput(sdk.getShrinkedAndroidJar());
+      CustomCommandLine.Builder streamlinedCommandLine =
+          CustomCommandLine.builder()
+              .add("-forceprocessing")
+              .addExecPath("-injars", jar)
+              .addExecPath("-libraryjars", sdk.getShrinkedAndroidJar())
+              .addExecPath("-outjars", strippedJar)
+              .add("-dontwarn")
+              .add("-dontnote")
+              .add("-dontoptimize")
+              .add("-dontobfuscate");
+
+      for (Artifact spec : proguardSpecs) {
+        streamlinedBuilder.addInput(spec);
+        streamlinedCommandLine.addExecPath("-include", spec);
+      }
+
+      androidSemantics.addMainDexListActionArguments(
+          ruleContext, streamlinedBuilder, streamlinedCommandLine, proguardOutputMap);
+
+      streamlinedBuilder.addCommandLine(streamlinedCommandLine.build());
+      ruleContext.registerAction(streamlinedBuilder.build(ruleContext));
+
+      SpawnAction.Builder builder =
+          new SpawnAction.Builder()
+              .setMnemonic("MainDexClasses")
+              .setProgressMessage("Generating main dex classes list");
+
+      ruleContext.registerAction(
+          builder
+              .setExecutable(sdk.getMainDexListCreator())
+              .addOutput(mainDexList)
+              .addInput(strippedJar)
+              .addInput(jar)
+              .addCommandLine(
+                  CustomCommandLine.builder()
+                      .addExecPath(mainDexList)
+                      .addExecPath(strippedJar)
+                      .addExecPath(jar)
+                      .addAll(
+                          ruleContext
+                              .getExpander()
+                              .withDataLocations()
+                              .tokenized("main_dex_list_opts"))
+                      .build())
+              .build(ruleContext));
+    } else {
+      FilesToRunProvider legacyMainDexListGenerator =
+          ruleContext.getExecutablePrerequisite(":legacy_main_dex_list_generator", Mode.HOST);
+      // Use the newer legacy multidex main-dex list generation.
+      SpawnAction.Builder actionBuilder =
+          new SpawnAction.Builder()
+              .setMnemonic("MainDexClasses")
+              .setProgressMessage("Generating main dex classes list");
+
+      CustomCommandLine.Builder commandLineBuilder =
+          CustomCommandLine.builder()
+              .addExecPath("--main-dex-list-output", mainDexList)
+              .addExecPath("--lib", sdk.getAndroidJar());
+      if (AndroidCommon.getAndroidConfig(ruleContext).desugarJava8Libs()) {
+        NestedSet<Artifact> legacyApis =
+            ruleContext
+                .getPrerequisite("$desugared_java8_legacy_apis", Mode.TARGET)
+                .getProvider(FileProvider.class)
+                .getFilesToBuild();
+        for (Artifact lib : legacyApis.toList()) {
+          actionBuilder.addInput(lib);
+          commandLineBuilder.addExecPath("--lib", lib);
+        }
+      }
+      for (Artifact spec : proguardSpecs) {
+        actionBuilder.addInput(spec);
+        commandLineBuilder.addExecPath("--main-dex-rules", spec);
+      }
+
+      commandLineBuilder.addExecPath(jar);
+
+      ruleContext.registerAction(
+          actionBuilder
+              .setExecutable(legacyMainDexListGenerator)
+              .addOutput(mainDexList)
+              .addInput(jar)
+              .addInput(sdk.getAndroidJar())
+              .addCommandLine(commandLineBuilder.build())
+              .build(ruleContext));
+    }
     return mainDexList;
   }
 

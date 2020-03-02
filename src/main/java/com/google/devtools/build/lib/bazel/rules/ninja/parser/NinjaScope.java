@@ -23,12 +23,14 @@ import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.util.Pair;
+import java.util.ArrayDeque;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.NavigableMap;
+import java.util.function.Consumer;
 import java.util.function.Function;
 import javax.annotation.Nullable;
 
@@ -208,10 +210,21 @@ public class NinjaScope {
     return Pair.of(pair.getFirst(), pair.getSecond());
   }
 
-  public NinjaScope createTargetsScope(
+  public NinjaScope createScopeFromExpandedValues(
       ImmutableSortedMap<String, List<Pair<Integer, String>>> expandedVariables) {
     NinjaScope scope = new NinjaScope(this, Integer.MAX_VALUE);
     scope.expandedVariables.putAll(expandedVariables);
     return scope;
+  }
+
+  public void iterate(Consumer<NinjaScope> consumer) {
+    ArrayDeque<NinjaScope> queue = new ArrayDeque<>();
+    queue.add(this);
+    while (!queue.isEmpty()) {
+      NinjaScope currentScope = queue.removeFirst();
+      consumer.accept(currentScope);
+      queue.addAll(currentScope.getIncludedScopes());
+      queue.addAll(currentScope.getSubNinjaScopes());
+    }
   }
 }

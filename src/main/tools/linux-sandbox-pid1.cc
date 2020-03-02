@@ -331,37 +331,13 @@ static void EnterSandbox() {
   }
 }
 
-// Reset the signal mask and restore the default handler for all signals.
-static void RestoreSignalHandlersAndMask() {
-  // Use an empty signal mask for the process (= unblock all signals).
-  sigset_t empty_set;
-  if (sigemptyset(&empty_set) < 0) {
-    DIE("sigemptyset");
-  }
-  if (sigprocmask(SIG_SETMASK, &empty_set, nullptr) < 0) {
-    DIE("sigprocmask(SIG_SETMASK, <empty set>, nullptr)");
-  }
-
-  // Set the default signal handler for all signals.
-  struct sigaction sa = {};
-  if (sigemptyset(&sa.sa_mask) < 0) {
-    DIE("sigemptyset");
-  }
-  sa.sa_handler = SIG_DFL;
-  for (int i = 1; i < NSIG; ++i) {
-    // Ignore possible errors, because we might not be allowed to set the
-    // handler for certain signals, but we still want to try.
-    sigaction(i, &sa, nullptr);
-  }
-}
-
 static void ForwardSignal(int signum) {
   PRINT_DEBUG("ForwardSignal(%d)", signum);
   kill(-global_child_pid, signum);
 }
 
 static void SetupSignalHandlers() {
-  RestoreSignalHandlersAndMask();
+  ClearSignalMask();
 
   for (int signum = 1; signum < NSIG; signum++) {
     switch (signum) {
@@ -414,7 +390,7 @@ static void SpawnChild() {
     }
 
     // Unblock all signals, restore default handlers.
-    RestoreSignalHandlersAndMask();
+    ClearSignalMask();
 
     // Force umask to include read and execute for everyone, to make output
     // permissions predictable.

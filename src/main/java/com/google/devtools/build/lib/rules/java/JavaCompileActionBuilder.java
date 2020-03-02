@@ -155,10 +155,8 @@ public final class JavaCompileActionBuilder {
   private ImmutableMap<String, String> executionInfo = ImmutableMap.of();
   private boolean compressJar;
   private NestedSet<Artifact> classpathEntries = NestedSetBuilder.emptySet(Order.NAIVE_LINK_ORDER);
-  private NestedSet<Artifact> bootclasspathEntries =
-      NestedSetBuilder.emptySet(Order.NAIVE_LINK_ORDER);
+  private BootClassPathInfo bootClassPath = BootClassPathInfo.empty();
   private ImmutableList<Artifact> sourcePathEntries = ImmutableList.of();
-  private NestedSet<Artifact> extdirInputs = NestedSetBuilder.emptySet(Order.NAIVE_LINK_ORDER);
   private FilesToRunProvider javaBuilder;
   private NestedSet<Artifact> toolsJars = NestedSetBuilder.emptySet(Order.NAIVE_LINK_ORDER);
   private PathFragment sourceGenDirectory;
@@ -240,18 +238,17 @@ public final class JavaCompileActionBuilder {
         .addAll(sourceJars)
         .addAll(sourceFiles)
         .addTransitive(javabaseInputs)
-        .addTransitive(bootclasspathEntries)
-        .addAll(sourcePathEntries)
-        .addTransitive(extdirInputs);
-    if (coverageArtifact != null) {
-      mandatoryInputs.add(coverageArtifact);
-    }
+        .addTransitive(bootClassPath.bootclasspath())
+        .addAll(sourcePathEntries);
+    Stream.of(coverageArtifact, bootClassPath.system())
+        .filter(x -> x != null)
+        .forEachOrdered(mandatoryInputs::add);
 
     JavaCompileExtraActionInfoSupplier extraActionInfoSupplier =
         new JavaCompileExtraActionInfoSupplier(
             outputs.output(),
             classpathEntries,
-            bootclasspathEntries,
+            bootClassPath.bootclasspath(),
             plugins.processorClasspath(),
             plugins.processorClasses(),
             sourceJars,
@@ -332,8 +329,8 @@ public final class JavaCompileActionBuilder {
       result.add("--compress_jar");
     }
     result.addExecPath("--output_deps_proto", outputs.depsProto());
-    result.addExecPaths("--extclasspath", extdirInputs);
-    result.addExecPaths("--bootclasspath", bootclasspathEntries);
+    result.addExecPaths("--bootclasspath", bootClassPath.bootclasspath());
+    result.addExecPath("--system", bootClassPath.system());
     result.addExecPaths("--sourcepath", sourcePathEntries);
     result.addExecPaths("--processorpath", plugins.processorClasspath());
     result.addAll("--processors", plugins.processorClasses());
@@ -458,19 +455,13 @@ public final class JavaCompileActionBuilder {
     return this;
   }
 
-  public JavaCompileActionBuilder setBootclasspathEntries(
-      NestedSet<Artifact> bootclasspathEntries) {
-    this.bootclasspathEntries = bootclasspathEntries;
+  public JavaCompileActionBuilder setBootClassPath(BootClassPathInfo bootClassPath) {
+    this.bootClassPath = bootClassPath;
     return this;
   }
 
   public JavaCompileActionBuilder setSourcePathEntries(ImmutableList<Artifact> sourcePathEntries) {
     this.sourcePathEntries = Preconditions.checkNotNull(sourcePathEntries);
-    return this;
-  }
-
-  public JavaCompileActionBuilder setExtdirInputs(NestedSet<Artifact> extdirEntries) {
-    this.extdirInputs = extdirEntries;
     return this;
   }
 

@@ -546,7 +546,7 @@ public final class RemoteModule extends BlazeModule {
     }
 
     @Override
-    public BuildEventArtifactUploader create(CommandEnvironment env) {
+    public BuildEventArtifactUploader create(CommandEnvironment env) throws IOException {
       BuildEventArtifactUploaderFactory uploaderFactory0 = this.uploaderFactory;
       if (uploaderFactory0 == null) {
         return new LocalFilesArtifactUploader();

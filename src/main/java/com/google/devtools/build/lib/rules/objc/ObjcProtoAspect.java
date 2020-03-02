@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.SkylarkNativeAspect;
 import com.google.devtools.build.lib.rules.proto.ProtoInfo;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.List;
 
 /**
@@ -100,9 +101,12 @@ public class ObjcProtoAspect extends SkylarkNativeAspect implements ConfiguredAs
       ObjcProvider protobufObjcProvider =
           ruleContext.getPrerequisite(
               ObjcRuleClasses.PROTO_LIB_ATTR, Mode.TARGET, ObjcProvider.SKYLARK_CONSTRUCTOR);
-      aspectObjcProtoProvider.addProtobufHeaders(protobufObjcProvider.get(ObjcProvider.HEADER));
+      aspectObjcProtoProvider.addProtobufHeaders(
+          protobufObjcProvider.getCcCompilationContext().getDeclaredIncludeSrcs());
       aspectObjcProtoProvider.addProtobufHeaderSearchPaths(
-          protobufObjcProvider.get(ObjcProvider.INCLUDE));
+          NestedSetBuilder.<PathFragment>linkOrder()
+              .addAll(protobufObjcProvider.getCcCompilationContext().getIncludeDirs())
+              .build());
     }
 
     // Only add the provider if it has any values, otherwise skip it.

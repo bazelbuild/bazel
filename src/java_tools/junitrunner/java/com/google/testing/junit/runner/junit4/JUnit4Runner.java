@@ -36,6 +36,7 @@ import org.junit.runner.Result;
 import org.junit.runner.Runner;
 import org.junit.runner.manipulation.Filter;
 import org.junit.runner.manipulation.NoTestsRemainException;
+import org.junit.runner.notification.Failure;
 import org.junit.runner.notification.RunListener;
 import org.junit.runner.notification.RunNotifier;
 
@@ -99,6 +100,9 @@ public class JUnit4Runner {
     JUnitCore core = new JUnitCore();
     for (RunListener runListener : runListeners) {
       core.addListener(runListener);
+    }
+    if (config.getTestRunnerFailFast()) {
+      core.addListener(new StopOnFailureRunListener(requestFactory));
     }
 
     File exitFile = getExitFile();
@@ -282,5 +286,20 @@ public class JUnit4Runner {
    */
   public interface Initializer {
     void initialize();
+  }
+
+  /** RunListener that requests test execution to stop upon first failure. */
+  private static class StopOnFailureRunListener extends RunListener {
+
+    private final CancellableRequestFactory cancellableRequestFactory;
+
+    public StopOnFailureRunListener(CancellableRequestFactory cancellableRequestFactory) {
+      this.cancellableRequestFactory = cancellableRequestFactory;
+    }
+
+    @Override
+    public void testFailure(Failure failure) throws Exception {
+      cancellableRequestFactory.cancelRunOrderly();
+    }
   }
 }

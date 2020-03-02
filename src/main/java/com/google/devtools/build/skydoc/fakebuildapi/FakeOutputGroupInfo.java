@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.skydoc.fakebuildapi;
 
-import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkbuildapi.OutputGroupInfoApi;
 import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
@@ -26,12 +25,12 @@ import com.google.devtools.build.lib.syntax.Printer;
 public class FakeOutputGroupInfo implements OutputGroupInfoApi {
 
   @Override
-  public String toProto(Location loc) throws EvalException {
+  public String toProto() throws EvalException {
     return "";
   }
 
   @Override
-  public String toJson(Location loc) throws EvalException {
+  public String toJson() throws EvalException {
     return "";
   }
 
@@ -44,7 +43,7 @@ public class FakeOutputGroupInfo implements OutputGroupInfoApi {
   public static class FakeOutputGroupInfoProvider implements OutputGroupInfoApiProvider {
 
     @Override
-    public OutputGroupInfoApi constructor(Dict<?, ?> kwargs, Location loc) throws EvalException {
+    public OutputGroupInfoApi constructor(Dict<?, ?> kwargs) throws EvalException {
       return new FakeOutputGroupInfo();
     }
 

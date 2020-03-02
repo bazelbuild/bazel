@@ -13,8 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skylarkinterface;
 
-import com.google.devtools.build.lib.syntax.StarlarkSemantics;
-import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
@@ -56,7 +54,6 @@ import java.lang.annotation.Target;
  *             {@code extraPositionals};
  *         <li>a {@code Dict<String, Object>} of extra keyword arguments ({@code **kwargs}), if
  *             {@code extraKeywords};
- *         <li>a {@code Location}, if {@code useLocation};
  *         <li>a {@code StarlarkThread}, if {@code useStarlarkThread};
  *         <li>a {@code StarlarkSemantics}, if {@code useStarlarkSemantics}.
  *       </ol>
@@ -171,15 +168,6 @@ public @interface SkylarkCallable {
   boolean allowReturnNones() default false;
 
   /**
-   * If true, the location of the call site will be passed as an argument of the annotated function.
-   * (Thus, the annotated method signature must contain Location as a parameter. See the
-   * interface-level javadoc for details.)
-   *
-   * <p>This is incompatible with structField=true. If structField is true, this must be false.
-   */
-  boolean useLocation() default false;
-
-  /**
    * If true, the StarlarkThread will be passed as an argument of the annotated function. (Thus, the
    * annotated method signature must contain StarlarkThread as a parameter. See the interface-level
    * javadoc for details.)
@@ -199,16 +187,16 @@ public @interface SkylarkCallable {
   boolean useStarlarkSemantics() default false;
 
   /**
-   * If not NONE, the annotated method will only be callable if the given semantic flag is true.
+   * If non-empty, the annotated method will only be callable if the given semantic flag is true.
    * Note that at most one of {@link #enableOnlyWithFlag} and {@link #disableWithFlag} can be
-   * non-NONE.
+   * non-empty.
    */
-  StarlarkSemantics.FlagIdentifier enableOnlyWithFlag() default FlagIdentifier.NONE;
+  String enableOnlyWithFlag() default "";
 
   /**
-   * If not NONE, the annotated method will only be callable if the given semantic flag is false.
+   * If non-empty, the annotated method will only be callable if the given semantic flag is false.
    * Note that at most one of {@link #enableOnlyWithFlag} and {@link #disableWithFlag} can be
-   * non-NONE.
+   * non-empty.
    */
-  StarlarkSemantics.FlagIdentifier disableWithFlag() default FlagIdentifier.NONE;
+  String disableWithFlag() default "";
 }

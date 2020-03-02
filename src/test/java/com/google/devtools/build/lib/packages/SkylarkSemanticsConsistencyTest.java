@@ -121,6 +121,8 @@ public class SkylarkSemanticsConsistencyTest {
         // <== Add new options here in alphabetic order ==>
         "--debug_depset_depth=" + rand.nextBoolean(),
         "--experimental_action_args=" + rand.nextBoolean(),
+        "--experimental_disable_external_package=" + rand.nextBoolean(),
+        "--experimental_sibling_repository_layout=" + rand.nextBoolean(),
         "--experimental_allow_incremental_repository_updates=" + rand.nextBoolean(),
         "--experimental_aspect_output_propagation=" + rand.nextBoolean(),
         "--experimental_build_setting_api=" + rand.nextBoolean(),
@@ -138,6 +140,7 @@ public class SkylarkSemanticsConsistencyTest {
         "--experimental_cc_shared_library=" + rand.nextBoolean(),
         "--experimental_repo_remote_exec=" + rand.nextBoolean(),
         "--incompatible_always_check_depset_elements=" + rand.nextBoolean(),
+        "--incompatible_applicable_licenses=" + rand.nextBoolean(),
         "--incompatible_bzl_disallow_load_after_statement=" + rand.nextBoolean(),
         "--incompatible_depset_for_libraries_to_link_getter=" + rand.nextBoolean(),
         "--incompatible_depset_union=" + rand.nextBoolean(),
@@ -147,7 +150,6 @@ public class SkylarkSemanticsConsistencyTest {
         "--incompatible_disable_third_party_license_checking=" + rand.nextBoolean(),
         "--incompatible_disallow_empty_glob=" + rand.nextBoolean(),
         "--incompatible_disallow_struct_provider_syntax=" + rand.nextBoolean(),
-        "--incompatible_disallow_unverified_http_downloads=" + rand.nextBoolean(),
         "--incompatible_do_not_split_linking_cmdline=" + rand.nextBoolean(),
         "--incompatible_new_actions_api=" + rand.nextBoolean(),
         "--incompatible_no_attr_license=" + rand.nextBoolean(),
@@ -160,6 +162,7 @@ public class SkylarkSemanticsConsistencyTest {
         "--incompatible_restrict_named_params=" + rand.nextBoolean(),
         "--incompatible_run_shell_command_string=" + rand.nextBoolean(),
         "--incompatible_visibility_private_attributes_at_definition=" + rand.nextBoolean(),
+        "--incompatible_require_linker_input_cc_api=" + rand.nextBoolean(),
         "--incompatible_restrict_string_escapes=" + rand.nextBoolean(),
         "--incompatible_use_cc_configure_from_rules_cc=" + rand.nextBoolean(),
         "--internal_skylark_flag_test_canary=" + rand.nextBoolean());
@@ -174,6 +177,8 @@ public class SkylarkSemanticsConsistencyTest {
         // <== Add new options here in alphabetic order ==>
         .debugDepsetDepth(rand.nextBoolean())
         .experimentalActionArgs(rand.nextBoolean())
+        .experimentalDisableExternalPackage(rand.nextBoolean())
+        .experimentalSiblingRepositoryLayout(rand.nextBoolean())
         .experimentalAllowIncrementalRepositoryUpdates(rand.nextBoolean())
         .experimentalAspectOutputPropagation(rand.nextBoolean())
         .experimentalBuildSettingApi(rand.nextBoolean())
@@ -189,6 +194,7 @@ public class SkylarkSemanticsConsistencyTest {
         .experimentalCcSharedLibrary(rand.nextBoolean())
         .experimentalRepoRemoteExec(rand.nextBoolean())
         .incompatibleAlwaysCheckDepsetElements(rand.nextBoolean())
+        .incompatibleApplicableLicenses(rand.nextBoolean())
         .incompatibleBzlDisallowLoadAfterStatement(rand.nextBoolean())
         .incompatibleDepsetForLibrariesToLinkGetter(rand.nextBoolean())
         .incompatibleDepsetUnion(rand.nextBoolean())
@@ -198,7 +204,6 @@ public class SkylarkSemanticsConsistencyTest {
         .incompatibleDisableThirdPartyLicenseChecking(rand.nextBoolean())
         .incompatibleDisallowEmptyGlob(rand.nextBoolean())
         .incompatibleDisallowStructProviderSyntax(rand.nextBoolean())
-        .incompatibleDisallowUnverifiedHttpDownloads(rand.nextBoolean())
         .incompatibleDoNotSplitLinkingCmdline(rand.nextBoolean())
         .incompatibleNewActionsApi(rand.nextBoolean())
         .incompatibleNoAttrLicense(rand.nextBoolean())
@@ -211,6 +216,7 @@ public class SkylarkSemanticsConsistencyTest {
         .incompatibleRestrictNamedParams(rand.nextBoolean())
         .incompatibleRunShellCommandString(rand.nextBoolean())
         .incompatibleVisibilityPrivateAttributesAtDefinition(rand.nextBoolean())
+        .incompatibleRequireLinkerInputCcApi(rand.nextBoolean())
         .incompatibleRestrictStringEscapes(rand.nextBoolean())
         .incompatibleUseCcConfigureFromRulesCc(rand.nextBoolean())
         .internalSkylarkFlagTestCanary(rand.nextBoolean())

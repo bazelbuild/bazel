@@ -62,4 +62,25 @@ public final class Debug {
     /** Returns the local environment of this frame. */
     ImmutableMap<String, Object> getLocals();
   }
+
+  /**
+   * Interface by which debugging tools are notified of a thread entering or leaving its top-level
+   * frame.
+   */
+  public interface ThreadHook {
+    void onPushFirst(StarlarkThread thread);
+
+    void onPopLast(StarlarkThread thread);
+  }
+
+  static ThreadHook threadHook = null;
+
+  /**
+   * Installs a global hook that is notified each time a thread pushes or pops its top-level frame.
+   * This interface is provided to support special tools; ordinary clients should have no need for
+   * it.
+   */
+  public static void setThreadHook(ThreadHook hook) {
+    threadHook = hook;
+  }
 }

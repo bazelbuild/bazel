@@ -21,7 +21,7 @@ filegroup(
         ],
         args = [test_file],
         data = [
-            "//src/main/java/com/google/devtools/starlark:Starlark",
+            "//src/main/java/com/google/devtools/starlark/cmd:Starlark",
             test_file,
         ],
         main = "starlark_test.py",

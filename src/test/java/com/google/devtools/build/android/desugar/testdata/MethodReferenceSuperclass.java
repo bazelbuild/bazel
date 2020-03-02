@@ -27,10 +27,7 @@ public class MethodReferenceSuperclass {
   // Method reference that causes a simple bridge method because the referenced method is private.
   // We want to make sure that bridge methods generated in subclasses don't clobber this one.
   public List<String> startsWithL() {
-    return names
-        .stream()
-        .filter(this::startsWithL)
-        .collect(Collectors.toList());
+    return names.stream().filter(this::startsWithL).collect(Collectors.toList());
   }
 
   private boolean startsWithL(String input) {

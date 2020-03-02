@@ -14,13 +14,9 @@
 
 package com.google.devtools.build.lib.rules.cpp;
 
-import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
-import com.google.devtools.build.lib.collect.nestedset.NestedSet;
-import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
@@ -42,11 +38,6 @@ public final class MockCppSemantics implements CppSemantics {
       BuildConfiguration configuration,
       FeatureConfiguration featureConfiguration,
       CppCompileActionBuilder actionBuilder) {}
-
-  @Override
-  public NestedSet<Artifact> getAdditionalPrunableIncludes() {
-    return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
-  }
 
   @Override
   public IncludeProcessing getIncludeProcessing() {
@@ -75,4 +66,8 @@ public final class MockCppSemantics implements CppSemantics {
   public StructImpl getCcSharedLibraryInfo(TransitiveInfoCollection dep) {
     return null;
   }
+
+  @Override
+  public void validateLayeringCheckFeatures(RuleContext ruleContext) {}
+  ;
 }

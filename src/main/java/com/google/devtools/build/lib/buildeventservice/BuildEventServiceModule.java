@@ -18,8 +18,6 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Stopwatch;
 import com.google.common.base.Strings;
-import com.google.common.base.Supplier;
-import com.google.common.base.Suppliers;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -60,7 +58,6 @@ import com.google.devtools.build.lib.runtime.CountingArtifactGroupNamer;
 import com.google.devtools.build.lib.runtime.SynchronizedOutputStream;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.ExitCode;
-import com.google.devtools.build.lib.util.LoggingUtil;
 import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParsingException;
@@ -73,13 +70,13 @@ import java.time.Duration;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
-import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.annotation.Nullable;
 
@@ -316,8 +313,8 @@ public abstract class BuildEventServiceModule<BESOptionsT extends BuildEventServ
             : "local";
 
     CountingArtifactGroupNamer artifactGroupNamer = new CountingArtifactGroupNamer();
-    Supplier<BuildEventArtifactUploader> uploaderSupplier =
-        Suppliers.memoize(
+    ThrowingBuildEventArtifactUploaderSupplier uploaderSupplier =
+        new ThrowingBuildEventArtifactUploaderSupplier(
             () ->
                 cmdEnv
                     .getRuntime()
@@ -336,7 +333,14 @@ public abstract class BuildEventServiceModule<BESOptionsT extends BuildEventServ
       return;
     }
 
-    bepTransports = createBepTransports(cmdEnv, uploaderSupplier, artifactGroupNamer);
+    try {
+      bepTransports = createBepTransports(cmdEnv, uploaderSupplier, artifactGroupNamer);
+    } catch (IOException e) {
+      cmdEnv
+          .getBlazeModuleEnvironment()
+          .exit(new AbruptExitException(ExitCode.LOCAL_ENVIRONMENTAL_ERROR, e));
+      return;
+    }
     if (bepTransports.isEmpty()) {
       // Exit early if there are no transports to stream to.
       return;
@@ -395,7 +399,6 @@ public abstract class BuildEventServiceModule<BESOptionsT extends BuildEventServ
       Uninterruptibles.getUninterruptibly(Futures.allAsList(closeFuturesWithTimeoutsMap.values()));
     } catch (ExecutionException e) {
       googleLogger.atSevere().withCause(e).log("Failed to close a build event transport");
-      LoggingUtil.logToRemote(Level.SEVERE, "Failed to close a build event transport", e);
     } finally {
       cancelAndResetPendingUploads();
     }
@@ -604,8 +607,9 @@ public abstract class BuildEventServiceModule<BESOptionsT extends BuildEventServ
   @Nullable
   private BuildEventServiceTransport createBesTransport(
       CommandEnvironment cmdEnv,
-      Supplier<BuildEventArtifactUploader> uploaderSupplier,
-      CountingArtifactGroupNamer artifactGroupNamer) {
+      ThrowingBuildEventArtifactUploaderSupplier uploaderSupplier,
+      CountingArtifactGroupNamer artifactGroupNamer)
+      throws IOException {
     if (Strings.isNullOrEmpty(besOptions.besBackend)) {
       clearBesClient();
       return null;
@@ -675,8 +679,9 @@ public abstract class BuildEventServiceModule<BESOptionsT extends BuildEventServ
 
   private ImmutableSet<BuildEventTransport> createBepTransports(
       CommandEnvironment cmdEnv,
-      Supplier<BuildEventArtifactUploader> uploaderSupplier,
-      CountingArtifactGroupNamer artifactGroupNamer) {
+      ThrowingBuildEventArtifactUploaderSupplier uploaderSupplier,
+      CountingArtifactGroupNamer artifactGroupNamer)
+      throws IOException {
     ImmutableSet.Builder<BuildEventTransport> bepTransportsBuilder = new ImmutableSet.Builder<>();
 
     if (!Strings.isNullOrEmpty(besStreamOptions.buildEventTextFile)) {
@@ -807,5 +812,32 @@ public abstract class BuildEventServiceModule<BESOptionsT extends BuildEventServ
   @VisibleForTesting
   ImmutableSet<BuildEventTransport> getBepTransports() {
     return bepTransports;
+  }
+
+  private static class ThrowingBuildEventArtifactUploaderSupplier {
+    private final Callable<BuildEventArtifactUploader> callable;
+    @Nullable private BuildEventArtifactUploader memoizedValue;
+    @Nullable private IOException exception;
+
+    ThrowingBuildEventArtifactUploaderSupplier(Callable<BuildEventArtifactUploader> callable) {
+      this.callable = callable;
+    }
+
+    BuildEventArtifactUploader get() throws IOException {
+      if (memoizedValue == null && exception == null) {
+        try {
+          memoizedValue = callable.call();
+        } catch (IOException e) {
+          exception = e;
+        } catch (Exception e) {
+          Throwables.throwIfUnchecked(e);
+          throw new IllegalStateException(e);
+        }
+      }
+      if (memoizedValue != null) {
+        return memoizedValue;
+      }
+      throw exception;
+    }
   }
 }

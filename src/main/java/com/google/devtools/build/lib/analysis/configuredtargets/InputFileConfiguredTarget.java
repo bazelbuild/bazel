@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
+import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.InputFile;
 import com.google.devtools.build.lib.packages.License;
 import com.google.devtools.build.lib.packages.PackageSpecification.PackageGroupContents;
@@ -39,6 +40,7 @@ import java.util.Objects;
  * here and is always set to <b>null</b>.
  */
 @AutoCodec
+@Immutable // (and Starlark-hashable)
 public final class InputFileConfiguredTarget extends FileConfiguredTarget implements StarlarkValue {
   private final SourceArtifact artifact;
   private final NestedSet<TargetLicense> licenses;

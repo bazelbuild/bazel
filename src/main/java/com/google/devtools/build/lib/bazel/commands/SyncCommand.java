@@ -180,7 +180,7 @@ public final class SyncCommand implements BlazeCommand {
           // fetch anyway. So the only task remaining is to record the use of "bind" for whoever
           // collects resolved information.
           env.getReporter().post(resolveBind(rule));
-        } else if (shouldSync(rule, syncOptions.configure)) {
+        } else if (shouldSync(rule, syncOptions)) {
           // TODO(aehlig): avoid the detour of serializing and then parsing the repository name
           try {
             repositoriesToFetch.add(
@@ -221,12 +221,16 @@ public final class SyncCommand implements BlazeCommand {
     return BlazeCommandResult.exitCode(exitCode);
   }
 
-  private static boolean shouldSync(Rule rule, boolean configure) {
+  private static boolean shouldSync(Rule rule, SyncOptions options) {
     if (!rule.getRuleClassObject().getWorkspaceOnly()) {
       // We should only sync workspace rules
       return false;
     }
-    if (configure) {
+    if (options.only != null && !options.only.isEmpty() && !options.only.contains(rule.getName())) {
+      // There is a whitelist of what to sync, but the rule is not in this white list
+      return false;
+    }
+    if (options.configure) {
       // If this is only a configure run, only sync Starlark rules that
       // declare themselves as configure-like.
       return SkylarkRepositoryFunction.isConfigureRule(rule);

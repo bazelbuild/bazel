@@ -20,9 +20,7 @@ import java.util.LinkedHashMap;
 import javax.annotation.Nullable;
 import org.objectweb.asm.ClassReader;
 
-/**
- * Simple memoizer for whether types are classes or interfaces.
- */
+/** Simple memoizer for whether types are classes or interfaces. */
 class ClassVsInterface {
   /** Map from internal names to whether they are an interface ({@code false} thus means class). */
   private final LinkedHashMap<String, Boolean> known = new LinkedHashMap<>();
@@ -58,7 +56,7 @@ class ClassVsInterface {
       if (outerClass == null) {
         System.err.printf("WARNING: Couldn't find outer class %s of %s%n", outerName, innerName);
         // TODO(b/79155927): Make this an error when sources of this problem are fixed.
-        result = false;  // assume it's a class if we can't find it (b/79155927)
+        result = false; // assume it's a class if we can't find it (b/79155927)
       } else {
         result = BitFlags.isInterface(outerClass.getAccess());
       }

@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.skydoc.fakebuildapi.java;
 
-import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
 import com.google.devtools.build.lib.skylarkbuildapi.java.JavaAnnotationProcessingApi;
 import com.google.devtools.build.lib.skylarkbuildapi.java.JavaCompilationInfoProviderApi;
@@ -97,12 +96,12 @@ public class FakeJavaInfo implements JavaInfoApi<FileApi> {
   }
 
   @Override
-  public String toProto(Location loc) throws EvalException {
+  public String toProto() throws EvalException {
     return "";
   }
 
   @Override
-  public String toJson(Location loc) throws EvalException {
+  public String toJson() throws EvalException {
     return "";
   }
 
@@ -124,7 +123,6 @@ public class FakeJavaInfo implements JavaInfoApi<FileApi> {
         Sequence<?> runtimeDeps,
         Sequence<?> exports,
         Object jdepsApi,
-        Location loc,
         StarlarkThread thread)
         throws EvalException {
       return new FakeJavaInfo();

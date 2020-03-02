@@ -52,6 +52,7 @@ import com.google.devtools.build.lib.analysis.config.BuildOptions.OptionsDiff;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.FragmentClassSet;
+import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
 import com.google.devtools.build.lib.causes.Cause;
 import com.google.devtools.build.lib.causes.LabelCause;
@@ -87,7 +88,9 @@ import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
+import com.google.devtools.build.skyframe.WalkableGraph;
 import com.google.devtools.common.options.OptionDefinition;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
@@ -122,7 +125,6 @@ public final class SkyframeBuildView {
   // We keep the set of invalidated configuration target keys so that we can know if something
   // has been invalidated after graph pruning has been executed.
   private Set<SkyKey> dirtiedConfiguredTargetKeys = Sets.newConcurrentHashSet();
-  private volatile boolean anyConfiguredTargetDeleted = false;
 
   private final ConfiguredRuleClassProvider ruleClassProvider;
 
@@ -426,11 +428,7 @@ public final class SkyframeBuildView {
               .addAll(ctKeys)
               .addAll(aspectKeys)
               .build();
-      if (someConfiguredTargetEvaluated
-          || anyConfiguredTargetDeleted
-          || !dirtiedConfiguredTargetKeys.isEmpty()
-          || !largestTopLevelKeySetCheckedForConflicts.containsAll(newKeys)
-          || !skyframeActionExecutor.badActions().isEmpty()) {
+      if (checkForConflicts(newKeys)) {
         largestTopLevelKeySetCheckedForConflicts = newKeys;
         // This operation is somewhat expensive, so we only do it if the graph might have changed in
         // some way -- either we analyzed a new target or we invalidated an old one or are building
@@ -523,6 +521,73 @@ public final class SkyframeBuildView {
         packageRoots);
   }
 
+  private boolean checkForConflicts(ImmutableSet<SkyKey> newKeys) {
+    if (someConfiguredTargetEvaluated) {
+      // A top-level target was added and may introduce a conflict, or a top-level target was
+      // recomputed and may introduce or resolve a conflict.
+      return true;
+    }
+
+    if (!dirtiedConfiguredTargetKeys.isEmpty()) {
+      // No target was (re)computed but at least one was dirtied.
+      // Example: (//:x //foo:y) are built, and in conflict (//:x creates foo/C and //foo:y
+      // creates C). Then y is removed from foo/BUILD and only //:x is built, so //foo:y is
+      // dirtied but not recomputed, and no other nodes are recomputed (and none are deleted).
+      // Still we must do the conflict checking because previously there was a conflict but now
+      // there isn't.
+      return true;
+    }
+
+    if (!skyframeActionExecutor.badActions().isEmpty()) {
+      // Example sequence:
+      // 1.  Build (x y z), and there is a conflict. We store (x y z) as the largest checked key
+      //     set, and record the fact that there were bad actions.
+      // 2.  Null-build (x z), so we don't evaluate or dirty anything, but because we know there was
+      //     some conflict last time but don't know exactly which targets conflicted, it could have
+      //     been (x z), so we now check again.
+      return true;
+    }
+
+    if (!largestTopLevelKeySetCheckedForConflicts.containsAll(newKeys)) {
+      // Example sequence:
+      // 1.  Build (x y z), and there is a conflict. We store (x y z) as the largest checked key
+      //     set, and record the fact that there were bad actions.
+      // 2.  Null-build (x z), so we don't evaluate or dirty anything, but because we know there was
+      //     some conflict last time but don't know exactly which targets conflicted, it could have
+      //     been (x z), so we now check again, and store (x z) as the largest checked key set.
+      // 3.  Null-build (y z), so again we don't evaluate or dirty anything, and the previous build
+      //     had no conflicts, so no other condition is true. But because (y z) is not a subset of
+      //     (x z) and we only keep the most recent largest checked key set, we don't know if (y z)
+      //     are conflict free, so we check.
+      return true;
+    }
+
+    // We believe the conditions above are correct in the sense that we always check for conflicts
+    // when we have to. But they are incomplete, so we sometimes check for conflicts even if we
+    // wouldn't have to. For example:
+    // - if no target was evaluated nor dirtied and build sequence is (x y) [no conflict], (z),
+    //   where z is in the transitive closure of (x y), then we shouldn't check.
+    // - if no target was evaluated nor dirtied and build sequence is (x y) [no conflict], (w), (x),
+    //   then the last build shouldn't conflict-check because (x y) was checked earlier. But it
+    //   does, because after the second build we store (w) as the largest checked set, and (x) is
+    //   not a subset of that.
+
+    // Case when we DON'T need to re-check:
+    // - a configured target is deleted. Deletion can only resolve conflicts, not introduce any, and
+    //   if the previuos build had a conflict then skyframeActionExecutor.badActions() would not be
+    //   empty, and if the previous build had no conflict then deleting a CT won't change that.
+    //   Example that triggers this scenario:
+    //   1.  genrule(name='x', srcs=['A'], ...)
+    //       genrule(name='y', outs=['A'], ...)
+    //   2.  Build (x y)
+    //   3.  Rename 'x' to 'y', and 'y' to 'z'
+    //   4.  Build (y z)
+    //   5.  Null-build (y z) again
+    // We only delete the old 'x' value in (5), and we don't evaluate nor dirty anything, nor was
+    // (4) bad. So there's no reason to re-check just because we deleted something.
+    return false;
+  }
+
   /**
    * Process errors encountered during analysis, and return a {@link Pair} indicating the existence
    * of a loading-phase error, if any, and an exception to be thrown to halt the build, if {@code
@@ -540,14 +605,15 @@ public final class SkyframeBuildView {
       SkyframeExecutor skyframeExecutor,
       ExtendedEventHandler eventHandler,
       boolean keepGoing,
-      @Nullable EventBus eventBus) {
+      @Nullable EventBus eventBus)
+      throws InterruptedException {
     boolean inTest = eventBus == null;
     boolean hasLoadingError = false;
     ViewCreationFailedException noKeepGoingException = null;
     for (Map.Entry<SkyKey, ErrorInfo> errorEntry : result.errorMap().entrySet()) {
       SkyKey errorKey = errorEntry.getKey();
       ErrorInfo errorInfo = errorEntry.getValue();
-      assertSaneAnalysisError(errorInfo, errorKey);
+      assertSaneAnalysisError(errorInfo, errorKey, result.getWalkableGraph());
       skyframeExecutor
           .getCyclesReporter().reportCycles(errorInfo.getCycleInfo(), errorKey, eventHandler);
       Exception cause = errorInfo.getException();
@@ -573,6 +639,16 @@ public final class SkyframeBuildView {
       }
 
       if (inTest && !(errorKey.argument() instanceof ConfiguredTargetKey)) {
+        // This means that we are in a BuildViewTestCase.
+        //
+        // Tests don't call target pattern parsing before requesting the analysis of a target.
+        // Therefore if the package that contains them cannot be loaded, we get an error key that's
+        // not a ConfiguredTargetKey, which cannot happen in production code.
+        //
+        // If it's an existing target in a nonexistent package, the error is signaled by posting an
+        // AnalysisFailureEvent on the event bus, which is null in when running a BuildViewTestCase,
+        // so we emit the root cause labels directly to the event handler below.
+        eventHandler.handle(Event.error(errorInfo.toString()));
         continue;
       }
       Preconditions.checkState(
@@ -642,6 +718,9 @@ public final class SkyframeBuildView {
         eventBus.post(
             new AnalysisFailureEvent(
                 label, configuration == null ? null : configuration.getEventId(), rootCauses));
+      } else {
+        // eventBus is null, but test can still assert on the expected root causes being found.
+        eventHandler.handle(Event.error(rootCauses.toList().toString()));
       }
     }
     return Pair.of(hasLoadingError, noKeepGoingException);
@@ -677,27 +756,48 @@ public final class SkyframeBuildView {
     return null;
   }
 
-  private static void assertSaneAnalysisError(ErrorInfo errorInfo, SkyKey key) {
+  private static void assertSaneAnalysisError(
+      ErrorInfo errorInfo, SkyKey key, WalkableGraph walkableGraph) throws InterruptedException {
     Throwable cause = errorInfo.getException();
-    if (cause != null) {
-      // We should only be trying to configure targets when the loading phase succeeds, meaning
-      // that the only errors should be analysis errors.
-      Preconditions.checkState(
-          cause instanceof ConfiguredValueCreationException
-              || cause instanceof ActionConflictException
-              || cause instanceof CcCrosstoolException
-              // For top-level aspects
-              || cause instanceof AspectCreationException
-              || cause instanceof SkylarkImportFailedException
-              // Only if we run the reduced loading phase and then analyze with --nokeep_going.
-              || cause instanceof NoSuchTargetException
-              || cause instanceof NoSuchPackageException
-              // Platform-related:
-              || cause instanceof InvalidExecutionPlatformLabelException,
-          "%s -> %s",
-          key,
-          errorInfo);
+    // We should only be trying to configure targets when the loading phase succeeds, meaning
+    // that the only errors should be analysis errors.
+    if (cause != null && !isSaneAnalysisError(cause)) {
+      // Walk the graph to find a path to the lowest-level node that threw unexpected exception.
+      List<SkyKey> path = new ArrayList<>();
+      try {
+        SkyKey currentKey = key;
+        boolean foundDep;
+        do {
+          path.add(currentKey);
+          foundDep = false;
+          for (SkyKey dep : walkableGraph.getDirectDeps(currentKey)) {
+            if (cause.equals(walkableGraph.getException(dep))) {
+              currentKey = dep;
+              foundDep = true;
+              break;
+            }
+          }
+        } while (foundDep);
+      } finally {
+        BugReport.sendBugReport(
+            new IllegalStateException(
+                "Unexpected analysis error: " + key + " -> " + errorInfo + ", (" + path + ")"));
+      }
     }
+  }
+
+  private static boolean isSaneAnalysisError(Throwable cause) {
+    return cause instanceof ConfiguredValueCreationException
+        || cause instanceof ActionConflictException
+        || cause instanceof CcCrosstoolException
+        // For top-level aspects
+        || cause instanceof AspectCreationException
+        || cause instanceof SkylarkImportFailedException
+        // Only if we run the reduced loading phase and then analyze with --nokeep_going.
+        || cause instanceof NoSuchTargetException
+        || cause instanceof NoSuchPackageException
+        // Platform-related:
+        || cause instanceof InvalidExecutionPlatformLabelException;
   }
 
   /** Special flake for error cases when loading CROSSTOOL for C++ rules */
@@ -856,7 +956,6 @@ public final class SkyframeBuildView {
   /** Clear the invalidated configured targets detected during loading and analysis phases. */
   public void clearInvalidatedConfiguredTargets() {
     dirtiedConfiguredTargetKeys = Sets.newConcurrentHashSet();
-    anyConfiguredTargetDeleted = false;
   }
 
   /**
@@ -880,16 +979,13 @@ public final class SkyframeBuildView {
 
     @Override
     public void invalidated(SkyKey skyKey, InvalidationState state) {
-      if (skyKey.functionName().equals(SkyFunctions.CONFIGURED_TARGET)) {
-        if (state == InvalidationState.DELETED) {
-          anyConfiguredTargetDeleted = true;
-        } else {
-          // If the value was just dirtied and not deleted, then it may not be truly invalid, since
-          // it may later get re-validated. Therefore adding the key to dirtiedConfiguredTargetKeys
-          // is provisional--if the key is later evaluated and the value found to be clean, then we
-          // remove it from the set.
-          dirtiedConfiguredTargetKeys.add(skyKey);
-        }
+      if (skyKey.functionName().equals(SkyFunctions.CONFIGURED_TARGET)
+          && state != InvalidationState.DELETED) {
+        // If the value was just dirtied and not deleted, then it may not be truly invalid, since
+        // it may later get re-validated. Therefore adding the key to dirtiedConfiguredTargetKeys
+        // is provisional--if the key is later evaluated and the value found to be clean, then we
+        // remove it from the set.
+        dirtiedConfiguredTargetKeys.add(skyKey);
       }
     }
 

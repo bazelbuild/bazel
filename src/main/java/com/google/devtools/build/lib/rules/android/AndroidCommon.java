@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.analysis.AnalysisUtils;
 import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.OutputGroupInfo;
+import com.google.devtools.build.lib.analysis.PrerequisiteArtifacts;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
@@ -53,6 +54,7 @@ import com.google.devtools.build.lib.rules.android.databinding.DataBindingContex
 import com.google.devtools.build.lib.rules.cpp.CcInfo;
 import com.google.devtools.build.lib.rules.cpp.CcLinkingContext;
 import com.google.devtools.build.lib.rules.cpp.CcLinkingContext.LinkOptions;
+import com.google.devtools.build.lib.rules.java.BootClassPathInfo;
 import com.google.devtools.build.lib.rules.java.ClasspathConfiguredFragment;
 import com.google.devtools.build.lib.rules.java.JavaCcLinkParamsProvider;
 import com.google.devtools.build.lib.rules.java.JavaCommon;
@@ -463,20 +465,13 @@ public class AndroidCommon {
     classJar = ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_LIBRARY_CLASS_JAR);
     idlHelper = new AndroidIdlHelper(ruleContext, classJar);
 
-    ImmutableList<Artifact> bootclasspath;
+    NestedSetBuilder<Artifact> bootclasspath = NestedSetBuilder.<Artifact>stableOrder();
     if (getAndroidConfig(ruleContext).desugarJava8()) {
-      bootclasspath =
-          ImmutableList.<Artifact>builder()
-              .addAll(
-                  ruleContext
-                      .getPrerequisiteArtifacts("$desugar_java8_extra_bootclasspath", Mode.HOST)
-                      .list())
-              .add(AndroidSdkProvider.fromRuleContext(ruleContext).getAndroidJar())
-              .build();
-    } else {
-      bootclasspath =
-          ImmutableList.of(AndroidSdkProvider.fromRuleContext(ruleContext).getAndroidJar());
+      bootclasspath.addTransitive(
+          PrerequisiteArtifacts.nestedSet(
+              ruleContext, "$desugar_java8_extra_bootclasspath", Mode.HOST));
     }
+    bootclasspath.add(AndroidSdkProvider.fromRuleContext(ruleContext).getAndroidJar());
     ImmutableList.Builder<String> javacopts = ImmutableList.builder();
     javacopts.addAll(androidSemantics.getCompatibleJavacOptions(ruleContext));
 
@@ -486,8 +481,7 @@ public class AndroidCommon {
     JavaTargetAttributes.Builder attributesBuilder =
         javaCommon
             .initCommon(idlHelper.getIdlGeneratedJavaSources(), javacopts.build())
-            .setBootClassPath(
-                NestedSetBuilder.<Artifact>wrap(Order.NAIVE_LINK_ORDER, bootclasspath));
+            .setBootClassPath(BootClassPathInfo.create(bootclasspath.build()));
 
     resourceApk
         .asDataBindingContext()

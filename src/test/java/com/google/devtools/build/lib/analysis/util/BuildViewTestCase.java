@@ -1,4 +1,4 @@
-// Copyright 2015 The Bazel Authors. All rights reserved.
+// Copyright 2019 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -123,6 +123,7 @@ import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.OutputFile;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.PackageFactory.EnvironmentExtension;
+import com.google.devtools.build.lib.packages.PackageValidator;
 import com.google.devtools.build.lib.packages.RawAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.StarlarkSemanticsOptions;
@@ -234,15 +235,15 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
 
     actionKeyContext = new ActionKeyContext();
     mockToolsConfig = new MockToolsConfig(rootDirectory, false);
-    mockToolsConfig.create("/bazel_tools_workspace/WORKSPACE", "workspace(name = 'bazel_tools')");
-    mockToolsConfig.create("/bazel_tools_workspace/tools/build_defs/repo/BUILD");
+    mockToolsConfig.create("bazel_tools_workspace/WORKSPACE", "workspace(name = 'bazel_tools')");
+    mockToolsConfig.create("bazel_tools_workspace/tools/build_defs/repo/BUILD");
     mockToolsConfig.create(
-        "/bazel_tools_workspace/tools/build_defs/repo/utils.bzl",
+        "bazel_tools_workspace/tools/build_defs/repo/utils.bzl",
         "def maybe(repo_rule, name, **kwargs):",
         "  if name not in native.existing_rules():",
         "    repo_rule(name = name, **kwargs)");
     mockToolsConfig.create(
-        "/bazel_tools_workspace/tools/build_defs/repo/http.bzl",
+        "bazel_tools_workspace/tools/build_defs/repo/http.bzl",
         "def http_archive(**kwargs):",
         "  pass",
         "",
@@ -277,7 +278,8 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
         analysisMock
             .getPackageFactoryBuilderForTesting(directories)
             .setExtraPrecomputeValues(extraPrecomputedValues)
-            .setEnvironmentExtensions(getEnvironmentExtensions());
+            .setEnvironmentExtensions(getEnvironmentExtensions())
+            .setPackageValidator(getPackageValidator());
     if (!doPackageLoadingChecks) {
       pkgFactoryBuilder.disableChecks();
     }
@@ -314,7 +316,9 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     useConfiguration();
     setUpSkyframe();
     this.actionLogBufferPathGenerator =
-        new ActionLogBufferPathGenerator(directories.getActionTempsDirectory(getExecRoot()));
+        new ActionLogBufferPathGenerator(
+            directories.getActionTempsDirectory(getExecRoot()),
+            directories.getPersistentActionOutsDirectory(getExecRoot()));
   }
 
   public void initializeMockClient() throws IOException {
@@ -345,6 +349,10 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
 
   protected StarlarkSemantics getSkylarkSemantics() {
     return starlarkSemanticsOptions.toSkylarkSemantics();
+  }
+
+  protected PackageValidator getPackageValidator() {
+    return PackageValidator.NOOP_VALIDATOR;
   }
 
   protected final BuildConfigurationCollection createConfigurations(
@@ -776,7 +784,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   }
 
   @Nullable
-  private ParameterFileWriteAction paramFileWriteActionForAction(Action action) {
+  protected ParameterFileWriteAction paramFileWriteActionForAction(Action action) {
     for (Artifact input : action.getInputs().toList()) {
       if (!(input instanceof SpecialArtifact)) {
         Action generatingAction = getGeneratingAction(input);
@@ -901,7 +909,9 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     try {
       return view.getConfiguredTargetForTesting(
           reporter, BlazeTestUtils.convertLabel(label), config);
-    } catch (InvalidConfigurationException | StarlarkTransition.TransitionException e) {
+    } catch (InvalidConfigurationException
+        | StarlarkTransition.TransitionException
+        | InterruptedException e) {
       throw new AssertionError(e);
     }
   }
@@ -911,7 +921,8 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
    */
   protected ConfiguredTargetAndData getConfiguredTargetAndData(
       Label label, BuildConfiguration config)
-      throws StarlarkTransition.TransitionException, InvalidConfigurationException {
+      throws StarlarkTransition.TransitionException, InvalidConfigurationException,
+          InterruptedException {
     return view.getConfiguredTargetAndDataForTesting(reporter, label, config);
   }
 
@@ -922,7 +933,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
    */
   public ConfiguredTargetAndData getConfiguredTargetAndData(String label)
       throws LabelSyntaxException, StarlarkTransition.TransitionException,
-          InvalidConfigurationException {
+          InvalidConfigurationException, InterruptedException {
     return getConfiguredTargetAndData(Label.parseAbsolute(label, ImmutableMap.of()), targetConfig);
   }
 
@@ -1044,7 +1055,8 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
    */
   protected Rule scratchRule(String packageName, String ruleName, String... lines)
       throws Exception {
-    String buildFilePathString = packageName + "/BUILD";
+    // Allow to create the BUILD file also in the top package.
+    String buildFilePathString = packageName.isEmpty() ? "BUILD" : packageName + "/BUILD";
     if (packageName.equals(LabelConstants.EXTERNAL_PACKAGE_NAME.getPathString())) {
       buildFilePathString = "WORKSPACE";
       scratch.overwriteFile(buildFilePathString, lines);
@@ -1785,7 +1797,8 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
       ctad = getConfiguredTargetAndData(ct.getLabel().toString());
     } catch (LabelSyntaxException
         | StarlarkTransition.TransitionException
-        | InvalidConfigurationException e) {
+        | InvalidConfigurationException
+        | InterruptedException e) {
       throw new RuntimeException(e);
     }
     return getMapperFromConfiguredTargetAndTarget(ctad);

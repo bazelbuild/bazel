@@ -46,8 +46,9 @@ import java.util.function.Predicate;
 public class NinjaLexerStep {
   private static final ImmutableSortedSet<Byte> IDENTIFIER_SYMBOLS =
       createByteSet("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-");
-  private static final ImmutableSortedSet<Byte> TEXT_STOPPERS = createByteSet("\n\r \t#$:\u0000");
-  private static final ImmutableSortedSet<Byte> PATH_STOPPERS = createByteSet("\n\r \t#$:|\u0000");
+  private static final ImmutableSortedSet<Byte> TEXT_STOPPERS = createByteSet("\n\r \t$:\u0000");
+  // We allow # symbol in the path, so the comment on the line with path can only start with space.
+  private static final ImmutableSortedSet<Byte> PATH_STOPPERS = createByteSet("\n\r \t$:|\u0000");
 
   private static ImmutableSortedSet<Byte> createByteSet(String variants) {
     ImmutableSortedSet.Builder<Byte> builder = ImmutableSortedSet.naturalOrder();
@@ -141,7 +142,7 @@ public class NinjaLexerStep {
   }
 
   public void skipSpaces() {
-    end = eatSequence(position, aByte -> ' ' != aByte);
+    end = eatSequence(position, aByte -> ' ' != aByte && '\t' != aByte);
   }
 
   public void skipComment() {
@@ -221,7 +222,11 @@ public class NinjaLexerStep {
   public void tryReadIdentifier() {
     end = readIdentifier(position, true);
     if (position >= end) {
-      error = "Symbol is not allowed in the identifier.";
+      error =
+          String.format(
+              "Symbol '%s' is not allowed in the identifier,"
+                  + " the text fragment with the symbol:\n%s\n",
+              fragment.subFragment(position, position + 1), fragment.getFragmentAround(position));
       end = position + 1;
     }
   }

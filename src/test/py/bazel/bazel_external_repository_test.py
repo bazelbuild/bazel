@@ -83,29 +83,22 @@ class BazelExternalRepositoryTest(test_base.TestBase):
     self.ScratchFile('third_party/BUILD')
     self.ScratchFile('third_party/six.BUILD', build_file)
 
-    exit_code, _, stderr = self.RunBazel([
-        'build', '--noincompatible_disallow_unverified_http_downloads',
-        '@six_archive//...'
-    ])
+    exit_code, _, stderr = self.RunBazel(['build', '@six_archive//...'])
     self.assertEqual(exit_code, 0, os.linesep.join(stderr))
 
     fetching_disabled_msg = 'fetching is disabled'
 
     # Changing the mtime of the BUILD file shouldn't invalidate it.
     os.utime(self.Path('third_party/six.BUILD'), (100, 200))
-    exit_code, _, stderr = self.RunBazel([
-        'build', '--noincompatible_disallow_unverified_http_downloads',
-        '--nofetch', '@six_archive//...'
-    ])
+    exit_code, _, stderr = self.RunBazel(
+        ['build', '--nofetch', '@six_archive//...'])
     self.assertEqual(exit_code, 0, os.linesep.join(stderr))
     self.assertNotIn(fetching_disabled_msg, os.linesep.join(stderr))
 
     # Check that --nofetch prints a warning if the BUILD file is changed.
     self.ScratchFile('third_party/six.BUILD', build_file + ['"a noop string"'])
-    exit_code, _, stderr = self.RunBazel([
-        'build', '--noincompatible_disallow_unverified_http_downloads',
-        '--nofetch', '@six_archive//...'
-    ])
+    exit_code, _, stderr = self.RunBazel(
+        ['build', '--nofetch', '@six_archive//...'])
     self.assertEqual(exit_code, 0, os.linesep.join(stderr))
     self.assertIn(fetching_disabled_msg, os.linesep.join(stderr))
 
@@ -123,6 +116,8 @@ class BazelExternalRepositoryTest(test_base.TestBase):
         '    name = "archive_with_symlink",',
         '    urls = ["http://%s:%s/archive_with_symlink.zip"],' % (ip, port),
         '    build_file = "@//:archive_with_symlink.BUILD",',
+        '    sha256 = ',
+        '  "c9c32a48ff65f6319885246b1bfc704e60dd72fb0405dfafdffe403421a4c83a",'
         ')',
     ]
     rule_definition.extend(self.GetDefaultRepoRules())
@@ -137,7 +132,6 @@ class BazelExternalRepositoryTest(test_base.TestBase):
     self.ScratchFile('BUILD')
     exit_code, _, stderr = self.RunBazel([
         'build',
-        '--noincompatible_disallow_unverified_http_downloads',
         '@archive_with_symlink//:file-A',
     ])
     self.assertEqual(exit_code, 0, os.linesep.join(stderr))

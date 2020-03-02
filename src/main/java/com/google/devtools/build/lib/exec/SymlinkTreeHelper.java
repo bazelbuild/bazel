@@ -13,31 +13,33 @@
 // limitations under the License.
 package com.google.devtools.build.lib.exec;
 
-import static java.nio.charset.StandardCharsets.ISO_8859_1;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
+import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
 import com.google.devtools.build.lib.shell.Command;
 import com.google.devtools.build.lib.shell.CommandException;
 import com.google.devtools.build.lib.util.CommandBuilder;
 import com.google.devtools.build.lib.util.CommandUtils;
 import com.google.devtools.build.lib.util.OsUtils;
 import com.google.devtools.build.lib.util.io.OutErr;
+import com.google.devtools.build.lib.vfs.Dirent;
+import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import java.io.BufferedReader;
+import com.google.devtools.build.lib.vfs.Symlinks;
 import java.io.IOException;
-import java.io.InputStreamReader;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
+import javax.annotation.Nullable;
 
 /**
  * Helper class responsible for the symlink tree creation. Used to generate runfiles and fileset
@@ -65,27 +67,51 @@ public final class SymlinkTreeHelper {
     this.filesetTree = filesetTree;
   }
 
-  public Path getOutputManifest() {
-    return symlinkTreeRoot;
+  private Path getOutputManifest() {
+    return symlinkTreeRoot.getChild("MANIFEST");
   }
 
-  /** Creates a symlink tree using direct system calls. */
+  /** Creates a symlink tree by making VFS calls. */
   public void createSymlinksDirectly(Path symlinkTreeRoot, Map<PathFragment, Artifact> symlinks)
       throws IOException {
     Preconditions.checkState(!filesetTree);
-    Set<Path> dirs = new HashSet<>();
-    for (Map.Entry<PathFragment, Artifact> e : symlinks.entrySet()) {
-      Path symlinkPath = symlinkTreeRoot.getRelative(e.getKey());
-      Path parentDirectory = symlinkPath.getParentDirectory();
-      if (dirs.add(parentDirectory)) {
-        parentDirectory.createDirectoryAndParents();
-      }
-      if (e.getValue() == null) {
-        FileSystemUtils.createEmptyFile(symlinkPath);
-      } else {
-        symlinkPath.createSymbolicLink(e.getValue().getPath().asFragment());
-      }
+    // Our strategy is to minimize mutating file system operations as much as possible. Ideally, if
+    // there is an existing symlink tree with the expected contents, we don't make any changes. Our
+    // algorithm goes as follows:
+    //
+    // 1. Create a tree structure that represents the entire set of paths that we want to exist. The
+    //    tree structure contains a node for every intermediate directory. For example, this is the
+    //    tree structure corresponding to the symlinks {"a/b/c": "foobar", "a/d/e": null}:
+    //
+    //      / b - c (symlink to "foobar")
+    //    a
+    //      \ d - e (empty file)
+    //
+    //    Note that we need to distinguish directories, symlinks, and empty files. In the Directory
+    //    class below, we use two maps for that purpose: one for directories, and one for symlinks
+    //    and empty files. This avoids having to create additional classes / objects to distinguish
+    //    them.
+    //
+    // 2. Perform a depth-first traversal over the on-disk file system tree and make each directory
+    //    match our expected directory layout. To that end, call readdir, and compare the result
+    //    with the contents of the corresponding node in the in-memory tree.
+    //
+    //    For each Dirent entry in the readdir result:
+    //    - If the entry is not in the current node, if the entry has an incompatible type, or if it
+    //      is a symlink that points to the wrong location, delete the entry on disk (recursively).
+    //    - Otherwise:
+    //      - If the entry is a directory, recurse into that directory
+    //      - In all cases, delete the entry in the current in-memory node.
+    //
+    // 3. For every remaining entry in the node, create the corresponding file, symlink, or
+    //    directory on disk. If it is a directory, recurse into that directory.
+    Directory root = new Directory();
+    for (Map.Entry<PathFragment, Artifact> entry : symlinks.entrySet()) {
+      // This creates intermediate directory nodes as a side effect.
+      Directory parentDir = root.walk(entry.getKey().getParentDirectory());
+      parentDir.addSymlink(entry.getKey().getBaseName(), entry.getValue());
     }
+    root.syncTreeRecursively(symlinkTreeRoot);
   }
 
   /**
@@ -112,7 +138,7 @@ public final class SymlinkTreeHelper {
     // Pretend we created the runfiles tree by copying the manifest
     try {
       symlinkTreeRoot.createDirectoryAndParents();
-      FileSystemUtils.copyFile(inputManifest, symlinkTreeRoot.getChild("MANIFEST"));
+      FileSystemUtils.copyFile(inputManifest, getOutputManifest());
     } catch (IOException e) {
       throw new EnvironmentalExecException(e);
     }
@@ -158,31 +184,90 @@ public final class SymlinkTreeHelper {
         .build();
   }
 
-  static Map<PathFragment, PathFragment> readSymlinksFromFilesetManifest(Path manifest)
-      throws IOException {
-    Map<PathFragment, PathFragment> result = new HashMap<>();
-    try (BufferedReader reader =
-        new BufferedReader(
-            new InputStreamReader(
-                // ISO_8859 is used to write the manifest in {Runfiles,Fileset}ManifestAction.
-                manifest.getInputStream(), ISO_8859_1))) {
-      String line;
-      int lineNumber = 0;
-      while ((line = reader.readLine()) != null) {
-        // If the input has metadata (for fileset), they appear in every other line.
-        if (++lineNumber % 2 == 0) {
-          continue;
+  static ImmutableMap<PathFragment, PathFragment> processFilesetLinks(
+      ImmutableList<FilesetOutputSymlink> links, PathFragment root, PathFragment execRoot) {
+    Map<PathFragment, PathFragment> symlinks = new HashMap<>();
+    for (FilesetOutputSymlink symlink : links) {
+      symlinks.put(root.getRelative(symlink.getName()), symlink.reconstituteTargetPath(execRoot));
+    }
+    return ImmutableMap.copyOf(symlinks);
+  }
+
+  private static final class Directory {
+    private final Map<String, Artifact> symlinks = new HashMap<>();
+    private final Map<String, Directory> directories = new HashMap<>();
+
+    void addSymlink(String basename, @Nullable Artifact artifact) {
+      symlinks.put(basename, artifact);
+    }
+
+    Directory walk(PathFragment dir) {
+      Directory result = this;
+      for (String segment : dir.getSegments()) {
+        Directory next = result.directories.get(segment);
+        if (next == null) {
+          next = new Directory();
+          result.directories.put(segment, next);
         }
-        int spaceIndex = line.indexOf(' ');
-        result.put(
-            PathFragment.create(line.substring(0, spaceIndex)),
-            PathFragment.create(line.substring(spaceIndex + 1)));
+        result = next;
       }
-      if (lineNumber % 2 != 0) {
-        throw new IOException(
-            "Possibly corrupted manifest file '" + manifest.getPathString() + "'");
+      return result;
+    }
+
+    void syncTreeRecursively(Path at) throws IOException {
+      // This is a reimplementation of the C++ code in build-runfiles.cc. This avoids having to ship
+      // a separate native tool to create a few runfiles.
+      // TODO(ulfjack): Measure performance.
+      FileStatus stat = at.statNullable(Symlinks.FOLLOW);
+      if (stat == null) {
+        at.createDirectoryAndParents();
+      } else if (!stat.isDirectory()) {
+        at.deleteTree();
+        at.createDirectoryAndParents();
+      }
+      // TODO(ulfjack): provide the mode bits from FileStatus and use that to construct the correct
+      //  chmod call here. Note that we do not have any tests for this right now. Something like
+      //  this:
+      // if (!stat.isExecutable() || !stat.isReadable()) {
+      //   at.chmod(stat.getMods() | 0700);
+      // }
+      for (Dirent dirent : at.readdir(Symlinks.FOLLOW)) {
+        String basename = dirent.getName();
+        Path next = at.getChild(basename);
+        if (symlinks.containsKey(basename)) {
+          Artifact value = symlinks.remove(basename);
+          if (value == null) {
+            if (dirent.getType() != Dirent.Type.FILE) {
+              next.deleteTree();
+              FileSystemUtils.createEmptyFile(next);
+            }
+            // For consistency with build-runfiles.cc, we don't truncate the file if one exists.
+          } else {
+            // TODO(ulfjack): On Windows, this call makes a copy rather than creating a symlink.
+            FileSystemUtils.ensureSymbolicLink(next, value.getPath().asFragment());
+          }
+        } else if (directories.containsKey(basename)) {
+          Directory nextDir = directories.remove(basename);
+          if (dirent.getType() != Dirent.Type.DIRECTORY) {
+            next.deleteTree();
+          }
+          nextDir.syncTreeRecursively(at.getChild(basename));
+        } else {
+          at.getChild(basename).deleteTree();
+        }
+      }
+
+      for (Map.Entry<String, Artifact> entry : symlinks.entrySet()) {
+        Path next = at.getChild(entry.getKey());
+        if (entry.getValue() == null) {
+          FileSystemUtils.createEmptyFile(next);
+        } else {
+          FileSystemUtils.ensureSymbolicLink(next, entry.getValue().getPath().asFragment());
+        }
+      }
+      for (Map.Entry<String, Directory> entry : directories.entrySet()) {
+        entry.getValue().syncTreeRecursively(at.getChild(entry.getKey()));
       }
     }
-    return result;
   }
 }

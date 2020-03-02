@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.skylarkinterface.processor.testsources;
 
-import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
@@ -30,9 +29,8 @@ public class ExtraPositionalsMissing implements StarlarkValue {
       documented = false,
       parameters = {@Param(name = "one")},
       extraPositionals = @Param(name = "args"),
-      useLocation = true,
       useStarlarkThread = true)
-  public String threeArgMethod(String one, Location location, StarlarkThread thread) {
+  public String threeArgMethod(String one, StarlarkThread thread) {
     return "bar";
   }
 }

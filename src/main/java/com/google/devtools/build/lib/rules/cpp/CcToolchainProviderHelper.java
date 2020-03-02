@@ -70,12 +70,18 @@ public class CcToolchainProviderHelper {
     CcToolchainConfigInfo toolchainConfigInfo = attributes.getCcToolchainConfigInfo();
     ImmutableMap<String, PathFragment> toolPaths;
     CcToolchainFeatures toolchainFeatures;
-    PathFragment toolsDirectory = getToolsDirectory(ruleContext.getLabel());
+    PathFragment toolsDirectory =
+        getToolsDirectory(
+            ruleContext.getLabel(),
+            ruleContext
+                .getAnalysisEnvironment()
+                .getSkylarkSemantics()
+                .experimentalSiblingRepositoryLayout());
     try {
       toolPaths = computeToolPaths(toolchainConfigInfo, toolsDirectory);
       toolchainFeatures = new CcToolchainFeatures(toolchainConfigInfo, toolsDirectory);
     } catch (EvalException e) {
-      throw ruleContext.throwWithRuleError(e.getMessage());
+      throw ruleContext.throwWithRuleError(e);
     }
 
     FdoContext fdoContext =
@@ -463,8 +469,8 @@ public class CcToolchainProviderHelper {
     return toolPaths.get(tool.getNamePart());
   }
 
-  static PathFragment getToolsDirectory(Label ccToolchainLabel) {
-    return ccToolchainLabel.getPackageIdentifier().getPathUnderExecRoot();
+  static PathFragment getToolsDirectory(Label ccToolchainLabel, boolean siblingRepositoryLayout) {
+    return ccToolchainLabel.getPackageIdentifier().getExecPath(siblingRepositoryLayout);
   }
 
   private static ImmutableMap<String, String> computeAdditionalMakeVariables(

@@ -16,8 +16,7 @@ package com.google.devtools.build.android.desugar.testdata.java8;
 import com.google.devtools.build.android.desugar.testdata.java8.subpackage.PublicInterface;
 
 /**
- * Class that transitively implements a package-private interface in another package. Default
- * method desugaring will need to make the default method defined in that interface publicly
- * accessible.
+ * Class that transitively implements a package-private interface in another package. Default method
+ * desugaring will need to make the default method defined in that interface publicly accessible.
  */
 public class VisibilityTestClass implements PublicInterface {}

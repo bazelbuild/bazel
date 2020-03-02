@@ -35,6 +35,7 @@ import com.google.devtools.build.lib.packages.PackageFactory.EnvironmentExtensio
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.WorkspaceFileValue;
 import com.google.devtools.build.lib.packages.WorkspaceFileValue.WorkspaceFileKey;
+import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.rules.repository.ManagedDirectoriesKnowledge;
 import com.google.devtools.build.lib.rules.repository.ManagedDirectoriesKnowledgeImpl;
 import com.google.devtools.build.lib.rules.repository.ManagedDirectoriesKnowledgeImpl.ManagedDirectoriesListener;
@@ -53,7 +54,6 @@ import com.google.devtools.build.skyframe.Injectable;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
-import com.google.devtools.build.skyframe.SkyValue;
 import java.io.IOException;
 import java.util.Objects;
 import java.util.Set;
@@ -66,8 +66,6 @@ import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 import org.mockito.Mockito;
 import org.mockito.hamcrest.MockitoHamcrest;
-import org.mockito.invocation.InvocationOnMock;
-import org.mockito.stubbing.Answer;
 
 /**
  * Test for {@link WorkspaceFileFunction}.
@@ -103,6 +101,11 @@ public class WorkspaceFileFunctionTest extends BuildViewTestCase {
 
     @Override
     public boolean exists() {
+      return exists;
+    }
+
+    @Override
+    public boolean isFile() {
       return exists;
     }
 
@@ -183,46 +186,50 @@ public class WorkspaceFileFunctionTest extends BuildViewTestCase {
   }
 
   private SkyFunction.Environment getEnv() throws InterruptedException {
+    PathPackageLocator locator = Mockito.mock(PathPackageLocator.class);
+    Mockito.when(locator.getPathEntries())
+        .thenReturn(ImmutableList.of(Root.fromPath(directories.getWorkspace())));
+
     SkyFunction.Environment env = Mockito.mock(SkyFunction.Environment.class);
     Mockito.when(env.getValue(MockitoHamcrest.argThat(new SkyKeyMatchers(FileValue.FILE))))
-        .thenReturn(fakeWorkspaceFileValue);
+        .then(
+            invocation -> {
+              SkyKey key = (SkyKey) invocation.getArguments()[0];
+              String path = ((RootedPath) key.argument()).getRootRelativePath().getPathString();
+              FakeFileValue result = new FakeFileValue();
+              result.setExists(path.equals("WORKSPACE"));
+              return result;
+            });
     Mockito.when(
             env.getValue(
                 MockitoHamcrest.argThat(new SkyKeyMatchers(WorkspaceFileValue.WORKSPACE_FILE))))
         .then(
-            new Answer<SkyValue>() {
-              @Override
-              public SkyValue answer(InvocationOnMock invocation) throws Throwable {
-                SkyKey key = (SkyKey) invocation.getArguments()[0];
-                return workspaceSkyFunc.compute(key, getEnv());
-              }
+            invocation -> {
+              SkyKey key = (SkyKey) invocation.getArguments()[0];
+              return workspaceSkyFunc.compute(key, getEnv());
             });
     Mockito.when(
             env.getValue(MockitoHamcrest.argThat(new SkyKeyMatchers(SkyFunctions.WORKSPACE_AST))))
         .then(
-            new Answer<SkyValue>() {
-              @Override
-              public SkyValue answer(InvocationOnMock invocation) throws Throwable {
-                SkyKey key = (SkyKey) invocation.getArguments()[0];
-                return astSkyFunc.compute(key, getEnv());
-              }
+            invocation -> {
+              SkyKey key = (SkyKey) invocation.getArguments()[0];
+              return astSkyFunc.compute(key, getEnv());
             });
     Mockito.when(
             env.getValue(MockitoHamcrest.argThat(new SkyKeyMatchers(SkyFunctions.PRECOMPUTED))))
         .then(
-            new Answer<SkyValue>() {
-              @Override
-              public SkyValue answer(InvocationOnMock invocation) throws Throwable {
-                SkyKey key = (SkyKey) invocation.getArguments()[0];
-                if (key.equals(PrecomputedValue.STARLARK_SEMANTICS.getKeyForTesting())) {
-                  return new PrecomputedValue(StarlarkSemantics.DEFAULT_SEMANTICS);
-                } else if (key.equals(
-                    RepositoryDelegatorFunction.RESOLVED_FILE_INSTEAD_OF_WORKSPACE
-                        .getKeyForTesting())) {
-                  return new PrecomputedValue(Optional.<RootedPath>absent());
-                } else {
-                  return null;
-                }
+            invocation -> {
+              SkyKey key = (SkyKey) invocation.getArguments()[0];
+              if (key.equals(PrecomputedValue.STARLARK_SEMANTICS.getKeyForTesting())) {
+                return new PrecomputedValue(StarlarkSemantics.DEFAULT_SEMANTICS);
+              } else if (key.equals(
+                  RepositoryDelegatorFunction.RESOLVED_FILE_INSTEAD_OF_WORKSPACE
+                      .getKeyForTesting())) {
+                return new PrecomputedValue(Optional.<RootedPath>absent());
+              } else if (key.equals(PrecomputedValue.PATH_PACKAGE_LOCATOR.getKeyForTesting())) {
+                return new PrecomputedValue(locator);
+              } else {
+                return null;
               }
             });
     return env;

@@ -969,14 +969,16 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
    * A sequence of simple string values. Exists as a memory optimization - a typical build can
    * contain millions of feature values, so getting rid of the overhead of {@code StringValue}
    * objects significantly reduces memory overhead.
+   *
+   * <p>Because checking nested set equality is expensive, equality for these sequences is defined
+   * in terms of {@link NestedSet#shallowEquals}, which can miss some value-equal nested sets. In
+   * practice, since equality is needed just for interning when deserializing, this is acceptable.
    */
   @Immutable
-  @AutoCodec
-  static final class StringSetSequence extends VariableValueAdapter {
+  private static final class StringSetSequence extends VariableValueAdapter {
     private final NestedSet<String> values;
-    private int hash = 0;
 
-    public StringSetSequence(NestedSet<String> values) {
+    StringSetSequence(NestedSet<String> values) {
       Preconditions.checkNotNull(values);
       this.values = values;
     }
@@ -1008,20 +1010,12 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
       if (this == other) {
         return true;
       }
-      return values.equals(((StringSetSequence) other).values);
+      return values.shallowEquals(((StringSetSequence) other).values);
     }
 
     @Override
     public int hashCode() {
-      int h = hash;
-      if (h == 0) {
-        h = 1;
-        for (String s : values.toList()) {
-          h = 31 * h + (s == null ? 0 : s.hashCode());
-        }
-        hash = h;
-      }
-      return h;
+      return values.shallowHashCode();
     }
   }
 

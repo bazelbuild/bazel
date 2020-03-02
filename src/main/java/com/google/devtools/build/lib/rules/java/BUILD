@@ -79,6 +79,7 @@ java_library(
 java_library(
     name = "java-compilation",
     srcs = [
+        "BootClassPathInfo.java",
         "BuildInfoPropertiesTranslator.java",
         "ClasspathConfiguredFragment.java",
         "DeployArchiveBuilder.java",
@@ -132,7 +133,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib:events",
         "//src/main/java/com/google/devtools/build/lib:packages-internal",
         "//src/main/java/com/google/devtools/build/lib:provider-collection",
-        "//src/main/java/com/google/devtools/build/lib:skylarkinterface",
         "//src/main/java/com/google/devtools/build/lib:syntax",
         "//src/main/java/com/google/devtools/build/lib:util",
         "//src/main/java/com/google/devtools/build/lib/actions",
@@ -150,6 +150,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi",
         "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi/core",
         "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi/java",
+        "//src/main/java/com/google/devtools/build/lib/skylarkinterface",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/common/options",
         "//src/main/protobuf:deps_java_proto",

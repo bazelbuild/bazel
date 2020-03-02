@@ -512,6 +512,11 @@ message TargetComplete {
   // new clients should not use it.
   repeated File important_output = 4 [deprecated = true];
 
+  // Report output artifacts (referenced transitively via output_group) which
+  // emit directories instead of singleton files. These directory_output entries
+  // will never include a uri.
+  repeated File directory_output = 8;
+
   // List of tags associated with this configured target.
   repeated string tag = 3;
 

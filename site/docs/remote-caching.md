@@ -1,36 +1,16 @@
 ---
 layout: documentation
-title: Remote Caching
+title: Remote caching
 ---
 
-# Remote Caching
+# Remote caching
 
 A remote cache is used by a team of developers and/or a continuous integration
 (CI) system to share build outputs. If your build is reproducible, the
 outputs from one machine can be safely reused on another machine, which can
 make builds significantly faster.
 
-## Contents
-
-* [Remote caching overview](#remote-caching-overview)
-* [How a build uses remote caching](#how-a-build-uses-remote-caching)
-* [Setting up a server as the cache's backend](#setting-up-a-server-as-the-caches-backend)
-    * [nginx](#nginx)
-    * [bazel-remote](#bazel-remote)
-    * [Google Cloud Storage](#google-cloud-storage)
-    * [Other servers](#other-servers)
-* [Authentication](#authentication)
-* [HTTP Caching Protocol](#http-caching-protocol)
-* [Run Bazel using the remote cache](#run-bazel-using-the-remote-cache)
-    * [Read from and write to the remote cache](#read-from-and-write-to-the-remote-cache)
-    * [Read only from the remote cache](#read-only-from-the-remote-cache)
-    * [Exclude specific targets from using the remote cache](#exclude-specific-targets-from-using-the-remote-cache)
-    * [Delete content from the remote cache](#delete-content-from-the-remote-cache)
-* [Disk cache](#disk-cache)
-* [Known Issues](#known-issues)
-* [External Links](#external-links)
-
-## Remote caching overview
+## Overview
 
 Bazel breaks a build into discrete steps, which are called actions. Each action
 has inputs, output names, a command line, and environment variables. Required
@@ -121,7 +101,7 @@ larger value if you have larger output files. The server will require other
 configuration such as authentication.
 
 
-Example configuration for `server section` in `nginx.conf`:
+Example configuration for `server` section in `nginx.conf`:
 
 ```nginx
 location /cache/ {
@@ -268,7 +248,7 @@ build --remote_upload_local_results=false
 To exclude specific targets from using the remote cache, tag the target with
 `no-cache`. For example:
 
-```
+```starlark
 java_library(
     name = "target",
     tags = ["no-cache"],

@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.skylarkbuildapi.config;
 
-import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkConstructor;
@@ -97,14 +96,12 @@ public interface ConfigGlobalLibraryApi {
                 "List of build settings that can be written by this transition. This must be "
                     + "a superset of the key set of the dictionary returned by this transition."),
       },
-      useLocation = true,
       useStarlarkThread = true)
   @SkylarkConstructor(objectType = ConfigurationTransitionApi.class)
   ConfigurationTransitionApi transition(
       BaseFunction implementation,
       Sequence<?> inputs, // <String> expected
       Sequence<?> outputs, // <String> expected
-      Location location,
       StarlarkThread thread)
       throws EvalException;
 
@@ -131,9 +128,9 @@ public interface ConfigGlobalLibraryApi {
                     + "are unchanged. Use this to declare specific configuration settings that "
                     + "an analysis test requires to be set in order to pass."),
       },
-      useLocation = true)
+      useStarlarkThread = true)
   ConfigurationTransitionApi analysisTestTransition(
       Dict<?, ?> changedSettings, // <String, String> expected
-      Location location)
+      StarlarkThread thread)
       throws EvalException;
 }

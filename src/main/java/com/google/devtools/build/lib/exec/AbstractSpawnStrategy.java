@@ -52,6 +52,7 @@ import java.io.IOException;
 import java.time.Duration;
 import java.util.SortedMap;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.time.Instant;
 import javax.annotation.Nullable;
 
 /** Abstract common ancestor for spawn strategies implementing the common parts. */
@@ -85,7 +86,7 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnStrategy {
   }
 
   @Override
-  public boolean canExec(Spawn spawn, ActionContextRegistry actionContextRegistry) {
+  public boolean canExec(Spawn spawn, ActionContext.ActionContextRegistry actionContextRegistry) {
     return spawnRunner.canExec(spawn);
   }
 
@@ -99,7 +100,7 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnStrategy {
   public ImmutableList<SpawnResult> exec(
       Spawn spawn,
       ActionExecutionContext actionExecutionContext,
-      @Nullable StopConcurrentSpawns stopConcurrentSpawns)
+      @Nullable SandboxedSpawnStrategy.StopConcurrentSpawns stopConcurrentSpawns)
       throws ExecException, InterruptedException {
     actionExecutionContext.maybeReportSubcommand(spawn);
 
@@ -125,7 +126,7 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnStrategy {
         spawnResult = spawnRunner.execAsync(spawn, context).get();
         actionExecutionContext
             .getEventHandler()
-            .post(new SpawnExecutedEvent(spawn, spawnResult));
+            .post(new SpawnExecutedEvent(spawn, spawnResult, Instant.now()));
         if (cacheHandle.willStore()) {
           cacheHandle.store(spawnResult);
         }
@@ -178,7 +179,7 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnStrategy {
   private final class SpawnExecutionContextImpl implements SpawnExecutionContext {
     private final Spawn spawn;
     private final ActionExecutionContext actionExecutionContext;
-    @Nullable private final StopConcurrentSpawns stopConcurrentSpawns;
+    @Nullable private final SandboxedSpawnStrategy.StopConcurrentSpawns stopConcurrentSpawns;
     private final Duration timeout;
 
     private final int id = execCount.incrementAndGet();
@@ -189,7 +190,7 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnStrategy {
     SpawnExecutionContextImpl(
         Spawn spawn,
         ActionExecutionContext actionExecutionContext,
-        @Nullable StopConcurrentSpawns stopConcurrentSpawns,
+        @Nullable SandboxedSpawnStrategy.StopConcurrentSpawns stopConcurrentSpawns,
         Duration timeout) {
       this.spawn = spawn;
       this.actionExecutionContext = actionExecutionContext;

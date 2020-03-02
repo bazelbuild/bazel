@@ -17,7 +17,9 @@ package com.google.devtools.build.lib.skyframe.serialization;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.LinkedHashMultimap;
+import com.google.common.collect.Sets;
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
 import java.io.IOException;
@@ -37,6 +39,10 @@ class ImmutableSetRuntimeCodec implements ObjectCodec<Set> {
       (Class<Set>) Collections.singleton("a").getClass();
 
   @SuppressWarnings("unchecked")
+  private static final Class<Set> SUBSET_CLASS =
+      (Class<Set>) Iterables.getOnlyElement(Sets.powerSet(ImmutableSet.of())).getClass();
+
+  @SuppressWarnings("unchecked")
   private static final Class<Set> EMPTY_SET_CLASS = (Class<Set>) Collections.emptySet().getClass();
 
   @Override
@@ -47,7 +53,11 @@ class ImmutableSetRuntimeCodec implements ObjectCodec<Set> {
   @Override
   public ImmutableList<Class<? extends Set>> additionalEncodedClasses() {
     return ImmutableList.of(
-        LINKED_HASH_MULTIMAP_CLASS, SINGLETON_SET_CLASS, EMPTY_SET_CLASS, HashSet.class);
+        LINKED_HASH_MULTIMAP_CLASS,
+        SINGLETON_SET_CLASS,
+        EMPTY_SET_CLASS,
+        SUBSET_CLASS,
+        HashSet.class);
   }
 
   @Override

@@ -32,7 +32,6 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
 import java.util.Iterator;
-import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -276,40 +275,39 @@ final class RealSandboxfs02Process extends RealSandboxfsProcess {
     }
   }
 
-  /** Encodes a mapping into JSON. */
-  @SuppressWarnings("UnnecessaryParentheses")
-  private static void writeMapping(JsonWriter writer, Mapping mapping) throws IOException {
-    writer.beginObject();
-    {
-      writer.name("path");
-      writer.value(mapping.path().getPathString());
-      writer.name("underlying_path");
-      writer.value(mapping.target().getPathString());
-      writer.name("writable");
-      writer.value(mapping.writable());
-    }
-    writer.endObject();
-  }
-
   @Override
   @SuppressWarnings("UnnecessaryParentheses")
-  public void createSandbox(String id, List<Mapping> mappings) throws IOException {
+  public void createSandbox(String id, SandboxCreator creator) throws IOException {
     checkArgument(!PathFragment.containsSeparator(id));
 
     SettableFuture<Void> future = newRequest(id);
     synchronized (this) {
       processStdIn.beginObject();
       {
-        processStdIn.name("CreateSandbox");
+        processStdIn.name("C");
         processStdIn.beginObject();
         {
-          processStdIn.name("id");
+          processStdIn.name("i");
           processStdIn.value(id);
-          processStdIn.name("mappings");
+          processStdIn.name("m");
           processStdIn.beginArray();
-          for (Mapping mapping : mappings) {
-            writeMapping(processStdIn, mapping);
-          }
+          creator.create(
+              (path, underlyingPath, writable) -> {
+                synchronized (this) {
+                  processStdIn.beginObject();
+                  {
+                    processStdIn.name("p");
+                    processStdIn.value(path.getPathString());
+                    processStdIn.name("u");
+                    processStdIn.value(underlyingPath.getPathString());
+                    if (writable) {
+                      processStdIn.name("w");
+                      processStdIn.value(writable);
+                    }
+                  }
+                  processStdIn.endObject();
+                }
+              });
           processStdIn.endArray();
         }
         processStdIn.endObject();
@@ -330,7 +328,7 @@ final class RealSandboxfs02Process extends RealSandboxfsProcess {
     synchronized (this) {
       processStdIn.beginObject();
       {
-        processStdIn.name("DestroySandbox");
+        processStdIn.name("D");
         processStdIn.value(id);
       }
       processStdIn.endObject();

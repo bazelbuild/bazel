@@ -109,8 +109,6 @@ import javax.annotation.Nullable;
 @ThreadSafe
 public class RemoteSpawnRunner implements SpawnRunner {
 
-  private static final int POSIX_TIMEOUT_EXIT_CODE = /*SIGNAL_BASE=*/ 128 + /*SIGALRM=*/ 14;
-
   private static final String VIOLATION_TYPE_MISSING = "MISSING";
 
   private static boolean retriableExecErrors(Exception e) {
@@ -536,7 +534,7 @@ public class RemoteSpawnRunner implements SpawnRunner {
         return new SpawnResult.Builder()
             .setRunnerName(getName())
             .setStatus(Status.TIMEOUT)
-            .setExitCode(POSIX_TIMEOUT_EXIT_CODE)
+            .setExitCode(SpawnResult.POSIX_TIMEOUT_EXIT_CODE)
             .build();
       }
     }

@@ -308,12 +308,12 @@ public class BlazeServerStartupOptions extends OptionsBase {
   public boolean ignoreAllRcFiles;
 
   @Option(
-    name = "fatal_event_bus_exceptions",
-    defaultValue = "false", // NOTE: only for documentation, value is always passed by the client.
-    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-    effectTags = {OptionEffectTag.EAGERNESS_TO_EXIT, OptionEffectTag.LOSES_INCREMENTAL_STATE},
-    help = "Whether or not to exit if an exception is thrown by an internal EventBus handler."
-  )
+      name = "fatal_event_bus_exceptions",
+      defaultValue = "false", // NOTE: only for documentation, value is always passed by the client.
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.EAGERNESS_TO_EXIT, OptionEffectTag.LOSES_INCREMENTAL_STATE},
+      deprecationWarning = "Will be enabled by default and removed soon",
+      help = "Whether or not to exit if an exception is thrown by an internal EventBus handler.")
   public boolean fatalEventBusExceptions;
 
   @Option(

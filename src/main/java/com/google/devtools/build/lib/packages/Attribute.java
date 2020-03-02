@@ -35,7 +35,6 @@ import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.EventHandler;
-import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassNamePredicate;
 import com.google.devtools.build.lib.packages.Type.ConversionException;
 import com.google.devtools.build.lib.packages.Type.LabelClass;
@@ -1038,13 +1037,11 @@ public final class Attribute implements Comparable<Attribute> {
     @AutoCodec @AutoCodec.VisibleForSerialization
     static final Function<Rule, AspectParameters> EMPTY_FUNCTION = input -> AspectParameters.EMPTY;
 
-    public Builder<TYPE> aspect(SkylarkDefinedAspect skylarkAspect, Location location)
-        throws EvalException {
+    public Builder<TYPE> aspect(SkylarkDefinedAspect skylarkAspect) throws EvalException {
       SkylarkRuleAspect skylarkRuleAspect = new SkylarkRuleAspect(skylarkAspect);
       RuleAspect<?> oldAspect = this.aspects.put(skylarkAspect.getName(), skylarkRuleAspect);
       if (oldAspect != null) {
-        throw new EvalException(
-            location, String.format("aspect %s added more than once", skylarkAspect.getName()));
+        throw Starlark.errorf("aspect %s added more than once", skylarkAspect.getName());
       }
       return this;
     }
@@ -1380,7 +1377,6 @@ public final class Attribute implements Comparable<Attribute> {
   public static final class SkylarkComputedDefaultTemplate {
     private final Type<?> type;
     private final StarlarkCallbackHelper callback;
-    private final Location location;
     private final ImmutableList<String> dependencies;
 
     /**
@@ -1391,19 +1387,14 @@ public final class Attribute implements Comparable<Attribute> {
      * @param dependencies A list of all names of other attributes that are accessed by this
      *     attribute.
      * @param callback A function to compute the actual attribute value.
-     * @param location The location of the Skylark function.
      */
     public SkylarkComputedDefaultTemplate(
-        Type<?> type,
-        ImmutableList<String> dependencies,
-        StarlarkCallbackHelper callback,
-        Location location) {
+        Type<?> type, ImmutableList<String> dependencies, StarlarkCallbackHelper callback) {
       this.type = Preconditions.checkNotNull(type);
       // Order is important for #createDependencyAssignmentTuple.
       this.dependencies =
           Ordering.natural().immutableSortedCopy(Preconditions.checkNotNull(dependencies));
       this.callback = Preconditions.checkNotNull(callback);
-      this.location = Preconditions.checkNotNull(location);
     }
 
     /**
@@ -1494,10 +1485,8 @@ public final class Attribute implements Comparable<Attribute> {
       try {
         return type.cast((result == Starlark.NONE) ? type.getDefaultValue() : result);
       } catch (ClassCastException ex) {
-        throw new EvalException(
-            location,
-            String.format(
-                "expected '%s', but got '%s'", type, EvalUtils.getDataTypeName(result, true)));
+        throw Starlark.errorf(
+            "expected '%s', but got '%s'", type, EvalUtils.getDataTypeName(result, true));
       }
     }
 
@@ -2188,10 +2177,17 @@ public final class Attribute implements Comparable<Attribute> {
     return allowedValues;
   }
 
+  public boolean hasAspects() {
+    return !aspects.isEmpty();
+  }
+
   /**
    * Returns the list of aspects required for dependencies through this attribute.
    */
   public ImmutableList<Aspect> getAspects(Rule rule) {
+    if (aspects.isEmpty()) {
+      return ImmutableList.of();
+    }
     ImmutableList.Builder<Aspect> builder = null;
     for (RuleAspect<?> aspect : aspects) {
       Aspect a = aspect.getAspect(rule);

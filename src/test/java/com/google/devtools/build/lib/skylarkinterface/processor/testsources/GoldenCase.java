@@ -14,9 +14,7 @@
 
 package com.google.devtools.build.lib.skylarkinterface.processor.testsources;
 
-import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkinterface.Param;
-import com.google.devtools.build.lib.skylarkinterface.ParamType;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.Sequence;
@@ -46,12 +44,12 @@ public class GoldenCase implements StarlarkValue {
       name = "zero_arg_method_with_thread",
       documented = false,
       useStarlarkThread = true)
-  public Integer zeroArgMethod(StarlarkThread thread) {
+  public Integer zeroArgMethodWithThread(StarlarkThread thread) {
     return 0;
   }
 
   @SkylarkCallable(
-      name = "three_arg_method_with_loc",
+      name = "three_arg_method",
       documented = false,
       parameters = {
         @Param(name = "one", type = String.class, named = true),
@@ -62,27 +60,9 @@ public class GoldenCase implements StarlarkValue {
             named = true,
             defaultValue = "None",
             noneable = true),
-      },
-      useLocation = true)
-  public String threeArgMethod(String one, Integer two, Object three, Location loc) {
-    return "bar";
-  }
-
-  @SkylarkCallable(
-    name = "three_arg_method_with_params",
-    documented = false,
-    parameters = {
-      @Param(name = "one", type = String.class, named = true),
-      @Param(name = "two", type = Integer.class, named = true),
-      @Param(name = "three",
-          allowedTypes = {
-              @ParamType(type = String.class),
-              @ParamType(type = Integer.class),
-          },
-          named = true, defaultValue = "None", noneable = true),
-    })
+      })
   public String threeArgMethod(String one, Integer two, Object three) {
-    return "baz";
+    return "bar";
   }
 
   @SkylarkCallable(
@@ -93,10 +73,9 @@ public class GoldenCase implements StarlarkValue {
         @Param(name = "two", type = Integer.class, named = true),
         @Param(name = "three", type = String.class, named = true),
       },
-      useLocation = true,
       useStarlarkThread = true)
   public String threeArgMethodWithParams(
-      String one, Integer two, String three, Location loc, StarlarkThread thread) {
+      String one, Integer two, String three, StarlarkThread thread) {
     return "baz";
   }
 
@@ -120,10 +99,9 @@ public class GoldenCase implements StarlarkValue {
             named = true,
             defaultValue = "five"),
         @Param(name = "six", type = String.class, positional = false, named = true),
-      },
-      useLocation = true)
-  public String manyArgMethodMixingPositoinalAndNamed(
-      String one, String two, String three, String four, String five, String six, Location loc) {
+      })
+  public String manyArgMethodMixingPositionalAndNamed(
+      String one, String two, String three, String four, String five, String six) {
     return "baz";
   }
 
@@ -135,10 +113,9 @@ public class GoldenCase implements StarlarkValue {
         @Param(name = "two", type = Integer.class, named = true),
       },
       extraKeywords = @Param(name = "kwargs"),
-      useLocation = true,
       useStarlarkThread = true)
   public String twoArgMethodWithParamsAndInfoAndKwargs(
-      String one, Integer two, Dict<?, ?> kwargs, Location loc, StarlarkThread thread) {
+      String one, Integer two, Dict<String, Object> kwargs, StarlarkThread thread) {
     return "blep";
   }
 

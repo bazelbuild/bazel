@@ -92,7 +92,7 @@ public final class StarlarkFunction extends BaseFunction {
   }
 
   @Override
-  public Object fastcall(StarlarkThread thread, Location loc, Object[] positional, Object[] named)
+  public Object fastcall(StarlarkThread thread, Object[] positional, Object[] named)
       throws EvalException, InterruptedException {
     if (thread.mutability().isFrozen()) {
       throw Starlark.errorf("Trying to call in frozen environment");
@@ -107,7 +107,7 @@ public final class StarlarkFunction extends BaseFunction {
         Starlark.matchSignature(
             getSignature(), this, getDefaultValues(), thread.mutability(), positional, named);
 
-    StarlarkThread.CallFrame fr = thread.frame(0);
+    StarlarkThread.Frame fr = thread.frame(0);
     ImmutableList<String> names = getSignature().getParameterNames();
     for (int i = 0; i < names.size(); ++i) {
       fr.locals.put(names.get(i), arguments[i]);

@@ -11,6 +11,7 @@ java_library(
         "//src/tools/android/java/com/google/devtools/build/android/desugar:__subpackages__",
     ],
     deps = [
+        "//src/tools/android/java/com/google/devtools/build/android/desugar/langmodel",
         "//third_party:asm",
         "//third_party:asm-commons",
         "//third_party:asm-tree",

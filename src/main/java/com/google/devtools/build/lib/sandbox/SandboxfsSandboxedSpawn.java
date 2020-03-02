@@ -20,12 +20,11 @@ import com.google.common.base.Joiner;
 import com.google.devtools.build.lib.exec.TreeDeleter;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxInputs;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxOutputs;
-import com.google.devtools.build.lib.sandbox.SandboxfsProcess.Mapping;
+import com.google.devtools.build.lib.sandbox.SandboxfsProcess.SandboxMapper;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -93,6 +92,9 @@ class SandboxfsSandboxedSpawn implements SandboxedSpawn {
    */
   private final String sandboxName;
 
+  /** Flag to track whether the sandbox needs to be unmapped. */
+  private boolean sandboxIsMapped;
+
   @Nullable private final Path statisticsPath;
 
   /**
@@ -143,6 +145,7 @@ class SandboxfsSandboxedSpawn implements SandboxedSpawn {
 
     int id = lastId.getAndIncrement();
     this.sandboxName = "" + id;
+    this.sandboxIsMapped = false;
     this.execRoot = process.getMountPoint().getRelative(this.sandboxName);
     this.statisticsPath = statisticsPath;
   }
@@ -171,8 +174,6 @@ class SandboxfsSandboxedSpawn implements SandboxedSpawn {
   public void createFileSystem() throws IOException {
     sandboxScratchDir.createDirectory();
 
-    List<Mapping> mappings = createMappings(sandboxScratchDir, inputs, mapSymlinkTargets);
-
     Set<PathFragment> dirsToCreate = new HashSet<>(writableDirs);
     for (PathFragment output : outputs.files()) {
       dirsToCreate.add(output.getParentDirectory());
@@ -182,7 +183,10 @@ class SandboxfsSandboxedSpawn implements SandboxedSpawn {
       sandboxScratchDir.getRelative(dir).createDirectoryAndParents();
     }
 
-    process.createSandbox(sandboxName, mappings);
+    process.createSandbox(
+        sandboxName,
+        (mapper) -> createMappings(mapper, sandboxScratchDir, inputs, mapSymlinkTargets));
+    sandboxIsMapped = true;
   }
 
   @Override
@@ -195,13 +199,19 @@ class SandboxfsSandboxedSpawn implements SandboxedSpawn {
 
   @Override
   public void delete() {
-    try {
-      process.destroySandbox(sandboxName);
-    } catch (IOException e) {
-      // We use independent subdirectories for each action, so a failure to unmap one, while
-      // annoying, is not a big deal.  The sandboxfs instance will be unmounted anyway after
-      // the build, which will cause these to go away anyway.
-      log.warning("Cannot unmap " + sandboxName + ": " + e);
+    // We can only ask sandboxfs to unmap a sandbox if we successfully finished creating it.
+    // Otherwise, the request may fail, or we may fail our own sanity-checks that validate the
+    // lifecycle of the sandboxes.
+    if (sandboxIsMapped) {
+      try {
+        process.destroySandbox(sandboxName);
+      } catch (IOException e) {
+        // We use independent subdirectories for each action, so a failure to unmap one, while
+        // annoying, is not a big deal.  The sandboxfs instance will be unmounted anyway after
+        // the build, which will cause these to go away anyway.
+        log.warning("Cannot unmap " + sandboxName + ": " + e);
+      }
+      sandboxIsMapped = false;
     }
 
     try {
@@ -281,17 +291,16 @@ class SandboxfsSandboxedSpawn implements SandboxedSpawn {
    * @return the collection of mappings to use for reconfiguration
    * @throws IOException if we fail to resolve symbolic links
    */
-  private static List<Mapping> createMappings(
-      Path scratchDir, SandboxInputs inputs, boolean sandboxfsMapSymlinkTargets)
+  // TODO(jmmv): This function runs holding the sandboxfs lock (note that we are passed in a
+  // "mapper" object, so it should not do any I/O. But it does a lot. Should factor it out and
+  // measure the impact.
+  private static void createMappings(
+      SandboxMapper mapper,
+      Path scratchDir,
+      SandboxInputs inputs,
+      boolean sandboxfsMapSymlinkTargets)
       throws IOException {
-    List<Mapping> mappings = new ArrayList<>();
-
-    mappings.add(
-        Mapping.builder()
-            .setPath(rootFragment)
-            .setTarget(scratchDir.asFragment())
-            .setWritable(true)
-            .build());
+    mapper.map(rootFragment, scratchDir.asFragment(), true);
 
     // Path to the empty file used as the target of mappings that don't provide one.  This is
     // lazily created and initialized only when we need such a mapping.  It's safe to share the
@@ -322,34 +331,25 @@ class SandboxfsSandboxedSpawn implements SandboxedSpawn {
         }
         target = entry.getValue().asFragment();
       }
-      mappings.add(
-          Mapping.builder()
-              .setPath(rootFragment.getRelative(entry.getKey()))
-              .setTarget(target)
-              .setWritable(false)
-              .build());
+      mapper.map(rootFragment.getRelative(entry.getKey()), target, false);
     }
 
     if (symlinks != null) {
       for (Map.Entry<PathFragment, Path> entry : symlinks.entrySet()) {
         if (!inputs.getFiles().containsKey(entry.getKey())) {
-          mappings.add(
-              Mapping.builder()
-                  .setPath(rootFragment.getRelative(entry.getKey()))
-                  .setTarget(entry.getValue().asFragment())
-                  .setWritable(false)
-                  .build());
+          mapper.map(
+              rootFragment.getRelative(entry.getKey()), entry.getValue().asFragment(), false);
         }
       }
     }
 
-    // sandboxfs probably doesn't support symlinks
+    // sandboxfs probably doesn't support symlinks.
+    // TODO(jmmv): This claim is simply not true. Figure out why this code snippet was added and
+    // address the real problem.
     if (!inputs.getSymlinks().isEmpty()) {
       throw new IOException(
           "sandboxfs sandbox does not support unresolved symlinks "
               + Joiner.on(", ").join(inputs.getSymlinks().keySet()));
     }
-
-    return mappings;
   }
 }

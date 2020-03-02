@@ -27,7 +27,6 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
 import java.io.StringWriter;
-import java.util.List;
 
 /**
  * A sandboxfs implementation that uses an external sandboxfs binary to manage the mount point.
@@ -83,39 +82,33 @@ final class RealSandboxfs01Process extends RealSandboxfsProcess {
     }
   }
 
-  /** Encodes a mapping into JSON. */
-  @SuppressWarnings("UnnecessaryParentheses")
-  private static void writeMapping(JsonWriter writer, PathFragment root, Mapping mapping)
-      throws IOException {
-    writer.beginObject();
-    {
-      writer.name("Mapping");
-      writer.value((root.getRelative(mapping.path().toRelative())).getPathString());
-      writer.name("Target");
-      writer.value(mapping.target().getPathString());
-      writer.name("Writable");
-      writer.value(mapping.writable());
-    }
-    writer.endObject();
-  }
-
   @Override
   @SuppressWarnings("UnnecessaryParentheses")
-  public void createSandbox(String name, List<Mapping> mappings) throws IOException {
+  public void createSandbox(String name, SandboxCreator creator) throws IOException {
     checkArgument(!PathFragment.containsSeparator(name));
     PathFragment root = PathFragment.create("/").getRelative(name);
 
     StringWriter stringWriter = new StringWriter();
     try (JsonWriter writer = new JsonWriter(stringWriter)) {
       writer.beginArray();
-      for (Mapping mapping : mappings) {
-        writer.beginObject();
-        {
-          writer.name("Map");
-          writeMapping(writer, root, mapping);
-        }
-        writer.endObject();
-      }
+      creator.create(
+          ((path, underlyingPath, writable) -> {
+            writer.beginObject();
+            {
+              writer.name("Map");
+              writer.beginObject();
+              {
+                writer.name("Mapping");
+                writer.value((root.getRelative(path.toRelative())).getPathString());
+                writer.name("Target");
+                writer.value(underlyingPath.getPathString());
+                writer.name("Writable");
+                writer.value(writable);
+              }
+              writer.endObject();
+            }
+            writer.endObject();
+          }));
       writer.endArray();
     }
     reconfigure(stringWriter.toString());

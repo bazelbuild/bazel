@@ -106,7 +106,7 @@ public class AliasTest extends BuildViewTestCase {
         "alias(name='al', actual='//a:af')",
         "filegroup(name='ta', srcs=[':al'])");
 
-    getConfiguredTarget("//b:tf");
+    getConfiguredTarget("//b:ta");
   }
 
   @Test

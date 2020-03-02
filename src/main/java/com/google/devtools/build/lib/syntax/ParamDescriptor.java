@@ -17,7 +17,6 @@ package com.google.devtools.build.lib.syntax;
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.ParamType;
-import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
 import java.util.concurrent.ConcurrentHashMap;
 import javax.annotation.Nullable;
 
@@ -36,18 +35,18 @@ final class ParamDescriptor {
   private final SkylarkType skylarkType;
   // The semantics flag responsible for disabling this parameter, or null if enabled.
   // It is an error for Starlark code to supply a value to a disabled parameter.
-  @Nullable private final FlagIdentifier disabledByFlag;
+  @Nullable private final String disabledByFlag;
 
   private ParamDescriptor(
       String name,
-      @Nullable String defaultExpr,
+      String defaultExpr,
       Class<?> type,
       Class<?> generic1,
       boolean noneable,
       boolean named,
       boolean positional,
       SkylarkType skylarkType,
-      @Nullable FlagIdentifier disabledByFlag) {
+      @Nullable String disabledByFlag) {
     this.name = name;
     this.defaultValue = defaultExpr.isEmpty() ? null : evalDefault(name, defaultExpr);
     this.type = type;
@@ -69,14 +68,15 @@ final class ParamDescriptor {
     boolean noneable = param.noneable();
 
     String defaultExpr = param.defaultValue();
-    FlagIdentifier disabledByFlag = null;
+    String disabledByFlag = null;
     if (!starlarkSemantics.isFeatureEnabledBasedOnTogglingFlags(
         param.enableOnlyWithFlag(), param.disableWithFlag())) {
       defaultExpr = param.valueWhenDisabled();
       disabledByFlag =
-          param.enableOnlyWithFlag() != FlagIdentifier.NONE
+          !param.enableOnlyWithFlag().isEmpty()
               ? param.enableOnlyWithFlag()
               : param.disableWithFlag();
+      Preconditions.checkState(!disabledByFlag.isEmpty());
     }
 
     return new ParamDescriptor(
@@ -157,7 +157,7 @@ final class ParamDescriptor {
 
   /** Returns the flag responsible for disabling this parameter, or null if it is enabled. */
   @Nullable
-  FlagIdentifier disabledByFlag() {
+  String disabledByFlag() {
     return disabledByFlag;
   }
 
@@ -191,19 +191,41 @@ final class ParamDescriptor {
               .useDefaultSemantics()
               .setGlobals(Module.createForBuiltins(Starlark.UNIVERSE))
               .build();
-      thread.getGlobals().put("unbound", Starlark.UNBOUND);
-      x = EvalUtils.eval(ParserInput.fromLines(expr), thread);
-      defaultValueCache.put(expr, x);
-      return x;
-    } catch (Exception ex) {
-      if (ex instanceof InterruptedException) {
-        Thread.currentThread().interrupt();
-      }
+      Module module = thread.getGlobals();
+
+      // Disable polling of the java.lang.Thread.interrupt flag during
+      // Starlark evaluation. Assuming the expression does not call a
+      // built-in that throws InterruptedException, this allows us to
+      // assert that InterruptedException "can't happen".
+      //
+      // Bazel Java threads are routinely interrupted during Starlark execution,
+      // and the Starlark interpreter may be in a call to LoadingCache (in CallUtils).
+      // LoadingCache computes the cache entry in the same thread that first
+      // requested the entry, propagating undesirable thread state (which Einstein
+      // called "spooky action at a distance") from an arbitrary application thread
+      // to here, which is logically one-time initialization code.
+      //
+      // A simpler non-solution would be to use a "clean" pool thread
+      // to compute each cache entry; we could safely assume such a thread
+      // is never interrupted. However, this runs afoul of JVM class initialization:
+      // the initialization of Starlark.UNIVERSE depends on Starlark.UNBOUND
+      // because of the reference above. That's fine if they are initialized by
+      // the same thread, as JVM class initialization locks are reentrant,
+      // but the reference deadlocks if made from another thread.
+      // See https://docs.oracle.com/javase/specs/jls/se12/html/jls-12.html#jls-12.4
+      thread.ignoreThreadInterrupts();
+
+      x = EvalUtils.eval(ParserInput.fromLines(expr), module, thread);
+    } catch (InterruptedException ex) {
+      throw new IllegalStateException(ex); // can't happen
+    } catch (SyntaxError | EvalException ex) {
       throw new IllegalArgumentException(
           String.format(
-              "while evaluating default value '%s' of parameter '%s': %s",
-              expr, name, ex.getMessage()));
+              "failed to evaluate default value '%s' of parameter '%s': %s",
+              expr, name, ex.getMessage()),
+          ex);
     }
+    defaultValueCache.put(expr, x);
+    return x;
   }
-
 }

@@ -78,16 +78,16 @@ public final class JavaCompileActionTestHelper {
     return getOptions(javac).getBootClassPath();
   }
 
+  public static String getSystem(JavaCompileAction javac) throws Exception {
+    return getOptions(javac).getSystem();
+  }
+
   public static List<String> getSourcePathEntries(JavaCompileAction javac) throws Exception {
     return getOptions(javac).getSourcePath();
   }
 
   public static List<String> getBootclasspath(JavaCompileAction javac) throws Exception {
     return getOptions(javac).getBootClassPath();
-  }
-
-  public static List<String> getExtdir(JavaCompileAction javac) throws Exception {
-    return getOptions(javac).getExtClassPath();
   }
 
   /** Returns the JavaBuilder command line, up to the main class or deploy jar. */

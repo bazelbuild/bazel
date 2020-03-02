@@ -33,7 +33,6 @@ import com.google.devtools.build.lib.supplier.InterruptibleSupplier;
 import com.google.devtools.build.lib.util.GroupedList.GroupedListHelper;
 import com.google.devtools.build.skyframe.EvaluationProgressReceiver.EvaluationState;
 import com.google.devtools.build.skyframe.EvaluationProgressReceiver.NodeState;
-import com.google.devtools.build.skyframe.GraphInconsistencyReceiver.Inconsistency;
 import com.google.devtools.build.skyframe.MemoizingEvaluator.EmittedEventState;
 import com.google.devtools.build.skyframe.NodeEntry.DependencyState;
 import com.google.devtools.build.skyframe.NodeEntry.DirtyState;
@@ -43,6 +42,7 @@ import com.google.devtools.build.skyframe.SkyFunction.Restart;
 import com.google.devtools.build.skyframe.SkyFunctionEnvironment.UndonePreviouslyRequestedDeps;
 import com.google.devtools.build.skyframe.SkyFunctionException.ReifiedSkyFunctionException;
 import com.google.devtools.build.skyframe.ThinNodeEntry.DirtyType;
+import com.google.devtools.build.skyframe.proto.GraphInconsistency.Inconsistency;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -357,7 +357,7 @@ abstract class AbstractParallelEvaluator {
             Sets.difference(ImmutableSet.copyOf(knownChildren), oldChildren.keySet());
         if (!missingChildren.isEmpty()) {
           inconsistencyReceiver.noteInconsistencyAndMaybeThrow(
-              skyKey, missingChildren, Inconsistency.CHILD_MISSING_FOR_DIRTY_NODE);
+              skyKey, missingChildren, Inconsistency.DIRTY_PARENT_HAD_MISSING_CHILD);
         }
         Map<SkyKey, ? extends NodeEntry> recreatedEntries =
             graph.createIfAbsentBatch(skyKey, Reason.ENQUEUING_CHILD, missingChildren);
@@ -840,10 +840,11 @@ abstract class AbstractParallelEvaluator {
 
       // Nodes are marked "force-rebuild" to ensure that they run, and to allow them to evaluate to
       // a different value than before, even if their versions remain the same.
-      restartEntry.markDirty(DirtyType.FORCE_REBUILD);
-      evaluatorContext
-          .getProgressReceiver()
-          .invalidated(keyToRestart, EvaluationProgressReceiver.InvalidationState.DIRTY);
+      if (restartEntry.markDirty(DirtyType.FORCE_REBUILD) != null) {
+        evaluatorContext
+            .getProgressReceiver()
+            .invalidated(keyToRestart, EvaluationProgressReceiver.InvalidationState.DIRTY);
+      }
     }
 
     if (missingNodes != null) {

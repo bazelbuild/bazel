@@ -82,7 +82,7 @@ public class ResolvedFileFunction implements SkyFunction {
                   .build();
           resolvedModule = thread.getGlobals();
           try {
-            EvalUtils.exec(file, thread);
+            EvalUtils.exec(file, resolvedModule, thread);
           } catch (EvalException ex) {
             env.getListener().handle(Event.error(ex.getLocation(), ex.getMessage()));
             throw resolvedValueError("Failed to evaluate resolved file " + key.getPath());

@@ -18,6 +18,7 @@ import static org.mockito.Mockito.when;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.eventbus.EventBus;
+import com.google.devtools.build.lib.actions.ActionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.ExecException;
@@ -124,7 +125,7 @@ public class SpawnActionContextMapsTest {
     }
 
     @Override
-    public boolean canExec(Spawn spawn, ActionContextRegistry actionContextRegistry) {
+    public boolean canExec(Spawn spawn, ActionContext.ActionContextRegistry actionContextRegistry) {
       return true;
     }
   }
@@ -138,7 +139,7 @@ public class SpawnActionContextMapsTest {
     }
 
     @Override
-    public boolean canExec(Spawn spawn, ActionContextRegistry actionContextRegistry) {
+    public boolean canExec(Spawn spawn, ActionContext.ActionContextRegistry actionContextRegistry) {
       return true;
     }
   }

@@ -19,7 +19,6 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
 import com.google.devtools.build.lib.analysis.skylark.SkylarkActionFactory;
 import com.google.devtools.build.lib.analysis.skylark.SkylarkRuleContext;
-import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.rules.cpp.CcCompilationContext;
 import com.google.devtools.build.lib.rules.cpp.CcCompilationOutputs;
 import com.google.devtools.build.lib.rules.cpp.CcLinkingContext;
@@ -87,7 +86,6 @@ public class BazelCcModule extends CcModule
       boolean disallowPicOutputs,
       boolean disallowNopicOutputs,
       Sequence<?> additionalInputs, // <Artifact> expected
-      Location location,
       StarlarkThread thread)
       throws EvalException, InterruptedException {
     return compile(
@@ -112,8 +110,7 @@ public class BazelCcModule extends CcModule
         /* headersForClifDoNotUseThisParam= */ ImmutableList.of(),
         StarlarkList.immutableCopyOf(
             additionalInputs.getContents(Artifact.class, "additional_inputs")),
-        location,
-        /* thread= */ null);
+        thread);
   }
 
   @Override
@@ -130,7 +127,6 @@ public class BazelCcModule extends CcModule
       boolean linkDepsStatically,
       Sequence<?> additionalInputs, // <Artifact> expected
       Object grepIncludes,
-      Location location,
       StarlarkThread thread)
       throws InterruptedException, EvalException {
     return super.link(
@@ -146,14 +142,13 @@ public class BazelCcModule extends CcModule
         linkDepsStatically,
         additionalInputs,
         /* grepIncludes= */ null,
-        location,
         thread);
   }
 
   @Override
   public CcCompilationOutputs createCompilationOutputsFromSkylark(
-      Object objectsObject, Object picObjectsObject, Location location) throws EvalException {
-    return super.createCompilationOutputsFromSkylark(objectsObject, picObjectsObject, location);
+      Object objectsObject, Object picObjectsObject) throws EvalException {
+    return super.createCompilationOutputsFromSkylark(objectsObject, picObjectsObject);
   }
 
   @Override

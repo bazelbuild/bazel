@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.SkylarkType;
 import com.google.devtools.build.lib.syntax.Starlark;
+import com.google.devtools.build.lib.syntax.StarlarkThread;
 import java.util.Objects;
 import javax.annotation.Nullable;
 
@@ -190,7 +191,7 @@ public final class PyInfo implements Info, PyInfoApi<Artifact> {
         Object importsUncast,
         boolean hasPy2OnlySources,
         boolean hasPy3OnlySources,
-        Location loc)
+        StarlarkThread thread)
         throws EvalException {
       Depset imports =
           importsUncast.equals(Starlark.UNBOUND)
@@ -198,26 +199,21 @@ public final class PyInfo implements Info, PyInfoApi<Artifact> {
               : (Depset) importsUncast;
 
       if (!depsetHasTypeAndCompatibleOrder(transitiveSources, Artifact.TYPE, Order.COMPILE_ORDER)) {
-        throw new EvalException(
-            loc,
-            String.format(
-                "'transitive_sources' field should be a postorder-compatible depset of Files (got "
-                    + "a '%s')",
-                describeType(transitiveSources)));
+        throw Starlark.errorf(
+            "'transitive_sources' field should be a postorder-compatible depset of Files (got a"
+                + " '%s')",
+            describeType(transitiveSources));
       }
       if (!depsetHasTypeAndCompatibleOrder(imports, SkylarkType.STRING, Order.STABLE_ORDER)) {
-        throw new EvalException(
-            loc,
-            String.format(
-                "'imports' field should be a depset of strings (got a '%s')",
-                describeType(imports)));
+        throw Starlark.errorf(
+            "'imports' field should be a depset of strings (got a '%s')", describeType(imports));
       }
       // Validate depset parameters
       transitiveSources.getSetFromParam(Artifact.class, "transitive_sources");
       imports.getSetFromParam(String.class, "imports");
 
       return new PyInfo(
-          loc,
+          thread.getCallerLocation(),
           transitiveSources,
           usesSharedLibraries,
           imports,

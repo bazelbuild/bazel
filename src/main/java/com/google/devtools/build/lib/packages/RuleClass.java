@@ -31,6 +31,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Interner;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
+import com.google.common.collect.Maps;
 import com.google.common.collect.Ordering;
 import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
@@ -134,6 +135,10 @@ public class RuleClass {
   public static final PathFragment EXPERIMENTAL_PREFIX = PathFragment.create("experimental");
   public static final String EXEC_COMPATIBLE_WITH_ATTR = "exec_compatible_with";
   public static final String EXEC_PROPERTIES = "exec_properties";
+  /*
+   * The attribute that declares the set of license labels which apply to this target.
+   */
+  public static final String APPLICABLE_LICENSES_ATTR = "applicable_licenses";
 
   /**
    * A constraint for the package name of the Rule instances.
@@ -209,13 +214,21 @@ public class RuleClass {
      * messaging should be done via {@link RuleErrorConsumer}; this exception only interrupts
      * configured target creation in cases where it can no longer continue.
      */
-    public static final class RuleErrorException extends Exception {
-      public RuleErrorException() {
+    final class RuleErrorException extends Exception {
+      RuleErrorException() {
         super();
       }
 
-      public RuleErrorException(String message) {
+      RuleErrorException(String message) {
         super(message);
+      }
+
+      RuleErrorException(Throwable cause) {
+        super(cause);
+      }
+
+      RuleErrorException(String message, Throwable cause) {
+        super(message, cause);
       }
     }
   }
@@ -1392,6 +1405,7 @@ public class RuleClass {
   private final boolean hasAnalysisTestTransition;
   private final boolean hasFunctionTransitionWhitelist;
   private final boolean ignoreLicenses;
+  private final boolean hasAspects;
 
   /**
    * A (unordered) mapping from attribute names to small integers indexing into
@@ -1581,14 +1595,17 @@ public class RuleClass {
 
     // Create the index and collect non-configurable attributes.
     int index = 0;
-    attributeIndex = new HashMap<>(attributes.size());
+    attributeIndex = Maps.newHashMapWithExpectedSize(attributes.size());
+    boolean computedHasAspects = false;
     ImmutableList.Builder<String> nonConfigurableAttributesBuilder = ImmutableList.builder();
     for (Attribute attribute : attributes) {
+      computedHasAspects |= attribute.hasAspects();
       attributeIndex.put(attribute.getName(), index++);
       if (!attribute.isConfigurable()) {
         nonConfigurableAttributesBuilder.add(attribute.getName());
       }
     }
+    this.hasAspects = computedHasAspects;
     this.nonConfigurableAttributes = nonConfigurableAttributesBuilder.build();
   }
 
@@ -1771,6 +1788,10 @@ public class RuleClass {
    */
   public boolean supportsConstraintChecking() {
     return supportsConstraintChecking;
+  }
+
+  public boolean hasAspects() {
+    return hasAspects;
   }
 
   /**
@@ -2166,6 +2187,11 @@ public class RuleClass {
    */
   private static Object getAttributeNoncomputedDefaultValue(Attribute attr,
       Package.Builder pkgBuilder) {
+    // TODO(b/149505729): Determine the right semantics for someone trying to define their own
+    // attribute named applicable_licenses.
+    if (attr.getName().equals("applicable_licenses")) {
+      return pkgBuilder.getDefaultApplicableLicenses();
+    }
     // Starlark rules may define their own "licenses" attributes with different types -
     // we shouldn't trigger the special "licenses" on those cases.
     if (attr.getName().equals("licenses") && attr.getType() == BuildType.LICENSE) {
@@ -2202,7 +2228,7 @@ public class RuleClass {
             eventHandler);
       }
       try {
-        rule.setVisibility(PackageFactory.getVisibility(rule.getLabel(), attrList));
+        rule.setVisibility(PackageUtils.getVisibility(rule.getLabel(), attrList));
       } catch (EvalException e) {
          rule.reportError(rule.getLabel() + " " + e.getMessage(), eventHandler);
       }
@@ -2308,32 +2334,34 @@ public class RuleClass {
 
   private static void checkAspectAllowedValues(
       Rule rule, EventHandler eventHandler) {
-    for (Attribute attrOfRule : rule.getAttributes()) {
-      for (Aspect aspect : attrOfRule.getAspects(rule)) {
-        for (Attribute attrOfAspect : aspect.getDefinition().getAttributes().values()) {
-          // By this point the AspectDefinition has been created and values assigned.
-          if (attrOfAspect.checkAllowedValues()) {
-            PredicateWithMessage<Object> allowedValues = attrOfAspect.getAllowedValues();
-            Object value = attrOfAspect.getDefaultValue(rule);
-            if (!allowedValues.apply(value)) {
-              if (RawAttributeMapper.of(rule).isConfigurable(attrOfAspect.getName())) {
-                rule.reportError(
-                    String.format(
-                        "%s: attribute '%s' has a select() and aspect %s also declares "
-                            + "'%s'. Aspect attributes don't currently support select().",
-                        rule.getLabel(),
-                        attrOfAspect.getName(),
-                        aspect.getDefinition().getName(),
-                        rule.getLabel()),
-                    eventHandler);
-              } else {
-                rule.reportError(
-                    String.format(
-                        "%s: invalid value in '%s' attribute: %s",
-                        rule.getLabel(),
-                        attrOfAspect.getName(),
-                        allowedValues.getErrorReason(value)),
-                    eventHandler);
+    if (rule.hasAspects()) {
+      for (Attribute attrOfRule : rule.getAttributes()) {
+        for (Aspect aspect : attrOfRule.getAspects(rule)) {
+          for (Attribute attrOfAspect : aspect.getDefinition().getAttributes().values()) {
+            // By this point the AspectDefinition has been created and values assigned.
+            if (attrOfAspect.checkAllowedValues()) {
+              PredicateWithMessage<Object> allowedValues = attrOfAspect.getAllowedValues();
+              Object value = attrOfAspect.getDefaultValue(rule);
+              if (!allowedValues.apply(value)) {
+                if (RawAttributeMapper.of(rule).isConfigurable(attrOfAspect.getName())) {
+                  rule.reportError(
+                      String.format(
+                          "%s: attribute '%s' has a select() and aspect %s also declares "
+                              + "'%s'. Aspect attributes don't currently support select().",
+                          rule.getLabel(),
+                          attrOfAspect.getName(),
+                          aspect.getDefinition().getName(),
+                          rule.getLabel()),
+                      eventHandler);
+                } else {
+                  rule.reportError(
+                      String.format(
+                          "%s: invalid value in '%s' attribute: %s",
+                          rule.getLabel(),
+                          attrOfAspect.getName(),
+                          allowedValues.getErrorReason(value)),
+                      eventHandler);
+                }
               }
             }
           }

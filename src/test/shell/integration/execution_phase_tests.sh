@@ -277,12 +277,17 @@ EOF
   expect_log "WARNING: .*: foo warning"
 }
 
+# Fails on CI: https://github.com/bazelbuild/bazel/issues/10679
 function test_max_open_file_descriptors() {
   echo "nfiles: hard $(ulimit -H -n), soft $(ulimit -S -n)"
 
   local exp_nfiles="$(ulimit -H -n)"
-  if [[ "$(uname -s)" == Darwin && "${exp_nfiles}" == unlimited ]]; then
-    exp_nfiles="$(/usr/sbin/sysctl -n kern.maxfilesperproc)"
+  if [[ "$(uname -s)" == Darwin ]]; then
+    local maxfiles="$(/usr/sbin/sysctl -n kern.maxfilesperproc)"
+    if [[ "${exp_nfiles}" == "unlimited" || "${exp_nfiles}" -gt "${maxfiles}" ]]
+    then
+        exp_nfiles="${maxfiles}"
+    fi
   elif "${is_windows}"; then
     # We do not implement the resources unlimiting feature on Windows at
     # the moment... so just expect the soft limit to remain unchanged.

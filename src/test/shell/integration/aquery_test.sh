@@ -1128,7 +1128,7 @@ EOF
 
   # Verify that paths are broken down to path fragments.
   assert_contains "path_fragments {" output
-
+  assert_contains "primary_output_id" output
   # Verify that the appropriate action was included.
   assert_contains "label: \"dummy.txt\"" output
   assert_contains "mnemonic: \"Genrule\"" output

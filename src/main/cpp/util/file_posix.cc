@@ -124,6 +124,45 @@ static bool MakeDirectories(const string &path, mode_t mode, bool childmost) {
   return stat_succeeded;
 }
 
+static bool RemoveDirRecursively(const std::string &path) {
+  DIR *dir;
+  if ((dir = opendir(path.c_str())) == NULL) {
+    return false;
+  }
+
+  struct dirent *ent;
+  while ((ent = readdir(dir)) != NULL) {
+    if (!strcmp(ent->d_name, ".") || !strcmp(ent->d_name, "..")) {
+      continue;
+    }
+
+    if (!RemoveRecursively(blaze_util::JoinPath(path, ent->d_name))) {
+      closedir(dir);
+      return false;
+    }
+  }
+
+  if (closedir(dir) != 0) {
+    return false;
+  }
+
+  return rmdir(path.c_str()) == 0;
+}
+
+bool RemoveRecursively(const std::string &path) {
+  struct stat stat_buf;
+  if (lstat(path.c_str(), &stat_buf) == -1) {
+    // Non-existent is good enough.
+    return errno == ENOENT;
+  }
+
+  if (S_ISDIR(stat_buf.st_mode) && !S_ISLNK(stat_buf.st_mode)) {
+    return RemoveDirRecursively(path);
+  } else {
+    return UnlinkPath(path);
+  }
+}
+
 class PosixPipe : public IPipe {
  public:
   PosixPipe(int recv_socket, int send_socket)

@@ -32,16 +32,16 @@ public interface DependencyCollector {
   public String INTERFACE_COMPANION_SUFFIX = "$$CC";
 
   /**
-   * Records that {@code origin} depends on companion class {@code target}.  For the resulting
-   * binary to be valid, {@code target} needs to exist, which isn't the case if the corresponding
-   * interface is only available as a compile-time ("neverlink") dependency.
+   * Records that {@code origin} depends on companion class {@code target}. For the resulting binary
+   * to be valid, {@code target} needs to exist, which isn't the case if the corresponding interface
+   * is only available as a compile-time ("neverlink") dependency.
    */
   default void assumeCompanionClass(String origin, String target) {}
 
   /**
-   * Records that {@code origin} transitively implements {@code target} but {@code target} isn't
-   * in the classpath.  This can lead to wrong desugarings if {@code target} or an interface it
-   * extends defines default methods.
+   * Records that {@code origin} transitively implements {@code target} but {@code target} isn't in
+   * the classpath. This can lead to wrong desugarings if {@code target} or an interface it extends
+   * defines default methods.
    */
   default void missingImplementedInterface(String origin, String target) {}
 
@@ -56,21 +56,22 @@ public interface DependencyCollector {
 
   /**
    * Records that the given interface has a companion class that includes the given number of
-   * default methods (0 if there were only static methods).  This method should not be called for
+   * default methods (0 if there were only static methods). This method should not be called for
    * purely abstract interfaces, to allow verifying available companion classes against this.
    *
    * <p>This information is useful reference to double-check {@link #missingImplementedInterface}s
-   * without reading and parsing .class files with better precision than just looking for
-   * companion classes on the runtime classpath (which may only contain static methods).
+   * without reading and parsing .class files with better precision than just looking for companion
+   * classes on the runtime classpath (which may only contain static methods).
    */
   default void recordDefaultMethods(String origin, int count) {}
 
   /**
-   * Returns metadata to include into the desugaring output or {@code null} if none.  Returning
-   * anything but {@code null} will cause an extra file to be written into the output, including
-   * an empty array.
+   * Returns metadata to include into the desugaring output or {@code null} if none. Returning
+   * anything but {@code null} will cause an extra file to be written into the output, including an
+   * empty array.
    */
-  @Nullable public byte[] toByteArray();
+  @Nullable
+  public byte[] toByteArray();
 
   /** Simple collectors that don't collect any information. */
   public enum NoWriteCollectors implements DependencyCollector {

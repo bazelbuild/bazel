@@ -71,6 +71,10 @@ public class AppleSkylarkCommon
       "Value for key %s must be a set of %s, instead found %s.";
 
   @VisibleForTesting
+  public static final String BAD_FRAMEWORK_PATH_ERROR =
+      "Value for key framework_search_paths must end in .framework; instead found %s.";
+
+  @VisibleForTesting
   public static final String BAD_PROVIDERS_ITER_ERROR =
       "Value for argument 'providers' must be a list of ObjcProvider instances, instead found %s.";
 
@@ -78,6 +82,10 @@ public class AppleSkylarkCommon
   public static final String BAD_PROVIDERS_ELEM_ERROR =
       "Value for argument 'providers' must be a list of ObjcProvider instances, instead found "
           + "iterable with %s.";
+
+  @VisibleForTesting
+  public static final String BAD_DIRECT_DEPENDENCY_KEY_ERROR =
+      "Key %s not allowed to be in direct_dep_provider.";
 
   @VisibleForTesting
   public static final String NOT_SET_ERROR = "Value for key %s must be a set, instead found %s.";
@@ -183,7 +191,8 @@ public class AppleSkylarkCommon
   // This method is registered statically for skylark, and never called directly.
   public ObjcProvider newObjcProvider(Boolean usesSwift, Dict<?, ?> kwargs, StarlarkThread thread)
       throws EvalException {
-    ObjcProvider.Builder resultBuilder = new ObjcProvider.Builder(thread.getSemantics());
+    ObjcProvider.StarlarkBuilder resultBuilder =
+        new ObjcProvider.StarlarkBuilder(thread.getSemantics());
     if (usesSwift) {
       resultBuilder.add(ObjcProvider.FLAG, ObjcProvider.Flag.USES_SWIFT);
     }

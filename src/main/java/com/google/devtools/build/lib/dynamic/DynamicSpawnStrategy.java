@@ -23,11 +23,11 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.SettableFuture;
+import com.google.devtools.build.lib.actions.ActionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.DynamicStrategyRegistry;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.SandboxedSpawnStrategy;
-import com.google.devtools.build.lib.actions.SandboxedSpawnStrategy.StopConcurrentSpawns;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.SpawnStrategy;
@@ -100,8 +100,9 @@ public class DynamicSpawnStrategy implements SpawnStrategy {
   /**
    * Cancels and waits for a branch (a spawn execution) to terminate.
    *
-   * <p>This is intended to be used as the body of the {@link StopConcurrentSpawns} lambda passed to
-   * the spawn runners. Each strategy may call this at most once.
+   * <p>This is intended to be used as the body of the {@link
+   * SandboxedSpawnStrategy.StopConcurrentSpawns} lambda passed to the spawn runners. Each strategy
+   * may call this at most once.
    *
    * @param branch the future running the spawn
    * @param branchDone semaphore that is expected to receive a permit once the future terminates
@@ -327,7 +328,7 @@ public class DynamicSpawnStrategy implements SpawnStrategy {
   }
 
   @Override
-  public boolean canExec(Spawn spawn, ActionContextRegistry actionContextRegistry) {
+  public boolean canExec(Spawn spawn, ActionContext.ActionContextRegistry actionContextRegistry) {
     DynamicStrategyRegistry dynamicStrategyRegistry =
         actionContextRegistry.getContext(DynamicStrategyRegistry.class);
     for (SandboxedSpawnStrategy strategy :
@@ -348,10 +349,10 @@ public class DynamicSpawnStrategy implements SpawnStrategy {
   }
 
   @Override
-  public void usedContext(ActionContextRegistry actionExecutionContext) {
-    actionExecutionContext
+  public void usedContext(ActionContext.ActionContextRegistry actionExecutionRegistry) {
+    actionExecutionRegistry
         .getContext(DynamicStrategyRegistry.class)
-        .notifyUsedDynamic(actionExecutionContext);
+        .notifyUsedDynamic(actionExecutionRegistry);
   }
 
   private static FileOutErr getSuffixedFileOutErr(FileOutErr fileOutErr, String suffix) {
@@ -366,7 +367,7 @@ public class DynamicSpawnStrategy implements SpawnStrategy {
   private static ImmutableList<SpawnResult> runLocally(
       Spawn spawn,
       ActionExecutionContext actionExecutionContext,
-      @Nullable StopConcurrentSpawns stopConcurrentSpawns)
+      @Nullable SandboxedSpawnStrategy.StopConcurrentSpawns stopConcurrentSpawns)
       throws ExecException, InterruptedException {
     DynamicStrategyRegistry dynamicStrategyRegistry =
         actionExecutionContext.getContext(DynamicStrategyRegistry.class);
@@ -383,7 +384,7 @@ public class DynamicSpawnStrategy implements SpawnStrategy {
   private static ImmutableList<SpawnResult> runRemotely(
       Spawn spawn,
       ActionExecutionContext actionExecutionContext,
-      @Nullable StopConcurrentSpawns stopConcurrentSpawns)
+      @Nullable SandboxedSpawnStrategy.StopConcurrentSpawns stopConcurrentSpawns)
       throws ExecException, InterruptedException {
     DynamicStrategyRegistry dynamicStrategyRegistry =
         actionExecutionContext.getContext(DynamicStrategyRegistry.class);

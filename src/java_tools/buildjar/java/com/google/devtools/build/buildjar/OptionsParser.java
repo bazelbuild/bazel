@@ -79,7 +79,7 @@ public final class OptionsParser {
   private final List<String> classPath = new ArrayList<>();
   private final List<String> sourcePath = new ArrayList<>();
   private final List<String> bootClassPath = new ArrayList<>();
-  private final List<String> extClassPath = new ArrayList<>();
+  private String system;
 
   private final List<String> processorPath = new ArrayList<>();
   private final List<String> processorNames = new ArrayList<>();
@@ -175,6 +175,9 @@ public final class OptionsParser {
         case "--bootclasspath":
           collectFlagArguments(bootClassPath, argQueue, "-");
           break;
+        case "--system":
+          system = getArgument(argQueue, arg);
+          break;
         case "--processorpath":
           collectFlagArguments(processorPath, argQueue, "-");
           break;
@@ -186,7 +189,8 @@ public final class OptionsParser {
           break;
         case "--extclasspath":
         case "--extdir":
-          collectFlagArguments(extClassPath, argQueue, "-");
+          // TODO(b/149114743): delete once Blaze stops passing the flag
+          collectFlagArguments(new ArrayList<>(), argQueue, "-");
           break;
         case "--output":
           outputJar = getArgument(argQueue, arg);
@@ -416,12 +420,12 @@ public final class OptionsParser {
     return bootClassPath;
   }
 
-  public List<String> getSourcePath() {
-    return sourcePath;
+  public String getSystem() {
+    return system;
   }
 
-  public List<String> getExtClassPath() {
-    return extClassPath;
+  public List<String> getSourcePath() {
+    return sourcePath;
   }
 
   public List<String> getProcessorPath() {

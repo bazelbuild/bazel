@@ -16,8 +16,11 @@
 
 package com.google.devtools.build.android.desugar.nest;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.truth.Truth.assertThat;
 
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
 import com.google.devtools.build.android.desugar.testing.junit.AsmNode;
 import com.google.devtools.build.android.desugar.testing.junit.DesugarRule;
 import com.google.devtools.build.android.desugar.testing.junit.DesugarRunner;
@@ -29,7 +32,6 @@ import com.google.devtools.build.android.desugar.testing.junit.RuntimeMethodHand
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.lang.reflect.Method;
-import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -38,7 +40,11 @@ import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.objectweb.asm.Opcodes;
+import org.objectweb.asm.tree.AbstractInsnNode;
 import org.objectweb.asm.tree.ClassNode;
+import org.objectweb.asm.tree.MethodInsnNode;
+import org.objectweb.asm.tree.MethodNode;
 
 /** Tests for accessing private methods from another class within a nest. */
 @RunWith(DesugarRunner.class)
@@ -48,7 +54,7 @@ public final class NestDesugaringMethodAccessTest {
   @Rule
   public final DesugarRule desugarRule =
       DesugarRule.builder(this, MethodHandles.lookup())
-          .addSourceInputs(Paths.get(System.getProperty("input_srcs")))
+          .addSourceInputsFromJvmFlag("input_srcs")
           .addJavacOptions("-source 11", "-target 11")
           .setWorkingJavaPackage(
               "com.google.devtools.build.android.desugar.nest.testsrc.simpleunit.method")
@@ -77,7 +83,6 @@ public final class NestDesugaringMethodAccessTest {
   }
 
   @Test
-
   public void inputClassFileMajorVersions(
       @AsmNode(className = "MethodNest", round = 0) ClassNode beforeDesugarClassNode,
       @AsmNode(className = "MethodNest", round = 1) ClassNode afterDesugarClassNode) {
@@ -195,5 +200,50 @@ public final class NestDesugaringMethodAccessTest {
             invokeCastAccessPrivateInstanceMethod.invoke(
                 subClassMate.getConstructor().newInstance(), 9L, 10);
     assertThat(result).isEqualTo(21L); // 19 + 2
+  }
+
+  @Test
+  public void nonNestInvocationInstructions(
+      @AsmNode(className = "NonNest", round = 0) ClassNode before,
+      @AsmNode(className = "NonNest", round = 1) ClassNode after) {
+    assertThat(before.version).isEqualTo(JdkVersion.V11);
+    assertThat(after.version).isEqualTo(JdkVersion.V1_7);
+  }
+
+  @Test
+  public void invokeVirtualOnPrivateMethod_beforeDesugaring(
+      @AsmNode(className = "NonNest", memberName = "invokeTwoSum", round = 0)
+          MethodNode invokeTwoSum) {
+    MethodInsnNode twoSumInvocation =
+        Iterables.getOnlyElement(findMethodInvocations(invokeTwoSum, "twoSum"));
+    assertThat(twoSumInvocation.getOpcode()).isEqualTo(Opcodes.INVOKEVIRTUAL);
+  }
+
+  @Test
+  public void invokeSpecialOnPrivateMethod_afterDesugaring(
+      @AsmNode(className = "NonNest", memberName = "invokeTwoSum", round = 1)
+          MethodNode invokeTwoSum) {
+    MethodInsnNode twoSumInvocation =
+        Iterables.getOnlyElement(findMethodInvocations(invokeTwoSum, "twoSum"));
+    assertThat(twoSumInvocation.getOpcode()).isEqualTo(Opcodes.INVOKESPECIAL);
+  }
+
+  @Test
+  public void pnvokeSpecialOnPrivateMethod_afterDesugaringExecution(
+      @RuntimeMethodHandle(className = "NonNest", memberName = "invokeTwoSum", round = 1)
+          MethodHandle invokeTwoSum)
+      throws Throwable {
+    long result = (long) invokeTwoSum.invoke(1000L, 2L, 3L);
+    assertThat(result).isEqualTo(1005L);
+  }
+
+  private static ImmutableList<MethodInsnNode> findMethodInvocations(
+      MethodNode enclosingMethod, String invokedMethodName) {
+    AbstractInsnNode[] instructions = enclosingMethod.instructions.toArray();
+    return Arrays.stream(instructions)
+        .filter(node -> node.getType() == AbstractInsnNode.METHOD_INSN)
+        .map(node -> (MethodInsnNode) node)
+        .filter(node -> invokedMethodName.equals(node.name))
+        .collect(toImmutableList());
   }
 }

@@ -73,7 +73,7 @@ public class HeaderDiscoveryTest {
         .setDependencies(dependencies)
         .setAllowedDerivedInputs(includedHeaders)
         .build()
-        .discoverInputsFromDependencies(execRoot, artifactResolver);
+        .discoverInputsFromDependencies(execRoot, artifactResolver, false);
   }
 
   private SpecialArtifact treeArtifact(Path path) {

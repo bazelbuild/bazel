@@ -14,12 +14,12 @@
 
 package com.google.devtools.build.skydoc.fakebuildapi.python;
 
-import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
 import com.google.devtools.build.lib.skylarkbuildapi.python.PyRuntimeInfoApi;
 import com.google.devtools.build.lib.syntax.Depset;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Printer;
+import com.google.devtools.build.lib.syntax.StarlarkThread;
 
 /** Fake implementation of {@link PyRuntimeInfoApi}. */
 public class FakePyRuntimeInfo implements PyRuntimeInfoApi<FileApi> {
@@ -56,7 +56,7 @@ public class FakePyRuntimeInfo implements PyRuntimeInfoApi<FileApi> {
         Object interpreterUncast,
         Object filesUncast,
         String pythonVersion,
-        Location loc)
+        StarlarkThread thread)
         throws EvalException {
       return new FakePyRuntimeInfo();
     }

@@ -302,7 +302,9 @@ public class DefaultMethodClassFixer extends ClassVisitor {
       bytecode =
           checkNotNull(
               classpath.readIfKnown(implemented),
-              "Couldn't find interface %s implemented by %s", implemented, internalName);
+              "Couldn't find interface %s implemented by %s",
+              implemented,
+              internalName);
       isBootclasspath = false;
     }
     bytecode.accept(
@@ -651,9 +653,13 @@ public class DefaultMethodClassFixer extends ClassVisitor {
         if (isBootclasspathInterface) {
           // Synthesize a "bridge" method that calls the true implementation
           Method bridged = findBridgedMethod(name, desc);
-          checkState(bridged != null,
+          checkState(
+              bridged != null,
               "TODO: Can't stub core interface bridge method %s.%s %s in %s",
-              stubbedInterfaceName, name, desc, internalName);
+              stubbedInterfaceName,
+              name,
+              desc,
+              internalName);
 
           int slot = 0;
           stubMethod.visitVarInsn(Opcodes.ALOAD, slot++); // load the receiver
@@ -664,9 +670,14 @@ public class DefaultMethodClassFixer extends ClassVisitor {
             Type arg = neededArgTypes[i];
             stubMethod.visitVarInsn(arg.getOpcode(Opcodes.ILOAD), slot);
             if (!arg.equals(parameterTypes[i])) {
-              checkState(arg.getSort() == Type.ARRAY || arg.getSort() == Type.OBJECT,
+              checkState(
+                  arg.getSort() == Type.ARRAY || arg.getSort() == Type.OBJECT,
                   "Can't cast parameter %s from in bridge for %s.%s%s to %s",
-                  i, stubbedInterfaceName, name, desc, arg.getClassName());
+                  i,
+                  stubbedInterfaceName,
+                  name,
+                  desc,
+                  arg.getClassName());
               stubMethod.visitTypeInsn(Opcodes.CHECKCAST, arg.getInternalName());
             }
             slot += arg.getSize();
@@ -682,7 +693,7 @@ public class DefaultMethodClassFixer extends ClassVisitor {
 
           stubMethod.visitMaxs(0, 0); // rely on class writer to compute these
           stubMethod.visitEnd();
-          return null;  // don't visit the visited interface's bridge method
+          return null; // don't visit the visited interface's bridge method
         } else {
           // For bridges we just copy their bodies instead of going through the companion class.
           // Meanwhile, we also need to desugar the copied method bodies, so that any calls to
@@ -828,7 +839,7 @@ public class DefaultMethodClassFixer extends ClassVisitor {
         String superName,
         String[] interfaces) {
       checkArgument(!BitFlags.isInterface(access));
-      className = name;  // updated every time we start visiting another superclass
+      className = name; // updated every time we start visiting another superclass
       super.visit(version, access, name, signature, superName, interfaces);
     }
 
@@ -963,7 +974,7 @@ public class DefaultMethodClassFixer extends ClassVisitor {
   }
 
   /** Comparator for classes and interfaces that compares by whether subtyping relationship. */
-  enum  SubtypeComparator implements Comparator<Class<?>> {
+  enum SubtypeComparator implements Comparator<Class<?>> {
     /** Orders subtypes before supertypes and breaks ties lexicographically. */
     INSTANCE;
 

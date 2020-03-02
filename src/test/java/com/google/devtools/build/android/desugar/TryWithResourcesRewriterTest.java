@@ -162,7 +162,7 @@ public class TryWithResourcesRewriterTest {
           assertThrows(
               RuntimeException.class, () -> ClassUsingTryWithResources.simpleTryWithResources());
       assertThat(expected.getClass()).isEqualTo(RuntimeException.class);
-        assertThat(expected.getSuppressed()).hasLength(1);
+      assertThat(expected.getSuppressed()).hasLength(1);
       assertThat(expected.getSuppressed()[0].getClass()).isEqualTo(IOException.class);
     }
 

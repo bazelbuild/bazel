@@ -18,6 +18,7 @@ filegroup(
         "//src/test/java/com/google/devtools/build/android/desugar/io:srcs",
         "//src/test/java/com/google/devtools/build/android/desugar/langmodel:srcs",
         "//src/test/java/com/google/devtools/build/android/desugar/nest:srcs",
+        "//src/test/java/com/google/devtools/build/android/desugar/covariantreturn:srcs",
         "//src/test/java/com/google/devtools/build/android/desugar/runtime:srcs",
         "//src/test/java/com/google/devtools/build/android/desugar/scan:srcs",
         "//src/test/java/com/google/devtools/build/android/desugar/stringconcat:srcs",
@@ -2162,6 +2163,52 @@ java_test(
     test_class = "com.google.devtools.build.android.desugar.ClassSignatureParserTest",
     deps = [
         "//src/tools/android/java/com/google/devtools/build/android/desugar",
+        "//third_party:junit4",
+        "//third_party:truth",
+    ],
+)
+
+java_test(
+    name = "CoreLibrarySupportTest",
+    size = "small",
+    srcs = ["CoreLibrarySupportTest.java"],
+    tags = ["no_windows"],
+    test_class = "com.google.devtools.build.android.desugar.CoreLibrarySupportTest",
+    deps = [
+        "//src/tools/android/java/com/google/devtools/build/android/desugar",
+        "//src/tools/android/java/com/google/devtools/build/android/desugar/io",
+        "//third_party:asm",
+        "//third_party:guava",
+        "//third_party:junit4",
+        "//third_party:truth",
+    ],
+)
+
+java_test(
+    name = "CorePackageRenamerTest",
+    size = "small",
+    srcs = ["CorePackageRenamerTest.java"],
+    tags = ["no_windows"],
+    test_class = "com.google.devtools.build.android.desugar.CorePackageRenamerTest",
+    deps = [
+        "//src/tools/android/java/com/google/devtools/build/android/desugar",
+        "//src/tools/android/java/com/google/devtools/build/android/desugar/io",
+        "//third_party:asm",
+        "//third_party:guava",
+        "//third_party:junit4",
+        "//third_party:truth",
+    ],
+)
+
+java_test(
+    name = "FrameInfoTest",
+    size = "small",
+    srcs = ["FrameInfoTest.java"],
+    tags = ["no_windows"],
+    test_class = "com.google.devtools.build.android.desugar.FrameInfoTest",
+    deps = [
+        "//src/tools/android/java/com/google/devtools/build/android/desugar",
+        "//third_party:guava",
         "//third_party:junit4",
         "//third_party:truth",
     ],

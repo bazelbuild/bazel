@@ -553,7 +553,8 @@ public class BuildView {
         topLevelOptions,
         skyframeAnalysisResult.getPackageRoots(),
         loadingResult.getWorkspaceName(),
-        topLevelTargetsWithConfigs.getTargetsAndConfigs());
+        topLevelTargetsWithConfigs.getTargetsAndConfigs(),
+        loadingResult.getNotSymlinkedInExecrootDirectories());
   }
 
   /**

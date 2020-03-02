@@ -39,45 +39,40 @@ public class FakeSkylarkNativeModuleApi implements SkylarkNativeModuleApi, Class
       Sequence<?> exclude,
       Integer excludeDirectories,
       Object allowEmpty,
-      Location loc,
       StarlarkThread thread)
       throws EvalException, InterruptedException {
     return StarlarkList.of(thread.mutability());
   }
 
   @Override
-  public Object existingRule(String name, Location loc, StarlarkThread thread)
-      throws EvalException, InterruptedException {
+  public Object existingRule(String name, StarlarkThread thread) {
     return null;
   }
 
   @Override
-  public Dict<String, Dict<String, Object>> existingRules(Location loc, StarlarkThread thread)
-      throws EvalException, InterruptedException {
+  public Dict<String, Dict<String, Object>> existingRules(StarlarkThread thread) {
     return Dict.of(thread.mutability());
   }
 
   @Override
   public NoneType packageGroup(
-      String name, Sequence<?> packages, Sequence<?> includes, Location loc, StarlarkThread thread)
-      throws EvalException {
+      String name, Sequence<?> packages, Sequence<?> includes, StarlarkThread thread) {
     return null;
   }
 
   @Override
   public NoneType exportsFiles(
-      Sequence<?> srcs, Object visibility, Object licenses, Location loc, StarlarkThread thread)
-      throws EvalException {
+      Sequence<?> srcs, Object visibility, Object licenses, StarlarkThread thread) {
     return null;
   }
 
   @Override
-  public String packageName(Location loc, StarlarkThread thread) throws EvalException {
+  public String packageName(StarlarkThread thread) {
     return "";
   }
 
   @Override
-  public String repositoryName(Location location, StarlarkThread thread) throws EvalException {
+  public String repositoryName(StarlarkThread thread) {
     return "";
   }
 
@@ -90,8 +85,7 @@ public class FakeSkylarkNativeModuleApi implements SkylarkNativeModuleApi, Class
     // "native".
     return new StarlarkCallable() {
       @Override
-      public Object fastcall(
-          StarlarkThread thread, Location loc, Object[] positional, Object[] named) {
+      public Object fastcall(StarlarkThread thread, Object[] positional, Object[] named) {
         return Starlark.NONE;
       }
 

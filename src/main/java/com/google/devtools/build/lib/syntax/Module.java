@@ -21,7 +21,6 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Set;
 import javax.annotation.Nullable;
 
@@ -55,7 +54,7 @@ import javax.annotation.Nullable;
 // - separate the universal predeclared environment and make it implicit.
 // - eliminate initialize(). The only constructor we need is:
 //   (String name, Mutability mu, Map<String, Object> predeclared, Object label).
-public final class Module implements ValidationEnvironment.Module, Mutability.Freezable {
+public final class Module implements ValidationEnvironment.Module {
 
   /**
    * Final, except that it may be initialized after instantiation. Null mutability indicates that
@@ -91,6 +90,22 @@ public final class Module implements ValidationEnvironment.Module, Mutability.Fr
     this.bindings = new LinkedHashMap<>();
     this.restrictedBindings = new LinkedHashMap<>();
     this.exportedBindings = new HashSet<>();
+  }
+
+  /**
+   * Returns the module (file) of the innermost enclosing Starlark function on the call stack, or
+   * null if none of the active calls are functions defined in Starlark.
+   *
+   * <p>The name of this function is intentionally horrible to make you feel bad for using it.
+   */
+  @Nullable
+  public static Module ofInnermostEnclosingStarlarkFunction(StarlarkThread thread) {
+    for (Debug.Frame fr : thread.getDebugCallStack().reverse()) {
+      if (fr.getFunction() instanceof StarlarkFunction) {
+        return ((StarlarkFunction) fr.getFunction()).getModule();
+      }
+    }
+    return null;
   }
 
   Module(
@@ -150,10 +165,13 @@ public final class Module implements ValidationEnvironment.Module, Mutability.Fr
     if (parent == null) {
       return new Module(mutability);
     }
+    Preconditions.checkArgument(parent.mutability().isFrozen(), "parent frame must be frozen");
+    Preconditions.checkArgument(parent.universe == null);
+
     Map<String, Object> filteredBindings = new LinkedHashMap<>();
     Map<String, FlagGuardedValue> restrictedBindings = new LinkedHashMap<>();
 
-    for (Entry<String, Object> binding : parent.getTransitiveBindings().entrySet()) {
+    for (Map.Entry<String, Object> binding : parent.bindings.entrySet()) {
       if (binding.getValue() instanceof FlagGuardedValue) {
         FlagGuardedValue val = (FlagGuardedValue) binding.getValue();
         if (val.isObjectAccessibleUsingSemantics(semantics)) {
@@ -209,7 +227,6 @@ public final class Module implements ValidationEnvironment.Module, Mutability.Fr
   }
 
   /** Returns the {@link Mutability} of this {@link Module}. */
-  @Override
   public Mutability mutability() {
     checkInitialized();
     return mutability;
@@ -323,7 +340,9 @@ public final class Module implements ValidationEnvironment.Module, Mutability.Fr
   public void put(String varname, Object value) throws MutabilityException {
     Preconditions.checkNotNull(value, "Module.put(%s, null)", varname);
     checkInitialized();
-    Mutability.checkMutable(this, mutability());
+    if (mutability.isFrozen()) {
+      throw new MutabilityException("trying to mutate a frozen module");
+    }
     bindings.put(varname, value);
   }
 

@@ -312,8 +312,9 @@ public class SpawnIncludeScanner {
             actionExecutionContext,
             grepIncludes,
             fileType);
-    return IncludeParser.processIncludes(
-        output, dotIncludeStream == null ? output.getInputStream() : dotIncludeStream);
+    return dotIncludeStream == null
+        ? IncludeParser.processIncludes(output)
+        : IncludeParser.processIncludes(output, dotIncludeStream);
   }
 
   /**

@@ -391,6 +391,20 @@ public class ConfigSettingTest extends BuildViewTestCase {
   }
 
   @Test
+  public void invalidDefineProducesError() throws Exception {
+    scratch.file(
+        "test/BUILD",
+        "config_setting(",
+        "    name = 'match',",
+        "    values = {",
+        "        'define': 'foo',", // Value should be "foo=<something>".
+        "    })");
+
+    checkError(
+        "//test:match", "Variable definitions must be in the form of a 'name=value' assignment");
+  }
+
+  @Test
   public void multipleDefines() throws Exception {
     scratch.file("test/BUILD",
         "config_setting(",

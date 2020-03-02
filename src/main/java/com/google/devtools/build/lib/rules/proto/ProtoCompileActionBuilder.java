@@ -41,6 +41,7 @@ import com.google.devtools.build.lib.analysis.stringtemplate.ExpansionException;
 import com.google.devtools.build.lib.analysis.stringtemplate.TemplateContext;
 import com.google.devtools.build.lib.analysis.stringtemplate.TemplateExpander;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
@@ -190,7 +191,7 @@ public class ProtoCompileActionBuilder {
     }
   }
 
-  public Action[] build() {
+  public Action[] build() throws InterruptedException {
     if (isEmpty(outputs)) {
       return NO_ACTIONS;
     }
@@ -202,7 +203,8 @@ public class ProtoCompileActionBuilder {
     }
   }
 
-  private SpawnAction.Builder createAction() throws MissingPrerequisiteException {
+  private SpawnAction.Builder createAction()
+      throws MissingPrerequisiteException, InterruptedException {
     SpawnAction.Builder result =
         new SpawnAction.Builder().addTransitiveInputs(protoInfo.getTransitiveProtoSources());
 
@@ -244,7 +246,7 @@ public class ProtoCompileActionBuilder {
 
   /** Commandline generator for protoc invocations. */
   @VisibleForTesting
-  CustomCommandLine.Builder createProtoCompilerCommandLine() {
+  CustomCommandLine.Builder createProtoCompilerCommandLine() throws InterruptedException {
     CustomCommandLine.Builder result = CustomCommandLine.builder();
 
     if (langPlugin != null) {
@@ -262,13 +264,20 @@ public class ProtoCompileActionBuilder {
 
     boolean areDepsStrict = areDepsStrict(ruleContext);
 
+    boolean siblingRepositoryLayout =
+        ruleContext
+            .getAnalysisEnvironment()
+            .getSkylarkSemantics()
+            .experimentalSiblingRepositoryLayout();
+
     // Add include maps
     addIncludeMapArguments(
         getOutputDirectory(ruleContext),
         result,
         areDepsStrict ? protoInfo.getStrictImportableProtoSourcesImportPaths() : null,
         protoInfo.getStrictImportableProtoSourceRoots(),
-        protoInfo.getTransitiveProtoSources());
+        protoInfo.getTransitiveProtoSources(),
+        siblingRepositoryLayout);
 
     if (areDepsStrict) {
       // Note: the %s in the line below is used by proto-compiler. That is, the string we create
@@ -297,7 +306,8 @@ public class ProtoCompileActionBuilder {
                 .mapped(
                     new ExpandToPathFnWithImports(
                         getOutputDirectory(ruleContext),
-                        protoInfo.getTransitiveProtoSourceRoots())));
+                        protoInfo.getTransitiveProtoSourceRoots(),
+                        siblingRepositoryLayout)));
       }
     }
 
@@ -312,7 +322,8 @@ public class ProtoCompileActionBuilder {
   private static class MissingPrerequisiteException extends Exception {}
 
   public static void writeDescriptorSet(
-      RuleContext ruleContext, ProtoInfo protoInfo, Services allowServices) {
+      RuleContext ruleContext, ProtoInfo protoInfo, Services allowServices)
+      throws InterruptedException {
     Artifact output = protoInfo.getDirectDescriptorSet();
     NestedSet<Artifact> dependenciesDescriptorSets =
         ProtoCommon.computeDependenciesDescriptorSets(ruleContext);
@@ -394,7 +405,8 @@ public class ProtoCompileActionBuilder {
       Iterable<Artifact> outputs,
       String flavorName,
       Exports useExports,
-      Services allowServices) {
+      Services allowServices)
+      throws InterruptedException {
     SpawnAction.Builder actions =
         createActions(
             ruleContext,
@@ -419,7 +431,8 @@ public class ProtoCompileActionBuilder {
       Iterable<Artifact> outputs,
       String flavorName,
       Exports useExports,
-      Services allowServices) {
+      Services allowServices)
+      throws InterruptedException {
 
     if (isEmpty(outputs)) {
       return null;
@@ -441,6 +454,12 @@ public class ProtoCompileActionBuilder {
       return null;
     }
 
+    boolean siblingRepositoryLayout =
+        ruleContext
+            .getAnalysisEnvironment()
+            .getSkylarkSemantics()
+            .experimentalSiblingRepositoryLayout();
+
     result
         .addOutputs(outputs)
         .setResources(AbstractAction.DEFAULT_RESOURCE_SET)
@@ -455,7 +474,8 @@ public class ProtoCompileActionBuilder {
                 areDepsStrict(ruleContext) ? Deps.STRICT : Deps.NON_STRICT,
                 arePublicImportsStrict(ruleContext) ? useExports : Exports.DO_NOT_USE,
                 allowServices,
-                ruleContext.getFragment(ProtoConfiguration.class).protocOpts()),
+                ruleContext.getFragment(ProtoConfiguration.class).protocOpts(),
+                siblingRepositoryLayout),
             ParamFileInfo.builder(ParameterFileType.UNQUOTED).build())
         .setProgressMessage("Generating %s proto_library %s", flavorName, ruleContext.getLabel())
         .setMnemonic(MNEMONIC);
@@ -496,7 +516,8 @@ public class ProtoCompileActionBuilder {
       Deps strictDeps,
       Exports useExports,
       Services allowServices,
-      ImmutableList<String> protocOpts) {
+      ImmutableList<String> protocOpts,
+      boolean siblingRepositoryLayout) {
     CustomCommandLine.Builder cmdLine = CustomCommandLine.builder();
 
     cmdLine.addAll(
@@ -541,7 +562,8 @@ public class ProtoCompileActionBuilder {
         cmdLine,
         strictDeps == Deps.STRICT ? protoInfo.getStrictImportableProtoSourcesImportPaths() : null,
         protoInfo.getStrictImportableProtoSourceRoots(),
-        protoInfo.getTransitiveProtoSources());
+        protoInfo.getTransitiveProtoSources(),
+        siblingRepositoryLayout);
 
     if (strictDeps == Deps.STRICT) {
       cmdLine.addFormatted(STRICT_DEPS_FLAG_TEMPLATE, ruleLabel);
@@ -559,7 +581,8 @@ public class ProtoCompileActionBuilder {
                 .mapped(
                     new ExpandToPathFnWithImports(
                         outputDirectory,
-                        protoInfo.getExportedProtoSourceRoots())));
+                        protoInfo.getExportedProtoSourceRoots(),
+                        siblingRepositoryLayout)));
       }
     }
 
@@ -580,20 +603,25 @@ public class ProtoCompileActionBuilder {
       CustomCommandLine.Builder commandLine,
       @Nullable NestedSet<Pair<Artifact, String>> protosInDirectDependencies,
       NestedSet<String> directProtoSourceRoots,
-      NestedSet<Artifact> transitiveImports) {
+      NestedSet<Artifact> transitiveImports,
+      boolean siblingRepositoryLayout) {
     // For each import, include both the import as well as the import relativized against its
     // protoSourceRoot. This ensures that protos can reference either the full path or the short
     // path when including other protos.
     commandLine.addAll(
         VectorArg.of(transitiveImports)
-            .mapped(new ExpandImportArgsFn(outputDirectory, directProtoSourceRoots)));
+            .mapped(
+                new ExpandImportArgsFn(
+                    outputDirectory, directProtoSourceRoots, siblingRepositoryLayout)));
     if (protosInDirectDependencies != null) {
       if (!protosInDirectDependencies.isEmpty()) {
         commandLine.addAll(
             "--direct_dependencies",
             VectorArg.join(":")
                 .each(protosInDirectDependencies)
-                .mapped(new ExpandToPathFnWithImports(outputDirectory, directProtoSourceRoots)));
+                .mapped(
+                    new ExpandToPathFnWithImports(
+                        outputDirectory, directProtoSourceRoots, siblingRepositoryLayout)));
 
       } else {
         // The proto compiler requires an empty list to turn on strict deps checking
@@ -603,7 +631,10 @@ public class ProtoCompileActionBuilder {
   }
 
   private static String guessProtoPathUnderRoot(
-      String outputDirectory, PathFragment sourceRootPath, Artifact proto) {
+      String outputDirectory,
+      PathFragment sourceRootPath,
+      Artifact proto,
+      boolean siblingRepositoryLayout) {
     // TODO(lberki): Instead of guesswork like this, we should track which proto belongs to
     // which source root. Unfortunately, that's a non-trivial migration since
     // ProtoInfo is on the Starlark API. Therefore, we hack:
@@ -617,8 +648,15 @@ public class ProtoCompileActionBuilder {
         return proto.getExecPath().relativeTo(sourceRootPath).getPathString();
       }
     } else {
+      PathFragment prefix =
+          siblingRepositoryLayout
+              ? LabelConstants.EXPERIMENTAL_EXTERNAL_PATH_PREFIX
+              : LabelConstants.EXTERNAL_PATH_PREFIX;
       if (proto.getRootRelativePath().startsWith(sourceRootPath)) {
         return proto.getRootRelativePath().relativeTo(sourceRootPath).getPathString();
+      } else if (proto.getExecPath().startsWith(prefix)
+          && proto.getExecPath().startsWith(sourceRootPath)) {
+        return proto.getExecPath().relativeTo(sourceRootPath).getPathString();
       }
     }
 
@@ -639,12 +677,15 @@ public class ProtoCompileActionBuilder {
   static final class ExpandImportArgsFn implements CapturingMapFn<Artifact> {
     private final String outputDirectory;
     private final NestedSet<String> directProtoSourceRoots;
+    private final boolean siblingRepositoryLayout;
 
     public ExpandImportArgsFn(
         String outputDirectory,
-        NestedSet<String> directProtoSourceRoots) {
+        NestedSet<String> directProtoSourceRoots,
+        boolean siblingRepositoryLayout) {
       this.outputDirectory = outputDirectory;
       this.directProtoSourceRoots = directProtoSourceRoots;
+      this.siblingRepositoryLayout = siblingRepositoryLayout;
     }
 
     /**
@@ -656,7 +697,9 @@ public class ProtoCompileActionBuilder {
     public void expandToCommandLine(Artifact proto, Consumer<String> args) {
       for (String directProtoSourceRoot : directProtoSourceRoots.toList()) {
         PathFragment sourceRootPath = PathFragment.create(directProtoSourceRoot);
-        String arg = guessProtoPathUnderRoot(outputDirectory, sourceRootPath, proto);
+        String arg =
+            guessProtoPathUnderRoot(
+                outputDirectory, sourceRootPath, proto, siblingRepositoryLayout);
         if (arg != null) {
           args.accept("-I" + arg + "=" + proto.getExecPathString());
         }
@@ -669,12 +712,15 @@ public class ProtoCompileActionBuilder {
   static final class ExpandToPathFnWithImports implements CapturingMapFn<Pair<Artifact, String>> {
     private final String outputDirectory;
     private final NestedSet<String> directProtoSourceRoots;
+    private final boolean siblingRepositoryLayout;
 
     public ExpandToPathFnWithImports(
         String outputDirectory,
-        NestedSet<String> directProtoSourceRoots) {
+        NestedSet<String> directProtoSourceRoots,
+        boolean siblingRepositoryLayout) {
       this.outputDirectory = outputDirectory;
       this.directProtoSourceRoots = directProtoSourceRoots;
+      this.siblingRepositoryLayout = siblingRepositoryLayout;
     }
 
     @Override
@@ -684,7 +730,9 @@ public class ProtoCompileActionBuilder {
       } else {
         for (String directProtoSourceRoot : directProtoSourceRoots.toList()) {
           PathFragment sourceRootPath = PathFragment.create(directProtoSourceRoot);
-          String arg = guessProtoPathUnderRoot(outputDirectory, sourceRootPath, proto.first);
+          String arg =
+              guessProtoPathUnderRoot(
+                  outputDirectory, sourceRootPath, proto.first, siblingRepositoryLayout);
           if (arg != null) {
             args.accept(arg);
           }

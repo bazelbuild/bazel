@@ -318,8 +318,8 @@ public class AndroidInstrumentationTestBase implements RuleConfiguredTargetFacto
               AndroidInstrumentationTestBase.class, TEST_SUITE_PROPERTY_NAME_FILE)
           .trim();
     } catch (IOException e) {
-      ruleContext.throwWithRuleError("Cannot load test suite property name: " + e.getMessage());
-      return null;
+      throw ruleContext.throwWithRuleError(
+          "Cannot load test suite property name: " + e.getMessage(), e);
     }
   }
 

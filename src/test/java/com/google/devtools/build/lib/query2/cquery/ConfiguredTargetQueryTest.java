@@ -21,6 +21,7 @@ import static com.google.devtools.build.lib.packages.Type.STRING;
 import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
@@ -45,7 +46,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Iterator;
-import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 import org.junit.Test;
@@ -271,12 +272,12 @@ public class ConfiguredTargetQueryTest extends PostAnalysisQueryTest<ConfiguredT
     }
 
     @Override
-    public List<BuildOptions> split(BuildOptions options) {
+    public Map<String, BuildOptions> split(BuildOptions options) {
       BuildOptions result1 = options.clone();
       BuildOptions result2 = options.clone();
       result1.get(TestOptions.class).testArguments = Collections.singletonList(toOption1);
       result2.get(TestOptions.class).testArguments = Collections.singletonList(toOption2);
-      return ImmutableList.of(result1, result2);
+      return ImmutableMap.of("result1", result1, "result2", result2);
     }
   }
 
@@ -572,5 +573,52 @@ public class ConfiguredTargetQueryTest extends PostAnalysisQueryTest<ConfiguredT
     Set<ConfiguredTarget> result =
         eval("somepath(//test:top, filter(//test:bar, deps(//test:top)))");
     assertThat(result).isNotEmpty();
+  }
+
+  @Override
+  public void testMultipleTopLevelConfigurations_multipleConfigsPrefersTopLevel() {
+    // When the same target exists in multiple configurations, cquery doesn't guarantee which
+    // instance is evaluated first. So disable this test.
+  }
+
+  @Test
+  public void testLabelExpressionsMatchesAllConfiguredTargetsWithLabel() throws Exception {
+    createConfigTransitioningRuleClass();
+    writeFile(
+        "test/BUILD",
+        "load('//test:rules.bzl', 'rule_with_deps_transition', 'simple_rule', 'string_flag')",
+        "string_flag(",
+        "    name = 'my_flag',",
+        "    build_setting_default = '')",
+        "rule_with_deps_transition(",
+        "    name = 'transitioner',",
+        "    deps = [':simple'])",
+        "simple_rule(name = 'simple')");
+
+    helper.setUniverseScope("//test:transitioner,//test:simple");
+    Set<ConfiguredTarget> result = eval("//test:simple");
+    assertThat(result.size()).isEqualTo(2);
+  }
+
+  @Test
+  public void testConfigFunctionRefinesMultipleMatches() throws Exception {
+    // Peer to testLabelExpressionsMatchesAllConfiguredTargetsWithLabel. The point of that test is
+    // to show "cquery //foo:bar" might return multiple configured targets. The point of this test
+    // is to show that config() can refine the same query to a specific one.
+    createConfigTransitioningRuleClass();
+    writeFile(
+        "test/BUILD",
+        "load('//test:rules.bzl', 'rule_with_deps_transition', 'simple_rule', 'string_flag')",
+        "string_flag(",
+        "    name = 'my_flag',",
+        "    build_setting_default = '')",
+        "rule_with_deps_transition(",
+        "    name = 'transitioner',",
+        "    deps = [':simple'])",
+        "simple_rule(name = 'simple')");
+
+    helper.setUniverseScope("//test:transitioner,//test:simple");
+    Set<ConfiguredTarget> result = eval("config(//test:simple, target)");
+    assertThat(result.size()).isEqualTo(1);
   }
 }

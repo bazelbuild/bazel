@@ -26,6 +26,7 @@ import java.nio.ByteBuffer;
 import java.util.Comparator;
 import java.util.Map;
 import java.util.TreeMap;
+import java.util.logging.Logger;
 import sun.reflect.ReflectionFactory;
 
 /**
@@ -34,6 +35,7 @@ import sun.reflect.ReflectionFactory;
  * <p>TODO(shahan): replace Unsafe with VarHandle once it's available.
  */
 public class DynamicCodec implements ObjectCodec<Object> {
+  private static final Logger logger = Logger.getLogger(DynamicCodec.class.getName());
 
   private final Class<?> type;
   private final Constructor<?> constructor;
@@ -133,6 +135,10 @@ public class DynamicCodec implements ObjectCodec<Object> {
       try {
         context.serialize(UnsafeProvider.getInstance().getObject(obj, offset), codedOut);
       } catch (SerializationException e) {
+        logger.severe(
+            String.format(
+                "Unserializable object and superclass: %s %s",
+                obj, obj.getClass().getSuperclass()));
         e.addTrail(this.type);
         throw e;
       }

@@ -384,6 +384,32 @@ public final class GroupedList<T> implements Iterable<List<T>> {
     };
   }
 
+  /** Creates an already compressed {@code GroupedList} with four groups. */
+  public static <E> @Compressed Object createCompressedWithFourGroups(
+      E singletonElementOfFirstGroup,
+      List<? extends E> elementsOfSecondGroup,
+      List<? extends E> elementsOfThirdGroup,
+      List<? extends E> elementsOfFourthGroup) {
+    if (elementsOfSecondGroup.isEmpty()) {
+      return createCompressedWithThreeGroups(
+          singletonElementOfFirstGroup, elementsOfThirdGroup, elementsOfFourthGroup);
+    }
+    if (elementsOfThirdGroup.isEmpty()) {
+      return createCompressedWithThreeGroups(
+          singletonElementOfFirstGroup, elementsOfSecondGroup, elementsOfFourthGroup);
+    }
+    if (elementsOfFourthGroup.isEmpty()) {
+      return createCompressedWithThreeGroups(
+          singletonElementOfFirstGroup, elementsOfSecondGroup, elementsOfThirdGroup);
+    }
+    return new Object[] {
+      singletonElementOfFirstGroup,
+      singleElementOrList(elementsOfSecondGroup),
+      singleElementOrList(elementsOfThirdGroup),
+      singleElementOrList(elementsOfFourthGroup),
+    };
+  }
+
   private static Object singleElementOrList(List<?> list) {
     return list.size() == 1 ? list.get(0) : list;
   }

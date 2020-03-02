@@ -65,7 +65,6 @@ import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.ExpansionExce
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.Tool;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
-import com.google.devtools.build.lib.rules.proto.ProtoInfo;
 import com.google.devtools.build.lib.shell.ShellUtils;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
@@ -243,11 +242,11 @@ public class CppHelper {
    * non-default feature configuration, or risk a mismatch.
    */
   public static NestedSet<Artifact> getDefaultCcToolchainDynamicRuntimeInputs(
-      RuleContext ruleContext) throws RuleErrorException {
+      RuleContext ruleContext, CppSemantics semantics) throws RuleErrorException {
     try {
-      return getDefaultCcToolchainDynamicRuntimeInputsFromStarlark(ruleContext);
+      return getDefaultCcToolchainDynamicRuntimeInputsFromStarlark(ruleContext, semantics);
     } catch (EvalException e) {
-      throw ruleContext.throwWithRuleError(e.getMessage());
+      throw ruleContext.throwWithRuleError(e);
     }
   }
 
@@ -259,14 +258,14 @@ public class CppHelper {
    * non-default feature configuration, or risk a mismatch.
    */
   public static NestedSet<Artifact> getDefaultCcToolchainDynamicRuntimeInputsFromStarlark(
-      RuleContext ruleContext) throws EvalException {
+      RuleContext ruleContext, CppSemantics semantics) throws EvalException {
     CcToolchainProvider defaultToolchain =
         getToolchainUsingDefaultCcToolchainAttribute(ruleContext);
     if (defaultToolchain == null) {
       return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
     }
     FeatureConfiguration featureConfiguration =
-        CcCommon.configureFeaturesOrReportRuleError(ruleContext, defaultToolchain);
+        CcCommon.configureFeaturesOrReportRuleError(ruleContext, defaultToolchain, semantics);
 
     return defaultToolchain.getDynamicRuntimeLinkInputs(featureConfiguration);
   }
@@ -276,18 +275,18 @@ public class CppHelper {
    * for non C++ rules that link against the C++ runtime.
    */
   public static NestedSet<Artifact> getDefaultCcToolchainStaticRuntimeInputs(
-      RuleContext ruleContext) throws RuleErrorException {
+      RuleContext ruleContext, CppSemantics semantics) throws RuleErrorException {
     CcToolchainProvider defaultToolchain =
         getToolchainUsingDefaultCcToolchainAttribute(ruleContext);
     if (defaultToolchain == null) {
       return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
     }
     FeatureConfiguration featureConfiguration =
-        CcCommon.configureFeaturesOrReportRuleError(ruleContext, defaultToolchain);
+        CcCommon.configureFeaturesOrReportRuleError(ruleContext, defaultToolchain, semantics);
     try {
       return defaultToolchain.getStaticRuntimeLinkInputs(featureConfiguration);
     } catch (EvalException e) {
-      throw ruleContext.throwWithRuleError(e.getMessage());
+      throw ruleContext.throwWithRuleError(e);
     }
   }
 
@@ -748,7 +747,7 @@ public class CppHelper {
     try {
       return ImmutableList.copyOf(featureConfiguration.getCommandLine(actionName, variables));
     } catch (ExpansionException e) {
-      throw ruleErrorConsumer.throwWithRuleError(e.getMessage());
+      throw ruleErrorConsumer.throwWithRuleError(e);
     }
   }
 
@@ -761,7 +760,7 @@ public class CppHelper {
     try {
       return featureConfiguration.getEnvironmentVariables(actionName, variables);
     } catch (ExpansionException e) {
-      throw ruleErrorConsumer.throwWithRuleError(e.getMessage());
+      throw ruleErrorConsumer.throwWithRuleError(e);
     }
   }
 
@@ -814,7 +813,7 @@ public class CppHelper {
     try {
       return toolchain.getFeatures().getArtifactNameForCategory(category, outputName);
     } catch (EvalException e) {
-      ruleErrorConsumer.throwWithRuleError(e.getMessage());
+      ruleErrorConsumer.throwWithRuleError(e);
       throw new IllegalStateException("Should not be reached");
     }
   }
@@ -974,17 +973,6 @@ public class CppHelper {
       result.addTransitive(dep.getTransitiveCcNativeLibraries());
     }
     return new CcNativeLibraryProvider(result.build());
-  }
-
-  public static void checkProtoLibrariesInDeps(
-      RuleErrorConsumer ruleErrorConsumer, Iterable<TransitiveInfoCollection> deps) {
-    for (TransitiveInfoCollection dep : deps) {
-      if (dep.get(ProtoInfo.PROVIDER) != null && dep.get(CcInfo.PROVIDER) == null) {
-        ruleErrorConsumer.attributeError(
-            "deps",
-            String.format("proto_library '%s' does not produce output for C++", dep.getLabel()));
-      }
-    }
   }
 
   static boolean useToolchainResolution(RuleContext ruleContext) {

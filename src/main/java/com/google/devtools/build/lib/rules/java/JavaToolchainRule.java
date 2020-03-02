@@ -73,11 +73,9 @@ public final class JavaToolchainRule<C extends JavaToolchain> implements RuleDef
             attr("bootclasspath", LABEL_LIST)
                 .value(ImmutableList.of())
                 .allowedFileTypes(FileTypeSet.ANY_FILE))
-        /* <!-- #BLAZE_RULE(java_toolchain).ATTRIBUTE(extclasspath) -->
-        The Java target extdir entries. Corresponds to javac's -extdir flag.
-        <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(
             attr("extclasspath", LABEL_LIST)
+                .undocumented("internal")
                 .value(ImmutableList.of())
                 .allowedFileTypes(FileTypeSet.ANY_FILE))
         /* <!-- #BLAZE_RULE(java_toolchain).ATTRIBUTE(xlint) -->

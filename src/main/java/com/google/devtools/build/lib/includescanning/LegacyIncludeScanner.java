@@ -106,14 +106,11 @@ public class LegacyIncludeScanner implements IncludeScanner {
   }
 
   /**
-   * A cache of inclusion lookups, taking care to avoid spurious caching related
-   * to generated headers / source files.
+   * A cache of inclusion lookups, taking care to avoid spurious caching related to generated
+   * headers / source files.
    */
   @ThreadSafety.ThreadSafe
-  private class InclusionCache {
-    private final ConcurrentMap<InclusionWithContext, LocateOnPathResult> cache =
-        new ConcurrentHashMap<>();
-
+  private abstract class InclusionCache {
     /**
      * Locates an included file along the search paths. The result is cacheable.
      *
@@ -124,7 +121,7 @@ public class LegacyIncludeScanner implements IncludeScanner {
      *     search path (or null if no matching file was found), and whether the scan touched illegal
      *     output files
      */
-    private LocateOnPathResult locateOnPaths(
+    protected LocateOnPathResult locateOnPaths(
         InclusionWithContext inclusion,
         Map<PathFragment, Artifact> pathToLegalOutputArtifact,
         boolean onlyCheckGenerated) {
@@ -333,16 +330,52 @@ public class LegacyIncludeScanner implements IncludeScanner {
      * @param pathToLegalOutputArtifact generated files which may be reached during scanning
      * @return a LocateOnPathResult
      */
+    protected abstract LocateOnPathResult lookup(
+        InclusionWithContext inclusion, Map<PathFragment, Artifact> pathToLegalOutputArtifact);
+
+    /**
+     * Locates an included file along the search paths.
+     *
+     * @param inclusion the inclusion to locate
+     * @param pathToLegalOutputArtifact generated files which may be reached during scanning
+     * @return a LocateOnPathResult
+     */
+    protected abstract ListenableFuture<LocateOnPathResult> lookupAsync(
+        InclusionWithContext inclusion, Map<PathFragment, Artifact> pathToLegalOutputArtifact);
+  }
+
+  /**
+   * A cache of inclusion lookups, taking care to avoid spurious caching related to generated
+   * headers / source files.
+   */
+  @ThreadSafety.ThreadSafe
+  private class LegacyInclusionCache extends InclusionCache {
+    private final ConcurrentMap<InclusionWithContext, LocateOnPathResult> cache =
+        new ConcurrentHashMap<>();
+
+    @Override
     public LocateOnPathResult lookup(
         InclusionWithContext inclusion, Map<PathFragment, Artifact> pathToLegalOutputArtifact) {
       LocateOnPathResult result =
           cache.computeIfAbsent(
               inclusion, key -> locateOnPaths(key, pathToLegalOutputArtifact, false));
-      // It is not safe to cache lookups which viewed illegal output files. Their nonexistence do
-      // not imply nonexistence for actions using the same include scanner, but executed later on.
-      // See bug 2097998. For performance reasons, take a small shortcut: only avoid caching when
-      // the path lookup result from locateOnPaths() is empty.
-      if (result.path != null || !result.viewedIllegalOutputFile) {
+      // If the previous computation for this inclusion had a different pathToLegalOutputArtifact
+      // map, result may not be valid for this lookup. Because this is a hot spot, we tolerate a
+      // known correctness bug but try to catch most issues.
+      // (1) [correct]: The prior computation found an output file, but that file is not in the
+      // current lookup's inputs. We don't reuse the computation. b/149935208.
+      // (2) [correct]: The prior computation checked an output path not in its legal outputs, and
+      // then didn't find a file anywhere. However, that output file is a legal input for this
+      // lookup. We don't reuse the computation. b/2097998.
+      // (3) [INCORRECT]: Same as (2), except that the prior computation found a file after checking
+      // the output path not in its legal inputs. We incorrectly cache this computation, assuming it
+      // is very rare. b/150307245.
+      if (result.path != null) {
+        if (result.path.isSourceArtifact()
+            || result.path.equals(pathToLegalOutputArtifact.get(result.path.getExecPath()))) {
+          return result;
+        }
+      } else if (!result.viewedIllegalOutputFile) {
         return result;
       }
 
@@ -354,6 +387,70 @@ public class LegacyIncludeScanner implements IncludeScanner {
         cache.put(inclusion, result);
       }
       return result;
+    }
+
+    @Override
+    protected ListenableFuture<LocateOnPathResult> lookupAsync(
+        InclusionWithContext inclusion, Map<PathFragment, Artifact> pathToLegalOutputArtifact) {
+      throw new UnsupportedOperationException();
+    }
+  }
+
+  /**
+   * A cache of inclusion lookups, taking care to avoid spurious caching related to generated
+   * headers / source files.
+   */
+  @ThreadSafety.ThreadSafe
+  private class AsyncInclusionCache extends InclusionCache {
+    private final ConcurrentMap<InclusionWithContext, ListenableFuture<LocateOnPathResult>> cache =
+        new ConcurrentHashMap<>();
+
+    @Override
+    protected LocateOnPathResult lookup(
+        InclusionWithContext inclusion, Map<PathFragment, Artifact> pathToLegalOutputArtifact) {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public ListenableFuture<LocateOnPathResult> lookupAsync(
+        InclusionWithContext inclusion, Map<PathFragment, Artifact> pathToLegalOutputArtifact) {
+      SettableFuture<LocateOnPathResult> future = SettableFuture.create();
+      ListenableFuture<LocateOnPathResult> previous = cache.putIfAbsent(inclusion, future);
+      ListenableFuture<LocateOnPathResult> actualFuture;
+      if (previous == null) {
+        includePool.execute(
+            () -> {
+              LocateOnPathResult result =
+                  locateOnPaths(inclusion, pathToLegalOutputArtifact, false);
+              future.set(result);
+            });
+        actualFuture = future;
+      } else {
+        actualFuture = previous;
+      }
+      // It is not safe to cache lookups which viewed illegal output files. Their nonexistence do
+      // not imply nonexistence for actions using the same include scanner, but executed later on.
+      // See bug 2097998. For performance reasons, take a small shortcut: only avoid caching when
+      // the path lookup result from locateOnPaths() is empty.
+      return Futures.transformAsync(
+          actualFuture,
+          (result) -> {
+            if (result.path != null || !result.viewedIllegalOutputFile) {
+              return Futures.immediateFuture(result);
+            }
+
+            result = locateOnPaths(inclusion, pathToLegalOutputArtifact, true);
+            if (result.path != null || !result.viewedIllegalOutputFile) {
+              // In this case, the result is now cachable either because a file has been found or
+              // because there are no more illegal output files. This is rare in practice. Avoid
+              // creating a future and modifying the cache in the common case.
+              ListenableFuture<LocateOnPathResult> replacement = Futures.immediateFuture(result);
+              cache.put(inclusion, replacement);
+              return replacement;
+            }
+            return Futures.immediateFuture(result);
+          },
+          MoreExecutors.directExecutor());
     }
   }
 
@@ -476,7 +573,8 @@ public class LegacyIncludeScanner implements IncludeScanner {
     this.quoteIncludePathsFrameworkIndex = quoteIncludePaths.size();
     this.includePaths = ImmutableList.copyOf(includePaths);
     this.frameworkIncludePaths = ImmutableList.copyOf(frameworkIncludePaths);
-    this.inclusionCache = new InclusionCache();
+    this.inclusionCache =
+        useAsyncIncludeScanner ? new AsyncInclusionCache() : new LegacyInclusionCache();
     this.execRoot = execRoot;
     this.outputPathFragment = outputPath.relativeTo(execRoot);
     this.includeRootFragment =
@@ -659,7 +757,7 @@ public class LegacyIncludeScanner implements IncludeScanner {
     /** The set of all processed inclusions, to avoid processing duplicate inclusions. */
     private final Set<ArtifactWithInclusionContext> visitedInclusions = Sets.newConcurrentHashSet();
 
-    public LegacyIncludeVisitor(
+    LegacyIncludeVisitor(
         ActionExecutionMetadata actionExecutionMetadata,
         ActionExecutionContext actionExecutionContext,
         @Nullable Artifact grepIncludes,
@@ -1135,19 +1233,45 @@ public class LegacyIncludeScanner implements IncludeScanner {
       // inclusions are handled like the first entry on the quote include path
       Artifact includeFile =
           locateRelative(inclusion.getInclusion(), pathToLegalOutputArtifact, source);
-      int contextPathPos = 0;
-      Kind contextKind = null;
 
       checkForInterrupt("visiting", source);
 
       // If nothing has been found, get an inclusion from the cache. This will automatically search
       // on the include paths and populate the cache if necessary.
       if (includeFile == null) {
-        LocateOnPathResult result = inclusionCache.lookup(inclusion, pathToLegalOutputArtifact);
-        includeFile = result.path;
-        contextPathPos = result.includePosition;
-        contextKind = inclusion.getContextKind();
+        ListenableFuture<LocateOnPathResult> lookupFuture =
+            inclusionCache.lookupAsync(inclusion, pathToLegalOutputArtifact);
+        return Futures.transformAsync(
+            lookupFuture,
+            (locateOnPathResult) ->
+                processFound(
+                    locateOnPathResult,
+                    inclusion.getContextKind(),
+                    visited,
+                    pathToLegalOutputArtifact,
+                    visitedInclusions),
+            MoreExecutors.directExecutor());
+      } else {
+        LocateOnPathResult locateOnPathResult = new LocateOnPathResult(includeFile, 0, false);
+        Kind contextKind = null;
+        // Recursively process the found file (if not yet done).
+        return processFound(
+            locateOnPathResult, contextKind, visited, pathToLegalOutputArtifact, visitedInclusions);
       }
+    }
+
+    /** Visits an inclusion starting from a source file. */
+    private ListenableFuture<?> processFound(
+        LocateOnPathResult locateOnPathResult,
+        Kind contextKind,
+        Set<Artifact> visited,
+        Map<PathFragment, Artifact> pathToLegalOutputArtifact,
+        Set<ArtifactWithInclusionContext> visitedInclusions)
+        throws IOException, InterruptedException {
+      // Try to find the included file relative to the file that contains the inclusion. Relative
+      // inclusions are handled like the first entry on the quote include path
+      Artifact includeFile = locateOnPathResult.path;
+      int contextPathPos = locateOnPathResult.includePosition;
 
       // Recursively process the found file (if not yet done).
       if (includeFile != null

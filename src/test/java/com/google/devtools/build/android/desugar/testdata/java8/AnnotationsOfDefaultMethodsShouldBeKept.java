@@ -33,9 +33,7 @@ public class AnnotationsOfDefaultMethodsShouldBeKept {
     default void annotatedDefaultMethod() {}
   }
 
-  /**
-   * A simple annotation, used for testing.
-   */
+  /** A simple annotation, used for testing. */
   @Retention(value = RetentionPolicy.RUNTIME)
   public @interface SomeAnnotation {
     int value();

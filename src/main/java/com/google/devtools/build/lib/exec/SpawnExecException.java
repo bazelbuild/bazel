@@ -76,8 +76,6 @@ public class SpawnExecException extends ExecException {
     if (result.status().isConsideredUserError()) {
       return null;
     }
-    return (result != null && result.status() == Status.REMOTE_EXECUTOR_OVERLOADED)
-        ? ExitCode.REMOTE_EXECUTOR_OVERLOADED
-        : ExitCode.REMOTE_ERROR;
+    return ExitCode.REMOTE_ERROR;
   }
 }

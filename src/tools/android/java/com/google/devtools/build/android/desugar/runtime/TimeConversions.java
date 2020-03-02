@@ -19,7 +19,7 @@ package com.google.devtools.build.android.desugar.runtime;
  */
 @SuppressWarnings("AndroidApiChecker")
 public final class TimeConversions {
-  private TimeConversions() {}  // static methods only
+  private TimeConversions() {} // static methods only
 
   public static android.view.textclassifier.TextClassification.Request.Builder setReferenceTime(
       android.view.textclassifier.TextClassification.Request.Builder builder,

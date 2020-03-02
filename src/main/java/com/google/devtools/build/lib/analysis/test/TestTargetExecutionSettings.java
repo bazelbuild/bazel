@@ -51,6 +51,7 @@ public final class TestTargetExecutionSettings {
   private final Runfiles runfiles;
   private final Artifact runfilesInputManifest;
   private final Artifact instrumentedFileManifest;
+  private final boolean testRunnerFailFast;
 
   TestTargetExecutionSettings(
       RuleContext ruleContext,
@@ -102,6 +103,7 @@ public final class TestTargetExecutionSettings {
     runUnderExecutable = getRunUnderExecutable(ruleContext);
 
     this.testFilter = testConfig.getTestFilter();
+    this.testRunnerFailFast = testConfig.getTestRunnerFailFast();
     this.executable = executable;
     this.runfilesSymlinksCreated = runfilesSupport.isBuildRunfileLinks();
     this.runfilesDir = runfilesSupport.getRunfilesDirectory();
@@ -128,6 +130,10 @@ public final class TestTargetExecutionSettings {
 
   public String getTestFilter() {
     return testFilter;
+  }
+
+  public boolean getTestRunnerFailFast() {
+    return testRunnerFailFast;
   }
 
   public int getTotalShards() {

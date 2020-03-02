@@ -19,7 +19,6 @@ import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.android.desugar.io.FileContentProvider;
-import com.google.devtools.build.android.desugar.langmodel.ClassMemberRecord;
 import com.google.devtools.build.android.desugar.testing.junit.DesugarRule;
 import com.google.devtools.build.android.desugar.testing.junit.DesugarRunner;
 import com.google.devtools.build.android.desugar.testing.junit.JarEntryRecord;
@@ -29,7 +28,6 @@ import com.google.devtools.build.android.desugar.testing.junit.RuntimeJarEntry;
 import java.io.IOException;
 import java.io.InputStream;
 import java.lang.invoke.MethodHandles;
-import java.nio.file.Paths;
 import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
 import org.junit.Rule;
@@ -44,22 +42,18 @@ public final class NestAnalyzerTest {
   @Rule
   public final DesugarRule desugarRule =
       DesugarRule.builder(this, MethodHandles.lookup())
-          .addSourceInputs(Paths.get(System.getProperty("input_srcs")))
+          .addSourceInputsFromJvmFlag("input_srcs")
           .addJavacOptions("-source 11", "-target 11")
           .setWorkingJavaPackage(
               "com.google.devtools.build.android.desugar.nest.testsrc.nestanalyzer")
           .enableIterativeTransformation(0)
           .build();
 
-  private final ClassMemberRecord classMemberRecord = ClassMemberRecord.create();
-  private final NestCompanions nestCompanions = NestCompanions.create(classMemberRecord);
-
   @Test
   public void emptyInputFiles() throws IOException {
-    NestAnalyzer nestAnalyzer =
-        new NestAnalyzer(ImmutableList.of(), nestCompanions, classMemberRecord);
-    nestAnalyzer.analyze();
-    assertThat(nestCompanions.getAllCompanionClasses()).isEmpty();
+    NestDigest nestDigest = NestAnalyzer.analyzeNests(ImmutableList.of());
+
+    assertThat(nestDigest.getAllCompanionClassNames()).isEmpty();
   }
 
   @Test
@@ -71,20 +65,17 @@ public final class NestAnalyzerTest {
       throws IOException {
 
     JarFile jarFile = analyzedTarget.jarFile();
-    NestAnalyzer nestAnalyzer =
-        new NestAnalyzer(
+
+    NestDigest nestDigest =
+        NestAnalyzer.analyzeNests(
             jarFile.stream()
                 .map(
                     entry ->
                         new FileContentProvider<>(
                             entry.getName(), () -> getJarEntryInputStream(jarFile, entry)))
-                .collect(toImmutableList()),
-            nestCompanions,
-            classMemberRecord);
+                .collect(toImmutableList()));
 
-    nestAnalyzer.analyze();
-
-    assertThat(nestCompanions.getAllCompanionClasses())
+    assertThat(nestDigest.getAllCompanionClassNames())
         .containsExactly(
             "com/google/devtools/build/android/desugar/nest/testsrc/nestanalyzer/AnalyzedTarget$NestCC");
   }

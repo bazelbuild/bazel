@@ -45,22 +45,22 @@ function set_up() {
 
 # Test that we respond to TESTBRIDGE_TEST_ONLY in JUnit4 tests.
 function test_Junit4() {
-  cd $TEST_TMPDIR
+  cd "${TEST_TMPDIR}" || fail "Unexpected failure"
 
   # Run the test without environment flag; it should fail.
   declare +x TESTBRIDGE_TEST_ONLY
-  $TESTBED --jvm_flag=${SUITE_FLAG} >& $TEST_log && fail "Expected failure"
-  expect_log 'Failures: 1'
+  "${TESTBED}" --jvm_flag="${SUITE_FLAG}" >& "${TEST_log}" && fail "Expected failure"
+  expect_log 'Failures: 2'
 
   # Run the test with environment flag.
-  declare -x TESTBRIDGE_TEST_ONLY="doRun"
-  $TESTBED --jvm_flag=${SUITE_FLAG} >& $TEST_log || fail "Expected success"
+  declare -x TESTBRIDGE_TEST_ONLY="testPass"
+  "${TESTBED}" --jvm_flag="${SUITE_FLAG}" >& "${TEST_log}" || fail "Expected success"
   expect_log 'OK.*1 test'
 
   # Finally, run the test once again without environment flag; it should fail.
   declare +x TESTBRIDGE_TEST_ONLY
-  $TESTBED --jvm_flag=${SUITE_FLAG} >& $TEST_log && fail "Expected failure again"
-  expect_log 'Failures: 1'
+  "${TESTBED}" --jvm_flag="${SUITE_FLAG}" >& "${TEST_log}" && fail "Expected failure again"
+  expect_log 'Failures: 2'
 
   # Remove the XML output with failures, so it does not get picked up to
   # indicate a failure.
@@ -69,18 +69,43 @@ function test_Junit4() {
 
 # Test that TESTBRIDGE_TEST_ONLY is overridden by a direct flag.
 function test_Junit4FlagOverridesEnv() {
-  cd $TEST_TMPDIR
+  cd "${TEST_TMPDIR}" || fail "Unexpected failure"
 
   # Run the test with both environment and command line flags.
-  declare -x TESTBRIDGE_TEST_ONLY="doNotRun"
-  $TESTBED --jvm_flag=${SUITE_FLAG} --test_filter doRun >& $TEST_log || \
+  declare -x TESTBRIDGE_TEST_ONLY="testFailOnce"
+  "${TESTBED}" --jvm_flag="${SUITE_FLAG}" --test_filter testPass >& "${TEST_log}" || \
       fail "Expected success"
   expect_log 'OK.*1 test'
 
-  declare -x TESTBRIDGE_TEST_ONLY="doRun"
-  $TESTBED --jvm_flag=${SUITE_FLAG} --test_filter doNotRun >& $TEST_log && \
+  declare -x TESTBRIDGE_TEST_ONLY="testPass"
+  "${TESTBED}" --jvm_flag="${SUITE_FLAG}" --test_filter testFailOnce >& "${TEST_log}" && \
       fail "Expected failure"
   expect_log 'Failures: 1'
 }
 
-run_suite "testbridge_test_only"
+# Test that we respond to TESTBRIDGE_TEST_RUNNER_FAIL_FAST in JUnit4 tests.
+function test_Junit4FailFast() {
+  cd "${TEST_TMPDIR}" || fail "Unexpected failure"
+
+  # Run the test without environment var.
+  declare +x TESTBRIDGE_TEST_RUNNER_FAIL_FAST
+  "${TESTBED}" --jvm_flag="${SUITE_FLAG}" &> "${TEST_log}" && fail "Expected failure"
+  expect_log 'Failures: 2'
+
+  # Run the test with environment var set to 0.
+  declare -x TESTBRIDGE_TEST_RUNNER_FAIL_FAST="0"
+  "${TESTBED}" --jvm_flag="${SUITE_FLAG}" &> "${TEST_log}" && fail "Expected failure"
+  expect_log 'Failures: 2'
+
+  # Run the test with environment var set to 1.
+  declare -x TESTBRIDGE_TEST_RUNNER_FAIL_FAST="1"
+  "${TESTBED}" --jvm_flag="${SUITE_FLAG}" &> "${TEST_log}" && fail "Expected failure"
+  expect_log 'Failures: 1'
+
+  # Run the test without environment var again.
+  declare +x TESTBRIDGE_TEST_RUNNER_FAIL_FAST
+  "${TESTBED}" --jvm_flag="${SUITE_FLAG}" &> "${TEST_log}" && fail "Expected failure"
+  expect_log 'Failures: 2'
+}
+
+run_suite "junit4_testbridge_integration_test"

@@ -17,7 +17,6 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 
-import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.syntax.util.EvaluationTestCase;
 import java.util.Arrays;
 import java.util.Map;
@@ -29,7 +28,7 @@ import org.junit.runners.JUnit4;
 /** Tests of the argument processing of {@code Starlark.matchSignature}. */
 // TODO(adonovan): rename.
 @RunWith(JUnit4.class)
-public class BaseFunctionTest extends EvaluationTestCase {
+public final class BaseFunctionTest extends EvaluationTestCase {
 
   private void checkFunction(StarlarkCallable fn, String callExpression, String expectedOutput)
       throws Exception {
@@ -87,8 +86,7 @@ public class BaseFunctionTest extends EvaluationTestCase {
           }
 
           @Override
-          public Object fastcall(
-              StarlarkThread thread, Location loc, Object[] positional, Object[] named)
+          public Object fastcall(StarlarkThread thread, Object[] positional, Object[] named)
               throws EvalException {
             Object[] arguments =
                 Starlark.matchSignature(

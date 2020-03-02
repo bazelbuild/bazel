@@ -21,9 +21,7 @@ import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
 
-/**
- * This class rewrites (or removes) some trivial primitive wrapper methods.
- */
+/** This class rewrites (or removes) some trivial primitive wrapper methods. */
 public class PrimitiveWrapperRewriter extends ClassVisitor {
 
   /** Classes with no-op {@code hashCode(primitive)} static methods, and their descriptors. */
@@ -62,7 +60,7 @@ public class PrimitiveWrapperRewriter extends ClassVisitor {
           && name.equals("hashCode")
           && noopDescriptor != null
           && noopDescriptor.equals(desc)) {
-        return;  // skip: use original primitive value as its hash (b/147139686)
+        return; // skip: use original primitive value as its hash (b/147139686)
       }
       super.visitMethodInsn(opcode, owner, name, desc, itf);
     }

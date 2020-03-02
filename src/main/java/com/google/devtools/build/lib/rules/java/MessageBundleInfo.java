@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Sequence;
+import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.lib.syntax.StarlarkValue;
 import java.util.List;
 import javax.annotation.Nullable;
@@ -59,11 +60,11 @@ public final class MessageBundleInfo extends NativeInfo implements StarlarkValue
           @Param(name = "messages", positional = false, named = true, type = Sequence.class),
         },
         selfCall = true,
-        useLocation = true)
-    public MessageBundleInfo messageBundleInfo(Sequence<?> messages, Location loc)
+        useStarlarkThread = true)
+    public MessageBundleInfo messageBundleInfo(Sequence<?> messages, StarlarkThread thread)
         throws EvalException {
       List<Artifact> messagesList = Sequence.castList(messages, Artifact.class, "messages");
-      return new MessageBundleInfo(ImmutableList.copyOf(messagesList), loc);
+      return new MessageBundleInfo(ImmutableList.copyOf(messagesList), thread.getCallerLocation());
     }
   }
 

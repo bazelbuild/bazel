@@ -14,14 +14,16 @@
 
 package com.google.devtools.build.lib.runtime;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
+
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.eventbus.EventBus;
-import com.google.common.eventbus.SubscriberExceptionContext;
 import com.google.common.eventbus.SubscriberExceptionHandler;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.Uninterruptibles;
@@ -47,6 +49,7 @@ import com.google.devtools.build.lib.events.OutputFilter;
 import com.google.devtools.build.lib.exec.BinTools;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.PackageFactory;
+import com.google.devtools.build.lib.packages.PackageValidator;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.profiler.AutoProfiler;
 import com.google.devtools.build.lib.profiler.MemoryProfiler;
@@ -282,7 +285,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
   }
 
   private BuildEventArtifactUploader newUploader(
-      CommandEnvironment env, String buildEventUploadStrategy) {
+      CommandEnvironment env, String buildEventUploadStrategy) throws IOException {
     return getBuildEventArtifactUploaderFactoryMap().select(buildEventUploadStrategy).create(env);
   }
 
@@ -338,7 +341,6 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
               // CRITICAL_PATH corresponds to writing the file.
               && profilerTask != ProfilerTask.CRITICAL_PATH
               && profilerTask != ProfilerTask.SKYFUNCTION
-              && profilerTask != ProfilerTask.ACTION_COMPLETE
               && !profilerTask.isStarlark()) {
             profiledTasksBuilder.add(profilerTask);
           }
@@ -358,6 +360,13 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
       }
       ImmutableSet<ProfilerTask> profiledTasks = profiledTasksBuilder.build();
       if (!profiledTasks.isEmpty()) {
+        if (options.enableJsonProfileDiet && options.includePrimaryOutput) {
+          eventHandler.handle(
+              Event.warn(
+                  "Enabling both --experimental_slim_json_profile and"
+                      + " --experimental_include_primary_output: the \"out\" field"
+                      + " will be omitted in merged actions."));
+        }
         Profiler profiler = Profiler.instance();
         profiler.start(
             profiledTasks,
@@ -370,7 +379,8 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
             execStartTimeNanos,
             options.enableCpuUsageProfiling,
             options.enableJsonProfileDiet,
-            options.enableActionCountProfile);
+            options.enableActionCountProfile,
+            options.includePrimaryOutput);
         // Instead of logEvent() we're calling the low level function to pass the timings we took in
         // the launcher. We're setting the INIT phase marker so that it follows immediately the
         // LAUNCH phase.
@@ -524,14 +534,11 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
   }
 
   /**
-   * Hook method called by the BlazeCommandDispatcher prior to the dispatch of
-   * each command.
+   * Hook method called by the BlazeCommandDispatcher prior to the dispatch of each command.
    *
    * @param options The CommonCommandOptions used by every command.
-   * @throws AbruptExitException if this command is unsuitable to be run as specified
    */
-  void beforeCommand(CommandEnvironment env, CommonCommandOptions options)
-      throws AbruptExitException {
+  void beforeCommand(CommandEnvironment env, CommonCommandOptions options) {
     if (options.memoryProfilePath != null) {
       Path memoryProfilePath = env.getWorkingDirectory().getRelative(options.memoryProfilePath);
       MemoryProfiler.instance()
@@ -791,36 +798,11 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
   }
 
   /**
-   * An EventBus exception handler that will report the exception to a remote server, if a
-   * handler is registered.
-   */
-  public static final class RemoteExceptionHandler implements SubscriberExceptionHandler {
-    static final String FAILURE_MSG = "Failure in EventBus subscriber";
-
-    @Override
-    public void handleException(Throwable exception, SubscriberExceptionContext context) {
-      logger.log(Level.SEVERE, FAILURE_MSG, exception);
-      LoggingUtil.logToRemote(Level.SEVERE, FAILURE_MSG, exception);
-    }
-  }
-
-  /**
-   * An EventBus exception handler that will call BugReport.handleCrash exiting
-   * the current thread.
-   */
-  public static final class BugReportingExceptionHandler implements SubscriberExceptionHandler {
-    @Override
-    public void handleException(Throwable exception, SubscriberExceptionContext context) {
-      BugReport.handleCrash(exception);
-    }
-  }
-
-  /**
    * Main method for the Blaze server startup. Note: This method logs
    * exceptions to remote servers. Do not add this to a unittest.
    */
   public static void main(Iterable<Class<? extends BlazeModule>> moduleClasses, String[] args) {
-    setupUncaughtHandler(args);
+    setupUncaughtHandlerAtStartup(args);
     List<BlazeModule> modules = createModules(moduleClasses);
     // blaze.cc will put --batch first if the user set it.
     if (args.length >= 1 && args[0].equals("--batch")) {
@@ -1268,6 +1250,34 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
       throw new AbruptExitException(
           "No module set the default hash function.", ExitCode.BLAZE_INTERNAL_ERROR, e);
     }
+
+    SubscriberExceptionHandler currentHandlerValue = null;
+    for (BlazeModule module : blazeModules) {
+      SubscriberExceptionHandler newHandler = module.getEventBusAndAsyncExceptionHandler();
+      if (newHandler != null) {
+        Preconditions.checkState(
+            currentHandlerValue == null, "Two handlers given. Last module: %s", module);
+        currentHandlerValue = newHandler;
+      }
+    }
+    if (currentHandlerValue == null) {
+      if (startupOptions.fatalEventBusExceptions) {
+        currentHandlerValue = (exception, context) -> BugReport.handleCrash(exception);
+      } else {
+        currentHandlerValue =
+            (exception, context) -> {
+              if (context == null) {
+                BugReport.handleCrash(exception);
+              } else {
+                BugReport.sendBugReport(
+                    exception, ImmutableList.of(), "Failure in EventBus subscriber");
+              }
+            };
+      }
+    }
+    SubscriberExceptionHandler subscriberExceptionHandler = currentHandlerValue;
+    Thread.setDefaultUncaughtExceptionHandler(
+        (thread, throwable) -> subscriberExceptionHandler.handleException(throwable, null));
     Path.setFileSystemForSerialization(fs);
     SubprocessBuilder.setDefaultSubprocessFactory(subprocessFactoryImplementation());
 
@@ -1303,13 +1313,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
             .setStartupOptionsProvider(options)
             .setClock(clock)
             .setAbruptShutdownHandler(abruptShutdownHandler)
-            // TODO(bazel-team): Make BugReportingExceptionHandler the default.
-            // See bug "Make exceptions in EventBus subscribers fatal"
-            .setEventBusExceptionHandler(
-                startupOptions.fatalEventBusExceptions
-                        || !BlazeVersionInfo.instance().isReleasedBlaze()
-                    ? new BlazeRuntime.BugReportingExceptionHandler()
-                    : new BlazeRuntime.RemoteExceptionHandler());
+            .setEventBusExceptionHandler(subscriberExceptionHandler);
 
     if (System.getenv("TEST_TMPDIR") != null
         && System.getenv("NO_CRASH_ON_LOGGING_IN_TEST") == null) {
@@ -1419,10 +1423,10 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
   }
 
   /**
-   * Make sure async threads cannot be orphaned. This method makes sure bugs are reported to
-   * telemetry and the proper exit code is reported.
+   * Make sure async threads cannot be orphaned at startup. This method makes sure bugs are reported
+   * to telemetry and the proper exit code is reported. Will be overwritten with better handler.
    */
-  private static void setupUncaughtHandler(final String[] args) {
+  private static void setupUncaughtHandlerAtStartup(final String[] args) {
     Thread.setDefaultUncaughtExceptionHandler(
         (thread, throwable) -> BugReport.handleCrash(throwable, args));
   }
@@ -1449,8 +1453,8 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
    * BlazeDirectories}, and the {@link RuleClassProvider} (except for testing). All other fields
    * have safe default values.
    *
-   * <p>The default behavior of the BlazeRuntime's EventBus is to exit when a subscriber throws
-   * an exception. Please plan appropriately.
+   * <p>The default behavior of the BlazeRuntime's EventBus is to exit the JVM when a subscriber
+   * throws an exception. Please plan appropriately.
    */
   public static class Builder {
     private FileSystem fileSystem;
@@ -1459,7 +1463,8 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
     private Runnable abruptShutdownHandler;
     private OptionsParsingResult startupOptionsProvider;
     private final List<BlazeModule> blazeModules = new ArrayList<>();
-    private SubscriberExceptionHandler eventBusExceptionHandler = new RemoteExceptionHandler();
+    private SubscriberExceptionHandler eventBusExceptionHandler =
+        (throwable, context) -> BugReport.handleCrash(throwable);
     private UUID instanceId;
     private String productName;
     private ActionKeyContext actionKeyContext;
@@ -1535,7 +1540,8 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
               ruleClassProvider,
               serverBuilder.getEnvironmentExtensions(),
               BlazeVersionInfo.instance().getVersion(),
-              packageBuilderHelper);
+              packageBuilderHelper,
+              getPackageValidator(blazeModules));
 
       ProjectFile.Provider projectFileProvider = null;
       for (BlazeModule module : blazeModules) {
@@ -1642,6 +1648,17 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
     public Builder setActionKeyContext(ActionKeyContext actionKeyContext) {
       this.actionKeyContext = actionKeyContext;
       return this;
+    }
+
+    private static PackageValidator getPackageValidator(List<BlazeModule> blazeModules) {
+      List<PackageValidator> packageValidators =
+          blazeModules.stream()
+              .map(module -> module.getPackageValidator())
+              .filter(validator -> validator != null)
+              .collect(toImmutableList());
+      Preconditions.checkState(
+          packageValidators.size() <= 1, "more than one module defined a PackageValidator");
+      return Iterables.getFirst(packageValidators, PackageValidator.NOOP_VALIDATOR);
     }
   }
 }

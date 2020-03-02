@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.rules.cpp.CcCommon;
+import com.google.devtools.build.lib.rules.cpp.CcInfo;
 import com.google.devtools.build.lib.rules.cpp.CppModuleMap;
 
 /**
@@ -34,11 +35,18 @@ public class ObjcImport implements RuleConfiguredTargetFactory {
   public ConfiguredTarget create(RuleContext ruleContext)
       throws InterruptedException, RuleErrorException, ActionConflictException {
     CcCommon.checkRuleLoadedThroughMacro(ruleContext);
+
+    CompilationAttributes compilationAttributes =
+        CompilationAttributes.Builder.fromRuleContext(ruleContext).build();
+    IntermediateArtifacts intermediateArtifacts =
+        ObjcRuleClasses.intermediateArtifacts(ruleContext);
+    CompilationArtifacts compilationArtifacts = new CompilationArtifacts.Builder().build();
+
     ObjcCommon common =
-        new ObjcCommon.Builder(ruleContext)
-            .setCompilationAttributes(
-                CompilationAttributes.Builder.fromRuleContext(ruleContext).build())
-            .setIntermediateArtifacts(ObjcRuleClasses.intermediateArtifacts(ruleContext))
+        new ObjcCommon.Builder(ObjcCommon.Purpose.LINK_ONLY, ruleContext)
+            .setCompilationArtifacts(compilationArtifacts)
+            .setCompilationAttributes(compilationAttributes)
+            .setIntermediateArtifacts(intermediateArtifacts)
             .setAlwayslink(ruleContext.attributes().get("alwayslink", Type.BOOLEAN))
             .setHasModuleMap()
             .addExtraImportLibraries(
@@ -46,11 +54,6 @@ public class ObjcImport implements RuleConfiguredTargetFactory {
             .build();
 
     NestedSetBuilder<Artifact> filesToBuild = NestedSetBuilder.stableOrder();
-
-    CompilationAttributes compilationAttributes =
-        CompilationAttributes.Builder.fromRuleContext(ruleContext).build();
-    IntermediateArtifacts intermediateArtifacts =
-        ObjcRuleClasses.intermediateArtifacts(ruleContext);
 
     NestedSet<Artifact> publicHeaders = compilationAttributes.hdrs();
     CppModuleMap moduleMap = intermediateArtifacts.moduleMap();
@@ -61,10 +64,14 @@ public class ObjcImport implements RuleConfiguredTargetFactory {
         .registerGenerateModuleMapAction(moduleMap, publicHeaders)
         .validateAttributes();
 
-    ObjcProvider objcProvider = common.getObjcProvider();
+    ObjcProvider objcProvider = common.getObjcProviderBuilder().build();
 
     return ObjcRuleClasses.ruleConfiguredTarget(ruleContext, filesToBuild.build())
         .addNativeDeclaredProvider(objcProvider)
+        .addNativeDeclaredProvider(
+            CcInfo.builder()
+                .setCcCompilationContext(objcProvider.getCcCompilationContext())
+                .build())
         .addSkylarkTransitiveInfo(ObjcProvider.SKYLARK_NAME, objcProvider)
         .build();
   }

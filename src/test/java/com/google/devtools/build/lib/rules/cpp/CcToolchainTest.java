@@ -210,7 +210,6 @@ public class CcToolchainTest extends BuildViewTestCase {
         "    module_map = 'map',",
         "    ar_files = 'ar-a',",
         "    as_files = 'as-a',",
-        "    cpu = 'cherry',",
         "    compiler_files = 'compile-a',",
         "    dwp_files = 'dwp-a',",
         "    coverage_files = 'gcov-a',",
@@ -230,7 +229,7 @@ public class CcToolchainTest extends BuildViewTestCase {
 
     useConfiguration();
 
-    getConfiguredTarget("//a:b");
+    getConfiguredTarget("//a:a");
   }
 
   @Test

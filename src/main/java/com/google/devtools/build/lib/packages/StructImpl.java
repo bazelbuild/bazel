@@ -170,34 +170,34 @@ public abstract class StructImpl implements Info, ClassObject, StructApi {
   }
 
   @Override
-  public String toProto(Location loc) throws EvalException {
+  public String toProto() throws EvalException {
     StringBuilder sb = new StringBuilder();
-    printProtoTextMessage(this, sb, 0, loc);
+    printProtoTextMessage(this, sb, 0);
     return sb.toString();
   }
 
-  private void printProtoTextMessage(ClassObject object, StringBuilder sb, int indent, Location loc)
+  private static void printProtoTextMessage(ClassObject object, StringBuilder sb, int indent)
       throws EvalException {
     // For determinism sort the fields alphabetically.
     List<String> fields = new ArrayList<>(object.getFieldNames());
     Collections.sort(fields);
     for (String field : fields) {
-      printProtoTextMessage(field, object.getValue(field), sb, indent, loc);
+      printProtoTextMessage(field, object.getValue(field), sb, indent);
     }
   }
 
-  private void printProtoTextMessage(
-      String key, Object value, StringBuilder sb, int indent, Location loc, String container)
+  private static void printProtoTextMessage(
+      String key, Object value, StringBuilder sb, int indent, String container)
       throws EvalException {
     if (value instanceof Map.Entry) {
       Map.Entry<?, ?> entry = (Map.Entry<?, ?>) value;
       print(sb, key + " {", indent);
-      printProtoTextMessage("key", entry.getKey(), sb, indent + 1, loc);
-      printProtoTextMessage("value", entry.getValue(), sb, indent + 1, loc);
+      printProtoTextMessage("key", entry.getKey(), sb, indent + 1);
+      printProtoTextMessage("value", entry.getValue(), sb, indent + 1);
       print(sb, "}", indent);
     } else if (value instanceof ClassObject) {
       print(sb, key + " {", indent);
-      printProtoTextMessage((ClassObject) value, sb, indent + 1, loc);
+      printProtoTextMessage((ClassObject) value, sb, indent + 1);
       print(sb, "}", indent);
     } else if (value instanceof String) {
       print(
@@ -211,36 +211,31 @@ public abstract class StructImpl implements Info, ClassObject, StructApi {
       // as the protocol buffers do.
       print(sb, key + ": " + value, indent);
     } else {
-      throw new EvalException(
-          loc,
-          "Invalid text format, expected a struct, a dict, a string, a bool, or an int but got a "
-              + EvalUtils.getDataTypeName(value)
-              + " for "
-              + container
-              + " '"
-              + key
-              + "'");
+      throw Starlark.errorf(
+          "Invalid text format, expected a struct, a dict, a string, a bool, or an int but got a"
+              + " %s for %s '%s'",
+          EvalUtils.getDataTypeName(value), container, key);
     }
   }
 
-  private void printProtoTextMessage(
-      String key, Object value, StringBuilder sb, int indent, Location loc) throws EvalException {
+  private static void printProtoTextMessage(String key, Object value, StringBuilder sb, int indent)
+      throws EvalException {
     if (value instanceof Sequence) {
       for (Object item : ((Sequence) value)) {
         // TODO(bazel-team): There should be some constraint on the fields of the structs
         // in the same list but we ignore that for now.
-        printProtoTextMessage(key, item, sb, indent, loc, "list element in struct field");
+        printProtoTextMessage(key, item, sb, indent, "list element in struct field");
       }
     } else if (value instanceof Dict) {
       for (Map.Entry<?, ?> entry : ((Dict<?, ?>) value).entrySet()) {
-        printProtoTextMessage(key, entry, sb, indent, loc, "entry of dictionary");
+        printProtoTextMessage(key, entry, sb, indent, "entry of dictionary");
       }
     } else {
-      printProtoTextMessage(key, value, sb, indent, loc, "struct field");
+      printProtoTextMessage(key, value, sb, indent, "struct field");
     }
   }
 
-  private void print(StringBuilder sb, String text, int indent) {
+  private static void print(StringBuilder sb, String text, int indent) {
     for (int i = 0; i < indent; i++) {
       sb.append("  ");
     }
@@ -258,13 +253,13 @@ public abstract class StructImpl implements Info, ClassObject, StructApi {
   }
 
   @Override
-  public String toJson(Location loc) throws EvalException {
+  public String toJson() throws EvalException {
     StringBuilder sb = new StringBuilder();
-    printJson(this, sb, loc, "struct field", null);
+    printJson(this, sb, "struct field", null);
     return sb.toString();
   }
 
-  private void printJson(Object value, StringBuilder sb, Location loc, String container, String key)
+  private static void printJson(Object value, StringBuilder sb, String container, String key)
       throws EvalException {
     if (value == Starlark.NONE) {
       sb.append("null");
@@ -275,10 +270,9 @@ public abstract class StructImpl implements Info, ClassObject, StructApi {
       for (String field : ((ClassObject) value).getFieldNames()) {
         sb.append(join);
         join = ",";
-        sb.append("\"");
-        sb.append(field);
-        sb.append("\":");
-        printJson(((ClassObject) value).getValue(field), sb, loc, "struct field", field);
+        appendJSONStringLiteral(sb, field);
+        sb.append(':');
+        printJson(((ClassObject) value).getValue(field), sb, "struct field", field);
       }
       sb.append("}");
     } else if (value instanceof Dict) {
@@ -288,20 +282,15 @@ public abstract class StructImpl implements Info, ClassObject, StructApi {
         sb.append(join);
         join = ",";
         if (!(entry.getKey() instanceof String)) {
-          String errorMessage =
-              "Keys must be a string but got a "
-                  + EvalUtils.getDataTypeName(entry.getKey())
-                  + " for "
-                  + container;
-          if (key != null) {
-            errorMessage += " '" + key + "'";
-          }
-          throw new EvalException(loc, errorMessage);
+          throw Starlark.errorf(
+              "Keys must be a string but got a %s for %s%s",
+              EvalUtils.getDataTypeName(entry.getKey()),
+              container,
+              key != null ? " '" + key + "'" : "");
         }
-        sb.append("\"");
-        sb.append(entry.getKey());
-        sb.append("\":");
-        printJson(entry.getValue(), sb, loc, "dict value", String.valueOf(entry.getKey()));
+        appendJSONStringLiteral(sb, (String) entry.getKey());
+        sb.append(':');
+        printJson(entry.getValue(), sb, "dict value", String.valueOf(entry.getKey()));
       }
       sb.append("}");
     } else if (value instanceof List) {
@@ -310,33 +299,26 @@ public abstract class StructImpl implements Info, ClassObject, StructApi {
       for (Object item : ((List) value)) {
         sb.append(join);
         join = ",";
-        printJson(item, sb, loc, "list element in struct field", key);
+        printJson(item, sb, "list element in struct field", key);
       }
       sb.append("]");
     } else if (value instanceof String) {
-      sb.append("\"");
-      sb.append(jsonEscapeString((String) value));
-      sb.append("\"");
+      appendJSONStringLiteral(sb, (String) value);
     } else if (value instanceof Integer || value instanceof Boolean) {
       sb.append(value);
     } else {
-      String errorMessage =
-          "Invalid text format, expected a struct, a string, a bool, or an int "
-              + "but got a "
-              + EvalUtils.getDataTypeName(value)
-              + " for "
-              + container;
-      if (key != null) {
-        errorMessage += " '" + key + "'";
-      }
-      throw new EvalException(loc, errorMessage);
+      throw Starlark.errorf(
+          "Invalid text format, expected a struct, a string, a bool, or an int but got a %s for"
+              + " %s%s",
+          EvalUtils.getDataTypeName(value), container, key != null ? " '" + key + "'" : "");
     }
   }
 
-  private String jsonEscapeString(String string) {
-    return escapeDoubleQuotesAndBackslashesAndNewlines(string)
-        .replace("\r", "\\r")
-        .replace("\t", "\\t");
+  private static void appendJSONStringLiteral(StringBuilder out, String s) {
+    out.append('"');
+    out.append(
+        escapeDoubleQuotesAndBackslashesAndNewlines(s).replace("\r", "\\r").replace("\t", "\\t"));
+    out.append('"');
   }
 
   @Override

@@ -16,9 +16,10 @@
 
 package com.google.devtools.build.android.desugar.langmodel;
 
-import static com.google.devtools.build.android.desugar.langmodel.LangModelConstants.NEST_COMPANION_CLASS_SIMPLE_NAME;
-
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableTable;
+import java.util.Collection;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
@@ -43,23 +44,21 @@ public final class LangModelHelper {
           .build();
 
   /**
-   * Returns the internal name of the nest host class for a given class.
+   * The lookup table for dup instructional opcodes. The row key is the count of words on stack top
+   * to be duplicated. The column key is gap in word count between the original word section on
+   * stack top and the post-duplicated word section underneath. See from
    *
-   * <p>e.g. The nest host of a/b/C$D is a/b/C
+   * <p>https://docs.oracle.com/javase/specs/jvms/se11/html/jvms-6.html#jvms-6.5.dup
    */
-  public static String nestHost(String classInternalName) {
-    int index = classInternalName.indexOf('$');
-    return index > 0 ? classInternalName.substring(0, index) : classInternalName;
-  }
-
-  /**
-   * Returns the internal name of the nest companion class for a given class.
-   *
-   * <p>e.g. The nest host of a/b/C$D is a/b/C$NestCC
-   */
-  public static String nestCompanion(String classInternalName) {
-    return nestHost(classInternalName) + '$' + NEST_COMPANION_CLASS_SIMPLE_NAME;
-  }
+  private static final ImmutableTable<Integer, Integer, Integer> DIRECT_DUP_OPCODES =
+      ImmutableTable.<Integer, Integer, Integer>builder()
+          .put(1, 0, Opcodes.DUP)
+          .put(2, 0, Opcodes.DUP2)
+          .put(1, 1, Opcodes.DUP_X1)
+          .put(2, 1, Opcodes.DUP2_X1)
+          .put(1, 2, Opcodes.DUP_X2)
+          .put(2, 2, Opcodes.DUP2_X2)
+          .build();
 
   /** Whether the given type is a primitive type */
   public static boolean isPrimitive(Type type) {
@@ -71,60 +70,61 @@ public final class LangModelHelper {
   }
 
   /**
-   * Adjust the operation code for dup and pop operations by type size. The method supplements
-   * {@link org.objectweb.asm.Type#getOpcode(int)}.
+   * Returns the operation code for pop operations with a single instruction support by their type
+   * sizes on stack top
    */
-  public static int getTypeSizeAlignedOpcode(int baseOpcode, Type type) {
-    if (baseOpcode == Opcodes.DUP || baseOpcode == Opcodes.DUP2) {
-      switch (type.getSize()) {
-        case 1:
-          return Opcodes.DUP;
-        case 2:
-          return Opcodes.DUP2;
-        default:
-          // fall out: Impossible Condition
-          throw new AssertionError(
-              String.format("Impossible size (%d) for type (%s)", type.getSize(), type));
-      }
-    } else if (baseOpcode == Opcodes.DUP_X1 || baseOpcode == Opcodes.DUP_X2) {
-      switch (type.getSize()) {
-        case 1:
-          return Opcodes.DUP_X1;
-        case 2:
-          return Opcodes.DUP_X2;
-        default:
-          // fall out: Impossible Condition
-          throw new AssertionError(
-              String.format("Impossible size (%d) for type (%s)", type.getSize(), type));
-      }
-
-    } else if (baseOpcode == Opcodes.DUP2_X1 || baseOpcode == Opcodes.DUP2_X2) {
-      switch (type.getSize()) {
-        case 1:
-          return Opcodes.DUP2_X1;
-        case 2:
-          return Opcodes.DUP2_X2;
-        default:
-          // fall out: Impossible Condition
-          throw new AssertionError(
-              String.format("Impossible size (%d) for type (%s)", type.getSize(), type));
-      }
-    } else if (baseOpcode == Opcodes.POP || baseOpcode == Opcodes.POP2) {
-      switch (type.getSize()) {
-        case 1:
-          return Opcodes.POP;
-        case 2:
-          return Opcodes.POP2;
-        default:
-          // fall out: Impossible Condition
-          throw new AssertionError(
-              String.format("Impossible size (%d) for type (%s)", type.getSize(), type));
-      }
-    } else {
-      throw new UnsupportedOperationException(
-          String.format(
-              "Unsupported Opcode Adjustment: Type: %s of base opcode: %d", type, baseOpcode));
+  public static int getTypeSizeAlignedPopOpcode(ImmutableList<Type> elementsToPop) {
+    int totalWordsToPop = getTotalWords(elementsToPop);
+    switch (totalWordsToPop) {
+      case 1:
+        return Opcodes.POP;
+      case 2:
+        return Opcodes.POP2;
+      default:
+        throw new IllegalStateException(
+            String.format(
+                "Expected either 1 or 2 words to be popped, but actually requested to pop (%d)"
+                    + " words from <top/>%s...<bottom/>",
+                totalWordsToPop, elementsToPop));
     }
+  }
+
+  /**
+   * Returns the operation code for gap-free dup operations with a single instruction support by
+   * their type sizes on stack top.
+   */
+  public static int getTypeSizeAlignedDupOpcode(ImmutableList<Type> elementsToDup) {
+    return getTypeSizeAlignedDupOpcode(elementsToDup, ImmutableList.of());
+  }
+
+  /**
+   * Returns the operation code for dup operations with a single instruction support by their type
+   * sizes on stack top and the underneath gap size in words.
+   */
+  public static int getTypeSizeAlignedDupOpcode(
+      ImmutableList<Type> elementsToDup, ImmutableList<Type> elementsToSkipBeforeInsertion) {
+    int wordsToDup = getTotalWords(elementsToDup);
+    int wordsToSkip = getTotalWords(elementsToSkipBeforeInsertion);
+    Integer opCode = DIRECT_DUP_OPCODES.get(wordsToDup, wordsToSkip);
+    if (opCode != null) {
+      return opCode;
+    }
+    throw new IllegalStateException(
+        String.format(
+            "Expected either 1 or 2 words to be duplicated with a offset gap of {0, 1, 2} words,"
+                + " but actually requested to duplicate (%d) words with an offset gap of (%d)"
+                + " words, <top/>%s|%s...<bottom/>",
+            wordsToDup, wordsToSkip, elementsToDup, elementsToSkipBeforeInsertion));
+  }
+
+  /**
+   * Returns the word count summation of of the given type collection. It takes 1 word for category
+   * 1 computational type, and 2 words for category 2 computational type.
+   *
+   * <p>https://docs.oracle.com/javase/specs/jvms/se8/html/jvms-2.html#jvms-2.11.1
+   */
+  private static int getTotalWords(Collection<Type> types) {
+    return types.stream().mapToInt(Type::getSize).sum();
   }
 
   /**
@@ -142,9 +142,9 @@ public final class LangModelHelper {
    * enclosing method.
    */
   public static boolean isCrossMateRefInNest(
-      ClassMemberKey referencedMember, MethodKey enclosingMethod) {
-    String enclosingClassName = enclosingMethod.owner();
-    String referencedMemberName = referencedMember.owner();
+      ClassMemberKey<?> referencedMember, MethodKey enclosingMethod) {
+    String enclosingClassName = enclosingMethod.ownerName();
+    String referencedMemberName = referencedMember.ownerName();
     return (isEligibleAsInnerClass(enclosingClassName)
             || isEligibleAsInnerClass(referencedMemberName))
         && !referencedMemberName.equals(enclosingClassName);

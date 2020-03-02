@@ -246,7 +246,6 @@ function test_download_integrity_sha256() {
 
   set_workspace_command "repository_ctx.download(\"http://localhost:${fileserver_port}/file.txt\", \"file.txt\", integrity=\"${file_integrity}\")"
 
-  echo 'build --incompatible_disallow_unverified_http_downloads' >> .bazelrc
   build_and_process_log --exclude_rule "//external:local_config_cc"
 
   ensure_contains_exactly 'location: .*repos.bzl:2:3' 1
@@ -276,7 +275,6 @@ function test_download_integrity_sha512() {
 
   set_workspace_command "repository_ctx.download(\"http://localhost:${fileserver_port}/file.txt\", \"file.txt\", integrity=\"${file_integrity}\")"
 
-  echo 'build --incompatible_disallow_unverified_http_downloads' >> .bazelrc
   build_and_process_log --exclude_rule "//external:local_config_cc"
 
   ensure_contains_exactly 'location: .*repos.bzl:2:3' 1
@@ -294,7 +292,6 @@ function test_download_integrity_malformed() {
   mkdir -p "${server_dir}"
   local file="${server_dir}/file.txt"
   startup_server "${server_dir}"
-  echo 'build --incompatible_disallow_unverified_http_downloads' >> .bazelrc
   echo "file contents here" > "${file}"
 
   # Unsupported checksum algorithm

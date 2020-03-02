@@ -15,18 +15,28 @@
 package com.google.testing.junit.runner;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.util.stream.Collectors.toList;
 
+import com.google.common.hash.HashCode;
+import com.google.common.hash.Hasher;
+import com.google.common.hash.Hashing;
+import com.google.common.hash.HashingInputStream;
+import com.google.common.io.ByteStreams;
 import com.google.common.io.Files;
 import com.google.devtools.build.lib.worker.WorkerProtocol.WorkRequest;
 import com.google.devtools.build.lib.worker.WorkerProtocol.WorkResponse;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.PrintStream;
 import java.net.URL;
 import java.net.URLClassLoader;
-import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 /** A utility class for running Java tests using persistent workers. */
 final class PersistentTestRunner {
@@ -39,17 +49,68 @@ final class PersistentTestRunner {
    * Runs new tests in the same process. Communicates with bazel using the worker's protocol. Reads
    * a {@link WorkRequest} sent by bazel and sends back a {@link WorkResponse}.
    *
-   * <p>Before running a test it creates a new classloader loading the test and its dependencies'
-   * classes. A class already loaded in a classloader can not be unloaded. To overcome this issue a
-   * new classloader has to be created at every test run.
+   * <p>Uses three different classloaders:
+   *
+   * <ul>
+   *   <li>A classloader for direct dependencies: loads the classes of the test target and its
+   *       direct dependencies, *excluding* those dependencies that are also among the rest of the
+   *       transitive dependencies
+   *   <li>A classloader for transitive dependencies: loads the remaining classes from the
+   *       transitive dependencies.
+   *   <li>The system classloader: initialized at JVM startup time; loads the test runner's classes.
+   * </ul>
+   *
+   * <p>The classloaders have a child-parent relationship: direct CL -> transitive CL -> system CL.
+   *
+   * <p>The direct dependencies classloader is the current thread's classloader.
+   *
+   * <p>For example, given the following dependency graph:
+   *
+   *                TestTarget
+   *                /  |     \
+   *               *   *     *
+   *              a    b     c
+   *              |   *      |
+   *              *  /       *
+   *               d         e
+   *               |
+   *               *
+   *               f
+   *
+   * <p>the classloaders load the following: - the direct classloader loads the classes of
+   * TestTarget, a and c, which are direct deps - the transitive classloader loads the classes of b,
+   * d, e and f, which are transitive deps Note that b is loaded by the transitive classloader even
+   * if it is a direct dependency, because b is also a dependency of d, which is a 2nd level
+   * dependency of TestTarget.
+   *
+   * <p>Excluding the direct dependencies that are also present lower in the dependency tree from
+   * direct dependencies classloader presents two advantages: 1. reduces the number of classes
+   * loaded by directDepsClassLoader, making it faster to create/load 2. avoids additional custom
+   * logic for loading classes, since we are now sure that the transitive dependencies classLoader
+   * doesn't reference anything from its child classloader
+   *
+   * <p>The direct and transitive classloaders are rebuilt before every test run only if the
+   * combined hash of the jars to be loaded has changed. If the transitive classloader has to be
+   * rebuilt, the direct classloader will also be rebuilt to preserve correctness.
    */
   static int runPersistentTestRunner(
       String suitClassName, String workspacePrefix, SuiteTestRunner suiteTestRunner) {
     PrintStream originalStdOut = System.out;
     PrintStream originalStdErr = System.err;
 
-    String testRuntimeClasspathFile = System.getenv("TEST_RUNTIME_CLASSPATH_FILE");
-    String javaRunfilesPath = System.getenv("JAVA_RUNFILES");
+    String directClasspathFile = System.getenv("TEST_DIRECT_CLASSPATH_FILE");
+    String transitiveClasspathFile = System.getenv("TEST_TRANSITIVE_CLASSPATH_FILE");
+    String absolutePathPrefix = System.getenv("JAVA_RUNFILES") + File.separator + workspacePrefix;
+
+    // Loads the classes of the test target and its direct dependencies *excluding* those
+    // dependencies that are also among the rest of the transitive dependencies.
+    URLClassLoader directDepsClassLoader = null;
+    // Loads all the classes in the transitive dependencies, excluding those loaded
+    // by directDepsClassLoader
+    URLClassLoader transitiveDepsClassLoader = null;
+
+    HashCode previousTransitiveCombinedHash = null;
+    HashCode previousDirectCombinedHash = null;
 
     // Reading the work requests and solving them in sequence is not a problem because Bazel creates
     // up to --worker_max_instances (defaults to 4) instances per worker key.
@@ -62,8 +123,42 @@ final class PersistentTestRunner {
           break;
         }
 
-        URLClassLoader testRunnerClassLoader =
-            recreateClassLoader(testRuntimeClasspathFile, javaRunfilesPath, workspacePrefix);
+        Set<File> transitiveDeps =
+            getFilesWithAbsolutePathPrefixFromFile(transitiveClasspathFile, absolutePathPrefix);
+        Set<File> directDeps =
+            getFilesWithAbsolutePathPrefixFromFile(directClasspathFile, absolutePathPrefix);
+        // Filter out duplicated dependencies from the directDeps, to ensure that the
+        // transitiveDepsClassLoader doesn't reference anything from directDepsClassLoader.
+        directDeps = filterOutDupedDeps(directDeps, transitiveDeps);
+
+        HashCode transitiveCombinedHash = getCombinedHashForFiles(transitiveDeps);
+        HashCode directCombinedHash = getCombinedHashForFiles(directDeps);
+
+        boolean recreateTransitiveClassloader =
+            transitiveDepsClassLoader == null
+                || !transitiveCombinedHash.equals(previousTransitiveCombinedHash);
+
+        // if the parent needs to be re-created, the child needs to be recreated also
+        boolean recreateDirectClassloader =
+            recreateTransitiveClassloader
+                || directDepsClassLoader == null
+                || !directCombinedHash.equals(previousDirectCombinedHash);
+
+        previousTransitiveCombinedHash = transitiveCombinedHash;
+        previousDirectCombinedHash = directCombinedHash;
+
+        if (recreateTransitiveClassloader) {
+          transitiveDepsClassLoader =
+              new URLClassLoader(
+                  convertFileListToURLArray(transitiveDeps), ClassLoader.getSystemClassLoader());
+        }
+
+        if (recreateDirectClassloader) {
+          directDepsClassLoader =
+              new URLClassLoader(convertFileListToURLArray(directDeps), transitiveDepsClassLoader);
+        }
+
+        Thread.currentThread().setContextClassLoader(directDepsClassLoader);
 
         ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
         PrintStream printStream = new PrintStream(outputStream, true);
@@ -74,7 +169,7 @@ final class PersistentTestRunner {
         try {
           exitCode =
               suiteTestRunner.runTestsInSuite(
-                  suitClassName, arguments, testRunnerClassLoader, /* resolve= */ true);
+                  suitClassName, arguments, directDepsClassLoader, /* resolve= */ true);
         } finally {
           System.setOut(originalStdOut);
           System.setErr(originalStdErr);
@@ -115,41 +210,57 @@ final class PersistentTestRunner {
     }
   }
 
-  /**
-   * Returns a classloader containing the jars read from the given runtime classpath file.
-   *
-   * <p>Sets the classloader of the current thread to the newly created classloader.
-   *
-   * <p>Sets the classloader used to load the test classes and their dependencies.
-   *
-   * <p>Needs to be called before every test run to avoid having stale classes. A class already
-   * loaded in a classloader can not be unloaded. To overcome this a new classloader has to be
-   * created at every test run.
-   */
-  private static URLClassLoader recreateClassLoader(
-      String runtimeClasspathFilename, String javaRunfilesPath, String workspacePrefix)
-      throws IOException {
-    URLClassLoader classLoader =
-        new URLClassLoader(
-            createURLsFromRelativePathsInFile(
-                runtimeClasspathFilename, javaRunfilesPath, workspacePrefix));
-    Thread.currentThread().setContextClassLoader(classLoader);
-    return classLoader;
+  private static HashCode getCombinedHashForFiles(Set<File> files) {
+    List<HashCode> hashesAsBytes =
+        files.stream()
+            .parallel()
+            .map(file -> getFileHash(file))
+            .filter(Objects::nonNull)
+            .collect(toList());
+
+    // Update the hasher separately because Hasher.putBytes() is not safe for parallel operations
+    Hasher hasher = Hashing.sha256().newHasher();
+    for (HashCode hash : hashesAsBytes) {
+      hasher.putBytes(hash.asBytes());
+    }
+    return hasher.hash();
   }
 
-  private static URL[] createURLsFromRelativePathsInFile(
-      String runtimeClasspathFilename, String javaRunfilesPath, String workspacePrefix)
-      throws IOException {
-    List<String> testRuntimeClasspath = Files.readLines(new File(runtimeClasspathFilename), UTF_8);
-    ArrayList<URL> urlList = new ArrayList<>();
-    for (String classPathEntry : testRuntimeClasspath) {
-      urlList.add(
-          new File(javaRunfilesPath + File.separator + workspacePrefix + classPathEntry)
-              .toURI()
-              .toURL());
+  private static HashCode getFileHash(File file) {
+    try {
+      InputStream inputStream;
+      inputStream = new FileInputStream(file);
+      HashingInputStream hashingStream = new HashingInputStream(Hashing.sha256(), inputStream);
+      ByteStreams.copy(hashingStream, ByteStreams.nullOutputStream());
+      return hashingStream.hash();
+    } catch (IOException e) {
+      // Throwing RuntimeException to fail the whole build, and still benefit from using parallel
+      // streams in getCombinedHashForFiles().
+      throw new RuntimeException(e);
     }
-    URL[] urls = new URL[urlList.size()];
-    return urlList.toArray(urls);
+  }
+
+  private static URL[] convertFileListToURLArray(Set<File> jars) throws IOException {
+    URL[] urls = new URL[jars.size()];
+    int it = 0;
+    for (File jar : jars) {
+      urls[it++] = jar.toURI().toURL();
+    }
+    return urls;
+  }
+
+  private static Set<File> getFilesWithAbsolutePathPrefixFromFile(
+      String runtimeClasspathFilename, String absolutePathPrefix) throws IOException {
+    return Files.readLines(new File(runtimeClasspathFilename), UTF_8).stream()
+        .map(entry -> new File(absolutePathPrefix + entry))
+        .collect(Collectors.toSet());
+  }
+
+  private static Set<File> filterOutDupedDeps(Set<File> smallSet, Set<File> largeSet) {
+    return smallSet.stream()
+        .parallel()
+        .filter(f -> !largeSet.contains(f))
+        .collect(Collectors.toSet());
   }
 
   static boolean isPersistentTestRunner() {

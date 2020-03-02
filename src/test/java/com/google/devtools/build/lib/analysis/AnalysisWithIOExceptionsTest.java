@@ -17,6 +17,7 @@ import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 
 import com.google.devtools.build.lib.analysis.util.AnalysisTestCase;
 import com.google.devtools.build.lib.clock.BlazeClock;
+import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
@@ -55,5 +56,15 @@ public class AnalysisWithIOExceptionsTest extends AnalysisTestCase {
     crashMessage = path -> path.toString().contains("a.sh") ? "bork" : null;
     reporter.removeHandler(failFastHandler);
     assertThrows(ViewCreationFailedException.class, () -> update("//b:b"));
+  }
+
+  @Test
+  public void testWorkspaceError() throws IOException {
+    scratch.file("a/BUILD");
+    crashMessage = path -> path.toString().contains("WORKSPACE") ? "bork" : null;
+    reporter.removeHandler(failFastHandler);
+    assertThrows(
+        TargetParsingException.class,
+        () -> update(new FlagBuilder().with(Flag.KEEP_GOING), "//a:a"));
   }
 }

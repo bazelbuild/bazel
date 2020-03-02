@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.rules.android;
 
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.skylarkbuildapi.android.ApkInfoApi;
@@ -93,9 +92,8 @@ public class ApkInfo extends NativeInfo implements ApkInfoApi<Artifact> {
     }
 
     @Override
-    public ApkInfoApi<?> createInfo(Dict<String, Object> kwargs, Location loc)
-        throws EvalException {
-      return throwUnsupportedConstructorException(loc);
+    public ApkInfoApi<?> createInfo(Dict<String, Object> kwargs) throws EvalException {
+      return throwUnsupportedConstructorException();
     }
   }
 }

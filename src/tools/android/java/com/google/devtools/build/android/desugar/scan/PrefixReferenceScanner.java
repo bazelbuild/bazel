@@ -303,7 +303,8 @@ class PrefixReferenceScanner extends ClassVisitor {
                 || cst instanceof Long
                 || cst instanceof Float
                 || cst instanceof Double,
-            "Unexpected constant: ", cst);
+            "Unexpected constant: ",
+            cst);
       }
     }
 

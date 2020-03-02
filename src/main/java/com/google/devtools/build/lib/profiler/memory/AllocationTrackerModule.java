@@ -21,7 +21,7 @@ import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.WorkspaceBuilder;
-import com.google.devtools.build.lib.syntax.Callstack;
+import com.google.devtools.build.lib.syntax.Debug;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.common.options.OptionsParsingResult;
 import java.util.UUID;
@@ -69,7 +69,7 @@ public class AllocationTrackerModule extends BlazeModule {
     enabled = memoryTrackerPropery != null && memoryTrackerPropery.equals("1");
     if (enabled) {
       tracker = new AllocationTracker(SAMPLE_SIZE, VARIANCE);
-      Callstack.setEnabled(true);
+      Debug.setThreadHook(tracker);
       CurrentRuleTracker.setEnabled(true);
       AllocationTrackerInstaller.installAllocationTracker(tracker);
     }

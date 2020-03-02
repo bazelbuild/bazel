@@ -13,9 +13,9 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis.config.transitions;
 
-import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
-import java.util.List;
+import java.util.Collections;
+import java.util.Map;
 
 /**
  * A configuration transition that maps a single input {@link BuildOptions} to a single output
@@ -66,8 +66,8 @@ public interface PatchTransition extends ConfigurationTransition {
   BuildOptions patch(BuildOptions options);
 
   @Override
-  default List<BuildOptions> apply(BuildOptions buildOptions) {
-    return ImmutableList.of(patch(buildOptions));
+  default Map<String, BuildOptions> apply(BuildOptions buildOptions) {
+    return Collections.singletonMap(PATCH_TRANSITION_KEY, patch(buildOptions));
   }
 
   @Override

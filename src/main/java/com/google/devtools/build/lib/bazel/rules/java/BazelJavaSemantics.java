@@ -19,6 +19,7 @@ import static com.google.common.base.Strings.isNullOrEmpty;
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -306,7 +307,7 @@ public class BazelJavaSemantics implements JavaSemantics {
     }
     NestedSet<Artifact> classpath = classpathBuilder.build();
 
-    if (JavaSemantics.isPersistentTestRunner(ruleContext)) {
+    if (JavaSemantics.isTestTargetAndPersistentTestRunner(ruleContext)) {
       // Create an artifact that stores the test's runtime classpath (excluding the test support
       // classpath). The file is read by the test runner. The jars inside the file are loaded
       // dynamically for every test run into a custom classloader.
@@ -325,6 +326,7 @@ public class BazelJavaSemantics implements JavaSemantics {
               ruleContext.getActionOwner(),
               testRuntimeClasspathArtifact,
               javaCommon.getRuntimeClasspath(),
+              /* filesToIgnore= */ ImmutableSet.of(),
               true));
       filesBuilder.add(testRuntimeClasspathArtifact);
 
@@ -355,6 +357,7 @@ public class BazelJavaSemantics implements JavaSemantics {
                 ruleContext.getActionOwner(),
                 runtimeClassPathArtifact,
                 javaCommon.getRuntimeClasspath(),
+                /* filesToIgnore= */ ImmutableSet.of(),
                 true));
         filesBuilder.add(runtimeClassPathArtifact);
         arguments.add(
@@ -488,7 +491,7 @@ public class BazelJavaSemantics implements JavaSemantics {
       // targets may break, we are keeping it behind this flag.
       return;
     }
-    if (!JavaSemantics.isPersistentTestRunner(ruleContext)) {
+    if (!JavaSemantics.isTestTargetAndPersistentTestRunner(ruleContext)) {
       // Only add the test support to the dependencies when running in regular mode.
       // In persistent test runner mode don't pollute the classpath of the test with
       // the test support classes.
@@ -647,7 +650,8 @@ public class BazelJavaSemantics implements JavaSemantics {
       boolean usingNativeSinglejar,
       // Explicitly ignoring params since Bazel doesn't yet support one version
       OneVersionEnforcementLevel oneVersionEnforcementLevel,
-      Artifact oneVersionWhitelistArtifact) {
+      Artifact oneVersionWhitelistArtifact,
+      Artifact sharedArchive) {
     return DeployArchiveBuilder.defaultSingleJarCommandLineWithoutOneVersion(
             output,
             mainClass,

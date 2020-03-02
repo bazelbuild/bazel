@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.skylarkbuildapi.cpp;
 
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
 import com.google.devtools.build.lib.skylarkbuildapi.SkylarkActionFactoryApi;
 import com.google.devtools.build.lib.skylarkbuildapi.SkylarkRuleContextApi;
@@ -75,7 +74,7 @@ public interface CcModuleApi<
 
   @SkylarkCallable(
       name = "configure_features",
-      doc = "Creates a feature_configuration instance.",
+      doc = "Creates a feature_configuration instance. Requires the cpp configuration fragment.",
       parameters = {
         @Param(
             name = "ctx",
@@ -507,7 +506,6 @@ public interface CcModuleApi<
   @SkylarkCallable(
       name = "create_library_to_link",
       doc = "Creates <code>LibraryToLink</code>",
-      useLocation = true,
       useStarlarkThread = true,
       parameters = {
         @Param(
@@ -598,16 +596,13 @@ public interface CcModuleApi<
       boolean alwayslink,
       String dynamicLibraryPath,
       String interfaceLibraryPath,
-      Location location,
       StarlarkThread thread)
       throws EvalException, InterruptedException;
 
   @SkylarkCallable(
       name = "create_linker_input",
       doc = "Creates a <code>LinkingContext</code>.",
-      useLocation = true,
       useStarlarkThread = true,
-      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_CC_SHARED_LIBRARY,
       parameters = {
         @Param(
             name = "owner",
@@ -645,14 +640,19 @@ public interface CcModuleApi<
       Object librariesToLinkObject,
       Object userLinkFlagsObject,
       Object nonCodeInputs,
-      Location location,
       StarlarkThread thread)
       throws EvalException, InterruptedException;
 
   @SkylarkCallable(
+      name = "check_experimental_cc_shared_library",
+      doc = "DO NOT USE. This is to guard use of cc_shared_library.",
+      useStarlarkThread = true,
+      documented = false)
+  void checkExperimentalCcSharedLibrary(StarlarkThread thread) throws EvalException;
+
+  @SkylarkCallable(
       name = "create_linking_context",
       doc = "Creates a <code>LinkingContext</code>.",
-      useLocation = true,
       useStarlarkThread = true,
       parameters = {
         @Param(
@@ -660,32 +660,38 @@ public interface CcModuleApi<
             doc = "Depset of <code>LinkerInput</code>.",
             positional = false,
             named = true,
-            enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_CC_SHARED_LIBRARY,
-            valueWhenDisabled = "None",
+            noneable = true,
+            defaultValue = "None",
             allowedTypes = {@ParamType(type = NoneType.class), @ParamType(type = Depset.class)}),
         @Param(
             name = "libraries_to_link",
             doc = "List of <code>LibraryToLink</code>.",
             positional = false,
             named = true,
+            disableWithFlag = FlagIdentifier.INCOMPATIBLE_REQUIRE_LINKER_INPUT_CC_API,
             noneable = true,
             defaultValue = "None",
+            valueWhenDisabled = "None",
             allowedTypes = {@ParamType(type = NoneType.class), @ParamType(type = Sequence.class)}),
         @Param(
             name = "user_link_flags",
             doc = "List of user link flags passed as strings.",
             positional = false,
             named = true,
+            disableWithFlag = FlagIdentifier.INCOMPATIBLE_REQUIRE_LINKER_INPUT_CC_API,
             noneable = true,
             defaultValue = "None",
+            valueWhenDisabled = "None",
             allowedTypes = {@ParamType(type = NoneType.class), @ParamType(type = Sequence.class)}),
         @Param(
             name = "additional_inputs",
             doc = "For additional inputs to the linking action, e.g.: linking scripts.",
             positional = false,
             named = true,
+            disableWithFlag = FlagIdentifier.INCOMPATIBLE_REQUIRE_LINKER_INPUT_CC_API,
             noneable = true,
             defaultValue = "None",
+            valueWhenDisabled = "None",
             allowedTypes = {@ParamType(type = NoneType.class), @ParamType(type = Sequence.class)}),
       })
   LinkingContextT createCcLinkingInfo(
@@ -693,7 +699,6 @@ public interface CcModuleApi<
       Object librariesToLinkObject,
       Object userLinkFlagsObject,
       Object nonCodeInputs, // <FileT> expected
-      Location location,
       StarlarkThread thread)
       throws EvalException, InterruptedException;
 
@@ -985,7 +990,6 @@ public interface CcModuleApi<
           "Should be used for creating library rules that can propagate information downstream in"
               + " order to be linked later by a top level rule that does transitive linking to"
               + " create an executable or dynamic library.",
-      useLocation = true,
       useStarlarkThread = true,
       parameters = {
         @Param(
@@ -1093,7 +1097,6 @@ public interface CcModuleApi<
       boolean disallowStaticLibraries,
       boolean disallowDynamicLibraries,
       Object grepIncludes,
-      Location location,
       StarlarkThread thread)
       throws InterruptedException, EvalException;
 }

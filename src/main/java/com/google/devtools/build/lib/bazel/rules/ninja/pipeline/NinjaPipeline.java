@@ -11,15 +11,16 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-//
 
 package com.google.devtools.build.lib.bazel.rules.ninja.pipeline;
 
 import static com.google.devtools.build.lib.concurrent.MoreFutures.waitForFutureAndGetWithCheckedException;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
+import com.google.common.collect.Sets;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.devtools.build.lib.bazel.rules.ninja.file.ByteFragmentAtOffset;
@@ -41,8 +42,10 @@ import com.google.devtools.build.lib.vfs.Path;
 import java.io.IOException;
 import java.nio.channels.ReadableByteChannel;
 import java.util.ArrayDeque;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * Responsible for parsing Ninja file, all its included and subninja files, and returning {@link
@@ -53,14 +56,27 @@ import java.util.Map;
 public class NinjaPipeline {
   private final Path basePath;
   private final ListeningExecutorService service;
+  private final Collection<Path> includedOrSubninjaFiles;
+  private final String ownerTargetName;
+  private final Set<Path> childPaths;
+  private Integer readBlockSize;
 
   /**
    * @param basePath base path for resolving include and subninja paths.
    * @param service service to use for scheduling tasks in parallel.
+   * @param includedOrSubninjaFiles Ninja files expected in include/subninja statements
+   * @param ownerTargetName name of the owner ninja_graph target
    */
-  public NinjaPipeline(Path basePath, ListeningExecutorService service) {
+  public NinjaPipeline(
+      Path basePath,
+      ListeningExecutorService service,
+      Collection<Path> includedOrSubninjaFiles,
+      String ownerTargetName) {
     this.basePath = basePath;
     this.service = service;
+    this.includedOrSubninjaFiles = includedOrSubninjaFiles;
+    this.ownerTargetName = ownerTargetName;
+    this.childPaths = Sets.newConcurrentHashSet();
   }
 
   /**
@@ -69,7 +85,7 @@ public class NinjaPipeline {
    * @return {@link Pair} of {@link NinjaScope} with rules and expanded variables (and child
    *     scopes), and list of {@link NinjaTarget}.
    */
-  public Pair<NinjaScope, List<NinjaTarget>> pipeline(Path mainFile)
+  public List<NinjaTarget> pipeline(Path mainFile)
       throws GenericParsingException, InterruptedException, IOException {
     NinjaFileParseResult result =
         waitForFutureAndGetWithCheckedException(
@@ -79,7 +95,7 @@ public class NinjaPipeline {
     NinjaScope scope = new NinjaScope();
     // This will cause additional parsing of included/subninja scopes, and their recursive expand.
     result.expandIntoScope(scope, rawTargets);
-    return Pair.of(scope, iterateScopesScheduleTargetsParsing(scope, rawTargets));
+    return iterateScopesScheduleTargetsParsing(scope, rawTargets);
   }
 
   /**
@@ -98,12 +114,13 @@ public class NinjaPipeline {
       NinjaScope currentScope = queue.removeFirst();
       List<ByteFragmentAtOffset> targetFragments = rawTargets.get(currentScope);
       Preconditions.checkNotNull(targetFragments);
-      for (ByteFragmentAtOffset fragment : targetFragments) {
+      for (ByteFragmentAtOffset byteFragmentAtOffset : targetFragments) {
         future.add(
             service.submit(
                 () ->
-                    new NinjaParserStep(new NinjaLexer(fragment.getFragment()))
-                        .parseNinjaTarget(currentScope, fragment.getRealStartOffset())));
+                    new NinjaParserStep(new NinjaLexer(byteFragmentAtOffset.getFragment()))
+                        .parseNinjaTarget(
+                            currentScope, byteFragmentAtOffset.getRealStartOffset())));
       }
       queue.addAll(currentScope.getIncludedScopes());
       queue.addAll(currentScope.getSubNinjaScopes());
@@ -125,11 +142,12 @@ public class NinjaPipeline {
    * parsing result in the parent file {@link NinjaFileParseResult} structure.
    */
   public NinjaPromise<NinjaFileParseResult> createChildFileParsingPromise(
-      NinjaVariableValue value, Integer offset) throws IOException {
+      NinjaVariableValue value, Integer offset, String parentNinjaFileName)
+      throws GenericParsingException, IOException {
     if (value.isPlainText()) {
       // If the value of the path is already known, we can immediately schedule parsing
       // of the child Ninja file.
-      Path path = basePath.getRelative(value.getRawText());
+      Path path = getChildNinjaPath(value.getRawText(), parentNinjaFileName);
       ListenableFuture<NinjaFileParseResult> parsingFuture = scheduleParsing(path);
       return (scope) ->
           waitForFutureAndGetWithCheckedException(
@@ -142,7 +160,7 @@ public class NinjaPipeline {
         if (expandedValue.isEmpty()) {
           throw new GenericParsingException("Expected non-empty path.");
         }
-        Path path = basePath.getRelative(expandedValue);
+        Path path = getChildNinjaPath(expandedValue, parentNinjaFileName);
         return waitForFutureAndGetWithCheckedException(
             scheduleParsing(path), GenericParsingException.class, IOException.class);
       };
@@ -150,11 +168,42 @@ public class NinjaPipeline {
   }
 
   /**
+   * Set the size of the block read by {@link ParallelFileProcessing}. Method is mainly intended to
+   * be used in tests.
+   */
+  @VisibleForTesting
+  public void setReadBlockSize(Integer readBlockSize) {
+    this.readBlockSize = readBlockSize;
+  }
+
+  private Path getChildNinjaPath(String rawText, String parentNinjaFileName)
+      throws GenericParsingException {
+    Path childPath = basePath.getRelative(rawText);
+    if (!this.includedOrSubninjaFiles.contains(childPath)) {
+      throw new GenericParsingException(
+          String.format(
+              "Ninja file requested from '%s' " + "not declared in 'srcs' attribute of '%s'.",
+              parentNinjaFileName, this.ownerTargetName));
+    }
+    return childPath;
+  }
+
+  /**
    * Actually schedules the parsing of the Ninja file and returns {@link
    * ListenableFuture<NinjaFileParseResult>} for obtaining the result.
    */
-  private ListenableFuture<NinjaFileParseResult> scheduleParsing(Path path) throws IOException {
+  private ListenableFuture<NinjaFileParseResult> scheduleParsing(Path path)
+      throws IOException, GenericParsingException {
+    if (!this.childPaths.add(path)) {
+      throw new GenericParsingException(
+          String.format(
+              "Detected cycle or duplicate inclusion in Ninja files dependencies, including '%s'.",
+              path.getBaseName()));
+    }
     BlockParameters parameters = new BlockParameters(path.getFileSize());
+    if (readBlockSize != null) {
+      parameters.setReadBlockSize(readBlockSize);
+    }
     return service.submit(
         () -> {
           try (ReadableByteChannel channel = path.createReadableByteChannel()) {
@@ -165,7 +214,7 @@ public class NinjaPipeline {
                 () -> {
                   NinjaFileParseResult parseResult = new NinjaFileParseResult();
                   pieces.add(parseResult);
-                  return new NinjaParser(NinjaPipeline.this, parseResult);
+                  return new NinjaParser(NinjaPipeline.this, parseResult, path.getBaseName());
                 },
                 service,
                 NinjaSeparatorFinder.INSTANCE);

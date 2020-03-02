@@ -22,7 +22,6 @@ import com.google.devtools.build.lib.actions.ActionAnalysisMetadata.MiddlemanTyp
 import com.google.devtools.build.lib.actions.cache.ActionCache;
 import com.google.devtools.build.lib.actions.cache.DigestUtils;
 import com.google.devtools.build.lib.actions.cache.MetadataHandler;
-import com.google.devtools.build.lib.actions.cache.OrderIndependentHasher;
 import com.google.devtools.build.lib.actions.cache.Protos.ActionCacheStatistics.MissReason;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -44,11 +43,11 @@ import javax.annotation.Nullable;
  * Checks whether an {@link Action} needs to be executed, or whether it has not changed since it was
  * last stored in the action cache. Must be informed of the new Action data after execution as well.
  *
- * <p>The fingerprint, input files names, and metadata (either mtimes or content digests) of each
- * action are cached in the action cache to avoid unnecessary rebuilds. Middleman artifacts are
- * handled specially, avoiding the need to create actual files corresponding to the middleman
- * artifacts. Instead of that, results of MiddlemanAction dependency checks are cached internally
- * and then reused whenever an input middleman artifact is encountered.
+ * <p>The fingerprint, input files names, and metadata (either mtimes or MD5sums) of each action are
+ * cached in the action cache to avoid unnecessary rebuilds. Middleman artifacts are handled
+ * specially, avoiding the need to create actual files corresponding to the middleman artifacts.
+ * Instead of that, results of MiddlemanAction dependency checks are cached internally and then
+ * reused whenever an input middleman artifact is encountered.
  *
  * <p>While instances of this class hold references to action and metadata cache instances, they are
  * otherwise lightweight, and should be constructed anew and discarded for each build request.
@@ -150,17 +149,16 @@ public class ActionCacheChecker {
       NestedSet<Artifact> actionInputs,
       MetadataHandler metadataHandler,
       boolean checkOutput) {
-    OrderIndependentHasher hasher = new OrderIndependentHasher();
+    Map<String, FileArtifactValue> mdMap = new HashMap<>();
     if (checkOutput) {
       for (Artifact artifact : action.getOutputs()) {
-        hasher.addArtifact(
-            artifact.getExecPathString(), getMetadataMaybe(metadataHandler, artifact));
+        mdMap.put(artifact.getExecPathString(), getMetadataMaybe(metadataHandler, artifact));
       }
     }
     for (Artifact artifact : actionInputs.toList()) {
-      hasher.addArtifact(artifact.getExecPathString(), getMetadataMaybe(metadataHandler, artifact));
+      mdMap.put(artifact.getExecPathString(), getMetadataMaybe(metadataHandler, artifact));
     }
-    return !Arrays.equals(hasher.finish(), entry.getFileDigest());
+    return !Arrays.equals(DigestUtils.fromMetadata(mdMap), entry.getFileDigest());
   }
 
   private void reportCommand(EventHandler handler, Action action) {
@@ -342,6 +340,7 @@ public class ActionCacheChecker {
       return true;
     }
 
+    entry.getFileDigest();
     actionCache.accountHit();
     return false;
   }
@@ -385,8 +384,8 @@ public class ActionCacheChecker {
     }
     Map<String, String> usedEnvironment =
         computeUsedEnv(action, clientEnv, remoteDefaultPlatformProperties);
-    ActionCache.Entry.Builder entry =
-        new ActionCache.Entry.Builder(
+    ActionCache.Entry entry =
+        new ActionCache.Entry(
             action.getKey(actionKeyContext), usedEnvironment, action.discoversInputs());
     for (Artifact output : action.getOutputs()) {
       // Remove old records from the cache if they used different key.
@@ -407,7 +406,8 @@ public class ActionCacheChecker {
     for (Artifact input : action.getInputs().toList()) {
       entry.addFile(input.getExecPath(), getMetadataMaybe(metadataHandler, input));
     }
-    actionCache.put(key, entry.build());
+    entry.getFileDigest();
+    actionCache.put(key, entry);
   }
 
   @Nullable
@@ -513,12 +513,10 @@ public class ActionCacheChecker {
       // Compute the aggregated middleman digest.
       // Since we never validate action key for middlemen, we should not store
       // it in the cache entry and just use empty string instead.
-      ActionCache.Entry.Builder entryBuilder =
-          new ActionCache.Entry.Builder("", ImmutableMap.<String, String>of(), false);
+      entry = new ActionCache.Entry("", ImmutableMap.<String, String>of(), false);
       for (Artifact input : action.getInputs().toList()) {
-        entryBuilder.addFile(input.getExecPath(), getMetadataMaybe(metadataHandler, input));
+        entry.addFile(input.getExecPath(), getMetadataMaybe(metadataHandler, input));
       }
-      entry = entryBuilder.build();
     }
 
     metadataHandler.setDigestForVirtualArtifact(middleman, entry.getFileDigest());

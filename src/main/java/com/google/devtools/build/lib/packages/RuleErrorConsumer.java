@@ -48,14 +48,27 @@ public interface RuleErrorConsumer {
   void attributeError(String attrName, String message);
 
   /**
-   * Convenience function to report non-attribute-specific errors in the current rule and then
-   * throw a {@link RuleErrorException}, immediately exiting the build invocation. Alternatively,
-   * invoke {@link #ruleError} instead to collect additional error information before ending the
-   * invocation.
+   * Convenience function to report non-attribute-specific errors in the current rule and then throw
+   * a {@link RuleErrorException}, immediately exiting the current rule, and shutting down the
+   * invocation in a no-keep-going build. If multiple errors are present, invoke {@link #ruleError}
+   * to collect additional error information before calling this method.
    */
   default RuleErrorException throwWithRuleError(String message) throws RuleErrorException {
     ruleError(message);
     throw new RuleErrorException(message);
+  }
+
+  /** See {@link #throwWithRuleError(String)}. */
+  default RuleErrorException throwWithRuleError(Throwable cause) throws RuleErrorException {
+    ruleError(cause.getMessage());
+    throw new RuleErrorException(cause);
+  }
+
+  /** See {@link #throwWithRuleError(String)}. */
+  default RuleErrorException throwWithRuleError(String message, Throwable cause)
+      throws RuleErrorException {
+    ruleError(message);
+    throw new RuleErrorException(message, cause);
   }
 
   /**

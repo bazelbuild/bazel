@@ -1,3 +1,114 @@
+## Release 2.1.1 (2020-02-21)
+
+```
+Baseline: 41ec5a28fb30a8d6c5c60194c4bb29528352cf78
+
+Cherry picks:
+
+   + 733ac0ff7ad1e13ab68ceb2fde694d7ab71b2366:
+     Adds an alias for d8_jar_import in android.WORKSPACE.
+   + c94b1474b368dedf9f68f34fad90cc8664f2b0e0:
+     Automatic code cleanup.
+   + 2a8cc7075f741721563efd9dc050ca3458cde30b:
+     Do not fail or print errors when Shellzelisk cannot find a
+     requested ?
+   + bdf34d7fd9539411e93348ba25307f34362d9a42:
+     Fix race when extracting the install base when Bazel runs in a
+     PID namespace.
+   + d381c25bb7dd205c283f7ad91cac13190d2dfede:
+     Fix wrong mode of install base directory.
+   + eab39cc7b5a612f891fd1e5af5b45bdc1b66e6e1:
+     Disable broken test_max_open_file_descriptors.
+   + e6ee35faaa351a77e6fa667a74ed195e3d1927bf:
+     Release 2.1.0 (2020-02-07)
+   + 9a823d9dab82631ff4600eff38d597807e8d1221:
+     Prevent NPE on backwards seek on Chunker
+```
+
+9a823d9: Prevent NPE on backwards seek on Chunker.
+
+This release contains contributions from many people at Google, as well as George Gensure.
+
+## Release 2.1.0 (2020-02-07)
+
+```
+Baseline: 41ec5a28fb30a8d6c5c60194c4bb29528352cf78
+
+Cherry picks:
+
+   + 733ac0ff7ad1e13ab68ceb2fde694d7ab71b2366:
+     Adds an alias for d8_jar_import in android.WORKSPACE.
+   + c94b1474b368dedf9f68f34fad90cc8664f2b0e0:
+     Automatic code cleanup.
+   + 2a8cc7075f741721563efd9dc050ca3458cde30b:
+     Do not fail or print errors when Shellzelisk cannot find a
+     requested ?
+   + bdf34d7fd9539411e93348ba25307f34362d9a42:
+     Fix race when extracting the install base when Bazel runs in a
+     PID namespace.
+   + d381c25bb7dd205c283f7ad91cac13190d2dfede:
+     Fix wrong mode of install base directory.
+   + eab39cc7b5a612f891fd1e5af5b45bdc1b66e6e1:
+     Disable broken test_max_open_file_descriptors.
+```
+
+Incompatible changes:
+
+  - The following attributes of CcToolchainProvider, which formerly
+    were
+    accessible both as fields (x.f) and as methods (x.f()), are now
+    only fields:
+
+New features:
+
+  - Similar to the
+    [.bazelignore](https://docs.bazel.build/versions/master/guide.html
+    #.bazelignore) in the main repository, a `.bazelignore` file in
+    external repository will cause the specified directories to be
+    ignored by Bazel. Bazel won't try to identify any packages under
+    the directories, but the files can still be referenced in other
+    BUILD files.
+  - bazelignore files now support line comments, e.g. "# this is a
+    comment"
+
+Important changes:
+
+  - Experimental support for d8 merger is now available for use using
+    --define=android_dexmerger_tool=d8_dexmerger.
+  - Critical path run time should not have a longer run time than
+    total execution run time.
+  - Remove "please do not import" warning for cc rules.
+  - x.f() is now equivalent to y=x.f; y(). That is, x.f should return
+    the same
+    attribute value regardless of whether it is accessed as a field
+    or called
+    like a method. Any arguments to the call are evaluated after the
+    x.f operation.
+  - Add desugaring support for RoleManager#addRoleHolderAsUser
+  - Adds ctx.target_platform_has_constraint to allow rules to check
+    the target platform's constraints.
+  - Critical path run time should not have a longer run time than
+    total execution run time.
+  - Post new ConvenienceSymlinksIdentifiedEvent to the
+    BuildEventProtocol when
+    --experimental_convenience_symlinks_bep_event is enabled.
+  - Keyword-only arguments are now allowed:
+        def foo(a, *, k): pass
+        def foo(a, *b, k): pass
+      where k can be specified only by keyword:
+        foo(5, k=6)
+  - Generated Go protobufs now depend on //net/proto2/go:protodeps in
+    addition to //net/proto2/go:proto
+  - cquery 'somepath' returns more reliable results when the
+    dep has a different configuration than the parent. To get a
+    result for
+    `somepath(//foo, //bar`) where //bar isn't in the top-level
+    configuration,
+    run your query with `--universe_scope=//foo`. See cquery docs for
+    details.
+
+This release contains contributions from many people at Google, as well as Adam Liddell, Alessandro Patti, Andreas Herrmann, Bor Kae Hwang, Brian Silverman, Emran BatmanGhelich, George Gensure, Greg Estren, Jeff Palm, Jonathan Beverly, Mark Nevill, Patrick Niklaus, Peter, Philipp Wollermann, Ryan Beasley, Shin Yamamoto, Yen-Chi Chen.
+
 ## Release 2.0.0 (2019-12-19)
 
 ```

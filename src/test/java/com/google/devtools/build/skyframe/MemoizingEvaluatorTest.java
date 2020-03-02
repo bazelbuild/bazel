@@ -46,7 +46,6 @@ import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.testutil.TestThread;
 import com.google.devtools.build.lib.testutil.TestUtils;
-import com.google.devtools.build.skyframe.GraphInconsistencyReceiver.Inconsistency;
 import com.google.devtools.build.skyframe.GraphTester.NotComparableStringValue;
 import com.google.devtools.build.skyframe.GraphTester.StringValue;
 import com.google.devtools.build.skyframe.GraphTester.TestFunction;
@@ -57,6 +56,7 @@ import com.google.devtools.build.skyframe.NotifyingHelper.Order;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.ThinNodeEntry.DirtyType;
+import com.google.devtools.build.skyframe.proto.GraphInconsistency.Inconsistency;
 import java.lang.ref.WeakReference;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -171,6 +171,8 @@ public class MemoizingEvaluatorTest {
    *
    * <p>Returns a concurrent {@link Set} containing {@link InconsistencyData}s discovered during
    * evaluation. Callers should assert the desired properties on the returned set.
+   *
+   * <p>Calls {@code tester.initialize} under the hood, so call early in test setup!
    */
   protected Set<InconsistencyData> setupGraphInconsistencyReceiver(boolean allowDuplicates) {
     Set<InconsistencyData> inconsistencies = Sets.newConcurrentHashSet();
@@ -205,6 +207,7 @@ public class MemoizingEvaluatorTest {
     return inconsistencies;
   }
 
+  /** Calls {@code tester.initialize} under the hood, so call early in test setup! */
   protected Set<InconsistencyData> setupGraphInconsistencyReceiver() {
     return setupGraphInconsistencyReceiver(/*allowDuplicates=*/ false);
   }
@@ -2578,7 +2581,7 @@ public class MemoizingEvaluatorTest {
               missingChild,
               otherKeys);
           Preconditions.checkState(
-              inconsistency == Inconsistency.CHILD_MISSING_FOR_DIRTY_NODE, inconsistency);
+              inconsistency == Inconsistency.DIRTY_PARENT_HAD_MISSING_CHILD, inconsistency);
           Preconditions.checkState(topKey.equals(key), key);
           numInconsistencyCalls.incrementAndGet();
         });
@@ -5285,6 +5288,7 @@ public class MemoizingEvaluatorTest {
         GraphInconsistencyReceiver.THROWING;
     private EventFilter eventFilter = InMemoryMemoizingEvaluator.DEFAULT_STORED_EVENT_FILTER;
 
+    /** Constructs a new {@link #evaluator}, so call before injecting a transformer into it! */
     public void initialize(boolean keepEdges) {
       this.differencer = getRecordingDifferencer();
       this.evaluator =

@@ -39,7 +39,8 @@ public class StarlarkThreadDebuggingTest {
   // Executes the definition of a trivial function f in the specified thread,
   // and returns the function value.
   private static StarlarkFunction defineFunc(StarlarkThread thread) throws Exception {
-    EvalUtils.exec(ParserInput.fromLines("def f(): pass"), thread);
+    Module module = thread.getGlobals();
+    EvalUtils.exec(ParserInput.fromLines("def f(): pass"), module, thread);
     return (StarlarkFunction) thread.getGlobals().lookup("f");
   }
 
@@ -62,8 +63,7 @@ public class StarlarkThreadDebuggingTest {
           }
 
           @Override
-          public Object fastcall(
-              StarlarkThread thread, Location loc, Object[] positional, Object[] named) {
+          public Object fastcall(StarlarkThread thread, Object[] positional, Object[] named) {
             result[0] = Debug.getCallStack(thread);
             result[1] = thread.getCallStack();
             return Starlark.NONE;
@@ -82,9 +82,10 @@ public class StarlarkThreadDebuggingTest {
 
     // Set up global environment.
     StarlarkThread thread = newStarlarkThread();
-    thread.getGlobals().put("a", 1);
-    thread.getGlobals().put("b", 2);
-    thread.getGlobals().put("f", f);
+    Module module = thread.getGlobals();
+    module.put("a", 1);
+    module.put("b", 2);
+    module.put("f", f);
 
     // Execute a small file that calls f.
     ParserInput input =
@@ -93,7 +94,7 @@ public class StarlarkThreadDebuggingTest {
                 + "  f()\n"
                 + "g(4, 5, 6)",
             "main.star");
-    EvalUtils.exec(input, thread);
+    EvalUtils.exec(input, module, thread);
 
     @SuppressWarnings("unchecked")
     ImmutableList<Debug.Frame> stack = (ImmutableList<Debug.Frame>) result[0];
@@ -211,37 +212,46 @@ public class StarlarkThreadDebuggingTest {
   @Test
   public void testEvaluateVariableInScope() throws Exception {
     StarlarkThread thread = newStarlarkThread();
-    thread.getGlobals().put("a", 1);
+    Module module = thread.getGlobals();
+    module.put("a", 1);
 
-    Object a = EvalUtils.execAndEvalOptionalFinalExpression(ParserInput.fromLines("a"), thread);
+    Object a =
+        EvalUtils.execAndEvalOptionalFinalExpression(ParserInput.fromLines("a"), module, thread);
     assertThat(a).isEqualTo(1);
   }
 
   @Test
   public void testEvaluateVariableNotInScopeFails() throws Exception {
     StarlarkThread thread = newStarlarkThread();
-    thread.getGlobals().put("a", 1);
+    Module module = thread.getGlobals();
+    module.put("a", 1);
 
     SyntaxError e =
         assertThrows(
             SyntaxError.class,
-            () -> EvalUtils.execAndEvalOptionalFinalExpression(ParserInput.fromLines("b"), thread));
-
+            () ->
+                EvalUtils.execAndEvalOptionalFinalExpression(
+                    ParserInput.fromLines("b"), module, thread));
     assertThat(e).hasMessageThat().isEqualTo("name 'b' is not defined");
   }
 
   @Test
   public void testEvaluateExpressionOnVariableInScope() throws Exception {
     StarlarkThread thread = newStarlarkThread();
-    thread.getGlobals().put("a", "string");
+    Module module = thread.getGlobals();
+    module.put("a", "string");
 
     assertThat(
             EvalUtils.execAndEvalOptionalFinalExpression(
-                ParserInput.fromLines("a.startswith('str')"), thread))
+                ParserInput.fromLines("a.startswith('str')"), module, thread))
         .isEqualTo(true);
     EvalUtils.exec(
-        EvalUtils.parseAndValidateSkylark(ParserInput.fromLines("a = 1"), thread), thread);
-    assertThat(EvalUtils.execAndEvalOptionalFinalExpression(ParserInput.fromLines("a"), thread))
+        EvalUtils.parseAndValidate(ParserInput.fromLines("a = 1"), module, thread.getSemantics()),
+        module,
+        thread);
+    assertThat(
+            EvalUtils.execAndEvalOptionalFinalExpression(
+                ParserInput.fromLines("a"), module, thread))
         .isEqualTo(1);
   }
 }

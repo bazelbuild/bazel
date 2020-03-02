@@ -27,29 +27,31 @@ import com.google.devtools.build.android.desugar.testing.junit.JdkVersion;
 import com.google.devtools.build.android.desugar.testing.junit.RuntimeMethodHandle;
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
+import java.lang.invoke.MethodHandles.Lookup;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Modifier;
-import java.nio.file.Paths;
 import javax.inject.Inject;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.objectweb.asm.tree.ClassNode;
+import org.objectweb.asm.tree.MethodNode;
 
 /** Tests for accessing private constructors from another class within a nest. */
 @RunWith(DesugarRunner.class)
 @JdkSuppress(minJdkVersion = JdkVersion.V11)
 public final class NestDesugaringConstructorAccessTest {
 
+  private static final Lookup lookup = MethodHandles.lookup();
+
   @Rule
   public final DesugarRule desugarRule =
-      DesugarRule.builder(this, MethodHandles.lookup())
-          .addSourceInputs(Paths.get(System.getProperty("input_srcs")))
+      DesugarRule.builder(this, lookup)
+          .addSourceInputsFromJvmFlag("input_srcs")
+          .addJavacOptions("-source 11", "-target 11")
           .setWorkingJavaPackage(
               "com.google.devtools.build.android.desugar.nest.testsrc.simpleunit.constructor")
-          .addJavacOptions("-source 11", "-target 11")
           .addCommandOptions("desugar_nest_based_private_access", "true")
-          .enableIterativeTransformation(3)
           .build();
 
   @Inject
@@ -133,5 +135,39 @@ public final class NestDesugaringConstructorAccessTest {
       throws Throwable {
     long result = (long) createFromMultiArgConstructor.invoke((long) 20L, (int) 30);
     assertThat(result).isEqualTo(50L);
+  }
+
+  @Test
+  public void nestWithDollarSignNamedClasses_nestHostSyntheticConstructor(
+      @AsmNode(
+              className = "$Dollar$Sign$Named$Nest$",
+              memberName = "<init>",
+              memberDescriptor =
+                  "(JLcom/google/devtools/build/android/desugar/nest/testsrc/simpleunit/constructor/$Dollar$Sign$Named$Nest$$NestCC;)V")
+          MethodNode constructor)
+      throws Throwable {
+    assertThat(constructor).isNotNull();
+  }
+
+  @Test
+  public void nestWithDollarSignNamedClasses_nestMemberSyntheticConstructor(
+      @AsmNode(
+              className = "$Dollar$Sign$Named$Nest$$$Dollar$Sign$Named$Member$",
+              memberName = "<init>",
+              memberDescriptor =
+                  "(Lcom/google/devtools/build/android/desugar/nest/testsrc/simpleunit/constructor/$Dollar$Sign$Named$Nest$;Lcom/google/devtools/build/android/desugar/nest/testsrc/simpleunit/constructor/$Dollar$Sign$Named$Nest$$NestCC;)V")
+          MethodNode constructor)
+      throws Throwable {
+    assertThat(constructor).isNotNull();
+  }
+
+  @Test
+  public void nestWithDollarSignNamedClasses_execute(
+      @RuntimeMethodHandle(className = "DollarSignNamedNest", memberName = "execute")
+          MethodHandle execute)
+      throws Throwable {
+
+    long result = (long) execute.invoke((long) 10L);
+    assertThat(result).isEqualTo(14L);
   }
 }

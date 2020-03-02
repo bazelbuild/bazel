@@ -125,7 +125,6 @@ public final class StarlarkThreadTest extends EvaluationTestCase {
                 "range",
                 "repr",
                 "reversed",
-                "select",
                 "sorted",
                 "str",
                 "tuple",
@@ -164,29 +163,31 @@ public final class StarlarkThreadTest extends EvaluationTestCase {
     // This update to an existing variable should fail because the environment was frozen.
     Mutability.MutabilityException ex =
         assertThrows(Mutability.MutabilityException.class, () -> module.put("x", 4));
-    assertThat(ex).hasMessageThat().isEqualTo("trying to mutate a frozen object");
+    assertThat(ex).hasMessageThat().isEqualTo("trying to mutate a frozen module");
 
     // This update to a new variable should also fail because the environment was frozen.
     ex = assertThrows(Mutability.MutabilityException.class, () -> module.put("newvar", 5));
-    assertThat(ex).hasMessageThat().isEqualTo("trying to mutate a frozen object");
+    assertThat(ex).hasMessageThat().isEqualTo("trying to mutate a frozen module");
   }
 
   @Test
   public void testBuiltinsCanBeShadowed() throws Exception {
-    StarlarkThread thread = newStarlarkThreadWithSkylarkOptions();
-    EvalUtils.exec(ParserInput.fromLines("True = 123"), thread);
+    StarlarkThread thread = newStarlarkThread();
+    EvalUtils.exec(ParserInput.fromLines("True = 123"), thread.getGlobals(), thread);
     assertThat(thread.getGlobals().lookup("True")).isEqualTo(123);
   }
 
   @Test
   public void testVariableIsReferencedBeforeAssignment() throws Exception {
     StarlarkThread thread = newStarlarkThread();
-    thread.getGlobals().put("global_var", 666);
+    Module module = thread.getGlobals();
+    module.put("global_var", 666);
     try {
       EvalUtils.exec(
           ParserInput.fromLines(
               "def foo(x): x += global_var; global_var = 36; return x", //
               "foo(1)"),
+          module,
           thread);
       throw new AssertionError("failed to fail");
     } catch (EvalExceptionWithStackTrace e) {
@@ -194,31 +195,6 @@ public final class StarlarkThreadTest extends EvaluationTestCase {
           .hasMessageThat()
           .contains("local variable 'global_var' is referenced before assignment.");
     }
-  }
-
-  @Test
-  public void testVarOrderDeterminism() throws Exception {
-    Mutability parentMutability = Mutability.create("parent env");
-    StarlarkThread parentThread =
-        StarlarkThread.builder(parentMutability).useDefaultSemantics().build();
-    parentThread.getGlobals().put("a", 1);
-    parentThread.getGlobals().put("c", 2);
-    parentThread.getGlobals().put("b", 3);
-    Module parentFrame = parentThread.getGlobals();
-    parentMutability.freeze();
-    Mutability mutability = Mutability.create("testing");
-    StarlarkThread thread =
-        StarlarkThread.builder(mutability).useDefaultSemantics().setGlobals(parentFrame).build();
-    thread.getGlobals().put("x", 4);
-    thread.getGlobals().put("z", 5);
-    thread.getGlobals().put("y", 6);
-    // The order just has to be deterministic, but for definiteness this test spells out the exact
-    // order returned by the implementation: parent frame before current environment, and bindings
-    // within a frame ordered by when they were added.
-    assertThat(thread.getVariableNames()).containsExactly("a", "c", "b", "x", "z", "y").inOrder();
-    assertThat(thread.getGlobals().getTransitiveBindings())
-        .containsExactly("a", 1, "c", 2, "b", 3, "x", 4, "z", 5, "y", 6)
-        .inOrder();
   }
 
   @Test

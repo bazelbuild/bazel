@@ -87,7 +87,7 @@ public class FakePyWrapCcHelper
 
   @Override
   public WrapCcIncludeProviderApi getWrapCcIncludeProvider(
-      SkylarkRuleContextApi skylarkRuleContext, Depset swigIncludes) {
+      SkylarkRuleContextApi<ConstraintValueInfoApi> skylarkRuleContext, Depset swigIncludes) {
     return null;
   }
 

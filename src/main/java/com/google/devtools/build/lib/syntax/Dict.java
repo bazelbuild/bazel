@@ -41,12 +41,14 @@ import javax.annotation.Nullable;
     name = "dict",
     category = SkylarkModuleCategory.BUILTIN,
     doc =
-        "A language built-in type representing a dictionary (associative mapping). Dictionaries"
-            + " are mutable, indexable, ordered, iterable (equivalent to iterating over its keys),"
-            + " and support fast membership tests of keys using the <code>in</code> operator. The"
-            + " order of the keys is the order of their most recent insertion: it is unaffected by"
-            + " updating the value associated with an existing key, but is affected by removing"
-            + " then reinserting a key.</p>\n"
+        "dict is a built-in type representing an associative mapping or <i>dictionary</i>. A"
+            + " dictionary supports indexing using <code>d[k]</code> and key membership testing"
+            + " using <code>k in d</code>; both operations take constant time. Unfrozen"
+            + " dictionaries are mutable, and may be updated by assigning to <code>d[k]</code> or"
+            + " by calling certain methods. Dictionaries are iterable; iteration yields the"
+            + " sequence of keys in insertion order. Iteration order is unaffected by updating the"
+            + " value associated with an existing key, but is affected by removing then"
+            + " reinserting a key.</p>\n"
             + "<pre>d = {0: 0, 2: 2, 1: 1}\n"
             + "[k for k in d]  # [0, 2, 1]\n"
             + "d.pop(2)\n"
@@ -54,21 +56,25 @@ import javax.annotation.Nullable;
             + "0 in d, \"a\" in d  # (True, False)\n"
             + "[(k, v) for k, v in d.items()]  # [(0, \"a\"), (1, 1), (2, \"b\")]\n"
             + "</pre>\n"
-            + "<p>There are 3 ways to construct a dictionary, each with a different treatment of"
-            + " duplicate keys:</p>\n"
-            + "<p>The dict literal expression will result in a dynamic error if duplicate keys are"
-            + " given, regardless of whether the keys are themselves given as literals. The keys'"
-            + " insertion order is the order in which they are given in the expression.</p>\n"
-            + "<p>In the dict comprehension, key/value pairs yielded by the generator expression is"
-            + " set in the dictionary in the order yielded: the first occurrence of the key"
-            + " determines its insertion order, and the last determines the value associated to"
-            + " it.</p>\n"
+            + "<p>There are three ways to construct a dictionary:</p>\n"
+            + "<ol>\n"
+            + "<li>A dictionary expression <code>{k: v, ...}</code> yields a new dictionary with"
+            + " the specified key/value entries, inserted in the order they appear in the"
+            + " expression. Evaluation fails if any two key expressions yield the same"
+            + " value.</p>\n"
+            + "<li>A dictionary comprehension <code>{k: v for vars in seq}</code> yields a new"
+            + " dictionary into which each key/value pair is inserted in loop iteration order."
+            + " Duplicates are permitted: the first insertion of a given key determines its"
+            + " position in the sequence, and the last determines its associated value.</p>\n"
             + "<pre class=\"language-python\">\n"
             + "{k: v for k, v in ((\"a\", 0), (\"b\", 1), (\"a\", 2))}  # {\"a\": 2, \"b\": 1}\n"
             + "{i: 2*i for i in range(3)}  # {0: 0, 1: 2, 2: 4}\n"
             + "</pre>\n"
-            + "<p>The <a href=\"globals.html#dict\">dict()</a> global function is documented"
-            + " elsewhere.<p>")
+            + "<li>A call to the built-in <a href=\"globals.html#dict\">dict</a> function returns"
+            + " a dictionary containing the specified entries, which are inserted in argument"
+            + " order, positional arguments before named. As with comprehensions, duplicate keys"
+            + " are permitted.\n"
+            + "</ol>")
 // TODO(b/64208606): eliminate these type parameters as they are wildly unsound.
 // Starlark code may update a Dict in ways incompatible with its Java
 // parameterized type. There is no realistic static or dynamic way to prevent
@@ -77,7 +83,11 @@ import javax.annotation.Nullable;
 // Unchecked warnings should be treated as errors.
 // Ditto Sequence.
 public final class Dict<K, V>
-    implements Map<K, V>, StarlarkMutable, SkylarkIndexable, StarlarkIterable<K> {
+    implements Map<K, V>,
+        StarlarkValue,
+        Mutability.Freezable,
+        SkylarkIndexable,
+        StarlarkIterable<K> {
 
   private final LinkedHashMap<K, V> contents;
 
@@ -186,7 +196,7 @@ public final class Dict<K, V>
   public Object pop(Object key, Object defaultValue, StarlarkThread thread) throws EvalException {
     Object value = get(key);
     if (value != null) {
-      remove(key, /*loc=*/ null);
+      remove(key, (Location) null);
       return value;
     }
     if (defaultValue != Starlark.UNBOUND) {
@@ -211,7 +221,7 @@ public final class Dict<K, V>
     }
     Object key = keySet().iterator().next();
     Object value = get(key);
-    remove(key, /*loc=*/ null);
+    remove(key, (Location) null);
     return Tuple.pair(key, value);
   }
 
@@ -239,7 +249,7 @@ public final class Dict<K, V>
     if (value != null) {
       return value;
     }
-    put(key, (V) defaultValue, /*loc=*/ null);
+    put(key, (V) defaultValue, (Location) null);
     return defaultValue;
   }
 
@@ -278,7 +288,7 @@ public final class Dict<K, V>
             ? (Dict<K, V>) args
             : getDictFromArgs("update", args, thread.mutability());
     dict = Dict.plus(dict, (Dict<K, V>) kwargs, thread.mutability());
-    putAll(dict, /*loc=*/ null);
+    putAll(dict, (Location) null);
     return Starlark.NONE;
   }
 
@@ -387,11 +397,11 @@ public final class Dict<K, V>
    *
    * @param key the key of the added entry
    * @param value the value of the added entry
-   * @param loc the location to use for error reporting
+   * @param unused a nonce value to select this overload, not Map.put
    * @throws EvalException if the key is invalid or the dict is frozen
    */
-  public void put(K key, V value, Location loc) throws EvalException {
-    checkMutable(loc);
+  public void put(K key, V value, Location unused) throws EvalException {
+    checkMutable();
     EvalUtils.checkHashable(key);
     contents.put(key, value);
   }
@@ -400,12 +410,12 @@ public final class Dict<K, V>
    * Puts all the entries from a given map into the dict, after validating that mutation is allowed.
    *
    * @param map the map whose entries are added
-   * @param loc the location to use for error reporting
+   * @param unused a nonce value to select this overload, not Map.put
    * @throws EvalException if some key is invalid or the dict is frozen
    */
-  public <KK extends K, VV extends V> void putAll(Map<KK, VV> map, Location loc)
+  public <KK extends K, VV extends V> void putAll(Map<KK, VV> map, Location unused)
       throws EvalException {
-    checkMutable(loc);
+    checkMutable();
     for (Map.Entry<KK, VV> e : map.entrySet()) {
       KK k = e.getKey();
       EvalUtils.checkHashable(k);
@@ -417,12 +427,12 @@ public final class Dict<K, V>
    * Deletes the entry associated with the given key.
    *
    * @param key the key to delete
-   * @param loc the location to use for error reporting
+   * @param unused a nonce value to select this overload, not Map.put
    * @return the value associated to the key, or {@code null} if not present
    * @throws EvalException if the dict is frozen
    */
-  V remove(Object key, Location loc) throws EvalException {
-    checkMutable(loc);
+  V remove(Object key, Location unused) throws EvalException {
+    checkMutable();
     return contents.remove(key);
   }
 
@@ -435,11 +445,11 @@ public final class Dict<K, V>
   /**
    * Clears the dict.
    *
-   * @param loc the location to use for error reporting
+   * @param unused a nonce value to select this overload, not Map.put
    * @throws EvalException if the dict is frozen
    */
-  void clear(Location loc) throws EvalException {
-    checkMutable(loc);
+  private void clear(Location unused) throws EvalException {
+    checkMutable();
     contents.clear();
   }
 
@@ -619,6 +629,12 @@ public final class Dict<K, V>
   }
 
   // disallowed java.util.Map update operations
+
+  // TODO(adonovan): make MutabilityException a subclass of (unchecked)
+  // UnsupportedOperationException, allowing the primary Dict operations
+  // to satisfy the Map operations below in the usual way (like ImmutableMap does).
+  // Add "ForStarlark" suffix to disambiguate SkylarkCallable-annotated methods.
+  // Same for StarlarkList.
 
   @Deprecated
   @Override

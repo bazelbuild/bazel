@@ -331,7 +331,14 @@ public class BaseRuleClasses {
                     "special logic for constraints and select: see ConstraintSemantics"))
         .add(
             attr(RuleClass.CONFIG_SETTING_DEPS_ATTRIBUTE, LABEL_LIST)
-                .nonconfigurable("stores configurability keys"));
+                .nonconfigurable("stores configurability keys"))
+        .add(
+            attr(RuleClass.APPLICABLE_LICENSES_ATTR, LABEL_LIST)
+                .cfg(HostTransition.createFactory())
+                .allowedFileTypes(FileTypeSet.NO_FILE)
+                // TODO(b/148601291): Require provider to be "LicenseInfo".
+                .dontCheckConstraints()
+                .nonconfigurable("applicable_licenses is not configurable"));
   }
 
   public static RuleClass.Builder nameAttribute(RuleClass.Builder builder) {

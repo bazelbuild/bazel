@@ -322,9 +322,9 @@ public class GlobTest {
   }
 
   private void assertIllegalPattern(String pattern) throws Exception {
-    IllegalArgumentException e =
+    UnixGlob.BadPattern e =
         assertThrows(
-            IllegalArgumentException.class,
+            UnixGlob.BadPattern.class,
             () -> new UnixGlob.Builder(tmpPath).addPattern(pattern).globInterruptible());
     assertThat(e).hasMessageThat().containsMatch("in glob pattern");
   }
@@ -442,14 +442,15 @@ public class GlobTest {
         .isTrue();
   }
 
-  private Collection<String> removeExcludes(ImmutableList<String> paths, String... excludes) {
+  private static Collection<String> removeExcludes(ImmutableList<String> paths, String... excludes)
+      throws UnixGlob.BadPattern {
     HashSet<String> pathSet = new HashSet<>(paths);
     UnixGlob.removeExcludes(pathSet, ImmutableList.copyOf(excludes));
     return pathSet;
   }
 
   @Test
-  public void testExcludeFiltering() {
+  public void testExcludeFiltering() throws UnixGlob.BadPattern {
     ImmutableList<String> paths = ImmutableList.of("a/A.java", "a/B.java", "a/b/C.java", "c.cc");
     assertThat(removeExcludes(paths, "**/*.java")).containsExactly("c.cc");
     assertThat(removeExcludes(paths, "a/**/*.java")).containsExactly("c.cc");
@@ -467,4 +468,3 @@ public class GlobTest {
         .containsExactly("a/b/*.java", "c.cc");
   }
 }
-

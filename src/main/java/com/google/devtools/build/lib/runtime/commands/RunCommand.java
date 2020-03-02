@@ -567,11 +567,23 @@ public class RunCommand implements BlazeCommand  {
       workingDir = workingDir.getRelative(runfilesSupport.getRunfiles().getSuffix());
     }
 
+    // Always create runfiles directory and the workspace-named directory underneath, even if we
+    // run with --enable_runfiles=no (which is the default on Windows as of 2020-01-24).
+    // If the binary we run is in fact a test, it will expect to be able to chdir into the runfiles
+    // directory. See https://github.com/bazelbuild/bazel/issues/10621
+    try {
+      runfilesSupport
+          .getRunfilesDirectory()
+          .getRelative(runfilesSupport.getWorkspaceName())
+          .createDirectoryAndParents();
+    } catch (IOException e) {
+      throw new EnvironmentalExecException(e);
+    }
+
     // When runfiles are not generated, getManifest() returns the
     // .runfiles_manifest file, otherwise it returns the MANIFEST file. This is
     // a handy way to check whether runfiles were built or not.
     if (!RUNFILES_MANIFEST.matches(manifest.getFilename())) {
-      // Runfiles already built, nothing to do.
       return workingDir;
     }
 
@@ -702,9 +714,12 @@ public class RunCommand implements BlazeCommand  {
     Target target;
     try {
       target = env.getPackageManager().getTarget(env.getReporter(), configuredTarget.getLabel());
-    } catch (NoSuchTargetException | NoSuchPackageException | InterruptedException e) {
+    } catch (InterruptedException e) {
+      env.getReporter().handle(Event.error("interrupted"));
+      return ExitCode.INTERRUPTED;
+    } catch (NoSuchTargetException | NoSuchPackageException e) {
       env.getReporter().handle(Event.error("Failed to find a target to validate. " + e));
-      throw new IllegalStateException("Failed to find a target to validate");
+      throw new IllegalStateException("Failed to find a target to validate", e);
     }
 
     String targetError = validateTarget(target);

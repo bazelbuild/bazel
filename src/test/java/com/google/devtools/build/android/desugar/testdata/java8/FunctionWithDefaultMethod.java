@@ -37,8 +37,8 @@ public interface FunctionWithDefaultMethod<T extends Number> extends Function<T,
   }
 
   /**
-   * Implementation of {@link FunctionWithDefaultMethod} that overrides the default method.
-   * Also declares static methods the test uses to exercise the code in this file.
+   * Implementation of {@link FunctionWithDefaultMethod} that overrides the default method. Also
+   * declares static methods the test uses to exercise the code in this file.
    */
   public static class DoubleInts implements FunctionWithDefaultMethod<Integer> {
     @Override
@@ -73,6 +73,6 @@ public interface FunctionWithDefaultMethod<T extends Number> extends Function<T,
   }
 
   /** Empty subclass that explicitly implements the interface the superclass already implements. */
-  public static class DoubleInts2 extends DoubleInts implements FunctionWithDefaultMethod<Integer> {
-  }
+  public static class DoubleInts2 extends DoubleInts
+      implements FunctionWithDefaultMethod<Integer> {}
 }

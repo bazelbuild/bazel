@@ -82,15 +82,13 @@ public class NinjaLexer {
       byte b = step.startByte();
       switch (b) {
         case ' ':
+        case '\t':
           step.skipSpaces();
           if (step.getPosition() == 0
               || NinjaToken.NEWLINE.equals(Iterables.getLast(tokens, null))) {
             return push(NinjaToken.INDENT);
           }
           break;
-        case '\t':
-          step.forceError("Tabs are not allowed, use spaces.");
-          return push(NinjaToken.ERROR);
         case '\r':
           expectedTextKind = TextKind.IDENTIFIER;
           step.processLineFeedNewLine();

@@ -1074,14 +1074,14 @@ function test_skylark_repository_context_downloads_return_struct() {
   cat >test.bzl <<EOF
 def _impl(repository_ctx):
   no_sha_return = repository_ctx.download(
-    url = "http://localhost:${fileserver_port}/download_no_sha256.txt",
+    url = "file://${server_dir}/download_no_sha256.txt",
     output = "download_no_sha256.txt")
   with_sha_return = repository_ctx.download(
     url = "http://localhost:${fileserver_port}/download_with_sha256.txt",
     output = "download_with_sha256.txt",
     sha256 = "${provided_sha256}")
   compressed_no_sha_return = repository_ctx.download_and_extract(
-    url = "http://localhost:${fileserver_port}/compressed_no_sha256.txt.zip",
+    url = "file://${server_dir}/compressed_no_sha256.txt.zip",
     output = "compressed_no_sha256.txt.zip")
   compressed_with_sha_return = repository_ctx.download_and_extract(
       url = "http://localhost:${fileserver_port}/compressed_with_sha256.txt.zip",
@@ -1101,7 +1101,7 @@ EOF
   # none was provided by the call to download_and_extract. So we do have to
   # allow a download without provided checksum, even though it is plain http;
   # nevertheless, localhost is pretty safe against man-in-the-middle attacs.
-  bazel build --noincompatible_disallow_unverified_http_downloads @foo//:all \
+  bazel build @foo//:all \
         >& $TEST_log && shutdown_server || fail "Execution of @foo//:all failed"
 
   output_base="$(bazel info output_base)"
@@ -1411,6 +1411,55 @@ EOF
 
   bazel build @maytimeout//... \
       || fail "expected success after successful sync"
+}
+
+function test_sync_only() {
+  # Set up two repositories that count how often they are fetched
+  cat >environ.bzl <<'EOF'
+def environ(r_ctx, var):
+  return r_ctx.os.environ[var] if var in r_ctx.os.environ else "undefined"
+EOF
+  cat <<'EOF' >bar.tpl
+FOO=%{FOO} BAR=%{BAR} BAZ=%{BAZ}
+EOF
+  write_environ_skylark "${TEST_TMPDIR}/executionFOO" ""
+  mv test.bzl testfoo.bzl
+  write_environ_skylark "${TEST_TMPDIR}/executionBAR" ""
+  mv test.bzl testbar.bzl
+  cat > WORKSPACE <<'EOF'
+load("//:testfoo.bzl", foorepo="repo")
+load("//:testbar.bzl", barrepo="repo")
+foorepo(name="foo")
+barrepo(name="bar")
+EOF
+  touch BUILD
+  bazel clean --expunge
+  echo 0 > "${TEST_TMPDIR}/executionFOO"
+  echo 0 > "${TEST_TMPDIR}/executionBAR"
+
+  # Normal sync should hit both repositories
+  echo; echo bazel sync; echo
+  bazel sync
+  assert_equals 1 $(cat "${TEST_TMPDIR}/executionFOO")
+  assert_equals 1 $(cat "${TEST_TMPDIR}/executionBAR")
+
+  # Only foo
+  echo; echo bazel sync --only foo; echo
+  bazel sync --only foo
+  assert_equals 2 $(cat "${TEST_TMPDIR}/executionFOO")
+  assert_equals 1 $(cat "${TEST_TMPDIR}/executionBAR")
+
+  # Only bar
+  echo; echo bazel sync --only bar; echo
+  bazel sync --only bar
+  assert_equals 2 $(cat "${TEST_TMPDIR}/executionFOO")
+  assert_equals 2 $(cat "${TEST_TMPDIR}/executionBAR")
+
+  # Only bar
+  echo; echo bazel sync --only bar; echo
+  bazel sync --only bar
+  assert_equals 2 $(cat "${TEST_TMPDIR}/executionFOO")
+  assert_equals 3 $(cat "${TEST_TMPDIR}/executionBAR")
 }
 
 function test_download_failure_message() {
@@ -1833,8 +1882,7 @@ genrule(
   cmd = "cp $< $@",
 )
 EOF
-  bazel build --incompatible_disallow_unverified_http_downloads //:it \
-        > "${TEST_log}" 2>&1 && fail "Expeceted failure" || :
+  bazel build //:it > "${TEST_log}" 2>&1 && fail "Expeceted failure" || :
   expect_log 'plain http.*missing checksum'
 
   # After adding a good checksum, we expect success
@@ -1846,8 +1894,7 @@ sha256 = "$sha256",
 w
 q
 EOF
-  bazel build --incompatible_disallow_unverified_http_downloads //:it \
-        || fail "Expected success one the checksum is given"
+  bazel build //:it || fail "Expected success one the checksum is given"
 
 }
 

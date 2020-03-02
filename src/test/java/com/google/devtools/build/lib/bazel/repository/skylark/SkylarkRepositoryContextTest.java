@@ -42,6 +42,7 @@ import com.google.devtools.build.lib.skyframe.BazelSkyframeExecutorConstants;
 import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
+import com.google.devtools.build.lib.syntax.Module;
 import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.devtools.build.lib.syntax.ParserInput;
 import com.google.devtools.build.lib.syntax.StarlarkFunction;
@@ -76,6 +77,8 @@ public final class SkylarkRepositoryContextTest {
   private Root root;
   private Path workspaceFile;
   private SkylarkRepositoryContext context;
+  private StarlarkThread thread =
+      StarlarkThread.builder(Mutability.create("test")).useDefaultSemantics().build();
 
   private static String ONE_LINE_PATCH = "@@ -1,1 +1,2 @@\n line one\n+line two\n";
 
@@ -101,8 +104,10 @@ public final class SkylarkRepositoryContextTest {
 
   private static Object execAndEval(String... lines) {
     try (Mutability mu = Mutability.create("impl")) {
+      StarlarkThread thread = StarlarkThread.builder(mu).useDefaultSemantics().build();
+      Module module = thread.getGlobals();
       return EvalUtils.execAndEvalOptionalFinalExpression(
-          ParserInput.fromLines(lines), StarlarkThread.builder(mu).useDefaultSemantics().build());
+          ParserInput.fromLines(lines), module, thread);
     } catch (Exception ex) { // SyntaxError | EvalException | InterruptedException
       throw new AssertionError("exec failed", ex);
     }
@@ -181,26 +186,26 @@ public final class SkylarkRepositoryContextTest {
     scratch.file("/path/bin/def").setExecutable(true);
     scratch.file("/bin/undef");
 
-    assertThat(context.which("anything", null)).isNull();
-    assertThat(context.which("def", null)).isNull();
-    assertThat(context.which("undef", null)).isNull();
-    assertThat(context.which("true", null).toString()).isEqualTo("/bin/true");
-    assertThat(context.which("false", null).toString()).isEqualTo("/path/sbin/false");
+    assertThat(context.which("anything", thread)).isNull();
+    assertThat(context.which("def", thread)).isNull();
+    assertThat(context.which("undef", thread)).isNull();
+    assertThat(context.which("true", thread).toString()).isEqualTo("/bin/true");
+    assertThat(context.which("false", thread).toString()).isEqualTo("/path/sbin/false");
   }
 
   @Test
   public void testFile() throws Exception {
     setUpContexForRule("test");
-    context.createFile(context.path("foobar"), "", true, true, null);
-    context.createFile(context.path("foo/bar"), "foobar", true, true, null);
-    context.createFile(context.path("bar/foo/bar"), "", true, true, null);
+    context.createFile(context.path("foobar"), "", true, true, thread);
+    context.createFile(context.path("foo/bar"), "foobar", true, true, thread);
+    context.createFile(context.path("bar/foo/bar"), "", true, true, thread);
 
     testOutputFile(outputDirectory.getChild("foobar"), "");
     testOutputFile(outputDirectory.getRelative("foo/bar"), "foobar");
     testOutputFile(outputDirectory.getRelative("bar/foo/bar"), "");
 
     try {
-      context.createFile(context.path("/absolute"), "", true, true, null);
+      context.createFile(context.path("/absolute"), "", true, true, thread);
       fail("Expected error on creating path outside of the repository directory");
     } catch (RepositoryFunctionException ex) {
       assertThat(ex)
@@ -209,7 +214,7 @@ public final class SkylarkRepositoryContextTest {
           .isEqualTo("Cannot write outside of the repository directory for path /absolute");
     }
     try {
-      context.createFile(context.path("../somepath"), "", true, true, null);
+      context.createFile(context.path("../somepath"), "", true, true, thread);
       fail("Expected error on creating path outside of the repository directory");
     } catch (RepositoryFunctionException ex) {
       assertThat(ex)
@@ -218,7 +223,7 @@ public final class SkylarkRepositoryContextTest {
           .isEqualTo("Cannot write outside of the repository directory for path /somepath");
     }
     try {
-      context.createFile(context.path("foo/../../somepath"), "", true, true, null);
+      context.createFile(context.path("foo/../../somepath"), "", true, true, thread);
       fail("Expected error on creating path outside of the repository directory");
     } catch (RepositoryFunctionException ex) {
       assertThat(ex)
@@ -233,23 +238,23 @@ public final class SkylarkRepositoryContextTest {
     setUpContexForRule("testDelete");
     Path bar = outputDirectory.getRelative("foo/bar");
     SkylarkPath barPath = context.path(bar.getPathString());
-    context.createFile(barPath, "content", true, true, null);
-    assertThat(context.delete(barPath, null)).isTrue();
+    context.createFile(barPath, "content", true, true, thread);
+    assertThat(context.delete(barPath, thread)).isTrue();
 
-    assertThat(context.delete(barPath, null)).isFalse();
+    assertThat(context.delete(barPath, thread)).isFalse();
 
     Path tempFile = scratch.file("/abcde/b", "123");
-    assertThat(context.delete(context.path(tempFile.getPathString()), null)).isTrue();
+    assertThat(context.delete(context.path(tempFile.getPathString()), thread)).isTrue();
 
     Path innerDir = scratch.dir("/some/inner");
     scratch.dir("/some/inner/deeper");
     scratch.file("/some/inner/deeper.txt");
     scratch.file("/some/inner/deeper/1.txt");
-    assertThat(context.delete(innerDir.toString(), null)).isTrue();
+    assertThat(context.delete(innerDir.toString(), thread)).isTrue();
 
     Path underWorkspace = root.getRelative("under_workspace");
     try {
-      context.delete(underWorkspace.toString(), null);
+      context.delete(underWorkspace.toString(), thread);
       fail();
     } catch (EvalException expected) {
       assertThat(expected.getMessage())
@@ -262,15 +267,15 @@ public final class SkylarkRepositoryContextTest {
         ImmutableSet.of(PathFragment.create("under_workspace")),
         StarlarkSemantics.DEFAULT_SEMANTICS,
         /* repoRemoteExecutor= */ null);
-    assertThat(context.delete(underWorkspace.toString(), null)).isTrue();
+    assertThat(context.delete(underWorkspace.toString(), thread)).isTrue();
   }
 
   @Test
   public void testRead() throws Exception {
     setUpContexForRule("test");
-    context.createFile(context.path("foo/bar"), "foobar", true, true, null);
+    context.createFile(context.path("foo/bar"), "foobar", true, true, thread);
 
-    String content = context.readFile(context.path("foo/bar"), null);
+    String content = context.readFile(context.path("foo/bar"), thread);
     assertThat(content).isEqualTo("foobar");
   }
 
@@ -278,11 +283,11 @@ public final class SkylarkRepositoryContextTest {
   public void testPatch() throws Exception {
     setUpContexForRule("test");
     SkylarkPath foo = context.path("foo");
-    context.createFile(foo, "line one\n", false, true, null);
+    context.createFile(foo, "line one\n", false, true, thread);
     SkylarkPath patchFile = context.path("my.patch");
     context.createFile(
-        context.path("my.patch"), "--- foo\n+++ foo\n" + ONE_LINE_PATCH, false, true, null);
-    context.patch(patchFile, 0, null);
+        context.path("my.patch"), "--- foo\n+++ foo\n" + ONE_LINE_PATCH, false, true, thread);
+    context.patch(patchFile, 0, thread);
     testOutputFile(foo.getPath(), String.format("line one%nline two%n"));
   }
 
@@ -291,9 +296,9 @@ public final class SkylarkRepositoryContextTest {
     setUpContexForRule("test");
     SkylarkPath patchFile = context.path("my.patch");
     context.createFile(
-        context.path("my.patch"), "--- foo\n+++ foo\n" + ONE_LINE_PATCH, false, true, null);
+        context.path("my.patch"), "--- foo\n+++ foo\n" + ONE_LINE_PATCH, false, true, thread);
     try {
-      context.patch(patchFile, 0, null);
+      context.patch(patchFile, 0, thread);
       fail("Expected RepositoryFunctionException");
     } catch (RepositoryFunctionException ex) {
       assertThat(ex)
@@ -314,9 +319,9 @@ public final class SkylarkRepositoryContextTest {
         "--- ../other_root/foo\n" + "+++ ../other_root/foo\n" + ONE_LINE_PATCH,
         false,
         true,
-        null);
+        thread);
     try {
-      context.patch(patchFile, 0, null);
+      context.patch(patchFile, 0, thread);
       fail("Expected RepositoryFunctionException");
     } catch (RepositoryFunctionException ex) {
       assertThat(ex)
@@ -333,11 +338,11 @@ public final class SkylarkRepositoryContextTest {
     setUpContexForRule("test");
     SkylarkPath foo = context.path("foo");
     SkylarkPath patchFile = context.path("my.patch");
-    context.createFile(foo, "line three\n", false, true, null);
+    context.createFile(foo, "line three\n", false, true, thread);
     context.createFile(
-        context.path("my.patch"), "--- foo\n+++ foo\n" + ONE_LINE_PATCH, false, true, null);
+        context.path("my.patch"), "--- foo\n+++ foo\n" + ONE_LINE_PATCH, false, true, thread);
     try {
-      context.patch(patchFile, 0, null);
+      context.patch(patchFile, 0, thread);
       fail("Expected RepositoryFunctionException");
     } catch (RepositoryFunctionException ex) {
       assertThat(ex)
@@ -393,10 +398,10 @@ public final class SkylarkRepositoryContextTest {
         context.execute(
             StarlarkList.of(/*mutability=*/ null, "/bin/cmd", "arg1"),
             /*timeout=*/ 10,
-            /* uncheckedEnvironment=*/ Dict.empty(),
-            /* quiet= */ true,
-            /* workingDirectory= */ "",
-            Location.BUILTIN);
+            /*uncheckedEnvironment=*/ Dict.empty(),
+            /*quiet=*/ true,
+            /*workingDirectory=*/ "",
+            thread);
 
     // Assert
     verify(repoRemoteExecutor)
@@ -414,9 +419,9 @@ public final class SkylarkRepositoryContextTest {
   @Test
   public void testSymlink() throws Exception {
     setUpContexForRule("test");
-    context.createFile(context.path("foo"), "foobar", true, true, null);
+    context.createFile(context.path("foo"), "foobar", true, true, thread);
 
-    context.symlink(context.path("foo"), context.path("bar"), null);
+    context.symlink(context.path("foo"), context.path("bar"), thread);
     testOutputFile(outputDirectory.getChild("bar"), "foobar");
 
     assertThat(context.path("bar").realpath()).isEqualTo(context.path("foo"));

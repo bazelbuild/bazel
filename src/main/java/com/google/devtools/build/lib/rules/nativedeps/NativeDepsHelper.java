@@ -236,7 +236,8 @@ public abstract class NativeDepsHelper {
             ruleContext,
             /* requestedFeatures= */ requestedFeatures.build(),
             /* unsupportedFeatures= */ ruleContext.getDisabledFeatures(),
-            toolchain);
+            toolchain,
+            cppSemantics);
 
     new CcLinkingHelper(
             ruleContext,

@@ -390,11 +390,16 @@ public final class TargetCompleteEvent
       builder.setTestTimeoutSeconds(testTimeoutSeconds);
     }
 
+    Iterable<Artifact> filteredImportantArtifacts = getLegacyFilteredImportantArtifacts();
+    for (Artifact artifact : filteredImportantArtifacts) {
+      if (artifact.isDirectory()) {
+        builder.addDirectoryOutput(newFileFromArtifact(artifact).build());
+      }
+    }
     // TODO(aehlig): remove direct reporting of artifacts as soon as clients no longer
     // need it.
     if (converters.getOptions().legacyImportantOutputs) {
-      addImportantOutputs(
-          completionContext, builder, converters, getLegacyFilteredImportantArtifacts());
+      addImportantOutputs(completionContext, builder, converters, filteredImportantArtifacts);
       if (baselineCoverageArtifacts != null) {
         addImportantOutputs(
             completionContext,

@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.exec;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.actions.ActionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.Spawn;
@@ -102,7 +103,7 @@ public final class ProxySpawnActionContext implements SpawnStrategy {
   }
 
   @Override
-  public boolean canExec(Spawn spawn, ActionContextRegistry actionContextRegistry) {
+  public boolean canExec(Spawn spawn, ActionContext.ActionContextRegistry actionContextRegistry) {
     return spawnActionContextMaps.getSpawnActionContexts(spawn, NullEventHandler.INSTANCE).stream()
         .anyMatch(spawnActionContext -> spawnActionContext.canExec(spawn, actionContextRegistry));
   }

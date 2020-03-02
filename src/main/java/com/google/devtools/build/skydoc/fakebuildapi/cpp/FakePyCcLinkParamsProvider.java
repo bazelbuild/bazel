@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.skydoc.fakebuildapi.cpp;
 
-import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcInfoApi;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.PyCcLinkParamsProviderApi;
 import com.google.devtools.build.lib.syntax.EvalException;
@@ -29,12 +28,12 @@ public class FakePyCcLinkParamsProvider implements PyCcLinkParamsProviderApi {
   }
 
   @Override
-  public String toProto(Location loc) throws EvalException {
+  public String toProto() throws EvalException {
     return null;
   }
 
   @Override
-  public String toJson(Location loc) throws EvalException {
+  public String toJson() throws EvalException {
     return null;
   }
 

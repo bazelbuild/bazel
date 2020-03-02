@@ -76,7 +76,7 @@ public abstract class CcImport implements RuleConfiguredTargetFactory {
     CcToolchainProvider ccToolchain =
         CppHelper.getToolchainUsingDefaultCcToolchainAttribute(ruleContext);
     FeatureConfiguration featureConfiguration =
-        CcCommon.configureFeaturesOrReportRuleError(ruleContext, ccToolchain);
+        CcCommon.configureFeaturesOrReportRuleError(ruleContext, ccToolchain, semantics);
 
     Artifact staticLibrary = ruleContext.getPrerequisiteArtifact("static_library", Mode.TARGET);
     Artifact sharedLibrary = ruleContext.getPrerequisiteArtifact("shared_library", Mode.TARGET);

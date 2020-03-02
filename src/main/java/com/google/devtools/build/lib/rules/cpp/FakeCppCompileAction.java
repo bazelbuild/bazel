@@ -37,6 +37,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
 import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.packages.StarlarkSemanticsOptions;
 import com.google.devtools.build.lib.rules.cpp.CcCommon.CoptsFilter;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.util.ShellEscaper;
@@ -170,10 +171,17 @@ public class FakeCppCompileAction extends CppCompileAction {
         discoveryBuilder.shouldValidateInclusions();
       }
 
+      boolean siblingRepositoryLayout =
+          actionExecutionContext
+              .getOptions()
+              .getOptions(StarlarkSemanticsOptions.class)
+              .experimentalSiblingRepositoryLayout;
+
       discoveredInputs =
           discoveryBuilder
               .build()
-              .discoverInputsFromDependencies(execRoot, scanningContext.getArtifactResolver());
+              .discoverInputsFromDependencies(
+                  execRoot, scanningContext.getArtifactResolver(), siblingRepositoryLayout);
     }
 
     dotDContents = null; // Garbage collect in-memory .d contents.

@@ -1,9 +1,9 @@
 ---
 layout: documentation
-title: Remote Execution Overview
+title: Remote execution overview
 ---
 
-# Remote Execution Overview
+# Remote execution overview
 
 By default, Bazel executes builds and tests on your local machine. Remote
 execution of a Bazel build allows you to distribute build and test actions
@@ -20,7 +20,7 @@ Bazel uses an open-source
 [gRPC protocol](https://github.com/bazelbuild/remote-apis)
 to allow for remote execution and remote caching.
 
-## Remote Execution Services
+## Remote execution services
 
 To run Bazel with remote execution, you can use one of the following:
 
@@ -43,7 +43,7 @@ To run Bazel with remote execution, you can use one of the following:
         To begin using the service, fill out this
         [short information form](https://docs.google.com/forms/d/e/1FAIpQLScBai-iQ2tn7RcGcsz3Twjr4yDOeHowrb6-3v5qlgS69GcxbA/viewform).
 
-## Requirements for Remote Execution
+## Requirements
 
 Remote execution of Bazel builds imposes a set of mandatory configuration
 constraints on the build. For more information, see

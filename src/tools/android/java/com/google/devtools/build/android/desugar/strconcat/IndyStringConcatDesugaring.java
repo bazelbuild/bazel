@@ -16,13 +16,15 @@
 
 package com.google.devtools.build.android.desugar.strconcat;
 
-import static com.google.devtools.build.android.desugar.langmodel.LangModelHelper.getTypeSizeAlignedOpcode;
 import static com.google.devtools.build.android.desugar.langmodel.LangModelHelper.isPrimitive;
 import static com.google.devtools.build.android.desugar.langmodel.LangModelHelper.toBoxedType;
 import static com.google.devtools.build.android.desugar.langmodel.LangModelHelper.visitPushInstr;
 
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.android.desugar.langmodel.ClassMemberUse;
 import com.google.devtools.build.android.desugar.langmodel.ClassMemberUseCounter;
+import com.google.devtools.build.android.desugar.langmodel.ClassName;
+import com.google.devtools.build.android.desugar.langmodel.LangModelHelper;
 import com.google.devtools.build.android.desugar.langmodel.MemberUseKind;
 import com.google.devtools.build.android.desugar.langmodel.MethodKey;
 import org.objectweb.asm.ClassVisitor;
@@ -37,7 +39,7 @@ public final class IndyStringConcatDesugaring extends ClassVisitor {
   public static final ClassMemberUse INVOKE_JDK11_STRING_CONCAT =
       ClassMemberUse.create(
           MethodKey.create(
-              "java/lang/invoke/StringConcatFactory",
+              ClassName.create("java/lang/invoke/StringConcatFactory"),
               "makeConcatWithConstants",
               "(Ljava/lang/invoke/MethodHandles$Lookup;"
                   + "Ljava/lang/String;"
@@ -50,7 +52,7 @@ public final class IndyStringConcatDesugaring extends ClassVisitor {
   private static final ClassMemberUse INVOKE_STRING_CONCAT_REPLACEMENT_METHOD =
       ClassMemberUse.create(
           MethodKey.create(
-              "com/google/devtools/build/android/desugar/runtime/StringConcats",
+              ClassName.create("com/google/devtools/build/android/desugar/runtime/StringConcats"),
               "concat",
               "([Ljava/lang/Object;"
                   + "Ljava/lang/String;"
@@ -94,7 +96,7 @@ public final class IndyStringConcatDesugaring extends ClassVisitor {
       ClassMemberUse bootstrapMethodInvocation =
           ClassMemberUse.create(
               MethodKey.create(
-                  bootstrapMethodHandle.getOwner(),
+                  ClassName.create(bootstrapMethodHandle.getOwner()),
                   bootstrapMethodHandle.getName(),
                   bootstrapMethodHandle.getDesc()),
               MemberUseKind.INVOKEDYNAMIC);
@@ -117,7 +119,9 @@ public final class IndyStringConcatDesugaring extends ClassVisitor {
           // Pre-duplicates the array reference for next loop iteration use.
           // Post-operation stack bottom to top:
           //     ..., value_i-1, arrayref, value_i, arrayref.
-          visitInsn(getTypeSizeAlignedOpcode(Opcodes.DUP_X1, operandType));
+          visitInsn(
+              LangModelHelper.getTypeSizeAlignedDupOpcode(
+                  ImmutableList.of(Type.getType(Object.class)), ImmutableList.of(operandType)));
 
           // Pushes the array index and adjusts the order of the values on stack top in the order
           // of <bottom/> arrayref, index, value <top/> before emitting an aastore instruction.
@@ -128,11 +132,17 @@ public final class IndyStringConcatDesugaring extends ClassVisitor {
           // Cross-duplicates the array reference and index.
           // Post-operation stack bottom to top:
           //     ..., value_i-1, arrayref, arrayref, i, value_i, arrayref, i.
-          visitInsn(getTypeSizeAlignedOpcode(Opcodes.DUP2_X1, operandType));
+          visitInsn(
+              LangModelHelper.getTypeSizeAlignedDupOpcode(
+                  ImmutableList.of(Type.getType(Object.class), Type.getType(int.class)),
+                  ImmutableList.of(operandType)));
+
           // Pops arrayref, index, leaving the stack top as value_i.
           // Post-operation stack bottom to top:
           //     ..., value_i-1, arrayref, arrayref, i, value_i.
-          visitInsn(Opcodes.POP2);
+          visitInsn(
+              LangModelHelper.getTypeSizeAlignedPopOpcode(
+                  ImmutableList.of(Type.getType(Object.class), Type.getType(int.class))));
 
           if (isPrimitive(operandType)) {
             // Explicitly computes the string value of primitive types, so that they can be stored

@@ -39,11 +39,11 @@ public interface Globber {
       throws BadGlobException, InterruptedException;
 
   /**
-   * Fetches the result of a previously started glob computation. The returned list must be ordered
-   * deterministically. For more obvious correctness, implementations should generally sort the list
-   * they return.
+   * Fetches the result of a previously started glob computation. The returned list has an arbitrary
+   * order.
    */
-  List<String> fetch(Token token) throws BadGlobException, IOException, InterruptedException;
+  List<String> fetchUnsorted(Token token)
+      throws BadGlobException, IOException, InterruptedException;
 
   /** Should be called when the globber is about to be discarded due to an interrupt. */
   void onInterrupt();

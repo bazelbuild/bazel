@@ -31,7 +31,7 @@ public class BazelProtoLibrary implements RuleConfiguredTargetFactory {
 
   @Override
   public ConfiguredTarget create(RuleContext ruleContext)
-      throws ActionConflictException, RuleErrorException {
+      throws ActionConflictException, RuleErrorException, InterruptedException {
     ProtoCommon.checkRuleHasValidMigrationTag(ruleContext);
     ProtoInfo protoInfo =
         ProtoCommon.createProtoInfo(

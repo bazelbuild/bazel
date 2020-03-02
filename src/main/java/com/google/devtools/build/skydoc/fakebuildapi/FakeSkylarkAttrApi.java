@@ -15,11 +15,11 @@
 package com.google.devtools.build.skydoc.fakebuildapi;
 
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkbuildapi.SkylarkAttrApi;
 import com.google.devtools.build.lib.skylarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
+import com.google.devtools.build.lib.syntax.Module;
 import com.google.devtools.build.lib.syntax.Printer;
 import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
@@ -40,7 +40,6 @@ public class FakeSkylarkAttrApi implements SkylarkAttrApi {
       String doc,
       Boolean mandatory,
       Sequence<?> values,
-      Location loc,
       StarlarkThread thread)
       throws EvalException {
     return new FakeDescriptor(AttributeType.INT, doc, mandatory, ImmutableList.of(), defaultInt);
@@ -52,7 +51,6 @@ public class FakeSkylarkAttrApi implements SkylarkAttrApi {
       String doc,
       Boolean mandatory,
       Sequence<?> values,
-      Location loc,
       StarlarkThread thread)
       throws EvalException {
     return new FakeDescriptor(
@@ -76,7 +74,6 @@ public class FakeSkylarkAttrApi implements SkylarkAttrApi {
       Boolean singleFile,
       Object cfg,
       Sequence<?> aspects,
-      Location loc,
       StarlarkThread thread)
       throws EvalException {
     List<List<String>> allNameGroups = new ArrayList<>();
@@ -93,7 +90,6 @@ public class FakeSkylarkAttrApi implements SkylarkAttrApi {
       Boolean allowEmpty,
       Sequence<?> defaultList,
       String doc,
-      Location loc,
       StarlarkThread thread)
       throws EvalException {
     return new FakeDescriptor(
@@ -107,7 +103,6 @@ public class FakeSkylarkAttrApi implements SkylarkAttrApi {
       Boolean allowEmpty,
       Sequence<?> defaultList,
       String doc,
-      Location loc,
       StarlarkThread thread)
       throws EvalException {
     return new FakeDescriptor(
@@ -127,7 +122,6 @@ public class FakeSkylarkAttrApi implements SkylarkAttrApi {
       Boolean nonEmpty,
       Object cfg,
       Sequence<?> aspects,
-      Location loc,
       StarlarkThread thread)
       throws EvalException {
     List<List<String>> allNameGroups = new ArrayList<>();
@@ -150,7 +144,6 @@ public class FakeSkylarkAttrApi implements SkylarkAttrApi {
       Boolean nonEmpty,
       Object cfg,
       Sequence<?> aspects,
-      Location loc,
       StarlarkThread thread)
       throws EvalException {
     List<List<String>> allNameGroups = new ArrayList<>();
@@ -163,8 +156,7 @@ public class FakeSkylarkAttrApi implements SkylarkAttrApi {
 
   @Override
   public Descriptor boolAttribute(
-      Boolean defaultO, String doc, Boolean mandatory, Location loc, StarlarkThread thread)
-      throws EvalException {
+      Boolean defaultO, String doc, Boolean mandatory, StarlarkThread thread) throws EvalException {
     return new FakeDescriptor(
         AttributeType.BOOLEAN,
         doc,
@@ -175,8 +167,7 @@ public class FakeSkylarkAttrApi implements SkylarkAttrApi {
 
   @Override
   public Descriptor outputAttribute(
-      Object defaultO, String doc, Boolean mandatory, Location loc, StarlarkThread thread)
-      throws EvalException {
+      Object defaultO, String doc, Boolean mandatory, StarlarkThread thread) throws EvalException {
     return new FakeDescriptor(AttributeType.OUTPUT, doc, mandatory, ImmutableList.of(), defaultO);
   }
 
@@ -187,7 +178,6 @@ public class FakeSkylarkAttrApi implements SkylarkAttrApi {
       String doc,
       Boolean mandatory,
       Boolean nonEmpty,
-      Location loc,
       StarlarkThread thread)
       throws EvalException {
     return new FakeDescriptor(
@@ -201,7 +191,6 @@ public class FakeSkylarkAttrApi implements SkylarkAttrApi {
       String doc,
       Boolean mandatory,
       Boolean nonEmpty,
-      Location loc,
       StarlarkThread thread)
       throws EvalException {
     return new FakeDescriptor(
@@ -215,7 +204,6 @@ public class FakeSkylarkAttrApi implements SkylarkAttrApi {
       String doc,
       Boolean mandatory,
       Boolean nonEmpty,
-      Location loc,
       StarlarkThread thread)
       throws EvalException {
     return new FakeDescriptor(
@@ -224,8 +212,7 @@ public class FakeSkylarkAttrApi implements SkylarkAttrApi {
 
   @Override
   public Descriptor licenseAttribute(
-      Object defaultO, String doc, Boolean mandatory, Location loc, StarlarkThread thread)
-      throws EvalException {
+      Object defaultO, String doc, Boolean mandatory, StarlarkThread thread) throws EvalException {
     return new FakeDescriptor(
         AttributeType.STRING_LIST, doc, mandatory, ImmutableList.of(), defaultO);
   }
@@ -292,12 +279,11 @@ public class FakeSkylarkAttrApi implements SkylarkAttrApi {
    * name will be set to "Unknown Provider".
    */
   private static String providerName(ProviderApi provider, StarlarkThread thread) {
-    Map<String, Object> bindings = thread.getGlobals().getTransitiveBindings();
-    if (bindings.containsValue(provider)) {
-      for (Entry<String, Object> envEntry : bindings.entrySet()) {
-        if (provider.equals(envEntry.getValue())) {
-          return envEntry.getKey();
-        }
+    Map<String, Object> bindings =
+        Module.ofInnermostEnclosingStarlarkFunction(thread).getTransitiveBindings();
+    for (Entry<String, Object> envEntry : bindings.entrySet()) {
+      if (provider.equals(envEntry.getValue())) {
+        return envEntry.getKey();
       }
     }
     return "Unknown Provider";

@@ -635,7 +635,7 @@ public class SkylarkImportLookupFunction implements SkyFunction {
         });
 
     try {
-      EvalUtils.exec(file, thread);
+      EvalUtils.exec(file, thread.getGlobals(), thread);
     } catch (EvalException ex) {
       handler.handle(Event.error(ex.getLocation(), ex.getMessage()));
     }

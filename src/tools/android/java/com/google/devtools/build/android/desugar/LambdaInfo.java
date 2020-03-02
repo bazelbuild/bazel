@@ -26,16 +26,22 @@ abstract class LambdaInfo {
       boolean needFactory,
       Handle methodReference,
       Handle bridgeMethod) {
-    checkArgument(!needFactory || !factoryMethodDesc.startsWith("()"),
-        "Shouldn't need a factory method for %s : %s", desiredInternalName, factoryMethodDesc);
+    checkArgument(
+        !needFactory || !factoryMethodDesc.startsWith("()"),
+        "Shouldn't need a factory method for %s : %s",
+        desiredInternalName,
+        factoryMethodDesc);
     return new AutoValue_LambdaInfo(
         desiredInternalName, factoryMethodDesc, needFactory, methodReference, bridgeMethod);
   }
 
   public abstract String desiredInternalName();
+
   public abstract String factoryMethodDesc();
   /** Returns {@code true} if we need the generated class to have a factory method. */
   public abstract boolean needFactory();
+
   public abstract Handle methodReference();
+
   public abstract Handle bridgeMethod();
 }

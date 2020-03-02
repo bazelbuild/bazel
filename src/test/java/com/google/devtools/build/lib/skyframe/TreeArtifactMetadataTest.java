@@ -37,12 +37,11 @@ import com.google.devtools.build.lib.actions.BasicActionLookupValue;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.MissingInputFileException;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
-import com.google.devtools.build.lib.actions.cache.OrderIndependentHasher;
+import com.google.devtools.build.lib.actions.cache.DigestUtils;
 import com.google.devtools.build.lib.actions.util.TestAction.DummyAction;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.NullEventHandler;
-import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileStatusWithDigestAdapter;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -112,24 +111,24 @@ public class TreeArtifactMetadataTest extends ArtifactFunctionTestCase {
     // Assertions about digest. As of this writing this logic is essentially the same
     // as that in TreeArtifact, but it's good practice to unit test anyway to guard against
     // breaking changes.
-    OrderIndependentHasher hasher = new OrderIndependentHasher();
+    Map<String, FileArtifactValue> digestBuilder = new HashMap<>();
     for (PathFragment child : children) {
       FileArtifactValue subdigest =
           FileArtifactValue.createForTesting(tree.getPath().getRelative(child));
-      hasher.addArtifact(child.getPathString(), subdigest);
+      digestBuilder.put(child.getPathString(), subdigest);
     }
-    assertThat(hasher.finish()).isEqualTo(value.getDigest());
+    assertThat(DigestUtils.fromMetadata(digestBuilder)).isEqualTo(value.getDigest());
     return value;
   }
 
   @Test
   public void testEmptyTreeArtifacts() throws Exception {
     TreeArtifactValue value = doTestTreeArtifacts(ImmutableList.<PathFragment>of());
-    // Additional test, only for this test method: we expect the FileArtifactValue's digest is an
-    // array of zeros.
+    // Additional test, only for this test method: we expect the FileArtifactValue is equal to
+    // the digest [0]
     assertThat(value.getMetadata().getDigest()).isEqualTo(value.getDigest());
     // Java zero-fills arrays.
-    assertThat(value.getDigest()).isEqualTo(new byte[new Fingerprint().getDigestLength()]);
+    assertThat(value.getDigest()).isEqualTo(new byte[1]);
   }
 
   @Test

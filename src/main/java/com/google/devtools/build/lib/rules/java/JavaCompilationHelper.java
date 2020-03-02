@@ -282,9 +282,8 @@ public final class JavaCompilationHelper {
     Artifact coverageArtifact = maybeCreateCoverageArtifact(outputs.output());
     builder.setCoverageArtifact(coverageArtifact);
     builder.setClasspathEntries(attributes.getCompileTimeClassPath());
-    builder.setBootclasspathEntries(getBootclasspathOrDefault());
+    builder.setBootClassPath(getBootclasspathOrDefault());
     builder.setSourcePathEntries(attributes.getSourcePath());
-    builder.setExtdirInputs(getExtdirInputs());
     builder.setToolsJars(javaToolchain.getTools());
     builder.setJavaBuilder(javaToolchain.getJavaBuilder());
     if (!turbineAnnotationProcessing) {
@@ -293,6 +292,14 @@ public final class JavaCompilationHelper {
       builder.setSourceGenDirectory(sourceGenDir(outputs.output(), label));
       builder.setPlugins(plugins);
       builder.setManifestOutput(outputs.manifestProto());
+    } else {
+      // Don't do annotation processing, but pass the processorpath through to allow service-loading
+      // Error Prone plugins.
+      builder.setPlugins(
+          JavaPluginInfo.create(
+              /* processorClasses= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+              plugins.processorClasspath(),
+              plugins.data()));
     }
     builder.setOutputs(outputs);
 
@@ -318,7 +325,11 @@ public final class JavaCompilationHelper {
     if (coverageArtifact != null) {
       ruleContext.registerAction(
           new LazyWritePathsFileAction(
-              ruleContext.getActionOwner(), coverageArtifact, sourceFiles, false));
+              ruleContext.getActionOwner(),
+              coverageArtifact,
+              sourceFiles,
+              /* filesToIgnore= */ ImmutableSet.of(),
+              false));
     }
 
     JavaCompileAction javaCompileAction = builder.build();
@@ -354,12 +365,12 @@ public final class JavaCompilationHelper {
   }
 
   /** Returns the bootclasspath explicit set in attributes if present, or else the default. */
-  public NestedSet<Artifact> getBootclasspathOrDefault() {
+  public BootClassPathInfo getBootclasspathOrDefault() {
     JavaTargetAttributes attributes = getAttributes();
     if (!attributes.getBootClassPath().isEmpty()) {
       return attributes.getBootClassPath();
     } else {
-      return getBootClasspath(javaToolchain);
+      return javaToolchain.getBootclasspath();
     }
   }
 
@@ -399,7 +410,7 @@ public final class JavaCompilationHelper {
   private boolean shouldInstrumentJar() {
     RuleContext ruleContext = getRuleContext();
     return getConfiguration().isCodeCoverageEnabled()
-        && attributes.hasSources()
+        && attributes.hasSourceFiles()
         && InstrumentedFilesCollector.shouldIncludeLocalSources(
             ruleContext.getConfiguration(), ruleContext.getLabel(), ruleContext.isTestTarget());
   }
@@ -484,11 +495,7 @@ public final class JavaCompilationHelper {
     builder.setSourceFiles(attributes.getSourceFiles());
     builder.setSourceJars(attributes.getSourceJars());
     builder.setClasspathEntries(attributes.getCompileTimeClassPath());
-    builder.setBootclasspathEntries(
-        NestedSetBuilder.<Artifact>stableOrder()
-            .addTransitive(getBootclasspathOrDefault())
-            .addTransitive(getExtdirInputs())
-            .build());
+    builder.setBootclasspathEntries(getBootclasspathOrDefault().bootclasspath());
     // Exclude any per-package configured data (see JavaCommon.computePerPackageData).
     // It is used to allow Error Prone checks to load additional data,
     // and Error Prone doesn't run during header compilation.
@@ -827,13 +834,8 @@ public final class JavaCompilationHelper {
   /**
    * Returns the javac bootclasspath artifacts from the given toolchain (if it has any) or the rule.
    */
-  public static NestedSet<Artifact> getBootClasspath(JavaToolchainProvider javaToolchain) {
+  public static BootClassPathInfo getBootClasspath(JavaToolchainProvider javaToolchain) {
     return javaToolchain.getBootclasspath();
-  }
-
-  /** Returns the extdir artifacts. */
-  private final NestedSet<Artifact> getExtdirInputs() {
-    return javaToolchain.getExtclasspath();
   }
 
   /**

@@ -14,20 +14,63 @@
 
 package com.google.devtools.build.lib.blackbox.bazel;
 
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.blackbox.framework.BlackBoxTestContext;
 import com.google.devtools.build.lib.blackbox.framework.ToolsSetup;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.ArrayList;
 
 /** Setup for Bazel default tools */
 public class DefaultToolsSetup implements ToolsSetup {
+
+  private static ImmutableList<String> repos =
+      ImmutableList.<String>builder().add("rules_cc").add("rules_proto").add("rules_java").build();
+
+  private ImmutableList<String> getRepositoryOverrides() {
+    String sharedRepoHome = System.getenv("TEST_REPOSITORY_HOME");
+    if (sharedRepoHome == null) {
+      return ImmutableList.of();
+    }
+
+    Path sharedRepoHomePath = Paths.get(sharedRepoHome);
+    if (!Files.exists(sharedRepoHomePath)) {
+      return ImmutableList.of();
+    }
+
+    ImmutableList.Builder<String> lines = ImmutableList.builder();
+    for (String repo : repos) {
+      Path sharedRepoPath = sharedRepoHomePath.resolve(repo);
+      lines.add(
+          "common --override_repository="
+              + repo
+              + "="
+              + sharedRepoPath.toString().replace('\\', '/'));
+    }
+
+    return lines.build();
+  }
+
   @Override
   public void setup(BlackBoxTestContext context) throws IOException {
     Path outputRoot = Files.createTempDirectory(context.getTmpDir(), "root").toAbsolutePath();
-    context.write(
-        ".bazelrc",
-        "startup --output_user_root=" + outputRoot.toString().replace('\\', '/'),
-        "build -j 8");
+    ArrayList<String> lines = new ArrayList<>();
+    lines.add("startup --output_user_root=" + outputRoot.toString().replace('\\', '/'));
+    lines.addAll(getRepositoryOverrides());
+
+    String sharedInstallBase = System.getenv("TEST_INSTALL_BASE");
+    if (sharedInstallBase != null) {
+      lines.add("startup --install_base=" + sharedInstallBase);
+    }
+
+    String sharedRepoCache = System.getenv("REPOSITORY_CACHE");
+    if (sharedRepoCache != null) {
+      lines.add("common --repository_cache=" + sharedRepoCache);
+      lines.add("common --experimental_repository_cache_hardlinks");
+    }
+
+    context.write(".bazelrc", lines);
   }
 }

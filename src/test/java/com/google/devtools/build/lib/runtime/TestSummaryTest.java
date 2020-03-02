@@ -18,7 +18,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.mockito.AdditionalMatchers.find;
 import static org.mockito.AdditionalMatchers.not;
 import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.Matchers.contains;
+import static org.mockito.ArgumentMatchers.contains;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -36,6 +36,7 @@ import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.devtools.build.lib.view.test.TestStatus.BlazeTestStatus;
 import com.google.devtools.build.lib.view.test.TestStatus.FailedTestCasesStatus;
 import com.google.devtools.build.lib.view.test.TestStatus.TestCase;
+import com.google.devtools.build.lib.view.test.TestStatus.TestCase.Status;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -363,7 +364,8 @@ public class TestSummaryTest {
     return TestCase.newBuilder()
         .setName(name)
         .setStatus(status)
-        .setRunDurationMillis(duration).build();
+        .setRunDurationMillis(duration)
+        .build();
   }
 
   @Test
@@ -487,6 +489,25 @@ public class TestSummaryTest {
 
     assertThat(summary.getTotalTestCases()).isEqualTo(1);
     assertThat(summary.getUnkownTestCases()).isEqualTo(1);
+  }
+
+  @Test
+  public void countNotRunTestCases() throws Exception {
+    TestCase a =
+        TestCase.newBuilder()
+            .addChild(
+                TestCase.newBuilder().setName("A").setStatus(Status.PASSED).setRun(true).build())
+            .addChild(
+                TestCase.newBuilder().setName("B").setStatus(Status.PASSED).setRun(true).build())
+            .addChild(
+                TestCase.newBuilder().setName("C").setStatus(Status.PASSED).setRun(false).build())
+            .build();
+    TestSummary summary =
+        getTemplateBuilder().collectTestCases(a).setStatus(BlazeTestStatus.FAILED).build();
+
+    assertThat(summary.getTotalTestCases()).isEqualTo(2);
+    assertThat(summary.getUnkownTestCases()).isEqualTo(0);
+    assertThat(summary.getFailedTestCases()).isEmpty();
   }
 
   @Test

@@ -43,6 +43,7 @@ java_binary(
     deps = [
         "//src/main/protobuf:worker_protocol_java_proto",
         "//third_party:guava",
+        "//third_party:jsr305",
     ],
 )
 

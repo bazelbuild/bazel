@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.skylarkbuildapi.python;
 
-import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
 import com.google.devtools.build.lib.skylarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.skylarkinterface.Param;
@@ -24,6 +23,7 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.syntax.Depset;
 import com.google.devtools.build.lib.syntax.EvalException;
+import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.lib.syntax.StarlarkValue;
 
 /** Provider instance for the Python rules. */
@@ -122,7 +122,7 @@ public interface PyInfoApi<FileT extends FileApi> extends StarlarkValue {
               doc = "The value for the new object's <code>has_py3_only_sources</code> field.")
         },
         selfCall = true,
-        useLocation = true)
+        useStarlarkThread = true)
     @SkylarkConstructor(objectType = PyInfoApi.class, receiverNameForDoc = "PyInfo")
     PyInfoApi<?> constructor(
         Depset transitiveSources,
@@ -130,7 +130,7 @@ public interface PyInfoApi<FileT extends FileApi> extends StarlarkValue {
         Object importsUncast,
         boolean hasPy2OnlySources,
         boolean hasPy3OnlySources,
-        Location loc)
+        StarlarkThread thread)
         throws EvalException;
   }
 }

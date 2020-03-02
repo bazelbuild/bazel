@@ -1,0 +1,35 @@
+diff --git a/BUILD b/BUILD
+index 79871d621..5c347365e 100644
+--- a/BUILD
++++ b/BUILD
+@@ -26,7 +26,7 @@ config_setting(
+ # ZLIB configuration
+ ################################################################################
+ 
+-ZLIB_DEPS = ["@zlib//:zlib"]
++ZLIB_DEPS = ["@io_bazel//third_party/zlib"]
+ 
+ ################################################################################
+ # Protobuf Runtime Library
+@@ -787,9 +787,9 @@ java_library(
+     visibility = ["//visibility:public"],
+     deps = [
+         "protobuf_java",
+-        "//external:error_prone_annotations",
+-        "//external:gson",
+-        "//external:guava",
++        "@io_bazel//third_party:error_prone_annotations",
++        "@io_bazel//third_party:gson",
++        "@io_bazel//third_party:guava",
+     ],
+ )
+ 
+@@ -900,7 +900,7 @@ py_proto_library(
+     py_extra_srcs = glob(["python/**/__init__.py"]),
+     py_libs = [
+         ":python_srcs",
+-        "@six//:six",
++        "@io_bazel//third_party/py/six",
+     ],
+     srcs_version = "PY2AND3",
+     visibility = ["//visibility:public"],

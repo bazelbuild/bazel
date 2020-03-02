@@ -373,7 +373,7 @@ public final class RunfilesSupport {
                 inputManifest,
                 runfiles,
                 outputManifest,
-                /*filesetTree=*/ false));
+                /*filesetRoot=*/ null));
     return outputManifest;
   }
 

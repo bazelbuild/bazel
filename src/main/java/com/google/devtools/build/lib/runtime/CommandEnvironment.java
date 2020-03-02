@@ -87,8 +87,6 @@ public final class CommandEnvironment {
   private final OptionsParsingResult options;
   private final PathPackageLocator packageLocator;
 
-  private String[] crashData;
-
   private PathFragment relativeWorkingDirectory = PathFragment.EMPTY_FRAGMENT;
   private long commandStartTime;
   private OutputService outputService;
@@ -188,7 +186,6 @@ public final class CommandEnvironment {
     this.clientEnv = makeMapFromMapEntries(clientOptions.clientEnv);
     this.commandId = computeCommandId(commandOptions.invocationId, warnings);
     this.buildRequestId = computeBuildRequestId(commandOptions.buildRequestId, warnings);
-    this.crashData = new String[] { commandId + " (build id)" };
 
     // actionClientEnv contains the environment where values from actionEnvironment are overridden.
     actionClientEnv.putAll(clientEnv);
@@ -475,6 +472,10 @@ public final class CommandEnvironment {
     return getDirectories().getActionTempsDirectory(getExecRoot());
   }
 
+  public Path getPersistentActionOutsDirectory() {
+    return getDirectories().getPersistentActionOutsDirectory(getExecRoot());
+  }
+
   /**
    * Returns the working directory of the {@code blaze} client process.
    *
@@ -508,14 +509,6 @@ public final class CommandEnvironment {
 
   public ResourceManager getLocalResourceManager() {
     return ResourceManager.instance();
-  }
-
-  /**
-   * An array of String values useful if Blaze crashes. For now, just returns the build id as soon
-   * as it is determined.
-   */
-  String[] getCrashData() {
-    return crashData;
   }
 
   /**

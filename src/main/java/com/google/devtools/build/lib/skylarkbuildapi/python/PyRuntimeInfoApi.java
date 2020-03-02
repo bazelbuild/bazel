@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.skylarkbuildapi.python;
 
-import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
 import com.google.devtools.build.lib.skylarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.skylarkinterface.Param;
@@ -24,6 +23,7 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.syntax.Depset;
 import com.google.devtools.build.lib.syntax.EvalException;
+import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.lib.syntax.StarlarkValue;
 import javax.annotation.Nullable;
 
@@ -134,15 +134,15 @@ public interface PyRuntimeInfoApi<FileT extends FileApi> extends StarlarkValue {
               named = true,
               doc = "The value for the new object's <code>python_version</code> field."),
         },
-        selfCall = true,
-        useLocation = true)
+        useStarlarkThread = true,
+        selfCall = true)
     @SkylarkConstructor(objectType = PyRuntimeInfoApi.class, receiverNameForDoc = "PyRuntimeInfo")
     PyRuntimeInfoApi<?> constructor(
         Object interpreterPathUncast,
         Object interpreterUncast,
         Object filesUncast,
         String pythonVersion,
-        Location loc)
+        StarlarkThread thread)
         throws EvalException;
   }
 }

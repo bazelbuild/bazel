@@ -1,18 +1,9 @@
 ---
 layout: documentation
-title: Query Language
+title: Query language
 ---
-<h1>The Bazel Query Reference</h1>
+<h1>The Bazel query reference</h1>
 
-
-<ul class="toc">
-  <li><a href="query.html#examples">Examples</a></li>
-  <li><a href="query.html#tokens">Tokens: The Lexical Syntax</a></li>
-  <li><a href="query.html#concepts">Bazel Query Language Concepts</a></li>
-  <li><a href="query.html#expressions">Expressions: Syntax and Semantics of the Grammar</a></li>
-  <li><a href="query.html#functions">Functions</a></li>
-  <li><a href="query.html#output-formats">Output Formats</a></li>
-</ul>
 
 <p>
   When you use <code>bazel query</code> to analyze build
@@ -51,7 +42,7 @@ title: Query Language
   <pre>kind("cc_library", deps(kind(".*test rule", foo/...)) except deps(//foo:foo_bin))</pre>
 
 
-<h2 id='tokens'>Tokens: The Lexical Syntax</h2>
+<h2 id='tokens'>Tokens: The lexical syntax</h2>
 
 <p>
   Expressions in the query language are composed of the following
@@ -149,7 +140,7 @@ title: Query Language
   Whitespace characters outside of a quoted word are ignored.
 </p>
 
-<h2 id='concepts'>Bazel Query Language Concepts</h2>
+<h2 id='concepts'>Bazel query language concepts</h2>
 <p>
   The Bazel query language is a language of expressions.  Every
   expression evaluates to a <b>partially-ordered set</b> of targets,
@@ -262,7 +253,7 @@ title: Query Language
   <code>dir/...</code>, etc.
 </p>
 
-<h3 id='sky-query'>Sky Query</h3>
+<h3 id='sky-query'>Sky query</h3>
 
 <p>
   Query has two different implementations, with slightly different features. The alternative one is
@@ -287,7 +278,7 @@ title: Query Language
   it is faster and uses less memory.
 </p>
 
-<h2 id='expressions'>Expressions: Syntax and Semantics of the Grammar</h2>
+<h2 id='expressions'>Expressions: Syntax and semantics of the grammar</h2>
 
 <p>
   This is the grammar of the Bazel query language, expressed in EBNF
@@ -1103,7 +1094,7 @@ genrule(
   .bzl files that are referenced from its BUILD files.
 </p>
 
-<h2 id='output-formats'>Output Formats</h2>
+<h2 id='output-formats'>Output formats</h2>
 
 <p>
   <code>bazel query</code> generates a graph.

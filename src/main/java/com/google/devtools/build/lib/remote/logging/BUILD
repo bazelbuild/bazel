@@ -13,9 +13,9 @@ java_library(
     srcs = glob(["*.java"]),
     tags = ["bazel"],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib:io",
         "//src/main/java/com/google/devtools/build/lib/clock",
         "//src/main/java/com/google/devtools/build/lib/remote/util",
+        "//src/main/java/com/google/devtools/build/lib/util/io",
         "//src/main/protobuf:remote_execution_log_java_proto",
         "//third_party:jsr305",
         "//third_party/grpc:grpc-jar",

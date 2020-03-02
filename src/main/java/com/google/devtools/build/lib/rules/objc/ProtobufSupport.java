@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.rules.objc;
 
+import static com.google.common.base.Preconditions.checkState;
+
 import com.google.common.base.Joiner;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
@@ -71,6 +73,7 @@ final class ProtobufSupport {
   private final NestedSet<Artifact> portableProtoFilters;
   private final CcToolchainProvider toolchain;
   private final ImmutableSet<Artifact> dylibHandledProtos;
+  private Optional<ObjcProvider> objcProvider;
 
   /**
    * Creates a new proto support for the protobuf library. This support code bundles up all the
@@ -102,6 +105,7 @@ final class ProtobufSupport {
     this.portableProtoFilters = portableProtoFilters;
     this.toolchain = toolchain;
     this.dylibHandledProtos = dylibHandledProtos.toSet();
+    this.objcProvider = Optional.absent();
   }
 
   /** Registers the action that will compile the generated code. */
@@ -133,36 +137,22 @@ final class ProtobufSupport {
             .build();
 
     compilationSupport.registerCompileAndArchiveActions(common, userHeaderSearchPaths);
+    setObjcProvider(compilationSupport.getObjcProvider());
 
     return this;
+  }
+
+  private void setObjcProvider(ObjcProvider objcProvider) {
+    checkState(!this.objcProvider.isPresent());
+    this.objcProvider = Optional.of(objcProvider);
   }
 
   /**
    * Returns the ObjcProvider for this target, or Optional.absent() if there were no protos to
    * generate.
    */
-  Optional<ObjcProvider> getObjcProvider() throws InterruptedException {
-    if (!hasOutputProtos()) {
-      return Optional.absent();
-    }
-
-    Iterable<PathFragment> includes = ImmutableList.of(getWorkspaceRelativeOutputDir());
-    ObjcCommon.Builder commonBuilder = new ObjcCommon.Builder(ruleContext);
-
-    CompilationArtifacts compilationArtifacts =
-        new CompilationArtifacts.Builder()
-            .setIntermediateArtifacts(getUniqueIntermediateArtifactsForSourceCompile())
-            .addNonArcSrcs(getGeneratedProtoOutputs(getOutputProtos(), SOURCE_SUFFIX))
-            .addAdditionalHdrs(getGeneratedProtoOutputs(getAllProtos(), HEADER_SUFFIX))
-            .addAdditionalHdrs(getProtobufHeaders())
-            .build();
-
-    ObjcCommon common =
-        getCommon(getUniqueIntermediateArtifactsForSourceCompile(), compilationArtifacts);
-    commonBuilder.addDepObjcProviders(ImmutableSet.of(common.getObjcProvider()));
-    commonBuilder.addIncludes(includes);
-
-    return Optional.of(commonBuilder.build().getObjcProvider());
+  public Optional<ObjcProvider> getObjcProvider() {
+    return objcProvider;
   }
 
   private NestedSet<Artifact> getProtobufHeaders() {
@@ -227,7 +217,7 @@ final class ProtobufSupport {
   private ObjcCommon getCommon(
       IntermediateArtifacts intermediateArtifacts, CompilationArtifacts compilationArtifacts)
       throws InterruptedException {
-    return new ObjcCommon.Builder(ruleContext)
+    return new ObjcCommon.Builder(ObjcCommon.Purpose.COMPILE_AND_LINK, ruleContext)
         .setIntermediateArtifacts(intermediateArtifacts)
         .setCompilationArtifacts(compilationArtifacts)
         .addIncludes(getProtobufHeaderSearchPaths())

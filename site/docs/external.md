@@ -1,6 +1,6 @@
 ---
 layout: documentation
-title: External Dependencies
+title: External dependencies
 ---
 
 # Working with external dependencies
@@ -229,7 +229,7 @@ be joined in myproject/WORKSPACE.
 
 
 <a name="using-proxies"></a>
-## Using Proxies
+## Using proxies
 
 Bazel will pick up proxy addresses from the `HTTPS_PROXY` and `HTTP_PROXY`
 environment variables and use these to download HTTP/HTTPS files (if specified).
@@ -238,10 +238,10 @@ environment variables and use these to download HTTP/HTTPS files (if specified).
 ## Transitive dependencies
 
 Bazel only reads dependencies listed in your `WORKSPACE` file. If your project
-(`A`) depends on another project (`B`) which list a dependency on a third
+(`A`) depends on another project (`B`) which lists a dependency on a third
 project (`C`) in its `WORKSPACE` file, you'll have to add both `B`
 and `C` to your project's `WORKSPACE` file. This requirement can balloon the
-`WORKSPACE` file size, but hopefully limits the chances of having one library
+`WORKSPACE` file size, but limits the chances of having one library
 include `C` at version 1.0 and another include `C` at 2.0.
 
 <a name="caching"></a>

@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.skylarkbuildapi.java;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
 import com.google.devtools.build.lib.skylarkbuildapi.SkylarkActionFactoryApi;
 import com.google.devtools.build.lib.skylarkbuildapi.SkylarkRuleContextApi;
@@ -214,7 +213,6 @@ public interface JavaCommonApi<
             type = Boolean.class,
             defaultValue = "False")
       },
-      useLocation = true,
       useStarlarkThread = true)
   JavaInfoT createJavaCompileAction(
       SkylarkRuleContextT skylarkRuleContext,
@@ -236,7 +234,6 @@ public interface JavaCommonApi<
       Sequence<?> sourcepathEntries, // <FileT> expected.
       Sequence<?> resources, // <FileT> expected.
       Boolean neverlink,
-      Location loc,
       StarlarkThread thread)
       throws EvalException, InterruptedException;
 
@@ -278,14 +275,9 @@ public interface JavaCommonApi<
             type = Object.class,
             allowedTypes = {@ParamType(type = JavaToolchainSkylarkApiProviderApi.class)},
             doc = "A JavaToolchainInfo to used to find the ijar tool."),
-      },
-      useLocation = true)
+      })
   FileApi runIjar(
-      SkylarkActionFactoryT actions,
-      FileT jar,
-      Object targetLabel,
-      JavaToolchainT javaToolchain,
-      Location location)
+      SkylarkActionFactoryT actions, FileT jar, Object targetLabel, JavaToolchainT javaToolchain)
       throws EvalException;
 
   @SkylarkCallable(
@@ -326,14 +318,9 @@ public interface JavaCommonApi<
             type = Object.class,
             allowedTypes = {@ParamType(type = JavaToolchainSkylarkApiProviderApi.class)},
             doc = "A JavaToolchainInfo to used to find the stamp_jar tool."),
-      },
-      useLocation = true)
+      })
   FileApi stampJar(
-      SkylarkActionFactoryT actions,
-      FileT jar,
-      Label targetLabel,
-      JavaToolchainT javaToolchain,
-      Location location)
+      SkylarkActionFactoryT actions, FileT jar, Label targetLabel, JavaToolchainT javaToolchain)
       throws EvalException;
 
   @SkylarkCallable(
@@ -386,16 +373,14 @@ public interface JavaCommonApi<
             allowedTypes = {@ParamType(type = JavaRuntimeInfoApi.class)},
             doc = "A JavaRuntimeInfo to be used for packing sources."),
       },
-      allowReturnNones = true,
-      useLocation = true)
+      allowReturnNones = true)
   FileApi packSources(
       SkylarkActionFactoryT actions,
       FileT outputJar,
       Sequence<?> sourceFiles, // <FileT> expected.
       Sequence<?> sourceJars, // <FileT> expected.
       JavaToolchainT javaToolchain,
-      JavaRuntimeT hostJavabase,
-      Location location)
+      JavaRuntimeT hostJavabase)
       throws EvalException;
 
   @SkylarkCallable(
@@ -412,12 +397,10 @@ public interface JavaCommonApi<
             doc =
                 "A JavaToolchainInfo to be used for retrieving the ijar "
                     + "tool. Only set when use_ijar is True."),
-      },
-      useLocation = true)
+      })
   // TODO(b/78512644): migrate callers to passing explicit javacopts or using custom toolchains, and
   // delete
-  ImmutableList<String> getDefaultJavacOpts(JavaToolchainT javaToolchain, Location loc)
-      throws EvalException;
+  ImmutableList<String> getDefaultJavacOpts(JavaToolchainT javaToolchain) throws EvalException;
 
   @SkylarkCallable(
       name = "merge",
@@ -576,8 +559,13 @@ public interface JavaCommonApi<
             type = JavaToolchainSkylarkApiProviderApi.class,
             doc = "The toolchain."),
       },
-      useLocation = true,
       enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_GOOGLE_LEGACY_API)
-  Label getJavaToolchainLabel(JavaToolchainSkylarkApiProviderApi toolchain, Location location)
-      throws EvalException;
+  Label getJavaToolchainLabel(JavaToolchainSkylarkApiProviderApi toolchain) throws EvalException;
+
+  @SkylarkCallable(
+      name = "BootClassPathInfo",
+      doc = "The provider used to supply bootclasspath information",
+      structField = true,
+      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_GOOGLE_LEGACY_API)
+  ProviderApi getBootClassPathInfo();
 }

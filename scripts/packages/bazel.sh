@@ -106,37 +106,47 @@ readonly wrapper_dir="$(dirname "$(get_realpath "${BASH_SOURCE[0]}")")"
 readonly os_arch_suffix="$(uname -s | tr '[:upper:]' '[:lower:]')-$(uname -m)"
 
 function get_bazel_version() {
+  bazel_version=""
+
   if [[ -n ${USE_BAZEL_VERSION:-} ]]; then
-    readonly reason="specified in \$USE_BAZEL_VERSION"
-    readonly bazel_version="${USE_BAZEL_VERSION}"
+    reason="specified in \$USE_BAZEL_VERSION"
+    bazel_version="${USE_BAZEL_VERSION}"
   elif [[ -e "${workspace_dir}/.bazelversion" ]]; then
-    readonly reason="specified in ${workspace_dir}/.bazelversion"
-    read -r bazel_version < "${workspace_dir}/.bazelversion"
-    readonly bazel_version="${bazel_version}"
-  elif [[ -x "${wrapper_dir}/bazel-real" ]]; then
-    readonly reason="automatically selected bazel-real"
-    readonly bazel_version="real"
-  else
-    # Find the latest Bazel version installed on the system.
-    readonly reason="automatically selected latest available version"
-    bazel_version="$(basename "$(find -H "${wrapper_dir}" -maxdepth 1 -name 'bazel-[0-9]*-${os_arch_suffix}' -type f | sort -V | tail -n 1)")"
-    if [[ -z $bazel_version ]]; then
-      bazel_version="$(basename "$(find -H "${wrapper_dir}" -maxdepth 1 -name 'bazel-[0-9]*' -type f | sort -V | tail -n 1)")"
-    fi
-    # Remove the "bazel-" prefix from the file name.
-    bazel_version="${bazel_version#"bazel-"}"
-    readonly bazel_version
+    reason="specified in ${workspace_dir}/.bazelversion"
+    # The "read" can fail if the .bazelversion file does not contain a final
+    # newline character. It will still correctly assign the read data to the
+    # variable. Of course it can also fail due to real I/O errors. Because we do
+    # validation of the read data later, we can just ignore the error here.
+    # Alternatives like 'bazel_version=$(head -1 ...)' are not better either,
+    # because bash does not care about the exit code of processes used in
+    # command substitution.
+    read -r bazel_version < "${workspace_dir}/.bazelversion" || true
   fi
+
+  # If we read an empty string or the magic word "latest" from .bazelversion or
+  # $USE_BAZEL_VERSION, then we should use the latest available stable version.
+  # This mimics the behavior of Bazelisk.
+  if [[ -z $bazel_version || $bazel_version == "latest" ]]; then
+    if [[ -x "${wrapper_dir}/bazel-real" ]]; then
+      reason="${reason:-"automatically selected bazel-real"}"
+      bazel_version="real"
+    else
+      # Find the latest Bazel version installed on the system.
+      reason="${reason:-"automatically selected latest available version"}"
+      bazel_version="$(basename "$(find -H "${wrapper_dir}" -maxdepth 1 -name 'bazel-[0-9]*-${os_arch_suffix}' -type f | sort -V | tail -n 1)")"
+      if [[ -z $bazel_version ]]; then
+        bazel_version="$(basename "$(find -H "${wrapper_dir}" -maxdepth 1 -name 'bazel-[0-9]*' -type f | sort -V | tail -n 1)")"
+      fi
+      # Remove the "bazel-" prefix from the file name.
+      bazel_version="${bazel_version#"bazel-"}"
+    fi
+  fi
+
+  readonly reason
+  readonly bazel_version
 }
 
 get_bazel_version
-
-if [[ -z $bazel_version ]]; then
-  color "31" "ERROR: No installed Bazel version found, cannot continue."
-  (echo ""
-  echo "Bazel binaries have to be installed in ${wrapper_dir}, but none were found.") 2>&1
-  exit 1
-fi
 
 BAZEL_REAL="${wrapper_dir}/bazel-${bazel_version}-${os_arch_suffix}"
 
@@ -154,6 +164,23 @@ if [[ ! -x ${BAZEL_REAL} && -x ${bazel_real_path} ]]; then
   if [[ $bazel_real_version == $bazel_version ]]; then
     BAZEL_REAL="${bazel_real_path}"
   fi
+fi
+
+# If the repository contains a checked-in executable called tools/bazel, we
+# assume that they know what they're doing and have their own way of versioning
+# Bazel. Thus, we don't have to print our helpful messages or error out in case
+# we couldn't find a binary.
+readonly wrapper="${workspace_dir}/tools/bazel"
+if [[ -x "$wrapper" && -f "$wrapper" ]]; then
+  export BAZEL_REAL
+  exec -a "$0" "${wrapper}" "$@"
+fi
+
+if [[ -z $bazel_version ]]; then
+  color "31" "ERROR: No installed Bazel version found, cannot continue."
+  (echo ""
+  echo "Bazel binaries have to be installed in ${wrapper_dir}, but none were found.") 2>&1
+  exit 1
 fi
 
 if [[ ! -x $BAZEL_REAL ]]; then
@@ -188,12 +215,6 @@ if [[ ! -x $BAZEL_REAL ]]; then
     fi
   fi
   exit 1
-fi
-
-readonly wrapper="${workspace_dir}/tools/bazel"
-if [[ -x "$wrapper" && -f "$wrapper" ]]; then
-  export BAZEL_REAL
-  exec -a "$0" "${wrapper}" "$@"
 fi
 
 exec -a "$0" "${BAZEL_REAL}" "$@"

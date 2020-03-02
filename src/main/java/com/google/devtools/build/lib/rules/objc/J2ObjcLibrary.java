@@ -45,7 +45,7 @@ public class J2ObjcLibrary implements RuleConfiguredTargetFactory {
       ImmutableList.of("java_import", "java_library", "java_proto_library", "proto_library");
 
   private ObjcCommon common(RuleContext ruleContext) throws InterruptedException {
-    return new ObjcCommon.Builder(ruleContext)
+    return new ObjcCommon.Builder(ObjcCommon.Purpose.LINK_ONLY, ruleContext)
         .setCompilationAttributes(
             CompilationAttributes.Builder.fromRuleContext(ruleContext).build())
         .addDeps(ruleContext.getPrerequisiteConfiguredTargetAndTargets("deps", Mode.TARGET))
@@ -70,7 +70,7 @@ public class J2ObjcLibrary implements RuleConfiguredTargetFactory {
         .build();
 
     ObjcCommon common = common(ruleContext);
-    ObjcProvider objcProvider = common.getObjcProvider();
+    ObjcProvider objcProvider = common.getObjcProviderBuilder().build();
 
     J2ObjcMappingFileProvider j2ObjcMappingFileProvider = J2ObjcMappingFileProvider.union(
         ruleContext.getPrerequisites("deps", Mode.TARGET, J2ObjcMappingFileProvider.class));

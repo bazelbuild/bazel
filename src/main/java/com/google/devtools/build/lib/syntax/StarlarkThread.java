@@ -36,6 +36,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.TreeSet;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Predicate;
 import javax.annotation.Nullable;
 
@@ -68,7 +69,36 @@ public final class StarlarkThread {
   // TODO(adonovan): not every thread initializes a module.
   private final Mutability mutability;
 
+  // profiler state
+  //
+  // The profiler field (and savedThread) are set when we first observe during a
+  // push (function call entry) that the profiler is active. They are unset
+  // not in the corresponding pop, but when the last frame is popped, because
+  // the profiler session might start in the middle of a call and/or run beyond
+  // the lifetime of this thread.
+  final AtomicInteger cpuTicks = new AtomicInteger();
+  @Nullable private CpuProfiler profiler;
+  StarlarkThread savedThread; // saved StarlarkThread, when profiling reentrant evaluation
+
   private final Map<Class<?>, Object> threadLocals = new HashMap<>();
+
+  private boolean interruptible = true;
+
+  /**
+   * Disables polling of the {@link java.lang.Thread#interrupted} flag during Starlark evaluation.
+   */
+  // TODO(adonovan): expose a public API for this if we can establish a stronger semantics. (There
+  // are other ways besides polling for evaluation to be interrupted, such as calling certain
+  // built-in functions.)
+  void ignoreThreadInterrupts() {
+    interruptible = false;
+  }
+
+  void checkInterrupt() throws InterruptedException {
+    if (interruptible && Thread.interrupted()) {
+      throw new InterruptedException();
+    }
+  }
 
   /**
    * setThreadLocal saves {@code value} as a thread-local variable of this Starlark thread, keyed by
@@ -87,9 +117,8 @@ public final class StarlarkThread {
     return v == null ? null : key.cast(v);
   }
 
-  /** A CallFrame records information about an active function call. */
-  // TODO(adonovan): move CallFrame to top level as "Frame".
-  static final class CallFrame implements Debug.Frame {
+  /** A Frame records information about an active function call. */
+  static final class Frame implements Debug.Frame {
     final StarlarkThread thread;
     final StarlarkCallable fn; // the called function
     @Nullable final Debugger dbg = Debug.debugger.get(); // the debugger, if active for this frame
@@ -106,16 +135,9 @@ public final class StarlarkThread {
 
     @Nullable private SilentCloseable profileSpan; // current span of walltime profiler
 
-    // Note that the inherited design is off-by-one:
-    // the following fields are logically facts about the _enclosing_ frame.
-    // TODO(adonovan): fix that.
-
-    private final Module savedModule; // the saved module of the parent (TODO(adonovan): eliminate)
-
-    CallFrame(StarlarkThread thread, StarlarkCallable fn, Module savedModule) {
+    private Frame(StarlarkThread thread, StarlarkCallable fn) {
       this.thread = thread;
       this.fn = fn;
-      this.savedModule = savedModule;
     }
 
     // Updates the PC location in this frame.
@@ -174,10 +196,8 @@ public final class StarlarkThread {
      * StarlarkThread}, and that {@code StarlarkThread}'s transitive hash code.
      */
     public Extension(StarlarkThread thread) {
-      // Legacy behavior: all symbols from the global Frame are exported (including symbols
-      // introduced by load).
       this(
-          ImmutableMap.copyOf(thread.globalFrame.getExportedBindings()),
+          ImmutableMap.copyOf(thread.module.getExportedBindings()),
           thread.getTransitiveContentHashCode());
     }
 
@@ -248,9 +268,16 @@ public final class StarlarkThread {
           continue;
         }
         if (value instanceof Depset) {
-          if (otherValue instanceof Depset
-              && ((Depset) value).toCollection().equals(((Depset) otherValue).toCollection())) {
-            continue;
+          if (otherValue instanceof Depset) {
+            // Widen to Object to avoid static checker warning
+            // about Collection.equals(Collection). We may assume
+            // these collections have the same class, even if we
+            // can't assume its equality is List-like or Set-like.
+            Object x = ((Depset) value).toCollection();
+            Object y = ((Depset) otherValue).toCollection();
+            if (x.equals(y)) {
+              continue;
+            }
           }
         } else if (value instanceof Dict) {
           if (otherValue instanceof Dict) {
@@ -308,11 +335,20 @@ public final class StarlarkThread {
     }
   }
 
-  // Global environment of the current topmost call frame,
-  // or of the file about to be initialized if no calls are active.
-  // TODO(adonovan): eliminate once we represent even toplevel statements
-  // as a StarlarkFunction that closes over its Module.
-  private Module globalFrame;
+  // The module initialized by this Starlark thread.
+  //
+  // TODO(adonovan): eliminate. First we need to simplify the set-up sequence like so:
+  //
+  //    // Filter predeclaredEnv based on semantics,
+  //    // create a mutability, and retain the semantics:
+  //    Module module = new Module(semantics, predeclaredEnv);
+  //
+  //    // Create a thread that takes its semantics and mutability
+  //    // (and only them) from the Module.
+  //    StarlarkThread thread = StarlarkThread.toInitializeModule(module);
+  //
+  // Then clients that call thread.getGlobals() should use 'module' directly.
+  private final Module module;
 
   /** The semantics options that affect how Skylark code is evaluated. */
   private final StarlarkSemantics semantics;
@@ -326,62 +362,83 @@ public final class StarlarkThread {
   private final Map<String, Extension> importedExtensions;
 
   /** Stack of active function calls. */
-  private final ArrayList<CallFrame> callstack = new ArrayList<>();
+  private final ArrayList<Frame> callstack = new ArrayList<>();
 
   /** A hook for notifications of assignments at top level. */
   PostAssignHook postAssignHook;
 
   /** Pushes a function onto the call stack. */
   void push(StarlarkCallable fn) {
-    CallFrame fr = new CallFrame(this, fn, this.globalFrame);
+    Frame fr = new Frame(this, fn);
     callstack.add(fr);
 
-    // Push the function onto the allocation tracker's stack.
-    // TODO(adonovan): optimize it out of existence.
-    if (Callstack.enabled) {
-      Callstack.push(fn);
+    // Notify debug tools of the thread's first push.
+    if (callstack.size() == 1 && Debug.threadHook != null) {
+      Debug.threadHook.onPushFirst(this);
     }
 
     ProfilerTask taskKind;
     if (fn instanceof StarlarkFunction) {
       StarlarkFunction sfn = (StarlarkFunction) fn;
       fr.locals = Maps.newLinkedHashMapWithExpectedSize(sfn.getSignature().numParameters());
-      this.globalFrame = sfn.getModule();
       taskKind = ProfilerTask.STARLARK_USER_FN;
     } else {
       // built-in function
       fr.locals = ImmutableMap.of();
-      // this.globalFrame is left as is.
-      // For built-ins, thread.globals() returns the module
-      // of the file from which the built-in was called.
-      // Really they have no business knowing about that.
-
       taskKind = ProfilerTask.STARLARK_BUILTIN_FN;
     }
 
     fr.loc = fn.getLocation();
 
-    // start profile span
+    // start wall-time profile span
     // TODO(adonovan): throw this away when we build a CPU profiler.
     if (Profiler.instance().isActive()) {
       fr.profileSpan = Profiler.instance().profile(taskKind, fn.getName());
+    }
+
+    // Poll for newly installed CPU profiler.
+    if (profiler == null) {
+      this.profiler = CpuProfiler.get();
+      if (profiler != null) {
+        cpuTicks.set(0);
+        // Associated current Java thread with this StarlarkThread.
+        // (Save the previous association so we can restore it later.)
+        this.savedThread = CpuProfiler.setStarlarkThread(this);
+      }
     }
   }
 
   /** Pops a function off the call stack. */
   void pop() {
     int last = callstack.size() - 1;
-    CallFrame top = callstack.get(last);
-    callstack.remove(last); // pop
-    this.globalFrame = top.savedModule;
+    Frame fr = callstack.get(last);
 
-    // end profile span
-    if (top.profileSpan != null) {
-      top.profileSpan.close();
+    if (profiler != null) {
+      int ticks = cpuTicks.getAndSet(0);
+      if (ticks > 0) {
+        profiler.addEvent(ticks, getDebugCallStack());
+      }
+
+      // If this is the final pop in this thread,
+      // unregister it from the profiler.
+      if (last == 0) {
+        // Restore the previous association (in case of reentrant evaluation).
+        CpuProfiler.setStarlarkThread(this.savedThread);
+        this.savedThread = null;
+        this.profiler = null;
+      }
     }
 
-    if (Callstack.enabled) {
-      Callstack.pop();
+    callstack.remove(last); // pop
+
+    // end profile span
+    if (fr.profileSpan != null) {
+      fr.profileSpan.close();
+    }
+
+    // Notify debug tools of the thread's last pop.
+    if (last == 0 && Debug.threadHook != null) {
+      Debug.threadHook.onPopLast(this);
     }
   }
 
@@ -391,11 +448,13 @@ public final class StarlarkThread {
     return mutability;
   }
 
-  /** Returns the global variables for the StarlarkThread (not including dynamic bindings). */
+  /** Returns the module initialized by this StarlarkThread. */
   // TODO(adonovan): get rid of this. Logically, a thread doesn't have module, but every
-  // Starlark source function does.
+  // Starlark source function does. If you want to know the module of the innermost
+  // enclosing call from a function defined in Starlark source code, use
+  // Module.ofInnermostEnclosingStarlarkFunction.
   public Module getGlobals() {
-    return globalFrame;
+    return module;
   }
 
   /**
@@ -432,7 +491,7 @@ public final class StarlarkThread {
   boolean isRecursiveCall(StarlarkFunction fn) {
     // Find fn buried within stack. (The top of the stack is assumed to be fn.)
     for (int i = callstack.size() - 2; i >= 0; --i) {
-      CallFrame fr = callstack.get(i);
+      Frame fr = callstack.get(i);
       // TODO(adonovan): compare code, not closure values, otherwise
       // one can defeat this check by writing the Y combinator.
       if (fr.fn.equals(fn)) {
@@ -464,26 +523,26 @@ public final class StarlarkThread {
   }
 
   // Returns the stack frame at the specified depth. 0 means top of stack, 1 is its caller, etc.
-  CallFrame frame(int depth) {
+  Frame frame(int depth) {
     return callstack.get(callstack.size() - 1 - depth);
   }
 
   /**
    * Constructs a StarlarkThread. This is the main, most basic constructor.
    *
-   * @param globalFrame a frame for the global StarlarkThread
+   * @param module the module initialized by this StarlarkThread
    * @param eventHandler an EventHandler for warnings, errors, etc
    * @param importedExtensions Extensions from which to import bindings with load()
    * @param fileContentHashCode a hash for the source file being evaluated, if any
    */
   private StarlarkThread(
-      Module globalFrame,
+      Module module,
       StarlarkSemantics semantics,
       Map<String, Extension> importedExtensions,
       @Nullable String fileContentHashCode) {
-    this.globalFrame = Preconditions.checkNotNull(globalFrame);
-    this.mutability = globalFrame.mutability();
-    Preconditions.checkArgument(!globalFrame.mutability().isFrozen());
+    this.module = Preconditions.checkNotNull(module);
+    this.mutability = module.mutability();
+    Preconditions.checkArgument(!module.mutability().isFrozen());
     this.semantics = semantics;
     this.importedExtensions = importedExtensions;
     this.transitiveHashCode =
@@ -551,21 +610,6 @@ public final class StarlarkThread {
       if (semantics == null) {
         throw new IllegalArgumentException("must call either setSemantics or useDefaultSemantics");
       }
-      if (parent != null) {
-        Preconditions.checkArgument(parent.mutability().isFrozen(), "parent frame must be frozen");
-        if (parent.universe != null) { // This code path doesn't happen in Bazel.
-
-          // Flatten the frame, ensure all builtins are in the same frame.
-          parent =
-              new Module(
-                  parent.mutability(),
-                  null /* parent */,
-                  parent.label,
-                  parent.getTransitiveBindings(),
-                  parent.restrictedBindings);
-        }
-      }
-
       // Filter out restricted objects from the universe scope. This cannot be done in-place in
       // creation of the input global universe scope, because this environment's semantics may not
       // have been available during its creation. Thus, create a new universe scope for this
@@ -573,11 +617,11 @@ public final class StarlarkThread {
       // filtered out.
       parent = Module.filterOutRestrictedBindings(mutability, parent, semantics);
 
-      Module globalFrame = new Module(mutability, parent);
+      Module module = new Module(mutability, parent);
       if (importedExtensions == null) {
         importedExtensions = ImmutableMap.of();
       }
-      return new StarlarkThread(globalFrame, semantics, importedExtensions, fileContentHashCode);
+      return new StarlarkThread(module, semantics, importedExtensions, fileContentHashCode);
     }
   }
 
@@ -616,7 +660,7 @@ public final class StarlarkThread {
     if (!callstack.isEmpty()) {
       vars.addAll(frame(0).locals.keySet());
     }
-    vars.addAll(globalFrame.getTransitiveBindings().keySet());
+    vars.addAll(module.getTransitiveBindings().keySet());
     return vars;
   }
 
@@ -654,7 +698,7 @@ public final class StarlarkThread {
    */
   public ImmutableList<CallStackEntry> getCallStack() {
     ImmutableList.Builder<CallStackEntry> stack = ImmutableList.builder();
-    for (CallFrame fr : callstack) {
+    for (Frame fr : callstack) {
       stack.add(new CallStackEntry(fr.fn.getName(), fr.loc));
     }
     return stack.build();

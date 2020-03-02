@@ -55,6 +55,9 @@ class LcovMergerFlags {
   @Parameter(names = "--sources_to_replace_file")
   private String sourcesToReplaceFile;
 
+  @Parameter(names = "--parse_sequentially")
+  private boolean parseSequentially;
+
   public String coverageDir() {
     return coverageDir;
   }
@@ -81,6 +84,10 @@ class LcovMergerFlags {
 
   boolean hasSourceFileManifest() {
     return sourceFileManifest != null;
+  }
+
+  boolean parseSequentially() {
+    return parseSequentially;
   }
 
   static LcovMergerFlags parseFlags(String[] args) {

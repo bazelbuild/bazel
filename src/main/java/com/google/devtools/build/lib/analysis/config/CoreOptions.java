@@ -429,14 +429,13 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
       effectTags = {OptionEffectTag.ACTION_COMMAND_LINES},
       help =
-          "Prefix to insert in front of command before running. "
-              + "Examples:\n"
-              + "\t--run_under=valgrind\n"
-              + "\t--run_under=strace\n"
-              + "\t--run_under='strace -c'\n"
-              + "\t--run_under='valgrind --quiet --num-callers=20'\n"
-              + "\t--run_under=//package:target\n"
-              + "\t--run_under='//package:target --options'\n")
+          "Prefix to insert before the executables for the 'test' and 'run' commands. "
+              + "If the value is 'foo -bar', and the execution command line is 'test_binary -baz', "
+              + "then the final command line is 'foo -bar test_binary -baz'."
+              + "This can also be a label to an executable target. Some examples are: "
+              + "'valgrind', 'strace', 'strace -c', "
+              + "'valgrind --quiet --num-callers=20', '//package:target', "
+              + " '//package:target --options'.")
   public RunUnder runUnder;
 
   @Option(
@@ -564,7 +563,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
 
   @Option(
       name = "analysis_testing_deps_limit",
-      defaultValue = "500",
+      defaultValue = "600",
       documentationCategory = OptionDocumentationCategory.TESTING,
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
       help =
@@ -851,6 +850,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
     CoreOptions host = (CoreOptions) getDefault();
 
     host.outputDirectoryName = "host";
+    host.transitionDirectoryNameFragment = transitionDirectoryNameFragment;
     host.compilationMode = hostCompilationMode;
     host.isHost = true;
     host.isExec = false;

@@ -21,6 +21,7 @@ import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.truth.Correspondence;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -114,6 +115,80 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testMainRepoLabelWorkspaceRoot() throws Exception {
+    scratch.file(
+        "test/skylark/extension.bzl",
+        "load('//myinfo:myinfo.bzl', 'MyInfo')",
+        "def _impl(ctx):",
+        "  return [MyInfo(result = ctx.label.workspace_root)]",
+        "my_rule = rule(implementation = _impl, attrs = { })");
+    scratch.file(
+        "test/skylark/BUILD",
+        "load('//test/skylark:extension.bzl', 'my_rule')",
+        "my_rule(name='t')");
+
+    ConfiguredTarget myTarget = getConfiguredTarget("//test/skylark:t");
+    String result = (String) getMyInfoFromTarget(myTarget).getValue("result");
+    assertThat(result).isEmpty();
+  }
+
+  @Test
+  public void testExternalRepoLabelWorkspaceRoot_subdirRepoLayout() throws Exception {
+    scratch.overwriteFile(
+        "WORKSPACE",
+        new ImmutableList.Builder<String>()
+            .addAll(analysisMock.getWorkspaceContents(mockToolsConfig))
+            .add("local_repository(name='r', path='/r')")
+            .build());
+
+    scratch.file("/r/WORKSPACE");
+    scratch.file(
+        "/r/test/skylark/extension.bzl",
+        "load('@//myinfo:myinfo.bzl', 'MyInfo')",
+        "def _impl(ctx):",
+        "  return [MyInfo(result = ctx.label.workspace_root)]",
+        "my_rule = rule(implementation = _impl, attrs = { })");
+    scratch.file(
+        "/r/BUILD", "load('//:test/skylark/extension.bzl', 'my_rule')", "my_rule(name='t')");
+
+    // Required since we have a new WORKSPACE file.
+    invalidatePackages(true);
+
+    ConfiguredTarget myTarget = getConfiguredTarget("@r//:t");
+    String result = (String) getMyInfoFromTarget(myTarget).getValue("result");
+    assertThat(result).isEqualTo("external/r");
+  }
+
+  @Test
+  public void testExternalRepoLabelWorkspaceRoot_siblingRepoLayout() throws Exception {
+    scratch.overwriteFile(
+        "WORKSPACE",
+        new ImmutableList.Builder<String>()
+            .addAll(analysisMock.getWorkspaceContents(mockToolsConfig))
+            .add("local_repository(name='r', path='/r')")
+            .build());
+
+    scratch.file("/r/WORKSPACE");
+    scratch.file(
+        "/r/test/skylark/extension.bzl",
+        "load('@//myinfo:myinfo.bzl', 'MyInfo')",
+        "def _impl(ctx):",
+        "  return [MyInfo(result = ctx.label.workspace_root)]",
+        "my_rule = rule(implementation = _impl, attrs = { })");
+    scratch.file(
+        "/r/BUILD", "load('//:test/skylark/extension.bzl', 'my_rule')", "my_rule(name='t')");
+
+    // Required since we have a new WORKSPACE file.
+    invalidatePackages(true);
+
+    setSkylarkSemanticsOptions("--experimental_sibling_repository_layout");
+
+    ConfiguredTarget myTarget = getConfiguredTarget("@r//:t");
+    String result = (String) getMyInfoFromTarget(myTarget).getValue("result");
+    assertThat(result).isEqualTo("../r");
+  }
+
+  @Test
   public void testSameMethodNames() throws Exception {
     // The alias feature of load() may hide the fact that two methods in the stack trace have the
     // same name. This is perfectly legal as long as these two methods are actually distinct.
@@ -190,7 +265,8 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
         "test/skylark/test_rule.bzl",
         "def _impl(ctx):",
         "  output = ctx.outputs.out",
-        "  ctx.actions.write(output = output, content = 'hello')",
+        "  ctx.actions.write(output = output, content = 'hello', is_executable=True)",
+        "  return [DefaultInfo(executable = output)]",
         "",
         "fake_test = rule(",
         "  implementation = _impl,",
@@ -202,7 +278,7 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
         "test/skylark/BUILD",
         "load('//test/skylark:test_rule.bzl', 'fake_test')",
         "fake_test(name = 'test_name')");
-    getConfiguredTarget("//test/skylark:fake_test");
+    getConfiguredTarget("//test/skylark:test_name");
   }
 
   @Test

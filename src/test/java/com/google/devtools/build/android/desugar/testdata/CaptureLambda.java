@@ -25,9 +25,6 @@ public class CaptureLambda {
   }
 
   public List<String> prefixed(String prefix) {
-    return names
-        .stream()
-        .filter(n -> n.startsWith(prefix))
-        .collect(Collectors.toList());
+    return names.stream().filter(n -> n.startsWith(prefix)).collect(Collectors.toList());
   }
 }

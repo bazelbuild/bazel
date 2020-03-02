@@ -1,0 +1,105 @@
+// Copyright 2020 The Bazel Authors. All rights reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//    http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+// This file's messages describe any failure(s) that occurred during Bazel's
+// handling of a request. The intent is to provide more detail to a Bazel client
+// than is conveyed with an exit code, to help those clients decide how to
+// respond to, or classify, a failure.
+
+syntax = "proto3";
+
+package failure_details;
+
+option java_package = "com.google.devtools.build.lib.server";
+
+import "google/protobuf/descriptor.proto";
+
+message FailureDetailMetadata {
+  uint32 exit_code = 1;
+}
+
+  extend google.protobuf.EnumValueOptions {
+  FailureDetailMetadata metadata = 1078;
+}
+
+// The FailureDetail message type is designed such that consumers can extract a
+// basic classification of a FailureDetail message even if the consumer was
+// built with a stale definition. This forward compatibility is implemented via
+// conventions on FailureDetail and its submessage types, as follows.
+//
+// *** FailureDetail field numbers
+//
+// Field numbers 1 through 100 (inclusive) are reserved for generally applicable
+// values. Any number of these fields may be set on a FailureDetail message.
+//
+// Field numbers 101 through 10,000 (inclusive) are reserved for use inside the
+// "oneof" structure. Only one of these values should be set on a FailureDetail
+// message.
+//
+// Additional fields numbers are unlikely to be needed, but, for extreme future-
+// proofing purposes, field numbers 10,001 through 1,000,000 (inclusive;
+// excluding protobuf's reserved range 19000 through 19999) are reserved for
+// additional generally applicable values.
+//
+// *** FailureDetail's "oneof" submessages
+//
+// Each field in the "oneof" structure is a submessage corresponding to a
+// category of failure.
+//
+// In each of these submessage types, field number 1 is an enum whose values
+// correspond to a subcategory of the failure. Generally, the enum's constant
+// which maps to 0 should be interpreted as "unspecified", though this is not
+// required.
+//
+// *** Recommended forward compatibility strategy
+//
+// The recommended forward compatibility strategy is to reduce a FailureDetail
+// message to a pair of integers.
+//
+// The first integer corresponds to the field number of the submessage set
+// inside FailureDetail's "oneof", which corresponds with the failure's
+// category.
+//
+// The second integer corresponds to the value of the enum at field number 1
+// within that submessage, which corresponds with the failure's subcategory.
+//
+// WARNING: This functionality is experimental and should not be relied on at
+// this time.
+// TODO(mschaller): remove experimental warning
+message FailureDetail {
+  // A short human-readable message describing the failure, for debugging.
+  //
+  // This value is *not* intended to be used algorithmically.
+  string message = 1;
+
+  // Reserved for future generally applicable values. Any of these may be set.
+  reserved 2 to 100;
+
+  oneof category {
+    Interrupted interrupted = 101;
+  }
+
+  reserved 102; // For internal use
+}
+
+message Interrupted {
+  enum InterruptedCode {
+    // Interrupted at an unspecified time.
+    INTERRUPTED_UNSPECIFIED = 0 [(metadata) = { exit_code: 8 }];
+    // TODO(mschaller): Add subcategories that specify what was happening at the
+    //  time of interruption.
+  }
+
+  InterruptedCode code = 1;
+}

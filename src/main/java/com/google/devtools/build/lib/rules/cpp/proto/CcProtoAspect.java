@@ -41,6 +41,7 @@ import com.google.devtools.build.lib.packages.AspectParameters;
 import com.google.devtools.build.lib.packages.Attribute.LabelLateBoundDefault;
 import com.google.devtools.build.lib.packages.NativeAspectClass;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
+import com.google.devtools.build.lib.packages.RuleErrorConsumer;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.rules.cpp.AspectLegalCppSemantics;
 import com.google.devtools.build.lib.rules.cpp.CcCommon;
@@ -169,7 +170,7 @@ public abstract class CcProtoAspect extends NativeAspectClass implements Configu
       depsBuilder.addAll(ruleContext.getPrerequisites("deps", TARGET));
       ImmutableList<TransitiveInfoCollection> deps = depsBuilder.build();
 
-      CppHelper.checkProtoLibrariesInDeps(ruleContext, deps);
+      checkProtoLibrariesInDeps(ruleContext, deps);
       CcCompilationHelper compilationHelper =
           initializeCompilationHelper(featureConfiguration, deps);
 
@@ -273,6 +274,17 @@ public abstract class CcProtoAspect extends NativeAspectClass implements Configu
       }
     }
 
+    private static void checkProtoLibrariesInDeps(
+        RuleErrorConsumer ruleErrorConsumer, Iterable<TransitiveInfoCollection> deps) {
+      for (TransitiveInfoCollection dep : deps) {
+        if (dep.get(ProtoInfo.PROVIDER) != null && dep.get(CcInfo.PROVIDER) == null) {
+          ruleErrorConsumer.attributeError(
+              "deps",
+              String.format("proto_library '%s' does not produce output for C++", dep.getLabel()));
+        }
+      }
+    }
+
     private boolean areSrcsBlacklisted() {
       return !new ProtoSourceFileBlacklist(
               ruleContext, getProtoToolchainProvider().blacklistedProtos())
@@ -296,7 +308,8 @@ public abstract class CcProtoAspect extends NativeAspectClass implements Configu
               ruleContext,
               requestedFeatures.build(),
               unsupportedFeatures.build(),
-              ccToolchain(ruleContext));
+              ccToolchain(ruleContext),
+              cppSemantics);
       return featureConfiguration;
     }
 
@@ -337,7 +350,15 @@ public abstract class CcProtoAspect extends NativeAspectClass implements Configu
         protoRootFragment = protoRootFragment.relativeTo(binOrGenfiles);
       }
       PathFragment repositoryPath =
-          ruleContext.getLabel().getPackageIdentifier().getRepository().getPathUnderExecRoot();
+          ruleContext
+              .getLabel()
+              .getPackageIdentifier()
+              .getRepository()
+              .getExecPath(
+                  ruleContext
+                      .getAnalysisEnvironment()
+                      .getSkylarkSemantics()
+                      .experimentalSiblingRepositoryLayout());
       if (protoRootFragment.startsWith(repositoryPath)) {
         protoRootFragment = protoRootFragment.relativeTo(repositoryPath);
       }
@@ -420,7 +441,8 @@ public abstract class CcProtoAspect extends NativeAspectClass implements Configu
       helper.addAdditionalExportedHeaders(headers.build());
     }
 
-    private void createProtoCompileAction(Collection<Artifact> outputs) {
+    private void createProtoCompileAction(Collection<Artifact> outputs)
+        throws InterruptedException {
       PathFragment protoRootFragment = PathFragment.create(protoInfo.getDirectProtoSourceRoot());
       String genfilesPath;
       PathFragment genfilesFragment = ruleContext.getConfiguration().getGenfilesFragment();

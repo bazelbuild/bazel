@@ -58,7 +58,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.time.Duration;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
@@ -140,7 +139,7 @@ public class StandaloneTestStrategy extends TestStrategy {
         action, actionExecutionContext, spawn, tmpDir, workingDirectory, execRoot);
   }
 
-  private ImmutableList<Pair<String, Path>> renameOutputs(
+  private static ImmutableList<Pair<String, Path>> renameOutputs(
       ActionExecutionContext actionExecutionContext,
       TestRunnerAction action,
       ImmutableList<Pair<String, Path>> testOutputs,
@@ -363,7 +362,7 @@ public class StandaloneTestStrategy extends TestStrategy {
    * A spawn to generate a test.xml file from the test log. This is only used if the test does not
    * generate a test.xml file itself.
    */
-  private Spawn createXmlGeneratingSpawn(TestRunnerAction action, SpawnResult result) {
+  private static Spawn createXmlGeneratingSpawn(TestRunnerAction action, SpawnResult result) {
     ImmutableList<String> args =
         ImmutableList.of(
             action.getTestXmlGeneratorScript().getExecPath().getCallablePathString(),
@@ -401,7 +400,7 @@ public class StandaloneTestStrategy extends TestStrategy {
     return new TestResult(action, data, /*cached*/ true, execRoot);
   }
 
-  private final class StandaloneFailedAttemptResult implements FailedAttemptResult {
+  private static final class StandaloneFailedAttemptResult implements FailedAttemptResult {
     private final TestResultData testResultData;
 
     StandaloneFailedAttemptResult(TestResultData testResultData) {
@@ -525,7 +524,7 @@ public class StandaloneTestStrategy extends TestStrategy {
       // The TestResult proto is always constructed from a TestResultData instance, either one that
       // is created right here, or one that is read back from disk.
       TestResultData.Builder builder;
-      List<SpawnResult> spawnResults;
+      ImmutableList<SpawnResult> spawnResults;
       try {
         SpawnContinuation nextContinuation = spawnContinuation.execute();
         if (!nextContinuation.isDone()) {
@@ -681,7 +680,7 @@ public class StandaloneTestStrategy extends TestStrategy {
         throw e;
       }
 
-      List<SpawnResult> spawnResults = new ArrayList<>();
+      ImmutableList.Builder<SpawnResult> spawnResults = ImmutableList.builder();
       spawnResults.addAll(primarySpawnResults);
       spawnResults.addAll(nextContinuation.get());
 
@@ -695,7 +694,7 @@ public class StandaloneTestStrategy extends TestStrategy {
           extractExecutionInfo(primarySpawnResults.get(0), builder);
       StandaloneTestResult standaloneTestResult =
           StandaloneTestResult.builder()
-              .setSpawnResults(spawnResults)
+              .setSpawnResults(spawnResults.build())
               // We return the TestResultData.Builder rather than the finished TestResultData
               // instance, as we may have to rename the output files in case the test needs to be
               // rerun (if it failed here _and_ is marked flaky _and_ the number of flaky attempts

@@ -289,7 +289,25 @@ public class ConfigSetting implements RuleConfiguredTargetFactory {
         foundMismatch = true;
         continue;
       }
-      requiredFragmentOptions.add(ClassName.getSimpleNameWithOuter(optionClass));
+
+      if (optionName.equals("define")) {
+        // --define is more like user-defined build flags than traditional native flags. Report it
+        // like user-defined flags: the dependency is directly on the flag vs. the fragment that
+        // contains the flag. This frees a rule that depends on "--define a=1" from preserving
+        // another rule's dependency on "--define b=2". In other words, if both rules simply said
+        // "I require CoreOptions" (which is the FragmentOptions --define belongs to), that would
+        // hide the reality that they really have orthogonal dependencies: removing
+        // "--define b=2" is perfectly safe for the rule that needs "--define a=1".
+        int equalsIndex = expectedRawValue.indexOf('=');
+        requiredFragmentOptions.add(
+            "--define:"
+                + (equalsIndex > 0
+                    ? expectedRawValue.substring(0, equalsIndex)
+                    : expectedRawValue));
+      } else {
+        // For other native flags, it's reasonable to report the fragment they belong to.
+        requiredFragmentOptions.add(ClassName.getSimpleNameWithOuter(optionClass));
+      }
 
       SelectRestriction selectRestriction = options.getSelectRestriction(optionName);
       if (selectRestriction != null) {

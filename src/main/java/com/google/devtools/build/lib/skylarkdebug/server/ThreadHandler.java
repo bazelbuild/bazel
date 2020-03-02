@@ -298,7 +298,7 @@ final class ThreadHandler {
       servicingEvalRequest.set(true);
 
       ParserInput input = ParserInput.create(content, "<debug eval>");
-      Object x = EvalUtils.execAndEvalOptionalFinalExpression(input, thread);
+      Object x = EvalUtils.execAndEvalOptionalFinalExpression(input, thread.getGlobals(), thread);
       return x != null ? x : Starlark.NONE;
     } finally {
       servicingEvalRequest.set(false);

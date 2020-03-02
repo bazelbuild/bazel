@@ -140,10 +140,18 @@ def get_escaped_cxx_inc_directories(repository_ctx, cc, lang_flag, additional_fl
     else:
         inc_dirs = result.stderr[index1 + 1:index2].strip()
 
-    return [
+    inc_directories = [
         _prepare_include_path(repository_ctx, _cxx_inc_convert(p))
         for p in inc_dirs.split("\n")
     ]
+
+    if _is_compiler_option_supported(repository_ctx, cc, "-print-resource-dir"):
+        resource_dir = repository_ctx.execute(
+            [cc, "-print-resource-dir"],
+        ).stdout.strip() + "/share"
+        inc_directories.append(_prepare_include_path(repository_ctx, resource_dir))
+
+    return inc_directories
 
 def _is_compiler_option_supported(repository_ctx, cc, option):
     """Checks that `option` is supported by the C compiler. Doesn't %-escape the option."""

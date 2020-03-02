@@ -117,24 +117,6 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
       boolean addDynamicRuntimeInputArtifactsToRunfiles)
       throws RuleErrorException, InterruptedException {
     CcCommon.checkRuleLoadedThroughMacro(ruleContext);
-    boolean linkedStaticallyBySpecified =
-        ruleContext.attributes().isAttributeValueExplicitlySpecified("linked_statically_by");
-    boolean linkedStaticallyByAllSpecified =
-        ruleContext.attributes().isAttributeValueExplicitlySpecified("linked_statically_by_all");
-
-    if ((linkedStaticallyBySpecified || linkedStaticallyByAllSpecified)
-        && !ruleContext
-            .getAnalysisEnvironment()
-            .getSkylarkSemantics()
-            .experimentalCcSharedLibrary()) {
-      ruleContext.ruleError(
-          "The attributes 'linked_statically_by' and 'linked_statically_by_all' can only be used "
-              + "with the flag --experimental_cc_shared_library.");
-    }
-    if (linkedStaticallyBySpecified && linkedStaticallyByAllSpecified) {
-      ruleContext.ruleError(
-          "Cannot specify both 'linked_statically_by' and 'linked_statically_by_all'");
-    }
     semantics.validateDeps(ruleContext);
     if (ruleContext.hasErrors()) {
       addEmptyRequiredProviders(targetBuilder);
@@ -155,7 +137,7 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
 
     FdoContext fdoContext = common.getFdoContext();
     FeatureConfiguration featureConfiguration =
-        CcCommon.configureFeaturesOrReportRuleError(ruleContext, ccToolchain);
+        CcCommon.configureFeaturesOrReportRuleError(ruleContext, ccToolchain, semantics);
     PrecompiledFiles precompiledFiles = new PrecompiledFiles(ruleContext);
 
     semantics.validateAttributes(ruleContext);
@@ -166,7 +148,6 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
 
     ImmutableList<TransitiveInfoCollection> deps =
         ImmutableList.copyOf(ruleContext.getPrerequisites("deps", Mode.TARGET));
-    CppHelper.checkProtoLibrariesInDeps(ruleContext, deps);
     if (ruleContext.hasErrors()) {
       addEmptyRequiredProviders(targetBuilder);
       return;
@@ -347,7 +328,7 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
                             ArtifactCategory.DYNAMIC_LIBRARY, ruleContext.getLabel().getName()));
             targetBuilder.addOutputGroup(DEF_FILE_OUTPUT_GROUP_NAME, generatedDefFile);
           } catch (EvalException e) {
-            throw ruleContext.throwWithRuleError(e.getMessage());
+            throw ruleContext.throwWithRuleError(e);
           }
         }
         linkingHelper.setDefFile(
@@ -447,7 +428,7 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
         builder.addTransitiveArtifacts(
             ccToolchain.getDynamicRuntimeLinkInputs(featureConfiguration));
       } catch (EvalException e) {
-        throw ruleContext.throwWithRuleError(e.getMessage());
+        throw ruleContext.throwWithRuleError(e);
       }
     }
     Runfiles runfiles = builder.build();

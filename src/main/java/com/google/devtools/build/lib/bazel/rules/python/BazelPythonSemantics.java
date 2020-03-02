@@ -235,13 +235,18 @@ public class BazelPythonSemantics implements PythonSemantics {
 
       if (OS.getCurrent() != OS.WINDOWS) {
         PathFragment shExecutable = ShToolchain.getPathOrError(ruleContext);
+        // TODO(#8685): Remove this special-case handling as part of making the proper shebang a
+        // property of the Python toolchain configuration.
+        String pythonExecutableName = OS.getCurrent() == OS.OPENBSD ? "python3" : "python";
         ruleContext.registerAction(
             new SpawnAction.Builder()
                 .addInput(zipFile)
                 .addOutput(executable)
                 .setShellCommand(
                     shExecutable,
-                    "echo '#!/usr/bin/env python' | cat - "
+                    "echo '#!/usr/bin/env "
+                        + pythonExecutableName
+                        + "' | cat - "
                         + zipFile.getExecPathString()
                         + " > "
                         + executable.getExecPathString())

@@ -26,6 +26,7 @@ import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodHandles.Lookup;
 import java.lang.reflect.AnnotatedElement;
 import java.lang.reflect.Field;
+import java.lang.reflect.Method;
 import java.lang.reflect.Parameter;
 import org.junit.rules.TestRule;
 import org.junit.runner.Description;
@@ -89,16 +90,18 @@ public final class DesugarRule implements TestRule {
     }
   }
 
-  Object[] resolveParameters(Parameter[] parameters) throws Throwable {
-    int parameterLength = parameters.length;
-    Object[] resolvedParams = new Object[parameterLength];
-    for (int i = 0; i < parameterLength; i++) {
-      resolvedParams[i] = resolve(parameters[i], parameters[i].getType());
+  ImmutableMap<Parameter, Object> getResolvableParameters(Method method) throws Throwable {
+    ImmutableMap.Builder<Parameter, Object> resolvableParameterValues = ImmutableMap.builder();
+    for (Parameter parameter : method.getParameters()) {
+      if (RuntimeEntityResolver.SUPPORTED_QUALIFIERS.stream()
+          .anyMatch(parameter::isAnnotationPresent)) {
+        resolvableParameterValues.put(parameter, resolve(parameter, parameter.getType()));
+      }
     }
-    return resolvedParams;
+    return resolvableParameterValues.build();
   }
 
-  public Object resolve(AnnotatedElement param, Class<?> type) throws Throwable {
+  public <T> T resolve(AnnotatedElement param, Class<T> type) throws Throwable {
     return runtimeEntityResolver.resolve(param, type);
   }
 

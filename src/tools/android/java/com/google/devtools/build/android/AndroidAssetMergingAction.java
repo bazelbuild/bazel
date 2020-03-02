@@ -47,7 +47,7 @@ public class AndroidAssetMergingAction extends AbstractBusyBoxAction {
   private static AndroidAssetMergingAction create() {
     OptionsParser optionsParser =
         OptionsParser.builder()
-            .optionsClasses(Options.class)
+            .optionsClasses(Options.class, ResourceProcessorCommonOptions.class)
             .argsPreProcessor(new ShellQuotedParamsFilePreProcessor(FileSystems.getDefault()))
             .build();
     return new AndroidAssetMergingAction(optionsParser);

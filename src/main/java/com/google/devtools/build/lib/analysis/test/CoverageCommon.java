@@ -20,7 +20,6 @@ import com.google.devtools.build.lib.analysis.skylark.SkylarkRuleContext;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector.InstrumentationSpec;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
-import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkbuildapi.test.CoverageCommonApi;
 import com.google.devtools.build.lib.skylarkbuildapi.test.InstrumentedFilesInfoApi;
 import com.google.devtools.build.lib.syntax.EvalException;
@@ -42,8 +41,7 @@ public class CoverageCommon implements CoverageCommonApi<ConstraintValueInfo, Sk
       SkylarkRuleContext skylarkRuleContext,
       Sequence<?> sourceAttributes, // <String>
       Sequence<?> dependencyAttributes, // <String>
-      Object extensions,
-      Location location)
+      Object extensions)
       throws EvalException {
     List<String> extensionsList =
         extensions == Starlark.NONE
@@ -51,7 +49,6 @@ public class CoverageCommon implements CoverageCommonApi<ConstraintValueInfo, Sk
             : Sequence.castList((List<?>) extensions, String.class, "extensions");
 
     return createInstrumentedFilesInfo(
-        location,
         skylarkRuleContext.getRuleContext(),
         sourceAttributes.getContents(String.class, "source_attributes"),
         dependencyAttributes.getContents(String.class, "dependency_attributes"),
@@ -64,7 +61,6 @@ public class CoverageCommon implements CoverageCommonApi<ConstraintValueInfo, Sk
    * example, the instrumented sources are determined given the values of the attributes named in
    * {@code sourceAttributes} given by the {@code ruleContext}.
    *
-   * @param location the Starlark location that the instrumentation specification was defined
    * @param ruleContext the rule context
    * @param sourceAttributes a list of attribute names which contain source files for the rule
    * @param dependencyAttributes a list of attribute names which contain dependencies that might
@@ -74,7 +70,6 @@ public class CoverageCommon implements CoverageCommonApi<ConstraintValueInfo, Sk
    *     extensions listed in {@code extensions} will be used
    */
   public static InstrumentedFilesInfo createInstrumentedFilesInfo(
-      Location location,
       RuleContext ruleContext,
       List<String> sourceAttributes,
       List<String> dependencyAttributes,

@@ -14,8 +14,12 @@
 
 package com.google.devtools.build.android.desugar.nest;
 
-import com.google.devtools.build.android.desugar.langmodel.ClassMemberKey;
+import com.google.devtools.build.android.desugar.langmodel.ClassAttributeRecord.ClassAttributeRecordBuilder;
+import com.google.devtools.build.android.desugar.langmodel.ClassAttributes;
+import com.google.devtools.build.android.desugar.langmodel.ClassAttributes.ClassAttributesBuilder;
 import com.google.devtools.build.android.desugar.langmodel.ClassMemberRecord;
+import com.google.devtools.build.android.desugar.langmodel.ClassMemberRecord.ClassMemberRecordBuilder;
+import com.google.devtools.build.android.desugar.langmodel.ClassName;
 import com.google.devtools.build.android.desugar.langmodel.FieldKey;
 import com.google.devtools.build.android.desugar.langmodel.LangModelHelper;
 import com.google.devtools.build.android.desugar.langmodel.MethodKey;
@@ -31,21 +35,27 @@ import org.objectweb.asm.Opcodes;
 final class CrossMateMainCollector extends ClassVisitor {
 
   /** The project-wise class member records. */
-  private final ClassMemberRecord memberRecord;
+  private final ClassMemberRecordBuilder memberRecord;
+
+  private final ClassAttributeRecordBuilder classAttributeRecord;
 
   /**
    * An class member record to stage member record candidates, merging into the project-wise member
    * record during the {@link #visitEnd()} where eligible conditions are specified.
    */
-  private final ClassMemberRecord stagingMemberRecord = ClassMemberRecord.create();
+  private final ClassMemberRecordBuilder stagingMemberRecord = ClassMemberRecord.builder();
 
-  private String className;
+  private final ClassAttributesBuilder classAttributesBuilder = ClassAttributes.builder();
+
+  private ClassName className;
   private int classAccessCode;
   private boolean isInNest;
 
-  public CrossMateMainCollector(ClassMemberRecord memberRecord) {
+  public CrossMateMainCollector(
+      ClassMemberRecordBuilder memberRecord, ClassAttributeRecordBuilder classAttributeRecord) {
     super(Opcodes.ASM7);
     this.memberRecord = memberRecord;
+    this.classAttributeRecord = classAttributeRecord;
   }
 
   @Override
@@ -56,8 +66,9 @@ final class CrossMateMainCollector extends ClassVisitor {
       String signature,
       String superName,
       String[] interfaces) {
-    className = name;
+    className = ClassName.create(name);
     classAccessCode = access;
+    classAttributesBuilder.setClassBinaryName(className);
     super.visit(
         Math.min(version, NestDesugarConstants.MIN_VERSION),
         access,
@@ -81,6 +92,9 @@ final class CrossMateMainCollector extends ClassVisitor {
   public MethodVisitor visitMethod(
       int access, String name, String descriptor, String signature, String[] exceptions) {
     MethodKey methodKey = MethodKey.create(className, name, descriptor);
+    if ((access & Opcodes.ACC_PRIVATE) != 0 && (access & Opcodes.ACC_STATIC) == 0) {
+      classAttributesBuilder.addPrivateInstanceMethod(methodKey);
+    }
     if ((access & Opcodes.ACC_PRIVATE) != 0 && !isInDeclOmissionList(methodKey)) {
       stagingMemberRecord.logMemberDecl(methodKey, classAccessCode, access);
     }
@@ -105,20 +119,23 @@ final class CrossMateMainCollector extends ClassVisitor {
   @Override
   public void visitNestHost(String nestHost) {
     isInNest = true;
+    classAttributesBuilder.setNestHost(ClassName.create(nestHost));
     super.visitNestHost(nestHost);
   }
 
   @Override
   public void visitNestMember(String nestMember) {
     isInNest = true;
+    classAttributesBuilder.addNestMember(ClassName.create(nestMember));
     super.visitNestMember(nestMember);
   }
 
   @Override
   public void visitEnd() {
     if (isInNest || (classAccessCode & Opcodes.ACC_INTERFACE) != 0) {
-      memberRecord.mergeFrom(stagingMemberRecord);
+      memberRecord.mergeFrom(stagingMemberRecord.build());
     }
+    classAttributeRecord.addClassAttributes(classAttributesBuilder.build());
     super.visitEnd();
   }
 
@@ -137,10 +154,12 @@ final class CrossMateMainCollector extends ClassVisitor {
      *
      * <p>@see CrossMateMainCollector#stagingMemberRecord for more details.
      */
-    private final ClassMemberRecord memberRecord;
+    private final ClassMemberRecordBuilder memberRecord;
 
     CrossMateRefCollector(
-        MethodVisitor methodVisitor, MethodKey enclosingMethodKey, ClassMemberRecord memberRecord) {
+        MethodVisitor methodVisitor,
+        MethodKey enclosingMethodKey,
+        ClassMemberRecordBuilder memberRecord) {
       super(Opcodes.ASM7, methodVisitor);
       this.enclosingMethodKey = enclosingMethodKey;
       this.memberRecord = memberRecord;
@@ -148,7 +167,7 @@ final class CrossMateMainCollector extends ClassVisitor {
 
     @Override
     public void visitFieldInsn(int opcode, String owner, String name, String descriptor) {
-      ClassMemberKey memberKey = FieldKey.create(owner, name, descriptor);
+      FieldKey memberKey = FieldKey.create(ClassName.create(owner), name, descriptor);
       if (LangModelHelper.isCrossMateRefInNest(memberKey, enclosingMethodKey)) {
         memberRecord.logMemberUse(memberKey, opcode);
       }
@@ -158,7 +177,7 @@ final class CrossMateMainCollector extends ClassVisitor {
     @Override
     public void visitMethodInsn(
         int opcode, String owner, String name, String descriptor, boolean isInterface) {
-      ClassMemberKey memberKey = MethodKey.create(owner, name, descriptor);
+      MethodKey memberKey = MethodKey.create(ClassName.create(owner), name, descriptor);
       if (isInterface || LangModelHelper.isCrossMateRefInNest(memberKey, enclosingMethodKey)) {
         memberRecord.logMemberUse(memberKey, opcode);
       }

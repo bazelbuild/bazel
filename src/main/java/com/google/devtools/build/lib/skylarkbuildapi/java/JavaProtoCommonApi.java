@@ -69,7 +69,7 @@ public interface JavaProtoCommonApi<
       FileT sourceJar,
       String protoToolchainAttr,
       String flavour)
-      throws EvalException;
+      throws EvalException, InterruptedException;
 
   @SkylarkCallable(
       name = "has_proto_sources",

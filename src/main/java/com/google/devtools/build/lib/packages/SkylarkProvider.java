@@ -149,13 +149,14 @@ public final class SkylarkProvider extends BaseFunction implements SkylarkExport
   }
 
   @Override
-  public Object fastcall(StarlarkThread thread, Location loc, Object[] positional, Object[] named)
+  public Object fastcall(StarlarkThread thread, Object[] positional, Object[] named)
       throws EvalException, InterruptedException {
     // TODO(adonovan): we can likely come up with a more efficient implementation
     // ...then make matchSignature private again?
     Object[] arguments =
         Starlark.matchSignature(
             signature, this, /*defaults=*/ null, thread.mutability(), positional, named);
+    Location loc = thread.getCallerLocation();
     if (fields == null) {
       // provider(**kwargs)
       @SuppressWarnings("unchecked")

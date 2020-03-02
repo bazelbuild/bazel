@@ -30,6 +30,7 @@ import java.nio.file.SimpleFileVisitor;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.Arrays;
 import java.util.Enumeration;
+import java.util.List;
 import java.util.function.Predicate;
 import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
@@ -67,6 +68,12 @@ public class GenClass {
   public static void main(String[] args) throws IOException {
     GenClassOptions options = GenClassOptionsParser.parse(Arrays.asList(args));
     Manifest manifest = readManifest(options.manifest());
+
+    if (!options.getGeneratedSourceJars().isEmpty()) {
+      Manifest generatedJarsManifest = readGeneratedSourceJars(options.getGeneratedSourceJars());
+      manifest = Manifest.newBuilder(manifest).mergeFrom(generatedJarsManifest).build();
+    }
+
     deleteTree(options.tempDir());
     Files.createDirectories(options.tempDir());
     extractGeneratedClasses(options.classJar(), manifest, options.tempDir());
@@ -80,6 +87,49 @@ public class GenClass {
       manifest = Manifest.parseFrom(inputStream);
     }
     return manifest;
+  }
+
+  /** Reads the list of source jars and generates a Manifest based on the jars' entries. */
+  @VisibleForTesting
+  static Manifest readGeneratedSourceJars(List<Path> generatedSourceJarPaths) throws IOException {
+
+    Manifest.Builder manifestBuilder = Manifest.newBuilder();
+    for (Path generatedSourceJarPath : generatedSourceJarPaths) {
+
+      try (JarFile jar = new JarFile(generatedSourceJarPath.toFile())) {
+
+        Enumeration<JarEntry> entries = jar.entries();
+        while (entries.hasMoreElements()) {
+
+          JarEntry entry = entries.nextElement();
+          String path = entry.getName();
+          if (!path.endsWith(".java")) {
+            continue;
+          }
+
+          // This assumes that there is only 1 compilation unit in the Java file, and that the Java
+          // file's package matches its path in the jar.
+
+          int lastSlash = path.lastIndexOf("/");
+          String className = path.substring(lastSlash + 1, path.length() - ".java".length());
+          String pkg;
+          if (lastSlash == -1) {
+            pkg = "";
+          } else {
+            pkg = path.substring(0, lastSlash).replace('/', '.');
+          }
+          manifestBuilder.addCompilationUnit(
+              CompilationUnit.newBuilder()
+                  .setPath(path)
+                  .setPkg(pkg)
+                  .setGeneratedByAnnotationProcessor(true)
+                  .addTopLevel(className)
+                  .build());
+        }
+      }
+    }
+
+    return manifestBuilder.build();
   }
 
   /**

@@ -66,8 +66,8 @@ import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
 
 /**
- * Test data generator for b/62060793. This class creates a special labmda invocation that
- * contains *CONST_0 values on stack, which are passed as lambda arguments.
+ * Test data generator for b/62060793. This class creates a special labmda invocation that contains
+ * *CONST_0 values on stack, which are passed as lambda arguments.
  */
 public class Bug62060793TestDataGenerator {
 
@@ -78,13 +78,11 @@ public class Bug62060793TestDataGenerator {
 
   public static void main(String[] args) throws IOException {
     checkArgument(
-        args.length == 1,
-        "Usage: %s <output-jar>",
-        Bug62060793TestDataGenerator.class.getName());
+        args.length == 1, "Usage: %s <output-jar>", Bug62060793TestDataGenerator.class.getName());
     Path outputJar = Paths.get(args[0]);
 
     try (ZipOutputStream outZip =
-            new ZipOutputStream(new BufferedOutputStream(Files.newOutputStream(outputJar)))) {
+        new ZipOutputStream(new BufferedOutputStream(Files.newOutputStream(outputJar)))) {
       String className = CLASS_NAME + ".class";
       writeToZipFile(outZip, className, createClass());
       String interfaceName = INTERFACE_TYPE_NAME + ".class";
@@ -104,10 +102,7 @@ public class Bug62060793TestDataGenerator {
   private static byte[] createClass() {
     ClassWriter cw = new ClassWriter(ClassWriter.COMPUTE_MAXS);
     MethodVisitor mv;
-    cw.visit(
-        V1_8, ACC_PUBLIC | ACC_SUPER,
-        CLASS_NAME,
-        null, "java/lang/Object", null);
+    cw.visit(V1_8, ACC_PUBLIC | ACC_SUPER, CLASS_NAME, null, "java/lang/Object", null);
 
     cw.visitInnerClass(
         INTERFACE_TYPE_NAME,
@@ -130,12 +125,13 @@ public class Bug62060793TestDataGenerator {
       mv.visitEnd();
     }
     {
-      mv = cw.visitMethod(
-          ACC_PRIVATE | ACC_STATIC,
-          "method",
-          "(Ljava/lang/String;)Ljava/lang/String;",
-          null,
-          null);
+      mv =
+          cw.visitMethod(
+              ACC_PRIVATE | ACC_STATIC,
+              "method",
+              "(Ljava/lang/String;)Ljava/lang/String;",
+              null,
+              null);
       mv.visitParameter("str", 0);
       mv.visitCode();
       mv.visitVarInsn(ALOAD, 0);
@@ -143,12 +139,13 @@ public class Bug62060793TestDataGenerator {
       mv.visitEnd();
     }
     {
-      mv = cw.visitMethod(
-          ACC_PRIVATE | ACC_STATIC,
-          "method",
-          "(ZCBFDJISLjava/lang/Object;[Ljava/lang/Object;Ljava/lang/String;)Ljava/lang/String;",
-          null,
-          null);
+      mv =
+          cw.visitMethod(
+              ACC_PRIVATE | ACC_STATIC,
+              "method",
+              "(ZCBFDJISLjava/lang/Object;[Ljava/lang/Object;Ljava/lang/String;)Ljava/lang/String;",
+              null,
+              null);
       mv.visitParameter("bool", 0);
       mv.visitParameter("c", 0);
       mv.visitParameter("b", 0);
@@ -166,7 +163,8 @@ public class Bug62060793TestDataGenerator {
           INVOKESTATIC,
           "java/lang/String",
           "valueOf",
-          "(Ljava/lang/Object;)Ljava/lang/String;", false);
+          "(Ljava/lang/Object;)Ljava/lang/String;",
+          false);
       mv.visitVarInsn(ASTORE, 13);
       mv.visitVarInsn(ALOAD, 11);
       Label l0 = new Label();
@@ -182,66 +180,117 @@ public class Bug62060793TestDataGenerator {
       mv.visitVarInsn(ISTORE, 14);
       mv.visitIntInsn(BIPUSH, 91);
       mv.visitVarInsn(ALOAD, 12);
-      mv.visitMethodInsn(INVOKESTATIC, "java/lang/String",
-          "valueOf", "(Ljava/lang/Object;)Ljava/lang/String;", false);
-      mv.visitMethodInsn(INVOKEVIRTUAL, "java/lang/String",
-          "length", "()I", false);
+      mv.visitMethodInsn(
+          INVOKESTATIC,
+          "java/lang/String",
+          "valueOf",
+          "(Ljava/lang/Object;)Ljava/lang/String;",
+          false);
+      mv.visitMethodInsn(INVOKEVIRTUAL, "java/lang/String", "length", "()I", false);
       mv.visitInsn(IADD);
       mv.visitVarInsn(ALOAD, 13);
-      mv.visitMethodInsn(INVOKESTATIC, "java/lang/String",
-          "valueOf", "(Ljava/lang/Object;)Ljava/lang/String;", false);
-      mv.visitMethodInsn(INVOKEVIRTUAL, "java/lang/String",
-          "length", "()I", false);
+      mv.visitMethodInsn(
+          INVOKESTATIC,
+          "java/lang/String",
+          "valueOf",
+          "(Ljava/lang/Object;)Ljava/lang/String;",
+          false);
+      mv.visitMethodInsn(INVOKEVIRTUAL, "java/lang/String", "length", "()I", false);
       mv.visitInsn(IADD);
       mv.visitTypeInsn(NEW, "java/lang/StringBuilder");
       mv.visitInsn(DUP_X1);
       mv.visitInsn(SWAP);
-      mv.visitMethodInsn(INVOKESPECIAL, "java/lang/StringBuilder",
-          "<init>", "(I)V", false);
+      mv.visitMethodInsn(INVOKESPECIAL, "java/lang/StringBuilder", "<init>", "(I)V", false);
       mv.visitVarInsn(ALOAD, 12);
-      mv.visitMethodInsn(INVOKEVIRTUAL, "java/lang/StringBuilder",
-          "append", "(Ljava/lang/String;)Ljava/lang/StringBuilder;", false);
+      mv.visitMethodInsn(
+          INVOKEVIRTUAL,
+          "java/lang/StringBuilder",
+          "append",
+          "(Ljava/lang/String;)Ljava/lang/StringBuilder;",
+          false);
       mv.visitVarInsn(ILOAD, 0);
-      mv.visitMethodInsn(INVOKEVIRTUAL, "java/lang/StringBuilder",
-          "append", "(Z)Ljava/lang/StringBuilder;", false);
+      mv.visitMethodInsn(
+          INVOKEVIRTUAL,
+          "java/lang/StringBuilder",
+          "append",
+          "(Z)Ljava/lang/StringBuilder;",
+          false);
       mv.visitVarInsn(ILOAD, 1);
-      mv.visitMethodInsn(INVOKEVIRTUAL, "java/lang/StringBuilder",
-          "append", "(C)Ljava/lang/StringBuilder;", false);
+      mv.visitMethodInsn(
+          INVOKEVIRTUAL,
+          "java/lang/StringBuilder",
+          "append",
+          "(C)Ljava/lang/StringBuilder;",
+          false);
       mv.visitVarInsn(ILOAD, 2);
-      mv.visitMethodInsn(INVOKEVIRTUAL, "java/lang/StringBuilder",
-          "append", "(I)Ljava/lang/StringBuilder;", false);
+      mv.visitMethodInsn(
+          INVOKEVIRTUAL,
+          "java/lang/StringBuilder",
+          "append",
+          "(I)Ljava/lang/StringBuilder;",
+          false);
       mv.visitVarInsn(FLOAD, 3);
-      mv.visitMethodInsn(INVOKEVIRTUAL, "java/lang/StringBuilder",
-          "append", "(F)Ljava/lang/StringBuilder;", false);
+      mv.visitMethodInsn(
+          INVOKEVIRTUAL,
+          "java/lang/StringBuilder",
+          "append",
+          "(F)Ljava/lang/StringBuilder;",
+          false);
       mv.visitVarInsn(DLOAD, 4);
-      mv.visitMethodInsn(INVOKEVIRTUAL, "java/lang/StringBuilder",
-          "append", "(D)Ljava/lang/StringBuilder;", false);
+      mv.visitMethodInsn(
+          INVOKEVIRTUAL,
+          "java/lang/StringBuilder",
+          "append",
+          "(D)Ljava/lang/StringBuilder;",
+          false);
       mv.visitVarInsn(LLOAD, 6);
-      mv.visitMethodInsn(INVOKEVIRTUAL, "java/lang/StringBuilder",
-          "append", "(J)Ljava/lang/StringBuilder;", false);
+      mv.visitMethodInsn(
+          INVOKEVIRTUAL,
+          "java/lang/StringBuilder",
+          "append",
+          "(J)Ljava/lang/StringBuilder;",
+          false);
       mv.visitVarInsn(ILOAD, 8);
-      mv.visitMethodInsn(INVOKEVIRTUAL, "java/lang/StringBuilder",
-          "append", "(I)Ljava/lang/StringBuilder;", false);
+      mv.visitMethodInsn(
+          INVOKEVIRTUAL,
+          "java/lang/StringBuilder",
+          "append",
+          "(I)Ljava/lang/StringBuilder;",
+          false);
       mv.visitVarInsn(ILOAD, 9);
-      mv.visitMethodInsn(INVOKEVIRTUAL, "java/lang/StringBuilder",
-          "append", "(I)Ljava/lang/StringBuilder;", false);
+      mv.visitMethodInsn(
+          INVOKEVIRTUAL,
+          "java/lang/StringBuilder",
+          "append",
+          "(I)Ljava/lang/StringBuilder;",
+          false);
       mv.visitVarInsn(ALOAD, 13);
-      mv.visitMethodInsn(INVOKEVIRTUAL, "java/lang/StringBuilder",
-          "append", "(Ljava/lang/String;)Ljava/lang/StringBuilder;", false);
+      mv.visitMethodInsn(
+          INVOKEVIRTUAL,
+          "java/lang/StringBuilder",
+          "append",
+          "(Ljava/lang/String;)Ljava/lang/StringBuilder;",
+          false);
       mv.visitVarInsn(ILOAD, 14);
-      mv.visitMethodInsn(INVOKEVIRTUAL, "java/lang/StringBuilder",
-          "append", "(Z)Ljava/lang/StringBuilder;", false);
-      mv.visitMethodInsn(INVOKEVIRTUAL, "java/lang/StringBuilder",
-          "toString", "()Ljava/lang/String;", false);
+      mv.visitMethodInsn(
+          INVOKEVIRTUAL,
+          "java/lang/StringBuilder",
+          "append",
+          "(Z)Ljava/lang/StringBuilder;",
+          false);
+      mv.visitMethodInsn(
+          INVOKEVIRTUAL, "java/lang/StringBuilder", "toString", "()Ljava/lang/String;", false);
       mv.visitInsn(ARETURN);
       mv.visitEnd();
     }
     {
-      mv = cw.visitMethod(
-          ACC_PUBLIC | ACC_STATIC,
-          "lambdaWithConstantArguments",
-          "()L" + INTERFACE_TYPE_NAME + ";",
-          null, null);
+      mv =
+          cw.visitMethod(
+              ACC_PUBLIC | ACC_STATIC,
+              "lambdaWithConstantArguments",
+              "()L" + INTERFACE_TYPE_NAME + ";",
+              null,
+              null);
       mv.visitCode();
       mv.visitInsn(ICONST_0);
       mv.visitInsn(ICONST_1);
@@ -261,11 +310,11 @@ public class Bug62060793TestDataGenerator {
               "java/lang/invoke/LambdaMetafactory",
               "metafactory",
               "(Ljava/lang/invoke/MethodHandles$Lookup;"
-              + "Ljava/lang/String;Ljava/lang/invoke/MethodType;"
-              + "Ljava/lang/invoke/MethodType;"
-              + "Ljava/lang/invoke/MethodHandle;"
-              + "Ljava/lang/invoke/MethodType;"
-              + ")Ljava/lang/invoke/CallSite;",
+                  + "Ljava/lang/String;Ljava/lang/invoke/MethodType;"
+                  + "Ljava/lang/invoke/MethodType;"
+                  + "Ljava/lang/invoke/MethodHandle;"
+                  + "Ljava/lang/invoke/MethodType;"
+                  + ")Ljava/lang/invoke/CallSite;",
               false),
           new Object[] {
             Type.getType("(Ljava/lang/String;)Ljava/lang/String;"),
@@ -274,9 +323,10 @@ public class Bug62060793TestDataGenerator {
                 CLASS_NAME,
                 "method",
                 "(ZCBFDJISLjava/lang/Object;[Ljava/lang/Object;Ljava/lang/String;"
-                + ")Ljava/lang/String;",
+                    + ")Ljava/lang/String;",
                 false),
-            Type.getType("(Ljava/lang/String;)Ljava/lang/String;")});
+            Type.getType("(Ljava/lang/String;)Ljava/lang/String;")
+          });
       mv.visitInsn(ARETURN);
       mv.visitEnd();
     }
@@ -290,9 +340,13 @@ public class Bug62060793TestDataGenerator {
     ClassWriter cw = new ClassWriter(0);
     MethodVisitor mv;
 
-    cw.visit(V1_8, ACC_PUBLIC | ACC_ABSTRACT | ACC_INTERFACE,
+    cw.visit(
+        V1_8,
+        ACC_PUBLIC | ACC_ABSTRACT | ACC_INTERFACE,
         INTERFACE_TYPE_NAME,
-        null, "java/lang/Object", null);
+        null,
+        "java/lang/Object",
+        null);
 
     cw.visitInnerClass(
         INTERFACE_TYPE_NAME,
@@ -301,18 +355,18 @@ public class Bug62060793TestDataGenerator {
         ACC_PUBLIC | ACC_STATIC | ACC_ABSTRACT | ACC_INTERFACE);
 
     {
-      mv = cw.visitMethod(
-          ACC_PUBLIC | ACC_ABSTRACT,
-          "call",
-          "(Ljava/lang/String;)Ljava/lang/String;",
-          null,
-          null);
+      mv =
+          cw.visitMethod(
+              ACC_PUBLIC | ACC_ABSTRACT,
+              "call",
+              "(Ljava/lang/String;)Ljava/lang/String;",
+              null,
+              null);
       mv.visitParameter("input", 0);
       mv.visitEnd();
     }
     cw.visitEnd();
 
     return cw.toByteArray();
-
   }
 }

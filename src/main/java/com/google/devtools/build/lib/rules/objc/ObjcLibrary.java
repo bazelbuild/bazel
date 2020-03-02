@@ -46,7 +46,7 @@ public class ObjcLibrary implements RuleConfiguredTargetFactory {
    * Constructs an {@link ObjcCommon} instance based on the attributes of the given rule context.
    */
   private ObjcCommon common(RuleContext ruleContext) throws InterruptedException {
-    return new ObjcCommon.Builder(ruleContext)
+    return new ObjcCommon.Builder(ObjcCommon.Purpose.COMPILE_AND_LINK, ruleContext)
         .setCompilationAttributes(
             CompilationAttributes.Builder.fromRuleContext(ruleContext).build())
         .setCompilationArtifacts(CompilationSupport.compilationArtifacts(ruleContext))
@@ -81,7 +81,7 @@ public class ObjcLibrary implements RuleConfiguredTargetFactory {
     compilationSupport
         .registerCompileAndArchiveActions(common)
         .registerFullyLinkAction(
-            common.getObjcProvider(),
+            compilationSupport.getObjcProvider(),
             ruleContext.getImplicitOutputArtifact(CompilationSupport.FULLY_LINKED_LIB))
         .validateAttributes();
 
@@ -90,23 +90,11 @@ public class ObjcLibrary implements RuleConfiguredTargetFactory {
     J2ObjcEntryClassProvider j2ObjcEntryClassProvider = new J2ObjcEntryClassProvider.Builder()
       .addTransitive(ruleContext.getPrerequisites("deps", Mode.TARGET,
           J2ObjcEntryClassProvider.class)).build();
-    ObjcProvider objcProvider = common.getObjcProvider();
-    CcCompilationContext ccCompilationContext =
-        CcCompilationContext.builder(
-                ruleContext, ruleContext.getConfiguration(), ruleContext.getLabel())
-            .addDeclaredIncludeSrcs(
-                CompilationAttributes.Builder.fromRuleContext(ruleContext).build().hdrs().toList())
-            .addTextualHdrs(common.getTextualHdrs())
-            .addDeclaredIncludeSrcs(common.getTextualHdrs())
-            .setPurpose(
-                compilationSupport
-                    .createObjcCppSemantics(
-                        objcProvider, /* privateHdrs= */ ImmutableList.of(), /* pchHdr= */ null)
-                    .getPurpose())
-            .build();
-
+    ObjcProvider objcProvider = compilationSupport.getObjcProvider();
+    CcCompilationContext ccCompilationContext = objcProvider.getCcCompilationContext();
     CcLinkingContext ccLinkingContext =
-        buildCcLinkingContext(ruleContext.getLabel(), common, ruleContext.getSymbolGenerator());
+        buildCcLinkingContext(
+            ruleContext.getLabel(), objcProvider, ruleContext.getSymbolGenerator());
 
     return ObjcRuleClasses.ruleConfiguredTarget(ruleContext, filesToBuild.build())
         .addNativeDeclaredProvider(objcProvider)
@@ -125,9 +113,8 @@ public class ObjcLibrary implements RuleConfiguredTargetFactory {
   }
 
   private CcLinkingContext buildCcLinkingContext(
-      Label label, ObjcCommon common, SymbolGenerator<?> symbolGenerator) {
+      Label label, ObjcProvider objcProvider, SymbolGenerator<?> symbolGenerator) {
     ImmutableSet.Builder<LibraryToLink> libraries = new ImmutableSet.Builder<>();
-    ObjcProvider objcProvider = common.getObjcProvider();
     for (Artifact library : objcProvider.get(ObjcProvider.LIBRARY).toList()) {
       libraries.add(
           LibraryToLink.builder()

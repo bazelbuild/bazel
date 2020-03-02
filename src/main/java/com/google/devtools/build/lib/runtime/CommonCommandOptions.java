@@ -313,6 +313,16 @@ public class CommonCommandOptions extends OptionsBase {
   public boolean enableJsonProfileDiet;
 
   @Option(
+      name = "experimental_include_primary_output",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.LOGGING,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.BAZEL_MONITORING},
+      help =
+          "Includes the extra \"out\" attribute in action events that contains the exec path "
+              + "to the action's primary output.")
+  public boolean includePrimaryOutput;
+
+  @Option(
       name = "experimental_announce_profile_path",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.LOGGING,
@@ -330,6 +340,14 @@ public class CommonCommandOptions extends OptionsBase {
           "If set, profile Bazel and write data to the specified "
               + "file. Use bazel analyze-profile to analyze the profile.")
   public PathFragment profilePath;
+
+  @Option(
+      name = "starlark_cpu_profile",
+      defaultValue = "",
+      documentationCategory = OptionDocumentationCategory.LOGGING,
+      effectTags = {OptionEffectTag.BAZEL_MONITORING},
+      help = "Writes into the specified file a pprof profile of CPU usage by all Starlark threads.")
+  public String starlarkCpuProfile;
 
   @Option(
       name = "record_full_profiler_data",

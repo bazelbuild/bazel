@@ -135,10 +135,9 @@ public class ShBinary implements RuleConfiguredTargetFactory {
         return primaryOutput;
       } else {
         // If the extensions don't match, we should always respect mainFile's extension.
-        ruleContext.ruleError(
+        throw ruleContext.throwWithRuleError(
             "Source file is a Windows executable file,"
                 + " target name extension should match source file extension");
-        throw new RuleErrorException();
       }
     }
 

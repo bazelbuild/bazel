@@ -56,7 +56,6 @@ else
         | grep -E "Microsoft Visual Studio [0-9]+" \
         | sort --version-sort \
         | tail -n 1)"
-    [[ -n "$VSVERSION" ]] || fail "Visual Studio not found"
     BAZEL_VS="C:/Program Files (x86)/$VSVERSION"
   fi
   VSVARS="${BAZEL_VS}/VC/VCVARSALL.BAT"
