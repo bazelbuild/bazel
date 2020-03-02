@@ -55,15 +55,6 @@ android/ @ahumesky @jin
 
 /src/tools/singlejar/ @asmundak
 
-# Remote caching and execution
-
-/src/main/java/com/google/devtools/build/lib/remote/ @buchgr
-
-/src/test/shell/bazel/remote/ @buchgr
-
-/src/tools/execlog/ @buchgr
-/src/tools/remote/ @buchgr
-
 # Execution and I/O related code
 
 /src/main/java/com/google/devtools/build/lib/sandbox/ @philwo
