@@ -19,6 +19,7 @@ import static com.google.devtools.build.lib.analysis.configuredtargets.RuleConfi
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
+import static java.util.stream.Collectors.toList;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -33,6 +34,7 @@ import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
+import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine.VectorArg;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
@@ -53,6 +55,7 @@ import com.google.devtools.build.lib.packages.SkylarkProviderIdentifier;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
 import com.google.devtools.build.lib.rules.apple.AppleToolchain;
 import com.google.devtools.build.lib.rules.apple.XcodeConfigRule;
+import com.google.devtools.build.lib.rules.cpp.CcInfo;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainProvider;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppHelper;
@@ -82,7 +85,6 @@ import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
-import java.util.stream.Collectors;
 
 /** J2ObjC transpilation aspect for Java and proto rules. */
 public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectFactory {
@@ -310,6 +312,11 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
         .addProvider(
             exportedJ2ObjcMappingFileProvider(base, ruleContext, directJ2ObjcMappingFileProvider))
         .addNativeDeclaredProvider(objcProvider)
+        .addProvider(
+            J2ObjcCcInfo.build(
+                CcInfo.builder()
+                    .setCcCompilationContext(objcProvider.getCcCompilationContext())
+                    .build()))
         .build();
   }
 
@@ -844,7 +851,7 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
       List<Artifact> transpiledHeaders,
       List<PathFragment> headerSearchPaths,
       List<Attribute> dependentAttributes,
-      List<TransitiveInfoCollection> otherObjcProviders)
+      List<TransitiveInfoCollection> otherDeps)
       throws InterruptedException {
     ObjcCommon.Builder builder = new ObjcCommon.Builder(purpose, ruleContext);
     IntermediateArtifacts intermediateArtifacts =
@@ -861,28 +868,58 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
     }
 
     for (Attribute dependentAttribute : dependentAttributes) {
-      if (ruleContext.attributes().has(dependentAttribute.getName(), BuildType.LABEL_LIST)
-          || ruleContext.attributes().has(dependentAttribute.getName(), BuildType.LABEL)) {
+      String attrName = dependentAttribute.getName();
+      Mode attrMode = dependentAttribute.getAccessMode();
+      if (ruleContext.attributes().has(attrName, BuildType.LABEL_LIST)
+          || ruleContext.attributes().has(attrName, BuildType.LABEL)) {
+        ImmutableList.Builder<CcInfo> ccInfoList = new ImmutableList.Builder<>();
+        for (TransitiveInfoCollection dep : ruleContext.getPrerequisites(attrName, attrMode)) {
+          J2ObjcCcInfo j2objcCcInfo = dep.getProvider(J2ObjcCcInfo.class);
+          CcInfo ccInfo = dep.get(CcInfo.PROVIDER);
+          // If a dep has both a J2ObjcCcInfo and a CcInfo, skip the CcInfo.  This can only happen
+          // for a proto_library, whose CcInfo we don't use and may have poisoned defines.
+          if (j2objcCcInfo != null) {
+            ccInfoList.add(j2objcCcInfo.getCcInfo());
+          } else if (ccInfo != null) {
+            ccInfoList.add(ccInfo);
+          }
+        }
+        builder.addDepCcHeaderProviders(ccInfoList.build());
         builder.addDepObjcProviders(
-            ruleContext.getPrerequisites(
-                dependentAttribute.getName(),
-                dependentAttribute.getAccessMode(),
-                ObjcProvider.SKYLARK_CONSTRUCTOR));
+            ruleContext.getPrerequisites(attrName, attrMode, ObjcProvider.SKYLARK_CONSTRUCTOR));
       }
     }
 
-    List<ObjcProvider> newOtherDeps =
-        otherObjcProviders
-            .stream()
-            .map(d -> d.get(ObjcProvider.SKYLARK_CONSTRUCTOR))
-            .collect(Collectors.toList());
-    // We can't just use addDeps since that now takes ConfiguredTargetAndTargets and we only have
+    // We can't just use addDeps since that now takes ConfiguredTargetAndData and we only have
     // TransitiveInfoCollections
-    builder.addDepObjcProviders(newOtherDeps);
+    builder.addDepObjcProviders(
+        otherDeps.stream().map(d -> d.get(ObjcProvider.SKYLARK_CONSTRUCTOR)).collect(toList()));
+    builder.addDepCcHeaderProviders(
+        otherDeps.stream().map(d -> d.get(CcInfo.PROVIDER)).collect(toList()));
 
     return builder
         .addIncludes(headerSearchPaths)
         .setIntermediateArtifacts(intermediateArtifacts)
         .build();
+  }
+
+  /**
+   * A wrapper for {@link CcInfo}. The aspect generates this instead of a raw CcInfo, because it may
+   * visit a proto_library rule which already has a CcInfo.
+   */
+  public static final class J2ObjcCcInfo implements TransitiveInfoProvider {
+    private final CcInfo ccInfo;
+
+    public J2ObjcCcInfo(CcInfo ccInfo) {
+      this.ccInfo = ccInfo;
+    }
+
+    public CcInfo getCcInfo() {
+      return ccInfo;
+    }
+
+    public static J2ObjcCcInfo build(CcInfo ccInfo) {
+      return new J2ObjcCcInfo(ccInfo);
+    }
   }
 }
