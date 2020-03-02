@@ -466,15 +466,19 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
     assertHasRequirement(action, ExecutionRequirements.REQUIRES_DARWIN);
   }
 
-  protected ConfiguredTarget addBinWithTransitiveDepOnFrameworkImport() throws Exception {
-    ConfiguredTarget lib = addLibWithDepOnFrameworkImport();
+  protected ConfiguredTarget addBinWithTransitiveDepOnFrameworkImport(boolean compileInfoMigration)
+      throws Exception {
+    ConfiguredTarget lib =
+        compileInfoMigration
+            ? addLibWithDepOnFrameworkImportPostMigration()
+            : addLibWithDepOnFrameworkImportPreMigration();
     return createBinaryTargetWriter("//bin:bin")
         .setList("deps", lib.getLabel().toString())
         .write();
 
   }
 
-  private ConfiguredTarget addLibWithDepOnFrameworkImport() throws Exception {
+  private ConfiguredTarget addLibWithDepOnFrameworkImportPreMigration() throws Exception {
     scratch.file(
         "fx/defs.bzl",
         "def _custom_static_framework_import_impl(ctx):",
@@ -490,6 +494,35 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
         "custom_static_framework_import(",
         "    name = 'fx',",
         "    framework_search_paths = ['fx/fx1.framework', 'fx/fx2.framework'],",
+        ")");
+    return createLibraryTargetWriter("//lib:lib")
+        .setAndCreateFiles("srcs", "a.m", "b.m", "private.h")
+        .setList("deps", "//fx:fx")
+        .write();
+  }
+
+  private ConfiguredTarget addLibWithDepOnFrameworkImportPostMigration() throws Exception {
+    scratch.file(
+        "fx/defs.bzl",
+        "def _custom_static_framework_import_impl(ctx):",
+        "    return [",
+        "        apple_common.new_objc_provider(),",
+        "        CcInfo(",
+        "            compilation_context=cc_common.create_compilation_context(",
+        "                framework_includes=depset(ctx.attr.framework_search_paths)",
+        "            ),",
+        "        )",
+        "    ]",
+        "custom_static_framework_import = rule(",
+        "    _custom_static_framework_import_impl,",
+        "    attrs={'framework_search_paths': attr.string_list()},",
+        ")");
+    scratch.file(
+        "fx/BUILD",
+        "load(':defs.bzl', 'custom_static_framework_import')",
+        "custom_static_framework_import(",
+        "    name = 'fx',",
+        "    framework_search_paths = ['fx'],",
         ")");
     return createLibraryTargetWriter("//lib:lib")
         .setAndCreateFiles("srcs", "a.m", "b.m", "private.h")

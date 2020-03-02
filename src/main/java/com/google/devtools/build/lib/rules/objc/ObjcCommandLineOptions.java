@@ -265,4 +265,19 @@ public class ObjcCommandLineOptions extends FragmentOptions {
             + "configuration."
   )
   public Label appleSdk;
+
+  @Option(
+      name = "incompatible_objc_compile_info_migration",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS, OptionEffectTag.CHANGES_INPUTS},
+      metadataTags = {
+        OptionMetadataTag.INCOMPATIBLE_CHANGE,
+        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES,
+      },
+      help =
+          "If true, native rules can assume compile info has been migrated to CcInfo. See "
+              + "https://github.com/bazelbuild/bazel/issues/10854 for details and migration "
+              + "instructions")
+  public boolean incompatibleObjcCompileInfoMigration;
 }
