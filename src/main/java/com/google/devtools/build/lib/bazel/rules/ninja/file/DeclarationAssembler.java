@@ -91,7 +91,6 @@ public class DeclarationAssembler {
     // 4. Later we will check only interestingRanges for separators, and create corresponding
     // fragments; the underlying common ByteBuffer will be reused, so we are not performing
     // extensive copying.
-    int firstOffset = first.getOffset();
     List<ByteBufferFragment> fragments = new ArrayList<>();
     List<Range<Integer>> interestingRanges = Lists.newArrayList();
     int fragmentShift = 0;
@@ -112,7 +111,13 @@ public class DeclarationAssembler {
       fragmentShift += fragment.length();
     }
 
+    // This creates the new fragment, with ByteBufferFragment#startIncl = 0.
+    // That is why the offset value in ByteFragmentAtOffset should be equal to the real offset
+    // of the first fragment,
+    // for keeping the invariant that offset for ByteFragmentAtOffset is offset of the
+    // inner ByteFragmentAtOffset from beginning of file.
     ByteBufferFragment merged = ByteBufferFragment.merge(fragments);
+    int firstOffset = first.getRealStartOffset();
 
     int previousEnd = 0;
     for (Range<Integer> range : interestingRanges) {
