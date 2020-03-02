@@ -115,12 +115,16 @@ public class NestedSetStore {
   public static class NestedSetCache {
 
     /**
-     * Fingerprint to {@link NestedSet#children} cache.
+     * Fingerprint to array cache.
      *
      * <p>The values in this cache are always {@code Object[]} or {@code
-     * ListenableFuture<Object[]>}, the same as the children field in NestedSet. We avoid a common
-     * wrapper object both for memory efficiency and because our cache eviction policy is based on
-     * value GC, and wrapper objects would defeat that.
+     * ListenableFuture<Object[]>}. We avoid a common wrapper object both for memory efficiency and
+     * because our cache eviction policy is based on value GC, and wrapper objects would defeat
+     * that.
+     *
+     * <p>While a fetch for the contents is outstanding, the key in the cache will be a {@link
+     * ListenableFuture}. When it is resolved, it is replaced with the unwrapped {@code Object[]}.
+     * This is done because if the array is a transitive member, its future may be GC'd.
      */
     private final Cache<ByteString, Object> fingerprintToContents =
         CacheBuilder.newBuilder()
@@ -183,12 +187,16 @@ public class NestedSetStore {
     private void putAsync(ByteString fingerprint, ListenableFuture<Object[]> futureContents) {
       futureContents.addListener(
           () -> {
-            // There may already be an entry here, but it's better to put a fingerprint result with
-            // an immediate future, since then later readers won't need to block unnecessarily. It
-            // would be nice to sanity check the old value, but Cache#put doesn't provide it to us.
             try {
+              Object[] contents = Futures.getDone(futureContents);
+              // Replace the cache entry with the unwrapped contents, since the Future may be GC'd.
+              fingerprintToContents.put(fingerprint, contents);
+              // There may already be an entry here, but it's better to put a fingerprint result
+              // with an immediate future, since then later readers won't need to block
+              // unnecessarily. It would be nice to sanity check the old value, but Cache#put
+              // doesn't provide it to us.
               contentsToFingerprint.put(
-                  Futures.getDone(futureContents),
+                  contents,
                   FingerprintComputationResult.create(fingerprint, Futures.immediateFuture(null)));
 
             } catch (ExecutionException e) {
