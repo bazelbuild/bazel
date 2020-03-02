@@ -65,8 +65,10 @@ import javax.annotation.concurrent.GuardedBy;
 /**
  * Encapsulates the state needed for a single command. The environment is dropped when the current
  * command is done and all corresponding objects are garbage collected.
+ *
+ * <p>This class is non-final for mocking purposes. DO NOT extend it in production code.
  */
-public final class CommandEnvironment {
+public class CommandEnvironment {
   private final BlazeRuntime runtime;
   private final BlazeWorkspace workspace;
   private final BlazeDirectories directories;

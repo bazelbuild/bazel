@@ -1342,6 +1342,14 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     return DirectoryListingStateValue.key(parentDirRootedPath);
   }
 
+  /**
+   * Deletes all loaded packages and their upwards transitive closure, forcing reevaluation of all
+   * affected nodes.
+   */
+  public void clearLoadedPackages() {
+    memoizingEvaluator.delete(k -> SkyFunctions.PACKAGE.equals(k.functionName()));
+  }
+
   /** Sets the packages that should be treated as deleted and ignored. */
   @VisibleForTesting // productionVisibility = Visibility.PRIVATE
   public abstract void setDeletedPackages(Iterable<PackageIdentifier> pkgs);
