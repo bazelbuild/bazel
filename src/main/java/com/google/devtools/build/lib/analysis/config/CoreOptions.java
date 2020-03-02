@@ -429,14 +429,13 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
       effectTags = {OptionEffectTag.ACTION_COMMAND_LINES},
       help =
-          "Prefix to insert in front of command before running. "
-              + "Examples:\n"
-              + "\t--run_under=valgrind\n"
-              + "\t--run_under=strace\n"
-              + "\t--run_under='strace -c'\n"
-              + "\t--run_under='valgrind --quiet --num-callers=20'\n"
-              + "\t--run_under=//package:target\n"
-              + "\t--run_under='//package:target --options'\n")
+          "Prefix to insert before the executables for the 'test' and 'run' commands. "
+              + "If the value is 'foo -bar', and the execution command line is 'test_binary -baz', "
+              + "then the final command line is 'foo -bar test_binary -baz'."
+              + "This can also be a label to an executable target. Some examples are: "
+              + "'valgrind', 'strace', 'strace -c', "
+              + "'valgrind --quiet --num-callers=20', '//package:target', "
+              + " '//package:target --options'.")
   public RunUnder runUnder;
 
   @Option(
