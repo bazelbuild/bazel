@@ -72,7 +72,7 @@ build_and_serve() {
 }
 
 check_jekyll() {
-  which $1 > /dev/null || \
+  which jekyll > /dev/null || \
     (
       cat <<EOF
 jekyll not installed. Please install jekyll and rubygem dependencies by going
