@@ -75,11 +75,9 @@ public class NinjaParser implements DeclarationConsumer {
         NinjaRule rule = parser.parseNinjaRule();
         parseResult.addRule(declarationStart, rule);
         break;
-      case ERROR:
-        throw new GenericParsingException(lexer.getError());
-      case ZERO:
-      case EOF:
-        return;
+      case POOL:
+        parseResult.addPool(declarationStart, parser.parseNinjaPool());
+        break;
       case INCLUDE:
         NinjaVariableValue includeStatement = parser.parseIncludeStatement();
         NinjaPromise<NinjaFileParseResult> includeFuture =
@@ -113,11 +111,30 @@ public class NinjaParser implements DeclarationConsumer {
         parseResult.addTarget(targetFragment);
         break;
       case DEFAULT:
-      case POOL:
         // Do nothing.
         break;
-      default:
-        throw new UnsupportedOperationException("Unknown type of Ninja token.");
+      case ZERO:
+      case EOF:
+        return;
+      case COLON:
+      case EQUALS:
+      case ESCAPED_TEXT:
+      case INDENT:
+      case NEWLINE:
+      case PIPE:
+      case PIPE2:
+      case TEXT:
+      case VARIABLE:
+        throw new UnsupportedOperationException(
+            "Unsupported type of Ninja lexeme for the parser at this state: "
+                + token.name()
+                + ". These are unexpected lexemes at this state for the parser, and running into a "
+                + "token of this lexeme hints that the parser did not progress the lexer to a "
+                + "valid state during a previous parsing step.");
+      case ERROR:
+        throw new GenericParsingException(lexer.getError());
+        // Omit default case on purpose. Explicitly specify *all* NinjaToken enum cases above or the
+        // compilation will fail.
     }
   }
 }
