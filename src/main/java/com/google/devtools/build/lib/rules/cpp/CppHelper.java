@@ -65,7 +65,6 @@ import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.ExpansionExce
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.Tool;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
-import com.google.devtools.build.lib.rules.proto.ProtoInfo;
 import com.google.devtools.build.lib.shell.ShellUtils;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
@@ -974,17 +973,6 @@ public class CppHelper {
       result.addTransitive(dep.getTransitiveCcNativeLibraries());
     }
     return new CcNativeLibraryProvider(result.build());
-  }
-
-  public static void checkProtoLibrariesInDeps(
-      RuleErrorConsumer ruleErrorConsumer, Iterable<TransitiveInfoCollection> deps) {
-    for (TransitiveInfoCollection dep : deps) {
-      if (dep.get(ProtoInfo.PROVIDER) != null && dep.get(CcInfo.PROVIDER) == null) {
-        ruleErrorConsumer.attributeError(
-            "deps",
-            String.format("proto_library '%s' does not produce output for C++", dep.getLabel()));
-      }
-    }
   }
 
   static boolean useToolchainResolution(RuleContext ruleContext) {

@@ -41,6 +41,7 @@ import com.google.devtools.build.lib.packages.AspectParameters;
 import com.google.devtools.build.lib.packages.Attribute.LabelLateBoundDefault;
 import com.google.devtools.build.lib.packages.NativeAspectClass;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
+import com.google.devtools.build.lib.packages.RuleErrorConsumer;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.rules.cpp.AspectLegalCppSemantics;
 import com.google.devtools.build.lib.rules.cpp.CcCommon;
@@ -169,7 +170,7 @@ public abstract class CcProtoAspect extends NativeAspectClass implements Configu
       depsBuilder.addAll(ruleContext.getPrerequisites("deps", TARGET));
       ImmutableList<TransitiveInfoCollection> deps = depsBuilder.build();
 
-      CppHelper.checkProtoLibrariesInDeps(ruleContext, deps);
+      checkProtoLibrariesInDeps(ruleContext, deps);
       CcCompilationHelper compilationHelper =
           initializeCompilationHelper(featureConfiguration, deps);
 
@@ -269,6 +270,17 @@ public abstract class CcProtoAspect extends NativeAspectClass implements Configu
           } else if (artifactsToBuild.getInterfaceLibrary() != null) {
             filesBuilder.add(artifactsToBuild.getInterfaceLibrary());
           }
+        }
+      }
+    }
+
+    private static void checkProtoLibrariesInDeps(
+        RuleErrorConsumer ruleErrorConsumer, Iterable<TransitiveInfoCollection> deps) {
+      for (TransitiveInfoCollection dep : deps) {
+        if (dep.get(ProtoInfo.PROVIDER) != null && dep.get(CcInfo.PROVIDER) == null) {
+          ruleErrorConsumer.attributeError(
+              "deps",
+              String.format("proto_library '%s' does not produce output for C++", dep.getLabel()));
         }
       }
     }

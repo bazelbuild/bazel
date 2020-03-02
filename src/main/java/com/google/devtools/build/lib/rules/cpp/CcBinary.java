@@ -362,10 +362,10 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
             .add(CppHelper.mallocForTarget(ruleContext))
             .build();
 
-    CppHelper.checkProtoLibrariesInDeps(ruleContext, deps);
     if (ruleContext.hasErrors()) {
       return null;
     }
+
     CcCompilationHelper compilationHelper =
         new CcCompilationHelper(
                 ruleContext,
