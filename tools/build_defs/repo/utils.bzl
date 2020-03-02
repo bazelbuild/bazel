@@ -301,8 +301,8 @@ def use_netrc(netrc, urls, patterns):
     Returns:
       dict suitable as auth argument for ctx.download; more precisely, the dict
       will map all URLs where the netrc file provides login and password to a
-      dict containing the corresponding login and passwored, as well as the
-      mapping of "type" to "basic"
+      dict containing the corresponding login, password and optional authorization pattern,
+      as well as the mapping of "type" to "basic" or "pattern".
     """
     auth = {}
     for url in urls:

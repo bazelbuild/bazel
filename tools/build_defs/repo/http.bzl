@@ -223,7 +223,7 @@ machine storage.cloudprovider.com
         password RANDOM-TOKEN
 ```
 
-The final HTTP request would have:
+The final HTTP request would have the following header:
 
 ```
 Authorization: Bearer RANDOM-TOKEN
@@ -448,7 +448,7 @@ machine storage.cloudprovider.com
         password RANDOM-TOKEN
 ```
 
-The final HTTP request would have:
+The final HTTP request would have the following header:
 
 ```
 Authorization: Bearer RANDOM-TOKEN
@@ -510,41 +510,40 @@ unless it was added to the cache by a request with the same canonical id.
     "auth_patterns": attr.string_dict(
         doc = """An optional dict mapping host names to custom authorization patterns.
 
-    If a URL's host name is present in this dict the value will be used as a pattern when
-    generating the authorization header for the http request. This enables the use of custom
-    authorization schemes used in a lot of common cloud storage providers.
+If a URL's host name is present in this dict the value will be used as a pattern when
+generating the authorization header for the http request. This enables the use of custom
+authorization schemes used in a lot of common cloud storage providers.
 
-    The pattern currently supports 2 tokens: `<login>` and `<password>`, which are replaced with
-    their equivalent value in the netrc file for the same host name. After formatting, the result
-    is set as the value for the `Authorization` field of the HTTP request.
+The pattern currently supports 2 tokens: `<login>` and `<password>`, which are replaced with
+their equivalent value in the netrc file for the same host name. After formatting, the result
+is set as the value for the `Authorization` field of the HTTP request.
 
-    Example WORKSPACE and netrc for a http download to an oauth2 enabled API using a bearer token:
+Example WORKSPACE and netrc for a http download to an oauth2 enabled API using a bearer token:
 
-    ```python
-    http_jar(
-        name = "custom-artifact",
-        url = "https://storage.cloudprovider.com/custom-bucket/custom-artifact.jar",
-        sha256 = "...",
-        netrc = "/home/testuser/workspace/netrc",
-        auth_patterns = {
-            "storage.cloudprovider.com": "Bearer <password>"
-        }
-    )
+```python
+http_jar(
+    name = "custom-artifact",
+    url = "https://storage.cloudprovider.com/custom-bucket/custom-artifact.jar",
+    sha256 = "...",
+    netrc = "/home/testuser/workspace/netrc",
+    auth_patterns = {
+        "storage.cloudprovider.com": "Bearer <password>"
+    }
+)
 
-    netrc:
+netrc:
 
-    ```
-    machine storage.cloudprovider.com
-            password RANDOM-TOKEN
-    ```
+```
+machine storage.cloudprovider.com
+        password RANDOM-TOKEN
+```
 
-    The final HTTP request would have:
+The final HTTP request would have the following header:
 
-    ```
-    Authorization: Bearer RANDOM-TOKEN
-    ```
-
-    """,
+```
+Authorization: Bearer RANDOM-TOKEN
+```
+""",
     ),
 }
 
