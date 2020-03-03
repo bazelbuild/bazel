@@ -1,33 +1,63 @@
-## Release 2.1.1 (2020-02-21)
+## Release 2.2.0 (2020-03-03)
 
 ```
-Baseline: 41ec5a28fb30a8d6c5c60194c4bb29528352cf78
-
-Cherry picks:
-
-   + 733ac0ff7ad1e13ab68ceb2fde694d7ab71b2366:
-     Adds an alias for d8_jar_import in android.WORKSPACE.
-   + c94b1474b368dedf9f68f34fad90cc8664f2b0e0:
-     Automatic code cleanup.
-   + 2a8cc7075f741721563efd9dc050ca3458cde30b:
-     Do not fail or print errors when Shellzelisk cannot find a
-     requested ?
-   + bdf34d7fd9539411e93348ba25307f34362d9a42:
-     Fix race when extracting the install base when Bazel runs in a
-     PID namespace.
-   + d381c25bb7dd205c283f7ad91cac13190d2dfede:
-     Fix wrong mode of install base directory.
-   + eab39cc7b5a612f891fd1e5af5b45bdc1b66e6e1:
-     Disable broken test_max_open_file_descriptors.
-   + e6ee35faaa351a77e6fa667a74ed195e3d1927bf:
-     Release 2.1.0 (2020-02-07)
-   + 9a823d9dab82631ff4600eff38d597807e8d1221:
-     Prevent NPE on backwards seek on Chunker
+Baseline: 78055efad0917b848078bf8d97b3adfddf91128d
 ```
 
-9a823d9: Prevent NPE on backwards seek on Chunker.
+Incompatible changes:
 
-This release contains contributions from many people at Google, as well as George Gensure.
+  - The --[no]incompatible_windows_bashless_run_command flag is no
+    longer supported. It was flipped in Bazel 1.0
+  - The --[no]incompatible_windows_native_test_wrapper flag is no
+    longer supported. It was flipped in Bazel 1.0
+
+Important changes:
+
+  - Consistent target naming style in example target names.
+  - cquery's config() now supports arbitrary configurations.
+  - The flag --incompatible_disallow_dict_lookup_unhashable_keys is
+    removed.
+  - Include target label in Python version error message.
+  - The flag --incompatible_remap_main_repo is removed.
+  - Windows: we now discourage running Bazel from MSYS2 because of a
+    newly found bug (#10573)
+  - Reduced the packaging time (`package-bazel.sh`) for the
+    `//src:bazel-dev` Bazel development build target from 14s to 6s.
+    Use `//src:bazel-dev` if you're iterating rapidly on a local
+    Bazel changes, and use `//src:bazel --compilation_mode=opt` for
+    release builds.
+  - cquery: "//foo:bar" now means "all configured targets with label
+    //foo:bar" instead of "choose an arbitrary configured target with
+    label //foo:bar". See cquery docs for details.
+  - WORKSPACE and BUILD.bazel files of http_archive repositories can
+    now be patched using the "patch_cmds" and "patches" attributes.
+  - Actions with "parse" on the critical path should no longer finish
+    in the future.
+  - Flags that affect external repositories like
+    "--override_repository" can now be addressed in bazelrc files
+    using the "common" command, without causing commands like "bazel
+    shutdown" to fail.
+  - The flag --incompatible_disallow_unverified_http_downloads is
+    removed.
+  - Create the incompatibleApplicableLicenses flag.
+    We plan to flip this from false to true in Bazel 4.x.
+    Implementation to follow.
+  - Treat .cu and .cl files as C++ source. CUDA or OpenCL are not
+    natively supported and will require custom flags to compile with
+    e.g. clang.
+  - Treat .cu and .cl files as C++ source. CUDA or OpenCL are not
+    natively supported and will require custom flags to compile with
+    e.g. clang.
+  - The --starlark_cpu_profile=<file> flag writes a profile in
+    pprof format containing a statistical summary of CPU usage
+    by all Starlark execution during the bazel command. Use it
+    to identify slow Starlark functions in loading and analysis.
+  - --ram_utilization_factor will be deprecated. Please use
+    --local_ram_resources=HOST_RAM*<float>
+  - Docs: glob() documentation is rewritten, and now it points out a
+    pitfall of rules shadowing glob-matched files.
+
+This release contains contributions from many people at Google, as well as Alessandro Patti, Alex Kirchhoff, aman, Artur Dryomov, Benjamin Peterson, Benjamin Peterson, David Ostrovsky, Elliotte Rusty Harold, Eric Klein, George Chiramel, George Gensure, Guillaume Bouchard, Hui-Zhi, John Millikin, Jonathan Springer, Laurent Le Brun, Michael McLoughlin, nikola-sh, Nikolaus Wittenstein, Nikolay Shelukhin, Yannic Bonenberger, Yannic.
 
 ## Release 2.1.0 (2020-02-07)
 
