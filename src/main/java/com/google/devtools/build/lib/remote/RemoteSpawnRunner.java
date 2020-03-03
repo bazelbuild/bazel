@@ -352,6 +352,11 @@ public class RemoteSpawnRunner implements SpawnRunner {
 
   @VisibleForTesting
   static void spawnMetricsAccounting(SpawnMetrics.Builder spawnMetrics, ExecutedActionMetadata executionMetadata) {
+    // Expect that a non-empty worker indicates that all fields are populated.
+    // If the bounded sides of these checkpoints are default timestamps, i.e. unset,
+    // the phase durations can be extremely large. Unset pairs, or a fully unset
+    // collection of timestamps, will result in zeroed durations, and no metrics
+    // contributions for a phase or phases.
     if (!executionMetadata.getWorker().isEmpty()) {
       // Accumulate queueTime from any previous attempts
       Duration remoteQueueTime = spawnMetrics.build().remoteQueueTime().plus(
