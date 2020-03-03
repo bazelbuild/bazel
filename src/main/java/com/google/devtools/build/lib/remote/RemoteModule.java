@@ -113,8 +113,7 @@ public final class RemoteModule extends BlazeModule {
       CallCredentials credentials,
       RemoteRetrier retrier,
       CommandEnvironment env,
-      DigestUtil digestUtil,
-      ClientInterceptor... interceptors
+      DigestUtil digestUtil
   ) throws AbruptExitException {
     RemoteServerCapabilities rsc =
         new RemoteServerCapabilities(
@@ -122,8 +121,7 @@ public final class RemoteModule extends BlazeModule {
             channel,
             credentials,
             remoteOptions.remoteTimeout,
-            retrier,
-            interceptors);
+            retrier);
     ServerCapabilities capabilities = null;
     try {
       capabilities = rsc.get(env.getCommandId().toString(), env.getBuildRequestId());
@@ -211,12 +209,17 @@ public final class RemoteModule extends BlazeModule {
       ReferenceCountedChannel execChannel = null;
       ReferenceCountedChannel cacheChannel = null;
       if (enableRemoteExecution) {
+        ImmutableList.Builder<ClientInterceptor> interceptors = ImmutableList.builder();
+        interceptors.add(TracingMetadataUtils.newExecHeadersInterceptor(remoteOptions));
+        if (loggingInterceptor != null) {
+          interceptors.add(loggingInterceptor);
+        }
         execChannel =
             RemoteCacheClientFactory.createGrpcChannel(
                 remoteOptions.remoteExecutor,
                 remoteOptions.remoteProxy,
                 authAndTlsOptions,
-                loggingInterceptor);
+                interceptors.build());
         // Create a separate channel if --remote_executor and --remote_cache point to different
         // endpoints.
         if (Strings.isNullOrEmpty(remoteOptions.remoteCache)
@@ -226,12 +229,17 @@ public final class RemoteModule extends BlazeModule {
       }
 
       if (cacheChannel == null) {
+        ImmutableList.Builder<ClientInterceptor> interceptors = ImmutableList.builder();
+        interceptors.add(TracingMetadataUtils.newCacheHeadersInterceptor(remoteOptions));
+        if (loggingInterceptor != null) {
+          interceptors.add(loggingInterceptor);
+        }
         cacheChannel =
             RemoteCacheClientFactory.createGrpcChannel(
                 remoteOptions.remoteCache,
                 remoteOptions.remoteProxy,
                 authAndTlsOptions,
-                loggingInterceptor);
+                interceptors.build());
       }
 
       CallCredentials credentials = GoogleAuthUtils.newCallCredentials(authAndTlsOptions);
@@ -247,13 +255,11 @@ public final class RemoteModule extends BlazeModule {
       // to the system as a whole.
       if (execChannel != null) {
         verifyServerCapabilities(
-            remoteOptions, execChannel, credentials, retrier, env, digestUtil,
-            TracingMetadataUtils.newExecHeadersInterceptor(remoteOptions));
+            remoteOptions, execChannel, credentials, retrier, env, digestUtil);
       }
       if (cacheChannel != execChannel) {
         verifyServerCapabilities(
-            remoteOptions, cacheChannel, credentials, retrier, env, digestUtil,
-            TracingMetadataUtils.newCacheHeadersInterceptor(remoteOptions));
+            remoteOptions, cacheChannel, credentials, retrier, env, digestUtil);
       }
 
       ByteStreamUploader uploader =
@@ -262,8 +268,8 @@ public final class RemoteModule extends BlazeModule {
               cacheChannel.retain(),
               credentials,
               remoteOptions.remoteTimeout,
-              retrier,
-              TracingMetadataUtils.newCacheHeadersInterceptor(remoteOptions));
+              retrier);
+
       cacheChannel.release();
       RemoteCacheClient cacheClient =
           new GrpcCacheClient(

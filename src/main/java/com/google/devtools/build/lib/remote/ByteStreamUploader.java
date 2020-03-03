@@ -27,7 +27,6 @@ import com.google.bytestream.ByteStreamProto.WriteResponse;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Strings;
 import com.google.common.base.Throwables;
-import com.google.common.collect.ImmutableList;
 import com.google.common.hash.HashCode;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -39,8 +38,6 @@ import io.grpc.CallCredentials;
 import io.grpc.CallOptions;
 import io.grpc.Channel;
 import io.grpc.ClientCall;
-import io.grpc.ClientInterceptor;
-import io.grpc.ClientInterceptors;
 import io.grpc.Context;
 import io.grpc.Metadata;
 import io.grpc.Status;
@@ -90,7 +87,6 @@ class ByteStreamUploader extends AbstractReferenceCounted {
 
   @GuardedBy("lock")
   private final Map<HashCode, ListenableFuture<Void>> uploadsInProgress = new HashMap<>();
-  private final ImmutableList<ClientInterceptor> interceptors;
 
   @GuardedBy("lock")
   private boolean isShutdown;
@@ -112,8 +108,7 @@ class ByteStreamUploader extends AbstractReferenceCounted {
       ReferenceCountedChannel channel,
       @Nullable CallCredentials callCredentials,
       long callTimeoutSecs,
-      RemoteRetrier retrier,
-      ClientInterceptor... interceptors) {
+      RemoteRetrier retrier) {
     checkArgument(callTimeoutSecs > 0, "callTimeoutSecs must be gt 0.");
 
     this.instanceName = instanceName;
@@ -121,7 +116,6 @@ class ByteStreamUploader extends AbstractReferenceCounted {
     this.callCredentials = callCredentials;
     this.callTimeoutSecs = callTimeoutSecs;
     this.retrier = retrier;
-    this.interceptors = ImmutableList.copyOf(interceptors);
   }
 
   /**
@@ -294,7 +288,7 @@ class ByteStreamUploader extends AbstractReferenceCounted {
     UUID uploadId = UUID.randomUUID();
     String resourceName = uploadResourceName(instanceName, uploadId, hash, chunker.getSize());
     AsyncUpload newUpload =
-        new AsyncUpload(ClientInterceptors.intercept(channel, interceptors), callCredentials, callTimeoutSecs, retrier, resourceName, chunker);
+        new AsyncUpload(channel, callCredentials, callTimeoutSecs, retrier, resourceName, chunker);
     ListenableFuture<Void> currUpload = newUpload.start();
     currUpload.addListener(
         () -> {

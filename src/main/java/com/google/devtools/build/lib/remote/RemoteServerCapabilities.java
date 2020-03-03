@@ -28,11 +28,9 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
 import io.grpc.CallCredentials;
-import io.grpc.ClientInterceptor;
 import io.grpc.Context;
 import io.grpc.StatusRuntimeException;
 import java.io.IOException;
-import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 import javax.annotation.Nullable;
@@ -45,27 +43,23 @@ class RemoteServerCapabilities {
   @Nullable private final CallCredentials callCredentials;
   private final long callTimeoutSecs;
   private final RemoteRetrier retrier;
-  private final ClientInterceptor[] interceptors;
 
   public RemoteServerCapabilities(
       @Nullable String instanceName,
       ReferenceCountedChannel channel,
       @Nullable CallCredentials callCredentials,
       long callTimeoutSecs,
-      RemoteRetrier retrier,
-      ClientInterceptor... interceptors) {
+      RemoteRetrier retrier) {
     this.instanceName = instanceName;
     this.channel = channel;
     this.callCredentials = callCredentials;
     this.callTimeoutSecs = callTimeoutSecs;
     this.retrier = retrier;
-    this.interceptors = Arrays.copyOf(interceptors, interceptors.length);
   }
 
   private CapabilitiesBlockingStub capabilitiesBlockingStub() {
     return CapabilitiesGrpc.newBlockingStub(channel)
         .withInterceptors(TracingMetadataUtils.attachMetadataFromContextInterceptor())
-        .withInterceptors(interceptors)
         .withCallCredentials(callCredentials)
         .withDeadlineAfter(callTimeoutSecs, TimeUnit.SECONDS);
   }

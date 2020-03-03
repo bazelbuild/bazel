@@ -59,7 +59,6 @@ class GrpcRemoteExecutor {
   private ExecutionBlockingStub execBlockingStub() {
     return ExecutionGrpc.newBlockingStub(channel)
         .withInterceptors(TracingMetadataUtils.attachMetadataFromContextInterceptor())
-        .withInterceptors(TracingMetadataUtils.newExecHeadersInterceptor(options))
         .withCallCredentials(callCredentials);
   }
 
