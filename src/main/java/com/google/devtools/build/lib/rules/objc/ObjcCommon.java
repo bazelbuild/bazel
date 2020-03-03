@@ -38,6 +38,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Streams;
 import com.google.common.collect.UnmodifiableIterator;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
@@ -99,6 +100,7 @@ public final class ObjcCommon {
   }
 
   static class Builder {
+    private final boolean compileInfoMigration;
     private final Purpose purpose;
     private final RuleContext context;
     private final StarlarkSemantics semantics;
@@ -115,6 +117,7 @@ public final class ObjcCommon {
     private Optional<Artifact> linkedBinary = Optional.absent();
     private Iterable<CcCompilationContext> depCcHeaderProviders = ImmutableList.of();
     private Iterable<CcLinkingContext> depCcLinkProviders = ImmutableList.of();
+    private Iterable<CcCompilationContext> depCcDirectProviders = ImmutableList.of();
 
     /**
      * Builder for {@link ObjcCommon} obtaining both attribute data and configuration data from the
@@ -135,6 +138,10 @@ public final class ObjcCommon {
       this.context = Preconditions.checkNotNull(context);
       this.semantics = context.getAnalysisEnvironment().getSkylarkSemantics();
       this.buildConfiguration = Preconditions.checkNotNull(buildConfiguration);
+
+      ObjcConfiguration objcConfiguration = buildConfiguration.getFragment(ObjcConfiguration.class);
+
+      this.compileInfoMigration = objcConfiguration.compileInfoMigration();
     }
 
     public Builder setCompilationAttributes(CompilationAttributes baseCompilationAttributes) {
@@ -155,9 +162,27 @@ public final class ObjcCommon {
       return this;
     }
 
-    Builder addDeps(List<ConfiguredTargetAndData> deps) {
-      ImmutableList.Builder<ObjcProvider> propagatedObjcDeps =
-          ImmutableList.<ObjcProvider>builder();
+    private static ImmutableList<CcCompilationContext> getCcCompilationContexts(
+        Iterable<CcInfo> ccInfos) {
+      return Streams.stream(ccInfos)
+          .map(CcInfo::getCcCompilationContext)
+          .collect(ImmutableList.toImmutableList());
+    }
+
+    Builder addDepCcHeaderProviders(Iterable<CcInfo> cppDeps) {
+      this.depCcHeaderProviders =
+          Iterables.concat(this.depCcHeaderProviders, getCcCompilationContexts(cppDeps));
+      return this;
+    }
+
+    Builder addDepCcDirectProviders(Iterable<CcInfo> cppDeps) {
+      this.depCcDirectProviders =
+          Iterables.concat(this.depCcDirectProviders, getCcCompilationContexts(cppDeps));
+      return this;
+    }
+
+    private Builder addDepsPreMigration(List<ConfiguredTargetAndData> deps) {
+      ImmutableList.Builder<ObjcProvider> propagatedObjcDeps = ImmutableList.builder();
       ImmutableList.Builder<CcInfo> cppDeps = ImmutableList.builder();
       ImmutableList.Builder<CcLinkingContext> cppDepLinkParams = ImmutableList.builder();
 
@@ -174,15 +199,74 @@ public final class ObjcCommon {
           }
         }
       }
-      ImmutableList.Builder<CcCompilationContext> ccCompilationContextBuilder =
-          ImmutableList.builder();
-      for (CcInfo ccInfo : cppDeps.build()) {
-        ccCompilationContextBuilder.add(ccInfo.getCcCompilationContext());
+      addDepObjcProviders(propagatedObjcDeps.build());
+      ImmutableList<CcInfo> ccInfos = cppDeps.build();
+      addDepCcHeaderProviders(ccInfos);
+      addDepCcDirectProviders(ccInfos);
+      this.depCcLinkProviders = Iterables.concat(this.depCcLinkProviders, cppDepLinkParams.build());
+
+      return this;
+    }
+
+    private Builder addDepsPostMigration(List<ConfiguredTargetAndData> deps) {
+      ImmutableList.Builder<ObjcProvider> propagatedObjcDeps = ImmutableList.builder();
+      ImmutableList.Builder<CcInfo> cppDeps = ImmutableList.builder();
+      ImmutableList.Builder<CcInfo> directCppDeps = ImmutableList.builder();
+      ImmutableList.Builder<CcLinkingContext> cppDepLinkParams = ImmutableList.builder();
+
+      for (ConfiguredTargetAndData dep : deps) {
+        ConfiguredTarget depCT = dep.getConfiguredTarget();
+        if (depCT.get(ObjcProvider.SKYLARK_CONSTRUCTOR) != null) {
+          addAnyProviders(propagatedObjcDeps, depCT, ObjcProvider.SKYLARK_CONSTRUCTOR);
+        } else {
+          // This is the way we inject cc_library attributes into direct fields.
+          addAnyProviders(directCppDeps, depCT, CcInfo.PROVIDER);
+        }
+        addAnyProviders(cppDeps, depCT, CcInfo.PROVIDER);
+        if (isCcLibrary(dep)) {
+          cppDepLinkParams.add(depCT.get(CcInfo.PROVIDER).getCcLinkingContext());
+        }
       }
       addDepObjcProviders(propagatedObjcDeps.build());
-      this.depCcHeaderProviders =
-          Iterables.concat(this.depCcHeaderProviders, ccCompilationContextBuilder.build());
+      addDepCcHeaderProviders(cppDeps.build());
+      addDepCcDirectProviders(directCppDeps.build());
       this.depCcLinkProviders = Iterables.concat(this.depCcLinkProviders, cppDepLinkParams.build());
+
+      return this;
+    }
+
+    Builder addDeps(List<ConfiguredTargetAndData> deps) {
+      if (compileInfoMigration) {
+        return addDepsPostMigration(deps);
+      } else {
+        return addDepsPreMigration(deps);
+      }
+    }
+
+    private Builder addRuntimeDepsPreMigration(
+        List<? extends TransitiveInfoCollection> runtimeDeps) {
+      ImmutableList.Builder<ObjcProvider> propagatedDeps = ImmutableList.builder();
+
+      for (TransitiveInfoCollection dep : runtimeDeps) {
+        addAnyProviders(propagatedDeps, dep, ObjcProvider.SKYLARK_CONSTRUCTOR);
+      }
+      this.runtimeDepObjcProviders =
+          Iterables.concat(this.runtimeDepObjcProviders, propagatedDeps.build());
+      return this;
+    }
+
+    private Builder addRuntimeDepsPostMigration(
+        List<? extends TransitiveInfoCollection> runtimeDeps) {
+      ImmutableList.Builder<ObjcProvider> propagatedObjcDeps = ImmutableList.builder();
+      ImmutableList.Builder<CcInfo> cppDeps = ImmutableList.builder();
+
+      for (TransitiveInfoCollection dep : runtimeDeps) {
+        addAnyProviders(propagatedObjcDeps, dep, ObjcProvider.SKYLARK_CONSTRUCTOR);
+        addAnyProviders(cppDeps, dep, CcInfo.PROVIDER);
+      }
+      this.runtimeDepObjcProviders =
+          Iterables.concat(this.runtimeDepObjcProviders, propagatedObjcDeps.build());
+      addDepCcHeaderProviders(cppDeps.build());
       return this;
     }
 
@@ -191,15 +275,11 @@ public final class ObjcCommon {
      * at build time.
      */
     Builder addRuntimeDeps(List<? extends TransitiveInfoCollection> runtimeDeps) {
-      ImmutableList.Builder<ObjcProvider> propagatedDeps =
-          ImmutableList.<ObjcProvider>builder();
-
-      for (TransitiveInfoCollection dep : runtimeDeps) {
-        addAnyProviders(propagatedDeps, dep, ObjcProvider.SKYLARK_CONSTRUCTOR);
+      if (compileInfoMigration) {
+        return addRuntimeDepsPostMigration(runtimeDeps);
+      } else {
+        return addRuntimeDepsPreMigration(runtimeDeps);
       }
-      this.runtimeDepObjcProviders = Iterables.concat(
-          this.runtimeDepObjcProviders, propagatedDeps.build());
-      return this;
     }
 
     private <T extends Info> ImmutableList.Builder<T> addAnyProviders(
@@ -276,7 +356,7 @@ public final class ObjcCommon {
     ObjcCommon build() {
 
       ObjcCompilationContext.Builder objcCompilationContextBuilder =
-          ObjcCompilationContext.builder();
+          ObjcCompilationContext.builder(compileInfoMigration);
 
       ObjcProvider.Builder objcProvider = new ObjcProvider.NativeBuilder(semantics);
 
@@ -292,7 +372,7 @@ public final class ObjcCommon {
           // CcCompilationHelper.getStlCcCompilationContext(), but probably shouldn't.
           .addDepCcCompilationContexts(depCcHeaderProviders);
 
-      for (CcCompilationContext headerProvider : depCcHeaderProviders) {
+      for (CcCompilationContext headerProvider : depCcDirectProviders) {
         objcProvider.addAllDirect(HEADER, headerProvider.getDeclaredIncludeSrcs().toList());
       }
 

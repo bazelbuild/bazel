@@ -13,39 +13,23 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
-import static com.google.common.base.Preconditions.checkState;
-
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.MoreObjects;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.MapMaker;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import java.util.Collections;
-import java.util.Map;
 
 /** SkyKey for {@code NestedSet<Artifact>}. */
-@AutoCodec
 public class ArtifactNestedSetKey implements SkyKey {
-  // Use a map instead of a classic Interner to avoid creating a wrapper object just to compare
-  // equality. This is valid because rawChildren equality totally governs ArtifactNestedSetKey
-  // equality. If that changes, this must change.
-  private static final Map<Object, ArtifactNestedSetKey> interner =
-      new MapMaker().weakValues().makeMap();
-
   private final Object rawChildren;
 
   @Override
   public SkyFunctionName functionName() {
     return SkyFunctions.ARTIFACT_NESTED_SET;
-  }
-
-  private ArtifactNestedSetKey(Object rawChildren) {
-    checkState(rawChildren instanceof Object[] || rawChildren instanceof Artifact);
-    this.rawChildren = rawChildren;
   }
 
   /**
@@ -54,9 +38,9 @@ public class ArtifactNestedSetKey implements SkyKey {
    *
    * @param rawChildren the underlying members of the nested set.
    */
-  @AutoCodec.Instantiator
-  public static ArtifactNestedSetKey create(Object rawChildren) {
-    return interner.computeIfAbsent(rawChildren, ArtifactNestedSetKey::new);
+  public ArtifactNestedSetKey(Object rawChildren) {
+    Preconditions.checkState(rawChildren instanceof Object[] || rawChildren instanceof Artifact);
+    this.rawChildren = rawChildren;
   }
 
   @VisibleForTesting

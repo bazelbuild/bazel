@@ -48,6 +48,7 @@ public class NinjaScope {
   private final NavigableMap<Integer, NinjaScope> subNinjaScopes;
   private Map<String, List<Pair<Integer, String>>> expandedVariables;
   private final Map<String, List<Pair<Integer, NinjaRule>>> rules;
+  private final Map<String, List<Pair<Integer, NinjaPool>>> pools;
 
   public NinjaScope() {
     this(null, null);
@@ -57,6 +58,7 @@ public class NinjaScope {
     this.parentScope = parentScope;
     this.includePoint = includePoint;
     this.rules = Maps.newTreeMap();
+    this.pools = Maps.newTreeMap();
     this.includedScopes = Maps.newTreeMap();
     this.subNinjaScopes = Maps.newTreeMap();
     this.expandedVariables = Maps.newHashMap();
@@ -66,9 +68,18 @@ public class NinjaScope {
     this.rules.putAll(rules);
   }
 
+  public void setPools(Map<String, List<Pair<Integer, NinjaPool>>> pools) {
+    this.pools.putAll(pools);
+  }
+
   @VisibleForTesting
   public Map<String, List<Pair<Integer, NinjaRule>>> getRules() {
     return rules;
+  }
+
+  @VisibleForTesting
+  public Map<String, List<Pair<Integer, NinjaPool>>> getPools() {
+    return pools;
   }
 
   public Collection<NinjaScope> getIncludedScopes() {

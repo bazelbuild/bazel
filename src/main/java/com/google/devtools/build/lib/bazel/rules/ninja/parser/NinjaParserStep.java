@@ -180,6 +180,7 @@ public class NinjaParserStep {
     variablesBuilder.put(NinjaRuleVariable.NAME, NinjaVariableValue.createPlainText(name));
 
     parseExpected(NinjaToken.NEWLINE);
+    lexer.interpretPoolAsVariable();
     while (parseIndentOrFinishDeclaration()) {
       String variableName = asString(parseExpected(NinjaToken.IDENTIFIER));
       parseExpected(NinjaToken.EQUALS);
@@ -195,6 +196,35 @@ public class NinjaParserStep {
       }
     }
     return new NinjaRule(variablesBuilder.build());
+  }
+
+  /** Parses Ninja pool at the current lexer position. */
+  public NinjaPool parseNinjaPool() throws GenericParsingException {
+    // TODO: consider using generics to condense this and parseNinjaRule into the same
+    // method body.
+    parseExpected(NinjaToken.POOL);
+    String name = asString(parseExpected(NinjaToken.IDENTIFIER));
+
+    ImmutableSortedMap.Builder<NinjaPoolVariable, NinjaVariableValue> variablesBuilder =
+        ImmutableSortedMap.naturalOrder();
+    variablesBuilder.put(NinjaPoolVariable.NAME, NinjaVariableValue.createPlainText(name));
+
+    parseExpected(NinjaToken.NEWLINE);
+    while (parseIndentOrFinishDeclaration()) {
+      String variableName = asString(parseExpected(NinjaToken.IDENTIFIER));
+      parseExpected(NinjaToken.EQUALS);
+      NinjaVariableValue value = parseVariableValue();
+
+      NinjaPoolVariable ninjaPoolVariable = NinjaPoolVariable.nullOrValue(variableName);
+      if (ninjaPoolVariable == null) {
+        throw new GenericParsingException(String.format("Unexpected variable '%s'", variableName));
+      }
+      variablesBuilder.put(ninjaPoolVariable, value);
+      if (lexer.hasNextToken()) {
+        parseExpected(NinjaToken.NEWLINE);
+      }
+    }
+    return new NinjaPool(variablesBuilder.build());
   }
 
   private enum NinjaTargetParsingPart {

@@ -17,24 +17,28 @@ package com.google.devtools.build.lib.bazel.rules.ninja.file;
 
 /**
  * Represents a fragment of file as a {@link ByteBufferFragment} of {@link java.nio.ByteBuffer},
- * starting at {@link #offset}. The first byte should be read at {@link #getRealStartOffset()}, the
- * length of fragment is {@link ByteBufferFragment#length()}.
+ * starting at {@link #bufferOffset}. The first byte should be read at {@link #getFragmentOffset()},
+ * the length of fragment is {@link ByteBufferFragment#length()}.
  */
 public class ByteFragmentAtOffset {
-  private final int offset;
+  /** The offset in the file the {@code ByteBuffer} backing this fragment starts at. */
+  private final int bufferOffset;
+
   private final ByteBufferFragment fragment;
 
-  public ByteFragmentAtOffset(int offset, ByteBufferFragment fragment) {
-    this.offset = offset;
+  public ByteFragmentAtOffset(int bufferOffset, ByteBufferFragment fragment) {
+    this.bufferOffset = bufferOffset;
     this.fragment = fragment;
   }
 
-  public int getOffset() {
-    return offset;
+  /** The offset in the file the {@code ByteBuffer} backing this fragment starts at. */
+  public int getBufferOffset() {
+    return bufferOffset;
   }
 
-  public int getRealStartOffset() {
-    return offset + fragment.getStartIncl();
+  /** The offset in the file this fragment starts at. */
+  public int getFragmentOffset() {
+    return bufferOffset + fragment.getStartIncl();
   }
 
   public ByteBufferFragment getFragment() {

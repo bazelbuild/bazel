@@ -405,15 +405,13 @@ public class BaseRuleClasses {
     @Override
     public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
       return builder
-          /* <!-- #BLAZE_RULE($make_variable_expanding_rule).ATTRIBUTE(toolchains) -->
-          The set of toolchains that supply <a href="${link make-variables}">"Make variables"</a>
-          that this target can use in some of its attributes. Some rules have toolchains whose Make
-          variables they can use by default.
-          <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
-          .add(attr("toolchains", LABEL_LIST)
-              .allowedFileTypes(FileTypeSet.NO_FILE)
-              .mandatoryProviders(ImmutableList.of(TemplateVariableInfo.PROVIDER.id()))
-              .dontCheckConstraints())
+          // Documented in
+          // com/google/devtools/build/docgen/templates/attributes/common/toolchains.html.
+          .add(
+              attr("toolchains", LABEL_LIST)
+                  .allowedFileTypes(FileTypeSet.NO_FILE)
+                  .mandatoryProviders(ImmutableList.of(TemplateVariableInfo.PROVIDER.id()))
+                  .dontCheckConstraints())
           .build();
     }
 

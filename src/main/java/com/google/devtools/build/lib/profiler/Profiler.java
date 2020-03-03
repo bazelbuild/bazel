@@ -66,73 +66,13 @@ import java.util.zip.GZIPOutputStream;
  * build.lib.vfs contain Profiler invocations and any dependency on those two packages would create
  * circular relationship.
  *
- * <p>All gathered instrumentation data will be stored in the file. Please, note, that while file
- * format is described here it is considered internal and can change at any time. For scripting,
- * using blaze analyze-profile --dump=raw would be more robust and stable solution.
- *
  * <p>
- *
- * <pre>
- * Profiler file consists of the deflated stream with following overall structure:
- *   HEADER
- *   TASK_TYPE_TABLE
- *   TASK_RECORD...
- *   EOF_MARKER
- *
- * HEADER:
- *   int32: magic token (Profiler.MAGIC)
- *   int32: version format (Profiler.VERSION)
- *   string: file comment
- *
- * TASK_TYPE_TABLE:
- *   int32: number of type names below
- *   string... : type names. Each of the type names is assigned id according to
- *               their position in this table starting from 0.
- *
- * TASK_RECORD:
- *   int32 size: size of the encoded task record
- *   byte[size] encoded_task_record:
- *     varint64: thread id - as was returned by Thread.getId()
- *     varint32: task id - starting from 1.
- *     varint32: parent task id for subtasks or 0 for root tasks
- *     varint64: start time in ns, relative to the Profiler.start() invocation
- *     varint64: task duration in ns
- *     byte:     task type id (see TASK_TYPE_TABLE)
- *     varint32: description string index incremented by 1 (>0) or 0 this is
- *               a first occurrence of the description string
- *     AGGREGATED_STAT...: remainder of the field (if present) represents
- *                         aggregated stats for that task
- *   string: *optional* description string, will appear only if description
- *           string index above was 0. In that case this string will be
- *           assigned next sequential id so every unique description string
- *           will appear in the file only once - after that it will be
- *           referenced by id.
- *
- * AGGREGATE_STAT:
- *   byte:     stat type
- *   varint32: total number of subtask invocations
- *   varint64: cumulative duration of subtask invocations in ns.
- *
- * EOF_MARKER:
- *   int64: -1 - please note that this corresponds to the thread id in the
- *               TASK_RECORD which is always > 0
- * </pre>
  *
  * @see ProfilerTask enum for recognized task types.
  */
 @ThreadSafe
 public final class Profiler {
   private static final Logger logger = Logger.getLogger(Profiler.class.getName());
-
-  public static final int MAGIC = 0x11223344;
-
-  // File version number. Note that merely adding new record types in
-  // the ProfilerTask does not require bumping version number as long as original
-  // enum values are not renamed or deleted.
-  public static final int VERSION = 0x03;
-
-  // EOF marker. Must be < 0.
-  public static final int EOF_MARKER = -1;
 
   /** The profiler (a static singleton instance). Inactive by default. */
   private static final Profiler instance = new Profiler();
@@ -146,7 +86,7 @@ public final class Profiler {
   /** File format enum. */
   public enum Format {
     JSON_TRACE_FILE_FORMAT,
-    JSON_TRACE_FILE_COMPRESSED_FORMAT;
+    JSON_TRACE_FILE_COMPRESSED_FORMAT
   }
 
   /** A task that was very slow. */

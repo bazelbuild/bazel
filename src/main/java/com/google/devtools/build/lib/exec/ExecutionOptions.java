@@ -278,7 +278,7 @@ public class ExecutionOptions extends OptionsBase {
 
   @Option(
       name = "incompatible_remove_ram_utilization_factor",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.EXECUTION},
       metadataTags = {
@@ -315,7 +315,7 @@ public class ExecutionOptions extends OptionsBase {
 
   @Option(
       name = "incompatible_remove_local_resources",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
       effectTags = {OptionEffectTag.EXECUTION},
       metadataTags = {

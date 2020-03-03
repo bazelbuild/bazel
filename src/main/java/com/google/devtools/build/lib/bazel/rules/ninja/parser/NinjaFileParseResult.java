@@ -55,6 +55,7 @@ public class NinjaFileParseResult {
 
   private final NavigableMap<String, List<Pair<Integer, NinjaVariableValue>>> variables;
   private final NavigableMap<String, List<Pair<Integer, NinjaRule>>> rules;
+  private final NavigableMap<String, List<Pair<Integer, NinjaPool>>> pools;
   private final List<ByteFragmentAtOffset> targets;
   private final NavigableMap<Integer, NinjaPromise<NinjaFileParseResult>> includedFilesFutures;
   private final NavigableMap<Integer, NinjaPromise<NinjaFileParseResult>> subNinjaFilesFutures;
@@ -62,6 +63,7 @@ public class NinjaFileParseResult {
   public NinjaFileParseResult() {
     variables = Maps.newTreeMap();
     rules = Maps.newTreeMap();
+    pools = Maps.newTreeMap();
     targets = Lists.newArrayList();
     includedFilesFutures = Maps.newTreeMap();
     subNinjaFilesFutures = Maps.newTreeMap();
@@ -87,6 +89,10 @@ public class NinjaFileParseResult {
     rules.computeIfAbsent(rule.getName(), k -> Lists.newArrayList()).add(Pair.of(offset, rule));
   }
 
+  public void addPool(int offset, NinjaPool pool) {
+    pools.computeIfAbsent(pool.getName(), k -> Lists.newArrayList()).add(Pair.of(offset, pool));
+  }
+
   @VisibleForTesting
   public Map<String, List<Pair<Integer, NinjaVariableValue>>> getVariables() {
     return variables;
@@ -109,6 +115,9 @@ public class NinjaFileParseResult {
     for (List<Pair<Integer, NinjaRule>> list : rules.values()) {
       list.sort(Comparator.comparing(Pair::getFirst));
     }
+    for (List<Pair<Integer, NinjaPool>> list : pools.values()) {
+      list.sort(Comparator.comparing(Pair::getFirst));
+    }
   }
 
   public static NinjaFileParseResult merge(Collection<NinjaFileParseResult> parts) {
@@ -125,6 +134,10 @@ public class NinjaFileParseResult {
       for (Map.Entry<String, List<Pair<Integer, NinjaRule>>> entry : part.rules.entrySet()) {
         String name = entry.getKey();
         result.rules.computeIfAbsent(name, k -> Lists.newArrayList()).addAll(entry.getValue());
+      }
+      for (Map.Entry<String, List<Pair<Integer, NinjaPool>>> entry : part.pools.entrySet()) {
+        String name = entry.getKey();
+        result.pools.computeIfAbsent(name, k -> Lists.newArrayList()).addAll(entry.getValue());
       }
       result.targets.addAll(part.targets);
       result.includedFilesFutures.putAll(part.includedFilesFutures);
@@ -143,6 +156,7 @@ public class NinjaFileParseResult {
       NinjaScope scope, Map<NinjaScope, List<ByteFragmentAtOffset>> rawTargets)
       throws InterruptedException, GenericParsingException, IOException {
     scope.setRules(rules);
+    scope.setPools(pools);
     rawTargets.put(scope, targets);
 
     TreeMap<Integer, NinjaCallable> resolvables = Maps.newTreeMap();

@@ -76,6 +76,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicInteger;
 import javax.annotation.Nullable;
 import org.junit.Rule;
 import org.junit.Test;
@@ -202,6 +203,41 @@ public class PackageFunctionTest extends BuildViewTestCase {
         .hasMessageThat()
         .contains("no such package 'pkg': no good");
     assertContainsEvent("warning event");
+  }
+
+  @Test
+  public void testSkyframeExecutorClearedPackagesResultsInReload() throws Exception {
+    scratch.file("pkg/BUILD", "sh_library(name='foo', srcs=['foo.sh'])");
+    scratch.file("pkg/foo.sh");
+
+    invalidatePackages();
+
+    // Use number of times the package was validated as a proxy for number of times it was loaded.
+    AtomicInteger validationCount = new AtomicInteger();
+    doAnswer(
+            inv -> {
+              if (inv.getArgument(0, Package.class).getName().equals("pkg")) {
+                validationCount.incrementAndGet();
+              }
+              return null;
+            })
+        .when(mockPackageValidator)
+        .validate(any(Package.class), any(ExtendedEventHandler.class));
+
+    SkyKey skyKey = PackageValue.key(PackageIdentifier.parse("@//pkg"));
+    EvaluationResult<PackageValue> result1 =
+        SkyframeExecutorTestUtils.evaluate(
+            getSkyframeExecutor(), skyKey, /*keepGoing=*/ false, reporter);
+    assertThatEvaluationResult(result1).hasNoError();
+
+    skyframeExecutor.clearLoadedPackages();
+
+    EvaluationResult<PackageValue> result2 =
+        SkyframeExecutorTestUtils.evaluate(
+            getSkyframeExecutor(), skyKey, /*keepGoing=*/ false, reporter);
+    assertThatEvaluationResult(result2).hasNoError();
+
+    assertThat(validationCount.get()).isEqualTo(2);
   }
 
   @Test

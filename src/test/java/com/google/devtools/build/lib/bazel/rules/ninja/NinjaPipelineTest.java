@@ -23,6 +23,7 @@ import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.google.devtools.build.lib.bazel.rules.ninja.file.GenericParsingException;
+import com.google.devtools.build.lib.bazel.rules.ninja.parser.NinjaPool;
 import com.google.devtools.build.lib.bazel.rules.ninja.parser.NinjaRule;
 import com.google.devtools.build.lib.bazel.rules.ninja.parser.NinjaRuleVariable;
 import com.google.devtools.build.lib.bazel.rules.ninja.parser.NinjaTarget;
@@ -295,10 +296,11 @@ public class NinjaPipelineTest {
   @Test
   public void testBigFile() throws Exception {
     String[] lines = new String[1000];
-    for (int i = 0; i < lines.length - 1; i++) {
+    for (int i = 0; i < lines.length - 2; i++) {
       lines[i] = "rule rule" + i + "\n command = echo 'Hello' > ${out}";
     }
-    lines[999] = "build out: rule1";
+    lines[998] = "build out: rule1";
+    lines[999] = "pool link_pool\n  depth = 4";
     Path path = tester.writeTmpFile("big_file.ninja", lines);
     NinjaPipeline pipeline =
         new NinjaPipeline(
@@ -308,8 +310,10 @@ public class NinjaPipelineTest {
     pipeline.setReadBlockSize(100);
     List<NinjaTarget> targets = pipeline.pipeline(path);
     assertThat(targets).hasSize(1);
+    Map<String, List<Pair<Integer, NinjaPool>>> pools = targets.get(0).getScope().getPools();
+    assertThat(pools).hasSize(1);
     Map<String, List<Pair<Integer, NinjaRule>>> rules = targets.get(0).getScope().getRules();
-    assertThat(rules).hasSize(999);
+    assertThat(rules).hasSize(998);
     assertThat(rules.get("rule1")).hasSize(1);
     NinjaVariableValue expectedValue =
         NinjaVariableValue.builder().addText("echo 'Hello' > ").addVariable("out").build();

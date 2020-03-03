@@ -32,7 +32,7 @@ import java.util.List;
  */
 @Immutable
 public final class ObjcCompilationContext {
-  public static final ObjcCompilationContext EMPTY = builder().build();
+  public static final ObjcCompilationContext EMPTY = builder(false).build();
 
   private final ImmutableList<String> defines;
 
@@ -126,11 +126,12 @@ public final class ObjcCompilationContext {
     return builder.build();
   }
 
-  public static Builder builder() {
-    return new Builder();
+  public static Builder builder(boolean compileInfoMigration) {
+    return new Builder(compileInfoMigration);
   }
 
   static class Builder {
+    private final boolean compileInfoMigration;
     private final List<String> defines = new ArrayList<>();
     private final List<Artifact> publicHeaders = new ArrayList<>();
     private final List<Artifact> publicTextualHeaders = new ArrayList<>();
@@ -141,7 +142,9 @@ public final class ObjcCompilationContext {
     private final List<PathFragment> strictDependencyIncludes = new ArrayList<>();
     private final List<CcCompilationContext> depCcCompilationContexts = new ArrayList<>();
 
-    Builder() {}
+    Builder(boolean compileInfoMigration) {
+      this.compileInfoMigration = compileInfoMigration;
+    }
 
     public Builder addDefines(Iterable<String> defines) {
       Iterables.addAll(this.defines, defines);
@@ -180,8 +183,9 @@ public final class ObjcCompilationContext {
 
     public Builder addDepObjcProviders(Iterable<ObjcProvider> objcProviders) {
       for (ObjcProvider objcProvider : objcProviders) {
-        this.depCcCompilationContexts.add(objcProvider.getCcCompilationContext());
-
+        if (!compileInfoMigration) {
+          this.depCcCompilationContexts.add(objcProvider.getCcCompilationContext());
+        }
         this.strictDependencyIncludes.addAll(objcProvider.getStrictDependencyIncludes());
       }
       return this;

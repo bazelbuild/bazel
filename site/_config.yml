@@ -13,11 +13,12 @@ gems:
   - jekyll-toc
 
 # Update this to the newest release for the default docs.bazel.build version.
-version: "2.1.0"
+version: "2.2.0"
 
 # This must be kept in sync with //scripts/docs:doc_versions.bzl
 doc_versions:
   - master
+  - 2.2.0
   - 2.1.0
   - 2.0.0
   - 1.2.0

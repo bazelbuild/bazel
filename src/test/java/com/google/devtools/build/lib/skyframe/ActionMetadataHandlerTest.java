@@ -404,6 +404,11 @@ public class ActionMetadataHandlerTest {
     assertThat(treeValue.getChildPaths())
         .containsExactly(PathFragment.create("foo"), PathFragment.create("bar"));
     assertThat(treeValue.getChildValues().values()).containsExactly(fooValue, barValue);
+    ActionExecutionValue actionExecutionValue =
+        ActionExecutionValue.createFromOutputStore(handler.getOutputStore(), null, null, false);
+    treeValue
+        .getChildren()
+        .forEach(t -> assertThat(actionExecutionValue.getArtifactValue(t)).isNotNull());
   }
 
   @Test

@@ -259,7 +259,7 @@ public class ObjcSkylarkTest extends ObjcRuleTestCase {
   }
 
   @Test
-  public void testSkylarkExportsObjcProviderToNativeRule() throws Exception {
+  public void testSkylarkExportsObjcProviderToNativeRulePreMigration() throws Exception {
     scratch.file("examples/rule/BUILD");
     scratch.file(
         "examples/rule/apple_rules.bzl",
@@ -296,6 +296,7 @@ public class ObjcSkylarkTest extends ObjcRuleTestCase {
         "   deps = [':lib_root']",
         ")");
 
+    useConfiguration("--incompatible_objc_compile_info_migration=false");
     ConfiguredTarget libRootTarget = getConfiguredTarget("//examples/apple_skylark:lib_root");
     ObjcProvider libRootObjcProvider = libRootTarget.get(ObjcProvider.SKYLARK_CONSTRUCTOR);
     assertThat(libRootObjcProvider.define().toList()).contains("mock_define");
@@ -310,7 +311,51 @@ public class ObjcSkylarkTest extends ObjcRuleTestCase {
   }
 
   @Test
-  public void testObjcRuleCanDependOnArbitrarySkylarkRuleThatProvidesObjc() throws Exception {
+  public void testSkylarkExportsObjcProviderToNativeRulePostMigration() throws Exception {
+    scratch.file("examples/rule/BUILD");
+    scratch.file(
+        "examples/rule/apple_rules.bzl",
+        "def my_rule_impl(ctx):",
+        "   dep = ctx.attr.deps[0]",
+        "   objc_provider = dep.objc",
+        "   return [objc_provider]",
+        "swift_library = rule(implementation = my_rule_impl,",
+        "   attrs = {",
+        "   'deps': attr.label_list(allow_files = False, mandatory = False, providers = ['objc'])",
+        "})");
+
+    scratch.file("examples/apple_skylark/a.m");
+    scratch.file(
+        "examples/apple_skylark/BUILD",
+        "package(default_visibility = ['//visibility:public'])",
+        "load('//examples/rule:apple_rules.bzl', 'swift_library')",
+        "swift_library(",
+        "   name='my_target',",
+        "   deps=[':lib'],",
+        ")",
+        "objc_library(",
+        "   name = 'lib',",
+        "   srcs = ['a.m'],",
+        ")",
+        "apple_binary(",
+        "   name = 'bin',",
+        "   platform_type = 'ios',",
+        "   deps = [':my_target']",
+        ")");
+
+    useConfiguration("--incompatible_objc_compile_info_migration=true");
+    ConfiguredTarget binaryTarget = getConfiguredTarget("//examples/apple_skylark:bin");
+    AppleExecutableBinaryInfo executableProvider =
+        binaryTarget.get(AppleExecutableBinaryInfo.SKYLARK_CONSTRUCTOR);
+    ObjcProvider objcProvider = executableProvider.getDepsObjcProvider();
+
+    assertThat(Artifact.toRootRelativePaths(objcProvider.get(ObjcProvider.LIBRARY)))
+        .contains("examples/apple_skylark/liblib.a");
+  }
+
+  @Test
+  public void testObjcRuleCanDependOnArbitrarySkylarkRuleThatProvidesObjcPreMigration()
+      throws Exception {
     scratch.file("examples/rule/BUILD");
     scratch.file(
         "examples/rule/apple_rules.bzl",
@@ -339,9 +384,47 @@ public class ObjcSkylarkTest extends ObjcRuleTestCase {
         "   deps = [':lib']",
         ")");
 
+    useConfiguration("--incompatible_objc_compile_info_migration=false");
     ConfiguredTarget libTarget = getConfiguredTarget("//examples/apple_skylark:lib");
     ObjcProvider libObjcProvider = libTarget.get(ObjcProvider.SKYLARK_CONSTRUCTOR);
     assertThat(libObjcProvider.define().toList()).contains("mock_define");
+  }
+
+  @Test
+  public void testObjcRuleCanDependOnArbitrarySkylarkRuleThatProvidesObjcPostMigration()
+      throws Exception {
+    scratch.file("examples/rule/BUILD");
+    scratch.file(
+        "examples/rule/apple_rules.bzl",
+        "def my_rule_impl(ctx):",
+        "   objc_provider = apple_common.new_objc_provider(linkopt=depset(['mock_linkopt']))",
+        "   return [objc_provider]",
+        "my_rule = rule(implementation = my_rule_impl,",
+        "   attrs = {})");
+
+    scratch.file("examples/apple_skylark/a.m");
+    scratch.file(
+        "examples/apple_skylark/BUILD",
+        "package(default_visibility = ['//visibility:public'])",
+        "load('//examples/rule:apple_rules.bzl', 'my_rule')",
+        "my_rule(",
+        "   name='my_target'",
+        ")",
+        "objc_library(",
+        "   name = 'lib',",
+        "   srcs = ['a.m'],",
+        "   deps = [':my_target']",
+        ")",
+        "apple_binary(",
+        "   name = 'bin',",
+        "   platform_type = 'ios',",
+        "   deps = [':lib']",
+        ")");
+
+    useConfiguration("--incompatible_objc_compile_info_migration=true");
+    ConfiguredTarget libTarget = getConfiguredTarget("//examples/apple_skylark:lib");
+    ObjcProvider libObjcProvider = libTarget.get(ObjcProvider.SKYLARK_CONSTRUCTOR);
+    assertThat(libObjcProvider.get(ObjcProvider.LINKOPT).toList()).contains("mock_linkopt");
   }
 
   @Test
@@ -1068,7 +1151,8 @@ public class ObjcSkylarkTest extends ObjcRuleTestCase {
   }
 
   @Test
-  public void testSkylarkCanCreateObjcProviderWithStrictDeps() throws Exception {
+  public void testSkylarkCanCreateObjcProviderWithStrictDepsPreMigration() throws Exception {
+    useConfiguration("--incompatible_objc_compile_info_migration=false");
     ConfiguredTarget skylarkTarget =
         createObjcProviderSkylarkTarget(
             "   strict_includes = depset(['path1'])",
@@ -1107,6 +1191,38 @@ public class ObjcSkylarkTest extends ObjcRuleTestCase {
             .get(ObjcProvider.SKYLARK_CONSTRUCTOR);
     assertThat(skylarkProviderIndirectDepender.include())
         .containsExactly(PathFragment.create("path2"));
+  }
+
+  @Test
+  public void testSkylarkCanCreateObjcProviderWithStrictDepsPostMigration() throws Exception {
+    useConfiguration("--incompatible_objc_compile_info_migration=true");
+    ConfiguredTarget skylarkTarget =
+        createObjcProviderSkylarkTarget(
+            "   strict_includes = depset(['path1'])",
+            "   propagated_includes = depset(['path2'])",
+            "   strict_provider = apple_common.new_objc_provider\\",
+            "(include=strict_includes)",
+            "   created_provider = apple_common.new_objc_provider\\",
+            "(include=propagated_includes, direct_dep_providers=[strict_provider])",
+            "   return [created_provider]");
+
+    ObjcProvider skylarkProvider = skylarkTarget.get(ObjcProvider.SKYLARK_CONSTRUCTOR);
+    assertThat(skylarkProvider.include())
+        .containsExactly(PathFragment.create("path1"), PathFragment.create("path2"));
+    assertThat(skylarkProvider.getStrictDependencyIncludes())
+        .containsExactly(PathFragment.create("path1"));
+
+    scratch.file(
+        "examples/objc_skylark2/BUILD",
+        "objc_library(",
+        "   name = 'direct_dep',",
+        "   deps = ['//examples/objc_skylark:my_target']",
+        ")");
+
+    ObjcProvider skylarkProviderDirectDepender =
+        getConfiguredTarget("//examples/objc_skylark2:direct_dep")
+            .get(ObjcProvider.SKYLARK_CONSTRUCTOR);
+    assertThat(skylarkProviderDirectDepender.include()).isEmpty();
   }
 
   @Test

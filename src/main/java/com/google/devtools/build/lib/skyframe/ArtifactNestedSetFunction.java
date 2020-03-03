@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import com.google.common.collect.MapMaker;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.skyframe.SkyFunction;
@@ -71,12 +72,22 @@ public class ArtifactNestedSetFunction implements SkyFunction {
   private final ConcurrentMap<SkyKey, ValueOrException2<IOException, ActionExecutionException>>
       artifactSkyKeyToValueOrException;
 
+  /**
+   * Maps the NestedSets' underlying objects to the corresponding SkyKey. This is to avoid
+   * re-creating SkyKey for the same nested set upon reevaluation because of e.g. a missing value.
+   *
+   * <p>The map has weak references to keys to prevent memory leaks: if a nested set no longer
+   * exists, its entry would be automatically removed from the map by the GC.
+   */
+  private final ConcurrentMap<Object, SkyKey> nestedSetToSkyKey;
+
   private static ArtifactNestedSetFunction singleton = null;
 
   private static Integer sizeThreshold = null;
 
   private ArtifactNestedSetFunction() {
     artifactSkyKeyToValueOrException = Maps.newConcurrentMap();
+    nestedSetToSkyKey = new MapMaker().weakKeys().makeMap();
   }
 
   @Override
@@ -92,7 +103,8 @@ public class ArtifactNestedSetFunction implements SkyFunction {
     // Evaluate all children.
     ArrayList<SkyKey> transitiveKeys = new ArrayList<>();
     for (Object transitive : artifactNestedSetKey.transitiveMembers()) {
-      transitiveKeys.add(ArtifactNestedSetKey.create(transitive));
+      nestedSetToSkyKey.putIfAbsent(transitive, new ArtifactNestedSetKey(transitive));
+      transitiveKeys.add(nestedSetToSkyKey.get(transitive));
     }
     env.getValues(transitiveKeys);
 

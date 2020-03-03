@@ -107,14 +107,14 @@ public enum ProfilerTask {
   /** True if the metric records VFS operations */
   private final boolean vfs;
 
-  private ProfilerTask(String description, long minDuration, int slowestInstanceCount) {
+  ProfilerTask(String description, long minDuration, int slowestInstanceCount) {
     this.description = description;
     this.minDuration = minDuration;
     this.slowestInstancesCount = slowestInstanceCount;
     this.vfs = this.name().startsWith("VFS");
   }
 
-  private ProfilerTask(String description) {
+  ProfilerTask(String description) {
     this(description, /* minDuration= */ -1, /* slowestInstanceCount= */ 0);
   }
 
