@@ -1266,7 +1266,7 @@ public class ActionExecutionFunction implements SkyFunction {
           action,
           rootCauses.build(),
           firstActionExecutionException.isCatastrophe(),
-          firstActionExecutionException.getExitCode());
+          firstActionExecutionException.getDetailedExitCode());
     }
 
     if (missingCount > 0) {

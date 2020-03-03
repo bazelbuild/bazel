@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.SpawnResult.Status;
+import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.ExitCode;
 
 /**
@@ -68,14 +69,15 @@ public class SpawnExecException extends ExecException {
     String message =
         result.getDetailMessage(
             messagePrefix, getMessage(), verboseFailures, isCatastrophic(), forciblyRunRemotely);
-    return new ActionExecutionException(message, this, action, isCatastrophic(), getExitCode());
+    return new ActionExecutionException(
+        message, this, action, isCatastrophic(), getDetailedExitCode());
   }
 
   /** Return exit code depending on the spawn result. */
-  protected ExitCode getExitCode() {
+  private DetailedExitCode getDetailedExitCode() {
     if (result.status().isConsideredUserError()) {
       return null;
     }
-    return ExitCode.REMOTE_ERROR;
+    return DetailedExitCode.justExitCode(ExitCode.REMOTE_ERROR);
   }
 }

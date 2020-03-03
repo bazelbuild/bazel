@@ -34,6 +34,7 @@ java_library(
         ":localhost_capacity",
         "//src/main/java/com/google/devtools/build/lib:bug-report",
         "//src/main/java/com/google/devtools/build/lib:command-utils",
+        "//src/main/java/com/google/devtools/build/lib:detailed_exit_code",
         "//src/main/java/com/google/devtools/build/lib:events",
         "//src/main/java/com/google/devtools/build/lib:packages-internal",
         "//src/main/java/com/google/devtools/build/lib:unix",

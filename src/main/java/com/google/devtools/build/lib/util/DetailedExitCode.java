@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.util;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import javax.annotation.Nullable;
 
@@ -36,8 +38,42 @@ public class DetailedExitCode {
     return failureDetail;
   }
 
+  public boolean isSuccess() {
+    return exitCode.equals(ExitCode.SUCCESS);
+  }
+
+  /**
+   * Returns a {@link DetailedExitCode} specifying {@link ExitCode} but no {@link FailureDetail}.
+   *
+   * <p>This method exists in order to allow for code which has not yet been wired for {@link
+   * FailureDetail) support to interact with {@link FailureDetail}-handling code infrastructure.
+   *
+   * <p>Callsites should migrate to using either:
+   *
+   * <ul>
+   *   <li>{@link #of(ExitCode, FailureDetail)}, when they're wired for {@link FailureDetail}
+   *   support but not yet ready to have {@link FailureDetail} metadata determine exit code behavior
+   *   <li>{@link #of(FailureDetail)}, when changing exit code behavior is desired.
+   * </ul>
+   *
+   */
   public static DetailedExitCode justExitCode(ExitCode exitCode) {
-    return new DetailedExitCode(exitCode, null);
+    return new DetailedExitCode(checkNotNull(exitCode), null);
+  }
+
+  /**
+   * Returns a {@link DetailedExitCode} combining the provided {@link FailureDetail} and {@link
+   * ExitCode}.
+   *
+   * <p>This method exists in order to allow for the introduction of new {@link
+   * FailureDetail)-handling code infrastructure without requiring any simultaneous change in exit
+   * code behavior.
+   *
+   * <p>Callsites should migrate to using {@link #of(FailureDetail)} instead.
+   */
+  // TODO(b/138456686): consider controlling this behavior by flag if migration appears risky.
+  public static DetailedExitCode of(ExitCode exitCode, FailureDetail failureDetail) {
+    return new DetailedExitCode(checkNotNull(exitCode), checkNotNull(failureDetail));
   }
 
   /**

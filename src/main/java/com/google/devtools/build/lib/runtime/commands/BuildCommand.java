@@ -32,7 +32,7 @@ import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.KeepGoingOption;
 import com.google.devtools.build.lib.runtime.LoadingPhaseThreadsOption;
-import com.google.devtools.build.lib.util.ExitCode;
+import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.common.options.OptionsParsingResult;
 import java.util.List;
 
@@ -91,7 +91,8 @@ public final class BuildCommand implements BlazeCommand {
           targets,
           env.getReporter().getOutErr(), env.getCommandId(), env.getCommandStartTime());
     }
-    ExitCode exitCode = new BuildTool(env).processRequest(request, null).getExitCondition();
-    return BlazeCommandResult.exitCode(exitCode);
+    DetailedExitCode detailedExitCode =
+        new BuildTool(env).processRequest(request, null).getDetailedExitCode();
+    return BlazeCommandResult.detailedExitCode(detailedExitCode);
   }
 }

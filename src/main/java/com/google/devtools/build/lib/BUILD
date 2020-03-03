@@ -308,6 +308,7 @@ java_library(
         ":exitcode-external",
         ":failure_detail_util",
         "//src/main/protobuf:failure_details_java_proto",
+        "//third_party:guava",
         "//third_party:jsr305",
     ],
 )
@@ -587,6 +588,7 @@ java_library(
         ":bug-report",
         ":build-request-options",
         ":command-utils",
+        ":detailed_exit_code",
         ":events",
         ":exitcode-external",
         ":keep-going-option",

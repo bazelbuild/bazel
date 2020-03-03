@@ -1886,7 +1886,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
         getConfigurations(eventHandler, ImmutableList.of(options), options, keepGoing));
   }
 
-  @VisibleForTesting
   public BuildConfiguration getConfiguration(
       ExtendedEventHandler eventHandler, BuildConfigurationValue.Key configurationKey) {
     if (configurationKey == null) {

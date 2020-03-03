@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.buildeventstream.BuildEvent.LocalFile.Local
 import com.google.devtools.build.lib.buildeventstream.BuildToolLogs;
 import com.google.devtools.build.lib.buildeventstream.BuildToolLogs.LogFileEntry;
 import com.google.devtools.build.lib.skyframe.AspectValue;
+import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.Path;
@@ -49,7 +50,8 @@ public final class BuildResult {
   private Throwable crash = null;
   private boolean catastrophe = false;
   private boolean stopOnFirstFailure;
-  private ExitCode exitCondition = ExitCode.BLAZE_INTERNAL_ERROR;
+  private DetailedExitCode detailedExitCode =
+      DetailedExitCode.justExitCode(ExitCode.BLAZE_INTERNAL_ERROR);
 
   private BuildConfigurationCollection configurations;
   private Collection<ConfiguredTarget> actualTargets;
@@ -101,22 +103,21 @@ public final class BuildResult {
     return wasSuspended;
   }
 
-  public void setExitCondition(ExitCode exitCondition) {
-    this.exitCondition = exitCondition;
+  public void setDetailedExitCode(DetailedExitCode detailedExitCode) {
+    this.detailedExitCode = detailedExitCode;
   }
 
-  /**
-   * True iff the build request has been successfully completed.
-   */
+  /** True iff the build request has been successfully completed. */
   public boolean getSuccess() {
-    return exitCondition.equals(ExitCode.SUCCESS);
+    return detailedExitCode.isSuccess();
   }
 
   /**
-   * Gets the Blaze exit condition.
+   * Gets the {@link DetailedExitCode} containing the {@link ExitCode} and optional failure detail
+   * to complete the command with.
    */
-  public ExitCode getExitCondition() {
-    return exitCondition;
+  public DetailedExitCode getDetailedExitCode() {
+    return detailedExitCode;
   }
 
   /**
@@ -283,7 +284,7 @@ public final class BuildResult {
         .add("stopTimeMillis", stopTimeMillis)
         .add("crash", crash)
         .add("catastrophe", catastrophe)
-        .add("exitCondition", exitCondition)
+        .add("detailedExitCode", detailedExitCode)
         .add("actualTargets", actualTargets)
         .add("testTargets", testTargets)
         .add("successfulTargets", successfulTargets)

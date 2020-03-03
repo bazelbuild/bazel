@@ -82,6 +82,10 @@ public final class BlazeCommandResult {
     return new BlazeCommandResult(DetailedExitCode.of(failureDetail), null, false);
   }
 
+  public static BlazeCommandResult detailedExitCode(DetailedExitCode detailedExitCode) {
+    return new BlazeCommandResult(detailedExitCode, null, false);
+  }
+
   public static BlazeCommandResult execute(ExecRequest execDescription) {
     return new BlazeCommandResult(
         DetailedExitCode.justExitCode(ExitCode.SUCCESS),

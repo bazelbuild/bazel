@@ -289,7 +289,7 @@ public class RunCommand implements BlazeCommand  {
 
     if (!result.getSuccess()) {
       env.getReporter().handle(Event.error("Build failed. Not running target"));
-      return BlazeCommandResult.exitCode(result.getExitCondition());
+      return BlazeCommandResult.detailedExitCode(result.getDetailedExitCode());
     }
 
     // Make sure that we have exactly 1 built target (excluding --run_under),

@@ -67,6 +67,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetView;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
+import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.Path;
@@ -1326,7 +1327,7 @@ public class BuildEventStreamerTest extends FoundationTestCase {
   private BuildCompleteEvent buildCompleteEvent(
       ExitCode exitCode, boolean stopOnFailure, Throwable crash, boolean catastrophe) {
     BuildResult result = new BuildResult(0);
-    result.setExitCondition(exitCode);
+    result.setDetailedExitCode(DetailedExitCode.justExitCode(exitCode));
     result.setStopOnFirstFailure(stopOnFailure);
     if (catastrophe) {
       result.setCatastrophe();

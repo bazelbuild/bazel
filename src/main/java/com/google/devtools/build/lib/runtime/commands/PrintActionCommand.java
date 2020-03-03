@@ -50,6 +50,7 @@ import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.KeepGoingOption;
+import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.common.options.Option;
@@ -104,7 +105,7 @@ public final class PrintActionCommand implements BlazeCommand {
     PrintActionRunner runner = new PrintActionRunner(loadingOptions.compileOneDependency, options,
         env.getReporter().getOutErr(),
         options.getResidue(), Sets.newHashSet(printActionOptions.printActionMnemonics));
-    return BlazeCommandResult.exitCode(runner.printActionsForTargets(env));
+    return BlazeCommandResult.detailedExitCode(runner.printActionsForTargets(env));
   }
 
   /**
@@ -141,22 +142,22 @@ public final class PrintActionCommand implements BlazeCommand {
       };
     }
 
-    private ExitCode printActionsForTargets(CommandEnvironment env) {
+    private DetailedExitCode printActionsForTargets(CommandEnvironment env) {
       BuildResult result = gatherActionsForTargets(env, requestedTargets);
       if (result == null) {
-        return ExitCode.PARSING_FAILURE;
+        return DetailedExitCode.justExitCode(ExitCode.PARSING_FAILURE);
       }
       if (hasFatalBuildFailure(result)) {
         env.getReporter().handle(Event.error("Build failed when printing actions"));
-        return result.getExitCondition();
+        return result.getDetailedExitCode();
       }
       String action = TextFormat.printToString(summaryBuilder);
       if (!action.isEmpty()) {
         outErr.printOut(action);
-        return result.getExitCondition();
+        return result.getDetailedExitCode();
       } else {
         env.getReporter().handle(Event.error("no actions to print were found"));
-        return ExitCode.PARSING_FAILURE;
+        return DetailedExitCode.justExitCode(ExitCode.PARSING_FAILURE);
       }
     }
 

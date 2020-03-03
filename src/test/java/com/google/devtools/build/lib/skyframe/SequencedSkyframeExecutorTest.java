@@ -116,6 +116,7 @@ import com.google.devtools.build.lib.syntax.Printer;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.testutil.MoreAsserts;
 import com.google.devtools.build.lib.testutil.TestUtils;
+import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
@@ -1480,8 +1481,12 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
     @Override
     public ActionResult execute(ActionExecutionContext actionExecutionContext)
         throws ActionExecutionException {
-      throw new ActionExecutionException("message", new Exception("just cause"), this,
-          /*catastrophe=*/true, expectedExitCode);
+      throw new ActionExecutionException(
+          "message",
+          new Exception("just cause"),
+          this,
+          /*catastrophe=*/ true,
+          DetailedExitCode.justExitCode(expectedExitCode));
     }
   }
 
@@ -1582,7 +1587,8 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
                     null));
     // The catastrophic exception should be propagated into the BuildFailedException whether or not
     // --keep_going is set.
-    assertThat(e.getExitCode()).isEqualTo(CatastrophicAction.expectedExitCode);
+    assertThat(e.getDetailedExitCode().getExitCode())
+        .isEqualTo(CatastrophicAction.expectedExitCode);
     assertThat(builtTargets).isEmpty();
     assertThat(markerRan.get()).isFalse();
   }
@@ -1715,7 +1721,8 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
                     null));
     // The catastrophic exception should be propagated into the BuildFailedException whether or not
     // --keep_going is set.
-    assertThat(e.getExitCode()).isEqualTo(CatastrophicAction.expectedExitCode);
+    assertThat(e.getDetailedExitCode().getExitCode())
+        .isEqualTo(CatastrophicAction.expectedExitCode);
     assertThat(builtTargets).isEmpty();
   }
 
@@ -1845,7 +1852,8 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
                         OutputGroupInfo.determineOutputGroups(ImmutableList.of(), true))));
     // The catastrophic exception should be propagated into the BuildFailedException whether or not
     // --keep_going is set.
-    assertThat(e.getExitCode()).isEqualTo(CatastrophicAction.expectedExitCode);
+    assertThat(e.getDetailedExitCode().getExitCode())
+        .isEqualTo(CatastrophicAction.expectedExitCode);
     assertThat(builtTargets).isEmpty();
   }
 
@@ -1952,7 +1960,8 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
                     null));
     // The catastrophic exception should be propagated into the BuildFailedException whether or not
     // --keep_going is set.
-    assertThat(e.getExitCode()).isEqualTo(CatastrophicAction.expectedExitCode);
+    assertThat(e.getDetailedExitCode().getExitCode())
+        .isEqualTo(CatastrophicAction.expectedExitCode);
     assertThat(builtTargets).isEmpty();
   }
 
@@ -1969,7 +1978,11 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
     public ActionResult execute(ActionExecutionContext actionExecutionContext)
         throws ActionExecutionException {
       throw new ActionExecutionException(
-          "foo", new Exception("bar"), this, /*catastrophe=*/ false, exitCode);
+          "foo",
+          new Exception("bar"),
+          this,
+          /*catastrophe=*/ false,
+          DetailedExitCode.justExitCode(exitCode));
     }
   }
 
@@ -2060,7 +2073,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
                     null));
     // The exit code should be propagated into the BuildFailedException whether or not --keep_going
     // is set.
-    assertThat(e.getExitCode()).isEqualTo(USER_EXIT_CODE);
+    assertThat(e.getDetailedExitCode().getExitCode()).isEqualTo(USER_EXIT_CODE);
   }
 
   /**
@@ -2157,7 +2170,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
                     null));
     // The exit code should be propagated into the BuildFailedException whether or not --keep_going
     // is set.
-    assertThat(e.getExitCode()).isEqualTo(INFRA_EXIT_CODE);
+    assertThat(e.getDetailedExitCode().getExitCode()).isEqualTo(INFRA_EXIT_CODE);
   }
 
   /**
@@ -2628,7 +2641,6 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
       return null;
     }
 
-    @SuppressWarnings("unchecked")
     @Override
     public <T extends Info> T get(NativeProvider<T> provider) {
       return provider.getValueClass().cast(get(provider.getKey()));
