@@ -187,7 +187,7 @@ public class ProtoConfiguration extends Fragment implements ProtoConfigurationAp
 
     @Option(
         name = "incompatible_load_proto_toolchain_for_javalite_from_com_google_protobuf",
-        defaultValue = "false",
+        defaultValue = "true",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
         metadataTags = {
