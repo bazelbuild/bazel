@@ -119,8 +119,7 @@ public class NinjaPipeline {
             service.submit(
                 () ->
                     new NinjaParserStep(new NinjaLexer(byteFragmentAtOffset.getFragment()))
-                        .parseNinjaTarget(
-                            currentScope, byteFragmentAtOffset.getRealStartOffset())));
+                        .parseNinjaTarget(currentScope, byteFragmentAtOffset.getFragmentOffset())));
       }
       queue.addAll(currentScope.getIncludedScopes());
       queue.addAll(currentScope.getSubNinjaScopes());

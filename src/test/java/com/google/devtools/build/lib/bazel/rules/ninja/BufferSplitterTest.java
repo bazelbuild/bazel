@@ -45,7 +45,7 @@ public class BufferSplitterTest {
     DeclarationConsumer consumer =
         (byteFragmentAtOffset) -> {
           result.add(byteFragmentAtOffset.getFragment().toString());
-          assertThat(byteFragmentAtOffset.getOffset()).isEqualTo(offsetValue);
+          assertThat(byteFragmentAtOffset.getBufferOffset()).isEqualTo(offsetValue);
         };
 
     byte[] chars = String.join("\n", list).getBytes(StandardCharsets.ISO_8859_1);

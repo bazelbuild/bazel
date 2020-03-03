@@ -64,7 +64,7 @@ public class DeclarationAssemblerTest {
         new DeclarationAssembler(
             (byteFragmentAtOffset) -> {
               list.add(byteFragmentAtOffset.getFragment().toString());
-              assertThat(byteFragmentAtOffset.getOffset()).isAnyOf(0, chars1.length);
+              assertThat(byteFragmentAtOffset.getBufferOffset()).isAnyOf(0, chars1.length);
             },
             NinjaSeparatorFinder.INSTANCE);
 
@@ -86,7 +86,7 @@ public class DeclarationAssemblerTest {
         new DeclarationAssembler(
             (byteFragmentAtOffset) -> {
               list.add(byteFragmentAtOffset.getFragment().toString());
-              assertThat(byteFragmentAtOffset.getOffset()).isEqualTo(0);
+              assertThat(byteFragmentAtOffset.getBufferOffset()).isEqualTo(0);
             },
             NinjaSeparatorFinder.INSTANCE);
 

@@ -47,7 +47,7 @@ public class NinjaParser implements DeclarationConsumer {
   public void declaration(ByteFragmentAtOffset byteFragmentAtOffset)
       throws GenericParsingException, IOException {
     ByteBufferFragment fragment = byteFragmentAtOffset.getFragment();
-    int offset = byteFragmentAtOffset.getRealStartOffset();
+    int offset = byteFragmentAtOffset.getFragmentOffset();
 
     NinjaLexer lexer = new NinjaLexer(fragment);
     if (!lexer.hasNextToken()) {
@@ -102,10 +102,10 @@ public class NinjaParser implements DeclarationConsumer {
           // (byteFragmentAtOffset.getOffset()),
           // and start of fragment inside buffer (fragment.getStartIncl()).
           int fragmentStart =
-              declarationStart - byteFragmentAtOffset.getOffset() - fragment.getStartIncl();
+              declarationStart - byteFragmentAtOffset.getBufferOffset() - fragment.getStartIncl();
           targetFragment =
               new ByteFragmentAtOffset(
-                  byteFragmentAtOffset.getOffset(),
+                  byteFragmentAtOffset.getBufferOffset(),
                   fragment.subFragment(fragmentStart, fragment.length()));
         }
         parseResult.addTarget(targetFragment);

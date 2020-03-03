@@ -26,7 +26,11 @@ import java.util.List;
 /** Represents the fragment of immutable {@link ByteBuffer} for parallel processing. */
 public class ByteBufferFragment {
   private final ByteBuffer buffer;
+
+  /** The start of this fragment in the backing {@link ByteBuffer}. */
   private final int startIncl;
+
+  /** The end of this fragment in the backing {@link ByteBuffer}. */
   private final int endExcl;
 
   public ByteBufferFragment(ByteBuffer buffer, int startIncl, int endExcl) {
@@ -38,6 +42,7 @@ public class ByteBufferFragment {
     this.endExcl = endExcl;
   }
 
+  /** Returns the start of this fragment in the backing {@link ByteBuffer}. */
   @VisibleForTesting
   public int getStartIncl() {
     return startIncl;
