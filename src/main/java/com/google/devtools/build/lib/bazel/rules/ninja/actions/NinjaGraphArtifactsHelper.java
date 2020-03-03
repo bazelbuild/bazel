@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.bazel.rules.ninja.actions;
 
 
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
@@ -24,6 +25,7 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.bazel.rules.ninja.file.GenericParsingException;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import java.util.List;
 
 /**
  * Helper class to create artifacts for {@link NinjaAction} to be used from {@link NinjaGraphRule}.
@@ -42,19 +44,21 @@ class NinjaGraphArtifactsHelper {
 
   private final ImmutableSortedMap<PathFragment, Artifact> depsNameToArtifact;
   private final ImmutableSortedMap<PathFragment, Artifact> symlinkPathToArtifact;
+  private final ImmutableList<PathFragment> outputRootSymlinks;
   private final ImmutableSortedMap<PathFragment, Artifact> srcsMap;
 
   /**
    * Constructor
-   *
-   * @param ruleContext parent NinjaGraphRule rule context
+   *  @param ruleContext parent NinjaGraphRule rule context
    * @param outputRootPath name of output directory for Ninja actions under execroot
    * @param workingDirectory relative path under execroot, the root for interpreting all paths in
-   *     Ninja file
+ *     Ninja file
    * @param srcsMap mapping between the path fragment and artifact for the files passed in 'srcs'
-   *     attribute
+*     attribute
    * @param depsNameToArtifact mapping between the path fragment in the Ninja file and prebuilt
-   * @param symlinkPathToArtifact
+   * @param symlinkPathToArtifact mapping of paths to artifacts for input symlinks under output_root
+   * @param outputRootSymlinks list of outputs (relative to output_root), which should be treated
+   * as symlinks, and for which symlink artifacts should be created
    */
   NinjaGraphArtifactsHelper(
       RuleContext ruleContext,
@@ -62,13 +66,15 @@ class NinjaGraphArtifactsHelper {
       PathFragment workingDirectory,
       ImmutableSortedMap<PathFragment, Artifact> srcsMap,
       ImmutableSortedMap<PathFragment, Artifact> depsNameToArtifact,
-      ImmutableSortedMap<PathFragment, Artifact> symlinkPathToArtifact) {
+      ImmutableSortedMap<PathFragment, Artifact> symlinkPathToArtifact,
+      ImmutableList<PathFragment> outputRootSymlinks) {
     this.ruleContext = ruleContext;
     this.outputRootPath = outputRootPath;
     this.workingDirectory = workingDirectory;
     this.srcsMap = srcsMap;
     this.depsNameToArtifact = depsNameToArtifact;
     this.symlinkPathToArtifact = symlinkPathToArtifact;
+    this.outputRootSymlinks = outputRootSymlinks;
     Path execRoot =
         Preconditions.checkNotNull(ruleContext.getConfiguration())
             .getDirectories()
@@ -87,10 +93,13 @@ class NinjaGraphArtifactsHelper {
                   + " path '%s' is not allowed.",
               pathRelativeToWorkingDirectory));
     }
-    DerivedArtifact derivedArtifact =
-        ruleContext.getDerivedArtifact(
-            pathRelativeToWorkspaceRoot.relativeTo(outputRootPath), derivedOutputRoot);
-    return derivedArtifact;
+    // If the path was declared as output symlink, create a symlink artifact.
+    if (outputRootSymlinks.contains(pathRelativeToWorkspaceRoot.relativeTo(outputRootPath))) {
+      return ruleContext.getAnalysisEnvironment().getSymlinkArtifact(
+          pathRelativeToWorkspaceRoot.relativeTo(outputRootPath), derivedOutputRoot);
+    }
+    return ruleContext.getDerivedArtifact(
+        pathRelativeToWorkspaceRoot.relativeTo(outputRootPath), derivedOutputRoot);
   }
 
   Artifact getInputArtifact(PathFragment pathRelativeToWorkingDirectory)

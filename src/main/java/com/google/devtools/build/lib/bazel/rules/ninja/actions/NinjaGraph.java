@@ -81,6 +81,8 @@ public class NinjaGraph implements RuleConfiguredTargetFactory {
         PathFragment.create(ruleContext.attributes().get("working_directory", Type.STRING));
     List<String> outputRootInputs =
         ruleContext.attributes().get("output_root_inputs", Type.STRING_LIST);
+    List<String> outputRootSymlinks =
+        ruleContext.attributes().get("output_root_symlinks", Type.STRING_LIST);
 
     Environment env = ruleContext.getAnalysisEnvironment().getSkyframeEnv();
     establishDependencyOnNinjaFiles(env, mainArtifact, ninjaSrcs);
@@ -98,7 +100,8 @@ public class NinjaGraph implements RuleConfiguredTargetFactory {
             workingDirectory,
             ImmutableSortedMap.of(),
             ImmutableSortedMap.of(),
-            ImmutableSortedMap.of());
+            ImmutableSortedMap.of(),
+            ImmutableList.of());
     if (ruleContext.hasErrors()) {
       return null;
     }
@@ -126,7 +129,10 @@ public class NinjaGraph implements RuleConfiguredTargetFactory {
               outputRoot,
               workingDirectory,
               targetsPreparer.getUsualTargets(),
-              targetsPreparer.getPhonyTargetsMap());
+              targetsPreparer.getPhonyTargetsMap(),
+              ImmutableList.copyOf(outputRootSymlinks.stream()
+                  .map(PathFragment::create).collect(
+                  Collectors.toList())));
 
       NestedSet<Artifact> filesToBuild =
           createSymlinkActions(

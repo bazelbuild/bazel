@@ -21,6 +21,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.CommandLines.CommandLineAndParamFileInfo;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
@@ -365,5 +366,41 @@ public class NinjaBuildTest extends BuildViewTestCase {
     assertThat(commandLines).hasSize(1);
     assertThat(commandLines.get(0).commandLine.toString())
         .endsWith("cd build_config && executable -d out_file.d ../input > out_file");
+  }
+  @Test
+  public void testCreateOutputSymlinkArtifacts() throws Exception {
+    rewriteWorkspace(
+        "workspace(name = 'test')",
+        "dont_symlink_directories_in_execroot(paths = ['build_config'])");
+
+    scratch.file(
+        "build_config/build.ninja",
+        "rule symlink_rule",
+        "  command = ln -s fictive-file ${out}",
+        "build dangling_symlink: symlink_rule");
+
+    ConfiguredTarget configuredTarget =
+        scratchConfiguredTarget(
+            "",
+            "ninja_target",
+            "ninja_graph(name = 'graph', output_root = 'build_config',",
+            " working_directory = 'build_config',",
+            " main = 'build_config/build.ninja',",
+            " output_root_symlinks = ['dangling_symlink'])",
+            "ninja_build(name = 'ninja_target', ninja_graph = 'graph',",
+            " output_groups= {'main': ['dangling_symlink']})");
+    assertThat(configuredTarget).isInstanceOf(RuleConfiguredTarget.class);
+    RuleConfiguredTarget ninjaConfiguredTarget = (RuleConfiguredTarget) configuredTarget;
+    ImmutableList<ActionAnalysisMetadata> actions = ninjaConfiguredTarget.getActions();
+    assertThat(actions).hasSize(1);
+    ActionAnalysisMetadata action = Iterables.getOnlyElement(actions);
+    Artifact primaryOutput = action.getPrimaryOutput();
+    assertThat(primaryOutput.isSymlink()).isTrue();
+    assertThat(action).isInstanceOf(NinjaAction.class);
+    List<CommandLineAndParamFileInfo> commandLines =
+        ((NinjaAction) action).getCommandLines().getCommandLines();
+    assertThat(commandLines).hasSize(1);
+    assertThat(commandLines.get(0).commandLine.toString())
+        .endsWith("cd build_config && ln -s fictive-file dangling_symlink");
   }
 }
