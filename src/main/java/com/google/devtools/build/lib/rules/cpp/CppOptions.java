@@ -790,7 +790,7 @@ public class CppOptions extends FragmentOptions {
 
   @Option(
       name = "incompatible_validate_top_level_header_inclusions",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.INPUT_STRICTNESS,
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
       metadataTags = {
