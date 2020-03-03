@@ -173,7 +173,8 @@ public class MerkleTree {
           m.put(dirname, protoDirDigest);
         });
     Digest rootDigest = m.get(PathFragment.EMPTY_FRAGMENT);
-    return new MerkleTree(digestDirectoryMap, digestPathMap, rootDigest, tree.numFiles(), inputBytes.addAndGet(rootDigest.getSizeBytes()));
+    inputBytes.addAndGet(rootDigest.getSizeBytes());
+    return new MerkleTree(digestDirectoryMap, digestPathMap, rootDigest, tree.numFiles(), inputBytes.get());
   }
 
   private static FileNode buildProto(DirectoryTree.FileNode file) {
