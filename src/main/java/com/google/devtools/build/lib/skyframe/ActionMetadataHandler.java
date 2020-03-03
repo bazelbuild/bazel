@@ -436,6 +436,8 @@ public final class ActionMetadataHandler implements MetadataHandler {
           throw new IOException(errorMessage, e);
         }
 
+        // TODO(janakr): we don't actually want the metadata for this TreeFileArtifact stored in the
+        //  main metadata cache as of cl/297927844. Refactor and remove.
         // A minor hack: maybeStoreAdditionalData will force the data to be stored via
         // store.putAdditionalOutputData, if the underlying OutputStore supports it.
         fileMetadata = maybeStoreAdditionalData(treeFileArtifact, fileMetadata, null);

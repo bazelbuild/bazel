@@ -124,7 +124,16 @@ public class ActionExecutionValue implements SkyValue {
    */
   @Nullable
   public FileArtifactValue getArtifactValue(Artifact artifact) {
-    return artifactData.get(artifact);
+    FileArtifactValue result = artifactData.get(artifact);
+    if (result != null || !artifact.hasParent()) {
+      return result;
+    }
+    // In some cases, TreeFileArtifact metadata may not have been injected directly, and is only
+    // available via the parent. However, if this ActionExecutionValue corresponds to a templated
+    // action, as opposed to an action that created a tree artifact itself, the TreeFileArtifact
+    // metadata will be in artifactData, since this value will have no treeArtifactData.
+    TreeArtifactValue treeArtifactValue = treeArtifactData.get(artifact.getParent());
+    return treeArtifactValue == null ? null : treeArtifactValue.getChildValues().get(artifact);
   }
 
   TreeArtifactValue getTreeArtifactValue(Artifact artifact) {
