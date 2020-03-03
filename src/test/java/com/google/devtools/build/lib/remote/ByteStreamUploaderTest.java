@@ -703,11 +703,14 @@ public class ByteStreamUploaderTest {
     ByteStreamUploader uploader =
         new ByteStreamUploader(
             INSTANCE_NAME,
-            new ReferenceCountedChannel(channel),
+            new ReferenceCountedChannel(
+                InProcessChannelBuilder
+                    .forName("Server for " + this.getClass())
+                    .intercept(MetadataUtils.newAttachHeadersInterceptor(metadata))
+                    .build()),
             null, /* timeout seconds */
             60,
-            retrier,
-            MetadataUtils.newAttachHeadersInterceptor(metadata));
+            retrier);
 
     byte[] blob = new byte[CHUNK_SIZE];
     Chunker chunker = Chunker.builder().setInput(blob).setChunkSize(CHUNK_SIZE).build();

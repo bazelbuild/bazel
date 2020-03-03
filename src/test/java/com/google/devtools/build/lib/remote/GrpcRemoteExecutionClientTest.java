@@ -233,7 +233,11 @@ public class GrpcRemoteExecutionClientTest {
             retryService);
     ReferenceCountedChannel channel =
         new ReferenceCountedChannel(
-            InProcessChannelBuilder.forName(fakeServerName).directExecutor().build());
+            InProcessChannelBuilder
+                .forName(fakeServerName)
+                .intercept(TracingMetadataUtils.newExecHeadersInterceptor(remoteOptions))
+                .directExecutor()
+                .build());
     GrpcRemoteExecutor executor =
         new GrpcRemoteExecutor(channel.retain(), null, retrier, remoteOptions);
     CallCredentials creds =

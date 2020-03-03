@@ -154,10 +154,13 @@ public class RemoteServerCapabilitiesTest {
             retryService);
     ReferenceCountedChannel channel =
         new ReferenceCountedChannel(
-            InProcessChannelBuilder.forName(fakeServerName).directExecutor().build());
+            InProcessChannelBuilder
+                .forName(fakeServerName)
+                .intercept(TracingMetadataUtils.newExecHeadersInterceptor(remoteOptions))
+                .directExecutor()
+                .build());
     RemoteServerCapabilities client =
-        new RemoteServerCapabilities("instance", channel.retain(), null, 3, retrier,
-            TracingMetadataUtils.newExecHeadersInterceptor(remoteOptions));
+        new RemoteServerCapabilities("instance", channel.retain(), null, 3, retrier);
 
     assertThat(client.get("build-req-id", "command-id")).isEqualTo(caps);
   }
