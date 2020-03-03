@@ -1218,7 +1218,6 @@ public final class SkyframeActionExecutor {
           }
         }
 
-        // Success in execution but failure in completion.
         reportActionExecution(
             eventHandler,
             primaryOutputPath,

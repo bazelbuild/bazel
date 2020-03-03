@@ -167,6 +167,10 @@ public class ActionExecutedEvent implements BuildEventWithConfiguration, Progres
             .setType(action.getMnemonic());
 
     if (exception != null && exception.getExitCode() != null) {
+      // TODO(b/150405553): This statement seems to be confused. The exit_code field of
+      //  ActionExecuted is documented as "The exit code of the action, if it is available."
+      //  However, the value returned by exception.getExitCode().getNumericExitCode() is intended as
+      //  an exit code that this Bazel invocation might return to the user.
       actionBuilder.setExitCode(exception.getExitCode().getNumericExitCode());
     }
     if (stdout != null) {
