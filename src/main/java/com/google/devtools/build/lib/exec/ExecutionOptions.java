@@ -278,7 +278,7 @@ public class ExecutionOptions extends OptionsBase {
 
   @Option(
       name = "incompatible_remove_ram_utilization_factor",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.EXECUTION},
       metadataTags = {
