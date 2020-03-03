@@ -20,7 +20,6 @@ import java.io.PrintStream;
  */
 public abstract class TextPrinter {
 
-  protected static final String TWO_COLUMN_FORMAT = "%-37s %10s";
   protected static final String THREE_COLUMN_FORMAT = "%-28s %10s %8s";
 
   protected final PrintStream out;
