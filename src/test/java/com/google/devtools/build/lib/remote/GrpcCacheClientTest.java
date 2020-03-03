@@ -226,6 +226,7 @@ public class GrpcCacheClientTest {
             InProcessChannelBuilder.forName(fakeServerName)
                 .directExecutor()
                 .intercept(new CallCredentialsInterceptor(creds))
+                .intercept(TracingMetadataUtils.newCacheHeadersInterceptor(remoteOptions))
                 .build());
     ByteStreamUploader uploader =
         new ByteStreamUploader(

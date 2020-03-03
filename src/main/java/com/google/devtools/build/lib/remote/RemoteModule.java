@@ -107,6 +107,37 @@ public final class RemoteModule extends BlazeModule {
     return !Strings.isNullOrEmpty(options.remoteExecutor);
   }
 
+  private void verifyServerCapabilities(
+      RemoteOptions remoteOptions,
+      ReferenceCountedChannel channel,
+      CallCredentials credentials,
+      RemoteRetrier retrier,
+      CommandEnvironment env,
+      DigestUtil digestUtil)
+      throws AbruptExitException {
+    RemoteServerCapabilities rsc =
+        new RemoteServerCapabilities(
+            remoteOptions.remoteInstanceName,
+            channel,
+            credentials,
+            remoteOptions.remoteTimeout,
+            retrier);
+    ServerCapabilities capabilities = null;
+    try {
+      capabilities = rsc.get(env.getCommandId().toString(), env.getBuildRequestId());
+    } catch (IOException e) {
+      throw new AbruptExitException(
+          "Failed to query remote execution capabilities: " + Utils.grpcAwareErrorMessage(e),
+          ExitCode.REMOTE_ERROR,
+          e);
+    } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
+      return;
+    }
+    checkClientServerCompatibility(
+        capabilities, remoteOptions, digestUtil.getDigestFunction(), env.getReporter());
+  }
+
   @Override
   public void beforeCommand(CommandEnvironment env) throws AbruptExitException {
     Preconditions.checkState(actionContextProvider == null, "actionContextProvider must be null");
@@ -178,12 +209,17 @@ public final class RemoteModule extends BlazeModule {
       ReferenceCountedChannel execChannel = null;
       ReferenceCountedChannel cacheChannel = null;
       if (enableRemoteExecution) {
+        ImmutableList.Builder<ClientInterceptor> interceptors = ImmutableList.builder();
+        interceptors.add(TracingMetadataUtils.newExecHeadersInterceptor(remoteOptions));
+        if (loggingInterceptor != null) {
+          interceptors.add(loggingInterceptor);
+        }
         execChannel =
             RemoteCacheClientFactory.createGrpcChannel(
                 remoteOptions.remoteExecutor,
                 remoteOptions.remoteProxy,
                 authAndTlsOptions,
-                loggingInterceptor);
+                interceptors.build());
         // Create a separate channel if --remote_executor and --remote_cache point to different
         // endpoints.
         if (Strings.isNullOrEmpty(remoteOptions.remoteCache)
@@ -193,12 +229,17 @@ public final class RemoteModule extends BlazeModule {
       }
 
       if (cacheChannel == null) {
+        ImmutableList.Builder<ClientInterceptor> interceptors = ImmutableList.builder();
+        interceptors.add(TracingMetadataUtils.newCacheHeadersInterceptor(remoteOptions));
+        if (loggingInterceptor != null) {
+          interceptors.add(loggingInterceptor);
+        }
         cacheChannel =
             RemoteCacheClientFactory.createGrpcChannel(
                 remoteOptions.remoteCache,
                 remoteOptions.remoteProxy,
                 authAndTlsOptions,
-                loggingInterceptor);
+                interceptors.build());
       }
 
       CallCredentials credentials = GoogleAuthUtils.newCallCredentials(authAndTlsOptions);
@@ -212,27 +253,13 @@ public final class RemoteModule extends BlazeModule {
       // We always query the execution server for capabilities, if it is defined. A remote
       // execution/cache system should have all its servers to return the capabilities pertaining
       // to the system as a whole.
-      RemoteServerCapabilities rsc =
-          new RemoteServerCapabilities(
-              remoteOptions.remoteInstanceName,
-              (execChannel != null ? execChannel : cacheChannel),
-              credentials,
-              remoteOptions.remoteTimeout,
-              retrier);
-      ServerCapabilities capabilities = null;
-      try {
-        capabilities = rsc.get(buildRequestId, invocationId);
-      } catch (IOException e) {
-        throw new AbruptExitException(
-            "Failed to query remote execution capabilities: " + Utils.grpcAwareErrorMessage(e),
-            ExitCode.REMOTE_ERROR,
-            e);
-      } catch (InterruptedException e) {
-        Thread.currentThread().interrupt();
-        return;
+      if (execChannel != null) {
+        verifyServerCapabilities(remoteOptions, execChannel, credentials, retrier, env, digestUtil);
       }
-      checkClientServerCompatibility(
-          capabilities, remoteOptions, digestUtil.getDigestFunction(), env.getReporter());
+      if (cacheChannel != execChannel) {
+        verifyServerCapabilities(
+            remoteOptions, cacheChannel, credentials, retrier, env, digestUtil);
+      }
 
       ByteStreamUploader uploader =
           new ByteStreamUploader(
@@ -241,6 +268,7 @@ public final class RemoteModule extends BlazeModule {
               credentials,
               remoteOptions.remoteTimeout,
               retrier);
+
       cacheChannel.release();
       RemoteCacheClient cacheClient =
           new GrpcCacheClient(
