@@ -70,7 +70,7 @@ public class BazelBuildEventServiceModule
   protected ManagedChannel newGrpcChannel(
       BuildEventServiceOptions besOptions, AuthAndTLSOptions authAndTLSOptions) throws IOException {
     return GoogleAuthUtils.newChannel(
-        besOptions.besBackend, besOptions.besProxy, authAndTLSOptions);
+        besOptions.besBackend, besOptions.besProxy, authAndTLSOptions, /* interceptor= */ null);
   }
 
   @Override

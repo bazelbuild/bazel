@@ -200,14 +200,13 @@ public final class RemoteModule extends BlazeModule {
 
       Preconditions.checkState(enableGrpcCache || enableRemoteExecution);
 
-      List<ClientInterceptor> interceptors = new ArrayList<>();
+      ClientInterceptor loggingInterceptor = null;
       if (remoteOptions.experimentalRemoteGrpcLog != null) {
         rpcLogFile =
             new AsynchronousFileOutputStream(
                 env.getWorkingDirectory().getRelative(remoteOptions.experimentalRemoteGrpcLog));
-        interceptors.add(new LoggingInterceptor(rpcLogFile, env.getRuntime().getClock()));
+        loggingInterceptor = new LoggingInterceptor(rpcLogFile, env.getRuntime().getClock());
       }
-      interceptors.add(new NetworkTime.Interceptor());
 
       ReferenceCountedChannel execChannel = null;
       ReferenceCountedChannel cacheChannel = null;
@@ -217,6 +216,7 @@ public final class RemoteModule extends BlazeModule {
         if (loggingInterceptor != null) {
           interceptors.add(loggingInterceptor);
         }
+        interceptors.add(new NetworkTime.Interceptor());
         execChannel =
             RemoteCacheClientFactory.createGrpcChannel(
                 remoteOptions.remoteExecutor,
@@ -237,6 +237,7 @@ public final class RemoteModule extends BlazeModule {
         if (loggingInterceptor != null) {
           interceptors.add(loggingInterceptor);
         }
+        interceptors.add(new NetworkTime.Interceptor());
         cacheChannel =
             RemoteCacheClientFactory.createGrpcChannel(
                 remoteOptions.remoteCache,
