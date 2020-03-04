@@ -43,7 +43,7 @@ filegroup(
         "//third_party/def_parser:srcs",
         "//third_party/pprof:srcs",
         "@googleapis//:srcs",
-        "@remoteapis//:srcs",
+        "//third_party/remoteapis:srcs",
     ],
 )
 

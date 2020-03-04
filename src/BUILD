@@ -483,7 +483,7 @@ genrule(
         "//src/main/java/com/google/devtools/build/skydoc/rendering/proto:dist_jars",
         "//src/main/java/com/google/devtools/build/skyframe:dist_jars",
         "@googleapis//:dist_jars",
-        "@remoteapis//:dist_jars",
+        "//third_party/remoteapis:dist_jars",
     ],
     outs = ["derived_java_srcs.zip"],
     cmd = "$(location :combine_derived_java_srcs.sh) $(JAVABASE) $@ $(SRCS)",

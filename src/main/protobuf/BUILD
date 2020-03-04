@@ -242,7 +242,7 @@ proto_library(
         "@googleapis//:google_bytestream_bytestream_proto",
         "@googleapis//:google_longrunning_operations_proto",
         "@googleapis//:google_rpc_status_proto",
-        "@remoteapis//:build_bazel_remote_execution_v2_remote_execution_proto",
+        "@bazel_remote_apis//build/bazel/remote/execution/v2:remote_execution_proto",
     ],
 )
 

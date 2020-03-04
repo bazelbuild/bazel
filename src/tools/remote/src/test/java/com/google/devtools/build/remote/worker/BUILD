@@ -24,7 +24,7 @@ java_test(
         "//third_party:junit4",
         "//third_party:truth",
         "//third_party/grpc:grpc-jar",
-        "@remoteapis//:build_bazel_remote_execution_v2_remote_execution_java_grpc",
-        "@remoteapis//:build_bazel_remote_execution_v2_remote_execution_java_proto",
+        "//third_party/remoteapis:build_bazel_remote_execution_v2_remote_execution_java_grpc",
+        "@bazel_remote_apis//build/bazel/remote/execution/v2:remote_execution_java_proto",
     ],
 )

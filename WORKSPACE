@@ -122,9 +122,26 @@ local_repository(
     path = "./third_party/googleapis/",
 )
 
-local_repository(
-    name = "remoteapis",
-    path = "./third_party/remoteapis/",
+http_archive(
+    name = "bazel_remote_apis",
+    # TODO(yannic): Remove patch after https://github.com/bazelbuild/remote-apis/pull/111 lands.
+    patch_args = ["-p1"],
+    patches = ["@io_bazel//third_party/remoteapis:bazel_remote_apis.patch"],
+    patch_cmds = EXPORT_WORKSPACE_IN_BUILD_BAZEL_FILE,
+    patch_cmds_win = EXPORT_WORKSPACE_IN_BUILD_BAZEL_FILE_WIN,
+    sha256 = "e84fef9aec779f91b8f09651e1ff6cf80f013efc2f24b7d30d383d39c551f4a1",
+    strip_prefix = "remote-apis-f59419ca2cbfa67b74df5ab24228a68a4d1ffff9",
+    urls = [
+        "https://mirror.bazel.build/github.com/bazelbuild/remote-apis/archive/f59419ca2cbfa67b74df5ab24228a68a4d1ffff9.tar.gz",
+        "https://github.com/bazelbuild/remote-apis/archive/f59419ca2cbfa67b74df5ab24228a68a4d1ffff9.tar.gz",
+    ],
+)
+
+load("@bazel_remote_apis//:repository_rules.bzl", "switched_rules_by_language")
+
+switched_rules_by_language(
+    name = "bazel_remote_apis_imports",
+    java = True,
 )
 
 http_archive(
@@ -158,6 +175,8 @@ distdir_tar(
         "2d4c9528e0f453b5950eeaeac11d8d09f5a504d4.tar.gz",
         # bazelbuild/platforms
         "46993efdd33b73649796c5fc5c9efb193ae19d51.zip",
+        # bazelbuild/remote-apis
+        "f59419ca2cbfa67b74df5ab24228a68a4d1ffff9.tar.gz",
         # bazelbuild/rules_java
         "7cf3cefd652008d0a64a419c34c13bdca6c8f178.zip",
         # bazelbuild/rules_cc
@@ -188,6 +207,8 @@ distdir_tar(
         "2d4c9528e0f453b5950eeaeac11d8d09f5a504d4.tar.gz": "c00ceec469dbcf7929972e3c79f20c14033824538038a554952f5c31d8832f96",
         # bazelbuild/platforms
         "46993efdd33b73649796c5fc5c9efb193ae19d51.zip": "66184688debeeefcc2a16a2f80b03f514deac8346fe888fb7e691a52c023dd88",
+        # bazelbuild/remote-apis
+        "f59419ca2cbfa67b74df5ab24228a68a4d1ffff9.tar.gz": "fe2e04f91ce8c59d49d91b8102edc6627c6fa2906c1b0e7346f01419ec4f419d",
         # bazelbuild/rules_java
         "7cf3cefd652008d0a64a419c34c13bdca6c8f178.zip": "bc81f1ba47ef5cc68ad32225c3d0e70b8c6f6077663835438da8d5733f917598",
         # bazelbuild/rules_cc
@@ -242,6 +263,11 @@ distdir_tar(
         "46993efdd33b73649796c5fc5c9efb193ae19d51.zip": [
             "https://mirror.bazel.build/github.com/bazelbuild/platforms/archive/46993efdd33b73649796c5fc5c9efb193ae19d51.zip",
             "https://github.com/bazelbuild/platforms/archive/46993efdd33b73649796c5fc5c9efb193ae19d51.zip",
+        ],
+        # bazelbuild/remote-apis
+        "f59419ca2cbfa67b74df5ab24228a68a4d1ffff9.tar.gz": [
+            "https://mirror.bazel.build/github.com/bazelbuild/remote-apis/archive/f59419ca2cbfa67b74df5ab24228a68a4d1ffff9.tar.gz",
+            "https://github.com/bazelbuild/remote-apis/archive/f59419ca2cbfa67b74df5ab24228a68a4d1ffff9.tar.gz",
         ],
         # bazelbuild/rules_java
         "7cf3cefd652008d0a64a419c34c13bdca6c8f178.zip": [
@@ -487,6 +513,8 @@ distdir_tar(
         "2d4c9528e0f453b5950eeaeac11d8d09f5a504d4.tar.gz",
         # bazelbuild/platforms
         "46993efdd33b73649796c5fc5c9efb193ae19d51.zip",
+        # bazelbuild/remote-apis
+        "f59419ca2cbfa67b74df5ab24228a68a4d1ffff9.tar.gz",
         # bazelbuild/rules_java
         "7cf3cefd652008d0a64a419c34c13bdca6c8f178.zip",
         # bazelbuild/rules_cc
@@ -511,6 +539,8 @@ distdir_tar(
         "2d4c9528e0f453b5950eeaeac11d8d09f5a504d4.tar.gz": "c00ceec469dbcf7929972e3c79f20c14033824538038a554952f5c31d8832f96",
         # bazelbuild/platforms
         "46993efdd33b73649796c5fc5c9efb193ae19d51.zip": "66184688debeeefcc2a16a2f80b03f514deac8346fe888fb7e691a52c023dd88",
+        # bazelbuild/remote-apis
+        "f59419ca2cbfa67b74df5ab24228a68a4d1ffff9.tar.gz": "fe2e04f91ce8c59d49d91b8102edc6627c6fa2906c1b0e7346f01419ec4f419d",
         # bazelbuild/rules_java
         "7cf3cefd652008d0a64a419c34c13bdca6c8f178.zip": "bc81f1ba47ef5cc68ad32225c3d0e70b8c6f6077663835438da8d5733f917598",
         # bazelbuild/rules_cc
@@ -541,6 +571,11 @@ distdir_tar(
         "46993efdd33b73649796c5fc5c9efb193ae19d51.zip": [
             "https://mirror.bazel.build/github.com/bazelbuild/platforms/archive/46993efdd33b73649796c5fc5c9efb193ae19d51.zip",
             "https://github.com/bazelbuild/platforms/archive/46993efdd33b73649796c5fc5c9efb193ae19d51.zip",
+        ],
+        # bazelbuild/remote-apis
+        "f59419ca2cbfa67b74df5ab24228a68a4d1ffff9.tar.gz": [
+            "https://mirror.bazel.build/github.com/bazelbuild/remote-apis/archive/f59419ca2cbfa67b74df5ab24228a68a4d1ffff9.tar.gz",
+            "https://github.com/bazelbuild/remote-apis/archive/f59419ca2cbfa67b74df5ab24228a68a4d1ffff9.tar.gz",
         ],
         # bazelbuild/rules_java
         "7cf3cefd652008d0a64a419c34c13bdca6c8f178.zip": [
