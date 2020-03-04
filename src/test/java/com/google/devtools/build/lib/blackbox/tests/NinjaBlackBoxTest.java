@@ -661,7 +661,6 @@ public class NinjaBlackBoxTest extends AbstractBlackBoxTest {
             " output_groups = {'group': ['hello.txt']})");
 
     BuilderRunner bazel = context().bazel().withFlags("--experimental_ninja_actions");
-    bazel = bazel.enableDebug();
     ProcessResult result = bazel.shouldFail().build("//:ninja_target");
     // It is an error, input.txt is a symlinked input, but the symlink is not created
     assertThat(result.errString()).contains("output 'input.txt' is a dangling symbolic link");
