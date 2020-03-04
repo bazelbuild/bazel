@@ -19,8 +19,10 @@ import static java.util.stream.Collectors.toList;
 import com.android.builder.core.VariantType;
 import com.android.utils.StdLogger;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Lists;
 import com.google.devtools.build.android.Converters.DependencyAndroidDataListConverter;
 import com.google.devtools.build.android.Converters.PathConverter;
+import com.google.devtools.build.android.Converters.PathListConverter;
 import com.google.devtools.build.android.Converters.SerializedAndroidDataListConverter;
 import com.google.devtools.build.android.Converters.UnvalidatedAndroidDataConverter;
 import com.google.devtools.build.android.Converters.VariantTypeConverter;
@@ -142,6 +144,16 @@ public class Aapt2ResourcePackagingAction {
                 + SerializedAndroidData.EXPECTED_FORMAT
                 + "[,...]")
     public List<SerializedAndroidData> directAssets;
+
+    @Option(
+        name = "additionalApksToLinkAgainst",
+        defaultValue = "null",
+        category = "input",
+        converter = PathListConverter.class,
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        help = "List of APKs used during linking.")
+    public List<Path> additionalApksToLinkAgainst;
 
     @Option(
         name = "rOutput",
@@ -430,12 +442,21 @@ public class Aapt2ResourcePackagingAction {
                       .flatMap(dep -> dep.assetDirs.stream()))
               .collect(toList());
 
+      List<StaticLibrary> dependencies =
+          Lists.newArrayList(StaticLibrary.from(aaptConfigOptions.androidJar));
+      if (options.additionalApksToLinkAgainst != null) {
+        dependencies.addAll(
+            options.additionalApksToLinkAgainst.stream()
+                .map(StaticLibrary::from)
+                .collect(toList()));
+      }
+
       final PackagedResources packagedResources =
           ResourceLinker.create(aaptConfigOptions.aapt2, executorService, linkedOut)
               .profileUsing(profiler)
               .customPackage(options.packageForR)
               .outputAsProto(aaptConfigOptions.resourceTableAsProto)
-              .dependencies(ImmutableList.of(StaticLibrary.from(aaptConfigOptions.androidJar)))
+              .dependencies(ImmutableList.copyOf(dependencies))
               .include(compiledResourceDeps)
               .withAssets(assetDirs)
               .buildVersion(aaptConfigOptions.buildToolsVersion)
