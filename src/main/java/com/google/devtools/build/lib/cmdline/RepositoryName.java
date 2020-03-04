@@ -114,7 +114,7 @@ public final class RepositoryName implements Serializable {
     try {
       return repositoryNameCache.get(name);
     } catch (ExecutionException e) {
-      Throwables.propagateIfInstanceOf(e.getCause(), LabelSyntaxException.class);
+      Throwables.propagateIfPossible(e.getCause(), LabelSyntaxException.class);
       throw new IllegalStateException("Failed to create RepositoryName from " + name, e);
     }
   }

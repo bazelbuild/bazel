@@ -254,4 +254,14 @@ public class WorkspaceBlackBoxTest extends AbstractBlackBoxTest {
   }
   // TODO(ichern) move other tests from workspace_test.sh here.
 
+  @Test
+  public void testBadRepoName() throws Exception {
+    context().write(WORKSPACE, "local_repository(name = '@a', path = 'abc')");
+    context().write("BUILD");
+    ProcessResult result = context().bazel().shouldFail().build("//...");
+    assertThat(result.errString())
+        .contains(
+            "invalid repository name '@@a': workspace names may contain only "
+                + "A-Z, a-z, 0-9, '-', '_' and '.'");
+  }
 }
