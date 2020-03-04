@@ -31,6 +31,8 @@ import java.io.EOFException;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -159,6 +161,66 @@ final class RealSandboxfs02Process extends RealSandboxfsProcess {
       }
     }
   }
+
+  /** A pair that represents the identifier and the path of a prefix as it will be serialized. */
+  private static class Prefix {
+    Integer id;
+    String serializedPath;
+
+    /**
+     * Constructs a new prefix from its components.
+     *
+     * @param id the numerical identifier of the prefix
+     * @param serializedPath the path of the prefix. Given that this is typically comes from a call
+     *     to {@link Path#getParentDirectory()}, the value may be null or empty.
+     */
+    Prefix(Integer id, @Nullable PathFragment serializedPath) {
+      this.id = id;
+      if (serializedPath == null || serializedPath.isEmpty()) {
+        this.serializedPath = "/";
+      } else {
+        this.serializedPath = serializedPath.getPathString();
+      }
+    }
+  }
+
+  /** Registers and assigns unique identifiers to path prefixes. */
+  private static class Prefixes {
+    /** Collection of all known path prefixes to this sandboxfs instance. */
+    @GuardedBy("this")
+    private final Map<PathFragment, Integer> prefixes = new HashMap<>();
+
+    /** Last identifier assigned to a path prefix. */
+    @GuardedBy("this")
+    private Integer lastPrefixId = 1;
+
+    /**
+     * Registers the given path as a prefix.
+     *
+     * @param path the path to register as a prefix, which should always be the return value of a
+     *     call to {@link Path#getParentDirectory()}. As a result, this should either be an absolute
+     *     path, or a null or empty path.
+     * @param newPrefixes tracker for any new prefixes registered by this function. If the given
+     *     path is not yet known, it will be added to this collection.
+     * @return the identifier for the prefix
+     */
+    private synchronized Integer registerPrefix(PathFragment path, ArrayList<Prefix> newPrefixes) {
+      Integer id = prefixes.get(path);
+      if (id != null) {
+        return id;
+      }
+
+      id = lastPrefixId;
+      prefixes.put(path, id);
+      newPrefixes.add(new Prefix(id, path));
+      lastPrefixId++;
+
+      return id;
+    }
+  }
+
+  /** Tracker for all known path prefixes to this sandboxfs instance. */
+  private final Prefixes allPrefixes = new Prefixes();
 
   /**
    * Initializes a new sandboxfs process instance.
@@ -291,15 +353,28 @@ final class RealSandboxfs02Process extends RealSandboxfsProcess {
           processStdIn.value(id);
           processStdIn.name("m");
           processStdIn.beginArray();
+          ArrayList<Prefix> newPrefixes = new ArrayList<>();
           creator.create(
               (path, underlyingPath, writable) -> {
+                Integer pathPrefix =
+                    allPrefixes.registerPrefix(path.getParentDirectory(), newPrefixes);
+                Integer underlyingPathPrefix =
+                    allPrefixes.registerPrefix(underlyingPath.getParentDirectory(), newPrefixes);
+
+                // This synchronized block is theoretically unnecessary because the lock is already
+                // held by the caller of this lambda. However, we need to reenter it to appease
+                // the @GuardedBy clauses.
                 synchronized (this) {
                   processStdIn.beginObject();
                   {
+                    processStdIn.name("x");
+                    processStdIn.value(pathPrefix);
                     processStdIn.name("p");
-                    processStdIn.value(path.getPathString());
+                    processStdIn.value(path.getBaseName());
+                    processStdIn.name("y");
+                    processStdIn.value(underlyingPathPrefix);
                     processStdIn.name("u");
-                    processStdIn.value(underlyingPath.getPathString());
+                    processStdIn.value(underlyingPath.getBaseName());
                     if (writable) {
                       processStdIn.name("w");
                       processStdIn.value(writable);
@@ -309,6 +384,15 @@ final class RealSandboxfs02Process extends RealSandboxfsProcess {
                 }
               });
           processStdIn.endArray();
+          if (!newPrefixes.isEmpty()) {
+            processStdIn.name("q");
+            processStdIn.beginObject();
+            for (Prefix prefix : newPrefixes) {
+              processStdIn.name(prefix.id.toString());
+              processStdIn.value(prefix.serializedPath);
+            }
+            processStdIn.endObject();
+          }
         }
         processStdIn.endObject();
       }

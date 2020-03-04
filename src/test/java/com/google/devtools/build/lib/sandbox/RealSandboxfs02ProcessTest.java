@@ -50,7 +50,8 @@ public class RealSandboxfs02ProcessTest extends BaseRealSandboxfsProcessTest {
                 "{\"id\":\"empty\"}",
                 "{\"id\":\"sandbox1\"}",
                 "{\"id\":\"sandbox2\"}",
-                "{\"id\":\"sandbox1\"}"));
+                "{\"id\":\"sandbox1\"}",
+                "{\"id\":\"sandbox3\"}"));
 
     process.createSandbox("sandbox1", (mapper) -> {});
     process.createSandbox(
@@ -60,14 +61,30 @@ public class RealSandboxfs02ProcessTest extends BaseRealSandboxfsProcessTest {
           mapper.map(PathFragment.create("/a/b/c"), PathFragment.create("/other"), false);
         });
     process.destroySandbox("sandbox1");
+    process.createSandbox(
+        "sandbox3",
+        (mapper) -> {
+          // Reuse a previous prefix.
+          mapper.map(PathFragment.create("/a/b/c"), PathFragment.create("/"), true);
+          // And create a new prefix to ensure identifiers are not reset.
+          mapper.map(PathFragment.create("/a/b"), PathFragment.create("/"), false);
+        });
     String expectedRequests =
         "{\"C\":{\"i\":\"empty\",\"m\":[]}}"
             + "{\"C\":{\"i\":\"sandbox1\",\"m\":[]}}"
             + "{\"C\":{\"i\":\"sandbox2\",\"m\":["
-            + "{\"p\":\"/\",\"u\":\"/some/path\",\"w\":true},"
-            + "{\"p\":\"/a/b/c\",\"u\":\"/other\"}"
-            + "]}}"
-            + "{\"D\":\"sandbox1\"}";
+            + "{\"x\":1,\"p\":\"\",\"y\":2,\"u\":\"path\",\"w\":true},"
+            + "{\"x\":3,\"p\":\"c\",\"y\":4,\"u\":\"other\"}"
+            + "],"
+            + "\"q\":{\"1\":\"/\",\"2\":\"/some\",\"3\":\"/a/b\",\"4\":\"/\"}"
+            + "}}"
+            + "{\"D\":\"sandbox1\"}"
+            + "{\"C\":{\"i\":\"sandbox3\",\"m\":["
+            + "{\"x\":3,\"p\":\"c\",\"y\":1,\"u\":\"\",\"w\":true},"
+            + "{\"x\":5,\"p\":\"b\",\"y\":1,\"u\":\"\"}"
+            + "],"
+            + "\"q\":{\"5\":\"/a\"}"
+            + "}}";
 
     verifyFakeSandboxfsExecution(process, expectedRequests);
   }
