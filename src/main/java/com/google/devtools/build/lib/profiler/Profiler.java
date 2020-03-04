@@ -43,7 +43,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.LinkedBlockingDeque;
+import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
@@ -867,7 +867,7 @@ public final class Profiler {
     protected IOException savedException;
 
     FileWriter() {
-      this.queue = new LinkedBlockingDeque<>();
+      this.queue = new LinkedBlockingQueue<>();
       this.thread = new Thread(this, "profile-writer-thread");
     }
 
