@@ -455,6 +455,17 @@ public class BuildRequestOptions extends OptionsBase {
       help = "If this flag is set, replay action out/err on incremental builds.")
   public boolean replayActionOutErr;
 
+  @Option(
+      name = "target_pattern_file",
+      defaultValue = "",
+      documentationCategory = OptionDocumentationCategory.GENERIC_INPUTS,
+      effectTags = {OptionEffectTag.CHANGES_INPUTS},
+      help =
+          "If set, build will read patterns from the file named here, rather than on the command "
+              + "line. It is an error to specify a file here as well as command-line patterns."
+  )
+  public String targetPatternFile;
+
   /**
    * Converter for jobs: Takes keyword ({@value #FLAG_SYNTAX}). Values must be between 1 and
    * MAX_JOBS.
