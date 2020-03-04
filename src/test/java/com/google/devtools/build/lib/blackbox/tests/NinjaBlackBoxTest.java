@@ -637,4 +637,33 @@ public class NinjaBlackBoxTest extends AbstractBlackBoxTest {
     assertThat(Files.exists(rspFile)).isTrue();
     assertThat(Files.readAllLines(rspFile)).containsExactly("../input.txt");
   }
+
+  /**
+   * Test to demonstrate that non-existent symlink target does not cause
+   * SymlinkAction execution failure.
+   */
+  @Test
+  public void testSymlinkTargetDoNotExist() throws Exception {
+    context()
+        .write(
+            "build_dir/build.ninja",
+            "rule echo",
+            "  command = echo \"Hello $$(cat ${in})!\" > ${out}",
+            "build hello.txt: echo input.txt");
+    context()
+        .write(
+            "BUILD",
+            "ninja_graph(name = 'graph', output_root = 'build_dir',",
+            " working_directory = 'build_dir',",
+            " main = 'build_dir/build.ninja',",
+            " output_root_inputs = ['input.txt'])",
+            "ninja_build(name = 'ninja_target', ninja_graph = 'graph',",
+            " output_groups = {'group': ['hello.txt']})");
+
+    BuilderRunner bazel = context().bazel().withFlags("--experimental_ninja_actions");
+    bazel = bazel.enableDebug();
+    ProcessResult result = bazel.shouldFail().build("//:ninja_target");
+    // It is an error, input.txt is a symlinked input, but the symlink is not created
+    assertThat(result.errString()).contains("output 'input.txt' is a dangling symbolic link");
+  }
 }
