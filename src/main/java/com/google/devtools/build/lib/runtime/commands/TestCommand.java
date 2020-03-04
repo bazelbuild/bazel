@@ -118,8 +118,8 @@ public class TestCommand implements BlazeCommand {
     // Run simultaneous build and test.
     List<String> targets;
     try {
-      targets = TargetPatternFileSupport.handleTargetPatternFile(env, options);
-    } catch (TargetPatternFileSupport.TargetPatternFileSupportException e) {
+      targets = TargetPatternsHelper.readFrom(env, options);
+    } catch (TargetPatternsHelper.TargetPatternsHelperException e) {
       env.getReporter()
           .handle(Event.error(e.getMessage()));
       return BlazeCommandResult.exitCode(ExitCode.COMMAND_LINE_ERROR);

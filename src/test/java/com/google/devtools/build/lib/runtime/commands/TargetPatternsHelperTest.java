@@ -23,7 +23,7 @@ import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.BlazeServerStartupOptions;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
-import com.google.devtools.build.lib.runtime.commands.TargetPatternFileSupport.TargetPatternFileSupportException;
+import com.google.devtools.build.lib.runtime.commands.TargetPatternsHelper.TargetPatternsHelperException;
 import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.common.options.OptionsParser;
@@ -34,9 +34,9 @@ import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 import org.mockito.Mockito;
 
-/** Tests {@link TargetPatternFileSupport}. */
+/** Tests {@link TargetPatternsHelper}. */
 @RunWith(JUnit4.class)
-public class TargetPatternFileSupportTest {
+public class TargetPatternsHelperTest {
 
   private CommandEnvironment env;
   private Scratch scratch;
@@ -65,20 +65,26 @@ public class TargetPatternFileSupportTest {
   }
 
   @Test
+  public void testEmpty() throws TargetPatternsHelperException {
+    // tests when no residue and no --target_pattern_file are set
+    assertThat(TargetPatternsHelper.readFrom(env, options)).isEmpty();
+  }
+
+  @Test
   public void testTargetPatternFile() throws Exception {
     scratch.file("/wd/patterns.txt", "//some/...\n//patterns");
     options.parse("--target_pattern_file=patterns.txt");
 
-    assertThat(TargetPatternFileSupport.handleTargetPatternFile(env, options))
+    assertThat(TargetPatternsHelper.readFrom(env, options))
         .isEqualTo(ImmutableList.of("//some/...", "//patterns"));
   }
 
   @Test
-  public void testNoTargetPatternFile() throws TargetPatternFileSupportException {
+  public void testNoTargetPatternFile() throws TargetPatternsHelperException {
     ImmutableList<String> patterns = ImmutableList.of("//some/...", "//patterns");
     options.setResidue(patterns);
 
-    assertThat(TargetPatternFileSupport.handleTargetPatternFile(env, options))
+    assertThat(TargetPatternsHelper.readFrom(env, options))
         .isEqualTo(patterns);
   }
 
@@ -88,8 +94,8 @@ public class TargetPatternFileSupportTest {
     options.setResidue(ImmutableList.of("//some:pattern"));
 
     assertThrows(
-        TargetPatternFileSupport.TargetPatternFileSupportException.class,
-        () -> TargetPatternFileSupport.handleTargetPatternFile(env, options));
+        TargetPatternsHelperException.class,
+        () -> TargetPatternsHelper.readFrom(env, options));
   }
 
   @Test
@@ -97,7 +103,8 @@ public class TargetPatternFileSupportTest {
     options.parse("--target_pattern_file=patterns.txt");
 
     assertThrows(
-        TargetPatternFileSupport.TargetPatternFileSupportException.class,
-        () -> TargetPatternFileSupport.handleTargetPatternFile(env, options));
+        TargetPatternsHelperException.class,
+        () -> TargetPatternsHelper.readFrom(env, options));
   }
+
 }

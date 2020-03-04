@@ -16,22 +16,22 @@ import java.util.List;
 /**
  * Provides support for implementations for {@link BlazeCommand} to read target patterns from file.
  */
-final class TargetPatternFileSupport {
+final class TargetPatternsHelper {
 
-  private TargetPatternFileSupport() {}
+  private TargetPatternsHelper() {}
 
   /**
    * Reads a list of target patterns, either from the command-line residue or by reading newline
    * delimited target patterns from the --target_pattern_file flag. If --target_pattern_file is
    * specified and options contain a residue, or file cannot be read it throws an exception instead.
    */
-  public static List<String> handleTargetPatternFile(
+  public static List<String> readFrom(
       CommandEnvironment env, OptionsParsingResult options)
-      throws TargetPatternFileSupportException {
+      throws TargetPatternsHelperException {
     List<String> targets = options.getResidue();
     BuildRequestOptions buildRequestOptions = options.getOptions(BuildRequestOptions.class);
     if (!targets.isEmpty() && !buildRequestOptions.targetPatternFile.isEmpty()) {
-      throw new TargetPatternFileSupportException(
+      throw new TargetPatternsHelperException(
           "Command-line target pattern and --target_pattern_file cannot both be specified");
     } else if (!buildRequestOptions.targetPatternFile.isEmpty()) {
       // Works for absolute or relative file.
@@ -41,7 +41,7 @@ final class TargetPatternFileSupport {
         targets =
             Lists.newArrayList(FileSystemUtils.readLines(residuePath, StandardCharsets.UTF_8));
       } catch (IOException e) {
-        throw new TargetPatternFileSupportException(
+        throw new TargetPatternsHelperException(
             "I/O error reading from " + residuePath.getPathString());
       }
     } else {
@@ -54,10 +54,11 @@ final class TargetPatternFileSupport {
   }
 
   /**
-   * TargetPatternFileSupportException gets thrown when TargetPatternFileSupport cannot return a
-   * list of targets based on the supplied command line options.
+   * Thrown when target patterns were incorrectly specified.
    */
-  public static class TargetPatternFileSupportException extends Exception {
-    public TargetPatternFileSupportException(String message) { super(message); }
+  public static class TargetPatternsHelperException extends Exception {
+    public TargetPatternsHelperException(String message) {
+      super(message);
+    }
   }
 }
