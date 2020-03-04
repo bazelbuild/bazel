@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.skyframe.SkyFunction;
 
 /**
@@ -94,6 +95,23 @@ public interface AnalysisEnvironment extends ActionRegistry {
 
   /** Returns an artifact that represents an un-dereferenced symlinks. */
   SpecialArtifact getSymlinkArtifact(PathFragment rootRelativePath, ArtifactRoot root);
+
+  /**
+   * Creates a source artifact.
+   *
+   * <p>Do <b>NOT</b> use this unless you have a very good reason to do so and have consulted with
+   * someone knowledgeable. Source artifacts should be only created through {@link
+   * com.google.devtools.build.lib.analysis.configuredtargets.InputFileConfiguredTarget} by {@link
+   * ConfiguredTargetFactory}.
+   *
+   * <p>This method should only be used when that's not an option. Currently, the only known use
+   * case is the {@code ninja_build} rule, which, if it couldn't create source artifacts, would have
+   * to have every source artifact that Ninja actions use enumerated in its {@code srcs} attribute.
+   *
+   * <p>If you use this erroneously, inconsistencies can occur, for example, creating a source
+   * artifact with the wrong package path entry or in the wrong package.
+   */
+  Artifact getSourceArtifactForNinjaBuild(PathFragment execpath, Root root);
 
   /**
    * Returns the artifact for the derived file {@code rootRelativePath}, creating it if necessary,

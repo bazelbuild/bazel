@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.bazel.rules.ninja.actions;
 
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
-import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
@@ -40,6 +39,10 @@ import com.google.devtools.build.lib.util.FileTypeSet;
  * Bazel will determine that those are duplicates and only execute each action once. Future
  * improvements are planned to avoid creation of duplicate actions, probably with the help of some
  * coordinating registry structure.
+ *
+ * <p>Currently all input files of the Ninja graph must be in a subdirectory of the package the
+ * {@code ninja_build} rule is in. It's currently okay if they are in a subpackage, although that
+ * may change later. For best results, put this rule in the top-level BUILD file.
  */
 public class NinjaBuildRule implements RuleDefinition {
   @Override
@@ -50,10 +53,6 @@ public class NinjaBuildRule implements RuleDefinition {
                 .allowedFileTypes(FileTypeSet.ANY_FILE)
                 .allowedRuleClasses("ninja_graph")
                 .setDoc("ninja_graph that parses all Ninja files that compose a graph of actions."))
-        .add(
-            attr("srcs", LABEL_LIST)
-                .allowedFileTypes(FileTypeSet.ANY_FILE)
-                .setDoc("Source files requested by Ninja graph actions."))
         .add(
             attr("deps_mapping", BuildType.LABEL_DICT_UNARY)
                 .allowedFileTypes(FileTypeSet.ANY_FILE)
