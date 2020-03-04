@@ -16,13 +16,17 @@
 package com.google.devtools.build.lib.bazel.rules.ninja;
 
 import static com.google.common.truth.Truth.assertThat;
+import static java.nio.charset.StandardCharsets.ISO_8859_1;
 
+import com.google.common.base.Strings;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.bazel.rules.ninja.file.ByteBufferFragment;
 import com.google.devtools.build.lib.bazel.rules.ninja.file.ByteFragmentAtOffset;
 import com.google.devtools.build.lib.bazel.rules.ninja.file.DeclarationAssembler;
 import com.google.devtools.build.lib.bazel.rules.ninja.file.GenericParsingException;
 import com.google.devtools.build.lib.bazel.rules.ninja.file.NinjaSeparatorFinder;
+import com.google.devtools.build.lib.util.Pair;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
@@ -52,6 +56,38 @@ public class DeclarationAssemblerTest {
 
     doTwoBuffersTest("abc$\n", "def", "abc$\ndef");
     doTwoBuffersTest("abc$", "\ndef", "abc$\ndef");
+  }
+
+  @Test
+  public void testMergeTwoDifferentBuffers() throws Exception {
+    List<Pair<Integer, String>> offsetStringPairList = Lists.newArrayList();
+    String unrelatedFirstBuffer = Strings.repeat(" ", 100);
+    String s1 = "hello";
+    String s2 = "goodbye";
+    byte[] chars1 = (unrelatedFirstBuffer + s1).getBytes(ISO_8859_1);
+    byte[] chars2 = s2.getBytes(ISO_8859_1);
+
+    DeclarationAssembler assembler =
+        new DeclarationAssembler(
+            (byteFragmentAtOffset) -> {
+              offsetStringPairList.add(
+                  new Pair<>(
+                      byteFragmentAtOffset.getFragmentOffset(),
+                      byteFragmentAtOffset.getFragment().toString()));
+            },
+            NinjaSeparatorFinder.INSTANCE);
+
+    assembler.wrapUp(
+        Lists.newArrayList(
+            new ByteFragmentAtOffset(
+                0,
+                new ByteBufferFragment(
+                    ByteBuffer.wrap(chars1), unrelatedFirstBuffer.length(), chars1.length)),
+            new ByteFragmentAtOffset(
+                chars1.length, new ByteBufferFragment(ByteBuffer.wrap(chars2), 0, s2.length()))));
+
+    assertThat(Iterables.getOnlyElement(offsetStringPairList))
+        .isEqualTo(new Pair<>(unrelatedFirstBuffer.length(), "hellogoodbye"));
   }
 
   private static void doTwoBuffersTest(String s1, String s2, String... expected)

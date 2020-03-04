@@ -114,6 +114,20 @@ public class DeclarationAssembler {
 
     ByteBufferFragment merged = ByteBufferFragment.merge(fragments);
 
+    int newOffset;
+    if (Iterables.getLast(list).getBufferOffset() == firstOffset) {
+      // If all fragment offsets were the same (which is the case if all their originating buffers
+      // were the same), then the merged fragment has the start index of the first originating
+      // fragment, and the end index of the last originating fragment.
+      // The old offset can be used without issue.
+      newOffset = firstOffset;
+    } else {
+      // If fragment offsets differed, then the new merged fragment has a different offset.
+      // In this case, the merged fragment has relative indices [0, len), which means that its
+      // offset should reflect the absolute "real" start offset.
+      newOffset = first.getFragmentOffset();
+    }
+
     int previousEnd = 0;
     for (Range<Integer> range : interestingRanges) {
       int idx =
@@ -123,11 +137,11 @@ public class DeclarationAssembler {
         // starting from the connection point between first and second fragments.
         Preconditions.checkState(idx > previousEnd);
         declarationConsumer.declaration(
-            new ByteFragmentAtOffset(firstOffset, merged.subFragment(previousEnd, idx + 1)));
+            new ByteFragmentAtOffset(newOffset, merged.subFragment(previousEnd, idx + 1)));
         previousEnd = idx + 1;
       }
     }
     declarationConsumer.declaration(
-        new ByteFragmentAtOffset(firstOffset, merged.subFragment(previousEnd, merged.length())));
+        new ByteFragmentAtOffset(newOffset, merged.subFragment(previousEnd, merged.length())));
   }
 }
