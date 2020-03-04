@@ -116,7 +116,13 @@ public class TestCommand implements BlazeCommand {
       AnsiTerminalPrinter printer) {
     BlazeRuntime runtime = env.getRuntime();
     // Run simultaneous build and test.
-    List<String> targets = ProjectFileSupport.getTargets(runtime.getProjectFileProvider(), options);
+    List<String> targets;
+    try {
+      targets = TargetPatternsHelper.readFrom(env, options);
+    } catch (TargetPatternsHelper.TargetPatternsHelperException e) {
+      env.getReporter().handle(Event.error(e.getMessage()));
+      return BlazeCommandResult.exitCode(ExitCode.COMMAND_LINE_ERROR);
+    }
     BuildRequest request = BuildRequest.create(
         getClass().getAnnotation(Command.class).name(), options,
         runtime.getStartupOptionsProvider(), targets,

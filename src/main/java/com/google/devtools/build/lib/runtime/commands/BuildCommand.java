@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.KeepGoingOption;
 import com.google.devtools.build.lib.runtime.LoadingPhaseThreadsOption;
 import com.google.devtools.build.lib.util.DetailedExitCode;
+import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.common.options.OptionsParsingResult;
 import java.util.List;
 
@@ -65,9 +66,11 @@ public final class BuildCommand implements BlazeCommand {
   public BlazeCommandResult exec(CommandEnvironment env, OptionsParsingResult options) {
     BlazeRuntime runtime = env.getRuntime();
     List<String> targets;
-    try (SilentCloseable closeable = Profiler.instance().profile("ProjectFileSupport.getTargets")) {
-      // only takes {@code options} to get options.getResidue()
-      targets = ProjectFileSupport.getTargets(runtime.getProjectFileProvider(), options);
+    try {
+      targets = TargetPatternsHelper.readFrom(env, options);
+    } catch (TargetPatternsHelper.TargetPatternsHelperException e) {
+      env.getReporter().handle(Event.error(e.getMessage()));
+      return BlazeCommandResult.exitCode(ExitCode.COMMAND_LINE_ERROR);
     }
     if (targets.isEmpty()) {
       env.getReporter()
