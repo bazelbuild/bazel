@@ -14,12 +14,17 @@
 
 package com.google.devtools.build.lib.util;
 
-import com.google.common.base.Preconditions;
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
+
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.Interrupted;
 import com.google.devtools.build.lib.server.FailureDetails.Interrupted.InterruptedCode;
-import com.google.protobuf.ProtocolMessageEnum;
+import com.google.protobuf.Descriptors.EnumValueDescriptor;
+import com.google.protobuf.Descriptors.FieldDescriptor;
+import com.google.protobuf.MessageOrBuilder;
+import java.util.Map;
 
 /** Utilities for constructing and managing {@link FailureDetail}s. */
 public class FailureDetailUtil {
@@ -40,29 +45,71 @@ public class FailureDetailUtil {
     // TODO(mschaller): Consider specializing for unregistered exit codes here, if absolutely
     //  necessary.
     int numericExitCode = FailureDetailUtil.getNumericExitCode(failureDetail);
-    return Preconditions.checkNotNull(
+    return checkNotNull(
         ExitCode.forCode(numericExitCode), "No ExitCode for numericExitCode %s", numericExitCode);
   }
 
   /** Returns the numeric exit code associated with a {@link FailureDetail} message. */
   private static int getNumericExitCode(FailureDetail failureDetail) {
-    // TODO(mschaller): generalize this for arbitrary FailureDetail messages.
-    Preconditions.checkArgument(failureDetail.hasInterrupted());
-    return getNumericExitCode(failureDetail.getInterrupted().getCode());
+    MessageOrBuilder categoryMsg = getCategorySubmessage(failureDetail);
+    EnumValueDescriptor subcategoryDescriptor =
+        getSubcategoryDescriptor(failureDetail, categoryMsg);
+    return getNumericExitCode(subcategoryDescriptor);
   }
 
   /**
    * Returns the numeric exit code associated with a {@link FailureDetail} submessage's subcategory
    * enum value.
    */
-  private static int getNumericExitCode(ProtocolMessageEnum code) {
-    Preconditions.checkArgument(
-        code.getValueDescriptor().getOptions().hasExtension(FailureDetails.metadata),
+  private static int getNumericExitCode(EnumValueDescriptor subcategoryDescriptor) {
+    checkArgument(
+        subcategoryDescriptor.getOptions().hasExtension(FailureDetails.metadata),
         "Enum value %s has no FailureDetails.metadata",
-        code);
-    return code.getValueDescriptor()
-        .getOptions()
-        .getExtension(FailureDetails.metadata)
-        .getExitCode();
+        subcategoryDescriptor);
+    return subcategoryDescriptor.getOptions().getExtension(FailureDetails.metadata).getExitCode();
+  }
+
+  /**
+   * Returns the category submessage, i.e. the message in {@link FailureDetail}'s oneof. Throws if
+   * none of those fields are set.
+   */
+  private static MessageOrBuilder getCategorySubmessage(FailureDetail failureDetail) {
+    MessageOrBuilder categoryMsg = null;
+    for (Map.Entry<FieldDescriptor, Object> entry : failureDetail.getAllFields().entrySet()) {
+      FieldDescriptor fieldDescriptor = entry.getKey();
+      if (isCategoryField(fieldDescriptor)) {
+        categoryMsg = (MessageOrBuilder) entry.getValue();
+        break;
+      }
+    }
+    return checkNotNull(
+        categoryMsg, "FailureDetail missing category submessage: %s", failureDetail);
+  }
+
+  /**
+   * Returns whether the {@link FieldDescriptor} describes a field in {@link FailureDetail}'s oneof.
+   *
+   * <p>Uses the field number criteria described in failure_details.proto.
+   */
+  private static boolean isCategoryField(FieldDescriptor fieldDescriptor) {
+    int fieldNum = fieldDescriptor.getNumber();
+    return 100 < fieldNum && fieldNum <= 10_000;
+  }
+
+  /**
+   * Returns the enum value descriptor for the enum field with field number 1 in the {@link
+   * FailureDetail}'s category submessage.
+   */
+  private static EnumValueDescriptor getSubcategoryDescriptor(
+      FailureDetail failureDetail, MessageOrBuilder categoryMsg) {
+    FieldDescriptor fieldNumberOne = categoryMsg.getDescriptorForType().findFieldByNumber(1);
+    checkNotNull(
+        fieldNumberOne, "FailureDetail category submessage has no field #1: %s", failureDetail);
+    Object fieldNumberOneVal = categoryMsg.getField(fieldNumberOne);
+    checkArgument(
+        fieldNumberOneVal instanceof EnumValueDescriptor,
+        "FailureDetail category submessage has non-enum field #1: %s",
+        failureDetail);
+    return (EnumValueDescriptor) fieldNumberOneVal;
   }
 }
