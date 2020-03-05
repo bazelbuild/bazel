@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.bazel.repository.downloader.Checksum;
 import com.google.devtools.build.lib.bazel.repository.downloader.DownloadManager;
 import com.google.devtools.build.lib.bazel.repository.downloader.HttpUtils;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler.FetchProgress;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.Rule;
@@ -444,6 +445,14 @@ public class SkylarkRepositoryContext
         OutErr outErr = OutErr.SYSTEM_OUT_ERR;
         outErr.printOut(stdout);
         outErr.printErr(stderr);
+      }
+
+      if (result.exitCode() != 0) {
+        String warningMsg = String.format("@%s: '%s' exited with status %d. A remote execution"
+                + " system only caches commands with a zero exit status."
+            + " A non-zero exit status increases the runtime of the repository rule.",
+            rule.getName(), String.join(" ", arguments), result.exitCode());
+        env.getListener().handle(Event.warn(warningMsg));
       }
 
       return new SkylarkExecutionResult(result.exitCode(), stdout, stderr);
