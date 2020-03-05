@@ -339,7 +339,7 @@ java_test(
     ],
     deps = [
         ":testutil",
-        "//src/main/java/com/google/devtools/build/lib:unix",
+        "//src/main/java/com/google/devtools/build/lib/unix",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//third_party:guava",
         "//third_party:junit4",
@@ -487,8 +487,8 @@ java_test(
     deps = [
         ":testutil",
         "//src/main/java/com/google/devtools/build/lib:events",
-        "//src/main/java/com/google/devtools/build/lib:unix",
         "//src/main/java/com/google/devtools/build/lib:util",
+        "//src/main/java/com/google/devtools/build/lib/unix",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/test/java/com/google/devtools/build/lib:analysis_testutil",
         "//src/test/java/com/google/devtools/build/lib:testutil",
@@ -590,8 +590,8 @@ java_library(
     srcs = ["CustomRealFilesystemBuildIntegrationTestCase.java"],
     deps = [
         ":testutil",
-        "//src/main/java/com/google/devtools/build/lib:unix",
         "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/unix",
         "//src/main/java/com/google/devtools/build/lib/util/io",
         "//src/main/java/com/google/devtools/build/lib/util/io:out-err",
         "//src/main/java/com/google/devtools/build/lib/vfs",
@@ -608,7 +608,7 @@ java_library(
     deps = [
         ":testutil",
         "//src/main/java/com/google/devtools/build/lib:build-base",
-        "//src/main/java/com/google/devtools/build/lib:unix",
+        "//src/main/java/com/google/devtools/build/lib/unix",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/test/java/com/google/devtools/build/lib:testutil",
         "//third_party:guava",
