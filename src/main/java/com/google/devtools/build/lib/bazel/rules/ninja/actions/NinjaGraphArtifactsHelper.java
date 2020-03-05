@@ -124,6 +124,12 @@ class NinjaGraphArtifactsHelper {
     // superset of all possible targets that are needed to build it, worse yet, there isn't even a
     // guarantee that there isn't a package on a different package path in between.
     //
+    // For example, if the ninja_build rule is in a/BUILD and has a file a/b/c, it's possible that
+    // there is a BUILD file a/b/BUILD and thus the source file a/b/c is created from the package
+    // //a even though package //a/b exists (violating the above "bazel query" invariant) and it can
+    // be that a/b/BUILD is on a different package path entry (is not correct because the other
+    // package path entry can contain a *different* source file whose execpath is a/b/c)
+    //
     // TODO(lberki): Check whether there is a package in between from another package path entry.
     // We probably can't prohibit packages in between, though. Schade.
     return ruleContext
