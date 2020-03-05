@@ -21,7 +21,6 @@ java_library(
         "LabelConstants.java",
         "LabelSerializationProxy.java",
         "LabelSyntaxException.java",
-        "LabelValidator.java",
         "PackageIdentifier.java",
         "RepositoryName.java",
         "ResolvedTargets.java",
@@ -31,6 +30,7 @@ java_library(
     ],
     visibility = ["//src:__subpackages__"],
     deps = [
+        ":LabelValidator",
         "//src/main/java/com/google/devtools/build/lib:syntax",
         "//src/main/java/com/google/devtools/build/lib:util",
         "//src/main/java/com/google/devtools/build/lib/actions:commandline_item",
@@ -39,6 +39,16 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skylarkinterface",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
+        "//third_party:guava",
+        "//third_party:jsr305",
+    ],
+)
+
+java_library(
+    name = "LabelValidator",
+    srcs = ["LabelValidator.java"],
+    visibility = ["//visibility:public"],
+    deps = [
         "//third_party:guava",
         "//third_party:jsr305",
     ],

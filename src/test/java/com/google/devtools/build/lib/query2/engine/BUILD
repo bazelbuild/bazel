@@ -16,8 +16,9 @@ java_test(
     deps = [
         "//src/main/java/com/google/devtools/build/lib:build-base",
         "//src/main/java/com/google/devtools/build/lib:events",
-        "//src/main/java/com/google/devtools/build/lib:packages",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/packages",
+        "//src/main/java/com/google/devtools/build/lib/pkgcache",
         "//src/main/java/com/google/devtools/build/lib/query2",
         "//src/main/java/com/google/devtools/build/lib/query2/common:abstract-blaze-query-env",
         "//src/main/java/com/google/devtools/build/lib/query2/engine",

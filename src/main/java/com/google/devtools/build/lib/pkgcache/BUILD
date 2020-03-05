@@ -1,40 +1,40 @@
 load("@rules_java//java:defs.bzl", "java_library")
 
-package(default_visibility = ["//src:__subpackages__"])
+# Description:
+#   Bazel analysis
+package(
+    default_visibility = ["//src:__subpackages__"],
+)
 
 filegroup(
     name = "srcs",
-    srcs = glob(["**"]),
+    srcs = glob(["*"]),
 )
 
-# Description:
-#   Genquery support
 java_library(
-    name = "genquery",
+    name = "pkgcache",
     srcs = glob(["*.java"]),
     deps = [
-        "//src/main/java/com/google/devtools/build/lib:build-base",
         "//src/main/java/com/google/devtools/build/lib:events",
-        "//src/main/java/com/google/devtools/build/lib:keep-going-option",
-        "//src/main/java/com/google/devtools/build/lib:util",
-        "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/buildeventstream",
+        "//src/main/java/com/google/devtools/build/lib/buildeventstream/proto:build_event_stream_java_proto",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/cmdline:LabelValidator",
+        "//src/main/java/com/google/devtools/build/lib/collect",
         "//src/main/java/com/google/devtools/build/lib/collect/compacthashset",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/packages",
-        "//src/main/java/com/google/devtools/build/lib/pkgcache",
-        "//src/main/java/com/google/devtools/build/lib/profiler",
-        "//src/main/java/com/google/devtools/build/lib/query2",
-        "//src/main/java/com/google/devtools/build/lib/query2/common:abstract-blaze-query-env",
-        "//src/main/java/com/google/devtools/build/lib/query2/engine",
-        "//src/main/java/com/google/devtools/build/lib/query2/query/output",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
+        "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi",
+        "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi/core",
+        "//src/main/java/com/google/devtools/build/lib/skylarkinterface",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
-        "//src/main/java/com/google/devtools/build/skyframe",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//src/main/java/com/google/devtools/common/options",
-        "//third_party:flogger",
+        "//src/main/protobuf:build_java_proto",
+        "//third_party:auto_value",
         "//third_party:guava",
         "//third_party:jsr305",
         "//third_party/protobuf:protobuf_java",
