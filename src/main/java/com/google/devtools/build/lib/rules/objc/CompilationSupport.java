@@ -305,11 +305,11 @@ public class CompilationSupport {
             .addCcCompilationContexts(objcCompilationContext.getDepCcCompilationContexts())
             .setCopts(
                 ImmutableList.<String>builder()
-                    .addAll(getCompileRuleCopts())
                     .addAll(
                         ruleContext
                             .getFragment(ObjcConfiguration.class)
                             .getCoptsForCompilationMode())
+                    .addAll(getCompileRuleCopts())
                     .addAll(extraCompileArgs)
                     .addAll(
                         pathsToIncludeArgs(objcCompilationContext.getStrictDependencyIncludes()))
