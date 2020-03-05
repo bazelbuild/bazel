@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.bazel.rules.ninja.actions;
 
 import com.google.common.base.Preconditions;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.Maps;
@@ -69,7 +68,6 @@ public class NinjaBuild implements RuleConfiguredTargetFactory {
             ruleContext,
             graphProvider.getOutputRoot(),
             graphProvider.getWorkingDirectory(),
-            createSrcsMap(ruleContext),
             depsMapBuilder.build(),
             symlinksMapBuilder.build(),
             graphProvider.getOutputRootSymlinks());
@@ -160,14 +158,6 @@ public class NinjaBuild implements RuleConfiguredTargetFactory {
       }
     }
     return nestedSetBuilder.build();
-  }
-
-  private static ImmutableSortedMap<PathFragment, Artifact> createSrcsMap(RuleContext ruleContext) {
-    ImmutableList<Artifact> srcs = ruleContext.getPrerequisiteArtifacts("srcs", Mode.TARGET).list();
-    ImmutableSortedMap.Builder<PathFragment, Artifact> inputsMapBuilder =
-        ImmutableSortedMap.naturalOrder();
-    srcs.forEach(a -> inputsMapBuilder.put(a.getRootRelativePath(), a));
-    return inputsMapBuilder.build();
   }
 
   private static void createDepsMap(

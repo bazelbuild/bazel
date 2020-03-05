@@ -35,7 +35,7 @@ java_library(
         "//src/test/java/com/google/devtools/build/lib/profiler/memory:__subpackages__",
     ],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib:packages",
+        "//src/main/java/com/google/devtools/build/lib/packages",
         "//third_party:guava",
         "//third_party/pprof:profile_java_proto",
     ],
@@ -53,9 +53,9 @@ java_library(
     deps = [
         ":current_rule_tracker",
         "//src/main/java/com/google/devtools/build/lib:events",
-        "//src/main/java/com/google/devtools/build/lib:packages",
         "//src/main/java/com/google/devtools/build/lib:syntax",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
+        "//src/main/java/com/google/devtools/build/lib/packages",
         "//third_party:guava",
         "//third_party:jsr305",
         "//third_party/allocation_instrumenter",

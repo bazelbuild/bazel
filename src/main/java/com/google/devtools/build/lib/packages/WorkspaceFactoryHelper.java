@@ -109,11 +109,14 @@ public class WorkspaceFactoryHelper {
    * should also evaluate to the same thing.
    */
   public static void addMainRepoEntry(
-      Package.Builder builder, String externalRepoName, StarlarkSemantics semantics) {
+      Package.Builder builder, String externalRepoName, StarlarkSemantics semantics)
+      throws LabelSyntaxException {
     if (!Strings.isNullOrEmpty(builder.getPackageWorkspaceName())) {
+      // Create repository names with validation, LabelSyntaxException is thrown is the name
+      // is not valid.
       builder.addRepositoryMappingEntry(
-          RepositoryName.createFromValidStrippedName(externalRepoName),
-          RepositoryName.createFromValidStrippedName(builder.getPackageWorkspaceName()),
+          RepositoryName.create("@" + externalRepoName),
+          RepositoryName.create("@" + builder.getPackageWorkspaceName()),
           RepositoryName.MAIN);
     }
   }
@@ -141,8 +144,10 @@ public class WorkspaceFactoryHelper {
       @SuppressWarnings("unchecked")
       Map<String, String> map = (Map<String, String>) kwargs.get("repo_mapping");
       for (Map.Entry<String, String> e : map.entrySet()) {
+        // Create repository names with validation, LabelSyntaxException is thrown is the name
+        // is not valid.
         builder.addRepositoryMappingEntry(
-            RepositoryName.createFromValidStrippedName(externalRepoName),
+            RepositoryName.create("@" + externalRepoName),
             RepositoryName.create(e.getKey()),
             RepositoryName.create(e.getValue()));
       }

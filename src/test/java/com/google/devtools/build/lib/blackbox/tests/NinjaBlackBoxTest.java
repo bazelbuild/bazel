@@ -133,33 +133,6 @@ public class NinjaBlackBoxTest extends AbstractBlackBoxTest {
   }
 
   @Test
-  public void testSourceFileIsMissing() throws Exception {
-    context().write("input.txt", "World");
-    context()
-        .write(
-            "build_dir/build.ninja",
-            "rule echo",
-            "  command = echo \"Hello $$(cat ${in})!\" > ${out}",
-            "build hello.txt: echo ../input.txt");
-    context()
-        .write(
-            "BUILD",
-            "ninja_graph(name = 'graph', output_root = 'build_dir',",
-            " working_directory = 'build_dir',",
-            " main = 'build_dir/build.ninja')",
-            "ninja_build(name = 'ninja_target', ninja_graph = 'graph',",
-            " output_groups = {'group': ['hello.txt']})");
-
-    BuilderRunner bazel = context().bazel().withFlags("--experimental_ninja_actions");
-    ProcessResult result = bazel.shouldFail().build("//:ninja_target");
-    assertThat(result.errString())
-        .contains(
-            "in ninja_build rule //:ninja_target: Ninja actions are allowed to create outputs only "
-                + "under output_root, path '../input.txt' is not allowed.");
-    assertThat(result.errString()).contains("FAILED: Build did NOT complete successfully");
-  }
-
-  @Test
   public void testSourceFileIsMissingUnderOutputRoot() throws Exception {
     context().write("input.txt", "World");
     context()
@@ -625,7 +598,6 @@ public class NinjaBlackBoxTest extends AbstractBlackBoxTest {
             " working_directory = 'build_dir',",
             " main = 'build_dir/build.ninja')",
             "ninja_build(name = 'ninja_target', ninja_graph = 'graph',",
-            "  srcs = [\":input.txt\"],",
             " output_groups= {'main': ['first.txt']})");
 
     BuilderRunner bazel = context().bazel().withFlags("--experimental_ninja_actions");

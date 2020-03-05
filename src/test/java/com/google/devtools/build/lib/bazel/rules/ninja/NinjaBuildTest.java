@@ -37,7 +37,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/** Test for {@link NinjaBuild} configured target factory. */
+/** Test for the {@code NinjaBuild} configured target factory. */
 @RunWith(JUnit4.class)
 public class NinjaBuildTest extends BuildViewTestCase {
 
@@ -53,6 +53,23 @@ public class NinjaBuildTest extends BuildViewTestCase {
   @Before
   public void setUp() throws Exception {
     setSkylarkSemanticsOptions("--experimental_ninja_actions");
+  }
+
+  @Test
+  public void testSourceFileNotInSubtree() throws Exception {
+    rewriteWorkspace("dont_symlink_directories_in_execroot(paths=['out'])");
+
+    scratch.file("a/n.ninja", "rule cp", " command = cp $in $out", "build out/o: cp subdir/i");
+
+    scratch.file(
+        "a/BUILD",
+        "ninja_graph(name='graph', output_root='out', main='n.ninja')",
+        "ninja_build(name='build', ninja_graph=':graph', output_groups={'o': ['out/o']})");
+
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//a:build");
+    assertContainsEvent(
+        "Source artifact 'subdir/i' is not under the package of the ninja_build rule");
   }
 
   @Test
@@ -351,7 +368,6 @@ public class NinjaBuildTest extends BuildViewTestCase {
             " working_directory = 'build_config',",
             " main = 'build_config/build.ninja')",
             "ninja_build(name = 'ninja_target', ninja_graph = 'graph',",
-            " srcs = ['input'],",
             " output_groups= {'main': ['out_file']})");
     assertThat(configuredTarget).isInstanceOf(RuleConfiguredTarget.class);
     RuleConfiguredTarget ninjaConfiguredTarget = (RuleConfiguredTarget) configuredTarget;
