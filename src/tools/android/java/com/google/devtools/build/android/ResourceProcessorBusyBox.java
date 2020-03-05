@@ -26,8 +26,11 @@ import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
 import com.google.devtools.common.options.ShellQuotedParamsFilePreProcessor;
+
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.PrintStream;
 import java.nio.file.FileSystems;
 import java.util.Arrays;
 import java.util.List;
@@ -177,24 +180,43 @@ public class ResourceProcessorBusyBox {
   }
 
   private static void runPersistentWorker() throws Exception {
-    while (true) {
-      try {
-        WorkRequest request = WorkRequest.parseDelimitedFrom(System.in);
 
-        if (request == null) {
-          break;
+    ByteArrayOutputStream buf = new ByteArrayOutputStream();
+    PrintStream ps = new PrintStream(buf);
+    PrintStream realStdOut = System.out;
+    PrintStream realStdErr = System.err;
+    try {
+      // Redirect all stdout and stderr output for logging.
+      System.setOut(ps);
+      System.setErr(ps);
+
+      while (true) {
+        try {
+          WorkRequest request = WorkRequest.parseDelimitedFrom(System.in);
+
+          if (request == null) {
+            break;
+          }
+
+          int exitCode = processRequest(request.getArgumentsList());
+          ps.flush();
+
+          WorkResponse.newBuilder()
+                  .setExitCode(exitCode)
+                  .setOutput(buf.toString())
+                  .build()
+                  .writeDelimitedTo(realStdOut);
+
+          realStdOut.flush();
+          buf.reset();
+        } catch (IOException e) {
+          logger.severe(e.getMessage());
+          e.printStackTrace(realStdErr);
         }
-
-        int exitCode = processRequest(request.getArgumentsList());
-        WorkResponse.newBuilder()
-            .setExitCode(exitCode)
-            .build()
-            .writeDelimitedTo(System.out);
-        System.out.flush();
-      } catch (IOException e) {
-        logger.severe(e.getMessage());
-        e.printStackTrace();
       }
+    } finally {
+      System.setOut(realStdOut);
+      System.setErr(realStdErr);
     }
   }
 
