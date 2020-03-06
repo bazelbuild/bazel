@@ -16,8 +16,7 @@
 
 package com.google.devtools.build.android.desugar.strconcat;
 
-import static com.google.devtools.build.android.desugar.langmodel.LangModelHelper.isPrimitive;
-import static com.google.devtools.build.android.desugar.langmodel.LangModelHelper.toBoxedType;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.devtools.build.android.desugar.langmodel.LangModelHelper.visitPushInstr;
 
 import com.google.common.collect.ImmutableList;
@@ -27,6 +26,7 @@ import com.google.devtools.build.android.desugar.langmodel.ClassName;
 import com.google.devtools.build.android.desugar.langmodel.LangModelHelper;
 import com.google.devtools.build.android.desugar.langmodel.MemberUseKind;
 import com.google.devtools.build.android.desugar.langmodel.MethodKey;
+import java.util.Arrays;
 import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.Handle;
 import org.objectweb.asm.MethodVisitor;
@@ -105,62 +105,13 @@ public final class IndyStringConcatDesugaring extends ClassVisitor {
         // StringConcatFactory#makeConcatWithConstants
         classMemberUseCounter.incrementMemberUseCount(bootstrapMethodInvocation);
 
-        // Creates an array of java/lang/Object to store the values on top of the operand stack that
-        // are subject to string concatenation.
-        Type[] typesOfValuesOnOperandStack = Type.getArgumentTypes(descriptor);
-        int numOfValuesOnOperandStack = typesOfValuesOnOperandStack.length;
-        visitPushInstr(mv, numOfValuesOnOperandStack);
-        visitTypeInsn(Opcodes.ANEWARRAY, "java/lang/Object");
+        LangModelHelper.collapseStackValuesToObjectArray(
+            this,
+            ImmutableList.of(LangModelHelper::anyPrimitiveToStringInvocationSite),
+            Arrays.stream(Type.getArgumentTypes(descriptor))
+                .map(ClassName::create)
+                .collect(toImmutableList()));
 
-        // To preserve the order of the operands to be string-concatenated, we slot the values on
-        // the top of the stack to the end of the array.
-        for (int i = numOfValuesOnOperandStack - 1; i >= 0; i--) {
-          Type operandType = typesOfValuesOnOperandStack[i];
-          // Pre-duplicates the array reference for next loop iteration use.
-          // Post-operation stack bottom to top:
-          //     ..., value_i-1, arrayref, value_i, arrayref.
-          visitInsn(
-              LangModelHelper.getTypeSizeAlignedDupOpcode(
-                  ImmutableList.of(Type.getType(Object.class)), ImmutableList.of(operandType)));
-
-          // Pushes the array index and adjusts the order of the values on stack top in the order
-          // of <bottom/> arrayref, index, value <top/> before emitting an aastore instruction.
-          // https://docs.oracle.com/javase/specs/jvms/se8/html/jvms-6.html#jvms-6.5.aastore
-          // Post-operation stack bottom to top:
-          //     ..., value_i-1, arrayref, value_i, arrayref, i.
-          visitPushInstr(mv, i);
-          // Cross-duplicates the array reference and index.
-          // Post-operation stack bottom to top:
-          //     ..., value_i-1, arrayref, arrayref, i, value_i, arrayref, i.
-          visitInsn(
-              LangModelHelper.getTypeSizeAlignedDupOpcode(
-                  ImmutableList.of(Type.getType(Object.class), Type.getType(int.class)),
-                  ImmutableList.of(operandType)));
-
-          // Pops arrayref, index, leaving the stack top as value_i.
-          // Post-operation stack bottom to top:
-          //     ..., value_i-1, arrayref, arrayref, i, value_i.
-          visitInsn(
-              LangModelHelper.getTypeSizeAlignedPopOpcode(
-                  ImmutableList.of(Type.getType(Object.class), Type.getType(int.class))));
-
-          if (isPrimitive(operandType)) {
-            // Explicitly computes the string value of primitive types, so that they can be stored
-            // in the Object[] array.
-            // Post-operation stack bottom to top:
-            //     ..., value_i-1, arrayref, arrayref, i, processed_value_i.
-            Type boxedType = toBoxedType(operandType);
-            visitMethodInsn(
-                Opcodes.INVOKESTATIC,
-                boxedType.getInternalName(),
-                "toString",
-                Type.getMethodDescriptor(Type.getType(String.class), operandType),
-                /* isInterface= */ false);
-          }
-          // Post-operation stack bottom to top:
-          //     ..., value_i-1, arrayref.
-          visitInsn(Opcodes.AASTORE);
-        }
         String recipe = (String) bootstrapMethodArguments[0];
         visitLdcInsn(recipe);
 
