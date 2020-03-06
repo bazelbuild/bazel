@@ -222,8 +222,9 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   private static final Logger logger = Logger.getLogger(SkyframeExecutor.class.getName());
 
   // We delete any value that can hold an action -- all subclasses of ActionLookupKey.
-  protected static final Predicate<SkyKey> ANALYSIS_KEY_PREDICATE =
-      k -> k instanceof ActionLookupValue.ActionLookupKey;
+  // Also remove ArtifactNestedSetValues to prevent memory leak (b/143940221).
+  protected static final Predicate<SkyKey> ANALYSIS_INVALIDATING_PREDICATE =
+      k -> (k instanceof ArtifactNestedSetKey || k instanceof ActionLookupValue.ActionLookupKey);
 
   private final EvaluatorSupplier evaluatorSupplier;
   protected MemoizingEvaluator memoizingEvaluator;
@@ -840,6 +841,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     clearTrimmingCache();
     skyframeBuildView.clearInvalidatedConfiguredTargets();
     skyframeBuildView.clearLegacyData();
+    ArtifactNestedSetFunction.getInstance().resetArtifactSkyKeyToValueOrException();
   }
 
   /** Activates retroactive trimming (idempotently, so has no effect if already active). */
