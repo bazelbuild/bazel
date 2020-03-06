@@ -27,7 +27,7 @@ import java.util.concurrent.TimeUnit;
  *
  * See {@link ReferenceCounted} for more information about reference counting.
  */
-class ReferenceCountedChannel extends ManagedChannel implements ReferenceCounted {
+public class ReferenceCountedChannel extends ManagedChannel implements ReferenceCounted {
 
   private final ManagedChannel channel;
   private final AbstractReferenceCounted referenceCounted = new AbstractReferenceCounted() {

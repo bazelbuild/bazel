@@ -18,13 +18,22 @@ filegroup(
 
 java_library(
     name = "remote",
-    srcs = glob(["*.java"]),
+    srcs = glob(["*.java"], exclude = [
+        "ExecutionStatusException.java",
+        "ReferenceCountedChannel.java",
+        "RemoteRetrier.java",
+        "RemoteRetrierUtils.java",
+        "Retrier.java",
+    ]),
     tags = ["bazel"],
     runtime_deps = [
         # This is required for client TLS.
         "//third_party:netty_tcnative",
     ],
     deps = [
+        ":ExecutionStatusException",
+        ":ReferenceCountedChannel",
+        ":Retrier",
         "//src/main/java/com/google/devtools/build/lib:build-base",
         "//src/main/java/com/google/devtools/build/lib:events",
         "//src/main/java/com/google/devtools/build/lib:runtime",
@@ -63,5 +72,46 @@ java_library(
         "@remoteapis//:build_bazel_remote_execution_v2_remote_execution_java_grpc",
         "@remoteapis//:build_bazel_remote_execution_v2_remote_execution_java_proto",
         "@remoteapis//:build_bazel_semver_semver_java_proto",
+    ],
+    exports = [
+        ":ExecutionStatusException",
+        ":ReferenceCountedChannel",
+        ":Retrier",
+    ],
+)
+
+java_library(
+    name = "ExecutionStatusException",
+    srcs = ["ExecutionStatusException.java"],
+    deps = [
+        "//third_party/grpc:grpc-jar",
+        "//third_party:jsr305",
+        "@googleapis//:google_rpc_status_java_proto",
+        "@remoteapis//:build_bazel_remote_execution_v2_remote_execution_java_proto",
+    ],
+)
+
+java_library(
+    name = "ReferenceCountedChannel",
+    srcs = ["ReferenceCountedChannel.java"],
+    deps = [
+        "//third_party:netty",
+        "//third_party/grpc:grpc-jar",
+    ],
+)
+
+java_library(
+    name = "Retrier",
+    srcs = [
+        "Retrier.java",
+        "RemoteRetrier.java",
+        "RemoteRetrierUtils.java",
+    ],
+    deps = [
+        ":ExecutionStatusException",
+        "//src/main/java/com/google/devtools/build/lib/remote/options",
+        "//third_party/grpc:grpc-jar",
+        "//third_party:guava",
+        "//third_party:jsr305",
     ],
 )
