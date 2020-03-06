@@ -1781,6 +1781,39 @@ EOF
   expect_log "exceeded deadline"
 }
 
+function test_repo_remote_exec_non_zero_exit_status() {
+    # Test that Bazel fails with an error if repository_ctx.execute returns a non-zero exit code.
+
+  touch BUILD
+
+  cat > test.bzl <<'EOF'
+def _impl(ctx):
+  ctx.execute(["/bin/bash", "-c", "exit 1"])
+  ctx.file("BUILD")
+
+foo_configure = repository_rule(
+  implementation = _impl,
+  remotable = True,
+)
+EOF
+
+  cat > WORKSPACE <<'EOF'
+load("//:test.bzl", "foo_configure")
+
+foo_configure(
+  name = "default_foo",
+)
+EOF
+
+  bazel fetch \
+    --remote_executor=grpc://localhost:${worker_port} \
+    --experimental_repo_remote_exec \
+    @default_foo//:all >& $TEST_log && fail "Should fail" || true
+
+  cat $TEST_log
+}
+
+
 # TODO(alpha): Add a test that fails remote execution when remote worker
 # supports sandbox.
 

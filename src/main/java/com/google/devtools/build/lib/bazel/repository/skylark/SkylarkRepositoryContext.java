@@ -448,11 +448,10 @@ public class SkylarkRepositoryContext
       }
 
       if (result.exitCode() != 0) {
-        String warningMsg = String.format("@%s: '%s' exited with status %d. A remote execution"
-                + " system only caches commands with a zero exit status."
-            + " A non-zero exit status increases the runtime of the repository rule.",
-            rule.getName(), String.join(" ", arguments), result.exitCode());
-        env.getListener().handle(Event.warn(warningMsg));
+        String errorTemplate = "Command '%s' exited with status %d. Commands with non-zero exit status are not"
+                + " support with remote execution as they cannot be cached. Update the command to always exit"
+                + " with status 0.";
+        throw Starlark.errorf(errorTemplate, String.join(" ", arguments), result.exitCode());
       }
 
       return new SkylarkExecutionResult(result.exitCode(), stdout, stderr);
