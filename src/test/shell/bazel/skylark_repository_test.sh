@@ -2023,7 +2023,9 @@ function test_implicit_netrc() {
   serve_file_auth x.tar
 
   export HOME=`pwd`
-  export USERPROFILE="$(cygpath -m ${HOME})"
+  if "$is_windows"; then
+    export USERPROFILE="$(cygpath -m ${HOME})"
+  fi
   cat > .netrc <<'EOF'
 machine 127.0.0.1
 login foo
