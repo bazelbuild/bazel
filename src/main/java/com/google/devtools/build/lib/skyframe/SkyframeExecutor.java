@@ -97,6 +97,7 @@ import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.collect.compacthashset.CompactHashSet;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetExpander;
 import com.google.devtools.build.lib.concurrent.NamedForkJoinPool;
 import com.google.devtools.build.lib.concurrent.ThreadSafety;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
@@ -397,7 +398,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       MutableArtifactFactorySupplier artifactResolverSupplier,
       @Nullable ConfiguredTargetProgressReceiver configuredTargetProgress,
       @Nullable NonexistentFileReceiver nonexistentFileReceiver,
-      @Nullable ManagedDirectoriesKnowledge managedDirectoriesKnowledge) {
+      @Nullable ManagedDirectoriesKnowledge managedDirectoriesKnowledge,
+      NestedSetExpander nestedSetExpander) {
     // Strictly speaking, these arguments are not required for initialization, but all current
     // callsites have them at hand, so we might as well set them during construction.
     this.skyframeExecutorConsumerOnInit = skyframeExecutorConsumerOnInit;
@@ -427,7 +429,11 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     this.defaultBuildOptions = defaultBuildOptions;
     this.skyframeActionExecutor =
         new SkyframeActionExecutor(
-            actionKeyContext, statusReporterRef, this::getPathEntries, this::createSourceArtifact);
+            actionKeyContext,
+            statusReporterRef,
+            this::getPathEntries,
+            this::createSourceArtifact,
+            nestedSetExpander);
     this.skyframeBuildView =
         new SkyframeBuildView(
             directories,

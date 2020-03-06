@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.rules.cpp;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
-import com.google.common.base.Stopwatch;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
@@ -88,7 +87,6 @@ import com.google.devtools.build.skyframe.SkyValue;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
-import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashSet;
@@ -100,15 +98,12 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ExecutionException;
-import java.util.logging.Logger;
 import javax.annotation.Nullable;
 
 /** Action that represents some kind of C++ compilation step. */
 @ThreadCompatible
 public class CppCompileAction extends AbstractAction implements IncludeScannable, CommandAction {
 
-  private static final Logger logger = Logger.getLogger(CppCompileAction.class.getName());
-  private static final Duration BLOCKED_NESTED_SET_EXPANSION_THRESHOLD = Duration.ofSeconds(5);
   private static final PathFragment BUILD_PATH_FRAGMENT = PathFragment.create("BUILD");
 
   private static final boolean VALIDATION_DEBUG_WARN = false;
@@ -597,7 +592,8 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
       // (transitive, which is a linear scan).
       // We get a collection view of the NestedSet in a way that can throw an InterruptedException
       // because a NestedSet may contain a future.
-      for (Artifact module : modulesToListInterruptibly(transitive)) {
+      for (Artifact module :
+          actionExecutionContext.getNestedSetExpander().toListInterruptibly(transitive)) {
         topLevel.remove(module);
       }
     }
@@ -618,32 +614,6 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
     }
     usedModules = null;
     return additionalInputs;
-  }
-
-  private static ImmutableList<? extends Artifact> modulesToListInterruptibly(
-      NestedSet<? extends Artifact> nestedSet) throws InterruptedException {
-    Stopwatch blockedStopwatch = Stopwatch.createStarted();
-    ImmutableList<? extends Artifact> modules;
-    try {
-      modules = nestedSet.toListInterruptibly();
-    } catch (InterruptedException e) {
-      Duration blockedDuration = blockedStopwatch.elapsed();
-      if (BLOCKED_NESTED_SET_EXPANSION_THRESHOLD.compareTo(blockedDuration) < 0) {
-        logger.info(
-            String.format(
-                "Spent %d milliseconds doing nested set expansion, interrupted",
-                blockedDuration.toMillis()));
-      }
-      throw e;
-    }
-    Duration blockedDuration = blockedStopwatch.elapsed();
-    if (BLOCKED_NESTED_SET_EXPANSION_THRESHOLD.compareTo(blockedDuration) < 0) {
-      logger.info(
-          String.format(
-              "Spent %d milliseconds doing nested set expansion, %d elements",
-              blockedDuration.toMillis(), modules.size()));
-    }
-    return modules;
   }
 
   @Override

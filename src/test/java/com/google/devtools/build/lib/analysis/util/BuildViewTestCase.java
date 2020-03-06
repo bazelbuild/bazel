@@ -105,6 +105,7 @@ import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetExpander;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
@@ -2288,7 +2289,8 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
           /*topLevelFilesets=*/ ImmutableMap.of(),
           artifactExpander,
           /*actionFileSystem=*/ null,
-          /*skyframeDepsResult*/ null);
+          /*skyframeDepsResult*/ null,
+          NestedSetExpander.NO_CALLBACKS);
     }
   }
 }

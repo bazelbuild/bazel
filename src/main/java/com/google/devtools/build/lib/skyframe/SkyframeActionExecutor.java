@@ -82,6 +82,7 @@ import com.google.devtools.build.lib.actions.cache.MetadataHandler;
 import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetExpander;
 import com.google.devtools.build.lib.concurrent.ExecutorUtil;
 import com.google.devtools.build.lib.concurrent.Sharder;
 import com.google.devtools.build.lib.concurrent.ThrowableRecordingRunnableWrapper;
@@ -224,15 +225,19 @@ public final class SkyframeActionExecutor {
 
   private boolean bazelRemoteExecutionEnabled;
 
+  private final NestedSetExpander nestedSetExpander;
+
   SkyframeActionExecutor(
       ActionKeyContext actionKeyContext,
       AtomicReference<ActionExecutionStatusReporter> statusReporterRef,
       Supplier<ImmutableList<Root>> sourceRootSupplier,
-      Function<PathFragment, SourceArtifact> sourceArtifactFactory) {
+      Function<PathFragment, SourceArtifact> sourceArtifactFactory,
+      NestedSetExpander nestedSetExpander) {
     this.actionKeyContext = actionKeyContext;
     this.statusReporterRef = statusReporterRef;
     this.sourceRootSupplier = sourceRootSupplier;
     this.sourceArtifactFactory = sourceArtifactFactory;
+    this.nestedSetExpander = nestedSetExpander;
   }
 
   /**
@@ -672,7 +677,8 @@ public final class SkyframeActionExecutor {
         topLevelFilesets,
         new ArtifactExpanderImpl(expandedInputs, expandedFilesets),
         actionFileSystem,
-        skyframeDepsResult);
+        skyframeDepsResult,
+        nestedSetExpander);
   }
 
   /**
@@ -832,7 +838,8 @@ public final class SkyframeActionExecutor {
             selectEventHandler(progressEventBehavior),
             clientEnv,
             env,
-            actionFileSystem);
+            actionFileSystem,
+            nestedSetExpander);
     if (actionFileSystem != null) {
       // Note that when not using ActionFS, a global setup of the parent directories of the OutErr
       // streams is sufficient.

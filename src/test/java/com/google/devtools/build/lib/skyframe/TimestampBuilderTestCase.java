@@ -64,6 +64,7 @@ import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetExpander;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.events.StoredEventHandler;
@@ -219,7 +220,8 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
             actionKeyContext,
             new AtomicReference<>(statusReporter),
             /*sourceRootSupplier=*/ () -> ImmutableList.of(),
-            /*sourceArtifactFactory=*/ unused -> null);
+            /*sourceArtifactFactory=*/ unused -> null,
+            NestedSetExpander.NO_CALLBACKS);
 
     Path actionOutputBase = scratch.dir("/usr/local/google/_blaze_jrluser/FAKEMD5/action_out/");
     skyframeActionExecutor.setActionLogBufferPathGenerator(

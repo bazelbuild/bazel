@@ -301,7 +301,7 @@ public final class NestedSet<E> {
    * Returns an immutable list of all unique elements of the this set, similar to {@link #toList},
    * but will propagate an {@code InterruptedException} if one is thrown.
    */
-  public ImmutableList<E> toListInterruptibly() throws InterruptedException {
+  ImmutableList<E> toListInterruptibly() throws InterruptedException {
     return toList(InterruptStrategy.PROPAGATE);
   }
 
