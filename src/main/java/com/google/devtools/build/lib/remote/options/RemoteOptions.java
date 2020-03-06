@@ -85,6 +85,8 @@ public final class RemoteOptions extends OptionsBase {
               + " https://docs.bazel.build/versions/master/remote-caching.html")
   public String remoteCache;
 
+  public final String remoteDownloader = "";
+
   @Option(
       name = "remote_header",
       converter = Converters.AssignmentConverter.class,
@@ -125,6 +127,20 @@ public final class RemoteOptions extends OptionsBase {
               + "values for the same name will be converted to a comma-separated list.",
       allowMultiple = true)
   public List<Entry<String, String>> remoteExecHeaders;
+
+  @Option(
+      name = "remote_downloader_header",
+      converter = Converters.AssignmentConverter.class,
+      defaultValue = "",
+      documentationCategory = OptionDocumentationCategory.REMOTE,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "Specify a header that will be included in remote downloader requests: "
+              + "--remote_downloader_header=Name=Value. "
+              + "Multiple headers can be passed by specifying the flag multiple times. Multiple "
+              + "values for the same name will be converted to a comma-separated list.",
+      allowMultiple = true)
+  public List<Entry<String, String>> remoteDownloaderHeaders;
 
   @Option(
       name = "remote_timeout",
