@@ -421,4 +421,46 @@ public class NinjaBuildTest extends BuildViewTestCase {
     assertThat(commandLines.get(0).commandLine.toString())
         .endsWith("cd build_config && ln -s fictive-file dangling_symlink");
   }
+
+  @Test
+  public void testCreateIntermediateOutputSymlinkArtifacts() throws Exception {
+    rewriteWorkspace(
+        "workspace(name = 'test')",
+        "dont_symlink_directories_in_execroot(paths = ['build_config'])");
+
+    scratch.file(
+        "build_config/build.ninja",
+        "rule symlink_rule",
+        "  command = ln -s fictive-file ${out}",
+        "rule cat",
+        "  command = cat ${in} > ${out}",
+        "build dangling_symlink: symlink_rule",
+        "build mybuild: cat dangling_symlink");
+
+    ConfiguredTarget configuredTarget =
+        scratchConfiguredTarget(
+            "",
+            "ninja_target",
+            "ninja_graph(name = 'graph', output_root = 'build_config',",
+            " working_directory = 'build_config',",
+            " main = 'build_config/build.ninja',",
+            " output_root_symlinks = ['dangling_symlink'])",
+            "ninja_build(name = 'ninja_target', ninja_graph = 'graph',",
+            " output_groups= {'main': ['mybuild']})");
+    assertThat(configuredTarget).isInstanceOf(RuleConfiguredTarget.class);
+    RuleConfiguredTarget ninjaConfiguredTarget = (RuleConfiguredTarget) configuredTarget;
+    ImmutableList<ActionAnalysisMetadata> actions = ninjaConfiguredTarget.getActions();
+    assertThat(actions).hasSize(2);
+
+    ActionAnalysisMetadata symlinkAction = actions.get(1);
+    Artifact primaryOutput = symlinkAction.getPrimaryOutput();
+    assertThat(primaryOutput.isSymlink()).isTrue();
+    assertThat(symlinkAction).isInstanceOf(NinjaAction.class);
+
+    List<CommandLineAndParamFileInfo> commandLines =
+        ((NinjaAction) symlinkAction).getCommandLines().getCommandLines();
+    assertThat(commandLines).hasSize(1);
+    assertThat(commandLines.get(0).commandLine.toString())
+        .endsWith("cd build_config && ln -s fictive-file dangling_symlink");
+  }
 }
