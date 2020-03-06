@@ -29,10 +29,11 @@ import java.util.Map;
 import javax.annotation.Nullable;
 
 /**
- * A container class for a {@link ConfiguredTarget} and associated data, {@link Target} and {@link
- * BuildConfiguration}. In the future, {@link ConfiguredTarget} objects will no longer contain their
- * associated {@link BuildConfiguration}. Consumers that need the {@link Target} or {@link
- * BuildConfiguration} must therefore have access to one of these objects.
+ * A container class for a {@link ConfiguredTarget} and associated data, {@link Target}, {@link
+ * BuildConfiguration}, and an optional transition key. In the future, {@link ConfiguredTarget}
+ * objects will no longer contain their associated {@link BuildConfiguration}. Consumers that need
+ * the {@link Target} or {@link BuildConfiguration} must therefore have access to one of these
+ * objects.
  *
  * <p>These objects are intended to be short-lived, never stored in Skyframe, since they pair three
  * heavyweight objects, a {@link ConfiguredTarget}, a {@link Target} (which holds a {@link
@@ -42,13 +43,18 @@ public class ConfiguredTargetAndData {
   private final ConfiguredTarget configuredTarget;
   private final Target target;
   private final BuildConfiguration configuration;
+  @Nullable private final String transitionKey;
 
   @VisibleForTesting
   public ConfiguredTargetAndData(
-      ConfiguredTarget configuredTarget, Target target, BuildConfiguration configuration) {
+      ConfiguredTarget configuredTarget,
+      Target target,
+      BuildConfiguration configuration,
+      String transitionKey) {
     this.configuredTarget = configuredTarget;
     this.target = target;
     this.configuration = configuration;
+    this.transitionKey = transitionKey;
     Preconditions.checkState(
         configuredTarget.getLabel().equals(target.getLabel()),
         "Unable to construct ConfiguredTargetAndData:"
@@ -104,7 +110,7 @@ public class ConfiguredTargetAndData {
     }
     try {
       return new ConfiguredTargetAndData(
-          ct, packageValue.getPackage().getTarget(ct.getLabel().getName()), configuration);
+          ct, packageValue.getPackage().getTarget(ct.getLabel().getName()), configuration, null);
     } catch (NoSuchTargetException e) {
       throw new IllegalStateException("Failed to retrieve target for " + ct, e);
     }
@@ -118,7 +124,7 @@ public class ConfiguredTargetAndData {
     if (configuredTarget.equals(maybeNew)) {
       return this;
     }
-    return new ConfiguredTargetAndData(maybeNew, this.target, configuration);
+    return new ConfiguredTargetAndData(maybeNew, target, configuration, transitionKey);
   }
 
   public Target getTarget() {
@@ -131,5 +137,10 @@ public class ConfiguredTargetAndData {
 
   public ConfiguredTarget getConfiguredTarget() {
     return configuredTarget;
+  }
+
+  @Nullable
+  public String getTransitionKey() {
+    return transitionKey;
   }
 }

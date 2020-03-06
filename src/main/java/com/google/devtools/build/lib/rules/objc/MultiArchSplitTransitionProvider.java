@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.rules.objc;
 
 import static com.google.devtools.build.lib.packages.Type.STRING;
+import static com.google.devtools.build.lib.rules.apple.AppleConfiguration.IOS_CPU_PREFIX;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Optional;
@@ -303,7 +304,7 @@ public class MultiArchSplitTransitionProvider
         }
 
         appleCommandLineOptions.configurationDistinguisher = configurationDistinguisher;
-        splitBuildOptions.put(cpu, splitOptions);
+        splitBuildOptions.put(IOS_CPU_PREFIX + cpu, splitOptions);
       }
       return splitBuildOptions.build();
     }

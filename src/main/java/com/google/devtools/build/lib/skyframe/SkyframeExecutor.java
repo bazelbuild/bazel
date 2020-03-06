@@ -1844,7 +1844,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
                 new ConfiguredTargetAndData(
                     mergedTarget,
                     packageValue.getPackage().getTarget(configuredTarget.getLabel().getName()),
-                    resolvedConfig));
+                    resolvedConfig,
+                    null));
 
           } catch (DuplicateException | NoSuchTargetException e) {
             throw new IllegalStateException(

@@ -53,6 +53,7 @@ import com.google.devtools.build.lib.skyframe.SkyframeExecutor.ConfigurationsRes
 import com.google.devtools.build.lib.skyframe.TransitiveTargetKey;
 import com.google.devtools.build.lib.skyframe.TransitiveTargetValue;
 import com.google.devtools.build.lib.util.OrderedSetMultimap;
+import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -121,9 +122,10 @@ public final class ConfigurationResolver {
       throws ConfiguredTargetFunction.DependencyEvaluationException, InterruptedException {
 
     // Maps each Skyframe-evaluated BuildConfiguration to the dependencies that need that
-    // configuration. For cases where Skyframe isn't needed to get the configuration (e.g. when
-    // we just re-used the original rule's configuration), we should skip this outright.
-    Multimap<SkyKey, Map.Entry<DependencyKind, Dependency>> keysToEntries =
+    // configuration paired with a transition key corresponding to the BuildConfiguration. For cases
+    // where Skyframe isn't needed to get the configuration (e.g. when we just re-used the original
+    // rule's configuration), we should skip this outright.
+    Multimap<SkyKey, Pair<Map.Entry<DependencyKind, Dependency>, String>> keysToEntries =
         LinkedListMultimap.create();
 
     // Stores the result of applying a transition to the current configuration using a
@@ -282,8 +284,8 @@ public final class ConfigurationResolver {
         putOnlyEntry(
             resolvedDeps,
             dependencyEdge,
-            Dependency.withConfigurationAndAspects(
-                dep.getLabel(), ctgValue.getConfiguration(), dep.getAspects()));
+            Dependency.withConfigurationAspectsAndTransitionKey(
+                dep.getLabel(), ctgValue.getConfiguration(), dep.getAspects(), null));
         continue;
       }
 
@@ -297,15 +299,16 @@ public final class ConfigurationResolver {
       }
 
       try {
-        for (BuildOptions options : toOptions.values()) {
+        for (Map.Entry<String, BuildOptions> optionsEntry : toOptions.entrySet()) {
           if (sameFragments) {
             keysToEntries.put(
                 BuildConfigurationValue.keyWithPlatformMapping(
                     platformMappingValue,
                     defaultBuildOptions,
                     currentConfiguration.fragmentClasses(),
-                    BuildOptions.diffForReconstruction(defaultBuildOptions, options)),
-                depsEntry);
+                    BuildOptions.diffForReconstruction(
+                        defaultBuildOptions, optionsEntry.getValue())),
+                new Pair<>(depsEntry, optionsEntry.getKey()));
 
           } else {
             keysToEntries.put(
@@ -313,8 +316,9 @@ public final class ConfigurationResolver {
                     platformMappingValue,
                     defaultBuildOptions,
                     depFragments,
-                    BuildOptions.diffForReconstruction(defaultBuildOptions, options)),
-                depsEntry);
+                    BuildOptions.diffForReconstruction(
+                        defaultBuildOptions, optionsEntry.getValue())),
+                new Pair<>(depsEntry, optionsEntry.getKey()));
           }
         }
       } catch (OptionsParsingException e) {
@@ -355,8 +359,8 @@ public final class ConfigurationResolver {
         }
         BuildConfiguration trimmedConfig =
             ((BuildConfigurationValue) valueOrException.get()).getConfiguration();
-        for (Map.Entry<DependencyKind, Dependency> info : keysToEntries.get(key)) {
-          Dependency originalDep = info.getValue();
+        for (Pair<Map.Entry<DependencyKind, Dependency>, String> info : keysToEntries.get(key)) {
+          Dependency originalDep = info.first.getValue();
           if (trimmedConfig.trimConfigurationsRetroactively()
               && !originalDep.getAspects().isEmpty()) {
             String message =
@@ -368,10 +372,10 @@ public final class ConfigurationResolver {
             throw new ConfiguredTargetFunction.DependencyEvaluationException(
                 new InvalidConfigurationException(message));
           }
-          DependencyEdge attr = new DependencyEdge(info.getKey(), originalDep.getLabel());
+          DependencyEdge attr = new DependencyEdge(info.first.getKey(), originalDep.getLabel());
           Dependency resolvedDep =
-              Dependency.withConfigurationAndAspects(
-                  originalDep.getLabel(), trimmedConfig, originalDep.getAspects());
+              Dependency.withConfigurationAspectsAndTransitionKey(
+                  originalDep.getLabel(), trimmedConfig, originalDep.getAspects(), info.second);
           Attribute attribute = attr.dependencyKind.getAttribute();
           if (attribute != null && attribute.getTransitionFactory().isSplit()) {
             resolvedDeps.put(attr, resolvedDep);
