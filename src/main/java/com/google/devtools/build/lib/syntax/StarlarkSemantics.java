@@ -87,13 +87,15 @@ public abstract class StarlarkSemantics {
         "incompatible_remove_enable_toolchain_types";
     public static final String INCOMPATIBLE_REQUIRE_LINKER_INPUT_CC_API =
         "incompatible_require_linker_input_cc_api";
+    public static final String INCOMPATIBLE_LINKOPTS_TO_LINKLIBS =
+        "incompatible_linkopts_to_linklibs";
   }
 
   // TODO(adonovan): replace the fields of StarlarkSemantics
   // by a map from string to object, and make it the clients's job
   // to know the type. This function would then become simply:
   //  return Boolean.TRUE.equals(map.get(flag)).
-  boolean flagValue(String flag) {
+  public boolean flagValue(String flag) {
     switch (flag) {
       case FlagIdentifier.EXPERIMENTAL_ACTION_ARGS:
         return experimentalActionArgs();
@@ -139,6 +141,8 @@ public abstract class StarlarkSemantics {
         return incompatibleRemoveEnabledToolchainTypes();
       case FlagIdentifier.INCOMPATIBLE_REQUIRE_LINKER_INPUT_CC_API:
         return incompatibleRequireLinkerInputCcApi();
+      case FlagIdentifier.INCOMPATIBLE_LINKOPTS_TO_LINKLIBS:
+        return incompatibleLinkoptsToLinkLibs();
       default:
         throw new IllegalArgumentException(flag);
     }
@@ -268,6 +272,8 @@ public abstract class StarlarkSemantics {
 
   public abstract boolean incompatibleUseCcConfigureFromRulesCc();
 
+  public abstract boolean incompatibleLinkoptsToLinkLibs();
+
   @Memoized
   @Override
   public abstract int hashCode();
@@ -345,6 +351,7 @@ public abstract class StarlarkSemantics {
           .incompatibleRequireLinkerInputCcApi(false)
           .incompatibleRestrictStringEscapes(false)
           .incompatibleUseCcConfigureFromRulesCc(false)
+          .incompatibleLinkoptsToLinkLibs(false)
           .build();
 
   /** Builder for {@link StarlarkSemantics}. All fields are mandatory. */
@@ -439,6 +446,8 @@ public abstract class StarlarkSemantics {
     public abstract Builder incompatibleRestrictStringEscapes(boolean value);
 
     public abstract Builder incompatibleUseCcConfigureFromRulesCc(boolean value);
+
+    public abstract Builder incompatibleLinkoptsToLinkLibs(boolean value);
 
     public abstract StarlarkSemantics build();
   }

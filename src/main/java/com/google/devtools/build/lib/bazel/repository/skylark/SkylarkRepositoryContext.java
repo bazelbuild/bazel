@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.bazel.repository.skylark;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Ascii;
+import com.google.common.base.Joiner;
 import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
@@ -89,6 +90,8 @@ import javax.annotation.Nullable;
 /** Skylark API for the repository_rule's context. */
 public class SkylarkRepositoryContext
     implements SkylarkRepositoryContextApi<RepositoryFunctionException> {
+  private static final ImmutableList<String> WHITELISTED_REPOS_FOR_FLAG_ENABLED =
+      ImmutableList.of("@rules_cc", "@bazel_tools");
 
   private final Rule rule;
   private final PathPackageLocator packageLocator;
@@ -836,6 +839,25 @@ public class SkylarkRepositoryContext
           Transience.TRANSIENT);
     }
     return downloadResult;
+  }
+
+  @Override
+  public boolean flagEnabled(String flag) throws EvalException {
+    try {
+      if (!WHITELISTED_REPOS_FOR_FLAG_ENABLED.contains(
+          rule.getRuleClassObject()
+              .getRuleDefinitionEnvironmentLabel()
+              .getPackageIdentifier()
+              .getRepository()
+              .getName())) {
+        throw Starlark.errorf(
+            "flag_enabled() is restricted to: '%s'.",
+            Joiner.on(", ").join(WHITELISTED_REPOS_FOR_FLAG_ENABLED));
+      }
+      return starlarkSemantics.flagValue(flag);
+    } catch (IllegalArgumentException e) {
+      throw Starlark.errorf("Can't query value of '%s'.\n%s", flag, e.getMessage());
+    }
   }
 
   private Checksum calculateChecksum(Optional<Checksum> originalChecksum, Path path)
