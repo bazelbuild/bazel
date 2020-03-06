@@ -473,7 +473,8 @@ def _impl(repository_ctx):
   result = repository_ctx.execute(
     [str(repository_ctx.which("bash")), "-c", "echo PWD=\$PWD TOTO=\$TOTO"],
     1000000,
-    { "TOTO": "titi" })
+    { "TOTO": "titi" },
+    working_directory = "$repo2")
   if result.return_code != 0:
     fail("Incorrect return code from bash: %s != 0\n%s" % (result.return_code, result.stderr))
   print(result.stdout)
@@ -481,6 +482,9 @@ repo = repository_rule(implementation=_impl, local=True)
 EOF
 
   bazel build @foo//:bar >& $TEST_log || fail "Failed to build"
+  if "$is_windows"; then
+    repo2="$(cygpath $repo2)"
+  fi
   expect_log "PWD=$repo2 TOTO=titi"
 }
 
@@ -974,6 +978,11 @@ EOF
 }
 
 function test_skylark_repository_executable_flag() {
+  if "$is_windows"; then
+    # There is no executable flag on Windows.
+    echo "Skipping test_skylark_repository_executable_flag on Windows"
+    return
+  fi
   setup_skylark_repository
 
   # Our custom repository rule
@@ -1068,6 +1077,12 @@ function test_skylark_repository_context_downloads_return_struct() {
 
   # Start HTTP server with Python
   startup_server "${server_dir}"
+
+  # On Windows, a file url should be file:///C:/foo/bar,
+  # we need to add one more slash at the beginning.
+  if "$is_windows"; then
+    server_dir="/${server_dir}"
+  fi
 
   setup_skylark_repository
   # Our custom repository rule
@@ -1711,10 +1726,16 @@ netrcrepo = repository_rule(
   attrs = {"path": attr.string()},
 )
 EOF
+
+  netrc_dir="$(pwd)"
+  if "$is_windows"; then
+    netrc_dir="$(cygpath -m ${netrc_dir})"
+  fi
+
   cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 load("//:def.bzl", "netrcrepo")
 
-netrcrepo(name = "netrc", path="$(pwd)/.netrc")
+netrcrepo(name = "netrc", path="${netrc_dir}/.netrc")
 EOF
   # ...and that from the parse result, we can read off the
   # credentials for example.com.
@@ -1802,12 +1823,18 @@ authrepo = repository_rule(
   },
 )
 EOF
+
+  netrc_dir="$(pwd)"
+  if "$is_windows"; then
+    netrc_dir="$(cygpath -m ${netrc_dir})"
+  fi
+
   cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 load("//:def.bzl", "authrepo")
 
 authrepo(
   name = "auth",
-  path="$(pwd)/.netrc",
+  path="${netrc_dir}/.netrc",
   urls = [
     "http://example.org/public/null.tar",
     "https://foo.example.org/file1.tar",
@@ -1922,12 +1949,16 @@ function test_http_archive_netrc() {
   tar cvf x.tar x
   sha256=$(sha256sum x.tar | head -c 64)
   serve_file_auth x.tar
+  netrc_dir="$(pwd)"
+  if "$is_windows"; then
+    netrc_dir="$(cygpath -m ${netrc_dir})"
+  fi
   cat > WORKSPACE <<EOF
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 http_archive(
   name="ext",
   url = "http://127.0.0.1:$nc_port/x.tar",
-  netrc = "$(pwd)/.netrc",
+  netrc = "${netrc_dir}/.netrc",
   sha256="$sha256",
 )
 EOF
@@ -1992,6 +2023,7 @@ function test_implicit_netrc() {
   serve_file_auth x.tar
 
   export HOME=`pwd`
+  export USERPROFILE="$(cygpath -m ${HOME})"
   cat > .netrc <<'EOF'
 machine 127.0.0.1
 login foo

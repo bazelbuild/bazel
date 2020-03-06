@@ -45,14 +45,18 @@ def _get_auth(ctx, urls):
         netrc = read_netrc(ctx, ctx.attr.netrc)
         return use_netrc(netrc, urls, ctx.attr.auth_patterns)
 
-    if "HOME" in ctx.os.environ:
-        if not ctx.os.name.startswith("windows"):
-            netrcfile = "%s/.netrc" % (ctx.os.environ["HOME"],)
-            if ctx.execute(["test", "-f", netrcfile]).return_code == 0:
-                netrc = read_netrc(ctx, netrcfile)
-                return use_netrc(netrc, urls, ctx.attr.auth_patterns)
+    if "HOME" in ctx.os.environ and not ctx.os.name.startswith("windows"):
+        netrcfile = "%s/.netrc" % (ctx.os.environ["HOME"])
+        if ctx.execute(["test", "-f", netrcfile]).return_code == 0:
+            netrc = read_netrc(ctx, netrcfile)
+            return use_netrc(netrc, urls, ctx.attr.auth_patterns)
 
-    # TODO: Search at a similarly canonical place for Windows as well
+    if "USERPROFILE" in ctx.os.environ and ctx.os.name.startswith("windows"):
+        netrcfile = "%s/.netrc" % (ctx.os.environ["USERPROFILE"])
+        if ctx.path(netrcfile).exists:
+            netrc = read_netrc(ctx, netrcfile)
+            return use_netrc(netrc, urls)
+            return use_netrc(netrc, urls, ctx.attr.auth_patterns)
 
     return {}
 

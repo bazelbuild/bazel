@@ -106,7 +106,7 @@ linux_sandbox="${BAZEL_RUNFILES}/src/main/tools/linux-sandbox"
 
 # Test data
 testdata_path=${BAZEL_RUNFILES}/src/test/shell/bazel/testdata
-python_server="${BAZEL_RUNFILES}/src/test/shell/bazel/testing_server.py"
+python_server="$(rlocation io_bazel/src/test/shell/bazel/testing_server.py)"
 
 # Third-party
 protoc_compiler="${BAZEL_RUNFILES}/src/test/shell/integration/protoc"

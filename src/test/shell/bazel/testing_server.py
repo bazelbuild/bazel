@@ -26,11 +26,13 @@ import os
 import os.path
 try:
   from socketserver import TCPServer
-  from socketserver import UnixStreamServer
+  if not os.name == 'nt':
+    from socketserver import UnixStreamServer
 except ImportError:
   # Python 2.x compatibility hack.
   from SocketServer import TCPServer
-  from SocketServer import UnixStreamServer
+  if not os.name == 'nt':
+    from SocketServer import UnixStreamServer
 import random
 import socket
 import sys
