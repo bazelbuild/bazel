@@ -67,6 +67,13 @@ public class GrpcRemoteDownloader implements AutoCloseable, Downloader {
 
   private final AtomicBoolean closed = new AtomicBoolean();
 
+  // The `Qualifier::name` field uses well-known string keys to attach arbitrary
+  // key-value metadata to download requests. These are the qualifier names
+  // supported by Bazel.
+  private static final String QUALIFIER_CHECKSUM_SRI = "checksum.sri";
+  private static final String QUALIFIER_CANONICAL_ID = "bazel.canonical_id";
+  private static final String QUALIFIER_AUTH_HEADERS = "bazel.auth_headers";
+
   public GrpcRemoteDownloader(
       ReferenceCountedChannel channel,
       Optional<CallCredentials> credentials,
@@ -136,19 +143,19 @@ public class GrpcRemoteDownloader implements AutoCloseable, Downloader {
     if (checksum.isPresent()) {
       requestBuilder.addQualifiers(
         Qualifier.newBuilder()
-            .setName("checksum.sri")
+            .setName(QUALIFIER_CHECKSUM_SRI)
             .setValue(checksum.get().toSubresourceIntegrity()).build());
     }
     if (!Strings.isNullOrEmpty(canonicalId)) {
       requestBuilder.addQualifiers(
         Qualifier.newBuilder()
-            .setName("bazel.canonical_id")
+            .setName(QUALIFIER_CANONICAL_ID)
             .setValue(canonicalId).build());
     }
     if (!authHeaders.isEmpty()) {
       requestBuilder.addQualifiers(
         Qualifier.newBuilder()
-            .setName("bazel.auth_headers")
+            .setName(QUALIFIER_AUTH_HEADERS)
             .setValue(authHeadersJson(authHeaders)).build());
     }
 
