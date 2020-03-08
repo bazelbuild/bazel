@@ -38,7 +38,7 @@ java_test(
         "//third_party:guava-testlib",
         "//third_party:junit4",
         "//third_party:truth",
-        "@remoteapis//:build_bazel_remote_execution_v2_remote_execution_java_proto",
+        "@bazel_remote_apis//build/bazel/remote/execution/v2:remote_execution_java_proto",
     ],
 )
 

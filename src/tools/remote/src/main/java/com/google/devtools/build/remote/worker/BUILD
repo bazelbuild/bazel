@@ -45,8 +45,8 @@ java_library(
         "@googleapis//:google_rpc_code_java_proto",
         "@googleapis//:google_rpc_error_details_java_proto",
         "@googleapis//:google_rpc_status_java_proto",
-        "@remoteapis//:build_bazel_remote_execution_v2_remote_execution_java_grpc",
-        "@remoteapis//:build_bazel_remote_execution_v2_remote_execution_java_proto",
-        "@remoteapis//:build_bazel_semver_semver_java_proto",
+        "//third_party/remoteapis:build_bazel_remote_execution_v2_remote_execution_java_grpc",
+        "@bazel_remote_apis//build/bazel/remote/execution/v2:remote_execution_java_proto",
+        "@bazel_remote_apis//build/bazel/semver:semver_java_proto",
     ],
 )

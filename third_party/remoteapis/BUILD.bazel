@@ -1,14 +1,13 @@
 load("@rules_java//java:defs.bzl", "java_proto_library")
 load("@rules_proto//proto:defs.bzl", "proto_library")
+load("//third_party/grpc:build_defs.bzl", "java_grpc_library")
+load("//tools/build_rules:utilities.bzl", "java_library_srcs")
 
 package(default_visibility = ["//visibility:public"])
 
 licenses(["notice"])
 
-exports_files(["LICENSE"])
-
-load("@io_bazel//third_party/grpc:build_defs.bzl", "java_grpc_library")
-load("@io_bazel//tools/build_rules:utilities.bzl", "java_library_srcs")
+exports_files(["bazel_remote_apis.patch"])
 
 filegroup(
     name = "srcs",
@@ -16,16 +15,16 @@ filegroup(
     visibility = ["@//third_party:__pkg__"],
 )
 
-JAVA_LIBRARY_PROTOS = [
-    "build_bazel_semver_semver",
-    "build_bazel_remote_asset_v1_remote_asset",
-    "build_bazel_remote_execution_v2_remote_execution",
-]
+JAVA_LIBRARY_PROTOS = {
+    "build_bazel_semver_semver": "@bazel_remote_apis//build/bazel/semver:semver_java_proto",
+    "build_bazel_remote_asset_v1_remote_asset": "@bazel_remote_apis//build/bazel/remote/asset/v1:remote_asset_java_proto",
+    "build_bazel_remote_execution_v2_remote_execution": "@bazel_remote_apis//build/bazel/remote/execution/v2:remote_execution_java_proto",
+}
 
 [java_library_srcs(
-    name = proto + "_java_proto_srcs",
-    deps = [":" + proto + "_java_proto"],
-) for proto in JAVA_LIBRARY_PROTOS]
+    name = proto[0] + "_java_proto_srcs",
+    deps = [proto[1]],
+) for proto in JAVA_LIBRARY_PROTOS.items()]
 
 # for bootstrapping
 filegroup(
@@ -37,63 +36,17 @@ filegroup(
     visibility = ["@//src:__pkg__"],
 )
 
-proto_library(
-    name = "build_bazel_remote_asset_v1_remote_asset_proto",
-    srcs = ["build/bazel/remote/asset/v1/remote_asset.proto"],
-    deps = [
-        ":build_bazel_remote_execution_v2_remote_execution_proto",
-        "@com_google_protobuf//:duration_proto",
-        "@com_google_protobuf//:timestamp_proto",
-        "@googleapis//:google_api_annotations_proto",
-        "@googleapis//:google_rpc_status_proto",
-    ],
-)
-
-proto_library(
-    name = "build_bazel_remote_execution_v2_remote_execution_proto",
-    srcs = ["build/bazel/remote/execution/v2/remote_execution.proto"],
-    deps = [
-        ":build_bazel_semver_semver_proto",
-        "@com_google_protobuf//:duration_proto",
-        "@com_google_protobuf//:timestamp_proto",
-        "@googleapis//:google_api_annotations_proto",
-        "@googleapis//:google_api_http_proto",
-        "@googleapis//:google_longrunning_operations_proto",
-        "@googleapis//:google_rpc_status_proto",
-    ],
-)
-
-proto_library(
-    name = "build_bazel_semver_semver_proto",
-    srcs = ["build/bazel/semver/semver.proto"],
-)
-
-java_proto_library(
-    name = "build_bazel_remote_asset_v1_remote_asset_java_proto",
-    deps = [":build_bazel_remote_asset_v1_remote_asset_proto"],
-)
-
-java_proto_library(
-    name = "build_bazel_remote_execution_v2_remote_execution_java_proto",
-    deps = [":build_bazel_remote_execution_v2_remote_execution_proto"],
-)
-
-java_proto_library(
-    name = "build_bazel_semver_semver_java_proto",
-    deps = [":build_bazel_semver_semver_proto"],
-)
-
 java_grpc_library(
     name = "build_bazel_remote_asset_v1_remote_asset_java_grpc",
-    srcs = [":build_bazel_remote_asset_v1_remote_asset_proto"],
-    deps = [":build_bazel_remote_asset_v1_remote_asset_java_proto"],
+    srcs = ["@bazel_remote_apis//build/bazel/remote/asset/v1:remote_asset_proto"],
+    deps = ["@bazel_remote_apis//build/bazel/remote/asset/v1:remote_asset_java_proto"],
 )
 
 java_grpc_library(
     name = "build_bazel_remote_execution_v2_remote_execution_java_grpc",
-    srcs = [":build_bazel_remote_execution_v2_remote_execution_proto"],
+    srcs = ["@bazel_remote_apis//build/bazel/remote/execution/v2:remote_execution_proto"],
     deps = [
-        ":build_bazel_remote_execution_v2_remote_execution_java_proto",
+        "@bazel_remote_apis//build/bazel/remote/execution/v2:remote_execution_java_proto",
         "@googleapis//:google_longrunning_operations_java_proto",
     ],
 )
