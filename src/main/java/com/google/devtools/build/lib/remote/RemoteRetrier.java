@@ -122,7 +122,8 @@ public class RemoteRetrier extends Retrier {
     }
   }
 
-  static class ExponentialBackoff implements Backoff {
+  /** Backoff strategy that backs off exponentially. */
+  public static class ExponentialBackoff implements Backoff {
 
     private final long maxMillis;
     private long nextDelayMillis;
@@ -154,7 +155,7 @@ public class RemoteRetrier extends Retrier {
       this.maxAttempts = maxAttempts;
     }
 
-    ExponentialBackoff(RemoteOptions options) {
+    public ExponentialBackoff(RemoteOptions options) {
       this(
           /* initial = */ Duration.ofMillis(100),
           /* max = */ Duration.ofSeconds(5),
