@@ -5,7 +5,6 @@ package(default_visibility = ["//src:__subpackages__"])
 filegroup(
     name = "srcs",
     srcs = glob(["**"]),
-    visibility = ["//src/main/java/com/google/devtools/build/lib:__pkg__"],
 )
 
 java_library(
@@ -30,14 +29,9 @@ java_library(
 java_library(
     name = "current_rule_tracker",
     srcs = ["CurrentRuleTracker.java"],
-    visibility = [
-        "//src/main/java/com/google/devtools/build/lib:__pkg__",
-        "//src/test/java/com/google/devtools/build/lib/profiler/memory:__subpackages__",
-    ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//third_party:guava",
-        "//third_party/pprof:profile_java_proto",
     ],
 )
 
@@ -45,10 +39,6 @@ java_library(
     name = "allocationtracker",
     srcs = [
         "AllocationTracker.java",
-    ],
-    visibility = [
-        "//src/main/java/com/google/devtools/build/lib:__pkg__",
-        "//src/test/java/com/google/devtools/build/lib/profiler/memory:__subpackages__",
     ],
     deps = [
         ":current_rule_tracker",

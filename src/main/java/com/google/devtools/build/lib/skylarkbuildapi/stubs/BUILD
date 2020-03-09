@@ -9,8 +9,6 @@ load("@rules_java//java:defs.bzl", "java_library")
 
 package(default_visibility = ["//src:__subpackages__"])
 
-licenses(["notice"])  # Apache 2.0
-
 filegroup(
     name = "srcs",
     srcs = glob(["**"]),

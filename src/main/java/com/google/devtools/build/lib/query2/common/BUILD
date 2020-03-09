@@ -5,7 +5,6 @@ package(default_visibility = ["//src:__subpackages__"])
 filegroup(
     name = "srcs",
     srcs = glob(["**"]),
-    visibility = ["//src/main/java/com/google/devtools/build/lib:__pkg__"],
 )
 
 java_library(
@@ -32,7 +31,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/query2/engine",
         "//src/main/java/com/google/devtools/build/lib/query2/query/aspectresolvers",
         "//src/main/java/com/google/devtools/common/options",
-        "//src/main/protobuf:build_java_proto",
         "//third_party:guava",
     ],
 )
